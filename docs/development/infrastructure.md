@@ -79,6 +79,30 @@ support amd64/linux" — found directly while building this environment for the 
 - **`db-f1-micro` requires the Enterprise edition explicitly.** Cloud SQL now defaults new instances
   to the Enterprise Plus edition, which rejects shared-core tiers. `--edition=ENTERPRISE` is required
   alongside `--tier=db-f1-micro`.
+- **The workload identity binding must key off an attribute, not GitHub's literal `sub` string.**
+  The pool's `subject` binding was written for `repo:t-boris/verdery:environment:development`, and
+  every deploy failed with "Unable to acquire impersonated credentials —
+  iam.serviceAccounts.getAccessToken denied" until a real token was decoded and compared. GitHub's
+  actual `sub` claim for this repository is
+  `repo:t-boris@508098/verdery@1308715947:environment:development` — it embeds immutable numeric
+  owner and repository IDs alongside the names, a documented anti-spoofing format this script did
+  not anticipate. The binding now targets `principalSet://.../attribute.environment/development`,
+  which depends only on the provider's attribute mapping and cannot be broken by that kind of
+  formatting difference again. Two earlier, plausible-looking fixes (removing
+  `docker/setup-buildx-action`, minting an access token directly for `docker login`) were real
+  improvements but did not address this — the actual failure was identical under all three
+  configurations until the binding itself was corrected.
+- **A fresh IAM binding does not take effect instantly.** After correcting the binding above, the
+  very next deploy attempt failed with the identical permission error; the one after that succeeded
+  with no further change. Budget a few minutes after any workload identity change before concluding
+  it did not work.
+- **The Cloud SQL connector needs longer than a plain TCP connect on a cold Cloud Run revision.**
+  Once authentication succeeded, the next deploy failed its Cloud Run startup probe: the readiness
+  ping timed out fetching the connector's ephemeral certificate and negotiating mTLS within the
+  default 5-second client timeout, so the process exited before it ever listened on its port.
+  `deploy-api.sh` now sets `DATABASE_CONNECTION_TIMEOUT_MS=15000` for the deployed environment,
+  verified by redeploying the exact image that had just failed and confirming a live `200` from
+  `/v1/health/ready`.
 
 ## What is deliberately not here
 
