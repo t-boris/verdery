@@ -184,7 +184,9 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     expect(gate.affectedObjects[0]).toMatchObject({
       category: 'gate',
-      details: { category: 'gate', details: { fenceObjectId: fenceId, widthMetres: 1.2 } },
+      // Flat on the wire, matching openapi.yaml — see
+      // map-object-view.ts's toWireGardenObjectDetails.
+      details: { category: 'gate', fenceObjectId: fenceId, widthMetres: 1.2 },
     });
   });
 
@@ -282,7 +284,11 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     if (assigned0 === undefined) throw new Error('expected an affected object');
     expect(assigned0.details).toMatchObject({
       category: 'plant',
-      details: { commonName: 'Tomato', quantity: 3, assignedToObjectId: bedId },
+      // Flat on the wire, matching openapi.yaml — see
+      // map-object-view.ts's toWireGardenObjectDetails.
+      commonName: 'Tomato',
+      quantity: 3,
+      assignedToObjectId: bedId,
     });
 
     const unassigned = await handlers.assignPlantToTarget.execute(
@@ -298,7 +304,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     );
     const unassignedDetails = unassigned.affectedObjects[0]?.details;
     expect(
-      unassignedDetails?.category === 'plant' && unassignedDetails.details.assignedToObjectId,
+      unassignedDetails?.['category'] === 'plant' && unassignedDetails['assignedToObjectId'],
     ).toBeUndefined();
 
     // A fence is neither a zone nor a bed — an invalid assignment target.

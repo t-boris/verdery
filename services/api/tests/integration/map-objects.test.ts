@@ -190,7 +190,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       category: 'bed',
       label: 'Tomato bed',
       revision: 1,
-      details: { category: 'bed', details: { bedKind: 'raised' } },
+      // Flat on the wire, matching openapi.yaml — not the nested
+      // {category, details} shape @verdery/geometry-contracts uses
+      // internally. See map-object-view.ts's toWireGardenObjectDetails.
+      details: { category: 'bed', bedKind: 'raised' },
     });
 
     const revisionRow = await db
@@ -381,7 +384,8 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     expect(changed0.label).toBe('Tomatoes and basil');
     expect(changed0.details).toEqual({
       category: 'bed',
-      details: { bedKind: 'raised', soilNotes: 'Amended with compost' },
+      bedKind: 'raised',
+      soilNotes: 'Amended with compost',
     });
     expect(changed0.geometryEnvelope.geometry).toEqual(BED_POLYGON);
   });

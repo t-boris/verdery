@@ -24,6 +24,29 @@ import type {
 } from '@verdery/geometry-contracts';
 import type { MapObject } from '../domain/map-object.js';
 
+/**
+ * Flattens `GardenObjectDetails`'s `{category, details}` domain shape (kept
+ * nested so the discriminated union is ergonomic in application code) into
+ * the wire shape `openapi.yaml`'s `*Details` schemas declare: `category`
+ * alongside that category's own fields, flat, matching every
+ * `PointGeometry`/`PolygonGeometry`-style branch of `Geometry` and the
+ * request-side parsing `transport/parse-garden-object-details.ts` already
+ * does in reverse. Lives here, not in `transport/`, because this module —
+ * not a separate transport-mapping step — already owns constructing the one
+ * resource shape a command handler returns and a client receives (see this
+ * file's own header comment); a transport-layer helper cannot be imported
+ * from `application/` without inverting this codebase's layering.
+ *
+ * Found necessary when a real client (built independently against both this
+ * contract and `@verdery/geometry-contracts`) sent a request the parser
+ * correctly rejected as malformed, then received a response nested the same
+ * wrong way this function now prevents — this module was serializing the
+ * domain shape directly instead of flattening it back.
+ */
+function toWireGardenObjectDetails(value: GardenObjectDetails): Record<string, unknown> {
+  return { category: value.category, ...value.details };
+}
+
 export interface GardenObjectResource {
   readonly id: string;
   readonly gardenId: string;
@@ -36,7 +59,8 @@ export interface GardenObjectResource {
     readonly confidence?: number;
   };
   readonly label?: string;
-  readonly details?: GardenObjectDetails;
+  /** Flat wire shape — see `toWireGardenObjectDetails`'s doc comment. */
+  readonly details?: Record<string, unknown>;
   readonly lifecycleState: 'active' | 'deleted';
   readonly revision: number;
   readonly createdAt: string;
@@ -64,7 +88,7 @@ export function toGardenObjectResource(object: MapObject): GardenObjectResource 
       ...(object.confidence === null ? {} : { confidence: object.confidence }),
     },
     ...(object.label === null ? {} : { label: object.label }),
-    ...(object.details === undefined ? {} : { details: object.details }),
+    ...(object.details === undefined ? {} : { details: toWireGardenObjectDetails(object.details) }),
     lifecycleState: object.lifecycleState,
     revision: object.currentRevision,
     createdAt: object.createdAt.toISOString(),
