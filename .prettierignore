@@ -1,0 +1,9 @@
+node_modules
+dist
+build
+coverage
+.next
+generated
+pnpm-lock.yaml
+apps/ios
+docs/.dde

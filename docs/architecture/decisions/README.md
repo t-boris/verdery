@@ -1,7 +1,7 @@
 # Architecture Decision Records
 
 > Status: Active  
-> Last updated: July 21, 2026
+> Last updated: July 22, 2026
 
 ## Purpose
 
@@ -26,6 +26,8 @@ Architecture decision records preserve the context, choice, consequences, and su
 | [ADR-0006](ADR-0006-google-cloud-asynchronous-primitives.md) | Cloud Tasks, Pub/Sub, Cloud Run Jobs, and transactional outbox | Accepted |
 | [ADR-0007](ADR-0007-us-central1-production-baseline.md) | United States market and `us-central1` production baseline | Accepted |
 | [ADR-0008](ADR-0008-rules-first-recommendations-and-vertex-ai.md) | Rules-first recommendations with Vertex AI explanations | Accepted |
+| [ADR-0009](ADR-0009-toolchain-and-platform-baseline.md) | Toolchain and platform version baseline | Accepted |
+| [ADR-0010](ADR-0010-local-coordinate-space-and-geometry-tolerances.md) | Local coordinate space representation and geometry tolerances | Accepted |
 
 ## Naming
 

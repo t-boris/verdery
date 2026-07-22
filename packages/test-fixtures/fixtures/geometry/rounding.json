@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "description": "Coordinate rounding to the 1 mm storage grid. Every runtime must produce these values exactly.",
+  "source": "ADR-0010, section 'Coordinate precision'",
+  "comparison": "exact",
+  "cases": [
+    {
+      "name": "already on the grid",
+      "input": 12.345,
+      "expected": 12.345
+    },
+    {
+      "name": "rounds down below the halfway point",
+      "input": 1.23449,
+      "expected": 1.234
+    },
+    {
+      "name": "rounds up above the halfway point",
+      "input": 1.23451,
+      "expected": 1.235
+    },
+    {
+      "name": "positive halfway rounds away from zero",
+      "input": 0.0015,
+      "expected": 0.002
+    },
+    {
+      "name": "negative halfway rounds away from zero",
+      "input": -0.0015,
+      "expected": -0.002
+    },
+    {
+      "name": "negative value rounds toward the nearer grid point",
+      "input": -7.6544,
+      "expected": -7.654
+    },
+    {
+      "name": "sub-millimetre positive collapses to zero",
+      "input": 0.0004,
+      "expected": 0
+    },
+    {
+      "name": "sub-millimetre negative collapses to positive zero",
+      "input": -0.0004,
+      "expected": 0
+    },
+    {
+      "name": "zero stays zero",
+      "input": 0,
+      "expected": 0
+    },
+    {
+      "name": "negative zero normalizes to zero",
+      "input": -0,
+      "expected": 0
+    },
+    {
+      "name": "maximum supported magnitude is accepted",
+      "input": 10000,
+      "expected": 10000
+    },
+    {
+      "name": "minimum supported magnitude is accepted",
+      "input": -10000,
+      "expected": -10000
+    }
+  ],
+  "rejectedCases": [
+    {
+      "name": "beyond the positive coordinate limit",
+      "input": 10000.001,
+      "reason": "outOfRange"
+    },
+    {
+      "name": "beyond the negative coordinate limit",
+      "input": -10000.001,
+      "reason": "outOfRange"
+    },
+    {
+      "name": "not a number",
+      "input": "NaN",
+      "reason": "notFinite"
+    },
+    {
+      "name": "positive infinity",
+      "input": "Infinity",
+      "reason": "notFinite"
+    },
+    {
+      "name": "negative infinity",
+      "input": "-Infinity",
+      "reason": "notFinite"
+    }
+  ]
+}

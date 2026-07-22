@@ -1,0 +1,159 @@
+{
+  "schemaVersion": 1,
+  "description": "Geometry validation outcomes. Codes are stable and are what clients localize against.",
+  "source": "architecture/map-rendering-and-editing.md section 11; ADR-0010 'Geometry tolerances'",
+  "cases": [
+    {
+      "name": "point is always acceptable",
+      "geometry": { "type": "Point", "coordinates": [3.25, -1.5] },
+      "expectedCodes": []
+    },
+    {
+      "name": "ordinary lot boundary",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [0, 0],
+            [20, 0],
+            [20, 15],
+            [0, 15],
+            [0, 0]
+          ]
+        ]
+      },
+      "expectedCodes": []
+    },
+    {
+      "name": "bed with a hole",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [0, 0],
+            [10, 0],
+            [10, 10],
+            [0, 10],
+            [0, 0]
+          ],
+          [
+            [4, 4],
+            [6, 4],
+            [6, 6],
+            [4, 6],
+            [4, 4]
+          ]
+        ]
+      },
+      "expectedCodes": []
+    },
+    {
+      "name": "fence centreline",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [0, 0],
+          [12.5, 0],
+          [12.5, 8]
+        ]
+      },
+      "expectedCodes": []
+    },
+    {
+      "name": "ring that is not closed",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [0, 0],
+            [5, 0],
+            [5, 5],
+            [0, 5]
+          ]
+        ]
+      },
+      "expectedCodes": ["geometry.polygon.not_closed"]
+    },
+    {
+      "name": "ring with too few vertices",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [0, 0],
+            [1, 0],
+            [0, 0]
+          ]
+        ]
+      },
+      "expectedCodes": ["geometry.polygon.too_few_vertices"]
+    },
+    {
+      "name": "self-intersecting ring",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [0, 0],
+            [4, 0],
+            [1, 3],
+            [3, 3],
+            [0, 0]
+          ]
+        ]
+      },
+      "expectedCodes": ["geometry.polygon.self_intersects"]
+    },
+    {
+      "name": "polygon below the useful size tolerance",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [0, 0],
+            [0.05, 0],
+            [0.05, 0.05],
+            [0, 0.05],
+            [0, 0]
+          ]
+        ]
+      },
+      "expectedCodes": ["geometry.polygon.below_minimum_area"]
+    },
+    {
+      "name": "line below the useful length tolerance",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [0, 0],
+          [0.02, 0]
+        ]
+      },
+      "expectedCodes": ["geometry.line.below_minimum_length"]
+    },
+    {
+      "name": "line with a single vertex",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[1, 1]]
+      },
+      "expectedCodes": ["geometry.line.too_few_vertices"]
+    },
+    {
+      "name": "coordinate beyond the local range",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [0, 0],
+          [20000, 0]
+        ]
+      },
+      "expectedCodes": ["geometry.coordinate.out_of_range"]
+    },
+    {
+      "name": "empty polygon",
+      "geometry": { "type": "Polygon", "coordinates": [] },
+      "expectedCodes": ["geometry.empty"]
+    }
+  ]
+}

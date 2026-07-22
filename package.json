@@ -1,0 +1,31 @@
+{
+  "name": "verdery",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Verdery — a living map of a real garden that knows what to do today",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@10.28.2",
+  "engines": {
+    "node": ">=24.0.0 <25",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "pnpm -r typecheck",
+    "check:file-size": "node scripts/check-file-size.mjs",
+    "check:all": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm check:file-size && pnpm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.7.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.6",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.65.0"
+  }
+}

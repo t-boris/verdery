@@ -3,3 +3,26 @@ docs/.dde/
 
 # OS files
 .DS_Store
+
+# Node
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Next.js
+.next/
+out/
+
+# Swift / Xcode
+.build/
+.swiftpm/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# Environment
+.env
+.env.local
+.env.*.local

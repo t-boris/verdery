@@ -1,0 +1,30 @@
+{
+  "name": "@verdery/test-fixtures",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Language-neutral fixtures consumed by the backend, Swift, and TypeScript test suites",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./fixtures/*": "./fixtures/*"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "fixtures"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
+  }
+}
