@@ -96,6 +96,13 @@ grant_project_role "serviceAccount:${runtime_email}" "roles/cloudsql.client"
 # running the migration job — the two errors look identical from the
 # application's side but come from different layers with different fixes.
 grant_project_role "serviceAccount:${runtime_email}" "roles/cloudsql.instanceUser"
+# Lets the running service verify Firebase ID tokens and check revocation
+# state with the Firebase Admin SDK, using this service account's own
+# identity rather than a downloaded service account key.
+#
+# Source: architecture/identity-and-authorization.md, section
+# "4. Native Authentication Flow".
+grant_project_role "serviceAccount:${runtime_email}" "roles/firebaseauth.admin"
 # Secret access is granted per-secret in 07-iam-database-bootstrap.sh, not at project scope,
 # so the runtime SA reads exactly the secrets it is given and no others.
 
