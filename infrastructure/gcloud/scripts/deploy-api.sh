@@ -27,6 +27,15 @@ env_vars+=",DATABASE_INSTANCE_CONNECTION_NAME=${VERDERY_PROJECT_ID}:${VERDERY_RE
 env_vars+=",DATABASE_IAM_USER=${VERDERY_RUNTIME_SERVICE_ACCOUNT_ID}@${VERDERY_PROJECT_ID}.iam"
 env_vars+=",DATABASE_NAME=${VERDERY_SQL_DATABASE_NAME}"
 env_vars+=",TRACING_ENABLED=${VERDERY_TRACING_ENABLED:-false}"
+# The 5 second default (configuration-schema.ts) times a plain TCP connect
+# attempt, sized for a local or Testcontainers Postgres on the same machine.
+# The Cloud SQL connector does more before a connection exists at all — an
+# API call to fetch an ephemeral certificate, then an mTLS handshake — and a
+# cold connector on a brand new revision was observed missing the 5 second
+# window here, failing the startup ping and taking the revision down before
+# it ever served a request. 15 seconds is generous for that handshake without
+# meaningfully delaying a real failure's detection.
+env_vars+=",DATABASE_CONNECTION_TIMEOUT_MS=15000"
 
 log "Deploying ${IMAGE} to ${VERDERY_CLOUD_RUN_SERVICE_NAME}"
 gcloud run deploy "${VERDERY_CLOUD_RUN_SERVICE_NAME}" \
