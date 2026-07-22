@@ -22,20 +22,32 @@ SQL".
 
 ## Tooling
 
-Migrations belong to the API service and are run with `node-pg-migrate`:
+Migrations belong to the API service and run through `services/api/src/migrate.ts`, a thin wrapper
+around `node-pg-migrate`'s programmatic API rather than its bare CLI:
 
 ```bash
-pnpm --filter @verdery/api migrate up          # apply everything pending
-pnpm --filter @verdery/api migrate down        # roll back the most recent migration
-pnpm --filter @verdery/api migrate create <name>   # scaffold a new migration file
+pnpm --filter @verdery/api build                    # migrate.ts runs compiled, like main.ts
+pnpm --filter @verdery/api migrate                   # apply everything pending
+pnpm --filter @verdery/api migrate:down              # roll back the most recent migration
+pnpm --filter @verdery/api migrate:create <name>      # scaffold a new .sql migration file
 ```
 
-The script is defined in `services/api/package.json` as
-`node-pg-migrate --migrations-dir migrations --envPath .env`, so:
+`migrate.ts` resolves its database connection through the same `loadConfiguration()` the running
+service uses, so it works unchanged in both connection modes:
 
-- migration files live in `services/api/migrations`;
-- the connection string is read from `DATABASE_URL` in `services/api/.env`, which is git-ignored and
-  must never be committed.
+- **`DATABASE_CONNECTION_MODE=url`** — an ordinary connection string in `DATABASE_URL`, exported
+  locally (for example from `services/api/.env`, git-ignored and never committed) or supplied by the
+  Testcontainers suite.
+- **`DATABASE_CONNECTION_MODE=cloudSqlIam`** — no password anywhere. The connector authenticates as
+  the process's own Google identity, and Postgres authorizes it through role membership. See
+  "Roles" below and `infrastructure/gcloud/scripts/07-iam-database-bootstrap.sh`.
+
+There is deliberately no separate "cloud migration script" — the connection mode is environment
+configuration, not a code fork a person chooses.
+
+Scaffolding a new file needs no database connection and works identically in either mode
+(`migrate:create` forces the `.sql` template; the bare CLI defaults to `.js`, which is not this
+project's convention).
 
 ## Writing a migration
 
@@ -91,13 +103,35 @@ Source: [../architecture/testing-strategy.md](../architecture/testing-strategy.m
 ## Roles
 
 The schema distinguishes the identity that changes the schema from the identity that serves
-traffic: the migration role owns the schema, and the application role receives only the data
-privileges it needs. The application role can therefore never alter the schema, whatever a defect or
-an injected statement asks it to do.
+traffic: the migration role (`verdery_migration`) owns the schema, and the application role
+(`verdery_application`) receives only the data privileges it needs. The application role can
+therefore never alter the schema, whatever a defect or an injected statement asks it to do.
+
+Both roles are created `NOLOGIN`. No password for either exists anywhere: a concrete identity —
+a Cloud SQL IAM database user named after a service account — is granted membership in one or both
+by `infrastructure/gcloud/scripts/07-iam-database-bootstrap.sh`, a script that must be run attended
+because it briefly assigns Cloud SQL a public IP, restricted to the caller's own address, to perform
+that grant.
+
+`verdery_migration` also keeps a narrow, deliberate `CREATE` grant on the `public` schema — not
+`PUBLIC` the pseudo-role, just this one trusted role — because `node-pg-migrate` needs somewhere to
+create and write its own tracking table before it can run the first migration that would otherwise
+create anywhere better. This was found the hard way: the migration suite passed for a long time
+running only as the Testcontainers superuser, which bypasses schema privilege checks entirely, and
+the real gap surfaced only once migrations ran through the actual least-privilege Cloud SQL IAM
+identity. `services/api/tests/migrations/platform-baseline.test.ts` now has a dedicated test —
+"re-applies idempotently through a least-privilege role, not only through the superuser" — that
+connects as an ordinary role holding only the memberships that identity is granted, specifically to
+keep this class of gap from reappearing silently.
 
 ## What is not possible yet
 
-Production migrations run through a dedicated cloud identity, and staging rehearses against
-production-like volume. Neither environment exists — see
-[deferred-capabilities.md](deferred-capabilities.md). Locally and in CI, migrations run against a
-throwaway container, which proves correctness but not the operational procedure.
+Migrations are proven twice now: against a throwaway Testcontainers container (fresh and upgrade,
+in CI) and against the real `verdery-dev` Cloud SQL instance through the actual least-privilege IAM
+identity, run as a Cloud Run Job with Direct VPC egress — the only path that can reach Cloud SQL's
+private IP from outside the VPC, including from a GitHub Actions runner.
+
+What remains unrehearsed is the operational procedure _across environments_: staging rehearsal
+against production-like volume, and production migration through its own dedicated identity before
+traffic shifts. Neither staging nor production exists yet — see
+[deferred-capabilities.md](deferred-capabilities.md).

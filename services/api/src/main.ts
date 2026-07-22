@@ -32,21 +32,25 @@ async function main(): Promise<void> {
   })();
 
   const logger = createLogger(configuration, SERVICE_NAME);
-  const database = new PostgresDatabaseGateway(configuration.database, SERVICE_NAME, (error) => {
-    logger.error(
-      { err: error, event: 'database.idle_connection_failed' },
-      'An idle database connection failed; the pool will reconnect on demand',
-    );
-  });
 
+  let database: PostgresDatabaseGateway;
   try {
+    database = await PostgresDatabaseGateway.create(
+      configuration.database,
+      SERVICE_NAME,
+      (error) => {
+        logger.error(
+          { err: error, event: 'database.idle_connection_failed' },
+          'An idle database connection failed; the pool will reconnect on demand',
+        );
+      },
+    );
     await database.ping();
   } catch (error) {
     logger.error(
       { err: error, event: 'startup.database_unavailable' },
       'The database is unavailable; refusing to start',
     );
-    await database.close();
     process.exit(1);
   }
 

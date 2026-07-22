@@ -59,6 +59,11 @@ section "22. CI Gates"] TypeScript is revisited when `typescript-eslint` support
   second database installation. Availability of PostgreSQL 17 on Cloud SQL must be confirmed before
   `P1-PLAT-02` provisions an instance; if it is unavailable, this ADR is superseded rather than
   silently adjusted.
+- Confirmed during `P1-PLAT-02`: Cloud SQL for PostgreSQL 17 offers PostGIS 3.5.2, 3.6.0, and 3.4.4
+  as installable versions, but its _default_ — what a bare `CREATE EXTENSION postgis` installs — is
+  3.6.0, not the pinned 3.5. The migration therefore requests `VERSION '3.5.2'` explicitly rather
+  than relying on the platform default, which drifted at least once already between the local test
+  image and Cloud SQL.
 - Targeting iOS 18 rather than iOS 26 requires availability checks around iOS 26-only APIs. This
   cost is accepted in exchange for beta reach, and it is revisited before the AR and LiDAR work in
   Phase 11, where device capability tiers matter more than operating-system reach.

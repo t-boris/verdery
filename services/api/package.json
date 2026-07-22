@@ -7,19 +7,32 @@
   "scripts": {
     "build": "tsc --build tsconfig.build.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "start": "node dist/main.js",
-    "dev": "node --watch dist/main.js",
+    "start": "node --import ./dist/telemetry-bootstrap.js dist/main.js",
+    "dev": "node --watch --import ./dist/telemetry-bootstrap.js dist/main.js",
     "test": "vitest run",
-    "migrate": "node-pg-migrate --migrations-dir migrations --envPath .env"
+    "migrate": "node dist/migrate.js up",
+    "migrate:down": "node dist/migrate.js down",
+    "migrate:create": "node-pg-migrate create --migrations-dir migrations --migration-file-language sql"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.0",
     "@fastify/helmet": "^13.1.0",
     "@fastify/under-pressure": "^9.1.0",
+    "@google-cloud/cloud-sql-connector": "^1.11.2",
+    "@google-cloud/opentelemetry-cloud-trace-exporter": "^3.0.0",
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/instrumentation-fastify": "^0.57.0",
+    "@opentelemetry/instrumentation-http": "^0.221.0",
+    "@opentelemetry/instrumentation-pg": "^0.72.0",
+    "@opentelemetry/resources": "^2.10.0",
+    "@opentelemetry/sdk-node": "^0.221.0",
+    "@opentelemetry/sdk-trace-base": "^2.10.0",
+    "@opentelemetry/semantic-conventions": "^1.43.0",
     "@verdery/api-contracts": "workspace:*",
     "@verdery/geometry-contracts": "workspace:*",
     "fastify": "^5.10.0",
     "kysely": "^0.29.4",
+    "node-pg-migrate": "^9.0.0",
     "pg": "^8.22.0",
     "pino": "^10.3.1",
     "zod": "^4.4.3"
@@ -29,7 +42,6 @@
     "@types/node": "^24.10.4",
     "@types/pg": "^8.15.6",
     "@verdery/test-fixtures": "workspace:*",
-    "node-pg-migrate": "^9.0.0",
     "testcontainers": "^12.0.4",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"

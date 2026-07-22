@@ -52,7 +52,25 @@ export const environmentSchema = z.object({
 
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 
-  DATABASE_URL: z.string().min(1),
+  // Two ways to reach the database, matching the two places this service
+  // runs:
+  //
+  // - 'url': an ordinary connection string with a password. Used for local
+  //   development and the Testcontainers-backed test suite, neither of which
+  //   has a Cloud SQL instance or a Google identity to authenticate with.
+  // - 'cloudSqlIam': no password anywhere. The service authenticates to Cloud
+  //   SQL as its own Google identity through the Cloud SQL connector, and
+  //   Postgres authorizes that identity through membership in the
+  //   verdery_application / verdery_migration NOLOGIN roles the migration
+  //   creates.
+  //
+  // Source: services/api/migrations/1784710800000_platform-baseline.sql,
+  // "Roles are group roles without LOGIN ... credentials never live here".
+  DATABASE_CONNECTION_MODE: z.enum(['url', 'cloudSqlIam']).default('url'),
+  DATABASE_URL: z.string().min(1).optional(),
+  DATABASE_INSTANCE_CONNECTION_NAME: z.string().min(1).optional(),
+  DATABASE_IAM_USER: z.string().min(1).optional(),
+  DATABASE_NAME: z.string().min(1).optional(),
   DATABASE_POOL_MAX_CONNECTIONS: positiveInteger.default(10),
   DATABASE_CONNECTION_TIMEOUT_MS: durationMilliseconds.default(5_000),
   DATABASE_STATEMENT_TIMEOUT_MS: durationMilliseconds.default(10_000),
@@ -62,6 +80,41 @@ export const environmentSchema = z.object({
 
 export type RawEnvironment = z.infer<typeof environmentSchema>;
 
+/** One configuration problem, in the shape `load-configuration.ts` merges with zod's own issues. */
+export interface ConfigurationIssue {
+  readonly variable: string;
+  readonly message: string;
+}
+
+/**
+ * Finds "required in this connection mode" problems that a flat zod object
+ * cannot express as a per-field rule.
+ *
+ * Deliberately reads the RAW, unparsed source rather than a zod-validated
+ * result. A `superRefine` on the schema would only run once every other field
+ * already parsed without issues, which would silently hide a missing
+ * DATABASE_URL whenever an unrelated variable (say HTTP_PORT) was also
+ * invalid — the opposite of this module's stated goal of naming every
+ * offending variable together. Reading raw presence has no such dependency.
+ */
+export function findDatabaseModeIssues(
+  source: Readonly<Record<string, string | undefined>>,
+): ConfigurationIssue[] {
+  const mode = source['DATABASE_CONNECTION_MODE'] === 'cloudSqlIam' ? 'cloudSqlIam' : 'url';
+
+  const requiredFields =
+    mode === 'url'
+      ? (['DATABASE_URL'] as const)
+      : (['DATABASE_INSTANCE_CONNECTION_NAME', 'DATABASE_IAM_USER', 'DATABASE_NAME'] as const);
+
+  return requiredFields
+    .filter((field) => source[field] === undefined)
+    .map((field) => ({
+      variable: field,
+      message: `Required when DATABASE_CONNECTION_MODE is "${mode}"`,
+    }));
+}
+
 export interface HttpConfiguration {
   readonly host: string;
   readonly port: number;
@@ -69,9 +122,7 @@ export interface HttpConfiguration {
   readonly allowedOrigins: readonly string[];
 }
 
-export interface DatabaseConfiguration {
-  /** Connection string. Treated as a secret and never logged. */
-  readonly url: string;
+interface DatabasePoolTuning {
   readonly maxConnections: number;
   readonly connectionTimeoutMs: number;
   /**
@@ -83,6 +134,23 @@ export interface DatabaseConfiguration {
   readonly statementTimeoutMs: number;
 }
 
+export interface UrlDatabaseConfiguration extends DatabasePoolTuning {
+  readonly mode: 'url';
+  /** Connection string. Treated as a secret and never logged. */
+  readonly url: string;
+}
+
+export interface CloudSqlIamDatabaseConfiguration extends DatabasePoolTuning {
+  readonly mode: 'cloudSqlIam';
+  /** `PROJECT_ID:REGION:INSTANCE`. Not a secret — it names a resource, not a credential. */
+  readonly instanceConnectionName: string;
+  /** The service's own Cloud SQL IAM database username. No password accompanies it. */
+  readonly iamUser: string;
+  readonly databaseName: string;
+}
+
+export type DatabaseConfiguration = UrlDatabaseConfiguration | CloudSqlIamDatabaseConfiguration;
+
 export interface ApplicationConfiguration {
   readonly environment: DeploymentEnvironment;
   readonly serviceVersion: string;
@@ -90,6 +158,29 @@ export interface ApplicationConfiguration {
   readonly http: HttpConfiguration;
   readonly database: DatabaseConfiguration;
   readonly shutdownGracePeriodMs: number;
+}
+
+function toDatabaseConfiguration(raw: RawEnvironment): DatabaseConfiguration {
+  const tuning: DatabasePoolTuning = {
+    maxConnections: raw.DATABASE_POOL_MAX_CONNECTIONS,
+    connectionTimeoutMs: raw.DATABASE_CONNECTION_TIMEOUT_MS,
+    statementTimeoutMs: raw.DATABASE_STATEMENT_TIMEOUT_MS,
+  };
+
+  if (raw.DATABASE_CONNECTION_MODE === 'url') {
+    // The superRefine above guarantees this is defined whenever mode is 'url'.
+    return { mode: 'url', url: raw.DATABASE_URL as string, ...tuning };
+  }
+
+  return {
+    mode: 'cloudSqlIam',
+    // The superRefine above guarantees these three are defined whenever mode
+    // is 'cloudSqlIam'.
+    instanceConnectionName: raw.DATABASE_INSTANCE_CONNECTION_NAME as string,
+    iamUser: raw.DATABASE_IAM_USER as string,
+    databaseName: raw.DATABASE_NAME as string,
+    ...tuning,
+  };
 }
 
 /** Shapes validated variables into the structure the composition root consumes. */
@@ -104,12 +195,7 @@ export function toApplicationConfiguration(raw: RawEnvironment): ApplicationConf
       bodyLimitBytes: raw.HTTP_BODY_LIMIT_BYTES,
       allowedOrigins: raw.HTTP_ALLOWED_ORIGINS,
     },
-    database: {
-      url: raw.DATABASE_URL,
-      maxConnections: raw.DATABASE_POOL_MAX_CONNECTIONS,
-      connectionTimeoutMs: raw.DATABASE_CONNECTION_TIMEOUT_MS,
-      statementTimeoutMs: raw.DATABASE_STATEMENT_TIMEOUT_MS,
-    },
+    database: toDatabaseConfiguration(raw),
     shutdownGracePeriodMs: raw.SHUTDOWN_GRACE_PERIOD_MS,
   };
 }

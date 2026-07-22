@@ -27,6 +27,7 @@ export const testConfiguration: ApplicationConfiguration = {
     allowedOrigins: [],
   },
   database: {
+    mode: 'url',
     url: 'postgresql://verdery:not-a-real-secret@localhost:5432/verdery',
     maxConnections: 1,
     connectionTimeoutMs: 1_000,

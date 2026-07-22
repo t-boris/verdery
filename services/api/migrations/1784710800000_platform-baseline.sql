@@ -11,7 +11,17 @@
 
 -- Up Migration
 
-CREATE EXTENSION IF NOT EXISTS postgis;
+-- The version is requested explicitly rather than left to
+-- `CREATE EXTENSION IF NOT EXISTS postgis` picking whatever a platform
+-- currently treats as default. Confirmed directly against both target
+-- platforms while writing this migration: Cloud SQL for PostgreSQL 17
+-- defaults to PostGIS 3.6.0 and only installs 3.5.2 when asked for it by
+-- name, while the postgis/postgis:17-3.5 image used by the Testcontainers
+-- suite already defaults to 3.5.2. Requesting '3.5.2' by name makes a fresh
+-- environment deterministic on both instead of depending on Cloud SQL's
+-- current default staying 3.6.0 forever, which the version-assertion block
+-- below would only ever catch after the fact.
+CREATE EXTENSION IF NOT EXISTS postgis VERSION '3.5.2';
 
 -- The geometry semantics of the whole product are pinned to a PostGIS major and
 -- minor version. A silent upgrade would change spatial predicate behavior under
@@ -57,9 +67,21 @@ BEGIN
 END
 $$;
 
--- Nothing may create objects in `public`; it exists only to host the extension.
+-- Nothing may create objects in `public`; it exists only to host the extension
+-- and the migration tracking table below.
+--
+-- verdery_migration keeps CREATE here as a narrow, deliberate exception, not an
+-- oversight: node-pg-migrate needs to create and write its own history table
+-- before it can run any migration file, including this one, so that table has
+-- nowhere else to live on a database this young. `PUBLIC` — the pseudo-role
+-- meaning "everyone" — still gets nothing. Confirmed necessary by running this
+-- migration through the actual least-privilege Cloud SQL IAM identity: without
+-- this grant it fails with "permission denied for schema public" the moment
+-- node-pg-migrate's own `CREATE TABLE IF NOT EXISTS pgmigrations` runs, even
+-- though the migration it is about to record has nothing left to do.
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 GRANT USAGE ON SCHEMA public TO verdery_migration, verdery_application;
+GRANT CREATE ON SCHEMA public TO verdery_migration;
 
 -- One schema per owning module. A module reaches another module's data only
 -- through an approved view, query port, or documented transaction use case, and

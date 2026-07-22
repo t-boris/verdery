@@ -1,0 +1,86 @@
+# Infrastructure and deployment
+
+How `verdery-dev` came to exist, how to deploy to it, and how it was verified. The scripts
+themselves are documented in
+[../../infrastructure/gcloud/README.md](../../infrastructure/gcloud/README.md); this document is
+the narrative — what exists, why, and what it proves.
+
+## What exists
+
+One Google Cloud project, `verdery-dev`, in `us-central1`, provisioned by the idempotent scripts in
+`infrastructure/gcloud/scripts/` rather than Terraform — see
+[ADR-0011](../architecture/decisions/ADR-0011-gcloud-scripts-instead-of-terraform.md) for why.
+
+- A VPC network with Cloud SQL for PostgreSQL 17 reachable only on its private IP.
+- Cloud SQL IAM database authentication: the running service and the migration job authenticate as
+  their own Google identity, never a password. See
+  [database-migrations.md](database-migrations.md), "Roles".
+- A deploy service account (push images, update the Cloud Run service) and a separate runtime
+  service account (read no secret, since there is none; write logs, metrics, and traces) — distinct
+  identities so a compromised CI credential cannot read what the running service can, and a
+  compromised running service cannot redeploy itself.
+- Workload identity federation trusting `t-boris/verdery`, additionally scoped to the `development`
+  GitHub Environment. A workflow job without `environment: development` gets a valid GitHub OIDC
+  token and no usable Google credential.
+- Artifact Registry, and `verdery-api-dev` on Cloud Run, serving `/v1/health/live` and
+  `/v1/health/ready` at `--allow-unauthenticated` — a deliberate development-only choice, revisited
+  before any endpoint carries real data.
+- OpenTelemetry traces exported to Cloud Trace.
+
+## Deploying
+
+```bash
+docker buildx build --platform linux/amd64 -f services/api/Dockerfile \
+  -t us-central1-docker.pkg.dev/verdery-dev/verdery/api:<tag> --push .
+
+gcloud run jobs update verdery-api-dev-migrate --project=verdery-dev --region=us-central1 \
+  --image=us-central1-docker.pkg.dev/verdery-dev/verdery/api:<tag>
+gcloud run jobs execute verdery-api-dev-migrate --project=verdery-dev --region=us-central1 --wait
+
+infrastructure/gcloud/scripts/deploy-api.sh dev us-central1-docker.pkg.dev/verdery-dev/verdery/api:<tag>
+```
+
+`.github/workflows/deploy-dev.yml` runs the same sequence through workload identity federation,
+triggered after `CI` succeeds on `master` or by `workflow_dispatch`. No step exists in that workflow
+that a person cannot also run from a laptop with `gcloud` access — the architecture's requirement
+that "development deployment is reproducible from an empty workstation with approved access."
+
+Migrations run as a Cloud Run Job rather than directly from the invoking machine, whether that
+machine is a laptop or a GitHub-hosted runner: Cloud SQL has no public IP, so only Direct VPC egress
+— which only a Cloud Run workload can use — can reach it.
+
+Build once with `--platform linux/amd64` explicitly. The pinned base images are amd64-only; a plain
+`docker build` on Apple silicon produces a multi-platform manifest Cloud Run rejects with "must
+support amd64/linux" — found directly while building this environment for the first time.
+
+## What was verified, not assumed
+
+- **The migration runs through the real least-privilege identity, not only a superuser.** Two real
+  permission gaps surfaced only when migrations ran through the actual Cloud SQL IAM identity for
+  the first time, invisible to a test suite that only ever connected as a superuser:
+  `cloudsql.instances.login` (a Cloud SQL IAM permission distinct from `cloudsql.client`) and a
+  schema-level `CREATE` grant `node-pg-migrate`'s own tracking table needs. Both are fixed and now
+  covered by a dedicated regression test — see [database-migrations.md](database-migrations.md).
+- **A real request produces one connected trace.** `GET /v1/health/ready` against the live service
+  produced a single Cloud Trace trace containing the HTTP server span and nested `pg-pool.connect` /
+  `pg.connect` client spans, the latter carrying `db.user: verdery-dev-api-runtime@verdery-dev.iam`
+  — the real runtime identity, not a placeholder. This is the P1-OBS-01 completion evidence, "one
+  request trace crosses ingress and database."
+- **Traces need `SimpleSpanProcessor`, not the default batching processor.** Cloud Run allocates CPU
+  only while handling a request, then freezes the instance until the next one arrives. The default
+  `BatchSpanProcessor` relies on a background timer to flush, which never fires between requests on
+  a frozen instance: spans were created and logged (`traceId` present in request logs) but never
+  reached Cloud Trace until this was found and fixed. `SimpleSpanProcessor` exports synchronously,
+  inside the request that is still keeping the instance thawed.
+- **Cloud SQL's default PostGIS version is not the pinned one.** Cloud SQL for PostgreSQL 17
+  defaults `CREATE EXTENSION postgis` to 3.6.0, not the 3.5 series ADR-0009 pins and the
+  Testcontainers image provides. The migration now requests `VERSION '3.5.2'` explicitly. See
+  ADR-0009's consequences section.
+- **`db-f1-micro` requires the Enterprise edition explicitly.** Cloud SQL now defaults new instances
+  to the Enterprise Plus edition, which rejects shared-core tiers. `--edition=ENTERPRISE` is required
+  alongside `--tier=db-f1-micro`.
+
+## What is deliberately not here
+
+Staging, production, Terraform, container image scanning, and the staged cross-environment migration
+rollout procedure. See [deferred-capabilities.md](deferred-capabilities.md).

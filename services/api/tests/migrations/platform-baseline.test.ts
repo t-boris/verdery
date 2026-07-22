@@ -165,6 +165,47 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     await client.query('DROP TABLE gardens_mapping.privilege_probe');
   });
 
+  it('re-applies idempotently through a least-privilege role, not only through the superuser', async () => {
+    // Every earlier test in this suite connects as the Testcontainers
+    // superuser, which bypasses the REVOKE CREATE ON SCHEMA public this
+    // migration itself performs. That blind spot let a real bug reach
+    // production once already: migrations ran fine here and then failed with
+    // "permission denied for schema public" the first time they ran through
+    // the actual least-privilege Cloud SQL IAM identity. This test connects
+    // as an ordinary role holding only the memberships that identity is
+    // granted — see infrastructure/gcloud/scripts/07-iam-database-bootstrap.sh
+    // — and must not regress to that failure.
+    await client.query(
+      "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'least_privilege_probe') " +
+        "THEN CREATE ROLE least_privilege_probe LOGIN PASSWORD 'probe-password'; END IF; END $$;",
+    );
+    await client.query('GRANT verdery_migration TO least_privilege_probe');
+    await client.query('GRANT verdery_application TO least_privilege_probe');
+    // Mirrors infrastructure/gcloud/scripts/07-iam-database-bootstrap.sh: the
+    // tracking table already exists, owned by the superuser that bootstrapped
+    // this database, so schema-level CREATE alone does not give the
+    // least-privilege role row access to it.
+    await client.query(
+      'GRANT SELECT, INSERT, UPDATE, DELETE ON public.pgmigrations TO verdery_migration',
+    );
+
+    const probeUrl = new URL(databaseUrl);
+    probeUrl.username = 'least_privilege_probe';
+    probeUrl.password = 'probe-password';
+
+    // Migration 1 is already applied; every statement in it is written to be a
+    // safe no-op on a second run. The only way this can fail is a privilege
+    // gap like the one being guarded against here.
+    await expect(migrate(probeUrl.toString(), 'up')).resolves.toBeUndefined();
+
+    const tracked = await client.query<{ count: string }>(
+      "SELECT count(*)::text AS count FROM public.pgmigrations WHERE name = '1784710800000_platform-baseline'",
+    );
+    expect(tracked.rows[0]?.count).toBe('1');
+
+    await client.query('DROP ROLE least_privilege_probe');
+  });
+
   it('rolls back to an empty database', async () => {
     await client.end();
     await migrate(databaseUrl, 'down');

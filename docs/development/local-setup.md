@@ -89,20 +89,26 @@ pnpm --filter @verdery/api build
 pnpm --filter @verdery/api dev
 ```
 
-`dev` runs `node --watch dist/main.js`, so it watches the _compiled_ output. Run a build first, and
-keep a `tsc --build --watch` running beside it if you want changes to take effect without a manual
-rebuild. `start` runs the same compiled entry point without watching.
+`dev` watches the _compiled_ output, not the TypeScript source. Run a build first, and keep a
+`tsc --build --watch` running beside it if you want changes to take effect without a manual rebuild.
+`start` runs the same compiled entry point without watching. Both load `dist/telemetry-bootstrap.js`
+via Node's `--import` flag before `main.js`, required so OpenTelemetry's HTTP/Fastify/pg
+instrumentation patches those modules before the app imports them — see
+[infrastructure.md](infrastructure.md). It is a safe no-op locally: tracing only activates when
+`TRACING_ENABLED=true`, which local development never sets.
 
 Configuration is validated once at startup and the process refuses to start on an invalid
 environment, so these must be set before it runs:
 
-| Variable              | Required | Notes                                     |
-| --------------------- | -------- | ----------------------------------------- |
-| `VERDERY_ENVIRONMENT` | Yes      | `development`, `staging`, or `production` |
-| `DATABASE_URL`        | Yes      | Treated as a secret; never logged         |
+| Variable                   | Required                                 | Notes                                                             |
+| -------------------------- | ---------------------------------------- | ----------------------------------------------------------------- |
+| `VERDERY_ENVIRONMENT`      | Yes                                      | `development`, `staging`, or `production`                         |
+| `DATABASE_CONNECTION_MODE` | No                                       | Defaults to `url`; `cloudSqlIam` is for the deployed service only |
+| `DATABASE_URL`             | Yes, when `DATABASE_CONNECTION_MODE=url` | Treated as a secret; never logged                                 |
 
 Everything else has a default. `services/api/src/platform/configuration/configuration-schema.ts` is
-the authoritative list — read it rather than trusting a copy in documentation.
+the authoritative list — read it rather than trusting a copy in documentation. See
+[database-migrations.md](database-migrations.md), "Roles", for what `cloudSqlIam` mode is.
 
 Source: [../architecture/backend-modular-monolith.md](../architecture/backend-modular-monolith.md),
 section "10. Configuration".

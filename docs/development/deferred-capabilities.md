@@ -1,73 +1,83 @@
 # Deferred capabilities
 
-What a developer cannot do in this repository yet, and what has to exist first. Everything listed
-here is deferred deliberately; none of it is an oversight, and none of it should be worked around
-locally.
+What exists, what was deliberately deferred, and why. This file is corrected each time the boundary
+moves — it described a wider gap before `P1-PLAT-02` and `P1-PLAT-03`, and should be trusted only
+for its current content, not for history.
 
-## Nothing deploys anywhere
+## What now exists
 
-There is no deploy workflow, no environment, and no cloud project.
+A single development environment, `verdery-dev`, provisioned with idempotent gcloud scripts rather
+than Terraform (see [ADR-0011](../architecture/decisions/ADR-0011-gcloud-scripts-instead-of-terraform.md)
+for why). Concretely:
 
-The architecture requires GitHub Actions to authenticate to Google Cloud through workload identity
-federation, with a separate identity for pull-request validation, development, staging, and
-production, and it prohibits downloaded long-lived service-account keys. It also requires
-deployments to reference an immutable image digest in Artifact Registry.
+- A GCP project (`verdery-dev`) linked to a personal billing account, in `us-central1`.
+- A VPC network and subnet, with Cloud SQL reachable only over its private IP.
+- Cloud SQL for PostgreSQL 17 with PostGIS, no public IP, IAM database authentication enabled. The
+  runtime service account authenticates with no password at all — see
+  [database-migrations.md](database-migrations.md) and
+  `infrastructure/gcloud/scripts/07-iam-database-bootstrap.sh`.
+- Two service accounts on the principle of least privilege: a deployer (push images, update the
+  Cloud Run service) and a runtime identity (read one secret's worth of nothing, since there is no
+  password; write logs, metrics, and traces).
+- Workload identity federation trusting GitHub Actions, scoped to this repository and further scoped
+  to the `development` GitHub Environment — a workflow run outside that job-level binding cannot
+  obtain Google credentials at all, keyless or otherwise.
+- Artifact Registry, and a Cloud Run service (`verdery-api-dev`) currently serving the health
+  endpoints.
+- OpenTelemetry traces exported to Cloud Trace, verified end to end against the live service: a real
+  `GET /v1/health/ready` request produced one trace with an HTTP server span and nested `pg-pool` /
+  `pg.connect` spans carrying `db.user: verdery-dev-api-runtime@verdery-dev.iam` — the real IAM
+  identity, not a placeholder.
+- `.github/workflows/deploy-dev.yml`, which builds the image, runs migrations through a Cloud Run
+  Job (the only path that can reach Cloud SQL's private IP from outside the VPC), deploys, and
+  verifies a live response — using the same `infrastructure/gcloud/scripts/deploy-api.sh` a human
+  runs locally, not a separate CI-only path.
 
-None of that infrastructure exists. A deploy workflow written today could only either commit a
-long-lived key — which the supply-chain policy forbids — or authenticate against identities that
-have never been created. Both are worse than having no workflow, because a broken deploy path that
-looks configured invites someone to "fix" it with a key.
+Run `infrastructure/gcloud/README.md` before touching any of this by hand; several steps are only
+safe in the order the numbered scripts encode.
 
-The relevant work packages are `P1-PLAT-02` (separate development, staging, and production
-Firebase/Google Cloud projects) and `P1-PLAT-03` (workload identity federation, Artifact Registry,
-immutable images, per-environment deploy identities). Both require a real Google Cloud organization
-with billing.
+## What remains deferred, and why
 
-Source: [../architecture/environments-and-delivery.md](../architecture/environments-and-delivery.md),
-sections "6. CI/CD Identity", "8. Build Artifacts", and "17. Supply Chain";
-[../implementation-plan.md](../implementation-plan.md), section 10.2.
+**Staging and production.** Only `verdery-dev` exists. Creating `verdery-staging` and `verdery-prod`
+is mechanical — the same scripts, a new `config/<environment>.env` — but is deferred until closer to
+`P8` (foundation hardening), so that idle staging/production infrastructure is not accruing cost or
+drifting before there is a product to run on it.
 
-## There is no Terraform
+**Regional and production hardening.** `verdery-dev` uses a zonal Cloud SQL instance
+(`db-f1-micro`), `--allow-unauthenticated` on Cloud Run (nothing behind it carries data yet), and no
+Cloud Armor or load balancer — ADR-0007 explicitly allows "simpler authenticated connectivity" for
+non-production environments. Regional HA, enforced authorization, and the production networking
+topology are `P8-DB-01` and `P8-NET-01`.
 
-`infrastructure/terraform` is empty. Terraform modules for project services, IAM, network, Cloud
-SQL, Cloud Run, storage, messaging, observability, and edge are work package `P1-PLAT-01`, and
-Terraform is not installed on the machine this foundation was built on, so nothing could be
-validated.
+**`infrastructure/terraform/` stays empty.** This environment is provisioned by
+`infrastructure/gcloud/scripts/`, not Terraform, by deliberate choice — see ADR-0011. The directory
+is not deleted because a later multi-environment, multi-operator phase may still want Terraform's
+state model.
 
-The architecture lists Terraform format, validate, security scan, and plan as a pull-request gate.
-That gate is absent from CI on purpose: a validation job with no files to validate reports success
-without checking anything, which is worse than an acknowledged gap.
+**Container image scanning.** Images build and push through the deploy workflow, but no
+vulnerability scan runs against them yet. This unblocks with the security hardening work in `P8`.
 
-## No container images are built or scanned
+**Break-glass credential rotation procedure.** `07-iam-database-bootstrap.sh` rotates the Postgres
+superuser password on every run and stores it in Secret Manager, but there is no scheduled rotation
+or documented incident procedure for using it. `P8-REL-01` owns operational runbooks generally.
 
-The API and workers are meant to build immutable OCI images stored in Artifact Registry, and images
-are meant to be vulnerability-scanned in CI. There is no registry to publish to, so neither the
-build nor the scan exists. This unblocks with `P1-PLAT-03`.
+**Staging/production database procedure.** Migrations are proven twice over now — against a
+throwaway Testcontainers instance in CI, and against the real `verdery-dev` Cloud SQL instance
+through the least-privilege IAM identity, including the exact permission gaps that only appear
+outside a superuser connection. What remains unrehearsed is the staged rollout procedure across
+environments: expand-phase migration on staging before production, traffic shifted only after
+success. See [database-migrations.md](database-migrations.md).
 
-## Observability exports nowhere
-
-`P1-OBS-01` requires OpenTelemetry traces, structured redacted logs, correlation identifiers, and
-initial dashboards. Correlation identifiers and structured logging exist in the API service, but
-there is no Google Cloud project to export traces or metrics to and no dashboard to create, so the
-completion evidence — "one request trace crosses ingress and database" — cannot be produced.
-
-## Staging and production database procedure is unrehearsed
-
-Migrations run correctly against a throwaway container locally and in CI. The operational
-procedure — staging rehearsal against production-like volume, production migration through a
-dedicated identity, traffic shifted only after the expand phase succeeds — cannot be rehearsed
-without those environments. See [database-migrations.md](database-migrations.md).
-
-## End-to-end tests
-
-End-to-end tests are a release-promotion gate, not a pull-request gate, and they need a deployed
-environment to run against. There is none.
+**End-to-end tests.** These are a release-promotion gate that needs a deployed environment with
+enough of the product built to exercise. There is a deployed environment now; there is not yet
+enough product.
 
 ## What is _not_ deferred
 
-To be clear about the boundary, all of the following are implemented and gated in CI: the pnpm
-workspace and its version pins, the OpenAPI contract and its generated client, shared geometry
-semantics, language-neutral fixtures shared between TypeScript and Swift, the SQL migration system
-and its tests, the API composition root and health endpoints, the web application shell, the Swift
-package and its targets, formatting, linting, type checking, the file-size rule, and the secret
-scan.
+The pnpm workspace and its version pins, the OpenAPI contract and its generated client, shared
+geometry semantics, language-neutral fixtures shared between TypeScript and Swift, the SQL migration
+system and its tests (including the least-privilege regression test in
+`services/api/tests/migrations/platform-baseline.test.ts`), the API composition root and health
+endpoints, the web application shell, the Swift package and its targets, formatting, linting, type
+checking, the file-size rule, the secret scan, the `verdery-dev` cloud environment, keyless CI
+deployment, and OpenTelemetry tracing to Cloud Trace.

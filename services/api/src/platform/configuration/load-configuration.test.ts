@@ -67,4 +67,50 @@ describe('loadConfiguration', () => {
       expect((error as ConfigurationError).message).not.toContain('secret-value');
     }
   });
+
+  it('defaults to the "url" connection mode', () => {
+    const configuration = loadConfiguration(VALID_ENVIRONMENT);
+    expect(configuration.database.mode).toBe('url');
+  });
+
+  it('accepts the "cloudSqlIam" mode when its three fields are present and DATABASE_URL is absent', () => {
+    const configuration = loadConfiguration({
+      VERDERY_ENVIRONMENT: 'production',
+      DATABASE_CONNECTION_MODE: 'cloudSqlIam',
+      DATABASE_INSTANCE_CONNECTION_NAME: 'verdery-dev:us-central1:verdery-dev-pg',
+      DATABASE_IAM_USER: 'verdery-dev-api-runtime@verdery-dev.iam',
+      DATABASE_NAME: 'verdery',
+    });
+
+    expect(configuration.database).toEqual(
+      expect.objectContaining({
+        mode: 'cloudSqlIam',
+        instanceConnectionName: 'verdery-dev:us-central1:verdery-dev-pg',
+        iamUser: 'verdery-dev-api-runtime@verdery-dev.iam',
+        databaseName: 'verdery',
+      }),
+    );
+  });
+
+  it('rejects "cloudSqlIam" mode missing any of its three required fields', () => {
+    try {
+      loadConfiguration({
+        VERDERY_ENVIRONMENT: 'production',
+        DATABASE_CONNECTION_MODE: 'cloudSqlIam',
+        DATABASE_INSTANCE_CONNECTION_NAME: 'verdery-dev:us-central1:verdery-dev-pg',
+        // DATABASE_IAM_USER and DATABASE_NAME deliberately omitted.
+      });
+      expect.unreachable('cloudSqlIam mode without its required fields must be rejected');
+    } catch (error) {
+      expect((error as ConfigurationError).variables).toEqual(
+        expect.arrayContaining(['DATABASE_IAM_USER', 'DATABASE_NAME']),
+      );
+    }
+  });
+
+  it('rejects "url" mode without DATABASE_URL', () => {
+    expect(() =>
+      loadConfiguration({ VERDERY_ENVIRONMENT: 'development', DATABASE_CONNECTION_MODE: 'url' }),
+    ).toThrowError(ConfigurationError);
+  });
 });

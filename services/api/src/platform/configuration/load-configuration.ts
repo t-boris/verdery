@@ -9,9 +9,10 @@
  */
 
 import type { z } from 'zod';
-import type { ApplicationConfiguration } from './configuration-schema.js';
+import type { ApplicationConfiguration, ConfigurationIssue } from './configuration-schema.js';
 import {
   environmentSchema,
+  findDatabaseModeIssues,
   SECRET_VARIABLES,
   toApplicationConfiguration,
 } from './configuration-schema.js';
@@ -43,8 +44,22 @@ function describeIssue(issue: z.core.$ZodIssue): string {
   return `${variable}: ${issue.message}`;
 }
 
+function describeConfigurationIssue(issue: ConfigurationIssue): string {
+  if (SECRET_VARIABLES.has(issue.variable)) {
+    return `${issue.variable}: invalid value (redacted)`;
+  }
+
+  return `${issue.variable}: ${issue.message}`;
+}
+
 /**
  * Validates the process environment and returns typed configuration.
+ *
+ * Combines zod's per-field validation with {@link findDatabaseModeIssues},
+ * which checks a cross-field rule zod cannot express as a per-field schema.
+ * Both run unconditionally and their results are merged, so a deployment with
+ * several unrelated problems is told about all of them at once rather than
+ * one at a time across repeated restarts.
  *
  * @throws ConfigurationError when any required variable is missing or invalid.
  */
@@ -52,12 +67,23 @@ export function loadConfiguration(
   source: Readonly<Record<string, string | undefined>> = process.env,
 ): ApplicationConfiguration {
   const result = environmentSchema.safeParse(source);
+  const modeIssues = findDatabaseModeIssues(source);
 
-  if (!result.success) {
-    const variables = result.error.issues.map((issue) => issue.path.map(String).join('.'));
-    const details = result.error.issues.map(describeIssue).join('; ');
+  if (!result.success || modeIssues.length > 0) {
+    const zodVariables = result.success
+      ? []
+      : result.error.issues.map((issue) => issue.path.map(String).join('.'));
+    const zodDetails = result.success ? [] : result.error.issues.map(describeIssue);
 
-    throw new ConfigurationError(`Invalid service configuration. ${details}`, variables);
+    const modeVariables = modeIssues.map((issue) => issue.variable);
+    const modeDetails = modeIssues.map(describeConfigurationIssue);
+
+    const details = [...zodDetails, ...modeDetails].join('; ');
+
+    throw new ConfigurationError(`Invalid service configuration. ${details}`, [
+      ...zodVariables,
+      ...modeVariables,
+    ]);
   }
 
   return toApplicationConfiguration(result.data);

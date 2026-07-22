@@ -6,9 +6,14 @@
  * unbounded pool per instance exhausts the server long before the service is
  * saturated.
  *
+ * Construction is asynchronous because the 'cloudSqlIam' connection mode must
+ * exchange credentials with the Cloud SQL Admin API before a pool can be
+ * created; a synchronous constructor cannot express that.
+ *
  * Source: architecture/backend-modular-monolith.md, section "17. Database Access".
  */
 
+import { AuthTypes, Connector, IpAddressTypes } from '@google-cloud/cloud-sql-connector';
 import { Kysely, PostgresDialect, sql } from 'kysely';
 import pg from 'pg';
 import type { DatabaseConfiguration } from '../configuration/configuration-schema.js';
@@ -21,19 +26,15 @@ export class PostgresDatabaseGateway implements DatabaseGateway {
   readonly queries: Kysely<DatabaseSchema>;
 
   readonly #pool: pg.Pool;
+  readonly #connector: Connector | undefined;
 
-  constructor(
-    configuration: DatabaseConfiguration,
-    applicationName: string,
+  private constructor(
+    pool: pg.Pool,
+    connector: Connector | undefined,
     onPoolError?: PoolErrorListener,
   ) {
-    this.#pool = new pg.Pool({
-      connectionString: configuration.url,
-      max: configuration.maxConnections,
-      connectionTimeoutMillis: configuration.connectionTimeoutMs,
-      statement_timeout: configuration.statementTimeoutMs,
-      application_name: applicationName,
-    });
+    this.#pool = pool;
+    this.#connector = connector;
 
     // node-postgres emits 'error' on the pool when an *idle* connection dies —
     // a database restart or failover, for example. Node treats an unhandled
@@ -56,13 +57,62 @@ export class PostgresDatabaseGateway implements DatabaseGateway {
     });
   }
 
+  /**
+   * Builds the gateway for either connection mode.
+   *
+   * 'url' opens an ordinary password-authenticated pool, used locally and by
+   * the Testcontainers suite. 'cloudSqlIam' opens a pool over the Cloud SQL
+   * connector's TLS socket with no password at all: the connecting identity is
+   * this process's own Google credentials (the Cloud Run runtime service
+   * account in production), authorized in Postgres through membership in the
+   * verdery_application / verdery_migration NOLOGIN roles.
+   */
+  static async create(
+    configuration: DatabaseConfiguration,
+    applicationName: string,
+    onPoolError?: PoolErrorListener,
+  ): Promise<PostgresDatabaseGateway> {
+    if (configuration.mode === 'url') {
+      const pool = new pg.Pool({
+        connectionString: configuration.url,
+        max: configuration.maxConnections,
+        connectionTimeoutMillis: configuration.connectionTimeoutMs,
+        statement_timeout: configuration.statementTimeoutMs,
+        application_name: applicationName,
+      });
+
+      return new PostgresDatabaseGateway(pool, undefined, onPoolError);
+    }
+
+    const connector = new Connector();
+    const connectorOptions = await connector.getOptions({
+      instanceConnectionName: configuration.instanceConnectionName,
+      authType: AuthTypes.IAM,
+      ipType: IpAddressTypes.PRIVATE,
+    });
+
+    const pool = new pg.Pool({
+      ...connectorOptions,
+      user: configuration.iamUser,
+      database: configuration.databaseName,
+      max: configuration.maxConnections,
+      connectionTimeoutMillis: configuration.connectionTimeoutMs,
+      statement_timeout: configuration.statementTimeoutMs,
+      application_name: applicationName,
+    });
+
+    return new PostgresDatabaseGateway(pool, connector, onPoolError);
+  }
+
   async ping(): Promise<void> {
     await sql`select 1`.execute(this.queries);
   }
 
   async close(): Promise<void> {
     // Closing the Kysely instance destroys the underlying pool, so the pool is
-    // not closed separately.
+    // not closed separately. The connector, if this gateway opened one, is
+    // this gateway's own resource and closes only when this gateway does.
     await this.queries.destroy();
+    this.#connector?.close();
   }
 }

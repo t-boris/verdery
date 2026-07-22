@@ -26,12 +26,15 @@ The authoritative sources are:
 ## Current state
 
 The repository is at the end of Phase 1, "Engineering and Cloud Foundation". What exists is a
-foundation: workspaces, shared contracts, application shells, health endpoints, tests, and CI gates.
-No product feature — gardens, plants, maps, recommendations, authentication — is implemented yet.
+foundation: workspaces, shared contracts, application shells, health endpoints, tests, CI gates, a
+`verdery-dev` Google Cloud environment, and a keyless deploy pipeline serving real traffic at
+`verdery-api-dev` on Cloud Run. No product feature — gardens, plants, maps, recommendations,
+authentication — is implemented yet.
 
-Cloud environments, Terraform, and deployment are deliberately absent. See
+Infrastructure is provisioned with versioned gcloud scripts rather than Terraform; only a
+development environment exists, not staging or production. See
 [docs/development/deferred-capabilities.md](docs/development/deferred-capabilities.md) for what is
-missing and why.
+still missing and why.
 
 ## Repository layout
 
@@ -51,7 +54,8 @@ packages/
 └── test-fixtures/       Language-neutral JSON fixtures with a TypeScript loader
 
 infrastructure/
-├── terraform/  Infrastructure as code (not yet populated)
+├── gcloud/     Idempotent provisioning scripts for the verdery-dev environment (ADR-0011)
+├── terraform/  Reserved for a future multi-environment phase (not yet populated)
 └── firebase/   Firebase project configuration (not yet populated)
 
 docs/

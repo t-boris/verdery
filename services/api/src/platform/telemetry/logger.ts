@@ -10,6 +10,7 @@
  * "5. Structured Logging" and "6. Prohibited Telemetry".
  */
 
+import { trace } from '@opentelemetry/api';
 import { pino, type DestinationStream, type Logger } from 'pino';
 import type { ApplicationConfiguration } from '../configuration/configuration-schema.js';
 
@@ -56,6 +57,16 @@ export function createLogger(
         level: (label) => ({ severity: label.toUpperCase(), level: label }),
       },
       timestamp: pino.stdTimeFunctions.isoTime,
+      // Ties a log line to the OpenTelemetry trace it happened inside, when
+      // tracing is enabled and a span is active. Absent otherwise — this is
+      // additive, not a replacement for `correlationId`, which is a
+      // client-negotiable business identifier rather than a span identifier.
+      mixin: () => {
+        const spanContext = trace.getActiveSpan()?.spanContext();
+        return spanContext === undefined
+          ? {}
+          : { traceId: spanContext.traceId, spanId: spanContext.spanId };
+      },
     },
     destination,
   );

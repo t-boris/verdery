@@ -1,0 +1,108 @@
+name: Deploy to development
+
+# Runs after CI succeeds on master, and can be triggered manually. There is no
+# separate "deploy" trigger a human uses that CI does not also use — the same
+# `deploy-api.sh` script runs the deployment either way.
+#
+# Source: implementation-plan.md work package P1-PLAT-03
+# ("Keyless development deployment" completion evidence);
+# architecture/environments-and-delivery.md.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [master]
+  workflow_dispatch: {}
+
+permissions: {}
+
+concurrency:
+  group: deploy-development
+  # A deploy in progress must finish before a newer one starts, so two
+  # concurrent runs can never race to update the same Cloud Run revision.
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build, migrate, and deploy
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+
+    # Binds this job to the GitHub Environment the workload identity provider
+    # requires. Without `environment:` here, the OIDC token GitHub issues
+    # carries no `environment` claim, and the identity binding created by
+    # infrastructure/gcloud/scripts/06-workload-identity-federation.sh denies
+    # every request from this job — this is not optional configuration.
+    environment: development
+
+    permissions:
+      contents: read
+      # Required by google-github-actions/auth to mint short-lived Google
+      # credentials from the GitHub OIDC token. No other write permission is
+      # granted; this job cannot push code, open issues, or modify the repo.
+      id-token: write
+
+    env:
+      PROJECT_ID: verdery-dev
+      REGION: us-central1
+      REPOSITORY: verdery
+      SERVICE_ACCOUNT: verdery-dev-deployer@verdery-dev.iam.gserviceaccount.com
+      WORKLOAD_IDENTITY_PROVIDER: projects/417008876420/locations/global/workloadIdentityPools/github-actions/providers/github-actions-oidc
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Build and push the API image
+        id: image
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/api:${GITHUB_SHA}"
+          docker buildx build \
+            --platform linux/amd64 \
+            -f services/api/Dockerfile \
+            -t "${IMAGE}" \
+            --push \
+            .
+          echo "image=${IMAGE}" >> "${GITHUB_OUTPUT}"
+
+      # Runs as a Cloud Run Job with Direct VPC egress rather than from this
+      # runner directly: Cloud SQL has no public IP by design (ADR-0007), and a
+      # GitHub-hosted runner has no network path to a private VPC IP.
+      #
+      # Source: infrastructure/gcloud/scripts/07-iam-database-bootstrap.sh.
+      - name: Run database migrations
+        run: |
+          gcloud run jobs update verdery-api-dev-migrate \
+            --project="${PROJECT_ID}" \
+            --region="${REGION}" \
+            --image="${{ steps.image.outputs.image }}" \
+            --quiet
+          gcloud run jobs execute verdery-api-dev-migrate \
+            --project="${PROJECT_ID}" \
+            --region="${REGION}" \
+            --wait
+
+      - name: Deploy to Cloud Run
+        run: infrastructure/gcloud/scripts/deploy-api.sh dev "${{ steps.image.outputs.image }}"
+
+      - name: Verify the deployment answers a real request
+        run: |
+          SERVICE_URL=$(gcloud run services describe verdery-api-dev \
+            --project="${PROJECT_ID}" --region="${REGION}" --format="value(status.url)")
+          curl --fail --silent --show-error "${SERVICE_URL}/v1/health/ready"
