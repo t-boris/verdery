@@ -36,6 +36,14 @@ env_vars+=",TRACING_ENABLED=${VERDERY_TRACING_ENABLED:-false}"
 # it ever served a request. 15 seconds is generous for that handshake without
 # meaningfully delaying a real failure's detection.
 env_vars+=",DATABASE_CONNECTION_TIMEOUT_MS=15000"
+# Required since Phase 2: the service verifies Firebase ID tokens and session
+# cookies against this exact project. Missing this fails startup
+# configuration validation immediately (loadConfiguration()), the same
+# fail-fast behavior as a missing database variable.
+#
+# Source: architecture/identity-and-authorization.md, section
+# "2. Identity Authority".
+env_vars+=",FIREBASE_PROJECT_ID=${VERDERY_PROJECT_ID}"
 
 log "Deploying ${IMAGE} to ${VERDERY_CLOUD_RUN_SERVICE_NAME}"
 gcloud run deploy "${VERDERY_CLOUD_RUN_SERVICE_NAME}" \
