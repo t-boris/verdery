@@ -3,9 +3,9 @@ import type { Generated } from 'kysely';
 export interface ProfileRow {
   id: string;
   firebase_uid: string;
-  account_state: string;
-  locale: string;
-  time_zone: string;
+  account_state: Generated<string>;
+  locale: Generated<string>;
+  time_zone: Generated<string>;
   // A JS number, not the string node-postgres would return for bigint: a
   // profile revision advancing by one per accepted mutation cannot approach
   // Number.MAX_SAFE_INTEGER within the service's realistic lifetime.
