@@ -147,3 +147,104 @@ keyless WIF authentication → build → push → migrate via Cloud Run Job → 
 - The Postgres superuser break-glass password rotates on every `07-iam-database-bootstrap.sh` run
   and lives only in Secret Manager (`verdery-dev-pg-postgres-superuser-password`), labeled
   `used-by=none`. No scheduled rotation or incident procedure exists yet for using it.
+
+# Phase 2 — Identity and First-Garden Vertical Slice, in progress
+
+Scope: work packages P2-DATA-01 through P2-QA-01. Firebase Authentication (Google and email magic
+link) as identity provider, PostgreSQL as the authoritative store for permissions, gardens, and
+their lifecycle, delivered across the API, the authenticated Next.js web shell, and the native iOS
+app.
+
+Source: [docs/implementation-plan.md](../docs/implementation-plan.md) section 11.
+
+## Tasks
+
+### Data and backend
+
+- [x] P2-DATA-01 profiles, Firebase identity links, account state, gardens, memberships, roles,
+      invitations skeleton, consent, audit, revisions, idempotency, sync-change, and outbox tables
+- [x] P2-BE-01 identity-access and gardens-mapping modules with explicit
+      domain/application/persistence/transport layers
+- [x] P2-AUTH-01 Firebase ID token verification, actor context, idempotent profile provisioning,
+      revocation and account-state handling
+- [x] P2-AUTH-02 web sign-in exchange, HTTP-only Firebase session cookie, CSRF controls, logout,
+      server-side session verification
+- [x] P2-SEC-01 owner/editor/viewer capability evaluation; unauthorized resources are concealed,
+      not just rejected
+- [x] P2-API-01 garden list/create/get/rename/archive/delete-request, idempotency, revisions
+
+### Clients
+
+- [x] P2-WEB-01 authenticated Next.js shell, garden list/create/settings flows, TanStack Query
+      ownership, accessible error handling
+- [x] P2-IOS-01 per-profile GRDB store, authentication flow, garden list/create screens, local
+      read model, sign-out cleanup
+- [~] P2-AUTH-03 Google and email magic-link sign-in are implemented and tested on both web and
+  iOS; Sign in with Apple is not implemented (see Deferred below)
+
+### Observability and quality
+
+- [~] P2-OBS-01 `platform/audit` and `platform/telemetry` exist and are wired into profile
+  provisioning and every garden lifecycle use case (create, rename, archive, delete-request),
+  but only `provision-profile.test.ts` directly asserts an audit row was written — the other
+  use cases are exercised by integration tests that do not assert the audit side effect
+- [ ] P2-APPCHK-01 App Check monitor-only mode — not started
+- [ ] P2-QA-01 E2E register/sign-in/create/reopen/sign-out and provider-outage scenarios — not
+      started; no Playwright (or equivalent) harness exists in this repository yet
+
+## Deferred with reason
+
+| Work package                    | Reason                                                                                                                                                          |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sign in with Apple (P2-AUTH-03) | Needs the repository owner's own Apple Developer Services ID configured as a Firebase provider; the gateway is written but deliberately not wired in until then |
+| P2-APPCHK-01 App Check          | Not attempted this session                                                                                                                                      |
+| P2-QA-01 E2E suite              | Not attempted this session; no E2E harness exists yet                                                                                                           |
+| G2 dogfood approval             | Cannot be claimed until the three items above close, per the Phase 2 exit criteria                                                                              |
+
+## Review
+
+Database, backend, contract, web, and native foundations for identity and the first-garden vertical
+slice are implemented and verified against a real local stack. Provider configuration for Apple,
+App Check, and the E2E suite are not done — no G2 approval is claimed.
+
+### Verified evidence
+
+| Check                                                 | Result                                                                                                                                                         |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm build`                                          | passes: all workspace packages, including the Next.js production build (7 routes)                                                                              |
+| `pnpm check:all`                                      | passes: format, lint, typecheck, 600-line rule, 234 tests across 6 workspace packages                                                                          |
+| `pnpm --filter @verdery/api-contracts lint:contract`  | passes: OpenAPI document valid                                                                                                                                 |
+| `pnpm --filter @verdery/api-contracts generate:check` | passes: generated client matches the committed OpenAPI document                                                                                                |
+| `swift build && swift test` (apps/ios)                | passes: 52 tests in 14 suites                                                                                                                                  |
+| `services/api` migration and integration tests        | included in the 234: `tests/migrations/identity-and-gardens-baseline.test.ts`, `tests/integration/gardens-mapping.test.ts`, `tests/http/garden-routes.test.ts` |
+
+### Defects found and fixed during this session
+
+1. **A bigint garden revision column round-tripped as a string, not a number.** `pg` returns
+   PostgreSQL `bigint` as a JS string by default; the optimistic-concurrency `If-Match` comparison
+   needs a number. Fixed with a global `pg.types.setTypeParser` registration
+   (`platform/database/pg-bigint-parser.ts`) rather than a per-query cast, so every current and
+   future bigint column is affected once, in one place.
+2. **`deploy-api.sh` never set `FIREBASE_PROJECT_ID` for the deployed Cloud Run service.** Phase 2
+   made it a required configuration variable (`loadConfiguration()` fails startup validation
+   without it) for `deploy-migration-job.sh`, but the equivalent line was missing from
+   `deploy-api.sh` — the next deploy would have crash-looped the API service on startup. Found and
+   fixed before pushing, by the same pattern already applied to the migration job script.
+
+### Known limitations
+
+- Sign in with Apple is absent from both clients — the gateway code exists
+  (`CoreAuthentication/FirebaseAuthenticationGateway.swift` is Google- and email-only;
+  `docs/architecture/identity-and-authorization.md` documents Apple as a planned provider) but
+  nothing calls it, and Firebase has no Apple provider configured yet.
+- App Check (P2-APPCHK-01) is not implemented on any client or verified on the backend.
+- No E2E suite exists yet (P2-QA-01); coverage is unit and integration tests only, run against
+  Testcontainers PostgreSQL, not a deployed environment.
+- Audit-log coverage is real but partial: the audit writer is called from every garden lifecycle
+  use case, but only profile provisioning has a test asserting the resulting row.
+- This machine runs Node 22.22.3 against a toolchain pinned to Node 24 (ADR-0009); CI's `swift` job
+  is also the first time this session's iOS work was validated by a macOS runner matching the
+  pinned Xcode 26.6 toolchain rather than this local machine's own Xcode installation.
+- This development machine's CoreSimulator is version-mismatched with Xcode, so no change in
+  `apps/ios` was verified on a simulator or device this session — only `swift build`/`swift test`
+  and `xcodebuild -list`, per `apps/ios/README.md`, "Known environment gap".
