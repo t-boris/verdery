@@ -83,9 +83,24 @@ outside a superuser connection. What remains unrehearsed is the staged rollout p
 environments: expand-phase migration on staging before production, traffic shifted only after
 success. See [database-migrations.md](database-migrations.md).
 
-**Phase 2 end-to-end evidence.** A deployed environment and product foundations exist, but the
-complete native/web provider, authorization, session, and first-garden matrix has not passed. G2
-must not be claimed until that evidence is recorded.
+**G2 approval itself.** Every implementation and E2E evidence item Phase 2's exit criteria name is
+now recorded — see `tasks/todo.md`'s Phase 2 section. G2 is nonetheless a repository-owner decision,
+not an automatic consequence of passing tests, and is not claimed by this document.
+
+**App Check dashboard.** The backend, web, and iOS clients integrate Firebase App Check in
+monitor-only mode (P2-APPCHK-01): every request's classification (valid, missing, invalid) is
+recorded as structured backend telemetry, but no dedicated dashboard view was built over that
+telemetry. Enforcement (rollout stage 3) is separately and deliberately not enabled anywhere.
+
+**The Phase 2 E2E suite does not run in CI.** `apps/web/e2e/` (Playwright against a real Postgres,
+the Firebase Auth emulator, the real API, and the real web app, orchestrated by
+`apps/web/e2e/run-e2e.sh`) is verified locally but not wired into `.github/workflows/ci.yml`: it
+needs Docker and the Firebase CLI on the runner and takes noticeably longer than the existing gates,
+the same cost/benefit reasoning already applied to the `swift` job's narrow path filter. Also
+unverified: whether `services/api/src/main.ts`'s `firebase-admin` initialization
+(`initializeApp({ credential: applicationDefault() })`) still works with no Application Default
+Credentials provisioned at all, which a from-scratch CI runner may not have — this was only proven
+against this development machine's own `gcloud auth application-default login` session.
 
 ## What is _not_ deferred
 
