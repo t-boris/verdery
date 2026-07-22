@@ -855,7 +855,7 @@ The following sources informed the garden-mapping proposal. They are references,
 - [Apple Measure guidance](https://support.apple.com/en-ca/guide/iphone/iphd8ac2cfea/ios)
 - [Apple ARKit scene reconstruction](https://developer.apple.com/documentation/arkit/visualizing-and-interacting-with-a-reconstructed-scene)
 - [Apple RoomPlan overview](https://developer.apple.com/augmented-reality/roomplan/)
-- [Apple ARKit raycasting](https://developer.apple.com/documentation/arkit/arsession/raycast(_:))
+- [Apple ARKit raycasting](<https://developer.apple.com/documentation/arkit/arsession/raycast(_:)>)
 - [Apple AR session persistence guidance](https://developer.apple.com/documentation/ARKit/managing-session-life-cycle-and-tracking-quality)
 - [Apple VisionKit](https://developer.apple.com/documentation/visionkit)
 - [Apple MapKit imagery](https://developer.apple.com/documentation/mapkit/mapstyle/imagery)

@@ -97,16 +97,16 @@ Infrastructure adapters implement repository, network, authentication, media, ca
 
 ## 6. State Ownership
 
-| State | Owner |
-|---|---|
-| Durable garden and plant data | SQLite |
-| Pending synchronized operations | SQLite outbox |
-| Media transfer state | SQLite plus background transfer subsystem |
-| Current authenticated identity | Firebase Authentication adapter |
-| Screen presentation state | Feature view model |
-| Map selection and gesture state | Garden Map editor session |
-| Capture session state | Capture coordinator |
-| Remote accepted revision | SQLite synchronization metadata |
+| State                           | Owner                                     |
+| ------------------------------- | ----------------------------------------- |
+| Durable garden and plant data   | SQLite                                    |
+| Pending synchronized operations | SQLite outbox                             |
+| Media transfer state            | SQLite plus background transfer subsystem |
+| Current authenticated identity  | Firebase Authentication adapter           |
+| Screen presentation state       | Feature view model                        |
+| Map selection and gesture state | Garden Map editor session                 |
+| Capture session state           | Capture coordinator                       |
+| Remote accepted revision        | SQLite synchronization metadata           |
 
 The application must be able to reconstruct important state after process termination. Long-running flows cannot depend only on in-memory objects.
 

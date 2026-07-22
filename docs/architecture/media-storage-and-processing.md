@@ -20,14 +20,14 @@ This document defines photo, video, plan, scan artifact, derivative, upload, dow
 
 ## 3. Media Classes
 
-| Class | Examples | Baseline retention |
-|---|---|---|
-| Garden photo | Plant and observation photos | Until user or garden deletion |
-| Imported plan | PDF, scan, raster plan | Until user or garden deletion |
-| Raw capture | Garden Scan video, AR artifacts, depth data | 30 days after successful extraction by default |
-| Derived preview | Thumbnail, optimized image, plan tiles | Rebuildable; lifecycle-managed |
-| Processing output | Masks, point clouds, diagnostics | Policy by output type; raw diagnostics limited |
-| Export package | User-requested ZIP | Short-lived automatic expiration |
+| Class             | Examples                                    | Baseline retention                             |
+| ----------------- | ------------------------------------------- | ---------------------------------------------- |
+| Garden photo      | Plant and observation photos                | Until user or garden deletion                  |
+| Imported plan     | PDF, scan, raster plan                      | Until user or garden deletion                  |
+| Raw capture       | Garden Scan video, AR artifacts, depth data | 30 days after successful extraction by default |
+| Derived preview   | Thumbnail, optimized image, plan tiles      | Rebuildable; lifecycle-managed                 |
+| Processing output | Masks, point clouds, diagnostics            | Policy by output type; raw diagnostics limited |
+| Export package    | User-requested ZIP                          | Short-lived automatic expiration               |
 
 Retention can be shortened by the user or legal/privacy policy. Failed raw capture is retained only long enough for recovery and support policy.
 

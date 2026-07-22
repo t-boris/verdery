@@ -221,15 +221,15 @@ PDF, image, video, and archive parsing occurs in constrained workers:
 
 ## 19. Retention Baseline
 
-| Data | Baseline |
-|---|---|
-| Ordinary garden records and photos | Until user/garden deletion |
-| Raw successful Garden Scan media | 30 days after successful extraction |
-| Failed capture recovery media | Limited operational recovery period |
-| Export packages | Short-lived automatic expiration |
-| Security audit records | Policy-defined limited retention |
-| Operational logs | Shortest useful diagnostic retention |
-| Deleted account recovery | 30 days before purge by default |
+| Data                               | Baseline                             |
+| ---------------------------------- | ------------------------------------ |
+| Ordinary garden records and photos | Until user/garden deletion           |
+| Raw successful Garden Scan media   | 30 days after successful extraction  |
+| Failed capture recovery media      | Limited operational recovery period  |
+| Export packages                    | Short-lived automatic expiration     |
+| Security audit records             | Policy-defined limited retention     |
+| Operational logs                   | Shortest useful diagnostic retention |
+| Deleted account recovery           | 30 days before purge by default      |
 
 Exact legal and operational periods are recorded in a retention schedule before launch.
 

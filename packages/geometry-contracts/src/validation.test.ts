@@ -3,7 +3,13 @@ import { loadFixture } from '@verdery/test-fixtures';
 import type { ValidationFixture } from '@verdery/test-fixtures';
 
 import type { Geometry, Position } from './geometry.js';
-import { isGeometryValid, lineLength, ringArea, ringSelfIntersects, validateGeometry } from './validation.js';
+import {
+  isGeometryValid,
+  lineLength,
+  ringArea,
+  ringSelfIntersects,
+  validateGeometry,
+} from './validation.js';
 
 const fixture = loadFixture<ValidationFixture>('geometry/validation.json');
 

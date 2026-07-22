@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { loadFixture, resolveNumber } from '@verdery/test-fixtures';
 import type { RoundingFixture } from '@verdery/test-fixtures';
 
-import { CoordinateRangeError, coordinatesEqual, roundCoordinate, roundPosition } from './rounding.js';
+import {
+  CoordinateRangeError,
+  coordinatesEqual,
+  roundCoordinate,
+  roundPosition,
+} from './rounding.js';
 
 const fixture = loadFixture<RoundingFixture>('geometry/rounding.json');
 

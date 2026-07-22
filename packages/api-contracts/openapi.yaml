@@ -1,0 +1,502 @@
+openapi: 3.1.0
+
+info:
+  title: Verdery API
+  version: 1.0.0
+  summary: Garden mapping, care records, and recommendations
+  description: |
+    The external contract shared by the native Apple and web applications.
+
+    This document is the machine-readable source of truth for paths, schemas,
+    error envelopes, pagination, idempotency, and concurrency headers. Generated
+    clients are wrapped by handwritten application gateways and are never edited
+    by hand.
+
+    Conventions:
+
+    - Paths use plural lowercase nouns; JSON fields use `camelCase`.
+    - Identifiers are opaque UUIDv7 strings.
+    - Timestamps are RFC 3339 in UTC.
+    - Measurements are SI with explicit unit metadata where ambiguity exists.
+    - Geometry always travels inside an envelope naming its coordinate space,
+      because GeoJSON alone cannot say whether coordinates are local metres or
+      longitude and latitude.
+
+    Source: architecture/api-design.md.
+  license:
+    name: UNLICENSED
+    identifier: LicenseRef-Proprietary
+
+servers:
+  - url: /v1
+    description: Version 1
+
+tags:
+  - name: Operations
+    description: Service health and readiness, used by infrastructure rather than by end users.
+
+paths:
+  /health/live:
+    get:
+      operationId: getLiveness
+      tags: [Operations]
+      summary: Liveness probe
+      description: |
+        Reports whether the process is running. Never checks dependencies, so a
+        degraded database does not cause the platform to restart a healthy
+        process.
+      security: []
+      responses:
+        '200':
+          description: The process is running.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LivenessResult'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /health/ready:
+    get:
+      operationId: getReadiness
+      tags: [Operations]
+      summary: Readiness probe
+      description: |
+        Reports whether the service can serve traffic, including its required
+        dependencies. Returns `503` when a required dependency is unavailable so
+        that the platform stops routing requests to this instance.
+      security: []
+      responses:
+        '200':
+          description: The service is ready to serve traffic.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResult'
+        '503':
+          description: A required dependency is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResult'
+
+components:
+  securitySchemes:
+    firebaseIdToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Firebase ID token presented by the native client.
+
+        Source: architecture/identity-and-authorization.md, section
+        "4. Native Authentication Flow".
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: __session
+      description: |
+        HTTP-only Firebase session cookie used by the web client. Cookie
+        authenticated mutations additionally require CSRF protection.
+
+        Source: architecture/identity-and-authorization.md, section
+        "5. Web Session Flow".
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: |
+        Client-generated UUIDv7. The same key with a semantically identical
+        request returns the original result. The same key with a different
+        command is rejected with `request.idempotency.key_reused`.
+      schema:
+        $ref: '#/components/schemas/Uuid'
+
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: |
+        Expected revision of the target resource, quoted. A stale value is
+        rejected rather than silently overwriting a newer state.
+      schema:
+        type: string
+        examples: ['"7"']
+
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque continuation token from a previous page. Clients must not parse it.
+      schema:
+        type: string
+        maxLength: 512
+
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Maximum items to return.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+
+  headers:
+    ETag:
+      description: Current revision of the returned resource, quoted.
+      schema:
+        type: string
+    RetryAfter:
+      description: Seconds to wait before retrying.
+      schema:
+        type: integer
+        minimum: 0
+
+  schemas:
+    Uuid:
+      type: string
+      format: uuid
+      description: Opaque UUIDv7 identifier. Time ordering is an index property, not an authoritative creation time.
+      pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+      examples: ['019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0b']
+
+    Timestamp:
+      type: string
+      format: date-time
+      description: RFC 3339 timestamp in UTC.
+      examples: ['2026-07-22T09:15:00Z']
+
+    Revision:
+      type: integer
+      format: int64
+      minimum: 1
+      description: Monotonically increasing server revision within one object's identity.
+
+    ErrorDetail:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code:
+          type: string
+          description: Stable machine-readable detail code.
+        pointer:
+          type: string
+          description: JSON Pointer to the offending member, where the error is structural.
+        parameters:
+          type: object
+          additionalProperties: true
+          description: Values interpolated into the localized message. Never free-form prose.
+
+    Error:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, correlationId, retryable]
+          properties:
+            code:
+              type: string
+              description: |
+                Stable dotted code. Clients localize known errors by this value
+                rather than by displaying `message`.
+              examples: ['garden.geometry.stale_revision']
+            message:
+              type: string
+              description: Safe fallback text in English. Not a localization source.
+            correlationId:
+              type: string
+              description: Identifier for correlating this response with server telemetry.
+            details:
+              type: array
+              items:
+                $ref: '#/components/schemas/ErrorDetail'
+            retryable:
+              type: boolean
+              description: Whether repeating the identical request may succeed later.
+
+    LivenessResult:
+      type: object
+      additionalProperties: false
+      required: [status, version]
+      properties:
+        status:
+          type: string
+          enum: [alive]
+        version:
+          type: string
+          description: Build version of the running artifact.
+
+    DependencyStatus:
+      type: object
+      additionalProperties: false
+      required: [name, status]
+      properties:
+        name:
+          type: string
+          examples: ['database']
+        status:
+          type: string
+          enum: [available, unavailable]
+        detail:
+          type: string
+          description: Non-sensitive summary. Never contains connection strings or credentials.
+
+    ReadinessResult:
+      type: object
+      additionalProperties: false
+      required: [status, version, dependencies]
+      properties:
+        status:
+          type: string
+          enum: [ready, notReady]
+        version:
+          type: string
+        dependencies:
+          type: array
+          items:
+            $ref: '#/components/schemas/DependencyStatus'
+
+    CoordinateSpaceKind:
+      type: string
+      enum: [localPlanarMetres, geographicWgs84]
+      description: |
+        Which space a geometry's coordinates belong to. Local planar coordinates
+        are metres from a garden-specific origin and are never EPSG:4326.
+
+        Source: ADR-0010.
+
+    Position:
+      type: array
+      minItems: 2
+      maxItems: 2
+      items:
+        type: number
+      description: |
+        Coordinate pair. In local planar space this is metres east and metres
+        north of the garden origin, rounded to 1 mm.
+
+    Geometry:
+      oneOf:
+        - $ref: '#/components/schemas/PointGeometry'
+        - $ref: '#/components/schemas/LineStringGeometry'
+        - $ref: '#/components/schemas/PolygonGeometry'
+        - $ref: '#/components/schemas/MultiLineStringGeometry'
+        - $ref: '#/components/schemas/MultiPolygonGeometry'
+      discriminator:
+        propertyName: type
+
+    PointGeometry:
+      type: object
+      additionalProperties: false
+      required: [type, coordinates]
+      properties:
+        type:
+          type: string
+          enum: [Point]
+        coordinates:
+          $ref: '#/components/schemas/Position'
+
+    LineStringGeometry:
+      type: object
+      additionalProperties: false
+      required: [type, coordinates]
+      properties:
+        type:
+          type: string
+          enum: [LineString]
+        coordinates:
+          type: array
+          minItems: 2
+          items:
+            $ref: '#/components/schemas/Position'
+
+    PolygonGeometry:
+      type: object
+      additionalProperties: false
+      required: [type, coordinates]
+      properties:
+        type:
+          type: string
+          enum: [Polygon]
+        coordinates:
+          type: array
+          minItems: 1
+          description: First ring is the exterior ring; any further rings are holes.
+          items:
+            type: array
+            minItems: 4
+            items:
+              $ref: '#/components/schemas/Position'
+
+    MultiLineStringGeometry:
+      type: object
+      additionalProperties: false
+      required: [type, coordinates]
+      properties:
+        type:
+          type: string
+          enum: [MultiLineString]
+        coordinates:
+          type: array
+          minItems: 1
+          items:
+            type: array
+            minItems: 2
+            items:
+              $ref: '#/components/schemas/Position'
+
+    MultiPolygonGeometry:
+      type: object
+      additionalProperties: false
+      required: [type, coordinates]
+      properties:
+        type:
+          type: string
+          enum: [MultiPolygon]
+        coordinates:
+          type: array
+          minItems: 1
+          items:
+            type: array
+            minItems: 1
+            items:
+              type: array
+              minItems: 4
+              items:
+                $ref: '#/components/schemas/Position'
+
+    ProvenanceKind:
+      type: string
+      enum:
+        - manualDrawing
+        - userMeasurement
+        - importedPlan
+        - importedMapImagery
+        - arMeasurement
+        - imageExtraction
+        - depthCapture
+        - externalProvider
+        - processor
+      description: |
+        How a piece of geometry came to exist. Generated results additionally
+        reference processor and model versions elsewhere in the record.
+
+        Source: architecture/data-and-geospatial-design.md, section "12. Provenance".
+
+    CurveMetadata:
+      type: object
+      additionalProperties: false
+      required: [kind, controlPoints, chordDeviationMetres]
+      description: |
+        Advisory. Consumers that ignore this still receive correct geometry from
+        the densified `geometry` member.
+      properties:
+        kind:
+          type: string
+          enum: [cubicBezier]
+        controlPoints:
+          type: array
+          minItems: 4
+          items:
+            $ref: '#/components/schemas/Position'
+        chordDeviationMetres:
+          type: number
+          exclusiveMinimum: 0
+
+    GeometryEnvelope:
+      type: object
+      additionalProperties: false
+      required: [geometry, coordinateSpaceId, coordinateSpaceKind, provenance]
+      description: |
+        The only form in which geometry crosses this API. A bare GeoJSON object
+        is never sufficient, because it cannot state its coordinate space.
+      properties:
+        geometry:
+          $ref: '#/components/schemas/Geometry'
+        coordinateSpaceId:
+          $ref: '#/components/schemas/Uuid'
+        coordinateSpaceKind:
+          $ref: '#/components/schemas/CoordinateSpaceKind'
+        provenance:
+          $ref: '#/components/schemas/ProvenanceKind'
+        curve:
+          $ref: '#/components/schemas/CurveMetadata'
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Absent means "not expressed", not "certain".
+
+  responses:
+    BadRequest:
+      description: The request is malformed or fails validation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Authentication is missing or invalid.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Forbidden:
+      description: Authenticated but not authorized for this resource.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: |
+        Not found, or existence intentionally concealed because the actor is not
+        authorized to learn that the resource exists.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Conflict:
+      description: A domain or synchronization conflict prevented the command.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    PreconditionFailed:
+      description: The supplied revision precondition did not match the current revision.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    TooManyRequests:
+      description: A quota or rate limit was exceeded.
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    InternalError:
+      description: Unexpected internal failure.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+security:
+  - firebaseIdToken: []
+  - sessionCookie: []

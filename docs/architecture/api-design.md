@@ -161,23 +161,23 @@ Validation details identify JSON path or domain object without leaking unauthori
 
 ## 13. Status Codes
 
-| Code | Use |
-|---|---|
-| 200 | Successful query or command with response body |
-| 201 | Resource created |
-| 202 | Asynchronous work accepted |
-| 204 | Successful command without response body |
-| 400 | Malformed or invalid request |
-| 401 | Missing or invalid authentication |
-| 403 | Authenticated but not authorized |
-| 404 | Not found or intentionally concealed existence |
-| 409 | Domain or synchronization conflict |
-| 412 | Failed explicit revision precondition |
-| 413 | Request or declared upload too large |
-| 422 | Structurally valid request that violates a domain rule where useful |
-| 429 | Quota or rate limit exceeded |
-| 500 | Unexpected internal failure |
-| 503 | Temporary required dependency unavailable |
+| Code | Use                                                                 |
+| ---- | ------------------------------------------------------------------- |
+| 200  | Successful query or command with response body                      |
+| 201  | Resource created                                                    |
+| 202  | Asynchronous work accepted                                          |
+| 204  | Successful command without response body                            |
+| 400  | Malformed or invalid request                                        |
+| 401  | Missing or invalid authentication                                   |
+| 403  | Authenticated but not authorized                                    |
+| 404  | Not found or intentionally concealed existence                      |
+| 409  | Domain or synchronization conflict                                  |
+| 412  | Failed explicit revision precondition                               |
+| 413  | Request or declared upload too large                                |
+| 422  | Structurally valid request that violates a domain rule where useful |
+| 429  | Quota or rate limit exceeded                                        |
+| 500  | Unexpected internal failure                                         |
+| 503  | Temporary required dependency unavailable                           |
 
 ## 14. Pagination
 

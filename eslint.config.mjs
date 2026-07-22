@@ -65,11 +65,22 @@ export default tseslint.config(
     },
   },
 
+  // Build scripts and tool configuration files sit outside the TypeScript
+  // projects on purpose: they are executed by Node directly and are not part of
+  // any package's compiled output. Type-aware rules therefore cannot apply.
   {
-    files: ['scripts/**/*.mjs', '*.mjs'],
+    files: ['**/*.mjs', '**/*.cjs', '**/*.config.ts', '**/*.config.mts'],
     ...tseslint.configs.disableTypeChecked,
     languageOptions: {
-      globals: { process: 'readonly', console: 'readonly' },
+      parserOptions: { projectService: false, project: false },
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        URL: 'readonly',
+        Buffer: 'readonly',
+        __dirname: 'readonly',
+        __filename: 'readonly',
+      },
     },
   },
 

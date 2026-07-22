@@ -61,14 +61,14 @@ many PostGIS functions do not accept it, and both renderers would densify it any
 
 ### Geometry tolerances
 
-| Tolerance | Value | Purpose |
-|---|---|---|
-| Vertex coalescing epsilon | 0.001 m | Matches storage precision; two vertices closer than this are the same vertex |
-| Minimum polygon area | 0.01 m² | Rejects degenerate polygons from accidental taps; smaller than a plant pot |
-| Minimum line length | 0.05 m | Rejects zero-length fence and path segments |
-| Maximum coordinate magnitude | 10 000 m from origin | Bounds coordinates per the data design's "bounded coordinate magnitude" constraint |
-| Snap tolerance | 12 screen pixels | Converted to local meters at the active zoom, per the map design's screen-space rule |
-| Maximum chord deviation | 0.010 m | Curve densification limit |
+| Tolerance                    | Value                | Purpose                                                                              |
+| ---------------------------- | -------------------- | ------------------------------------------------------------------------------------ |
+| Vertex coalescing epsilon    | 0.001 m              | Matches storage precision; two vertices closer than this are the same vertex         |
+| Minimum polygon area         | 0.01 m²              | Rejects degenerate polygons from accidental taps; smaller than a plant pot           |
+| Minimum line length          | 0.05 m               | Rejects zero-length fence and path segments                                          |
+| Maximum coordinate magnitude | 10 000 m from origin | Bounds coordinates per the data design's "bounded coordinate magnitude" constraint   |
+| Snap tolerance               | 12 screen pixels     | Converted to local meters at the active zoom, per the map design's screen-space rule |
+| Maximum chord deviation      | 0.010 m              | Curve densification limit                                                            |
 
 ## Consequences
 

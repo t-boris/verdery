@@ -20,17 +20,17 @@ Use PostgreSQL schemas or naming conventions to make module ownership explicit. 
 
 Initial logical ownership is:
 
-| Module | Data |
-|---|---|
-| Identity and Access | Profiles, identity links, account state |
-| Collaboration | Gardens' membership, invitations, roles |
-| Gardens and Mapping | Gardens, coordinate spaces, map objects, geometry revisions, calibration |
-| Plants and Inventory | Plant instances, placements, garden-specific plant facts |
-| Observations and History | Observations, measurements, history events |
-| Tasks and Recommendations | Tasks, recommendations, evidence, outcomes |
-| Media | Media records, variants, upload and retention state |
-| Capture and Import | Capture sessions, imports, proposals, processor results |
-| Platform | Idempotency records, outbox, sync changes, operational metadata |
+| Module                    | Data                                                                     |
+| ------------------------- | ------------------------------------------------------------------------ |
+| Identity and Access       | Profiles, identity links, account state                                  |
+| Collaboration             | Gardens' membership, invitations, roles                                  |
+| Gardens and Mapping       | Gardens, coordinate spaces, map objects, geometry revisions, calibration |
+| Plants and Inventory      | Plant instances, placements, garden-specific plant facts                 |
+| Observations and History  | Observations, measurements, history events                               |
+| Tasks and Recommendations | Tasks, recommendations, evidence, outcomes                               |
+| Media                     | Media records, variants, upload and retention state                      |
+| Capture and Import        | Capture sessions, imports, proposals, processor results                  |
+| Platform                  | Idempotency records, outbox, sync changes, operational metadata          |
 
 ## 4. Identifier Strategy
 

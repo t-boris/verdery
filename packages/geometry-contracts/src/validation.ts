@@ -34,7 +34,9 @@ export interface ValidationIssue {
 }
 
 function error(code: string, parameters?: Record<string, number | string>): ValidationIssue {
-  return parameters === undefined ? { code, severity: 'error' } : { code, severity: 'error', parameters };
+  return parameters === undefined
+    ? { code, severity: 'error' }
+    : { code, severity: 'error', parameters };
 }
 
 /** Distance between two positions in metres. */
@@ -170,7 +172,10 @@ function validateRing(ring: readonly Position[]): ValidationIssue[] {
 
   if (ring.length < MINIMUM_RING_VERTEX_COUNT) {
     issues.push(
-      error('geometry.polygon.too_few_vertices', { minimum: MINIMUM_RING_VERTEX_COUNT, actual: ring.length }),
+      error('geometry.polygon.too_few_vertices', {
+        minimum: MINIMUM_RING_VERTEX_COUNT,
+        actual: ring.length,
+      }),
     );
     return issues;
   }
@@ -204,13 +209,18 @@ function validateLine(line: readonly Position[]): ValidationIssue[] {
 
   if (line.length < MINIMUM_LINE_VERTEX_COUNT) {
     issues.push(
-      error('geometry.line.too_few_vertices', { minimum: MINIMUM_LINE_VERTEX_COUNT, actual: line.length }),
+      error('geometry.line.too_few_vertices', {
+        minimum: MINIMUM_LINE_VERTEX_COUNT,
+        actual: line.length,
+      }),
     );
     return issues;
   }
 
   if (lineLength(line) < MINIMUM_LINE_LENGTH_METRES) {
-    issues.push(error('geometry.line.below_minimum_length', { minimumMetres: MINIMUM_LINE_LENGTH_METRES }));
+    issues.push(
+      error('geometry.line.below_minimum_length', { minimumMetres: MINIMUM_LINE_LENGTH_METRES }),
+    );
   }
 
   return issues;

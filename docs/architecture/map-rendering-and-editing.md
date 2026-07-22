@@ -70,14 +70,14 @@ Objects use typed domain records rather than arbitrary styling dictionaries. Pre
 
 ## 5. Geometry Types
 
-| Domain object | Primary geometry |
-|---|---|
-| Lot, structure, deck, zone, bed | Polygon or multipolygon where approved |
+| Domain object                   | Primary geometry                             |
+| ------------------------------- | -------------------------------------------- |
+| Lot, structure, deck, zone, bed | Polygon or multipolygon where approved       |
 | Fence, path centerline, utility | LineString or MultiLineString where approved |
-| Gate | Positioned segment associated with a fence |
-| Tree trunk, point plant, marker | Point |
-| Tree canopy, grouped planting | Polygon or circle-derived polygon |
-| Imported background | Calibrated raster transform |
+| Gate                            | Positioned segment associated with a fence   |
+| Tree trunk, point plant, marker | Point                                        |
+| Tree canopy, grouped planting   | Polygon or circle-derived polygon            |
+| Imported background             | Calibrated raster transform                  |
 
 Curves are edited through application control points and persisted through an approved canonical approximation or curve metadata. The API cannot expose renderer-specific path objects.
 

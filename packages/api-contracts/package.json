@@ -1,0 +1,36 @@
+{
+  "name": "@verdery/api-contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "OpenAPI contract for the Verdery REST API and the clients generated from it",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./openapi.yaml": "./openapi.yaml"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "openapi.yaml"
+  ],
+  "scripts": {
+    "lint:contract": "redocly lint openapi.yaml",
+    "generate": "openapi-typescript openapi.yaml --output src/generated/schema.ts",
+    "generate:check": "node scripts/check-generated-is-current.mjs",
+    "build": "pnpm generate && tsc --build tsconfig.build.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@redocly/cli": "^2.40.0",
+    "@types/node": "^26.1.1",
+    "openapi-typescript": "^7.13.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10",
+    "yaml": "^2.9.0"
+  }
+}

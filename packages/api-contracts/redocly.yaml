@@ -1,0 +1,26 @@
+extends:
+  - recommended
+
+rules:
+  operation-operationId: error
+  operation-summary: error
+  operation-description: warn
+  security-defined: error
+  no-unresolved-refs: error
+  spec-components-invalid-map-name: error
+  tag-description: error
+  info-license: error
+
+  # Phase 1 establishes the shared conventions — error envelope, pagination,
+  # idempotency and revision headers, geometry envelope — before the operations
+  # that consume them exist. Those components are therefore unused by design
+  # until Phase 2 adds garden endpoints.
+  #
+  # Source: implementation-plan.md, work package P1-CONTRACT-01.
+  no-unused-components: off
+
+  # Every 4xx an operation can return is described once in `components.responses`
+  # and referenced from the operations that can produce it. Requiring each
+  # operation to enumerate all of them inline would duplicate the envelope on
+  # every path without adding information.
+  operation-4xx-response: off

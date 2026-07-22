@@ -73,15 +73,15 @@ Feature folders own their route-level orchestration, queries, commands, forms, p
 
 ## 6. State Ownership
 
-| State | Owner |
-|---|---|
-| Server data and request status | TanStack Query |
-| Map selection, tools, gesture preview, undo stack | Dedicated Zustand editor store |
-| Form input and validation | React Hook Form and Zod |
-| Authentication session | Server-issued Firebase session cookie |
-| Route state | Next.js router and URL |
-| Recoverable drafts | IndexedDB or local storage adapter with explicit schema |
-| Upload progress | Media feature store backed by server upload records |
+| State                                             | Owner                                                   |
+| ------------------------------------------------- | ------------------------------------------------------- |
+| Server data and request status                    | TanStack Query                                          |
+| Map selection, tools, gesture preview, undo stack | Dedicated Zustand editor store                          |
+| Form input and validation                         | React Hook Form and Zod                                 |
+| Authentication session                            | Server-issued Firebase session cookie                   |
+| Route state                                       | Next.js router and URL                                  |
+| Recoverable drafts                                | IndexedDB or local storage adapter with explicit schema |
+| Upload progress                                   | Media feature store backed by server upload records     |
 
 Server records must not be copied into a global client store without a demonstrated editor requirement. The editor store references record identifiers and keeps only intentional working state.
 

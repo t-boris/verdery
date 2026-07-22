@@ -26,30 +26,30 @@ The architecture is based on the following approved product-level choices:
 
 ## 2. Document Map
 
-| Area | Detailed design |
-|---|---|
-| Native Apple client | [ios-application-design.md](ios-application-design.md) |
-| Web client | [web-application-design.md](web-application-design.md) |
-| Garden map rendering and editing | [map-rendering-and-editing.md](map-rendering-and-editing.md) |
-| Backend modular monolith | [backend-modular-monolith.md](backend-modular-monolith.md) |
-| REST API and contracts | [api-design.md](api-design.md) |
-| PostgreSQL and geospatial model | [data-and-geospatial-design.md](data-and-geospatial-design.md) |
-| Offline synchronization | [offline-synchronization.md](offline-synchronization.md) |
-| Identity and authorization | [identity-and-authorization.md](identity-and-authorization.md) |
-| Media storage and processing | [media-storage-and-processing.md](media-storage-and-processing.md) |
-| Garden capture and scan | [garden-capture-and-scan.md](garden-capture-and-scan.md) |
-| Queues, events, jobs, and workflows | [asynchronous-processing.md](asynchronous-processing.md) |
-| Recommendations and AI | [recommendations-and-ai.md](recommendations-and-ai.md) |
-| Third-party providers | [external-integrations.md](external-integrations.md) |
-| Push and in-app notifications | [notifications.md](notifications.md) |
-| Security and privacy | [security-and-privacy.md](security-and-privacy.md) |
-| Cloud networking | [networking.md](networking.md) |
-| Technical and product telemetry | [observability-and-analytics.md](observability-and-analytics.md) |
-| Environments, infrastructure, and delivery | [environments-and-delivery.md](environments-and-delivery.md) |
-| Availability, backup, and recovery | [reliability-and-disaster-recovery.md](reliability-and-disaster-recovery.md) |
-| Automated quality strategy | [testing-strategy.md](testing-strategy.md) |
-| Cost controls and scaling | [cost-and-scaling.md](cost-and-scaling.md) |
-| Data export, ownership, and deletion | [data-export-and-deletion.md](data-export-and-deletion.md) |
+| Area                                       | Detailed design                                                              |
+| ------------------------------------------ | ---------------------------------------------------------------------------- |
+| Native Apple client                        | [ios-application-design.md](ios-application-design.md)                       |
+| Web client                                 | [web-application-design.md](web-application-design.md)                       |
+| Garden map rendering and editing           | [map-rendering-and-editing.md](map-rendering-and-editing.md)                 |
+| Backend modular monolith                   | [backend-modular-monolith.md](backend-modular-monolith.md)                   |
+| REST API and contracts                     | [api-design.md](api-design.md)                                               |
+| PostgreSQL and geospatial model            | [data-and-geospatial-design.md](data-and-geospatial-design.md)               |
+| Offline synchronization                    | [offline-synchronization.md](offline-synchronization.md)                     |
+| Identity and authorization                 | [identity-and-authorization.md](identity-and-authorization.md)               |
+| Media storage and processing               | [media-storage-and-processing.md](media-storage-and-processing.md)           |
+| Garden capture and scan                    | [garden-capture-and-scan.md](garden-capture-and-scan.md)                     |
+| Queues, events, jobs, and workflows        | [asynchronous-processing.md](asynchronous-processing.md)                     |
+| Recommendations and AI                     | [recommendations-and-ai.md](recommendations-and-ai.md)                       |
+| Third-party providers                      | [external-integrations.md](external-integrations.md)                         |
+| Push and in-app notifications              | [notifications.md](notifications.md)                                         |
+| Security and privacy                       | [security-and-privacy.md](security-and-privacy.md)                           |
+| Cloud networking                           | [networking.md](networking.md)                                               |
+| Technical and product telemetry            | [observability-and-analytics.md](observability-and-analytics.md)             |
+| Environments, infrastructure, and delivery | [environments-and-delivery.md](environments-and-delivery.md)                 |
+| Availability, backup, and recovery         | [reliability-and-disaster-recovery.md](reliability-and-disaster-recovery.md) |
+| Automated quality strategy                 | [testing-strategy.md](testing-strategy.md)                                   |
+| Cost controls and scaling                  | [cost-and-scaling.md](cost-and-scaling.md)                                   |
+| Data export, ownership, and deletion       | [data-export-and-deletion.md](data-export-and-deletion.md)                   |
 
 ## 3. Decision Records
 
@@ -57,53 +57,53 @@ Material decisions and their rationale are recorded under [decisions/](decisions
 
 ## 4. Approved Technology Profile
 
-| Concern | Approved choice |
-|---|---|
-| Repository | Monorepo |
-| iOS architecture | Feature-based MVVM with application use cases |
-| iOS persistence | GRDB over SQLite |
-| iOS dependencies | Swift Package Manager |
-| iOS rendering | SwiftUI Canvas/Core Graphics with MapKit context |
-| Web framework | Next.js on an active Firebase App Hosting-supported release |
-| Web server state | TanStack Query |
-| Web editor state | Zustand |
-| Web forms | React Hook Form and Zod |
-| Web garden renderer | Konva Canvas scene graph |
-| Web geographic context | MapLibre with a replaceable tile provider |
-| Backend runtime | TypeScript on Node.js |
-| Backend HTTP framework | Fastify |
-| Scan runtime | Python workers where required |
-| External API | REST and OpenAPI |
-| Database access | Kysely with reviewed SQL migrations and explicit PostGIS SQL |
-| Identifiers | Client-generated UUIDv7 |
-| Geometry API | GeoJSON with application metadata |
-| Geometry storage | PostGIS geometry in a local planar garden space with optional WGS84 georeferencing |
-| Geometry concurrency | Object-level optimistic concurrency |
-| History | Mutable current state plus immutable revision journal |
-| Offline sync | Application-owned outbox and versioned synchronization API |
-| Authentication | Firebase Authentication |
-| Initial login methods | Sign in with Apple, Google Sign-In, and email magic link |
-| Web authentication | Firebase HTTP-only session cookie |
-| Collaboration roles | Owner, editor, and viewer |
-| Media transfer | Backend-authorized resumable Cloud Storage upload |
-| Application commands | Cloud Tasks |
-| Fan-out events | Pub/Sub |
-| Batch execution | Cloud Run Jobs |
-| Long orchestration | Google Cloud Workflows when justified |
-| Reliable publication | PostgreSQL transactional outbox |
-| AI provider | Vertex AI through an application-owned adapter |
-| Search | PostgreSQL full-text and trigram indexes initially |
-| Push transport | Firebase Cloud Messaging |
-| Infrastructure as code | Terraform |
-| CI/CD | GitHub Actions with Google workload identity federation |
-| Environments | Separate development, staging, and production Firebase/GCP projects |
-| Production database network | Private IP through Direct VPC egress |
-| Production ingress | Global HTTPS Load Balancer and Cloud Armor |
-| Primary region | `us-central1` |
-| Production database availability | Cloud SQL regional high availability |
-| Technical telemetry | OpenTelemetry and Google Cloud operations products |
-| Native crash reporting | Firebase Crashlytics |
-| Product analytics | Application-owned event schema delivered to Firebase Analytics/GA4 with consent |
+| Concern                          | Approved choice                                                                    |
+| -------------------------------- | ---------------------------------------------------------------------------------- |
+| Repository                       | Monorepo                                                                           |
+| iOS architecture                 | Feature-based MVVM with application use cases                                      |
+| iOS persistence                  | GRDB over SQLite                                                                   |
+| iOS dependencies                 | Swift Package Manager                                                              |
+| iOS rendering                    | SwiftUI Canvas/Core Graphics with MapKit context                                   |
+| Web framework                    | Next.js on an active Firebase App Hosting-supported release                        |
+| Web server state                 | TanStack Query                                                                     |
+| Web editor state                 | Zustand                                                                            |
+| Web forms                        | React Hook Form and Zod                                                            |
+| Web garden renderer              | Konva Canvas scene graph                                                           |
+| Web geographic context           | MapLibre with a replaceable tile provider                                          |
+| Backend runtime                  | TypeScript on Node.js                                                              |
+| Backend HTTP framework           | Fastify                                                                            |
+| Scan runtime                     | Python workers where required                                                      |
+| External API                     | REST and OpenAPI                                                                   |
+| Database access                  | Kysely with reviewed SQL migrations and explicit PostGIS SQL                       |
+| Identifiers                      | Client-generated UUIDv7                                                            |
+| Geometry API                     | GeoJSON with application metadata                                                  |
+| Geometry storage                 | PostGIS geometry in a local planar garden space with optional WGS84 georeferencing |
+| Geometry concurrency             | Object-level optimistic concurrency                                                |
+| History                          | Mutable current state plus immutable revision journal                              |
+| Offline sync                     | Application-owned outbox and versioned synchronization API                         |
+| Authentication                   | Firebase Authentication                                                            |
+| Initial login methods            | Sign in with Apple, Google Sign-In, and email magic link                           |
+| Web authentication               | Firebase HTTP-only session cookie                                                  |
+| Collaboration roles              | Owner, editor, and viewer                                                          |
+| Media transfer                   | Backend-authorized resumable Cloud Storage upload                                  |
+| Application commands             | Cloud Tasks                                                                        |
+| Fan-out events                   | Pub/Sub                                                                            |
+| Batch execution                  | Cloud Run Jobs                                                                     |
+| Long orchestration               | Google Cloud Workflows when justified                                              |
+| Reliable publication             | PostgreSQL transactional outbox                                                    |
+| AI provider                      | Vertex AI through an application-owned adapter                                     |
+| Search                           | PostgreSQL full-text and trigram indexes initially                                 |
+| Push transport                   | Firebase Cloud Messaging                                                           |
+| Infrastructure as code           | Terraform                                                                          |
+| CI/CD                            | GitHub Actions with Google workload identity federation                            |
+| Environments                     | Separate development, staging, and production Firebase/GCP projects                |
+| Production database network      | Private IP through Direct VPC egress                                               |
+| Production ingress               | Global HTTPS Load Balancer and Cloud Armor                                         |
+| Primary region                   | `us-central1`                                                                      |
+| Production database availability | Cloud SQL regional high availability                                               |
+| Technical telemetry              | OpenTelemetry and Google Cloud operations products                                 |
+| Native crash reporting           | Firebase Crashlytics                                                               |
+| Product analytics                | Application-owned event schema delivered to Firebase Analytics/GA4 with consent    |
 
 ## 5. Repository Shape
 

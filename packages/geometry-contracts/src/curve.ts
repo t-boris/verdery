@@ -101,7 +101,10 @@ function subdivideCubic(
   depth: number,
   output: Position[],
 ): void {
-  if (depth >= MAXIMUM_SUBDIVISION_DEPTH || chordDeviationBound(p0, p1, p2, p3) <= toleranceMetres) {
+  if (
+    depth >= MAXIMUM_SUBDIVISION_DEPTH ||
+    chordDeviationBound(p0, p1, p2, p3) <= toleranceMetres
+  ) {
     output.push(p3);
     return;
   }

@@ -39,28 +39,28 @@ The architecture does not yet define:
 
 ## 3. Approved Architecture Decisions
 
-| Area | Approved decision |
-|---|---|
-| Apple client | Native Swift and SwiftUI application |
-| Native persistence | GRDB over SQLite with a durable outbox |
-| Web client | Separate TypeScript, React, and Next.js application |
-| Backend style | TypeScript and Fastify modular monolith with independently deployed Python or TypeScript workers |
-| Cloud ecosystem | Firebase and Google Cloud |
-| Transactional source of truth | Cloud SQL for PostgreSQL with PostGIS |
-| Media storage | Google Cloud Storage |
-| Mobile platform services | Firebase Authentication, App Check, Cloud Messaging, and Crashlytics |
-| Web delivery | Firebase App Hosting on an active supported Next.js release |
-| External API | Versioned REST described by OpenAPI |
-| Database access | Kysely, reviewed SQL migrations, and explicit PostGIS SQL |
-| Mobile connectivity model | Application-owned offline synchronization with GRDB/SQLite, an outbox, server revisions, and domain-specific conflicts |
-| Web connectivity model | Online-first, with recoverable local drafts where appropriate |
-| Geometry model | Local planar meters with optional WGS84 georeferencing and GeoJSON interchange |
-| Processing model | Hybrid on-device and cloud processing |
-| AI provider | Vertex AI through an application-owned adapter |
-| Primary market and region | United States and `us-central1` |
-| Production networking | Global HTTPS Load Balancer, Cloud Armor, Direct VPC egress, and private Cloud SQL IP |
-| Delivery tooling | Terraform and GitHub Actions with workload identity federation |
-| Architecture portability | Containerized backend, standard PostgreSQL, explicit provider adapters, and limited provider leakage into domain code |
+| Area                          | Approved decision                                                                                                      |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Apple client                  | Native Swift and SwiftUI application                                                                                   |
+| Native persistence            | GRDB over SQLite with a durable outbox                                                                                 |
+| Web client                    | Separate TypeScript, React, and Next.js application                                                                    |
+| Backend style                 | TypeScript and Fastify modular monolith with independently deployed Python or TypeScript workers                       |
+| Cloud ecosystem               | Firebase and Google Cloud                                                                                              |
+| Transactional source of truth | Cloud SQL for PostgreSQL with PostGIS                                                                                  |
+| Media storage                 | Google Cloud Storage                                                                                                   |
+| Mobile platform services      | Firebase Authentication, App Check, Cloud Messaging, and Crashlytics                                                   |
+| Web delivery                  | Firebase App Hosting on an active supported Next.js release                                                            |
+| External API                  | Versioned REST described by OpenAPI                                                                                    |
+| Database access               | Kysely, reviewed SQL migrations, and explicit PostGIS SQL                                                              |
+| Mobile connectivity model     | Application-owned offline synchronization with GRDB/SQLite, an outbox, server revisions, and domain-specific conflicts |
+| Web connectivity model        | Online-first, with recoverable local drafts where appropriate                                                          |
+| Geometry model                | Local planar meters with optional WGS84 georeferencing and GeoJSON interchange                                         |
+| Processing model              | Hybrid on-device and cloud processing                                                                                  |
+| AI provider                   | Vertex AI through an application-owned adapter                                                                         |
+| Primary market and region     | United States and `us-central1`                                                                                        |
+| Production networking         | Global HTTPS Load Balancer, Cloud Armor, Direct VPC egress, and private Cloud SQL IP                                   |
+| Delivery tooling              | Terraform and GitHub Actions with workload identity federation                                                         |
+| Architecture portability      | Containerized backend, standard PostgreSQL, explicit provider adapters, and limited provider leakage into domain code  |
 
 ## 4. Architectural Principles
 

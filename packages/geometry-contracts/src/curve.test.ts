@@ -38,7 +38,10 @@ function distanceToSegment(point: Position, from: Position, to: Position): numbe
 }
 
 /** Greatest distance from the true curve to the produced polyline. */
-function measureDeviation(controlPoints: readonly Position[], polyline: readonly Position[]): number {
+function measureDeviation(
+  controlPoints: readonly Position[],
+  polyline: readonly Position[],
+): number {
   let worst = 0;
 
   for (let segment = 0; segment < segmentCount(controlPoints); segment += 1) {

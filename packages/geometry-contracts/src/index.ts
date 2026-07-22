@@ -21,7 +21,12 @@ export {
   VERTEX_EPSILON_METRES,
 } from './tolerances.js';
 
-export { CoordinateRangeError, coordinatesEqual, roundCoordinate, roundPosition } from './rounding.js';
+export {
+  CoordinateRangeError,
+  coordinatesEqual,
+  roundCoordinate,
+  roundPosition,
+} from './rounding.js';
 
 export {
   GEOGRAPHIC_SRID,
@@ -29,7 +34,11 @@ export {
   isLocalPlanarSrid,
   sridForKind,
 } from './coordinate-space.js';
-export type { AxisConvention, CoordinateSpaceKind, LocalCoordinateSpace } from './coordinate-space.js';
+export type {
+  AxisConvention,
+  CoordinateSpaceKind,
+  LocalCoordinateSpace,
+} from './coordinate-space.js';
 
 export { positionsOf, roundGeometry } from './geometry.js';
 export type {

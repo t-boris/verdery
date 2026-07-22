@@ -10,14 +10,14 @@ This document defines reliable asynchronous commands, events, batch jobs, orches
 
 ## 2. Primitive Selection
 
-| Requirement | Service |
-|---|---|
-| Execute one known HTTP handler with scheduling and rate control | Cloud Tasks |
-| Broadcast a fact to independent subscribers | Pub/Sub |
-| Run finite containerized compute | Cloud Run Jobs |
-| Coordinate long visible multi-service steps | Google Cloud Workflows |
-| Schedule periodic initiation | Cloud Scheduler |
-| Commit domain state and future publication atomically | PostgreSQL transactional outbox |
+| Requirement                                                     | Service                         |
+| --------------------------------------------------------------- | ------------------------------- |
+| Execute one known HTTP handler with scheduling and rate control | Cloud Tasks                     |
+| Broadcast a fact to independent subscribers                     | Pub/Sub                         |
+| Run finite containerized compute                                | Cloud Run Jobs                  |
+| Coordinate long visible multi-service steps                     | Google Cloud Workflows          |
+| Schedule periodic initiation                                    | Cloud Scheduler                 |
+| Commit domain state and future publication atomically           | PostgreSQL transactional outbox |
 
 These services are complementary and must not be substituted without preserving the required semantics.
 

@@ -25,16 +25,16 @@ the iOS 26 SDK. The available local PostgreSQL client is 17.4.
 Pin the following baseline. Every version is enforced in repository configuration rather than
 documented as a convention only.
 
-| Component | Version | Enforcement |
-|---|---|---|
-| Node.js | 24 (active LTS) | `.nvmrc`, `engines` field, CI matrix |
-| Package manager | pnpm 10 workspaces | `packageManager` field |
-| TypeScript | 5.9.x | root `tsconfig` and dependency lock |
-| PostgreSQL | 17 | migration test container, Cloud SQL instance configuration |
-| PostGIS | 3.5 | migration `CREATE EXTENSION` and version assertion |
-| Apple deployment target | iOS 18.0 and iPadOS 18.0 | Swift package platform declaration |
-| Apple SDK and language | iOS 26 SDK, Swift 6.3 | Xcode project and CI toolchain |
-| Browser baseline | last 2 Chrome, Edge, Firefox; Safari 17+ | `browserslist` |
+| Component               | Version                                  | Enforcement                                                |
+| ----------------------- | ---------------------------------------- | ---------------------------------------------------------- |
+| Node.js                 | 24 (active LTS)                          | `.nvmrc`, `engines` field, CI matrix                       |
+| Package manager         | pnpm 10 workspaces                       | `packageManager` field                                     |
+| TypeScript              | 5.9.x                                    | root `tsconfig` and dependency lock                        |
+| PostgreSQL              | 17                                       | migration test container, Cloud SQL instance configuration |
+| PostGIS                 | 3.5                                      | migration `CREATE EXTENSION` and version assertion         |
+| Apple deployment target | iOS 18.0 and iPadOS 18.0                 | Swift package platform declaration                         |
+| Apple SDK and language  | iOS 26 SDK, Swift 6.3                    | Xcode project and CI toolchain                             |
+| Browser baseline        | last 2 Chrome, Edge, Firefox; Safari 17+ | `browserslist`                                             |
 
 The Apple target follows the documented "current major and supported predecessor" policy: iOS 26 is
 the current major and iOS 18 is its supported predecessor.
