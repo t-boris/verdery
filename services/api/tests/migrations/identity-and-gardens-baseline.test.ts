@@ -195,16 +195,18 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const key = randomUUID();
     await client.query(
       `INSERT INTO platform.idempotency_record
-         (actor_profile_id, operation, idempotency_key, request_fingerprint, expires_at)
-       VALUES ($1, 'gardens.create', $2, 'fingerprint-a', now() + interval '1 hour')`,
+         (actor_profile_id, operation, idempotency_key, request_fingerprint,
+          response_status_code, response_body, expires_at)
+       VALUES ($1, 'gardens.create', $2, 'fingerprint-a', 201, '{}', now() + interval '1 hour')`,
       [profileId, key],
     );
 
     await expect(
       client.query(
         `INSERT INTO platform.idempotency_record
-           (actor_profile_id, operation, idempotency_key, request_fingerprint, expires_at)
-         VALUES ($1, 'gardens.create', $2, 'fingerprint-b', now() + interval '1 hour')`,
+           (actor_profile_id, operation, idempotency_key, request_fingerprint,
+            response_status_code, response_body, expires_at)
+         VALUES ($1, 'gardens.create', $2, 'fingerprint-b', 201, '{}', now() + interval '1 hour')`,
         [profileId, key],
       ),
     ).rejects.toThrow(/idempotency_record_pkey/);

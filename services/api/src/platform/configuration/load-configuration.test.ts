@@ -4,6 +4,7 @@ import { ConfigurationError, loadConfiguration } from './load-configuration.js';
 const VALID_ENVIRONMENT = {
   VERDERY_ENVIRONMENT: 'development',
   DATABASE_URL: 'postgresql://verdery:secret-value@localhost:5432/verdery',
+  FIREBASE_PROJECT_ID: 'verdery-dev',
 } as const;
 
 describe('loadConfiguration', () => {
@@ -80,6 +81,7 @@ describe('loadConfiguration', () => {
       DATABASE_INSTANCE_CONNECTION_NAME: 'verdery-dev:us-central1:verdery-dev-pg',
       DATABASE_IAM_USER: 'verdery-dev-api-runtime@verdery-dev.iam',
       DATABASE_NAME: 'verdery',
+      FIREBASE_PROJECT_ID: 'verdery-dev',
     });
 
     expect(configuration.database).toEqual(

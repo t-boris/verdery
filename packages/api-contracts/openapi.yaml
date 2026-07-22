@@ -36,6 +36,8 @@ tags:
     description: Service health and readiness, used by infrastructure rather than by end users.
   - name: Gardens
     description: Garden lifecycle — list, create, view, rename, archive, and request deletion.
+  - name: Authentication
+    description: Web session exchange for the browser client. Native clients use a Firebase ID token directly and never call these.
 
 paths:
   /health/live:
@@ -81,6 +83,56 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReadinessResult'
+
+  /auth/session:
+    post:
+      operationId: createSession
+      tags: [Authentication]
+      summary: Exchange a Firebase ID token for a web session
+      description: |
+        The browser signs in with a Firebase provider client-side, then
+        submits the resulting ID token here. The server verifies it and
+        responds with a `Secure`, `HttpOnly` session cookie plus a
+        readable CSRF cookie; the ID token itself never becomes a
+        persistent browser credential.
+
+        Source: architecture/identity-and-authorization.md, section
+        "5. Web Session Flow".
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionLoginRequest'
+      responses:
+        '204':
+          description: Session established. Cookies are set on the response.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    delete:
+      operationId: endSession
+      tags: [Authentication]
+      summary: Log out
+      description: |
+        Clears the session and CSRF cookies and revokes the underlying
+        Firebase refresh tokens. Idempotent: succeeds even when no valid
+        session cookie is present, so a client can always clear a broken
+        session state.
+
+        Source: architecture/identity-and-authorization.md, section
+        "5. Web Session Flow", step 6.
+      security: []
+      responses:
+        '204':
+          description: Session cleared.
+        '403':
+          $ref: '#/components/responses/Forbidden'
 
   /gardens:
     get:
@@ -457,6 +509,15 @@ components:
           type: string
           minLength: 1
           maxLength: 120
+
+    SessionLoginRequest:
+      type: object
+      additionalProperties: false
+      required: [idToken]
+      properties:
+        idToken:
+          type: string
+          description: Freshly obtained Firebase ID token, verified server-side before any cookie is issued.
 
     ErrorDetail:
       type: object

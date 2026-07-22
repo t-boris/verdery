@@ -32,6 +32,7 @@ export type GardenLifecycleState = Schemas['GardenLifecycleState'];
 export type GardenListResult = Schemas['GardenListResult'];
 export type CreateGardenRequest = Schemas['CreateGardenRequest'];
 export type RenameGardenRequest = Schemas['RenameGardenRequest'];
+export type SessionLoginRequest = Schemas['SessionLoginRequest'];
 
 /** The API base path. Breaking changes require a new major path. */
 export const API_BASE_PATH = '/v1';

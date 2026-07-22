@@ -174,6 +174,18 @@ CREATE INDEX invitation_inviter_profile_id_idx ON collaboration.invitation (invi
 -- accepted result. Reusing a key with a different request_fingerprint is an
 -- application-level conflict, not something this table enforces itself.
 --
+-- Written exactly once, already carrying its final response, in the same
+-- transaction as the command's own domain writes, right before that
+-- transaction commits — never as a separate "processing" row created before
+-- the result is known. A speculative "processing" row would need to be read
+-- back inside the same transaction on conflict, which cannot work: Postgres
+-- aborts an entire transaction on the first statement error, so a caught
+-- unique-violation still leaves every later statement in that same
+-- transaction failing with "current transaction is aborted." The command
+-- handler instead lets a conflicting insert abort and roll back the whole
+-- transaction, then re-reads the now-committed row in a fresh one to decide
+-- replay versus a genuine key-reused conflict.
+--
 -- Source: architecture/backend-modular-monolith.md, section "15. Idempotency";
 --         architecture/data-and-geospatial-design.md, section
 --         "17. Idempotency Records".
@@ -182,14 +194,11 @@ CREATE TABLE platform.idempotency_record (
   operation text NOT NULL,
   idempotency_key text NOT NULL,
   request_fingerprint text NOT NULL,
-  status text NOT NULL DEFAULT 'processing',
-  response_status_code integer,
-  response_body jsonb,
+  response_status_code integer NOT NULL,
+  response_body jsonb NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
-  completed_at timestamptz,
   expires_at timestamptz NOT NULL,
-  PRIMARY KEY (actor_profile_id, operation, idempotency_key),
-  CONSTRAINT idempotency_record_status_check CHECK (status IN ('processing', 'completed', 'failed'))
+  PRIMARY KEY (actor_profile_id, operation, idempotency_key)
 );
 
 -- Supports a future cleanup job; no such job exists yet in Phase 2.

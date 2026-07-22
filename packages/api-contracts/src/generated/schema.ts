@@ -48,6 +48,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Exchange a Firebase ID token for a web session
+         * @description The browser signs in with a Firebase provider client-side, then
+         *     submits the resulting ID token here. The server verifies it and
+         *     responds with a `Secure`, `HttpOnly` session cookie plus a
+         *     readable CSRF cookie; the ID token itself never becomes a
+         *     persistent browser credential.
+         *
+         *     Source: architecture/identity-and-authorization.md, section
+         *     "5. Web Session Flow".
+         */
+        post: operations["createSession"];
+        /**
+         * Log out
+         * @description Clears the session and CSRF cookies and revokes the underlying
+         *     Firebase refresh tokens. Idempotent: succeeds even when no valid
+         *     session cookie is present, so a client can always clear a broken
+         *     session state.
+         *
+         *     Source: architecture/identity-and-authorization.md, section
+         *     "5. Web Session Flow", step 6.
+         */
+        delete: operations["endSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/gardens": {
         parameters: {
             query?: never;
@@ -224,6 +261,10 @@ export interface components {
         };
         RenameGardenRequest: {
             name: string;
+        };
+        SessionLoginRequest: {
+            /** @description Freshly obtained Firebase ID token, verified server-side before any cookie is issued. */
+            idToken: string;
         };
         ErrorDetail: {
             /** @description Stable machine-readable detail code. */
@@ -513,6 +554,50 @@ export interface operations {
                     "application/json": components["schemas"]["ReadinessResult"];
                 };
             };
+        };
+    };
+    createSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionLoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Session established. Cookies are set on the response. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    endSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session cleared. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Forbidden"];
         };
     };
     listGardens: {

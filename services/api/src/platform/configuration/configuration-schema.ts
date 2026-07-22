@@ -52,6 +52,16 @@ export const environmentSchema = z.object({
 
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 
+  // Firebase Authentication owns credentials; this service only verifies
+  // tokens issued for this exact project. Required, not inferred from
+  // Application Default Credentials' ambient project, so a misconfigured
+  // deployment fails at startup rather than verifying tokens against the
+  // wrong Firebase project.
+  //
+  // Source: architecture/identity-and-authorization.md, section
+  // "2. Identity Authority".
+  FIREBASE_PROJECT_ID: z.string().min(1),
+
   // Two ways to reach the database, matching the two places this service
   // runs:
   //
@@ -158,6 +168,7 @@ export interface ApplicationConfiguration {
   readonly http: HttpConfiguration;
   readonly database: DatabaseConfiguration;
   readonly shutdownGracePeriodMs: number;
+  readonly firebaseProjectId: string;
 }
 
 function toDatabaseConfiguration(raw: RawEnvironment): DatabaseConfiguration {
@@ -197,5 +208,6 @@ export function toApplicationConfiguration(raw: RawEnvironment): ApplicationConf
     },
     database: toDatabaseConfiguration(raw),
     shutdownGracePeriodMs: raw.SHUTDOWN_GRACE_PERIOD_MS,
+    firebaseProjectId: raw.FIREBASE_PROJECT_ID,
   };
 }

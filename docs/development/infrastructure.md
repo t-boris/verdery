@@ -33,8 +33,8 @@ One Google Cloud project, `verdery-dev`, in `us-central1`, provisioned by the id
 docker buildx build --platform linux/amd64 -f services/api/Dockerfile \
   -t us-central1-docker.pkg.dev/verdery-dev/verdery/api:<tag> --push .
 
-gcloud run jobs update verdery-api-dev-migrate --project=verdery-dev --region=us-central1 \
-  --image=us-central1-docker.pkg.dev/verdery-dev/verdery/api:<tag>
+infrastructure/gcloud/scripts/deploy-migration-job.sh dev \
+  us-central1-docker.pkg.dev/verdery-dev/verdery/api:<tag>
 gcloud run jobs execute verdery-api-dev-migrate --project=verdery-dev --region=us-central1 --wait
 
 infrastructure/gcloud/scripts/deploy-api.sh dev us-central1-docker.pkg.dev/verdery-dev/verdery/api:<tag>

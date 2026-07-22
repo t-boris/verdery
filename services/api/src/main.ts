@@ -7,14 +7,17 @@
  * Source: architecture/backend-modular-monolith.md, section "9. Composition Root".
  */
 
+import { applicationDefault, initializeApp } from 'firebase-admin/app';
 import { buildApplication } from './app.js';
 import { registerGracefulShutdown } from './bootstrap/graceful-shutdown.js';
+import { FirebaseTokenVerifier } from './platform/authentication/firebase-token-verifier.js';
 import {
   ConfigurationError,
   loadConfiguration,
 } from './platform/configuration/load-configuration.js';
 import { PostgresDatabaseGateway } from './platform/database/postgres-database-gateway.js';
 import { createLogger } from './platform/telemetry/logger.js';
+import { SystemClock } from './shared/time/clock.js';
 
 export const SERVICE_NAME = 'verdery-api';
 
@@ -54,7 +57,18 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const app = await buildApplication({ configuration, logger, database });
+  // Application Default Credentials: the runtime service account's own
+  // identity in Cloud Run, or a developer's `gcloud auth application-default
+  // login` locally — no downloaded service account key, matching every other
+  // Google Cloud client this service constructs.
+  const firebaseApp = initializeApp({
+    credential: applicationDefault(),
+    projectId: configuration.firebaseProjectId,
+  });
+  const tokenVerifier = new FirebaseTokenVerifier(firebaseApp);
+  const clock = new SystemClock();
+
+  const app = await buildApplication({ configuration, logger, database, tokenVerifier, clock });
 
   registerGracefulShutdown({
     drain: async () => {

@@ -9,17 +9,31 @@
  */
 
 import type { Kysely } from 'kysely';
+import type { IdentityAccessDatabaseSchema } from '../../modules/identity-access/persistence/schema.js';
+import type { GardensMappingDatabaseSchema } from '../../modules/gardens-mapping/persistence/schema.js';
+import type { PlatformDatabaseSchema } from './platform-schema.js';
 
 /**
- * Typed database schema.
+ * Typed database schema: every module's row types, intersected.
  *
- * Phase 1 creates no domain tables: the first migration establishes extensions,
- * roles, and module schema ownership only. Each module contributes its own
- * tables here as it is implemented.
+ * A type-only aggregation point, not a runtime dependency — this file never
+ * imports module *behavior*, only the shape of the tables each module owns.
+ *
+ * Every repository and store in the service is typed `Kysely<DatabaseSchema>`
+ * — this exact type, not a module-scoped subset intersection — even though
+ * each one only ever names its own tables. Kysely's generic `Database` type
+ * parameter appears in enough contravariant and conditional positions
+ * (`mergeInto(...).returning(...)`, `$extendTables()`, among others) that
+ * `Kysely<A & B>` is not structurally assignable to a parameter typed
+ * `Kysely<A>`, confirmed directly: narrower per-module aliases were tried
+ * first and `tsc` rejected passing the pooled instance to any of them.
+ * Sharing one type throughout sidesteps the mismatch entirely.
  *
  * Source: architecture/data-and-geospatial-design.md, section "3. Schema Ownership".
  */
-export type DatabaseSchema = Record<never, never>;
+export type DatabaseSchema = IdentityAccessDatabaseSchema &
+  GardensMappingDatabaseSchema &
+  PlatformDatabaseSchema;
 
 export interface DatabaseGateway {
   /** Typed query surface used by module repositories. */

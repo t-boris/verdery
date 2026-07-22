@@ -100,11 +100,7 @@ jobs:
       # Source: infrastructure/gcloud/scripts/07-iam-database-bootstrap.sh.
       - name: Run database migrations
         run: |
-          gcloud run jobs update verdery-api-dev-migrate \
-            --project="${PROJECT_ID}" \
-            --region="${REGION}" \
-            --image="${{ steps.image.outputs.image }}" \
-            --quiet
+          infrastructure/gcloud/scripts/deploy-migration-job.sh dev "${{ steps.image.outputs.image }}"
           gcloud run jobs execute verdery-api-dev-migrate \
             --project="${PROJECT_ID}" \
             --region="${REGION}" \

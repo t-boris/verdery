@@ -10,9 +10,11 @@
 
 import type { FastifyInstance } from 'fastify';
 import { buildApplication } from '../../src/app.js';
+import type { TokenVerifier } from '../../src/platform/authentication/token-verifier.js';
 import type { ApplicationConfiguration } from '../../src/platform/configuration/configuration-schema.js';
 import type { DatabaseGateway } from '../../src/platform/database/database-gateway.js';
 import { createLogger } from '../../src/platform/telemetry/logger.js';
+import { SystemClock } from '../../src/shared/time/clock.js';
 
 export const TEST_SERVICE_VERSION = '1.0.0-test';
 
@@ -34,6 +36,7 @@ export const testConfiguration: ApplicationConfiguration = {
     statementTimeoutMs: 1_000,
   },
   shutdownGracePeriodMs: 1_000,
+  firebaseProjectId: 'verdery-test',
 };
 
 /** A database that answers health checks according to the supplied behavior. */
@@ -45,10 +48,25 @@ export function stubDatabase(ping: () => Promise<void>): DatabaseGateway {
   };
 }
 
+/** Rejects every call. Suites that never exercise an authenticated route need nothing more specific. */
+export function stubTokenVerifier(): TokenVerifier {
+  const notImplemented = (): Promise<never> =>
+    Promise.reject(new Error('stubTokenVerifier: no behavior configured for this test'));
+
+  return {
+    verifyIdToken: notImplemented,
+    verifySessionCookie: notImplemented,
+    createSessionCookie: notImplemented,
+    revokeRefreshTokens: notImplemented,
+  };
+}
+
 export interface TestApplicationOptions {
   readonly ping?: () => Promise<void>;
   /** Captures log records so tests can assert on structured output. */
   readonly onLogRecord?: (record: string) => void;
+  readonly database?: DatabaseGateway;
+  readonly tokenVerifier?: TokenVerifier;
 }
 
 export async function buildTestApplication(
@@ -61,6 +79,8 @@ export async function buildTestApplication(
   return buildApplication({
     configuration: testConfiguration,
     logger,
-    database: stubDatabase(options.ping ?? (() => Promise.resolve())),
+    database: options.database ?? stubDatabase(options.ping ?? (() => Promise.resolve())),
+    tokenVerifier: options.tokenVerifier ?? stubTokenVerifier(),
+    clock: new SystemClock(),
   });
 }
