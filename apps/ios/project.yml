@@ -1,0 +1,75 @@
+# Generates Verdery.xcodeproj — never edit that file directly, edit this one
+# and run `xcodegen generate`.
+#
+# Package.swift stays the source of truth for module boundaries, per its own
+# header comment; this project is a thin deployment shell around it. Its only
+# sources are the app entry point (Sources/VerderyApp, shared verbatim with
+# the SPM executableTarget of the same name that keeps `swift build`/
+# `swift test` working headlessly) plus Info.plist, entitlements, and the
+# asset catalog — every feature and every line of business logic still lives
+# in the Swift package and is still enforced by its target graph.
+#
+# An Xcode project became necessary in Phase 2: Firebase Authentication needs
+# entitlements (Sign in with Apple), a custom Info.plist (the Google Sign-In
+# URL scheme), and a bundled GoogleService-Info.plist, none of which a bare
+# `swift build` can express.
+#
+# Source: implementation-plan.md work packages P2-IOS-01, P2-AUTH-03;
+# architecture/ios-application-design.md, section "4. Application Structure".
+name: Verdery
+
+options:
+  bundleIdPrefix: com.verdery
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+
+packages:
+  VerderyPackage:
+    path: .
+
+targets:
+  Verdery:
+    type: application
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: Sources/VerderyApp
+    dependencies:
+      - package: VerderyPackage
+        product: AppComposition
+    info:
+      path: Generated/Info.plist
+      properties:
+        CFBundleDisplayName: Verdery
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        # Required by Google Sign-In's iOS SDK so it can hand the OAuth
+        # redirect back to this app. The reversed form of the OAuth client ID
+        # Firebase issued for this app — not a secret, matching
+        # apps/web/core/auth/firebase-app.ts's identical reasoning about the
+        # web apiKey.
+        # Source: GoogleService-Info.plist, key REVERSED_CLIENT_ID.
+        CFBundleURLTypes:
+          - CFBundleURLSchemes:
+              - com.googleusercontent.apps.417008876420-ofvf3en5tk3th23cd0flklqa22vncvt4
+    entitlements:
+      path: Generated/Verdery.entitlements
+      properties:
+        com.apple.developer.applesignin:
+          - Default
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.verdery.app
+        DEVELOPMENT_TEAM: 3M68DG8S7N
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "6.2"
+        TARGETED_DEVICE_FAMILY: "1,2"
+    resources:
+      - path: GoogleService-Info.plist

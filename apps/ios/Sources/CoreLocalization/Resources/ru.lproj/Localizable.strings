@@ -22,3 +22,39 @@
 "health.version" = "Версия {version}";
 "health.dependency.unavailable" = "{name} недоступен.";
 "health.action.refresh" = "Проверить снова";
+
+/* Экран входа. Apple намеренно отсутствует — см. AuthenticationGateway. */
+"auth.signIn.title" = "Вход в Verdery";
+"auth.signIn.description" = "Войдите, чтобы видеть свои сады и управлять ими.";
+"auth.signIn.google" = "Продолжить с Google";
+"auth.signIn.emailLabel" = "Адрес электронной почты";
+"auth.signIn.emailSubmit" = "Отправить мне ссылку для входа";
+"auth.signIn.emailSent" = "Проверьте почту";
+"auth.signIn.emailSentDescription" = "Откройте отправленную нами ссылку, чтобы завершить вход.";
+"auth.signIn.failed" = "Не удалось войти. Попробуйте снова.";
+
+"shell.signOut" = "Выйти";
+
+/* Сады: список, создание и настройки отдельного сада. */
+"gardens.title" = "Сады";
+"gardens.empty" = "У вас пока нет садов. Создайте первый ниже.";
+"gardens.loading" = "Загрузка садов…";
+"gardens.retry" = "Повторить";
+"gardens.create.title" = "Создать сад";
+"gardens.create.nameLabel" = "Название сада";
+"gardens.create.submit" = "Создать сад";
+"gardens.name.required" = "Введите название длиной до 120 символов.";
+"gardens.lifecycle.active" = "Активен";
+"gardens.lifecycle.archived" = "В архиве";
+"gardens.lifecycle.deletionRequested" = "Запрошено удаление";
+"gardens.role.owner" = "Владелец";
+"gardens.role.editor" = "Редактор";
+"gardens.role.viewer" = "Наблюдатель";
+"gardens.settings.title" = "Настройки сада";
+"gardens.rename.title" = "Название";
+"gardens.rename.submit" = "Сохранить название";
+"gardens.manage.title" = "Управление садом";
+"gardens.archive" = "Архивировать сад";
+"gardens.archive.confirm" = "Архивировать этот сад? Его всё ещё можно будет просматривать.";
+"gardens.requestDeletion" = "Удалить сад";
+"gardens.requestDeletion.confirm" = "Запросить удаление этого сада? Начнётся процесс удаления с периодом восстановления.";

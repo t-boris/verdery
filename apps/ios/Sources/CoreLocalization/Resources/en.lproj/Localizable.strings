@@ -22,3 +22,39 @@
 "health.version" = "Version {version}";
 "health.dependency.unavailable" = "{name} is unavailable.";
 "health.action.refresh" = "Check again";
+
+/* Sign-in screen. Apple is deliberately absent — see AuthenticationGateway. */
+"auth.signIn.title" = "Sign in to Verdery";
+"auth.signIn.description" = "Sign in to see and manage your gardens.";
+"auth.signIn.google" = "Continue with Google";
+"auth.signIn.emailLabel" = "Email address";
+"auth.signIn.emailSubmit" = "Send me a sign-in link";
+"auth.signIn.emailSent" = "Check your email";
+"auth.signIn.emailSentDescription" = "Open the link we sent to finish signing in.";
+"auth.signIn.failed" = "Sign-in did not succeed. Try again.";
+
+"shell.signOut" = "Sign out";
+
+/* Gardens: list, create, and per-garden settings. */
+"gardens.title" = "Gardens";
+"gardens.empty" = "You have no gardens yet. Create your first one below.";
+"gardens.loading" = "Loading gardens…";
+"gardens.retry" = "Try again";
+"gardens.create.title" = "Create a garden";
+"gardens.create.nameLabel" = "Garden name";
+"gardens.create.submit" = "Create garden";
+"gardens.name.required" = "Enter a name up to 120 characters.";
+"gardens.lifecycle.active" = "Active";
+"gardens.lifecycle.archived" = "Archived";
+"gardens.lifecycle.deletionRequested" = "Deletion requested";
+"gardens.role.owner" = "Owner";
+"gardens.role.editor" = "Editor";
+"gardens.role.viewer" = "Viewer";
+"gardens.settings.title" = "Garden settings";
+"gardens.rename.title" = "Name";
+"gardens.rename.submit" = "Save name";
+"gardens.manage.title" = "Manage garden";
+"gardens.archive" = "Archive garden";
+"gardens.archive.confirm" = "Archive this garden? You can still view it afterward.";
+"gardens.requestDeletion" = "Delete garden";
+"gardens.requestDeletion.confirm" = "Request deletion of this garden? This starts a recovery-window deletion process.";

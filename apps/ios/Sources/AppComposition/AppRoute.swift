@@ -4,11 +4,16 @@
 /// feature's view hierarchy, so navigation stays a property of the application
 /// rather than of whichever screen happens to be on top.
 ///
-/// Phase 1 has one destination. The type exists now because deep links are
-/// parsed into these cases, and retrofitting a router after several features
-/// exist means rewriting their navigation.
+/// The type exists so deep links are parsed into these cases, and retrofitting
+/// a router after several features exist means rewriting their navigation.
+///
+/// Garden detail is deliberately absent: it is dynamic (one case per garden
+/// ID makes no sense for `CaseIterable`), so `GardensListView` navigates to
+/// it with a plain `NavigationLink(value: gardenId)` inside its own
+/// `NavigationStack` path instead.
 ///
 /// Source: architecture/ios-application-design.md, section "14. Navigation".
 public enum AppRoute: Hashable, Sendable, CaseIterable {
+    case gardens
     case serviceHealth
 }
