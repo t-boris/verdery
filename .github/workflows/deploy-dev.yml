@@ -53,19 +53,6 @@ jobs:
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # TEMPORARY: prints the GitHub OIDC token's claims so the workload
-      # identity pool provider's attribute mapping can be checked against
-      # what GitHub actually issues, rather than against an assumption. The
-      # token itself is audience-restricted and short-lived; printing its
-      # claims is a standard, widely used debugging technique and leaks no
-      # credential. Removed once the deploy authenticates successfully.
-      - name: Debug — decode the OIDC token
-        run: |
-          TOKEN=$(curl -sS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https://iam.googleapis.com/${WORKLOAD_IDENTITY_PROVIDER}" \
-            | jq -r '.value')
-          echo "${TOKEN}" | cut -d. -f2 | base64 -d 2>/dev/null | jq . || echo "${TOKEN}" | cut -d. -f2
-
       - name: Authenticate to Google Cloud
         id: auth
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
@@ -78,19 +65,18 @@ jobs:
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
 
-      # `gcloud auth configure-docker` installs a credential HELPER that
-      # re-derives its own token by re-running the workload identity
-      # impersonation chain on every `docker push`, rather than reusing the
-      # access token this job already minted above. That re-derivation failed
-      # here with "Unable to acquire impersonated credentials —
-      # iam.serviceAccounts.getAccessToken denied", confirmed by triggering
-      # this workflow twice, including once with buildx removed as a check
-      # for the more common isolated-builder cause — same failure either way,
-      # so the credential helper's own re-impersonation was always the actual
-      # problem. Logging in directly with the token `auth` already minted
-      # (`token_format: access_token` above) skips that re-derivation
-      # entirely: this step's login is valid for the token's lifetime, which
-      # comfortably covers one build-and-push.
+      # Logs in directly with the access token `auth` already minted, rather
+      # than `gcloud auth configure-docker`'s credential helper, which
+      # re-derives its own token by re-running the impersonation chain on
+      # every `docker push`. That indirection was never necessary here and
+      # only added a second place the workload identity binding had to be
+      # correct. (The binding itself did have a real bug, found and fixed
+      # separately: GitHub's actual `sub` claim embeds numeric owner/
+      # repository IDs this repository's provider attribute-condition did
+      # not anticipate — see infrastructure/gcloud/scripts/
+      # 06-workload-identity-federation.sh for the fix, a principalSet
+      # binding on the `environment` attribute instead of an exact `subject`
+      # string.)
       - name: Log in to Artifact Registry
         run: |
           echo '${{ steps.auth.outputs.access_token }}' | \

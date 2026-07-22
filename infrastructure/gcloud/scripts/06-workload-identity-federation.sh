@@ -49,13 +49,23 @@ else
     --attribute-condition="assertion.repository == '${VERDERY_GITHUB_REPOSITORY}'"
 fi
 
-principal="principal://iam.googleapis.com/projects/${project_number}/locations/global/workloadIdentityPools/${VERDERY_WORKLOAD_IDENTITY_POOL_ID}/subject/repo:${VERDERY_GITHUB_REPOSITORY}:environment:${VERDERY_GITHUB_ENVIRONMENT}"
+# Bound by the *attribute.environment* mapping, not by a literal `subject`
+# string. GitHub's actual `sub` claim for this repository turned out to be
+# "repo:t-boris@508098/verdery@1308715947:environment:development" — GitHub
+# embeds immutable numeric owner/repository IDs alongside the names, a format
+# this script did not anticipate, confirmed only by decoding a real token
+# from a live run. A `principalSet://.../attribute.environment/<value>`
+# binding depends only on the attribute mapping below, not on the exact shape
+# GitHub chooses for `sub`, so it cannot be broken by that kind of formatting
+# change again. The provider's `--attribute-condition` above already
+# restricts every mapped attribute to this one repository.
+principal_set="principalSet://iam.googleapis.com/projects/${project_number}/locations/global/workloadIdentityPools/${VERDERY_WORKLOAD_IDENTITY_POOL_ID}/attribute.environment/${VERDERY_GITHUB_ENVIRONMENT}"
 
 log "Binding deploy service account to GitHub Environment '${VERDERY_GITHUB_ENVIRONMENT}' in ${VERDERY_GITHUB_REPOSITORY}"
 gcloud iam service-accounts add-iam-policy-binding "${deploy_email}" \
   --project="${VERDERY_PROJECT_ID}" \
   --role="roles/iam.workloadIdentityUser" \
-  --member="${principal}" \
+  --member="${principal_set}" \
   >/dev/null
 
 provider_resource="projects/${project_number}/locations/global/workloadIdentityPools/${VERDERY_WORKLOAD_IDENTITY_POOL_ID}/providers/${VERDERY_WORKLOAD_IDENTITY_PROVIDER_ID}"
