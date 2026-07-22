@@ -34,6 +34,8 @@ servers:
 tags:
   - name: Operations
     description: Service health and readiness, used by infrastructure rather than by end users.
+  - name: Gardens
+    description: Garden lifecycle — list, create, view, rename, archive, and request deletion.
 
 paths:
   /health/live:
@@ -79,6 +81,211 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReadinessResult'
+
+  /gardens:
+    get:
+      operationId: listGardens
+      tags: [Gardens]
+      summary: List the caller's gardens
+      description: |
+        Returns every garden the authenticated profile has active membership
+        in, most recently created first, regardless of lifecycle state.
+
+        Source: implementation-plan.md work package P2-API-01.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: The caller's gardens.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GardenListResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      operationId: createGarden
+      tags: [Gardens]
+      summary: Create a garden
+      description: |
+        Creates a garden and grants the caller the owner role on it in the
+        same transaction. Every garden has exactly one owner at creation.
+
+        Source: implementation-plan.md work package P2-API-01;
+        architecture/identity-and-authorization.md, section "8. Garden Roles".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGardenRequest'
+      responses:
+        '201':
+          description: The created garden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Garden'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /gardens/{gardenId}:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    get:
+      operationId: getGarden
+      tags: [Gardens]
+      summary: Get a garden
+      description: |
+        Returns a garden the caller has active membership in. Existence is
+        concealed as `404` for a profile with no membership on this garden.
+
+        Source: implementation-plan.md work packages P2-API-01, P2-SEC-01.
+      responses:
+        '200':
+          description: The requested garden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Garden'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      operationId: renameGarden
+      tags: [Gardens]
+      summary: Rename a garden
+      description: |
+        Renaming is an owner-only garden setting, distinct from editing garden
+        content. Existence is concealed as `404` for a non-member; an editor
+        or viewer member instead receives `403`, since they already know the
+        garden exists.
+
+        Source: implementation-plan.md work packages P2-API-01, P2-SEC-01;
+        architecture/identity-and-authorization.md, section "8. Garden Roles".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenameGardenRequest'
+      responses:
+        '200':
+          description: The renamed garden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Garden'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+
+  /gardens/{gardenId}/archive:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: archiveGarden
+      tags: [Gardens]
+      summary: Archive a garden
+      description: |
+        Owner-only lifecycle command. Archiving an already-archived garden
+        under a new idempotency key is a domain conflict, not a silent no-op.
+
+        Source: implementation-plan.md work packages P2-API-01, P2-SEC-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: The archived garden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Garden'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+
+  /gardens/{gardenId}/delete-request:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: requestGardenDeletion
+      tags: [Gardens]
+      summary: Request garden deletion
+      description: |
+        Owner-only lifecycle command. Starts the deletion workflow; it does
+        not delete the garden immediately. Purge after the recovery window is
+        a separate, not-yet-implemented asynchronous workflow.
+
+        Source: implementation-plan.md work packages P2-API-01, P2-SEC-01;
+        architecture/data-and-geospatial-design.md, section "15. Deletion".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: The garden, now in the deletion_requested lifecycle state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Garden'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
 
 components:
   securitySchemes:
@@ -175,6 +382,81 @@ components:
       format: int64
       minimum: 1
       description: Monotonically increasing server revision within one object's identity.
+
+    GardenLifecycleState:
+      type: string
+      enum: [active, archived, deletionRequested]
+      description: |
+        `deletionRequested` starts the deletion workflow; it is not immediate
+        deletion. No `deleted` value exists yet: nothing can reach it before
+        the purge workflow that would produce it is built.
+
+        Source: architecture/data-and-geospatial-design.md, section "15. Deletion".
+
+    GardenRole:
+      type: string
+      enum: [owner, editor, viewer]
+      description: |
+        The authenticated caller's own role on this garden. Informational for
+        client UI only — the server re-evaluates authorization on every
+        request and never trusts a client-submitted role.
+
+        Source: architecture/identity-and-authorization.md, section "8. Garden Roles".
+
+    Garden:
+      type: object
+      additionalProperties: false
+      required: [id, name, lifecycleState, callerRole, revision, createdAt, updatedAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        lifecycleState:
+          $ref: '#/components/schemas/GardenLifecycleState'
+        callerRole:
+          $ref: '#/components/schemas/GardenRole'
+        revision:
+          $ref: '#/components/schemas/Revision'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+
+    GardenListResult:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Garden'
+        nextCursor:
+          type: string
+          description: Opaque continuation token. Absent when no further page exists.
+
+    CreateGardenRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+
+    RenameGardenRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
 
     ErrorDetail:
       type: object

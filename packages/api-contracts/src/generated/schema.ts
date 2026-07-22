@@ -48,6 +48,124 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/gardens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the caller's gardens
+         * @description Returns every garden the authenticated profile has active membership
+         *     in, most recently created first, regardless of lifecycle state.
+         *
+         *     Source: implementation-plan.md work package P2-API-01.
+         */
+        get: operations["listGardens"];
+        put?: never;
+        /**
+         * Create a garden
+         * @description Creates a garden and grants the caller the owner role on it in the
+         *     same transaction. Every garden has exactly one owner at creation.
+         *
+         *     Source: implementation-plan.md work package P2-API-01;
+         *     architecture/identity-and-authorization.md, section "8. Garden Roles".
+         */
+        post: operations["createGarden"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get a garden
+         * @description Returns a garden the caller has active membership in. Existence is
+         *     concealed as `404` for a profile with no membership on this garden.
+         *
+         *     Source: implementation-plan.md work packages P2-API-01, P2-SEC-01.
+         */
+        get: operations["getGarden"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Rename a garden
+         * @description Renaming is an owner-only garden setting, distinct from editing garden
+         *     content. Existence is concealed as `404` for a non-member; an editor
+         *     or viewer member instead receives `403`, since they already know the
+         *     garden exists.
+         *
+         *     Source: implementation-plan.md work packages P2-API-01, P2-SEC-01;
+         *     architecture/identity-and-authorization.md, section "8. Garden Roles".
+         */
+        patch: operations["renameGarden"];
+        trace?: never;
+    };
+    "/gardens/{gardenId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive a garden
+         * @description Owner-only lifecycle command. Archiving an already-archived garden
+         *     under a new idempotency key is a domain conflict, not a silent no-op.
+         *
+         *     Source: implementation-plan.md work packages P2-API-01, P2-SEC-01.
+         */
+        post: operations["archiveGarden"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/delete-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request garden deletion
+         * @description Owner-only lifecycle command. Starts the deletion workflow; it does
+         *     not delete the garden immediately. Purge after the recovery window is
+         *     a separate, not-yet-implemented asynchronous workflow.
+         *
+         *     Source: implementation-plan.md work packages P2-API-01, P2-SEC-01;
+         *     architecture/data-and-geospatial-design.md, section "15. Deletion".
+         */
+        post: operations["requestGardenDeletion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -69,6 +187,44 @@ export interface components {
          * @description Monotonically increasing server revision within one object's identity.
          */
         Revision: number;
+        /**
+         * @description `deletionRequested` starts the deletion workflow; it is not immediate
+         *     deletion. No `deleted` value exists yet: nothing can reach it before
+         *     the purge workflow that would produce it is built.
+         *
+         *     Source: architecture/data-and-geospatial-design.md, section "15. Deletion".
+         * @enum {string}
+         */
+        GardenLifecycleState: "active" | "archived" | "deletionRequested";
+        /**
+         * @description The authenticated caller's own role on this garden. Informational for
+         *     client UI only — the server re-evaluates authorization on every
+         *     request and never trusts a client-submitted role.
+         *
+         *     Source: architecture/identity-and-authorization.md, section "8. Garden Roles".
+         * @enum {string}
+         */
+        GardenRole: "owner" | "editor" | "viewer";
+        Garden: {
+            id: components["schemas"]["Uuid"];
+            name: string;
+            lifecycleState: components["schemas"]["GardenLifecycleState"];
+            callerRole: components["schemas"]["GardenRole"];
+            revision: components["schemas"]["Revision"];
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+        };
+        GardenListResult: {
+            items: components["schemas"]["Garden"][];
+            /** @description Opaque continuation token. Absent when no further page exists. */
+            nextCursor?: string;
+        };
+        CreateGardenRequest: {
+            name: string;
+        };
+        RenameGardenRequest: {
+            name: string;
+        };
         ErrorDetail: {
             /** @description Stable machine-readable detail code. */
             code: string;
@@ -357,6 +513,213 @@ export interface operations {
                     "application/json": components["schemas"]["ReadinessResult"];
                 };
             };
+        };
+    };
+    listGardens: {
+        parameters: {
+            query?: {
+                /** @description Opaque continuation token from a previous page. Clients must not parse it. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum items to return. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's gardens. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GardenListResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createGarden: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateGardenRequest"];
+            };
+        };
+        responses: {
+            /** @description The created garden. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Garden"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getGarden: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The requested garden. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Garden"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    renameGarden: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameGardenRequest"];
+            };
+        };
+        responses: {
+            /** @description The renamed garden. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Garden"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    archiveGarden: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The archived garden. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Garden"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    requestGardenDeletion: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The garden, now in the deletion_requested lifecycle state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Garden"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
         };
     };
 }

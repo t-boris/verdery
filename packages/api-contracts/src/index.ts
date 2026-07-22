@@ -26,6 +26,12 @@ export type Position = Schemas['Position'];
 export type CoordinateSpaceKind = Schemas['CoordinateSpaceKind'];
 export type ProvenanceKind = Schemas['ProvenanceKind'];
 export type CurveMetadata = Schemas['CurveMetadata'];
+export type Garden = Schemas['Garden'];
+export type GardenRole = Schemas['GardenRole'];
+export type GardenLifecycleState = Schemas['GardenLifecycleState'];
+export type GardenListResult = Schemas['GardenListResult'];
+export type CreateGardenRequest = Schemas['CreateGardenRequest'];
+export type RenameGardenRequest = Schemas['RenameGardenRequest'];
 
 /** The API base path. Breaking changes require a new major path. */
 export const API_BASE_PATH = '/v1';
@@ -65,6 +71,26 @@ export const SharedErrorCode = {
 } as const;
 
 export type SharedErrorCode = (typeof SharedErrorCode)[keyof typeof SharedErrorCode];
+
+/**
+ * Error codes the gardens-mapping module raises.
+ *
+ * Distinct from the generic `SharedErrorCode.StaleRevision` and would-be
+ * generic "not found": a module-specific dotted code lets a client localize
+ * "this garden was renamed by someone else" differently from an unrelated
+ * concurrency conflict elsewhere in the product, matching the worked example
+ * in the `Error` schema description (`garden.geometry.stale_revision`).
+ */
+export const GardenErrorCode = {
+  /** No garden exists at this ID, or the caller has no membership on it. */
+  NotFound: 'garden.not_found',
+  /** The supplied `If-Match` revision no longer matches the stored garden. */
+  StaleRevision: 'garden.stale_revision',
+  /** The command does not apply to the garden's current lifecycle state. */
+  LifecycleConflict: 'garden.lifecycle_conflict',
+} as const;
+
+export type GardenErrorCode = (typeof GardenErrorCode)[keyof typeof GardenErrorCode];
 
 /** Narrows an unknown response body to the shared error envelope. */
 export function isApiError(value: unknown): value is ApiError {
