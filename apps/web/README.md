@@ -17,12 +17,50 @@ Open `/status` to confirm the shell reaches the API: the page calls `/v1/health/
 
 ## Commands
 
-| Command                                | Purpose                                        |
-| -------------------------------------- | ---------------------------------------------- |
-| `pnpm --filter @verdery/web dev`       | Development server                             |
-| `pnpm --filter @verdery/web build`     | Production build                               |
-| `pnpm --filter @verdery/web typecheck` | TypeScript, strict, no emit                    |
-| `pnpm --filter @verdery/web test`      | Vitest unit and Testing Library component runs |
+| Command                                | Purpose                                                                                  |
+| -------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `pnpm --filter @verdery/web dev`       | Development server                                                                       |
+| `pnpm --filter @verdery/web build`     | Production build                                                                         |
+| `pnpm --filter @verdery/web typecheck` | TypeScript, strict, no emit                                                              |
+| `pnpm --filter @verdery/web test`      | Vitest unit and Testing Library component runs                                           |
+| `pnpm --filter @verdery/web test:e2e`  | Playwright specs in `e2e/` (needs a running API, web app, and Auth emulator — see below) |
+
+## End-to-End Tests (Playwright)
+
+`e2e/` holds the browser E2E suite for work package `P2-QA-01`: register via email magic link,
+create the first garden, sign back in as the same user and see it again, sign out, Google sign-in
+through the Firebase Auth emulator's fake IDP, and provider-outage behavior. Scope matches
+`docs/architecture/testing-strategy.md` section 20, "Register and create first garden".
+
+Real Google/Apple OAuth popups cannot be scripted in CI, so these specs run against the
+[Firebase Local Emulator Suite's Auth emulator](https://firebase.google.com/docs/emulator-suite)
+instead of real Firebase — see `core/auth/firebase-app.ts#getFirebaseAuth` for the
+`NEXT_PUBLIC_USE_FIREBASE_EMULATOR` gate that points the client SDK at it, and
+`services/api/src/main.ts` / `FIREBASE_AUTH_EMULATOR_HOST` for the same on the API side. Sign in
+with Apple is out of scope: it is not implemented on any client yet.
+
+Run the whole suite, including standing up a throwaway Postgres, the Auth emulator, the API, and
+the web app, and tearing all four down again afterward:
+
+```sh
+apps/web/e2e/run-e2e.sh
+```
+
+See that script's header comment for exactly what it starts, on which ports, and why. It requires
+Docker (for Postgres) and the Firebase CLI (`firebase --version`) on `PATH`.
+
+If those four are already running yourself (for example while iterating on a spec), point
+Playwright at them directly:
+
+```sh
+E2E_WEB_BASE_URL=http://localhost:3100 pnpm --filter @verdery/web test:e2e
+```
+
+**Known limitation:** the Google sign-in spec (`e2e/google-sign-in.spec.ts`) drives the Auth
+emulator's own fake-IDP popup, which is third-party HTML this repository does not own. It is
+therefore a smoke test only — it asserts that the button reaches a working session, not every
+detail of that popup — and is the one spec most likely to need attention if the emulator's popup
+markup changes in a future `firebase-tools` release.
 
 ## Structure
 

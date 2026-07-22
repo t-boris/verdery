@@ -1,0 +1,6 @@
+{
+  "//": "Project alias for the Auth emulator used by the E2E suite (apps/web/e2e). The 'demo-' prefix is Firebase's own documented convention for a project ID that only ever talks to an emulator: the CLI and client SDKs treat it as local-only and never attempt a real network call to a Google-owned project of this name. This is deliberately NOT verdery-dev — the E2E project id must never collide with a real Firebase project.",
+  "projects": {
+    "default": "demo-verdery-e2e"
+  }
+}

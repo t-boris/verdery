@@ -1,0 +1,12 @@
+{
+  "//": "Firebase Local Emulator Suite config for the E2E harness (P2-QA-01). Only the Auth emulator is declared: no Firestore, Functions, Hosting, or other product is used by this application, and an unconfigured emulator refuses to start rather than silently doing nothing. Source: docs/architecture/testing-strategy.md, section 9 (\"Playwright for browser end-to-end behavior\").",
+  "emulators": {
+    "auth": {
+      "port": 9099,
+      "host": "127.0.0.1"
+    },
+    "ui": {
+      "enabled": false
+    }
+  }
+}
