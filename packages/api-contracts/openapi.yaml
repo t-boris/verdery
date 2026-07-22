@@ -38,6 +38,8 @@ tags:
     description: Garden lifecycle — list, create, view, rename, archive, and request deletion.
   - name: Authentication
     description: Web session exchange for the browser client. Native clients use a Firebase ID token directly and never call these.
+  - name: Map
+    description: The canonical 2D garden map — objects, their categories and geometry, and the single revision-aware command endpoint that mutates them.
 
 paths:
   /health/live:
@@ -328,6 +330,122 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Garden'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+
+  /gardens/{gardenId}/map:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: minX
+        in: query
+        required: false
+        description: |
+          Viewport bounding box in garden-local metres, for large gardens.
+          All four bounds are required together or omitted together; a
+          partial set is a `400`.
+        schema:
+          type: number
+      - name: minY
+        in: query
+        required: false
+        schema:
+          type: number
+      - name: maxX
+        in: query
+        required: false
+        schema:
+          type: number
+      - name: maxY
+        in: query
+        required: false
+        schema:
+          type: number
+
+    get:
+      operationId: getGardenMap
+      tags: [Map]
+      summary: Get the canonical garden map
+      description: |
+        Returns every active object in the garden's local coordinate space,
+        its optional georeference, and a validation summary. Omitting the
+        bounding box parameters returns the whole garden — appropriate for
+        small and ordinary gardens; large gardens should pass a viewport.
+
+        Source: implementation-plan.md work packages P3-BE-01, P3-DATA-02;
+        architecture/map-rendering-and-editing.md, section "6. Hybrid Data Model".
+      responses:
+        '200':
+          description: The garden's map document.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GardenMapDocument'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /gardens/{gardenId}/map/commands:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: submitMapCommand
+      tags: [Map]
+      summary: Submit one canonical map editor command
+      description: |
+        A single revision-aware endpoint for every map editing command —
+        create, move, replace geometry, edit a vertex, split or join
+        linework, change properties, assign a plant, upsert a calibration,
+        decide a proposal, delete, restore, or duplicate — rather than one
+        REST endpoint per command type. Every command that targets an
+        existing object carries its own expected revision in its payload
+        (not an `If-Match` header), because some commands, such as joining
+        two lines, target more than one object at once and need more than
+        one expected revision.
+
+        `actorProfileId` and `actorType` are never read from the request
+        body; the server fills them from the authenticated caller, the same
+        rule every other mutation in this API follows.
+
+        Source: implementation-plan.md work package P3-BE-01;
+        architecture/map-rendering-and-editing.md, section
+        "7. Editor Command Model".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MapCommandRequest'
+      responses:
+        '200':
+          description: The object or objects the command affected, at their new revision.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MapCommandResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -777,6 +895,651 @@ components:
           minimum: 0
           maximum: 1
           description: Absent means "not expressed", not "certain".
+
+    GardenObjectCategory:
+      type: string
+      enum:
+        - lot
+        - structure
+        - fence
+        - gate
+        - path
+        - zone
+        - bed
+        - waterFeature
+        - utilityExclusion
+        - tree
+        - plant
+        - annotation
+        - importedBackground
+      description: |
+        Source: architecture/map-rendering-and-editing.md, section
+        "4. Canonical Object Categories".
+
+    MeasurementUnit:
+      type: string
+      enum: [metres, squareMetres, degrees]
+
+    MeasurementAcquisitionMethod:
+      type: string
+      enum:
+        - userEntered
+        - derivedFromGeometry
+        - arMeasurement
+        - imageExtraction
+        - depthCapture
+        - importedPlan
+
+    Measurement:
+      type: object
+      additionalProperties: false
+      required: [value, unit, acquisitionMethod]
+      description: |
+        The schema must not imply survey accuracy merely because a value
+        uses a precise numeric type — every measurement carries how it was
+        acquired.
+
+        Source: architecture/data-and-geospatial-design.md, section
+        "11. Measurements and Uncertainty".
+      properties:
+        value:
+          type: number
+          description: Canonical SI value in `unit`.
+        unit:
+          $ref: '#/components/schemas/MeasurementUnit'
+        acquisitionMethod:
+          $ref: '#/components/schemas/MeasurementAcquisitionMethod'
+        originalEntry:
+          type: string
+          description: As the user typed it, before conversion — for example "40 ft".
+        uncertainty:
+          type: number
+          description: Absolute uncertainty in the same unit as `value`.
+        referenceObjectId:
+          $ref: '#/components/schemas/Uuid'
+        calibrationRevision:
+          $ref: '#/components/schemas/Revision'
+
+    StructureDetails:
+      type: object
+      additionalProperties: false
+      required: [category, structureKind]
+      properties:
+        category:
+          type: string
+          enum: [structure]
+        structureKind:
+          type: string
+          enum: [house, shed, greenhouse, deck, garage, other]
+        heightMetres:
+          type: number
+          exclusiveMinimum: 0
+
+    FenceDetails:
+      type: object
+      additionalProperties: false
+      required: [category, fenceKind]
+      properties:
+        category:
+          type: string
+          enum: [fence]
+        fenceKind:
+          type: string
+          enum: [wood, chainLink, vinyl, metal, hedge, other]
+        heightMetres:
+          type: number
+          exclusiveMinimum: 0
+
+    GateDetails:
+      type: object
+      additionalProperties: false
+      required: [category, fenceObjectId]
+      description: A gate is always positioned along exactly one fence.
+      properties:
+        category:
+          type: string
+          enum: [gate]
+        fenceObjectId:
+          $ref: '#/components/schemas/Uuid'
+        widthMetres:
+          type: number
+          exclusiveMinimum: 0
+
+    ZoneDetails:
+      type: object
+      additionalProperties: false
+      required: [category, zoneKind]
+      properties:
+        category:
+          type: string
+          enum: [zone]
+        zoneKind:
+          type: string
+          enum: [lawn, garden, mulch, gravel, groundCover, other]
+
+    BedDetails:
+      type: object
+      additionalProperties: false
+      required: [category, bedKind]
+      properties:
+        category:
+          type: string
+          enum: [bed]
+        bedKind:
+          type: string
+          enum: [inGround, raised, container]
+        soilNotes:
+          type: string
+          maxLength: 2000
+
+    TreeDetails:
+      type: object
+      additionalProperties: false
+      required: [category]
+      description: |
+        The canopy is a second, optional geometry — distinct from the trunk
+        position carried by the object's own `geometryEnvelope`.
+      properties:
+        category:
+          type: string
+          enum: [tree]
+        canopyGeometry:
+          $ref: '#/components/schemas/Geometry'
+        commonName:
+          type: string
+          maxLength: 200
+        estimatedHeightMetres:
+          type: number
+          exclusiveMinimum: 0
+        estimatedSpreadMetres:
+          type: number
+          exclusiveMinimum: 0
+
+    PlantPlacementDetails:
+      type: object
+      additionalProperties: false
+      required: [category, commonName, quantity]
+      description: |
+        Deliberately without a plant-catalog reference: the species and care
+        catalog is Phase 4 scope.
+      properties:
+        category:
+          type: string
+          enum: [plant]
+        commonName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        quantity:
+          type: integer
+          minimum: 1
+        spacingMetres:
+          type: number
+          exclusiveMinimum: 0
+        assignedToObjectId:
+          $ref: '#/components/schemas/Uuid'
+
+    UtilityExclusionDetails:
+      type: object
+      additionalProperties: false
+      required: [category, utilityExclusionKind]
+      properties:
+        category:
+          type: string
+          enum: [utilityExclusion]
+        utilityExclusionKind:
+          type: string
+          enum: [undergroundUtility, septicField, wellRadius, setback, other]
+        notes:
+          type: string
+          maxLength: 2000
+
+    AnnotationDetails:
+      type: object
+      additionalProperties: false
+      required: [category]
+      description: Where a `Measurement` attaches — the "Annotation and measurement reference" category.
+      properties:
+        category:
+          type: string
+          enum: [annotation]
+        measurement:
+          $ref: '#/components/schemas/Measurement'
+
+    GardenObjectDetails:
+      oneOf:
+        - $ref: '#/components/schemas/StructureDetails'
+        - $ref: '#/components/schemas/FenceDetails'
+        - $ref: '#/components/schemas/GateDetails'
+        - $ref: '#/components/schemas/ZoneDetails'
+        - $ref: '#/components/schemas/BedDetails'
+        - $ref: '#/components/schemas/TreeDetails'
+        - $ref: '#/components/schemas/PlantPlacementDetails'
+        - $ref: '#/components/schemas/UtilityExclusionDetails'
+        - $ref: '#/components/schemas/AnnotationDetails'
+      discriminator:
+        propertyName: category
+      description: |
+        Present only for categories that have specialized fields. `lot`,
+        `path`, `waterFeature`, and `importedBackground` carry no
+        `details` member.
+
+    GardenObjectLifecycleState:
+      type: string
+      enum: [active, deleted]
+
+    GardenObject:
+      type: object
+      additionalProperties: false
+      required:
+        [id, gardenId, category, geometryEnvelope, lifecycleState, revision, createdAt, updatedAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        gardenId:
+          $ref: '#/components/schemas/Uuid'
+        category:
+          $ref: '#/components/schemas/GardenObjectCategory'
+        geometryEnvelope:
+          $ref: '#/components/schemas/GeometryEnvelope'
+        label:
+          type: string
+          maxLength: 200
+        details:
+          $ref: '#/components/schemas/GardenObjectDetails'
+        lifecycleState:
+          $ref: '#/components/schemas/GardenObjectLifecycleState'
+        revision:
+          $ref: '#/components/schemas/Revision'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+
+    ValidationSeverity:
+      type: string
+      enum: [error, warning]
+
+    ValidationIssue:
+      type: object
+      additionalProperties: false
+      required: [code, severity]
+      description: |
+        Warnings do not block a save unless the corresponding rule protects
+        data integrity or safety.
+
+        Source: architecture/map-rendering-and-editing.md, section
+        "11. Validation".
+      properties:
+        code:
+          type: string
+          description: Stable machine-readable code, localized client-side.
+        severity:
+          $ref: '#/components/schemas/ValidationSeverity'
+        affectedObjectIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/Uuid'
+        geometry:
+          $ref: '#/components/schemas/Geometry'
+          description: The offending geometry, when the issue is localizable to a shape rather than a whole object.
+
+    Georeference:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          localAnchor,
+          geographicAnchor,
+          rotationDegrees,
+          scaleCorrection,
+          provenance,
+          method,
+          revision,
+        ]
+      properties:
+        localAnchor:
+          $ref: '#/components/schemas/Position'
+        geographicAnchor:
+          $ref: '#/components/schemas/Position'
+          description: Longitude, latitude — WGS84.
+        rotationDegrees:
+          type: number
+        scaleCorrection:
+          type: number
+          exclusiveMinimum: 0
+        accuracyMetres:
+          type: number
+          minimum: 0
+        provenance:
+          $ref: '#/components/schemas/ProvenanceKind'
+        method:
+          type: string
+        revision:
+          $ref: '#/components/schemas/Revision'
+
+    GardenMapDocument:
+      type: object
+      additionalProperties: false
+      required: [coordinateSpaceId, objects, validationSummary]
+      description: |
+        Source: architecture/map-rendering-and-editing.md, section
+        "6. Hybrid Data Model".
+      properties:
+        coordinateSpaceId:
+          $ref: '#/components/schemas/Uuid'
+        georeference:
+          $ref: '#/components/schemas/Georeference'
+        objects:
+          type: array
+          items:
+            $ref: '#/components/schemas/GardenObject'
+        validationSummary:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationIssue'
+
+    VertexOperation:
+      type: string
+      enum: [insert, move, remove]
+
+    ProposalDecision:
+      type: string
+      enum: [accept, modifyAndAccept, reject]
+
+    CreateMapObjectCommand:
+      type: object
+      additionalProperties: false
+      required: [type, objectId, category, geometry]
+      properties:
+        type:
+          type: string
+          enum: [createObject]
+        objectId:
+          $ref: '#/components/schemas/Uuid'
+        category:
+          $ref: '#/components/schemas/GardenObjectCategory'
+        geometry:
+          $ref: '#/components/schemas/Geometry'
+        label:
+          type: string
+          maxLength: 200
+        categoryDetails:
+          $ref: '#/components/schemas/GardenObjectDetails'
+
+    MoveObjectCommand:
+      type: object
+      additionalProperties: false
+      required: [type, objectId, expectedRevision, translationMetres]
+      properties:
+        type:
+          type: string
+          enum: [moveObject]
+        objectId:
+          $ref: '#/components/schemas/Uuid'
+        expectedRevision:
+          $ref: '#/components/schemas/Revision'
+        translationMetres:
+          type: object
+          additionalProperties: false
+          required: [dx, dy]
+          properties:
+            dx:
+              type: number
+            dy:
+              type: number
+
+    ReplaceGeometryCommand:
+      type: object
+      additionalProperties: false
+      required: [type, objectId, expectedRevision, geometry]
+      description: What a resize, rotate, or freehand reshape gesture commits as.
+      properties:
+        type:
+          type: string
+          enum: [replaceGeometry]
+        objectId:
+          $ref: '#/components/schemas/Uuid'
+        expectedRevision:
+          $ref: '#/components/schemas/Revision'
+        geometry:
+          $ref: '#/components/schemas/Geometry'
+
+    EditVertexCommand:
+      type: object
+      additionalProperties: false
+      required: [type, objectId, expectedRevision, operation, ringIndex, vertexIndex]
+      properties:
+        type:
+          type: string
+          enum: [editVertex]
+        objectId:
+          $ref: '#/components/schemas/Uuid'
+        expectedRevision:
+          $ref: '#/components/schemas/Revision'
+        operation:
+          $ref: '#/components/schemas/VertexOperation'
+        ringIndex:
+          type: integer
+          minimum: 0
+        vertexIndex:
+          type: integer
+          minimum: 0
+        position:
+          $ref: '#/components/schemas/Position'
+          description: Required for `insert` and `move`; absent for `remove`.
+
+    SplitLineworkCommand:
+      type: object
+      additionalProperties: false
+      required: [type, objectId, expectedRevision, resultObjectIds, atVertexIndex]
+      properties:
+        type:
+          type: string
+          enum: [splitLinework]
+        objectId:
+          $ref: '#/components/schemas/Uuid'
+        expectedRevision:
+          $ref: '#/components/schemas/Revision'
+        resultObjectIds:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            $ref: '#/components/schemas/Uuid'
+        atVertexIndex:
+          type: integer
+          minimum: 0
+
+    JoinLineworkCommand:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          type,
+          firstObjectId,
+          firstExpectedRevision,
+          secondObjectId,
+          secondExpectedRevision,
+          resultObjectId,
+        ]
+      properties:
+        type:
+          type: string
+          enum: [joinLinework]
+        firstObjectId:
+          $ref: '#/components/schemas/Uuid'
+        firstExpectedRevision:
+          $ref: '#/components/schemas/Revision'
+        secondObjectId:
+          $ref: '#/components/schemas/Uuid'
+        secondExpectedRevision:
+          $ref: '#/components/schemas/Revision'
+        resultObjectId:
+          $ref: '#/components/schemas/Uuid'
+
+    ChangePropertiesCommand:
+      type: object
+      additionalProperties: false
+      required: [type, objectId, expectedRevision]
+      properties:
+        type:
+          type: string
+          enum: [changeProperties]
+        objectId:
+          $ref: '#/components/schemas/Uuid'
+        expectedRevision:
+          $ref: '#/components/schemas/Revision'
+        label:
+          type: string
+          maxLength: 200
+        categoryDetails:
+          $ref: '#/components/schemas/GardenObjectDetails'
+
+    AssignPlantCommand:
+      type: object
+      additionalProperties: false
+      required: [type, plantObjectId, expectedRevision, targetObjectId]
+      properties:
+        type:
+          type: string
+          enum: [assignPlant]
+        plantObjectId:
+          $ref: '#/components/schemas/Uuid'
+        expectedRevision:
+          $ref: '#/components/schemas/Revision'
+        targetObjectId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: '`null` unassigns the plant from any zone or bed.'
+
+    UpsertCalibrationCommand:
+      type: object
+      additionalProperties: false
+      required: [type, backgroundObjectId, referencePoints]
+      properties:
+        type:
+          type: string
+          enum: [upsertCalibration]
+        backgroundObjectId:
+          $ref: '#/components/schemas/Uuid'
+        referencePoints:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required: [imagePixel, localMetres]
+            properties:
+              imagePixel:
+                $ref: '#/components/schemas/Position'
+              localMetres:
+                $ref: '#/components/schemas/Position'
+
+    DecideProposalCommand:
+      type: object
+      additionalProperties: false
+      required: [type, proposalId, decision]
+      properties:
+        type:
+          type: string
+          enum: [decideProposal]
+        proposalId:
+          $ref: '#/components/schemas/Uuid'
+        decision:
+          $ref: '#/components/schemas/ProposalDecision'
+        editedGeometry:
+          $ref: '#/components/schemas/Geometry'
+          description: Required only for `modifyAndAccept`.
+
+    DeleteObjectCommand:
+      type: object
+      additionalProperties: false
+      required: [type, objectId, expectedRevision]
+      properties:
+        type:
+          type: string
+          enum: [deleteObject]
+        objectId:
+          $ref: '#/components/schemas/Uuid'
+        expectedRevision:
+          $ref: '#/components/schemas/Revision'
+
+    RestoreObjectCommand:
+      type: object
+      additionalProperties: false
+      required: [type, objectId, expectedRevision]
+      properties:
+        type:
+          type: string
+          enum: [restoreObject]
+        objectId:
+          $ref: '#/components/schemas/Uuid'
+        expectedRevision:
+          $ref: '#/components/schemas/Revision'
+
+    DuplicateObjectCommand:
+      type: object
+      additionalProperties: false
+      required: [type, sourceObjectId, newObjectId, offsetMetres]
+      properties:
+        type:
+          type: string
+          enum: [duplicateObject]
+        sourceObjectId:
+          $ref: '#/components/schemas/Uuid'
+        newObjectId:
+          $ref: '#/components/schemas/Uuid'
+        offsetMetres:
+          type: object
+          additionalProperties: false
+          required: [dx, dy]
+          properties:
+            dx:
+              type: number
+            dy:
+              type: number
+
+    MapCommandPayload:
+      oneOf:
+        - $ref: '#/components/schemas/CreateMapObjectCommand'
+        - $ref: '#/components/schemas/MoveObjectCommand'
+        - $ref: '#/components/schemas/ReplaceGeometryCommand'
+        - $ref: '#/components/schemas/EditVertexCommand'
+        - $ref: '#/components/schemas/SplitLineworkCommand'
+        - $ref: '#/components/schemas/JoinLineworkCommand'
+        - $ref: '#/components/schemas/ChangePropertiesCommand'
+        - $ref: '#/components/schemas/AssignPlantCommand'
+        - $ref: '#/components/schemas/UpsertCalibrationCommand'
+        - $ref: '#/components/schemas/DecideProposalCommand'
+        - $ref: '#/components/schemas/DeleteObjectCommand'
+        - $ref: '#/components/schemas/RestoreObjectCommand'
+        - $ref: '#/components/schemas/DuplicateObjectCommand'
+      discriminator:
+        propertyName: type
+
+    MapCommandRequest:
+      type: object
+      additionalProperties: false
+      required: [commandId, clientTimestamp, payload]
+      properties:
+        commandId:
+          $ref: '#/components/schemas/Uuid'
+        clientTimestamp:
+          $ref: '#/components/schemas/Timestamp'
+        payload:
+          $ref: '#/components/schemas/MapCommandPayload'
+
+    MapCommandResult:
+      type: object
+      additionalProperties: false
+      required: [affectedObjects]
+      properties:
+        affectedObjects:
+          type: array
+          items:
+            $ref: '#/components/schemas/GardenObject'
 
   responses:
     BadRequest:

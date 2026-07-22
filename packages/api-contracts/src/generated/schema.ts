@@ -203,6 +203,82 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/gardens/{gardenId}/map": {
+        parameters: {
+            query?: {
+                /**
+                 * @description Viewport bounding box in garden-local metres, for large gardens.
+                 *     All four bounds are required together or omitted together; a
+                 *     partial set is a `400`.
+                 */
+                minX?: number;
+                minY?: number;
+                maxX?: number;
+                maxY?: number;
+            };
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get the canonical garden map
+         * @description Returns every active object in the garden's local coordinate space,
+         *     its optional georeference, and a validation summary. Omitting the
+         *     bounding box parameters returns the whole garden — appropriate for
+         *     small and ordinary gardens; large gardens should pass a viewport.
+         *
+         *     Source: implementation-plan.md work packages P3-BE-01, P3-DATA-02;
+         *     architecture/map-rendering-and-editing.md, section "6. Hybrid Data Model".
+         */
+        get: operations["getGardenMap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/map/commands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit one canonical map editor command
+         * @description A single revision-aware endpoint for every map editing command —
+         *     create, move, replace geometry, edit a vertex, split or join
+         *     linework, change properties, assign a plant, upsert a calibration,
+         *     decide a proposal, delete, restore, or duplicate — rather than one
+         *     REST endpoint per command type. Every command that targets an
+         *     existing object carries its own expected revision in its payload
+         *     (not an `If-Match` header), because some commands, such as joining
+         *     two lines, target more than one object at once and need more than
+         *     one expected revision.
+         *
+         *     `actorProfileId` and `actorType` are never read from the request
+         *     body; the server fills them from the authenticated caller, the same
+         *     rule every other mutation in this API follows.
+         *
+         *     Source: implementation-plan.md work package P3-BE-01;
+         *     architecture/map-rendering-and-editing.md, section
+         *     "7. Editor Command Model".
+         */
+        post: operations["submitMapCommand"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -398,6 +474,354 @@ export interface components {
             curve?: components["schemas"]["CurveMetadata"];
             /** @description Absent means "not expressed", not "certain". */
             confidence?: number;
+        };
+        /**
+         * @description Source: architecture/map-rendering-and-editing.md, section
+         *     "4. Canonical Object Categories".
+         * @enum {string}
+         */
+        GardenObjectCategory: "lot" | "structure" | "fence" | "gate" | "path" | "zone" | "bed" | "waterFeature" | "utilityExclusion" | "tree" | "plant" | "annotation" | "importedBackground";
+        /** @enum {string} */
+        MeasurementUnit: "metres" | "squareMetres" | "degrees";
+        /** @enum {string} */
+        MeasurementAcquisitionMethod: "userEntered" | "derivedFromGeometry" | "arMeasurement" | "imageExtraction" | "depthCapture" | "importedPlan";
+        /**
+         * @description The schema must not imply survey accuracy merely because a value
+         *     uses a precise numeric type — every measurement carries how it was
+         *     acquired.
+         *
+         *     Source: architecture/data-and-geospatial-design.md, section
+         *     "11. Measurements and Uncertainty".
+         */
+        Measurement: {
+            /** @description Canonical SI value in `unit`. */
+            value: number;
+            unit: components["schemas"]["MeasurementUnit"];
+            acquisitionMethod: components["schemas"]["MeasurementAcquisitionMethod"];
+            /** @description As the user typed it, before conversion — for example "40 ft". */
+            originalEntry?: string;
+            /** @description Absolute uncertainty in the same unit as `value`. */
+            uncertainty?: number;
+            referenceObjectId?: components["schemas"]["Uuid"];
+            calibrationRevision?: components["schemas"]["Revision"];
+        };
+        StructureDetails: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            category: "StructureDetails";
+            /** @enum {string} */
+            structureKind: "house" | "shed" | "greenhouse" | "deck" | "garage" | "other";
+            heightMetres?: number;
+        };
+        FenceDetails: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            category: "FenceDetails";
+            /** @enum {string} */
+            fenceKind: "wood" | "chainLink" | "vinyl" | "metal" | "hedge" | "other";
+            heightMetres?: number;
+        };
+        /** @description A gate is always positioned along exactly one fence. */
+        GateDetails: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            category: "GateDetails";
+            fenceObjectId: components["schemas"]["Uuid"];
+            widthMetres?: number;
+        };
+        ZoneDetails: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            category: "ZoneDetails";
+            /** @enum {string} */
+            zoneKind: "lawn" | "garden" | "mulch" | "gravel" | "groundCover" | "other";
+        };
+        BedDetails: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            category: "BedDetails";
+            /** @enum {string} */
+            bedKind: "inGround" | "raised" | "container";
+            soilNotes?: string;
+        };
+        /**
+         * @description The canopy is a second, optional geometry — distinct from the trunk
+         *     position carried by the object's own `geometryEnvelope`.
+         */
+        TreeDetails: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            category: "TreeDetails";
+            canopyGeometry?: components["schemas"]["Geometry"];
+            commonName?: string;
+            estimatedHeightMetres?: number;
+            estimatedSpreadMetres?: number;
+        };
+        /**
+         * @description Deliberately without a plant-catalog reference: the species and care
+         *     catalog is Phase 4 scope.
+         */
+        PlantPlacementDetails: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            category: "PlantPlacementDetails";
+            commonName: string;
+            quantity: number;
+            spacingMetres?: number;
+            assignedToObjectId?: components["schemas"]["Uuid"];
+        };
+        UtilityExclusionDetails: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            category: "UtilityExclusionDetails";
+            /** @enum {string} */
+            utilityExclusionKind: "undergroundUtility" | "septicField" | "wellRadius" | "setback" | "other";
+            notes?: string;
+        };
+        /** @description Where a `Measurement` attaches — the "Annotation and measurement reference" category. */
+        AnnotationDetails: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            category: "AnnotationDetails";
+            measurement?: components["schemas"]["Measurement"];
+        };
+        /**
+         * @description Present only for categories that have specialized fields. `lot`,
+         *     `path`, `waterFeature`, and `importedBackground` carry no
+         *     `details` member.
+         */
+        GardenObjectDetails: components["schemas"]["StructureDetails"] | components["schemas"]["FenceDetails"] | components["schemas"]["GateDetails"] | components["schemas"]["ZoneDetails"] | components["schemas"]["BedDetails"] | components["schemas"]["TreeDetails"] | components["schemas"]["PlantPlacementDetails"] | components["schemas"]["UtilityExclusionDetails"] | components["schemas"]["AnnotationDetails"];
+        /** @enum {string} */
+        GardenObjectLifecycleState: "active" | "deleted";
+        GardenObject: {
+            id: components["schemas"]["Uuid"];
+            gardenId: components["schemas"]["Uuid"];
+            category: components["schemas"]["GardenObjectCategory"];
+            geometryEnvelope: components["schemas"]["GeometryEnvelope"];
+            label?: string;
+            details?: components["schemas"]["GardenObjectDetails"];
+            lifecycleState: components["schemas"]["GardenObjectLifecycleState"];
+            revision: components["schemas"]["Revision"];
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+        };
+        /** @enum {string} */
+        ValidationSeverity: "error" | "warning";
+        /**
+         * @description Warnings do not block a save unless the corresponding rule protects
+         *     data integrity or safety.
+         *
+         *     Source: architecture/map-rendering-and-editing.md, section
+         *     "11. Validation".
+         */
+        ValidationIssue: {
+            /** @description Stable machine-readable code, localized client-side. */
+            code: string;
+            severity: components["schemas"]["ValidationSeverity"];
+            affectedObjectIds?: components["schemas"]["Uuid"][];
+            /** @description The offending geometry, when the issue is localizable to a shape rather than a whole object. */
+            geometry?: components["schemas"]["Geometry"];
+        };
+        Georeference: {
+            localAnchor: components["schemas"]["Position"];
+            /** @description Longitude, latitude — WGS84. */
+            geographicAnchor: components["schemas"]["Position"];
+            rotationDegrees: number;
+            scaleCorrection: number;
+            accuracyMetres?: number;
+            provenance: components["schemas"]["ProvenanceKind"];
+            method: string;
+            revision: components["schemas"]["Revision"];
+        };
+        /**
+         * @description Source: architecture/map-rendering-and-editing.md, section
+         *     "6. Hybrid Data Model".
+         */
+        GardenMapDocument: {
+            coordinateSpaceId: components["schemas"]["Uuid"];
+            georeference?: components["schemas"]["Georeference"];
+            objects: components["schemas"]["GardenObject"][];
+            validationSummary: components["schemas"]["ValidationIssue"][];
+        };
+        /** @enum {string} */
+        VertexOperation: "insert" | "move" | "remove";
+        /** @enum {string} */
+        ProposalDecision: "accept" | "modifyAndAccept" | "reject";
+        CreateMapObjectCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "CreateMapObjectCommand";
+            objectId: components["schemas"]["Uuid"];
+            category: components["schemas"]["GardenObjectCategory"];
+            geometry: components["schemas"]["Geometry"];
+            label?: string;
+            categoryDetails?: components["schemas"]["GardenObjectDetails"];
+        };
+        MoveObjectCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "MoveObjectCommand";
+            objectId: components["schemas"]["Uuid"];
+            expectedRevision: components["schemas"]["Revision"];
+            translationMetres: {
+                dx: number;
+                dy: number;
+            };
+        };
+        /** @description What a resize, rotate, or freehand reshape gesture commits as. */
+        ReplaceGeometryCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "ReplaceGeometryCommand";
+            objectId: components["schemas"]["Uuid"];
+            expectedRevision: components["schemas"]["Revision"];
+            geometry: components["schemas"]["Geometry"];
+        };
+        EditVertexCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "EditVertexCommand";
+            objectId: components["schemas"]["Uuid"];
+            expectedRevision: components["schemas"]["Revision"];
+            operation: components["schemas"]["VertexOperation"];
+            ringIndex: number;
+            vertexIndex: number;
+            /** @description Required for `insert` and `move`; absent for `remove`. */
+            position?: components["schemas"]["Position"];
+        };
+        SplitLineworkCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "SplitLineworkCommand";
+            objectId: components["schemas"]["Uuid"];
+            expectedRevision: components["schemas"]["Revision"];
+            resultObjectIds: components["schemas"]["Uuid"][];
+            atVertexIndex: number;
+        };
+        JoinLineworkCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "JoinLineworkCommand";
+            firstObjectId: components["schemas"]["Uuid"];
+            firstExpectedRevision: components["schemas"]["Revision"];
+            secondObjectId: components["schemas"]["Uuid"];
+            secondExpectedRevision: components["schemas"]["Revision"];
+            resultObjectId: components["schemas"]["Uuid"];
+        };
+        ChangePropertiesCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "ChangePropertiesCommand";
+            objectId: components["schemas"]["Uuid"];
+            expectedRevision: components["schemas"]["Revision"];
+            label?: string;
+            categoryDetails?: components["schemas"]["GardenObjectDetails"];
+        };
+        AssignPlantCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "AssignPlantCommand";
+            plantObjectId: components["schemas"]["Uuid"];
+            expectedRevision: components["schemas"]["Revision"];
+            /** @description `null` unassigns the plant from any zone or bed. */
+            targetObjectId: components["schemas"]["Uuid"] | null;
+        };
+        UpsertCalibrationCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "UpsertCalibrationCommand";
+            backgroundObjectId: components["schemas"]["Uuid"];
+            referencePoints: {
+                imagePixel: components["schemas"]["Position"];
+                localMetres: components["schemas"]["Position"];
+            }[];
+        };
+        DecideProposalCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "DecideProposalCommand";
+            proposalId: components["schemas"]["Uuid"];
+            decision: components["schemas"]["ProposalDecision"];
+            /** @description Required only for `modifyAndAccept`. */
+            editedGeometry?: components["schemas"]["Geometry"];
+        };
+        DeleteObjectCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "DeleteObjectCommand";
+            objectId: components["schemas"]["Uuid"];
+            expectedRevision: components["schemas"]["Revision"];
+        };
+        RestoreObjectCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "RestoreObjectCommand";
+            objectId: components["schemas"]["Uuid"];
+            expectedRevision: components["schemas"]["Revision"];
+        };
+        DuplicateObjectCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "DuplicateObjectCommand";
+            sourceObjectId: components["schemas"]["Uuid"];
+            newObjectId: components["schemas"]["Uuid"];
+            offsetMetres: {
+                dx: number;
+                dy: number;
+            };
+        };
+        MapCommandPayload: components["schemas"]["CreateMapObjectCommand"] | components["schemas"]["MoveObjectCommand"] | components["schemas"]["ReplaceGeometryCommand"] | components["schemas"]["EditVertexCommand"] | components["schemas"]["SplitLineworkCommand"] | components["schemas"]["JoinLineworkCommand"] | components["schemas"]["ChangePropertiesCommand"] | components["schemas"]["AssignPlantCommand"] | components["schemas"]["UpsertCalibrationCommand"] | components["schemas"]["DecideProposalCommand"] | components["schemas"]["DeleteObjectCommand"] | components["schemas"]["RestoreObjectCommand"] | components["schemas"]["DuplicateObjectCommand"];
+        MapCommandRequest: {
+            commandId: components["schemas"]["Uuid"];
+            clientTimestamp: components["schemas"]["Timestamp"];
+            payload: components["schemas"]["MapCommandPayload"];
+        };
+        MapCommandResult: {
+            affectedObjects: components["schemas"]["GardenObject"][];
         };
     };
     responses: {
@@ -800,6 +1224,80 @@ export interface operations {
                     "application/json": components["schemas"]["Garden"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    getGardenMap: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Viewport bounding box in garden-local metres, for large gardens.
+                 *     All four bounds are required together or omitted together; a
+                 *     partial set is a `400`.
+                 */
+                minX?: number;
+                minY?: number;
+                maxX?: number;
+                maxY?: number;
+            };
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The garden's map document. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GardenMapDocument"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    submitMapCommand: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapCommandRequest"];
+            };
+        };
+        responses: {
+            /** @description The object or objects the command affected, at their new revision. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapCommandResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
