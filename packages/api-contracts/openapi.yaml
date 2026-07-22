@@ -753,6 +753,18 @@ components:
         - $ref: '#/components/schemas/MultiPolygonGeometry'
       discriminator:
         propertyName: type
+        # Without explicit mapping, openapi-typescript sets each branch's
+        # discriminator literal to the referenced schema's *name*
+        # ("PointGeometry") instead of the actual wire value ("Point"),
+        # making the generated type unusable for narrowing real JSON.
+        # Confirmed directly: this surfaced building the map module's
+        # generated-client consumers.
+        mapping:
+          Point: '#/components/schemas/PointGeometry'
+          LineString: '#/components/schemas/LineStringGeometry'
+          Polygon: '#/components/schemas/PolygonGeometry'
+          MultiLineString: '#/components/schemas/MultiLineStringGeometry'
+          MultiPolygon: '#/components/schemas/MultiPolygonGeometry'
 
     PointGeometry:
       type: object
@@ -1119,6 +1131,19 @@ components:
         - $ref: '#/components/schemas/AnnotationDetails'
       discriminator:
         propertyName: category
+        # See Geometry's discriminator comment: mapping to the actual wire
+        # values, not schema names, is required for the generated type to
+        # narrow real JSON correctly.
+        mapping:
+          structure: '#/components/schemas/StructureDetails'
+          fence: '#/components/schemas/FenceDetails'
+          gate: '#/components/schemas/GateDetails'
+          zone: '#/components/schemas/ZoneDetails'
+          bed: '#/components/schemas/BedDetails'
+          tree: '#/components/schemas/TreeDetails'
+          plant: '#/components/schemas/PlantPlacementDetails'
+          utilityExclusion: '#/components/schemas/UtilityExclusionDetails'
+          annotation: '#/components/schemas/AnnotationDetails'
       description: |
         Present only for categories that have specialized fields. `lot`,
         `path`, `waterFeature`, and `importedBackground` carry no
@@ -1518,6 +1543,23 @@ components:
         - $ref: '#/components/schemas/DuplicateObjectCommand'
       discriminator:
         propertyName: type
+        # See Geometry's discriminator comment: mapping to the actual wire
+        # values, not schema names, is required for the generated type to
+        # narrow real JSON correctly.
+        mapping:
+          createObject: '#/components/schemas/CreateMapObjectCommand'
+          moveObject: '#/components/schemas/MoveObjectCommand'
+          replaceGeometry: '#/components/schemas/ReplaceGeometryCommand'
+          editVertex: '#/components/schemas/EditVertexCommand'
+          splitLinework: '#/components/schemas/SplitLineworkCommand'
+          joinLinework: '#/components/schemas/JoinLineworkCommand'
+          changeProperties: '#/components/schemas/ChangePropertiesCommand'
+          assignPlant: '#/components/schemas/AssignPlantCommand'
+          upsertCalibration: '#/components/schemas/UpsertCalibrationCommand'
+          decideProposal: '#/components/schemas/DecideProposalCommand'
+          deleteObject: '#/components/schemas/DeleteObjectCommand'
+          restoreObject: '#/components/schemas/RestoreObjectCommand'
+          duplicateObject: '#/components/schemas/DuplicateObjectCommand'
 
     MapCommandRequest:
       type: object

@@ -34,6 +34,60 @@ export type CreateGardenRequest = Schemas['CreateGardenRequest'];
 export type RenameGardenRequest = Schemas['RenameGardenRequest'];
 export type SessionLoginRequest = Schemas['SessionLoginRequest'];
 
+/**
+ * The garden map schemas (P3-CONTRACT-01).
+ *
+ * Every `oneOf` discriminator here (`GardenObjectDetails`, `Geometry`,
+ * `MapCommandPayload`) declares an explicit `mapping` in `openapi.yaml`, so
+ * `openapi-typescript` types each branch's discriminator property with the
+ * real wire value (`"createObject"`, `"structure"`, `"Point"`) and these
+ * generated types narrow a real API response or request body correctly.
+ * This was not always true: without `mapping`, the generator falls back to
+ * typing the discriminator as the referenced component's own *name*
+ * (`"CreateMapObjectCommand"`, `"StructureDetails"`) instead — confirmed
+ * directly while building the map module's transport layer, and fixed by
+ * adding `mapping` to all three discriminators rather than working around
+ * it per consumer.
+ */
+export type GardenObjectCategory = Schemas['GardenObjectCategory'];
+export type GardenObjectLifecycleState = Schemas['GardenObjectLifecycleState'];
+export type GardenObjectDetails = Schemas['GardenObjectDetails'];
+export type StructureDetails = Schemas['StructureDetails'];
+export type FenceDetails = Schemas['FenceDetails'];
+export type GateDetails = Schemas['GateDetails'];
+export type ZoneDetails = Schemas['ZoneDetails'];
+export type BedDetails = Schemas['BedDetails'];
+export type TreeDetails = Schemas['TreeDetails'];
+export type PlantPlacementDetails = Schemas['PlantPlacementDetails'];
+export type UtilityExclusionDetails = Schemas['UtilityExclusionDetails'];
+export type AnnotationDetails = Schemas['AnnotationDetails'];
+export type GardenObject = Schemas['GardenObject'];
+export type GardenMapDocument = Schemas['GardenMapDocument'];
+export type Georeference = Schemas['Georeference'];
+export type ValidationSeverity = Schemas['ValidationSeverity'];
+export type ValidationIssue = Schemas['ValidationIssue'];
+export type VertexOperation = Schemas['VertexOperation'];
+export type ProposalDecision = Schemas['ProposalDecision'];
+export type MeasurementUnit = Schemas['MeasurementUnit'];
+export type MeasurementAcquisitionMethod = Schemas['MeasurementAcquisitionMethod'];
+export type Measurement = Schemas['Measurement'];
+export type CreateMapObjectCommand = Schemas['CreateMapObjectCommand'];
+export type MoveObjectCommand = Schemas['MoveObjectCommand'];
+export type ReplaceGeometryCommand = Schemas['ReplaceGeometryCommand'];
+export type EditVertexCommand = Schemas['EditVertexCommand'];
+export type SplitLineworkCommand = Schemas['SplitLineworkCommand'];
+export type JoinLineworkCommand = Schemas['JoinLineworkCommand'];
+export type ChangePropertiesCommand = Schemas['ChangePropertiesCommand'];
+export type AssignPlantCommand = Schemas['AssignPlantCommand'];
+export type UpsertCalibrationCommand = Schemas['UpsertCalibrationCommand'];
+export type DecideProposalCommand = Schemas['DecideProposalCommand'];
+export type DeleteObjectCommand = Schemas['DeleteObjectCommand'];
+export type RestoreObjectCommand = Schemas['RestoreObjectCommand'];
+export type DuplicateObjectCommand = Schemas['DuplicateObjectCommand'];
+export type MapCommandPayload = Schemas['MapCommandPayload'];
+export type MapCommandRequest = Schemas['MapCommandRequest'];
+export type MapCommandResult = Schemas['MapCommandResult'];
+
 /** The API base path. Breaking changes require a new major path. */
 export const API_BASE_PATH = '/v1';
 
@@ -92,6 +146,24 @@ export const GardenErrorCode = {
 } as const;
 
 export type GardenErrorCode = (typeof GardenErrorCode)[keyof typeof GardenErrorCode];
+
+/**
+ * Error codes the gardens-mapping module's map endpoints raise.
+ *
+ * `StaleRevision` is exactly the worked example the `Error` schema
+ * description already names (`garden.geometry.stale_revision`) — this is
+ * where that example was first put to use.
+ */
+export const MapErrorCode = {
+  /** No object exists at this ID within this garden, or the garden itself is not visible to the caller. */
+  NotFound: 'garden.geometry.object_not_found',
+  /** The supplied `expectedRevision` no longer matches the object's stored revision. */
+  StaleRevision: 'garden.geometry.stale_revision',
+  /** The command does not apply to the object's current lifecycle state (for example, deleting an already-deleted object). */
+  LifecycleConflict: 'garden.geometry.lifecycle_conflict',
+} as const;
+
+export type MapErrorCode = (typeof MapErrorCode)[keyof typeof MapErrorCode];
 
 /** Narrows an unknown response body to the shared error envelope. */
 export function isApiError(value: unknown): value is ApiError {

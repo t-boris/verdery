@@ -408,7 +408,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            type: "PointGeometry";
+            type: "Point";
             coordinates: components["schemas"]["Position"];
         };
         LineStringGeometry: {
@@ -416,7 +416,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            type: "LineStringGeometry";
+            type: "LineString";
             coordinates: components["schemas"]["Position"][];
         };
         PolygonGeometry: {
@@ -424,7 +424,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            type: "PolygonGeometry";
+            type: "Polygon";
             /** @description First ring is the exterior ring; any further rings are holes. */
             coordinates: components["schemas"]["Position"][][];
         };
@@ -433,7 +433,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            type: "MultiLineStringGeometry";
+            type: "MultiLineString";
             coordinates: components["schemas"]["Position"][][];
         };
         MultiPolygonGeometry: {
@@ -441,7 +441,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            type: "MultiPolygonGeometry";
+            type: "MultiPolygon";
             coordinates: components["schemas"]["Position"][][][];
         };
         /**
@@ -510,7 +510,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            category: "StructureDetails";
+            category: "structure";
             /** @enum {string} */
             structureKind: "house" | "shed" | "greenhouse" | "deck" | "garage" | "other";
             heightMetres?: number;
@@ -520,7 +520,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            category: "FenceDetails";
+            category: "fence";
             /** @enum {string} */
             fenceKind: "wood" | "chainLink" | "vinyl" | "metal" | "hedge" | "other";
             heightMetres?: number;
@@ -531,7 +531,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            category: "GateDetails";
+            category: "gate";
             fenceObjectId: components["schemas"]["Uuid"];
             widthMetres?: number;
         };
@@ -540,7 +540,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            category: "ZoneDetails";
+            category: "zone";
             /** @enum {string} */
             zoneKind: "lawn" | "garden" | "mulch" | "gravel" | "groundCover" | "other";
         };
@@ -549,7 +549,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            category: "BedDetails";
+            category: "bed";
             /** @enum {string} */
             bedKind: "inGround" | "raised" | "container";
             soilNotes?: string;
@@ -563,7 +563,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            category: "TreeDetails";
+            category: "tree";
             canopyGeometry?: components["schemas"]["Geometry"];
             commonName?: string;
             estimatedHeightMetres?: number;
@@ -578,7 +578,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            category: "PlantPlacementDetails";
+            category: "plant";
             commonName: string;
             quantity: number;
             spacingMetres?: number;
@@ -589,7 +589,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            category: "UtilityExclusionDetails";
+            category: "utilityExclusion";
             /** @enum {string} */
             utilityExclusionKind: "undergroundUtility" | "septicField" | "wellRadius" | "setback" | "other";
             notes?: string;
@@ -600,7 +600,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            category: "AnnotationDetails";
+            category: "annotation";
             measurement?: components["schemas"]["Measurement"];
         };
         /**
@@ -670,7 +670,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            type: "CreateMapObjectCommand";
+            type: "createObject";
             objectId: components["schemas"]["Uuid"];
             category: components["schemas"]["GardenObjectCategory"];
             geometry: components["schemas"]["Geometry"];
@@ -682,7 +682,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            type: "MoveObjectCommand";
+            type: "moveObject";
             objectId: components["schemas"]["Uuid"];
             expectedRevision: components["schemas"]["Revision"];
             translationMetres: {
@@ -696,7 +696,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            type: "ReplaceGeometryCommand";
+            type: "replaceGeometry";
             objectId: components["schemas"]["Uuid"];
             expectedRevision: components["schemas"]["Revision"];
             geometry: components["schemas"]["Geometry"];
@@ -706,7 +706,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            type: "EditVertexCommand";
+            type: "editVertex";
             objectId: components["schemas"]["Uuid"];
             expectedRevision: components["schemas"]["Revision"];
             operation: components["schemas"]["VertexOperation"];
@@ -720,7 +720,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            type: "SplitLineworkCommand";
+            type: "splitLinework";
             objectId: components["schemas"]["Uuid"];
             expectedRevision: components["schemas"]["Revision"];
             resultObjectIds: components["schemas"]["Uuid"][];
@@ -731,7 +731,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            type: "JoinLineworkCommand";
+            type: "joinLinework";
             firstObjectId: components["schemas"]["Uuid"];
             firstExpectedRevision: components["schemas"]["Revision"];
             secondObjectId: components["schemas"]["Uuid"];
@@ -743,7 +743,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            type: "ChangePropertiesCommand";
+            type: "changeProperties";
             objectId: components["schemas"]["Uuid"];
             expectedRevision: components["schemas"]["Revision"];
             label?: string;
@@ -754,7 +754,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            type: "AssignPlantCommand";
+            type: "assignPlant";
             plantObjectId: components["schemas"]["Uuid"];
             expectedRevision: components["schemas"]["Revision"];
             /** @description `null` unassigns the plant from any zone or bed. */
@@ -765,7 +765,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            type: "UpsertCalibrationCommand";
+            type: "upsertCalibration";
             backgroundObjectId: components["schemas"]["Uuid"];
             referencePoints: {
                 imagePixel: components["schemas"]["Position"];
@@ -777,7 +777,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            type: "DecideProposalCommand";
+            type: "decideProposal";
             proposalId: components["schemas"]["Uuid"];
             decision: components["schemas"]["ProposalDecision"];
             /** @description Required only for `modifyAndAccept`. */
@@ -788,7 +788,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            type: "DeleteObjectCommand";
+            type: "deleteObject";
             objectId: components["schemas"]["Uuid"];
             expectedRevision: components["schemas"]["Revision"];
         };
@@ -797,7 +797,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            type: "RestoreObjectCommand";
+            type: "restoreObject";
             objectId: components["schemas"]["Uuid"];
             expectedRevision: components["schemas"]["Revision"];
         };
@@ -806,7 +806,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            type: "DuplicateObjectCommand";
+            type: "duplicateObject";
             sourceObjectId: components["schemas"]["Uuid"];
             newObjectId: components["schemas"]["Uuid"];
             offsetMetres: {
