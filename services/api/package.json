@@ -26,12 +26,12 @@
   },
   "devDependencies": {
     "@testcontainers/postgresql": "^12.0.4",
-    "@types/node": "^24.10.4",
+    "@types/node": "^26.1.1",
     "@types/pg": "^8.15.6",
     "@verdery/test-fixtures": "workspace:*",
     "node-pg-migrate": "^9.0.0",
     "testcontainers": "^12.0.4",
-    "typescript": "^5.9.3",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.10"
   }
 }
