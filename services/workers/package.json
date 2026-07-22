@@ -1,0 +1,23 @@
+{
+  "name": "@verdery/workers",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Independently deployed workers for media verification, derivatives, and scheduled processing",
+  "scripts": {
+    "build": "tsc --build tsconfig.build.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@verdery/api-contracts": "workspace:*",
+    "@verdery/geometry-contracts": "workspace:*",
+    "pino": "^10.3.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.4",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
+  }
+}

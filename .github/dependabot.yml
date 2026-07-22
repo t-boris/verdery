@@ -1,0 +1,32 @@
+version: 2
+
+# Every GitHub Action in this repository is pinned to a commit SHA, which is what
+# the supply-chain policy requires but also what freezes an action at a version
+# that will eventually carry a known vulnerability. Dependabot is the mechanism
+# that moves those pins forward; without it, SHA pinning silently becomes
+# "permanently outdated".
+#
+# Source: architecture/environments-and-delivery.md, section "17. Supply Chain",
+# "Pin GitHub Actions to trusted versions or commit SHAs according to policy" and
+# "Scan dependencies, secrets, Terraform, and containers".
+updates:
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/setup-workspace
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: ci
+
+  # Grouped into a single pull request so that routine dependency movement costs
+  # one review rather than one review per package.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      workspace:
+        patterns: ['*']
+    commit-message:
+      prefix: deps

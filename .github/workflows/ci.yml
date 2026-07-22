@@ -1,0 +1,275 @@
+name: CI
+
+# `master` is this repository's default branch. Renaming it to `main` is a
+# reasonable future change, but it must be made on the remote and here in the
+# same commit — a mismatch silently disables every gate below.
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+# Least privilege is declared as a deny-by-default at the workflow level; every
+# job re-grants only the scopes it needs. No job needs write access, because this
+# workflow validates and never publishes.
+#
+# Source: architecture/environments-and-delivery.md, section "17. Supply Chain",
+# "Restrict package publication and CI token permissions".
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Superseded pull-request runs are pointless; superseded pushes to main are
+  # the record of what was validated on the branch and must finish.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  changes:
+    name: Detect affected surfaces
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      typescript: ${{ steps.filter.outputs.typescript }}
+      contract: ${{ steps.filter.outputs.contract }}
+      swift: ${{ steps.filter.outputs.swift }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Filters are deliberately over-inclusive. A gate that runs when it did not
+      # have to costs runner minutes; a gate that is skipped when it was affected
+      # lets a defect merge. Every filter therefore also matches the workspace
+      # manifests, the lockfile, and this workflow, because any of those can
+      # change the outcome of the gate.
+      #
+      # Source: architecture/environments-and-delivery.md, section "7. Change
+      # Detection", "CI determines affected surfaces while always validating
+      # shared contracts and documentation when relevant".
+      - name: Classify changed paths
+        id: filter
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        with:
+          filters: |
+            typescript:
+              - 'apps/web/**'
+              - 'services/**'
+              - 'packages/**'
+              - 'scripts/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'tsconfig.base.json'
+              - 'eslint.config.mjs'
+              - '.github/actions/setup-workspace/**'
+              - '.github/workflows/ci.yml'
+            contract:
+              - 'packages/api-contracts/**'
+              - 'pnpm-lock.yaml'
+              - '.github/actions/setup-workspace/**'
+              - '.github/workflows/ci.yml'
+            swift:
+              - 'apps/ios/**'
+              - 'packages/test-fixtures/fixtures/**'
+              - '.github/workflows/ci.yml'
+
+  repository-policy:
+    name: Formatting and file size
+    # Never gated on change detection. Prettier formats Markdown as well as code,
+    # and the file-size rule covers Swift and Terraform, so a change to any path
+    # in the repository can violate one of these two rules.
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up the workspace
+        uses: ./.github/actions/setup-workspace
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      # Source: AGENTS.md, "Keep source code files at or below 600 lines".
+      - name: Check source file size
+        run: pnpm check:file-size
+
+  typescript:
+    name: Lint, types, and tests
+    needs: changes
+    if: needs.changes.outputs.typescript == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up the workspace
+        uses: ./.github/actions/setup-workspace
+
+      # Workspace packages are consumed through their compiled `dist/`, which is
+      # not committed, so nothing type-checks or tests on a fresh checkout until
+      # the packages are built. This is the one step a developer does not need
+      # locally, where `dist/` already exists.
+      - name: Build workspace packages
+        run: pnpm build
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type-check
+        run: pnpm typecheck
+
+      # Migration and repository tests start PostgreSQL through Testcontainers,
+      # which relies on the Docker daemon preinstalled on the Ubuntu runner.
+      #
+      # Source: architecture/testing-strategy.md, section "22. CI Gates",
+      # "Unit and integration tests".
+      - name: Run unit and integration tests
+        run: pnpm test
+
+  contract:
+    name: API contract
+    needs: changes
+    if: needs.changes.outputs.contract == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up the workspace
+        uses: ./.github/actions/setup-workspace
+
+      - name: Lint the OpenAPI document
+        run: pnpm --filter @verdery/api-contracts lint:contract
+
+      # Run against the checkout before anything regenerates the client. The
+      # `typescript` job builds the contract package, which rewrites the
+      # generated file as a side effect and would mask drift; this job must see
+      # exactly what the author committed.
+      #
+      # Source: architecture/api-design.md, section "3. Contract Ownership".
+      - name: Verify the generated client matches the contract
+        run: pnpm --filter @verdery/api-contracts generate:check
+
+  secret-scan:
+    name: Secret scan
+    # Never gated on change detection: a credential can be committed in any file.
+    #
+    # Source: architecture/environments-and-delivery.md, section "17. Supply
+    # Chain", "Scan dependencies, secrets, Terraform, and containers".
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The scan compares two commits, so the shallow default clone is not
+          # enough history.
+          fetch-depth: 0
+
+      # TruffleHog is used rather than Gitleaks because its action carries no
+      # licence key requirement for organization-owned repositories, so this gate
+      # cannot start failing on a billing condition.
+      #
+      # On a pull request the base and head expressions resolve and the scan is
+      # limited to the commits under review. On a push to main both are empty and
+      # the action falls back to scanning the whole repository.
+      - name: Scan for committed credentials
+        uses: trufflesecurity/trufflehog@27b0417c16317ca9a472a9a8092acce143b49c55 # v3.95.9
+        with:
+          path: ./
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
+          # Unknown-verification findings are included because the repository has
+          # no live credentials to verify against, so a real leak would most
+          # likely be reported as unverified.
+          extra_args: --results=verified,unknown
+
+  swift:
+    name: Swift package
+    needs: changes
+    if: needs.changes.outputs.swift == 'true'
+    # This is the expensive gate. The Swift package can only be built with the
+    # Apple toolchain, which exists only on macOS runners, and those are billed
+    # at a large multiple of the Linux rate. Change detection is what keeps it
+    # off the majority of pull requests; it is also why the Swift filter is the
+    # narrowest one above.
+    runs-on: macos-26
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Source: ADR-0009, "Apple SDK and language: iOS 26 SDK, Swift 6.3,
+      # enforced by the Xcode project and CI toolchain".
+      - name: Select the pinned Xcode toolchain
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: '26.6'
+
+      # The Swift package intentionally sits outside the pnpm workspace, so it is
+      # built by Swift Package Manager rather than by any workspace script.
+      #
+      # Source: architecture/README.md, section "5. Repository Shape".
+      - name: Build
+        working-directory: apps/ios
+        run: swift build
+
+      - name: Test
+        working-directory: apps/ios
+        run: swift test
+
+  gates:
+    name: All gates
+    # Runs even when a gate fails, so that branch protection can require exactly
+    # one check while change detection keeps individual gates conditional. A
+    # skipped gate is a correct outcome; a failed or cancelled one is not.
+    #
+    # `changes` is included deliberately. Every other gate depends on it, so if
+    # it fails or is cancelled they are all reported as *skipped* — which this
+    # job treats as an acceptable outcome. Without `changes` in this list, a
+    # broken change-detection step would present a green required check on a
+    # pull request where nothing was actually verified.
+    if: always()
+    needs: [changes, repository-policy, typescript, contract, secret-scan, swift]
+    runs-on: ubuntu-24.04
+    permissions: {}
+    steps:
+      - name: Summarize gate results
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Gate results: ${RESULTS}"
+          case "${RESULTS}" in
+            *failure* | *cancelled*)
+              echo 'At least one gate did not pass.' >&2
+              exit 1
+              ;;
+          esac
+          echo 'Every gate affected by this change passed.'
+
+# Deployment is deliberately absent from this repository.
+#
+# The architecture requires GitHub Actions to reach Google Cloud through workload identity
+# federation with a separate identity per environment, and requires deployments to reference an
+# immutable image digest in Artifact Registry. None of that exists: the Google Cloud organization,
+# the per-environment projects, and the federation pool are work packages P1-PLAT-02 and P1-PLAT-03,
+# which are deferred until a real cloud organization with billing is available. A deploy workflow
+# written now could only either commit a long-lived service-account key, which the supply-chain
+# policy prohibits, or authenticate against identities that do not exist.
+#
+# The same reasoning removes the Terraform gate: `infrastructure/terraform` is empty until
+# P1-PLAT-01, and a validation job with nothing to validate is a check that reports success without
+# checking anything.
+#
+# Source: architecture/environments-and-delivery.md, sections "6. CI/CD Identity", "8. Build
+# Artifacts", and "17. Supply Chain"; implementation-plan.md, section 10.2.
+# See docs/development/deferred-capabilities.md.

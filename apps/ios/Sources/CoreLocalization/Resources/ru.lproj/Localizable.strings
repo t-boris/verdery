@@ -1,0 +1,24 @@
+/* Geometry validation issues. The key is the stable code produced by CoreDomain. */
+"geometry.coordinate.not_finite" = "Координата не является корректным числом.";
+"geometry.coordinate.out_of_range" = "Координата удалена от начала координат сада больше чем на {limitMetres} м.";
+"geometry.empty" = "У этой фигуры пока нет контура.";
+"geometry.polygon.too_few_vertices" = "Для области нужно не менее {minimum} углов.";
+"geometry.polygon.not_closed" = "Контур не возвращается в начальную точку.";
+"geometry.polygon.self_intersects" = "Контур пересекает сам себя.";
+"geometry.polygon.below_minimum_area" = "Площадь меньше {minimumSquareMetres} м², с ней будет неудобно работать.";
+"geometry.line.too_few_vertices" = "Для линии нужно не менее {minimum} точек.";
+"geometry.line.below_minimum_length" = "Длина линии меньше {minimumMetres} м.";
+
+/* Failures the user can act on without knowing what a status code is. */
+"error.network.unreachable" = "Verdery не может связаться с сервером. Проверьте подключение и повторите попытку.";
+"error.server.unexpected" = "На нашей стороне возникла ошибка. Повторите попытку чуть позже.";
+
+/* Service health screen. */
+"health.title" = "Состояние сервиса";
+"health.status.checking" = "Проверяем…";
+"health.status.ready" = "Сервис готов к работе.";
+"health.status.notReady" = "Сервис не готов к работе.";
+"health.status.unreachable" = "Не удалось связаться с сервисом.";
+"health.version" = "Версия {version}";
+"health.dependency.unavailable" = "{name} недоступен.";
+"health.action.refresh" = "Проверить снова";

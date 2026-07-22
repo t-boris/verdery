@@ -1,0 +1,66 @@
+/*
+ * Document-level defaults.
+ *
+ * Focus is always visible, motion respects the user's preference, and touch
+ * targets stay large enough for touch-capable laptops and tablets.
+ *
+ * Source: architecture/web-application-design.md, section "14. Accessibility".
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-canvas);
+  color: var(--color-text);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-normal);
+  -webkit-text-size-adjust: 100%;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  line-height: var(--line-height-tight);
+}
+
+p {
+  margin: 0;
+}
+
+:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration-thickness: from-font;
+}
+
+/* Standalone controls stay comfortable for touch input; inline links keep the text flow. */
+button,
+[role='button'] {
+  min-height: 2.75rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

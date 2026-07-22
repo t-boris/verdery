@@ -1,0 +1,103 @@
+/*
+ * Design tokens.
+ *
+ * Every visual value used by a primitive comes from this file. Components never
+ * hard-code a colour or a spacing step, so a theme change is a change here and
+ * nowhere else.
+ *
+ * Light and dark palettes are chosen so that body text, muted text, and text on
+ * a filled control all clear the WCAG AA contrast ratio, and so that state is
+ * never carried by colour alone.
+ *
+ * Source: architecture/web-application-design.md, section "14. Accessibility".
+ */
+
+:root {
+  --color-canvas: #f6f9f5;
+  --color-surface: #ffffff;
+  --color-surface-sunken: #eef3ec;
+  --color-border: #ccd8cd;
+  --color-text: #14231a;
+  --color-text-muted: #4c5c52;
+  --color-accent: #14532d;
+  --color-accent-text: #ffffff;
+  --color-accent-quiet: #dcefe2;
+  --color-positive: #14532d;
+  --color-negative: #8f1d24;
+  --color-negative-quiet: #fbe9ea;
+  --color-focus: #14532d;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-pill: 999px;
+
+  --font-family-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-family-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.25rem;
+  --font-size-xl: 1.75rem;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.6;
+
+  --border-width: 1px;
+  --focus-ring-width: 3px;
+  --focus-ring-offset: 2px;
+
+  --duration-fast: 120ms;
+}
+
+/*
+ * The dark palette follows the operating-system preference by default. The
+ * explicit `data-theme` attributes let a future preference control override that
+ * in both directions without a second stylesheet.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-canvas: #0f1613;
+    --color-surface: #18211c;
+    --color-surface-sunken: #131c17;
+    --color-border: #35443b;
+    --color-text: #e8f0ea;
+    --color-text-muted: #b3c4b8;
+    --color-accent: #6ee7a0;
+    --color-accent-text: #0f1613;
+    --color-accent-quiet: #1e3327;
+    --color-positive: #6ee7a0;
+    --color-negative: #ff9b9b;
+    --color-negative-quiet: #3a1f21;
+    --color-focus: #6ee7a0;
+  }
+}
+
+:root[data-theme='dark'] {
+  --color-canvas: #0f1613;
+  --color-surface: #18211c;
+  --color-surface-sunken: #131c17;
+  --color-border: #35443b;
+  --color-text: #e8f0ea;
+  --color-text-muted: #b3c4b8;
+  --color-accent: #6ee7a0;
+  --color-accent-text: #0f1613;
+  --color-accent-quiet: #1e3327;
+  --color-positive: #6ee7a0;
+  --color-negative: #ff9b9b;
+  --color-negative-quiet: #3a1f21;
+  --color-focus: #6ee7a0;
+}

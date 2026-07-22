@@ -1,0 +1,24 @@
+/* Geometry validation issues. The key is the stable code produced by CoreDomain. */
+"geometry.coordinate.not_finite" = "A coordinate is not a valid number.";
+"geometry.coordinate.out_of_range" = "A coordinate is further than {limitMetres} m from the garden origin.";
+"geometry.empty" = "This shape has no outline yet.";
+"geometry.polygon.too_few_vertices" = "An area needs at least {minimum} corners.";
+"geometry.polygon.not_closed" = "The outline does not return to its starting point.";
+"geometry.polygon.self_intersects" = "The outline crosses itself.";
+"geometry.polygon.below_minimum_area" = "This area is smaller than {minimumSquareMetres} m² and would be hard to use.";
+"geometry.line.too_few_vertices" = "A line needs at least {minimum} points.";
+"geometry.line.below_minimum_length" = "This line is shorter than {minimumMetres} m.";
+
+/* Failures the user can act on without knowing what a status code is. */
+"error.network.unreachable" = "Verdery cannot reach the server. Check your connection and try again.";
+"error.server.unexpected" = "Something went wrong on our side. Try again in a moment.";
+
+/* Service health screen. */
+"health.title" = "Service status";
+"health.status.checking" = "Checking…";
+"health.status.ready" = "The service is ready.";
+"health.status.notReady" = "The service is not ready.";
+"health.status.unreachable" = "The service could not be reached.";
+"health.version" = "Version {version}";
+"health.dependency.unavailable" = "{name} is unavailable.";
+"health.action.refresh" = "Check again";
