@@ -139,6 +139,14 @@ ${grant_statements}
 -- schema-level CREATE, so every subsequent least-privilege migration run
 -- also needs explicit row access to the table the first run already made.
 --
+-- Row privileges on the table are not enough: `id` is a serial column, so
+-- every INSERT into pgmigrations calls nextval() on the sequence Postgres
+-- generated for it, and a sequence is its own relation with its own ACL —
+-- GRANT INSERT on the table never implies USAGE on the sequence behind one
+-- of its columns. Discovered when a real migration run against verdery-dev
+-- applied its DDL successfully and then failed with "permission denied for
+-- sequence pgmigrations_id_seq" on node-pg-migrate's own bookkeeping insert.
+--
 -- Harmless to run before the table exists: GRANT on a name with no matching
 -- relation is simply a no-op in Postgres, not an error, so this script stays
 -- correct whether it runs before or after the very first migration.
@@ -146,6 +154,7 @@ DO \$\$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'pgmigrations') THEN
     GRANT SELECT, INSERT, UPDATE, DELETE ON public.pgmigrations TO verdery_migration;
+    GRANT USAGE, SELECT ON public.pgmigrations_id_seq TO verdery_migration;
   END IF;
 END
 \$\$;

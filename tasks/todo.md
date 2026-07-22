@@ -209,14 +209,17 @@ App Check, and the E2E suite are not done — no G2 approval is claimed.
 
 ### Verified evidence
 
-| Check                                                 | Result                                                                                                                                                         |
-| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm build`                                          | passes: all workspace packages, including the Next.js production build (7 routes)                                                                              |
-| `pnpm check:all`                                      | passes: format, lint, typecheck, 600-line rule, 234 tests across 6 workspace packages                                                                          |
-| `pnpm --filter @verdery/api-contracts lint:contract`  | passes: OpenAPI document valid                                                                                                                                 |
-| `pnpm --filter @verdery/api-contracts generate:check` | passes: generated client matches the committed OpenAPI document                                                                                                |
-| `swift build && swift test` (apps/ios)                | passes: 52 tests in 14 suites                                                                                                                                  |
-| `services/api` migration and integration tests        | included in the 234: `tests/migrations/identity-and-gardens-baseline.test.ts`, `tests/integration/gardens-mapping.test.ts`, `tests/http/garden-routes.test.ts` |
+| Check                                                     | Result                                                                                                                                                         |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm build`                                              | passes: all workspace packages, including the Next.js production build (7 routes)                                                                              |
+| `pnpm check:all`                                          | passes: format, lint, typecheck, 600-line rule, 234 tests across 6 workspace packages                                                                          |
+| `pnpm --filter @verdery/api-contracts lint:contract`      | passes: OpenAPI document valid                                                                                                                                 |
+| `pnpm --filter @verdery/api-contracts generate:check`     | passes: generated client matches the committed OpenAPI document                                                                                                |
+| `swift build && swift test` (apps/ios)                    | passes: 52 tests in 14 suites                                                                                                                                  |
+| `services/api` migration and integration tests            | included in the 234: `tests/migrations/identity-and-gardens-baseline.test.ts`, `tests/integration/gardens-mapping.test.ts`, `tests/http/garden-routes.test.ts` |
+| CI on `master` (`f43eec4`)                                | passes: all 6 gates, including the new `swift` job on a macOS 26 / Xcode 26.6 runner                                                                           |
+| `.github/workflows/deploy-dev.yml`, real run              | passes end-to-end after the sequence-grant fix: build, push, migrate, deploy, live health check, no manual intervention                                        |
+| Live request: `GET /v1/health/ready` on `verdery-api-dev` | `200`, `{"status":"ready", ..., "dependencies":[{"name":"database","status":"available"}]}`, with `FIREBASE_PROJECT_ID` now set                                |
 
 ### Defects found and fixed during this session
 
@@ -230,6 +233,18 @@ App Check, and the E2E suite are not done — no G2 approval is claimed.
    without it) for `deploy-migration-job.sh`, but the equivalent line was missing from
    `deploy-api.sh` — the next deploy would have crash-looped the API service on startup. Found and
    fixed before pushing, by the same pattern already applied to the migration job script.
+3. **The live `verdery-dev` migration job failed on its first real Phase 2 run**: `permission denied
+for sequence pgmigrations_id_seq`. `07-iam-database-bootstrap.sh` already granted
+   `verdery_migration` row privileges on the pre-existing `pgmigrations` tracking table, but a
+   sequence is its own relation with its own ACL — `GRANT INSERT` on a table never implies `USAGE`
+   on the sequence backing one of its serial columns, so `node-pg-migrate`'s own bookkeeping insert
+   (which runs after every successful migration file) failed. Fixed by adding
+   `GRANT USAGE, SELECT ON public.pgmigrations_id_seq TO verdery_migration` to the same
+   already-idempotent grant block, then re-running the bootstrap script against the live database
+   (temporary public IP, superuser password rotation — both already-established, self-reverting
+   behaviors of that script) and re-executing the migration job, which then succeeded. Confirmed by
+   re-running the full `.github/workflows/deploy-dev.yml` pipeline from a clean state afterward: it
+   built, migrated, deployed, and verified live health with no manual intervention.
 
 ### Known limitations
 
