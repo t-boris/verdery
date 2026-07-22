@@ -60,7 +60,7 @@ platform components installed first — a system-level fix, not a project one.
 | `CoreObservability`       | Correlation identifiers and redacted diagnostics                            |
 | `CoreLocalization`        | The English and Russian catalogue and the accessor over it                  |
 | `CoreNetworking`          | Typed API gateways over URLSession: health, garden lifecycle, web session   |
-| `CoreAuthentication`      | The only module that imports `FirebaseAuth`: sign-in, ID token provider     |
+| `CoreAuthentication`      | The only module that imports `FirebaseAuth` and `FirebaseAppCheck`: sign-in, ID token provider, App Check token provider |
 | `FeatureHealth`           | Feature template: use case, view state, view model, SwiftUI view            |
 | `FeatureAuthentication`   | Sign-in screen: Google popup and email magic link                           |
 | `FeatureGardens`          | Garden list, create, and per-garden settings; the per-profile GRDB store    |
@@ -132,9 +132,11 @@ only. `CoreNetworking.SessionGateway` is defined anyway, for the rare case a nat
 web session path (Apple's account-linking flows can go through it), but nothing in this app calls it
 yet.
 
-Sign in with Apple is deliberately absent from `AuthenticationGateway`: it awaits the repository
-owner's own Apple Developer credentials (Services ID, Team ID, Key ID, `.p8` key) before it can be
-configured in Firebase and in `project.yml`'s entitlements.
+Sign in with Apple, Google, and email magic link are all implemented in `AuthenticationGateway`
+(`FirebaseAuthenticationGateway.swift`), using the repository owner's own Apple Developer Services ID,
+Team ID, Key ID, and `.p8` key, configured in Firebase's Apple identity provider and in `project.yml`'s
+entitlements (`com.apple.developer.applesignin`). This has not been verified on a simulator or device —
+see "Known environment gap" below.
 
 `FeatureGardens`'s GRDB store is a local *read model* — a cache of the last server-confirmed state,
 populated after a successful API call — not an offline outbox with pending local writes. The full
@@ -145,3 +147,26 @@ see `GardenDatabase.swift` for why that still delivers what "per-profile" is for
 
 Source: `docs/implementation-plan.md`, work packages `P2-IOS-01`, `P2-AUTH-03`;
 `docs/architecture/identity-and-authorization.md`.
+
+### App Check (P2-APPCHK-01)
+
+`AppCheckTokenProvider` mirrors `AuthTokenProvider` exactly: declared in `CoreDomain`, implemented by
+`CoreAuthentication/FirebaseAppCheckTokenProvider.swift`, injected into `HTTPTransport` as an optional
+constructor parameter that attaches the token as `X-Firebase-AppCheck` when a provider is configured
+and returns one. `URLSessionGardenGateway` accepts and forwards it; `URLSessionHealthGateway` does not
+— App Check follows the same scope as the auth token, since only the garden gateway authenticates.
+
+`VerderyApp.init` registers the App Check provider factory before `FirebaseApp.configure()`, per the
+SDK's ordering requirement: `AppAttestProviderFactory` in release builds, `AppCheckDebugProviderFactory`
+in `#if DEBUG` builds, because the Simulator cannot perform App Attest. A debug build's token is
+classified as invalid by the backend unless its debug token is registered in the Firebase console —
+expected while App Check stays in the monitor-only rollout stage; see
+`docs/architecture/identity-and-authorization.md`, section "12. App Check". This work package
+integrates token generation only, no server-side enforcement.
+
+This machine's known simulator gap (above) means App Attest itself was never exercised against a real
+device or the Simulator — only `swift build`/`swift test` verify this integration.
+
+Source: `docs/architecture/ios-application-design.md`, sections "9. Networking", "17. Security and
+Privacy", "21. Dependency Rules"; `docs/architecture/identity-and-authorization.md`, section
+"12. App Check".

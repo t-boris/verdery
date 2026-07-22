@@ -27,6 +27,7 @@
 "auth.signIn.title" = "Sign in to Verdery";
 "auth.signIn.description" = "Sign in to see and manage your gardens.";
 "auth.signIn.google" = "Continue with Google";
+"auth.signIn.apple" = "Continue with Apple";
 "auth.signIn.emailLabel" = "Email address";
 "auth.signIn.emailSubmit" = "Send me a sign-in link";
 "auth.signIn.emailSent" = "Check your email";

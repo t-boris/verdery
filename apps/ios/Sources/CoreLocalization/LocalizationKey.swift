@@ -23,6 +23,7 @@ public enum LocalizationKey: String, Sendable, CaseIterable {
     case authSignInTitle = "auth.signIn.title"
     case authSignInDescription = "auth.signIn.description"
     case authSignInGoogle = "auth.signIn.google"
+    case authSignInApple = "auth.signIn.apple"
     case authSignInEmailLabel = "auth.signIn.emailLabel"
     case authSignInEmailSubmit = "auth.signIn.emailSubmit"
     case authSignInEmailSent = "auth.signIn.emailSent"

@@ -12,7 +12,7 @@ import {
   createSessionGateway,
   isFailure,
 } from '@/core/api/public';
-import { sendEmailSignInLink, signInWithGoogle } from '@/core/auth/public';
+import { sendEmailSignInLink, signInWithApple, signInWithGoogle } from '@/core/auth/public';
 import { useLocalization } from '@/shared/localization/public';
 import { Alert, Button, TextField } from '@/shared/ui/public';
 
@@ -22,10 +22,7 @@ const emailSchema = z.object({ email: z.email() });
 type EmailValues = z.infer<typeof emailSchema>;
 
 /**
- * Google popup sign-in and email magic-link request.
- *
- * Sign in with Apple is deliberately absent, pending the repository owner's
- * own Apple Developer credentials.
+ * Google and Apple popup sign-in, plus email magic-link request.
  *
  * Source: architecture/identity-and-authorization.md, section
  * "3. Initial Sign-In Methods".
@@ -36,6 +33,8 @@ export function SignInPanel() {
   const searchParams = useSearchParams();
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [googlePending, setGooglePending] = useState(false);
+  const [appleError, setAppleError] = useState<string | null>(null);
+  const [applePending, setApplePending] = useState(false);
   const [linkSent, setLinkSent] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
 
@@ -65,6 +64,18 @@ export function SignInPanel() {
     }
   };
 
+  const onAppleSignIn = async () => {
+    setApplePending(true);
+    setAppleError(null);
+    try {
+      const idToken = await signInWithApple();
+      await completeSignIn(idToken);
+    } catch {
+      setAppleError(t('auth.signInFailed'));
+      setApplePending(false);
+    }
+  };
+
   const onEmailSubmit = handleSubmit(async (values) => {
     setEmailError(null);
     try {
@@ -83,6 +94,15 @@ export function SignInPanel() {
       {googleError !== null && (
         <Alert tone="danger" title={t('auth.signInFailed')}>
           <p>{googleError}</p>
+        </Alert>
+      )}
+
+      <Button variant="secondary" busy={applePending} onClick={() => void onAppleSignIn()}>
+        {t('auth.signInWithApple')}
+      </Button>
+      {appleError !== null && (
+        <Alert tone="danger" title={t('auth.signInFailed')}>
+          <p>{appleError}</p>
         </Alert>
       )}
 

@@ -6,34 +6,41 @@
  * transport concern owned by `core/api/session-gateway.ts`, kept separate so
  * this module has no HTTP client dependency.
  *
- * Apple is deliberately absent: Sign in with Apple awaits the repository
- * owner's own Apple Developer credentials (Services ID, Team ID, Key ID,
- * `.p8` key) before it can be configured in Firebase.
- *
  * Source: architecture/identity-and-authorization.md, section
  * "3. Initial Sign-In Methods".
  */
 
 import {
-  getAuth,
   GoogleAuthProvider,
+  OAuthProvider,
   isSignInWithEmailLink as firebaseIsSignInWithEmailLink,
   sendSignInLinkToEmail,
   signInWithEmailLink,
   signInWithPopup,
 } from 'firebase/auth';
 
-import { getFirebaseApp } from './firebase-app';
+import { getFirebaseAuth as auth } from './firebase-app';
 
 /** Where the pending email-link sign-in's address is held between "send" and "complete", possibly in a different tab. */
 const EMAIL_FOR_SIGN_IN_STORAGE_KEY = 'verdery.emailForSignIn';
 
-function auth() {
-  return getAuth(getFirebaseApp());
-}
-
 export async function signInWithGoogle(): Promise<string> {
   const credential = await signInWithPopup(auth(), new GoogleAuthProvider());
+  return credential.user.getIdToken();
+}
+
+/**
+ * Apple requires the `email` and `name` scopes to be requested explicitly,
+ * and returns them only on a user's very first authorization for this
+ * Services ID — Firebase still carries the verified email on every
+ * subsequent sign-in via the ID token itself, which is all this application
+ * reads.
+ */
+export async function signInWithApple(): Promise<string> {
+  const provider = new OAuthProvider('apple.com');
+  provider.addScope('email');
+  provider.addScope('name');
+  const credential = await signInWithPopup(auth(), provider);
   return credential.user.getIdToken();
 }
 

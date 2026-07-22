@@ -29,6 +29,7 @@ public final class SignInViewModel {
     public var title: String { strings(.authSignInTitle) }
     public var description: String { strings(.authSignInDescription) }
     public var googleActionTitle: String { strings(.authSignInGoogle) }
+    public var appleActionTitle: String { strings(.authSignInApple) }
     public var emailLabel: String { strings(.authSignInEmailLabel) }
     public var emailSubmitTitle: String { strings(.authSignInEmailSubmit) }
     public var emailSentTitle: String { strings(.authSignInEmailSent) }
@@ -39,6 +40,17 @@ public final class SignInViewModel {
 
         do {
             _ = try await authenticationGateway.signInWithGoogle()
+            state = .idle
+        } catch {
+            state = .failed(message: strings(.authSignInFailed))
+        }
+    }
+
+    public func signInWithApple() async {
+        state = .signingIn
+
+        do {
+            _ = try await authenticationGateway.signInWithApple()
             state = .idle
         } catch {
             state = .failed(message: strings(.authSignInFailed))

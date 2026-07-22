@@ -62,6 +62,7 @@ export const russianMessages: MessageCatalogue = {
   'auth.signInTitle': 'Вход в Verdery',
   'auth.signInDescription': 'Войдите, чтобы видеть свои сады и управлять ими.',
   'auth.signInWithGoogle': 'Продолжить с Google',
+  'auth.signInWithApple': 'Продолжить с Apple',
   'auth.signInFailed': 'Не удалось войти. Попробуйте снова.',
   'auth.emailLabel': 'Адрес электронной почты',
   'auth.emailSubmit': 'Отправить мне ссылку для входа',

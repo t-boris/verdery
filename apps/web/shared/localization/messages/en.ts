@@ -69,6 +69,7 @@ export const englishMessages = {
   'auth.signInTitle': 'Sign in to Verdery',
   'auth.signInDescription': 'Sign in to see and manage your gardens.',
   'auth.signInWithGoogle': 'Continue with Google',
+  'auth.signInWithApple': 'Continue with Apple',
   'auth.signInFailed': 'Sign-in did not succeed. Try again.',
   'auth.emailLabel': 'Email address',
   'auth.emailSubmit': 'Send me a sign-in link',

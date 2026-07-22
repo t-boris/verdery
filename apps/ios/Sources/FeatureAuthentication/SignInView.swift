@@ -25,6 +25,12 @@ public struct SignInView: View {
             .buttonStyle(.borderedProminent)
             .accessibilityIdentifier("auth.signIn.google")
 
+            Button(model.appleActionTitle) {
+                Task { await model.signInWithApple() }
+            }
+            .buttonStyle(.bordered)
+            .accessibilityIdentifier("auth.signIn.apple")
+
             Divider()
 
             emailSection

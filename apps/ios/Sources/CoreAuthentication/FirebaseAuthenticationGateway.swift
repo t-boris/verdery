@@ -55,6 +55,30 @@ public final class FirebaseAuthenticationGateway: AuthenticationGateway, Sendabl
         }
         return try await result.user.getIDToken()
     }
+
+    /// Apple requires the `email` and `name` scopes to be requested
+    /// explicitly, and returns them only on a user's very first
+    /// authorization for this Services ID — Firebase still carries the
+    /// verified email on every subsequent sign-in via the ID token itself,
+    /// which is all this application reads.
+    @MainActor
+    public func signInWithApple() async throws -> String {
+        let provider = OAuthProvider(providerID: "apple.com")
+        provider.scopes = ["email", "name"]
+        let result = try await withCheckedThrowingContinuation {
+            (continuation: CheckedContinuation<AuthDataResult, Error>) in
+            Auth.auth().signIn(with: provider, uiDelegate: nil) { authResult, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else if let authResult {
+                    continuation.resume(returning: authResult)
+                } else {
+                    continuation.resume(throwing: CoreAuthenticationError.noResultFromFirebase)
+                }
+            }
+        }
+        return try await result.user.getIDToken()
+    }
     #else
     // Firebase declares `signIn(with: FederatedAuthProvider, uiDelegate:)`
     // `@available(macOS, unavailable)`. This branch exists only so the
@@ -63,6 +87,11 @@ public final class FirebaseAuthenticationGateway: AuthenticationGateway, Sendabl
     // compiled into the shipped iOS app.
     @MainActor
     public func signInWithGoogle() async throws -> String {
+        throw CoreAuthenticationError.unsupportedOnThisPlatform
+    }
+
+    @MainActor
+    public func signInWithApple() async throws -> String {
         throw CoreAuthenticationError.unsupportedOnThisPlatform
     }
     #endif

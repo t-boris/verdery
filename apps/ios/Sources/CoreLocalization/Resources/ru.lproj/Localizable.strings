@@ -27,6 +27,7 @@
 "auth.signIn.title" = "Вход в Verdery";
 "auth.signIn.description" = "Войдите, чтобы видеть свои сады и управлять ими.";
 "auth.signIn.google" = "Продолжить с Google";
+"auth.signIn.apple" = "Продолжить с Apple";
 "auth.signIn.emailLabel" = "Адрес электронной почты";
 "auth.signIn.emailSubmit" = "Отправить мне ссылку для входа";
 "auth.signIn.emailSent" = "Проверьте почту";
