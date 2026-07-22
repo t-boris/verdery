@@ -1,8 +1,8 @@
 # Media Storage and Processing Design
 
-> Status: Draft 0.1  
+> Status: Draft 0.2
 > Decision status: Approved baseline  
-> Last updated: July 21, 2026
+> Last updated: July 22, 2026
 
 ## 1. Purpose
 
@@ -42,7 +42,7 @@ grow-garden-<env>-derived
 grow-garden-<env>-exports
 ```
 
-Bucket names are examples; Terraform owns actual names.
+Bucket names are examples; versioned environment provisioning configuration owns actual names.
 
 Object keys are opaque and contain no email, garden name, address, or user-entered filename:
 
@@ -163,7 +163,9 @@ The client requests access by stable media ID. The API:
 4. Returns a short-lived signed or authorized download mechanism.
 5. Records sensitive raw-access audit information where policy requires it.
 
-Viewer role may access ordinary accepted photos but not raw scan artifacts unless explicitly allowed.
+Operational viewer role may access ordinary accepted photos according to garden capability but not raw scan artifacts unless explicitly allowed.
+
+Client access is different from viewer access. A client may download only a safe derivative or entitled original explicitly attached to a published client version, while the engagement is active and the publication remains visible. Garden ownership or media association alone does not make media client-visible.
 
 ## 13. Processing Manifest
 
@@ -270,6 +272,8 @@ Logs use media ID and classification, not signed URLs, user filenames, addresses
 - Checksum mismatch.
 - Unauthorized cross-garden access.
 - Viewer access restrictions.
+- Client publication-media entitlement, withdrawal, and engagement revocation.
+- Internal media denial even when another item from the same work log is published.
 - Derivative idempotency.
 - Lifecycle and deletion race conditions.
 - Orphan reconciliation.
@@ -282,5 +286,6 @@ Logs use media ID and classification, not signed URLs, user filenames, addresses
 - Original and derivative identities are distinct and traceable.
 - Raw scan retention is enforced and user-visible.
 - Signed access cannot bypass garden authorization.
+- Client media access requires both publication entitlement and current engagement authorization.
 - Deletion reaches every derivative and processing artifact.
 - Processing is reproducible from versioned manifests where retained inputs permit it.

@@ -1,8 +1,8 @@
 # External Integrations Design
 
-> Status: Draft 0.1  
+> Status: Draft 0.2
 > Decision status: Approved baseline  
-> Last updated: July 21, 2026
+> Last updated: July 22, 2026
 
 ## 1. Purpose
 
@@ -102,7 +102,7 @@ A provider replacement must reproduce evaluation quality and deletion/privacy ob
 
 ## 10. Transactional Messaging
 
-Firebase Cloud Messaging is the push provider. A transactional email provider is selected during implementation through the same adapter principles.
+Firebase Cloud Messaging is the push provider. A transactional email provider is selected before professional client sharing because email-bound client invitations and publication notices require it. The provider follows the same adapter principles.
 
 The application owns notification intent and preference logic; the provider owns only delivery transport.
 

@@ -1,6 +1,6 @@
 # Grow Garden Product Implementation Plan
 
-> Status: Draft 0.1  
+> Status: Draft 0.2
 > Plan type: Product-wide delivery and implementation plan  
 > Last updated: July 22, 2026  
 > Architecture baseline: Approved  
@@ -20,20 +20,21 @@ Calendar commitments, staffing assignments, commercial provider selections, and 
 
 - Grow Garden is a cross-device garden-management product with native Apple and web applications, centered on a continuous loop from garden context to an explainable action and recorded outcome. [Source: technical-specification.md, sections "2. Product Definition" and "8.2 Daily Care Loop"]
 - The foundation scope includes garden management, progressive 2D mapping, imagery and plan-based starts, manual editing, plants, observations, weather-aware context, the Today view, recommendations, tasks, a first-class web application, and essential offline mobile actions. [Source: technical-specification.md, section "6.1 Foundation Scope"]
-- AR, LiDAR, sharing, improved vectorization, and richer seasonal context are proposed after foundation validation; Garden Scan, 3D, Time Machine, and conversational assistance are future capabilities. [Source: technical-specification.md, sections "6.2 Proposed Next Scope" and "6.3 Future Scope"]
+- Operational team sharing, professional client delivery, AR, LiDAR, improved vectorization, and richer seasonal context are proposed after foundation validation; Garden Scan, 3D, future Time Machine projections, and conversational assistance are future capabilities. [Source: technical-specification.md, sections "6.2 Proposed Next Scope" and "6.3 Future Scope"]
 - The accepted architecture uses a native Swift/SwiftUI client, a TypeScript/React/Next.js web client, a Fastify modular monolith, PostgreSQL/PostGIS, Cloud Storage, Firebase, Google Cloud, GRDB/SQLite, REST/OpenAPI, and application-owned synchronization. [Source: architecture/README.md, section "4. Approved Technology Profile"]
 - The first market is the United States and the controlled regional baseline is `us-central1`. [Source: architecture/decisions/ADR-0007-us-central1-production-baseline.md, section "Decision"]
 - Every advanced capture mode must have a manual fallback, and generated geometry remains a reviewable proposal until the user accepts it. [Source: architecture/garden-capture-and-scan.md, sections "2. Product Position" and "22. Completion Criteria"]
 - The product is not a survey, engineering measurement, or construction-layout tool; provenance and uncertainty must remain visible. [Source: technical-specification.md, section "13. Accuracy and Safety Policy"]
-- The repository currently contains documentation and repository rules but no application, service, infrastructure, or test implementation. [Source: repository inventory performed July 22, 2026]
+- Operational collaborators use direct owner/editor/viewer garden membership, while professional clients use a separate engagement and immutable publication projection. A client must not be implemented as an operational viewer. [Source: architecture/decisions/ADR-0012-separate-team-and-client-sharing.md, section "Decision"]
+- Phase 1 is implemented and verified. Phase 2 implementation is in progress: the repository contains identity and garden migrations, API modules and routes, web authentication and garden flows, and native authentication/garden foundations, but the complete cross-client G2 evidence is not yet recorded. [Source: tasks/todo.md, section "Phase 1 — Engineering Foundation, complete"; repository inventory performed July 22, 2026]
 
 ### 2.2 Reliability of the Baseline
 
 | Source                        | Status                                       |                                               Planning reliability | Use in this plan                                                           |
 | ----------------------------- | -------------------------------------------- | -----------------------------------------------------------------: | -------------------------------------------------------------------------- |
-| `technical-specification.md`  | Draft 0.6; architecture approved             | High for current product intent; Medium for proposed release scope | Requirements, journeys, priorities, risks, open product decisions          |
-| `high-level-architecture.md`  | Draft 0.2; approved detailed-design baseline |                                                               High | System context and non-negotiable boundaries                               |
-| `architecture/*.md`           | Draft 0.1; approved baseline                 |                                                               High | Component responsibilities, failure behavior, testing, completion criteria |
+| `technical-specification.md`  | Draft 0.7; architecture approved             | High for current product intent; Medium for proposed release scope | Requirements, journeys, priorities, risks, open product decisions          |
+| `high-level-architecture.md`  | Draft 0.4; approved detailed-design baseline |                                                               High | System context and non-negotiable boundaries                               |
+| `architecture/*.md`           | Current approved design set                  |                                                               High | Component responsibilities, failure behavior, testing, completion criteria |
 | `architecture/decisions/*.md` | Accepted ADRs                                |                                                               High | Irreversible or expensive architectural choices                            |
 | `AGENTS.md`                   | Repository rule                              |                                                               High | Language, documentation, clean-code, and source-file-size rules            |
 
@@ -42,6 +43,19 @@ Calendar commitments, staffing assignments, commercial provider selections, and 
 The proposed foundation scope is treated as the first production release candidate, but it is not treated as a committed schedule. This is an inference from the priority ordering and acceptance outcomes, not an explicit release commitment. [Source: technical-specification.md, sections "6. Proposed Product Priorities" and "15. Proposed Acceptance Criteria"]
 
 The plan intentionally proves the manual, explainable care loop before advanced capture. This is an inference from the product principles that prioritize action, progressive setup, user control, and graceful capability tiers. [Source: technical-specification.md, section "5. Product Principles"]
+
+### 2.4 Current Implementation Status
+
+This status is a point-in-time repository fact, not a claim that a release gate has passed without its required evidence.
+
+| Phase  | Status                        | Implemented evidence                                                                                                                                                                                                             | Remaining gate evidence                                                                                                |
+| ------ | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| P0     | Partially decided             | Toolchain, platform versions, geometry tolerances, `us-central1`, initial infrastructure tooling, and team/client sharing boundaries have accepted ADRs                                                                          | Remaining product, provider, safety, research, and commercial decisions stay open                                      |
+| P1     | Complete                      | Monorepo, contracts, migrations, API/web/iOS shells, CI, gcloud provisioning, `verdery-dev`, keyless deployment, and tracing are implemented and recorded in `tasks/todo.md`                                                     | Staging and production remain intentionally deferred until P8                                                          |
+| P2     | In progress                   | Identity and garden migration; profile provisioning; Firebase token/session infrastructure; garden authorization and lifecycle routes; web garden/auth flows; native authentication, garden gateway, and local-store foundations | Provider configuration, complete native/web integration, App Check evidence, full E2E matrix, and explicit G2 approval |
+| P3–P14 | Not started as release phases | Some Phase 1 geometry primitives and fixtures are reusable foundations                                                                                                                                                           | Phase-specific work packages and gates remain open                                                                     |
+
+Do not infer completion from file presence alone. A phase changes state only when its exit criteria and gate evidence are recorded.
 
 ## 3. Delivery Outcomes
 
@@ -64,11 +78,11 @@ These outcomes consolidate the documented initial acceptance criteria and data-o
 
 ### 3.2 Expansion Release
 
-The expansion release adds collaboration, seasonal planning, richer garden context, assisted media capture, plan recognition, AR measurement, and LiDAR enhancement. Each capability remains separately flaggable and may ship independently after its own evidence gate. [Source: technical-specification.md, section "6.2 Proposed Next Scope"; architecture/environments-and-delivery.md, section "14. Feature Flags"]
+The expansion release adds operational household/team collaboration, professional-service organizations, client engagements, a publication-only client portal with factual Garden Timeline, seasonal planning, richer garden context, assisted media capture, plan recognition, AR measurement, and LiDAR enhancement. Team collaboration, client delivery, seasonal context, and each capture capability remain separately flaggable and may ship independently after their own evidence gates. [Source: technical-specification.md, section "6.2 Proposed Next Scope"; architecture/decisions/ADR-0012-separate-team-and-client-sharing.md; architecture/environments-and-delivery.md, section "14. Feature Flags"]
 
 ### 3.3 Advanced Product
 
-The advanced product adds guided Garden Scan, multi-capture reconstruction, constrained conversational assistance, a shared-data 3D view, and illustrative Time Machine behavior. These capabilities must not delay the foundation release. [Source: technical-specification.md, sections "6.3 Future Scope", "FR-16: Guided Garden Scan", "FR-28: Conversational Assistance", "FR-29: 3D Garden View", and "FR-30: Time Machine"]
+The advanced product adds guided Garden Scan, multi-capture reconstruction, constrained conversational assistance, a shared-data 3D view, and illustrative future Time Machine behavior. The factual Garden Timeline does not depend on future simulation and may ship with the P9 client portal. These capabilities must not delay the foundation release. [Source: technical-specification.md, sections "6.3 Future Scope", "FR-16: Guided Garden Scan", "FR-28: Conversational Assistance", "FR-29: 3D Garden View", and "FR-30: Time Machine"]
 
 ### 3.4 Current Scope Boundaries
 
@@ -129,28 +143,30 @@ The advanced product adds guided Garden Scan, multi-capture reconstruction, cons
 7. **Provider independence.** Domain modules use application ports and normalized records; provider SDKs remain in adapters.
 8. **Measure before architecture expansion.** Service extraction, dedicated search, GPU compute, PgBouncer, replicas, and multi-region expansion require measured triggers.
 9. **Documentation is part of done.** Implementation and documentation change together.
+10. **Audience boundaries are data boundaries.** Operational team data and client-visible publications use separate capabilities, resources, queries, and test matrices; client safety cannot depend on hidden controls.
 
 These principles derive from the approved backend, sync, capture, security, provider, cost, testing, and repository designs. [Source: architecture/backend-modular-monolith.md, sections "5. Module Shape" and "23. Extraction Criteria"; architecture/offline-synchronization.md, section "4. Authority Model"; architecture/garden-capture-and-scan.md, section "13. Proposal Model"; architecture/external-integrations.md, section "2. Integration Boundary"; architecture/cost-and-scaling.md, section "18. Scaling Triggers"; AGENTS.md]
 
 ## 6. Workstreams and Ownership
 
-| ID          | Workstream                     | Responsibilities                                                                       | Required partners                          |
-| ----------- | ------------------------------ | -------------------------------------------------------------------------------------- | ------------------------------------------ |
-| WS-PROD     | Product and research           | Segment, scope, journeys, metrics, usability studies, release decisions                | Design, horticulture, engineering, privacy |
-| WS-DESIGN   | Product design                 | Information architecture, responsive flows, map tools, capture guidance, accessibility | Native, web, research                      |
-| WS-CONTRACT | Contracts and shared semantics | OpenAPI, geometry fixtures, errors, commands, events, localization keys                | Backend, native, web, QA                   |
-| WS-DATA     | Data and geospatial            | PostgreSQL/PostGIS schema, revisions, geometry, migrations, search                     | Backend, sync, map                         |
-| WS-BE       | Backend application            | Fastify modules, use cases, authorization, APIs, jobs, adapters                        | Data, platform, all clients                |
-| WS-IOS      | Native Apple                   | SwiftUI features, GRDB, sync, Canvas/MapKit, capture, background transfer              | Contracts, backend, map/CV                 |
-| WS-WEB      | Web                            | Next.js application, authenticated session, Konva/MapLibre editor, forms, uploads      | Contracts, backend, design                 |
-| WS-MAP      | Cross-platform map             | Canonical commands, transformations, validation, calibration, performance fixtures     | Data, native, web, QA                      |
-| WS-MEDIA    | Media and capture              | Uploads, storage, derivatives, plan processing, capture sessions                       | Native, web, platform, CV                  |
-| WS-CV       | Computer vision and ML         | Document extraction, assisted capture, reconstruction, evaluation                      | Media, map, product, privacy               |
-| WS-GUIDE    | Recommendations and content    | Rules, evidence, safety tiers, Today ranking, plant/weather context                    | Horticulture, backend, AI                  |
-| WS-PLAT     | Cloud platform and delivery    | Terraform, networking, Firebase/GCP, CI/CD, environments, budgets                      | Security, backend, QA                      |
-| WS-SEC      | Security and privacy           | Threat model, identity controls, data flows, retention, incident readiness             | Every workstream                           |
-| WS-QA       | Quality and release            | Test architecture, fixtures, automation, performance, resilience, release evidence     | Every workstream                           |
-| WS-OPS      | Reliability and operations     | SLOs, dashboards, alerts, runbooks, restore and recovery                               | Platform, backend, support                 |
+| ID          | Workstream                        | Responsibilities                                                                                          | Required partners                          |
+| ----------- | --------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| WS-PROD     | Product and research              | Segment, scope, journeys, metrics, usability studies, release decisions                                   | Design, horticulture, engineering, privacy |
+| WS-DESIGN   | Product design                    | Information architecture, responsive flows, map tools, capture guidance, accessibility                    | Native, web, research                      |
+| WS-CONTRACT | Contracts and shared semantics    | OpenAPI, geometry fixtures, errors, commands, events, localization keys                                   | Backend, native, web, QA                   |
+| WS-DATA     | Data and geospatial               | PostgreSQL/PostGIS schema, revisions, geometry, migrations, search                                        | Backend, sync, map                         |
+| WS-BE       | Backend application               | Fastify modules, use cases, authorization, APIs, jobs, adapters                                           | Data, platform, all clients                |
+| WS-IOS      | Native Apple                      | SwiftUI features, GRDB, sync, Canvas/MapKit, capture, background transfer                                 | Contracts, backend, map/CV                 |
+| WS-WEB      | Web                               | Next.js application, authenticated session, Konva/MapLibre editor, forms, uploads                         | Contracts, backend, design                 |
+| WS-MAP      | Cross-platform map                | Canonical commands, transformations, validation, calibration, performance fixtures                        | Data, native, web, QA                      |
+| WS-MEDIA    | Media and capture                 | Uploads, storage, derivatives, plan processing, capture sessions                                          | Native, web, platform, CV                  |
+| WS-CV       | Computer vision and ML            | Document extraction, assisted capture, reconstruction, evaluation                                         | Media, map, product, privacy               |
+| WS-GUIDE    | Recommendations and content       | Rules, evidence, safety tiers, Today ranking, plant/weather context                                       | Horticulture, backend, AI                  |
+| WS-SHARE    | Collaboration and client delivery | Operational memberships, service organizations, client engagements, publication workflow, and stewardship | Product, backend, web, native, security    |
+| WS-PLAT     | Cloud platform and delivery       | Versioned gcloud provisioning, networking, Firebase/GCP, CI/CD, environments, budgets                     | Security, backend, QA                      |
+| WS-SEC      | Security and privacy              | Threat model, identity controls, data flows, retention, incident readiness                                | Every workstream                           |
+| WS-QA       | Quality and release               | Test architecture, fixtures, automation, performance, resilience, release evidence                        | Every workstream                           |
+| WS-OPS      | Reliability and operations        | SLOs, dashboards, alerts, runbooks, restore and recovery                                                  | Platform, backend, support                 |
 
 Named people are not stated in source and must be assigned before delivery approval.
 
@@ -182,7 +198,7 @@ P7 Weather, recommendations, Today, and notifications
          ▼
 P8 Foundation beta, hardening, and US general availability
          │
-         ├──────────────► P9 Collaboration and seasonal context
+         ├──────────────► P9 Team collaboration, client delivery, and seasonal context
          ├──────────────► P10 Assisted photo/video capture and plan recognition
          │                         │
          │                         ▼
@@ -200,21 +216,21 @@ P3 and P4 may run in parallel after P2. P9 and P10 may run in parallel after fou
 
 ## 8. Release Gates
 
-| Gate                      | Evidence required                                                                                                        | Release consequence          |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------- |
-| G0 Plan approved          | Named owners, product decisions, launch matrix, funding and provider evaluation plan                                     | Start implementation         |
-| G1 Foundation operational | Repository, CI, dev environment, deployable API/web shells, buildable iOS shell, contracts and migrations                | Begin feature slices         |
-| G2 First garden           | Authenticated user creates and reopens one garden on native and web                                                      | Internal dogfood             |
-| G3 Manual map             | Required structural and garden objects edit correctly across platforms with shared validation                            | Mapping alpha                |
-| G4 Care records           | Plants, observations, history, and tasks use the same garden objects and revisions                                       | Care-data alpha              |
-| G5 Offline convergence    | Native edits survive termination/offline operation and converge without silent loss                                      | Field alpha                  |
-| G6 Plan and media         | Direct resumable uploads, photos, plan calibration, tracing, recovery, and retention pass                                | Setup alpha                  |
-| G7 Complete care loop     | Weather/rules produce explainable actions; feedback reaches history; failures degrade safely                             | US private beta              |
-| G8 Foundation launch      | Security, privacy, accessibility, localization, load, backup/restore, export/deletion, support, and store readiness pass | US GA                        |
-| G9 Expansion quality      | Collaboration and seasonal/context outcomes validate with real users                                                     | Expansion GA                 |
-| G10 Capture quality       | Assisted/AR/LiDAR features meet accuracy, safety, correction-effort, privacy, and cost thresholds                        | Capture rollout              |
-| G11 Scan quality          | Reconstruction meets approved object and geometry metrics and remains proposal-only                                      | Garden Scan rollout          |
-| G12 Advanced value        | Assistant, 3D, or Time Machine each shows measurable user value and passes its safety/accuracy gate                      | Independent advanced rollout |
+| Gate                      | Evidence required                                                                                                                   | Release consequence                      |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| G0 Plan approved          | Named owners, product decisions, launch matrix, funding and provider evaluation plan                                                | Start implementation                     |
+| G1 Foundation operational | Repository, CI, dev environment, deployable API/web shells, buildable iOS shell, contracts and migrations                           | Begin feature slices                     |
+| G2 First garden           | Authenticated user creates and reopens one garden on native and web                                                                 | Internal dogfood                         |
+| G3 Manual map             | Required structural and garden objects edit correctly across platforms with shared validation                                       | Mapping alpha                            |
+| G4 Care records           | Plants, observations, history, and tasks use the same garden objects and revisions                                                  | Care-data alpha                          |
+| G5 Offline convergence    | Native edits survive termination/offline operation and converge without silent loss                                                 | Field alpha                              |
+| G6 Plan and media         | Direct resumable uploads, photos, plan calibration, tracing, recovery, and retention pass                                           | Setup alpha                              |
+| G7 Complete care loop     | Weather/rules produce explainable actions; feedback reaches history; failures degrade safely                                        | US private beta                          |
+| G8 Foundation launch      | Security, privacy, accessibility, localization, load, backup/restore, export/deletion, support, and store readiness pass            | US GA                                    |
+| G9 Expansion quality      | Team collaboration, client publication isolation, portal value, stewardship, and seasonal/context outcomes validate with real users | Independently flagged expansion releases |
+| G10 Capture quality       | Assisted/AR/LiDAR features meet accuracy, safety, correction-effort, privacy, and cost thresholds                                   | Capture rollout                          |
+| G11 Scan quality          | Reconstruction meets approved object and geometry metrics and remains proposal-only                                                 | Garden Scan rollout                      |
+| G12 Advanced value        | Assistant, 3D, or Time Machine each shows measurable user value and passes its safety/accuracy gate                                 | Independent advanced rollout             |
 
 ## 9. Phase 0 — Product Closure and Research Setup
 
@@ -234,7 +250,7 @@ Convert unresolved product questions and implementation-time selections into tim
 | P0-MAP-01    | Define launch object semantics, canonical curve approximation, geometry tolerances, snap rules, and accuracy labels                          | WS-MAP, WS-DATA        | P0-PROD-03             | Geometry decision note and fixtures plan      |
 | P0-CLIENT-01 | Select minimum iOS/iPadOS versions, browser release lines, responsive breakpoints, and foundation surface matrix                             | WS-IOS, WS-WEB         | P0-DESIGN-01           | Compatibility matrix                          |
 | P0-PROV-01   | Evaluate map/imagery, geocoding, weather, plant content/identification, and transactional email candidates                                   | WS-BE, WS-PROD, WS-SEC | P0-PROD-01             | Scored vendor decision records                |
-| P0-PLAT-01   | Pin supported Next.js, Node.js, Swift toolchain, Python, PostgreSQL/PostGIS, Terraform, and container baselines                              | WS-PLAT                | P0-CLIENT-01           | Version matrix and upgrade policy             |
+| P0-PLAT-01   | Pin supported Next.js, Node.js, Swift toolchain, Python, PostgreSQL/PostGIS, gcloud CLI, and container baselines                             | WS-PLAT                | P0-CLIENT-01           | Version matrix and upgrade policy             |
 | P0-SEC-01    | Classify launch data flows and draft privacy notice, consent, retention schedule, safety exclusions, and US legal review checklist           | WS-SEC                 | P0-PROD-02, P0-PROV-01 | Reviewed data inventory and policy backlog    |
 | P0-QA-01     | Define measurable budgets for core latency, map interaction, sync convergence, upload recovery, SLO candidates, quotas, and alert thresholds | WS-QA, WS-OPS          | P0-CLIENT-01           | Initial non-functional scorecard              |
 | P0-DEL-01    | Assign workstream owners, capacity, decision rights, escalation path, and backlog governance                                                 | WS-PROD                | All P0 decisions       | Approved delivery charter                     |
@@ -259,22 +275,22 @@ Create a reproducible monorepo and deployable development environment with execu
 
 ### 10.2 Work Packages
 
-| ID             | Work package                                                                                                                                                    | Primary            | Dependencies               | Completion evidence                                    |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | -------------------------- | ------------------------------------------------------ |
-| P1-REPO-01     | Create `apps/ios`, `apps/web`, `services/api`, `services/workers`, `packages`, `infrastructure`, and test-fixture structure                                     | WS-PLAT            | P0-PLAT-01                 | Clean builds from documented setup                     |
-| P1-REPO-02     | Configure TypeScript workspaces, Swift Package Manager, Python environment, formatting, linting, type checking, dependency locks, and file-size enforcement     | WS-PLAT            | P1-REPO-01                 | CI rejects policy violations                           |
-| P1-CONTRACT-01 | Establish OpenAPI governance, `/v1`, common errors, UUIDv7, timestamps, SI measurement conventions, pagination, idempotency, and revision headers               | WS-CONTRACT, WS-BE | P0-MAP-01                  | Linted contract and compiling generated clients        |
-| P1-CONTRACT-02 | Create language-neutral geometry, sync, provider, and recommendation fixture schemas                                                                            | WS-CONTRACT, WS-QA | P1-CONTRACT-01             | Fixtures consumed by at least two runtimes             |
-| P1-DATA-01     | Start reviewed SQL migration system; create PostGIS extension, application/migration roles, schema ownership, and migration tests                               | WS-DATA            | P0-PLAT-01                 | Fresh and upgrade migration tests pass                 |
-| P1-BE-01       | Implement Fastify composition root, configuration validation, health checks, request pipeline skeleton, typed errors, database adapter, and module boundaries   | WS-BE              | P1-CONTRACT-01, P1-DATA-01 | API container starts and exposes validated health      |
-| P1-WEB-01      | Create Next.js application shell, localization framework, design-system foundation, route/error boundaries, and typed API gateway                               | WS-WEB             | P1-REPO-01, P1-CONTRACT-01 | Web shell deploys in development                       |
-| P1-IOS-01      | Create SwiftUI application composition, Core packages, feature template, localization, generated API gateway, and dependency rules                              | WS-IOS             | P1-REPO-01, P1-CONTRACT-01 | iPhone and iPad shells build and test                  |
-| P1-PLAT-01     | Create Terraform modules for project services, IAM, network, Cloud SQL, Cloud Run, storage, messaging, observability, and edge shells                           | WS-PLAT            | P0-PLAT-01                 | Terraform validate and reviewed development plan       |
-| P1-PLAT-02     | Configure separate development, staging, and production Firebase/GCP projects or documented organization bootstrap prerequisites                                | WS-PLAT            | P1-PLAT-01                 | Environment inventory and isolation evidence           |
-| P1-PLAT-03     | Configure GitHub Actions workload identity federation, Artifact Registry, immutable images, and environment-specific deploy identities                          | WS-PLAT, WS-SEC    | P1-PLAT-02                 | Keyless development deployment                         |
-| P1-OBS-01      | Add OpenTelemetry, structured redacted logs, correlation IDs, initial dashboards, and build/version metadata                                                    | WS-OPS, WS-BE      | P1-BE-01, P1-PLAT-02       | One request trace crosses ingress and database         |
-| P1-QA-01       | Implement PR gates for docs, links, language, lint, typecheck, unit tests, migrations, OpenAPI, generated clients, Terraform, secrets, dependencies, and images | WS-QA, WS-PLAT     | P1-REPO-02                 | Required checks run on a sample PR                     |
-| P1-DOC-01      | Document local setup, environment promotion, migrations, contracts, feature flags, and emergency changes                                                        | All owners         | P1-QA-01                   | A new developer follows setup without tribal knowledge |
+| ID             | Work package                                                                                                                                                               | Primary            | Dependencies               | Completion evidence                                                      |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | -------------------------- | ------------------------------------------------------------------------ |
+| P1-REPO-01     | Create `apps/ios`, `apps/web`, `services/api`, `services/workers`, `packages`, `infrastructure`, and test-fixture structure                                                | WS-PLAT            | P0-PLAT-01                 | Clean builds from documented setup                                       |
+| P1-REPO-02     | Configure TypeScript workspaces, Swift Package Manager, Python environment, formatting, linting, type checking, dependency locks, and file-size enforcement                | WS-PLAT            | P1-REPO-01                 | CI rejects policy violations                                             |
+| P1-CONTRACT-01 | Establish OpenAPI governance, `/v1`, common errors, UUIDv7, timestamps, SI measurement conventions, pagination, idempotency, and revision headers                          | WS-CONTRACT, WS-BE | P0-MAP-01                  | Linted contract and compiling generated clients                          |
+| P1-CONTRACT-02 | Create language-neutral geometry, sync, provider, and recommendation fixture schemas                                                                                       | WS-CONTRACT, WS-QA | P1-CONTRACT-01             | Fixtures consumed by at least two runtimes                               |
+| P1-DATA-01     | Start reviewed SQL migration system; create PostGIS extension, application/migration roles, schema ownership, and migration tests                                          | WS-DATA            | P0-PLAT-01                 | Fresh and upgrade migration tests pass                                   |
+| P1-BE-01       | Implement Fastify composition root, configuration validation, health checks, request pipeline skeleton, typed errors, database adapter, and module boundaries              | WS-BE              | P1-CONTRACT-01, P1-DATA-01 | API container starts and exposes validated health                        |
+| P1-WEB-01      | Create Next.js application shell, localization framework, design-system foundation, route/error boundaries, and typed API gateway                                          | WS-WEB             | P1-REPO-01, P1-CONTRACT-01 | Web shell deploys in development                                         |
+| P1-IOS-01      | Create SwiftUI application composition, Core packages, feature template, localization, generated API gateway, and dependency rules                                         | WS-IOS             | P1-REPO-01, P1-CONTRACT-01 | iPhone and iPad shells build and test                                    |
+| P1-PLAT-01     | Create idempotent gcloud provisioning scripts for project services, IAM, network, Cloud SQL, Cloud Run, storage, messaging, observability, and edge shells                 | WS-PLAT            | P0-PLAT-01                 | Script validation, idempotency checks, and reviewed development plan     |
+| P1-PLAT-02     | Configure the development Firebase/GCP project and document repeatable staging/production bootstrap prerequisites                                                          | WS-PLAT            | P1-PLAT-01                 | Development inventory, isolation evidence, and deferred-environment plan |
+| P1-PLAT-03     | Configure GitHub Actions workload identity federation, Artifact Registry, immutable images, and environment-specific deploy identities                                     | WS-PLAT, WS-SEC    | P1-PLAT-02                 | Keyless development deployment                                           |
+| P1-OBS-01      | Add OpenTelemetry, structured redacted logs, correlation IDs, initial dashboards, and build/version metadata                                                               | WS-OPS, WS-BE      | P1-BE-01, P1-PLAT-02       | One request trace crosses ingress and database                           |
+| P1-QA-01       | Implement PR gates for docs, links, language, lint, typecheck, unit tests, migrations, OpenAPI, generated clients, provisioning scripts, secrets, dependencies, and images | WS-QA, WS-PLAT     | P1-REPO-02                 | Required checks run on a sample PR                                       |
+| P1-DOC-01      | Document local setup, environment promotion, migrations, contracts, feature flags, and emergency changes                                                                   | All owners         | P1-QA-01                   | A new developer follows setup without tribal knowledge                   |
 
 ### 10.3 Exit Criteria
 
@@ -284,6 +300,8 @@ Create a reproducible monorepo and deployable development environment with execu
 - A backward-compatible migration and rollback-compatible application deployment are rehearsed in development.
 - Contracts and fixtures are generated, compiled, and never manually patched.
 - G1 is approved.
+
+**Implementation status:** Complete on July 22, 2026. The verified execution record is maintained in [`tasks/todo.md`](../tasks/todo.md). Staging and production provisioning, container scanning, and production hardening remain intentionally assigned to P8 rather than being counted as missing P1 work.
 
 ### 10.4 Source Traceability
 
@@ -320,6 +338,8 @@ An authenticated user creates, lists, opens, renames, archives, and reopens a ga
 - Account, role, and garden changes are audit-visible.
 - The same garden is visible on both clients without duplicate identity or data creation.
 - G2 is approved for internal dogfood.
+
+**Implementation status:** In progress on July 22, 2026. Database, backend, OpenAPI, web, and native foundations exist, but no G2 approval is claimed until provider configuration and the complete native/web authorization and E2E evidence pass.
 
 ### 11.4 Source Traceability
 
@@ -448,22 +468,22 @@ Native and web clients upload ordinary photos and sensitive property plans direc
 
 ### 15.2 Work Packages
 
-| ID           | Work package                                                                                                                                                    | Primary                  | Dependencies           | Completion evidence                            |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ | ---------------------- | ---------------------------------------------- |
-| P6-PLAT-01   | Provision private per-environment user-media, raw-capture, derived, and export buckets with public-access prevention and lifecycle shells                       | WS-PLAT, WS-SEC          | P1-PLAT-01             | Terraform and public-access tests              |
-| P6-DATA-01   | Add media identity, ownership, class, checksum, upload/processing/retention state, variants, relationships, and quota reservations                              | WS-DATA                  | P4 schemas             | Migration and state-machine tests              |
-| P6-API-01    | Implement media registration, authorized resumable session, completion verification, status, and authorized short-lived access                                  | WS-BE, WS-CONTRACT       | P6-DATA-01, P6-PLAT-01 | Contract, authorization, and replay tests      |
-| P6-ASYNC-01  | Implement transactional outbox relay and Cloud Tasks paths for media verification and derivatives with durable job state                                        | WS-BE, WS-PLAT           | P6-API-01              | Duplicate delivery and relay crash tests       |
-| P6-WORKER-01 | Build constrained validators for MIME signature, size, dimensions/duration, checksum, malformed files, metadata, and malware outcome                            | WS-MEDIA, WS-SEC         | P6-ASYNC-01            | Malicious fixture suite                        |
-| P6-WORKER-02 | Build idempotent thumbnails, screen previews, metadata stripping, PDF page previews, and plan tile derivatives                                                  | WS-MEDIA                 | P6-WORKER-01           | Checksum/version reproducibility tests         |
-| P6-IOS-01    | Implement background-capable registration/upload/verify coordination, local file durability, observation photo attachment, progress, pause, retry, and recovery | WS-IOS                   | P6-API-01              | Termination and network-interruption tests     |
-| P6-WEB-01    | Implement direct resumable upload, recoverable browser metadata where allowed, progress, retry, and authorized previews                                         | WS-WEB                   | P6-API-01              | Browser upload interruption tests              |
-| P6-PLAN-01   | Implement document selection, local safety validation, private upload, page selection, perspective/orientation handling, and background management              | WS-IOS, WS-WEB, WS-MEDIA | P6-WORKER-02           | Image and PDF plan E2E                         |
-| P6-PLAN-02   | Implement known-distance calibration, residual error, scale revision, trace tools, plan-to-map transforms, and recalibration command                            | WS-MAP, WS-BE            | P6-PLAN-01, P3-MAP-01  | Shared calibration fixtures pass               |
-| P6-PLANT-01  | Integrate one evaluated photo-identification adapter behind editable uncertain candidates and unknown-plant fallback                                            | WS-BE, WS-GUIDE          | P0-PROV-01, P6 media   | Quality, privacy, timeout, and fallback report |
-| P6-RET-01    | Implement ordinary-media retention, orphan reconciliation, derivative cleanup, deletion workflow, and user-visible raw-capture policy foundation                | WS-MEDIA, WS-OPS         | P6-ASYNC-01            | Lifecycle/deletion race tests                  |
-| P6-OBS-01    | Add upload, verification, processing, stored-byte, orphan, retention, and deletion-lag dashboards                                                               | WS-OPS                   | P6 media pipeline      | Dashboard and runbook evidence                 |
-| P6-QA-01     | Test unauthorized cross-garden access, viewer restrictions, malformed inputs, parser limits, signed-access expiry, and plan accuracy labels                     | WS-QA, WS-SEC            | All P6 implementation  | G6 release evidence                            |
+| ID           | Work package                                                                                                                                                    | Primary                  | Dependencies           | Completion evidence                                     |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ | ---------------------- | ------------------------------------------------------- |
+| P6-PLAT-01   | Provision private per-environment user-media, raw-capture, derived, and export buckets with public-access prevention and lifecycle shells                       | WS-PLAT, WS-SEC          | P1-PLAT-01             | Provisioning-script idempotency and public-access tests |
+| P6-DATA-01   | Add media identity, ownership, class, checksum, upload/processing/retention state, variants, relationships, and quota reservations                              | WS-DATA                  | P4 schemas             | Migration and state-machine tests                       |
+| P6-API-01    | Implement media registration, authorized resumable session, completion verification, status, and authorized short-lived access                                  | WS-BE, WS-CONTRACT       | P6-DATA-01, P6-PLAT-01 | Contract, authorization, and replay tests               |
+| P6-ASYNC-01  | Implement transactional outbox relay and Cloud Tasks paths for media verification and derivatives with durable job state                                        | WS-BE, WS-PLAT           | P6-API-01              | Duplicate delivery and relay crash tests                |
+| P6-WORKER-01 | Build constrained validators for MIME signature, size, dimensions/duration, checksum, malformed files, metadata, and malware outcome                            | WS-MEDIA, WS-SEC         | P6-ASYNC-01            | Malicious fixture suite                                 |
+| P6-WORKER-02 | Build idempotent thumbnails, screen previews, metadata stripping, PDF page previews, and plan tile derivatives                                                  | WS-MEDIA                 | P6-WORKER-01           | Checksum/version reproducibility tests                  |
+| P6-IOS-01    | Implement background-capable registration/upload/verify coordination, local file durability, observation photo attachment, progress, pause, retry, and recovery | WS-IOS                   | P6-API-01              | Termination and network-interruption tests              |
+| P6-WEB-01    | Implement direct resumable upload, recoverable browser metadata where allowed, progress, retry, and authorized previews                                         | WS-WEB                   | P6-API-01              | Browser upload interruption tests                       |
+| P6-PLAN-01   | Implement document selection, local safety validation, private upload, page selection, perspective/orientation handling, and background management              | WS-IOS, WS-WEB, WS-MEDIA | P6-WORKER-02           | Image and PDF plan E2E                                  |
+| P6-PLAN-02   | Implement known-distance calibration, residual error, scale revision, trace tools, plan-to-map transforms, and recalibration command                            | WS-MAP, WS-BE            | P6-PLAN-01, P3-MAP-01  | Shared calibration fixtures pass                        |
+| P6-PLANT-01  | Integrate one evaluated photo-identification adapter behind editable uncertain candidates and unknown-plant fallback                                            | WS-BE, WS-GUIDE          | P0-PROV-01, P6 media   | Quality, privacy, timeout, and fallback report          |
+| P6-RET-01    | Implement ordinary-media retention, orphan reconciliation, derivative cleanup, deletion workflow, and user-visible raw-capture policy foundation                | WS-MEDIA, WS-OPS         | P6-ASYNC-01            | Lifecycle/deletion race tests                           |
+| P6-OBS-01    | Add upload, verification, processing, stored-byte, orphan, retention, and deletion-lag dashboards                                                               | WS-OPS                   | P6 media pipeline      | Dashboard and runbook evidence                          |
+| P6-QA-01     | Test unauthorized cross-garden access, viewer restrictions, malformed inputs, parser limits, signed-access expiry, and plan accuracy labels                     | WS-QA, WS-SEC            | All P6 implementation  | G6 release evidence                                     |
 
 ### 15.3 Exit Criteria
 
@@ -561,41 +581,67 @@ Turn the complete care loop into an operable, supportable, private, accessible, 
 
 Launch work derives from the delivery, security, reliability, testing, export, networking, observability, and cost completion criteria. [Source: architecture/environments-and-delivery.md, sections "18. Release Verification" and "20. Completion Criteria"; architecture/networking.md, sections "3. Production Topology" and "22. Completion Criteria"; architecture/security-and-privacy.md, sections "23. Vulnerability Management", "24. Incident Response", and "27. Completion Criteria"; architecture/reliability-and-disaster-recovery.md, sections "8. Restore Testing", "18. Runbooks", and "20. Completion Criteria"; architecture/data-export-and-deletion.md, sections "3. Export Scope", "11. Account Deletion", and "19. Completion Criteria"; architecture/testing-strategy.md, sections "20. End-to-End Scenarios" and "22. CI Gates"]
 
-## 18. Phase 9 — Collaboration and Seasonal Context
+## 18. Phase 9 — Team Collaboration, Client Delivery, and Seasonal Context
 
 ### 18.1 Outcome
 
-Validated single-user gardens become safely shareable. Owners invite editors and viewers, assign work, transfer ownership, and see attribution without weakening garden isolation. In parallel, the care model adds reviewed seasonal planning and richer garden context.
+Validated single-user gardens become safely shareable through two separate access planes. Household members, colleagues, and assigned professionals collaborate on the live operational garden. Professional-service clients receive only explicitly published results through a responsive web portal. In parallel, the care model adds reviewed seasonal planning and richer garden context.
+
+P9 is delivered as independently flaggable subphases:
+
+1. **P9A — Operational team collaboration:** membership, co-ownership, assignments, attribution, notifications, and synchronization.
+2. **P9B — Professional service domain:** lightweight service organizations, organization membership, explicit garden assignment, client engagements, and stewardship.
+3. **P9C — Client publication and portal:** reviewed immutable updates, selected media, factual Garden Timeline, invitation/session flow, export, withdrawal, and revocation.
+4. **P9D — Seasonal context:** richer facts, calendars, recurrence, and planning.
+
+P9A does not depend on P9B or P9C. P9B is required before multi-person professional teams, while a solo professional may use an organization with one member. P9C depends on P9B's engagement model but not on P9D. P9D may ship independently.
 
 ### 18.2 Work Packages
 
-| ID            | Work package                                                                                                                                  | Primary           | Dependencies               | Completion evidence                               |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | -------------------------- | ------------------------------------------------- |
-| P9-COLLAB-01  | Finalize capability matrix for owner/editor/viewer across every existing resource, expensive operation, export, raw media, and administration | WS-PROD, WS-SEC   | Foundation usage evidence  | Approved capability matrix                        |
-| P9-DATA-01    | Complete invitation, membership, ownership transfer, assignment, attribution, and collaboration audit schema                                  | WS-DATA           | P2 identity, P4 tasks      | Migration and invariant tests                     |
-| P9-BE-01      | Implement invitation create/revoke/accept/expire, membership change/removal, ownership transfer, and role commands                            | WS-BE             | P9-DATA-01                 | Idempotency, expiry, recent-auth, and audit tests |
-| P9-BE-02      | Add task assignment, assignee changes, shared history attribution, and collaboration notification policies                                    | WS-BE             | P9-BE-01, P7 notifications | Concurrent assignment tests                       |
-| P9-SYNC-01    | Synchronize membership grants/revocations, attribution, task assignment, and conflicts without leaking inaccessible prior data                | WS-BE, WS-IOS     | P9-BE-01..02               | Offline membership-change scenarios               |
-| P9-IOS-01     | Implement invitation, member management, role display, assignments, removal, ownership transfer, and revoked-access UX                        | WS-IOS            | P9 APIs                    | Native collaboration E2E                          |
-| P9-WEB-01     | Implement collaboration administration, invitation links, member table, assignments, and ownership transfer                                   | WS-WEB            | P9 APIs                    | Web collaboration E2E                             |
-| P9-CONTEXT-01 | Add reviewed facts for sunlight, soil, drainage, irrigation, microclimate, greenhouse/container/open-ground, and their source/quality         | WS-DATA, WS-GUIDE | Foundation garden model    | Context provenance tests                          |
-| P9-SEASON-01  | Implement supported seasonal calendars, succession planning, crop rotation, recurrence, and location-aware schedule rules                     | WS-GUIDE, WS-BE   | P9-CONTEXT-01              | Horticulture-reviewed seasonal fixtures           |
-| P9-UX-01      | Expose seasonal plan, context quality, shared responsibilities, and conflicts without overwhelming the Today view                             | WS-DESIGN         | P9 features                | Usability validation                              |
-| P9-QA-01      | Run full capability matrix for member/non-member/removed/suspended/support actors and daylight-saving/season boundaries                       | WS-QA             | All P9 implementation      | G9 release evidence                               |
+| ID             | Work package                                                                                                                                                                                    | Primary               | Dependencies                             | Completion evidence                                                        |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | ---------------------------------------- | -------------------------------------------------------------------------- |
+| P9A-CAP-01     | Freeze the operational capability matrix for owner/editor/viewer across garden content, tasks, accepted history, raw media, expensive processing, export, publication, membership, and deletion | WS-SHARE, WS-SEC      | Foundation usage evidence                | Reviewed positive and negative capability matrix                           |
+| P9A-DATA-01    | Complete operational invitation, membership, role transition, co-owner, assignment, attribution, and collaboration-audit schema                                                                 | WS-DATA               | P2 identity, P4 tasks                    | Migration, last-owner, uniqueness, and temporal-state tests                |
+| P9A-API-01     | Add operational invitation create/revoke/accept/expire endpoints and membership list/change/remove endpoints                                                                                    | WS-BE, WS-CONTRACT    | P9A-DATA-01                              | Contract, email binding, idempotency, expiry, enumeration, and audit tests |
+| P9A-OWNER-01   | Add recent-auth co-owner promotion/demotion and ownership-transfer commands; ordinary invitations initially grant only editor or viewer                                                         | WS-BE, WS-SEC         | P9A-API-01                               | Last-owner and concurrent role-transition tests                            |
+| P9A-TASK-01    | Add task assignment, reassignment, completion attribution, shared activity history, and collaboration notification intents                                                                      | WS-BE, WS-GUIDE       | P9A-API-01, P7 notifications             | Concurrent assignment and actor-attribution tests                          |
+| P9A-SYNC-01    | Synchronize membership grants/revocations, assignments, attribution, and conflicts without retaining inaccessible garden data after revocation                                                  | WS-BE, WS-IOS         | P9A-API-01, P9A-TASK-01                  | Offline membership-change, revocation, cleanup, and convergence scenarios  |
+| P9A-IOS-01     | Implement invitation acceptance, member/role display, assignments, co-owner administration, removal, and revoked-access recovery in the native app                                              | WS-IOS                | P9A APIs and sync                        | Native household/team E2E                                                  |
+| P9A-WEB-01     | Implement invitation acceptance, collaboration administration, member table, assignments, co-owner administration, and revoked-access behavior on web                                           | WS-WEB                | P9A APIs                                 | Web household/team E2E                                                     |
+| P9B-DATA-01    | Add service organizations, organization memberships, explicit garden assignments, client engagements, client access grants, effective dates, and stewardship policy                             | WS-DATA, WS-SHARE     | P9A capability vocabulary                | Migration, tenant-isolation, assignment, and engagement-state tests        |
+| P9B-API-01     | Add organization/member/assignment and client-engagement lifecycle APIs without allowing organization membership alone to grant garden access                                                   | WS-BE, WS-CONTRACT    | P9B-DATA-01                              | Organization/garden cross-product denial matrix                            |
+| P9B-WEB-01     | Add responsive professional workspace for organization members, assigned gardens, clients, engagements, and publisher administration                                                            | WS-WEB, WS-DESIGN     | P9B-API-01                               | Solo-professional and small-team E2E                                       |
+| P9C-DATA-01    | Add operational work logs, client updates, immutable publication versions, selected-media entitlements, accepted-garden snapshots, withdrawal, and publication audit                            | WS-DATA, WS-MEDIA     | P9B-DATA-01, P4 history, P6 media        | Immutability, snapshot, media-entitlement, and withdrawal tests            |
+| P9C-PUBLISH-01 | Implement draft → ready-for-client → published → withdrawn workflow with a separate publisher capability; task completion never publishes automatically by default                              | WS-BE, WS-SHARE       | P9C-DATA-01                              | State-machine, authorization, concurrency, and audit tests                 |
+| P9C-INVITE-01  | Implement email-bound, expiring client invitations, Firebase email magic-link sign-in, engagement revocation, and notification intents; do not add anonymous public links                       | WS-BE, WS-WEB, WS-SEC | P9B-API-01, transactional email provider | Invite mismatch, replay, expiry, revocation, and session tests             |
+| P9C-API-01     | Add publication-only client endpoints for overview, updates, completed work, selected media, factual timeline, and client-entitled export                                                       | WS-BE, WS-CONTRACT    | P9C-PUBLISH-01                           | Client cannot enumerate operational records or other engagements           |
+| P9C-WEB-01     | Build a deliberately read-only responsive client portal route group with result summaries, before/after media, completed work, and factual Garden Timeline                                      | WS-WEB, WS-DESIGN     | P9C-API-01, P9C-INVITE-01                | Responsive, accessible, client-journey E2E                                 |
+| P9C-MEDIA-01   | Authorize media through active engagement plus explicit publication entitlement; issue short-lived access and recheck state at authorization time                                               | WS-MEDIA, WS-SEC      | P9C-DATA-01                              | Revoked/withdrawn/cross-client media-denial tests                          |
+| P9C-EXPORT-01  | Implement default residential stewardship: accepted garden model and published deliverables are client-exportable; provider-internal operations are excluded                                    | WS-BE, WS-SEC         | P9C-API-01, P8 export workflow           | Export manifest, entitlement, engagement-end, and deletion tests           |
+| P9C-OBS-01     | Add privacy-safe audit and metrics for invitation, publication latency, withdrawal, engagement revocation, portal access, and authorization denial                                              | WS-OPS, WS-SEC        | P9C APIs                                 | Dashboard and prohibited-content telemetry tests                           |
+| P9D-CONTEXT-01 | Add reviewed facts for sunlight, soil, drainage, irrigation, microclimate, greenhouse/container/open-ground, and their source/quality                                                           | WS-DATA, WS-GUIDE     | Foundation garden model                  | Context provenance tests                                                   |
+| P9D-SEASON-01  | Implement supported seasonal calendars, succession planning, crop rotation, recurrence, and location-aware schedule rules                                                                       | WS-GUIDE, WS-BE       | P9D-CONTEXT-01                           | Horticulture-reviewed seasonal fixtures                                    |
+| P9D-UX-01      | Expose seasonal plan, context quality, shared responsibilities, and conflicts without overwhelming the Today view                                                                               | WS-DESIGN             | P9A and P9D features                     | Usability validation                                                       |
+| P9-QA-01       | Run separate operational-team, organization-assignment, client-publication, cross-client, removed/revoked actor, media, export, daylight-saving, and season-boundary matrices                   | WS-QA, WS-SEC         | All enabled P9 subphases                 | Per-subphase evidence and final G9 package                                 |
 
 ### 18.3 Exit Criteria
 
 - Invitations are opaque, expiring, revocable, idempotent, and audited.
-- Every resource and command has explicit role-capability tests, including cross-garden denial.
+- Every resource and command has explicit access-plane and capability tests, including cross-garden, cross-organization, cross-engagement, and cross-client denial.
 - Removing access affects the next server operation and produces correct native local cleanup.
 - Shared task attribution and conflicting changes remain understandable and recoverable.
+- Organization membership alone never grants garden access.
+- Clients never receive the operational sync partition or internal tasks, assignments, notes, recommendations, drafts, conflicts, raw captures, diagnostics, or unpublished media.
+- Publishing creates an immutable client-safe version; completing a task does not publish it automatically.
+- The portal exposes factual published history independently from future illustrative Time Machine scenarios.
+- Engagement revocation, publication withdrawal, media access, export, and end-of-engagement stewardship are verified and audited.
 - Seasonal and context guidance stores source, quality, location, and version.
-- Collaboration and seasonal features can be disabled independently without damaging accepted garden data.
+- Team collaboration, professional service, client portal, and seasonal features can be disabled independently without damaging accepted garden data.
 - G9 is approved.
 
 ### 18.4 Source Traceability
 
-Collaboration follows the documented role, invitation, ownership, synchronization, and notification boundaries. Seasonal/context work comes from the proposed next scope. [Source: architecture/identity-and-authorization.md, sections "8. Garden Roles", "10. Invitations", and "11. Ownership Transfer"; architecture/offline-synchronization.md, section "11. Authorization Changes"; technical-specification.md, sections "FR-21: Plant Lifecycle and Seasonal Planning", "FR-22: Garden Context", and "FR-27: Shared Garden Care"]
+Operational collaboration and client delivery follow separate access planes, resources, queries, synchronization behavior, and test matrices. Seasonal/context work remains an independent proposed-next-scope stream. [Source: architecture/decisions/ADR-0012-separate-team-and-client-sharing.md; architecture/identity-and-authorization.md, sections "8. Garden Roles", "10. Invitations", and "11. Ownership Transfer"; architecture/offline-synchronization.md, sections "3. Non-Goals", "4. Authority Model", and "11. Authorization Changes"; technical-specification.md, sections "FR-21: Plant Lifecycle and Seasonal Planning", "FR-22: Garden Context", "FR-27: Shared Garden Team Care", and "FR-34: Professional Client Sharing"]
 
 ## 19. Phase 10 — Assisted Photo/Video Capture and Plan Recognition
 
@@ -823,7 +869,9 @@ The same-data requirement and non-prediction boundary are explicit product requi
 
 [Source: AGENTS.md; architecture/README.md, section "8. Change Process"; architecture/backend-modular-monolith.md, section "23. Extraction Criteria"]
 
-## 25. Foundation Surface Matrix
+## 25. Surface Delivery Matrix
+
+### 25.1 Foundation Surfaces
 
 This matrix is the proposed Phase 0 baseline. It must be approved before feature implementation.
 
@@ -846,43 +894,62 @@ This matrix is the proposed Phase 0 baseline. It must be approved before feature
 
 The native and web roles, online-first web behavior, and device-specific limitations follow the detailed client designs. [Source: architecture/ios-application-design.md, sections "7. Local Persistence", "8. Synchronization Integration", and "12. Capture Architecture"; architecture/web-application-design.md, sections "2. Product Role", "9. Online-First Behavior", and "21. Completion Criteria"]
 
+### 25.2 P9 Sharing Surfaces
+
+| Capability                                  | iPhone/iPad                   | Operational web application                          | Client web portal                                           |
+| ------------------------------------------- | ----------------------------- | ---------------------------------------------------- | ----------------------------------------------------------- |
+| Accept operational invitation               | Required                      | Required                                             | Not applicable                                              |
+| View and edit live garden                   | Role-dependent full support   | Role-dependent full support                          | Never exposed                                               |
+| Assign and complete tasks                   | Required for owner/editor     | Required for owner/editor                            | Never exposed                                               |
+| Manage members and co-owners                | Required for owner            | Required for owner; preferred administration surface | Never exposed                                               |
+| Manage service organization and assignments | Later native convenience      | Required                                             | Never exposed                                               |
+| Prepare and publish client update           | Later native convenience      | Required for explicit publisher                      | Never exposed                                               |
+| Accept client invitation                    | Not in initial portal release | Not through operational routes                       | Required responsive web flow                                |
+| View published results and media            | Optional later                | Publisher preview only                               | Required                                                    |
+| View factual Garden Timeline                | Optional later                | Publisher preview only                               | Required                                                    |
+| View future Time Machine scenario           | Optional after P14            | Publisher preview after P14                          | Only an explicitly published P14 scenario                   |
+| Client comments, approvals, or requests     | Not in initial release        | Not in initial release                               | Product decision required before adding mutation capability |
+
+The client portal is a separate route group and query surface inside the existing web deployment. It is not a disabled version of the operational application and never receives the native operational synchronization partition. [Source: architecture/web-application-design.md, sections "2. Product Role" and "Client Portal Boundary"; architecture/decisions/ADR-0012-separate-team-and-client-sharing.md]
+
 ## 26. Functional Requirements Traceability
 
-| Requirement                                 | Primary phases  | Principal implementation evidence                                |
-| ------------------------------------------- | --------------- | ---------------------------------------------------------------- |
-| FR-1 Authentication and Onboarding          | P0, P2          | Provider/session matrix, profile provisioning, onboarding E2E    |
-| FR-2 Garden Management                      | P2, P8          | Garden lifecycle, revisions, archive/delete tests                |
-| FR-3 Today View                             | P7              | Prioritization, action controls, reason, history, analytics      |
-| FR-4 Garden Map Fundamentals                | P3              | Cross-platform editor and command fixtures                       |
-| FR-5 Geometry Types                         | P0, P3          | Canonical geometry schema and round-trip tests                   |
-| FR-6 Map Layers                             | P3              | Visibility, lock, order, and accessibility tests                 |
-| FR-7 Structural Map Objects                 | P3              | Required-object E2E garden                                       |
-| FR-8 Garden and Plant Map Objects           | P3, P4          | Bed/area/plant/group placement tests                             |
-| FR-9 Progressive Map Creation               | P3, P6, P10–P12 | Blank, imagery, plan, manual, capture, proposal paths            |
-| FR-10 Satellite or Map-Image Start          | P0, P3          | Provider/license decision, attribution, tracing, outage fallback |
-| FR-11 Property Plan Import                  | P6, P10         | Import, calibration, tracing, optional proposal tests            |
-| FR-12 Manual Map Editing                    | P3              | Creation/edit/dimensions/unknown-scale/undo tests                |
-| FR-13 On-Site AR Marking                    | P11             | Device benchmark and real-world marking tests                    |
-| FR-14 AR-to-Map Alignment                   | P11             | Control-point, residual, relocalization, realignment tests       |
-| FR-15 GPS and Geographic Positioning        | P3, P11         | Optional location context and precision-warning tests            |
-| FR-16 Guided Garden Scan                    | P10, P12        | Capture/pipeline/proposal/evaluation evidence                    |
-| FR-17 Plot Area Estimate                    | P3              | Scaled/approximate area and uncertainty tests                    |
-| FR-18 Map Provenance and Accuracy           | P3, P6, P10–P12 | Provenance, accuracy state, verification, revision fixtures      |
-| FR-19 Plant Records                         | P4, P6          | Plant details, photos, placement, lifecycle, history             |
-| FR-20 Plant Addition                        | P4, P6          | Manual, unknown, individual/group, editable photo candidate      |
-| FR-21 Plant Lifecycle and Seasonal Planning | P4, P9          | Lifecycle transitions and reviewed seasonal fixtures             |
-| FR-22 Garden Context                        | P7, P9          | Weather/context freshness, source, quality, recommendation use   |
-| FR-23 Monitoring and Observations           | P4, P6, P10     | Append history, media, uncertain analysis suggestions            |
-| FR-24 Recommendations                       | P7              | Rule/evidence/priority/feedback/safety/model fallback suite      |
-| FR-25 Work Planner                          | P4, P7, P9      | Manual/suggested/assigned/recurring work lifecycle               |
-| FR-26 Notifications                         | P7              | Inbox, FCM, preference, quiet-hour, deduplication tests          |
-| FR-27 Shared Garden Care                    | P9              | Role/invitation/assignment/attribution/sync tests                |
-| FR-28 Conversational Assistance             | P13             | Authorized retrieval, confirmation, safety, bilingual evaluation |
-| FR-29 3D Garden View                        | P14             | Same-object projection and platform performance tests            |
-| FR-30 Time Machine                          | P14             | Illustrative ranges, sources, uncertainty, non-prediction copy   |
-| FR-31 Offline Use and Synchronization       | P1–P5           | Atomic outbox, push/pull, conflicts, revocation, fault injection |
-| FR-32 Import, Export, and Data Ownership    | P6, P8          | Private export, retention, garden/account deletion verification  |
-| FR-33 Web Application                       | P1–P9, P13–P14  | Web surface matrix, accessibility, online-first continuity, E2E  |
+| Requirement                                 | Primary phases  | Principal implementation evidence                                                                     |
+| ------------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------- |
+| FR-1 Authentication and Onboarding          | P0, P2          | Provider/session matrix, profile provisioning, onboarding E2E                                         |
+| FR-2 Garden Management                      | P2, P8          | Garden lifecycle, revisions, archive/delete tests                                                     |
+| FR-3 Today View                             | P7              | Prioritization, action controls, reason, history, analytics                                           |
+| FR-4 Garden Map Fundamentals                | P3              | Cross-platform editor and command fixtures                                                            |
+| FR-5 Geometry Types                         | P0, P3          | Canonical geometry schema and round-trip tests                                                        |
+| FR-6 Map Layers                             | P3              | Visibility, lock, order, and accessibility tests                                                      |
+| FR-7 Structural Map Objects                 | P3              | Required-object E2E garden                                                                            |
+| FR-8 Garden and Plant Map Objects           | P3, P4          | Bed/area/plant/group placement tests                                                                  |
+| FR-9 Progressive Map Creation               | P3, P6, P10–P12 | Blank, imagery, plan, manual, capture, proposal paths                                                 |
+| FR-10 Satellite or Map-Image Start          | P0, P3          | Provider/license decision, attribution, tracing, outage fallback                                      |
+| FR-11 Property Plan Import                  | P6, P10         | Import, calibration, tracing, optional proposal tests                                                 |
+| FR-12 Manual Map Editing                    | P3              | Creation/edit/dimensions/unknown-scale/undo tests                                                     |
+| FR-13 On-Site AR Marking                    | P11             | Device benchmark and real-world marking tests                                                         |
+| FR-14 AR-to-Map Alignment                   | P11             | Control-point, residual, relocalization, realignment tests                                            |
+| FR-15 GPS and Geographic Positioning        | P3, P11         | Optional location context and precision-warning tests                                                 |
+| FR-16 Guided Garden Scan                    | P10, P12        | Capture/pipeline/proposal/evaluation evidence                                                         |
+| FR-17 Plot Area Estimate                    | P3              | Scaled/approximate area and uncertainty tests                                                         |
+| FR-18 Map Provenance and Accuracy           | P3, P6, P10–P12 | Provenance, accuracy state, verification, revision fixtures                                           |
+| FR-19 Plant Records                         | P4, P6          | Plant details, photos, placement, lifecycle, history                                                  |
+| FR-20 Plant Addition                        | P4, P6          | Manual, unknown, individual/group, editable photo candidate                                           |
+| FR-21 Plant Lifecycle and Seasonal Planning | P4, P9          | Lifecycle transitions and reviewed seasonal fixtures                                                  |
+| FR-22 Garden Context                        | P7, P9          | Weather/context freshness, source, quality, recommendation use                                        |
+| FR-23 Monitoring and Observations           | P4, P6, P10     | Append history, media, uncertain analysis suggestions                                                 |
+| FR-24 Recommendations                       | P7              | Rule/evidence/priority/feedback/safety/model fallback suite                                           |
+| FR-25 Work Planner                          | P4, P7, P9      | Manual/suggested/assigned/recurring work lifecycle                                                    |
+| FR-26 Notifications                         | P7              | Inbox, FCM, preference, quiet-hour, deduplication tests                                               |
+| FR-27 Shared Garden Team Care               | P9A             | Role/invitation/co-owner/assignment/attribution/sync tests                                            |
+| FR-28 Conversational Assistance             | P13             | Authorized retrieval, confirmation, safety, bilingual evaluation                                      |
+| FR-29 3D Garden View                        | P14             | Same-object projection and platform performance tests                                                 |
+| FR-30 Time Machine                          | P9C, P14        | P9 factual published timeline; P14 illustrative ranges, sources, uncertainty, and non-prediction copy |
+| FR-31 Offline Use and Synchronization       | P1–P5           | Atomic outbox, push/pull, conflicts, revocation, fault injection                                      |
+| FR-32 Import, Export, and Data Ownership    | P6, P8          | Private export, retention, garden/account deletion verification                                       |
+| FR-33 Web Application                       | P1–P9, P13–P14  | Operational and client route matrices, accessibility, online-first continuity, E2E                    |
+| FR-34 Professional Client Sharing           | P9B–P9C         | Organization assignment, engagement, publication, portal, media, export, and revocation isolation     |
 
 Requirements are defined in [technical-specification.md](technical-specification.md), section "9. Functional Requirements". A release cannot close a requirement by completing only server or UI code; it must produce the evidence in this table.
 
@@ -894,23 +961,23 @@ The source documentation contains no staffing, funding, velocity, procurement le
 
 ### 27.2 Indicative Phase Ranges
 
-| Phase                      | Indicative elapsed range | Main uncertainty                                    | Parallelism note                               |
-| -------------------------- | -----------------------: | --------------------------------------------------- | ---------------------------------------------- |
-| P0 Product closure         |                2–4 weeks | Decision and research access                        | Must start first                               |
-| P1 Engineering foundation  |                4–6 weeks | Cloud organization and CI access                    | Client/platform scaffolds parallelize          |
-| P2 First garden            |                4–6 weeks | Firebase/provider setup and UX                      | Native/web parallelize after API contract      |
-| P3 2D map                  |               8–12 weeks | Editor UX, geometry semantics, performance          | Native/web parallelize around shared fixtures  |
-| P4 Care records            |                6–8 weeks | Domain scope and UX                                 | Can overlap late P3                            |
-| P5 Offline synchronization |               8–12 weeks | Conflict UX, failure testing, migrations            | Backend/native parallelize after protocol      |
-| P6 Media and plan import   |               8–12 weeks | resumable transfer, PDF security, calibration       | Workers and clients parallelize                |
-| P7 Care loop               |               8–12 weeks | horticultural rules, providers, safety review       | Today, integrations, notifications parallelize |
-| P8 Beta and GA hardening   |               6–10 weeks | legal, security, restore/load results, store review | Begins incrementally before P7 ends            |
-| P9 Collaboration/seasonal  |               8–12 weeks | conflict behavior and content breadth               | Two substreams can separate                    |
-| P10 Assisted capture       |              10–16 weeks | dataset, model quality, device/media variability    | Research begins before production build        |
-| P11 AR/LiDAR               |              10–16 weeks | outdoor accuracy and device diversity               | Can overlap P10 research                       |
-| P12 Garden Scan            |             16–28+ weeks | reconstruction feasibility and unit cost            | Research-gated; may stop                       |
-| P13 Assistant              |               8–12 weeks | safety scope and evaluation quality                 | Independent after structured data stabilizes   |
-| P14 3D/Time Machine        |             12–20+ weeks | validated value, rendering choice, content model    | Research-gated; may split into releases        |
+| Phase                      | Indicative elapsed range | Main uncertainty                                                                      | Parallelism note                                                  |
+| -------------------------- | -----------------------: | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| P0 Product closure         |                2–4 weeks | Decision and research access                                                          | Must start first                                                  |
+| P1 Engineering foundation  |                4–6 weeks | Cloud organization and CI access                                                      | Client/platform scaffolds parallelize                             |
+| P2 First garden            |                4–6 weeks | Firebase/provider setup and UX                                                        | Native/web parallelize after API contract                         |
+| P3 2D map                  |               8–12 weeks | Editor UX, geometry semantics, performance                                            | Native/web parallelize around shared fixtures                     |
+| P4 Care records            |                6–8 weeks | Domain scope and UX                                                                   | Can overlap late P3                                               |
+| P5 Offline synchronization |               8–12 weeks | Conflict UX, failure testing, migrations                                              | Backend/native parallelize after protocol                         |
+| P6 Media and plan import   |               8–12 weeks | resumable transfer, PDF security, calibration                                         | Workers and clients parallelize                                   |
+| P7 Care loop               |               8–12 weeks | horticultural rules, providers, safety review                                         | Today, integrations, notifications parallelize                    |
+| P8 Beta and GA hardening   |               6–10 weeks | legal, security, restore/load results, store review                                   | Begins incrementally before P7 ends                               |
+| P9 Team/client/seasonal    |              12–18 weeks | publication isolation, stewardship, portal UX, conflict behavior, and content breadth | P9A, P9C, and P9D can release separately after shared foundations |
+| P10 Assisted capture       |              10–16 weeks | dataset, model quality, device/media variability                                      | Research begins before production build                           |
+| P11 AR/LiDAR               |              10–16 weeks | outdoor accuracy and device diversity                                                 | Can overlap P10 research                                          |
+| P12 Garden Scan            |             16–28+ weeks | reconstruction feasibility and unit cost                                              | Research-gated; may stop                                          |
+| P13 Assistant              |               8–12 weeks | safety scope and evaluation quality                                                   | Independent after structured data stabilizes                      |
+| P14 3D/Time Machine        |             12–20+ weeks | validated value, rendering choice, content model                                      | Research-gated; may split into releases                           |
 
 Under the reference team, a realistic foundation planning envelope is approximately 9–12 months because P3/P4 and several platform/client activities overlap while P5 remains on the critical path. Advanced product completion should not receive one combined date; P9–P14 are independent investment decisions and may be reordered, reduced, or stopped after evidence gates.
 
@@ -924,43 +991,43 @@ Reforecast after:
 - G3 establishes measured map-editor complexity.
 - G5 establishes synchronization defect and test volume.
 - Beta supplies quality, support, cost, and store-review evidence.
+- P9A validates household/team adoption and P9C validates client publication effort and portal value.
 - Any advanced capability passes or fails its research gate.
 
-## 28. Proposed First Twelve Increments
+## 28. Execution Sequence and Current Position
 
-This is a dependency-aware starting sequence, not a fixed sprint commitment.
+This is a dependency-aware sequence, not a fixed sprint commitment. Status is based on repository evidence on July 22, 2026; a completed increment does not by itself approve a release gate.
 
-| Increment | Primary outcome                                                          | Demonstration                                       |
-| --------: | ------------------------------------------------------------------------ | --------------------------------------------------- |
-|         1 | Product decisions, domain glossary, launch surface matrix, repo skeleton | Approved G0 package and all shells building locally |
-|         2 | CI/CD, OpenAPI/error baseline, PostGIS migration, dev cloud shell        | One traced health/API request deployed keylessly    |
-|         3 | Firebase native/web authentication and profile provisioning              | Same user signs in on native and web                |
-|         4 | Garden create/list/open with revisions and authorization                 | G2 first-garden vertical slice                      |
-|         5 | Coordinate spaces, garden object schema, shared geometry fixtures        | Same fixtures pass in backend, Swift, TypeScript    |
-|         6 | Basic point/line/polygon editor on web and native                        | Lot, house, fence, and bed created and reopened     |
-|         7 | Full required object tools, layers, undo/redo, scale/provenance          | G3 representative garden                            |
-|         8 | Plants/groups, placement, observations, and history                      | Plant selected from map opens shared record         |
-|         9 | Manual tasks, lifecycle, localization, accessibility, care analytics     | G4 care-data workflow                               |
-|        10 | Sync push/pull, local outbox, initial snapshot                           | Offline create survives restart and syncs           |
-|        11 | Conflicts, tombstones, revocation, full resync, upgrades                 | G5 fault-injected convergence                       |
-|        12 | Direct photo upload and verification foundation                          | Interrupted upload resumes without duplicate record |
+| Increment | Primary outcome                                                                             | Status                                                                        | Demonstration                                               |
+| --------: | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------- |
+|         1 | Product decisions needed for the foundation, domain/geometry baselines, repository skeleton | Complete for engineering prerequisites; remaining product decisions stay open | Recorded ADRs and all shells building locally               |
+|         2 | CI/CD, OpenAPI/error baseline, PostGIS migration, development cloud environment             | Complete                                                                      | One traced request deployed keylessly; P1 evidence recorded |
+|         3 | Firebase native/web authentication and profile provisioning                                 | In progress                                                                   | Same user signs in on native and web                        |
+|         4 | Garden create/list/open with revisions and authorization                                    | In progress                                                                   | G2 first-garden vertical slice                              |
+|         5 | Coordinate spaces, garden object schema, shared geometry fixtures                           | Foundation complete; product object schema pending                            | Same fixtures pass in backend, Swift, and TypeScript        |
+|         6 | Basic point/line/polygon editor on web and native                                           | Pending                                                                       | Lot, house, fence, and bed created and reopened             |
+|         7 | Full required object tools, layers, undo/redo, scale/provenance                             | Pending                                                                       | G3 representative garden                                    |
+|         8 | Plants/groups, placement, observations, and history                                         | Pending                                                                       | Plant selected from map opens shared record                 |
+|         9 | Manual tasks, lifecycle, localization, accessibility, care analytics                        | Pending                                                                       | G4 care-data workflow                                       |
+|        10 | Sync push/pull, local outbox, initial snapshot                                              | Pending                                                                       | Offline create survives restart and syncs                   |
+|        11 | Conflicts, tombstones, revocation, full resync, upgrades                                    | Pending                                                                       | G5 fault-injected convergence                               |
+|        12 | Direct photo upload and verification foundation                                             | Pending                                                                       | Interrupted upload resumes without duplicate record         |
 
 Later increments continue P6 plan import, P7 care loop, and P8 hardening. Every increment must end in a demonstrable integrated state; incomplete hidden layers do not count as completed product outcomes.
 
 ## 29. Decision Register
 
-### 29.1 Decisions Required Before G0
+### 29.1 Remaining Decisions Required to Close G0
 
-| Decision                    | Why it matters                                            | Source status                                  | Proposal                                                                                         | Owner                  | Deadline                |
-| --------------------------- | --------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------ | ---------------------- | ----------------------- |
-| First-release segment       | Determines onboarding, content, fixtures, research cohort | Open                                           | Select one primary segment and 2–3 garden archetypes                                             | WS-PROD                | Before P1               |
-| Guest onboarding            | Changes local data ownership and account migration        | Open                                           | Prefer a disposable pre-auth demo unless research proves guest-created durable data is necessary | WS-PROD, WS-SEC        | Before P2 schema        |
-| Foundation domain scope     | Prevents uncontrolled object/lifecycle/rule breadth       | Open                                           | Freeze minimum types; keep extensible custom labels                                              | WS-PROD                | Before P3/P4            |
-| Foundation surface parity   | Determines parallel client scope                          | Open in product spec                           | Approve Section 25                                                                               | WS-PROD                | Before P1 backlog       |
-| Supported platform versions | Controls frameworks and test matrix                       | Implementation-time                            | Use current public major plus supported predecessor where capability permits                     | WS-IOS, WS-WEB         | Before scaffold         |
-| Browser offline scope       | Avoids accidental second sync protocol                    | Product question; architecture is online-first | No full offline web in foundation; preserve selected drafts only                                 | WS-PROD, WS-WEB        | Before web state design |
-| Providers                   | Affects licensing, privacy, quality, cost, and UX         | Implementation-time                            | Score capability-specific adapters; one active provider per environment                          | WS-PROD, WS-BE, WS-SEC | Before dependent phase  |
-| Safety exclusions           | Controls recommendation and assistant release             | Open                                           | Exclude restricted tiers until reviewed policy exists                                            | WS-GUIDE, WS-SEC       | Before P7 rules         |
+| Decision                  | Why it matters                                            | Source status                                  | Proposal                                                                                         | Owner                  | Deadline                   |
+| ------------------------- | --------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------ | ---------------------- | -------------------------- |
+| First-release segment     | Determines onboarding, content, fixtures, research cohort | Open                                           | Select one primary segment and 2–3 garden archetypes                                             | WS-PROD                | Before P3 scope commitment |
+| Guest onboarding          | Changes local data ownership and account migration        | Open                                           | Prefer a disposable pre-auth demo unless research proves guest-created durable data is necessary | WS-PROD, WS-SEC        | Before durable guest work  |
+| Foundation domain scope   | Prevents uncontrolled object/lifecycle/rule breadth       | Open                                           | Freeze minimum types; keep extensible custom labels                                              | WS-PROD                | Before P3/P4               |
+| Foundation surface parity | Determines parallel client scope                          | Open in product spec                           | Approve Section 25                                                                               | WS-PROD                | Before P3/P4 backlog       |
+| Browser offline scope     | Avoids accidental second sync protocol                    | Product question; architecture is online-first | No full offline web in foundation; preserve selected drafts only                                 | WS-PROD, WS-WEB        | Before P3 web editor       |
+| Providers                 | Affects licensing, privacy, quality, cost, and UX         | Implementation-time                            | Score capability-specific adapters; one active provider per environment                          | WS-PROD, WS-BE, WS-SEC | Before dependent phase     |
+| Safety exclusions         | Controls recommendation and assistant release             | Open                                           | Exclude restricted tiers until reviewed policy exists                                            | WS-GUIDE, WS-SEC       | Before P7 rules            |
 
 ### 29.2 Decisions Required Before Foundation GA
 
@@ -974,25 +1041,55 @@ Later increments continue P6 plan import, P7 care loop, and P8 hardening. Every 
 | Recommendation launch catalog           | Release only reviewed rules with evidence and fallback                  | Horticultural/safety review and beta outcomes                 |
 | Analytics consent behavior              | Apply current US requirements while retaining privacy-minimized schema  | Legal review and consent on/off tests                         |
 
+### 29.3 Sharing Decisions
+
+#### Accepted Baseline
+
+| Decision                        | Selected baseline                                                                                            | Consequence                                                                                                            |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| Household/colleague access      | Direct operational owner/editor/viewer membership                                                            | Authorized members use the live garden and ordinary synchronization                                                    |
+| Equal household ownership       | Multiple owners supported                                                                                    | Ordinary invitation grants editor/viewer first; recent-auth owner administration promotes an active member to co-owner |
+| Professional team boundary      | Lightweight application-owned service organization                                                           | No Firebase tenant or custom-claim permission model; explicit garden assignment remains required                       |
+| Client access                   | Separate client engagement and immutable publication projection                                              | Client is never an operational viewer and cannot query internal resources                                              |
+| Initial client surface          | Responsive route group in the existing web application                                                       | No separate backend/application and no native client portal initially                                                  |
+| Client sign-in                  | Email-bound expiring invitation with Firebase email magic link as default                                    | No anonymous public links; access is attributable and revocable                                                        |
+| Publication policy              | Explicit reviewed publication by default                                                                     | Completing an operational task does not expose it automatically                                                        |
+| Publisher authorization         | Separate explicit capability granted by organization admin, or garden owner when no organization is attached | Owner, editor, or professional role alone never permits client publication                                             |
+| Historical time view            | Factual Garden Timeline built from immutable publications and accepted snapshots                             | Ships independently of future Time Machine simulation                                                                  |
+| Future Time Machine             | Client sees only an explicitly published scenario                                                            | P14 assumptions, uncertainty, horizon, and model/source versions remain visible                                        |
+| Default residential stewardship | Accepted garden model and published deliverables are client-exportable                                       | Internal notes, assignments, diagnostics, drafts, estimates, and unpublished work stay provider-internal               |
+
+#### Decisions Required Before P9C
+
+| Decision                        | Why it matters                                                  | Recommended starting point                                                            | Validation evidence                                           |
+| ------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Client interaction              | Changes portal from read-only projection to a mutation workflow | Keep first release read-only; measure whether acknowledgements or requests are needed | Client interviews and portal usability study                  |
+| Visible staff attribution       | Affects privacy and client trust                                | Publish display name/role only when selected in the update                            | Provider/client research and privacy review                   |
+| Reviewed automatic publication  | Could reduce effort but increases leakage risk                  | Keep disabled; later allow opt-in by low-risk work category and organization policy   | Publication correction/withdrawal metrics and security review |
+| Additional stewardship policies | Contract terms may differ from residential default              | Support only the default policy until a concrete market need and legal language exist | Signed contract examples and legal review                     |
+
 ## 30. Gaps and Proposals
 
-| Gap                                         | Evidence                                                                                                                                                                                                                                                                                  | Impact                                                  |                Priority | Proposal                                                                           |
-| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | ----------------------: | ---------------------------------------------------------------------------------- |
-| No committed foundation scope               | Priorities are explicitly proposed. [Source: technical-specification.md, section "6. Proposed Product Priorities"]                                                                                                                                                                        | Schedule and acceptance can drift                       |                Critical | Approve included/deferred/excluded scope in G0                                     |
-| No staffing or ownership                    | Not stated in source                                                                                                                                                                                                                                                                      | Forecast cannot become a commitment                     |                Critical | Assign workstream owners and capacity in P0-DEL-01                                 |
-| No product/design artifacts                 | Repository currently contains documentation only                                                                                                                                                                                                                                          | Implementation may encode unvalidated flows             |                    High | Prototype and test core journeys before P2/P3                                      |
-| Guest lifecycle unresolved                  | Guest behavior is open while native architecture permits a disposable pre-auth store. [Source: technical-specification.md, section "FR-1: Authentication and Onboarding"; architecture/ios-application-design.md, section "7. Local Persistence"]                                         | Data loss or complex migration risk                     |                    High | Decide durable versus disposable behavior before schema work                       |
-| Recoverable web draft scope is not selected | Product requirements retain this implementation question while the web architecture is online-first. [Source: technical-specification.md, sections "FR-33: Web Application" and "18. Open Product Questions"; architecture/web-application-design.md, section "9. Online-First Behavior"] | Unsaved work may be lost or scope may expand informally |                    High | Select map/form drafts and expiry behavior in Phase 0 without adding full web sync |
-| Numeric quality thresholds absent           | Versions, tolerances, quotas, budgets, SLOs, alerts remain implementation-time selections. [Source: technical-specification.md, section "14.2 Implementation-Time Selections"]                                                                                                            | Gates cannot be objectively passed                      |                    High | Define initial hypotheses in P0 and calibrate before GA                            |
-| Provider contracts absent                   | Commercial providers are not selected. [Source: architecture/README.md, section "7. Remaining Implementation-Time Selections"]                                                                                                                                                            | Licensing, privacy, coverage, and cost uncertainty      |                    High | Run provider scorecards before dependent implementation                            |
-| Horticultural governance not defined        | Safety-sensitive recommendations require expert review. [Source: technical-specification.md, section "FR-24: Recommendations"]                                                                                                                                                            | Unsafe or low-trust guidance                            |                Critical | Name reviewers, sources, versioning, review cadence, escalation                    |
-| Capture evaluation dataset absent           | Capture design requires a representative consented dataset. [Source: architecture/garden-capture-and-scan.md, section "20. Evaluation"]                                                                                                                                                   | AR/scan quality cannot be proven                        | High for advanced scope | Build dataset governance before P10/P11/P12 commitment                             |
-| Support organization not defined            | Runbooks are required, but people and rotation are not stated                                                                                                                                                                                                                             | Incidents cannot be owned                               |        High before beta | Define severity, on-call/support responsibility, escalation, hours                 |
-| Monetization is open                        | Monetization is an explicit product question. [Source: technical-specification.md, section "18. Open Product Questions"]                                                                                                                                                                  | Quotas and expensive-feature economics may change       |                  Medium | Decide before broad Scan/AI rollout; do not block foundation core loop             |
+| Gap                                         | Evidence                                                                                                                                                                                                                                                                                  | Impact                                                                           |                Priority | Proposal                                                                                                     |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------: | ------------------------------------------------------------------------------------------------------------ |
+| No committed foundation scope               | Priorities are explicitly proposed. [Source: technical-specification.md, section "6. Proposed Product Priorities"]                                                                                                                                                                        | Schedule and acceptance can drift                                                |                Critical | Approve included/deferred/excluded scope in G0                                                               |
+| No staffing or ownership                    | Not stated in source                                                                                                                                                                                                                                                                      | Forecast cannot become a commitment                                              |                Critical | Assign workstream owners and capacity in P0-DEL-01                                                           |
+| No validated product-research artifacts     | Repository contains implementation and design requirements, but no recorded user-research findings or approved journey prototype evidence                                                                                                                                                 | Implementation may encode unvalidated flows                                      |                    High | Prototype and test core journeys before closing P2/P3                                                        |
+| Guest lifecycle unresolved                  | Guest behavior is open while native architecture permits a disposable pre-auth store. [Source: technical-specification.md, section "FR-1: Authentication and Onboarding"; architecture/ios-application-design.md, section "7. Local Persistence"]                                         | Data loss or complex migration risk                                              |                    High | Decide durable versus disposable behavior before schema work                                                 |
+| Recoverable web draft scope is not selected | Product requirements retain this implementation question while the web architecture is online-first. [Source: technical-specification.md, sections "FR-33: Web Application" and "18. Open Product Questions"; architecture/web-application-design.md, section "9. Online-First Behavior"] | Unsaved work may be lost or scope may expand informally                          |                    High | Select map/form drafts and expiry behavior in Phase 0 without adding full web sync                           |
+| Launch quality thresholds remain incomplete | Quotas, performance budgets, SLOs, and alert thresholds remain implementation-time selections, while platform versions and geometry tolerances are already fixed by ADR-0009 and ADR-0010. [Source: technical-specification.md, section "14.2 Implementation-Time Selections"]            | Gates cannot be objectively passed                                               |                    High | Define initial hypotheses before their dependent phases and calibrate before GA                              |
+| Provider contracts absent                   | Commercial providers are not selected. [Source: architecture/README.md, section "7. Remaining Implementation-Time Selections"]                                                                                                                                                            | Licensing, privacy, coverage, and cost uncertainty                               |                    High | Run provider scorecards before dependent implementation                                                      |
+| Horticultural governance not defined        | Safety-sensitive recommendations require expert review. [Source: technical-specification.md, section "FR-24: Recommendations"]                                                                                                                                                            | Unsafe or low-trust guidance                                                     |                Critical | Name reviewers, sources, versioning, review cadence, escalation                                              |
+| Capture evaluation dataset absent           | Capture design requires a representative consented dataset. [Source: architecture/garden-capture-and-scan.md, section "20. Evaluation"]                                                                                                                                                   | AR/scan quality cannot be proven                                                 | High for advanced scope | Build dataset governance before P10/P11/P12 commitment                                                       |
+| Support organization not defined            | Runbooks are required, but people and rotation are not stated                                                                                                                                                                                                                             | Incidents cannot be owned                                                        |        High before beta | Define severity, on-call/support responsibility, escalation, hours                                           |
+| Monetization is open                        | Monetization is an explicit product question. [Source: technical-specification.md, section "18. Open Product Questions"]                                                                                                                                                                  | Quotas and expensive-feature economics may change                                |                  Medium | Decide before broad Scan/AI rollout; do not block foundation core loop                                       |
+| Client publication usability is unvalidated | Client sharing has an approved architecture but no recorded research evidence for update preparation, portal comprehension, or engagement-end handoff. [Source: architecture/decisions/ADR-0012-separate-team-and-client-sharing.md]                                                      | Professionals may avoid publishing or clients may misread the record             |         High before P9C | Prototype publisher preview, portal timeline, withdrawal, and handoff with professionals and clients         |
+| Client interaction scope is open            | Comments, approvals, and change requests remain an explicit product question. [Source: technical-specification.md, section "18. Open Product Questions"]                                                                                                                                  | Premature mutations would expand notification, moderation, audit, and sync scope |                  Medium | Keep P9C read-only; use research to select one later interaction rather than a generic comment system        |
+| Transactional email provider is unselected  | Client invitation and publication notices require email, while provider selection remains implementation-time. [Source: architecture/external-integrations.md, section "10. Transactional Messaging"]                                                                                     | P9C invitation and notification E2E cannot pass                                  |         High before P9C | Evaluate delivery, domain authentication, bounce/complaint webhooks, privacy, cost, and replacement behavior |
 
 ## 31. Contradictions and Tensions
 
-No direct contradiction remains between the approved architecture documents after Draft 0.6 synchronization. The following product-to-implementation tensions still require explicit handling.
+No direct contradiction remains between the approved architecture documents after Draft 0.7 synchronization. The following product-to-implementation tensions still require explicit handling.
 
 ### 31.1 Web Recoverable Draft Scope
 
@@ -1012,26 +1109,35 @@ No direct contradiction remains between the approved architecture documents afte
 - **Resolution used by this plan:** Do not implement durable guest garden migration until P0 explicitly approves it.
 - **Confidence:** High.
 
+### 31.4 Implementation Began Before Full G0 Closure
+
+- **Source tension:** G0 is defined as the gate to start implementation, but repository evidence records P1 complete and P2 in progress while several product, provider, research, and commercial decisions remain open. [Source: this document, sections "2.4 Current Implementation Status", "8. Release Gates", and "29.1 Remaining Decisions Required to Close G0"; tasks/todo.md]
+- **Resolution used by this plan:** Treat the implemented engineering foundation and bounded P2 vertical slice as already authorized technical work without retroactively declaring full G0 approval. Resolve the remaining product decisions before committing P3/P4 scope, provider-dependent phases, or launch dates.
+- **Confidence:** High.
+
 ## 32. Risk Register
 
-| Risk                                              | Evidence                                                                                                                                                                                         | Severity | Confidence | Early indicator                                | Mitigation and decision                                                                           |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------: | ---------: | ---------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Scope overload                                    | Product risk explicitly identifies too many categories. [Source: technical-specification.md, section "17. Major Risks"]                                                                          | Critical |       High | Increasing parallel unfinished epics           | Foundation scope lock, feature flags, research gates, independent advanced releases               |
-| Map setup takes too much effort                   | Initial map effort is a documented risk. [Source: technical-specification.md, section "17. Major Risks"]                                                                                         | Critical |       High | High time-to-first-area or abandonment         | Prototype first, manual primitives, blank/imagery/plan choices, measure correction effort         |
-| Users mistake estimates for exact dimensions      | Accuracy misuse is an explicit product risk and safety constraint. [Source: technical-specification.md, sections "13. Accuracy and Safety Policy" and "17. Major Risks"]                         | Critical |       High | Support questions or unsafe use                | Persistent provenance/uncertainty, non-survey copy, no false precision, safety testing            |
-| Map semantics diverge across clients              | Mobile/web parity and multi-source consistency are documented risks. [Source: technical-specification.md, section "17. Major Risks"]                                                             |     High |       High | Same command produces different geometry       | Shared fixtures, canonical commands, generated contracts, semantic CI gate                        |
-| Offline sync silently loses work                  | Sync is classified as a critical system. [Source: architecture/testing-strategy.md, section "2. Principles"]                                                                                     | Critical |       High | Unrecoverable conflicts or unknown outcomes    | Durable outbox, stable operation IDs, fault injection, recovery UI, no universal LWW              |
-| Mobile release lag blocks schema/API change       | The delivery design requires a supported compatibility window. [Source: architecture/environments-and-delivery.md, section "13. Mobile Compatibility"]                                           |     High |       High | Forced upgrades or stuck outbox                | Additive/versioned contracts, expand/contract migrations, protocol distribution telemetry         |
-| Media parser or signed URL compromise             | Sensitive content and parser threats are explicit. [Source: architecture/security-and-privacy.md, sections "12. Cloud Storage Security" and "16. Untrusted Content Processing"]                  | Critical |       High | Unexpected egress, type confusion, URL leakage | Constrained workers, signature/type checks, short-lived access, redaction and attack fixtures     |
-| Provider licensing prevents imagery/plan behavior | Provider terms and caching remain implementation-time selections. [Source: architecture/external-integrations.md, sections "3. Adapter Contract" and "6. Basemap and Imagery"]                   |     High |     Medium | Required use violates terms or cost            | Provider scorecard, adapter boundary, attribution, replaceability, no provider IDs as domain keys |
-| Recommendation causes unsafe action               | Safety-sensitive treatment requires review. [Source: technical-specification.md, section "FR-24: Recommendations"]                                                                               | Critical |       High | Unsupported high-risk output                   | Rules-first, safety tiers, expert review, deterministic fallback, model output validation         |
-| Low-value notifications cause disengagement       | Repetition is a documented product risk. [Source: technical-specification.md, section "17. Major Risks"]                                                                                         |     High |       High | Disablement/dismissal rate rises               | Durable intent, preference/freshness checks, dedupe, quiet hours, value metrics                   |
-| Outdoor AR error is unacceptable                  | Outdoor AR error is a documented product risk. [Source: technical-specification.md, section "17. Major Risks"]                                                                                   |     High |       High | Error/correction exceeds use-case threshold    | Device/use-case benchmark, segmented capture, realignment, disclaimers, stop gate                 |
-| Garden Scan cost exceeds value                    | Scan has explicit cost controls but no measured unit economics. [Source: architecture/garden-capture-and-scan.md, section "19. Cost Controls"]                                                   |     High |     Medium | Cost per useful proposal or failure rate rises | Early rejection, CPU-first, quotas, checkpoints, explicit confirmation, cohort rollout            |
-| Cross-garden data exposure                        | Preventing cross-garden access is a core security objective. [Source: architecture/security-and-privacy.md, section "2. Security Objectives"]                                                    | Critical |       High | Any authorization test or incident fails       | Central capabilities, negative matrix per resource, current membership check, audited response    |
-| Deletion is incomplete across systems             | Deletion spans identity, database, media, jobs, caches, and providers. [Source: architecture/data-export-and-deletion.md, section "11. Account Deletion"]                                        | Critical |       High | Residual objects after deadline                | Idempotent workflow, reconciliation, completion evidence, restore reapplies deletion              |
-| Cloud SQL exhausted by serverless scaling         | Serverless connection pressure is an explicit architecture concern. [Source: architecture/networking.md, section "11. Connection Pooling"]                                                       |     High |       High | Pool saturation or acquisition latency         | Max instances × pool budget, load tests, backpressure, measured scaling sequence                  |
-| Observability leaks garden content                | Telemetry prohibitions explicitly include precise location, geometry, plans, media, notes, and prompts. [Source: architecture/observability-and-analytics.md, section "6. Prohibited Telemetry"] | Critical |       High | Sensitive field appears in logs/traces         | Schema allowlist/redaction, malicious log tests, privacy review, access separation                |
+| Risk                                              | Evidence                                                                                                                                                                                                           | Severity | Confidence | Early indicator                                                    | Mitigation and decision                                                                                 |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------: | ---------: | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| Scope overload                                    | Product risk explicitly identifies too many categories. [Source: technical-specification.md, section "17. Major Risks"]                                                                                            | Critical |       High | Increasing parallel unfinished epics                               | Foundation scope lock, feature flags, research gates, independent advanced releases                     |
+| Map setup takes too much effort                   | Initial map effort is a documented risk. [Source: technical-specification.md, section "17. Major Risks"]                                                                                                           | Critical |       High | High time-to-first-area or abandonment                             | Prototype first, manual primitives, blank/imagery/plan choices, measure correction effort               |
+| Users mistake estimates for exact dimensions      | Accuracy misuse is an explicit product risk and safety constraint. [Source: technical-specification.md, sections "13. Accuracy and Safety Policy" and "17. Major Risks"]                                           | Critical |       High | Support questions or unsafe use                                    | Persistent provenance/uncertainty, non-survey copy, no false precision, safety testing                  |
+| Map semantics diverge across clients              | Mobile/web parity and multi-source consistency are documented risks. [Source: technical-specification.md, section "17. Major Risks"]                                                                               |     High |       High | Same command produces different geometry                           | Shared fixtures, canonical commands, generated contracts, semantic CI gate                              |
+| Offline sync silently loses work                  | Sync is classified as a critical system. [Source: architecture/testing-strategy.md, section "2. Principles"]                                                                                                       | Critical |       High | Unrecoverable conflicts or unknown outcomes                        | Durable outbox, stable operation IDs, fault injection, recovery UI, no universal LWW                    |
+| Mobile release lag blocks schema/API change       | The delivery design requires a supported compatibility window. [Source: architecture/environments-and-delivery.md, section "13. Mobile Compatibility"]                                                             |     High |       High | Forced upgrades or stuck outbox                                    | Additive/versioned contracts, expand/contract migrations, protocol distribution telemetry               |
+| Media parser or signed URL compromise             | Sensitive content and parser threats are explicit. [Source: architecture/security-and-privacy.md, sections "12. Cloud Storage Security" and "16. Untrusted Content Processing"]                                    | Critical |       High | Unexpected egress, type confusion, URL leakage                     | Constrained workers, signature/type checks, short-lived access, redaction and attack fixtures           |
+| Provider licensing prevents imagery/plan behavior | Provider terms and caching remain implementation-time selections. [Source: architecture/external-integrations.md, sections "3. Adapter Contract" and "6. Basemap and Imagery"]                                     |     High |     Medium | Required use violates terms or cost                                | Provider scorecard, adapter boundary, attribution, replaceability, no provider IDs as domain keys       |
+| Recommendation causes unsafe action               | Safety-sensitive treatment requires review. [Source: technical-specification.md, section "FR-24: Recommendations"]                                                                                                 | Critical |       High | Unsupported high-risk output                                       | Rules-first, safety tiers, expert review, deterministic fallback, model output validation               |
+| Low-value notifications cause disengagement       | Repetition is a documented product risk. [Source: technical-specification.md, section "17. Major Risks"]                                                                                                           |     High |       High | Disablement/dismissal rate rises                                   | Durable intent, preference/freshness checks, dedupe, quiet hours, value metrics                         |
+| Outdoor AR error is unacceptable                  | Outdoor AR error is a documented product risk. [Source: technical-specification.md, section "17. Major Risks"]                                                                                                     |     High |       High | Error/correction exceeds use-case threshold                        | Device/use-case benchmark, segmented capture, realignment, disclaimers, stop gate                       |
+| Garden Scan cost exceeds value                    | Scan has explicit cost controls but no measured unit economics. [Source: architecture/garden-capture-and-scan.md, section "19. Cost Controls"]                                                                     |     High |     Medium | Cost per useful proposal or failure rate rises                     | Early rejection, CPU-first, quotas, checkpoints, explicit confirmation, cohort rollout                  |
+| Cross-garden data exposure                        | Preventing cross-garden access is a core security objective. [Source: architecture/security-and-privacy.md, section "2. Security Objectives"]                                                                      | Critical |       High | Any authorization test or incident fails                           | Central capabilities, negative matrix per resource, current membership check, audited response          |
+| Deletion is incomplete across systems             | Deletion spans identity, database, media, jobs, caches, and providers. [Source: architecture/data-export-and-deletion.md, section "11. Account Deletion"]                                                          | Critical |       High | Residual objects after deadline                                    | Idempotent workflow, reconciliation, completion evidence, restore reapplies deletion                    |
+| Cloud SQL exhausted by serverless scaling         | Serverless connection pressure is an explicit architecture concern. [Source: architecture/networking.md, section "11. Connection Pooling"]                                                                         |     High |       High | Pool saturation or acquisition latency                             | Max instances × pool budget, load tests, backpressure, measured scaling sequence                        |
+| Observability leaks garden content                | Telemetry prohibitions explicitly include precise location, geometry, plans, media, notes, and prompts. [Source: architecture/observability-and-analytics.md, section "6. Prohibited Telemetry"]                   | Critical |       High | Sensitive field appears in logs/traces                             | Schema allowlist/redaction, malicious log tests, privacy review, access separation                      |
+| Client projection exposes internal operations     | A generic viewer or UI-only filter can expose tasks, notes, recommendations, drafts, raw media, or diagnostics. [Source: architecture/decisions/ADR-0012-separate-team-and-client-sharing.md]                      | Critical |       High | Client endpoint returns an operational record or unpublished media | Separate resources/query paths, publisher preview, generated allowlists, and cross-plane negative tests |
+| Publication no longer represents what client saw  | Mutable joins to current operational data could rewrite historical client records after publication. [Source: architecture/decisions/ADR-0012-separate-team-and-client-sharing.md, section "Publication Boundary"] |     High |       High | Old portal update changes after an internal edit                   | Immutable publication versions with stable snapshots, checksums, withdrawal, and audit                  |
+| Engagement-end ownership dispute                  | Provider and client expectations may diverge when service ends. [Source: technical-specification.md, section "17. Major Risks"]                                                                                    |     High |       High | Export or handoff cannot be explained contractually                | Enforce explicit stewardship policy, export manifest, handoff workflow, and legal review before P9C     |
 
 ## 33. Definition of Ready
 
@@ -1055,7 +1161,7 @@ A work package is done only when:
 2. Domain behavior is separated from framework/provider details according to the detailed design.
 3. Migrations are reviewed, tested from supported prior states, and compatible with deployed clients/services.
 4. API and message contracts are versioned, linted, compatible, and compiled by affected clients.
-5. Authorization, cross-garden denial, idempotency, concurrency, offline/retry, deletion, and failure tests pass where applicable.
+5. Authorization, cross-garden denial, cross-organization and cross-engagement denial, access-plane isolation, idempotency, concurrency, offline/retry, deletion, and failure tests pass where applicable.
 6. Accessibility, localization, performance, privacy, security, and cost acceptance pass for the risk level.
 7. Logs, metrics, traces, dashboards, alerts, audit events, and runbooks are added without prohibited content.
 8. Feature flags, rollout, rollback, support, and migration behavior are documented.
@@ -1102,13 +1208,13 @@ Pause or stop a capability when:
 
 ## 36. Immediate Next Actions
 
-1. Approve or revise the foundation outcome and Section 25 surface matrix.
-2. Assign owners and capacity to the workstreams in Section 6.
-3. Resolve all G0 decisions in Section 29.1.
-4. Run the core journey prototypes and user research in P0-DESIGN-01.
-5. Create the provider scorecards and legal/privacy data inventory.
-6. Convert P1 and P2 work packages into repository issues with dependencies and acceptance evidence.
-7. Start the monorepo, contract, database, CI/CD, and cloud-environment foundation only after version and access prerequisites are recorded.
+1. Finish P2 without claiming G2 early: complete provider configuration, native/web authentication integration, App Check monitoring, and the full cross-client E2E/authorization matrix.
+2. Record P2 completion evidence in an execution record equivalent to `tasks/todo.md` and update the status table in Section 2.4.
+3. Resolve the remaining foundation product decisions in Section 29.1 and approve the foundation surface matrix in Section 25.1.
+4. Run the core journey prototypes and user research in P0-DESIGN-01 before closing the related P2/P3 product decisions.
+5. Create provider scorecards and the legal/privacy data inventory, including transactional email before P9C.
+6. Convert P3 and P4 work packages into dependency-linked repository issues after G2 evidence is accepted.
+7. Prototype P9A household collaboration and P9C professional publication/client portal separately; measure both before committing the full expansion scope.
 8. Reforecast after G2 using actual throughput and defect evidence.
 
 ## 37. Plan Maintenance
@@ -1123,41 +1229,46 @@ Pause or stop a capability when:
 
 ### A.1 Detailed Designs
 
-| Source                                                                                 | Primary plan coverage                           |
-| -------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| [Architecture index](architecture/README.md)                                           | P0–P14, governance                              |
-| [Native Apple application](architecture/ios-application-design.md)                     | P1–P7, P9–P14                                   |
-| [Web application](architecture/web-application-design.md)                              | P1–P9, P10 review, P13–P14                      |
-| [Map rendering and editing](architecture/map-rendering-and-editing.md)                 | P0, P3, P6, P10–P14                             |
-| [Backend modular monolith](architecture/backend-modular-monolith.md)                   | P1–P14                                          |
-| [REST API and contracts](architecture/api-design.md)                                   | P1–P13                                          |
-| [Data and geospatial model](architecture/data-and-geospatial-design.md)                | P1–P14                                          |
-| [Offline synchronization](architecture/offline-synchronization.md)                     | P1–P6, P9, P10–P12                              |
-| [Identity and authorization](architecture/identity-and-authorization.md)               | P0–P2, P8–P9, P13                               |
-| [Media storage and processing](architecture/media-storage-and-processing.md)           | P6, P8, P10–P12                                 |
-| [Garden capture and scan](architecture/garden-capture-and-scan.md)                     | P0, P6, P10–P12                                 |
-| [Asynchronous processing](architecture/asynchronous-processing.md)                     | P1, P6–P8, P10–P13                              |
-| [Recommendations and AI](architecture/recommendations-and-ai.md)                       | P7, P9, P13–P14                                 |
-| [External integrations](architecture/external-integrations.md)                         | P0, P3, P6–P7, P13                              |
-| [Notifications](architecture/notifications.md)                                         | P7–P9                                           |
-| [Security and privacy](architecture/security-and-privacy.md)                           | Every phase; G0–G12                             |
-| [Networking](architecture/networking.md)                                               | P1, P8, continuous operations                   |
-| [Observability and analytics](architecture/observability-and-analytics.md)             | Every phase; release gates                      |
-| [Environments and delivery](architecture/environments-and-delivery.md)                 | P1, P8, every release                           |
-| [Reliability and disaster recovery](architecture/reliability-and-disaster-recovery.md) | P1, P5–P8, production operations                |
-| [Testing strategy](architecture/testing-strategy.md)                                   | Every phase; every gate                         |
-| [Cost and scaling](architecture/cost-and-scaling.md)                                   | P0–P1, P6–P8, P10–P14                           |
-| [Data export and deletion](architecture/data-export-and-deletion.md)                   | P2 foundations, P8 completion, P9 collaboration |
+| Source                                                                                 | Primary plan coverage                                                  |
+| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| [Architecture index](architecture/README.md)                                           | P0–P14, governance                                                     |
+| [Native Apple application](architecture/ios-application-design.md)                     | P1–P7, P9–P14                                                          |
+| [Web application](architecture/web-application-design.md)                              | P1–P9 operational and client surfaces, P10 review, P13–P14             |
+| [Map rendering and editing](architecture/map-rendering-and-editing.md)                 | P0, P3, P6, P10–P14                                                    |
+| [Backend modular monolith](architecture/backend-modular-monolith.md)                   | P1–P14                                                                 |
+| [REST API and contracts](architecture/api-design.md)                                   | P1–P13                                                                 |
+| [Data and geospatial model](architecture/data-and-geospatial-design.md)                | P1–P14                                                                 |
+| [Offline synchronization](architecture/offline-synchronization.md)                     | P1–P6, P9A operational sync and P9C exclusion, P10–P12                 |
+| [Identity and authorization](architecture/identity-and-authorization.md)               | P0–P2, P8–P9 operational, organization, and client capabilities, P13   |
+| [Collaboration and client sharing](architecture/collaboration-and-client-sharing.md)   | P9A–P9C end-to-end sharing workflows, isolation, rollout, and evidence |
+| [Media storage and processing](architecture/media-storage-and-processing.md)           | P6, P8, P9C publication entitlement, P10–P12                           |
+| [Garden capture and scan](architecture/garden-capture-and-scan.md)                     | P0, P6, P10–P12                                                        |
+| [Asynchronous processing](architecture/asynchronous-processing.md)                     | P1, P6–P9 publication/notification jobs, P10–P13                       |
+| [Recommendations and AI](architecture/recommendations-and-ai.md)                       | P7, P9, P13–P14                                                        |
+| [External integrations](architecture/external-integrations.md)                         | P0, P3, P6–P7, P9C transactional messaging, P13                        |
+| [Notifications](architecture/notifications.md)                                         | P7–P9 team and client notifications                                    |
+| [Security and privacy](architecture/security-and-privacy.md)                           | Every phase; G0–G12                                                    |
+| [Networking](architecture/networking.md)                                               | P1, P8, continuous operations                                          |
+| [Observability and analytics](architecture/observability-and-analytics.md)             | Every phase; release gates                                             |
+| [Environments and delivery](architecture/environments-and-delivery.md)                 | P1, P8, every release                                                  |
+| [Reliability and disaster recovery](architecture/reliability-and-disaster-recovery.md) | P1, P5–P8, production operations                                       |
+| [Testing strategy](architecture/testing-strategy.md)                                   | Every phase; every gate                                                |
+| [Cost and scaling](architecture/cost-and-scaling.md)                                   | P0–P1, P6–P9 portal/publication load, P10–P14                          |
+| [Data export and deletion](architecture/data-export-and-deletion.md)                   | P2 foundations, P8 completion, P9 client stewardship and handoff       |
 
 ### A.2 Architecture Decisions
 
-| Source                                                                                   | Implementation consequence                                              |
-| ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| [ADR-0001](architecture/decisions/ADR-0001-monorepo-and-client-separation.md)            | P1 creates one repository with separate native and web clients          |
-| [ADR-0002](architecture/decisions/ADR-0002-firebase-google-cloud-and-postgresql.md)      | P1–P2 establish Firebase/GCP with PostgreSQL/PostGIS authority          |
-| [ADR-0003](architecture/decisions/ADR-0003-modular-monolith-and-rest-api.md)             | P1 creates Fastify modules and REST/OpenAPI contracts                   |
-| [ADR-0004](architecture/decisions/ADR-0004-application-owned-offline-sync.md)            | P5 implements GRDB and application-owned sync                           |
-| [ADR-0005](architecture/decisions/ADR-0005-dual-space-geospatial-model.md)               | P3 implements local planar geometry and optional WGS84 georeference     |
-| [ADR-0006](architecture/decisions/ADR-0006-google-cloud-asynchronous-primitives.md)      | P6 onward uses outbox, Tasks, Pub/Sub, Jobs, and justified Workflows    |
-| [ADR-0007](architecture/decisions/ADR-0007-us-central1-production-baseline.md)           | P1/P8 deploy the United States regional baseline                        |
-| [ADR-0008](architecture/decisions/ADR-0008-rules-first-recommendations-and-vertex-ai.md) | P7 builds deterministic recommendations before optional AI explanations |
+| Source                                                                                        | Implementation consequence                                                                      |
+| --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| [ADR-0001](architecture/decisions/ADR-0001-monorepo-and-client-separation.md)                 | P1 creates one repository with separate native and web clients                                  |
+| [ADR-0002](architecture/decisions/ADR-0002-firebase-google-cloud-and-postgresql.md)           | P1–P2 establish Firebase/GCP with PostgreSQL/PostGIS authority                                  |
+| [ADR-0003](architecture/decisions/ADR-0003-modular-monolith-and-rest-api.md)                  | P1 creates Fastify modules and REST/OpenAPI contracts                                           |
+| [ADR-0004](architecture/decisions/ADR-0004-application-owned-offline-sync.md)                 | P5 implements GRDB and application-owned sync                                                   |
+| [ADR-0005](architecture/decisions/ADR-0005-dual-space-geospatial-model.md)                    | P3 implements local planar geometry and optional WGS84 georeference                             |
+| [ADR-0006](architecture/decisions/ADR-0006-google-cloud-asynchronous-primitives.md)           | P6 onward uses outbox, Tasks, Pub/Sub, Jobs, and justified Workflows                            |
+| [ADR-0007](architecture/decisions/ADR-0007-us-central1-production-baseline.md)                | P1/P8 deploy the United States regional baseline                                                |
+| [ADR-0008](architecture/decisions/ADR-0008-rules-first-recommendations-and-vertex-ai.md)      | P7 builds deterministic recommendations before optional AI explanations                         |
+| [ADR-0009](architecture/decisions/ADR-0009-toolchain-and-platform-baseline.md)                | P0–P1 pin and enforce the initial runtime, database, Apple, and browser baselines               |
+| [ADR-0010](architecture/decisions/ADR-0010-local-coordinate-space-and-geometry-tolerances.md) | P0–P3 enforce canonical local-coordinate precision and validation tolerances                    |
+| [ADR-0011](architecture/decisions/ADR-0011-gcloud-scripts-instead-of-terraform.md)            | P1 and current environments use idempotent gcloud scripts; Terraform requires a future decision |
+| [ADR-0012](architecture/decisions/ADR-0012-separate-team-and-client-sharing.md)               | P9 separates operational membership from client engagement and immutable publication access     |

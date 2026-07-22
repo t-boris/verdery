@@ -1,8 +1,8 @@
 # Data Export and Deletion Design
 
-> Status: Draft 0.1  
+> Status: Draft 0.2
 > Decision status: Approved baseline  
-> Last updated: July 21, 2026
+> Last updated: July 22, 2026
 
 ## 1. Purpose
 
@@ -13,6 +13,7 @@ This document defines user data ownership, portable export, export package struc
 - Users can obtain a useful machine-readable copy of their garden data.
 - Export preserves provenance, units, uncertainty, and non-survey limitations.
 - Export does not expose another collaborator's private account data beyond shared-garden policy.
+- Client export does not expose provider-internal notes, assignments, drafts, estimates, diagnostics, or unpublished work.
 - Export and deletion are authenticated, authorized, auditable, asynchronous, and idempotent.
 - Deletion reaches authoritative, derived, cached, and provider-controlled data in scope.
 
@@ -37,6 +38,9 @@ PDF reports and GeoPackage are future optional formats. Shapefile is not a basel
 - Editor and viewer export rights are controlled by garden capability.
 - Raw scan artifacts require separate sensitive-media permission and retention availability.
 - Support personnel cannot generate user exports without an audited approved process.
+- A client engagement export includes only data entitled by its recorded stewardship policy.
+- The default residential-service policy includes the accepted garden model, client publications, published completed-work snapshots derived from work logs, and entitled published media; it does not expose raw internal work logs.
+- Service organizations retain their internal operational records unless garden/account deletion or another policy applies.
 
 ## 5. Export Request
 
@@ -121,6 +125,8 @@ Garden deletion:
 8. Verifies provider cleanup where applicable.
 9. Records non-sensitive completion evidence.
 
+Client engagement termination is not garden deletion. It revokes portal access, closes pending client invitations, stops future delivery, and executes the engagement handoff/export policy while preserving authorized provider-internal operational records.
+
 ## 11. Account Deletion
 
 The baseline recovery window is 30 days. During the window, ordinary access is disabled and the user may recover through a verified process where offered.
@@ -177,6 +183,10 @@ Telemetry uses request IDs and counts, not exported content or URLs.
 
 - Owner/editor/viewer export authorization.
 - Shared garden collaborator privacy.
+- Default and non-default client engagement stewardship policies.
+- Client export excludes provider-internal operational records.
+- Published work and media are included only when entitled.
+- Engagement termination, client handoff, and access revocation without garden deletion.
 - Consistent revision boundary during concurrent edits.
 - GeoJSON local and WGS84 labeling.
 - Missing/deleted media manifest.
@@ -193,6 +203,7 @@ Telemetry uses request IDs and counts, not exported content or URLs.
 - Export is machine-readable and includes geometry provenance and uncertainty.
 - Download is private and expires automatically.
 - Shared-garden export does not leak unrelated profile data.
+- Client export does not leak provider-internal or another client's data.
 - Garden and account deletion reach database, storage, jobs, caches, identity, and providers in scope.
 - Offline clients receive revocation and deletion state.
 - Deletion completion is verifiable without retaining deleted content.

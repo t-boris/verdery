@@ -1,8 +1,8 @@
 # REST API and Contract Design
 
-> Status: Draft 0.1  
+> Status: Draft 0.2
 > Decision status: Approved baseline  
-> Last updated: July 21, 2026
+> Last updated: July 22, 2026
 
 ## 1. Purpose
 
@@ -52,6 +52,10 @@ GET  /v1/gardens/{gardenId}/map
 POST /v1/gardens/{gardenId}/map-commands
 POST /v1/media-uploads
 GET  /v1/processing-jobs/{jobId}
+POST /v1/gardens/{gardenId}/team-invitations
+POST /v1/gardens/{gardenId}/client-engagements
+POST /v1/client-updates/{clientUpdateId}/publish
+GET  /v1/client-portal/gardens/{gardenId}/timeline
 ```
 
 ## 5. Command Endpoints
@@ -65,6 +69,9 @@ Examples:
 - Accept capture proposal.
 - Recalibrate imported plan.
 - Invite collaborator.
+- Assign a professional to a garden.
+- Invite a client to an engagement.
+- Prepare, publish, or withdraw a client update.
 - Request account deletion.
 
 Simple resource creation and replacement may still use POST, PUT, or PATCH when the behavior is unambiguous.
@@ -113,6 +120,8 @@ After verification, the backend creates an actor context containing:
 - Administrative support context when explicitly activated.
 
 Clients cannot submit authoritative role or garden-membership claims.
+
+Clients also cannot submit authoritative organization, assignment, engagement, publication, or audience claims. The backend derives all access-plane context from current PostgreSQL state.
 
 ## 10. Request Format
 
@@ -219,6 +228,38 @@ The media API controls metadata and authorization:
 
 Signed or session URLs are short lived and never become permanent media identifiers.
 
+### 17.1 Collaboration and Client Portal API
+
+Operational team and client publication resources use separate endpoints and response schemas.
+
+Operational and professional administration examples:
+
+```text
+POST /v1/service-organizations
+POST /v1/service-organizations/{organizationId}/members
+POST /v1/service-organizations/{organizationId}/garden-assignments
+POST /v1/gardens/{gardenId}/team-invitations
+POST /v1/gardens/{gardenId}/client-engagements
+POST /v1/client-engagements/{engagementId}/invitations
+POST /v1/client-engagements/{engagementId}/updates
+POST /v1/client-updates/{clientUpdateId}/publish
+POST /v1/client-publications/{publicationId}/withdraw
+```
+
+Client portal examples:
+
+```text
+GET /v1/client-portal/gardens
+GET /v1/client-portal/gardens/{gardenId}
+GET /v1/client-portal/gardens/{gardenId}/publications
+GET /v1/client-portal/gardens/{gardenId}/timeline
+GET /v1/client-portal/publications/{publicationId}
+```
+
+Client portal responses contain only explicitly published schemas. They never serialize an operational garden aggregate and remove fields afterward. Media access requires both publication entitlement and current engagement access.
+
+Publication commands are revision-aware and idempotent. Publishing creates a new immutable version; it does not mutate an earlier published response. Withdrawal hides ordinary access but remains an audited command.
+
 ## 18. Geometry Contracts
 
 Geometry payloads contain:
@@ -267,6 +308,7 @@ Quota responses include a stable code and retry guidance without disclosing syst
 - Request and response sizes are bounded.
 - OpenAPI validation occurs before application execution.
 - Authorization is resource-specific.
+- Client portal authorization verifies engagement, publication state, audience, and media entitlement independently of operational garden membership.
 - CORS allowlists exact production origins.
 - Cookie-authenticated mutations use CSRF protection.
 - Error responses avoid existence and tenant leakage.
@@ -288,4 +330,6 @@ Quota responses include a stable code and retry guidance without disclosing syst
 - Sync batches are resumable and partially reportable without ambiguity.
 - Large media bypasses the interactive service.
 - Geometry cannot be misinterpreted as WGS84 accidentally.
+- Operational resources cannot be enumerated through client portal contracts.
+- Published responses remain stable when internal source records change.
 - API implementation details do not leak database or provider models.

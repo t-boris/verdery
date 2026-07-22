@@ -23,6 +23,7 @@ scripts/
   07-iam-database-bootstrap.sh         One-time: grants a service account database access.
   provision.sh                         Runs 00–06 in order.
   verify.sh                            Read-only check of what actually exists.
+  deploy-migration-job.sh              Creates or updates the migration Cloud Run Job.
   deploy-api.sh                        Builds nothing; deploys an already-pushed image.
 ```
 

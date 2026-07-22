@@ -29,6 +29,7 @@ Architecture decision records preserve the context, choice, consequences, and su
 | [ADR-0009](ADR-0009-toolchain-and-platform-baseline.md)                | Toolchain and platform version baseline                                   | Accepted |
 | [ADR-0010](ADR-0010-local-coordinate-space-and-geometry-tolerances.md) | Local coordinate space representation and geometry tolerances             | Accepted |
 | [ADR-0011](ADR-0011-gcloud-scripts-instead-of-terraform.md)            | Idempotent gcloud scripts instead of Terraform for initial infrastructure | Accepted |
+| [ADR-0012](ADR-0012-separate-team-and-client-sharing.md)               | Separate operational team access from client publications                 | Accepted |
 
 ## Naming
 

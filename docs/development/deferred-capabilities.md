@@ -33,6 +33,20 @@ for why). Concretely:
   verifies a live response — using the same `infrastructure/gcloud/scripts/deploy-api.sh` a human
   runs locally, not a separate CI-only path.
 
+Phase 2 is now in progress in the repository. The implemented foundations include:
+
+- A migration for profiles, provider links, account state, gardens, operational memberships, an
+  invitation skeleton, consent, audit, revisions, idempotency, sync changes, and the outbox.
+- Identity/profile provisioning and Firebase-token/web-session infrastructure in the API.
+- Garden create, list, get, rename, archive, and deletion-request contracts and backend behavior,
+  with current-membership authorization, revisions, idempotency, and tests.
+- Web sign-in/session and garden list/create/settings flows.
+- Native authentication, garden gateway, and local garden-store foundations.
+
+This is implementation evidence, not G2 completion evidence. Provider configuration, complete
+cross-client integration, App Check monitoring, and the full authentication/authorization/E2E
+matrix remain open.
+
 Run `infrastructure/gcloud/README.md` before touching any of this by hand; several steps are only
 safe in the order the numbered scripts encode.
 
@@ -44,10 +58,11 @@ is mechanical — the same scripts, a new `config/<environment>.env` — but is 
 drifting before there is a product to run on it.
 
 **Regional and production hardening.** `verdery-dev` uses a zonal Cloud SQL instance
-(`db-f1-micro`), `--allow-unauthenticated` on Cloud Run (nothing behind it carries data yet), and no
-Cloud Armor or load balancer — ADR-0007 explicitly allows "simpler authenticated connectivity" for
-non-production environments. Regional HA, enforced authorization, and the production networking
-topology are `P8-DB-01` and `P8-NET-01`.
+(`db-f1-micro`), `--allow-unauthenticated` at the Cloud Run network/IAM layer, and no Cloud Armor or
+load balancer. Public health endpoints remain open, while product endpoints still require the API's
+Firebase/session authentication and server-side authorization. ADR-0007 explicitly allows simpler
+connectivity for non-production environments. Regional HA and the production networking topology
+are `P8-DB-01` and `P8-NET-01`.
 
 **`infrastructure/terraform/` stays empty.** This environment is provisioned by
 `infrastructure/gcloud/scripts/`, not Terraform, by deliberate choice — see ADR-0011. The directory
@@ -68,9 +83,9 @@ outside a superuser connection. What remains unrehearsed is the staged rollout p
 environments: expand-phase migration on staging before production, traffic shifted only after
 success. See [database-migrations.md](database-migrations.md).
 
-**End-to-end tests.** These are a release-promotion gate that needs a deployed environment with
-enough of the product built to exercise. There is a deployed environment now; there is not yet
-enough product.
+**Phase 2 end-to-end evidence.** A deployed environment and product foundations exist, but the
+complete native/web provider, authorization, session, and first-garden matrix has not passed. G2
+must not be claimed until that evidence is recorded.
 
 ## What is _not_ deferred
 
@@ -80,4 +95,5 @@ system and its tests (including the least-privilege regression test in
 `services/api/tests/migrations/platform-baseline.test.ts`), the API composition root and health
 endpoints, the web application shell, the Swift package and its targets, formatting, linting, type
 checking, the file-size rule, the secret scan, the `verdery-dev` cloud environment, keyless CI
-deployment, and OpenTelemetry tracing to Cloud Trace.
+deployment, OpenTelemetry tracing to Cloud Trace, the Phase 2 identity/garden database and backend
+foundations, and the current web/native Phase 2 foundations.

@@ -1,8 +1,8 @@
 # Native Apple Application Design
 
-> Status: Draft 0.1  
+> Status: Draft 0.2
 > Decision status: Approved baseline  
-> Last updated: July 21, 2026
+> Last updated: July 22, 2026
 
 ## 1. Purpose
 
@@ -243,6 +243,12 @@ A typed application router owns major destinations and modal flows. Features dec
 
 Deep links are parsed into typed intents, authenticated, authorized against locally known state where possible, and resolved through normal application use cases.
 
+### 14.1 Collaboration Boundary
+
+The native application supports operational household and professional team participation through ordinary owner/editor/viewer garden membership and assignment-aware synchronization.
+
+The initial professional client experience is responsive web, not a full native operational garden. Client invitation links opened on iOS route to the authenticated web portal or an approved universal-link handoff. If a native client portal is introduced later, it uses a publication-only read model and never opens the operational garden database for a client engagement.
+
 ## 15. Concurrency
 
 - Swift structured concurrency is the default asynchronous model.
@@ -303,6 +309,7 @@ Required test layers are:
 - View-model tests.
 - SwiftUI accessibility and UI tests for critical flows.
 - Real-device tests for camera, AR, background upload, and lifecycle recovery.
+- Operational membership/assignment revocation and client-invitation universal-link tests.
 
 Tests use injected clocks, identifier generators, network gateways, and capability providers.
 

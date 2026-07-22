@@ -1,6 +1,6 @@
 # Grow Garden Architecture Documentation
 
-> Status: Draft 0.2  
+> Status: Draft 0.3
 > Decision status: Approved detailed-design baseline  
 > Last updated: July 22, 2026
 
@@ -23,6 +23,7 @@ The architecture is based on the following approved product-level choices:
 - Native offline persistence uses SQLite through GRDB and an application-owned synchronization protocol.
 - Firebase provides authentication, App Check, Cloud Messaging, Crashlytics, and App Hosting.
 - Google Cloud provides Cloud Run, Cloud SQL, Cloud Storage, Cloud Tasks, Pub/Sub, Workflows, Vertex AI, networking, and observability.
+- Operational team sharing uses owner/editor/viewer garden membership; professional clients use separate engagements and immutable client publications.
 
 ## 2. Document Map
 
@@ -36,6 +37,7 @@ The architecture is based on the following approved product-level choices:
 | PostgreSQL and geospatial model            | [data-and-geospatial-design.md](data-and-geospatial-design.md)               |
 | Offline synchronization                    | [offline-synchronization.md](offline-synchronization.md)                     |
 | Identity and authorization                 | [identity-and-authorization.md](identity-and-authorization.md)               |
+| Collaboration and client sharing           | [collaboration-and-client-sharing.md](collaboration-and-client-sharing.md)   |
 | Media storage and processing               | [media-storage-and-processing.md](media-storage-and-processing.md)           |
 | Garden capture and scan                    | [garden-capture-and-scan.md](garden-capture-and-scan.md)                     |
 | Queues, events, jobs, and workflows        | [asynchronous-processing.md](asynchronous-processing.md)                     |
@@ -71,20 +73,25 @@ Material decisions and their rationale are recorded under [decisions/](decisions
 | Web garden renderer              | Konva Canvas scene graph                                                           |
 | Web geographic context           | MapLibre with a replaceable tile provider                                          |
 | Backend runtime                  | TypeScript on Node.js                                                              |
+| Runtime baseline                 | Node.js 24 and TypeScript 5.9.x                                                    |
 | Backend HTTP framework           | Fastify                                                                            |
 | Scan runtime                     | Python workers where required                                                      |
 | External API                     | REST and OpenAPI                                                                   |
 | Database access                  | Kysely with reviewed SQL migrations and explicit PostGIS SQL                       |
+| Database baseline                | PostgreSQL 17 and PostGIS 3.5                                                      |
 | Identifiers                      | Client-generated UUIDv7                                                            |
 | Geometry API                     | GeoJSON with application metadata                                                  |
 | Geometry storage                 | PostGIS geometry in a local planar garden space with optional WGS84 georeferencing |
+| Local geometry contract          | SRID 0, separate coordinate-space identity, 1 mm rounding, and ADR-0010 tolerances |
 | Geometry concurrency             | Object-level optimistic concurrency                                                |
 | History                          | Mutable current state plus immutable revision journal                              |
 | Offline sync                     | Application-owned outbox and versioned synchronization API                         |
 | Authentication                   | Firebase Authentication                                                            |
 | Initial login methods            | Sign in with Apple, Google Sign-In, and email magic link                           |
+| Apple and browser baseline       | iOS/iPadOS 18 minimum with Swift 6.3; last two Chrome/Edge/Firefox and Safari 17+  |
 | Web authentication               | Firebase HTTP-only session cookie                                                  |
-| Collaboration roles              | Owner, editor, and viewer                                                          |
+| Operational collaboration roles  | Owner, editor, and viewer                                                          |
+| Professional client access       | Service organization, engagement, and immutable publication projection             |
 | Media transfer                   | Backend-authorized resumable Cloud Storage upload                                  |
 | Application commands             | Cloud Tasks                                                                        |
 | Fan-out events                   | Pub/Sub                                                                            |
@@ -94,7 +101,8 @@ Material decisions and their rationale are recorded under [decisions/](decisions
 | AI provider                      | Vertex AI through an application-owned adapter                                     |
 | Search                           | PostgreSQL full-text and trigram indexes initially                                 |
 | Push transport                   | Firebase Cloud Messaging                                                           |
-| Infrastructure as code           | Terraform                                                                          |
+| Initial infrastructure tooling   | Versioned idempotent gcloud scripts                                                |
+| Future infrastructure option     | Terraform after a superseding multi-operator decision                              |
 | CI/CD                            | GitHub Actions with Google workload identity federation                            |
 | Environments                     | Separate development, staging, and production Firebase/GCP projects                |
 | Production database network      | Private IP through Direct VPC egress                                               |
@@ -125,6 +133,7 @@ packages/
 └── test-fixtures/
 
 infrastructure/
+├── gcloud/
 ├── terraform/
 └── firebase/
 
@@ -133,7 +142,7 @@ docs/
 └── technical-specification.md
 ```
 
-The iOS project is stored in the same repository but is not forced into the JavaScript workspace toolchain. TypeScript workspaces may use `pnpm`; exact workspace automation may be introduced with the first implementation scaffold.
+The iOS project is stored in the same repository but is not part of the JavaScript workspace toolchain. TypeScript workspaces use `pnpm`. Initial Google Cloud resources are provisioned through `infrastructure/gcloud`; `infrastructure/terraform` is reserved and is not authoritative under ADR-0011.
 
 ## 6. Cross-Document Rules
 
@@ -147,15 +156,15 @@ The iOS project is stored in the same repository but is not forced into the Java
 - Provider-specific payloads remain outside domain modules.
 - Security and authorization are enforced on the server even when clients also validate locally.
 - Sensitive media and precise location are excluded from ordinary logs and analytics.
+- Client portal authorization is evaluated against active engagement and published resource identity; client visibility is never implemented only by hiding operational controls.
 - Production resources use least-privilege service identities and private database connectivity.
 
 ## 7. Remaining Implementation-Time Selections
 
-The architecture strategy is approved. The following values are selected at implementation or launch review without reopening the architecture unless their consequences exceed the documented boundaries:
+The architecture strategy, initial platform/toolchain baseline, and geometry tolerances are approved. The following values remain selected at implementation or launch review without reopening the architecture unless their consequences exceed the documented boundaries:
 
-- Minimum iOS and iPadOS versions, using the current major and supported predecessor policy.
-- Exact active Firebase-supported Next.js release.
-- Exact supported PostgreSQL major version in Cloud SQL.
+- Exact active Firebase App Hosting-supported Next.js release and upgrade timing within the dependency lock.
+- Responsive breakpoints within the accepted browser baseline.
 - Initial commercial basemap and imagery tile provider.
 - Transactional email provider.
 - Exact Vertex AI model for each evaluated use case.

@@ -25,14 +25,20 @@ The authoritative sources are:
 
 ## Current state
 
-The repository is at the end of Phase 1, "Engineering and Cloud Foundation". What exists is a
-foundation: workspaces, shared contracts, application shells, health endpoints, tests, CI gates, a
-`verdery-dev` Google Cloud environment, and a keyless deploy pipeline serving real traffic at
-`verdery-api-dev` on Cloud Run. No product feature — gardens, plants, maps, recommendations,
-authentication — is implemented yet.
+Phase 1, "Engineering and Cloud Foundation", is complete, and Phase 2, "Identity and First-Garden
+Vertical Slice", is in progress. In addition to the foundation, the repository now contains the
+identity-and-gardens migration, profile provisioning, Firebase token and web-session
+infrastructure, garden authorization and lifecycle APIs, web sign-in/garden screens, and native
+authentication, garden-networking, and local-store foundations.
+
+Phase 2 is not complete merely because these files exist. Provider configuration, complete
+native/web integration, App Check evidence, the full authorization/E2E matrix, and explicit G2
+approval remain open. Maps, plants, observations, tasks, synchronization, media, recommendations,
+team sharing, and the client portal are not implemented product releases yet.
 
 Infrastructure is provisioned with versioned gcloud scripts rather than Terraform; only a
-development environment exists, not staging or production. See
+development environment exists, not staging or production. The development Cloud Run service may
+not yet contain every uncommitted Phase 2 change visible in a local checkout. See
 [docs/development/deferred-capabilities.md](docs/development/deferred-capabilities.md) for what is
 still missing and why.
 

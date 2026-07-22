@@ -1,8 +1,8 @@
 # Data and Geospatial Design
 
-> Status: Draft 0.1  
+> Status: Draft 0.2
 > Decision status: Approved baseline  
-> Last updated: July 21, 2026
+> Last updated: July 22, 2026
 
 ## 1. Purpose
 
@@ -20,17 +20,17 @@ Use PostgreSQL schemas or naming conventions to make module ownership explicit. 
 
 Initial logical ownership is:
 
-| Module                    | Data                                                                     |
-| ------------------------- | ------------------------------------------------------------------------ |
-| Identity and Access       | Profiles, identity links, account state                                  |
-| Collaboration             | Gardens' membership, invitations, roles                                  |
-| Gardens and Mapping       | Gardens, coordinate spaces, map objects, geometry revisions, calibration |
-| Plants and Inventory      | Plant instances, placements, garden-specific plant facts                 |
-| Observations and History  | Observations, measurements, history events                               |
-| Tasks and Recommendations | Tasks, recommendations, evidence, outcomes                               |
-| Media                     | Media records, variants, upload and retention state                      |
-| Capture and Import        | Capture sessions, imports, proposals, processor results                  |
-| Platform                  | Idempotency records, outbox, sync changes, operational metadata          |
+| Module                    | Data                                                                                      |
+| ------------------------- | ----------------------------------------------------------------------------------------- |
+| Identity and Access       | Profiles, identity links, account state                                                   |
+| Collaboration             | Memberships, organizations, assignments, engagements, work logs, publications, and grants |
+| Gardens and Mapping       | Gardens, coordinate spaces, map objects, geometry revisions, calibration                  |
+| Plants and Inventory      | Plant instances, placements, garden-specific plant facts                                  |
+| Observations and History  | Observations, measurements, history events                                                |
+| Tasks and Recommendations | Tasks, recommendations, evidence, outcomes                                                |
+| Media                     | Media records, variants, upload and retention state                                       |
+| Capture and Import        | Capture sessions, imports, proposals, processor results                                   |
+| Platform                  | Idempotency records, outbox, sync changes, operational metadata                           |
 
 ## 4. Identifier Strategy
 
@@ -70,8 +70,45 @@ A garden contains:
 - Observations, tasks, and recommendations.
 - Media and capture associations.
 - Membership and role assignments.
+- Optional service-organization assignments and client engagements.
 
 The garden is an authorization boundary, not necessarily one transactionally locked aggregate. Object-level revisions prevent unnecessary whole-garden contention.
+
+### 6.1 Operational and Client-Sharing Records
+
+Operational access and client publication use separate records:
+
+```text
+service_organization
+organization_membership
+garden_assignment
+
+client_engagement
+client_engagement_member
+client_invitation
+
+work_log
+client_update
+client_publication
+client_publication_item
+client_publication_media
+published_garden_snapshot
+published_time_machine_scenario
+```
+
+Key rules are:
+
+- Organization membership does not imply garden access.
+- Client engagement does not imply access to live operational tables.
+- Completing a task may create or update an internal `work_log`, but it does not publish it automatically.
+- A `client_update` is a mutable preparation draft; publishing produces an immutable `client_publication` version.
+- Publication items contain client-safe snapshots or stable revision references sufficient to preserve what was shown.
+- Published media uses explicit entitlement rows; ordinary media ownership alone does not make media client-visible.
+- Withdrawal changes ordinary visibility without erasing the audit record or prior publication identity.
+- The actual garden timeline is ordered from immutable publication versions and published accepted-garden snapshots.
+- Future Time Machine scenarios remain distinct versioned artifacts with horizon, assumptions, uncertainty, and source/model versions.
+
+The default residential engagement policy marks accepted garden meaning and published deliverables as client-exportable while keeping provider-internal drafts, assignments, notes, estimates, and diagnostics outside the client export.
 
 ## 7. Garden Object Model
 
@@ -112,7 +149,7 @@ Each garden has at least one local coordinate-space record:
 - Creation provenance.
 - Lifecycle state.
 
-Accepted editable geometry uses PostGIS `geometry` in the local planar space. The exact custom SRID registration strategy is decided in schema implementation, but the database and API must never label local coordinates as EPSG:4326.
+Accepted editable geometry uses PostGIS `geometry` with SRID 0 in the local planar space. No custom `spatial_ref_sys` row is created. The application-level `coordinate_space_id` carries the garden-space identity, and the database and API must never label local coordinates as EPSG:4326. Coordinates are rounded to 1 mm on write and validated with the tolerances fixed by ADR-0010.
 
 ## 9. Georeferencing
 
@@ -200,6 +237,8 @@ Deletion states are explicit:
 - Purged.
 
 Ordinary object deletion produces a tombstone for synchronization. Account and garden deletion start an asynchronous workflow that revokes access, handles shared ownership, deletes media, purges domain records in dependency order, and records policy-compliant completion evidence.
+
+Ending a client engagement revokes client access without deleting the service provider's internal operational history. Garden or account deletion still applies the engagement's stewardship and handoff policy before purge.
 
 The baseline user recovery window is 30 days unless the user selects immediate irreversible deletion where supported or legal policy requires another behavior.
 
@@ -342,6 +381,11 @@ Database restore does not automatically restore Cloud Storage objects, so recove
 - Sync tests cover tombstones, retention gaps, and cursor resume.
 - Backup restoration is exercised in staging.
 - Query-plan regression tests protect important spatial and list queries.
+- Organization assignment without implicit garden access.
+- Cross-engagement publication isolation.
+- Immutable publication versions and audited withdrawal.
+- Published-media entitlement and internal-media denial.
+- Task completion without accidental client publication.
 
 ## 28. Completion Criteria
 
@@ -351,4 +395,6 @@ Database restore does not automatically restore Cloud Storage objects, so recove
 - Geometry validation and indexes use PostGIS.
 - Current state, history, sync changes, and outbox commit consistently.
 - User deletion reaches media and derived data.
+- Operational membership and client publication are separate authorization partitions.
+- Published client history remains stable when internal source records change.
 - Schema migration can occur without losing mobile compatibility.

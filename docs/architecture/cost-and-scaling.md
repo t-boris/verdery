@@ -1,8 +1,8 @@
 # Cost and Scaling Design
 
-> Status: Draft 0.1  
+> Status: Draft 0.2
 > Decision status: Approved baseline  
-> Last updated: July 21, 2026
+> Last updated: July 22, 2026
 
 ## 1. Purpose
 
@@ -35,7 +35,7 @@ Track at least:
 
 ## 4. Labels and Attribution
 
-Terraform applies labels for environment, service, module/workload, owner, and cost center where supported.
+Provisioning scripts apply labels for environment, service, module/workload, owner, and cost center where supported.
 
 Provider adapters record privacy-safe usage units. Job manifests and metrics identify processing category and environment.
 

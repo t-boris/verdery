@@ -1,8 +1,8 @@
 # Recommendations and AI Design
 
-> Status: Draft 0.1  
+> Status: Draft 0.2
 > Decision status: Approved baseline  
-> Last updated: July 21, 2026
+> Last updated: July 22, 2026
 
 ## 1. Purpose
 
@@ -16,6 +16,8 @@ This document defines how Grow Garden generates explainable care recommendations
 - The user controls completion, postponement, rejection, and feedback.
 - Safety-critical guidance requires additional policy and expert review.
 - Core recommendations remain available during model-provider outage.
+
+Recommendations and their evidence are operational records by default. A professional client can see a recommendation outcome only when an authorized publisher includes a client-safe result in an immutable client publication. Client access never follows recommendation ownership automatically.
 
 ## 3. Recommendation Pipeline
 

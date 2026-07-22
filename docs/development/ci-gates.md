@@ -1,6 +1,6 @@
 # CI gates
 
-Every pull request into `main` runs [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml).
+Every pull request into `master` runs [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml).
 This document maps each job to the command that reproduces it locally, and explains the decisions
 that are not obvious from reading the YAML.
 
@@ -26,8 +26,9 @@ a fresh checkout. The contract gates are not part of `check:all` and must be run
 ## Why two gates never use change detection
 
 **Formatting and file size** apply to the whole repository, not to a surface. Prettier formats
-Markdown as well as TypeScript, and the 600-line rule from [AGENTS.md](../../AGENTS.md) covers Swift
-and Terraform sources too, so a documentation-only change can still violate one of them.
+Markdown as well as TypeScript, and the 600-line rule from [AGENTS.md](../../AGENTS.md) covers source
+code, including Swift, while explicitly excluding documentation and other text-only files. A
+change to any path may still violate formatting; code changes may also violate file size.
 
 **The secret scan** is not scoped either, because a credential can be committed in any file, in any
 directory, in any language.
@@ -111,15 +112,15 @@ runner provides. Locally the same tests need a running Docker daemon.
 
 ## Gates the architecture requires that do not exist yet
 
-| Required gate                           | Status                                                            |
-| --------------------------------------- | ----------------------------------------------------------------- |
-| Terraform format, validate, plan, scan  | No Terraform to validate — work package `P1-PLAT-01`              |
-| Container vulnerability scan            | No images are built, because there is no registry to publish to   |
-| End-to-end tests for release candidates | No deployable environment to run them against                     |
-| Dependency vulnerability scan           | Dependabot proposes updates; no blocking audit gate is configured |
-| Documentation link checking             | Formatting is gated; nothing yet verifies that links resolve      |
+| Required gate                           | Status                                                                                                   |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Provisioning-script validation          | `infrastructure/gcloud/scripts/` is authoritative, but CI has no dedicated shell/static/idempotency gate |
+| Container vulnerability scan            | Images build and publish to Artifact Registry, but no blocking image scan is configured                  |
+| End-to-end tests for release candidates | `verdery-dev` exists, but the complete Phase 2 native/web E2E matrix is not implemented                  |
+| Dependency vulnerability scan           | Dependabot proposes updates; no blocking audit gate is configured                                        |
+| Documentation link checking             | Formatting is gated; nothing yet verifies that links resolve                                             |
 
-The first three are blocked on cloud infrastructure — see
+The first three are follow-up quality work rather than missing infrastructure — see
 [deferred-capabilities.md](deferred-capabilities.md). The fourth is a deliberate choice: a blocking
 `pnpm audit` fails pull requests for advisories published after the branch was cut, in code the
 author did not touch, so updates are proposed rather than enforced until there is a triage owner.

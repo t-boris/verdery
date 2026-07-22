@@ -1,8 +1,8 @@
 # Observability and Analytics Design
 
-> Status: Draft 0.1  
+> Status: Draft 0.2
 > Decision status: Approved baseline  
-> Last updated: July 21, 2026
+> Last updated: July 22, 2026
 
 ## 1. Purpose
 
@@ -152,8 +152,14 @@ The application owns stable product event names and properties, for example:
 - Recommendation presented/completed/postponed/rejected.
 - Task completed.
 - Sync conflict encountered/resolved.
+- Operational invitation accepted and assigned work completed.
+- Client invitation accepted.
+- Client update prepared, published, viewed, withdrawn, or superseded.
+- Client garden timeline or published Time Machine scenario viewed.
 
 Analytics properties use categories, counts, durations, and broad capability classes. They exclude garden content and precise location.
+
+Client analytics excludes publication text, media names, client identity, staff notes, and exact garden data. Cross-engagement resource identifiers are never joined in client-side analytics.
 
 ## 11. Consent
 

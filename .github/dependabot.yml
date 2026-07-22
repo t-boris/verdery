@@ -8,7 +8,7 @@ version: 2
 #
 # Source: architecture/environments-and-delivery.md, section "17. Supply Chain",
 # "Pin GitHub Actions to trusted versions or commit SHAs according to policy" and
-# "Scan dependencies, secrets, Terraform, and containers".
+# "Scan dependencies, secrets, shell scripts, cloud configuration, and containers".
 updates:
   - package-ecosystem: github-actions
     directories:

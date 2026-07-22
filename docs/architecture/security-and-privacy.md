@@ -1,8 +1,8 @@
 # Security and Privacy Design
 
-> Status: Draft 0.1  
+> Status: Draft 0.2
 > Decision status: Approved baseline  
-> Last updated: July 21, 2026
+> Last updated: July 22, 2026
 
 ## 1. Purpose
 
@@ -18,6 +18,7 @@ This document defines the security and privacy architecture for identities, clie
 - Provide auditable administrative access.
 - Detect and contain compromise.
 - Honor deletion, retention, consent, and export commitments.
+- Prevent professional clients from accessing provider-internal operations or another client's publications.
 
 ## 3. Data Classification
 
@@ -32,6 +33,8 @@ Non-sensitive operational configuration, schemas, and aggregate service metrics.
 ### Confidential User Data
 
 Garden records, plants, observations, tasks, recommendations, user profile, and collaboration records.
+
+Client publications remain confidential user data even when intentionally shared with one engagement.
 
 ### Sensitive User Data
 
@@ -80,11 +83,16 @@ Client validation, device claims, local revisions, and provider callbacks are un
 - Application authorization is capability-based and server-enforced.
 - Garden membership and role come from PostgreSQL.
 - Every request resolves current membership.
+- Organization membership, garden assignment, client engagement, publication state, and media entitlement come from PostgreSQL.
+- Organization membership does not grant garden access by itself.
+- Client portal endpoints return publication-specific schemas and never broad operational resources with fields removed after authorization.
 - Background jobs carry resource references and execute under service identity, then revalidate ownership and expected state.
 - Media access is authorized by stable media ID before short-lived download access is issued.
 - Administrative access is separate from ordinary garden roles.
 
 Cross-garden isolation tests are mandatory for every new resource type.
+
+Cross-engagement and operational-versus-client isolation tests are mandatory for every client-shareable resource type.
 
 ## 7. App Check and Abuse Protection
 
@@ -169,7 +177,7 @@ Each deployment unit has a dedicated Google Cloud service account:
 - Export/deletion job.
 - CI deployment identity.
 
-Broad default compute identities are not used. IAM roles are resource-scoped and reviewed through Terraform.
+Broad default compute identities are not used. IAM roles are resource-scoped and reviewed through versioned provisioning scripts and environment configuration.
 
 ## 14. Secrets
 
@@ -217,6 +225,7 @@ PDF, image, video, and archive parsing occurs in constrained workers:
 - Training use of user content requires separate explicit consent and governance.
 - Support access is time-limited and audited.
 - Export and deletion are available through application workflows.
+- Provider-internal records and client-entitled accepted garden/publication data are classified separately according to the engagement stewardship policy.
 - Nearby private property in capture is treated as sensitive, not incidental public data.
 
 ## 19. Retention Baseline
@@ -253,6 +262,8 @@ Audit:
 
 - Authentication provider changes.
 - Membership, role, and ownership changes.
+- Organization membership and garden assignment changes.
+- Client invitation, engagement activation/revocation, publication, withdrawal, export, and handoff.
 - Support access.
 - Export and deletion requests.
 - Sensitive raw-media access.
@@ -303,6 +314,8 @@ Runbooks cover identity compromise, cross-garden access defect, exposed signed U
 
 - Broken object-level authorization.
 - Invitation and ownership-transfer replay.
+- Client invitation replay, engagement confusion, unpublished-resource enumeration, and publication withdrawal races.
+- Internal-task, note, recommendation, conflict, raw-media, or organization-data leakage through client projections.
 - Offline command replay and stale authorization.
 - SSRF through imported URLs or providers.
 - Malicious PDF/video/image parser input.
@@ -316,6 +329,8 @@ Runbooks cover identity compromise, cross-garden access defect, exposed signed U
 ## 26. Testing
 
 - Authorization matrix and cross-garden attacks.
+- Cross-organization, cross-engagement, operational-to-client, and client-to-operational access attacks.
+- Published-media entitlement, withdrawal, engagement revocation, and historically stable publication tests.
 - CSRF, CORS, XSS, and session fixation.
 - Token revocation and recent authentication.
 - App Check missing/invalid/replayed behavior.
@@ -330,6 +345,7 @@ Runbooks cover identity compromise, cross-garden access defect, exposed signed U
 ## 27. Completion Criteria
 
 - Every sensitive resource has an owner and authorization path.
+- Every client-visible resource has an explicit publication and active-engagement authorization path.
 - Production database and storage are not publicly accessible to clients.
 - No long-lived cloud key is required by CI or workloads.
 - Raw capture, precise location, and signed URLs are absent from ordinary telemetry.

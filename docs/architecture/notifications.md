@@ -1,8 +1,8 @@
 # Notification Design
 
-> Status: Draft 0.1  
+> Status: Draft 0.2
 > Decision status: Approved baseline  
-> Last updated: July 21, 2026
+> Last updated: July 22, 2026
 
 ## 1. Purpose
 
@@ -15,7 +15,7 @@ Initial channels are:
 - In-app notification inbox.
 - Firebase Cloud Messaging push notifications.
 
-Transactional email is added through a provider adapter when product flows require it. SMS is not part of the initial architecture.
+Transactional email is required for client invitation and portal-access flows and is added through a provider adapter when professional client sharing is implemented. SMS is not part of the initial architecture.
 
 ## 3. Ownership
 
@@ -72,6 +72,8 @@ FCM delivery attempt
 ```
 
 Domain transactions do not wait for FCM.
+
+Client update publication creates a durable in-app intent and may create a transactional-email intent. The send worker rechecks engagement access, publication visibility, preference, and expiration immediately before delivery.
 
 ## 6. Device Tokens
 
@@ -137,6 +139,7 @@ The inbox is the durable user-facing record for eligible notifications. It suppo
 - Device tokens are secret.
 - Payloads minimize sensitive content.
 - Shared-garden role changes are rechecked at send time.
+- Client engagement and publication visibility are rechecked at send time.
 - Notification preferences are application-authorized.
 - Provider responses are not exposed directly to clients.
 
@@ -156,6 +159,9 @@ Provider acceptance is not treated as confirmed device display.
 - Locale fallback.
 - Privacy-safe lock-screen text.
 - Deep link to deleted or unauthorized resource.
+- Client invitation accepted by the wrong authenticated email.
+- Client publication withdrawn or engagement revoked before delivery.
+- Duplicate publication event and repeated email suppression.
 
 ## 17. Completion Criteria
 
@@ -164,3 +170,4 @@ Provider acceptance is not treated as confirmed device display.
 - Duplicate events do not spam users.
 - Push payloads do not act as authorization.
 - In-app inbox remains correct when FCM fails.
+- Client invitation and publication notifications cannot reveal garden details without current engagement access.

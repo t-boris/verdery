@@ -22,9 +22,10 @@ One Google Cloud project, `verdery-dev`, in `us-central1`, provisioned by the id
 - Workload identity federation trusting `t-boris/verdery`, additionally scoped to the `development`
   GitHub Environment. A workflow job without `environment: development` gets a valid GitHub OIDC
   token and no usable Google credential.
-- Artifact Registry, and `verdery-api-dev` on Cloud Run, serving `/v1/health/live` and
-  `/v1/health/ready` at `--allow-unauthenticated` — a deliberate development-only choice, revisited
-  before any endpoint carries real data.
+- Artifact Registry, and `verdery-api-dev` on Cloud Run. The service permits public network ingress
+  with `--allow-unauthenticated` as a deliberate development configuration; public health endpoints
+  remain open, while product endpoints enforce Firebase/session authentication and server-side
+  authorization. Production edge hardening remains P8 work.
 - OpenTelemetry traces exported to Cloud Trace.
 
 ## Deploying

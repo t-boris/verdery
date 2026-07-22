@@ -1,12 +1,12 @@
 # Environments and Delivery Design
 
-> Status: Draft 0.1  
+> Status: Draft 0.2
 > Decision status: Approved baseline  
-> Last updated: July 21, 2026
+> Last updated: July 22, 2026
 
 ## 1. Purpose
 
-This document defines the monorepo delivery model, environment isolation, Terraform ownership, GitHub Actions, build artifacts, migrations, release promotion, feature flags, rollback, and supply-chain controls.
+This document defines the monorepo delivery model, environment isolation, initial gcloud-script ownership, GitHub Actions, build artifacts, migrations, release promotion, feature flags, rollback, and supply-chain controls.
 
 ## 2. Environments
 
@@ -15,6 +15,8 @@ Persistent environments are:
 - Development.
 - Staging.
 - Production.
+
+Only the development project currently exists. Staging and production are target environments created closer to foundation hardening through the same environment-driven scripts, with their own approval and production controls.
 
 Each uses a separate Firebase and Google Cloud project with separate identity configuration, database, buckets, service identities, queues, topics, secrets, domains, telemetry, and budgets.
 
@@ -45,51 +47,57 @@ Local development uses local containers, test Firebase projects/emulators where 
 - Protected ingress and private database networking.
 - Production SLOs, alerts, backup, and retention.
 
-## 4. Infrastructure as Code
+## 4. Infrastructure Provisioning Source
 
-Terraform owns:
+Versioned, idempotent scripts under `infrastructure/gcloud` are the authoritative provisioning mechanism for every resource they manage. The current development implementation covers project/billing linkage, APIs, IAM/service accounts, VPC/private service access, Cloud SQL, Artifact Registry, workload identity federation, the API service, and its migration job.
 
-- Google Cloud projects or project-level resources as organizational access permits.
-- APIs and service identities.
-- IAM bindings.
-- VPCs, subnets, private service access, and load balancing.
-- Cloud Run services and jobs or their infrastructure shells.
-- Cloud SQL.
+As dependent product phases arrive, the same script structure expands to own:
+
 - Buckets and lifecycle rules.
 - Pub/Sub, Cloud Tasks, Scheduler, and Workflows.
 - Secret containers, not secret plaintext.
 - Monitoring policies and budgets where supported.
 - DNS and certificates where supported.
+- Production load balancing and edge protection.
 
-Manual console changes are incident-only or exploratory and must be reconciled into Terraform or reverted.
+Manual console changes are incident-only or exploratory and must be reconciled into the scripts and environment configuration or reverted.
 
-## 5. Terraform Structure
+Terraform is not authoritative during the initial single-operator phase. Its directory is reserved for a future multi-environment, multi-operator decision and import plan.
+
+## 5. gcloud Script Structure
+
+The current implementation contains `dev.env`. The `staging.env` and `prod.env` entries below are
+target files created when those environments are approved; they do not exist yet.
 
 ```text
-infrastructure/terraform/
-├── modules/
-│   ├── project-services/
-│   ├── networking/
-│   ├── cloud-sql/
-│   ├── cloud-run-service/
-│   ├── cloud-run-job/
-│   ├── storage/
-│   ├── messaging/
-│   ├── observability/
-│   └── edge/
-└── environments/
-    ├── development/
-    ├── staging/
-    └── production/
+infrastructure/gcloud/
+├── config/
+│   ├── dev.env
+│   ├── staging.env
+│   └── prod.env
+└── scripts/
+    ├── lib/
+    ├── 00-create-project.sh
+    ├── 01-enable-apis.sh
+    ├── 02-network.sh
+    ├── 03-cloud-sql.sh
+    ├── 04-artifact-registry.sh
+    ├── 05-service-accounts.sh
+    ├── 06-workload-identity-federation.sh
+    ├── 07-iam-database-bootstrap.sh
+    ├── provision.sh
+    ├── verify.sh
+    ├── deploy-migration-job.sh
+    └── deploy-api.sh
 ```
 
-Remote state is encrypted, access-controlled, locked, and separated by environment.
+Each mutating script is safe to rerun, reads environment-specific values from configuration, reports what it changed, and has a corresponding read-only verification path. Destructive changes require a dedicated reviewed command and are never hidden behind ordinary reconciliation.
 
 ## 6. CI/CD Identity
 
 GitHub Actions authenticates to Google Cloud through workload identity federation. Downloaded long-lived service-account keys are prohibited.
 
-Separate identities exist for:
+The current development deploy identity is implemented. The target environment model uses separate identities for:
 
 - Pull-request validation.
 - Development deployment.
@@ -102,7 +110,7 @@ Production identity receives only required deploy permissions and is protected b
 
 CI determines affected surfaces while always validating shared contracts and documentation when relevant.
 
-Typical jobs are:
+The required target CI set is below. The current implemented subset and explicit gaps are tracked in [../development/ci-gates.md](../development/ci-gates.md).
 
 - Documentation checks.
 - TypeScript lint, typecheck, tests, and build.
@@ -110,7 +118,7 @@ Typical jobs are:
 - OpenAPI compatibility and client generation.
 - PostgreSQL migration tests.
 - Python lint, typecheck, tests, and container build.
-- Terraform format, validate, security scan, and plan.
+- Shell formatting/static analysis, configuration validation, script safety checks, and read-only environment verification where credentials are available.
 - Container vulnerability scan.
 - End-to-end tests for release candidates.
 
@@ -126,7 +134,7 @@ Typical jobs are:
 ## 9. Branch and Promotion Model
 
 - Pull requests validate changes and may create isolated previews for web when safe.
-- Merge to the main branch may deploy development automatically.
+- Merge to the repository's default branch (`master` currently) may deploy development automatically.
 - A selected immutable artifact is promoted to staging.
 - Production promotion uses the same tested artifact, not a rebuild.
 - Production requires explicit approval until operational maturity justifies more automation.
@@ -215,7 +223,7 @@ Server compatibility and remote configuration mitigate defects while an App Stor
 ## 16. Secrets and Configuration
 
 - Secret plaintext is entered through approved operational workflow.
-- Terraform creates secret resources and IAM but does not commit values.
+- Provisioning scripts create secret containers and IAM but do not commit plaintext values.
 - Environment configuration is typed and versioned.
 - Production config changes are reviewed.
 - Runtime startup fails on missing required config.
@@ -225,7 +233,7 @@ Server compatibility and remote configuration mitigate defects while an App Stor
 
 - Lock dependencies.
 - Verify package and image provenance where supported.
-- Scan dependencies, secrets, Terraform, and containers.
+- Scan dependencies, secrets, shell scripts, cloud configuration, and containers.
 - Pin GitHub Actions to trusted versions or commit SHAs according to policy.
 - Restrict package publication and CI token permissions.
 - Maintain software-bill-of-materials capability for production artifacts.

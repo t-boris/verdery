@@ -77,8 +77,9 @@ jobs:
   repository-policy:
     name: Formatting and file size
     # Never gated on change detection. Prettier formats Markdown as well as code,
-    # and the file-size rule covers Swift and Terraform, so a change to any path
-    # in the repository can violate one of these two rules.
+    # and the file-size rule covers source code including Swift while excluding
+    # documentation and other text-only files. A change to any path can still
+    # violate formatting; source changes can also violate file size.
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -162,7 +163,8 @@ jobs:
     # Never gated on change detection: a credential can be committed in any file.
     #
     # Source: architecture/environments-and-delivery.md, section "17. Supply
-    # Chain", "Scan dependencies, secrets, Terraform, and containers".
+    # Chain", "Scan dependencies, secrets, shell scripts, cloud configuration,
+    # and containers".
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -256,19 +258,14 @@ jobs:
           esac
           echo 'Every gate affected by this change passed.'
 
-# Deployment is deliberately absent from this repository.
+# Deployment is deliberately separate from this validation workflow.
+# `.github/workflows/deploy-dev.yml` authenticates through workload identity federation, builds and
+# pushes an immutable image, runs migrations through a Cloud Run Job, deploys to `verdery-dev`, and
+# verifies live health. Staging and production identities and promotion remain deferred to P8.
 #
-# The architecture requires GitHub Actions to reach Google Cloud through workload identity
-# federation with a separate identity per environment, and requires deployments to reference an
-# immutable image digest in Artifact Registry. None of that exists: the Google Cloud organization,
-# the per-environment projects, and the federation pool are work packages P1-PLAT-02 and P1-PLAT-03,
-# which are deferred until a real cloud organization with billing is available. A deploy workflow
-# written now could only either commit a long-lived service-account key, which the supply-chain
-# policy prohibits, or authenticate against identities that do not exist.
-#
-# The same reasoning removes the Terraform gate: `infrastructure/terraform` is empty until
-# P1-PLAT-01, and a validation job with nothing to validate is a check that reports success without
-# checking anything.
+# There is no Terraform gate because ADR-0011 makes idempotent gcloud scripts authoritative for the
+# initial single-operator phase. Dedicated shell/static/idempotency validation for those scripts is
+# still a documented CI gap.
 #
 # Source: architecture/environments-and-delivery.md, sections "6. CI/CD Identity", "8. Build
 # Artifacts", and "17. Supply Chain"; implementation-plan.md, section 10.2.

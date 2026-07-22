@@ -1,8 +1,8 @@
 # Backend Modular Monolith Design
 
-> Status: Draft 0.1  
+> Status: Draft 0.2
 > Decision status: Approved baseline  
-> Last updated: July 21, 2026
+> Last updated: July 22, 2026
 
 ## 1. Purpose
 
@@ -127,7 +127,14 @@ Owns import jobs, capture sessions, processing proposals, calibration input, and
 
 ### 6.8 Collaboration
 
-Owns invitations, membership, owner/editor/viewer roles, attribution, and collaboration notifications.
+Owns operational invitations and memberships, owner/editor/viewer roles, service organizations, organization memberships, garden assignments, client engagements, work logs, client-update drafts, immutable client publications, publication grants, attribution, and collaboration notifications.
+
+The module exposes two separate query surfaces:
+
+- Operational garden queries authorized by garden membership or assignment.
+- Client portal queries authorized by active engagement and published resource identity.
+
+Client queries do not reuse a broad viewer query and then filter fields in transport code.
 
 ### 6.9 Integrations
 
@@ -275,6 +282,11 @@ Each use case declares the required capability, such as:
 - Delete garden.
 - Run expensive processing.
 - Access support diagnostics.
+- Publish a client update.
+- View a published client result.
+- Withdraw a client publication.
+
+Organization membership, garden assignment, operational membership, and client engagement are evaluated as separate facts. No one fact implies another.
 
 ## 17. Database Access
 
@@ -331,6 +343,7 @@ Logs exclude tokens, secrets, raw media, exact geometry, precise addresses, and 
 - Idempotency and concurrency tests.
 - Outbox atomicity tests.
 - Provider adapter tests with deterministic fakes and controlled integration environments.
+- Team-role, organization-assignment, client-engagement, publication-state, and cross-client isolation tests.
 - Container startup, readiness, and migration compatibility tests.
 
 ## 23. Extraction Criteria
@@ -351,6 +364,7 @@ Extraction requires a new ADR and an explicit data-ownership migration plan.
 - Route handlers contain no business logic.
 - State changes and outbox events commit atomically.
 - All mutations are authorized and revision-aware.
+- Operational and client query paths cannot expose each other's private records.
 - Cloud Run scaling cannot exhaust Cloud SQL connections under configured limits.
 - Provider outages do not corrupt domain transactions.
 - The service can be tested locally with containerized PostgreSQL/PostGIS and emulated external adapters.

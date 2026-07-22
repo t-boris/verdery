@@ -1,8 +1,8 @@
 # Google Cloud Networking Design
 
-> Status: Draft 0.1  
+> Status: Draft 0.2
 > Decision status: Approved baseline  
-> Last updated: July 21, 2026
+> Last updated: July 22, 2026
 
 ## 1. Purpose
 
@@ -107,7 +107,7 @@ Direct VPC startup and transient connection behavior requires retry-capable data
 
 ## 9. Subnet Design
 
-Use a dedicated regional application subnet sized for Cloud Run instance and job IP behavior with growth margin. Terraform validates non-overlap and prevents accidental exhaustion.
+Use a dedicated regional application subnet sized for Cloud Run instance and job IP behavior with growth margin. Provisioning configuration validates non-overlap and prevents accidental exhaustion.
 
 Suggested logical allocation:
 
@@ -128,7 +128,7 @@ Production Cloud SQL uses:
 - Dedicated application database identity.
 - Bounded connection pool.
 
-Development may use public IP through the authenticated Cloud SQL connector. Public-IP development does not justify public production access.
+The current development instance has no public IP. Cloud Run and the migration job use Direct VPC egress to its private IP and authenticate through Cloud SQL IAM. A future temporary public-IP administrative procedure would require an explicit, time-bounded runbook and would not justify public production access.
 
 ## 11. Connection Pooling
 
@@ -172,7 +172,7 @@ staging-app.<product-domain>
 staging-api.<product-domain>
 ```
 
-DNS changes are managed by Terraform where supported. Production domains enforce HTTPS and HSTS after validation.
+DNS changes are managed by versioned provisioning scripts where supported. Production domains enforce HTTPS and HSTS after validation.
 
 ## 15. CORS and Browser Boundaries
 

@@ -1,8 +1,8 @@
 # Testing Strategy
 
-> Status: Draft 0.1  
+> Status: Draft 0.2
 > Decision status: Approved baseline  
-> Last updated: July 21, 2026
+> Last updated: July 22, 2026
 
 ## 1. Purpose
 
@@ -146,7 +146,7 @@ Long-running randomized state-machine tests compare local and server convergence
 
 ## 12. Authorization Tests
 
-Maintain a capability matrix for owner, editor, viewer, non-member, suspended user, support grant, and system worker.
+Maintain a capability matrix for owner, editor, viewer, organization admin, assigned professional, unassigned organization member, active client, revoked client, non-member, suspended user, support grant, and system worker.
 
 Every resource test includes:
 
@@ -156,6 +156,10 @@ Every resource test includes:
 - Membership removed immediately before mutation.
 - Stale token with current server role.
 - Bulk operation containing unauthorized resource.
+- Client engagement from another garden or organization.
+- Client request for unpublished, withdrawn, or internal operational data.
+- Organization member without a garden assignment.
+- Published media not included in the requested publication.
 
 ## 13. Media Tests
 
@@ -205,7 +209,7 @@ Live model evaluations are separated from deterministic CI and run under control
 - SSRF and webhook replay.
 - Upload parser attacks.
 - Secret scanning and dependency vulnerabilities.
-- Terraform policy and public-access checks.
+- Cloud provisioning policy, script-safety, and public-access checks.
 - Prompt/tool authorization.
 - Log-redaction tests.
 
@@ -257,6 +261,9 @@ Critical scenarios are:
 - Accept or reject a capture proposal.
 - Receive and complete a recommendation/task.
 - Invite editor and verify viewer restrictions.
+- Invite an equal household owner or operational editor and complete assigned work with attribution.
+- Publish a client update, verify the client sees only entitled results, then withdraw or revoke it.
+- View an actual client garden timeline and a separately published future Time Machine scenario.
 - Export and request account deletion.
 
 ## 21. Test Data
@@ -280,7 +287,7 @@ Pull requests require affected:
 - Migration tests.
 - Documentation checks.
 - Security and dependency scans.
-- Terraform validation.
+- gcloud script/configuration validation and read-only environment verification where credentials are available.
 
 Release promotion adds end-to-end, performance-risk, migration rehearsal, and production-readiness checks.
 
@@ -295,4 +302,5 @@ Flaky tests are defects. A quarantined test requires owner, issue, reason, and d
 - Offline failures are injected at durable boundaries.
 - Geometry fixtures agree across platforms.
 - Authorization tests attempt cross-garden access for every resource.
+- Authorization tests also attempt cross-organization, cross-engagement, and operational/client access-plane confusion.
 - Release gates include documentation and migration compatibility.

@@ -1,6 +1,6 @@
 # Grow Garden High-Level Architecture
 
-> Status: Draft 0.3  
+> Status: Draft 0.4
 > Decision status: Approved detailed-design baseline  
 > Last updated: July 22, 2026  
 > Cloud platform: Firebase and Google Cloud
@@ -32,35 +32,38 @@ The architecture does not yet define:
 
 - Detailed user-interface design.
 - Exact commercial map, weather, plant-content, and transactional-email providers.
-- Exact supported runtime and operating-system versions at implementation time.
+- Future toolchain upgrade timing beyond the accepted ADR-0009 baseline.
 - Exact Vertex AI models for evaluated use cases.
 - Final legal retention exceptions and production alert thresholds.
 - Commercial plans, quotas, or billing behavior.
 
 ## 3. Approved Architecture Decisions
 
-| Area                          | Approved decision                                                                                                      |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Apple client                  | Native Swift and SwiftUI application                                                                                   |
-| Native persistence            | GRDB over SQLite with a durable outbox                                                                                 |
-| Web client                    | Separate TypeScript, React, and Next.js application                                                                    |
-| Backend style                 | TypeScript and Fastify modular monolith with independently deployed Python or TypeScript workers                       |
-| Cloud ecosystem               | Firebase and Google Cloud                                                                                              |
-| Transactional source of truth | Cloud SQL for PostgreSQL with PostGIS                                                                                  |
-| Media storage                 | Google Cloud Storage                                                                                                   |
-| Mobile platform services      | Firebase Authentication, App Check, Cloud Messaging, and Crashlytics                                                   |
-| Web delivery                  | Firebase App Hosting on an active supported Next.js release                                                            |
-| External API                  | Versioned REST described by OpenAPI                                                                                    |
-| Database access               | Kysely, reviewed SQL migrations, and explicit PostGIS SQL                                                              |
-| Mobile connectivity model     | Application-owned offline synchronization with GRDB/SQLite, an outbox, server revisions, and domain-specific conflicts |
-| Web connectivity model        | Online-first, with recoverable local drafts where appropriate                                                          |
-| Geometry model                | Local planar meters with optional WGS84 georeferencing and GeoJSON interchange                                         |
-| Processing model              | Hybrid on-device and cloud processing                                                                                  |
-| AI provider                   | Vertex AI through an application-owned adapter                                                                         |
-| Primary market and region     | United States and `us-central1`                                                                                        |
-| Production networking         | Global HTTPS Load Balancer, Cloud Armor, Direct VPC egress, and private Cloud SQL IP                                   |
-| Delivery tooling              | Terraform and GitHub Actions with workload identity federation                                                         |
-| Architecture portability      | Containerized backend, standard PostgreSQL, explicit provider adapters, and limited provider leakage into domain code  |
+| Area                          | Approved decision                                                                                                          |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Apple client                  | Native Swift and SwiftUI application                                                                                       |
+| Native persistence            | GRDB over SQLite with a durable outbox                                                                                     |
+| Web client                    | Separate TypeScript, React, and Next.js application                                                                        |
+| Backend style                 | TypeScript and Fastify modular monolith with independently deployed Python or TypeScript workers                           |
+| Cloud ecosystem               | Firebase and Google Cloud                                                                                                  |
+| Transactional source of truth | Cloud SQL for PostgreSQL with PostGIS                                                                                      |
+| Media storage                 | Google Cloud Storage                                                                                                       |
+| Mobile platform services      | Firebase Authentication, App Check, Cloud Messaging, and Crashlytics                                                       |
+| Web delivery                  | Firebase App Hosting on an active supported Next.js release                                                                |
+| External API                  | Versioned REST described by OpenAPI                                                                                        |
+| Database access               | Kysely, reviewed SQL migrations, and explicit PostGIS SQL                                                                  |
+| Mobile connectivity model     | Application-owned offline synchronization with GRDB/SQLite, an outbox, server revisions, and domain-specific conflicts     |
+| Web connectivity model        | Online-first, with recoverable local drafts where appropriate                                                              |
+| Geometry model                | Local planar meters with optional WGS84 georeferencing and GeoJSON interchange                                             |
+| Processing model              | Hybrid on-device and cloud processing                                                                                      |
+| AI provider                   | Vertex AI through an application-owned adapter                                                                             |
+| Primary market and region     | United States and `us-central1`                                                                                            |
+| Production networking         | Global HTTPS Load Balancer, Cloud Armor, Direct VPC egress, and private Cloud SQL IP                                       |
+| Sharing model                 | Operational owner/editor/viewer membership plus separate client engagements and immutable publications                     |
+| Toolchain baseline            | Node.js 24, TypeScript 5.9.x, PostgreSQL 17/PostGIS 3.5, iOS/iPadOS 18 minimum, Swift 6.3, and the ADR-0009 browser matrix |
+| Local geometry precision      | PostGIS SRID 0 plus coordinate-space identity, 1 mm write rounding, and ADR-0010 validation tolerances                     |
+| Delivery tooling              | Versioned idempotent gcloud scripts initially and GitHub Actions with workload identity federation                         |
+| Architecture portability      | Containerized backend, standard PostgreSQL, explicit provider adapters, and limited provider leakage into domain code      |
 
 ## 4. Architectural Principles
 
@@ -106,7 +109,7 @@ The backend begins as a modular monolith. Modules own behavior and persistence b
 ```text
 ┌─────────────────────┐          ┌─────────────────────┐
 │ Native iOS/iPadOS   │          │ Web Application     │
-│ Swift + SwiftUI     │          │ TypeScript + React  │
+│ Swift + SwiftUI     │          │ Operations + Portal │
 └──────────┬──────────┘          └──────────┬──────────┘
            │                                │
            ├──── Firebase Authentication ───┤
@@ -168,7 +171,7 @@ GRDB over SQLite provides native local persistence. User mutations update the lo
 
 ### 6.2 Web Application
 
-The web application is a separate TypeScript and React client. It is a first-class product surface optimized for larger-screen map editing, plan calibration, data management, history, and collaboration administration.
+The web application is a separate TypeScript and React client. It is a first-class product surface optimized for larger-screen map editing, plan calibration, data management, history, collaboration administration, and a responsive client portal.
 
 The web client:
 
@@ -179,6 +182,7 @@ The web client:
 - Is online-first in the initial architecture.
 - Preserves recoverable local drafts for expensive editing flows where practical.
 - Can display and edit accepted results created by device-only capture features.
+- Provides a distinct client-portal route group that queries publication-only resources and never exposes internal operational data through disabled controls alone.
 
 Firebase App Hosting is the baseline web delivery platform. The application uses an active Firebase-supported Next.js release pinned and upgraded deliberately.
 
@@ -211,7 +215,7 @@ Initial logical modules are:
 - **Tasks and Recommendations**: planned work, completion, postponement, rejection, explanations, and recommendation history.
 - **Media**: upload authorization, metadata, processing state, derivatives, and retention state.
 - **Capture and Import**: plans, imagery, AR sessions, scans, extraction proposals, calibration, and reconciliation.
-- **Collaboration**: invitations, membership, permissions, attribution, and future activity notifications.
+- **Collaboration**: operational invitations and memberships, lightweight service organizations, garden assignments, client engagements, publication workflow, attribution, and collaboration notifications.
 - **Integrations**: weather, maps, imagery, geocoding, plant content, AI, and messaging adapters.
 - **Administration and Operations**: feature configuration, support diagnostics, audit access, and operational controls.
 
@@ -262,6 +266,7 @@ Cloud SQL for PostgreSQL is the system of record for:
 
 - Users' application profiles.
 - Gardens and memberships.
+- Service organizations, organization memberships, client engagements, client access grants, and publication versions.
 - Garden objects and spatial geometry.
 - Plant instances and placements.
 - Observations, tasks, recommendations, and history.
@@ -277,7 +282,7 @@ The detailed spatial design must support both:
 - A local planar garden coordinate space suitable for small-site editing and measurements.
 - Optional georeferencing to geographic coordinates for imagery, weather, and regional context.
 
-The detailed design uses a hybrid typed object model, GeoJSON interchange with explicit coordinate-space metadata, object-level optimistic concurrency, and current state plus an immutable revision journal. Exact custom SRID registration and numeric tolerances are implementation values validated through shared fixtures.
+The detailed design uses a hybrid typed object model, GeoJSON interchange with explicit coordinate-space metadata, object-level optimistic concurrency, and current state plus an immutable revision journal. ADR-0010 fixes local geometry at PostGIS SRID 0 with a separate `coordinate_space_id`, 1 mm write rounding, canonical curve densification, and shared numeric tolerances validated through fixtures.
 
 ### 8.2 Cloud Storage
 
@@ -363,6 +368,8 @@ Real-time simultaneous geometry collaboration is not required for the initial re
 
 The initial web application is online-first. It may cache query results and save recoverable editing drafts, but it must not claim a successful server save while offline. Full offline web synchronization is a future option and must reuse the same server-side concurrency rules.
 
+Operational team members use the ordinary authorized garden query and synchronization semantics. Client portal sessions query a separate publication projection containing only explicitly published updates, completed-work snapshots, selected media, accepted snapshots, and published Time Machine scenarios. A client does not receive the full garden synchronization partition.
+
 ## 10. Media and Garden Scan Pipeline
 
 ```text
@@ -412,7 +419,7 @@ GPU or specialist compute may be provided by Vertex AI or another adapter-backed
 
 Firebase Authentication is the identity provider for supported clients. The backend validates Firebase ID tokens and maps the external identity to an application profile.
 
-Authentication does not grant garden access by itself. Garden membership and role assignments are owned by the application database and enforced by the backend.
+Authentication does not grant garden access by itself. Garden membership, organization membership, garden assignment, engagement, and publication grants are owned by the application database and enforced by the backend.
 
 ### 11.2 Application Protection
 
@@ -420,7 +427,9 @@ Firebase App Check is used as a defense-in-depth signal for supported clients. I
 
 ### 11.3 Authorization
 
-Every domain operation must be authorized against the target garden and requested capability. The baseline roles are owner, editor, and viewer. The backend evaluates stable capabilities for these roles as defined in [architecture/identity-and-authorization.md](architecture/identity-and-authorization.md); client-side checks are never an authorization boundary.
+Every domain operation must be authorized against the target resource and requested capability. Operational garden roles are owner, editor, and viewer. Clients are not viewers: they receive capabilities only over an active engagement's immutable publication projection. Organization membership never grants garden access by itself. The backend evaluates stable capabilities as defined in [architecture/identity-and-authorization.md](architecture/identity-and-authorization.md); client-side checks are never an authorization boundary.
+
+Household partners may both be owners. A colleague or garden-care worker normally receives editor access. Professional clients use the responsive web portal, with email-bound invitation and Firebase email magic link as the lowest-friction baseline. Anonymous public garden links are excluded.
 
 ### 11.4 Service Security
 
@@ -449,6 +458,7 @@ Property plans, addresses, garden imagery, video, location, and nearby private p
 - Provider data-use restrictions.
 - Support access and audit behavior.
 - Analytics consent and data minimization.
+- Separation of provider-internal operations from client-published results and client-entitled exports.
 
 A formal threat-model and privacy launch review remain required before production launch.
 
@@ -459,7 +469,7 @@ The initial architecture avoids unnecessary network complexity while preserving 
 - Public clients reach Firebase-hosted web content and the HTTPS API.
 - Cloud Run is the only public application entry point for domain operations.
 - Cloud SQL is never accessed directly by clients.
-- Development may use the authenticated Cloud SQL connector over public IP.
+- The current development Cloud SQL instance has no public IP; Cloud Run and migration jobs reach its private IP through Direct VPC egress and authenticate with Cloud SQL IAM.
 - Staging and production use private Cloud SQL IP and Direct VPC egress with private-range routing.
 - Production API ingress uses a global HTTPS Load Balancer and Cloud Armor.
 - Workers and jobs receive only the network access required for their responsibilities.
@@ -530,7 +540,7 @@ Environment data, credentials, storage, queues, and identity configuration must 
 
 Delivery principles are:
 
-- Infrastructure is defined as code.
+- Initial infrastructure is represented by versioned, idempotent `gcloud` scripts with environment configuration and read-only verification.
 - Database changes use reviewed, forward-compatible migrations.
 - Backend containers are immutable and promoted through environments.
 - Web builds are reproducible and tied to source revisions.
@@ -538,7 +548,7 @@ Delivery principles are:
 - Feature flags separate deployment from user-visible release where risk justifies them.
 - Production rollback and database recovery procedures are tested.
 
-Terraform is the infrastructure-as-code baseline. GitHub Actions builds, validates, promotes immutable artifacts, and authenticates to Google Cloud through workload identity federation.
+GitHub Actions builds, validates, promotes immutable artifacts, and authenticates to Google Cloud through workload identity federation. Terraform remains a reserved future option for multi-environment, multi-operator infrastructure and requires a superseding decision before it becomes authoritative.
 
 ## 17. Scalability and Evolution
 
@@ -606,15 +616,14 @@ Minimum Cloud Run instances, private networking components, GPU capacity, and lo
 
 ## 20. Implementation-Time Selections
 
-The architecture strategy is approved. These values are selected or calibrated during implementation and launch review without reopening the architecture unless their consequences exceed the documented boundaries:
+The architecture strategy, initial toolchain/platform versions, and geometry representation/tolerances are approved through ADR-0009 and ADR-0010. These remaining values are selected or calibrated during implementation and launch review without reopening the architecture unless their consequences exceed the documented boundaries:
 
-1. Minimum supported iOS and iPadOS versions under the current-plus-supported-predecessors policy.
-2. Exact active Firebase-supported Next.js and Cloud SQL PostgreSQL versions.
-3. Supported browser release lines and responsive breakpoints.
-4. Initial commercial map, imagery, geocoding, weather, plant-content, and transactional-email providers.
-5. Exact Vertex AI model for each evaluated use case.
-6. Exact custom SRID registration, geometry tolerances, quotas, and performance thresholds.
-7. Final legal retention exceptions, production SLO targets, and alert thresholds.
+1. Exact active Firebase App Hosting-supported Next.js release within the dependency lock and its upgrade cadence.
+2. Responsive breakpoints within the accepted browser baseline.
+3. Initial commercial map, imagery, geocoding, weather, plant-content, and transactional-email providers.
+4. Exact Vertex AI model for each evaluated use case.
+5. Quotas and performance thresholds.
+6. Final legal retention exceptions, production SLO targets, and alert thresholds.
 
 ## 21. Rejected Baseline Alternatives
 

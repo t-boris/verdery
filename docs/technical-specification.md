@@ -1,6 +1,6 @@
 # Grow Garden Technical Specification
 
-> Status: Draft 0.6  
+> Status: Draft 0.7
 > Document type: Product and functional requirements specification  
 > Last updated: July 22, 2026  
 > Architecture status: Approved high-level and detailed baseline; see [high-level-architecture.md](high-level-architecture.md) and [architecture/README.md](architecture/README.md)
@@ -28,6 +28,8 @@ The terms in this document have the following meanings:
 ## 2. Product Definition
 
 Grow Garden is a cross-device product with mobile applications and a web application for people who maintain an outdoor garden, vegetable plot, yard, orchard, greenhouse, or other planted space.
+
+The product supports both personal garden teams and professional garden-care relationships. Household members and colleagues may collaborate on the live operational garden, while a service client receives a restricted portal containing only explicitly published results and client-entitled garden information.
 
 The application creates a progressively refined digital representation of a real garden, records what grows there and where, tracks observations and work, and helps the user understand what requires attention now.
 
@@ -63,6 +65,8 @@ Grow Garden should help users:
 - Plan recurring, seasonal, and one-time garden work.
 - Track plant development, completed work, problems, and outcomes.
 - Coordinate care with other people when a garden is shared.
+- Allow household members and colleagues to see the same operational garden, receive assignments, and complete work with attribution.
+- Allow a garden-care professional to publish completed work, selected result media, and time-based garden views to a client without exposing internal operations.
 - Review and manage a garden from a desktop or laptop when a larger workspace is more convenient.
 - Explore future garden growth without presenting an illustration as an exact prediction.
 
@@ -78,6 +82,12 @@ Target users include:
 - Beginners who need practical, contextual guidance.
 - Experienced gardeners who want structured records and planning.
 - Families or small groups sharing garden work.
+
+The proposed post-foundation collaboration audience additionally includes:
+
+- Solo garden-care professionals.
+- Small landscaping or garden-maintenance teams.
+- Residential clients who want a clear record of results without access to the provider's internal workspace.
 
 Indoor-only plant care and professional agricultural operations are not the proposed initial focus.
 
@@ -142,6 +152,8 @@ The following sequence is a proposal and requires validation before becoming a r
 - LiDAR-enhanced capture on supported devices.
 - Seasonal calendars, succession planting, and crop rotation.
 - Shared garden access and task assignment.
+- Lightweight service organizations, client engagements, and a restricted client portal.
+- Published completed-work updates with selected result media and an actual historical garden timeline.
 - Better plan recognition and assisted vectorization.
 - Context for soil, drainage, sunlight, irrigation, and microclimates.
 - Data export and expanded synchronization.
@@ -200,6 +212,18 @@ A planned, suggested, completed, skipped, or dismissed unit of garden work.
 
 The origin of map geometry or other information, such as manual entry, satellite imagery, an imported plan, AR, LiDAR, GPS, or an AI-assisted scan.
 
+### 7.11 Service Organization
+
+An application-owned professional team that may manage multiple gardens. Organization membership does not grant garden access by itself.
+
+### 7.12 Client Engagement
+
+A time-bounded relationship connecting a garden, an optional service organization, and one or more clients. It defines client access, data stewardship, notification preferences, and engagement state.
+
+### 7.13 Client Publication
+
+An immutable, versioned, explicitly published client-facing update containing a safe result summary, completed-work entries, selected media, and optional accepted-garden or Time Machine snapshots. It is separate from internal tasks, notes, drafts, recommendations, and processing artifacts.
+
 ## 8. Primary User Journeys
 
 ### 8.1 First Useful Garden
@@ -232,6 +256,26 @@ The proposed product target is to make this journey possible without requiring a
 4. The user edits it manually, traces it from a plan, or measures it on site.
 5. The application stores the new geometry and its source.
 6. The user reviews and confirms the change.
+
+### 8.4 Shared Household or Team Care
+
+1. A garden owner invites a household member or colleague as an editor or viewer.
+2. The invited person authenticates and accepts the expiring invitation.
+3. When equal administration is needed, an existing owner promotes the accepted member to co-owner through a recent-auth sensitive action.
+4. Both authorized operational participants see the same accepted garden, relevant history, and tasks.
+5. An owner or editor accepts or creates an assignment.
+6. The participant completes work and adds an observation or result photo.
+7. The system records attribution and synchronizes the outcome without silently losing either participant's changes.
+
+### 8.5 Client Result Delivery
+
+1. A professional or organization creates a client engagement for a garden.
+2. The client accepts an email-bound invitation and signs in to the responsive web portal.
+3. The professional completes internal work and records the operational outcome.
+4. An authorized publisher prepares a client-safe update, selecting result text and media.
+5. Publishing creates an immutable client-visible version and sends a notification.
+6. The client sees the result, completed-work history, selected before/after media, and the actual historical garden timeline.
+7. A future Time Machine scenario is visible only when it is explicitly published with assumptions and uncertainty.
 
 ## 9. Functional Requirements
 
@@ -552,14 +596,17 @@ Safety-sensitive treatment recommendations require additional product, legal, an
 - Users must control notification categories, timing, and quiet periods.
 - The application must avoid repeated low-value alerts.
 
-### FR-27: Shared Garden Care
+### FR-27: Shared Garden Team Care
 
 Shared care is proposed after single-user workflows are validated.
 
-- Garden owners should be able to invite other people.
-- Initial roles are owner, editor, and viewer with server-enforced capabilities.
-- Shared users should be able to see relevant history and tasks.
-- Tasks should be assignable.
+- Garden owners should be able to invite household members, colleagues, and garden-care workers into the operational garden.
+- Initial operational roles are owner, editor, and viewer with server-enforced capabilities.
+- Multiple owners must be allowed so equal household partners can share administration.
+- Ordinary invitations initially grant editor or viewer; co-owner access requires promoting an accepted active member through a recent-auth owner-administration action.
+- Owners and editors should see the full operational garden and permitted internal history, receive assignments, complete tasks, add observations and media, and edit garden content.
+- Viewers are internal read-only participants and must not be reused as professional-service clients.
+- Tasks must be assignable and every material action must retain actor attribution.
 - Conflicting changes and attribution must be handled.
 - Membership, ownership transfer, audit, notifications, invitation expiry, and removal follow the detailed identity and notification designs.
 
@@ -584,6 +631,7 @@ The 3D view is a future representation of the same accepted garden information.
 
 ### FR-30: Time Machine
 
+- An actual historical Garden Timeline must remain distinct from future Time Machine projection. The historical view uses immutable accepted or published snapshots and does not invent intermediate garden states.
 - Time Machine may show illustrative future plant size and seasonal appearance.
 - It must be described as a planning visualization, not an exact prediction.
 - It should show general changes in height, width, density, and lifecycle.
@@ -616,10 +664,31 @@ The 3D view is a future representation of the same accepted garden information.
 - The web application should support property-plan import, calibration, tracing, and background management.
 - The web application should support plant-record management, photos, observations, recommendations, tasks, history, and account settings.
 - The web application should support shared-garden administration when collaboration is implemented.
+- The web application must provide a responsive client-portal route group when professional client sharing is implemented.
 - Device-specific capture features such as LiDAR and mobile AR may be unavailable on the web.
 - When a feature is unavailable on the current device, the web application must preserve and display its resulting data without pretending to provide the capture capability.
 - Users should be able to begin work on one supported surface and continue it on another without recreating garden information.
-- Supported browser release lines, responsive breakpoints, recoverable draft scope, installation options, and release timing remain to be defined. The approved foundation architecture is online-first and does not include a second full browser synchronization engine.
+- The browser release baseline is fixed by ADR-0009. Responsive breakpoints, recoverable draft scope, installation options, and release timing remain to be defined. The approved foundation architecture is online-first and does not include a second full browser synchronization engine.
+
+### FR-34: Professional Client Sharing
+
+- A service organization must be an application-domain entity and must not require a separate Firebase tenant.
+- Organization membership alone must not grant access to a garden; an active garden assignment or membership is required.
+- A client must not be implemented as an operational garden viewer.
+- Client access must be limited to an active engagement and explicitly published resources.
+- The initial client experience must be responsive web and should use email magic link as the lowest-friction sign-in method.
+- Anonymous public garden links must not be part of the baseline.
+- Internal tasks, assignments, notes, unaccepted geometry, recommendations, drafts, sync conflicts, raw scans, processor diagnostics, and unpublished media must remain hidden from clients.
+- Completing an internal task must not publish it automatically by default.
+- An authorized team member must be able to prepare, review, publish, and withdraw a client update.
+- Client publishing must be a separate capability: an organization administrator grants it for an organization-backed engagement, or a garden owner grants it when no service organization is attached. Operational role alone must not imply publication access.
+- A published version must remain historically stable even when its internal source records change later.
+- Client-visible completed work must retain work date, safe description, attribution policy, selected result media, and related accepted-garden references.
+- The client must be able to view an actual historical timeline made from published updates and accepted snapshots.
+- Future Time Machine scenarios must require explicit publication and retain horizon, assumptions, uncertainty, and source/model versions.
+- Client invitation, access, publication, withdrawal, sensitive-media access, export, and engagement revocation must be audited.
+- The default residential-service stewardship policy must make the accepted garden model and published deliverables client-exportable while excluding provider-internal operational records.
+- Ending an engagement must revoke portal access immediately at the server and apply the recorded export/handoff policy.
 
 ## 10. Garden Map Validation Rules
 
@@ -648,6 +717,7 @@ Validation should warn rather than block when uncertainty is acceptable for gard
 - AR capture should use visual, haptic, and optional audio feedback.
 - Users must not be required to walk backward while looking at the screen.
 - Long operations must show progress and allow safe cancellation or recovery.
+- The client portal must present a deliberately simpler, read-only result experience rather than expose disabled operational controls.
 - Russian and English interfaces, guidance, and notifications are required.
 - Metric and imperial units should be supported.
 - Accessibility requirements must be defined and tested before release.
@@ -679,6 +749,7 @@ These requirements describe expected qualities. Their approved high-level alloca
 
 - The detailed architecture defines identity, authorization, encryption, secret management, private networking, data isolation, media protection, retention, and deletion controls. A formal threat-model and privacy launch review remain required.
 - Shared gardens must not expose private data to uninvited users.
+- Client engagements must not expose provider-internal work or another client's garden, publications, media, or identity data.
 - Security-sensitive decisions must be reviewed before implementation.
 
 ### 12.5 Localization
@@ -717,6 +788,7 @@ The approved architecture baseline is defined in [high-level-architecture.md](hi
 - Cloud SQL for PostgreSQL with PostGIS as the synchronized domain source of truth.
 - Cloud Storage for media.
 - Firebase Authentication, App Check, Cloud Messaging, and Crashlytics.
+- Operational owner/editor/viewer membership plus separate service organizations, client engagements, and immutable client-publication access.
 - Firebase App Hosting on an active supported Next.js release.
 - GRDB over SQLite and an application-owned offline synchronization protocol for native mobile behavior, with online-first web behavior.
 - Versioned REST/OpenAPI contracts and generated client boundaries.
@@ -724,23 +796,22 @@ The approved architecture baseline is defined in [high-level-architecture.md](hi
 - Local planar garden geometry with optional WGS84 georeferencing, GeoJSON interchange, and object-level revisions.
 - Cloud Tasks, Pub/Sub, Cloud Run Jobs, and a transactional outbox.
 - Vertex AI behind an application-owned adapter and a deterministic rules-first recommendation system.
-- Terraform and GitHub Actions with workload identity federation.
+- Versioned idempotent gcloud scripts and GitHub Actions with workload identity federation for the initial infrastructure phase; Terraform remains a future option under ADR-0011.
 - The United States as the first market and `us-central1` as the primary region.
 - Private production Cloud SQL connectivity through Direct VPC egress and protected production API ingress through a global HTTPS Load Balancer and Cloud Armor.
 - Hybrid on-device and cloud processing.
 
-The baseline deliberately leaves only release-specific versions, commercial content providers, evaluated model versions, numeric thresholds, and legal-policy exceptions for implementation-time selection.
+ADR-0009 fixes the initial runtime, database, Apple-platform, and browser baselines. ADR-0010 fixes the local coordinate representation, rounding, curve persistence, and geometry tolerances. Release-specific framework updates, commercial content providers, evaluated model versions, operational thresholds, and legal-policy exceptions remain implementation-time selections.
 
 ### 14.2 Implementation-Time Selections
 
 The architecture strategy is approved. Implementation and launch review must select or calibrate:
 
-- Minimum supported iOS and iPadOS versions.
-- Exact active Firebase-supported Next.js and Cloud SQL PostgreSQL versions.
-- Supported browser release lines and responsive breakpoints.
+- Exact active Firebase App Hosting-supported Next.js release and upgrade timing within the dependency lock.
+- Responsive breakpoints within the accepted browser baseline.
 - Initial commercial map, imagery, geocoding, weather, plant-content, and transactional-email providers.
 - Exact Vertex AI model for each evaluated use case.
-- Exact geometry tolerances, quotas, performance budgets, SLOs, and alert thresholds.
+- Quotas, performance budgets, SLOs, and alert thresholds.
 - Final legal retention exceptions and provider data-processing terms.
 
 ### 14.3 Product Constraints on Architecture
@@ -755,6 +826,7 @@ The architecture must support:
 - Multiple capability levels across devices.
 - Consistent product meaning across mobile and web surfaces.
 - Future sharing and collaboration.
+- Separate operational team membership and publication-only client access.
 - Evolution from 2D to AR and 3D without duplicating garden meaning.
 
 These constraints remain authoritative when detailed architecture and implementation decisions are made.
@@ -777,6 +849,9 @@ Proposed acceptance outcomes include:
 - Essential on-site updates survive connectivity interruptions.
 - Advanced-device features are optional rather than blocking.
 - A signed-in user can view and continue working with the same garden from supported mobile and web clients after synchronization.
+- A household member or colleague can complete an assigned task with attribution.
+- A client can open a secure portal and see only explicitly published results, completed work, selected media, and entitled time-based views.
+- Withdrawing or revoking client access does not expose or delete the provider's internal operational record.
 - Core map editing, planning, history, and plant-management workflows do not require mobile AR.
 
 ## 16. Product Metrics
@@ -797,6 +872,10 @@ Proposed metrics include:
 - Weekly observation and photo update rate.
 - Retention by garden type and experience level.
 - Usage and task-continuation rates across mobile and web surfaces.
+- Team invitation acceptance and assigned-work completion rates.
+- Time from operational completion to client publication.
+- Client invitation acceptance, published-update view, and repeat timeline-view rates.
+- Percentage of client updates requiring correction or withdrawal.
 
 Numerical targets must be established through product validation rather than invented in this draft.
 
@@ -814,6 +893,9 @@ Numerical targets must be established through product validation rather than inv
 - 3D and Time Machine may consume effort before the daily care loop is validated.
 - Multiple data sources may conflict without clear provenance.
 - Shared editing may create synchronization and ownership complexity.
+- A generic viewer role may accidentally expose internal professional-service data to clients.
+- Publishing may reveal internal notes, private media, or uncertain drafts unless the client projection is explicit and tested.
+- Client and provider expectations about garden-data ownership may diverge when an engagement ends.
 - Mobile and web feature parity may increase delivery and testing complexity.
 
 ## 18. Open Product Questions
@@ -834,7 +916,11 @@ Numerical targets must be established through product validation rather than inv
 - How should separate AR captures be aligned and reconciled?
 - Should users be able to shorten the default 30-day raw scan retention for each capture?
 - Which offline actions beyond viewing, map editing, task completion, notes, and photo capture are mandatory in the first release?
-- Which capabilities within the approved owner, editor, and viewer roles are required in the first collaboration release?
+- Should publisher grants be time-bounded or require periodic review after the initial explicit-grant model is validated?
+- Which completed-work categories may opt into reviewed automatic publication later?
+- May clients comment, approve work, or request changes in the first portal release, or is it read-only?
+- Which client identity details and staff attribution are visible in published work?
+- Which contractual data-stewardship policies beyond the default residential client-export policy must be supported?
 - Which optional export formats beyond JSON, GeoJSON, CSV, media, and package documentation are worth implementing?
 - Which capabilities must launch simultaneously on mobile and web?
 - Which web browsers and responsive layouts are required?

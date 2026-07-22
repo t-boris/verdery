@@ -1,8 +1,8 @@
 # Web Application Design
 
-> Status: Draft 0.1  
+> Status: Draft 0.2
 > Decision status: Approved baseline  
-> Last updated: July 21, 2026
+> Last updated: July 22, 2026
 
 ## 1. Purpose
 
@@ -18,6 +18,7 @@ The web application is a first-class authenticated product surface. It is optimi
 - Media review.
 - Collaboration and account administration.
 - Viewing results produced by mobile-only AR and capture flows.
+- A responsive client portal for explicitly published results, completed work, selected media, actual garden history, and published future Time Machine scenarios.
 
 The initial web release is online-first. It may preserve recoverable drafts but does not claim a successful server save while disconnected.
 
@@ -44,7 +45,8 @@ apps/web/
 ├── app/
 │   ├── public/
 │   ├── auth/
-│   └── application/
+│   ├── application/
+│   └── client-portal/
 ├── features/
 │   ├── gardens/
 │   ├── map-editor/
@@ -55,6 +57,9 @@ apps/web/
 │   ├── media/
 │   ├── imports/
 │   ├── collaboration/
+│   ├── client-engagements/
+│   ├── client-publications/
+│   ├── garden-timeline/
 │   └── settings/
 ├── core/
 │   ├── api/
@@ -98,6 +103,8 @@ Session requirements are:
 - Server-side verification and revocation handling.
 - No long-lived Firebase credentials in browser storage after exchange.
 
+Client invitations are email-bound and expiring. Email magic link is the lowest-friction default, but invitation acceptance still creates an ordinary authenticated session. The URL token proves invitation possession only; it is not a permanent bearer credential for garden data.
+
 The Next.js server may use the session to render the application shell. The domain API accepts and verifies the approved session credential path or an exchanged short-lived API token as defined by the authentication design.
 
 ## 8. API Access
@@ -140,6 +147,23 @@ The map editor is a bounded subsystem containing:
 - Accessible non-canvas property controls.
 
 The editor receives immutable map snapshots and emits typed edit commands. It does not issue API mutations for every pointer movement. Commands are committed at stable interaction boundaries.
+
+### 10.1 Client Portal Boundary
+
+The client portal is a separate route and feature boundary with a deliberately simpler read-only experience.
+
+It may render:
+
+- Published garden overview and accepted snapshot.
+- Immutable client update versions.
+- Published completed-work entries.
+- Selected before/after media.
+- Actual historical publication timeline.
+- Explicitly published future Time Machine scenarios.
+
+It must not fetch operational tasks, internal notes, recommendations, drafts, sync conflicts, capture proposals, raw media, organization membership, or provider diagnostics. The portal does not obtain a full garden response and hide fields or controls in the browser.
+
+Actual historical timeline and future Time Machine are distinct views. Historical entries state what was accepted and published at a real time. Future scenarios show assumptions, horizon, uncertainty, and non-prediction disclosure.
 
 ## 11. Forms and Validation
 
@@ -238,6 +262,7 @@ Required layers are:
 - Playwright end-to-end tests against a controlled environment.
 - Browser compatibility runs for supported Safari, Chrome, Firefox, and Edge versions.
 - Visual regression tests for stable editor and responsive-layout states.
+- Client portal tests for engagement acceptance, publication-only rendering, withdrawal, revocation, cross-client isolation, selected-media entitlement, timeline stability, and future-scenario disclosure.
 
 Critical end-to-end flows include authentication, garden creation, map editing, plan calibration, media upload, task completion, conflict recovery, and account deletion request.
 
@@ -262,3 +287,5 @@ The web design is implemented correctly when:
 - Large uploads bypass the application server while remaining authorized.
 - Server data, editor working state, and form state have distinct owners.
 - The application can upgrade supported Next.js versions without changing domain behavior.
+- A client can use a responsive portal without receiving any internal operational resource.
+- Revoking an engagement or withdrawing a publication affects the next authorized request.

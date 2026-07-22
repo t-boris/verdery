@@ -1,8 +1,8 @@
 # Reliability and Disaster Recovery Design
 
-> Status: Draft 0.1  
+> Status: Draft 0.2
 > Decision status: Approved baseline  
-> Last updated: July 21, 2026
+> Last updated: July 22, 2026
 
 ## 1. Purpose
 
@@ -167,7 +167,7 @@ The initial regional recovery process is active/passive and operationally initia
 
 1. Declare regional disaster and freeze risky writes where possible.
 2. Select an approved alternate US region.
-3. Apply Terraform recovery configuration.
+3. Apply the versioned recovery configuration through the approved gcloud scripts.
 4. Restore Cloud SQL from the latest usable backup/PITR capability available to the target.
 5. Recreate Cloud Run, jobs, queues, secrets access, and networking.
 6. Validate storage availability and processing references.
@@ -179,7 +179,7 @@ Cross-region media replication is considered separately based on storage class, 
 
 ## 15. Destructive Change Protection
 
-- Terraform deletion protection for production Cloud SQL and critical buckets where compatible with deletion workflows.
+- Provisioning-script enforcement of deletion protection for production Cloud SQL and critical buckets where compatible with deletion workflows.
 - Separate migration identity.
 - Expand/contract schema changes.
 - Approval for production destructive commands.

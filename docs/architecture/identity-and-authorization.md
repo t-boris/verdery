@@ -1,12 +1,12 @@
 # Identity and Authorization Design
 
-> Status: Draft 0.1  
+> Status: Draft 0.2
 > Decision status: Approved baseline  
-> Last updated: July 21, 2026
+> Last updated: July 22, 2026
 
 ## 1. Purpose
 
-This document defines authentication, application identity, web sessions, account lifecycle, garden membership, owner/editor/viewer authorization, administrative access, and security boundaries.
+This document defines authentication, application identity, web sessions, account lifecycle, operational garden membership, service organizations, client engagements, publication-only client access, administrative access, and security boundaries.
 
 ## 2. Identity Authority
 
@@ -24,6 +24,8 @@ PostgreSQL owns:
 - Mapping to Firebase user ID.
 - Account lifecycle state.
 - Garden memberships and roles.
+- Service organizations, organization memberships, and garden assignments.
+- Client engagements, client invitations, publication grants, and stewardship policy.
 - Invitations.
 - User preferences and consent records.
 - Administrative support grants.
@@ -102,9 +104,9 @@ pending → active → deletion_requested → disabled → purged
 
 State transitions are audited and idempotent.
 
-## 8. Garden Roles
+## 8. Operational Garden Roles
 
-Initial roles are:
+Initial operational roles are:
 
 ### Owner
 
@@ -114,6 +116,8 @@ Initial roles are:
 - Export garden data.
 - Delete or transfer the garden subject to policy.
 
+Multiple active owners are allowed. Equal household partners may both be owners.
+
 ### Editor
 
 - View and edit garden content.
@@ -121,12 +125,55 @@ Initial roles are:
 - Run allowed processing within quotas.
 - Cannot change ownership or delete the garden.
 
+Editors can receive and complete assignments. Client publication is a separate capability and is not implied by edit permission automatically.
+
+For an organization-backed engagement, an `organization_admin` grants the separate client-publisher capability. For an engagement with no service organization, a garden owner grants it. No operational role receives client publication implicitly.
+
 ### Viewer
 
 - View accepted garden content and permitted history.
 - Cannot mutate domain data or access restricted raw capture artifacts.
 
+Viewer is an internal operational role. It must not be used for professional-service clients.
+
 The permission matrix is implemented as stable capabilities rather than scattered role-name comparisons.
+
+### 8.1 Service Organizations
+
+A `service_organization` represents a solo professional or small garden-care team managing one or more client gardens.
+
+Initial organization roles are:
+
+- `organization_admin`: manage organization members, assignments, publication policy, and organization settings.
+- `professional`: work on gardens explicitly assigned through an active operational membership or garden assignment.
+
+Organization membership alone grants no garden capability. A garden assignment references an organization member, garden, operational role/capabilities, effective dates, and state.
+
+### 8.2 Client Engagements
+
+A `client_engagement` links one garden, one optional service organization, and one or more client profiles. It owns:
+
+- Engagement state and effective dates.
+- Client invitation and access state.
+- Data-stewardship policy.
+- Notification preferences.
+- Publication eligibility.
+- Handoff and revocation state.
+
+The default residential-service stewardship policy makes the accepted garden model and published deliverables client-exportable. Provider-internal notes, assignments, drafts, estimates, diagnostics, and unpublished work remain organization data.
+
+### 8.3 Client Publication Capabilities
+
+Client capabilities are evaluated only against an active engagement and a published resource:
+
+- `viewPublishedGardenOverview`.
+- `viewPublishedWork`.
+- `viewPublishedMedia`.
+- `viewPublishedTimeline`.
+- `viewPublishedTimeMachineScenario`.
+- `exportClientEntitledData`.
+
+A client has no implicit capability to view internal tasks, recommendations, observations, notes, drafts, conflicts, capture proposals, raw media, processor diagnostics, or organization membership.
 
 ## 9. Authorization Evaluation
 
@@ -134,16 +181,24 @@ Every protected use case evaluates:
 
 1. Authenticated application profile.
 2. Account state.
-3. Current garden membership.
-4. Required capability.
-5. Resource-specific restrictions.
-6. Feature or quota policy where relevant.
+3. Access plane: operational team or client publication.
+4. Current garden membership and assignment, or current client engagement.
+5. Required capability.
+6. Resource publication state and audience.
+7. Resource-specific restrictions.
+8. Feature or quota policy where relevant.
 
 Authorization occurs inside the application layer and uses current server data. Client checks improve UX but are not security boundaries.
 
 ## 10. Invitations
 
-Invitations use opaque, single-purpose, expiring tokens stored only as hashes. Invitation records contain garden, intended role, inviter, optional intended email, expiration, state, and acceptance actor.
+Invitations use opaque, single-purpose, expiring tokens stored only as hashes.
+
+Operational invitations contain garden, intended operational role, inviter, optional intended email, expiration, state, and acceptance actor.
+
+The initial ordinary invitation flow grants only `editor` or `viewer`. To make an equal household partner a co-owner, an existing owner first invites that person, then promotes the accepted active member through the recent-auth ownership-administration flow. This preserves the existing invitation constraint and prevents possession of an invitation token alone from granting owner administration.
+
+Client invitations contain engagement, intended client email, inviter organization or professional, expiration, state, and acceptance actor. The initial client portal uses an email-bound invitation and Firebase email magic link as the lowest-friction baseline. Anonymous public garden links are prohibited.
 
 Acceptance is idempotent and handles:
 
@@ -151,6 +206,8 @@ Acceptance is idempotent and handles:
 - Expired or revoked invitation.
 - Authenticated email mismatch where email binding is required.
 - Ownership restrictions.
+- Invitation type and access-plane mismatch.
+- Client engagement revoked, expired, or not yet active.
 - Account deletion or suspension.
 
 Invitation URLs and tokens are excluded from logs and analytics.
@@ -226,6 +283,8 @@ Immediate irreversible deletion may be offered where safely supported. Legal hol
 
 Initial consumer gardens use one Firebase tenant and application-level garden isolation. Google Cloud Identity Platform multi-tenancy is not enabled initially.
 
+Service organizations are application-domain tenants inside the same Firebase tenant. They use PostgreSQL organization membership, garden assignment, engagement, and capability records. This does not weaken garden-level isolation and does not store permissions in Firebase custom claims.
+
 Enterprise identity tenants require a future ADR covering user silos, cross-tenant collaboration, provider configuration, billing, and support access.
 
 ## 17. Security Logging
@@ -235,6 +294,8 @@ Audit events include:
 - Provider link and unlink.
 - Session revocation.
 - Role and membership changes.
+- Organization membership and garden assignment changes.
+- Client engagement, invitation, publication, withdrawal, handoff, and revocation.
 - Invitation creation, revocation, and acceptance.
 - Ownership transfer.
 - Support access activation.
@@ -250,6 +311,11 @@ Audit records avoid raw tokens, magic links, and unnecessary provider payloads.
 - Revocation and recent-authentication enforcement.
 - Every role/capability combination.
 - Membership removed between authentication and mutation.
+- Organization member without a garden assignment.
+- Client engagement active but requested resource unpublished.
+- Client from one engagement requesting another client's publication or media.
+- Withdrawn publication and revoked engagement.
+- Operational viewer denied client-publisher capability.
 - Invitation replay and expiry.
 - Last-owner invariants.
 - Deletion and recovery-window transitions.
@@ -262,5 +328,8 @@ Audit records avoid raw tokens, magic links, and unnecessary provider payloads.
 - Native and web sessions use approved separate flows.
 - Every protected use case checks a capability.
 - Membership changes invalidate subsequent access immediately at the server.
+- Organization membership never grants garden access without assignment or operational membership.
+- Client access resolves only through an active engagement and immutable published resources.
+- A client cannot enumerate or retrieve provider-internal records through client endpoints.
 - Invitations and support access are expiring and audited.
 - Account deletion reaches identity, domain data, media, and local-device policy.

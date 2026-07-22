@@ -1,8 +1,8 @@
 # Asynchronous Processing Design
 
-> Status: Draft 0.1  
+> Status: Draft 0.2
 > Decision status: Approved baseline  
-> Last updated: July 21, 2026
+> Last updated: July 22, 2026
 
 ## 1. Purpose
 
@@ -57,6 +57,7 @@ Use Cloud Tasks for:
 - Provider calls with rate limits.
 - Deletion steps.
 - Export initiation.
+- Client invitation and publication notification dispatch.
 - Reconciliation commands.
 - Starting a known Cloud Run Job.
 
@@ -74,6 +75,8 @@ Use Pub/Sub for facts such as:
 - Membership changed.
 - Processing completed.
 - Account deletion completed.
+- Client update published or withdrawn.
+- Client engagement revoked.
 
 Subscribers own their retries and dead-letter subscriptions. A subscriber cannot assume it is the only consumer or that messages arrive exactly once.
 

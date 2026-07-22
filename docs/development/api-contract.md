@@ -74,8 +74,8 @@ Source: [../architecture/api-design.md](../architecture/api-design.md);
 security definitions, tag descriptions, and licence information to errors. Two rules are switched
 off on purpose, each with the reason recorded in the file:
 
-- `no-unused-components` — Phase 1 defines the shared envelope, pagination, idempotency, and
-  geometry components before the Phase 2 operations that consume them exist.
+- `no-unused-components` — the contract intentionally defines shared pagination and geometry
+  components before later map and collection operations consume every component.
 - `operation-4xx-response` — every 4xx is described once in `components.responses` and referenced,
   rather than re-enumerated inline on every path.
 

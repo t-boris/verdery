@@ -1,8 +1,8 @@
 # Offline Synchronization Design
 
-> Status: Draft 0.1  
+> Status: Draft 0.2
 > Decision status: Approved baseline  
-> Last updated: July 21, 2026
+> Last updated: July 22, 2026
 
 ## 1. Purpose
 
@@ -20,6 +20,7 @@ This document defines the application-owned synchronization protocol between the
 ## 3. Non-Goals
 
 - Real-time simultaneous geometry collaboration in the initial release.
+- Synchronizing the full operational garden into a professional client's device or browser.
 - Replicating every server table to the device.
 - Universal last-write-wins behavior.
 - Peer-to-peer device synchronization.
@@ -31,6 +32,7 @@ This document defines the application-owned synchronization protocol between the
 - SQLite is authoritative for pending local operations until the server accepts or explicitly rejects them.
 - A local optimistic read model may temporarily differ from the last accepted server state.
 - Conflict records preserve both the user's intent and the current server revision.
+- Client publications are server-authoritative immutable projections and are not mixed into the operational mutation outbox.
 
 ## 5. Local Tables
 
@@ -130,6 +132,10 @@ If a user loses garden access:
 - Pending operations against the garden become rejected and cannot be retried under stale authorization.
 
 Membership grants cause the garden partition to be included in subsequent synchronization.
+
+Organization membership alone never causes a garden partition grant. An active garden assignment or operational membership is required.
+
+Client engagement grants do not include the operational garden partition. The initial responsive web portal queries publication-only endpoints online. A future native client portal must use a separate read-only publication partition and cannot reuse operational records.
 
 ## 12. Initial Synchronization
 
@@ -289,6 +295,9 @@ Tests cover:
 - Independent-object merge.
 - Authentication expiration.
 - Membership removal while offline.
+- Organization membership without garden assignment.
+- Client engagement accidentally requesting operational sync.
+- Publication withdrawal or engagement revocation between list and detail requests.
 - Tombstone application.
 - Cursor expiration and full resync.
 - Schema upgrade with pending outbox.
@@ -307,4 +316,5 @@ Tests use deterministic server and local database fixtures and run fault injecti
 - Same-geometry conflicts never silently discard user work.
 - Media and record synchronization recover independently.
 - Access revocation removes protected local data.
+- Client access cannot enumerate or synchronize operational garden records.
 - Mobile upgrades preserve pending operations or provide explicit recovery.
