@@ -88,3 +88,19 @@ export interface CurveFixture {
   readonly comparison: 'exact';
   readonly cases: readonly CurveCase[];
 }
+
+export interface CommandInverseCase {
+  readonly name: string;
+  readonly command: unknown;
+  readonly priorSnapshot: unknown;
+  readonly revisionAfterCommand: number;
+  readonly expectedInverse: unknown;
+}
+
+export interface CommandInverseFixture {
+  readonly schemaVersion: number;
+  readonly description: string;
+  readonly source: string;
+  readonly comparison: 'exact';
+  readonly cases: readonly CommandInverseCase[];
+}

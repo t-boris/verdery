@@ -67,3 +67,51 @@ export {
   validateGeometry,
 } from './validation.js';
 export type { ValidationIssue, ValidationSeverity } from './validation.js';
+
+export { GARDEN_OBJECT_CATEGORIES, isGeometryTypeAllowedForCategory } from './object-category.js';
+export type {
+  AnnotationDetails,
+  BedDetails,
+  BedKind,
+  FenceDetails,
+  FenceKind,
+  GardenObjectCategory,
+  GardenObjectDetails,
+  GateDetails,
+  PlantPlacementDetails,
+  StructureDetails,
+  StructureKind,
+  TreeDetails,
+  UtilityExclusionDetails,
+  UtilityExclusionKind,
+  ZoneDetails,
+  ZoneKind,
+} from './object-category.js';
+
+export type { Measurement, MeasurementAcquisitionMethod, MeasurementUnit } from './measurement.js';
+
+export type {
+  AssignPlantPayload,
+  ChangePropertiesPayload,
+  CreateObjectPayload,
+  DecideProposalPayload,
+  DeleteObjectPayload,
+  DuplicateObjectPayload,
+  EditVertexPayload,
+  JoinLineworkPayload,
+  MapCommand,
+  MapCommandActorType,
+  MapCommandEnvelope,
+  MapCommandPayload,
+  MapCommandType,
+  MoveObjectPayload,
+  ProposalDecision,
+  ReplaceGeometryPayload,
+  RestoreObjectPayload,
+  SplitLineworkPayload,
+  UpsertCalibrationPayload,
+  VertexOperation,
+} from './command.js';
+
+export { deriveInverseCommand } from './inverse-command.js';
+export type { ObjectLifecycleState, ObjectSnapshot } from './inverse-command.js';

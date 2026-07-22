@@ -1,0 +1,362 @@
+{
+  "schemaVersion": 1,
+  "description": "Deterministic local undo: given a command and the object's state immediately before it, what inverse command a client's undo stack must produce.",
+  "source": "architecture/map-rendering-and-editing.md section 9 'Undo and Redo'",
+  "comparison": "exact",
+  "cases": [
+    {
+      "name": "create inverts to delete at revision 1",
+      "command": {
+        "type": "createObject",
+        "objectId": "obj-1",
+        "category": "bed",
+        "geometry": { "type": "Point", "coordinates": [1, 2] }
+      },
+      "priorSnapshot": null,
+      "revisionAfterCommand": 1,
+      "expectedInverse": {
+        "type": "deleteObject",
+        "objectId": "obj-1",
+        "expectedRevision": 1
+      }
+    },
+    {
+      "name": "duplicate inverts to delete of the new object",
+      "command": {
+        "type": "duplicateObject",
+        "sourceObjectId": "obj-1",
+        "newObjectId": "obj-2",
+        "offsetMetres": { "dx": 1, "dy": 1 }
+      },
+      "priorSnapshot": null,
+      "revisionAfterCommand": 1,
+      "expectedInverse": {
+        "type": "deleteObject",
+        "objectId": "obj-2",
+        "expectedRevision": 1
+      }
+    },
+    {
+      "name": "move inverts to the negated translation",
+      "command": {
+        "type": "moveObject",
+        "objectId": "obj-1",
+        "expectedRevision": 3,
+        "translationMetres": { "dx": 2.5, "dy": -1.25 }
+      },
+      "priorSnapshot": null,
+      "revisionAfterCommand": 4,
+      "expectedInverse": {
+        "type": "moveObject",
+        "objectId": "obj-1",
+        "expectedRevision": 4,
+        "translationMetres": { "dx": -2.5, "dy": 1.25 }
+      }
+    },
+    {
+      "name": "replaceGeometry inverts to the prior geometry",
+      "command": {
+        "type": "replaceGeometry",
+        "objectId": "obj-1",
+        "expectedRevision": 5,
+        "geometry": { "type": "Point", "coordinates": [10, 10] }
+      },
+      "priorSnapshot": {
+        "objectId": "obj-1",
+        "category": "tree",
+        "geometry": { "type": "Point", "coordinates": [3, 4] },
+        "lifecycleState": "active"
+      },
+      "revisionAfterCommand": 6,
+      "expectedInverse": {
+        "type": "replaceGeometry",
+        "objectId": "obj-1",
+        "expectedRevision": 6,
+        "geometry": { "type": "Point", "coordinates": [3, 4] }
+      }
+    },
+    {
+      "name": "replaceGeometry with no prior snapshot has no local inverse",
+      "command": {
+        "type": "replaceGeometry",
+        "objectId": "obj-1",
+        "expectedRevision": 5,
+        "geometry": { "type": "Point", "coordinates": [10, 10] }
+      },
+      "priorSnapshot": null,
+      "revisionAfterCommand": 6,
+      "expectedInverse": null
+    },
+    {
+      "name": "editVertex move inverts to move back to the prior position",
+      "command": {
+        "type": "editVertex",
+        "objectId": "obj-1",
+        "expectedRevision": 2,
+        "operation": "move",
+        "ringIndex": 0,
+        "vertexIndex": 1,
+        "position": [9, 9]
+      },
+      "priorSnapshot": {
+        "objectId": "obj-1",
+        "category": "zone",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [0, 0],
+              [5, 0],
+              [5, 5],
+              [0, 5],
+              [0, 0]
+            ]
+          ]
+        },
+        "lifecycleState": "active"
+      },
+      "revisionAfterCommand": 3,
+      "expectedInverse": {
+        "type": "editVertex",
+        "objectId": "obj-1",
+        "expectedRevision": 3,
+        "operation": "move",
+        "ringIndex": 0,
+        "vertexIndex": 1,
+        "position": [5, 0]
+      }
+    },
+    {
+      "name": "editVertex insert inverts to remove at the same index",
+      "command": {
+        "type": "editVertex",
+        "objectId": "obj-1",
+        "expectedRevision": 2,
+        "operation": "insert",
+        "ringIndex": 0,
+        "vertexIndex": 2,
+        "position": [3, 3]
+      },
+      "priorSnapshot": {
+        "objectId": "obj-1",
+        "category": "zone",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [0, 0],
+              [5, 0],
+              [5, 5],
+              [0, 5],
+              [0, 0]
+            ]
+          ]
+        },
+        "lifecycleState": "active"
+      },
+      "revisionAfterCommand": 3,
+      "expectedInverse": {
+        "type": "editVertex",
+        "objectId": "obj-1",
+        "expectedRevision": 3,
+        "operation": "remove",
+        "ringIndex": 0,
+        "vertexIndex": 2
+      }
+    },
+    {
+      "name": "editVertex remove inverts to insert the prior position back",
+      "command": {
+        "type": "editVertex",
+        "objectId": "obj-1",
+        "expectedRevision": 2,
+        "operation": "remove",
+        "ringIndex": 0,
+        "vertexIndex": 1
+      },
+      "priorSnapshot": {
+        "objectId": "obj-1",
+        "category": "zone",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [0, 0],
+              [5, 0],
+              [5, 5],
+              [0, 5],
+              [0, 0]
+            ]
+          ]
+        },
+        "lifecycleState": "active"
+      },
+      "revisionAfterCommand": 3,
+      "expectedInverse": {
+        "type": "editVertex",
+        "objectId": "obj-1",
+        "expectedRevision": 3,
+        "operation": "insert",
+        "ringIndex": 0,
+        "vertexIndex": 1,
+        "position": [5, 0]
+      }
+    },
+    {
+      "name": "changeProperties inverts to the prior label and details",
+      "command": {
+        "type": "changeProperties",
+        "objectId": "obj-1",
+        "expectedRevision": 2,
+        "label": "New label"
+      },
+      "priorSnapshot": {
+        "objectId": "obj-1",
+        "category": "bed",
+        "geometry": { "type": "Point", "coordinates": [0, 0] },
+        "label": "Old label",
+        "categoryDetails": { "category": "bed", "details": { "bedKind": "raised" } },
+        "lifecycleState": "active"
+      },
+      "revisionAfterCommand": 3,
+      "expectedInverse": {
+        "type": "changeProperties",
+        "objectId": "obj-1",
+        "expectedRevision": 3,
+        "label": "Old label",
+        "categoryDetails": { "category": "bed", "details": { "bedKind": "raised" } }
+      }
+    },
+    {
+      "name": "assignPlant inverts to the prior assignment",
+      "command": {
+        "type": "assignPlant",
+        "plantObjectId": "plant-1",
+        "expectedRevision": 2,
+        "targetObjectId": "bed-2"
+      },
+      "priorSnapshot": {
+        "objectId": "plant-1",
+        "category": "plant",
+        "geometry": { "type": "Point", "coordinates": [0, 0] },
+        "categoryDetails": {
+          "category": "plant",
+          "details": { "commonName": "Tomato", "quantity": 1, "assignedToObjectId": "bed-1" }
+        },
+        "lifecycleState": "active"
+      },
+      "revisionAfterCommand": 3,
+      "expectedInverse": {
+        "type": "assignPlant",
+        "plantObjectId": "plant-1",
+        "expectedRevision": 3,
+        "targetObjectId": "bed-1"
+      }
+    },
+    {
+      "name": "assignPlant with no prior assignment inverts to unassign",
+      "command": {
+        "type": "assignPlant",
+        "plantObjectId": "plant-1",
+        "expectedRevision": 2,
+        "targetObjectId": "bed-2"
+      },
+      "priorSnapshot": {
+        "objectId": "plant-1",
+        "category": "plant",
+        "geometry": { "type": "Point", "coordinates": [0, 0] },
+        "categoryDetails": {
+          "category": "plant",
+          "details": { "commonName": "Tomato", "quantity": 1 }
+        },
+        "lifecycleState": "active"
+      },
+      "revisionAfterCommand": 3,
+      "expectedInverse": {
+        "type": "assignPlant",
+        "plantObjectId": "plant-1",
+        "expectedRevision": 3,
+        "targetObjectId": null
+      }
+    },
+    {
+      "name": "delete inverts to restore",
+      "command": {
+        "type": "deleteObject",
+        "objectId": "obj-1",
+        "expectedRevision": 4
+      },
+      "priorSnapshot": null,
+      "revisionAfterCommand": 5,
+      "expectedInverse": {
+        "type": "restoreObject",
+        "objectId": "obj-1",
+        "expectedRevision": 5
+      }
+    },
+    {
+      "name": "restore inverts to delete",
+      "command": {
+        "type": "restoreObject",
+        "objectId": "obj-1",
+        "expectedRevision": 5
+      },
+      "priorSnapshot": null,
+      "revisionAfterCommand": 6,
+      "expectedInverse": {
+        "type": "deleteObject",
+        "objectId": "obj-1",
+        "expectedRevision": 6
+      }
+    },
+    {
+      "name": "splitLinework has no single-command inverse",
+      "command": {
+        "type": "splitLinework",
+        "objectId": "obj-1",
+        "expectedRevision": 2,
+        "resultObjectIds": ["obj-2", "obj-3"],
+        "atVertexIndex": 3
+      },
+      "priorSnapshot": null,
+      "revisionAfterCommand": 3,
+      "expectedInverse": null
+    },
+    {
+      "name": "joinLinework has no single-command inverse",
+      "command": {
+        "type": "joinLinework",
+        "firstObjectId": "obj-2",
+        "firstExpectedRevision": 1,
+        "secondObjectId": "obj-3",
+        "secondExpectedRevision": 1,
+        "resultObjectId": "obj-4"
+      },
+      "priorSnapshot": null,
+      "revisionAfterCommand": 1,
+      "expectedInverse": null
+    },
+    {
+      "name": "upsertCalibration has no single-command inverse",
+      "command": {
+        "type": "upsertCalibration",
+        "backgroundObjectId": "bg-1",
+        "referencePoints": [{ "imagePixel": [0, 0], "localMetres": [0, 0] }]
+      },
+      "priorSnapshot": null,
+      "revisionAfterCommand": 1,
+      "expectedInverse": null
+    },
+    {
+      "name": "decideProposal has no single-command inverse",
+      "command": {
+        "type": "decideProposal",
+        "proposalId": "prop-1",
+        "decision": "accept"
+      },
+      "priorSnapshot": null,
+      "revisionAfterCommand": 1,
+      "expectedInverse": null
+    }
+  ]
+}
