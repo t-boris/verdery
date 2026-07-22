@@ -17,16 +17,34 @@ import { API_BASE_PATH } from '@verdery/api-contracts';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import {
   ArchiveGarden,
+  AssignPlantToTarget,
+  ChangeMapObjectProperties,
   CreateGarden,
+  CreateMapObject,
+  DecideMapProposal,
+  DeleteMapObject,
+  DuplicateMapObject,
+  EditMapObjectVertex,
   GardenAuthorization,
   GetGarden,
+  GetGardenMap,
+  JoinMapObjectLinework,
+  KyselyCoordinateSpaceRepository,
   KyselyGardenRepository,
   KyselyGardensMappingUnitOfWork,
+  KyselyGeoreferenceRepository,
+  KyselyMapObjectRepository,
   KyselyMembershipRepository,
   ListGardens,
+  MoveMapObject,
   registerGardenRoutes,
+  registerMapRoutes,
   RenameGarden,
+  ReplaceMapObjectGeometry,
   RequestGardenDeletion,
+  RestoreMapObject,
+  SplitMapObjectLinework,
+  UpsertMapCalibration,
 } from './modules/gardens-mapping/public.js';
 import {
   KyselyIdentityProviderLinkRepository,
@@ -176,6 +194,99 @@ export async function buildApplication(
     ),
   };
 
+  // Garden map (P3-BE-01, P3-BE-02): the read side (GetGardenMap) uses the
+  // pooled connection directly, same as gardenRepository above; every
+  // mutating command shares gardenIdempotency/gardensMappingUnitOfWork/
+  // gardenAuthorization with the garden lifecycle commands, since both are
+  // the same idempotency table, the same transaction boundary, and the same
+  // capability matrix.
+  const mapObjectRepository = new KyselyMapObjectRepository(database.queries);
+  const coordinateSpaceRepository = new KyselyCoordinateSpaceRepository(database.queries);
+  const georeferenceRepository = new KyselyGeoreferenceRepository(database.queries);
+
+  const mapRoutesDependencies = {
+    getGardenMap: new GetGardenMap(
+      gardenAuthorization,
+      coordinateSpaceRepository,
+      georeferenceRepository,
+      mapObjectRepository,
+      clock,
+    ),
+    createMapObject: new CreateMapObject(
+      gardenIdempotency,
+      gardensMappingUnitOfWork,
+      gardenAuthorization,
+      clock,
+    ),
+    moveMapObject: new MoveMapObject(
+      gardenIdempotency,
+      gardensMappingUnitOfWork,
+      gardenAuthorization,
+      clock,
+    ),
+    replaceMapObjectGeometry: new ReplaceMapObjectGeometry(
+      gardenIdempotency,
+      gardensMappingUnitOfWork,
+      gardenAuthorization,
+      clock,
+    ),
+    editMapObjectVertex: new EditMapObjectVertex(
+      gardenIdempotency,
+      gardensMappingUnitOfWork,
+      gardenAuthorization,
+      clock,
+    ),
+    splitMapObjectLinework: new SplitMapObjectLinework(
+      gardenIdempotency,
+      gardensMappingUnitOfWork,
+      gardenAuthorization,
+      clock,
+    ),
+    joinMapObjectLinework: new JoinMapObjectLinework(
+      gardenIdempotency,
+      gardensMappingUnitOfWork,
+      gardenAuthorization,
+      clock,
+    ),
+    changeMapObjectProperties: new ChangeMapObjectProperties(
+      gardenIdempotency,
+      gardensMappingUnitOfWork,
+      gardenAuthorization,
+      clock,
+    ),
+    assignPlantToTarget: new AssignPlantToTarget(
+      gardenIdempotency,
+      gardensMappingUnitOfWork,
+      gardenAuthorization,
+      clock,
+    ),
+    upsertMapCalibration: new UpsertMapCalibration(
+      gardenIdempotency,
+      gardensMappingUnitOfWork,
+      gardenAuthorization,
+      clock,
+    ),
+    decideMapProposal: new DecideMapProposal(gardenAuthorization),
+    deleteMapObject: new DeleteMapObject(
+      gardenIdempotency,
+      gardensMappingUnitOfWork,
+      gardenAuthorization,
+      clock,
+    ),
+    restoreMapObject: new RestoreMapObject(
+      gardenIdempotency,
+      gardensMappingUnitOfWork,
+      gardenAuthorization,
+      clock,
+    ),
+    duplicateMapObject: new DuplicateMapObject(
+      gardenIdempotency,
+      gardensMappingUnitOfWork,
+      gardenAuthorization,
+      clock,
+    ),
+  };
+
   await app.register(
     (instance, _options, done) => {
       registerHealthRoutes(instance, health);
@@ -208,6 +319,7 @@ export async function buildApplication(
       registerAppCheck(instance, { appCheckVerifier });
       registerAuthentication(instance, { tokenVerifier, provisionProfile });
       registerGardenRoutes(instance, gardenRoutesDependencies);
+      registerMapRoutes(instance, mapRoutesDependencies);
       done();
     },
     { prefix: API_BASE_PATH },

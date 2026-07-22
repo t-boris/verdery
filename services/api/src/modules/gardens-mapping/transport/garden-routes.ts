@@ -35,17 +35,19 @@ export interface GardenRoutesDependencies {
 }
 
 // Matches `components.schemas.Uuid` in packages/api-contracts/openapi.yaml exactly.
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+// Exported for reuse by transport/map-routes.ts, rather than a second copy of
+// the same regex and parsing logic.
+export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 50;
 
-function invalid(message: string, code: string, pointer: string): ValidationError {
+export function invalid(message: string, code: string, pointer: string): ValidationError {
   return new ValidationError(SharedErrorCode.RequestInvalid, message, {
     details: [{ code, pointer }],
   });
 }
 
-function requireGardenId(request: FastifyRequest): string {
+export function requireGardenId(request: FastifyRequest): string {
   const { gardenId } = request.params as { gardenId?: unknown };
 
   if (typeof gardenId !== 'string' || !UUID_PATTERN.test(gardenId)) {
@@ -55,7 +57,7 @@ function requireGardenId(request: FastifyRequest): string {
   return gardenId;
 }
 
-function requireIdempotencyKey(request: FastifyRequest): string {
+export function requireIdempotencyKey(request: FastifyRequest): string {
   const header = request.headers[IDEMPOTENCY_KEY_HEADER];
   const key = Array.isArray(header) ? header[0] : header;
 

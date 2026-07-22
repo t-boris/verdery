@@ -8,8 +8,13 @@ import type {
   GardensMappingTransactionContext,
   GardensMappingUnitOfWork,
 } from '../application/gardens-mapping-unit-of-work.js';
+import { KyselyCalibrationRepository } from './kysely-calibration-repository.js';
+import { KyselyCoordinateSpaceRepository } from './kysely-coordinate-space-repository.js';
 import { KyselyGardenRepository } from './kysely-garden-repository.js';
+import { KyselyMapObjectRepository } from './kysely-map-object-repository.js';
 import { KyselyMembershipRepository } from './kysely-membership-repository.js';
+import { KyselyRevisionJournalWriter } from './kysely-revision-journal-writer.js';
+import { KyselySyncChangeWriter } from './kysely-sync-change-writer.js';
 
 export class KyselyGardensMappingUnitOfWork implements GardensMappingUnitOfWork {
   constructor(
@@ -25,6 +30,11 @@ export class KyselyGardensMappingUnitOfWork implements GardensMappingUnitOfWork 
         idempotency: new KyselyIdempotencyStore(trx, this.clock),
         outbox: new KyselyOutboxAppender(trx, this.clock),
         auditLogger: new KyselyAuditLogger(trx, this.clock),
+        mapObjects: new KyselyMapObjectRepository(trx),
+        coordinateSpaces: new KyselyCoordinateSpaceRepository(trx),
+        calibrations: new KyselyCalibrationRepository(trx),
+        revisionJournal: new KyselyRevisionJournalWriter(trx),
+        syncChanges: new KyselySyncChangeWriter(trx),
       };
 
       return work(context);
