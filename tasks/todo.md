@@ -119,6 +119,24 @@ real systems — not mocked, not assumed.
    `SimpleSpanProcessor` (synchronous, per-span export) replaced it.
 8. **A multi-platform Docker build on Apple silicon produces an arm64 image Cloud Run rejects.**
    `docker buildx build --platform linux/amd64` is required explicitly.
+9. **The workload identity binding keyed off the wrong `sub` format, and it took three attempts to
+   find.** GitHub's actual OIDC `sub` claim for this repository is
+   `repo:t-boris@508098/verdery@1308715947:environment:development` — it embeds immutable numeric
+   owner and repository IDs the binding did not anticipate. Two earlier, plausible-looking fixes
+   (removing `docker/setup-buildx-action`, minting a direct access token for `docker login`) were
+   real improvements but did not touch the actual cause; only decoding a real token from a live run
+   found it. The binding now targets `principalSet://.../attribute.environment/development` instead
+   of an exact subject string, immune to that class of formatting difference. A fresh binding also
+   does not take effect instantly — the first deploy after the fix still failed; the next succeeded.
+10. **The Cloud SQL connector needs longer than 5 seconds on a cold Cloud Run revision.** Once
+    authentication succeeded, the next deploy failed its startup probe: the readiness ping timed out
+    fetching the connector's ephemeral certificate and negotiating mTLS within the default
+    `DATABASE_CONNECTION_TIMEOUT_MS`. `deploy-api.sh` now sets 15000ms for the deployed environment.
+
+**End-to-end proof:** after all ten fixes, the fully automated pipeline — push to `master` → CI →
+keyless WIF authentication → build → push → migrate via Cloud Run Job → deploy → live health check
+— completed successfully with no manual intervention, confirmed by a real GitHub Actions run
+(`Deploy to development`, all steps green) and a live `200` from both health endpoints afterward.
 
 ### Known limitations
 
