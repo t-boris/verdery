@@ -57,3 +57,23 @@ export type ApiResult<TData> = ApiSuccess<TData> | ApiFailure;
 export function isFailure<TData>(result: ApiResult<TData>): result is ApiFailure {
   return !result.ok;
 }
+
+/**
+ * Wraps an `ApiFailure` as a real `Error` instance.
+ *
+ * The gateway layer above returns results rather than throwing, by design.
+ * TanStack Query's own idiom is the opposite — a query or mutation function
+ * signals failure by throwing — so this is the seam between the two: hooks
+ * in `features/*` throw this to get TanStack Query's error state, and
+ * components read `.failure` back out to render the original typed
+ * `ApiFailure` with `FailureAlert`, unchanged.
+ */
+export class ApiFailureError extends Error {
+  readonly failure: ApiFailure;
+
+  constructor(failure: ApiFailure) {
+    super(failure.fallbackMessage);
+    this.name = 'ApiFailureError';
+    this.failure = failure;
+  }
+}

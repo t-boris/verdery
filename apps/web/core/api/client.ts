@@ -15,9 +15,17 @@ export interface ApiClientOptions {
 }
 
 export interface RequestSpec {
-  readonly method: 'GET';
+  readonly method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   /** Path below the version prefix, for example `/health/live`. */
   readonly path: string;
+  /** JSON-serialized and sent with `Content-Type: application/json`. Omit for a bodyless request. */
+  readonly body?: unknown;
+  /**
+   * Additional request headers — `Idempotency-Key`, `If-Match`, and the CSRF
+   * header, for the callers that need them. Never used for the session
+   * cookie itself, which the browser attaches automatically.
+   */
+  readonly headers?: Readonly<Record<string, string>>;
   /**
    * Statuses that carry the operation's own schema rather than the error
    * envelope. `/health/ready` is the first such case: its `503` response is a
@@ -66,7 +74,10 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
         headers: {
           accept: 'application/json',
           [CORRELATION_ID_HEADER]: correlationId,
+          ...(spec.body === undefined ? {} : { 'content-type': 'application/json' }),
+          ...spec.headers,
         },
+        ...(spec.body === undefined ? {} : { body: JSON.stringify(spec.body) }),
         // The session is an HTTP-only cookie, so it is never read or attached
         // by application code.
         // Source: architecture/web-application-design.md, section "7. Authentication Session".

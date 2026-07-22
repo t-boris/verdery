@@ -11,7 +11,7 @@ export default defineConfig({
     alias: [{ find: /^@\//, replacement: rootDirectory }],
   },
   test: {
-    include: ['{app,core,shared}/**/*.test.{ts,tsx}'],
+    include: ['{app,core,shared,features}/**/*.test.{ts,tsx}'],
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
   },

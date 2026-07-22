@@ -1,0 +1,29 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-text-muted);
+}
+
+.name {
+  margin: 0;
+  color: var(--color-text);
+}
+
+.renameForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 24rem;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-3);
+}

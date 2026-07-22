@@ -5,9 +5,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { createBrowserApiClient, createHealthGateway, type ApiResult } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Button, Card, StatusPill, VisuallyHidden } from '@/shared/ui/public';
+import { Button, Card, FailureAlert, StatusPill, VisuallyHidden } from '@/shared/ui/public';
 
-import { FailureAlert } from './failure-alert';
 import styles from './health-panel.module.css';
 
 type PanelState =

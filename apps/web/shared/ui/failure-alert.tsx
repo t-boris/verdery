@@ -2,7 +2,8 @@
 
 import { errorMessageKey, type ApiFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Alert } from '@/shared/ui/public';
+
+import { Alert } from './alert';
 
 /**
  * Presents a typed API failure.
