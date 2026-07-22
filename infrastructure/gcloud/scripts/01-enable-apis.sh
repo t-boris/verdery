@@ -28,6 +28,7 @@ declare -A APIS=(
   [logging.googleapis.com]="Structured application logs"
   [monitoring.googleapis.com]="Dashboards and alerting"
   [cloudresourcemanager.googleapis.com]="IAM policy binding on the project"
+  [recaptchaenterprise.googleapis.com]="Web App Check attestation, P2-APPCHK-01"
 )
 
 for api in "${!APIS[@]}"; do

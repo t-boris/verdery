@@ -60,6 +60,9 @@ check "workload identity provider exists" gcloud iam workload-identity-pools pro
 check "Cloud Run service exists" gcloud run services describe "${VERDERY_CLOUD_RUN_SERVICE_NAME}" \
   --project="${VERDERY_PROJECT_ID}" --region="${VERDERY_REGION}"
 
+check "App Check reCAPTCHA Enterprise key exists" bash -c \
+  "[[ -n \$(gcloud recaptcha keys list --project='${VERDERY_PROJECT_ID}' --filter='displayName=${VERDERY_PROJECT_ID}-web-app-check' --format='value(name)') ]]"
+
 echo
 if [[ "${FAILURES}" -eq 0 ]]; then
   echo "All checks passed."

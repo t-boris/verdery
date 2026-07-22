@@ -228,6 +228,14 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       randomUUID(),
     );
     expect(renamed).toMatchObject({ name: 'Front Yard', revision: garden.revision + 1 });
+
+    const auditEvent = await db
+      .selectFrom('platform.audit_event')
+      .selectAll()
+      .where('subject_id', '=', garden.id)
+      .where('event_type', '=', 'garden.renamed')
+      .executeTakeFirst();
+    expect(auditEvent).toBeDefined();
   });
 
   it('lets only the owner archive or request deletion; an editor can view but not manage', async () => {
@@ -275,6 +283,14 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     await expect(
       archiveGarden.execute(garden.id, ownerId, archived.revision, randomUUID()),
     ).rejects.toBeInstanceOf(DomainRuleViolatedError);
+
+    const auditEvent = await db
+      .selectFrom('platform.audit_event')
+      .selectAll()
+      .where('subject_id', '=', garden.id)
+      .where('event_type', '=', 'garden.archived')
+      .executeTakeFirst();
+    expect(auditEvent).toBeDefined();
   });
 
   it('moves a garden through archive and then delete-request', async () => {
@@ -312,5 +328,13 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       .where('id', '=', garden.id)
       .executeTakeFirstOrThrow();
     expect(row.deletion_requested_at).not.toBeNull();
+
+    const deletionRequestedAuditEvent = await db
+      .selectFrom('platform.audit_event')
+      .selectAll()
+      .where('subject_id', '=', garden.id)
+      .where('event_type', '=', 'garden.deletion_requested')
+      .executeTakeFirst();
+    expect(deletionRequestedAuditEvent).toBeDefined();
   });
 });

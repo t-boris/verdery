@@ -21,7 +21,8 @@ scripts/
   05-service-accounts.sh               Deploy and runtime service accounts, least privilege.
   06-workload-identity-federation.sh   Keyless GitHub Actions trust.
   07-iam-database-bootstrap.sh         One-time: grants a service account database access.
-  provision.sh                         Runs 00–06 in order.
+  08-app-check-recaptcha.sh            reCAPTCHA Enterprise key for web App Check.
+  provision.sh                         Runs 00–06 and 08 in order (07 stays manual, see below).
   verify.sh                            Read-only check of what actually exists.
   deploy-migration-job.sh              Creates or updates the migration Cloud Run Job.
   deploy-api.sh                        Builds nothing; deploys an already-pushed image.
