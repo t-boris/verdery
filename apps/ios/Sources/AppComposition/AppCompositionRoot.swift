@@ -38,6 +38,10 @@ public final class AppCompositionRoot {
         self.log = log
 
         let tokenProvider = FirebaseAuthTokenProvider()
+        // App Check follows the same scope as the auth token: only the
+        // garden gateway authenticates, so only it needs a traffic-
+        // classification signal. `HealthGateway` stays fully unauthenticated.
+        let appCheckTokenProvider = FirebaseAppCheckTokenProvider()
 
         self.healthGateway = URLSessionHealthGateway(
             configuration: configuration,
@@ -48,6 +52,7 @@ public final class AppCompositionRoot {
             configuration: configuration,
             session: session,
             authTokenProvider: tokenProvider,
+            appCheckTokenProvider: appCheckTokenProvider,
             log: log
         )
         self.authenticationGateway = FirebaseAuthenticationGateway()

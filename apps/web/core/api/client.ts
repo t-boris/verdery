@@ -7,11 +7,23 @@ import type { ApiResult } from './result';
 /** The subset of `fetch` the client uses, so tests can supply a double. */
 export type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
 
+/** Header carrying the Firebase App Check token, when one is available. */
+export const APP_CHECK_HEADER_NAME = 'X-Firebase-AppCheck';
+
 export interface ApiClientOptions {
   /** Origin of the API, without the version path and without a trailing slash. */
   readonly origin: string;
   readonly fetchImplementation: FetchLike;
   readonly createCorrelationId?: () => string;
+  /**
+   * Resolves the current Firebase App Check token, or `null` when one is not
+   * available. A rejected promise is treated the same as `null`: App Check
+   * is a monitor-only signal for now, so it must never block a request.
+   *
+   * Source: architecture/identity-and-authorization.md, section
+   * "12. App Check".
+   */
+  readonly getAppCheckToken?: () => Promise<string | null>;
 }
 
 export interface RequestSpec {
@@ -66,6 +78,14 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     const correlationId = nextCorrelationId();
     const url = `${options.origin}${API_BASE_PATH}${spec.path}`;
 
+    // Never let App Check block a request: a missing provider, a rejected
+    // promise, and a `null` resolution are all treated the same way here.
+    // Source: architecture/identity-and-authorization.md, section "12. App Check".
+    const appCheckToken =
+      options.getAppCheckToken === undefined
+        ? null
+        : await options.getAppCheckToken().catch(() => null);
+
     let response: Response;
 
     try {
@@ -75,6 +95,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
           accept: 'application/json',
           [CORRELATION_ID_HEADER]: correlationId,
           ...(spec.body === undefined ? {} : { 'content-type': 'application/json' }),
+          ...(appCheckToken === null ? {} : { [APP_CHECK_HEADER_NAME]: appCheckToken }),
           ...spec.headers,
         },
         ...(spec.body === undefined ? {} : { body: JSON.stringify(spec.body) }),

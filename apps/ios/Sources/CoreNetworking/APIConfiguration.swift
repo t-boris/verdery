@@ -42,6 +42,12 @@ public struct APIConfiguration: Equatable, Sendable {
     /// is replaced by the contract's name when `P1-OBS-01` pins it.
     public static let correlationIdHeader = "X-Correlation-Id"
 
+    /// Header carrying the Firebase App Check token, the conventional name the
+    /// backend reads for traffic classification.
+    ///
+    /// Source: architecture/identity-and-authorization.md, section "12. App Check".
+    public static let appCheckHeader = "X-Firebase-AppCheck"
+
     /// Builds the absolute URL of a versioned operation path such as `health/live`.
     public func url(forOperationPath path: String) -> URL {
         origin

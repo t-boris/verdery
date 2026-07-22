@@ -44,9 +44,10 @@ let package = Package(
     dependencies: [
         // Sign in with Apple, Google, and email magic link, per
         // architecture/identity-and-authorization.md, section "3. Initial
-        // Sign-In Methods". Only the FirebaseAuth product is linked; nothing
-        // in this package touches Analytics, Crashlytics, or any other
-        // Firebase product.
+        // Sign-In Methods"; App Check token generation, per section
+        // "12. App Check". Only the FirebaseAuth and FirebaseAppCheck
+        // products are linked; nothing in this package touches Analytics,
+        // Crashlytics, or any other Firebase product.
         .package(url: "https://github.com/firebase/firebase-ios-sdk", from: "12.16.0"),
         // The per-profile local read model store, per
         // architecture/ios-application-design.md, section "6. Persistence"
@@ -77,10 +78,10 @@ let package = Package(
             dependencies: ["CoreDomain", "CoreObservability"]
         ),
 
-        // The only target that imports FirebaseAuth. Exposes
-        // `AuthTokenProvider` (declared in CoreDomain) so CoreNetworking
-        // depends on that protocol, never on this target or on Firebase
-        // directly.
+        // The only target that imports FirebaseAuth and FirebaseAppCheck.
+        // Exposes `AuthTokenProvider` and `AppCheckTokenProvider` (both
+        // declared in CoreDomain) so CoreNetworking depends on those
+        // protocols, never on this target or on Firebase directly.
         //
         // Source: architecture/ios-application-design.md, section
         // "21. Dependency Rules" ("Firebase ... types remain inside adapters
@@ -91,6 +92,7 @@ let package = Package(
                 "CoreDomain",
                 "CoreObservability",
                 .product(name: "FirebaseAuth", package: "firebase-ios-sdk"),
+                .product(name: "FirebaseAppCheck", package: "firebase-ios-sdk"),
             ]
         ),
 

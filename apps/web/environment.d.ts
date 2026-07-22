@@ -31,5 +31,25 @@ declare namespace NodeJS {
     readonly NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?: string;
     readonly NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID?: string;
     readonly NEXT_PUBLIC_FIREBASE_APP_ID?: string;
+
+    /**
+     * App Check reCAPTCHA Enterprise site key. A reCAPTCHA site key is a
+     * public per-site identifier meant to ship in the client bundle — not a
+     * secret, the same reasoning as the Firebase values above.
+     *
+     * Source: architecture/identity-and-authorization.md, section
+     * "12. App Check".
+     */
+    readonly NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY?: string;
+
+    /**
+     * Set to `"true"` to point the Firebase client SDK at the local Auth
+     * emulator instead of real Firebase. Read once, at first use, by
+     * `core/auth/firebase-app.ts#getFirebaseAuth`.
+     *
+     * Only the Playwright E2E harness sets this — see `apps/web/e2e/run-e2e.sh`
+     * — never a deployed environment.
+     */
+    readonly NEXT_PUBLIC_USE_FIREBASE_EMULATOR?: string;
   }
 }

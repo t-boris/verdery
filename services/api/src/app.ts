@@ -39,6 +39,8 @@ import {
   ServiceHealth,
 } from './modules/service-health/public.js';
 import { KyselyAuditLogger } from './platform/audit/kysely-audit-logger.js';
+import { registerAppCheck } from './platform/app-check/app-check-plugin.js';
+import type { AppCheckVerifier } from './platform/app-check/app-check-verifier.js';
 import { registerAuthentication } from './platform/authentication/authentication-plugin.js';
 import { registerSessionRoutes } from './platform/authentication/transport/session-routes.js';
 import type { TokenVerifier } from './platform/authentication/token-verifier.js';
@@ -60,6 +62,7 @@ export interface ApplicationDependencies {
   readonly logger: FastifyBaseLogger;
   readonly database: DatabaseGateway;
   readonly tokenVerifier: TokenVerifier;
+  readonly appCheckVerifier: AppCheckVerifier;
   readonly clock: Clock;
 }
 
@@ -74,7 +77,7 @@ const MAX_EVENT_LOOP_DELAY_MS = 1_000;
 export async function buildApplication(
   dependencies: ApplicationDependencies,
 ): Promise<FastifyInstance> {
-  const { configuration, logger, database, tokenVerifier, clock } = dependencies;
+  const { configuration, logger, database, tokenVerifier, appCheckVerifier, clock } = dependencies;
 
   const app = Fastify({
     loggerInstance: logger,
@@ -96,6 +99,15 @@ export async function buildApplication(
         ? false
         : [...configuration.http.allowedOrigins],
     credentials: true,
+    // @fastify/cors defaults to 'GET,HEAD,POST' when `methods` is not given,
+    // which silently blocks every PATCH (rename garden) and DELETE (end
+    // session) request a real cross-origin browser client sends: the
+    // preflight succeeds, but the browser then refuses the actual request
+    // with "Method ... is not allowed by Access-Control-Allow-Methods".
+    // `app.inject()`-based HTTP tests never exercise a browser's CORS
+    // preflight at all, so this went unnoticed until a real browser E2E
+    // sign-out (apps/web/e2e/sign-out.spec.ts) hit it directly.
+    methods: ['GET', 'POST', 'PATCH', 'DELETE'],
   });
 
   await app.register(underPressure, {
@@ -185,8 +197,15 @@ export async function buildApplication(
   // Authenticated: registerAuthentication's onRequest hook and the garden
   // routes share this one encapsulation context, so the hook applies to
   // every route below it and no sibling registration outside this block.
+  // registerAppCheck shares it too, monitor-only: P2-APPCHK-01 depends on
+  // P2-AUTH-01 and its completion evidence concerns these authenticated
+  // routes, not the unauthenticated health or session-login routes.
+  // Registered before registerAuthentication so the classification is
+  // observed for every request that reaches this block, including one
+  // authentication itself goes on to reject.
   await app.register(
     (instance, _options, done) => {
+      registerAppCheck(instance, { appCheckVerifier });
       registerAuthentication(instance, { tokenVerifier, provisionProfile });
       registerGardenRoutes(instance, gardenRoutesDependencies);
       done();

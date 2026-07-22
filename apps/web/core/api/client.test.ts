@@ -1,7 +1,7 @@
 import { SharedErrorCode, type ApiError, type LivenessResult } from '@verdery/api-contracts';
 import { describe, expect, it } from 'vitest';
 
-import { createApiClient, type FetchLike } from './client';
+import { APP_CHECK_HEADER_NAME, createApiClient, type FetchLike } from './client';
 import { CORRELATION_ID_HEADER } from './correlation';
 import { errorMessageKey } from './error-message';
 import { createHealthGateway } from './health-gateway';
@@ -25,6 +25,7 @@ interface RecordedRequest {
 function clientReturning(
   response: Response | (() => Promise<Response>),
   recorded?: RecordedRequest[],
+  getAppCheckToken?: () => Promise<string | null>,
 ) {
   const fetchImplementation: FetchLike = (url, init) => {
     recorded?.push({ url, init });
@@ -35,6 +36,7 @@ function clientReturning(
     origin: ORIGIN,
     fetchImplementation,
     createCorrelationId: () => FIXED_CORRELATION_ID,
+    ...(getAppCheckToken === undefined ? {} : { getAppCheckToken }),
   });
 }
 
@@ -132,6 +134,57 @@ describe('createApiClient', () => {
     const result = await client.request<LivenessResult>({ method: 'GET', path: '/health/live' });
 
     expect(JSON.stringify(result)).not.toContain('10.0.0.4');
+  });
+
+  it('attaches the App Check header when a token is available', async () => {
+    const recorded: RecordedRequest[] = [];
+    const client = clientReturning(jsonResponse(LIVENESS, 200), recorded, () =>
+      Promise.resolve('app-check-token'),
+    );
+
+    await client.request<LivenessResult>({ method: 'GET', path: '/health/live' });
+
+    expect((recorded[0]?.init.headers as Record<string, string>)[APP_CHECK_HEADER_NAME]).toBe(
+      'app-check-token',
+    );
+  });
+
+  it('omits the App Check header when the resolved token is null', async () => {
+    const recorded: RecordedRequest[] = [];
+    const client = clientReturning(jsonResponse(LIVENESS, 200), recorded, () =>
+      Promise.resolve(null),
+    );
+
+    await client.request<LivenessResult>({ method: 'GET', path: '/health/live' });
+
+    expect(recorded[0]?.init.headers as Record<string, string>).not.toHaveProperty(
+      APP_CHECK_HEADER_NAME,
+    );
+  });
+
+  it('omits the App Check header when no getAppCheckToken is configured', async () => {
+    const recorded: RecordedRequest[] = [];
+    const client = clientReturning(jsonResponse(LIVENESS, 200), recorded);
+
+    await client.request<LivenessResult>({ method: 'GET', path: '/health/live' });
+
+    expect(recorded[0]?.init.headers as Record<string, string>).not.toHaveProperty(
+      APP_CHECK_HEADER_NAME,
+    );
+  });
+
+  it('proceeds without the App Check header when getAppCheckToken rejects', async () => {
+    const recorded: RecordedRequest[] = [];
+    const client = clientReturning(jsonResponse(LIVENESS, 200), recorded, () =>
+      Promise.reject(new Error('reCAPTCHA Enterprise unavailable')),
+    );
+
+    const result = await client.request<LivenessResult>({ method: 'GET', path: '/health/live' });
+
+    expect(result.ok).toBe(true);
+    expect(recorded[0]?.init.headers as Record<string, string>).not.toHaveProperty(
+      APP_CHECK_HEADER_NAME,
+    );
   });
 });
 

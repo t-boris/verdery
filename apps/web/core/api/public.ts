@@ -6,7 +6,13 @@
  *
  * Source: architecture/web-application-design.md, section "8. API Access".
  */
-export { createApiClient, type ApiClient, type ApiClientOptions, type FetchLike } from './client';
+export {
+  createApiClient,
+  APP_CHECK_HEADER_NAME,
+  type ApiClient,
+  type ApiClientOptions,
+  type FetchLike,
+} from './client';
 export { createBrowserApiClient, resolveApiOrigin } from './config';
 export { CORRELATION_ID_HEADER, createCorrelationId } from './correlation';
 export { CSRF_HEADER_NAME, csrfHeader } from './csrf';

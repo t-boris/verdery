@@ -14,6 +14,7 @@ struct HTTPTransport: Sendable {
     private let session: URLSession
     private let correlationIdentifiers: any CorrelationIdentifierProvider
     private let authTokenProvider: (any AuthTokenProvider)?
+    private let appCheckTokenProvider: (any AppCheckTokenProvider)?
     private let log: any DiagnosticLog
 
     init(
@@ -21,12 +22,14 @@ struct HTTPTransport: Sendable {
         session: URLSession,
         correlationIdentifiers: any CorrelationIdentifierProvider,
         authTokenProvider: (any AuthTokenProvider)? = nil,
+        appCheckTokenProvider: (any AppCheckTokenProvider)? = nil,
         log: any DiagnosticLog
     ) {
         self.configuration = configuration
         self.session = session
         self.correlationIdentifiers = correlationIdentifiers
         self.authTokenProvider = authTokenProvider
+        self.appCheckTokenProvider = appCheckTokenProvider
         self.log = log
     }
 
@@ -204,6 +207,10 @@ struct HTTPTransport: Sendable {
 
         if let provider = authTokenProvider, let idToken = try await provider.currentIdToken() {
             request.setValue("Bearer \(idToken)", forHTTPHeaderField: "Authorization")
+        }
+
+        if let provider = appCheckTokenProvider, let appCheckToken = try await provider.currentToken() {
+            request.setValue(appCheckToken, forHTTPHeaderField: APIConfiguration.appCheckHeader)
         }
 
         if let body {

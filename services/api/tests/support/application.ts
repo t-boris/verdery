@@ -10,6 +10,7 @@
 
 import type { FastifyInstance } from 'fastify';
 import { buildApplication } from '../../src/app.js';
+import type { AppCheckVerifier } from '../../src/platform/app-check/app-check-verifier.js';
 import type { TokenVerifier } from '../../src/platform/authentication/token-verifier.js';
 import type { ApplicationConfiguration } from '../../src/platform/configuration/configuration-schema.js';
 import type { DatabaseGateway } from '../../src/platform/database/database-gateway.js';
@@ -61,12 +62,20 @@ export function stubTokenVerifier(): TokenVerifier {
   };
 }
 
+/** Classifies every token as `'missing'`. Suites that don't test App Check monitoring need nothing more specific. */
+export function stubAppCheckVerifier(): AppCheckVerifier {
+  return {
+    classify: () => Promise.resolve('missing'),
+  };
+}
+
 export interface TestApplicationOptions {
   readonly ping?: () => Promise<void>;
   /** Captures log records so tests can assert on structured output. */
   readonly onLogRecord?: (record: string) => void;
   readonly database?: DatabaseGateway;
   readonly tokenVerifier?: TokenVerifier;
+  readonly appCheckVerifier?: AppCheckVerifier;
 }
 
 export async function buildTestApplication(
@@ -81,6 +90,7 @@ export async function buildTestApplication(
     logger,
     database: options.database ?? stubDatabase(options.ping ?? (() => Promise.resolve())),
     tokenVerifier: options.tokenVerifier ?? stubTokenVerifier(),
+    appCheckVerifier: options.appCheckVerifier ?? stubAppCheckVerifier(),
     clock: new SystemClock(),
   });
 }

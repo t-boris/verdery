@@ -1,3 +1,5 @@
+import { getAppCheckToken } from '@/core/auth/public';
+
 import { createApiClient, type ApiClient } from './client';
 
 /**
@@ -30,5 +32,9 @@ export function createBrowserApiClient(): ApiClient {
     // do not depend on a browser global.
     // Source: architecture/web-application-design.md, section "20. Dependency Rules".
     fetchImplementation: (input, init) => globalThis.fetch(input, init),
+    // Every caller of `createBrowserApiClient` runs inside a `'use client'`
+    // component, so wiring the real Firebase App Check call here never
+    // reaches server rendering.
+    getAppCheckToken,
   });
 }

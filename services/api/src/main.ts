@@ -10,6 +10,7 @@
 import { applicationDefault, initializeApp } from 'firebase-admin/app';
 import { buildApplication } from './app.js';
 import { registerGracefulShutdown } from './bootstrap/graceful-shutdown.js';
+import { FirebaseAppCheckVerifier } from './platform/app-check/firebase-app-check-verifier.js';
 import { FirebaseTokenVerifier } from './platform/authentication/firebase-token-verifier.js';
 import {
   ConfigurationError,
@@ -66,9 +67,17 @@ async function main(): Promise<void> {
     projectId: configuration.firebaseProjectId,
   });
   const tokenVerifier = new FirebaseTokenVerifier(firebaseApp);
+  const appCheckVerifier = new FirebaseAppCheckVerifier(firebaseApp);
   const clock = new SystemClock();
 
-  const app = await buildApplication({ configuration, logger, database, tokenVerifier, clock });
+  const app = await buildApplication({
+    configuration,
+    logger,
+    database,
+    tokenVerifier,
+    appCheckVerifier,
+    clock,
+  });
 
   registerGracefulShutdown({
     drain: async () => {

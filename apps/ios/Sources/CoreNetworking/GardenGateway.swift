@@ -49,6 +49,7 @@ public struct URLSessionGardenGateway: GardenGateway {
         correlationIdentifiers: any CorrelationIdentifierProvider =
             RandomCorrelationIdentifierProvider(),
         authTokenProvider: any AuthTokenProvider,
+        appCheckTokenProvider: (any AppCheckTokenProvider)? = nil,
         log: any DiagnosticLog = NoOperationDiagnosticLog()
     ) {
         self.transport = HTTPTransport(
@@ -56,6 +57,7 @@ public struct URLSessionGardenGateway: GardenGateway {
             session: session,
             correlationIdentifiers: correlationIdentifiers,
             authTokenProvider: authTokenProvider,
+            appCheckTokenProvider: appCheckTokenProvider,
             log: log
         )
     }
