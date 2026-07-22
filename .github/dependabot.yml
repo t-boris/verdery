@@ -30,3 +30,15 @@ updates:
         patterns: ['*']
     commit-message:
       prefix: deps
+    ignore:
+      # ADR-0009 pins TypeScript to 5.9.x deliberately: typescript-eslint
+      # declares a peer range of ">=4.8.4 <6.1.0" and cannot lint a TypeScript 7
+      # project, and openapi-typescript@7.13.0 crashes outright against the
+      # TypeScript 7 compiler API (`ts.factory` is undefined at the call site
+      # openapi-typescript uses). A grouped update silently carries typescript
+      # past 6.x for every package at once and breaks both.
+      #
+      # Remove this ignore rule only together with revisiting ADR-0009, once
+      # typescript-eslint and openapi-typescript support the newer major.
+      - dependency-name: 'typescript'
+        update-types: ['version-update:semver-major']

@@ -66,13 +66,13 @@ All Phase 1 work packages in scope are implemented and verified.
 
 ### Verified evidence
 
-| Check | Result |
-|---|---|
-| `pnpm check:all` | passes: format, lint, typecheck, 600-line rule, 163 tests |
-| `swift build && swift test` (apps/ios) | passes: 49 tests |
-| `pnpm --filter @verdery/web build` | passes: production build, 3 routes |
-| Migration tests against `postgis/postgis:17-3.5` | passes: 7 tests, real PostgreSQL 17 and PostGIS 3.5 |
-| Cross-runtime geometry equivalence | Swift and TypeScript agree on all shared fixtures |
+| Check                                            | Result                                                    |
+| ------------------------------------------------ | --------------------------------------------------------- |
+| `pnpm check:all`                                 | passes: format, lint, typecheck, 600-line rule, 163 tests |
+| `swift build && swift test` (apps/ios)           | passes: 49 tests                                          |
+| `pnpm --filter @verdery/web build`               | passes: production build, 3 routes                        |
+| Migration tests against `postgis/postgis:17-3.5` | passes: 7 tests, real PostgreSQL 17 and PostGIS 3.5       |
+| Cross-runtime geometry equivalence               | Swift and TypeScript agree on all shared fixtures         |
 
 ### Defects found and fixed during review
 

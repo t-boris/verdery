@@ -7,3 +7,8 @@ generated
 pnpm-lock.yaml
 apps/ios
 docs/.dde
+
+# Next.js regenerates this file verbatim on every `next dev`/`next build`, in
+# its own style, with the comment "This file should not be edited". Reformatting
+# it would just be undone by the next build and is not ours to own.
+apps/web/next-env.d.ts
