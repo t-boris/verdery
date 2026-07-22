@@ -1,4 +1,4 @@
-import { GardenErrorCode, SharedErrorCode } from '@verdery/api-contracts';
+import { GardenErrorCode, MapErrorCode, SharedErrorCode } from '@verdery/api-contracts';
 
 import type { MessageKey } from '@/shared/localization/public';
 
@@ -28,6 +28,9 @@ const MESSAGE_KEYS: Readonly<Record<string, MessageKey>> = {
   [GardenErrorCode.NotFound]: 'error.gardenNotFound',
   [GardenErrorCode.StaleRevision]: 'error.gardenStaleRevision',
   [GardenErrorCode.LifecycleConflict]: 'error.gardenLifecycleConflict',
+  [MapErrorCode.NotFound]: 'error.mapObjectNotFound',
+  [MapErrorCode.StaleRevision]: 'error.mapObjectStaleRevision',
+  [MapErrorCode.LifecycleConflict]: 'error.mapObjectLifecycleConflict',
 };
 
 /** Returns the message identifier for an error code, or the generic one. */

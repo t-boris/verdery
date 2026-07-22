@@ -1,0 +1,150 @@
+'use client';
+
+import type { MapCommandPayload, ObjectSnapshot, Position } from '@verdery/geometry-contracts';
+import { createContext, useContext, useMemo, useReducer, type ReactNode } from 'react';
+
+import type { MessageArguments, MessageKey } from '@/shared/localization/public';
+
+import type { MapCamera, ToolMode } from './types';
+import { defaultCamera } from './viewport';
+
+/**
+ * Client-side editor session state: selection, active tool, viewport camera,
+ * and the undo/redo stacks — everything `architecture/map-rendering-and-editing.md`
+ * section "13. Web Rendering" calls "a dedicated client-side store for
+ * selection and transient state", distinct from the server state TanStack
+ * Query owns in `queries.ts`.
+ *
+ * Undo and redo are the same operation run against opposite stacks — see
+ * `use-map-editor-actions.ts`'s `stepHistory` for why one history-entry shape
+ * suffices for both directions.
+ */
+export interface HistoryEntry {
+  readonly command: MapCommandPayload;
+  /** Only read back by `deriveInverseCommand` for `changeProperties`; `null` otherwise — see `use-map-editor-actions.ts`. */
+  readonly priorSnapshot: ObjectSnapshot | null;
+  readonly revisionAfterCommand: number;
+  readonly objectId: string;
+}
+
+export interface StatusMessage {
+  readonly key: MessageKey;
+  readonly args?: MessageArguments;
+  readonly tone: 'status' | 'alert';
+}
+
+export interface EditorState {
+  readonly selectedObjectId: string | null;
+  readonly tool: ToolMode;
+  readonly camera: MapCamera;
+  readonly cameraInitialized: boolean;
+  /** In-progress polygon/line vertices while a `create:*` tool is drawing. Cleared on every tool change. */
+  readonly draftPoints: readonly Position[];
+  readonly undoStack: readonly HistoryEntry[];
+  readonly redoStack: readonly HistoryEntry[];
+  readonly status: StatusMessage | null;
+}
+
+type Action =
+  | { readonly type: 'select'; readonly objectId: string | null }
+  | { readonly type: 'setTool'; readonly tool: ToolMode }
+  | { readonly type: 'setCamera'; readonly camera: MapCamera }
+  | { readonly type: 'initCamera'; readonly camera: MapCamera }
+  | { readonly type: 'setDraftPoints'; readonly points: readonly Position[] }
+  | { readonly type: 'pushForward'; readonly entry: HistoryEntry }
+  | { readonly type: 'undoApplied'; readonly redoEntry: HistoryEntry }
+  | { readonly type: 'redoApplied'; readonly undoEntry: HistoryEntry }
+  | { readonly type: 'setStatus'; readonly status: StatusMessage | null };
+
+export const initialEditorState: EditorState = {
+  selectedObjectId: null,
+  tool: 'select',
+  camera: defaultCamera(),
+  cameraInitialized: false,
+  draftPoints: [],
+  undoStack: [],
+  redoStack: [],
+  status: null,
+};
+
+/** Exported for `editor-store.test.ts` — the reducer is pure and needs no provider to test. */
+export function editorReducer(state: EditorState, action: Action): EditorState {
+  switch (action.type) {
+    case 'select':
+      return { ...state, selectedObjectId: action.objectId };
+    // A tool change always abandons whatever draft was in progress — there is
+    // no "resume drawing after switching tools" concept.
+    case 'setTool':
+      return { ...state, tool: action.tool, draftPoints: [] };
+    case 'setCamera':
+      return { ...state, camera: action.camera };
+    case 'initCamera':
+      return state.cameraInitialized
+        ? state
+        : { ...state, camera: action.camera, cameraInitialized: true };
+    case 'setDraftPoints':
+      return { ...state, draftPoints: action.points };
+    // A new forward command invalidates whatever could previously be redone.
+    case 'pushForward':
+      return { ...state, undoStack: [...state.undoStack, action.entry], redoStack: [] };
+    case 'undoApplied':
+      return {
+        ...state,
+        undoStack: state.undoStack.slice(0, -1),
+        redoStack: [...state.redoStack, action.redoEntry],
+      };
+    case 'redoApplied':
+      return {
+        ...state,
+        redoStack: state.redoStack.slice(0, -1),
+        undoStack: [...state.undoStack, action.undoEntry],
+      };
+    case 'setStatus':
+      return { ...state, status: action.status };
+  }
+}
+
+export interface MapEditorStore {
+  readonly state: EditorState;
+  readonly select: (objectId: string | null) => void;
+  readonly setTool: (tool: ToolMode) => void;
+  readonly setCamera: (camera: MapCamera) => void;
+  readonly initCamera: (camera: MapCamera) => void;
+  readonly setDraftPoints: (points: readonly Position[]) => void;
+  readonly pushForward: (entry: HistoryEntry) => void;
+  readonly applyUndoStep: (redoEntry: HistoryEntry) => void;
+  readonly applyRedoStep: (undoEntry: HistoryEntry) => void;
+  readonly setStatus: (status: StatusMessage | null) => void;
+}
+
+const MapEditorContext = createContext<MapEditorStore | null>(null);
+
+export function MapEditorStoreProvider({ children }: { readonly children: ReactNode }) {
+  const [state, dispatch] = useReducer(editorReducer, initialEditorState);
+
+  const store = useMemo<MapEditorStore>(
+    () => ({
+      state,
+      select: (objectId) => dispatch({ type: 'select', objectId }),
+      setTool: (tool) => dispatch({ type: 'setTool', tool }),
+      setCamera: (camera) => dispatch({ type: 'setCamera', camera }),
+      initCamera: (camera) => dispatch({ type: 'initCamera', camera }),
+      setDraftPoints: (points) => dispatch({ type: 'setDraftPoints', points }),
+      pushForward: (entry) => dispatch({ type: 'pushForward', entry }),
+      applyUndoStep: (redoEntry) => dispatch({ type: 'undoApplied', redoEntry }),
+      applyRedoStep: (undoEntry) => dispatch({ type: 'redoApplied', undoEntry }),
+      setStatus: (status) => dispatch({ type: 'setStatus', status }),
+    }),
+    [state],
+  );
+
+  return <MapEditorContext value={store}>{children}</MapEditorContext>;
+}
+
+export function useMapEditorStore(): MapEditorStore {
+  const store = useContext(MapEditorContext);
+  if (store === null) {
+    throw new Error('useMapEditorStore must be used within a MapEditorStoreProvider.');
+  }
+  return store;
+}

@@ -1,0 +1,40 @@
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  height: calc(100vh - 10rem);
+  min-height: 32rem;
+}
+
+.body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  gap: var(--space-4);
+  flex: 1;
+  min-height: 0;
+}
+
+@media (max-width: 55rem) {
+  .body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .editor {
+    height: auto;
+  }
+}
+
+.canvasWrapper {
+  position: relative;
+  min-height: 24rem;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-height: 0;
+  overflow-y: auto;
+}

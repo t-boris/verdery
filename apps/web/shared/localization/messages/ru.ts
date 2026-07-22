@@ -55,6 +55,10 @@ export const russianMessages: MessageCatalogue = {
   'error.gardenStaleRevision':
     'Сад изменился до того, как ваша правка была сохранена. Обновите страницу и попробуйте снова.',
   'error.gardenLifecycleConflict': 'Это действие неприменимо к текущему состоянию сада.',
+  'error.mapObjectNotFound': 'Этот объект не найден.',
+  'error.mapObjectStaleRevision':
+    'Объект изменился до того, как ваша правка была сохранена. Обновите страницу и попробуйте снова.',
+  'error.mapObjectLifecycleConflict': 'Это действие неприменимо к текущему состоянию объекта.',
   'error.unknown': 'Запрос не выполнен по нераспознанной причине.',
 
   'shell.signOut': 'Выйти',
@@ -97,4 +101,102 @@ export const russianMessages: MessageCatalogue = {
   'gardens.requestDeletion': 'Удалить сад',
   'gardens.requestDeletionConfirm':
     'Запросить удаление этого сада? Начнётся процесс удаления с периодом восстановления.',
+
+  'map.page.title': 'Карта сада',
+  'map.page.backToSettings': 'Настройки сада',
+  'map.page.openMap': 'Открыть карту',
+  'map.loading': 'Загрузка карты сада.',
+
+  'map.toolbar.groupLabel': 'Инструменты редактирования',
+  'map.toolbar.select': 'Выбор',
+  'map.toolbar.createLot': 'Нарисовать границу участка',
+  'map.toolbar.createStructure': 'Нарисовать строение',
+  'map.toolbar.createFence': 'Нарисовать забор',
+  'map.toolbar.createTree': 'Поставить дерево',
+  'map.toolbar.createPlant': 'Поставить растение',
+  'map.toolbar.finish': 'Завершить фигуру',
+  'map.toolbar.cancel': 'Отменить рисование',
+  'map.toolbar.undo': 'Отменить',
+  'map.toolbar.redo': 'Повторить',
+
+  'map.canvas.ariaLabel': 'Холст карты сада',
+  'map.canvas.hintPoint': 'Нажмите на карту, чтобы разместить новый объект: {category}.',
+  'map.canvas.hintPath':
+    'Нажимайте, чтобы добавлять точки. Дважды щёлкните, нажмите Enter или выберите «Завершить фигуру», чтобы закончить. Esc — отменить.',
+  'map.canvas.draftTooSmall':
+    'Добавьте больше точек или расположите их дальше друг от друга, прежде чем завершать фигуру.',
+
+  'map.objectList.title': 'Объекты',
+  'map.objectList.empty':
+    'В этом саду пока нет объектов. Добавьте первый через панель инструментов.',
+  'map.objectList.untitled': 'Без названия ({category})',
+  'map.objectList.delete': 'Удалить',
+  'map.objectList.deleteAriaLabel': 'Удалить {label}',
+  'map.objectList.selectAriaLabel': 'Выбрать {label}, {category}',
+
+  'map.properties.title': 'Свойства',
+  'map.properties.emptyState':
+    'Выберите объект на карте или в списке, чтобы увидеть и изменить его свойства.',
+  'map.properties.label': 'Название',
+  'map.properties.category': 'Категория',
+  'map.properties.revision': 'Версия {revision}',
+  'map.properties.save': 'Сохранить изменения',
+  'map.properties.saved': 'Изменения сохранены.',
+  'map.properties.delete': 'Удалить объект',
+  'map.properties.deleteConfirm': 'Удалить этот объект? Это можно отменить на панели инструментов.',
+  'map.properties.deletedStatus':
+    '{label} удалён. Выберите «Отменить» на панели инструментов, чтобы вернуть его.',
+  'map.properties.detailsNotEditable':
+    'Детальные поля для этой категории пока не редактируются — здесь можно изменить только название.',
+  'map.properties.structureKind': 'Тип строения',
+  'map.properties.fenceKind': 'Тип забора',
+  'map.properties.heightMetres': 'Высота (м)',
+  'map.properties.commonName': 'Название',
+  'map.properties.estimatedHeightMetres': 'Примерная высота (м)',
+  'map.properties.estimatedSpreadMetres': 'Примерный диаметр кроны (м)',
+  'map.properties.quantity': 'Количество',
+  'map.properties.spacingMetres': 'Расстояние между растениями (м)',
+  'map.properties.assignedToObjectId': 'ID грядки или зоны',
+
+  'map.enum.structureKind.house': 'Дом',
+  'map.enum.structureKind.shed': 'Сарай',
+  'map.enum.structureKind.greenhouse': 'Теплица',
+  'map.enum.structureKind.deck': 'Терраса',
+  'map.enum.structureKind.garage': 'Гараж',
+  'map.enum.structureKind.other': 'Другое',
+  'map.enum.fenceKind.wood': 'Дерево',
+  'map.enum.fenceKind.chainLink': 'Сетка-рабица',
+  'map.enum.fenceKind.vinyl': 'Винил',
+  'map.enum.fenceKind.metal': 'Металл',
+  'map.enum.fenceKind.hedge': 'Живая изгородь',
+  'map.enum.fenceKind.other': 'Другое',
+
+  'map.category.lot': 'Граница участка',
+  'map.category.structure': 'Строение',
+  'map.category.fence': 'Забор',
+  'map.category.gate': 'Калитка',
+  'map.category.path': 'Дорожка',
+  'map.category.zone': 'Зона',
+  'map.category.bed': 'Грядка',
+  'map.category.waterFeature': 'Водный объект',
+  'map.category.utilityExclusion': 'Зона исключения коммуникаций',
+  'map.category.tree': 'Дерево',
+  'map.category.plant': 'Растение',
+  'map.category.annotation': 'Аннотация',
+  'map.category.importedBackground': 'Импортированная подложка',
+
+  'map.status.created': '{label} создан.',
+  'map.status.moved': '{label} перемещён.',
+  'map.status.moveFailed':
+    'Не удалось сохранить перемещение. Объект возвращён на последнюю сохранённую позицию.',
+  'map.status.commandFailed': 'Не удалось сохранить изменение.',
+  'map.status.undoApplied': 'Отмена применена.',
+  'map.status.redoApplied': 'Повтор применён.',
+  'map.status.undoUnavailable':
+    'В этой версии это изменение нельзя отменить автоматически. Причина указана в истории.',
+  'map.status.nothingToUndo': 'Нечего отменять.',
+  'map.status.nothingToRedo': 'Нечего повторять.',
+
+  'map.history.title': 'История',
+  'map.history.notUndoable': 'нельзя отменить в этой версии',
 };

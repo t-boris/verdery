@@ -62,6 +62,11 @@ export const englishMessages = {
   'error.gardenStaleRevision':
     'This garden changed before your edit was saved. Reload and try again.',
   'error.gardenLifecycleConflict': 'This action does not apply to the garden in its current state.',
+  'error.mapObjectNotFound': 'This object could not be found.',
+  'error.mapObjectStaleRevision':
+    'This object changed before your edit was saved. Reload and try again.',
+  'error.mapObjectLifecycleConflict':
+    'This action does not apply to the object in its current state.',
   'error.unknown': 'The request failed for an unrecognized reason.',
 
   'shell.signOut': 'Sign out',
@@ -104,4 +109,100 @@ export const englishMessages = {
   'gardens.requestDeletion': 'Delete garden',
   'gardens.requestDeletionConfirm':
     'Request deletion of this garden? This starts a recovery-window deletion process.',
+
+  'map.page.title': 'Garden map',
+  'map.page.backToSettings': 'Garden settings',
+  'map.page.openMap': 'Open map',
+  'map.loading': 'Loading the garden map.',
+
+  'map.toolbar.groupLabel': 'Editing tools',
+  'map.toolbar.select': 'Select',
+  'map.toolbar.createLot': 'Draw lot boundary',
+  'map.toolbar.createStructure': 'Draw structure',
+  'map.toolbar.createFence': 'Draw fence',
+  'map.toolbar.createTree': 'Place tree',
+  'map.toolbar.createPlant': 'Place plant',
+  'map.toolbar.finish': 'Finish shape',
+  'map.toolbar.cancel': 'Cancel drawing',
+  'map.toolbar.undo': 'Undo',
+  'map.toolbar.redo': 'Redo',
+
+  'map.canvas.ariaLabel': 'Garden map canvas',
+  'map.canvas.hintPoint': 'Click the map to place the new {category}.',
+  'map.canvas.hintPath':
+    'Click to add points. Double-click, press Enter, or choose "Finish shape" to complete it. Press Escape to cancel.',
+  'map.canvas.draftTooSmall':
+    'Add more points, or space them further apart, before finishing this shape.',
+
+  'map.objectList.title': 'Objects',
+  'map.objectList.empty': 'This garden has no objects yet. Use the toolbar to add one.',
+  'map.objectList.untitled': 'Untitled {category}',
+  'map.objectList.delete': 'Delete',
+  'map.objectList.deleteAriaLabel': 'Delete {label}',
+  'map.objectList.selectAriaLabel': 'Select {label}, {category}',
+
+  'map.properties.title': 'Properties',
+  'map.properties.emptyState':
+    'Select an object on the map or in the list to see and edit its properties.',
+  'map.properties.label': 'Label',
+  'map.properties.category': 'Category',
+  'map.properties.revision': 'Revision {revision}',
+  'map.properties.save': 'Save changes',
+  'map.properties.saved': 'Changes saved.',
+  'map.properties.delete': 'Delete object',
+  'map.properties.deleteConfirm': 'Delete this object? You can undo this from the toolbar.',
+  'map.properties.deletedStatus': '{label} deleted. Choose Undo in the toolbar to bring it back.',
+  'map.properties.detailsNotEditable':
+    'Detailed fields for this category are not editable in this pass — only the label can be changed here.',
+  'map.properties.structureKind': 'Structure type',
+  'map.properties.fenceKind': 'Fence type',
+  'map.properties.heightMetres': 'Height (metres)',
+  'map.properties.commonName': 'Common name',
+  'map.properties.estimatedHeightMetres': 'Estimated height (metres)',
+  'map.properties.estimatedSpreadMetres': 'Estimated spread (metres)',
+  'map.properties.quantity': 'Quantity',
+  'map.properties.spacingMetres': 'Spacing (metres)',
+  'map.properties.assignedToObjectId': 'Assigned bed or zone ID',
+
+  'map.enum.structureKind.house': 'House',
+  'map.enum.structureKind.shed': 'Shed',
+  'map.enum.structureKind.greenhouse': 'Greenhouse',
+  'map.enum.structureKind.deck': 'Deck',
+  'map.enum.structureKind.garage': 'Garage',
+  'map.enum.structureKind.other': 'Other',
+  'map.enum.fenceKind.wood': 'Wood',
+  'map.enum.fenceKind.chainLink': 'Chain link',
+  'map.enum.fenceKind.vinyl': 'Vinyl',
+  'map.enum.fenceKind.metal': 'Metal',
+  'map.enum.fenceKind.hedge': 'Hedge',
+  'map.enum.fenceKind.other': 'Other',
+
+  'map.category.lot': 'Lot boundary',
+  'map.category.structure': 'Structure',
+  'map.category.fence': 'Fence',
+  'map.category.gate': 'Gate',
+  'map.category.path': 'Path',
+  'map.category.zone': 'Zone',
+  'map.category.bed': 'Bed',
+  'map.category.waterFeature': 'Water feature',
+  'map.category.utilityExclusion': 'Utility exclusion',
+  'map.category.tree': 'Tree',
+  'map.category.plant': 'Plant',
+  'map.category.annotation': 'Annotation',
+  'map.category.importedBackground': 'Imported background',
+
+  'map.status.created': '{label} created.',
+  'map.status.moved': '{label} moved.',
+  'map.status.moveFailed':
+    'The move could not be saved. The object was returned to its last saved position.',
+  'map.status.commandFailed': 'The change could not be saved.',
+  'map.status.undoApplied': 'Undo applied.',
+  'map.status.redoApplied': 'Redo applied.',
+  'map.status.undoUnavailable':
+    'This change cannot be undone automatically in this pass. See the history entry for why.',
+  'map.status.nothingToUndo': 'Nothing to undo.',
+  'map.status.nothingToRedo': 'Nothing to redo.',
+
+  'map.history.title': 'History',
+  'map.history.notUndoable': 'not undoable in this pass',
 } as const;

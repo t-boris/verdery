@@ -1,0 +1,20 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.back {
+  color: var(--color-text-muted);
+  align-self: flex-start;
+}
+
+.title {
+  margin: 0;
+}

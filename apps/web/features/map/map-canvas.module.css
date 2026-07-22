@@ -1,0 +1,33 @@
+.canvasArea {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.hint {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--color-accent-quiet);
+  color: var(--color-text);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+}
+
+.stageContainer {
+  position: relative;
+  flex: 1;
+  min-height: 320px;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  overflow: hidden;
+}
+
+.stageContainer:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}

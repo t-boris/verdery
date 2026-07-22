@@ -20,6 +20,16 @@ export { errorMessageKey } from './error-message';
 export { createGardenGateway, type GardenGateway } from './garden-gateway';
 export { createHealthGateway, type HealthGateway } from './health-gateway';
 export { generateIdempotencyKey } from './idempotency-key';
+export { createMapGateway, type MapGateway, type MapViewportBounds } from './map-gateway';
+export { fromWireCategoryDetails } from './map-wire-types';
+export type {
+  WireCategoryDetails,
+  WireGardenMapDocument,
+  WireGardenObject,
+  WireGeoreference,
+  WireMapCommandResult,
+  WireValidationIssue,
+} from './map-wire-types';
 export { ApiQueryProvider } from './query-provider';
 export { createSessionGateway, type SessionGateway } from './session-gateway';
 export {

@@ -14,5 +14,11 @@ export {
   negotiateLocale,
   type Locale,
 } from './locales';
-export { createTranslator, getCatalogue, formatMessage, type Translate } from './translator';
+export {
+  createTranslator,
+  getCatalogue,
+  formatMessage,
+  type MessageArguments,
+  type Translate,
+} from './translator';
 export { LocalizationProvider, useLocalization, type Localization } from './localization-provider';

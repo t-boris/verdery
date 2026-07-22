@@ -18,10 +18,13 @@
     "@verdery/api-contracts": "workspace:*",
     "@verdery/geometry-contracts": "workspace:*",
     "firebase": "^12.16.0",
+    "konva": "^10.3.0",
+    "maplibre-gl": "^6.0.0",
     "next": "^16.2.11",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-hook-form": "^7.82.0",
+    "react-konva": "^19.2.5",
     "uuid": "^14.0.1",
     "zod": "^4.4.3"
   },
