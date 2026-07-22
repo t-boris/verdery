@@ -5,6 +5,7 @@ import CoreObservability
 import FeatureAuthentication
 import FeatureGardens
 import FeatureHealth
+import FeatureMap
 import Foundation
 
 /// The single place where adapters are constructed and injected.
@@ -22,6 +23,7 @@ public final class AppCompositionRoot {
     private let strings: LocalizedStrings
     private let healthGateway: any HealthGateway
     private let gardenGateway: any GardenGateway
+    private let mapGateway: any MapGateway
     private let authenticationGateway: any AuthenticationGateway
     private let log: any DiagnosticLog
 
@@ -49,6 +51,15 @@ public final class AppCompositionRoot {
             log: log
         )
         self.gardenGateway = URLSessionGardenGateway(
+            configuration: configuration,
+            session: session,
+            authTokenProvider: tokenProvider,
+            appCheckTokenProvider: appCheckTokenProvider,
+            log: log
+        )
+        // Same scope as the garden gateway: the map editor authenticates and
+        // classifies traffic exactly the way garden lifecycle operations do.
+        self.mapGateway = URLSessionMapGateway(
             configuration: configuration,
             session: session,
             authTokenProvider: tokenProvider,
@@ -90,6 +101,15 @@ public final class AppCompositionRoot {
             renameGarden: RenameGarden(gateway: gardenGateway, localStore: store),
             archiveGarden: ArchiveGarden(gateway: gardenGateway, localStore: store),
             requestGardenDeletion: RequestGardenDeletion(gateway: gardenGateway, localStore: store),
+            strings: strings
+        )
+    }
+
+    public func makeMapEditorViewModel(gardenId: String) -> MapEditorViewModel {
+        MapEditorViewModel(
+            gardenId: gardenId,
+            loadGardenMap: LoadGardenMap(gateway: mapGateway),
+            submitMapCommand: SubmitMapCommand(gateway: mapGateway),
             strings: strings
         )
     }

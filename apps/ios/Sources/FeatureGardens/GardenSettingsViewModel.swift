@@ -19,7 +19,12 @@ public final class GardenSettingsViewModel {
     /// Set once deletion has been requested, so the view can navigate back.
     public private(set) var didRequestDeletion = false
 
-    private let gardenId: String
+    /// Exposed so `GardenSettingsView` can build a `GardenMapEditorRoute`
+    /// without this view model growing a second responsibility of its own —
+    /// the map editor is a whole separate feature, reached through the
+    /// application router (see `AppComposition/RootScene.swift`), not
+    /// something this view model constructs or navigates to itself.
+    public let gardenId: String
     private let listGardens: ListGardens
     private let getGarden: GetGarden
     private let renameGarden: RenameGarden
@@ -52,6 +57,7 @@ public final class GardenSettingsViewModel {
     public var renameSubmitTitle: String { strings(.gardensRenameSubmit) }
     public var archiveTitle: String { strings(.gardensArchive) }
     public var requestDeletionTitle: String { strings(.gardensRequestDeletion) }
+    public var openMapEditorTitle: String { strings(.gardensOpenMapEditor) }
 
     public func load() async {
         var hadCachedResult = false

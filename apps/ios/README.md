@@ -64,6 +64,7 @@ platform components installed first — a system-level fix, not a project one.
 | `FeatureHealth`           | Feature template: use case, view state, view model, SwiftUI view            |
 | `FeatureAuthentication`   | Sign-in screen: Google popup and email magic link                           |
 | `FeatureGardens`          | Garden list, create, and per-garden settings; the per-profile GRDB store    |
+| `FeatureMap`              | The map editor: `Canvas` rendering, selection, gestures, commands, properties, undo/redo, accessible object list, optional MapKit backdrop |
 | `AppComposition`          | The single composition root, typed routes, and the root scene               |
 | `VerderyApp`              | Entry point; configures Firebase, builds the composition root               |
 
@@ -170,3 +171,48 @@ device or the Simulator — only `swift build`/`swift test` verify this integrat
 Source: `docs/architecture/ios-application-design.md`, sections "9. Networking", "17. Security and
 Privacy", "21. Dependency Rules"; `docs/architecture/identity-and-authorization.md`, section
 "12. App Check".
+
+## Map editor (Phase 3)
+
+`FeatureMap` renders the canonical garden map on a SwiftUI `Canvas`, with an optional MapKit backdrop
+behind it, and a fully accessible `List` of the same objects as a genuine VoiceOver-navigable
+alternative to tapping shapes. `CoreNetworking/MapGateway.swift` speaks
+`GET /gardens/{gardenId}/map` and `POST /gardens/{gardenId}/map/commands` directly — this app hand-writes
+its networking rather than consuming a generated client, the same as `GardenGateway`.
+
+**Categories wired up (create, move, delete/restore, edit label and details)**: `lot`, `structure`,
+`fence`, `tree`, `plant` — one polygon, one line, and one point category beyond the minimum, enough to
+prove the create → select → drag → edit → delete pattern generalizes across every geometry shape the
+canvas draws. Rendering itself is category-agnostic (`MapObjectRenderKind` derives fill/stroke/marker
+from the geometry's own GeoJSON type, not from a category switch), so all 13 categories render
+correctly the moment they appear in a document, including the 8 with no create-toolbar entry yet.
+
+**Commands wired up**: `createObject`, `moveObject`, `deleteObject`, `restoreObject`, `changeProperties`,
+plus their inverses via `CoreDomain.deriveInverseCommand` for undo/redo. **Explicitly out of scope this
+pass** (see `MapGestureCommands.swift` and `MapObjectPropertyView.swift` for the TODOs): `editVertex`
+(freehand vertex-level reshaping), `splitLinework`/`joinLinework`, multi-select, snapping visualization,
+`assignPlant`, `upsertCalibration`, `decideProposal`, and `duplicateObject`.
+
+**Local caching**: none — unlike `FeatureGardens`, `FeatureMap` has no GRDB-backed read model. Nearly
+every map command carries an `expectedRevision`; a stale cached revision would turn every command into
+a coin flip on a `409`/`412` instead of the deliberate optimistic-concurrency check the backend
+performs, and the editor cannot let a user start moving shapes against geometry it cannot vouch is
+current. See `MapEditorViewModel.swift`'s doc comment for the full reasoning.
+
+**Testability**: the work package asks for gesture and rendering *logic* to be independently testable
+even though a simulator cannot run here (see "Known environment gap" above) — `MapViewportTransform`
+(the local-metres ↔ screen-points conversion), `MapHitTesting` (point/line/polygon hit tests),
+`MapGestureCommands` (classifying a completed drag, building create/move commands), and `MapUndoStack`
+(undo/redo as inverse commands) are all plain value types with no `SwiftUI` dependency, covered by
+`Tests/FeatureMapTests`. `MapCanvasView`, `MapEditorView`, and the other SwiftUI views stay thin and are
+not unit tested, by design.
+
+**Open question**: `CoreNetworking/MapTransport.swift` documents a pre-existing inconsistency between
+`packages/api-contracts/openapi.yaml` (which declares `StructureDetails`/`FenceDetails`/etc. as *flat*
+objects) and `packages/geometry-contracts/src/object-category.ts` plus the already-committed
+`CoreDomain.GardenObjectDetails` Swift port (both *nested*, `{"category": ..., "details": {...}}`).
+This gateway follows the latter, per this task's instruction to reuse the already-tested domain model
+directly. Reconciling the OpenAPI document is outside this native client work package's scope.
+
+Source: `docs/implementation-plan.md`, work packages `P3-IOS-01`, `P3-IOS-02`;
+`docs/architecture/map-rendering-and-editing.md`.

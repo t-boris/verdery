@@ -39,6 +39,7 @@ let package = Package(
         .library(name: "FeatureHealth", targets: ["FeatureHealth"]),
         .library(name: "FeatureAuthentication", targets: ["FeatureAuthentication"]),
         .library(name: "FeatureGardens", targets: ["FeatureGardens"]),
+        .library(name: "FeatureMap", targets: ["FeatureMap"]),
         .library(name: "AppComposition", targets: ["AppComposition"]),
     ],
     dependencies: [
@@ -118,6 +119,17 @@ let package = Package(
             ]
         ),
 
+        // The map editor: SwiftUI Canvas rendering, selection, gestures,
+        // commands, properties, measurement overlays, and an optional MapKit
+        // backdrop. No GRDB dependency — see `MapEditorViewModel`'s doc
+        // comment for the always-fresh-from-server caching decision.
+        //
+        // Source: implementation-plan.md work packages P3-IOS-01, P3-IOS-02.
+        .target(
+            name: "FeatureMap",
+            dependencies: ["CoreDomain", "CoreNetworking", "CoreLocalization"]
+        ),
+
         // The single composition root that constructs adapters and injects them
         // through explicit initializers.
         .target(
@@ -131,6 +143,7 @@ let package = Package(
                 "FeatureHealth",
                 "FeatureAuthentication",
                 "FeatureGardens",
+                "FeatureMap",
                 .product(name: "FirebaseCore", package: "firebase-ios-sdk"),
             ]
         ),
@@ -159,6 +172,10 @@ let package = Package(
         .testTarget(
             name: "FeatureGardensTests",
             dependencies: ["FeatureGardens"]
+        ),
+        .testTarget(
+            name: "FeatureMapTests",
+            dependencies: ["FeatureMap"]
         ),
         .testTarget(
             name: "ArchitectureTests"

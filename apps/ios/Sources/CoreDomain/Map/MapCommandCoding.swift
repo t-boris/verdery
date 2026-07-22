@@ -43,6 +43,17 @@ extension MapCommandPayload: Codable {
         case offsetMetres
     }
 
+    /// Decodes and encodes `categoryDetails` through `GardenObjectDetails`'s
+    /// own nested `Codable` (`{"category": ..., "details": {...}}`) — the
+    /// domain shape, not the wire shape. This conformance is also what
+    /// `Tests/CoreDomainTests/InverseCommandTests.swift` decodes the shared
+    /// `command-inverse.json` fixture through, and that fixture (like
+    /// `deriveInverseCommand` itself) is domain-shaped, agreeing with
+    /// `packages/geometry-contracts`'s TypeScript consumer of the same file.
+    /// The actual live wire request is flat — see
+    /// `CoreNetworking/MapCommandWireCoding.swift`, which re-encodes a
+    /// `MapCommandPayload` through `GardenObjectDetailsWireCoding` instead of
+    /// this conformance, precisely because this one must stay domain-shaped.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 

@@ -1,6 +1,7 @@
 import FeatureAuthentication
 import FeatureGardens
 import FeatureHealth
+import FeatureMap
 import SwiftUI
 
 /// The application's root scene.
@@ -46,6 +47,13 @@ public struct RootView: View {
             NavigationStack(path: $path) {
                 destination(for: path.first ?? .gardens)
                     .navigationDestination(for: AppRoute.self, destination: destination(for:))
+                    // A distinct type from both `AppRoute` and the bare
+                    // `String` `GardensListView` pushes for a garden id — see
+                    // `GardenMapEditorRoute`'s doc comment for why reusing
+                    // either would be ambiguous on this one stack.
+                    .navigationDestination(for: GardenMapEditorRoute.self) { route in
+                        MapEditorView(model: composition.makeMapEditorViewModel(gardenId: route.gardenId))
+                    }
             }
         } else {
             NavigationStack {

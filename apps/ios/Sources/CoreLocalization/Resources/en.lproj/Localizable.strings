@@ -59,3 +59,81 @@
 "gardens.archive.confirm" = "Archive this garden? You can still view it afterward.";
 "gardens.requestDeletion" = "Delete garden";
 "gardens.requestDeletion.confirm" = "Request deletion of this garden? This starts a recovery-window deletion process.";
+"gardens.openMapEditor" = "Open map editor";
+
+/* Map editor: category display names, one per GardenObjectCategory. */
+"map.category.lot" = "Lot";
+"map.category.structure" = "Structure";
+"map.category.fence" = "Fence";
+"map.category.gate" = "Gate";
+"map.category.path" = "Path";
+"map.category.zone" = "Zone";
+"map.category.bed" = "Bed";
+"map.category.waterFeature" = "Water feature";
+"map.category.utilityExclusion" = "Utility exclusion";
+"map.category.tree" = "Tree";
+"map.category.plant" = "Plant";
+"map.category.annotation" = "Annotation";
+"map.category.importedBackground" = "Imported background";
+
+/* Map editor shell. */
+"map.editor.title" = "Map";
+"map.editor.loading" = "Loading map…";
+"map.editor.retry" = "Try again";
+"map.tab.canvas" = "Canvas";
+"map.tab.list" = "List";
+"map.undo" = "Undo";
+"map.redo" = "Redo";
+"map.undo.unavailable" = "This change can't be undone automatically.";
+"map.create.sectionTitle" = "Add";
+"map.create.hint" = "Tap the canvas to place a new {category}.";
+"map.create.cancel" = "Cancel placing";
+
+/* Map editor: accessible object list, the VoiceOver-friendly alternative to tapping canvas shapes. */
+"map.list.empty" = "This garden has no objects yet. Use Add to place one.";
+"map.list.untitled" = "Untitled";
+"map.list.deletedSuffix" = "deleted";
+"map.list.deleteAction" = "Delete";
+"map.list.restoreAction" = "Restore";
+
+/* Map editor: property sheet. */
+"map.property.title" = "Object details";
+"map.property.close" = "Close";
+"map.property.labelField" = "Label";
+"map.property.save" = "Save";
+"map.property.delete" = "Delete object";
+"map.property.restore" = "Restore object";
+"map.property.detailsTitle" = "Details";
+"map.property.detailsUnavailable" = "Editing this category's details isn't implemented yet.";
+"map.property.measurementArea" = "Area: {squareMetres} m²";
+"map.property.measurementLength" = "Length: {metres} m";
+
+/* Map editor: structure details. */
+"map.structure.kindLabel" = "Structure type";
+"map.structure.heightLabel" = "Height (m)";
+"map.structureKind.house" = "House";
+"map.structureKind.shed" = "Shed";
+"map.structureKind.greenhouse" = "Greenhouse";
+"map.structureKind.deck" = "Deck";
+"map.structureKind.garage" = "Garage";
+"map.structureKind.other" = "Other";
+
+/* Map editor: fence details. */
+"map.fence.kindLabel" = "Fence type";
+"map.fence.heightLabel" = "Height (m)";
+"map.fenceKind.wood" = "Wood";
+"map.fenceKind.chainLink" = "Chain link";
+"map.fenceKind.vinyl" = "Vinyl";
+"map.fenceKind.metal" = "Metal";
+"map.fenceKind.hedge" = "Hedge";
+"map.fenceKind.other" = "Other";
+
+/* Map editor: tree details. */
+"map.tree.commonNameLabel" = "Common name";
+"map.tree.heightLabel" = "Estimated height (m)";
+"map.tree.spreadLabel" = "Estimated spread (m)";
+
+/* Map editor: plant details. */
+"map.plant.commonNameLabel" = "Common name";
+"map.plant.quantityLabel" = "Quantity";
+"map.plant.spacingLabel" = "Spacing (m)";

@@ -35,6 +35,18 @@ public struct GardenSettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                // Available to every role, not only the owner — unlike
+                // rename/archive/delete below, viewing and editing the map is
+                // not an owner-only action, and the map's own commands
+                // re-enforce role restrictions server-side regardless of what
+                // this screen shows.
+                Section {
+                    NavigationLink(value: GardenMapEditorRoute(gardenId: model.gardenId)) {
+                        Text(model.openMapEditorTitle)
+                    }
+                    .accessibilityIdentifier("gardens.settings.openMapEditor")
+                }
+
                 if summary.isOwner {
                     Section(model.renameFieldLabel) {
                         TextField(model.renameFieldLabel, text: $model.editedName)

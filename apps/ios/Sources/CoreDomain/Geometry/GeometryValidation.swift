@@ -1,6 +1,10 @@
 import Foundation
 
-public enum ValidationSeverity: String, Sendable, CaseIterable {
+/// `Codable` so the map document's server-computed `validationSummary` (which
+/// carries the identical `error`/`warning` wire values — see
+/// `CoreNetworking/MapTransport.swift`) can reuse this type directly instead
+/// of a second copy of the same two cases.
+public enum ValidationSeverity: String, Codable, Sendable, CaseIterable {
     case error
     case warning
 }

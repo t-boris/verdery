@@ -59,3 +59,81 @@
 "gardens.archive.confirm" = "Архивировать этот сад? Его всё ещё можно будет просматривать.";
 "gardens.requestDeletion" = "Удалить сад";
 "gardens.requestDeletion.confirm" = "Запросить удаление этого сада? Начнётся процесс удаления с периодом восстановления.";
+"gardens.openMapEditor" = "Открыть карту";
+
+/* Редактор карты: названия категорий, по одной на каждое значение GardenObjectCategory. */
+"map.category.lot" = "Участок";
+"map.category.structure" = "Строение";
+"map.category.fence" = "Забор";
+"map.category.gate" = "Калитка";
+"map.category.path" = "Дорожка";
+"map.category.zone" = "Зона";
+"map.category.bed" = "Грядка";
+"map.category.waterFeature" = "Водный объект";
+"map.category.utilityExclusion" = "Зона ограничения";
+"map.category.tree" = "Дерево";
+"map.category.plant" = "Растение";
+"map.category.annotation" = "Заметка";
+"map.category.importedBackground" = "Импортированный план";
+
+/* Редактор карты: оболочка экрана. */
+"map.editor.title" = "Карта";
+"map.editor.loading" = "Загрузка карты…";
+"map.editor.retry" = "Повторить";
+"map.tab.canvas" = "Карта";
+"map.tab.list" = "Список";
+"map.undo" = "Отменить";
+"map.redo" = "Повторить действие";
+"map.undo.unavailable" = "Это изменение нельзя отменить автоматически.";
+"map.create.sectionTitle" = "Добавить";
+"map.create.hint" = "Коснитесь карты, чтобы разместить объект «{category}».";
+"map.create.cancel" = "Отменить размещение";
+
+/* Редактор карты: доступный список объектов — VoiceOver-альтернатива касанию фигур на карте. */
+"map.list.empty" = "В этом саду пока нет объектов. Используйте «Добавить», чтобы разместить один.";
+"map.list.untitled" = "Без названия";
+"map.list.deletedSuffix" = "удалено";
+"map.list.deleteAction" = "Удалить";
+"map.list.restoreAction" = "Восстановить";
+
+/* Редактор карты: панель свойств объекта. */
+"map.property.title" = "Свойства объекта";
+"map.property.close" = "Закрыть";
+"map.property.labelField" = "Название";
+"map.property.save" = "Сохранить";
+"map.property.delete" = "Удалить объект";
+"map.property.restore" = "Восстановить объект";
+"map.property.detailsTitle" = "Детали";
+"map.property.detailsUnavailable" = "Редактирование деталей этой категории пока не реализовано.";
+"map.property.measurementArea" = "Площадь: {squareMetres} м²";
+"map.property.measurementLength" = "Длина: {metres} м";
+
+/* Редактор карты: детали строения. */
+"map.structure.kindLabel" = "Тип строения";
+"map.structure.heightLabel" = "Высота (м)";
+"map.structureKind.house" = "Дом";
+"map.structureKind.shed" = "Сарай";
+"map.structureKind.greenhouse" = "Теплица";
+"map.structureKind.deck" = "Терраса";
+"map.structureKind.garage" = "Гараж";
+"map.structureKind.other" = "Другое";
+
+/* Редактор карты: детали забора. */
+"map.fence.kindLabel" = "Тип забора";
+"map.fence.heightLabel" = "Высота (м)";
+"map.fenceKind.wood" = "Дерево";
+"map.fenceKind.chainLink" = "Сетка-рабица";
+"map.fenceKind.vinyl" = "Винил";
+"map.fenceKind.metal" = "Металл";
+"map.fenceKind.hedge" = "Живая изгородь";
+"map.fenceKind.other" = "Другое";
+
+/* Редактор карты: детали дерева. */
+"map.tree.commonNameLabel" = "Название";
+"map.tree.heightLabel" = "Примерная высота (м)";
+"map.tree.spreadLabel" = "Примерный диаметр кроны (м)";
+
+/* Редактор карты: детали растения. */
+"map.plant.commonNameLabel" = "Название";
+"map.plant.quantityLabel" = "Количество";
+"map.plant.spacingLabel" = "Расстояние между растениями (м)";
