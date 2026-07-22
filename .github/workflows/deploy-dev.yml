@@ -66,19 +66,23 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
-
+      # Deliberately NOT using docker/setup-buildx-action: it creates an
+      # isolated "docker-container" builder that runs in its own container
+      # with no access to the runner's `gcloud` binary or ADC file, so the
+      # Artifact Registry credential helper configured above cannot run
+      # inside it — confirmed directly, `--push` failed with "Unable to
+      # acquire impersonated credentials". The plain `docker build` here uses
+      # the host Docker daemon directly, which shares the credential helper.
+      #
+      # A target platform is also unnecessary: this runner is already
+      # linux/amd64, unlike a local build from Apple silicon (see
+      # infrastructure/gcloud/README.md), so there is nothing to cross-compile.
       - name: Build and push the API image
         id: image
         run: |
           IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/api:${GITHUB_SHA}"
-          docker buildx build \
-            --platform linux/amd64 \
-            -f services/api/Dockerfile \
-            -t "${IMAGE}" \
-            --push \
-            .
+          docker build -f services/api/Dockerfile -t "${IMAGE}" .
+          docker push "${IMAGE}"
           echo "image=${IMAGE}" >> "${GITHUB_OUTPUT}"
 
       # Runs as a Cloud Run Job with Direct VPC egress rather than from this
