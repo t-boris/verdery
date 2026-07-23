@@ -4,6 +4,7 @@ import FeatureHealth
 import FeatureMap
 import FeatureObservations
 import FeaturePlants
+import FeatureSyncConflicts
 import FeatureTasks
 import SwiftUI
 
@@ -93,6 +94,13 @@ public struct RootView: View {
                     }
                     .navigationDestination(for: GardenTasksRoute.self) { route in
                         TasksListView(model: composition.makeTasksListViewModel(gardenId: route.gardenId))
+                    }
+                    // P5-CONFLICT-01: the durable conflict list/compare/
+                    // resolve screen, one route type per destination, the
+                    // same reason `GardenTasksRoute`/`GardenPlantsRoute`/
+                    // `GardenObservationsRoute` exist.
+                    .navigationDestination(for: GardenSyncConflictsRoute.self) { route in
+                        SyncConflictsView(model: composition.makeSyncConflictsViewModel(gardenId: route.gardenId))
                     }
             }
             .onChange(of: scenePhase) { _, newPhase in

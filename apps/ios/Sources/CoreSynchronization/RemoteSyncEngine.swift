@@ -73,6 +73,16 @@ public actor RemoteSyncEngine: SyncEngine {
     let maxPullPagesPerCall: Int
     let now: @Sendable () -> Date
     let generateConflictId: @Sendable () -> String
+    /// Generates a fresh id for a conflict-resolution outbox operation
+    /// (`reapplyLocalIntent`/`duplicateAsNewObject`) and, for
+    /// `duplicateAsNewObject`, the brand-new record id it creates —
+    /// `CoreSynchronization.RemoteSyncEngine+ConflictResolution.swift`'s own
+    /// concern, injected here for the same determinism-in-tests reason
+    /// `generateConflictId` already is. A separate closure from
+    /// `generateConflictId`, not a reuse of it: the two id spaces are
+    /// different (`SyncConflict.id` versus `OutboxOperation.id`/a new
+    /// record's own id), and a test exercising both wants to tell them apart.
+    let generateOperationId: @Sendable () -> String
     /// Injected jitter source for `SyncBackoff` — the same `now` injection
     /// pattern, applied to `Double.random(in:)`, for deterministic backoff
     /// tests (this stage's own testing requirement: "deterministic, not
@@ -134,6 +144,7 @@ public actor RemoteSyncEngine: SyncEngine {
         maxPullPagesPerCall: Int = 20,
         now: @escaping @Sendable () -> Date = Date.init,
         generateConflictId: @escaping @Sendable () -> String = UUIDv7.generate,
+        generateOperationId: @escaping @Sendable () -> String = UUIDv7.generate,
         randomUnitInterval: @escaping @Sendable () -> Double = { Double.random(in: 0..<1) }
     ) {
         self.outboxStore = outboxStore
@@ -150,6 +161,7 @@ public actor RemoteSyncEngine: SyncEngine {
         self.maxPullPagesPerCall = maxPullPagesPerCall
         self.now = now
         self.generateConflictId = generateConflictId
+        self.generateOperationId = generateOperationId
         self.randomUnitInterval = randomUnitInterval
     }
 
@@ -303,16 +315,34 @@ public actor RemoteSyncEngine: SyncEngine {
             // for this operation id (architecture/offline-synchronization.md,
             // section "9. Server Idempotency") — nothing more to retry.
             try await outboxStore.remove(operationId: operation.id)
+            // P5-CONFLICT-01: this operation is itself a conflict's
+            // resolution (`reapplyLocalIntent`/`duplicateAsNewObject`,
+            // `RemoteSyncEngine+ConflictResolution.swift`) once its push is
+            // finally confirmed — closing the conflict only now, not when
+            // the resolution operation was first enqueued, is exactly
+            // section "15. Local Conflict Recovery"'s "closes the prior
+            // conflict only after the resolution is accepted". Generic: this
+            // check is the ONLY thing that connects a confirmed push to a
+            // conflict closing — no record-type-specific knowledge involved,
+            // matching `SyncRecordApplier`'s own "engine stays generic"
+            // convention.
+            if let resolvesConflictId = operation.resolvesConflictId {
+                try await conflictStore.remove(conflictId: resolvesConflictId)
+            }
 
         case let .conflict(_, conflictCode, currentRecordType, currentRecordJSON):
             let conflict = SyncConflict(
                 id: generateConflictId(),
                 originalOperationId: operation.id,
                 gardenId: operation.gardenId,
+                recordType: currentRecordType,
                 conflictCode: conflictCode,
                 localRepresentation: operation.payload,
                 serverRepresentation: currentRecordJSON,
-                suggestedRecoveryActions: Self.suggestedRecoveryActions(forRecordType: currentRecordType),
+                suggestedRecoveryActions: ConflictRecoveryPolicy.suggestedRecoveryActions(
+                    forRecordType: currentRecordType,
+                    commandType: operation.commandType
+                ),
                 createdAt: now()
             )
             try await conflictStore.record(conflict)
@@ -404,31 +434,5 @@ public actor RemoteSyncEngine: SyncEngine {
     /// anything is still queued.
     func refreshIdleStatus() async throws {
         status = try await outboxStore.fetchAll().isEmpty ? .synchronized : .savedLocally
-    }
-
-    /// Suggested recovery actions per record type — generic policy
-    /// `CoreSynchronization` decides entirely on its own from the wire's
-    /// plain `SyncRecordType` string, with no feature-specific knowledge
-    /// needed: neither `ConflictRecoveryAction` nor a record type name is
-    /// feature-owned. `gardenObject` gets all four, matching
-    /// architecture/offline-synchronization.md, section "14.5 Geometry"
-    /// verbatim — the one place the architecture spells out a per-category
-    /// list ("Keep the server version. Reapply the local intent... Open
-    /// both versions for manual review. Duplicate as a new object..."").
-    /// Every other record type gets the two actions safe for any conflict
-    /// category: `reapplyLocalIntent` requires the operation be "safely
-    /// replayable" (section 14.5's own qualifier), a judgment this stage has
-    /// no contract-pinned vocabulary to make per record type yet
-    /// (`SyncConflict.conflictCode` is still a plain `String` — see that
-    /// type's own doc comment), and `duplicateAsNewObject` is a
-    /// geometry-specific recovery with no obvious meaning for a garden,
-    /// plant, task, or observation.
-    static func suggestedRecoveryActions(forRecordType recordType: String) -> [ConflictRecoveryAction] {
-        switch recordType {
-        case "gardenObject":
-            [.keepServerVersion, .reapplyLocalIntent, .openForManualReview, .duplicateAsNewObject]
-        default:
-            [.keepServerVersion, .openForManualReview]
-        }
     }
 }

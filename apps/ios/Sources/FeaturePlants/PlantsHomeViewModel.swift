@@ -207,7 +207,7 @@ public final class PlantsHomeViewModel {
         switch failure {
         case .invalidDisplayName:
             strings(.plantsDisplayNameRequired)
-        case .localRecordNotFound, .payloadEncodingFailed:
+        case .localRecordNotFound, .payloadEncodingFailed, .conflictResolutionPayloadMalformed:
             strings(.serverUnexpected)
         }
     }

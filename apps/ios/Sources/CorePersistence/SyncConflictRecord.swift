@@ -12,6 +12,7 @@ struct SyncConflictRecord: Codable, FetchableRecord, PersistableRecord {
     let id: String
     let originalOperationId: String
     let gardenId: String
+    let recordType: String
     let conflictCode: String
     let localRepresentation: String
     let serverRepresentation: String
@@ -26,6 +27,7 @@ extension SyncConflictRecord {
         self.id = conflict.id
         self.originalOperationId = conflict.originalOperationId
         self.gardenId = conflict.gardenId
+        self.recordType = conflict.recordType
         self.conflictCode = conflict.conflictCode
         self.localRepresentation = conflict.localRepresentation
         self.serverRepresentation = conflict.serverRepresentation
@@ -40,6 +42,7 @@ extension SyncConflictRecord {
             id: id,
             originalOperationId: originalOperationId,
             gardenId: gardenId,
+            recordType: recordType,
             conflictCode: conflictCode,
             localRepresentation: localRepresentation,
             serverRepresentation: serverRepresentation,

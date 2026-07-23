@@ -33,3 +33,16 @@ public struct GardenTasksRoute: Hashable, Sendable {
         self.gardenId = gardenId
     }
 }
+
+/// Requests to navigate from this garden's settings screen to its sync
+/// conflicts screen — the same marker-type pattern as the three routes
+/// above, `FeatureGardens` cannot depend on `FeatureSyncConflicts` either.
+///
+/// Source: implementation-plan.md work package P5-CONFLICT-01.
+public struct GardenSyncConflictsRoute: Hashable, Sendable {
+    public let gardenId: String
+
+    public init(gardenId: String) {
+        self.gardenId = gardenId
+    }
+}

@@ -45,4 +45,11 @@ public enum MapCommandError: Error, Equatable, Sendable {
     /// `FeatureGardens.GardenCommandError.payloadEncodingFailed`'s identical
     /// reasoning for the same near-impossible failure mode.
     case payloadEncodingFailed
+
+    /// `MapSyncRecordApplier.reapplyDraft` could not parse a retained outbox
+    /// operation's own `payload` text, or that payload's `command` object
+    /// carried no `expectedRevision` field to replace — mirrors
+    /// `FeatureGardens.GardenCommandError.conflictResolutionPayloadMalformed`'s
+    /// identical reasoning.
+    case conflictResolutionPayloadMalformed
 }

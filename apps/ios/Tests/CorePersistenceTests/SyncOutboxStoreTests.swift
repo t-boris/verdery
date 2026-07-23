@@ -100,4 +100,35 @@ struct SyncOutboxStoreTests {
         let remaining = try await store.fetchAll()
         #expect(remaining.map(\.id) == ["op-2"])
     }
+
+    @Test("fetch returns one operation by id, or nil when it does not exist")
+    func fetchReturnsOneOperationById() async throws {
+        let store = GRDBSyncOutboxStore(dbQueue: try makeDatabase())
+        try await store.enqueue(operation(id: "op-1"))
+
+        #expect(try await store.fetch(operationId: "op-1")?.id == "op-1")
+        #expect(try await store.fetch(operationId: "does-not-exist") == nil)
+    }
+
+    /// P5-CONFLICT-01: `resolvesConflictId` round-trips through GRDB exactly
+    /// like every other field — `nil` for an ordinary operation,
+    /// non-`nil` for a conflict resolution operation.
+    @Test("resolvesConflictId round-trips, defaulting to nil")
+    func resolvesConflictIdRoundTrips() async throws {
+        let store = GRDBSyncOutboxStore(dbQueue: try makeDatabase())
+        try await store.enqueue(operation(id: "op-ordinary"))
+        try await store.enqueue(
+            OutboxOperation(
+                id: "op-resolution", profileId: "profile-1", gardenId: "garden-1", commandType: "gardens.rename",
+                commandVersion: 1, targetRecordIds: ["garden-1"], expectedRevision: 9,
+                payload: #"{"kind":"resolution"}"#, resolvesConflictId: "conflict-1",
+                createdAt: Date(timeIntervalSince1970: 0)
+            )
+        )
+
+        let fetched = try await store.fetchAll()
+
+        #expect(fetched.first { $0.id == "op-ordinary" }?.resolvesConflictId == nil)
+        #expect(fetched.first { $0.id == "op-resolution" }?.resolvesConflictId == "conflict-1")
+    }
 }

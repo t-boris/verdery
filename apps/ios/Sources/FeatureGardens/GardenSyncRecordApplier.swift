@@ -1,3 +1,4 @@
+import CoreDomain
 import CoreNetworking
 import CoreSynchronization
 import Foundation
@@ -8,8 +9,9 @@ import Foundation
 /// `CoreSynchronization` and every `Feature*` module).
 ///
 /// Source: implementation-plan.md work package P5-IOS-03, Stages 5a
-/// (`applyConfirmed`) and 5b (`SyncPullRecordApplier`).
-public struct GardenSyncRecordApplier: SyncRecordApplier, SyncPullRecordApplier {
+/// (`applyConfirmed`) and 5b (`SyncPullRecordApplier`); P5-CONFLICT-01,
+/// Stage 6 (`SyncConflictReplayableApplier`).
+public struct GardenSyncRecordApplier: SyncRecordApplier, SyncPullRecordApplier, SyncConflictReplayableApplier {
     public let recordType = "garden"
 
     private let localStore: any LocalGardenStore
@@ -54,5 +56,27 @@ public struct GardenSyncRecordApplier: SyncRecordApplier, SyncPullRecordApplier 
     /// comment) — removes the garden's own local row.
     public func removeGardenScopedData(gardenId: String) async throws {
         try await localStore.remove(gardenId: gardenId)
+    }
+
+    /// See `SyncConflictReplayableApplier.reapplyDraft(original:newExpectedRevision:)`'s
+    /// own doc comment. `gardens.rename`/`gardens.archive`/
+    /// `gardens.delete_request` all carry a top-level `command.expectedRevision`
+    /// key (`GardenSyncCommand.encode(to:)`) — replacing only that scalar
+    /// leaves every other field (including `gardens.rename`'s complete new
+    /// `name`) untouched, exactly what "reapply the same local intent"
+    /// requires (`ConflictRecoveryPolicy`'s own table).
+    public func reapplyDraft(original: OutboxOperation, newExpectedRevision: Int) throws -> ConflictResolutionOperationDraft {
+        let payload = try ConflictResolutionPayloadEditing.replacingExpectedRevision(
+            in: original.payload,
+            with: newExpectedRevision,
+            orThrow: GardenCommandError.conflictResolutionPayloadMalformed
+        )
+        return ConflictResolutionOperationDraft(
+            commandType: original.commandType,
+            commandVersion: original.commandVersion,
+            targetRecordIds: original.targetRecordIds,
+            expectedRevision: newExpectedRevision,
+            payload: payload
+        )
     }
 }

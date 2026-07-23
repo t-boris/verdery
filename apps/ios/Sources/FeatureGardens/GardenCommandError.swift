@@ -31,4 +31,13 @@ public enum GardenCommandError: Error, Equatable, Sendable {
     /// UTF-8 — but `GardenSyncCommandPayload.encode` has no force-unwrap, so
     /// this exists as the alternative to one.
     case payloadEncodingFailed
+
+    /// `GardenSyncRecordApplier.reapplyDraft` could not parse a retained
+    /// outbox operation's own `payload` text, or that payload's `command`
+    /// object carried no `expectedRevision` field to replace — a
+    /// defense-in-depth backstop (`SyncConflictReplayableApplier
+    /// .reapplyDraft`'s own doc comment) against `RemoteSyncEngine` calling
+    /// this for a command `ConflictRecoveryPolicy.isSafelyReplayable`
+    /// already excluded; not expected to actually occur.
+    case conflictResolutionPayloadMalformed
 }

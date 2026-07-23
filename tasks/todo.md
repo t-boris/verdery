@@ -1698,3 +1698,110 @@ reaction Stage 5b deliberately left as a documented no-op (`GardenSyncRecordAppl
 **Not done, deliberately**: conflict recovery UI (P5-CONFLICT-01), web continuity (P5-WEB-01), any new
 backend code (verified unnecessary — see above), and closing the account-level sign-out/local-data-clearing
 gap (a real, separate gap, documented above, not this stage's to build without its own scoping).
+
+## P5-CONFLICT-01 complete
+
+Implement durable recovery for stale geometry, task transitions, rejected operations, and dependency
+failures — the resolution mechanism Stage 5a/5b's own conflict recording deliberately left unbuilt, and
+P5-SEC-01 explicitly deferred.
+
+- **Real per-command-type "safely replayable" table, replacing Stage 5a's placeholder**: the prior blanket
+  "`gardenObject` gets all four actions, everything else gets two" rule is gone. New
+  `CoreSynchronization.ConflictRecoveryPolicy` decides `reapplyLocalIntent`/`duplicateAsNewObject`
+  per `(recordType, commandType)`, checked against every command's actual payload shape
+  (`GardenSyncCommand`/`MapCommandPayload`/`PlantSyncCommand`/`TaskSyncCommand`/`ObservationSyncCommand`),
+  not guessed: relative-delta commands (`map.moveObject`) and complete-new-value commands
+  (`map.replaceGeometry`/`changeProperties`/`assignPlant`, every mutable `gardens.*`/`plants.*`/`tasks.*`
+  command) are safely replayable; absolute-index commands that assume a specific prior shape
+  (`map.editVertex`) are not; multi-target/dual-revision commands (`map.splitLinework`/`joinLinework`) get
+  neither reapply nor duplicate, since this mechanism's one corrected revision and one server representation
+  cannot vouch for more than one affected record; every create command (no `expectedRevision` at all) gets
+  neither. `duplicateAsNewObject` stays `gardenObject`-only — confirmed, not assumed, that no other record
+  type's command set has anything resembling a "duplicate" concept. Table-driven test coverage
+  (`ConflictRecoveryPolicyTests`) enumerates every command type against this table.
+- **Closing a conflict generically**: new `CoreDomain.OutboxOperation.resolvesConflictId: String?` (new
+  nullable `sync_outbox` column, migration `addResolvesConflictIdToSyncOutbox`) — set only on a resolution
+  operation `reapplyLocalIntent`/`duplicateAsNewObject` creates. `RemoteSyncEngine.apply(_:to:)`'s existing
+  `.accepted`/`.duplicate` branch now also removes the conflict this field names, if any — the _only_ new
+  logic there, with zero record-type-specific knowledge, matching Stage 5a/5b/P5-SEC-01's own "engine stays
+  generic" convention exactly. New `CoreDomain.SyncConflict.recordType` (new `sync_conflict` column,
+  migration `addRecordTypeToSyncConflict`, defaulted to `""` for any pre-migration row) lets the resolver
+  look up the right applier without re-parsing `serverRepresentation`.
+- **The resolution mechanism itself**: `RemoteSyncEngine+ConflictResolution.swift`, `resolveConflict(_:action:)`
+  (new `ConflictResolvingSyncEngine` protocol `RemoteSyncEngine` conforms to — `LocalOnlySyncEngine`
+  deliberately does not, since it never records a real conflict to resolve).
+  - **Keep server version**: removes the original outbox row FIRST (so the pending-mutation guard every
+    `Local*Store.save`/`applyUpsert` already has does not block the very write being asked for), then calls
+    the record type's `SyncPullRecordApplier.applyUpsert` if one is registered, decoding
+    `serverRepresentation` through a new, promoted-to-public `CoreNetworking.SyncRecordSnapshotDecoding`
+    (the exact decode `getChanges` already used, reused rather than duplicated). `observation` has no
+    `SyncPullRecordApplier` conformance, so this falls through to a no-op write — discarding the pending row
+    is already the whole effect, since there is no local cache to overwrite. Closes the conflict
+    immediately; no server round trip.
+  - **Reapply local intent**: fetches the retained original operation (new `SyncOutboxStore.fetch(operationId:)`
+    — the reason that row is deliberately retained on conflict, per Stage 5a's own comment, finally has a
+    reader), asks the record type's new `SyncConflictReplayableApplier.reapplyDraft` for a new payload with
+    only `command.expectedRevision` replaced (new `CoreDomain.ConflictResolutionPayloadEditing`, a small
+    JSON-envelope edit every one of the four conforming appliers — Garden/Map/Plant/Task — calls; the
+    original payload is otherwise untouched byte-for-byte). Removes the stale original operation (it would
+    otherwise be resubmitted unchanged by a future `pushPending()` and record a second, redundant conflict —
+    a defect caught by the two-step-timing test, not shipped), enqueues the new one tagged
+    `resolvesConflictId`, and marks the conflict resolved-but-not-removed via
+    `SyncConflictStore.resolve(conflictId:resolutionOperationId:at:)`. The conflict only actually closes once
+    that new operation's own push later confirms — proven as two explicit steps in
+    `RemoteSyncEngineConflictResolutionTests.reapplyTwoStepTiming`, using a spy `SyncConflictStore` that
+    distinguishes "resolved" from "removed" (the two are otherwise indistinguishable through
+    `fetchOpen(gardenId:)` alone).
+  - **Duplicate as new object**: `gardenObject`-only, `MapSyncRecordApplier`'s new
+    `SyncConflictDuplicatingApplier.duplicateDraft` clones THIS DEVICE's own currently cached local row
+    (`LocalMapStore.fetchAll(gardenId:)`, filtered to the one target id) into a brand-new `map.createObject`
+    command — not a value recomputed from the original command's own payload, which would reintroduce the
+    same structural risk `reapplyLocalIntent` already excludes for shape-dependent commands. `nil` for a
+    multi-target original (`splitLinework`/`joinLinework`) or when the local row is already gone. Performs
+    `resolveKeepingServerVersion`'s own effect on the ORIGINAL record (it is not being superseded), then
+    enqueues the new create-shaped operation with the same resolved-not-removed two-step timing as reapply.
+  - **Open for manual review**: not a fourth resolver branch — a UI presentation mode
+    (`SyncConflictsViewModel.select(_:)`/the compare sheet), matching architecture/offline-
+    synchronization.md section 15's own framing; `resolveConflict` throws
+    `SyncConflictResolutionError.manualReviewIsNotAResolution` if ever called with it, a defensive backstop
+    against a UI bug, not a path any real user action reaches.
+- **UI — reachable, not just a backing view model**: new `FeatureSyncConflicts` module (`SyncConflictsView`/
+  `SyncConflictDetailView`/`SyncConflictsViewModel`), reachable from `GardenSettingsView` via a new
+  `GardenSyncConflictsRoute` (`FeatureGardens`, the same marker-type pattern `GardenTasksRoute`/
+  `GardenPlantsRoute`/`GardenObservationsRoute` already use, since `FeatureGardens` cannot depend on
+  `FeatureSyncConflicts` either), wired into `AppComposition.RootView`. Deliberately reads
+  `CorePersistence.SyncConflictStore.fetchOpen(gardenId:)` directly — the durable source of truth — rather
+  than gating on `CoreSynchronization.SyncEngineStatus.requiresAttention`: that status is a coarser,
+  ephemeral, per-engine-instance signal for "the last push/pull cycle itself failed" (Stage 5b's own scope),
+  a genuinely different and orthogonal condition from "this garden has an open conflict" — a conflict can be
+  open with the engine otherwise healthy, and `requiresAttention` can be true with zero open conflicts.
+  `requiresAttention` stays exactly as unwired to UI as Stage 5b left it; that remains a real, separate,
+  understood gap, not something this stage's own scope covers. The entry point is always reachable (not
+  conditionally shown), and an empty conflict list is a normal state, not an error. Detail view is a
+  structured side-by-side of the two raw JSON payloads (no geometry-diff rendering — explicitly out of
+  scope) plus one button per `conflict.suggestedRecoveryActions`.
+- **A real defect caught before shipping, not a hypothetical**: `ConflictResolutionPayloadEditing`'s first
+  draft used `guard let x = try foo() else { throw ... }` — Swift only runs a `guard`'s `else` branch when
+  the binding is `nil`, never when the `try` itself throws, so a malformed payload propagated
+  `JSONSerialization`'s own untyped `NSError` instead of this type's documented, typed error. Caught by
+  `ConflictResolutionPayloadEditingTests` on the first `swift test` run; fixed by downgrading the throwing
+  call to `try?` before the `guard`.
+- **Tests**: `ConflictRecoveryPolicyTests` (every command type against the table above);
+  `RemoteSyncEngineConflictResolutionTests` (all three real resolver branches plus the manual-review/
+  missing-operation/unsupported-record-type/duplicate-unavailable error paths, with local fakes — not
+  `RemoteSyncEngineTests`'s own file-private ones); `reapplyDraft`/`duplicateDraft` coverage added to all
+  four existing `*SyncRecordApplierTests` suites; `ConflictResolutionPayloadEditingTests`,
+  `SyncRecordSnapshotDecodingTests` (the promoted-to-public decode utility, direct from raw text rather than
+  a full HTTP round trip); `SyncConflictsViewModelTests` (load/select/dismiss/resolve, both success and
+  failure paths). Final full, unfiltered `swift test` count: 663 tests, 90 suites (up from P5-SEC-01's
+  624/85 — 39 new tests, 5 new suites).
+
+**Not done, deliberately**: web continuity (P5-WEB-01), observability (P5-OBS-01), a real geometry-diff
+visual renderer (a structured side-by-side of raw payload data is the stated bar for this stage), any
+backend change (the conflict shape and recovery-action vocabulary are entirely client-side; the server
+already returns everything needed in a `conflict` push result), and re-opening or otherwise unwinding the
+ORIGINAL conflict if its own resolution operation later conflicts or is rejected in turn — a real,
+understood, separate gap: that scenario produces a second, unrelated `SyncConflict` for the resolution
+operation's own new `originalOperationId` through the ordinary conflict-recording path, while the first
+conflict's row stays resolved-but-never-removed indefinitely. Left undocumented in code beyond this note
+until a real product decision exists for how deep a retry chain should go.

@@ -390,3 +390,15 @@
 "tasks.status.dismissed" = "Отклонена";
 "tasks.status.deleted" = "Удалена";
 "tasks.status.savedLocally" = "Сохранено локально, ожидает синхронизации";
+"gardens.openSyncConflicts" = "Конфликты синхронизации";
+"syncConflicts.title" = "Конфликты синхронизации";
+"syncConflicts.empty" = "Нет открытых конфликтов.";
+"syncConflicts.conflictCodeLabel" = "Конфликт";
+"syncConflicts.localLabel" = "Ваша версия";
+"syncConflicts.serverLabel" = "Версия сервера";
+"syncConflicts.close" = "Закрыть";
+"syncConflicts.failed" = "Что-то пошло не так. Попробуйте снова.";
+"syncConflicts.action.keepServer" = "Оставить версию сервера";
+"syncConflicts.action.reapply" = "Повторить моё изменение";
+"syncConflicts.action.duplicate" = "Дублировать как новый объект";
+"syncConflicts.action.review" = "Сравнить версии";

@@ -70,6 +70,7 @@ public final class GardenSettingsViewModel {
     public var openPlantsTitle: String { strings(.gardensOpenPlants) }
     public var openObservationsTitle: String { strings(.gardensOpenObservations) }
     public var openTasksTitle: String { strings(.gardensOpenTasks) }
+    public var openSyncConflictsTitle: String { strings(.gardensOpenSyncConflicts) }
 
     public func load() async {
         var hadCachedResult = false
@@ -197,7 +198,7 @@ public final class GardenSettingsViewModel {
         switch failure {
         case .invalidName:
             strings(.gardensNameRequired)
-        case .localRecordNotFound, .payloadEncodingFailed:
+        case .localRecordNotFound, .payloadEncodingFailed, .conflictResolutionPayloadMalformed:
             strings(.serverUnexpected)
         }
     }

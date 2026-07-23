@@ -31,4 +31,11 @@ public enum PlantCommandError: Error, Equatable, Sendable {
     /// UTF-8 — but `PlantSyncCommandPayload.encode` has no force-unwrap, so
     /// this exists as the alternative to one.
     case payloadEncodingFailed
+
+    /// `PlantSyncRecordApplier.reapplyDraft` could not parse a retained
+    /// outbox operation's own `payload` text, or that payload's `command`
+    /// object carried no `expectedRevision` field to replace — mirrors
+    /// `FeatureGardens.GardenCommandError.conflictResolutionPayloadMalformed`'s
+    /// identical reasoning.
+    case conflictResolutionPayloadMalformed
 }

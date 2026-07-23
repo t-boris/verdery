@@ -189,6 +189,15 @@ Stale changes to the same geometry revision are not automatically last-write-win
 - Open both versions for manual review.
 - Duplicate as a new object when semantically valid.
 
+A command is safely replayable when resubmitting its exact local intent against the current revision cannot itself misapply the mutation:
+
+- A command carrying a relative change (a translation delta, for example) is safely replayable against any base geometry by construction.
+- A command carrying an absolute index or position that assumed a specific prior geometry shape (a vertex index, a split point) is not safely replayable when the current geometry may have a different shape — reapplying could target the wrong element or fail structurally. Manual review is offered instead.
+- A command carrying a complete new value (a full geometry replacement, a full property set) rather than one derived from the prior state is safely replayable regardless of shape, since the new value does not depend on what the prior shape was.
+- A command touching more than one record with independent revisions (joining or splitting linework) is not safely replayable through this mechanism, since one corrected revision cannot vouch for more than one record at once.
+
+Duplicate as a new object materializes this device's own currently known version of the object as a brand-new record, independent of which specific command produced it — it is offered only when exactly one record is unambiguously implicated and a create-equivalent command exists for that record type. The client's own per-command classification (`apps/ios/Sources/CoreSynchronization/ConflictRecoveryPolicy.swift`) is the authoritative, tested reference; the same principle applies to any other client implementing this recovery flow.
+
 ### 14.6 Generated Proposals
 
 Processing results never overwrite accepted geometry. Proposal acceptance is a revision-aware command and can conflict if the garden changed during processing.
@@ -198,13 +207,14 @@ Processing results never overwrite accepted geometry. Proposal acceptance is a r
 Conflicts are durable records containing:
 
 - Original operation.
+- The record type the conflict belongs to.
 - Local optimistic representation.
 - Current server representation or authorized summary.
 - Conflict code.
 - Suggested recovery actions.
 - Resolution operation when selected.
 
-Resolving a conflict creates a new outbox command and closes the prior conflict only after the resolution is accepted.
+Resolving a conflict creates a new outbox command and closes the prior conflict only after the resolution is accepted. The resolution command carries a reference back to the conflict it resolves, so the client can make that closing connection generically once the command's own push outcome is confirmed, without record-type-specific knowledge in the engine itself. Keeping the server version has no server round trip and closes the conflict immediately; reapplying the local intent and duplicating as a new object both enqueue a new command and only close the conflict once that command is later confirmed.
 
 ## 16. Ordering
 

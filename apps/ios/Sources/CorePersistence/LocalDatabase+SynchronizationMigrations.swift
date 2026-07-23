@@ -137,5 +137,34 @@ extension LocalDatabase {
                 table.column("updatedAt", .datetime).notNull()
             }
         }
+
+        // P5-CONFLICT-01: the resolution operation for `reapplyLocalIntent`/
+        // `duplicateAsNewObject` is tagged with the conflict it should close
+        // once its own push outcome confirms — see `CoreDomain.OutboxOperation
+        // .resolvesConflictId`'s own doc comment. `nil` (the SQLite default
+        // for an added column with no `DEFAULT`) for every operation an
+        // ordinary feature use case enqueues, including every row that
+        // existed before this migration ran.
+        migrator.registerMigration("addResolvesConflictIdToSyncOutbox") { db in
+            try db.alter(table: "sync_outbox") { table in
+                table.add(column: "resolvesConflictId", .text)
+            }
+        }
+
+        // P5-CONFLICT-01: `CoreDomain.SyncConflict.recordType` — the
+        // `SyncRecordType` wire value the resolution mechanism needs to look
+        // up the right `CoreSynchronization.SyncRecordApplier` generically.
+        // Defaults existing rows to `""` rather than leaving the column
+        // nullable: `SyncConflict.recordType` is a non-optional `String` on
+        // the domain type, and no conflict recorded before this migration
+        // ever survives a resolution attempt anyway (P5-CONFLICT-01 is the
+        // first stage that reads a conflict back out at all) — an empty
+        // string simply fails the resolver's applier lookup for that one
+        // pre-migration row instead of crashing a decode.
+        migrator.registerMigration("addRecordTypeToSyncConflict") { db in
+            try db.alter(table: "sync_conflict") { table in
+                table.add(column: "recordType", .text).notNull().defaults(to: "")
+            }
+        }
     }
 }

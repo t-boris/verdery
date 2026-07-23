@@ -143,7 +143,7 @@ public final class GardensListViewModel {
         switch failure {
         case .invalidName:
             strings(.gardensNameRequired)
-        case .localRecordNotFound, .payloadEncodingFailed:
+        case .localRecordNotFound, .payloadEncodingFailed, .conflictResolutionPayloadMalformed:
             strings(.serverUnexpected)
         }
     }

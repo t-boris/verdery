@@ -40,6 +40,23 @@ public struct OutboxOperation: Equatable, Sendable, Identifiable, Codable {
     /// "16. Ordering"). `nil` until the store assigns it at insert time —
     /// see `CorePersistence.SyncOutboxStore.enqueue(_:)`.
     public let localSequence: Int64?
+    /// Set only on a resolution operation `CoreSynchronization`'s conflict
+    /// recovery mechanism creates (P5-CONFLICT-01) for `reapplyLocalIntent`/
+    /// `duplicateAsNewObject`: the `CoreDomain.SyncConflict.id` this
+    /// operation's own eventual `accepted`/`duplicate` push outcome should
+    /// close — architecture/offline-synchronization.md, section "15. Local
+    /// Conflict Recovery" ("closes the prior conflict only after the
+    /// resolution is accepted"). `nil` for every ordinary operation a
+    /// feature's own use case enqueues.
+    ///
+    /// This is what lets `RemoteSyncEngine` make the "this push result also
+    /// closes a conflict" connection generically, with no record-type-
+    /// specific knowledge: it only ever checks this one field on whichever
+    /// operation the outcome names, the same "engine stays generic, appliers/
+    /// local stores do the type-specific part" convention Stage 5a/5b/
+    /// P5-SEC-01 already established for `applyConfirmed`/`applyUpsert`/
+    /// `removeGardenScopedData`.
+    public let resolvesConflictId: String?
     public let createdAt: Date
 
     public init(
@@ -55,6 +72,7 @@ public struct OutboxOperation: Equatable, Sendable, Identifiable, Codable {
         mediaPrerequisiteIds: [String] = [],
         retryState: RetryState = RetryState(),
         localSequence: Int64? = nil,
+        resolvesConflictId: String? = nil,
         createdAt: Date
     ) {
         self.id = id
@@ -69,6 +87,7 @@ public struct OutboxOperation: Equatable, Sendable, Identifiable, Codable {
         self.mediaPrerequisiteIds = mediaPrerequisiteIds
         self.retryState = retryState
         self.localSequence = localSequence
+        self.resolvesConflictId = resolvesConflictId
         self.createdAt = createdAt
     }
 
@@ -88,6 +107,7 @@ public struct OutboxOperation: Equatable, Sendable, Identifiable, Codable {
             mediaPrerequisiteIds: mediaPrerequisiteIds,
             retryState: retryState,
             localSequence: sequence,
+            resolvesConflictId: resolvesConflictId,
             createdAt: createdAt
         )
     }
@@ -107,6 +127,7 @@ public struct OutboxOperation: Equatable, Sendable, Identifiable, Codable {
             mediaPrerequisiteIds: mediaPrerequisiteIds,
             retryState: retryState.recordingAttempt(errorCategory: errorCategory, at: date),
             localSequence: localSequence,
+            resolvesConflictId: resolvesConflictId,
             createdAt: createdAt
         )
     }

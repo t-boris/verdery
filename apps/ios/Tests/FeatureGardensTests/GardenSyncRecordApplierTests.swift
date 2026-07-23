@@ -126,4 +126,39 @@ struct GardenSyncRecordApplierTests {
 
         #expect(try await store.fetchAll().isEmpty)
     }
+
+    @Test("reapplyDraft replaces only expectedRevision, keeping the rest of the original local intent")
+    func reapplyDraftReplacesOnlyExpectedRevision() throws {
+        let applier = GardenSyncRecordApplier(localStore: InMemoryGardenStore())
+        let original = OutboxOperation(
+            id: "op-1", profileId: "profile-1", gardenId: "garden-1", commandType: "gardens.rename",
+            commandVersion: 1, targetRecordIds: ["garden-1"], expectedRevision: 3,
+            payload: #"{"recordType":"garden","gardenId":"garden-1","command":{"commandType":"gardens.rename","expectedRevision":3,"request":{"name":"Local Name"}}}"#,
+            createdAt: Date(timeIntervalSince1970: 0)
+        )
+
+        let draft = try applier.reapplyDraft(original: original, newExpectedRevision: 9)
+
+        #expect(draft.commandType == "gardens.rename")
+        #expect(draft.commandVersion == 1)
+        #expect(draft.targetRecordIds == ["garden-1"])
+        #expect(draft.expectedRevision == 9)
+        #expect(draft.payload.contains(#""expectedRevision":9"#))
+        #expect(draft.payload.contains(#""name":"Local Name""#))
+    }
+
+    @Test("reapplyDraft throws GardenCommandError.conflictResolutionPayloadMalformed for an unparseable payload")
+    func reapplyDraftThrowsForMalformedPayload() {
+        let applier = GardenSyncRecordApplier(localStore: InMemoryGardenStore())
+        let original = OutboxOperation(
+            id: "op-1", profileId: "profile-1", gardenId: "garden-1", commandType: "gardens.create",
+            commandVersion: 1, targetRecordIds: ["garden-1"], expectedRevision: nil,
+            payload: #"{"recordType":"garden","gardenId":"garden-1","command":{"commandType":"gardens.create"}}"#,
+            createdAt: Date(timeIntervalSince1970: 0)
+        )
+
+        #expect(throws: GardenCommandError.conflictResolutionPayloadMalformed) {
+            try applier.reapplyDraft(original: original, newExpectedRevision: 9)
+        }
+    }
 }

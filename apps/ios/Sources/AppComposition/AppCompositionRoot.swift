@@ -10,6 +10,7 @@ import FeatureHealth
 import FeatureMap
 import FeatureObservations
 import FeaturePlants
+import FeatureSyncConflicts
 import FeatureTasks
 import Foundation
 
@@ -233,6 +234,20 @@ public final class AppCompositionRoot {
         )
     }
 
+    /// One garden's durable sync conflicts screen (P5-CONFLICT-01). Shares
+    /// `makeSyncEngine()`'s own "opened fresh per call" reasoning for both
+    /// the conflict store and the engine it hands `SyncConflictsViewModel`
+    /// as its `ConflictResolvingSyncEngine` — see that method's own doc
+    /// comment.
+    public func makeSyncConflictsViewModel(gardenId: String) -> SyncConflictsViewModel {
+        SyncConflictsViewModel(
+            gardenId: gardenId,
+            conflictStore: syncConflictStore(),
+            engine: makeSyncEngine(),
+            strings: strings
+        )
+    }
+
     /// The real, network-backed push/pull engine (P5-IOS-03, Stages 5a/5b)
     /// — reads `sync_outbox`/`sync_cursor` for the current profile's
     /// database, pushes and pulls through `syncGateway`, applying each of
@@ -388,6 +403,26 @@ public final class AppCompositionRoot {
         } catch {
             log.record(.error, "Could not open the local task database; falling back to an in-memory store.")
             return InMemoryTaskStore()
+        }
+    }
+
+    /// Same database file, same fallback behavior as `localGardenStore()`/
+    /// `localMapStore()`/`localPlantStore()`/`localObservationStore()`/
+    /// `localTaskStore()` — `sync_conflict` is one more table in the one
+    /// per-profile database `LocalDatabase.open` manages. Not itself a
+    /// `Local*Store` (no read-model this device projects), named to match
+    /// `CorePersistence.SyncConflictStore`'s own type instead, the same way
+    /// `makeSyncEngine()` names `GRDBSyncOutboxStore`/`GRDBSyncCursorStore`
+    /// directly rather than through a `local*Store()`-style wrapper.
+    private func syncConflictStore() -> any SyncConflictStore {
+        let profileIdentifier = currentProfileIdentifier()
+
+        do {
+            let dbQueue = try LocalDatabase.open(profileIdentifier: profileIdentifier)
+            return GRDBSyncConflictStore(dbQueue: dbQueue)
+        } catch {
+            log.record(.error, "Could not open the local sync conflict database; falling back to an in-memory store.")
+            return InMemorySyncConflictStore()
         }
     }
 

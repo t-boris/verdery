@@ -40,10 +40,10 @@ struct SynchronizationTests {
         #expect(twice.retryState.lastAttemptedAt == Date(timeIntervalSince1970: 20))
     }
 
-    @Test("SyncConflict.resolving sets the resolution operation and resolved date")
+    @Test("SyncConflict.resolving sets the resolution operation and resolved date, keeping recordType")
     func resolvingSetsResolutionOperation() {
         let conflict = SyncConflict(
-            id: "conflict-1", originalOperationId: "op-1", gardenId: "garden-1",
+            id: "conflict-1", originalOperationId: "op-1", gardenId: "garden-1", recordType: "gardenObject",
             conflictCode: "staleRevision", localRepresentation: "{}", serverRepresentation: "{}",
             suggestedRecoveryActions: [.keepServerVersion], createdAt: Date(timeIntervalSince1970: 0)
         )
@@ -55,6 +55,22 @@ struct SynchronizationTests {
         #expect(resolved.resolutionOperationId == "op-2")
         #expect(resolved.resolvedAt == Date(timeIntervalSince1970: 100))
         #expect(resolved.originalOperationId == conflict.originalOperationId)
+        #expect(resolved.recordType == "gardenObject")
+    }
+
+    @Test("OutboxOperation.assigningLocalSequence and recordingAttempt both preserve resolvesConflictId")
+    func resolvesConflictIdSurvivesDerivedCopies() {
+        let operation = OutboxOperation(
+            id: "op-1", profileId: "profile-1", gardenId: "garden-1", commandType: "gardens.rename",
+            commandVersion: 1, targetRecordIds: ["garden-1"], expectedRevision: 9, payload: "{}",
+            resolvesConflictId: "conflict-1", createdAt: Date(timeIntervalSince1970: 0)
+        )
+
+        let assigned = operation.assigningLocalSequence(3)
+        let attempted = assigned.recordingAttempt(errorCategory: .server, at: Date(timeIntervalSince1970: 5))
+
+        #expect(assigned.resolvesConflictId == "conflict-1")
+        #expect(attempted.resolvesConflictId == "conflict-1")
     }
 
     @Test("RetryState.recordingAttempt increments from any starting count")

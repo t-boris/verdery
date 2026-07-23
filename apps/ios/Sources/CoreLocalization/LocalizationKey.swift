@@ -59,6 +59,7 @@ public enum LocalizationKey: String, Sendable, CaseIterable {
     case gardensOpenPlants = "gardens.openPlants"
     case gardensOpenObservations = "gardens.openObservations"
     case gardensOpenTasks = "gardens.openTasks"
+    case gardensOpenSyncConflicts = "gardens.openSyncConflicts"
 
     // Map editor: one display-name key per `GardenObjectCategory`, so the
     // toolbar, the property sheet, and the accessible list all read the same
@@ -401,4 +402,18 @@ public enum LocalizationKey: String, Sendable, CaseIterable {
     case tasksStatusDismissed = "tasks.status.dismissed"
     case tasksStatusDeleted = "tasks.status.deleted"
     case tasksSavedLocally = "tasks.status.savedLocally"
+
+    // Sync conflicts: durable-conflict list and compare/resolve sheet
+    // (P5-CONFLICT-01).
+    case syncConflictsTitle = "syncConflicts.title"
+    case syncConflictsEmpty = "syncConflicts.empty"
+    case syncConflictsConflictCodeLabel = "syncConflicts.conflictCodeLabel"
+    case syncConflictsLocalLabel = "syncConflicts.localLabel"
+    case syncConflictsServerLabel = "syncConflicts.serverLabel"
+    case syncConflictsClose = "syncConflicts.close"
+    case syncConflictsFailed = "syncConflicts.failed"
+    case syncConflictsActionKeepServer = "syncConflicts.action.keepServer"
+    case syncConflictsActionReapply = "syncConflicts.action.reapply"
+    case syncConflictsActionDuplicate = "syncConflicts.action.duplicate"
+    case syncConflictsActionReview = "syncConflicts.action.review"
 }

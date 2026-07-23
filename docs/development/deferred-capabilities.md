@@ -161,20 +161,36 @@ environments is actually provisioned, is a one-time privileged `CREATE EXTENSION
 the same break-glass-superuser mechanism `07-iam-database-bootstrap.sh` already uses, before the
 first automated migration run.
 
-**P5-IOS-03's real `SyncEngine`, and everything downstream of it.** `P5-IOS-02` is now complete
-(Stages 4a–4e): `FeatureGardens` (Stage 4a), `FeatureMap` (Stage 4b), `FeaturePlants` (Stage 4c),
-`FeatureObservations` (Stage 4d), and `FeatureTasks` (Stage 4e) all route their offline-capable
-commands through the local-transaction-plus-outbox pattern — `FeatureObservations`'s own version of it
-simplified for `GardenObservation`'s append-only shape (`RecordObservation`/`CorrectObservation` append
-a new local row directly, with no "current" record to load first, unlike the other four).
-`CoreSynchronization.LocalOnlySyncEngine` remains the only `SyncEngine` implementation, so no outbox
-operation any stage so far enqueues is ever actually pushed to the server yet; nothing in the UI claims
-otherwise (`GardensListViewModel`/`GardenSettingsViewModel`/`MapEditorViewModel`/`PlantDetailViewModel`/
-`ObservationsTimelineViewModel`/`TasksListViewModel` show "Saved locally, waiting to sync", never
-"Synchronized"). Conflict recovery (`P5-CONFLICT-01`) and the rest of
-architecture/ios-application-design.md section 8's status vocabulary (`Waiting for connectivity`/
-`Synchronizing`/`Synchronized`/`Requires attention`/`Upload pending`) are unbuilt until a real engine
-exists to report through.
+**`P5-IOS-02`/`P5-IOS-03`/`P5-SEC-01`/`P5-CONFLICT-01` are all now complete** — `CoreSynchronization
+.RemoteSyncEngine` is the real, network-backed push/pull engine (no longer `LocalOnlySyncEngine` only);
+same-object conflicts are durably recorded and, as of `P5-CONFLICT-01`, resolvable through
+`RemoteSyncEngine.resolveConflict(_:action:)` (keep server version, reapply the local intent where safely
+replayable, duplicate as a new object for `gardenObject`), reachable through a real `FeatureSyncConflicts`
+screen from `GardenSettingsView`; a `garden`/`delete` pull change cascades to remove every registered
+applier's local rows and drains pending outbox operations for the garden. What remains genuinely deferred
+from this line of work:
+
+- Per-feature UI status labels (`GardensListViewModel`/`GardenSettingsViewModel`/`MapEditorViewModel`/
+  `PlantDetailViewModel`/`ObservationsTimelineViewModel`/`TasksListViewModel`'s own "Saved locally, waiting
+  to sync") are still session-scoped placeholders, not reconciled with `SyncEngineStatus`'s engine-wide
+  view — a real design question spanning every `Feature*` module's view models, left as a separate
+  follow-up since Stage 5b.
+- `SyncEngineStatus.requiresAttention` is still not wired into any UI — `FeatureSyncConflicts` reads the
+  durable open-conflict list directly instead (a different, more robust signal for "does this garden need
+  attention" than a live engine instance's own last-cycle outcome; see that feature's own reasoning).
+  `Upload pending` (media transfer) also stays unmodeled — no media-upload flow exists anywhere in this
+  codebase yet.
+- Connectivity-change (`NWPathMonitor`) and background-processing-opportunity (`BGTaskScheduler`) sync
+  triggers remain unbuilt; only app-foreground (`scenePhase`) and explicit calls trigger a push/pull cycle
+  today.
+- If a conflict's own resolution operation later conflicts or is rejected in turn, the original conflict
+  record is never re-opened or otherwise unwound — it stays resolved-but-not-removed indefinitely, while
+  the resolution operation's own new conflict (if any) is recorded separately, unlinked to the first. No
+  product decision yet exists for how deep a retry chain should go.
+- Account-level revocation (a session going invalid should clear that account's local sync database) has
+  no sign-out flow to trigger it from anywhere in this codebase — a real, separate, understood gap
+  documented in `tasks/todo.md`'s `P5-SEC-01` entry, distinct from the per-garden membership revocation
+  that stage does handle.
 
 **The Phase 2 E2E suite does not run in CI.** `apps/web/e2e/` (Playwright against a real Postgres,
 the Firebase Auth emulator, the real API, and the real web app, orchestrated by

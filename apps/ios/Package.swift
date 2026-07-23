@@ -45,6 +45,7 @@ let package = Package(
         .library(name: "FeaturePlants", targets: ["FeaturePlants"]),
         .library(name: "FeatureObservations", targets: ["FeatureObservations"]),
         .library(name: "FeatureTasks", targets: ["FeatureTasks"]),
+        .library(name: "FeatureSyncConflicts", targets: ["FeatureSyncConflicts"]),
         .library(name: "AppComposition", targets: ["AppComposition"]),
     ],
     dependencies: [
@@ -302,6 +303,27 @@ let package = Package(
             ]
         ),
 
+        // Durable-conflict list and compare/resolve screen (P5-CONFLICT-01).
+        // No GRDB dependency of its own — unlike `FeatureGardens`/`FeatureMap`/
+        // `FeaturePlants`/`FeatureObservations`/`FeatureTasks`, this feature
+        // owns no local read-model table; it only reads/writes through
+        // `CorePersistence.SyncConflictStore`/`CorePersistence.SyncOutboxStore`
+        // and `CoreSynchronization.ConflictResolvingSyncEngine`, both already
+        // plain-`CoreDomain`-typed protocols.
+        .target(
+            name: "FeatureSyncConflicts",
+            dependencies: [
+                "CoreDomain",
+                "CoreLocalization",
+                "CorePersistence",
+                // For `ConflictResolvingSyncEngine`/`RemoteSyncEngine`, which
+                // `SyncConflictsViewModel` calls to resolve a conflict — see
+                // `FeatureGardens`'s identical comment for
+                // `GardenSyncRecordApplier` above.
+                "CoreSynchronization",
+            ]
+        ),
+
         // The single composition root that constructs adapters and injects them
         // through explicit initializers.
         .target(
@@ -330,6 +352,7 @@ let package = Package(
                 "FeaturePlants",
                 "FeatureObservations",
                 "FeatureTasks",
+                "FeatureSyncConflicts",
                 .product(name: "FirebaseCore", package: "firebase-ios-sdk"),
             ]
         ),
@@ -445,6 +468,18 @@ let package = Package(
                 // see `FeatureGardensTests`'s identical comment above.
                 "CoreSynchronization",
                 .product(name: "GRDB", package: "GRDB.swift"),
+            ]
+        ),
+        .testTarget(
+            name: "FeatureSyncConflictsTests",
+            dependencies: [
+                "FeatureSyncConflicts",
+                // For `SyncConflictsViewModelTests`'s fakes, which construct
+                // `CoreDomain.SyncConflict`/`OutboxOperation` values directly
+                // and conform to `CorePersistence.SyncConflictStore`/
+                // `CoreSynchronization.ConflictResolvingSyncEngine`.
+                "CorePersistence",
+                "CoreSynchronization",
             ]
         ),
         .testTarget(

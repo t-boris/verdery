@@ -22,13 +22,14 @@ struct RemoteSyncEngineTests {
         id: String = "op-1",
         gardenId: String = "garden-1",
         localSequence: Int64 = 1,
+        commandType: String = "gardens.create",
         payload: String = #"{"recordType":"garden","gardenId":"garden-1","command":{"commandType":"gardens.create"}}"#
     ) -> OutboxOperation {
         OutboxOperation(
             id: id,
             profileId: "profile-1",
             gardenId: gardenId,
-            commandType: "gardens.create",
+            commandType: commandType,
             commandVersion: 1,
             targetRecordIds: [gardenId],
             expectedRevision: nil,
@@ -166,12 +167,14 @@ struct RemoteSyncEngineTests {
         #expect(openConflicts.count == 1)
         let conflict = try #require(openConflicts.first)
         #expect(conflict.originalOperationId == "op-1")
+        #expect(conflict.recordType == "garden")
         #expect(conflict.conflictCode == "staleRevision")
         #expect(conflict.localRepresentation == operation().payload)
         #expect(conflict.serverRepresentation.contains("staleRevision") == false)
         #expect(conflict.resolutionOperationId == nil)
-        // `gardenObject` gets all four recovery actions (section "14.5
-        // Geometry"); `garden` gets the two safe for any conflict category.
+        // `gardens.create` has no `expectedRevision` to correct, so it never
+        // offers `reapplyLocalIntent`; `garden` is never `duplicateAsNewObject`-
+        // eligible at all — see `ConflictRecoveryPolicy`'s own table.
         #expect(conflict.suggestedRecoveryActions == [.keepServerVersion, .openForManualReview])
 
         let results = try await operationResultStore.fetchAll(gardenId: "garden-1")
@@ -185,10 +188,10 @@ struct RemoteSyncEngineTests {
         #expect(stillPending.map(\.id) == ["op-1"])
     }
 
-    @Test("a gardenObject conflict suggests all four recovery actions, matching section 14.5")
+    @Test("a gardenObject conflict on a safely-replayable, duplicable command suggests all four recovery actions")
     func gardenObjectConflictSuggestsAllFourActions() async throws {
         let outboxStore = InMemorySyncOutboxStore()
-        try await outboxStore.enqueue(operation(id: "op-1", gardenId: "garden-1"))
+        try await outboxStore.enqueue(operation(id: "op-1", gardenId: "garden-1", commandType: "map.moveObject"))
         let conflictStore = InMemorySyncConflictStore()
         let gateway = FakeSyncGateway()
         await gateway.setPushResult { _ in
@@ -209,7 +212,35 @@ struct RemoteSyncEngineTests {
         try await engine.pushPending()
 
         let conflict = try #require(try await conflictStore.fetchOpen(gardenId: "garden-1").first)
+        #expect(conflict.recordType == "gardenObject")
         #expect(conflict.suggestedRecoveryActions == [.keepServerVersion, .reapplyLocalIntent, .openForManualReview, .duplicateAsNewObject])
+    }
+
+    @Test("a gardenObject conflict on a structurally-fragile command (editVertex) withholds reapply but keeps duplicate")
+    func gardenObjectEditVertexConflictWithholdsReapply() async throws {
+        let outboxStore = InMemorySyncOutboxStore()
+        try await outboxStore.enqueue(operation(id: "op-1", gardenId: "garden-1", commandType: "map.editVertex"))
+        let conflictStore = InMemorySyncConflictStore()
+        let gateway = FakeSyncGateway()
+        await gateway.setPushResult { _ in
+            [.conflict(
+                operationId: "op-1",
+                conflictCode: "staleRevision",
+                currentRecordType: "gardenObject",
+                currentRecordJSON: #"{"recordType":"gardenObject","data":{}}"#
+            )]
+        }
+        let engine = makeEngine(
+            outboxStore: outboxStore,
+            conflictStore: conflictStore,
+            gateway: gateway,
+            gardenApplier: FakeSyncRecordApplier(recordType: "garden")
+        )
+
+        try await engine.pushPending()
+
+        let conflict = try #require(try await conflictStore.fetchOpen(gardenId: "garden-1").first)
+        #expect(conflict.suggestedRecoveryActions == [.keepServerVersion, .openForManualReview, .duplicateAsNewObject])
     }
 
     @Test("a rejected result records a durable failure marker and clears the outbox row")

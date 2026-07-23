@@ -66,6 +66,11 @@ public struct GardenSettingsView: View {
                         Text(model.openTasksTitle)
                     }
                     .accessibilityIdentifier("gardens.settings.openTasks")
+
+                    NavigationLink(value: GardenSyncConflictsRoute(gardenId: model.gardenId)) {
+                        Text(model.openSyncConflictsTitle)
+                    }
+                    .accessibilityIdentifier("gardens.settings.openSyncConflicts")
                 }
 
                 if summary.isOwner {

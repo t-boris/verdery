@@ -33,6 +33,17 @@ public struct SyncConflict: Equatable, Sendable, Identifiable, Codable {
     public let id: String
     public let originalOperationId: String
     public let gardenId: String
+    /// The `SyncRecordType` wire value this conflict's record belongs to —
+    /// `"garden"`, `"gardenObject"`, `"plant"`, `"observation"`, or `"task"`,
+    /// copied verbatim from the push outcome's own `currentRecordType`
+    /// (`CoreNetworking.SyncPushOperationOutcome.conflict`) at the moment the
+    /// conflict was recorded. Added for P5-CONFLICT-01: the resolution
+    /// mechanism needs this to look up the right `CoreSynchronization
+    /// .SyncRecordApplier` generically, without re-parsing
+    /// `serverRepresentation`'s own envelope every time. A plain `String`,
+    /// matching `SyncRecordApplier.recordType`'s own reasoning for staying
+    /// unenumerated.
+    public let recordType: String
     /// A stable conflict type (section "14.2 Same Mutable Object": "a stable
     /// conflict type"), e.g. `"staleRevision"` or `"taskAlreadySuperseded"`.
     /// Not an enum here: this client's conflict vocabulary is not yet pinned
@@ -61,6 +72,7 @@ public struct SyncConflict: Equatable, Sendable, Identifiable, Codable {
         id: String,
         originalOperationId: String,
         gardenId: String,
+        recordType: String,
         conflictCode: String,
         localRepresentation: String,
         serverRepresentation: String,
@@ -72,6 +84,7 @@ public struct SyncConflict: Equatable, Sendable, Identifiable, Codable {
         self.id = id
         self.originalOperationId = originalOperationId
         self.gardenId = gardenId
+        self.recordType = recordType
         self.conflictCode = conflictCode
         self.localRepresentation = localRepresentation
         self.serverRepresentation = serverRepresentation
@@ -94,6 +107,7 @@ public struct SyncConflict: Equatable, Sendable, Identifiable, Codable {
             id: id,
             originalOperationId: originalOperationId,
             gardenId: gardenId,
+            recordType: recordType,
             conflictCode: conflictCode,
             localRepresentation: localRepresentation,
             serverRepresentation: serverRepresentation,

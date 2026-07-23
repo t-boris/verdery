@@ -23,6 +23,7 @@ struct OutboxOperationRecord: Codable, FetchableRecord, PersistableRecord {
     let retryCount: Int
     let lastErrorCategory: String?
     let lastAttemptedAt: Date?
+    let resolvesConflictId: String?
     let createdAt: Date
 }
 
@@ -46,6 +47,7 @@ extension OutboxOperationRecord {
         self.retryCount = operation.retryState.attemptCount
         self.lastErrorCategory = operation.retryState.lastErrorCategory?.rawValue
         self.lastAttemptedAt = operation.retryState.lastAttemptedAt
+        self.resolvesConflictId = operation.resolvesConflictId
         self.createdAt = operation.createdAt
     }
 
@@ -67,6 +69,7 @@ extension OutboxOperationRecord {
                 lastErrorCategory: lastErrorCategory.flatMap(SyncErrorCategory.init(rawValue:))
             ),
             localSequence: localSequence,
+            resolvesConflictId: resolvesConflictId,
             createdAt: createdAt
         )
     }

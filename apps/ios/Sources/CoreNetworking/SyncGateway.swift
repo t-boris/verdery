@@ -128,6 +128,24 @@ public enum SyncChangeSnapshot: Equatable, Sendable {
     /// cache to write a pulled snapshot into (`observation` — see
     /// `FeatureObservations.LocalObservationStore`'s own doc comment).
     case unprojected(recordType: String)
+
+    /// This snapshot's own server-confirmed revision — `nil` only for
+    /// `.unprojected`, which carries no typed domain value to read one off
+    /// of. Added for P5-CONFLICT-01: `CoreSynchronization`'s conflict
+    /// resolution "reapply local intent" action decodes
+    /// `CoreDomain.SyncConflict.serverRepresentation` (the exact
+    /// `{recordType, data}` envelope this type already decodes for pull) to
+    /// learn the server's current revision generically, with no per-record-
+    /// type switch of its own.
+    public var revision: Int? {
+        switch self {
+        case let .garden(garden): garden.revision
+        case let .gardenObject(object): object.revision
+        case let .plant(plant): plant.revision
+        case let .task(task): task.revision
+        case .unprojected: nil
+        }
+    }
 }
 
 /// One bounded, ordered page from `GET /sync/changes` — `packages/api-
@@ -331,7 +349,7 @@ public struct URLSessionSyncGateway: SyncGateway {
         let snapshot: SyncChangeSnapshot?
         if operation == .upsert {
             guard let record = transport.record else { throw APIGatewayError.undecodableResponse(statusCode: 200, correlationId: "") }
-            snapshot = try domainSnapshot(record, recordType: transport.recordType)
+            snapshot = try SyncRecordSnapshotDecoding.decode(record, recordType: transport.recordType)
         } else {
             snapshot = nil
         }
@@ -346,54 +364,5 @@ public struct URLSessionSyncGateway: SyncGateway {
             committedAt: transport.committedAt,
             snapshot: snapshot
         )
-    }
-
-    /// Decodes `SyncChange.record`'s `{recordType, data}` envelope a second
-    /// time, into whichever typed `*Transport` struct `recordType` names —
-    /// the same structs `GardenGateway`/`MapGateway`/`PlantGateway`/
-    /// `TaskGateway` already decode their own always-fresh-from-server reads
-    /// into, reused here rather than duplicated, since `SyncRecordSnapshot`'s
-    /// `data` schema for each record type is the exact same `Garden`/
-    /// `GardenObject`/`Plant`/`Task` schema those endpoints already return.
-    ///
-    /// `record` arrives as `JSONPassthroughValue` — the same "flexible whole-
-    /// envelope decode, then a second typed pass once the discriminator is
-    /// known" shape `SyncPushOperationResultTransport.currentRecord` already
-    /// uses for push's conflict payload — because `HTTPTransport.execute`'s
-    /// single generic decode cannot itself branch on `recordType` the way a
-    /// hand-written `init(from:)` could; re-serializing the already-parsed
-    /// `data` field and decoding it again is simpler and no less correct than
-    /// teaching `SyncChangeTransport` a custom keyed-container decoder for a
-    /// five-way discriminated union it would otherwise need to duplicate
-    /// `SyncRecordSnapshot`'s own discriminator mapping to get right.
-    private static func domainSnapshot(_ record: JSONPassthroughValue, recordType: String) throws -> SyncChangeSnapshot {
-        guard recordType == "garden" || recordType == "gardenObject" || recordType == "plant" || recordType == "task" else {
-            // `calibration`/`observation`, or an unrecognized future record
-            // type — no typed local projection exists to decode into; see
-            // `SyncChangeSnapshot.unprojected`'s own doc comment.
-            return .unprojected(recordType: recordType)
-        }
-        guard let dataValue = record.value(forKey: "data") else {
-            throw APIGatewayError.undecodableResponse(statusCode: 200, correlationId: "")
-        }
-        let data = Data(try dataValue.jsonText().utf8)
-
-        switch recordType {
-        case "garden":
-            let garden = try HTTPTransport.decoder.decode(GardenTransport.self, from: data)
-            guard let domainValue = garden.domainValue else {
-                throw APIGatewayError.undecodableResponse(statusCode: 200, correlationId: "")
-            }
-            return .garden(domainValue)
-        case "gardenObject":
-            let object = try HTTPTransport.decoder.decode(GardenObjectTransport.self, from: data)
-            return .gardenObject(object.domainValue)
-        case "plant":
-            let plant = try HTTPTransport.decoder.decode(PlantTransport.self, from: data)
-            return .plant(plant.domainValue)
-        default:
-            let task = try HTTPTransport.decoder.decode(GardenTaskTransport.self, from: data)
-            return .task(task.domainValue)
-        }
     }
 }

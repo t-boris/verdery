@@ -1,3 +1,4 @@
+import CoreDomain
 import CoreNetworking
 import CoreSynchronization
 import Foundation
@@ -8,8 +9,9 @@ import Foundation
 /// `CoreSynchronization` and every `Feature*` module).
 ///
 /// Source: implementation-plan.md work package P5-IOS-03, Stages 5a
-/// (`applyConfirmed`) and 5b (`SyncPullRecordApplier`).
-public struct PlantSyncRecordApplier: SyncRecordApplier, SyncPullRecordApplier {
+/// (`applyConfirmed`) and 5b (`SyncPullRecordApplier`); P5-CONFLICT-01,
+/// Stage 6 (`SyncConflictReplayableApplier`).
+public struct PlantSyncRecordApplier: SyncRecordApplier, SyncPullRecordApplier, SyncConflictReplayableApplier {
     public let recordType = "plant"
 
     private let localStore: any LocalPlantStore
@@ -43,5 +45,26 @@ public struct PlantSyncRecordApplier: SyncRecordApplier, SyncPullRecordApplier {
     /// contract.
     public func removeGardenScopedData(gardenId: String) async throws {
         try await localStore.removeAll(gardenId: gardenId)
+    }
+
+    /// See `SyncConflictReplayableApplier.reapplyDraft(original:newExpectedRevision:)`'s
+    /// own doc comment. Every plant command besides `plants.addPlant` (never
+    /// offered `reapplyLocalIntent` — see `ConflictRecoveryPolicy`'s own
+    /// table) carries a complete new field value, never an index, so
+    /// replacing only `command.expectedRevision` is exactly "reapply the
+    /// same local intent."
+    public func reapplyDraft(original: OutboxOperation, newExpectedRevision: Int) throws -> ConflictResolutionOperationDraft {
+        let payload = try ConflictResolutionPayloadEditing.replacingExpectedRevision(
+            in: original.payload,
+            with: newExpectedRevision,
+            orThrow: PlantCommandError.conflictResolutionPayloadMalformed
+        )
+        return ConflictResolutionOperationDraft(
+            commandType: original.commandType,
+            commandVersion: original.commandVersion,
+            targetRecordIds: original.targetRecordIds,
+            expectedRevision: newExpectedRevision,
+            payload: payload
+        )
     }
 }

@@ -93,4 +93,37 @@ struct TaskSyncRecordApplierTests {
         #expect(try await store.fetchAll(gardenId: "garden-1").isEmpty)
         #expect(try await store.fetchAll(gardenId: "garden-2").map(\.id) == ["task-other-garden"])
     }
+
+    @Test("reapplyDraft replaces only expectedRevision, keeping the rest of the original local intent")
+    func reapplyDraftReplacesOnlyExpectedRevision() throws {
+        let applier = TaskSyncRecordApplier(localStore: InMemoryTaskStore())
+        let original = OutboxOperation(
+            id: "op-1", profileId: "profile-1", gardenId: "garden-1", commandType: "tasks.completeTask",
+            commandVersion: 1, targetRecordIds: ["task-1"], expectedRevision: 2,
+            payload: #"{"recordType":"task","gardenId":"garden-1","command":{"commandType":"tasks.completeTask","taskId":"task-1","expectedRevision":2,"request":{}}}"#,
+            createdAt: Date(timeIntervalSince1970: 0)
+        )
+
+        let draft = try applier.reapplyDraft(original: original, newExpectedRevision: 5)
+
+        #expect(draft.expectedRevision == 5)
+        #expect(draft.commandType == "tasks.completeTask")
+        #expect(draft.payload.contains(#""expectedRevision":5"#))
+        #expect(draft.payload.contains(#""taskId":"task-1""#))
+    }
+
+    @Test("reapplyDraft throws TaskCommandError.conflictResolutionPayloadMalformed for a create command with no expectedRevision")
+    func reapplyDraftThrowsForMalformedPayload() {
+        let applier = TaskSyncRecordApplier(localStore: InMemoryTaskStore())
+        let original = OutboxOperation(
+            id: "op-1", profileId: "profile-1", gardenId: "garden-1", commandType: "tasks.createManualTask",
+            commandVersion: 1, targetRecordIds: ["task-1"], expectedRevision: nil,
+            payload: #"{"recordType":"task","gardenId":"garden-1","command":{"commandType":"tasks.createManualTask","taskId":"task-1"}}"#,
+            createdAt: Date(timeIntervalSince1970: 0)
+        )
+
+        #expect(throws: TaskCommandError.conflictResolutionPayloadMalformed) {
+            try applier.reapplyDraft(original: original, newExpectedRevision: 5)
+        }
+    }
 }

@@ -16,12 +16,14 @@ struct SyncConflictStoreTests {
     private func conflict(
         id: String = "conflict-1",
         gardenId: String = "garden-1",
+        recordType: String = "garden",
         resolutionOperationId: String? = nil
     ) -> SyncConflict {
         SyncConflict(
             id: id,
             originalOperationId: "op-1",
             gardenId: gardenId,
+            recordType: recordType,
             conflictCode: "staleRevision",
             localRepresentation: #"{"name":"Local"}"#,
             serverRepresentation: #"{"name":"Server"}"#,
@@ -39,6 +41,7 @@ struct SyncConflictStoreTests {
         let open = try await store.fetchOpen(gardenId: "garden-1")
 
         #expect(open == [conflict()])
+        #expect(open.first?.recordType == "garden")
         #expect(open.first?.suggestedRecoveryActions == [.keepServerVersion, .reapplyLocalIntent])
     }
 

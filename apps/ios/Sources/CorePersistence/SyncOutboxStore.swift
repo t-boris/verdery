@@ -16,6 +16,17 @@ public protocol SyncOutboxStore: Sendable {
     /// Every operation for one garden, oldest local processing order first.
     func fetchPending(gardenId: String) async throws -> [OutboxOperation]
 
+    /// One operation by its own id — `nil` if it was never enqueued, or has
+    /// already been removed (accepted, duplicate-confirmed, or a terminal
+    /// rejection). Added for P5-CONFLICT-01: the conflict resolution
+    /// mechanism looks up a conflict's retained original operation by this
+    /// id (`CoreDomain.SyncConflict.originalOperationId`) to read the
+    /// `commandType`/`commandVersion`/`targetRecordIds`/`payload` a
+    /// `reapplyLocalIntent`/`duplicateAsNewObject` resolution needs — the
+    /// same reason `RemoteSyncEngine`'s own conflict-recording comment gives
+    /// for deliberately retaining that row rather than removing it.
+    func fetch(operationId: String) async throws -> OutboxOperation?
+
     /// Every operation across every garden, oldest local processing order
     /// first — the order a push batch must preserve (architecture/offline-
     /// synchronization.md, section "16. Ordering").
@@ -59,6 +70,12 @@ public struct GRDBSyncOutboxStore: SyncOutboxStore {
                 .order(Column("localSequence"))
                 .fetchAll(db)
                 .map(\.domainValue)
+        }
+    }
+
+    public func fetch(operationId: String) async throws -> OutboxOperation? {
+        try await dbQueue.read { db in
+            try OutboxOperationRecord.fetchOne(db, key: operationId)?.domainValue
         }
     }
 

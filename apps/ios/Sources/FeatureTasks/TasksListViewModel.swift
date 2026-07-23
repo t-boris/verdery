@@ -300,7 +300,7 @@ public final class TasksListViewModel {
         switch failure {
         case .invalidTitle:
             strings(.tasksTitleRequired)
-        case .localRecordNotFound, .taskNotEditable, .payloadEncodingFailed:
+        case .localRecordNotFound, .taskNotEditable, .payloadEncodingFailed, .conflictResolutionPayloadMalformed:
             strings(.serverUnexpected)
         }
     }

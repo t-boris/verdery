@@ -390,3 +390,15 @@
 "tasks.status.dismissed" = "Dismissed";
 "tasks.status.deleted" = "Deleted";
 "tasks.status.savedLocally" = "Saved locally, waiting to sync";
+"gardens.openSyncConflicts" = "Sync conflicts";
+"syncConflicts.title" = "Sync conflicts";
+"syncConflicts.empty" = "No open conflicts.";
+"syncConflicts.conflictCodeLabel" = "Conflict";
+"syncConflicts.localLabel" = "Your version";
+"syncConflicts.serverLabel" = "Server version";
+"syncConflicts.close" = "Close";
+"syncConflicts.failed" = "Something went wrong. Try again.";
+"syncConflicts.action.keepServer" = "Keep server version";
+"syncConflicts.action.reapply" = "Reapply my change";
+"syncConflicts.action.duplicate" = "Duplicate as new object";
+"syncConflicts.action.review" = "Compare versions";

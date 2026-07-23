@@ -31,6 +31,10 @@ public actor InMemorySyncOutboxStore: SyncOutboxStore {
         operationsById.values.sorted { ($0.localSequence ?? 0) < ($1.localSequence ?? 0) }
     }
 
+    public func fetch(operationId: String) async throws -> OutboxOperation? {
+        operationsById[operationId]
+    }
+
     public func recordAttempt(operationId: String, errorCategory: SyncErrorCategory?, at date: Date) async throws {
         guard let operation = operationsById[operationId] else { return }
         operationsById[operationId] = operation.recordingAttempt(errorCategory: errorCategory, at: date)

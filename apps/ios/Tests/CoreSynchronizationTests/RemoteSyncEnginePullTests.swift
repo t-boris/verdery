@@ -240,9 +240,9 @@ struct RemoteSyncEnginePullTests {
             payload: #"{"recordType":"plant"}"#, createdAt: Date(timeIntervalSince1970: 0)
         ))
         try await conflictStore.record(SyncConflict(
-            id: "conflict-1", originalOperationId: "op-x", gardenId: "garden-1", conflictCode: "staleRevision",
-            localRepresentation: "{}", serverRepresentation: "{}", suggestedRecoveryActions: [.keepServerVersion],
-            createdAt: Date(timeIntervalSince1970: 0)
+            id: "conflict-1", originalOperationId: "op-x", gardenId: "garden-1", recordType: "garden",
+            conflictCode: "staleRevision", localRepresentation: "{}", serverRepresentation: "{}",
+            suggestedRecoveryActions: [.keepServerVersion], createdAt: Date(timeIntervalSince1970: 0)
         ))
         try await operationResultStore.record(SyncOperationResult(
             operationId: "op-x", gardenId: "garden-1", outcome: .rejected, receivedAt: Date(timeIntervalSince1970: 0)

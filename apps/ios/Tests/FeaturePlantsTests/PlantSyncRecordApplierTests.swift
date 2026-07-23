@@ -96,4 +96,37 @@ struct PlantSyncRecordApplierTests {
         #expect(try await store.fetch(plantId: "plant-pending") == nil)
         #expect(try await store.fetch(plantId: "plant-other-garden") != nil)
     }
+
+    @Test("reapplyDraft replaces only expectedRevision, keeping the rest of the original local intent")
+    func reapplyDraftReplacesOnlyExpectedRevision() throws {
+        let applier = PlantSyncRecordApplier(localStore: InMemoryPlantStore())
+        let original = OutboxOperation(
+            id: "op-1", profileId: "profile-1", gardenId: "garden-1", commandType: "plants.setStatus",
+            commandVersion: 1, targetRecordIds: ["plant-1"], expectedRevision: 4,
+            payload: #"{"recordType":"plant","gardenId":"garden-1","command":{"commandType":"plants.setStatus","plantId":"plant-1","expectedRevision":4,"request":{"status":"dormant"}}}"#,
+            createdAt: Date(timeIntervalSince1970: 0)
+        )
+
+        let draft = try applier.reapplyDraft(original: original, newExpectedRevision: 11)
+
+        #expect(draft.expectedRevision == 11)
+        #expect(draft.targetRecordIds == ["plant-1"])
+        #expect(draft.payload.contains(#""expectedRevision":11"#))
+        #expect(draft.payload.contains(#""status":"dormant""#))
+    }
+
+    @Test("reapplyDraft throws PlantCommandError.conflictResolutionPayloadMalformed for a create command with no expectedRevision")
+    func reapplyDraftThrowsForMalformedPayload() {
+        let applier = PlantSyncRecordApplier(localStore: InMemoryPlantStore())
+        let original = OutboxOperation(
+            id: "op-1", profileId: "profile-1", gardenId: "garden-1", commandType: "plants.addPlant",
+            commandVersion: 1, targetRecordIds: ["plant-1"], expectedRevision: nil,
+            payload: #"{"recordType":"plant","gardenId":"garden-1","command":{"commandType":"plants.addPlant","plantId":"plant-1"}}"#,
+            createdAt: Date(timeIntervalSince1970: 0)
+        )
+
+        #expect(throws: PlantCommandError.conflictResolutionPayloadMalformed) {
+            try applier.reapplyDraft(original: original, newExpectedRevision: 11)
+        }
+    }
 }
