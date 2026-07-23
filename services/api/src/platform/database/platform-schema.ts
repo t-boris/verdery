@@ -76,9 +76,27 @@ export interface AuditEventRow {
   occurred_at: Generated<Date>;
 }
 
+/**
+ * Matches `platform.sync_client_installation` in
+ * 1785000000000_synchronization-baseline.sql — see that migration's own
+ * comment for why this table lives in `platform` rather than a dedicated
+ * `synchronization` schema.
+ */
+export interface SyncClientInstallationRow {
+  id: string;
+  profile_id: string;
+  platform: 'ios' | 'web';
+  app_version: string;
+  protocol_version: number;
+  registered_at: Generated<Date>;
+  last_seen_at: Generated<Date>;
+  revoked_at: Date | null;
+}
+
 export interface PlatformDatabaseSchema {
   'platform.idempotency_record': IdempotencyRecordRow;
   'platform.outbox_event': OutboxEventRow;
   'platform.sync_change': SyncChangeRow;
   'platform.audit_event': AuditEventRow;
+  'platform.sync_client_installation': SyncClientInstallationRow;
 }

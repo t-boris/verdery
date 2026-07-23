@@ -73,6 +73,7 @@ export { CompleteTask } from './application/complete-task.js';
 export { DismissTask } from './application/dismiss-task.js';
 export { SkipTask } from './application/skip-task.js';
 export { DeleteTask } from './application/delete-task.js';
+export { GetTask } from './application/get-task.js';
 export { ListTasksForGarden } from './application/list-tasks-for-garden.js';
 export { AttachTaskFile } from './application/attach-task-file.js';
 export type { AttachTaskFileInput } from './application/attach-task-file.js';

@@ -47,6 +47,8 @@ export interface CreateManualTaskTimeWindowInput {
 }
 
 export interface CreateManualTaskInput {
+  /** Client-generated id for the new task, when supplied. See `AddPlantInput.plantId`'s own doc comment for why this is optional and additive — matches `SyncCreateManualTaskCommand.taskId`. */
+  readonly taskId?: Uuid;
   readonly target: CreateManualTaskTargetInput;
   readonly title: string;
   readonly notes?: string | null;
@@ -113,7 +115,7 @@ export class CreateManualTask {
 
         const now = this.clock.now();
         const task = createTask({
-          id: generateUuidV7(),
+          id: input.taskId ?? generateUuidV7(),
           gardenId,
           target,
           rawTitle: input.title,

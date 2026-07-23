@@ -65,6 +65,7 @@ export { DeleteMapObject } from './application/delete-map-object.js';
 export { DuplicateMapObject } from './application/duplicate-map-object.js';
 export { EditMapObjectVertex } from './application/edit-map-object-vertex.js';
 export { GetGardenMap } from './application/get-garden-map.js';
+export { GetMapObject } from './application/get-map-object.js';
 export { JoinMapObjectLinework } from './application/join-map-object-linework.js';
 export { MoveMapObject } from './application/move-map-object.js';
 export { ReplaceMapObjectGeometry } from './application/replace-map-object-geometry.js';

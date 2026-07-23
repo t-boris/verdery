@@ -5,6 +5,7 @@ import type { DatabaseSchema } from '../database/database-gateway.js';
 import type { Clock } from '../../shared/time/clock.js';
 import type {
   IdempotencyCheck,
+  IdempotencyLookupResult,
   IdempotencyRecordInput,
   IdempotencyStore,
 } from './idempotency-store.js';
@@ -60,5 +61,28 @@ export class KyselyIdempotencyStore implements IdempotencyStore {
         expires_at: new Date(this.clock.now().getTime() + ttlMilliseconds),
       })
       .execute();
+  }
+
+  async lookup(
+    actorProfileId: string,
+    operation: string,
+    idempotencyKey: string,
+  ): Promise<IdempotencyLookupResult | null> {
+    const existing = await this.db
+      .selectFrom('platform.idempotency_record')
+      .select(['response_status_code', 'response_body'])
+      .where('actor_profile_id', '=', actorProfileId)
+      .where('operation', '=', operation)
+      .where('idempotency_key', '=', idempotencyKey)
+      .executeTakeFirst();
+
+    if (existing === undefined) {
+      return null;
+    }
+
+    return {
+      responseStatusCode: existing.response_status_code,
+      responseBody: existing.response_body,
+    };
   }
 }

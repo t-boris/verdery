@@ -31,6 +31,8 @@ import type { ObservationsHistoryUnitOfWork } from './observations-history-unit-
 import { runIdempotentCommand } from './run-idempotent-command.js';
 
 export interface CorrectObservationInput {
+  /** Client-generated id for the new correction row, when supplied. See `AddPlantInput.plantId`'s own doc comment (plants-inventory/application/add-plant.ts) for why this is optional and additive — matches `SyncCorrectObservationCommand.observationId` (the new correction row's id, distinct from `correctedObservationId`, the id passed as this command's own `originalObservationId`). */
+  readonly observationId?: Uuid;
   readonly correctionKind: ObservationCorrectionKind;
   readonly noteText: string | null;
   readonly conditionSummary: string | null;
@@ -79,7 +81,7 @@ export class CorrectObservation {
         const now = this.clock.now();
 
         const correction = createCorrectionObservation({
-          id: generateUuidV7(),
+          id: input.observationId ?? generateUuidV7(),
           original,
           correctionKind: input.correctionKind,
           actorProfileId: profileId,

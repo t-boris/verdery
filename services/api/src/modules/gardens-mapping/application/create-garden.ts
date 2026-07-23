@@ -17,17 +17,31 @@ export class CreateGarden {
     private readonly clock: Clock,
   ) {}
 
-  async execute(profileId: Uuid, rawName: string, idempotencyKey: string): Promise<GardenResource> {
+  /**
+   * `gardenId`, when supplied, is used as the new garden's id instead of a
+   * server-generated one. Optional and defaulted to a fresh `generateUuidV7()`
+   * so every existing caller (the ordinary REST `POST /v1/gardens` route,
+   * which has no id to supply) is unaffected — added for the synchronization
+   * module's `gardens.create` sync command, whose own payload names
+   * `gardenId` as "the client-generated id of the new garden," needed for
+   * offline optimistic creation before the server has ever seen the record.
+   */
+  async execute(
+    profileId: Uuid,
+    rawName: string,
+    idempotencyKey: string,
+    gardenId?: Uuid,
+  ): Promise<GardenResource> {
     const input = {
       actorProfileId: profileId,
       operation: OPERATION,
       idempotencyKey,
-      requestFingerprint: JSON.stringify({ name: rawName }),
+      requestFingerprint: JSON.stringify({ name: rawName, gardenId }),
     };
 
     return runIdempotentCommand(this.idempotency, this.unitOfWork, input, 201, async (context) => {
       const now = this.clock.now();
-      const garden = createGarden(generateUuidV7(), rawName, profileId, now);
+      const garden = createGarden(gardenId ?? generateUuidV7(), rawName, profileId, now);
 
       await context.gardens.insert(garden);
       await context.memberships.insertOwner(generateUuidV7(), garden.id, profileId, now);

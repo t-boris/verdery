@@ -13,6 +13,16 @@ import { runIdempotentCommand } from './run-idempotent-command.js';
 const OPERATION = 'plants.addPlant';
 
 export interface AddPlantInput {
+  /**
+   * Client-generated id for the new plant, when supplied — optional and
+   * defaulted to a fresh `generateUuidV7()` so every existing caller (the
+   * ordinary REST route, which has no id to supply) is unaffected. Added for
+   * the synchronization module's `plants.addPlant` sync command, whose own
+   * payload names `plantId` explicitly for the same "offline optimistic
+   * creation needs a stable id up front" reason `CreateGarden`'s own doc
+   * comment gives.
+   */
+  readonly plantId?: Uuid;
   readonly gardenAreaMapObjectId?: Uuid;
   readonly placementMapObjectId?: Uuid;
   readonly displayName: string;
@@ -65,7 +75,7 @@ export class AddPlant {
         await requirePlacementReferencesGardenObjects(context.mapObjects, gardenId, placement);
 
         const plant = createPlant(
-          generateUuidV7(),
+          input.plantId ?? generateUuidV7(),
           gardenId,
           placement,
           input.displayName,

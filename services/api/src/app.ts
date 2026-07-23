@@ -16,6 +16,7 @@ import underPressure from '@fastify/under-pressure';
 import { API_BASE_PATH } from '@verdery/api-contracts';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import { composeGardensMapping } from './compose-gardens-mapping.js';
+import { composeSynchronization } from './compose-synchronization.js';
 import { registerGardenRoutes, registerMapRoutes } from './modules/gardens-mapping/public.js';
 import {
   KyselyIdentityProviderLinkRepository,
@@ -74,6 +75,7 @@ import {
   RescheduleTask,
   SkipTask,
 } from './modules/tasks-recommendations/public.js';
+import { registerSyncRoutes } from './modules/synchronization/public.js';
 import { KyselyAuditLogger } from './platform/audit/kysely-audit-logger.js';
 import { registerAppCheck } from './platform/app-check/app-check-plugin.js';
 import type { AppCheckVerifier } from './platform/app-check/app-check-verifier.js';
@@ -410,6 +412,23 @@ export async function buildApplication(
     attachTaskFile,
   };
 
+  // synchronization (P5-BE-01, P5-API-01): the native offline outbox
+  // protocol's client-registration, push, and acknowledge endpoints. Depends
+  // on every module wired above — it routes across all five record families
+  // — so it is composed last, split into `compose-synchronization.ts` for
+  // the same 600-line reason `compose-gardens-mapping.ts` was split out. HTTP
+  // transport (`registerSyncRoutes`, tag `Synchronization`) wired below.
+  const { syncRoutesDependencies } = composeSynchronization(
+    database,
+    clock,
+    gardenAuthorization,
+    gardenRoutesDependencies,
+    mapRoutesDependencies,
+    plantRoutesDependencies,
+    observationRoutesDependencies,
+    taskRoutesDependencies,
+  );
+
   await app.register(
     (instance, _options, done) => {
       registerHealthRoutes(instance, health);
@@ -446,6 +465,7 @@ export async function buildApplication(
       registerPlantRoutes(instance, plantRoutesDependencies);
       registerObservationRoutes(instance, observationRoutesDependencies);
       registerTaskRoutes(instance, taskRoutesDependencies);
+      registerSyncRoutes(instance, syncRoutesDependencies);
       done();
     },
     { prefix: API_BASE_PATH },

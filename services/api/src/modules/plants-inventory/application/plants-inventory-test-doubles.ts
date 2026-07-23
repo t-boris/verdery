@@ -13,6 +13,7 @@
 import { ConflictError } from '../../../platform/errors/application-error.js';
 import type {
   IdempotencyCheck,
+  IdempotencyLookupResult,
   IdempotencyRecordInput,
   IdempotencyStore,
 } from '../../../platform/idempotency/idempotency-store.js';
@@ -324,6 +325,29 @@ export class FakeIdempotencyStore implements IdempotencyStore {
   ): Promise<void> {
     this.saved.push({ input, responseStatusCode, responseBody });
     return Promise.resolve();
+  }
+
+  lookup(
+    actorProfileId: string,
+    operation: string,
+    idempotencyKey: string,
+  ): Promise<IdempotencyLookupResult | null> {
+    const existing = this.saved.find(
+      (record) =>
+        this.matchKey(record.input) ===
+        this.matchKey({
+          actorProfileId,
+          operation,
+          idempotencyKey,
+          requestFingerprint: '',
+        }),
+    );
+
+    return Promise.resolve(
+      existing === undefined
+        ? null
+        : { responseStatusCode: existing.responseStatusCode, responseBody: existing.responseBody },
+    );
   }
 }
 

@@ -516,16 +516,18 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving the garden-map-baseline schemas and tables otherwise intact', async () => {
     await client.end();
 
-    // `count: 2` undoes this migration and every migration applied after it
-    // (currently just search-indexes, which adds indexes on tables this one
-    // creates and must come down first). Update this count when a later
-    // migration is added on top.
+    // `count: 3` undoes this migration and every migration applied after it
+    // (currently search-indexes, which adds indexes on tables this one
+    // creates, and synchronization-baseline, neither of which needs to come
+    // down for its own sake but both of which were applied later and must
+    // unwind first). Update this count when a later migration is added on
+    // top.
     await runner({
       databaseUrl,
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 2,
+      count: 3,
       log: () => {},
     });
 

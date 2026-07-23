@@ -29,6 +29,8 @@ import type { TasksRecommendationsUnitOfWork } from './tasks-recommendations-uni
 const OPERATION = 'tasks.attachTaskFile';
 
 export interface AttachTaskFileInput {
+  /** Client-generated id for the new attachment row, when supplied. See `AddPlantInput.plantId`'s own doc comment for why this is optional and additive — matches `SyncAttachTaskFileCommand.taskAttachmentId`. */
+  readonly taskAttachmentId?: Uuid;
   readonly mediaId: Uuid;
 }
 
@@ -68,7 +70,12 @@ export class AttachTaskFile {
         }
 
         const now = this.clock.now();
-        const attachment = createTaskAttachment(generateUuidV7(), taskId, input.mediaId, now);
+        const attachment = createTaskAttachment(
+          input.taskAttachmentId ?? generateUuidV7(),
+          taskId,
+          input.mediaId,
+          now,
+        );
         await context.taskAttachments.insert(attachment);
         await context.syncChanges.record({
           gardenId: task.gardenId,

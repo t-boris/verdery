@@ -33,6 +33,12 @@ import { runIdempotentCommand } from './run-idempotent-command.js';
 const OPERATION = 'plants.attachPlantPhoto';
 
 export interface AttachPlantPhotoInput {
+  /**
+   * Client-generated id for the new photo row, when supplied. See
+   * `AddPlantInput.plantId`'s own doc comment for why this is optional and
+   * additive — matches `SyncAttachPlantPhotoCommand.plantPhotoId`.
+   */
+  readonly plantPhotoId?: Uuid;
   readonly mediaId: Uuid;
   readonly isPrimary?: boolean;
 }
@@ -86,7 +92,13 @@ export class AttachPlantPhoto {
           await context.plantPhotos.clearPrimaryForPlant(plantId);
         }
 
-        const photo = createPlantPhoto(generateUuidV7(), plantId, input.mediaId, isPrimary, now);
+        const photo = createPlantPhoto(
+          input.plantPhotoId ?? generateUuidV7(),
+          plantId,
+          input.mediaId,
+          isPrimary,
+          now,
+        );
         await context.plantPhotos.insert(photo);
         await context.syncChanges.record({
           gardenId: plant.gardenId,

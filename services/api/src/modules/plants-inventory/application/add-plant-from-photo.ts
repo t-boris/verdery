@@ -33,6 +33,8 @@ const OPERATION = 'plants.addPlantFromPhoto';
 const UNIDENTIFIED_PLANT_DISPLAY_NAME = 'Unidentified plant';
 
 export interface AddPlantFromPhotoInput {
+  /** Client-generated id for the new plant, when supplied — see `AddPlantInput.plantId`'s own doc comment for why this is optional and additive. */
+  readonly plantId?: Uuid;
   readonly gardenAreaMapObjectId?: Uuid;
   readonly placementMapObjectId?: Uuid;
   readonly photoMediaId: Uuid;
@@ -84,7 +86,7 @@ export class AddPlantFromPhoto {
         await requirePlacementReferencesGardenObjects(context.mapObjects, gardenId, placement);
 
         const plant = createPlant(
-          generateUuidV7(),
+          input.plantId ?? generateUuidV7(),
           gardenId,
           placement,
           UNIDENTIFIED_PLANT_DISPLAY_NAME,

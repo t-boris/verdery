@@ -23,6 +23,8 @@ import type { ObservationsHistoryUnitOfWork } from './observations-history-unit-
 import { runIdempotentCommand } from './run-idempotent-command.js';
 
 export interface RecordObservationInput {
+  /** Client-generated id for the new observation, when supplied. See `AddPlantInput.plantId`'s own doc comment (plants-inventory/application/add-plant.ts) for why this is optional and additive — matches `SyncRecordObservationCommand.observationId`. */
+  readonly observationId?: Uuid;
   readonly plantId: Uuid | null;
   readonly gardenObjectId: Uuid | null;
   readonly noteText: string | null;
@@ -74,7 +76,7 @@ export class RecordObservation {
         }
 
         const observation = createObservation({
-          id: generateUuidV7(),
+          id: input.observationId ?? generateUuidV7(),
           gardenId,
           plantId: input.plantId,
           gardenObjectId: input.gardenObjectId,
