@@ -20,7 +20,13 @@
   gap: var(--space-3);
 }
 
-.mapLink {
+.navLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.navLink {
   color: var(--color-accent);
   font-weight: var(--font-weight-medium);
 }

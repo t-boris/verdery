@@ -50,6 +50,11 @@ matrix remain open.
 Run `infrastructure/gcloud/README.md` before touching any of this by hand; several steps are only
 safe in the order the numbered scripts encode.
 
+Phase 4's web client (`P4-WEB-01`) adds plant inventory, observation history, and manual-task
+management to `apps/web/`: `features/plants`, `features/observations`, `features/tasks`, and their
+gateways in `apps/web/core/api/`, covering every operation the `Plants`, `Observations`, and `Tasks`
+contract tags define except the photo/file-dependent ones — see the next section.
+
 ## What remains deferred, and why
 
 **Staging and production.** Only `verdery-dev` exists. Creating `verdery-staging` and `verdery-prod`
@@ -91,6 +96,18 @@ not an automatic consequence of passing tests, and is not claimed by this docume
 monitor-only mode (P2-APPCHK-01): every request's classification (valid, missing, invalid) is
 recorded as structured backend telemetry, but no dedicated dashboard view was built over that
 telemetry. Enforcement (rollout stage 3) is separately and deliberately not enabled anywhere.
+
+**Photo and file attachment in the Phase 4 web client.** `AddPlantFromPhoto`, `AttachPlantPhoto`,
+`SetPrimaryPlantPhoto`, `ConfirmPlantIdentification`, and `AttachTaskFile` all need a real `media`
+record, and — the same gap `media.media_record`'s own module limits already document — this
+codebase has no upload flow yet: nothing can produce a `mediaId` for these commands to use. Each of
+the five gateway methods (`plant-gateway.ts`, `task-gateway.ts`) is implemented and unit-tested for
+contract completeness, but no `features/plants`/`features/tasks` hook or component calls them.
+`features/plants/plant-detail.tsx` shows a plain notice explaining the gap instead of a control that
+would only fail; `RecordObservation`'s photo support is left off `RecordObservationForm` the same
+way, though the contract already lets a note and/or a condition summary stand on their own without a
+photo, so recording an observation itself is not blocked. This unblocks with `P6-API-01` (media
+registration and upload).
 
 **The Phase 2 E2E suite does not run in CI.** `apps/web/e2e/` (Playwright against a real Postgres,
 the Firebase Auth emulator, the real API, and the real web app, orchestrated by

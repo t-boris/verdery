@@ -1,0 +1,10 @@
+.form {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  max-width: 28rem;
+}
+
+.form > *:first-child {
+  flex: 1;
+}

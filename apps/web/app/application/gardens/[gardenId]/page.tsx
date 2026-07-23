@@ -21,9 +21,23 @@ export default async function GardenSettingsPage({
       </Link>
       <div className={styles['titleRow']}>
         <h1 className={styles['title']}>{t('gardens.settingsTitle')}</h1>
-        <Link className={styles['mapLink']} href={`/application/gardens/${gardenId}/map`}>
-          {t('map.page.openMap')}
-        </Link>
+        <nav className={styles['navLinks']}>
+          <Link className={styles['navLink']} href={`/application/gardens/${gardenId}/map`}>
+            {t('map.page.openMap')}
+          </Link>
+          <Link className={styles['navLink']} href={`/application/gardens/${gardenId}/plants`}>
+            {t('plants.pageTitle')}
+          </Link>
+          <Link
+            className={styles['navLink']}
+            href={`/application/gardens/${gardenId}/observations`}
+          >
+            {t('observations.pageTitle')}
+          </Link>
+          <Link className={styles['navLink']} href={`/application/gardens/${gardenId}/tasks`}>
+            {t('tasks.pageTitle')}
+          </Link>
+        </nav>
       </div>
       <GardenSettings gardenId={gardenId} />
     </div>
