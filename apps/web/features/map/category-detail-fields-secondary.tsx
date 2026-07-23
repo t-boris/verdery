@@ -192,9 +192,20 @@ export function UtilityExclusionFields({
 /**
  * `measurement` is optional (`AnnotationDetails.measurement?`) — entering a
  * value creates it with `acquisitionMethod: 'userEntered'`; clearing the
- * value removes it entirely rather than leaving a zero. `originalEntry`,
- * `uncertainty`, `referenceObjectId`, and `calibrationRevision` have no UI
- * here — this pass covers only what a user directly enters.
+ * value removes it entirely rather than leaving a zero.
+ *
+ * `acquisitionMethod`, `uncertainty`, and `originalEntry` are shown read-only
+ * whenever a measurement carries them, even though nothing in this editor
+ * writes any of the three yet — a measurement already carrying them (seeded
+ * by another source, or a future import) must never have that provenance
+ * silently hidden just because this pass only ever writes `'userEntered'`
+ * itself. See `measurement.ts`'s own doc comment: "every measurement
+ * therefore carries how it was acquired, so a UI can present ... differently
+ * even though both are stored as the same SI number." `referenceObjectId`
+ * and `calibrationRevision` still have no UI here: the former needs
+ * resolving to a readable label to be useful and the latter is only
+ * meaningful once plan import/calibration (Phase 6) exists — both left for a
+ * later pass rather than shown as a bare, unexplained id or number.
  */
 export function AnnotationFields({
   details,
@@ -255,6 +266,31 @@ export function AnnotationFields({
           });
         }}
       />
+      {measurement !== undefined && (
+        <>
+          <TextField
+            label={t('map.properties.measurementAcquisitionMethod')}
+            value={t(`map.enum.acquisitionMethod.${measurement.acquisitionMethod}` as MessageKey)}
+            readOnly
+          />
+          {measurement.uncertainty !== undefined && (
+            <TextField
+              label={t('map.properties.measurementUncertainty')}
+              value={`± ${measurement.uncertainty} ${t(
+                `map.enum.measurementUnit.${measurement.unit}` as MessageKey,
+              )}`}
+              readOnly
+            />
+          )}
+          {measurement.originalEntry !== undefined && (
+            <TextField
+              label={t('map.properties.measurementOriginalEntry')}
+              value={measurement.originalEntry}
+              readOnly
+            />
+          )}
+        </>
+      )}
     </>
   );
 }

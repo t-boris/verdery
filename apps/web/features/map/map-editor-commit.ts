@@ -8,6 +8,7 @@ import type {
 import { useCallback } from 'react';
 
 import type { HistoryEntry, MapEditorStore } from './editor-store';
+import { isCategoryLocked } from './map-layers';
 import type { MapObjectRecord } from './types';
 
 /**
@@ -85,13 +86,37 @@ interface SubmitMutationLike {
  * and the like) rather than each hook building its own — they all need the
  * same underlying `submitMapCommand` mutation and undo stack, not five
  * independent copies of either.
+ *
+ * This is also the single choke point for the layer-lock check
+ * (`map-layers.ts`): every command that targets an *existing* object —
+ * `moveObject`, `replaceGeometry`, `editVertex`, `changeProperties`,
+ * `deleteObject`, `assignPlant`, `splitLinework` — is rejected here before it
+ * ever reaches the server when `objectIdOf(command)` names an object on a
+ * locked layer, per architecture doc section "12. Layer Model". `createObject`
+ * is exempt (a user deliberately drawing a new object is not "interacting with
+ * an existing object in that layer"), as are `duplicateObject` and
+ * `joinLinework`, whose `objectIdOf` names a *new* object identity that does
+ * not exist yet — `findRecord` correctly finds nothing for either, so this
+ * check is a no-op for them rather than something to special-case. Undo/redo
+ * (`use-map-editor-actions.ts`'s `stepHistory`) submits through
+ * `submitMutation` directly, bypassing this gate deliberately: a lock applied
+ * after an edit should not strand the user unable to undo that same edit.
  */
 export function useCommandCommit(
   store: MapEditorStore,
   submitMutation: SubmitMutationLike,
+  findRecord: (objectId: string) => MapObjectRecord | null,
 ): CommitFn {
   return useCallback(
     async (command, priorSnapshot) => {
+      if (command.type !== 'createObject') {
+        const target = findRecord(objectIdOf(command));
+        if (target !== null && isCategoryLocked(target.category, store.state.lockedLayers)) {
+          store.setStatus({ key: 'map.status.layerLocked', tone: 'alert' });
+          return null;
+        }
+      }
+
       try {
         const affected = await submitMutation.mutateAsync(command);
         const revisionAfterCommand = affected[0]?.revision;
@@ -112,7 +137,7 @@ export function useCommandCommit(
         return null;
       }
     },
-    [store, submitMutation],
+    [store, submitMutation, findRecord],
   );
 }
 

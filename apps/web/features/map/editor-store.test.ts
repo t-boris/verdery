@@ -81,6 +81,23 @@ describe('editorReducer', () => {
     expect(cleared.multiSelectedObjectIds).toEqual([]);
   });
 
+  it('toggles a layer in and out of the hidden set', () => {
+    const hidden = editorReducer(initialEditorState, { type: 'toggleLayerVisibility', layer: 4 });
+    expect(hidden.hiddenLayers).toEqual([4]);
+
+    const shown = editorReducer(hidden, { type: 'toggleLayerVisibility', layer: 4 });
+    expect(shown.hiddenLayers).toEqual([]);
+  });
+
+  it('toggles a layer in and out of the locked set, independent of hidden layers', () => {
+    const locked = editorReducer(initialEditorState, { type: 'toggleLayerLock', layer: 3 });
+    expect(locked.lockedLayers).toEqual([3]);
+    expect(locked.hiddenLayers).toEqual([]);
+
+    const unlocked = editorReducer(locked, { type: 'toggleLayerLock', layer: 3 });
+    expect(unlocked.lockedLayers).toEqual([]);
+  });
+
   it('sets the camera only once via initCamera, ignoring later calls', () => {
     const camera = { centerX: 5, centerY: 5, scale: 30 };
     const initialized = editorReducer(initialEditorState, { type: 'initCamera', camera });

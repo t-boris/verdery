@@ -5,6 +5,7 @@ import { Button } from '@/shared/ui/public';
 
 import { useMapEditorStore } from './editor-store';
 import { GateCreationPrompt } from './gate-creation-prompt';
+import { MapSaveStatus } from './map-save-status';
 import styles from './map-toolbar.module.css';
 import {
   CREATABLE_CATEGORIES,
@@ -123,6 +124,8 @@ export function MapToolbar({ actions }: MapToolbarProps) {
           {t('map.toolbar.redo')}
         </Button>
       </div>
+
+      <MapSaveStatus status={actions.saveStatus} />
     </div>
   );
 }

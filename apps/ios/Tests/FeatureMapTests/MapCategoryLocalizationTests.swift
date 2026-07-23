@@ -57,4 +57,24 @@ struct MapCategoryLocalizationTests {
     func everyMeasurementUnitHasAName(_ unit: MeasurementUnit) {
         #expect(!MapCategoryLocalization.name(for: unit, strings: strings).isEmpty)
     }
+
+    @Test("Every measurement acquisition method resolves to a non-empty name", arguments: MeasurementAcquisitionMethod.allCases)
+    func everyAcquisitionMethodHasAName(_ method: MeasurementAcquisitionMethod) {
+        #expect(!MapCategoryLocalization.name(for: method, strings: strings).isEmpty)
+    }
+
+    @Test("Every layer resolves to a non-empty, layer-specific name", arguments: MapLayer.allCases)
+    func everyLayerHasAName(_ layer: MapLayer) {
+        let name = MapCategoryLocalization.name(for: layer, strings: strings)
+
+        #expect(!name.isEmpty)
+        #expect(!name.hasPrefix("map.layer."))
+    }
+
+    @Test("Layer names are pairwise distinct")
+    func layerNamesAreDistinct() {
+        let names = MapLayer.allCases.map { MapCategoryLocalization.name(for: $0, strings: strings) }
+
+        #expect(Set(names).count == names.count)
+    }
 }

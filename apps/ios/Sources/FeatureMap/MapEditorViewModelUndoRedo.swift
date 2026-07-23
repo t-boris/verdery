@@ -23,23 +23,31 @@ extension MapEditorViewModel {
         }
     }
 
+    /// Drives ``MapEditorViewModel/saveStatus`` the same way
+    /// `MapEditorViewModelEditing.submit(_:undoBeforeSnapshot:onSuccess:)`
+    /// does — undo/redo is a real command submission through the same
+    /// gateway path as any other edit, so it reports the same save status.
     private func submitUndoRedo(
         _ command: MapCommandPayload,
         confirm: (ObjectSnapshot?, Int) -> Void
     ) async {
         isSubmitting = true
+        saveStatus = .saving
         errorMessage = nil
         defer { isSubmitting = false }
 
         do {
             let result = try await submitMapCommand(gardenId: gardenId, command: command)
+            saveStatus = .saved
             guard let target = foldAffectedObjects(result.affectedObjects) else { return }
 
             confirm(target.snapshot, target.revision)
         } catch let error as APIGatewayError {
             errorMessage = message(for: error)
+            saveStatus = .failed
         } catch {
             errorMessage = strings(.serverUnexpected)
+            saveStatus = .failed
         }
     }
 }

@@ -193,3 +193,48 @@
 "map.linework.joinHint" = "Select the second {category} to join with.";
 "map.linework.joinCancel" = "Cancel join";
 "map.linework.joinIncompatible" = "Select another object of the same category to join.";
+
+/* Map editor: layer visibility/locking. */
+"map.layers.buttonTitle" = "Layers";
+"map.layers.title" = "Layers";
+"map.layers.close" = "Close";
+"map.layer.importedBackgrounds" = "Imported backgrounds";
+"map.layer.lotAndStructures" = "Lot & structures";
+"map.layer.zonesAndLinework" = "Zones, beds, paths & fences";
+"map.layer.plantsAndAnnotations" = "Plants & annotations";
+"map.layers.hideAction" = "Hide {layer}";
+"map.layers.showAction" = "Show {layer}";
+"map.layers.lockAction" = "Lock {layer}";
+"map.layers.unlockAction" = "Unlock {layer}";
+
+/* Map editor: scale/accuracy presentation. */
+"map.scale.georeferenced" = "Georeferenced";
+"map.scale.georeferencedWithAccuracy" = "Georeferenced · ±{accuracyMetres} m accuracy";
+"map.scale.notSet" = "No real-world scale set — measurements are approximate";
+
+/* Map editor: read-only measurement provenance (annotation details). */
+"map.annotation.acquisitionMethodLabel" = "How measured: {method}";
+"map.annotation.uncertaintyLabel" = "Uncertainty: ±{value} {unit}";
+"map.annotation.originalEntryLabel" = "As entered: {value}";
+"map.acquisitionMethod.userEntered" = "User entered";
+"map.acquisitionMethod.derivedFromGeometry" = "Derived from geometry";
+"map.acquisitionMethod.arMeasurement" = "AR measurement";
+"map.acquisitionMethod.imageExtraction" = "Extracted from image";
+"map.acquisitionMethod.depthCapture" = "Depth capture";
+"map.acquisitionMethod.importedPlan" = "Imported plan";
+
+/* Map editor: server-reported validation warnings summary. */
+"map.warnings.buttonTitle" = "Warnings ({count})";
+"map.warnings.title" = "Warnings";
+"map.warnings.close" = "Close";
+"map.validation.severity.error" = "Error";
+"map.validation.severity.warning" = "Warning";
+
+/* Map editor: non-survey disclosure. */
+"map.disclosure.nonSurvey" = "Not a legal survey — for planning purposes only. Measurements are approximate, not official property boundaries.";
+"map.disclosure.dismiss" = "Got it";
+
+/* Map editor: persistent save-status indicator. */
+"map.saveStatus.saving" = "Saving…";
+"map.saveStatus.saved" = "Saved";
+"map.saveStatus.failed" = "Save failed";

@@ -30,7 +30,7 @@ extension MapEditorViewModel {
     }
 
     public func beginVertexEdit(objectId: String) {
-        guard let object = objectsById[objectId], supportsVertexEdit(object) else { return }
+        guard let object = objectsById[objectId], !isObjectLocked(object), supportsVertexEdit(object) else { return }
         vertexEditObjectId = objectId
         selectedObjectId = objectId
         selectedVertexIndex = nil
@@ -93,7 +93,7 @@ extension MapEditorViewModel {
     /// every `.onChanged`, so what actually commits always matches what the
     /// user watched the handle snap onto mid-drag.
     public func commitVertexMove(objectId: String, vertexIndex: Int, translationScreen: CGSize) async {
-        guard let object = objectsById[objectId],
+        guard let object = objectsById[objectId], !isObjectLocked(object),
             let originalPosition = MapVertexEditCommands.vertexPosition(of: object.geometry, index: vertexIndex)
         else { return }
 
@@ -150,7 +150,7 @@ extension MapEditorViewModel {
     /// edge's exact midpoint, matching the midpoint handle the canvas
     /// renders it at.
     public func commitVertexInsert(objectId: String, beforeIndex: Int) async {
-        guard let object = objectsById[objectId],
+        guard let object = objectsById[objectId], !isObjectLocked(object),
             let command = MapVertexEditCommands.insertVertexCommand(
                 objectId: objectId,
                 expectedRevision: object.revision,
@@ -165,7 +165,7 @@ extension MapEditorViewModel {
     /// Commits the action bar's "Remove point" for the currently selected
     /// vertex.
     public func commitRemoveSelectedVertex() async {
-        guard let objectId = vertexEditObjectId, let object = objectsById[objectId],
+        guard let objectId = vertexEditObjectId, let object = objectsById[objectId], !isObjectLocked(object),
             let index = selectedVertexIndex,
             let command = MapVertexEditCommands.removeVertexCommand(
                 objectId: objectId,
@@ -182,7 +182,7 @@ extension MapEditorViewModel {
     /// Commits a corner-handle drag: every vertex scaled by `factor` around
     /// the polygon's centroid.
     public func commitResize(objectId: String, factor: Double) async {
-        guard let object = objectsById[objectId],
+        guard let object = objectsById[objectId], !isObjectLocked(object),
             let geometry = MapShapeTransform.resizedGeometry(object.geometry, factor: factor)
         else { return }
 
@@ -195,7 +195,7 @@ extension MapEditorViewModel {
     /// Commits a rotate-handle drag: every vertex rotated by `degrees` around
     /// the polygon's centroid.
     public func commitRotate(objectId: String, degrees: Double) async {
-        guard let object = objectsById[objectId],
+        guard let object = objectsById[objectId], !isObjectLocked(object),
             let geometry = MapShapeTransform.rotatedGeometry(object.geometry, degrees: degrees)
         else { return }
 

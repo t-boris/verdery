@@ -9,6 +9,14 @@ public struct MapEditorView: View {
 
     @State private var model: MapEditorViewModel
     @State private var selectedTab: Tab = .canvas
+    @State private var isLayersSheetPresented = false
+    @State private var isWarningsSheetPresented = false
+    /// Per-session dismiss for the non-survey disclosure banner. Resets the
+    /// next time this screen is opened fresh (a new `MapEditorView`
+    /// instance) — per the work package, "a per-session dismiss that
+    /// reappears next launch is fine; it must not vanish permanently after
+    /// one tap."
+    @State private var isDisclosureDismissed = false
 
     public init(model: MapEditorViewModel) {
         _model = State(wrappedValue: model)
@@ -55,6 +63,33 @@ public struct MapEditorView: View {
                     onCancel: { model.cancelGateCreation() }
                 )
             }
+            .sheet(isPresented: $isLayersSheetPresented) {
+                MapLayerControlView(
+                    layers: model.layers,
+                    strings: model.strings,
+                    name: { model.layerName($0) },
+                    isVisible: { model.isLayerVisible($0) },
+                    isLocked: { model.isLayerLocked($0) },
+                    visibilityActionTitle: { model.layerVisibilityActionTitle($0) },
+                    lockActionTitle: { model.layerLockActionTitle($0) },
+                    onToggleVisibility: { model.toggleLayerVisibility($0) },
+                    onToggleLock: { model.toggleLayerLock($0) },
+                    onClose: { isLayersSheetPresented = false }
+                )
+            }
+            .sheet(isPresented: $isWarningsSheetPresented) {
+                MapValidationSummaryView(
+                    issues: model.validationSummary,
+                    objectsById: model.objectsById,
+                    strings: model.strings,
+                    onSelectObject: { objectId in
+                        model.selectFromList(objectId)
+                        selectedTab = .canvas
+                        isWarningsSheetPresented = false
+                    },
+                    onClose: { isWarningsSheetPresented = false }
+                )
+            }
     }
 
     @ViewBuilder
@@ -86,6 +121,11 @@ public struct MapEditorView: View {
             .pickerStyle(.segmented)
             .padding([.horizontal, .top], 8)
             .accessibilityIdentifier("map.editor.tabPicker")
+
+            if !isDisclosureDismissed {
+                nonSurveyDisclosureBanner
+                    .accessibilityIdentifier("map.editor.disclosure")
+            }
 
             if let hint = model.createHint {
                 cancellableHintBanner(hint, cancelTitle: model.cancelPlacingTitle, onCancel: { model.cancelCreatePlacement() })
@@ -152,7 +192,33 @@ public struct MapEditorView: View {
         .background(Color.yellow.opacity(0.2))
     }
 
+    /// "Not a legal survey" disclosure — visible without the user seeking it
+    /// out (the work package's own requirement), matching the visual weight
+    /// of ``cancellableHintBanner`` but with its own neutral background,
+    /// since this is a standing disclosure, not an instructional hint tied
+    /// to a transient editing mode. Dismissible only for this session — see
+    /// `isDisclosureDismissed`'s doc comment.
+    private var nonSurveyDisclosureBanner: some View {
+        HStack(alignment: .top) {
+            Text(model.disclosureText).font(.footnote)
+            Spacer()
+            Button(model.disclosureDismissTitle) { isDisclosureDismissed = true }
+                .font(.footnote)
+                .accessibilityIdentifier("map.editor.disclosure.dismiss")
+        }
+        .padding(8)
+        .background(Color.secondary.opacity(0.12))
+    }
+
     private var canvasArea: some View {
+        ZStack(alignment: .topLeading) {
+            canvasSurface
+            scaleIndicator
+                .padding(8)
+        }
+    }
+
+    private var canvasSurface: some View {
         ZStack {
             if let georeference = model.georeference {
                 MapBackgroundView(georeference: georeference)
@@ -192,6 +258,19 @@ public struct MapEditorView: View {
         // individual, ungrouped shape hit-targets.
         .accessibilityElement(children: .ignore)
         .accessibilityHidden(true)
+    }
+
+    /// A small, always-accessible pill reading the garden's scale/accuracy
+    /// state — deliberately a sibling of ``canvasSurface``, not nested
+    /// inside it, so `canvasSurface`'s own `.accessibilityHidden(true)`
+    /// never swallows it. See `MapScalePresentation`'s doc comment.
+    private var scaleIndicator: some View {
+        Text(model.scaleIndicatorText)
+            .font(.caption2)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(.ultraThinMaterial, in: Capsule())
+            .accessibilityIdentifier("map.editor.scaleIndicator")
     }
 
     /// Shown instead of ``selectionBar`` while ``MapEditorViewModel/vertexEditObjectId``
@@ -299,6 +378,32 @@ public struct MapEditorView: View {
         // trailing navigation bar position on iOS and to a sensible position
         // on every other platform this target compiles for.
         ToolbarItemGroup(placement: .primaryAction) {
+            saveStatusIndicator
+
+            // Only shown once there is something to show — see
+            // `MapValidationPresentation`'s doc comment for why
+            // `model.validationSummary` is reliably empty against the real
+            // API today; the button and its badge count become live the
+            // moment that changes.
+            if !model.validationSummary.isEmpty {
+                Button {
+                    isWarningsSheetPresented = true
+                } label: {
+                    Label(
+                        model.warningsButtonTitle,
+                        systemImage: model.hasValidationErrors ? "xmark.octagon.fill" : "exclamationmark.triangle.fill"
+                    )
+                }
+                .accessibilityIdentifier("map.editor.warnings")
+            }
+
+            Button {
+                isLayersSheetPresented = true
+            } label: {
+                Label(model.layersButtonTitle, systemImage: "square.3.layers.3d")
+            }
+            .accessibilityIdentifier("map.editor.layers")
+
             Button {
                 Task { await model.undo() }
             } label: {
@@ -314,6 +419,38 @@ public struct MapEditorView: View {
             }
             .disabled(!model.canRedo)
             .accessibilityIdentifier("map.editor.redo")
+        }
+    }
+
+    /// A small, persistent save-status indicator — distinct from
+    /// `model.errorMessage`'s existing one-shot banner (still shown
+    /// separately above). Renders nothing for `.idle`, so the toolbar stays
+    /// uncluttered when there is nothing to report.
+    @ViewBuilder
+    private var saveStatusIndicator: some View {
+        switch model.saveStatus {
+        case .idle:
+            EmptyView()
+
+        case .saving:
+            HStack(spacing: 4) {
+                ProgressView().controlSize(.small)
+                Text(model.saveStatusSavingText).font(.caption)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(model.saveStatusSavingText)
+            .accessibilityIdentifier("map.editor.saveStatus.saving")
+
+        case .saved:
+            Label(model.saveStatusSavedText, systemImage: "checkmark.circle.fill")
+                .font(.caption)
+                .accessibilityIdentifier("map.editor.saveStatus.saved")
+
+        case .failed:
+            Label(model.saveStatusFailedText, systemImage: "exclamationmark.circle.fill")
+                .font(.caption)
+                .foregroundStyle(.red)
+                .accessibilityIdentifier("map.editor.saveStatus.failed")
         }
     }
 

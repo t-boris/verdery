@@ -10,6 +10,7 @@ import { createContext, useContext, useMemo, useReducer, type ReactNode } from '
 
 import type { MessageArguments, MessageKey } from '@/shared/localization/public';
 
+import type { LayerId } from './map-layers';
 import type { MapCamera, ToolMode } from './types';
 import { defaultCamera } from './viewport';
 
@@ -62,6 +63,15 @@ export interface EditorState {
   readonly undoStack: readonly HistoryEntry[];
   readonly redoStack: readonly HistoryEntry[];
   readonly status: StatusMessage | null;
+  /**
+   * Layer visibility/locking (`map-layers.ts`, `map-layer-panel.tsx`): a user
+   * preference, not server-persisted domain state — architecture doc section
+   * "12. Layer Model" ("Layer visibility and opacity are user preferences").
+   * Resets to all-visible/all-unlocked on reload, the ordinary behavior of a
+   * client preference this pass does not persist.
+   */
+  readonly hiddenLayers: readonly LayerId[];
+  readonly lockedLayers: readonly LayerId[];
 }
 
 type Action =
@@ -77,7 +87,9 @@ type Action =
   | { readonly type: 'pushForward'; readonly entry: HistoryEntry }
   | { readonly type: 'undoApplied'; readonly redoEntry: HistoryEntry }
   | { readonly type: 'redoApplied'; readonly undoEntry: HistoryEntry }
-  | { readonly type: 'setStatus'; readonly status: StatusMessage | null };
+  | { readonly type: 'setStatus'; readonly status: StatusMessage | null }
+  | { readonly type: 'toggleLayerVisibility'; readonly layer: LayerId }
+  | { readonly type: 'toggleLayerLock'; readonly layer: LayerId };
 
 export const initialEditorState: EditorState = {
   selectedObjectId: null,
@@ -91,6 +103,8 @@ export const initialEditorState: EditorState = {
   undoStack: [],
   redoStack: [],
   status: null,
+  hiddenLayers: [],
+  lockedLayers: [],
 };
 
 /** Exported for `editor-store.test.ts` — the reducer is pure and needs no provider to test. */
@@ -149,6 +163,20 @@ export function editorReducer(state: EditorState, action: Action): EditorState {
       };
     case 'setStatus':
       return { ...state, status: action.status };
+    case 'toggleLayerVisibility':
+      return {
+        ...state,
+        hiddenLayers: state.hiddenLayers.includes(action.layer)
+          ? state.hiddenLayers.filter((layer) => layer !== action.layer)
+          : [...state.hiddenLayers, action.layer],
+      };
+    case 'toggleLayerLock':
+      return {
+        ...state,
+        lockedLayers: state.lockedLayers.includes(action.layer)
+          ? state.lockedLayers.filter((layer) => layer !== action.layer)
+          : [...state.lockedLayers, action.layer],
+      };
   }
 }
 
@@ -167,6 +195,8 @@ export interface MapEditorStore {
   readonly applyUndoStep: (redoEntry: HistoryEntry) => void;
   readonly applyRedoStep: (undoEntry: HistoryEntry) => void;
   readonly setStatus: (status: StatusMessage | null) => void;
+  readonly toggleLayerVisibility: (layer: LayerId) => void;
+  readonly toggleLayerLock: (layer: LayerId) => void;
 }
 
 const MapEditorContext = createContext<MapEditorStore | null>(null);
@@ -190,6 +220,8 @@ export function MapEditorStoreProvider({ children }: { readonly children: ReactN
       applyUndoStep: (redoEntry) => dispatch({ type: 'undoApplied', redoEntry }),
       applyRedoStep: (undoEntry) => dispatch({ type: 'redoApplied', undoEntry }),
       setStatus: (status) => dispatch({ type: 'setStatus', status }),
+      toggleLayerVisibility: (layer) => dispatch({ type: 'toggleLayerVisibility', layer }),
+      toggleLayerLock: (layer) => dispatch({ type: 'toggleLayerLock', layer }),
     }),
     [state],
   );

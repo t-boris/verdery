@@ -15,8 +15,10 @@ import {
 import type { HistoryEntry } from './editor-store';
 import { useMapEditorStore } from './editor-store';
 import { commandNeedsPriorSnapshot, objectIdOf, useCommandCommit } from './map-editor-commit';
+import { isCategoryLocked } from './map-layers';
 import { toObjectSnapshot } from './object-mapper';
 import { useGardenMap, useSubmitMapCommand } from './queries';
+import { deriveSaveStatus } from './save-status';
 import { CREATABLE_GEOMETRY_KIND, creatableCategoryOfTool } from './types';
 import type { CreatableCategory, MapObjectRecord } from './types';
 import { useMapEditorGeometryActions } from './use-map-editor-geometry-actions';
@@ -64,7 +66,7 @@ export function useMapEditorActions(gardenId: string) {
   const selectedRecord =
     store.state.selectedObjectId === null ? null : findRecord(store.state.selectedObjectId);
 
-  const commit = useCommandCommit(store, submitMutation);
+  const commit = useCommandCommit(store, submitMutation, findRecord);
 
   const createObject = useCallback(
     async (category: CreatableCategory, geometry: Geometry) => {
@@ -133,7 +135,11 @@ export function useMapEditorActions(gardenId: string) {
           args: { label: record.label ?? objectId },
           tone: 'status',
         });
-      } else {
+      } else if (!isCategoryLocked(record.category, store.state.lockedLayers)) {
+        // `commit` already set a more specific `map.status.layerLocked`
+        // status for a locked-layer rejection — only overwrite it with the
+        // generic failure message when the rejection was for another reason
+        // (a stale revision, a network failure).
         store.setStatus({ key: 'map.status.moveFailed', tone: 'alert' });
       }
       return affected;
@@ -354,6 +360,10 @@ export function useMapEditorActions(gardenId: string) {
     canUndo: store.state.undoStack.length > 0,
     canRedo: store.state.redoStack.length > 0,
     isSubmitting: submitMutation.isPending,
+    // Reuses `submitMutation`'s own status rather than tracking a parallel
+    // piece of state — see `save-status.ts`'s doc comment for why this is
+    // enough to drive `map-save-status.tsx`'s persistent indicator.
+    saveStatus: deriveSaveStatus(submitMutation.status),
     ...geometryActions,
     ...objectActions,
     ...lineworkActions,

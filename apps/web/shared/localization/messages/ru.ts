@@ -147,10 +147,13 @@ export const russianMessages: MessageCatalogue = {
   'map.objectList.title': 'Объекты',
   'map.objectList.empty':
     'В этом саду пока нет объектов. Добавьте первый через панель инструментов.',
+  'map.objectList.emptyFiltered': 'Все объекты скрыты текущими фильтрами слоёв.',
   'map.objectList.untitled': 'Без названия ({category})',
   'map.objectList.delete': 'Удалить',
   'map.objectList.deleteAriaLabel': 'Удалить {label}',
   'map.objectList.selectAriaLabel': 'Выбрать {label}, {category}',
+  'map.objectList.selectAriaLabelLocked': '{label}, {category}, слой заблокирован',
+  'map.objectList.lockedTooltip': 'Этот слой заблокирован',
   'map.objectList.multiSelectedCount': 'Выбрано для объединения: {count}',
   'map.objectList.join': 'Объединить',
   'map.objectList.clearSelection': 'Очистить выбор',
@@ -189,6 +192,9 @@ export const russianMessages: MessageCatalogue = {
   'map.properties.editVertices': 'Редактировать вершины',
   'map.properties.transform': 'Трансформировать',
   'map.properties.duplicate': 'Дублировать',
+  'map.properties.measurementAcquisitionMethod': 'Способ измерения',
+  'map.properties.measurementUncertainty': 'Погрешность',
+  'map.properties.measurementOriginalEntry': 'Исходное значение',
 
   'map.enum.structureKind.house': 'Дом',
   'map.enum.structureKind.shed': 'Сарай',
@@ -219,6 +225,12 @@ export const russianMessages: MessageCatalogue = {
   'map.enum.measurementUnit.metres': 'Метры',
   'map.enum.measurementUnit.squareMetres': 'Квадратные метры',
   'map.enum.measurementUnit.degrees': 'Градусы',
+  'map.enum.acquisitionMethod.userEntered': 'Введено вручную',
+  'map.enum.acquisitionMethod.derivedFromGeometry': 'Вычислено по геометрии',
+  'map.enum.acquisitionMethod.arMeasurement': 'Измерено через AR',
+  'map.enum.acquisitionMethod.imageExtraction': 'Извлечено из изображения',
+  'map.enum.acquisitionMethod.depthCapture': 'Измерено датчиком глубины',
+  'map.enum.acquisitionMethod.importedPlan': 'Из импортированного плана',
 
   'map.category.lot': 'Граница участка',
   'map.category.structure': 'Строение',
@@ -239,6 +251,8 @@ export const russianMessages: MessageCatalogue = {
   'map.status.moveFailed':
     'Не удалось сохранить перемещение. Объект возвращён на последнюю сохранённую позицию.',
   'map.status.commandFailed': 'Не удалось сохранить изменение.',
+  'map.status.layerLocked':
+    'Этот объект находится на заблокированном слое и не может быть изменён.',
   'map.status.geometryUpdated': 'Форма изменена.',
   'map.status.duplicated': '{label} продублирован.',
   'map.status.assigned': 'Назначение обновлено.',
@@ -255,4 +269,37 @@ export const russianMessages: MessageCatalogue = {
 
   'map.history.title': 'История',
   'map.history.notUndoable': 'нельзя отменить в этой версии',
+
+  'map.layers.title': 'Слои',
+  'map.layers.importedBackgrounds': 'Импортированные подложки',
+  'map.layers.lotAndStructures': 'Участок и строения',
+  'map.layers.zonesBedsPathsFences': 'Зоны, грядки, дорожки и заборы',
+  'map.layers.plantsAndAnnotations': 'Растения и аннотации',
+  'map.layers.show': 'Показать',
+  'map.layers.hide': 'Скрыть',
+  'map.layers.lock': 'Заблокировать',
+  'map.layers.unlock': 'Разблокировать',
+  'map.layers.showAriaLabel': 'Показать слой «{layer}»',
+  'map.layers.hideAriaLabel': 'Скрыть слой «{layer}»',
+  'map.layers.lockAriaLabel': 'Заблокировать слой «{layer}»',
+  'map.layers.unlockAriaLabel': 'Разблокировать слой «{layer}»',
+
+  'map.scale.noScale': 'Реальный масштаб не задан — измерения приблизительные.',
+  'map.scale.georeferenced': 'Привязано к местности',
+  'map.scale.georeferencedAccuracy': 'Привязано к местности · точность ±{accuracyMetres} м',
+
+  'map.warnings.title': 'Предупреждения проверки',
+  'map.warnings.empty': 'Для этого сада пока нет предупреждений проверки.',
+  'map.warnings.severityError': 'Ошибка',
+  'map.warnings.severityWarning': 'Предупреждение',
+  'map.warnings.code.belowMinimumArea': 'Эта фигура меньше минимально допустимой площади.',
+  'map.warnings.code.fallback': 'Примечание проверки: {code}',
+
+  'map.disclosure.text':
+    'Это не официальная геодезическая съёмка — только для планирования. Геометрия и измерения сада, показанные здесь, приблизительны и не являются официальными границами участка.',
+  'map.disclosure.dismiss': 'Скрыть',
+
+  'map.saveStatus.saving': 'Сохранение…',
+  'map.saveStatus.saved': 'Сохранено',
+  'map.saveStatus.failed': 'Не сохранено',
 };

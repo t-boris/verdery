@@ -193,3 +193,48 @@
 "map.linework.joinHint" = "Выберите второй объект «{category}» для объединения.";
 "map.linework.joinCancel" = "Отменить объединение";
 "map.linework.joinIncompatible" = "Выберите другой объект той же категории для объединения.";
+
+/* Редактор карты: видимость и блокировка слоёв. */
+"map.layers.buttonTitle" = "Слои";
+"map.layers.title" = "Слои";
+"map.layers.close" = "Закрыть";
+"map.layer.importedBackgrounds" = "Импортированные подложки";
+"map.layer.lotAndStructures" = "Участок и строения";
+"map.layer.zonesAndLinework" = "Зоны, грядки, дорожки и заборы";
+"map.layer.plantsAndAnnotations" = "Растения и заметки";
+"map.layers.hideAction" = "Скрыть слой «{layer}»";
+"map.layers.showAction" = "Показать слой «{layer}»";
+"map.layers.lockAction" = "Заблокировать слой «{layer}»";
+"map.layers.unlockAction" = "Разблокировать слой «{layer}»";
+
+/* Редактор карты: представление масштаба и точности. */
+"map.scale.georeferenced" = "Привязано к местности";
+"map.scale.georeferencedWithAccuracy" = "Привязано к местности · точность ±{accuracyMetres} м";
+"map.scale.notSet" = "Реальный масштаб не задан — измерения приблизительные";
+
+/* Редактор карты: происхождение измерения (детали заметки), только для чтения. */
+"map.annotation.acquisitionMethodLabel" = "Способ измерения: {method}";
+"map.annotation.uncertaintyLabel" = "Погрешность: ±{value} {unit}";
+"map.annotation.originalEntryLabel" = "Введено как: {value}";
+"map.acquisitionMethod.userEntered" = "Введено вручную";
+"map.acquisitionMethod.derivedFromGeometry" = "Вычислено по геометрии";
+"map.acquisitionMethod.arMeasurement" = "AR-измерение";
+"map.acquisitionMethod.imageExtraction" = "Извлечено из изображения";
+"map.acquisitionMethod.depthCapture" = "Измерение глубины";
+"map.acquisitionMethod.importedPlan" = "Импортированный план";
+
+/* Редактор карты: сводка предупреждений валидации от сервера. */
+"map.warnings.buttonTitle" = "Предупреждения ({count})";
+"map.warnings.title" = "Предупреждения";
+"map.warnings.close" = "Закрыть";
+"map.validation.severity.error" = "Ошибка";
+"map.validation.severity.warning" = "Предупреждение";
+
+/* Редактор карты: дисклеймер «не официальная съёмка». */
+"map.disclosure.nonSurvey" = "Это не официальная геодезическая съёмка — только для планирования. Измерения приблизительные и не являются официальными границами участка.";
+"map.disclosure.dismiss" = "Понятно";
+
+/* Редактор карты: постоянный индикатор статуса сохранения. */
+"map.saveStatus.saving" = "Сохранение…";
+"map.saveStatus.saved" = "Сохранено";
+"map.saveStatus.failed" = "Не удалось сохранить";

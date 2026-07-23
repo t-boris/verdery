@@ -258,9 +258,49 @@ struct MapObjectPropertyView: View {
                     Text(MapCategoryLocalization.name(for: unit, strings: strings)).tag(unit)
                 }
             }
+            annotationMeasurementProvenance
 
         case .lot, .path, .waterFeature, .importedBackground:
             EmptyView()
+        }
+    }
+
+    /// Read-only display of `uncertainty`/`acquisitionMethod`/`originalEntry`
+    /// — fields the editable value/unit fields above never touch (see
+    /// `EditableDetailsState.toDomain`'s doc comment on the `.annotation`
+    /// case) but that must never be silently hidden once already present on
+    /// the object. Reads directly from `object.categoryDetails`, not from
+    /// `EditableDetailsState`, since these three fields are never part of
+    /// what this form edits.
+    @ViewBuilder
+    private var annotationMeasurementProvenance: some View {
+        if case let .annotation(value)? = object.categoryDetails, let measurement = value.measurement {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(
+                    strings.string(
+                        .mapAnnotationAcquisitionMethodLabel,
+                        parameters: ["method": MapCategoryLocalization.name(for: measurement.acquisitionMethod, strings: strings)]
+                    )
+                )
+                if let uncertainty = measurement.uncertainty {
+                    Text(
+                        strings.string(
+                            .mapAnnotationUncertaintyLabel,
+                            parameters: [
+                                "value": Self.formatted(uncertainty),
+                                "unit": MapCategoryLocalization.name(for: measurement.unit, strings: strings),
+                            ]
+                        )
+                    )
+                }
+                if let originalEntry = measurement.originalEntry {
+                    Text(strings.string(.mapAnnotationOriginalEntryLabel, parameters: ["value": originalEntry]))
+                }
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("map.property.annotationProvenance")
         }
     }
 

@@ -183,4 +183,56 @@ public enum LocalizationKey: String, Sendable, CaseIterable {
     case mapLineworkJoinHint = "map.linework.joinHint"
     case mapLineworkJoinCancel = "map.linework.joinCancel"
     case mapLineworkJoinIncompatible = "map.linework.joinIncompatible"
+
+    // Map editor: layer visibility/locking (P3-UX-01). One display-name key
+    // per `MapLayer`, mirroring the category keys above.
+    case mapLayersButtonTitle = "map.layers.buttonTitle"
+    case mapLayersTitle = "map.layers.title"
+    case mapLayersClose = "map.layers.close"
+    case mapLayerImportedBackgrounds = "map.layer.importedBackgrounds"
+    case mapLayerLotAndStructures = "map.layer.lotAndStructures"
+    case mapLayerZonesAndLinework = "map.layer.zonesAndLinework"
+    case mapLayerPlantsAndAnnotations = "map.layer.plantsAndAnnotations"
+    case mapLayersHideAction = "map.layers.hideAction"
+    case mapLayersShowAction = "map.layers.showAction"
+    case mapLayersLockAction = "map.layers.lockAction"
+    case mapLayersUnlockAction = "map.layers.unlockAction"
+
+    // Map editor: scale/accuracy presentation (P3-UX-01).
+    case mapScaleGeoreferenced = "map.scale.georeferenced"
+    case mapScaleGeoreferencedWithAccuracy = "map.scale.georeferencedWithAccuracy"
+    case mapScaleNotSet = "map.scale.notSet"
+
+    // Map editor: read-only measurement provenance (P3-UX-01) — uncertainty,
+    // acquisition method, and original entry, shown alongside the annotation
+    // details form's editable value/unit fields.
+    case mapAnnotationAcquisitionMethodLabel = "map.annotation.acquisitionMethodLabel"
+    case mapAnnotationUncertaintyLabel = "map.annotation.uncertaintyLabel"
+    case mapAnnotationOriginalEntryLabel = "map.annotation.originalEntryLabel"
+    case mapAcquisitionMethodUserEntered = "map.acquisitionMethod.userEntered"
+    case mapAcquisitionMethodDerivedFromGeometry = "map.acquisitionMethod.derivedFromGeometry"
+    case mapAcquisitionMethodArMeasurement = "map.acquisitionMethod.arMeasurement"
+    case mapAcquisitionMethodImageExtraction = "map.acquisitionMethod.imageExtraction"
+    case mapAcquisitionMethodDepthCapture = "map.acquisitionMethod.depthCapture"
+    case mapAcquisitionMethodImportedPlan = "map.acquisitionMethod.importedPlan"
+
+    // Map editor: server-reported validation warnings summary (P3-UX-01).
+    // The issue `code` itself is not listed here — see
+    // `MapValidationPresentation`'s doc comment for why it resolves the same
+    // way `GeometryValidationCode`'s codes already do.
+    case mapWarningsButtonTitle = "map.warnings.buttonTitle"
+    case mapWarningsTitle = "map.warnings.title"
+    case mapWarningsClose = "map.warnings.close"
+    case mapValidationSeverityError = "map.validation.severity.error"
+    case mapValidationSeverityWarning = "map.validation.severity.warning"
+
+    // Map editor: non-survey disclosure (P3-UX-01).
+    case mapDisclosureNonSurvey = "map.disclosure.nonSurvey"
+    case mapDisclosureDismiss = "map.disclosure.dismiss"
+
+    // Map editor: persistent save-status indicator (P3-UX-01) — richer than
+    // `errorMessage`'s one-shot display, see `MapSaveStatus`.
+    case mapSaveStatusSaving = "map.saveStatus.saving"
+    case mapSaveStatusSaved = "map.saveStatus.saved"
+    case mapSaveStatusFailed = "map.saveStatus.failed"
 }

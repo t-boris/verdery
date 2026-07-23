@@ -29,6 +29,7 @@ export type {
   WireGeoreference,
   WireMapCommandResult,
   WireValidationIssue,
+  WireValidationSeverity,
 } from './map-wire-types';
 export { ApiQueryProvider } from './query-provider';
 export { createSessionGateway, type SessionGateway } from './session-gateway';

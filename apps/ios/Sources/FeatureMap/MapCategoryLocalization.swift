@@ -112,4 +112,32 @@ public enum MapCategoryLocalization {
     public static func name(for unit: MeasurementUnit, strings: LocalizedStrings) -> String {
         strings(key(for: unit))
     }
+
+    public static func key(for method: MeasurementAcquisitionMethod) -> LocalizationKey {
+        switch method {
+        case .userEntered: .mapAcquisitionMethodUserEntered
+        case .derivedFromGeometry: .mapAcquisitionMethodDerivedFromGeometry
+        case .arMeasurement: .mapAcquisitionMethodArMeasurement
+        case .imageExtraction: .mapAcquisitionMethodImageExtraction
+        case .depthCapture: .mapAcquisitionMethodDepthCapture
+        case .importedPlan: .mapAcquisitionMethodImportedPlan
+        }
+    }
+
+    public static func name(for method: MeasurementAcquisitionMethod, strings: LocalizedStrings) -> String {
+        strings(key(for: method))
+    }
+
+    public static func key(for layer: MapLayer) -> LocalizationKey {
+        switch layer {
+        case .importedBackgrounds: .mapLayerImportedBackgrounds
+        case .lotAndStructures: .mapLayerLotAndStructures
+        case .zonesAndLinework: .mapLayerZonesAndLinework
+        case .plantsAndAnnotations: .mapLayerPlantsAndAnnotations
+        }
+    }
+
+    public static func name(for layer: MapLayer, strings: LocalizedStrings) -> String {
+        strings(key(for: layer))
+    }
 }

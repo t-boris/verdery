@@ -153,10 +153,13 @@ export const englishMessages = {
 
   'map.objectList.title': 'Objects',
   'map.objectList.empty': 'This garden has no objects yet. Use the toolbar to add one.',
+  'map.objectList.emptyFiltered': 'All objects are hidden by the current layer filters.',
   'map.objectList.untitled': 'Untitled {category}',
   'map.objectList.delete': 'Delete',
   'map.objectList.deleteAriaLabel': 'Delete {label}',
   'map.objectList.selectAriaLabel': 'Select {label}, {category}',
+  'map.objectList.selectAriaLabelLocked': '{label}, {category}, locked layer',
+  'map.objectList.lockedTooltip': 'This layer is locked',
   'map.objectList.multiSelectedCount': '{count} selected for joining',
   'map.objectList.join': 'Join',
   'map.objectList.clearSelection': 'Clear selection',
@@ -194,6 +197,9 @@ export const englishMessages = {
   'map.properties.editVertices': 'Edit vertices',
   'map.properties.transform': 'Transform',
   'map.properties.duplicate': 'Duplicate',
+  'map.properties.measurementAcquisitionMethod': 'How measured',
+  'map.properties.measurementUncertainty': 'Uncertainty',
+  'map.properties.measurementOriginalEntry': 'Original entry',
 
   'map.enum.structureKind.house': 'House',
   'map.enum.structureKind.shed': 'Shed',
@@ -224,6 +230,12 @@ export const englishMessages = {
   'map.enum.measurementUnit.metres': 'Metres',
   'map.enum.measurementUnit.squareMetres': 'Square metres',
   'map.enum.measurementUnit.degrees': 'Degrees',
+  'map.enum.acquisitionMethod.userEntered': 'User-entered',
+  'map.enum.acquisitionMethod.derivedFromGeometry': 'Derived from geometry',
+  'map.enum.acquisitionMethod.arMeasurement': 'AR-measured',
+  'map.enum.acquisitionMethod.imageExtraction': 'Extracted from image',
+  'map.enum.acquisitionMethod.depthCapture': 'Depth-capture measured',
+  'map.enum.acquisitionMethod.importedPlan': 'From imported plan',
 
   'map.category.lot': 'Lot boundary',
   'map.category.structure': 'Structure',
@@ -244,6 +256,7 @@ export const englishMessages = {
   'map.status.moveFailed':
     'The move could not be saved. The object was returned to its last saved position.',
   'map.status.commandFailed': 'The change could not be saved.',
+  'map.status.layerLocked': 'This object is on a locked layer and cannot be changed.',
   'map.status.geometryUpdated': 'Shape updated.',
   'map.status.duplicated': '{label} duplicated.',
   'map.status.assigned': 'Assignment updated.',
@@ -259,4 +272,37 @@ export const englishMessages = {
 
   'map.history.title': 'History',
   'map.history.notUndoable': 'not undoable in this pass',
+
+  'map.layers.title': 'Layers',
+  'map.layers.importedBackgrounds': 'Imported backgrounds',
+  'map.layers.lotAndStructures': 'Lot & structures',
+  'map.layers.zonesBedsPathsFences': 'Zones, beds, paths & fences',
+  'map.layers.plantsAndAnnotations': 'Plants & annotations',
+  'map.layers.show': 'Show',
+  'map.layers.hide': 'Hide',
+  'map.layers.lock': 'Lock',
+  'map.layers.unlock': 'Unlock',
+  'map.layers.showAriaLabel': 'Show {layer} layer',
+  'map.layers.hideAriaLabel': 'Hide {layer} layer',
+  'map.layers.lockAriaLabel': 'Lock {layer} layer',
+  'map.layers.unlockAriaLabel': 'Unlock {layer} layer',
+
+  'map.scale.noScale': 'No real-world scale set — measurements are approximate.',
+  'map.scale.georeferenced': 'Georeferenced',
+  'map.scale.georeferencedAccuracy': 'Georeferenced · ±{accuracyMetres} m accuracy',
+
+  'map.warnings.title': 'Validation warnings',
+  'map.warnings.empty': 'No validation warnings for this garden yet.',
+  'map.warnings.severityError': 'Error',
+  'map.warnings.severityWarning': 'Warning',
+  'map.warnings.code.belowMinimumArea': 'This shape is smaller than the minimum allowed area.',
+  'map.warnings.code.fallback': 'Validation note: {code}',
+
+  'map.disclosure.text':
+    'Not a legal survey — for planning purposes only. Garden geometry and measurements shown here are approximate, not authoritative property boundaries.',
+  'map.disclosure.dismiss': 'Dismiss',
+
+  'map.saveStatus.saving': 'Saving…',
+  'map.saveStatus.saved': 'Saved',
+  'map.saveStatus.failed': 'Not saved',
 } as const;

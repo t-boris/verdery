@@ -9,6 +9,7 @@ import { useLocalization } from '@/shared/localization/public';
 
 import { useMapEditorStore } from './editor-store';
 import { categoryLabelKey } from './labels';
+import { isCategoryHidden, isCategoryLocked } from './map-layers';
 import { DraftPreviewShape } from './shapes/draft-preview-shape';
 import { ObjectShape } from './shapes/object-shape';
 import { TransformHandles } from './shapes/transform-handles';
@@ -96,8 +97,13 @@ export function MapCanvas({ actions }: MapCanvasProps) {
   const interactionMode = store.state.interactionMode;
   const selectedRecord = actions.selectedRecord;
 
-  const visibleRecords = actions.records.filter((record) =>
-    isRecordInViewport(record, camera, size),
+  // A hidden layer's objects are excluded here the same way `map-object-list.tsx`
+  // excludes them from the accessible list — the canvas and the list must
+  // always agree on what is currently visible.
+  const visibleRecords = actions.records.filter(
+    (record) =>
+      isRecordInViewport(record, camera, size) &&
+      !isCategoryHidden(record.category, store.state.hiddenLayers),
   );
 
   // Vertex/edge proximity tolerance converted from a constant screen-pixel
@@ -304,6 +310,10 @@ export function MapCanvas({ actions }: MapCanvasProps) {
                 // otherwise fight the handle gestures for the same shape.
                 const isEditingThisObject =
                   interactionMode !== 'idle' && record.id === store.state.selectedObjectId;
+                // A locked layer's objects can be neither selected nor
+                // dragged — see `map-layers.ts` and `map-layer-panel.tsx`'s
+                // doc comment for the full set of interactions a lock blocks.
+                const isLocked = isCategoryLocked(record.category, store.state.lockedLayers);
                 return (
                   <ObjectShape
                     key={record.id}
@@ -311,8 +321,14 @@ export function MapCanvas({ actions }: MapCanvasProps) {
                     camera={camera}
                     size={size}
                     selected={record.id === store.state.selectedObjectId}
-                    draggable={tool === 'select' && !isEditingThisObject}
-                    onSelect={store.select}
+                    draggable={tool === 'select' && !isEditingThisObject && !isLocked}
+                    onSelect={(objectId) => {
+                      if (isLocked) {
+                        store.setStatus({ key: 'map.status.layerLocked', tone: 'alert' });
+                        return;
+                      }
+                      store.select(objectId);
+                    }}
                     onMoveEnd={(objectId, dx, dy, resetPosition) => {
                       void actions.moveObject(objectId, dx, dy).then((result) => {
                         if (result === null) {

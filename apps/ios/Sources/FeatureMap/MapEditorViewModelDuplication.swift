@@ -19,7 +19,7 @@ extension MapEditorViewModel {
     private static let duplicateOffsetMetres = PlanarOffset(dx: 1, dy: 1)
 
     public func duplicate(objectId: String) async {
-        guard objectsById[objectId] != nil else { return }
+        guard let object = objectsById[objectId], !isObjectLocked(object) else { return }
 
         let command = MapCommandPayload.duplicateObject(
             DuplicateObjectPayload(

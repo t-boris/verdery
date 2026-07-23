@@ -7,10 +7,14 @@ import { useLocalization } from '@/shared/localization/public';
 import { Alert, FailureAlert, VisuallyHidden } from '@/shared/ui/public';
 
 import { MapEditorStoreProvider, useMapEditorStore } from './editor-store';
+import { MapDisclosureBanner } from './map-disclosure-banner';
 import styles from './map-editor.module.css';
+import { MapLayerPanel } from './map-layer-panel';
 import { MapObjectList } from './map-object-list';
 import { MapPropertyPanel } from './map-property-panel';
+import { MapScaleBadge } from './map-scale-badge';
 import { MapToolbar } from './map-toolbar';
+import { MapWarningsPanel } from './map-warnings-panel';
 import { useGardenMap } from './queries';
 import { useMapEditorActions } from './use-map-editor-actions';
 
@@ -84,16 +88,24 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
   return (
     <div className={styles['editor']}>
       <MapToolbar actions={actions} />
+      <MapDisclosureBanner />
       <div className={styles['body']}>
         <div className={styles['canvasWrapper']}>
           <MapBasemap georeference={mapQuery.data.georeference} camera={store.state.camera} />
           <MapCanvas actions={actions} />
+          <MapScaleBadge georeference={mapQuery.data.georeference} />
         </div>
         <div className={styles['sidebar']}>
+          <MapLayerPanel actions={actions} />
           <MapObjectList
             actions={actions}
             selectedObjectId={store.state.selectedObjectId}
             onSelect={store.select}
+          />
+          <MapWarningsPanel
+            warnings={mapQuery.data.validationSummary}
+            findRecord={actions.findRecord}
+            onSelectObject={store.select}
           />
           <MapPropertyPanel actions={actions} selectedRecord={actions.selectedRecord} />
         </div>

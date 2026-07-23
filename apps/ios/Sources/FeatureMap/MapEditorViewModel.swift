@@ -60,6 +60,31 @@ public final class MapEditorViewModel {
     /// see `MapEditorViewModelLinework.swift`.
     public internal(set) var pendingJoinFirstObjectId: String?
 
+    /// Layers hidden from both `MapCanvasView`'s rendering and
+    /// `MapObjectListView`'s accessible rows — a client-only session
+    /// preference (architecture/map-rendering-and-editing.md, section
+    /// "12. Layer Model": "Layer visibility and opacity are user
+    /// preferences"), never submitted as a command. Reset at the start of
+    /// every `load()`, the same as `selectedObjectId`/`propertySheetObjectId`
+    /// just above — there is no persistence requirement this pass. See
+    /// `MapEditorViewModelLayers.swift` for the toggle/query API.
+    public internal(set) var hiddenLayers: Set<MapLayer> = []
+    /// Layers whose objects cannot be selected, dragged, vertex-edited,
+    /// resized/rotated, deleted, or duplicated right now — the same
+    /// session-only status as ``hiddenLayers``. See
+    /// `MapEditorViewModelLayers.swift`'s doc comment for the full list of
+    /// gated entry points.
+    public internal(set) var lockedLayers: Set<MapLayer> = []
+    /// The map document's server-reported cross-object validation summary,
+    /// set fresh on every `load()`. See `MapValidationPresentation`'s doc
+    /// comment for why this is reliably empty against the real API today.
+    public internal(set) var validationSummary: [GardenMapValidationIssue] = []
+    /// Richer, persistent presentation of the same in-flight/outcome state
+    /// `isSubmitting` already tracks — see ``MapSaveStatus``'s doc comment.
+    /// Updated alongside `isSubmitting` by every command-submitting function
+    /// (`MapEditorViewModelEditing.submit`, `MapEditorViewModelUndoRedo.submitUndoRedo`).
+    public internal(set) var saveStatus: MapSaveStatus = .idle
+
     let gardenId: String
     let loadGardenMap: LoadGardenMap
     let submitMapCommand: SubmitMapCommand
@@ -137,6 +162,26 @@ public final class MapEditorViewModel {
     }
     public var joinCancelTitle: String { strings(.mapLineworkJoinCancel) }
 
+    /// "Georeferenced · ±{accuracy} m accuracy", or an informational "no
+    /// scale set" message — see ``MapScalePresentation``.
+    public var scaleIndicatorText: String { MapScalePresentation.text(for: georeference, strings: strings) }
+
+    public var disclosureText: String { strings(.mapDisclosureNonSurvey) }
+    public var disclosureDismissTitle: String { strings(.mapDisclosureDismiss) }
+
+    public var saveStatusSavingText: String { strings(.mapSaveStatusSaving) }
+    public var saveStatusSavedText: String { strings(.mapSaveStatusSaved) }
+    public var saveStatusFailedText: String { strings(.mapSaveStatusFailed) }
+
+    /// True when at least one current validation issue is `.error` severity
+    /// — what the warnings toolbar button uses to pick a more urgent icon
+    /// over a plain warning triangle.
+    public var hasValidationErrors: Bool { validationSummary.contains { $0.severity == .error } }
+
+    public var warningsButtonTitle: String {
+        strings.string(.mapWarningsButtonTitle, parameters: ["count": "\(validationSummary.count)"])
+    }
+
     public var canUndo: Bool { undoStack.canUndo && !isSubmitting }
     public var canRedo: Bool { undoStack.canRedo && !isSubmitting }
     /// True when the top undo entry exists but has no computable inverse —
@@ -183,9 +228,15 @@ public final class MapEditorViewModel {
     /// Every object, active and deleted, as rows for the accessible list —
     /// unlike the render snapshot, which omits deleted objects because
     /// `Canvas` has no way to represent "restore" as a gesture. The list is
-    /// where restore lives.
+    /// where restore lives. Also filters out any object in a currently
+    /// hidden layer, matching the render snapshot's own filter
+    /// (`refreshRenderState()`) — the canvas and the accessible list must
+    /// agree on what's visible, per the work package.
     public var accessibleRows: [MapAccessibleObjectRow] {
-        orderedObjectIds.compactMap { objectsById[$0] }.map(accessibleRow)
+        orderedObjectIds
+            .compactMap { objectsById[$0] }
+            .filter { !hiddenLayers.contains(MapLayer(category: $0.category)) }
+            .map(accessibleRow)
     }
 
     func accessibleRow(for object: GardenMapObject) -> MapAccessibleObjectRow {
@@ -202,12 +253,18 @@ public final class MapEditorViewModel {
         errorMessage = nil
         selectedObjectId = nil
         propertySheetObjectId = nil
+        // Layer visibility/locking is session-only UI preference, not
+        // server-persisted domain state — it resets on every load, the same
+        // as the selection/sheet state just above.
+        hiddenLayers = []
+        lockedLayers = []
 
         do {
             let document = try await loadGardenMap(gardenId: gardenId)
             objectsById = Dictionary(uniqueKeysWithValues: document.objects.map { ($0.id, $0) })
             orderedObjectIds = document.objects.map(\.id)
             georeference = document.georeference
+            validationSummary = document.validationSummary
             undoStack = MapUndoStack()
             hasFitInitialViewport = false
             refreshRenderState()
@@ -223,10 +280,14 @@ public final class MapEditorViewModel {
     /// after every load and after every command's confirmed result is folded
     /// in — never mid-gesture, which is what keeps the snapshot a value
     /// `MapCanvasView` can treat as immutable for the duration of one draw.
+    /// Also called directly by `MapEditorViewModelLayers.toggleLayerVisibility`
+    /// so a visibility toggle is reflected on the canvas immediately, without
+    /// waiting for another server round trip.
     func refreshRenderState() {
         let renderObjects = orderedObjectIds
             .compactMap { objectsById[$0] }
             .filter { $0.lifecycleState == .active }
+            .filter { !hiddenLayers.contains(MapLayer(category: $0.category)) }
             .map(MapRenderObject.init)
 
         state = .loaded(MapRenderSnapshot(objects: renderObjects))

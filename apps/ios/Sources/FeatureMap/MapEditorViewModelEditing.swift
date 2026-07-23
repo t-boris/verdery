@@ -19,8 +19,17 @@ extension MapEditorViewModel {
         } else if pendingJoinFirstObjectId != nil {
             await completeJoinSelection(atScreen: point)
         } else {
-            selectedObjectId = hitTestObjectId(atScreen: point)
+            selectedObjectId = selectableObjectId(atScreen: point)
         }
+    }
+
+    /// The object id at `point`, or `nil` when nothing is there *or* the hit
+    /// object's layer is currently locked — a locked-layer object is exactly
+    /// as unselectable as empty canvas. See `MapEditorViewModelLayers.swift`.
+    private func selectableObjectId(atScreen point: CGPoint) -> String? {
+        guard let hitId = hitTestObjectId(atScreen: point), let object = objectsById[hitId], !isObjectLocked(object)
+        else { return nil }
+        return hitId
     }
 
     /// Shared by ordinary tap-to-select and the join-selection flow
@@ -114,7 +123,7 @@ extension MapEditorViewModel {
     /// `MapGestureCommands`'s doc comment on why exactly one command is
     /// built, here, and never from `.onChanged`.
     public func handleObjectDragEnded(objectId: String, translationScreen: CGSize) async {
-        guard let object = objectsById[objectId] else { return }
+        guard let object = objectsById[objectId], !isObjectLocked(object) else { return }
 
         let dxMetres = transform.localDistance(forScreenDistance: Double(translationScreen.width))
         // Screen y grows downward, garden-local y grows north — see
@@ -139,8 +148,12 @@ extension MapEditorViewModel {
 
     /// The accessible list's row-tap handler: "selecting a row selects the
     /// object and opens its property view" — a stronger action than a canvas
-    /// tap, which only selects.
+    /// tap, which only selects. Also the warnings sheet's "select an affected
+    /// object" handler (`MapValidationSummaryView`). Bypasses hit testing
+    /// entirely, so locking is re-checked here independently of
+    /// `selectableObjectId(atScreen:)`.
     public func selectFromList(_ objectId: String) {
+        guard let object = objectsById[objectId], !isObjectLocked(object) else { return }
         selectedObjectId = objectId
         propertySheetObjectId = objectId
     }
@@ -179,8 +192,11 @@ extension MapEditorViewModel {
     /// `lifecycleState == .deleted`, still fully described, so the accessible
     /// list can keep showing it with a Restore action — see
     /// `MapRenderSnapshot`'s doc comment on why the canvas itself omits it.
+    /// This is the one function every delete entry point funnels through
+    /// (`deleteSelected()`, the selection bar, the property sheet, and the
+    /// list's swipe action), so gating it here covers all of them.
     public func delete(objectId: String) async {
-        guard let object = objectsById[objectId] else { return }
+        guard let object = objectsById[objectId], !isObjectLocked(object) else { return }
 
         let command = MapCommandPayload.deleteObject(
             DeleteObjectPayload(objectId: objectId, expectedRevision: object.revision)
@@ -208,17 +224,24 @@ extension MapEditorViewModel {
     /// see `MapEditorViewModelUndoRedo.swift`, which manages the stack
     /// itself), folds the confirmed result into local state, and records an
     /// undo entry.
+    ///
+    /// Also drives ``MapEditorViewModel/saveStatus`` — `.saving` for the
+    /// duration of the request, then `.saved` or `.failed` depending on the
+    /// outcome. `.failed` is left standing (not reset to `.idle`) until the
+    /// next command actually succeeds, per ``MapSaveStatus``'s doc comment.
     func submit(
         _ command: MapCommandPayload,
         undoBeforeSnapshot: ObjectSnapshot?,
         onSuccess: ((GardenMapObject) -> Void)? = nil
     ) async {
         isSubmitting = true
+        saveStatus = .saving
         errorMessage = nil
         defer { isSubmitting = false }
 
         do {
             let result = try await submitMapCommand(gardenId: gardenId, command: command)
+            saveStatus = .saved
             guard let target = foldAffectedObjects(result.affectedObjects) else { return }
 
             undoStack.recordAccepted(
@@ -232,8 +255,10 @@ extension MapEditorViewModel {
             onSuccess?(target)
         } catch let error as APIGatewayError {
             errorMessage = message(for: error)
+            saveStatus = .failed
         } catch {
             errorMessage = strings(.serverUnexpected)
+            saveStatus = .failed
         }
     }
 }
