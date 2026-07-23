@@ -197,6 +197,27 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     expect(asError(response).error.code).toBe('plants_inventory.plant.not_found');
   });
 
+  it('conceals a plant that exists but belongs to a different garden as the identical 404, never distinguishing the two', async () => {
+    const { garden: otherGarden, token: otherToken } = await createGardenAsOwner();
+    const added = await app.inject({
+      method: 'POST',
+      url: `/v1/gardens/${otherGarden.id}/plants`,
+      headers: { ...bearer(otherToken), 'idempotency-key': generateUuidV7() },
+      payload: { displayName: 'Basil', groupingKind: 'individual' },
+    });
+    const foreignPlant = asPlant(added);
+
+    const { token, garden } = await createGardenAsOwner();
+    const response = await app.inject({
+      method: 'GET',
+      url: `/v1/gardens/${garden.id}/plants/${foreignPlant.id}`,
+      headers: bearer(token),
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(asError(response).error.code).toBe('plants_inventory.plant.not_found');
+  });
+
   it('runs the full lifecycle over real HTTP: add, get, update details, transition lifecycle stage', async () => {
     const { token, garden } = await createGardenAsOwner();
 

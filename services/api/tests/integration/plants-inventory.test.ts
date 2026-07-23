@@ -466,4 +466,41 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       ),
     ).rejects.toBeInstanceOf(ValidationError);
   });
+
+  it('round-trips acquisitionDate unshifted regardless of the process time zone (pg-date-parser)', async () => {
+    const originalTz = process.env['TZ'];
+    // UTC+14: the most positive offset in use, the case pg-date-parser's own doc comment calls out.
+    process.env['TZ'] = 'Pacific/Kiritimati';
+    try {
+      const now = new Date('2026-07-21T09:00:00Z');
+      const { ownerId, gardenId } = await createGardenWithOwner(now);
+      const handlers = buildHandlers(fixedClock(now));
+      const plant = await handlers.addPlant.execute(
+        gardenId,
+        ownerId,
+        {
+          displayName: 'Tomato',
+          groupingKind: 'individual',
+          acquisitionDate: '2026-01-01',
+          acquisitionDateType: 'sown',
+        },
+        generateUuidV7(),
+      );
+      expect(plant.acquisitionDate).toBe('2026-01-01');
+
+      const reloaded = await handlers.plantRepository.findById(plant.id);
+      expect(reloaded?.acquisitionDate).toBe('2026-01-01');
+
+      const updated = await handlers.updatePlantDetails.execute(
+        plant.id,
+        ownerId,
+        plant.revision,
+        { acquisitionDate: '2026-12-31' },
+        generateUuidV7(),
+      );
+      expect(updated.acquisitionDate).toBe('2026-12-31');
+    } finally {
+      process.env['TZ'] = originalTz;
+    }
+  });
 });
