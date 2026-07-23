@@ -57,17 +57,20 @@ platform components installed first — a system-level fix, not a project one.
 (`FeaturePlants`/`FeatureObservations`/`FeatureTasks`) roughly doubled this package's total test
 count. Characterized directly, not guessed at: `swift test --filter FeaturePlantsTests` and
 `swift test --skip FeatureMapTests` both pass reliably (5/5 and 3/3 consecutive runs respectively);
-only the *full* suite — every target running together — reproduces the crash, always before any
-single test completes, never at the same point twice. This is consistent with a Swift Testing /
-Swift Concurrency runtime issue triggered by this package's now-much-larger aggregate fan-out on
-this specific toolchain (`swift --version`: Apple Swift 6.3.3, `arm64-apple-macosx26.0`), not a
-logic bug in any one test — isolated subsets of any size tried so far are clean. This machine has 24
-cores and 128 GB of RAM, ruling out simple resource exhaustion. `LocalizedStrings`'s bundle
-resolution was hardened against one real, independently-justified concurrent-construction race found
-while investigating (`CoreLocalization/LocalizedStrings.swift`), but did not resolve the crash on its
-own. CI pins a specific Xcode/Swift toolchain (ADR-0009) that may not share this exact issue — treat
-a green CI `swift` job as the authoritative signal, not this note, and update this note (or remove it
-entirely) once that is confirmed either way.
+only the *full* suite — every target running together — reproduces the crash locally, always before
+any single test completes, never at the same point twice. This machine has 24 cores and 128 GB of
+RAM, ruling out simple resource exhaustion.
+
+**Confirmed local-machine-only, not a real defect**: CI's `swift` job (a different, ADR-0009-pinned
+Xcode/Swift toolchain) ran the exact same full, unfiltered suite — 341 tests, 49 suites, including
+`FeatureMapTests` and every Phase 4 target together, the precise combination that crashes here — and
+passed cleanly (run `29982376557`, `Swift package` job, 3m37s). This machine's own Swift 6.3.3
+installation (`arm64-apple-macosx26.0`) has some Testing-library or Concurrency-runtime
+characteristic CI's pinned toolchain does not share. `LocalizedStrings`'s bundle resolution was
+hardened against one real, independently-justified concurrent-construction race found while
+investigating (`CoreLocalization/LocalizedStrings.swift`) — worth keeping regardless, but it did not
+turn out to be the cause. If this repros again after a local toolchain update, re-run the
+`--filter`/`--skip` checks above before assuming it is a real regression.
 
 ## Modules
 
