@@ -13,7 +13,7 @@ import Observation
 @Observable
 public final class AuthenticationSessionObserver {
     public private(set) var isSignedIn: Bool
-    /// Scopes the per-profile local store; see `FeatureGardens.GardenDatabase`.
+    /// Scopes the per-profile local store; see `CorePersistence.LocalDatabase`.
     public private(set) var currentFirebaseUid: String?
 
     // `deinit` is never actor-isolated, even on a @MainActor class, so a

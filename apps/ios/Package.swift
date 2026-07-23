@@ -36,6 +36,8 @@ let package = Package(
         .library(name: "CoreObservability", targets: ["CoreObservability"]),
         .library(name: "CoreLocalization", targets: ["CoreLocalization"]),
         .library(name: "CoreAuthentication", targets: ["CoreAuthentication"]),
+        .library(name: "CorePersistence", targets: ["CorePersistence"]),
+        .library(name: "CoreSynchronization", targets: ["CoreSynchronization"]),
         .library(name: "FeatureHealth", targets: ["FeatureHealth"]),
         .library(name: "FeatureAuthentication", targets: ["FeatureAuthentication"]),
         .library(name: "FeatureGardens", targets: ["FeatureGardens"]),
@@ -100,6 +102,41 @@ let package = Package(
             ]
         ),
 
+        // The local GRDB/SQLite database: opening and migrating the one
+        // per-profile database file, and a repository-style store per local
+        // table. The only target besides `FeatureGardens` that imports GRDB
+        // — every table's repository protocol returns plain CoreDomain
+        // types, never a GRDB row, per architecture/ios-application-
+        // design.md, section "21. Dependency Rules" ("GRDB ... types remain
+        // inside adapters or feature infrastructure").
+        //
+        // Source: architecture/ios-application-design.md, sections
+        // "4. Application Structure" and "7. Local Persistence";
+        // architecture/offline-synchronization.md, section "5. Local
+        // Tables"; implementation-plan.md work package P5-IOS-01.
+        .target(
+            name: "CorePersistence",
+            dependencies: [
+                "CoreDomain",
+                .product(name: "GRDB", package: "GRDB.swift"),
+            ]
+        ),
+
+        // The synchronization seam: `SyncEngine`, the protocol a future
+        // push/pull engine implements, plus a local-storage-only
+        // implementation. No network dependency yet — see `SyncEngine.swift`
+        // for why `CoreNetworking` is deliberately not a dependency here
+        // until a later work package builds the real push/pull protocol.
+        //
+        // Source: architecture/ios-application-design.md, section
+        // "8. Synchronization Integration"; architecture/offline-
+        // synchronization.md; implementation-plan.md work package
+        // P5-IOS-01.
+        .target(
+            name: "CoreSynchronization",
+            dependencies: ["CoreDomain", "CorePersistence"]
+        ),
+
         // Feature template. A feature may depend on Core; Core never names a
         // feature.
         .target(
@@ -118,6 +155,15 @@ let package = Package(
                 "CoreDomain",
                 "CoreNetworking",
                 "CoreLocalization",
+                // For `CorePersistence.LocalDatabase`, which opens and
+                // migrates the database `GRDBGardenStore` reads and writes.
+                // `FeatureGardens` still depends on GRDB directly too: its
+                // own read-model repository (`GRDBGardenStore`,
+                // `GardenRecord`) uses the GRDB API directly, the same way
+                // it always has — `CorePersistence` centralizes the
+                // database's lifecycle and schema, not every table's
+                // repository.
+                "CorePersistence",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ]
         ),
@@ -170,6 +216,10 @@ let package = Package(
                 "CoreObservability",
                 "CoreLocalization",
                 "CoreAuthentication",
+                // For `LocalDatabase.open`, which the garden store's
+                // composition still opens directly here — see
+                // `AppCompositionRoot.localGardenStore()`.
+                "CorePersistence",
                 "FeatureHealth",
                 "FeatureAuthentication",
                 "FeatureGardens",
@@ -197,6 +247,14 @@ let package = Package(
         .testTarget(
             name: "CoreLocalizationTests",
             dependencies: ["CoreLocalization"]
+        ),
+        .testTarget(
+            name: "CorePersistenceTests",
+            dependencies: ["CorePersistence"]
+        ),
+        .testTarget(
+            name: "CoreSynchronizationTests",
+            dependencies: ["CoreSynchronization"]
         ),
         .testTarget(
             name: "FeatureHealthTests",

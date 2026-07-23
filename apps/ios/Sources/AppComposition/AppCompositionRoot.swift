@@ -2,6 +2,7 @@ import CoreAuthentication
 import CoreLocalization
 import CoreNetworking
 import CoreObservability
+import CorePersistence
 import FeatureAuthentication
 import FeatureGardens
 import FeatureHealth
@@ -192,8 +193,9 @@ public final class AppCompositionRoot {
         )
     }
 
-    /// Scoped by Firebase UID; see `GardenDatabase` for why that, not the
-    /// application profile ID, is what "per-profile" means on this client.
+    /// Scoped by Firebase UID; see `CorePersistence.LocalDatabase` for why
+    /// that, not the application profile ID, is what "per-profile" means on
+    /// this client.
     ///
     /// Opened fresh per call rather than cached: SQLite connections are cheap
     /// to open relative to a screen's lifetime, and this avoids holding a
@@ -202,7 +204,7 @@ public final class AppCompositionRoot {
         let profileIdentifier = sessionObserver.currentFirebaseUid ?? "signed-out"
 
         do {
-            let dbQueue = try GardenDatabase.open(profileIdentifier: profileIdentifier)
+            let dbQueue = try LocalDatabase.open(profileIdentifier: profileIdentifier)
             return GRDBGardenStore(dbQueue: dbQueue)
         } catch {
             log.record(.error, "Could not open the local garden database; falling back to an in-memory store.")

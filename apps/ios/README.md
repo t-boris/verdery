@@ -81,6 +81,8 @@ turn out to be the cause. If this repros again after a local toolchain update, r
 | `CoreLocalization`        | The English and Russian catalogue and the accessor over it                  |
 | `CoreNetworking`          | Typed API gateways over URLSession: health, garden lifecycle, web session   |
 | `CoreAuthentication`      | The only module that imports `FirebaseAuth` and `FirebaseAppCheck`: sign-in, ID token provider, App Check token provider |
+| `CorePersistence`         | The per-profile GRDB/SQLite database: migrator, and a repository per local table |
+| `CoreSynchronization`     | `SyncEngine`, the seam a future push/pull engine implements; no network code yet |
 | `FeatureHealth`           | Feature template: use case, view state, view model, SwiftUI view            |
 | `FeatureAuthentication`   | Sign-in screen: Google popup and email magic link                           |
 | `FeatureGardens`          | Garden list, create, and per-garden settings; the per-profile GRDB store    |
@@ -160,11 +162,12 @@ entitlements (`com.apple.developer.applesignin`). This has not been verified on 
 see "Known environment gap" below.
 
 `FeatureGardens`'s GRDB store is a local *read model* — a cache of the last server-confirmed state,
-populated after a successful API call — not an offline outbox with pending local writes. The full
-offline-synchronization protocol (outbox, conflict resolution, tombstones) is out of Phase 2's scope;
-see `docs/architecture/offline-synchronization.md`. The store is scoped by Firebase UID (available
-immediately after sign-in), not the application profile ID, which this client never fetches directly —
-see `GardenDatabase.swift` for why that still delivers what "per-profile" is for.
+populated after a successful API call — not an offline outbox with pending local writes. As of
+P5-IOS-01, the outbox/conflict/cursor/tombstone schema this paragraph used to call entirely out of
+scope now exists (`CorePersistence`, below), but no feature — `FeatureGardens` included — is wired to
+it yet; that is P5-IOS-02 and later. The store is scoped by Firebase UID (available immediately after
+sign-in), not the application profile ID, which this client never fetches directly — see
+`CorePersistence/LocalDatabase.swift` for why that still delivers what "per-profile" is for.
 
 Source: `docs/implementation-plan.md`, work packages `P2-IOS-01`, `P2-AUTH-03`;
 `docs/architecture/identity-and-authorization.md`.
@@ -255,3 +258,56 @@ directly. Reconciling the OpenAPI document is outside this native client work pa
 
 Source: `docs/implementation-plan.md`, work packages `P3-IOS-01`, `P3-IOS-02`;
 `docs/architecture/map-rendering-and-editing.md`.
+
+## Local synchronization storage (Phase 5, P5-IOS-01)
+
+`CorePersistence` and `CoreSynchronization` add the schema and typed local-storage API the full
+offline-synchronization protocol (`docs/architecture/offline-synchronization.md`) needs, without any
+network code: no push/pull engine implementation, no wiring into any feature's use cases. That is
+P5-IOS-02 and later.
+
+**`CorePersistence`** owns the per-profile SQLite database's lifecycle:
+
+- `LocalDatabase.open(profileIdentifier:)` — relocated from `FeatureGardens.GardenDatabase` (Phase 2).
+  Moving house does not change a migration's identity: `"createGarden"` is registered byte-for-byte as
+  it was, so a database already on disk from Phase 2 migrates forward, it is not recreated. Every
+  migration after it (`createSyncOutbox`, `createSyncCursor`, `createSyncConflict`,
+  `createSyncOperationResult`, `createMediaTransfer`, `createLocalDraft`) is new in this work package.
+  `FeatureGardens` keeps its own GRDB-backed repository (`GRDBGardenStore`, `GardenRecord`) unchanged;
+  only the database's lifecycle and schema moved.
+- One repository protocol plus a GRDB-backed and an in-memory implementation per new table
+  (`SyncOutboxStore`, `SyncCursorStore`, `SyncConflictStore`, `SyncOperationResultStore`,
+  `MediaTransferStore`, `LocalDraftStore`), matching `FeatureGardens.LocalGardenStore` /
+  `GRDBGardenStore` / `InMemoryGardenStore`'s existing convention. Every protocol method takes and
+  returns plain `CoreDomain` types (`OutboxOperation`, `SyncCursor`, `SyncConflict`,
+  `SyncOperationResult`, `MediaTransfer`, `LocalDraft`) — GRDB's row types stay `internal` to
+  `CorePersistence`, never crossing its public surface, per architecture/ios-application-design.md,
+  section "21. Dependency Rules".
+
+**`CoreSynchronization`** defines `SyncEngine` (`pushPending()`/`pullChanges()`), the seam a real
+network-backed push/pull engine implements later, plus `LocalOnlySyncEngine`, a local-storage-only
+implementation that submits nothing over the network — see `SyncEngine.swift`'s doc comment for why the
+plain domain types this protocol traffics in live in `CoreDomain`, not this target.
+
+**Profile scoping — an unresolved gap carried forward, not fixed**: `docs/architecture/ios-application-
+design.md`, section "7. Local Persistence" calls for "one application-owned SQLite database per
+signed-in profile." Nothing in `CoreAuthentication` or `CoreDomain` names an application profile ID
+distinct from the Firebase UID `AuthenticationSessionObserver.currentFirebaseUid` already exposes — the
+Phase 2 `GardenDatabase` doc comment already explains why (the application profile ID is a server-side
+provisioning side effect this client never fetches directly). This work package's own scope forbids
+network calls, so there was no way to source a genuine profile ID here. `LocalDatabase.open` keeps the
+Phase 2 Firebase-UID-keyed scoping unchanged, now just living in `CorePersistence`; no new identifier
+type was introduced to paper over the gap. A future stage that performs a network round trip and can
+persist a real application profile ID locally should revisit this.
+
+**Migration integrity**: `Tests/CorePersistenceTests/MigrationIntegrityTests.swift` runs a hand-written
+subset of the migrator matching exactly what Phase 2 shipped (`"createGarden"` only) against a fresh
+database file, inserts a representative `garden` row, then runs the *real* `LocalDatabase.migrator`
+(all seven migrations) against that same file and asserts the pre-existing row survives untouched and
+every new table exists and is usable. A second test builds a database from a totally fresh
+`LocalDatabase.open` call and asserts the same final schema.
+
+Source: `docs/implementation-plan.md`, work package `P5-IOS-01`; `docs/architecture/ios-application-
+design.md`, sections "4. Application Structure", "7. Local Persistence", "21. Dependency Rules";
+`docs/architecture/offline-synchronization.md`, sections "5. Local Tables" through "18. Media
+Coordination".

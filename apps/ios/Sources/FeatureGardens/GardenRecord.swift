@@ -7,12 +7,17 @@ import GRDB
 /// This is a cache of the last server-confirmed state, populated after a
 /// successful API call — not an offline outbox with pending local writes.
 /// The full offline-synchronization protocol (outbox, conflict resolution,
-/// tombstones) is out of Phase 2's scope; this table exists so the garden
-/// list has something to show immediately on a cold launch, before the
-/// network request completes.
+/// tombstones) now has its schema in `CorePersistence` (`sync_outbox`,
+/// `sync_cursor`, `sync_conflict`, `sync_operation_result`, `media_transfer`,
+/// `local_draft` — see `CorePersistence.LocalDatabase`), but wiring any
+/// feature's use cases to it, this one included, is still out of scope
+/// (P5-IOS-02 and later). This table exists so the garden list has
+/// something to show immediately on a cold launch, before the network
+/// request completes.
 ///
-/// Source: implementation-plan.md work package P2-IOS-01 ("local read
-/// model"); architecture/offline-synchronization.md, section "3. Non-Goals".
+/// Source: implementation-plan.md work packages P2-IOS-01 ("local read
+/// model"), P5-IOS-01; architecture/offline-synchronization.md, section
+/// "3. Non-Goals".
 struct GardenRecord: Codable, FetchableRecord, PersistableRecord {
     static let databaseTableName = "garden"
 
