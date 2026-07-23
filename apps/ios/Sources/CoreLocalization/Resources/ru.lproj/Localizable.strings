@@ -389,3 +389,4 @@
 "tasks.status.skipped" = "Пропущена";
 "tasks.status.dismissed" = "Отклонена";
 "tasks.status.deleted" = "Удалена";
+"tasks.status.savedLocally" = "Сохранено локально, ожидает синхронизации";

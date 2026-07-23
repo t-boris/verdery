@@ -68,8 +68,16 @@ reachable commands (`AddPlant`, `UpdatePlantDetails`, `TransitionPlantLifecycleS
 stay online, gateway-backed reads. `AddPlantFromPhoto`, `AttachPlantPhoto`, `SetPrimaryPlantPhoto`, and
 `ConfirmPlantIdentification` gained no offline support: none of the four has a use case wired to any
 shipped UI at all (confirmed by grep), for the same media/`identificationId` gap the "Photo and file
-attachment" entry below describes. See `tasks/todo.md`'s Stage 4b/Stage 4c sections for the full
-account of each.
+attachment" entry below describes. Stage 4d retrofits `FeatureObservations`'s two commands
+(`RecordObservation`, `CorrectObservation`) through a simplified append-only variant of the same
+pattern, gaining its own `observation` local table. Stage 4e — the work package's last slice —
+retrofits `FeatureTasks`'s seven reachable commands (`CreateManualTask`, `EditTask`, `RescheduleTask`,
+`CompleteTask`, `DismissTask`, `SkipTask`, `DeleteTask`) the same way, gaining its own `task` local
+table; `AttachTaskFile` gained no offline support, for the same reason `AddPlantFromPhoto`/etc. did not
+(confirmed unreachable by grep — see the "Photo and file attachment" entry below). With Stage 4e,
+`P5-IOS-02` is complete: all five Phase 2–4 iOS features (Gardens, Map, Plants, Observations, Tasks)
+now route every reachable offline-capable command through the local-projection-plus-outbox pattern. See
+`tasks/todo.md`'s Stage 4a–4e sections for the full account of each.
 
 ## What remains deferred, and why
 
@@ -153,19 +161,20 @@ environments is actually provisioned, is a one-time privileged `CREATE EXTENSION
 the same break-glass-superuser mechanism `07-iam-database-bootstrap.sh` already uses, before the
 first automated migration run.
 
-**The rest of P5-IOS-02, and P5-IOS-03's real `SyncEngine`.** `FeatureTasks` still calls its gateway
-online-first, exactly as before Stage 4a; `FeatureGardens` (Stage 4a), `FeatureMap` (Stage 4b),
-`FeaturePlants` (Stage 4c), and `FeatureObservations` (Stage 4d) now route their offline-capable
+**P5-IOS-03's real `SyncEngine`, and everything downstream of it.** `P5-IOS-02` is now complete
+(Stages 4a–4e): `FeatureGardens` (Stage 4a), `FeatureMap` (Stage 4b), `FeaturePlants` (Stage 4c),
+`FeatureObservations` (Stage 4d), and `FeatureTasks` (Stage 4e) all route their offline-capable
 commands through the local-transaction-plus-outbox pattern — `FeatureObservations`'s own version of it
 simplified for `GardenObservation`'s append-only shape (`RecordObservation`/`CorrectObservation` append
-a new local row directly, with no "current" record to load first, unlike the other three).
+a new local row directly, with no "current" record to load first, unlike the other four).
 `CoreSynchronization.LocalOnlySyncEngine` remains the only `SyncEngine` implementation, so no outbox
 operation any stage so far enqueues is ever actually pushed to the server yet; nothing in the UI claims
 otherwise (`GardensListViewModel`/`GardenSettingsViewModel`/`MapEditorViewModel`/`PlantDetailViewModel`/
-`ObservationsTimelineViewModel` show "Saved locally, waiting to sync", never "Synchronized"). Conflict
-recovery (`P5-CONFLICT-01`) and the rest of architecture/ios-application-design.md section 8's status
-vocabulary (`Waiting for connectivity`/`Synchronizing`/`Synchronized`/`Requires attention`/`Upload
-pending`) are unbuilt until a real engine exists to report through.
+`ObservationsTimelineViewModel`/`TasksListViewModel` show "Saved locally, waiting to sync", never
+"Synchronized"). Conflict recovery (`P5-CONFLICT-01`) and the rest of
+architecture/ios-application-design.md section 8's status vocabulary (`Waiting for connectivity`/
+`Synchronizing`/`Synchronized`/`Requires attention`/`Upload pending`) are unbuilt until a real engine
+exists to report through.
 
 **The Phase 2 E2E suite does not run in CI.** `apps/web/e2e/` (Playwright against a real Postgres,
 the Firebase Auth emulator, the real API, and the real web app, orchestrated by

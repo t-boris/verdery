@@ -9,11 +9,17 @@ import Foundation
 /// below).
 ///
 /// Every one of these guards on ``TaskRow/isMutable`` (mirrored from
-/// `TaskStatus.isMutable`) before calling the network, the same
-/// "only while planned/suggested" rule the view hides the row's action
-/// controls for — this is the same defensive re-check
-/// `MapEditorViewModelEditing.createObject`'s gate-creation handling
-/// documents doing for a UI control that could reach here regardless.
+/// `TaskStatus.isMutable`) before calling in, the same "only while
+/// planned/suggested" rule the view hides the row's action controls for —
+/// this is the same defensive re-check `MapEditorViewModelEditing
+/// .createObject`'s gate-creation handling documents doing for a UI control
+/// that could reach here regardless. As of P5-IOS-02 (Stage 4e), the same
+/// rule is also enforced one layer deeper, inside the offline commit itself
+/// (`TaskLifecycleRules.requireEditableStatus`) — this guard staying in
+/// place is what keeps that deeper check from ever actually firing through
+/// the shipped UI, the same "not reachable, kept as a real tested failure
+/// mode" relationship `TaskCommandError.taskNotEditable`'s own doc comment
+/// describes.
 extension TasksListViewModel {
     public func complete(taskId: String) async {
         await performRowAction(taskId: taskId) { [self] task in
@@ -94,7 +100,10 @@ extension TasksListViewModel {
 
         do {
             _ = try await action(task)
+            locallyMutatedTaskIds.insert(taskId)
             await load()
+        } catch let error as TaskCommandError {
+            rowActionErrorMessage = message(for: error)
         } catch let error as APIGatewayError {
             rowActionErrorMessage = message(for: error)
         } catch {

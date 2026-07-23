@@ -389,3 +389,4 @@
 "tasks.status.skipped" = "Skipped";
 "tasks.status.dismissed" = "Dismissed";
 "tasks.status.deleted" = "Deleted";
+"tasks.status.savedLocally" = "Saved locally, waiting to sync";

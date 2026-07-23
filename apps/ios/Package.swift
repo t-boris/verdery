@@ -194,14 +194,7 @@ let package = Package(
         ),
 
         // Plant inventory, observations/history, and manual tasks (Phase 4).
-        // `FeatureTasks` still has no GRDB dependency — see its own view
-        // model doc comment (`TasksListViewModel`) for the always-fresh-
-        // from-server reasoning, the same choice `FeatureMap` already made
-        // and for closely related reasons: every mutating command on a task
-        // carries a server-checked `expectedRevision`, so a locally cached,
-        // possibly-stale revision would turn every command into a coin flip
-        // on a `409`/`412` instead of the deliberate check the backend
-        // performs. `FeaturePlants` gained a GRDB dependency in P5-IOS-02
+        // `FeaturePlants` gained a GRDB dependency in P5-IOS-02
         // (Stage 4c): `LocalPlantStore` durably persists the local `plant`
         // read model an offline command's optimistic projection commits
         // against, the same way `FeatureMap`'s `GRDBMapStore` already does
@@ -254,9 +247,33 @@ let package = Package(
             ]
         ),
 
+        // `FeatureTasks` gained a GRDB dependency in P5-IOS-02 (Stage 4e —
+        // the work package's last slice): `LocalTaskStore` durably persists
+        // the local `task` read model an offline command's optimistic
+        // projection commits against, the same way `FeatureObservations`'s
+        // `LocalObservationStore` does for `observation` (Stage 4d) — see
+        // `FeaturePlants`'s own comment above for why `CorePersistence`
+        // centralizes the database's lifecycle/schema while the feature owns
+        // its own read-model repository directly against GRDB. Unlike a
+        // stale garden/plant/map-object revision (this comment's own prior
+        // reasoning for why `FeatureTasks` initially stayed always-fresh-
+        // from-server), the risk that reasoning warned about turns out not to
+        // be new here: every prior stage's own mutable-record commands
+        // already resolved it by never advancing a locally-projected
+        // revision (`unconfirmedTaskRevision`, `TasksUseCases.swift`) — the
+        // local commit always still quotes the last server-confirmed
+        // revision, exactly as an always-fresh-from-server read would have.
+        //
+        // Source: implementation-plan.md work packages P4-IOS-01, P5-IOS-02.
         .target(
             name: "FeatureTasks",
-            dependencies: ["CoreDomain", "CoreNetworking", "CoreLocalization"]
+            dependencies: [
+                "CoreDomain",
+                "CoreNetworking",
+                "CoreLocalization",
+                "CorePersistence",
+                .product(name: "GRDB", package: "GRDB.swift"),
+            ]
         ),
 
         // The single composition root that constructs adapters and injects them
@@ -366,7 +383,16 @@ let package = Package(
         ),
         .testTarget(
             name: "FeatureTasksTests",
-            dependencies: ["FeatureTasks"]
+            dependencies: [
+                "FeatureTasks",
+                // For the offline-mutation tests (P5-IOS-02, Stage 4e): a
+                // real GRDB database via `CorePersistence.LocalDatabase
+                // .migrator`, matching `FeatureGardensTests`/
+                // `FeatureMapTests`/`FeaturePlantsTests`/
+                // `FeatureObservationsTests`'s identical rationale.
+                "CorePersistence",
+                .product(name: "GRDB", package: "GRDB.swift"),
+            ]
         ),
         .testTarget(
             name: "ArchitectureTests"

@@ -193,16 +193,19 @@ public final class AppCompositionRoot {
     }
 
     public func makeTasksListViewModel(gardenId: String) -> TasksListViewModel {
-        TasksListViewModel(
+        let store = localTaskStore()
+        let profileId = currentProfileIdentifier()
+
+        return TasksListViewModel(
             gardenId: gardenId,
-            createManualTask: CreateManualTask(gateway: taskGateway),
-            listTasksForGarden: ListTasksForGarden(gateway: taskGateway),
-            editTask: EditTask(gateway: taskGateway),
-            rescheduleTask: RescheduleTask(gateway: taskGateway),
-            completeTask: CompleteTask(gateway: taskGateway),
-            dismissTask: DismissTask(gateway: taskGateway),
-            skipTask: SkipTask(gateway: taskGateway),
-            deleteTask: DeleteTask(gateway: taskGateway),
+            createManualTask: CreateManualTask(localStore: store, profileId: profileId),
+            listTasksForGarden: ListTasksForGarden(gateway: taskGateway, localStore: store),
+            editTask: EditTask(localStore: store, profileId: profileId),
+            rescheduleTask: RescheduleTask(localStore: store, profileId: profileId),
+            completeTask: CompleteTask(localStore: store, profileId: profileId),
+            dismissTask: DismissTask(localStore: store, profileId: profileId),
+            skipTask: SkipTask(localStore: store, profileId: profileId),
+            deleteTask: DeleteTask(localStore: store, profileId: profileId),
             strings: strings
         )
     }
@@ -272,6 +275,23 @@ public final class AppCompositionRoot {
         } catch {
             log.record(.error, "Could not open the local observation database; falling back to an in-memory store.")
             return InMemoryObservationStore()
+        }
+    }
+
+    /// Same database file, same fallback behavior as `localGardenStore()`/
+    /// `localMapStore()`/`localPlantStore()`/`localObservationStore()` —
+    /// `garden`, `garden_object`, `plant`, `observation`, and `task` are five
+    /// tables in the one per-profile database `LocalDatabase.open` manages,
+    /// per `LocalDatabase+TaskMigration.swift`'s own doc comment.
+    private func localTaskStore() -> any LocalTaskStore {
+        let profileIdentifier = currentProfileIdentifier()
+
+        do {
+            let dbQueue = try LocalDatabase.open(profileIdentifier: profileIdentifier)
+            return GRDBTaskStore(dbQueue: dbQueue)
+        } catch {
+            log.record(.error, "Could not open the local task database; falling back to an in-memory store.")
+            return InMemoryTaskStore()
         }
     }
 

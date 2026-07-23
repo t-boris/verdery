@@ -6,6 +6,15 @@ import Testing
 
 @testable import FeatureTasks
 
+/// As of P5-IOS-02 (Stage 4e), every one of `TasksListViewModel`'s seven
+/// mutating actions routes through `LocalTaskStore.commitOfflineMutation` —
+/// no network call, see `TasksUseCases.swift`'s doc comment. `FakeTaskGateway`
+/// is still needed for `listTasksForGarden`, the one remaining online,
+/// gateway-backed read `ListTasksForGarden` wraps and write-throughs into
+/// `LocalTaskStore` — so seeding `FakeTaskGateway` with a task and calling
+/// `load()` once is what gives the seven offline commands a local row to
+/// mutate, mirroring how a real device would only ever have a local `task`
+/// row for something it already fetched (or created) at least once.
 @MainActor
 @Suite("Tasks list view model")
 struct TasksListViewModelTests {
@@ -19,17 +28,20 @@ struct TasksListViewModelTests {
         )
     }
 
-    private func makeModel(gateway: FakeTaskGateway) -> TasksListViewModel {
+    private func makeModel(
+        gateway: FakeTaskGateway,
+        localStore: any LocalTaskStore = InMemoryTaskStore()
+    ) -> TasksListViewModel {
         TasksListViewModel(
             gardenId: "garden-1",
-            createManualTask: CreateManualTask(gateway: gateway),
-            listTasksForGarden: ListTasksForGarden(gateway: gateway),
-            editTask: EditTask(gateway: gateway),
-            rescheduleTask: RescheduleTask(gateway: gateway),
-            completeTask: CompleteTask(gateway: gateway),
-            dismissTask: DismissTask(gateway: gateway),
-            skipTask: SkipTask(gateway: gateway),
-            deleteTask: DeleteTask(gateway: gateway),
+            createManualTask: CreateManualTask(localStore: localStore, profileId: "profile-1"),
+            listTasksForGarden: ListTasksForGarden(gateway: gateway, localStore: localStore),
+            editTask: EditTask(localStore: localStore, profileId: "profile-1"),
+            rescheduleTask: RescheduleTask(localStore: localStore, profileId: "profile-1"),
+            completeTask: CompleteTask(localStore: localStore, profileId: "profile-1"),
+            dismissTask: DismissTask(localStore: localStore, profileId: "profile-1"),
+            skipTask: SkipTask(localStore: localStore, profileId: "profile-1"),
+            deleteTask: DeleteTask(localStore: localStore, profileId: "profile-1"),
             strings: LocalizedStrings(locale: Locale(identifier: "en_GB"))
         )
     }
@@ -48,7 +60,7 @@ struct TasksListViewModelTests {
         #expect(rows.count == 2)
     }
 
-    @Test("load with a status filter lists only that status")
+    @Test("load with a status filter lists only that status, applied client-side over the unfiltered fetch")
     func loadWithFilterListsOnlyThatStatus() async {
         let gateway = FakeTaskGateway(tasks: [task(id: "task-1", status: .planned), task(id: "task-2", status: .completed)])
         let model = makeModel(gateway: gateway)
@@ -79,17 +91,17 @@ struct TasksListViewModelTests {
         #expect(rows.first { $0.id == "task-2" }?.isMutable == false)
     }
 
-    @Test("submitCreateTask rejects an empty title without calling the gateway")
-    func submitCreateRejectsEmptyTitle() async {
+    @Test("submitCreateTask rejects an empty title without writing anything locally")
+    func submitCreateRejectsEmptyTitle() async throws {
+        let localStore = InMemoryTaskStore()
         let gateway = FakeTaskGateway()
-        let model = makeModel(gateway: gateway)
+        let model = makeModel(gateway: gateway, localStore: localStore)
         model.createTitle = "   "
 
         await model.submitCreateTask()
 
         #expect(model.createErrorMessage != nil)
-        let tasks = try? await gateway.listTasksForGarden(gardenId: "garden-1", statuses: [])
-        #expect(tasks?.isEmpty == true)
+        #expect(try await localStore.fetchAll(gardenId: "garden-1").isEmpty)
     }
 
     @Test("submitCreateTask rejects a garden-area target with no id")
@@ -105,7 +117,7 @@ struct TasksListViewModelTests {
         #expect(model.createErrorMessage != nil)
     }
 
-    @Test("submitCreateTask succeeds and resets the form")
+    @Test("submitCreateTask succeeds locally and resets the form, without calling the gateway")
     func submitCreateSucceeds() async {
         let gateway = FakeTaskGateway()
         let model = makeModel(gateway: gateway)
@@ -120,9 +132,16 @@ struct TasksListViewModelTests {
             return
         }
         #expect(rows.count == 1)
+        #expect(rows.first?.isPendingSync == true)
+        // `FakeTaskGateway` never learned about this task — if
+        // `CreateManualTask` had called through to it, `listTasksForGarden`
+        // (which reads the same in-memory dictionary it would have
+        // populated) would return it too.
+        let confirmed = try? await gateway.listTasksForGarden(gardenId: "garden-1", statuses: [])
+        #expect(confirmed?.isEmpty == true)
     }
 
-    @Test("complete transitions a planned task to completed")
+    @Test("complete transitions a planned task to completed, without calling the gateway")
     func completeTransitionsToCompleted() async {
         let gateway = FakeTaskGateway(tasks: [task()])
         let model = makeModel(gateway: gateway)
@@ -135,6 +154,11 @@ struct TasksListViewModelTests {
             return
         }
         #expect(rows.first?.status == .completed)
+        #expect(rows.first?.isPendingSync == true)
+        // The fake gateway's own copy is untouched — a real network call
+        // would have advanced its `revision`/`status` too.
+        let confirmed = try? await gateway.listTasksForGarden(gardenId: "garden-1", statuses: [])
+        #expect(confirmed?.first?.status == .planned)
     }
 
     @Test("delete transitions to deleted — a status transition, never a hard delete")
@@ -149,10 +173,14 @@ struct TasksListViewModelTests {
             Issue.record("Expected loaded state")
             return
         }
+        // Still present, with status `deleted` — never removed from the
+        // list, since `DeleteTask` is a status transition, never a row
+        // deletion.
+        #expect(rows.count == 1)
         #expect(rows.first?.status == .deleted)
     }
 
-    @Test("A row action on an already-terminal task is a no-op, guarded before the network call")
+    @Test("A row action on an already-terminal task is a no-op, guarded before the local commit")
     func rowActionOnTerminalTaskIsNoOp() async {
         let gateway = FakeTaskGateway(tasks: [task(status: .completed)])
         let model = makeModel(gateway: gateway)
@@ -161,7 +189,7 @@ struct TasksListViewModelTests {
         await model.skip(taskId: "task-1")
 
         // No error surfaced and no state change — the guard in
-        // `performRowAction` returns before ever calling the gateway.
+        // `performRowAction` returns before ever calling the local store.
         #expect(model.rowActionErrorMessage == nil)
         guard case let .loaded(rows) = model.state else {
             Issue.record("Expected loaded state")
@@ -213,5 +241,24 @@ struct TasksListViewModelTests {
             return
         }
         #expect(rows.first?.dueDateText == "2026-08-01")
+    }
+
+    @Test("a pending local mutation survives a subsequent network refresh instead of being clobbered by the stale server response")
+    func pendingMutationSurvivesRefresh() async {
+        let gateway = FakeTaskGateway(tasks: [task()])
+        let model = makeModel(gateway: gateway)
+        await model.load()
+        await model.complete(taskId: "task-1")
+
+        // A second `load()` — the fake gateway's own copy is still `planned`
+        // (necessarily stale, since nothing has actually pushed this
+        // client's completion to it yet).
+        await model.load()
+
+        guard case let .loaded(rows) = model.state else {
+            Issue.record("Expected loaded state")
+            return
+        }
+        #expect(rows.first?.status == .completed)
     }
 }

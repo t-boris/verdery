@@ -7,14 +7,21 @@ import Observation
 /// View model for a garden's manual task list: create, filter by status,
 /// edit, reschedule, complete, dismiss, skip, and delete.
 ///
-/// Always fresh from the server, no local cache — see `Package.swift`'s doc
-/// comment on the `FeatureTasks` target for why, the same reasoning
-/// `MapEditorViewModel` documents for the map editor: every mutating
-/// operation here carries a server-checked `expectedRevision`, and the list
-/// also supports server-side status filtering that a local cache would have
-/// to duplicate for no proven benefit at this scale.
+/// As of P5-IOS-02 (Stage 4e), every one of those seven commands routes
+/// through `LocalTaskStore.commitOfflineMutation` — no network call, see
+/// `TasksUseCases.swift`'s doc comment. `load()` shows the local read model
+/// immediately, before the network refresh that follows it resolves — the
+/// same cache-first-then-refresh shape `FeatureGardens.GardensListViewModel
+/// .load()` uses, generalized to a garden-scoped list the way
+/// `FeatureMap.MapEditorViewModel` already reads `garden_object`.
+/// `statusFilter` is applied as a display-only filter over the merged local
+/// result, never forwarded to the network fetch itself — see
+/// `ListTasksForGarden`'s own doc comment for why: `LocalTaskStore
+/// .replaceAll(gardenId:with:)` needs the FULL per-garden set to safely
+/// decide what to delete, so a server-side-filtered fetch could never safely
+/// feed it.
 ///
-/// Source: implementation-plan.md work package P4-IOS-01;
+/// Source: implementation-plan.md work packages P4-IOS-01, P5-IOS-02;
 /// packages/api-contracts/openapi.yaml, tag `Tasks`.
 @MainActor
 @Observable
@@ -55,6 +62,20 @@ public final class TasksListViewModel {
     // anything its topic-scoped extension files write.
     public internal(set) var isPerformingRowAction = false
     public internal(set) var rowActionErrorMessage: String?
+
+    /// Task ids with an offline mutation committed this session whose outbox
+    /// operation this stage (P5-IOS-02) cannot yet confirm pushed —
+    /// `CoreSynchronization.LocalOnlySyncEngine` never actually synchronizes
+    /// anything yet. Deliberately session-scoped rather than derived from a
+    /// persisted, outbox-backed query — the same "Saved locally" slice
+    /// `FeatureGardens.GardensListViewModel.locallySavedGardenIds`'s own doc
+    /// comment describes, here tracked per-row rather than per-screen since
+    /// a list, unlike a single garden/plant detail screen, can have several
+    /// rows independently pending at once. Module-internal, not `private`:
+    /// written from `TasksListViewModelActions.swift`'s `performRowAction`,
+    /// an extension in a different file — the same reason `tasksById` below
+    /// is not `private`.
+    var locallyMutatedTaskIds: Set<String> = []
 
     public let gardenId: String
     private let createManualTask: CreateManualTask
@@ -122,6 +143,7 @@ public final class TasksListViewModel {
     public var deleteActionTitle: String { strings(.tasksDeleteAction) }
     public var cancelTitle: String { strings(.tasksCancel) }
     public var closeTitle: String { strings(.tasksClose) }
+    public var savedLocallyLabel: String { strings(.tasksSavedLocally) }
 
     public func targetKindName(_ kind: TaskTargetKind) -> String {
         TasksLocalization.targetKindName(kind, strings: strings)
@@ -136,18 +158,39 @@ public final class TasksListViewModel {
     }
 
     public func load() async {
-        state = .loading
+        let hadCachedResult: Bool
+        if let cached = try? await listTasksForGarden.cached(gardenId: gardenId), !cached.isEmpty {
+            applyLoaded(cached)
+            hadCachedResult = true
+        } else {
+            state = .loading
+            hadCachedResult = false
+        }
 
         do {
-            let statuses: [TaskStatus] = statusFilter.map { [$0] } ?? []
-            let tasks = try await listTasksForGarden(gardenId: gardenId, statuses: statuses)
-            tasksById = Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0) })
-            state = .loaded(tasks.map(row))
+            // Always the unfiltered fetch — see `ListTasksForGarden`'s own
+            // doc comment for why a server-side-filtered fetch could never
+            // safely feed `LocalTaskStore.replaceAll(gardenId:with:)`.
+            // `statusFilter` is applied to what `applyLoaded` renders, not to
+            // this network call.
+            _ = try await listTasksForGarden(gardenId: gardenId)
+            let merged = try await listTasksForGarden.cached(gardenId: gardenId)
+            applyLoaded(merged)
         } catch let error as APIGatewayError {
-            state = .failed(message: message(for: error))
+            if !hadCachedResult {
+                state = .failed(message: message(for: error))
+            }
         } catch {
-            state = .failed(message: strings(.serverUnexpected))
+            if !hadCachedResult {
+                state = .failed(message: strings(.serverUnexpected))
+            }
         }
+    }
+
+    private func applyLoaded(_ tasks: [GardenTask]) {
+        tasksById = Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0) })
+        let filtered = statusFilter.map { status in tasks.filter { $0.status == status } } ?? tasks
+        state = .loaded(filtered.map(row))
     }
 
     public func submitCreateTask() async {
@@ -170,7 +213,7 @@ public final class TasksListViewModel {
         defer { isSubmittingCreate = false }
 
         do {
-            _ = try await createManualTask(
+            let task = try await createManualTask(
                 gardenId: gardenId,
                 targetKind: createTargetKind,
                 targetGardenAreaMapObjectId: gardenAreaMapObjectId,
@@ -182,8 +225,11 @@ public final class TasksListViewModel {
                 timeWindowEnd: createHasTimeWindow ? createTimeWindowEnd : nil,
                 urgency: createUrgency
             )
+            locallyMutatedTaskIds.insert(task.id)
             resetCreateForm()
             await load()
+        } catch let error as TaskCommandError {
+            createErrorMessage = message(for: error)
         } catch let error as APIGatewayError {
             createErrorMessage = message(for: error)
         } catch {
@@ -216,7 +262,8 @@ public final class TasksListViewModel {
             dueDateText: task.dueDate,
             targetLabel: targetLabel(for: task),
             revision: task.revision,
-            isMutable: task.status.isMutable
+            isMutable: task.status.isMutable,
+            isPendingSync: locallyMutatedTaskIds.contains(task.id)
         )
     }
 
@@ -246,6 +293,15 @@ public final class TasksListViewModel {
         switch failure {
         case .titleRequired: strings(.tasksTitleRequired)
         case .targetIdRequired: strings(.tasksTargetIdRequired)
+        }
+    }
+
+    func message(for failure: TaskCommandError) -> String {
+        switch failure {
+        case .invalidTitle:
+            strings(.tasksTitleRequired)
+        case .localRecordNotFound, .taskNotEditable, .payloadEncodingFailed:
+            strings(.serverUnexpected)
         }
     }
 }

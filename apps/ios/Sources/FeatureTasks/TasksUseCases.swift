@@ -4,20 +4,59 @@ import Foundation
 
 /// Use cases for the manual task operations this pass gives a UI to.
 ///
-/// `AttachTaskFile` has no use case here, even though `TaskGateway`
-/// implements and tests it: it needs a `mediaId` this client has no way to
-/// produce yet (see `TasksListView`'s doc comment), so a use case with
-/// nothing above it that could ever call it would be dead code, not a
-/// completed vertical slice — the same reasoning `FeaturePlants`'s doc
-/// comment gives for its own four gateway-only operations.
+/// `CreateManualTask`, `EditTask`, `RescheduleTask`, `CompleteTask`,
+/// `DismissTask`, `SkipTask`, and `DeleteTask` route through the same atomic
+/// local-projection-plus-outbox pattern `FeatureGardens` (Stage 4a),
+/// `FeatureMap` (Stage 4b), `FeaturePlants` (Stage 4c), and
+/// `FeatureObservations` (Stage 4d) already established, as of P5-IOS-02
+/// Stage 4e — the work package's last slice: no network call, one GRDB
+/// transaction via `LocalTaskStore.commitOfflineMutation`. `ListTasksForGarden`
+/// stays online, gateway-backed for its network fetch, but now also writes
+/// every unfiltered fetch through to `LocalTaskStore`
+/// (`replaceAll(gardenId:with:)`) — the mechanism that gives the seven
+/// offline commands a local row to load, validate against, and project
+/// forward, the same role `FeatureGardens.ListGardens`/`FeatureMap.LoadGardenMap`/
+/// `FeaturePlants.GetPlant` already play for their own features.
 ///
-/// Source: implementation-plan.md work package P4-IOS-01;
-/// packages/api-contracts/openapi.yaml, tag `Tasks`.
+/// `AttachTaskFile` has no use case here, even though `TaskGateway`
+/// implements and tests it: confirmed unreachable from any shipped UI by
+/// grep (`grep -rn "AttachTaskFile\|attachTaskFile" apps/ios/Sources` finds
+/// only `TaskGateway`/`TaskTransport`'s own implementation, this file's, and
+/// `TasksListView`'s doc comments explaining the gap — no call site anywhere)
+/// — it needs a `mediaId`, and `docs/development/deferred-capabilities.md`'s
+/// "Photo and file attachment" entry confirms this codebase has no upload
+/// flow to produce one anywhere yet, the same gap `FeaturePlants`'/
+/// `FeatureObservations`'s own media-dependent commands document (that entry
+/// lists `AttachTaskFile` alongside them explicitly).
+///
+/// `DeleteTask` is a status transition to `'deleted'`, never a hard delete —
+/// `task-lifecycle.ts`'s own header comment: "no hard-delete anywhere, only
+/// status transitions." Its local projection is a normal mutable-record
+/// upsert of the task's own row with its status changed, exactly like
+/// `CompleteTask`/`DismissTask`/`SkipTask` — see `TaskTerminalStatus.apply`
+/// in `TaskLifecycleRules.swift`, which all four share.
+///
+/// Source: implementation-plan.md work package P4-IOS-01, P5-IOS-02;
+/// packages/api-contracts/openapi.yaml, tag `Tasks`, `Synchronization`.
 public struct CreateManualTask: Sendable {
-    private let gateway: any TaskGateway
+    private let localStore: any LocalTaskStore
+    private let profileId: String
+    private let now: @Sendable () -> Date
+    private let generateOperationId: @Sendable () -> String
+    private let generateTaskId: @Sendable () -> String
 
-    public init(gateway: any TaskGateway) {
-        self.gateway = gateway
+    public init(
+        localStore: any LocalTaskStore,
+        profileId: String,
+        now: @escaping @Sendable () -> Date = Date.init,
+        generateOperationId: @escaping @Sendable () -> String = UUIDv7.generate,
+        generateTaskId: @escaping @Sendable () -> String = UUIDv7.generate
+    ) {
+        self.localStore = localStore
+        self.profileId = profileId
+        self.now = now
+        self.generateOperationId = generateOperationId
+        self.generateTaskId = generateTaskId
     }
 
     public func callAsFunction(
@@ -33,40 +72,135 @@ public struct CreateManualTask: Sendable {
         urgency: TaskUrgency? = nil,
         originObservationId: String? = nil
     ) async throws -> GardenTask {
-        try await gateway.createManualTask(
-            gardenId: gardenId,
-            targetKind: targetKind,
-            targetGardenAreaMapObjectId: targetGardenAreaMapObjectId,
-            targetPlantId: targetPlantId,
-            title: title,
-            notes: notes,
-            dueDate: dueDate,
-            timeWindowStart: timeWindowStart,
-            timeWindowEnd: timeWindowEnd,
-            urgency: urgency,
-            originObservationId: originObservationId,
-            idempotencyKey: UUIDv7.generate()
-        )
+        let trimmedTitle = try validatedTaskTitle(title)
+        // Matches `createTask`'s own server-side default exactly
+        // (`tasks-recommendations/application/create-manual-task.ts`:
+        // `urgency: input.urgency ?? 'normal'`).
+        let resolvedUrgency = urgency ?? .normal
+        let taskId = generateTaskId()
+        let timestamp = now()
+        let operationId = generateOperationId()
+
+        return try await localStore.commitOfflineMutation(taskId: taskId) { current in
+            // `current` is always `nil` here: `taskId` was just generated by
+            // `generateTaskId()` above and cannot already have a local row.
+            let projection = GardenTask(
+                id: taskId,
+                gardenId: gardenId,
+                targetKind: targetKind,
+                targetGardenAreaMapObjectId: targetGardenAreaMapObjectId,
+                targetPlantId: targetPlantId,
+                title: trimmedTitle,
+                notes: notes,
+                status: .planned,
+                dueDate: dueDate,
+                timeWindowStart: timeWindowStart,
+                timeWindowEnd: timeWindowEnd,
+                recurrenceRule: nil,
+                urgency: resolvedUrgency,
+                source: .manual,
+                originObservationId: originObservationId,
+                revision: unconfirmedTaskRevision,
+                createdByProfileId: profileId,
+                createdAt: timestamp,
+                updatedAt: timestamp,
+                completedAt: nil
+            )
+            let operation = OutboxOperation(
+                id: operationId,
+                profileId: profileId,
+                gardenId: gardenId,
+                commandType: "tasks.createManualTask",
+                commandVersion: TaskSyncCommandPayload.version,
+                targetRecordIds: [taskId],
+                expectedRevision: nil,
+                payload: try TaskSyncCommandPayload.encode(
+                    gardenId: gardenId,
+                    command: .createManualTask(
+                        taskId: taskId,
+                        request: CreateManualTaskRequestPayload(
+                            target: TaskTargetRequestPayload(
+                                kind: targetKind,
+                                gardenAreaMapObjectId: targetGardenAreaMapObjectId,
+                                plantId: targetPlantId
+                            ),
+                            title: trimmedTitle,
+                            notes: notes,
+                            dueDate: dueDate,
+                            timeWindow: TaskSyncCommandPayload.createTimeWindow(start: timeWindowStart, end: timeWindowEnd),
+                            urgency: urgency,
+                            originObservationId: originObservationId
+                        )
+                    )
+                ),
+                createdAt: timestamp
+            )
+            return (projection, operation)
+        }
     }
 }
 
+/// Still an online, gateway-backed read — see `CreateManualTask`'s doc
+/// comment for the shared rationale.
 public struct ListTasksForGarden: Sendable {
     private let gateway: any TaskGateway
+    private let localStore: any LocalTaskStore
 
-    public init(gateway: any TaskGateway) {
+    public init(gateway: any TaskGateway, localStore: any LocalTaskStore) {
         self.gateway = gateway
+        self.localStore = localStore
     }
 
+    /// The immediately-available cached list for one garden, before any
+    /// network call — mirrors `FeatureGardens.ListGardens.cached()`/
+    /// `FeatureMap.LocalMapStore.fetchAll(gardenId:)`.
+    public func cached(gardenId: String) async throws -> [GardenTask] {
+        try await localStore.fetchAll(gardenId: gardenId)
+    }
+
+    /// `statuses` still filters the network response for a caller that wants
+    /// a server-side-filtered fetch, but the write-through to `localStore`
+    /// only happens when `statuses` is empty (a full, unfiltered fetch).
+    ///
+    /// `LocalTaskStore.replaceAll(gardenId:with:)` treats its argument as the
+    /// complete authoritative set for the garden — deleting any local row not
+    /// present in it (besides a pending one) — so writing a server-side-
+    /// filtered subset through would incorrectly delete every task outside
+    /// the filter from local storage, even though the server still has them.
+    /// `TasksListViewModel.load()` always calls this with `statuses: []` for
+    /// exactly this reason, applying `statusFilter` as a display-only filter
+    /// over `cached(gardenId:)` instead — see that type's own doc comment.
     public func callAsFunction(gardenId: String, statuses: [TaskStatus] = []) async throws -> [GardenTask] {
-        try await gateway.listTasksForGarden(gardenId: gardenId, statuses: statuses)
+        let tasks = try await gateway.listTasksForGarden(gardenId: gardenId, statuses: statuses)
+        if statuses.isEmpty {
+            try await localStore.replaceAll(gardenId: gardenId, with: tasks)
+        }
+        return tasks
     }
 }
 
+/// Edits a task's title, notes, schedule, urgency, and recurrence rule as one
+/// local-only transaction: no network call. See `CreateManualTask`'s doc
+/// comment for the shared rationale. Shares its local projection with
+/// `RescheduleTask` through `TaskDetailProjection` — see that file's own doc
+/// comment for why, mirroring this codebase's own server-side factoring of
+/// the same two commands through `apply-task-detail-changes.ts`.
 public struct EditTask: Sendable {
-    private let gateway: any TaskGateway
+    private let localStore: any LocalTaskStore
+    private let profileId: String
+    private let now: @Sendable () -> Date
+    private let generateOperationId: @Sendable () -> String
 
-    public init(gateway: any TaskGateway) {
-        self.gateway = gateway
+    public init(
+        localStore: any LocalTaskStore,
+        profileId: String,
+        now: @escaping @Sendable () -> Date = Date.init,
+        generateOperationId: @escaping @Sendable () -> String = UUIDv7.generate
+    ) {
+        self.localStore = localStore
+        self.profileId = profileId
+        self.now = now
+        self.generateOperationId = generateOperationId
     }
 
     public func callAsFunction(
@@ -81,27 +215,74 @@ public struct EditTask: Sendable {
         recurrenceRule: FieldUpdate<String> = .unchanged,
         expectedRevision: Int
     ) async throws -> GardenTask {
-        try await gateway.editTask(
-            gardenId: gardenId,
-            taskId: taskId,
-            title: title,
+        let resolvedTitle = try title.map(validatedTaskTitle)
+        let timestamp = now()
+        let operationId = generateOperationId()
+        let changes = TaskDetailChanges(
+            title: resolvedTitle,
             notes: notes,
             dueDate: dueDate,
             timeWindowStart: timeWindowStart,
             timeWindowEnd: timeWindowEnd,
             urgency: urgency,
-            recurrenceRule: recurrenceRule,
-            expectedRevision: expectedRevision,
-            idempotencyKey: UUIDv7.generate()
+            recurrenceRule: recurrenceRule
         )
+
+        return try await localStore.commitOfflineMutation(taskId: taskId) { current in
+            guard let current else {
+                throw TaskCommandError.localRecordNotFound
+            }
+
+            let projection = try TaskDetailProjection.apply(changes, to: current, at: timestamp)
+            let operation = OutboxOperation(
+                id: operationId,
+                profileId: profileId,
+                gardenId: gardenId,
+                commandType: "tasks.editTask",
+                commandVersion: TaskSyncCommandPayload.version,
+                targetRecordIds: [taskId],
+                expectedRevision: expectedRevision,
+                payload: try TaskSyncCommandPayload.encode(
+                    gardenId: gardenId,
+                    command: .editTask(
+                        taskId: taskId,
+                        expectedRevision: expectedRevision,
+                        request: EditTaskRequestPayload(
+                            title: resolvedTitle,
+                            notes: notes,
+                            dueDate: dueDate,
+                            timeWindow: TaskSyncCommandPayload.fieldUpdateTimeWindow(start: timeWindowStart, end: timeWindowEnd),
+                            urgency: urgency,
+                            recurrenceRule: recurrenceRule
+                        )
+                    )
+                ),
+                createdAt: timestamp
+            )
+            return (projection, operation)
+        }
     }
 }
 
+/// Reschedules a task's `dueDate`/`timeWindow` only, as one local-only
+/// transaction: no network call. See `EditTask`'s doc comment for the shared
+/// projection this reuses rather than duplicates.
 public struct RescheduleTask: Sendable {
-    private let gateway: any TaskGateway
+    private let localStore: any LocalTaskStore
+    private let profileId: String
+    private let now: @Sendable () -> Date
+    private let generateOperationId: @Sendable () -> String
 
-    public init(gateway: any TaskGateway) {
-        self.gateway = gateway
+    public init(
+        localStore: any LocalTaskStore,
+        profileId: String,
+        now: @escaping @Sendable () -> Date = Date.init,
+        generateOperationId: @escaping @Sendable () -> String = UUIDv7.generate
+    ) {
+        self.localStore = localStore
+        self.profileId = profileId
+        self.now = now
+        self.generateOperationId = generateOperationId
     }
 
     public func callAsFunction(
@@ -112,90 +293,276 @@ public struct RescheduleTask: Sendable {
         timeWindowEnd: FieldUpdate<Date> = .unchanged,
         expectedRevision: Int
     ) async throws -> GardenTask {
-        try await gateway.rescheduleTask(
-            gardenId: gardenId,
-            taskId: taskId,
-            dueDate: dueDate,
-            timeWindowStart: timeWindowStart,
-            timeWindowEnd: timeWindowEnd,
-            expectedRevision: expectedRevision,
-            idempotencyKey: UUIDv7.generate()
-        )
+        let timestamp = now()
+        let operationId = generateOperationId()
+        let changes = TaskDetailChanges(dueDate: dueDate, timeWindowStart: timeWindowStart, timeWindowEnd: timeWindowEnd)
+
+        return try await localStore.commitOfflineMutation(taskId: taskId) { current in
+            guard let current else {
+                throw TaskCommandError.localRecordNotFound
+            }
+
+            let projection = try TaskDetailProjection.apply(changes, to: current, at: timestamp)
+            let operation = OutboxOperation(
+                id: operationId,
+                profileId: profileId,
+                gardenId: gardenId,
+                commandType: "tasks.rescheduleTask",
+                commandVersion: TaskSyncCommandPayload.version,
+                targetRecordIds: [taskId],
+                expectedRevision: expectedRevision,
+                payload: try TaskSyncCommandPayload.encode(
+                    gardenId: gardenId,
+                    command: .rescheduleTask(
+                        taskId: taskId,
+                        expectedRevision: expectedRevision,
+                        request: RescheduleTaskRequestPayload(
+                            dueDate: dueDate,
+                            timeWindow: TaskSyncCommandPayload.fieldUpdateTimeWindow(start: timeWindowStart, end: timeWindowEnd)
+                        )
+                    )
+                ),
+                createdAt: timestamp
+            )
+            return (projection, operation)
+        }
     }
 }
 
 /// `completionNote` is always `nil` from this use case — see
 /// `TasksListView`'s doc comment on why no note-collection UI sits above it.
+/// One local-only transaction: no network call. Shares its local projection
+/// with `DismissTask`/`SkipTask`/`DeleteTask` through `TaskTerminalStatus` —
+/// see `TaskLifecycleRules.swift`'s own doc comment.
 public struct CompleteTask: Sendable {
-    private let gateway: any TaskGateway
+    private let localStore: any LocalTaskStore
+    private let profileId: String
+    private let now: @Sendable () -> Date
+    private let generateOperationId: @Sendable () -> String
 
-    public init(gateway: any TaskGateway) {
-        self.gateway = gateway
+    public init(
+        localStore: any LocalTaskStore,
+        profileId: String,
+        now: @escaping @Sendable () -> Date = Date.init,
+        generateOperationId: @escaping @Sendable () -> String = UUIDv7.generate
+    ) {
+        self.localStore = localStore
+        self.profileId = profileId
+        self.now = now
+        self.generateOperationId = generateOperationId
     }
 
     public func callAsFunction(gardenId: String, taskId: String, expectedRevision: Int) async throws -> GardenTask {
-        try await gateway.completeTask(
-            gardenId: gardenId,
-            taskId: taskId,
-            completionNote: nil,
-            expectedRevision: expectedRevision,
-            idempotencyKey: UUIDv7.generate()
-        )
+        let timestamp = now()
+        let operationId = generateOperationId()
+
+        return try await localStore.commitOfflineMutation(taskId: taskId) { current in
+            guard let current else {
+                throw TaskCommandError.localRecordNotFound
+            }
+
+            let projection = try TaskTerminalStatus.completed.apply(to: current, at: timestamp)
+            let operation = OutboxOperation(
+                id: operationId,
+                profileId: profileId,
+                gardenId: gardenId,
+                commandType: "tasks.completeTask",
+                commandVersion: TaskSyncCommandPayload.version,
+                targetRecordIds: [taskId],
+                expectedRevision: expectedRevision,
+                payload: try TaskSyncCommandPayload.encode(
+                    gardenId: gardenId,
+                    command: .completeTask(
+                        taskId: taskId,
+                        expectedRevision: expectedRevision,
+                        request: CompleteTaskRequestPayload(completionNote: nil)
+                    )
+                ),
+                createdAt: timestamp
+            )
+            return (projection, operation)
+        }
     }
 }
 
 /// `reason` is always `nil` from this use case — the same carve-out
-/// `CompleteTask` documents.
+/// `CompleteTask` documents. One local-only transaction: no network call.
 public struct DismissTask: Sendable {
-    private let gateway: any TaskGateway
+    private let localStore: any LocalTaskStore
+    private let profileId: String
+    private let now: @Sendable () -> Date
+    private let generateOperationId: @Sendable () -> String
 
-    public init(gateway: any TaskGateway) {
-        self.gateway = gateway
+    public init(
+        localStore: any LocalTaskStore,
+        profileId: String,
+        now: @escaping @Sendable () -> Date = Date.init,
+        generateOperationId: @escaping @Sendable () -> String = UUIDv7.generate
+    ) {
+        self.localStore = localStore
+        self.profileId = profileId
+        self.now = now
+        self.generateOperationId = generateOperationId
     }
 
     public func callAsFunction(gardenId: String, taskId: String, expectedRevision: Int) async throws -> GardenTask {
-        try await gateway.dismissTask(
-            gardenId: gardenId,
-            taskId: taskId,
-            reason: nil,
-            expectedRevision: expectedRevision,
-            idempotencyKey: UUIDv7.generate()
-        )
+        let timestamp = now()
+        let operationId = generateOperationId()
+
+        return try await localStore.commitOfflineMutation(taskId: taskId) { current in
+            guard let current else {
+                throw TaskCommandError.localRecordNotFound
+            }
+
+            let projection = try TaskTerminalStatus.dismissed.apply(to: current, at: timestamp)
+            let operation = OutboxOperation(
+                id: operationId,
+                profileId: profileId,
+                gardenId: gardenId,
+                commandType: "tasks.dismissTask",
+                commandVersion: TaskSyncCommandPayload.version,
+                targetRecordIds: [taskId],
+                expectedRevision: expectedRevision,
+                payload: try TaskSyncCommandPayload.encode(
+                    gardenId: gardenId,
+                    command: .dismissTask(
+                        taskId: taskId,
+                        expectedRevision: expectedRevision,
+                        request: DismissTaskRequestPayload(reason: nil)
+                    )
+                ),
+                createdAt: timestamp
+            )
+            return (projection, operation)
+        }
     }
 }
 
+/// One local-only transaction: no network call.
 public struct SkipTask: Sendable {
-    private let gateway: any TaskGateway
+    private let localStore: any LocalTaskStore
+    private let profileId: String
+    private let now: @Sendable () -> Date
+    private let generateOperationId: @Sendable () -> String
 
-    public init(gateway: any TaskGateway) {
-        self.gateway = gateway
+    public init(
+        localStore: any LocalTaskStore,
+        profileId: String,
+        now: @escaping @Sendable () -> Date = Date.init,
+        generateOperationId: @escaping @Sendable () -> String = UUIDv7.generate
+    ) {
+        self.localStore = localStore
+        self.profileId = profileId
+        self.now = now
+        self.generateOperationId = generateOperationId
     }
 
     public func callAsFunction(gardenId: String, taskId: String, expectedRevision: Int) async throws -> GardenTask {
-        try await gateway.skipTask(
-            gardenId: gardenId,
-            taskId: taskId,
-            expectedRevision: expectedRevision,
-            idempotencyKey: UUIDv7.generate()
-        )
+        let timestamp = now()
+        let operationId = generateOperationId()
+
+        return try await localStore.commitOfflineMutation(taskId: taskId) { current in
+            guard let current else {
+                throw TaskCommandError.localRecordNotFound
+            }
+
+            let projection = try TaskTerminalStatus.skipped.apply(to: current, at: timestamp)
+            // No `request` — matches `SyncSkipTaskCommand`, which carries
+            // only `commandType`/`taskId`/`expectedRevision`.
+            let operation = OutboxOperation(
+                id: operationId,
+                profileId: profileId,
+                gardenId: gardenId,
+                commandType: "tasks.skipTask",
+                commandVersion: TaskSyncCommandPayload.version,
+                targetRecordIds: [taskId],
+                expectedRevision: expectedRevision,
+                payload: try TaskSyncCommandPayload.encode(
+                    gardenId: gardenId,
+                    command: .skipTask(taskId: taskId, expectedRevision: expectedRevision)
+                ),
+                createdAt: timestamp
+            )
+            return (projection, operation)
+        }
     }
 }
 
 /// Also how "delete a task" works: there is no hard-delete endpoint, so the
-/// list's delete action calls this, not a nonexistent `DELETE`.
+/// list's delete action calls this, not a nonexistent `DELETE`. A status
+/// transition to `'deleted'`, not a row deletion from the local `task`
+/// table — see this file's own doc comment. One local-only transaction: no
+/// network call.
 public struct DeleteTask: Sendable {
-    private let gateway: any TaskGateway
+    private let localStore: any LocalTaskStore
+    private let profileId: String
+    private let now: @Sendable () -> Date
+    private let generateOperationId: @Sendable () -> String
 
-    public init(gateway: any TaskGateway) {
-        self.gateway = gateway
+    public init(
+        localStore: any LocalTaskStore,
+        profileId: String,
+        now: @escaping @Sendable () -> Date = Date.init,
+        generateOperationId: @escaping @Sendable () -> String = UUIDv7.generate
+    ) {
+        self.localStore = localStore
+        self.profileId = profileId
+        self.now = now
+        self.generateOperationId = generateOperationId
     }
 
     public func callAsFunction(gardenId: String, taskId: String, expectedRevision: Int) async throws -> GardenTask {
-        try await gateway.deleteTask(
-            gardenId: gardenId,
-            taskId: taskId,
-            expectedRevision: expectedRevision,
-            idempotencyKey: UUIDv7.generate()
-        )
+        let timestamp = now()
+        let operationId = generateOperationId()
+
+        return try await localStore.commitOfflineMutation(taskId: taskId) { current in
+            guard let current else {
+                throw TaskCommandError.localRecordNotFound
+            }
+
+            let projection = try TaskTerminalStatus.deleted.apply(to: current, at: timestamp)
+            // No `request` — matches `SyncDeleteTaskCommand`, which carries
+            // only `commandType`/`taskId`/`expectedRevision`.
+            let operation = OutboxOperation(
+                id: operationId,
+                profileId: profileId,
+                gardenId: gardenId,
+                commandType: "tasks.deleteTask",
+                commandVersion: TaskSyncCommandPayload.version,
+                targetRecordIds: [taskId],
+                expectedRevision: expectedRevision,
+                payload: try TaskSyncCommandPayload.encode(
+                    gardenId: gardenId,
+                    command: .deleteTask(taskId: taskId, expectedRevision: expectedRevision)
+                ),
+                createdAt: timestamp
+            )
+            return (projection, operation)
+        }
     }
+}
+
+/// A task created offline has no server-assigned revision yet. `0` is below
+/// the contract's `Revision` minimum of `1`, so it can never be mistaken for
+/// a real server revision — the exact sentinel and reasoning
+/// `FeatureGardens.unconfirmedGardenRevision`/`FeaturePlants`'s identical
+/// `unconfirmedPlantRevision` already establish.
+private let unconfirmedTaskRevision = 0
+
+/// The contract's shared length rule for a task's title
+/// (`packages/api-contracts/openapi.yaml`, `CreateManualTaskRequest.title` /
+/// `EditTaskRequest.title`, `minLength: 1, maxLength: 200`) — also the
+/// backend's own `validateTaskTitle` (`tasks-recommendations/domain/task.ts`).
+/// See `TaskCommandError.invalidTitle`'s own doc comment for why this was
+/// previously enforced only up to non-empty.
+private let taskTitleMaxLength = 200
+
+private func validatedTaskTitle(_ title: String) throws -> String {
+    let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+
+    guard !trimmed.isEmpty, trimmed.count <= taskTitleMaxLength else {
+        throw TaskCommandError.invalidTitle
+    }
+
+    return trimmed
 }

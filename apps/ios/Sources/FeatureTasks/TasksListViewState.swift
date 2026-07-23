@@ -17,6 +17,17 @@ public struct TaskRow: Equatable, Sendable, Identifiable {
     /// (`TaskStatus.isMutable`). The row's action controls are hidden, not
     /// merely disabled, when this is `false`.
     public let isMutable: Bool
+    /// Whether this task has an offline mutation committed this session that
+    /// this pass's `LocalOnlySyncEngine` cannot yet confirm pushed — see
+    /// `TasksListViewModel.locallyMutatedTaskIds`'s own doc comment for why
+    /// this is session-scoped, not derived from a persisted outbox query.
+    /// Shown as a "Saved locally, waiting to sync" badge next to the row,
+    /// the per-row counterpart to `FeatureObservations.ObservationRow
+    /// .isPendingSync` — a per-row flag, not one per-screen `syncStatusLabel`
+    /// the way `FeatureGardens`/`FeatureMap`/`FeaturePlants` use, since every
+    /// row here, not one edited record, is independently either confirmed or
+    /// pending.
+    public let isPendingSync: Bool
 }
 
 /// Immutable display state for the task list screen.

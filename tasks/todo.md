@@ -1296,3 +1296,229 @@ push/pull engine yet), not conflict recovery UI (P5-CONFLICT-01), not any backen
 
 Not done, deliberately: `FeatureTasks` retrofit (the last remaining P5-IOS-02 stage), the real push/pull
 engine and full status vocabulary (P5-IOS-03), conflict recovery UI (P5-CONFLICT-01), any backend change.
+
+## Stage 4e — P5-IOS-02 fifth and final slice: `FeatureTasks` offline mutation routing, implementation complete
+
+Scope: the fifth and LAST slice of P5-IOS-02 — the seven reachable task commands (`CreateManualTask`,
+`EditTask`, `RescheduleTask`, `CompleteTask`, `DismissTask`, `SkipTask`, `DeleteTask`) retrofitted through
+the same atomic local-projection-plus-outbox pattern Stage 4a established, Stage 4b generalized to a
+garden-scoped list, Stage 4c reused for a single-record mutable aggregate, and Stage 4d simplified for an
+append-only one. Not `AttachTaskFile` (confirmed unreachable — see below). Not P5-IOS-03 (no real
+push/pull engine yet), not conflict recovery UI (P5-CONFLICT-01), no backend change. With this stage,
+P5-IOS-02 itself is complete — see the closing note below.
+
+### What's different about Tasks, confirmed against the real code before building anything
+
+- **`AttachTaskFile` confirmed unreachable by grep, exactly as expected going in.** `grep -rn
+"AttachTaskFile|attachTaskFile" apps/ios/Sources/` finds only `CoreNetworking.TaskGateway`/
+  `TaskTransport`'s own implementation and doc comments in `TasksUseCases.swift`/`TasksListView.swift`
+  explaining the gap — no use case, no call site. It needs a `mediaId`, and
+  `docs/development/deferred-capabilities.md`'s "Photo and file attachment" entry already lists
+  `AttachTaskFile` alongside `FeaturePlants`'/`FeatureObservations`'s own media-dependent commands as one
+  of the five gap-affected commands. The real scope is exactly the other seven, as the work package brief
+  expected — no surprise here, unlike Stage 4c's fourth (`ConfirmPlantIdentification`).
+- **All eight `tasks.*` discriminator strings and `recordType: "task"` verified directly against
+  `packages/api-contracts/openapi.yaml`, not guessed — and, unlike every prior stage, every single one IS
+  the naive camelCase guess.** `SyncTaskCommand`'s discriminator `mapping` (lines ~4459-4469):
+  `tasks.createManualTask` (`SyncCreateManualTaskCommand` — `taskId` + `CreateManualTaskRequest`),
+  `tasks.editTask` (`SyncEditTaskCommand` — `taskId` + `expectedRevision` + `EditTaskRequest`),
+  `tasks.rescheduleTask` (`SyncRescheduleTaskCommand` — same shape + `RescheduleTaskRequest`),
+  `tasks.completeTask`/`tasks.dismissTask` (same shape + `CompleteTaskRequest`/`DismissTaskRequest`),
+  `tasks.skipTask`/`tasks.deleteTask` (`taskId` + `expectedRevision` only — **no `request` property at
+  all**, matching `SkipTask`/`DeleteTask`'s own online signatures, which take only `If-Match`),
+  `tasks.attachTaskFile` (out of scope — see above). The whole family wraps in `SyncTaskOperationPayload`
+  (`recordType: "task"`, `gardenId`, `command`) — the contract's own singular `task`, also the guessable
+  form this time. Every one was still read directly from the YAML before being typed into
+  `TaskSyncCommandPayload.swift`, not assumed safe merely because it happened to match the guess.
+- **`DeleteTask` confirmed a status transition to `'deleted'`, never a hard delete** —
+  `task-lifecycle.ts`'s own header comment states this explicitly ("no hard-delete anywhere, only status
+  transitions"), and `SyncDeleteTaskCommand`'s own description draws the same distinction
+  `RequestGardenDeletion` already established for gardens. Its local projection
+  (`TaskTerminalStatus.deleted.apply(to:at:)`) is a normal mutable-record upsert of the task's own row
+  with `status: .deleted`, sharing the exact same code path `CompleteTask`/`DismissTask`/`SkipTask` use —
+  never a row deletion from the local `task` table. Covered by a dedicated test
+  (`TasksUseCasesOfflineTests.deleteTaskOffline`) asserting the row remains readable, with its status
+  changed, immediately after.
+- **`EditTask`/`RescheduleTask` factored through a shared client-side helper, mirroring this codebase's
+  own server-side factoring of the same two commands.** `apply-task-detail-changes.ts`'s own doc comment
+  states the server-side reasoning directly: both commands change only scheduling/detail fields (never
+  `status`) through the identical domain function (`updateTaskDetails`, `domain/task.ts`), so the
+  "guard the status, apply the change" plumbing lives once, not twice. This stage mirrors that exactly on
+  the client: `TaskDetailChanges` (a client-side `TaskDetailChanges` mirror) plus
+  `TaskDetailProjection.apply(_:to:at:)` (`TaskDetailProjection.swift`) is the one function both `EditTask`
+  and `RescheduleTask` call — `RescheduleTask` simply builds a `TaskDetailChanges` that only ever populates
+  `dueDate`/`timeWindowStart`/`timeWindowEnd`, leaving the rest at their `.unchanged`/`nil` defaults, the
+  same relationship `RescheduleTaskInput`/`EditTaskChanges` have to the shared shape server-side.
+  `CompleteTask`/`DismissTask`/`SkipTask`/`DeleteTask` got the identical treatment for their own shared
+  logic, mirroring `task-lifecycle.ts`'s `requireEditableStatus`/`transitionTaskToTerminalStatus`:
+  `TaskLifecycleRules.requireEditableStatus(_:)` (the shared precondition) and `TaskTerminalStatus.apply(
+to:at:)` (the shared terminal-status projection, one case per target status) in
+  `TaskLifecycleRules.swift` — both `TaskDetailProjection.apply` and `TaskTerminalStatus.apply` call
+  `requireEditableStatus` first, so the "only while planned/suggested" invariant is enforced exactly once,
+  not per-command.
+- **`requireEditableStatus` needed a genuinely new local enforcement this stage, unlike Plants' commands.**
+  Every Plants command Stage 4c retrofitted has no analogous "only while X status" precondition to lose by
+  going offline (`setPlantStatus`/`transitionPlantLifecycleStage` accept a transition to any status,
+  including the one already held — `plant-lifecycle.ts`'s own comment: "No hard state-machine ordering is
+  enforced"). Tasks' server-side `requireEditableStatus` gate, previously enforced only by the round trip
+  this stage removes, would otherwise let an already-terminal task be silently "edited" into an incoherent
+  local projection with no error at all. Added as `TaskCommandError.taskNotEditable`, thrown by both shared
+  helpers above — not reachable through the shipped UI today (`TasksListViewModelActions.performRowAction`
+  already guards on `TaskRow.isMutable` before calling in), the same "not reachable, kept as a real tested
+  failure mode rather than a force-unwrap" reasoning `PlantCommandError.localRecordNotFound`'s own doc
+  comment gives, confirmed with a dedicated test for all four terminal transitions plus `EditTask`.
+- **The list-shaped UI (not a single-record detail screen, unlike Plants/Gardens' settings screen) needed
+  its own new local-store shape: a hybrid of Plants' and Map's precedents, not a straight copy of either.**
+  `TasksListViewModel` renders one garden's whole task list, the same shape `MapEditorViewModel` renders
+  `garden_object` through (`fetchAll`/`replaceAll` scoped by `gardenId`, N rows per garden) — but a task
+  command, like a plant command and unlike a map command, only ever targets exactly one task
+  (`commitOfflineMutation(taskId:command:)` loads and projects a single record, Plants' shape). `LocalTaskStore`
+  combines both: `fetchAll(gardenId:)`/`replaceAll(gardenId:with:)` mirror `LocalMapStore`'s signatures
+  exactly, while `commitOfflineMutation(taskId:command:)` mirrors `LocalPlantStore`'s exactly.
+- **A genuinely new problem neither Gardens/Map/Plants/Observations had to solve: `TasksListViewModel`'s
+  pre-existing server-side `statusFilter` support (`listTasksForGarden(gardenId:statuses:)`) is unsafe to
+  feed straight into `replaceAll(gardenId:with:)` once local persistence exists.** `replaceAll` treats its
+  argument as the _complete_ authoritative set for the garden, deleting any local row (besides a pending
+  one) not present in it — so writing a server-side-_filtered_ subset through would incorrectly delete
+  every task outside the filter from local storage, even though the server still has them. Resolved by
+  making `ListTasksForGarden.callAsFunction` only write through to `localStore` when `statuses` is empty
+  (a full, unfiltered fetch), and having `TasksListViewModel.load()` always call it with `statuses: []`,
+  applying `statusFilter` as a display-only filter over the merged local result instead — the filter UI's
+  user-visible behavior is unchanged, but the mechanism producing it moved from a server-side query
+  parameter to a client-side `filter` over the same cache-first-then-refresh shape
+  `FeatureGardens.GardensListViewModel.load()` already established, generalized to a garden-scoped list.
+- **No `GetTask`/single-record cache-first read was needed, unlike Stage 4c's `GetPlant.cached(plantId:)`.**
+  Checked explicitly, per Stage 4c's own precedent for this class of question:
+  `TasksListViewModel.submitCreateTask()`/`performCreate` never navigates to a separate detail screen for
+  the task it just created — creation and every row action happen on the same list screen already on
+  screen, the identical reasoning Stage 4d gave for why Observations needed none either. `load()`'s
+  cache-first-then-refresh shape (see above) is what already makes a task created offline visible
+  immediately; no second, single-record read path was needed.
+
+### What changed
+
+- `TasksUseCases.swift`'s seven commands stop calling `TaskGateway` synchronously. Each now validates
+  locally (title non-empty and ≤200 characters — the contract's own limit, previously enforced only up to
+  non-empty by `CreateTaskFormValidation`, even though its own catalogue string, `tasks.titleRequired`,
+  already read "Enter a title up to 200 characters" — a declared-but-unwired limit, this stage's own
+  version of Stage 4a's `gardens.name.required` catch; task-must-exist-locally and
+  task-must-be-planned/suggested for the six non-create commands), builds the optimistic local projection,
+  and enqueues a `tasks.*` outbox operation — all inside one GRDB transaction
+  (`LocalTaskStore.commitOfflineMutation(taskId:command:)`, new, combining `LocalPlantStore`'s
+  single-record shape with `LocalMapStore`'s garden-scoped `fetchAll`/`replaceAll` shape — see above).
+  `ListTasksForGarden` gained a `localStore: any LocalTaskStore` dependency and now writes every unfiltered
+  fetch through to it (`localStore.replaceAll(gardenId:with:)`) — the mechanism that gives the seven
+  offline commands a local row to load, validate against, and project forward, mirroring
+  `FeatureGardens.ListGardens`'s identical Stage 4a addition. `TaskGateway` itself is untouched and stays
+  in use by `ListTasksForGarden`.
+- New `task` GRDB table (`TaskRecord`/`LocalTaskStore`/`GRDBTaskStore`/`InMemoryTaskStore`), full field set
+  matching `GardenTask` exactly — the same "every non-create command must return a fully-correct
+  projection the view model renders with no re-fetch" reasoning `PlantRecord`'s own doc comment gives,
+  applied here too since `EditTask`/`RescheduleTask` each change only a handful of fields while everything
+  else must still come out of the projection exactly as it was.
+- Atomicity: `GRDBTaskStore.commitOfflineMutation` opens exactly one `dbQueue.write` block that loads the
+  current `task` row, runs the caller's validate-and-project closure, saves the row, and inserts the
+  `sync_outbox` row through the same shared `CorePersistence.SyncOutboxTransactionWriter` every prior stage
+  built on. `GRDBTaskStore.replaceAll(gardenId:with:)` (and `InMemoryTaskStore`'s mirror) skip deleting or
+  overwriting a task with a pending outbox operation — the same "do not let a stale server response
+  clobber an unsynced local mutation" guard every prior stage added, decoding `sync_outbox.targetRecordIds`
+  (a task's own id, not `gardenId`) the same way `GRDBPlantStore`/`GRDBMapStore` do.
+- UI: `TaskRow` gained `isPendingSync: Bool`, shown as a "Saved locally, waiting to sync" badge
+  (`tasks.status.savedLocally`, en+ru) next to each pending row — the per-row counterpart to
+  `FeatureObservations.ObservationRow.isPendingSync` (Stage 4d), not the per-screen `syncStatusLabel`
+  Stages 4a/4b/4c used, since a list, unlike a single garden/plant/map detail screen, can have several rows
+  independently pending at once. Backed by `TasksListViewModel.locallyMutatedTaskIds`, a session-scoped
+  `Set<String>` — the same "session-scoped, not derived from a persisted outbox query" precedent every
+  prior stage's own version establishes.
+
+### Tests
+
+- [x] Termination-at-boundary fault test: forces a real `sync_outbox` primary-key violation on the second
+      write inside `commitOfflineMutation`'s transaction and proves the projection write rolls back with it
+      — real GRDB behavior, not a mock (`TaskOfflineMutationTests.outboxFailureRollsBackProjection`), plus
+      the positive case that both writes are durably present together after a successful commit.
+- [x] All seven commands covered offline (`TasksUseCasesOfflineTests`) — no test configures a `TaskGateway`
+      at all, so a passing suite is itself proof no network call happens — including local-only validation
+      failures (`invalidTitle`, `localRecordNotFound`, `taskNotEditable` for all four terminal transitions
+      plus `EditTask`), each outbox row's stored payload decoded as loose JSON and checked against the
+      contract's field names (including the `.set(nil)`-encodes-explicit-`null`-not-omission distinction for
+      `EditTask`, and confirming `SkipTask`/`DeleteTask`'s payload carries no `request` key at all).
+- [x] `replaceAll` pending-preservation covered for both `GRDBTaskStore` (real database, including that it
+      is scoped per-task via `targetRecordIds`, not the whole owning garden) and `InMemoryTaskStore`.
+- [x] View-model-level coverage (`TasksListViewModelTests`, rewritten, not just extended) — every test that
+      depended on the now-removed online round trip (gateway-mediated status transitions,
+      `gateway.listTasksForGarden` used as the confirmation channel) now seeds `FakeTaskGateway` once and
+      calls `load()` to populate the local store via write-through, then exercises row actions purely
+      locally; new coverage added for the saved-locally badge appearing immediately after create, and a
+      pending mutation surviving a subsequent `load()` refresh against a fake gateway whose own copy is
+      still stale (proving `replaceAll`'s pending-protection guard end to end through the view model, not
+      only at the store level).
+- 509 tests, 73 suites (`swift test`, full and unfiltered, run clean with no SIGBUS flake encountered).
+  `FeatureTasksTests` itself: 50 tests across 5 suites (3 new: `TaskOfflineMutationTests`,
+  `TasksUseCasesOfflineTests`, `InMemoryTaskStoreTests`), up from roughly 13 tests in 2 suites before this
+  stage.
+
+### Judgment calls (for later stages to inherit or reconsider)
+
+- A task created offline gets local `revision = 0` and, for every other command, the projection keeps
+  exactly `current.revision` — the identical `unconfirmedGardenRevision`/`unconfirmedPlantRevision`
+  sentinel and "never advance locally" rule, restated here rather than reused as a shared constant across
+  features, matching how every prior stage keeps its own version feature-private.
+- Every one of the eight `tasks.*` `commandType` strings, and `recordType: "task"`, turned out to already
+  be the naive camelCase/singular guess — the first stage in this series where that held for the whole
+  family, not just some of it. Read directly from the YAML anyway, not assumed safe from the pattern:
+  `SkipTask`/`DeleteTask` carrying no `request` property at all (unlike `CompleteTask`/`DismissTask`, which
+  do) was still a real, if smaller, shape detail this stage could only have caught by reading the schema,
+  not by pattern-matching the naming convention alone.
+- `ListTasksForGarden.callAsFunction(gardenId:statuses:)` keeps its `statuses` parameter (rather than being
+  narrowed to no longer accept one) even though `TasksListViewModel.load()` — its only caller — now always
+  passes `[]`: the parameter itself is not unsafe, only feeding a non-empty result through
+  `replaceAll(gardenId:with:)` is, and the method already guards that internally (skipping the
+  write-through whenever `statuses` is non-empty) rather than trusting every future caller to remember the
+  same discipline. A future server-side-filtered-list caller, if one is ever added, gets the safe behavior
+  automatically rather than needing to rediscover this stage's own reasoning.
+- `MigrationIntegrityTests.allTables` was not extended to include `task` — mirrors every prior stage's
+  identical choice to leave `garden_object`/`plant`/`observation` off that same list (confirmed none of the
+  four was ever added there); the same pre-existing, non-exhaustive-by-design gap this stage inherits
+  rather than introduces.
+
+Not done, deliberately: the real push/pull engine and full status vocabulary (P5-IOS-03), conflict recovery
+UI (P5-CONFLICT-01), offline support for `AttachTaskFile` (confirmed unreachable — see above), any backend
+change.
+
+## P5-IOS-02 complete (Stages 4a–4e)
+
+All five Phase 2–4 iOS features now route every reachable offline-capable command through the same atomic
+local-projection-plus-outbox pattern, established in Stage 4a and reused (with feature-appropriate
+variations, never a mechanical copy) by every stage after it:
+
+- **Gardens** (Stage 4a): 4 commands — `CreateGarden`, `RenameGarden`, `ArchiveGarden`,
+  `RequestGardenDeletion`. Local table: `garden` (one row per record).
+- **Map** (Stage 4b): 10 commands via one generic dispatch (`ApplyMapCommandOffline`) — create, move,
+  replace geometry, edit vertex, split/join linework, change properties, assign plant, delete, restore,
+  duplicate. Local table: `garden_object` (N rows per garden).
+- **Plants** (Stage 4c): 5 commands — `AddPlant`, `UpdatePlantDetails`, `TransitionPlantLifecycleStage`,
+  `SetPlantStatus`, `MovePlant`. Local table: `plant` (one row per record, full field set).
+- **Observations** (Stage 4d): 2 commands — `RecordObservation`, `CorrectObservation` (append-only, no
+  "current" record to load). Local table: `observation` (append-only rows this device created).
+- **Tasks** (Stage 4e): 7 commands — `CreateManualTask`, `EditTask`, `RescheduleTask`, `CompleteTask`,
+  `DismissTask`, `SkipTask`, `DeleteTask`. Local table: `task` (one row per record via
+  `commitOfflineMutation`, N rows per garden via `fetchAll`/`replaceAll` — a hybrid of Plants' and Map's
+  shapes).
+
+**Totals**: 28 offline-capable commands across 5 features, 5 new local GRDB tables (`garden`,
+`garden_object`, `plant`, `observation`, `task`) sharing one per-profile database file and one
+`CorePersistence.SyncOutboxTransactionWriter`/`sync_outbox` table. 9 commands confirmed unreachable from
+any shipped UI and deliberately excluded (by grep, not assumed): `upsertCalibration`/`decideProposal`
+(Map), `AddPlantFromPhoto`/`AttachPlantPhoto`/`SetPrimaryPlantPhoto`/`ConfirmPlantIdentification`
+(Plants), `AttachTaskFile` (Tasks) — all media/reference-dependent on a pipeline this codebase does not
+have yet (`docs/development/deferred-capabilities.md`'s "Photo and file attachment" entry). Final full,
+unfiltered `swift test` count as of Stage 4e: 509 tests, 73 suites.
+
+**Not done anywhere in P5-IOS-02, by design** — this work package's own scope boundary, not a gap: the
+real push/pull `SyncEngine` (`CoreSynchronization.LocalOnlySyncEngine` remains the only implementation, so
+no outbox operation any stage enqueues has actually reached the server yet), the full
+`Waiting for connectivity`/`Synchronizing`/`Synchronized`/`Requires attention`/`Upload pending` status
+vocabulary (every feature's UI shows only the honest "Saved locally, waiting to sync" slice), conflict
+recovery UI, and any backend change. These are P5-IOS-03's and P5-CONFLICT-01's job next — both now
+unblocked, since P5-IOS-02 (their shared dependency) is complete.

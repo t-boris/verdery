@@ -179,6 +179,12 @@ public struct TasksListView: View {
             .font(.footnote)
             .foregroundStyle(.secondary)
             Text(row.targetLabel).font(.caption).foregroundStyle(.secondary)
+            if row.isPendingSync {
+                Text(model.savedLocallyLabel)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("tasks.row.\(row.id).savedLocally")
+            }
 
             if row.isMutable {
                 Button(model.actionsTitle) {

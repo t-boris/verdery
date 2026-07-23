@@ -93,6 +93,7 @@ public enum LocalDatabase {
         registerMapObjectMigration(on: &migrator)
         registerPlantMigration(on: &migrator)
         registerObservationMigration(on: &migrator)
+        registerTaskMigration(on: &migrator)
 
         return migrator
     }

@@ -400,4 +400,5 @@ public enum LocalizationKey: String, Sendable, CaseIterable {
     case tasksStatusSkipped = "tasks.status.skipped"
     case tasksStatusDismissed = "tasks.status.dismissed"
     case tasksStatusDeleted = "tasks.status.deleted"
+    case tasksSavedLocally = "tasks.status.savedLocally"
 }
