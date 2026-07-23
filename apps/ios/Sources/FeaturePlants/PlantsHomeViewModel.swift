@@ -153,6 +153,8 @@ public final class PlantsHomeViewModel {
             resetAddForm()
             state = .idle
             navigateToPlantId = plant.id
+        } catch let error as PlantCommandError {
+            state = .failed(message: message(for: error))
         } catch let error as APIGatewayError {
             state = .failed(message: message(for: error))
         } catch {
@@ -197,6 +199,15 @@ public final class PlantsHomeViewModel {
         case .transport:
             strings(.networkUnreachable)
         case .service, .undecodableResponse, .unexpectedStatus:
+            strings(.serverUnexpected)
+        }
+    }
+
+    private func message(for failure: PlantCommandError) -> String {
+        switch failure {
+        case .invalidDisplayName:
+            strings(.plantsDisplayNameRequired)
+        case .localRecordNotFound, .payloadEncodingFailed:
             strings(.serverUnexpected)
         }
     }

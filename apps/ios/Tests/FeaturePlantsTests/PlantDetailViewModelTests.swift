@@ -27,15 +27,19 @@ struct PlantDetailViewModelTests {
         )
     }
 
-    private func makeModel(gateway: FakePlantGateway, plantId: String = "plant-1") -> PlantDetailViewModel {
+    private func makeModel(
+        gateway: FakePlantGateway,
+        localStore: any LocalPlantStore = InMemoryPlantStore(),
+        plantId: String = "plant-1"
+    ) -> PlantDetailViewModel {
         PlantDetailViewModel(
             gardenId: "garden-1",
             plantId: plantId,
-            getPlant: GetPlant(gateway: gateway),
-            updatePlantDetails: UpdatePlantDetails(gateway: gateway),
-            transitionPlantLifecycleStage: TransitionPlantLifecycleStage(gateway: gateway),
-            setPlantStatus: SetPlantStatus(gateway: gateway),
-            movePlant: MovePlant(gateway: gateway),
+            getPlant: GetPlant(gateway: gateway, localStore: localStore),
+            updatePlantDetails: UpdatePlantDetails(localStore: localStore, profileId: "profile-1"),
+            transitionPlantLifecycleStage: TransitionPlantLifecycleStage(localStore: localStore, profileId: "profile-1"),
+            setPlantStatus: SetPlantStatus(localStore: localStore, profileId: "profile-1"),
+            movePlant: MovePlant(localStore: localStore, profileId: "profile-1"),
             searchTaxonomyReferences: SearchTaxonomyReferences(gateway: gateway),
             strings: LocalizedStrings(locale: Locale(identifier: "en_GB"))
         )
@@ -106,7 +110,13 @@ struct PlantDetailViewModelTests {
             Issue.record("Expected loaded state")
             return
         }
-        #expect(summary.revision == 2)
+        // Unchanged locally (P5-IOS-02, Stage 4c): `saveDetails` now commits
+        // through an offline transaction, and a locally-applied command never
+        // advances the revision — the server, not this client, assigns the
+        // next one, once the outbox operation this produced is actually
+        // pushed.
+        #expect(summary.revision == source.revision)
+        #expect(summary.syncStatusLabel != nil)
         #expect(model.editedVarietyLabel.isEmpty)
     }
 
@@ -140,22 +150,53 @@ struct PlantDetailViewModelTests {
         #expect(summary.status == .removed)
     }
 
-    @Test("A stale revision surfaces an action error rather than corrupting local state")
-    func staleRevisionSurfacesError() async {
-        let gateway = FakePlantGateway(plants: [plant(revision: 5)])
-        let model = makeModel(gateway: gateway)
-        await model.load()
+    /// A `LocalPlantStore` that can be toggled to fail every
+    /// `commitOfflineMutation` call, delegating to a real `InMemoryPlantStore`
+    /// otherwise — mirrors `MapEditorViewModelSaveStatusTests
+    /// .ToggleableLocalMapStore`'s identical role.
+    private final class ToggleableLocalPlantStore: LocalPlantStore, @unchecked Sendable {
+        private let inner = InMemoryPlantStore()
+        var shouldFail = false
 
-        // Force a stale expectation by loading, then mutating the gateway's
-        // copy out from under the view model (simulating a concurrent edit
-        // elsewhere), then trying to save.
-        _ = try? await gateway.setStatus(gardenId: "garden-1", plantId: "plant-1", status: .dormant, expectedRevision: 5, idempotencyKey: "other-client")
+        func fetch(plantId: String) async throws -> Plant? {
+            try await inner.fetch(plantId: plantId)
+        }
+
+        func save(_ plant: Plant) async throws {
+            try await inner.save(plant)
+        }
+
+        func commitOfflineMutation(
+            plantId: String,
+            command: @Sendable (_ current: Plant?) throws -> (projection: Plant, operation: OutboxOperation)
+        ) async throws -> Plant {
+            guard !shouldFail else { throw PlantCommandError.localRecordNotFound }
+            return try await inner.commitOfflineMutation(plantId: plantId, command: command)
+        }
+    }
+
+    /// A stale server revision can no longer be what causes `saveDetails` to
+    /// fail from this call path: as of P5-IOS-02 (Stage 4c), the command
+    /// commits entirely locally and never round-trips through a gateway that
+    /// could reject it with a `409`/`412`. That discovery is now the
+    /// server's job once a real push engine exists (P5-CONFLICT-01) — this
+    /// test instead covers what actually can fail this transaction today: a
+    /// local commit failure. Mirrors Stage 4b's identical rewrite of its own
+    /// stale-revision test into a local-commit-failure test.
+    @Test("A local commit failure surfaces an action error rather than corrupting local state")
+    func localCommitFailureSurfacesError() async {
+        let gateway = FakePlantGateway(plants: [plant(revision: 5)])
+        let store = ToggleableLocalPlantStore()
+        let model = makeModel(gateway: gateway, localStore: store)
+        await model.load()
+        store.shouldFail = true
+
         await model.saveDetails()
 
         #expect(model.actionErrorMessage != nil)
     }
 
-    @Test("submitMove omits a field left blank and applies the other")
+    @Test("submitMove omits a field left blank and applies the other, saved locally")
     func submitMoveOmitsBlankField() async {
         let gateway = FakePlantGateway(plants: [plant()])
         let model = makeModel(gateway: gateway)
@@ -169,7 +210,8 @@ struct PlantDetailViewModelTests {
             Issue.record("Expected loaded state")
             return
         }
-        #expect(summary.revision == 2)
+        #expect(model.actionErrorMessage == nil)
+        #expect(summary.syncStatusLabel != nil)
     }
 
     @Test("load exposes the raw groupingKind alongside its localized label")

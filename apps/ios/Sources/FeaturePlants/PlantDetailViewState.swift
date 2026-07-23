@@ -27,4 +27,12 @@ public struct PlantDetailSummary: Equatable, Sendable {
     public let statusLabel: String
     public let taxonomyReferenceId: String?
     public let revision: Int
+    /// "Saved locally, waiting to sync" when an offline command
+    /// (`saveDetails`/`transitionLifecycleStage`/`setStatus`/`submitMove`)
+    /// committed locally this screen session; `nil` otherwise. `nil` for a
+    /// plant this session only ever read, matching
+    /// `FeatureGardens.GardenSettingsSummary.syncStatusLabel`'s identical
+    /// session-scoped shape — see `PlantDetailViewModel.isSavedLocally`'s own
+    /// doc comment for why this is not derived from a persisted outbox query.
+    public let syncStatusLabel: String?
 }

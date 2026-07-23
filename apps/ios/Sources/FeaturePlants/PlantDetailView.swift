@@ -68,6 +68,11 @@ public struct PlantDetailView: View {
             if let quantity = summary.quantity {
                 Text("\(model.quantityLabel): \(quantity)").foregroundStyle(.secondary)
             }
+            if let syncStatusLabel = summary.syncStatusLabel {
+                Text(syncStatusLabel)
+                    .foregroundStyle(.orange)
+                    .accessibilityIdentifier("plants.detail.syncStatus")
+            }
         }
     }
 

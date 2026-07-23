@@ -12,7 +12,7 @@ struct PlantsHomeViewModelTests {
     private func makeModel(gateway: FakePlantGateway) -> PlantsHomeViewModel {
         PlantsHomeViewModel(
             gardenId: "garden-1",
-            addPlant: AddPlant(gateway: gateway),
+            addPlant: AddPlant(localStore: InMemoryPlantStore(), profileId: "profile-1"),
             searchTaxonomyReferences: SearchTaxonomyReferences(gateway: gateway),
             strings: LocalizedStrings(locale: Locale(identifier: "en_GB"))
         )
@@ -30,6 +30,23 @@ struct PlantsHomeViewModelTests {
         #expect(model.state == .idle)
         #expect(model.displayName.isEmpty)
         #expect(model.navigateToPlantId != nil)
+    }
+
+    @Test("A successful add never reaches the gateway — the created plant exists only locally (P5-IOS-02)")
+    func successfulAddNeverCallsGateway() async throws {
+        let gateway = FakePlantGateway()
+        let model = makeModel(gateway: gateway)
+        model.displayName = "Tomato"
+        model.groupingKind = .individual
+
+        await model.submitAddPlant()
+
+        let createdPlantId = try #require(model.navigateToPlantId)
+        // `FakePlantGateway` never learned about this plant — if `AddPlant`
+        // had called through to it, `getPlant` would find it.
+        await #expect(throws: (any Error).self) {
+            try await gateway.getPlant(gardenId: "garden-1", plantId: createdPlantId)
+        }
     }
 
     @Test("A validation failure surfaces as a failed state and does not call the gateway")

@@ -150,23 +150,29 @@ public final class AppCompositionRoot {
     }
 
     public func makePlantsHomeViewModel(gardenId: String) -> PlantsHomeViewModel {
-        PlantsHomeViewModel(
+        let store = localPlantStore()
+        let profileId = currentProfileIdentifier()
+
+        return PlantsHomeViewModel(
             gardenId: gardenId,
-            addPlant: AddPlant(gateway: plantGateway),
+            addPlant: AddPlant(localStore: store, profileId: profileId),
             searchTaxonomyReferences: SearchTaxonomyReferences(gateway: plantGateway),
             strings: strings
         )
     }
 
     public func makePlantDetailViewModel(gardenId: String, plantId: String) -> PlantDetailViewModel {
-        PlantDetailViewModel(
+        let store = localPlantStore()
+        let profileId = currentProfileIdentifier()
+
+        return PlantDetailViewModel(
             gardenId: gardenId,
             plantId: plantId,
-            getPlant: GetPlant(gateway: plantGateway),
-            updatePlantDetails: UpdatePlantDetails(gateway: plantGateway),
-            transitionPlantLifecycleStage: TransitionPlantLifecycleStage(gateway: plantGateway),
-            setPlantStatus: SetPlantStatus(gateway: plantGateway),
-            movePlant: MovePlant(gateway: plantGateway),
+            getPlant: GetPlant(gateway: plantGateway, localStore: store),
+            updatePlantDetails: UpdatePlantDetails(localStore: store, profileId: profileId),
+            transitionPlantLifecycleStage: TransitionPlantLifecycleStage(localStore: store, profileId: profileId),
+            setPlantStatus: SetPlantStatus(localStore: store, profileId: profileId),
+            movePlant: MovePlant(localStore: store, profileId: profileId),
             searchTaxonomyReferences: SearchTaxonomyReferences(gateway: plantGateway),
             strings: strings
         )
@@ -230,6 +236,22 @@ public final class AppCompositionRoot {
         } catch {
             log.record(.error, "Could not open the local map database; falling back to an in-memory store.")
             return InMemoryMapStore()
+        }
+    }
+
+    /// Same database file, same fallback behavior as `localGardenStore()`/
+    /// `localMapStore()` — `garden`, `garden_object`, and `plant` are three
+    /// tables in the one per-profile database `LocalDatabase.open` manages,
+    /// per `LocalDatabase+PlantMigration.swift`'s own doc comment.
+    private func localPlantStore() -> any LocalPlantStore {
+        let profileIdentifier = currentProfileIdentifier()
+
+        do {
+            let dbQueue = try LocalDatabase.open(profileIdentifier: profileIdentifier)
+            return GRDBPlantStore(dbQueue: dbQueue)
+        } catch {
+            log.record(.error, "Could not open the local plant database; falling back to an in-memory store.")
+            return InMemoryPlantStore()
         }
     }
 

@@ -194,20 +194,36 @@ let package = Package(
         ),
 
         // Plant inventory, observations/history, and manual tasks (Phase 4).
-        // No GRDB dependency in any of the three targets below — see each
-        // feature's own view model doc comment (`PlantDetailViewModel`,
-        // `ObservationsTimelineViewModel`, `TasksListViewModel`) for the
+        // `FeatureObservations`/`FeatureTasks` still have no GRDB dependency
+        // — see each one's own view model doc comment
+        // (`ObservationsTimelineViewModel`, `TasksListViewModel`) for the
         // always-fresh-from-server reasoning, the same choice `FeatureMap`
         // already made and for closely related reasons: every mutating
-        // command on a plant or a task carries a server-checked
-        // `expectedRevision`, so a locally cached, possibly-stale revision
-        // would turn every command into a coin flip on a `409`/`412` instead
-        // of the deliberate check the backend performs.
+        // command on an observation or a task carries a server-checked
+        // `expectedRevision` (where one applies), so a locally cached,
+        // possibly-stale revision would turn every command into a coin flip
+        // on a `409`/`412` instead of the deliberate check the backend
+        // performs. `FeaturePlants` gained a GRDB dependency in P5-IOS-02
+        // (Stage 4c): `LocalPlantStore` durably persists the local `plant`
+        // read model an offline command's optimistic projection commits
+        // against, the same way `FeatureMap`'s `GRDBMapStore` already does
+        // for `garden_object` (Stage 4b) — see that target's own comment
+        // above for why `CorePersistence` centralizes the database's
+        // lifecycle/schema while the feature owns its own read-model
+        // repository directly against GRDB. `PlantDetailViewModel`'s reads
+        // stay always-fresh-from-server for the same reason as before; only
+        // the five offline-capable commands route through this new table.
         //
-        // Source: implementation-plan.md work package P4-IOS-01.
+        // Source: implementation-plan.md work packages P4-IOS-01, P5-IOS-02.
         .target(
             name: "FeaturePlants",
-            dependencies: ["CoreDomain", "CoreNetworking", "CoreLocalization"]
+            dependencies: [
+                "CoreDomain",
+                "CoreNetworking",
+                "CoreLocalization",
+                "CorePersistence",
+                .product(name: "GRDB", package: "GRDB.swift"),
+            ]
         ),
 
         .target(
@@ -302,7 +318,15 @@ let package = Package(
         ),
         .testTarget(
             name: "FeaturePlantsTests",
-            dependencies: ["FeaturePlants"]
+            dependencies: [
+                "FeaturePlants",
+                // For the offline-mutation tests (P5-IOS-02): a real GRDB
+                // database via `CorePersistence.LocalDatabase.migrator`,
+                // matching `FeatureGardensTests`/`FeatureMapTests`'s
+                // identical rationale.
+                "CorePersistence",
+                .product(name: "GRDB", package: "GRDB.swift"),
+            ]
         ),
         .testTarget(
             name: "FeatureObservationsTests",

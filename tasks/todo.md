@@ -936,3 +936,170 @@ engine and full status vocabulary (P5-IOS-03), conflict recovery UI (P5-CONFLICT
 with reason": `upsertCalibration` needs an imported plan, Phase 6; `decideProposal` needs a generated
 proposal, Phase 10 — confirmed by grep that neither command is referenced anywhere in `FeatureMap`
 outside its own domain/coding types).
+
+## Stage 4c — P5-IOS-02 third slice: `FeaturePlants` offline mutation routing, implementation complete
+
+Scope: the third slice of P5-IOS-02 — the five reachable plant commands (`AddPlant`,
+`UpdatePlantDetails`, `TransitionPlantLifecycleStage`, `SetPlantStatus`, `MovePlant`) retrofitted
+through the same atomic local-projection-plus-outbox pattern Stage 4a established and Stage 4b
+generalized. Not the rest of P5-IOS-02 (Observations/Tasks, still online-first), not P5-IOS-03 (no real
+push/pull engine yet), not the four media-dependent plant commands (`AddPlantFromPhoto`,
+`AttachPlantPhoto`, `SetPrimaryPlantPhoto`, `ConfirmPlantIdentification` — see below for why four, not
+the three the work-package brief named).
+
+### What's different about Plants, confirmed against the real code before building anything
+
+- `FeaturePlants` had zero local persistence before this stage — `PlantDetailViewModel`/
+  `PlantsHomeViewModel` always called `PlantGateway` directly, an explicit Phase 4 choice (`Package.swift`'s
+  own doc comment on the `FeaturePlants` target: a stale cached revision would turn every
+  `expectedRevision`-guarded command into a `409`/`412` coin flip). This stage does not undo that
+  choice for reads — `GetPlant`/`SearchTaxonomyReferences` stay online, gateway-backed, exactly the way
+  `ListGardens`/`GetGarden` stayed online after Stage 4a and `LoadGardenMap` stayed online after
+  Stage 4b. It adds a new `plant` GRDB table (`PlantRecord`/`LocalPlantStore`/`GRDBPlantStore`/
+  `InMemoryPlantStore`, mirroring `GardenRecord`'s pattern, one row per plant like Gardens rather than
+  Map's "N rows per garden") solely so the five offline commands have a durable "current record" to
+  load, validate against, and project forward.
+- **Local table field set: the plant's full field set, not a narrower projection** — decided, not
+  assumed. Every offline command except `AddPlant` (whose `current` is always `nil`) must return a
+  complete, correct `Plant` the view model renders directly with no network re-fetch to patch over a
+  gap; `UpdatePlantDetails` changes only a handful of fields while every other field, including ones no
+  other part of this table's own logic touches (`careGuidanceNote`, `acceptedIdentificationId`, ...),
+  must still come out exactly as it was. A local row missing any field could not build a correct
+  projection for whichever command does not touch that field, so the _minimal correct_ set turns out to
+  equal `Plant`'s full set — the same reasoning `GardenRecord` already documents, not a new judgment
+  call specific to Plants. `revision` is carried, confirmed present, and is the one field every
+  non-create command's `guard let current` check depends on existing at all.
+- **The five `plants.*` discriminator strings and payload shapes, verified directly against
+  `packages/api-contracts/openapi.yaml`, not guessed** (`SyncPlantCommand`'s discriminator `mapping`,
+  lines ~4259-4281, and each command's own schema): `plants.addPlant`
+  (`SyncAddPlantCommand` — `plantId` + `AddPlantRequest`), `plants.updateDetails` — not the guessable
+  `plants.updatePlantDetails` — (`SyncUpdatePlantDetailsCommand` — `plantId` + `expectedRevision` +
+  `UpdatePlantDetailsRequest`), `plants.transitionLifecycleStage` (`SyncTransitionPlantLifecycleStageCommand`
+  — `plantId` + `expectedRevision` + `TransitionPlantLifecycleStageRequest { stage }`),
+  `plants.setStatus` (`SyncSetPlantStatusCommand` — `plantId` + `expectedRevision` +
+  `SetPlantStatusRequest { status }`), `plants.movePlant` (`SyncMovePlantCommand` — `plantId` +
+  `expectedRevision` + `MovePlantRequest`). The whole family wraps in `SyncPlantOperationPayload`
+  (`recordType: "plant"`, `gardenId`, `command`) — the contract's own `plant`, not a guessable
+  `plants`/`plantRecord`. Feature-local wire structs (`AddPlantRequestPayload`,
+  `UpdatePlantDetailsRequestPayload`, `MovePlantRequestPayload`, `PlantSyncCommand`) mirror these
+  field-for-field rather than reusing `CoreNetworking`'s own (module-internal) transport structs —
+  judged the better call than Stage 4b's `MapCommandWireCoding` reuse, since these request bodies are
+  small flat structs with no ~150-line encoding switch worth not duplicating.
+- **Confirmed by grep, not assumed: FOUR plant commands are unreachable from any shipped UI today,
+  not the three the work package brief named.** `AddPlantFromPhoto`, `AttachPlantPhoto`, and
+  `SetPrimaryPlantPhoto` all need a `mediaId`, which — per `docs/development/deferred-capabilities.md`'s
+  "Photo and file attachment" entry — this codebase has no upload flow to produce anywhere yet.
+  `ConfirmPlantIdentification` was expected, going in, to be reachable (it takes an
+  `identificationId`, not a `mediaId`) — but `grep -rn "ConfirmPlantIdentification\|identificationId"
+apps/ios/Sources/` turned up nothing outside `PlantGateway.swift` itself, and
+  `PlantsUseCases.swift`'s own pre-existing doc comment already groups all four together: an
+  `identificationId` only ever comes from a prior `plant_identification` suggestion, which only
+  photo-based identification (`AddPlantFromPhoto`) produces — there is no separate, non-photo path to
+  one, so `ConfirmPlantIdentification` is transitively blocked by the exact same missing media pipeline,
+  confirmed by `docs/development/deferred-capabilities.md`'s own "Photo and file attachment" entry
+  listing all five gap-affected commands (`AddPlantFromPhoto`, `AttachPlantPhoto`,
+  `SetPrimaryPlantPhoto`, `ConfirmPlantIdentification`, `AttachTaskFile`) together already. None of the
+  four gained a use case here, matching Stage 4b's identical treatment of
+  `upsertCalibration`/`decideProposal`.
+- **The taxonomy-search reasoning held, with no change needed.** `AddPlant`/`UpdatePlantDetails` carry
+  whatever `taxonomyReferenceId` the user already picked via `TaxonomyReferencePickerView`
+  (`SearchTaxonomyReferences`, still online) while the device is online — an offline-mode payload field
+  carrying an already-decided value, the same way every other field does. No new offline taxonomy
+  search was needed or built.
+
+### What changed
+
+- `PlantsUseCases.swift`'s `AddPlant`/`UpdatePlantDetails`/`TransitionPlantLifecycleStage`/
+  `SetPlantStatus`/`MovePlant` stop calling `PlantGateway` synchronously. Each now validates locally
+  (display name non-empty and ≤200 characters — the contract's own limit, previously enforced only up
+  to "non-empty" by `AddPlantFormValidation`; plant-must-exist-locally for the four non-create
+  commands), builds the optimistic local projection, and enqueues a `plants.*` outbox operation — all
+  inside one GRDB transaction (`LocalPlantStore.commitOfflineMutation(plantId:command:)`, new, mirroring
+  `LocalGardenStore`'s single-record shape). `GetPlant` gained a `localStore: any LocalPlantStore`
+  dependency and now writes through to it (`localStore.save(_:)`) after every successful online fetch —
+  the mechanism that gives an _existing_ plant a local row for the four non-create commands to load,
+  mirroring `GetGarden`'s identical Stage 4a addition. `PlantGateway` itself is untouched and stays in
+  use by `GetPlant`/`SearchTaxonomyReferences`.
+- Atomicity: `GRDBPlantStore.commitOfflineMutation` opens exactly one `dbQueue.write` block that loads
+  the current `plant` row, runs the caller's validate-and-project closure, saves the row, and inserts
+  the `sync_outbox` row through the same shared `CorePersistence.SyncOutboxTransactionWriter` Stage 4a
+  built. `GRDBPlantStore.save(_:)` (and `InMemoryPlantStore`'s mirror) skip overwriting a plant with a
+  pending outbox operation — the same "do not let a stale server response clobber an unsynced local
+  mutation" guard Stage 4a/4b added, decoding `sync_outbox.targetRecordIds` (a plant's own id, not
+  `gardenId`, the _owning_ garden shared by every plant in it) the same way `GRDBMapStore` does for
+  `garden_object`, not Gardens' simpler scalar `gardenId` comparison.
+- **A necessary companion fix `PlantDetailViewModel.load()` needed that neither Gardens nor Map's own
+  UI shape required**: `PlantsHomeViewModel.performAdd()` navigates straight to the newly (now
+  offline-only) created plant's detail screen, and `PlantDetailViewModel.load()` was a hard
+  network-first `getPlant` call — which would simply fail (no server copy exists yet) for exactly the
+  plant the user just added while offline, making it impossible to view or edit. Fixed by giving
+  `GetPlant` a `cached(plantId:)` method (`localStore.fetch(plantId:)`, the single-plant counterpart to
+  `ListGardens.cached()`) and having `load()` try it first, then the network fetch — the identical
+  cache-first-then-refresh shape `GardenSettingsViewModel.load()` already uses, including its
+  `isSavedLocally` guard against a stale network response reverting a pending local edit. Called out
+  explicitly here per this repo's CLAUDE.md, since it is new reasoning this stage had to work out for
+  itself, not a straight copy of Stage 4a/4b's precedent.
+- UI: `PlantDetailSummary` gained `syncStatusLabel: String?`, shown as "Saved locally, waiting to sync"
+  (`plants.status.savedLocally`, en+ru) — the exact same copy Stage 4a/4b used. Session-scoped exactly
+  like `GardenSettingsViewModel.isSavedLocally`: set only by an offline command this `PlantDetailViewModel`
+  instance itself commits (`saveDetails`/`transitionLifecycleStage`/`setStatus`/`submitMove`), so a
+  plant just created via `PlantsHomeViewModel` and navigated to shows its correct locally-projected data
+  immediately (via the cache-first `load()` above) but not the "Saved locally" label itself until the
+  user makes an edit on the detail screen — an honest, minor UX gap inherited from Plants' create-then-
+  navigate flow crossing a view-model boundary Gardens'/Map's own UI shapes never had to cross, not
+  fixed to keep this stage matching Stage 4a/4b's own "session-scoped, not derived from a persisted
+  outbox query" precedent exactly rather than building something more capable than either of them.
+
+### Tests
+
+- [x] Termination-at-boundary fault test: forces a real `sync_outbox` primary-key violation on the
+      second write inside `commitOfflineMutation`'s transaction and proves the projection write rolls
+      back with it — real GRDB behavior, not a mock
+      (`PlantOfflineMutationTests.outboxFailureRollsBackProjection`), plus the positive case that both
+      writes are durably present together after a successful commit.
+- [x] All five commands covered offline (`PlantsUseCasesOfflineTests`) — no test configures a
+      `PlantGateway` at all, so a passing suite is itself proof no network call happens — including
+      local-only validation failures (`invalidDisplayName`, `localRecordNotFound`) and each outbox
+      row's stored payload decoded as loose JSON and checked against the contract's field names,
+      including the `.set(nil)`-encodes-explicit-`null`-not-omission distinction for `UpdatePlantDetails`.
+- [x] `save` pending-preservation covered for both `GRDBPlantStore` (real database, including that it is
+      scoped per-plant via `targetRecordIds`, not the whole owning garden) and `InMemoryPlantStore`.
+- [x] View-model-level coverage (`PlantDetailViewModelTests`, `PlantDetailViewModelSyncStatusTests`,
+      `PlantsHomeViewModelTests`) rewritten, not just extended, for the tests that depended on the
+      now-removed online round trip: the pre-existing "stale revision surfaces an action error" test
+      (which relied on a `FakePlantGateway` 409) became a local-commit-failure test (a `LocalPlantStore`
+      that always throws), mirroring Stage 4b's identical rewrite for the exact same reason; two
+      `revision == 2`-after-edit assertions (the old proxy for "did the mutation apply") were replaced
+      with the revision-stays-unchanged assertion the new local-only-projection rule actually produces,
+      or with a `syncStatusLabel != nil` check where no other observable field existed. New coverage
+      added: a plant created offline and never touching the gateway (`FakePlantGateway.getPlant`
+      confirmed to 404 for it), and the local-store-only-row `load()` scenario described above.
+- 454 tests, 67 suites (`swift test`, full and unfiltered, run clean twice with no SIGBUS flake
+  encountered); 248 tests, 47 suites with `--skip FeatureMapTests`. `FeaturePlantsTests` itself:
+  62 tests across 7 suites (4 new: `PlantOfflineMutationTests`, `PlantsUseCasesOfflineTests`,
+  `InMemoryPlantStoreTests`, `PlantDetailViewModelSyncStatusTests`).
+
+### Judgment calls (for later stages to inherit or reconsider)
+
+- A plant created offline gets local `revision = 0` and, for every other command, the projection keeps
+  exactly `current.revision` — the identical `unconfirmedGardenRevision`/Map `revision: 0` sentinel and
+  "never advance locally" rule, restated here rather than reused as a shared constant across features
+  (each feature's own private `unconfirmedFooRevision` constant, matching how Stage 4a's and Stage 4b's
+  own versions are each feature-private too — not consolidated into `CoreDomain`, since nothing else
+  needs them to be shared and this pilot-through-Stage-4c series has consistently kept each feature's
+  offline-commit code self-contained).
+- `plants.updateDetails`, not the more obviously-guessable `plants.updatePlantDetails` — this stage's
+  own version of Stage 4a's `gardens.delete_request` catch and Stage 4b's `recordType: "gardenObject"`
+  catch. Every one of the nine `plants.*` `commandType` strings in the contract was read directly from
+  `openapi.yaml` before being typed into `PlantSyncCommandPayload.swift`, not inferred from the REST
+  operation names.
+- `MigrationIntegrityTests.allTables` was not extended to include `plant` — mirrors Stage 4b's own
+  choice to leave `garden_object` off that same list (confirmed neither table was ever added there).
+  The test still passes either way (it only checks membership among the tables it names, not exhaustive
+  equality against every table that exists), so this is a pre-existing gap in that test's own
+  exhaustiveness this stage chose to leave exactly as Stage 4b left it, not a new gap introduced here.
+
+Not done, deliberately: Observations/Tasks retrofits (rest of P5-IOS-02), the real push/pull engine and
+full status vocabulary (P5-IOS-03), conflict recovery UI (P5-CONFLICT-01), offline support for
+`AddPlantFromPhoto`/`AttachPlantPhoto`/`SetPrimaryPlantPhoto`/`ConfirmPlantIdentification` (all four
+confirmed unreachable from any shipped UI — see above).

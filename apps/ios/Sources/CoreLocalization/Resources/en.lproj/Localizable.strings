@@ -307,6 +307,7 @@
 "plants.detail.deleteAction" = "Delete";
 "plants.detail.moveSectionTitle" = "Move";
 "plants.detail.moveSubmit" = "Save placement";
+"plants.status.savedLocally" = "Saved locally, waiting to sync";
 
 /* Observations: timeline, record form, and correction sheet. */
 "observations.title" = "Observations";

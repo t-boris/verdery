@@ -308,6 +308,10 @@ public enum LocalizationKey: String, Sendable, CaseIterable {
     case plantsDetailDeleteAction = "plants.detail.deleteAction"
     case plantsDetailMoveSectionTitle = "plants.detail.moveSectionTitle"
     case plantsDetailMoveSubmit = "plants.detail.moveSubmit"
+    /// Persistent "saved locally, waiting to sync" signal for the detail
+    /// screen (P5-IOS-02, Stage 4c) — the exact same copy Stage 4a used for
+    /// Gardens and Stage 4b used for Map.
+    case plantsSavedLocally = "plants.status.savedLocally"
 
     // Observations: timeline, record form, and correction sheet (P4-IOS-01).
     case observationsTitle = "observations.title"

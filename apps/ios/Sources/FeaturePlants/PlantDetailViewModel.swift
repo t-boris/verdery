@@ -8,11 +8,22 @@ import Observation
 /// stage, status (including delete, which is a status transition — there is
 /// no hard-delete endpoint), and move.
 ///
-/// Always fresh from the server, no local cache — see `Package.swift`'s doc
-/// comment on the `FeaturePlants` target for why, the same reasoning
-/// `MapEditorViewModel` documents for the map editor.
+/// The four mutating commands here (`saveDetails`, `transitionLifecycleStage`,
+/// `setStatus`, `submitMove`) route through the local-projection-plus-outbox
+/// pattern as of P5-IOS-02 (Stage 4c) — see `PlantsUseCases.swift`'s doc
+/// comment. `load()` itself stays what `Package.swift`'s doc comment on the
+/// `FeaturePlants` target still calls "always fresh from server": `getPlant`
+/// is still an online, gateway-backed call for a plant this device already
+/// knows the server's copy of, the same reasoning `MapEditorViewModel`
+/// documents for the map editor's own always-fresh reads. What changed is
+/// only that `load()` now tries `getPlant.cached(plantId:)` first, the same
+/// cache-first-then-network-refresh shape `GardenSettingsViewModel.load()`
+/// already uses — necessary here specifically because
+/// `PlantsHomeViewModel.performAdd()` navigates straight to this screen for
+/// a plant `AddPlant` may have just created purely locally, which
+/// `getPlant`'s network call alone could never fetch.
 ///
-/// Source: implementation-plan.md work package P4-IOS-01;
+/// Source: implementation-plan.md work package P4-IOS-01, P5-IOS-02;
 /// packages/api-contracts/openapi.yaml, tag `Plants`.
 @MainActor
 @Observable
@@ -72,6 +83,14 @@ public final class PlantDetailViewModel {
     private let strings: LocalizedStrings
 
     private var currentPlant: Plant?
+    /// Set once an edit/lifecycle-stage/status/move commits locally this
+    /// session — mirrors `GardenSettingsViewModel.isSavedLocally`'s identical
+    /// role and its identical two jobs: driving `PlantDetailSummary
+    /// .syncStatusLabel`, and guarding `load()` from re-applying a fresh
+    /// `getPlant` network response, which — while this is `true` — is
+    /// necessarily stale (it reflects the server's state from before this
+    /// session's still-unpushed local mutation).
+    private var isSavedLocally = false
 
     public init(
         gardenId: String,
@@ -174,15 +193,33 @@ public final class PlantDetailViewModel {
     }
 
     public func load() async {
-        state = .loading
         actionErrorMessage = nil
+        var hadCachedResult = false
+
+        // Mirrors `GardenSettingsViewModel.load()`: try the immediately-
+        // available local row first — the only way a plant `AddPlant`
+        // created purely offline this session can be shown at all, since
+        // `getPlant`'s network fetch below has nothing to find for it yet.
+        if let cached = try? await getPlant.cached(plantId: plantId) {
+            apply(cached)
+            hadCachedResult = true
+        } else {
+            state = .loading
+        }
 
         do {
-            apply(try await getPlant(gardenId: gardenId, plantId: plantId))
+            let fetched = try await getPlant(gardenId: gardenId, plantId: plantId)
+            if !isSavedLocally {
+                apply(fetched)
+            }
         } catch let error as APIGatewayError {
-            state = .failed(message: message(for: error))
+            if !hadCachedResult {
+                state = .failed(message: message(for: error))
+            }
         } catch {
-            state = .failed(message: strings(.serverUnexpected))
+            if !hadCachedResult {
+                state = .failed(message: strings(.serverUnexpected))
+            }
         }
     }
 
@@ -216,7 +253,8 @@ public final class PlantDetailViewModel {
                 status: plant.status,
                 statusLabel: statusName(plant.status),
                 taxonomyReferenceId: plant.taxonomyReferenceId,
-                revision: plant.revision
+                revision: plant.revision,
+                syncStatusLabel: isSavedLocally ? strings(.plantsSavedLocally) : nil
             )
         )
     }
@@ -306,13 +344,22 @@ public final class PlantDetailViewModel {
         }
     }
 
+    /// Shared by every offline-capable mutator (`saveDetails`,
+    /// `transitionLifecycleStage`, `setStatus`, `submitMove`): sets
+    /// `isSavedLocally` once, right here, rather than repeating it at each of
+    /// the four call sites — all four commit through the same local-only
+    /// transaction, so a success here always means the same thing.
     private func perform(_ action: () async throws -> Plant) async {
         isSubmitting = true
         actionErrorMessage = nil
         defer { isSubmitting = false }
 
         do {
-            apply(try await action())
+            let plant = try await action()
+            isSavedLocally = true
+            apply(plant)
+        } catch let error as PlantCommandError {
+            actionErrorMessage = message(for: error)
         } catch let error as APIGatewayError {
             actionErrorMessage = message(for: error)
         } catch {
@@ -334,6 +381,15 @@ public final class PlantDetailViewModel {
         case .displayNameRequired: strings(.plantsDisplayNameRequired)
         case .quantityRequired: strings(.plantsQuantityRequired)
         case .quantityMustBePositive: strings(.plantsQuantityMustBePositive)
+        }
+    }
+
+    private func message(for failure: PlantCommandError) -> String {
+        switch failure {
+        case .invalidDisplayName:
+            strings(.plantsDisplayNameRequired)
+        case .localRecordNotFound, .payloadEncodingFailed:
+            strings(.serverUnexpected)
         }
     }
 }

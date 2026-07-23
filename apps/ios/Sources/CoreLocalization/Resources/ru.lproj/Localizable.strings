@@ -307,6 +307,7 @@
 "plants.detail.deleteAction" = "Удалить";
 "plants.detail.moveSectionTitle" = "Переместить";
 "plants.detail.moveSubmit" = "Сохранить размещение";
+"plants.status.savedLocally" = "Сохранено локально, ожидает синхронизации";
 
 /* Наблюдения: хронология, форма записи и форма исправления. */
 "observations.title" = "Наблюдения";
