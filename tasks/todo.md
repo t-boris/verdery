@@ -287,3 +287,175 @@ for sequence pgmigrations_id_seq`. `07-iam-database-bootstrap.sh` already grante
   `apps/ios` was verified on a simulator or device this session — only `swift build`/`swift test`
   and `xcodebuild -list`, per `apps/ios/README.md`, "Known environment gap". This includes App
   Attest and native Apple/Google sign-in, which are code-reviewed and unit-tested but not run.
+
+# Phase 3 — Canonical 2D Map and Manual Editors, implementation complete, G3 pending
+
+Scope: every Phase 3 work package, P3-DATA-01 through P3-PERF-01. Users create and edit an
+approximate, scaled, or georeferenced 2D garden on iPhone, iPad, and web. The two renderers consume
+the same semantic geometry, commands, validations, provenance, measurements, and revisions.
+
+Source: [docs/implementation-plan.md](../docs/implementation-plan.md) section 12.
+
+## Tasks
+
+### Data and contracts
+
+- [x] P3-DATA-01 coordinate spaces, optional georeference, garden objects, specialized detail
+      tables, provenance, measurements, current revisions, immutable revision journal
+- [x] P3-DATA-02 GiST spatial index, geometry validity constraints, viewport queries, semantic
+      validation query ports
+- [x] P3-CONTRACT-01 GeoJSON envelopes with coordinate-space metadata, 13 object categories,
+      measurement uncertainty, and provenance — OpenAPI, TypeScript, and Swift agree, including an
+      explicit discriminator `mapping:` fix so generated TypeScript types actually narrow on the
+      real wire enum values instead of schema names
+- [x] P3-MAP-01 the 13-command canonical editor model (create, move, replace geometry, edit vertex,
+      split/join linework, change properties, assign plant, calibrate, decide proposal, delete,
+      restore, duplicate) — language-neutral fixtures pass on TypeScript and Swift alike
+- [x] P3-MAP-02 undo/redo as inverse or compensating commands (deterministic; split/join linework
+      and calibration/proposal decisions are correctly non-invertible by design, not a gap — every
+      editor surfaces this as "undo unavailable," never an error), gesture preview boundaries,
+      snapping (existing vertices, edge projections, horizontal/vertical alignment, configurable
+      angle increments, round measurement distances — advisory, temporarily disableable per
+      gesture), constraint metadata free of Konva/Core Graphics/MapLibre/MapKit types
+
+### Backend
+
+- [x] P3-BE-01 map queries and the revision-aware `POST .../map/commands` endpoint: authorization,
+      idempotency, validation, history, sync change, outbox event
+- [x] P3-BE-02 lot, structure, fence/gate, path, bed/zone, tree, and plant placement behaviors —
+      every creatable category's specialized detail table and constraints
+
+### Clients
+
+- [x] P3-WEB-01 Konva scene: viewport culling, selection, tool state, gesture preview, keyboard
+      shortcuts, accessible object list, property panel. 12 of 13 categories creatable
+      (`importedBackground` excepted — see Deferred with reason); vertex-level reshape,
+      whole-shape resize/rotate, duplicate, dedicated plant assignment, and fence/path split/join
+      all wired to real commands, not placeholder UI
+- [x] P3-WEB-02 MapLibre provider adapter (OpenFreeMap — free, no API key, swappable by design),
+      attribution, cache limits, local/geographic transform
+- [x] P3-IOS-01 SwiftUI Canvas/Core Graphics scene: immutable render snapshots, selection, gestures,
+      commands, properties, measurement overlays — the same category and command coverage as web
+- [x] P3-IOS-02 optional MapKit context; canonical garden geometry stays provider-independent
+
+### UX and quality
+
+- [x] P3-UX-01 layer visibility/locking (4 user-toggleable layers over the 13 categories, enforced
+      at every mutating entry point on both platforms), scale/accuracy presentation, a persistent
+      saving/saved/save-failed indicator (explicitly not an offline queue — see Deferred with
+      reason), a real warnings UI for `validationSummary` (tested against constructed data — see
+      Deferred with reason for why it is empty against the live API today), and a persistent
+      non-survey disclosure
+- [x] P3-QA-01 small, ordinary, large, pathological, and accessibility map fixtures spanning all 13
+      object categories (`packages/test-fixtures/fixtures/geometry/map-documents.json`), decoded
+      independently by the web and iOS test suites and checked against the same expected
+      projection, plus the existing 17-case cross-platform command-inverse fixture
+- [x] P3-PERF-01 real instrumentation-free measurement against a live local stack at a "large"
+      (66-object) scale — map open, command-commit round trip, and JS heap usage all measured
+      directly, not estimated. A scored pass/fail against "Phase 0 budgets" is not yet possible —
+      see Deferred with reason and Known limitations
+
+## Deferred with reason
+
+| Item                                                                                               | Reason                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `upsertCalibration`/`decideProposal` client UI; `importedBackground` creation                      | Fully implemented at the domain/contract/backend layers, but neither app can produce the data these need: `upsertCalibration` needs an existing imported plan (Phase 6, "Media, Photos, and Property-Plan Import"), `decideProposal` needs a generated proposal (Phase 10, gated behind an explicit research decision the plan has not made). Building client UI for either now would have nothing real to operate on. |
+| Cross-object validation (unexpected overlaps, a plant inside a blocked structure, a detached gate) | `services/api`'s `GetGardenMap` honestly returns `validationSummary: []` — real geometry/topology queries are out of scope for P3-BE-01/02, documented in place. P3-UX-01's warnings UI is fully built and verified against constructed fixtures; it becomes live with zero further client work once this separate backend effort lands.                                                                               |
+| P3-PERF-01 scored against Phase 0 performance budgets                                              | P0-QA-01 ("Define measurable budgets for core latency, map interaction, sync convergence...") has not been completed — no numeric budgets exist to score against yet. This is a Phase 0 product/ops decision, not an engineering gap; see Review for what was measured instead.                                                                                                                                        |
+| Basemap tile provider, final selection                                                             | Defaulted to OpenFreeMap (free, no API key, matching the architecture's own "provider adapter, swappable" design goal) as the most defensible reversible choice; the repository owner has not given final sign-off between OpenFreeMap and a paid alternative (MapTiler/Mapbox/Stadia).                                                                                                                                |
+| G3 approval                                                                                        | A repository-owner decision, not an automatic consequence of implementation and test evidence — see Review below                                                                                                                                                                                                                                                                                                       |
+
+## Review
+
+Every Phase 3 work package with a real producer today is implemented and verified against real
+systems: real PostgreSQL/PostGIS (migrations and integration tests), a real running API/web/iOS
+stack driven by a real browser through a real email magic-link sign-in, and Swift built and tested
+for iOS. Nothing here is mocked at the boundary that matters. G3 approval itself is a decision for
+the repository owner to record, not something this session claims on its own.
+
+### Verified evidence
+
+| Check                                                                               | Result                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm check:all`                                                                    | passes: format, lint, typecheck, 600-line rule, 511 tests across 6 workspace packages                                                                                                                                                                                                                                                                                                                                                |
+| `swift build && swift test` (apps/ios)                                              | passes: 266 tests in 38 suites                                                                                                                                                                                                                                                                                                                                                                                                       |
+| CI on `master` (`5cc3bb3`)                                                          | passes: all gates, including the formatting and file-size gates that caught two real mistakes mid-session (see Defects below)                                                                                                                                                                                                                                                                                                        |
+| Live manual verification: categoryDetails wire shape                                | real stack (Postgres, Firebase Auth emulator, API, web dev server); signed in via a real email magic-link flow, drew a `structure` polygon, edited its properties, and confirmed the raw API response and the database both carry the flat wire shape, not the nested domain shape                                                                                                                                                   |
+| Live manual verification: P3-PERF-01                                                | real stack seeded with 66 objects (1 lot-scale polygon pair plus 64 plants, matching the "large" P3-QA-01 fixture scale) via direct SQL, driven by a real signed-in browser session — see performance findings below                                                                                                                                                                                                                 |
+| Live performance measurements (this development machine, dev-mode build, localhost) | map open (API fetch, 66 objects): **~115 ms**. Full page load (unminified Next.js dev bundle — not representative of a production build): **~568 ms**. Command-commit round trip (a real `moveObject`): **~146–150 ms** success, **~77 ms** on a rejected command. JS heap with 66 objects rendered: **~47 MB used / ~56 MB total**. No visual corruption or unresponsiveness observed panning, selecting, or editing at this scale. |
+
+### Defects found and fixed during this session
+
+1. **`GardenObjectDetails` response serialization did not match the request-parsing wire shape.**
+   `application/map-object-view.ts` serialized the nested domain shape (`{category, details: {...}}`)
+   directly onto the wire instead of flattening it back to `{category, ...fields}`, the shape
+   `openapi.yaml` declares and the request parser already required in the other direction. Found and
+   fixed before the asymmetry could reach either client; confirmed by a live `GET` round trip against
+   a real running server and the database.
+2. **OpenAPI 3.1 discriminators without an explicit `mapping:` type a `oneOf` branch's discriminator
+   property as the referenced schema's name, not the real wire enum value** — `openapi-typescript`'s
+   generated types were unusable for real narrowing on `Geometry`, `GardenObjectDetails`, and
+   `MapCommandPayload` until `mapping:` blocks were added to all three.
+3. **A closed polygon ring's shared start/end vertex silently opens the ring if moved or removed
+   through `editVertex` alone.** `services/api`'s `applyVertexOperation` touches exactly one stored
+   array position per operation and never mirrors the ring's stored closing duplicate. The iOS
+   vertex-edit work found this first (fixed by routing that one vertex's move through
+   `replaceGeometry` with both copies updated, and disabling its removal in the UI); reviewing both
+   platforms together during integration found the identical latent bug on web, which had no
+   equivalent guard — fixed the same way, with matching new tests (`isRingClosureVertex`,
+   `canRemoveVertexAt`, `movedRingClosureGeometry`).
+4. **A pre-existing bug in `MapCanvasView`'s drag gesture**: `.onEnded` reset `dragObjectId` to `nil`
+   _before_ reading it as `classifyDragEnd`'s `selectedObjectIdAtStart` argument, so a real
+   object-drag gesture could never actually classify as a move — only view-model-level tests, which
+   bypass the view, ever exercised the move path. Found and fixed by the P3-MAP-02 snapping work
+   while restructuring that same gesture handler for vertex-drag snapping; confirmed by a new test
+   asserting a real gesture commits exactly one `moveObject` command.
+5. **`packages/test-fixtures`'s fixture loader broke the first time it was imported into a
+   jsdom-environment Vitest project** (`apps/web`, for the new P3-QA-01 cross-platform fixture test).
+   `fileURLToPath(new URL('../fixtures/', import.meta.url))` threw "The URL must be of scheme file":
+   Vite's SSR module runner resolves a `new URL(relative, import.meta.url)` construction through its
+   own dev-server virtual filesystem under jsdom, returning an `http://localhost/@fs/...` URL instead
+   of a real `file:` one. `import.meta.url` read directly (no relative-URL construction against it)
+   was unaffected in every environment tested. Fixed by resolving the fixture root via
+   `dirname(fileURLToPath(import.meta.url))` instead — every existing Node-environment consumer
+   (`geometry-contracts`, `services/api`) kept passing unchanged.
+6. **A new Swift test file pushed `MapEditorViewModelTests.swift` to 609 lines**, one over this
+   repository's 600-line file-size gate — caught by CI, not by either implementing agent's own local
+   verification (`swift build`/`swift test` do not check line counts). Fixed by splitting the file
+   along the same task-scoped lines its own `// MARK:` comments already used, matching this
+   package's established `MapEditorViewModel*.swift` splitting convention.
+7. **A generated JSON fixture and a hand-edited test file were not run through Prettier before
+   committing**, caught by CI's formatting gate on the first push, not local verification. Fixed with
+   `pnpm format`; both were pure whitespace changes, confirmed by re-running the full test suite
+   afterward.
+
+### Known limitations
+
+- **P3-PERF-01 cannot be scored against numeric budgets that do not exist yet.** P0-QA-01 has not
+  set them. Real measurements were taken instead (see Verified evidence) as an honest baseline, not
+  a pass/fail scorecard — Metal-vs-Canvas and equivalent client-side performance decisions the
+  architecture defers to "representative profiling" should use real budgets once P0-QA-01 sets them,
+  not this baseline alone.
+- The dev-mode page-load figure above (~568 ms) reflects an unminified, unbundled Next.js
+  development server, not a production build (`next build && next start`) — re-measure against a
+  production build before treating any number here as budget-relevant.
+- No frame-rate (FPS) profiling was obtained. `requestAnimationFrame` sampling through the browser
+  automation surface used for this session's live checks did not register frames reliably (likely a
+  background-tab/focus artifact of that automation layer, not the application) — real frame-budget
+  verification needs an interactive Chrome DevTools Performance recording or, on iOS, Xcode
+  Instruments on real hardware or a matched simulator, neither available in this environment. This is
+  the same class of gap as the pre-existing CoreSimulator/Xcode mismatch already documented for
+  Phase 2.
+- iOS device/simulator verification remains blocked by the same CoreSimulator/Xcode mismatch
+  documented in Phase 2 and `apps/ios/README.md` — every Phase 3 iOS change was verified by
+  `swift build`/`swift test` and code review only, never run on a simulator or device.
+- The warnings UI (P3-UX-01) renders nothing against the real API today, by design — see Deferred
+  with reason. Do not read an empty warnings panel during manual testing as evidence the feature is
+  broken.
+- Snapping's angle-increment (45°) and round-distance (0.5 m) constants, and the layer panel's exact
+  category-to-layer assignment for `waterFeature`/`utilityExclusion` (not named explicitly in
+  architecture doc section 12), are this session's reasonable defaults, not decisions recorded
+  anywhere else — easy to change (each is a single named constant or a one-line mapping) if a
+  designer wants different values.
+- The final basemap tile provider choice (OpenFreeMap vs. a paid alternative) has not been
+  explicitly confirmed by the repository owner — see Deferred with reason.
