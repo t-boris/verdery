@@ -149,10 +149,19 @@ paths:
       summary: List the caller's gardens
       description: |
         Returns every garden the authenticated profile has active membership
-        in, most recently created first, regardless of lifecycle state.
+        in, regardless of lifecycle state. Most recently created first, or —
+        when `nameQuery` is given — ranked by trigram similarity against
+        `name` instead, most-similar first.
 
-        Source: implementation-plan.md work package P2-API-01.
+        Source: implementation-plan.md work packages P2-API-01, P4-SEARCH-01.
       parameters:
+        - name: nameQuery
+          in: query
+          required: false
+          description: Trigram-fuzzy match against the garden's name. Omit to list every garden the caller can see, most recently created first.
+          schema:
+            type: string
+            maxLength: 120
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
       responses:
@@ -507,6 +516,79 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+
+    get:
+      operationId: searchPlants
+      tags: [Plants]
+      summary: Search a garden's plants
+      description: |
+        Trigram-fuzzy match against `displayName` when `query` is given,
+        combined with optional structured filters (`lifecycleStage`,
+        `status`, `groupingKind`, each combinable and each accepting more
+        than one value), cursor-paginated the same way `ListGardens`
+        paginates. Ranked most-similar first when `query` is given, most
+        recently created first otherwise.
+
+        Closes a real, already-documented gap: before P4-SEARCH-01 this tag
+        had no list operation at all, only single-plant `GetPlant` — the web
+        and iOS Phase 4 clients each had to fall back to a
+        create-then-navigate / open-by-id flow instead of a real inventory
+        list.
+
+        Source: implementation-plan.md work package P4-SEARCH-01.
+      parameters:
+        - name: query
+          in: query
+          required: false
+          description: Trigram-fuzzy match against displayName. Omit to list every plant matching the other filters.
+          schema:
+            type: string
+            maxLength: 200
+        - name: lifecycleStage
+          in: query
+          required: false
+          description: Comma-separated lifecycle stages to include. Omit to include every stage.
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/PlantLifecycleStage'
+        - name: status
+          in: query
+          required: false
+          description: Comma-separated statuses to include. Omit to include every status.
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/PlantStatus'
+        - name: groupingKind
+          in: query
+          required: false
+          description: Comma-separated grouping kinds to include. Omit to include every kind.
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/PlantGroupingKind'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Matching plants.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlantListResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /gardens/{gardenId}/plants/from-photo:
     parameters:
@@ -2819,6 +2901,19 @@ components:
           $ref: '#/components/schemas/Timestamp'
         updatedAt:
           $ref: '#/components/schemas/Timestamp'
+
+    PlantListResult:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Plant'
+        nextCursor:
+          type: string
+          description: Opaque continuation token. Absent when no further page exists.
 
     PlantPhoto:
       type: object

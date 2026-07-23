@@ -174,6 +174,10 @@ export class FakePlantRepository implements PlantRepository {
   update(): Promise<boolean> {
     throw new Error('not used by this test');
   }
+
+  search(): ReturnType<PlantRepository['search']> {
+    throw new Error('not used by this test');
+  }
 }
 
 export class FakeMediaRepository implements MediaRepository {

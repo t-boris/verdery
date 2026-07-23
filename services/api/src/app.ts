@@ -15,37 +15,8 @@ import helmet from '@fastify/helmet';
 import underPressure from '@fastify/under-pressure';
 import { API_BASE_PATH } from '@verdery/api-contracts';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
-import {
-  ArchiveGarden,
-  AssignPlantToTarget,
-  ChangeMapObjectProperties,
-  CreateGarden,
-  CreateMapObject,
-  DecideMapProposal,
-  DeleteMapObject,
-  DuplicateMapObject,
-  EditMapObjectVertex,
-  GardenAuthorization,
-  GetGarden,
-  GetGardenMap,
-  JoinMapObjectLinework,
-  KyselyCoordinateSpaceRepository,
-  KyselyGardenRepository,
-  KyselyGardensMappingUnitOfWork,
-  KyselyGeoreferenceRepository,
-  KyselyMapObjectRepository,
-  KyselyMembershipRepository,
-  ListGardens,
-  MoveMapObject,
-  registerGardenRoutes,
-  registerMapRoutes,
-  RenameGarden,
-  ReplaceMapObjectGeometry,
-  RequestGardenDeletion,
-  RestoreMapObject,
-  SplitMapObjectLinework,
-  UpsertMapCalibration,
-} from './modules/gardens-mapping/public.js';
+import { composeGardensMapping } from './compose-gardens-mapping.js';
+import { registerGardenRoutes, registerMapRoutes } from './modules/gardens-mapping/public.js';
 import {
   KyselyIdentityProviderLinkRepository,
   KyselyProfileRepository,
@@ -77,6 +48,7 @@ import {
   KyselyTaxonomyReferenceRepository,
   MovePlant,
   registerPlantRoutes,
+  SearchPlants,
   SearchTaxonomyReferences,
   SetPlantStatus,
   SetPrimaryPlantPhoto,
@@ -212,9 +184,9 @@ export async function buildApplication(
   // nothing in this file reads `mediaRepository` or `registerMediaRecord`
   // today: `mediaRepository` is what plants-inventory, observations-history,
   // and tasks-recommendations will receive injected into their own
-  // composition-root wiring next, the same way `gardenRepository` below is
-  // shared across every gardens-mapping command; `registerMediaRecord` is
-  // exercised end to end against a real database by
+  // composition-root wiring next, the same way `gardenAuthorization` below is
+  // shared across every gardens-mapping-dependent command; `registerMediaRecord`
+  // is exercised end to end against a real database by
   // tests/integration/media.test.ts in the meantime.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
   const mediaRepository = new KyselyMediaRepository(database.queries);
@@ -223,132 +195,13 @@ export async function buildApplication(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
   const registerMediaRecord = new RegisterMediaRecord(mediaIdempotency, mediaUnitOfWork, clock);
 
-  // gardens-mapping: owns gardens and, in Phase 2 only, garden membership —
-  // see membership-repository.ts for why. Read paths use the pooled
-  // connection directly; commands go through the transactional unit of work.
-  const gardenRepository = new KyselyGardenRepository(database.queries);
-  const gardenAuthorization = new GardenAuthorization(
-    new KyselyMembershipRepository(database.queries),
-  );
-  const gardenIdempotency = new KyselyIdempotencyStore(database.queries, clock);
-  const gardensMappingUnitOfWork = new KyselyGardensMappingUnitOfWork(database.queries, clock);
-
-  const gardenRoutesDependencies = {
-    listGardens: new ListGardens(gardenRepository),
-    createGarden: new CreateGarden(gardenIdempotency, gardensMappingUnitOfWork, clock),
-    getGarden: new GetGarden(gardenRepository, gardenAuthorization),
-    renameGarden: new RenameGarden(
-      gardenIdempotency,
-      gardensMappingUnitOfWork,
-      gardenAuthorization,
-      clock,
-    ),
-    archiveGarden: new ArchiveGarden(
-      gardenIdempotency,
-      gardensMappingUnitOfWork,
-      gardenAuthorization,
-      clock,
-    ),
-    requestGardenDeletion: new RequestGardenDeletion(
-      gardenIdempotency,
-      gardensMappingUnitOfWork,
-      gardenAuthorization,
-      clock,
-    ),
-  };
-
-  // Garden map (P3-BE-01, P3-BE-02): the read side (GetGardenMap) uses the
-  // pooled connection directly, same as gardenRepository above; every
-  // mutating command shares gardenIdempotency/gardensMappingUnitOfWork/
-  // gardenAuthorization with the garden lifecycle commands, since both are
-  // the same idempotency table, the same transaction boundary, and the same
-  // capability matrix.
-  const mapObjectRepository = new KyselyMapObjectRepository(database.queries);
-  const coordinateSpaceRepository = new KyselyCoordinateSpaceRepository(database.queries);
-  const georeferenceRepository = new KyselyGeoreferenceRepository(database.queries);
-
-  const mapRoutesDependencies = {
-    getGardenMap: new GetGardenMap(
-      gardenAuthorization,
-      coordinateSpaceRepository,
-      georeferenceRepository,
-      mapObjectRepository,
-      clock,
-    ),
-    createMapObject: new CreateMapObject(
-      gardenIdempotency,
-      gardensMappingUnitOfWork,
-      gardenAuthorization,
-      clock,
-    ),
-    moveMapObject: new MoveMapObject(
-      gardenIdempotency,
-      gardensMappingUnitOfWork,
-      gardenAuthorization,
-      clock,
-    ),
-    replaceMapObjectGeometry: new ReplaceMapObjectGeometry(
-      gardenIdempotency,
-      gardensMappingUnitOfWork,
-      gardenAuthorization,
-      clock,
-    ),
-    editMapObjectVertex: new EditMapObjectVertex(
-      gardenIdempotency,
-      gardensMappingUnitOfWork,
-      gardenAuthorization,
-      clock,
-    ),
-    splitMapObjectLinework: new SplitMapObjectLinework(
-      gardenIdempotency,
-      gardensMappingUnitOfWork,
-      gardenAuthorization,
-      clock,
-    ),
-    joinMapObjectLinework: new JoinMapObjectLinework(
-      gardenIdempotency,
-      gardensMappingUnitOfWork,
-      gardenAuthorization,
-      clock,
-    ),
-    changeMapObjectProperties: new ChangeMapObjectProperties(
-      gardenIdempotency,
-      gardensMappingUnitOfWork,
-      gardenAuthorization,
-      clock,
-    ),
-    assignPlantToTarget: new AssignPlantToTarget(
-      gardenIdempotency,
-      gardensMappingUnitOfWork,
-      gardenAuthorization,
-      clock,
-    ),
-    upsertMapCalibration: new UpsertMapCalibration(
-      gardenIdempotency,
-      gardensMappingUnitOfWork,
-      gardenAuthorization,
-      clock,
-    ),
-    decideMapProposal: new DecideMapProposal(gardenAuthorization),
-    deleteMapObject: new DeleteMapObject(
-      gardenIdempotency,
-      gardensMappingUnitOfWork,
-      gardenAuthorization,
-      clock,
-    ),
-    restoreMapObject: new RestoreMapObject(
-      gardenIdempotency,
-      gardensMappingUnitOfWork,
-      gardenAuthorization,
-      clock,
-    ),
-    duplicateMapObject: new DuplicateMapObject(
-      gardenIdempotency,
-      gardensMappingUnitOfWork,
-      gardenAuthorization,
-      clock,
-    ),
-  };
+  // gardens-mapping and the garden map (P3-BE-01, P3-BE-02): garden
+  // lifecycle and map-object dependency wiring, split into
+  // `compose-gardens-mapping.ts` purely to keep this file under the
+  // repository's 600-line source-file limit — see that file's own header
+  // comment. `gardenAuthorization` is reused by every module wired below.
+  const { gardenAuthorization, gardenRoutesDependencies, mapRoutesDependencies } =
+    composeGardensMapping(database, clock);
 
   // observations-history: owns the append-only `observation`, `observation_photo`,
   // and `image_analysis_result` tables. Reuses `gardenAuthorization`. HTTP
@@ -411,6 +264,7 @@ export async function buildApplication(
     clock,
   );
   const getPlant = new GetPlant(plantRepository, gardenAuthorization);
+  const searchPlants = new SearchPlants(plantRepository, gardenAuthorization);
   const attachPlantPhoto = new AttachPlantPhoto(
     plantRepository,
     plantsInventoryIdempotency,
@@ -465,6 +319,7 @@ export async function buildApplication(
     addPlant,
     addPlantFromPhoto,
     getPlant,
+    searchPlants,
     updatePlantDetails,
     attachPlantPhoto,
     setPrimaryPlantPhoto,

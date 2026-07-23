@@ -337,23 +337,66 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 
+  // A short, high-entropy suffix distinct from the one an earlier version of
+  // this test used (`generateUuidV7().slice(0, 8)`): a UUIDv7's *leading*
+  // characters are its millisecond timestamp, not random — two calls made
+  // moments apart within the same test run share most of that prefix, which
+  // is exactly the collision this helper exists to avoid. The *trailing*
+  // characters fall entirely within UUIDv7's random bits instead.
+  function uniqueSuffix(): string {
+    return generateUuidV7().slice(-8);
+  }
+
   it('searches the taxonomy catalog by scientific and common name, case-insensitively', async () => {
-    // Unique names, not 'Tomato'/'Solanum lycopersicum' as used by an earlier
-    // test in this same describe block sharing one container/database — an
-    // exact-match assertion below must not depend on test execution order.
-    const suffix = generateUuidV7().slice(0, 8);
-    await insertTaxonomyReference(`Solanum lycopersicum ${suffix}`, `Tomato ${suffix}`);
-    await insertTaxonomyReference(`Ocimum basilicum ${suffix}`, `Basil ${suffix}`);
+    // Species unrelated to 'Solanum lycopersicum'/'Tomato' — the pair the
+    // "confirms an identification" test above already inserted, bare, with
+    // no suffix, into this same shared container/database. Trigram
+    // similarity (unlike the plain `ILIKE` substring match this replaced in
+    // P4-SEARCH-01) is a fuzzy match: a query built from a real word like
+    // 'tomato' scores well above this repository's own 0.25 threshold
+    // against that unrelated bare row too (confirmed directly against a real
+    // Postgres instance: `similarity('Tomato', 'tomato <suffix>')` ≈ 0.44),
+    // so reusing 'Tomato'/'Solanum lycopersicum' here — suffixed or not —
+    // would make the exact-match assertions below depend on which other
+    // tests already ran. Each row here also gets its own random suffix, not
+    // one shared across both, for the same reason: a shared suffix makes the
+    // two rows partially match each other's query purely from that shared
+    // tail.
+    const roseSuffix = uniqueSuffix();
+    const lavenderSuffix = uniqueSuffix();
+    await insertTaxonomyReference(`Rosa damascena ${roseSuffix}`, `Damask Rose ${roseSuffix}`);
+    await insertTaxonomyReference(
+      `Lavandula angustifolia ${lavenderSuffix}`,
+      `English Lavender ${lavenderSuffix}`,
+    );
 
     const search = new SearchTaxonomyReferences(new KyselyTaxonomyReferenceRepository(db));
 
-    const byCommonName = await search.execute(`tomato ${suffix}`);
-    expect(byCommonName.map((r) => r.scientificName)).toEqual([`Solanum lycopersicum ${suffix}`]);
+    const byCommonName = await search.execute(`damask rose ${roseSuffix}`);
+    expect(byCommonName.map((r) => r.scientificName)).toEqual([`Rosa damascena ${roseSuffix}`]);
 
-    const byScientificName = await search.execute(`basilicum ${suffix}`);
-    expect(byScientificName.map((r) => r.commonName)).toEqual([`Basil ${suffix}`]);
+    const byScientificName = await search.execute(`angustifolia ${lavenderSuffix}`);
+    expect(byScientificName.map((r) => r.commonName)).toEqual([
+      `English Lavender ${lavenderSuffix}`,
+    ]);
 
     const all = await search.execute(null);
     expect(all.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('finds a misspelled query via trigram similarity, which the plain substring match it replaced would miss', async () => {
+    // 'Zucchini', not 'Tomato' — see the previous test's own comment for why
+    // this file's other, unrelated 'Tomato'/'Solanum lycopersicum' fixture
+    // rules that word out here too.
+    const suffix = uniqueSuffix();
+    await insertTaxonomyReference(`Cucurbita pepo ${suffix}`, `Zucchini ${suffix}`);
+
+    const search = new SearchTaxonomyReferences(new KyselyTaxonomyReferenceRepository(db));
+
+    // 'zuchinni' is not a substring of 'Zucchini <suffix>' in either
+    // direction, so the old `ILIKE '%zuchinni%'` algorithm this replaces
+    // would find nothing here — trigram similarity tolerates the misspelling.
+    const results = await search.execute(`zuchinni ${suffix}`);
+    expect(results.map((r) => r.commonName)).toEqual([`Zucchini ${suffix}`]);
   });
 });

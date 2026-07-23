@@ -95,6 +95,7 @@ export type PlantLifecycleStage = Schemas['PlantLifecycleStage'];
 export type PlantStatus = Schemas['PlantStatus'];
 export type TaxonomySource = Schemas['TaxonomySource'];
 export type Plant = Schemas['Plant'];
+export type PlantListResult = Schemas['PlantListResult'];
 export type PlantPhoto = Schemas['PlantPhoto'];
 export type TaxonomyReference = Schemas['TaxonomyReference'];
 export type TaxonomyReferenceListResult = Schemas['TaxonomyReferenceListResult'];

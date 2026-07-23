@@ -95,9 +95,11 @@ export interface paths {
         /**
          * List the caller's gardens
          * @description Returns every garden the authenticated profile has active membership
-         *     in, most recently created first, regardless of lifecycle state.
+         *     in, regardless of lifecycle state. Most recently created first, or —
+         *     when `nameQuery` is given — ranked by trigram similarity against
+         *     `name` instead, most-similar first.
          *
-         *     Source: implementation-plan.md work package P2-API-01.
+         *     Source: implementation-plan.md work packages P2-API-01, P4-SEARCH-01.
          */
         get: operations["listGardens"];
         put?: never;
@@ -288,7 +290,24 @@ export interface paths {
             };
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Search a garden's plants
+         * @description Trigram-fuzzy match against `displayName` when `query` is given,
+         *     combined with optional structured filters (`lifecycleStage`,
+         *     `status`, `groupingKind`, each combinable and each accepting more
+         *     than one value), cursor-paginated the same way `ListGardens`
+         *     paginates. Ranked most-similar first when `query` is given, most
+         *     recently created first otherwise.
+         *
+         *     Closes a real, already-documented gap: before P4-SEARCH-01 this tag
+         *     had no list operation at all, only single-plant `GetPlant` — the web
+         *     and iOS Phase 4 clients each had to fall back to a
+         *     create-then-navigate / open-by-id flow instead of a real inventory
+         *     list.
+         *
+         *     Source: implementation-plan.md work package P4-SEARCH-01.
+         */
+        get: operations["searchPlants"];
         put?: never;
         /**
          * Add a plant
@@ -1495,6 +1514,11 @@ export interface components {
             createdAt: components["schemas"]["Timestamp"];
             updatedAt: components["schemas"]["Timestamp"];
         };
+        PlantListResult: {
+            items: components["schemas"]["Plant"][];
+            /** @description Opaque continuation token. Absent when no further page exists. */
+            nextCursor?: string;
+        };
         PlantPhoto: {
             id: components["schemas"]["Uuid"];
             plantId: components["schemas"]["Uuid"];
@@ -1945,6 +1969,8 @@ export interface operations {
     listGardens: {
         parameters: {
             query?: {
+                /** @description Trigram-fuzzy match against the garden's name. Omit to list every garden the caller can see, most recently created first. */
+                nameQuery?: string;
                 /** @description Opaque continuation token from a previous page. Clients must not parse it. */
                 cursor?: components["parameters"]["Cursor"];
                 /** @description Maximum items to return. */
@@ -2221,6 +2247,44 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    searchPlants: {
+        parameters: {
+            query?: {
+                /** @description Trigram-fuzzy match against displayName. Omit to list every plant matching the other filters. */
+                query?: string;
+                /** @description Comma-separated lifecycle stages to include. Omit to include every stage. */
+                lifecycleStage?: components["schemas"]["PlantLifecycleStage"][];
+                /** @description Comma-separated statuses to include. Omit to include every status. */
+                status?: components["schemas"]["PlantStatus"][];
+                /** @description Comma-separated grouping kinds to include. Omit to include every kind. */
+                groupingKind?: components["schemas"]["PlantGroupingKind"][];
+                /** @description Opaque continuation token from a previous page. Clients must not parse it. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum items to return. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Matching plants. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlantListResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     addPlant: {

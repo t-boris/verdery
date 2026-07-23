@@ -196,6 +196,92 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     await expect(getGarden.execute(garden.id, strangerId)).rejects.toBeInstanceOf(NotFoundError);
   });
 
+  it('matches a garden name by trigram similarity when nameQuery is given, ranked most-similar first, without changing the no-query listing', async () => {
+    const ownerId = randomUUID();
+    await insertProfile(db, ownerId);
+
+    const clock = fixedClock(new Date());
+    const createGarden = new CreateGarden(
+      new KyselyIdempotencyStore(db, clock),
+      new KyselyGardensMappingUnitOfWork(db, clock),
+      clock,
+    );
+    // Each garden gets its own random suffix, not one shared across both:
+    // trigram similarity picks up on *any* shared substring, so two gardens
+    // sharing one suffix would each partially match the other's query purely
+    // from that shared tail (confirmed directly against a real Postgres
+    // instance while writing this test: with a shared suffix, 'Shady Hollow'
+    // scored ~0.33 — above this repository's own 0.25 threshold — against a
+    // 'sunyside <suffix>' query it has no real relationship to) — the same
+    // pitfall plants-inventory-photos-identification.test.ts's own identical
+    // note on the sibling `SearchTaxonomyReferences` upgrade already found.
+    const sunnysideSuffix = randomUUID().slice(-8);
+    const shadySuffix = randomUUID().slice(-8);
+    const sunnyside = await createGarden.execute(
+      ownerId,
+      `Sunnyside Allotment ${sunnysideSuffix}`,
+      randomUUID(),
+    );
+    const shady = await createGarden.execute(ownerId, `Shady Hollow ${shadySuffix}`, randomUUID());
+
+    const gardenRepository = new KyselyGardenRepository(db);
+    const listGardens = new ListGardens(gardenRepository);
+
+    // Omitted `nameQuery`: unchanged from before P4-SEARCH-01 — every garden
+    // the profile can see, no filter applied.
+    const unfiltered = await listGardens.execute(ownerId, null, 50);
+    expect(unfiltered.items.map((item) => item.id)).toEqual(
+      expect.arrayContaining([sunnyside.id, shady.id]),
+    );
+
+    // 'sunyside' is not a substring of 'Sunnyside Allotment <suffix>' in
+    // either direction, so a plain `ILIKE '%sunyside%'` match would find
+    // nothing here — trigram similarity tolerates the misspelling and does
+    // not also return the unrelated 'Shady Hollow' garden.
+    const misspelled = await listGardens.execute(ownerId, null, 50, `sunyside ${sunnysideSuffix}`);
+    expect(misspelled.items.map((item) => item.id)).toEqual([sunnyside.id]);
+
+    // Blank nameQuery behaves exactly like an omitted one.
+    const blank = await listGardens.execute(ownerId, null, 50, '   ');
+    expect(blank.items.map((item) => item.id)).toEqual(unfiltered.items.map((item) => item.id));
+  });
+
+  it('paginates a ranked nameQuery listing by cursor, covering every match exactly once', async () => {
+    const ownerId = randomUUID();
+    await insertProfile(db, ownerId);
+
+    const clock = fixedClock(new Date());
+    const createGarden = new CreateGarden(
+      new KyselyIdempotencyStore(db, clock),
+      new KyselyGardensMappingUnitOfWork(db, clock),
+      clock,
+    );
+    const suffix = randomUUID().slice(-8);
+    const names = [
+      `Northfield Allotment ${suffix}`,
+      `Southfield Allotment ${suffix}`,
+      `Eastfield Allotment ${suffix}`,
+    ];
+    const createdIds: string[] = [];
+    for (const name of names) {
+      const garden = await createGarden.execute(ownerId, name, randomUUID());
+      createdIds.push(garden.id);
+    }
+
+    const listGardens = new ListGardens(new KyselyGardenRepository(db));
+    const seenIds = new Set<string>();
+    let cursor: string | null = null;
+    do {
+      const page = await listGardens.execute(ownerId, cursor, 2, `allotment ${suffix}`);
+      for (const item of page.items) {
+        seenIds.add(item.id);
+      }
+      cursor = page.nextCursor;
+    } while (cursor !== null);
+
+    expect(seenIds).toEqual(new Set(createdIds));
+  });
+
   it('rejects a stale If-Match revision and applies a correct one', async () => {
     const ownerId = randomUUID();
     await insertProfile(db, ownerId);

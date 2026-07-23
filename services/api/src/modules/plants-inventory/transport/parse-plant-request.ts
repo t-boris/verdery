@@ -21,9 +21,12 @@ import type { MovePlantInput } from '../application/move-plant.js';
 import type { AcquisitionDateType, GroupingKind, PlantDetailsChanges } from '../domain/plant.js';
 import type { LifecycleStage, PlantStatus } from '../domain/plant-lifecycle.js';
 
-const GROUPING_KINDS: readonly GroupingKind[] = ['individual', 'row', 'group'];
+// Exported for reuse by `plant-routes.ts`'s own `parseSearchPlantsQuery`
+// (P4-SEARCH-01), the same `export`-not-redeclare reuse `parse-task-request.
+// ts`'s own `TASK_STATUSES` already establishes for `task-routes.ts`.
+export const GROUPING_KINDS: readonly GroupingKind[] = ['individual', 'row', 'group'];
 const ACQUISITION_DATE_TYPES: readonly AcquisitionDateType[] = ['planted', 'sown', 'acquired'];
-const LIFECYCLE_STAGES: readonly LifecycleStage[] = [
+export const LIFECYCLE_STAGES: readonly LifecycleStage[] = [
   'planned',
   'seed',
   'seedling',
@@ -33,7 +36,13 @@ const LIFECYCLE_STAGES: readonly LifecycleStage[] = [
   'fruiting',
   'ready_to_harvest',
 ];
-const PLANT_STATUSES: readonly PlantStatus[] = ['active', 'dormant', 'archived', 'removed', 'dead'];
+export const PLANT_STATUSES: readonly PlantStatus[] = [
+  'active',
+  'dormant',
+  'archived',
+  'removed',
+  'dead',
+];
 
 function requireRecord(value: unknown, pointer: string): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {

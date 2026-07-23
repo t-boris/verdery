@@ -31,6 +31,14 @@
  * — against the `Plants` tag `packages/api-contracts/openapi.yaml` now
  * declares.
  *
+ * P4-SEARCH-01 lands `SearchPlants` — a second new read-only query, closing
+ * the "no way to list a garden's plants" gap `SearchPlants`'s own doc
+ * comment explains in full — and upgrades `SearchTaxonomyReferences`'s
+ * matching algorithm from a plain `ILIKE` substring test to `pg_trgm`
+ * trigram similarity (see `kysely-taxonomy-reference-repository.ts`); that
+ * command's own exported shape (`SearchTaxonomyReferences`,
+ * `TaxonomyReferenceRepository`) is unchanged.
+ *
  * Source: architecture/backend-modular-monolith.md, section "5.5 Public Interface".
  */
 
@@ -41,7 +49,11 @@ export type { PlantPhoto } from './domain/plant-photo.js';
 export type { PlantIdentification } from './domain/plant-identification.js';
 export type { TaxonomyReference, TaxonomySource } from './domain/taxonomy-reference.js';
 
-export type { PlantRepository } from './application/plant-repository.js';
+export type {
+  PlantRepository,
+  PlantSearchFilters,
+  PlantSearchPage,
+} from './application/plant-repository.js';
 export type { PlantPhotoRepository } from './application/plant-photo-repository.js';
 export type { PlantIdentificationRepository } from './application/plant-identification-repository.js';
 export type { TaxonomyReferenceRepository } from './application/taxonomy-reference-repository.js';
@@ -75,6 +87,8 @@ export { MovePlant } from './application/move-plant.js';
 export type { MovePlantInput } from './application/move-plant.js';
 export { SearchTaxonomyReferences } from './application/search-taxonomy-references.js';
 export { GetPlant } from './application/get-plant.js';
+export { SearchPlants } from './application/search-plants.js';
+export type { SearchPlantsFilters, PlantSearchResult } from './application/search-plants.js';
 
 export { registerPlantRoutes } from './transport/plant-routes.js';
 export type { PlantRoutesDependencies } from './transport/plant-routes.js';

@@ -33,7 +33,7 @@ import type { PlantPhoto } from '../domain/plant-photo.js';
 import type { Plant } from '../domain/plant.js';
 import type { PlantIdentificationRepository } from './plant-identification-repository.js';
 import type { PlantPhotoRepository } from './plant-photo-repository.js';
-import type { PlantRepository } from './plant-repository.js';
+import type { PlantRepository, PlantSearchFilters, PlantSearchPage } from './plant-repository.js';
 import type {
   PlantsInventoryTransactionContext,
   PlantsInventoryUnitOfWork,
@@ -104,6 +104,51 @@ export class FakePlantRepository implements PlantRepository {
     }
     this.plants.set(plant.id, plant);
     return Promise.resolve(true);
+  }
+
+  /**
+   * Not a real trigram implementation — `query` here is a plain
+   * case-insensitive substring test against `displayName`, sufficient for
+   * `SearchPlants`'s own unit tests (authorization delegation, filter
+   * pass-through, resource mapping). Real trigram-ranking and keyset-cursor
+   * behavior is exercised only against real PostgreSQL, in
+   * `tests/integration/plants-inventory-search.test.ts` — the same split
+   * `FakeTaskRepository.listForGarden` already draws for `TaskRepository`.
+   * Pagination here is a simple index-into-the-sorted-array cursor, not the
+   * real opaque-JSON encoding `KyselyPlantRepository` uses.
+   */
+  search(
+    gardenId: Uuid,
+    filters: PlantSearchFilters,
+    cursor: string | null,
+    limit: number,
+  ): Promise<PlantSearchPage> {
+    const matches = [...this.plants.values()]
+      .filter((plant) => plant.gardenId === gardenId)
+      .filter(
+        (plant) =>
+          filters.query === null ||
+          plant.displayName.toLowerCase().includes(filters.query.toLowerCase()),
+      )
+      .filter(
+        (plant) =>
+          filters.lifecycleStage === null || filters.lifecycleStage.includes(plant.lifecycleStage),
+      )
+      .filter((plant) => filters.status === null || filters.status.includes(plant.status))
+      .filter(
+        (plant) =>
+          filters.groupingKind === null || filters.groupingKind.includes(plant.groupingKind),
+      )
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || (a.id < b.id ? 1 : -1));
+
+    const start = cursor === null ? 0 : Number(cursor);
+    const pageItems = matches.slice(start, start + limit);
+    const hasMore = start + limit < matches.length;
+
+    return Promise.resolve({
+      items: pageItems,
+      nextCursor: hasMore ? String(start + limit) : null,
+    });
   }
 }
 

@@ -32,6 +32,17 @@ export interface GardenRepository {
    */
   update(garden: Garden, expectedRevision: number): Promise<boolean>;
 
-  /** Every garden the profile has *active* membership on, most recently created first. */
-  listForProfile(profileId: Uuid, cursor: string | null, limit: number): Promise<GardenListPage>;
+  /**
+   * Every garden the profile has *active* membership on. `nameQuery === null`
+   * lists them most recently created first, unchanged from before P4-SEARCH-01
+   * added the parameter; a non-null `nameQuery` instead trigram-fuzzy matches
+   * `name` and orders most-similar first, the same query-vs-no-query split
+   * `PlantRepository.search`'s own `filters.query` draws.
+   */
+  listForProfile(
+    profileId: Uuid,
+    cursor: string | null,
+    limit: number,
+    nameQuery: string | null,
+  ): Promise<GardenListPage>;
 }

@@ -108,13 +108,19 @@ function requireName(request: FastifyRequest): string {
   return body.name;
 }
 
-function parseListQuery(request: FastifyRequest): { cursor: string | null; limit: number } {
-  const query = request.query as { cursor?: unknown; limit?: unknown };
+function parseListQuery(request: FastifyRequest): {
+  cursor: string | null;
+  limit: number;
+  nameQuery: string | null;
+} {
+  const query = request.query as { cursor?: unknown; limit?: unknown; nameQuery?: unknown };
 
   const cursor = typeof query.cursor === 'string' && query.cursor.length > 0 ? query.cursor : null;
+  const nameQuery =
+    typeof query.nameQuery === 'string' && query.nameQuery.length > 0 ? query.nameQuery : null;
 
   if (query.limit === undefined) {
-    return { cursor, limit: DEFAULT_LIMIT };
+    return { cursor, limit: DEFAULT_LIMIT, nameQuery };
   }
 
   const limit = Number(query.limit);
@@ -126,7 +132,7 @@ function parseListQuery(request: FastifyRequest): { cursor: string | null; limit
     );
   }
 
-  return { cursor, limit };
+  return { cursor, limit, nameQuery };
 }
 
 function toGardenListResult(result: {
@@ -144,11 +150,12 @@ export function registerGardenRoutes(
   dependencies: GardenRoutesDependencies,
 ): void {
   app.get('/gardens', async (request, reply) => {
-    const { cursor, limit } = parseListQuery(request);
+    const { cursor, limit, nameQuery } = parseListQuery(request);
     const result = await dependencies.listGardens.execute(
       request.actorContext.profileId,
       cursor,
       limit,
+      nameQuery,
     );
 
     return reply.status(200).send(toGardenListResult(result));

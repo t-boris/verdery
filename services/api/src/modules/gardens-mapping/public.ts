@@ -24,6 +24,7 @@ export { KyselyGardensMappingUnitOfWork } from './persistence/kysely-gardens-map
 export { KyselyMembershipRepository } from './persistence/kysely-membership-repository.js';
 export type { GardensMappingDatabaseSchema } from './persistence/schema.js';
 export { registerGardenRoutes } from './transport/garden-routes.js';
+export type { GardenRoutesDependencies } from './transport/garden-routes.js';
 
 // Garden map (P3-BE-01, P3-BE-02).
 export type {
