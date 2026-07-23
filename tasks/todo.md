@@ -457,3 +457,177 @@ the repository owner to record, not something this session claims on its own.
   architecture doc section 12), are this session's reasonable defaults, not decisions recorded
   anywhere else — easy to change (each is a single named constant or a one-line mapping) if a
   designer wants different values.
+
+# Phase 4 — Plants, Observations, History, and Manual Work, implementation complete, G4 pending
+
+Scope: every Phase 4 work package, P4-DATA-01 through P4-QA-01. The garden becomes useful care data
+rather than only a drawing: users manage plants and plant groups, record condition updates, see
+chronological history, and create and complete manual work on both product surfaces.
+
+Basemap provider question resolved by the repository owner: OpenFreeMap (see Phase 3's Deferred with
+reason, now closed).
+
+Source: [docs/implementation-plan.md](../docs/implementation-plan.md) section 13.
+
+## Tasks
+
+### Data, contracts, and a new module
+
+- [x] P4-DATA-01 plant instances, taxonomy references (system-catalog or user-defined), varieties,
+      groups/rows with quantity, placements, orthogonal `lifecycleStage`/`status`, and a
+      `plant_revision` journal mirroring `garden_object_revision`'s pattern exactly
+- [x] P4-DATA-02 append-only observations — no revision column, no UPDATE path anywhere, corrections
+      are new rows pointing backward via `corrects_observation_id`, never mutation — the single
+      largest structural divergence from every other aggregate in this codebase
+- [x] P4-DATA-03 manual tasks with a polymorphic `garden | garden_area | plant` target, gated status
+      transitions (`requireEditableStatus`: only `planned`/`suggested` are editable-from), a
+      `recurrenceRule` stored opaquely (never parsed or expanded — no expansion engine exists), and
+      their own revision journal
+- [x] A minimal, deliberately-scoped `media` module (`media.media_record`) stood up to unblock the
+      three sibling modules above — not the full future Media module architecture section 6.6
+      describes: no upload authorization, verification, derivatives, or retention state. A genuine
+      architecture decision, made with the repository owner's explicit sign-off mid-session
+- [x] P4-CONTRACT-01 named resource-shaped REST endpoints (not one command envelope, unlike Phase
+      3's map) across `Plants`/`Observations`/`Tasks` OpenAPI tags — 24 operations, hand-written
+      transport validation matching `gardens-mapping/transport/garden-routes.ts`'s established style
+
+### Backend
+
+- [x] P4-BE-01 `plants-inventory`: 9 commands (add, add-from-photo, attach/set-primary photo, update
+      details, confirm identification, transition lifecycle stage, set status — the only "delete"
+      mechanism — move) plus taxonomy search and (added this session) `SearchPlants`
+- [x] P4-BE-02 `observations-history`: record, correct (append-only, backward-pointing), list for
+      garden/plant, a narrow cross-module `PlantOwnershipRepository` read port (a genuine, documented
+      judgment call, not a mirrored pattern)
+- [x] P4-BE-03 `tasks-recommendations`: create, edit/reschedule (factored through
+      `applyTaskDetailChanges`), complete/dismiss/skip/delete (factored through
+      `transitionTaskToTerminalStatus`), list, attach-file — every status-changing command gated by
+      `requireEditableStatus`
+- [x] P4-SEARCH-01 `pg_trgm` trigram search: `SearchPlants` (garden-scoped, `lifecycleStage`/
+      `status`/`groupingKind` filters, cursor pagination), `SearchTaxonomyReferences` upgraded from
+      plain `ILIKE` to trigram similarity, a `nameQuery` filter added to `ListGardens` — closes the
+      previously-documented "no plant list" gap on the backend (clients don't call it yet — see
+      Deferred with reason)
+
+### Clients
+
+- [x] P4-WEB-01 web plant/observation/task management: gateways, TanStack Query hooks, forms and
+      lists for every operation not blocked on file upload, English/Russian localization
+- [x] P4-IOS-01 the same coverage natively: `FieldUpdate` for PATCH semantics (omitted/explicit-null/
+      set), `GardenObservation`/`GardenTask` naming (avoiding a real collision with Swift's own
+      `Observation` module and `@Observable` macro), the same always-fresh-from-server architecture
+      as `FeatureMap` on both platforms (not GRDB's local-cache pattern), chosen because a stale
+      cached revision would turn every `expectedRevision`-guarded command into a 409/412 lottery
+
+### UX and quality
+
+- [x] P4-DESIGN-01 validated all six required scenarios (unknown plant, incomplete data, group/row,
+      dormant/dead/removed, correction, empty-history) against both clients' actual rendering code,
+      not just type shapes — found and fixed three real, contained iOS-only gaps (see Defects below);
+      web's own quantity-validation gap was independently found and fixed by the repository owner in
+      the same window (`plant-details-form.tsx`'s `editPlantSchema` now gates on `groupingKind`)
+- [x] P4-QA-01 assessed the existing 425-test backend suite against all six named concerns before
+      writing anything new — filled two genuine gaps (a foreign-garden `plant` task target, and
+      timezone-boundary round-trips for `acquisitionDate`/`dueDate`), added the one legitimate
+      recurrence test (opaque round-trip, not expansion — no expansion engine exists to test),
+      correctly left concurrent-edits/locale-units/cross-client-consistency untouched since each was
+      already genuinely covered — 425 → 430 tests
+
+## Deferred with reason
+
+| Item                                                                | Reason                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P4-OBS-01 (privacy-safe product events)                             | Blocked on `P0-SEC-01`, still "Partially decided" — no consent model exists to build a consent-gated analytics event catalog against. No product-analytics/consent infrastructure exists anywhere in this codebase either (`platform/audit` is a compliance audit trail, `platform/telemetry` is operational tracing — neither is a consumer-analytics system). Building one with an invented consent model would be worse than not building it; this is a documented deferral, not an oversight. |
+| `GET /gardens/{gardenId}/plants` client wiring                      | The backend gap is closed (P4-SEARCH-01), but neither `apps/web/features/plants/queries.ts` nor `apps/ios/Sources/FeaturePlants/PlantsHomeView.swift` was updated to call it — both still carry the now-stale "no list operation" comment from before this endpoint existed. Real, contained follow-up work against an already-tested endpoint, not a design gap.                                                                                                                                 |
+| Photo-identification and photo-analysis ML services                 | `identifyPlantFromPhoto` and `analyzeObservationPhoto` are honest, clearly-labeled placeholders (always "no suggestion, zero confidence") — no real ML service exists for either. `AddPlantFromPhoto`/`RecordObservation` never treat the stub as a real signal. Building a real service is out of scope for Phase 4 and has no owning work package yet.                                                                                                                                          |
+| Photo-attachment and file-attachment client UI                      | Same media-upload gap `docs/development/deferred-capabilities.md` documents for Phase 3/6: five gateway methods are implemented and tested at the contract layer, but nothing produces a real `mediaId` for them to use yet (`P6-API-01`).                                                                                                                                                                                                                                                        |
+| `postgis` on a fresh (non-`verdery-dev`) environment's first deploy | Diagnosing the real `pg_trgm` deploy failure (see Defects below) found that `postgis` — not a Postgres "trusted" extension, unlike `pg_trgm` — needs real elevated privilege the least-privilege migration identity does not have and this session's fix does not grant. Currently latent because `verdery-dev` already has postgis installed from Phase 1; would resurface on `verdery-staging`/`verdery-prod`'s first deploy. No owning work package yet.                                       |
+| G4 approval                                                         | A repository-owner decision, not an automatic consequence of implementation and test evidence — see Review below                                                                                                                                                                                                                                                                                                                                                                                  |
+
+## Review
+
+Every Phase 4 work package with a real producer today is implemented and verified against real
+systems: real PostgreSQL (migrations and integration tests via Testcontainers), Swift built and
+tested against CI's pinned toolchain, and — for the one defect that reached it — the real
+`verdery-dev` Cloud SQL instance itself, not just a local approximation of it. P4-OBS-01 has no
+producer this session by deliberate, documented choice, not a gap in verification. G4 approval itself
+is a decision for the repository owner to record, not something this session claims on its own.
+
+### Verified evidence
+
+| Check                                                                                 | Result                                                                                                                                                                                                                                                                |
+| ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm check:all`                                                                      | passes: format, lint, typecheck (6/6 workspace projects), the 600-line file-size rule, 861 tests across 111 files in 6 workspace packages (`services/api` 430, `apps/web` 298, `geometry-contracts` 96, `test-fixtures` 18, `api-contracts` 15, `services/workers` 4) |
+| `swift build && swift test` (apps/ios)                                                | local: `swift test --skip FeatureMapTests` passes (161 tests, 31 suites) — the pre-existing, CI-confirmed-benign `FeatureMapTests` SIGBUS flake (see Phase 3's Known limitations) is unrelated to any Phase 4 change                                                  |
+| CI on `master` (`b51c1d1`, "Swift package" job)                                       | passes the full, unfiltered suite: **352 tests in 49 suites** — the authoritative signal, per the established "CI's pinned toolchain, not local repro" precedent                                                                                                      |
+| CI on `master` (`b51c1d1`, all gates)                                                 | passes: secret scan, formatting/file-size, lint/types/tests, Swift package, all-gates summary                                                                                                                                                                         |
+| Live deploy verification: `Deploy to development` (run `30000970389`)                 | real, full pipeline against `verdery-dev` — build, migrate, deploy, and a live-request check — all green end to end, including the migration this session's own defect fix unblocked                                                                                  |
+| Live migration verification (Cloud Run job execution `verdery-api-dev-migrate-lqp6w`) | `1784950000000_search-indexes` applied for real against the real `verdery-dev` database — confirmed via Cloud Logging: `pg_trgm` installed, all four trigram GIN indexes created                                                                                      |
+
+### Defects found and fixed during this session
+
+1. **Neither client had a plants list.** `SearchPlants` (P4-SEARCH-01) closes the backend gap; both
+   clients' own code comments had documented the absence, and both fell back to create-then-navigate
+   or open-by-id. Client wiring itself is left open — see Deferred with reason.
+2. **`pg_trgm` extension creation ordering.** `CREATE EXTENSION pg_trgm` after `SET ROLE
+verdery_migration` fails: `ERROR: permission denied to create extension "pg_trgm" — Must have
+CREATE privilege on current database`, since the least-privilege migration role only holds
+   schema-level `CREATE`, never database-level. Fixed in the migration by moving extension creation
+   before the role switch, mirroring how PostGIS is installed in the platform baseline — confirmed
+   via a real failing-then-passing Testcontainers test run.
+3. **The same `pg_trgm` failure reproduced against the real `verdery-dev` database**, even after fix
+   #2 above: the migration's own comment claiming this ordering was "confirmed directly against a
+   real Postgres 17 instance" was true for Testcontainers (which connects as an actual superuser) but
+   not for the automated pipeline's real least-privilege Cloud SQL IAM identity — a gap Testcontainers
+   structurally cannot catch. Confirmed via Cloud Logging on a real failed deploy. Root-caused (`pg_trgm`
+   is a Postgres "trusted" extension — needs database-level `CREATE`, not superuser — confirmed with a
+   local, non-superuser reproduction before touching live infrastructure) and fixed by extending
+   `infrastructure/gcloud/scripts/07-iam-database-bootstrap.sh` with a targeted `GRANT CREATE ON
+DATABASE ... TO verdery_migration`, applied for real against `verdery-dev` and verified by
+   re-executing the previously-failed migration job (succeeded) and a full manual `Deploy to
+development` run (green end to end). A mistake made while applying this fix — running the bootstrap
+   script against the wrong service account (`verdery-dev-deployer`, the CI/CD caller identity, instead
+   of `verdery-dev-api-runtime`, the identity that actually connects to Postgres) — granted
+   `verdery-dev-deployer` an unnecessary Cloud SQL IAM database user and role membership; the core fix
+   still worked (granted at the role level, inherited by the correct identity), but the mistake itself
+   was found, reported, and cleaned up (the extra IAM user fully removed) in the same session, confirmed
+   by listing the instance's users afterward.
+4. **A latent, unrelated bug in the same infrastructure script**: an unescaped backtick pair around
+   `` `id` `` in an existing SQL comment triggered real bash command substitution (the enclosing
+   heredoc is unquoted) — silently replacing that comment's text with the local `id` command's output
+   on every run. Cosmetic only (never reached the SQL Postgres actually executed), but a real bug,
+   found and fixed while already editing this exact file.
+5. **Three genuine iOS UX gaps**, found by P4-DESIGN-01's validation pass and fixed the same session:
+   an existing plant's taxonomy identification was completely invisible outside the creation flow
+   (`PlantDetailView` never read `taxonomyReferenceId`); the edit form's quantity field was not gated
+   by `groupingKind`, unlike web and unlike iOS's own creation flow, so an individual plant's edit form
+   let a user type a quantity the server would then reject; observation corrections never surfaced
+   which observation they corrected (`correctsObservationId` existed on the model but nothing read it),
+   unlike web. Verified via new tests plus a real CI run (352/49, including these).
+6. **Two genuine backend test gaps**, found and filled by P4-QA-01: `tasks-recommendations` had no
+   integration test rejecting a foreign-garden `plant` task target (only `garden_area` was covered,
+   despite the enforcement code already covering both); `GetPlant`'s documented "wrong garden = 404,
+   same as no such plant" security shape had zero test coverage (only "doesn't exist at all" was
+   tested).
+7. **A pre-existing fixture bug** in `plants-inventory-photos-identification.test.ts` — two rows
+   sharing one low-entropy id suffix — found and fixed by the search agent as a side effect of
+   unrelated work.
+
+### Known limitations
+
+- P4-OBS-01 has no implementation this session — see Deferred with reason. This is a deliberate,
+  documented choice tied to `P0-SEC-01`, not an oversight.
+- Neither client lists a garden's plant inventory yet, despite the backend now supporting it — see
+  Deferred with reason.
+- Photo-identification and photo-analysis are honest placeholders, not real ML services — see
+  Deferred with reason.
+- Photo-attachment and file-attachment commands exist at the gateway layer on both clients but have
+  no UI — the same media-upload gap already documented for Phase 3/6.
+- A fresh (non-`verdery-dev`) environment's first deploy would still fail installing `postgis` for
+  the same class of reason `pg_trgm` did, unfixed by this session's grant (`postgis` is not a
+  trusted extension) — currently invisible only because `verdery-dev` already has it installed.
+- The local `swift test` SIGBUS flake (root-caused and CI-confirmed benign in Phase 3/4, see
+  `apps/ios/README.md`) remains present and unrelated to any Phase 4 change; use
+  `swift test --skip FeatureMapTests` locally, and trust CI's full-suite run as authoritative.
+- `Task.recurrenceRule` is stored opaquely and never parsed, expanded, or validated — by design, not
+  a gap this phase owns. No recurrence-expansion engine exists anywhere in this codebase yet.

@@ -109,6 +109,34 @@ way, though the contract already lets a note and/or a condition summary stand on
 photo, so recording an observation itself is not blocked. This unblocks with `P6-API-01` (media
 registration and upload).
 
+**Photo-identification and photo-analysis ML services.** `plants-inventory`'s `identifyPlantFromPhoto`
+and `observations-history`'s `analyzeObservationPhoto` are honest, clearly-labeled placeholders —
+always "no suggestion, zero confidence" — not disguised guesses. `AddPlantFromPhoto` and
+`RecordObservation` both treat the stub result as exactly that: `plant.taxonomyReferenceId` never
+auto-confirms from a photo, and an observation's `suggestedLabel` never claims automated analysis
+happened. Building a real service is out of scope for Phase 4 and has no owning work package yet.
+
+**`GET /gardens/{gardenId}/plants` exists but no client calls it.** `P4-SEARCH-01` closed the
+backend gap both clients' Phase 4 code had documented (no way to list a garden's plant inventory —
+each fell back to create-then-navigate or open-by-id). Neither `apps/web/features/plants/queries.ts`
+nor `apps/ios/Sources/FeaturePlants/PlantsHomeView.swift` was updated to call the new endpoint; both
+still cite the now-stale "no list operation" rationale in their own comments. A real, if contained,
+follow-up: build the list view against an endpoint that already exists and is already tested.
+
+**A fresh environment's first deploy would hit the same class of failure `P4-SEARCH-01` hit for
+`pg_trgm`, for `postgis`.** `1784710800000_platform-baseline.sql`'s `CREATE EXTENSION postgis`
+needs real elevated privilege (not a Postgres "trusted" extension, unlike `pg_trgm` — confirmed by a
+local, non-superuser reproduction while diagnosing the `pg_trgm` failure below), which the automated
+deploy pipeline's least-privilege Cloud SQL IAM identity does not have and
+`07-iam-database-bootstrap.sh`'s new `GRANT CREATE ON DATABASE ... TO verdery_migration` cannot grant
+(that grant only covers trusted extensions). This is currently invisible on `verdery-dev` because
+postgis is already installed there from Phase 1, so `CREATE EXTENSION IF NOT EXISTS postgis` is
+already a no-op every time this migration re-runs. It would resurface on `verdery-staging` or
+`verdery-prod`'s first-ever deploy. No work package owns this yet; the fix, when one of those
+environments is actually provisioned, is a one-time privileged `CREATE EXTENSION postgis` run via
+the same break-glass-superuser mechanism `07-iam-database-bootstrap.sh` already uses, before the
+first automated migration run.
+
 **The Phase 2 E2E suite does not run in CI.** `apps/web/e2e/` (Playwright against a real Postgres,
 the Firebase Auth emulator, the real API, and the real web app, orchestrated by
 `apps/web/e2e/run-e2e.sh`) is verified locally but not wired into `.github/workflows/ci.yml`: it
