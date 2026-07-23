@@ -20,4 +20,10 @@ public actor InMemorySyncOperationResultStore: SyncOperationResultStore {
             .filter { $0.gardenId == gardenId }
             .sorted { $0.receivedAt > $1.receivedAt }
     }
+
+    public func removeAll(gardenId: String) async throws {
+        for (operationId, result) in resultsByOperation where result.gardenId == gardenId {
+            resultsByOperation[operationId] = nil
+        }
+    }
 }

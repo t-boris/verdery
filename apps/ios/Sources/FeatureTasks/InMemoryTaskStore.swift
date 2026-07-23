@@ -82,4 +82,11 @@ public actor InMemoryTaskStore: LocalTaskStore {
         // server-confirmed overwrite once it is confirmed.
         pendingTaskIds.remove(taskId)
     }
+
+    public func removeAll(gardenId: String) async throws {
+        for id in tasks.values.filter({ $0.gardenId == gardenId }).map(\.id) {
+            tasks.removeValue(forKey: id)
+            pendingTaskIds.remove(id)
+        }
+    }
 }

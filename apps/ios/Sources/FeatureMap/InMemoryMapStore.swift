@@ -73,4 +73,11 @@ public actor InMemoryMapStore: LocalMapStore {
             return
         }
     }
+
+    public func removeAll(gardenId: String) async throws {
+        for objectId in (objectsByGardenId[gardenId] ?? [:]).keys {
+            pendingObjectIds.remove(objectId)
+        }
+        objectsByGardenId[gardenId] = nil
+    }
 }

@@ -73,4 +73,37 @@ struct MapSyncRecordApplierTests {
 
         #expect(try await store.fetchAll(gardenId: "garden-1").isEmpty)
     }
+
+    @Test("removeGardenScopedData removes every object for the garden, even with a pending offline mutation queued, and leaves other gardens untouched")
+    func removeGardenScopedDataRemovesEveryObjectUnconditionally() async throws {
+        let store = InMemoryMapStore()
+        try await store.save(GardenMapObject(
+            id: "obj-confirmed", gardenId: "garden-1", category: .tree, geometry: .point(Position(x: 0, y: 0)),
+            coordinateSpaceId: "space-1", label: nil, categoryDetails: nil, lifecycleState: .active,
+            revision: 1, createdAt: Date(timeIntervalSince1970: 0), updatedAt: Date(timeIntervalSince1970: 0)
+        ))
+        _ = try await store.commitOfflineMutation(gardenId: "garden-1") { _ in
+            let pending = GardenMapObject(
+                id: "obj-pending", gardenId: "garden-1", category: .tree, geometry: .point(Position(x: 1, y: 1)),
+                coordinateSpaceId: "space-1", label: nil, categoryDetails: nil, lifecycleState: .active,
+                revision: 0, createdAt: Date(timeIntervalSince1970: 0), updatedAt: Date(timeIntervalSince1970: 0)
+            )
+            return ([pending], OutboxOperation(
+                id: "op-1", profileId: "profile-1", gardenId: "garden-1", commandType: "map.createObject",
+                commandVersion: 1, targetRecordIds: ["obj-pending"], expectedRevision: nil,
+                payload: #"{"recordType":"gardenObject"}"#, createdAt: Date(timeIntervalSince1970: 0)
+            ))
+        }
+        try await store.save(GardenMapObject(
+            id: "obj-other-garden", gardenId: "garden-2", category: .tree, geometry: .point(Position(x: 2, y: 2)),
+            coordinateSpaceId: "space-1", label: nil, categoryDetails: nil, lifecycleState: .active,
+            revision: 1, createdAt: Date(timeIntervalSince1970: 0), updatedAt: Date(timeIntervalSince1970: 0)
+        ))
+        let applier = MapSyncRecordApplier(localStore: store)
+
+        try await applier.removeGardenScopedData(gardenId: "garden-1")
+
+        #expect(try await store.fetchAll(gardenId: "garden-1").isEmpty)
+        #expect(try await store.fetchAll(gardenId: "garden-2").map(\.id) == ["obj-other-garden"])
+    }
 }

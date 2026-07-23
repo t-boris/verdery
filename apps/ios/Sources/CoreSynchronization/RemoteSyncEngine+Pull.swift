@@ -138,6 +138,21 @@ extension RemoteSyncEngine {
     /// skipped, not an error, the same "not this client's job to project
     /// locally" posture push already takes.
     private func apply(_ item: SyncChange) async throws {
+        // A `garden`/`delete` change is the access-revocation tombstone
+        // (architecture/offline-synchronization.md, section "11.
+        // Authorization Changes") — `item.recordId` names the garden itself
+        // for this one record type (`GetSyncChanges`'s own server-side
+        // comment: "the record IS the garden"), so it is also the cascade's
+        // own `gardenId` scope. Runs BEFORE the ordinary single-applier
+        // dispatch below, though order has no observable effect today:
+        // `GardenSyncRecordApplier.applyDelete` stays the documented no-op
+        // it already was — this cascade, not that method, is what actually
+        // removes the garden's own local row now (via its own
+        // `removeGardenScopedData(gardenId:)` conformance).
+        if item.recordType == "garden", item.operation == .delete {
+            try await removeGardenPartition(gardenId: item.recordId)
+        }
+
         guard let applier = appliersByRecordType[item.recordType] as? any SyncPullRecordApplier else {
             return
         }
@@ -156,6 +171,60 @@ extension RemoteSyncEngine {
         case .delete:
             try await applier.applyDelete(recordId: item.recordId, gardenId: item.gardenId, revision: item.recordRevision)
         }
+    }
+
+    /// The garden-partition cascade reaction to a `garden`/`delete` pull
+    /// change (P5-SEC-01) — see `CoreSynchronization.SyncRecordApplier
+    /// .removeGardenScopedData(gardenId:)`'s own doc comment for the full
+    /// per-applier contract this calls, once per registered applier,
+    /// regardless of pull capability. `CoreSynchronization` never learns what
+    /// `garden_object`/`plant`/`observation`/`task` are as concrete types
+    /// here — only that every registered `SyncRecordApplier` owns some table
+    /// scoped by `gardenId` and knows how to clear its own share of it.
+    ///
+    /// Also runs the two pieces of matching generic infrastructure this
+    /// engine already owns directly, the same way `apply(_:to:)` already
+    /// resolves `conflict`/`rejected` push outcomes without any feature
+    /// applier involved:
+    ///
+    /// - Drops every still-pending `sync_outbox` row for the garden — "stop
+    ///   stale pushes" (architecture/offline-synchronization.md, section
+    ///   "11. Authorization Changes": "Pending operations against the garden
+    ///   become rejected and cannot be retried under stale authorization").
+    ///   The server already independently rejects a push against a garden
+    ///   the caller lost membership on (every push route's own
+    ///   `requireCapability`/`findActiveMembership` check, confirmed by
+    ///   inspection — see this stage's own report), so this is a purely
+    ///   client-side optimization: it avoids a guaranteed-futile round trip
+    ///   and the transient "requires attention" status a rejected outcome
+    ///   would otherwise show for an already-known-unrecoverable operation,
+    ///   not a security boundary the server does not already enforce on its
+    ///   own.
+    /// - Drops every stale `SyncOperationResult` row for the garden —
+    ///   operational bookkeeping for outbox operations this step just
+    ///   removed, not itself "recovery information."
+    ///
+    /// Deliberately does NOT touch `conflictStore`: architecture/offline-
+    /// synchronization.md, section "11. Authorization Changes" — "The client
+    /// removes protected local garden data after preserving only
+    /// policy-approved conflict or export recovery information" — matches
+    /// section "15. Local Conflict Recovery"'s own framing of a
+    /// `SyncConflict` as durable recovery information (original operation,
+    /// both representations, suggested recovery actions), not operational
+    /// bookkeeping. A conflict recorded for this garden stays exactly as
+    /// durable as it already was; P5-CONFLICT-01 (a separate work package,
+    /// out of this stage's scope) is what eventually gives a user any UI to
+    /// review or export it after the garden itself is gone.
+    private func removeGardenPartition(gardenId: String) async throws {
+        for applier in appliersByRecordType.values {
+            try await applier.removeGardenScopedData(gardenId: gardenId)
+        }
+
+        for operation in try await outboxStore.fetchPending(gardenId: gardenId) {
+            try await outboxStore.remove(operationId: operation.id)
+        }
+
+        try await operationResultStore.removeAll(gardenId: gardenId)
     }
 
     /// Whether `error` is one of the two stable `409` codes architecture/

@@ -231,4 +231,38 @@ struct ObservationOfflineMutationTests {
 
         #expect(try await store.fetchPending(gardenId: "garden-1").isEmpty)
     }
+
+    /// P5-SEC-01: `removeAll(gardenId:)` is the garden-partition cascade's
+    /// own removal method, scoped by garden.
+    @Test("removeAll deletes every pending observation for the garden, leaving other gardens untouched")
+    func removeAllDeletesEveryPendingObservationForGarden() async throws {
+        let dbQueue = try makeDatabase()
+        let store = GRDBObservationStore(dbQueue: dbQueue)
+        _ = try await store.commitOfflineAppend(
+            observation(id: "obs-1", gardenId: "garden-1"),
+            operation: operation(id: "op-1", observationId: "obs-1", gardenId: "garden-1")
+        )
+        _ = try await store.commitOfflineAppend(
+            observation(id: "obs-2", gardenId: "garden-2"),
+            operation: operation(id: "op-2", observationId: "obs-2", gardenId: "garden-2")
+        )
+
+        try await store.removeAll(gardenId: "garden-1")
+
+        #expect(try await store.fetchPending(gardenId: "garden-1").isEmpty)
+        #expect(try await store.fetchPending(gardenId: "garden-2").map(\.id) == ["obs-2"])
+    }
+
+    @Test("removeAll is a silent no-op for a garden this device has no local rows for")
+    func removeAllNoOpForUnknownGarden() async throws {
+        let dbQueue = try makeDatabase()
+        let store = GRDBObservationStore(dbQueue: dbQueue)
+        _ = try await store.commitOfflineAppend(
+            observation(id: "obs-1"), operation: operation(id: "op-1", observationId: "obs-1")
+        )
+
+        try await store.removeAll(gardenId: "unknown")
+
+        #expect(try await store.fetchPending(gardenId: "garden-1").map(\.id) == ["obs-1"])
+    }
 }

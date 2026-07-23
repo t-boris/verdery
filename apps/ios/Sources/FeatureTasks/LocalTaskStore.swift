@@ -81,6 +81,17 @@ public protocol LocalTaskStore: Sendable {
     /// Called only by `CoreSynchronization.RemoteSyncEngine`, through
     /// `TaskSyncRecordApplier` (P5-IOS-03, Stage 5a).
     func confirmSynced(taskId: String, revision: Int) async throws
+
+    /// Removes every local `task` row for `gardenId`, unconditionally —
+    /// including any task with a pending offline mutation still queued,
+    /// unlike `save(_:)`/`delete(taskId:)`/`replaceAll(gardenId:with:)`
+    /// above. Called only by `CoreSynchronization.RemoteSyncEngine`, through
+    /// `TaskSyncRecordApplier.removeGardenScopedData(gardenId:)`
+    /// (P5-SEC-01), as part of the cascade reaction to `gardenId`'s own
+    /// access-revocation tombstone — see that protocol requirement's own doc
+    /// comment for why "except when pending" does not apply here. A silent
+    /// no-op when this device has no local rows for `gardenId`.
+    func removeAll(gardenId: String) async throws
 }
 
 public struct GRDBTaskStore: LocalTaskStore {
@@ -184,6 +195,12 @@ public struct GRDBTaskStore: LocalTaskStore {
                 sql: "UPDATE \(TaskRecord.databaseTableName) SET revision = ? WHERE id = ?",
                 arguments: [revision, taskId]
             )
+        }
+    }
+
+    public func removeAll(gardenId: String) async throws {
+        try await dbQueue.write { db in
+            _ = try TaskRecord.filter(Column("gardenId") == gardenId).deleteAll(db)
         }
     }
 

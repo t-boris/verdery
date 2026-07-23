@@ -87,4 +87,29 @@ struct SyncOperationResultStoreTests {
 
         #expect(results.map(\.operationId) == ["op-b", "op-a"])
     }
+
+    /// P5-SEC-01: `removeAll(gardenId:)` — the garden-partition cascade's own
+    /// cleanup of stale outcome bookkeeping once a garden's outbox
+    /// operations themselves are swept away.
+    @Test("removeAll deletes every result for one garden, leaving other gardens untouched")
+    func removeAllDeletesResultsForOneGarden() async throws {
+        let store = GRDBSyncOperationResultStore(dbQueue: try makeDatabase())
+        try await store.record(
+            SyncOperationResult(
+                operationId: "op-a", gardenId: "garden-1", outcome: .rejected,
+                receivedAt: Date(timeIntervalSince1970: 0)
+            )
+        )
+        try await store.record(
+            SyncOperationResult(
+                operationId: "op-b", gardenId: "garden-2", outcome: .rejected,
+                receivedAt: Date(timeIntervalSince1970: 0)
+            )
+        )
+
+        try await store.removeAll(gardenId: "garden-1")
+
+        #expect(try await store.fetchAll(gardenId: "garden-1").isEmpty)
+        #expect(try await store.fetchAll(gardenId: "garden-2").map(\.operationId) == ["op-b"])
+    }
 }

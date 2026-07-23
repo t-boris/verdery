@@ -35,18 +35,24 @@ public struct GardenSyncRecordApplier: SyncRecordApplier, SyncPullRecordApplier 
 
     /// A deliberate no-op, not an oversight: a `garden`/`delete` change is
     /// the access-revocation tombstone (architecture/offline-
-    /// synchronization.md, section "11. Authorization Changes"), and
-    /// "removing protected local garden data" is explicitly P5-SEC-01's own,
-    /// later work package — see `CoreSynchronization.RemoteSyncEngine+Pull
-    /// .swift`'s own header comment for why this stage stops at correctly
-    /// DELIVERING and durably RECORDING that the tombstone was pulled (the
-    /// cursor still advances past it, in `applyPage(_:)`) rather than
-    /// reacting to it. Reacting would mean deciding what "protected local
-    /// data" means for a garden's own row here — plausibly defensible on its
-    /// own — but P5-SEC-01 is also expected to decide the SAME question for
-    /// `garden_object`/`plant`/`observation`/`task` rows still cached under
-    /// this garden, which this method has no way to reach or coordinate
-    /// with; doing one third of that job here, ahead of the rest, would be
-    /// a partial, inconsistent reaction rather than a complete one.
+    /// synchronization.md, section "11. Authorization Changes"). Reacting to
+    /// it — removing this garden's own local row, and every
+    /// `garden_object`/`plant`/`observation`/`task` row still cached under
+    /// it — is now P5-SEC-01's own `removeGardenScopedData(gardenId:)`
+    /// below, invoked directly by `RemoteSyncEngine+Pull.swift`'s own
+    /// garden-partition cascade for EVERY registered applier the moment a
+    /// `garden`/`delete` change is seen, not routed back through this
+    /// ordinary single-applier `applyDelete` dispatch — see that cascade's
+    /// own doc comment for why. This method stays a no-op so the cascade
+    /// remains the one, coherent place that reaction happens, rather than
+    /// splitting "remove the garden's own row" across two call sites.
     public func applyDelete(recordId: String, gardenId: String?, revision: Int) async throws {}
+
+    /// The one case among this codebase's five `removeGardenScopedData`
+    /// conformers where `gardenId` names the applier's OWN record, not a
+    /// record scoped underneath it (see that protocol requirement's own doc
+    /// comment) — removes the garden's own local row.
+    public func removeGardenScopedData(gardenId: String) async throws {
+        try await localStore.remove(gardenId: gardenId)
+    }
 }

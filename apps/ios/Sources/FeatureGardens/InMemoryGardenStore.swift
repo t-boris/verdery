@@ -62,4 +62,9 @@ public actor InMemoryGardenStore: LocalGardenStore {
         // garden from a server-confirmed overwrite once it is confirmed.
         pendingGardenIds.remove(gardenId)
     }
+
+    public func remove(gardenId: String) async throws {
+        gardens[gardenId] = nil
+        pendingGardenIds.remove(gardenId)
+    }
 }

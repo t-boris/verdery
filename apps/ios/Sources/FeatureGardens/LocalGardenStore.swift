@@ -56,6 +56,17 @@ public protocol LocalGardenStore: Sendable {
     /// `GardenSyncRecordApplier` (P5-IOS-03, Stage 5a) — see that type's own
     /// doc comment.
     func confirmSynced(gardenId: String, revision: Int) async throws
+
+    /// Removes this garden's own local row, unconditionally — including when
+    /// a pending offline mutation is still queued for it, unlike every other
+    /// method above. Called only by `CoreSynchronization.RemoteSyncEngine`,
+    /// through `GardenSyncRecordApplier.removeGardenScopedData(gardenId:)`
+    /// (P5-SEC-01), as part of the cascade reaction to this garden's own
+    /// access-revocation tombstone — see that protocol requirement's own doc
+    /// comment for why "except when pending" does not apply here the way it
+    /// does to `save(_:)`/`replaceAll(with:)`. A silent no-op when this
+    /// device has no local row for `gardenId`.
+    func remove(gardenId: String) async throws
 }
 
 public struct GRDBGardenStore: LocalGardenStore {
@@ -154,6 +165,12 @@ public struct GRDBGardenStore: LocalGardenStore {
                 sql: "UPDATE \(GardenRecord.databaseTableName) SET revision = ? WHERE id = ?",
                 arguments: [revision, gardenId]
             )
+        }
+    }
+
+    public func remove(gardenId: String) async throws {
+        try await dbQueue.write { db in
+            _ = try GardenRecord.deleteOne(db, key: gardenId)
         }
     }
 }

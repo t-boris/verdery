@@ -15,6 +15,16 @@ public protocol SyncOperationResultStore: Sendable {
 
     /// Every recorded outcome for one garden, most recently received first.
     func fetchAll(gardenId: String) async throws -> [SyncOperationResult]
+
+    /// Removes every recorded outcome for one garden — part of
+    /// `CoreSynchronization.RemoteSyncEngine`'s garden-partition cascade
+    /// reaction to an access-revocation tombstone (P5-SEC-01): once a
+    /// garden's outbox operations are themselves swept away, the outcome
+    /// bookkeeping tied to them has nothing left to describe. Deliberately
+    /// distinct from `SyncConflictStore`, which has no matching removal
+    /// method — see `RemoteSyncEngine+Pull.swift`'s own doc comment for why
+    /// a conflict record is preserved, not removed, by that same cascade.
+    func removeAll(gardenId: String) async throws
 }
 
 public struct GRDBSyncOperationResultStore: SyncOperationResultStore {
@@ -43,6 +53,12 @@ public struct GRDBSyncOperationResultStore: SyncOperationResultStore {
                 .order(Column("receivedAt").desc)
                 .fetchAll(db)
                 .compactMap(\.domainValue)
+        }
+    }
+
+    public func removeAll(gardenId: String) async throws {
+        try await dbQueue.write { db in
+            _ = try SyncOperationResultRecord.filter(Column("gardenId") == gardenId).deleteAll(db)
         }
     }
 }

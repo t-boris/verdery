@@ -29,4 +29,8 @@ public actor InMemoryObservationStore: LocalObservationStore {
             observationsByGardenId[gardenId] = observations.filter { $0.id != observationId }
         }
     }
+
+    public func removeAll(gardenId: String) async throws {
+        observationsByGardenId[gardenId] = nil
+    }
 }

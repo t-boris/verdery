@@ -216,6 +216,114 @@ struct RemoteSyncEnginePullTests {
         #expect(await applier.upsertedRecordIds.isEmpty)
     }
 
+    /// P5-SEC-01's own garden-partition cascade: a `garden`/`delete` change
+    /// must reach EVERY registered applier's `removeGardenScopedData(
+    /// gardenId:)` — not just the one applier whose `recordType` matches
+    /// `"garden"` — and must clear this garden's still-pending outbox rows
+    /// and stale operation-result rows while leaving a different garden's
+    /// own rows, and every conflict record, untouched.
+    @Test("A garden/delete change cascades removeGardenScopedData to every registered applier and sweeps only that garden's outbox/operation-result rows, preserving conflicts")
+    func gardenDeleteCascadesToEveryRegisteredApplier() async throws {
+        let gardenApplier = FakePullApplier(recordType: "garden")
+        let plantApplier = FakePullApplier(recordType: "plant")
+        let outboxStore = InMemorySyncOutboxStore()
+        let conflictStore = InMemorySyncConflictStore()
+        let operationResultStore = InMemorySyncOperationResultStore()
+        try await outboxStore.enqueue(OutboxOperation(
+            id: "op-revoked-garden", profileId: "profile-1", gardenId: "garden-1", commandType: "plants.addPlant",
+            commandVersion: 1, targetRecordIds: ["plant-1"], expectedRevision: nil,
+            payload: #"{"recordType":"plant"}"#, createdAt: Date(timeIntervalSince1970: 0)
+        ))
+        try await outboxStore.enqueue(OutboxOperation(
+            id: "op-other-garden", profileId: "profile-1", gardenId: "garden-2", commandType: "plants.addPlant",
+            commandVersion: 1, targetRecordIds: ["plant-2"], expectedRevision: nil,
+            payload: #"{"recordType":"plant"}"#, createdAt: Date(timeIntervalSince1970: 0)
+        ))
+        try await conflictStore.record(SyncConflict(
+            id: "conflict-1", originalOperationId: "op-x", gardenId: "garden-1", conflictCode: "staleRevision",
+            localRepresentation: "{}", serverRepresentation: "{}", suggestedRecoveryActions: [.keepServerVersion],
+            createdAt: Date(timeIntervalSince1970: 0)
+        ))
+        try await operationResultStore.record(SyncOperationResult(
+            operationId: "op-x", gardenId: "garden-1", outcome: .rejected, receivedAt: Date(timeIntervalSince1970: 0)
+        ))
+        try await operationResultStore.record(SyncOperationResult(
+            operationId: "op-y", gardenId: "garden-2", outcome: .rejected, receivedAt: Date(timeIntervalSince1970: 0)
+        ))
+        let gateway = FakePullSyncGateway()
+        await gateway.enqueue(.success(SyncChangesPage(
+            items: [change(sequence: 1, recordId: "garden-1", operation: .delete)],
+            nextCursor: "cursor-1"
+        )))
+        let engine = RemoteSyncEngine(
+            outboxStore: outboxStore,
+            conflictStore: conflictStore,
+            operationResultStore: operationResultStore,
+            gateway: gateway,
+            clientInstallationStore: FakeClientInstallationIdentityStore(id: "install-1"),
+            cursorStore: InMemorySyncCursorStore(),
+            appliers: [gardenApplier, plantApplier],
+            appVersion: "1.0.0",
+            pullPageLimit: 100,
+            now: { Date(timeIntervalSince1970: 1_000) },
+            randomUnitInterval: { 1.0 }
+        )
+
+        try await engine.pullChanges()
+
+        // Every registered applier — including one whose own `recordType`
+        // ("plant") has nothing to do with the "garden" record type this
+        // change names — is called.
+        #expect(await gardenApplier.removedGardenIds == ["garden-1"])
+        #expect(await plantApplier.removedGardenIds == ["garden-1"])
+
+        // Only the revoked garden's outbox row is gone; the other garden's
+        // is untouched.
+        #expect(try await outboxStore.fetchPending(gardenId: "garden-1").isEmpty)
+        #expect(try await outboxStore.fetchAll().map(\.id) == ["op-other-garden"])
+
+        // Only the revoked garden's stale operation-result row is gone.
+        #expect(try await operationResultStore.fetchAll(gardenId: "garden-1").isEmpty)
+        #expect(try await operationResultStore.fetchAll(gardenId: "garden-2").map(\.operationId) == ["op-y"])
+
+        // The conflict record survives — architecture/offline-
+        // synchronization.md, section "11. Authorization Changes": "after
+        // preserving only policy-approved conflict or export recovery
+        // information."
+        #expect(try await conflictStore.fetchOpen(gardenId: "garden-1").map(\.id) == ["conflict-1"])
+    }
+
+    @Test("An ordinary (non-garden) delete change does not trigger the garden-partition cascade")
+    func nonGardenDeleteDoesNotCascade() async throws {
+        let gardenApplier = FakePullApplier(recordType: "garden")
+        let plantApplier = FakePullApplier(recordType: "plant")
+        let gateway = FakePullSyncGateway()
+        let plantDelete = SyncChange(
+            sequence: 1, gardenId: "garden-1", recordId: "plant-1", recordType: "plant",
+            operation: .delete, recordRevision: 2, committedAt: Date(timeIntervalSince1970: 0), snapshot: nil
+        )
+        await gateway.enqueue(.success(SyncChangesPage(items: [plantDelete], nextCursor: "cursor-1")))
+        let engine = RemoteSyncEngine(
+            outboxStore: InMemorySyncOutboxStore(),
+            conflictStore: InMemorySyncConflictStore(),
+            operationResultStore: InMemorySyncOperationResultStore(),
+            gateway: gateway,
+            clientInstallationStore: FakeClientInstallationIdentityStore(id: "install-1"),
+            cursorStore: InMemorySyncCursorStore(),
+            appliers: [gardenApplier, plantApplier],
+            appVersion: "1.0.0",
+            pullPageLimit: 100,
+            now: { Date(timeIntervalSince1970: 1_000) },
+            randomUnitInterval: { 1.0 }
+        )
+
+        try await engine.pullChanges()
+
+        #expect(await gardenApplier.removedGardenIds.isEmpty)
+        #expect(await plantApplier.removedGardenIds.isEmpty)
+        #expect(await plantApplier.deletedRecordIds == ["plant-1"])
+    }
+
     @Test("A genuine transport failure sets waitingForConnectivity and does not advance the cursor")
     func transportFailureSetsWaitingForConnectivity() async throws {
         let cursorStore = InMemorySyncCursorStore()
@@ -240,6 +348,7 @@ private actor FakePullApplier: SyncRecordApplier, SyncPullRecordApplier {
     nonisolated let recordType: String
     private(set) var upsertedRecordIds: [String] = []
     private(set) var deletedRecordIds: [String] = []
+    private(set) var removedGardenIds: [String] = []
 
     init(recordType: String) {
         self.recordType = recordType
@@ -254,6 +363,10 @@ private actor FakePullApplier: SyncRecordApplier, SyncPullRecordApplier {
 
     func applyDelete(recordId: String, gardenId: String?, revision: Int) async throws {
         deletedRecordIds.append(recordId)
+    }
+
+    func removeGardenScopedData(gardenId: String) async throws {
+        removedGardenIds.append(gardenId)
     }
 }
 

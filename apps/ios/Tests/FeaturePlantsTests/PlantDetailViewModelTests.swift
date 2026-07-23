@@ -181,6 +181,10 @@ struct PlantDetailViewModelTests {
         func confirmSynced(plantId: String, revision: Int) async throws {
             try await inner.confirmSynced(plantId: plantId, revision: revision)
         }
+
+        func removeAll(gardenId: String) async throws {
+            try await inner.removeAll(gardenId: gardenId)
+        }
     }
 
     /// A stale server revision can no longer be what causes `saveDetails` to

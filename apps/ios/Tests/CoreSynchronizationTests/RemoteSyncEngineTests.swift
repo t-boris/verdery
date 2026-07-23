@@ -515,6 +515,7 @@ private actor FakeSyncGateway: SyncGateway {
 private actor FakeSyncRecordApplier: SyncRecordApplier {
     nonisolated let recordType: String
     private(set) var confirmedCalls: [(recordId: String, revision: Int)] = []
+    private(set) var removedGardenIds: [String] = []
 
     init(recordType: String) {
         self.recordType = recordType
@@ -522,6 +523,10 @@ private actor FakeSyncRecordApplier: SyncRecordApplier {
 
     func applyConfirmed(recordId: String, revision: Int, confirmedAt: Date) async throws {
         confirmedCalls.append((recordId: recordId, revision: revision))
+    }
+
+    func removeGardenScopedData(gardenId: String) async throws {
+        removedGardenIds.append(gardenId)
     }
 }
 

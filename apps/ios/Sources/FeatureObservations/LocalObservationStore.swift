@@ -72,6 +72,19 @@ public protocol LocalObservationStore: Sendable {
     /// Called only by `CoreSynchronization.RemoteSyncEngine`, through
     /// `ObservationSyncRecordApplier` (P5-IOS-03, Stage 5a).
     func markSynced(observationId: String) async throws
+
+    /// Removes every local pending observation row for `gardenId`. Unlike
+    /// every sibling `Local*Store.removeAll(gardenId:)` this method mirrors,
+    /// there is no "except when pending" guard to skip here even in
+    /// principle: every row this store ever holds already IS this device's
+    /// own not-yet-synced trace (`fetchPending(gardenId:)`'s own doc
+    /// comment) — there is no other kind of row to distinguish it from.
+    /// Called only by `CoreSynchronization.RemoteSyncEngine`, through
+    /// `ObservationSyncRecordApplier.removeGardenScopedData(gardenId:)`
+    /// (P5-SEC-01), as part of the cascade reaction to `gardenId`'s own
+    /// access-revocation tombstone. A silent no-op when this device has no
+    /// local rows for `gardenId`.
+    func removeAll(gardenId: String) async throws
 }
 
 public struct GRDBObservationStore: LocalObservationStore {
@@ -115,6 +128,12 @@ public struct GRDBObservationStore: LocalObservationStore {
                 sql: "DELETE FROM \(ObservationRecord.databaseTableName) WHERE id = ?",
                 arguments: [observationId]
             )
+        }
+    }
+
+    public func removeAll(gardenId: String) async throws {
+        try await dbQueue.write { db in
+            _ = try ObservationRecord.filter(Column("gardenId") == gardenId).deleteAll(db)
         }
     }
 }

@@ -66,4 +66,31 @@ struct TaskSyncRecordApplierTests {
 
         #expect(try await store.fetchAll(gardenId: "garden-1").isEmpty)
     }
+
+    @Test("removeGardenScopedData removes every task for the garden, even with a pending offline mutation queued, and leaves other gardens untouched")
+    func removeGardenScopedDataRemovesEveryTaskUnconditionally() async throws {
+        let store = InMemoryTaskStore()
+        try await store.save(task(id: "task-confirmed"))
+        _ = try await store.commitOfflineMutation(taskId: "task-pending") { _ in
+            (task(id: "task-pending"), OutboxOperation(
+                id: "op-1", profileId: "profile-1", gardenId: "garden-1", commandType: "tasks.createManualTask",
+                commandVersion: 1, targetRecordIds: ["task-pending"], expectedRevision: nil,
+                payload: #"{"recordType":"task"}"#, createdAt: Date(timeIntervalSince1970: 0)
+            ))
+        }
+        let otherGardenTask = GardenTask(
+            id: "task-other-garden", gardenId: "garden-2", targetKind: .garden, targetGardenAreaMapObjectId: nil,
+            targetPlantId: nil, title: "Weed the beds", notes: nil, status: .planned, dueDate: nil,
+            timeWindowStart: nil, timeWindowEnd: nil, recurrenceRule: nil, urgency: .normal, source: .manual,
+            originObservationId: nil, revision: 1, createdByProfileId: "profile-1",
+            createdAt: Date(timeIntervalSince1970: 0), updatedAt: Date(timeIntervalSince1970: 0), completedAt: nil
+        )
+        try await store.save(otherGardenTask)
+        let applier = TaskSyncRecordApplier(localStore: store)
+
+        try await applier.removeGardenScopedData(gardenId: "garden-1")
+
+        #expect(try await store.fetchAll(gardenId: "garden-1").isEmpty)
+        #expect(try await store.fetchAll(gardenId: "garden-2").map(\.id) == ["task-other-garden"])
+    }
 }

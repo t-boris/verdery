@@ -271,4 +271,36 @@ struct PlantOfflineMutationTests {
 
         #expect(try await store.fetch(plantId: "unknown") == nil)
     }
+
+    /// P5-SEC-01: `removeAll(gardenId:)` is the garden-partition cascade's
+    /// own unconditional removal — unlike `save(_:)`, a pending outbox
+    /// operation for one of these plants does NOT protect it, because a
+    /// revoked garden's pending operations can never be accepted.
+    @Test("removeAll deletes every plant for the garden, even one with a pending outbox operation queued, leaving other gardens untouched")
+    func removeAllDeletesEveryPlantUnconditionally() async throws {
+        let dbQueue = try makeDatabase()
+        let store = GRDBPlantStore(dbQueue: dbQueue)
+        try await store.save(plant(id: "plant-confirmed"))
+        _ = try await store.commitOfflineMutation(plantId: "plant-pending") { _ in
+            (self.plant(id: "plant-pending"), self.operation(id: "op-1", plantId: "plant-pending"))
+        }
+        try await store.save(plant(id: "plant-other-garden", gardenId: "garden-2"))
+
+        try await store.removeAll(gardenId: "garden-1")
+
+        #expect(try await store.fetch(plantId: "plant-confirmed") == nil)
+        #expect(try await store.fetch(plantId: "plant-pending") == nil)
+        #expect(try await store.fetch(plantId: "plant-other-garden") != nil)
+    }
+
+    @Test("removeAll is a silent no-op for a garden this device has no local rows for")
+    func removeAllNoOpForUnknownGarden() async throws {
+        let dbQueue = try makeDatabase()
+        let store = GRDBPlantStore(dbQueue: dbQueue)
+        try await store.save(plant(id: "plant-1"))
+
+        try await store.removeAll(gardenId: "unknown")
+
+        #expect(try await store.fetch(plantId: "plant-1") != nil)
+    }
 }

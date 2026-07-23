@@ -81,6 +81,10 @@ struct MapEditorViewModelSaveStatusTests {
         func confirmSynced(objectId: String, revision: Int) async throws {
             try await inner.confirmSynced(objectId: objectId, revision: revision)
         }
+
+        func removeAll(gardenId: String) async throws {
+            try await inner.removeAll(gardenId: gardenId)
+        }
     }
 
     @Test("saveStatus starts idle, before any command has been submitted")

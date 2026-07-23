@@ -51,6 +51,42 @@ public protocol SyncRecordApplier: Sendable {
     /// defensive posture every `Local*Store.save`/`replaceAll` method
     /// already takes toward a record it does not know about.
     func applyConfirmed(recordId: String, revision: Int, confirmedAt: Date) async throws
+
+    /// Removes every local row this applier owns that is scoped to
+    /// `gardenId` — the cascade reaction `RemoteSyncEngine+Pull.swift` runs,
+    /// once per registered applier, when a `garden`/`delete` pull change
+    /// arrives (the access-revocation tombstone architecture/offline-
+    /// synchronization.md, section "11. Authorization Changes" describes:
+    /// "The client removes protected local garden data..."). P5-SEC-01.
+    ///
+    /// Declared on this base protocol, not `SyncPullRecordApplier`:
+    /// `FeatureObservations.ObservationSyncRecordApplier` deliberately does
+    /// not conform to `SyncPullRecordApplier` (see that protocol's own doc
+    /// comment) but still owns local rows scoped to a garden — its own
+    /// pending observations — that must be swept away exactly like every
+    /// other applier's. Every one of the five registered appliers conforms
+    /// to `SyncRecordApplier`; only this method's existence, not pull
+    /// capability, is what the cascade needs.
+    ///
+    /// Unconditional, unlike `applyUpsert`/`applyDelete`'s own "except when a
+    /// pending local mutation exists" guard: a garden the caller has lost
+    /// access to has no path back to a state where that pending mutation
+    /// could ever be accepted (section 11: "Pending operations against the
+    /// garden become rejected and cannot be retried under stale
+    /// authorization") — so a still-pending row does not protect anything
+    /// here the way it protects against an ordinary, possibly-stale server
+    /// upsert. `RemoteSyncEngine+Pull.swift` separately, genuinely clears the
+    /// matching `sync_outbox` rows themselves — this method only owns this
+    /// applier's own local read-model table.
+    ///
+    /// `FeatureGardens.GardenSyncRecordApplier`'s own conformance is the one
+    /// case where `gardenId` names the applier's OWN record, not a record
+    /// scoped underneath it — its implementation removes the garden's own
+    /// local row. Every other conformer removes every row in its own table
+    /// where `gardenId` matches, the same scoping
+    /// `LocalMapStore.replaceAll(gardenId:with:)`/`LocalTaskStore
+    /// .replaceAll(gardenId:with:)` already use.
+    func removeGardenScopedData(gardenId: String) async throws
 }
 
 /// The additional capability some `SyncRecordApplier`s support: applying a

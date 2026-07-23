@@ -270,4 +270,39 @@ struct GardenOfflineMutationTests {
 
         #expect(try await store.fetchAll().isEmpty)
     }
+
+    /// P5-SEC-01: `remove(gardenId:)` is the garden-partition cascade's own
+    /// unconditional removal — unlike every method above, a pending outbox
+    /// operation for this garden does NOT protect it, because a revoked
+    /// garden's pending operations can never be accepted (architecture/
+    /// offline-synchronization.md, section "11. Authorization Changes").
+    @Test("remove deletes the garden's own row even with a pending outbox operation queued, leaving other gardens untouched")
+    func removeDeletesGardenUnconditionally() async throws {
+        let dbQueue = try makeDatabase()
+        let store = GRDBGardenStore(dbQueue: dbQueue)
+        _ = try await store.commitOfflineMutation(gardenId: "garden-1") { _ in
+            (self.garden(id: "garden-1"), self.operation(id: "op-1", gardenId: "garden-1"))
+        }
+        try await store.save(garden(id: "garden-2"))
+
+        try await store.remove(gardenId: "garden-1")
+
+        let remaining = try await store.fetchAll()
+        #expect(remaining.map(\.id) == ["garden-2"])
+        // The outbox row itself is untouched by this method — clearing it is
+        // `CoreSynchronization.RemoteSyncEngine`'s own, separate step in the
+        // same cascade, not this store's job.
+        #expect(try await GRDBSyncOutboxStore(dbQueue: dbQueue).fetchAll().map(\.id) == ["op-1"])
+    }
+
+    @Test("remove is a silent no-op for a garden this device has no local row for")
+    func removeNoOpForUnknownGarden() async throws {
+        let dbQueue = try makeDatabase()
+        let store = GRDBGardenStore(dbQueue: dbQueue)
+        try await store.save(garden(id: "garden-1"))
+
+        try await store.remove(gardenId: "unknown")
+
+        #expect(try await store.fetchAll().map(\.id) == ["garden-1"])
+    }
 }

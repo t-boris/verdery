@@ -37,4 +37,16 @@ public struct ObservationSyncRecordApplier: SyncRecordApplier {
     public func applyConfirmed(recordId: String, revision: Int, confirmedAt: Date) async throws {
         try await localStore.markSynced(observationId: recordId)
     }
+
+    /// P5-SEC-01: removes every locally-pending observation row for
+    /// `gardenId`, as part of `RemoteSyncEngine+Pull.swift`'s
+    /// garden-partition cascade — see that method's own doc comment, and
+    /// `CoreSynchronization.SyncRecordApplier
+    /// .removeGardenScopedData(gardenId:)`'s own doc comment for the full
+    /// contract. Declared here even though this type does NOT conform to
+    /// `SyncPullRecordApplier` — see `removeGardenScopedData(gardenId:)`'s
+    /// own doc comment for why it lives on the base protocol instead.
+    public func removeGardenScopedData(gardenId: String) async throws {
+        try await localStore.removeAll(gardenId: gardenId)
+    }
 }

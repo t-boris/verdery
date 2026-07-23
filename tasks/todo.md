@@ -1605,3 +1605,96 @@ retry/backoff, checkpointing/triggers, and a status model.
 **Not done, deliberately**: conflict recovery UI and revocation/protected-data-removal reaction to a garden
 tombstone (P5-CONFLICT-01/P5-SEC-01's own later work), per-feature UI status wiring (see above), any backend
 change.
+
+## P5-SEC-01 complete
+
+Remove protected local partitions and stop stale pushes after membership or account revocation. Builds the
+reaction Stage 5b deliberately left as a documented no-op (`GardenSyncRecordApplier.applyDelete`, see above).
+
+- **Server-side push rejection was already correct — verified, not assumed, and no backend code was
+  needed.** Every one of the five sync push routers
+  (`services/api/src/modules/synchronization/application/route-{garden,garden-object,plant,observation,task}-operation.ts`)
+  routes to a sibling-module command that authorizes through `GardenAuthorization.requireCapability`
+  (`services/api/src/modules/gardens-mapping/application/garden-authorization.ts`) before doing any write —
+  directly for garden/map commands, or through `requirePlantAndAuthorize`/`requireTaskAndAuthorize`
+  (`plants-inventory`/`tasks-recommendations`) for plant/task commands that only receive a record id, or
+  directly for `RecordObservation`/`CorrectObservation`. `requireCapability` calls
+  `MembershipRepository.findActiveMembership`, which `KyselyMembershipRepository`
+  (`services/api/src/modules/gardens-mapping/persistence/kysely-membership-repository.ts`) implements as
+  `WHERE state = 'active'` — a non-active or nonexistent membership returns `null`, and `requireCapability`
+  throws `NotFoundError`. `execute-and-map-outcome.ts` catches every `ApplicationError` (including
+  `NotFoundError`) and maps it to the sync push outcome `{ kind: 'rejected', error: detail }`. So a push
+  against a garden the caller has lost membership on already comes back `rejected` today, purely as a side
+  effect of the ordinary authorization check every command already had — nothing P5-SEC-01-specific exists
+  or was needed server-side. (Separately confirmed, from `get-sync-changes.ts`'s own header comment: no
+  command anywhere in this codebase transitions a membership row to `'removed'` yet — membership revocation
+  itself is a genuine, unimplemented product-wide gap, not this work package's to close. `GetSyncChanges`
+  was already built in advance to deliver a `garden`/`delete` tombstone correctly the moment a future
+  revocation command exists; this stage is the client's own reaction to that tombstone, ready in advance of
+  the same producer.)
+- **Cascade-removal seam**: extended `CoreSynchronization.SyncRecordApplier` (the base protocol, not
+  `SyncPullRecordApplier` — `ObservationSyncRecordApplier` deliberately does not conform to the latter, but
+  still owns garden-scoped rows that must be swept) with a new required method,
+  `removeGardenScopedData(gardenId:) async throws`. `RemoteSyncEngine+Pull.swift`'s `apply(_:)`, on seeing a
+  `garden`/`delete` change (`item.recordId` is the garden's own id for this one record type — confirmed
+  against `GetSyncChanges.fetchRecordSnapshot`'s own comment, "the record IS the garden"), calls a new
+  `removeGardenPartition(gardenId:)` that iterates every registered applier's `removeGardenScopedData(gardenId:)`
+  — `CoreSynchronization` never learns what `garden_object`/`plant`/`observation`/`task` are as concrete
+  types, only that every registered applier owns some table scoped by `gardenId`. Each of the five appliers
+  implements it by forwarding to a new, unconditional (no "except when pending" guard — a revoked garden's
+  pending operations can never be accepted) `Local*Store` method: `LocalGardenStore.remove(gardenId:)`
+  (the one case where `gardenId` names the applier's own record, not one scoped underneath it) and
+  `LocalMapStore`/`LocalPlantStore`/`LocalObservationStore`/`LocalTaskStore.removeAll(gardenId:)`.
+  `GardenSyncRecordApplier.applyDelete` itself stays the documented no-op it already was — the cascade, not
+  that ordinary single-applier dispatch, is what now actually removes the garden's own row.
+- **Stop stale pushes, client side**: the same `removeGardenPartition(gardenId:)` also drains every
+  still-pending `sync_outbox` row for the garden (`SyncOutboxStore.fetchPending(gardenId:)` +
+  `remove(operationId:)`, both pre-existing methods — no new outbox API needed) — a pure client-side
+  optimization given the server already rejects it independently, avoiding a guaranteed-futile round trip and
+  the transient "requires attention" status a `rejected` outcome would otherwise show for an
+  already-known-unrecoverable operation.
+- **Conflict/operation-result cleanup — a reasoned, not guessed, call**: `SyncOperationResult` rows for the
+  garden are removed too (new `SyncOperationResultStore.removeAll(gardenId:)`) — operational bookkeeping for
+  outbox operations the same step just removed, not itself "recovery information." `SyncConflict` rows are
+  deliberately left untouched — no removal method was added to `SyncConflictStore` at all — matching
+  architecture/offline-synchronization.md, section "11. Authorization Changes"'s own carve-out ("after
+  preserving only policy-approved conflict or export recovery information") and section "15. Local Conflict
+  Recovery"'s framing of a conflict record as durable recovery information (original operation, both
+  representations, suggested recovery actions), not operational bookkeeping.
+- **Account-level revocation (signed-out session should not retain another account's local data) — checked,
+  not silently skipped, and left as a separate, real gap.** `CorePersistence.LocalDatabase` already scopes
+  the on-disk database per Firebase UID (`profiles/<uid>/gardens.sqlite`, confirmed in `LocalDatabase.swift`'s
+  own "Profile scoping" doc comment), so no code path in this app can ever read one signed-in account's data
+  through a different account's session — switching accounts opens a genuinely different SQLite file, not a
+  shared one carrying stale rows forward. What is NOT built anywhere in this codebase, confirmed by
+  inspection: an actual sign-out flow. `CoreAuthentication.AuthenticationGateway.signOut()` has zero callers
+  outside its own protocol declaration and the `FirebaseAuthenticationGateway` implementation; no
+  Settings/Shell UI exists (`shellSignOut` is an unused, unwired localization key); `AppComposition.RootView`
+  routes purely on `AuthenticationSessionObserver.isSignedIn`, driven only by Firebase's own listener, with no
+  additional reaction wired to it. Building "the session became invalid, clear the local sync database" would
+  mean designing a new cross-module flow this work package's own scope does not clearly own (new
+  `CorePersistence`-facing API from `CoreAuthentication`/`AppComposition`, a decision about exactly when to
+  trigger it with no sign-out UI yet to observe triggering it from) — real, non-trivial architecture work
+  distinct from the garden-partition cascade this stage builds, not a small addition riding along with it.
+  Documented here as a genuine, understood, separate gap — "membership OR account revocation" is P5-SEC-01's
+  own stated scope, but the account half has no sign-out flow to close it against yet.
+- **Tests — "Offline removal attack tests" (this work package's own completion evidence, taken literally)**:
+  engine-level cascade dispatch and outbox/operation-result/conflict scoping, with fakes
+  (`CoreSynchronizationTests.RemoteSyncEnginePullTests.gardenDeleteCascadesToEveryRegisteredApplier`/
+  `nonGardenDeleteDoesNotCascade`); per-feature `removeGardenScopedData` forwarding, with `InMemory*Store`
+  (`*SyncRecordApplierTests.removeGardenScopedData*`, all five features); per-feature real-GRDB
+  `removeAll`/`remove` coverage proving the actual SQL deletes rows unconditionally and scopes strictly to one
+  garden (`*OfflineMutationTests.removeAll*`/`removeDeletesGardenUnconditionally`, all five features, plus
+  `SyncOperationResultStoreTests.removeAllDeletesResultsForOneGarden`); and the attack scenario itself, end to
+  end against a real `GRDBGardenStore`/`RemoteSyncEngine`, in a new suite,
+  `FeatureGardensTests.GardenRevocationAttackTests` — proving BOTH that an offline rename against a
+  (unknowably, already-revoked) garden still succeeds before any pull happens, the deliberate, understood
+  boundary that offline editing of a since-revoked garden is possible for at most one offline session, AND
+  that the very next successful pull closes that window, removing the garden's row and sweeping the pending
+  rename together.
+- Final full, unfiltered `swift test` count: 624 tests, 85 suites (up from Stage 5b's 604/84 — 20 new tests,
+  one new suite).
+
+**Not done, deliberately**: conflict recovery UI (P5-CONFLICT-01), web continuity (P5-WEB-01), any new
+backend code (verified unnecessary — see above), and closing the account-level sign-out/local-data-clearing
+gap (a real, separate gap, documented above, not this stage's to build without its own scoping).

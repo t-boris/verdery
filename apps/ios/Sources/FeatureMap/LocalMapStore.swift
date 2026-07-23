@@ -92,6 +92,18 @@ public protocol LocalMapStore: Sendable {
     /// Called only by `CoreSynchronization.RemoteSyncEngine`, through
     /// `MapSyncRecordApplier` (P5-IOS-03, Stage 5a).
     func confirmSynced(objectId: String, revision: Int) async throws
+
+    /// Removes every local `garden_object` row for `gardenId`,
+    /// unconditionally — including any object with a pending offline
+    /// mutation still queued, unlike `save(_:)`/`delete(objectId:)`/
+    /// `replaceAll(gardenId:with:)` above. Called only by
+    /// `CoreSynchronization.RemoteSyncEngine`, through
+    /// `MapSyncRecordApplier.removeGardenScopedData(gardenId:)` (P5-SEC-01),
+    /// as part of the cascade reaction to `gardenId`'s own access-revocation
+    /// tombstone — see that protocol requirement's own doc comment for why
+    /// "except when pending" does not apply here. A silent no-op when this
+    /// device has no local rows for `gardenId`.
+    func removeAll(gardenId: String) async throws
 }
 
 public struct GRDBMapStore: LocalMapStore {
@@ -209,6 +221,12 @@ public struct GRDBMapStore: LocalMapStore {
                 sql: "UPDATE \(GardenObjectRecord.databaseTableName) SET revision = ? WHERE id = ?",
                 arguments: [revision, objectId]
             )
+        }
+    }
+
+    public func removeAll(gardenId: String) async throws {
+        try await dbQueue.write { db in
+            _ = try GardenObjectRecord.filter(Column("gardenId") == gardenId).deleteAll(db)
         }
     }
 

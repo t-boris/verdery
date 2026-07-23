@@ -34,4 +34,14 @@ public struct PlantSyncRecordApplier: SyncRecordApplier, SyncPullRecordApplier {
     public func applyDelete(recordId: String, gardenId: String?, revision: Int) async throws {
         try await localStore.delete(plantId: recordId)
     }
+
+    /// P5-SEC-01: removes every `plant` row this device has cached for
+    /// `gardenId`, as part of `RemoteSyncEngine+Pull.swift`'s
+    /// garden-partition cascade — see that method's own doc comment, and
+    /// `CoreSynchronization.SyncRecordApplier
+    /// .removeGardenScopedData(gardenId:)`'s own doc comment for the full
+    /// contract.
+    public func removeGardenScopedData(gardenId: String) async throws {
+        try await localStore.removeAll(gardenId: gardenId)
+    }
 }

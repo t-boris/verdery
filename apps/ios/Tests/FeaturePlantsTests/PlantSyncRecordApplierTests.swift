@@ -67,4 +67,33 @@ struct PlantSyncRecordApplierTests {
 
         #expect(try await store.fetch(plantId: "plant-1") == nil)
     }
+
+    @Test("removeGardenScopedData removes every plant for the garden, even with a pending offline mutation queued, and leaves other gardens untouched")
+    func removeGardenScopedDataRemovesEveryPlantUnconditionally() async throws {
+        let store = InMemoryPlantStore()
+        try await store.save(plant(id: "plant-confirmed"))
+        _ = try await store.commitOfflineMutation(plantId: "plant-pending") { _ in
+            (plant(id: "plant-pending"), OutboxOperation(
+                id: "op-1", profileId: "profile-1", gardenId: "garden-1", commandType: "plants.addPlant",
+                commandVersion: 1, targetRecordIds: ["plant-pending"], expectedRevision: nil,
+                payload: #"{"recordType":"plant"}"#, createdAt: Date(timeIntervalSince1970: 0)
+            ))
+        }
+        let otherGardenPlant = Plant(
+            id: "plant-other-garden", gardenId: "garden-2", gardenAreaMapObjectId: nil, placementMapObjectId: nil,
+            displayName: "Basil", taxonomyReferenceId: nil, varietyLabel: nil, acceptedIdentificationId: nil,
+            acquisitionDate: nil, acquisitionDateType: nil, groupingKind: .individual, quantity: nil,
+            lifecycleStage: .planned, status: .active, conditionNote: nil, careGuidanceNote: nil,
+            revision: 0, createdByProfileId: "profile-1",
+            createdAt: Date(timeIntervalSince1970: 0), updatedAt: Date(timeIntervalSince1970: 0)
+        )
+        try await store.save(otherGardenPlant)
+        let applier = PlantSyncRecordApplier(localStore: store)
+
+        try await applier.removeGardenScopedData(gardenId: "garden-1")
+
+        #expect(try await store.fetch(plantId: "plant-confirmed") == nil)
+        #expect(try await store.fetch(plantId: "plant-pending") == nil)
+        #expect(try await store.fetch(plantId: "plant-other-garden") != nil)
+    }
 }

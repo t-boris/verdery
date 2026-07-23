@@ -298,4 +298,36 @@ struct MapOfflineMutationTests {
 
         #expect(try await store.fetchAll(gardenId: "garden-1").isEmpty)
     }
+
+    /// P5-SEC-01: `removeAll(gardenId:)` is the garden-partition cascade's
+    /// own unconditional removal — unlike `replaceAll(gardenId:with:)`, a
+    /// pending outbox operation for one of these objects does NOT protect
+    /// it, because a revoked garden's pending operations can never be
+    /// accepted.
+    @Test("removeAll deletes every object for the garden, even one with a pending outbox operation queued, leaving other gardens untouched")
+    func removeAllDeletesEveryObjectUnconditionally() async throws {
+        let dbQueue = try makeDatabase()
+        let store = GRDBMapStore(dbQueue: dbQueue)
+        try await store.replaceAll(gardenId: "garden-1", with: [object(id: "obj-confirmed")])
+        _ = try await store.commitOfflineMutation(gardenId: "garden-1") { _ in
+            ([self.object(id: "obj-pending")], self.operation(id: "op-1", targetRecordIds: ["obj-pending"]))
+        }
+        try await store.replaceAll(gardenId: "garden-2", with: [object(id: "obj-other-garden", gardenId: "garden-2")])
+
+        try await store.removeAll(gardenId: "garden-1")
+
+        #expect(try await store.fetchAll(gardenId: "garden-1").isEmpty)
+        #expect(try await store.fetchAll(gardenId: "garden-2").map(\.id) == ["obj-other-garden"])
+    }
+
+    @Test("removeAll is a silent no-op for a garden this device has no local rows for")
+    func removeAllNoOpForUnknownGarden() async throws {
+        let dbQueue = try makeDatabase()
+        let store = GRDBMapStore(dbQueue: dbQueue)
+        try await store.replaceAll(gardenId: "garden-1", with: [object(id: "obj-1")])
+
+        try await store.removeAll(gardenId: "unknown")
+
+        #expect(try await store.fetchAll(gardenId: "garden-1").map(\.id) == ["obj-1"])
+    }
 }

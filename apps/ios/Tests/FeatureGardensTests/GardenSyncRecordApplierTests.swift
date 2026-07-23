@@ -103,4 +103,27 @@ struct GardenSyncRecordApplierTests {
 
         #expect(try await store.fetchAll().first?.id == "garden-1")
     }
+
+    @Test("removeGardenScopedData removes the garden's own local row, even with a pending offline mutation queued")
+    func removeGardenScopedDataRemovesGardenUnconditionally() async throws {
+        let store = InMemoryGardenStore()
+        _ = try await store.commitOfflineMutation(gardenId: "garden-1") { _ in
+            (
+                Garden(
+                    id: "garden-1", name: "Local Edit", lifecycleState: .active, callerRole: .owner,
+                    revision: 0, createdAt: Date(timeIntervalSince1970: 0), updatedAt: Date(timeIntervalSince1970: 0)
+                ),
+                OutboxOperation(
+                    id: "op-1", profileId: "profile-1", gardenId: "garden-1", commandType: "gardens.rename",
+                    commandVersion: 1, targetRecordIds: ["garden-1"], expectedRevision: 0,
+                    payload: #"{"recordType":"garden"}"#, createdAt: Date(timeIntervalSince1970: 0)
+                )
+            )
+        }
+        let applier = GardenSyncRecordApplier(localStore: store)
+
+        try await applier.removeGardenScopedData(gardenId: "garden-1")
+
+        #expect(try await store.fetchAll().isEmpty)
+    }
 }

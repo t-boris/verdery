@@ -69,4 +69,11 @@ public actor InMemoryPlantStore: LocalPlantStore {
         // server-confirmed overwrite once it is confirmed.
         pendingPlantIds.remove(plantId)
     }
+
+    public func removeAll(gardenId: String) async throws {
+        for id in plants.values.filter({ $0.gardenId == gardenId }).map(\.id) {
+            plants.removeValue(forKey: id)
+            pendingPlantIds.remove(id)
+        }
+    }
 }
