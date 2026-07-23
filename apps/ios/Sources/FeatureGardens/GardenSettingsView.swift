@@ -45,6 +45,21 @@ public struct GardenSettingsView: View {
                         Text(model.openMapEditorTitle)
                     }
                     .accessibilityIdentifier("gardens.settings.openMapEditor")
+
+                    NavigationLink(value: GardenPlantsRoute(gardenId: model.gardenId)) {
+                        Text(model.openPlantsTitle)
+                    }
+                    .accessibilityIdentifier("gardens.settings.openPlants")
+
+                    NavigationLink(value: GardenObservationsRoute(gardenId: model.gardenId)) {
+                        Text(model.openObservationsTitle)
+                    }
+                    .accessibilityIdentifier("gardens.settings.openObservations")
+
+                    NavigationLink(value: GardenTasksRoute(gardenId: model.gardenId)) {
+                        Text(model.openTasksTitle)
+                    }
+                    .accessibilityIdentifier("gardens.settings.openTasks")
                 }
 
                 if summary.isOwner {

@@ -110,20 +110,56 @@ public struct LocalizedStrings: Sendable {
         return Set(entries.keys)
     }
 
+    /// Guards `bundleCache` below. `Bundle(path:)` has no documented
+    /// thread-safety guarantee for concurrent construction at the same path,
+    /// and under Swift Testing's default parallel execution this package's
+    /// much larger Phase 4 test suite now constructs dozens of
+    /// `LocalizedStrings` instances at once. Added while investigating a
+    /// nondeterministic SIGBUS crash during `swift test` on this development
+    /// machine (never the same test, always before any test completes —
+    /// consistent with a startup-time race, not any single test's logic).
+    /// This closes one real, independently-justified race regardless of
+    /// whether it was the actual cause: caching removes repeated concurrent
+    /// `Bundle(path:)` construction entirely after the first resolution per
+    /// language. See `apps/ios/README.md`'s "Known environment gap" note if
+    /// the crash is still reproducible after this change — CI pins a
+    /// specific Xcode/Swift toolchain (ADR-0009) that may not match this
+    /// machine's own installation, so CI is the authoritative signal here,
+    /// not a local repro.
+    private static let bundleCacheLock = NSLock()
+    nonisolated(unsafe) private static var bundleCache: [String: Bundle] = [:]
+
     /// Resolves the resource bundle for a locale.
     ///
     /// The package bundle already performs locale negotiation for the running
     /// process, but a test must be able to read a specific catalogue, so the
-    /// matching `.lproj` is selected explicitly when one exists.
+    /// matching `.lproj` is selected explicitly when one exists. Cached by
+    /// language code after the first resolution — there are only ever two
+    /// (`supportedLanguageCodes`), so the cache converges immediately and
+    /// every `LocalizedStrings.init` after the first two, for either
+    /// language, never touches `Bundle(path:)` again.
     private static func bundle(for locale: Locale) -> Bundle {
-        guard
-            let languageCode = locale.language.languageCode?.identifier,
-            let path = Bundle.module.path(forResource: languageCode, ofType: "lproj"),
-            let localized = Bundle(path: path)
-        else {
+        guard let languageCode = locale.language.languageCode?.identifier else {
             return .module
         }
 
-        return localized
+        bundleCacheLock.lock()
+        defer { bundleCacheLock.unlock() }
+
+        if let cached = bundleCache[languageCode] {
+            return cached
+        }
+
+        let resolved: Bundle
+        if let path = Bundle.module.path(forResource: languageCode, ofType: "lproj"),
+            let localized = Bundle(path: path)
+        {
+            resolved = localized
+        } else {
+            resolved = .module
+        }
+
+        bundleCache[languageCode] = resolved
+        return resolved
     }
 }

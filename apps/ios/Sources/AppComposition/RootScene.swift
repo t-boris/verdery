@@ -2,6 +2,9 @@ import FeatureAuthentication
 import FeatureGardens
 import FeatureHealth
 import FeatureMap
+import FeatureObservations
+import FeaturePlants
+import FeatureTasks
 import SwiftUI
 
 /// The application's root scene.
@@ -53,6 +56,26 @@ public struct RootView: View {
                     // either would be ambiguous on this one stack.
                     .navigationDestination(for: GardenMapEditorRoute.self) { route in
                         MapEditorView(model: composition.makeMapEditorViewModel(gardenId: route.gardenId))
+                    }
+                    // Phase 4: plant inventory, observation history, and
+                    // manual tasks — one route type per destination, the
+                    // same reason `GardenMapEditorRoute` exists.
+                    .navigationDestination(for: GardenPlantsRoute.self) { route in
+                        PlantsHomeView(model: composition.makePlantsHomeViewModel(gardenId: route.gardenId)) { plantId in
+                            AnyView(
+                                PlantDetailView(
+                                    model: composition.makePlantDetailViewModel(gardenId: route.gardenId, plantId: plantId)
+                                )
+                            )
+                        }
+                    }
+                    .navigationDestination(for: GardenObservationsRoute.self) { route in
+                        ObservationsTimelineView(
+                            model: composition.makeObservationsTimelineViewModel(gardenId: route.gardenId)
+                        )
+                    }
+                    .navigationDestination(for: GardenTasksRoute.self) { route in
+                        TasksListView(model: composition.makeTasksListViewModel(gardenId: route.gardenId))
                     }
             }
         } else {

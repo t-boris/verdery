@@ -263,10 +263,25 @@ struct HTTPTransport: Sendable {
         return decoder
     }()
 
-    // No custom date encoding strategy: every request body this transport
-    // currently sends is date-free (garden names, an ID token). Add one here,
-    // not ad hoc per call site, the day a request body needs one.
-    private static let encoder = JSONEncoder()
+    private static let encoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        // Plant/observation/task request bodies carry real `Timestamp`
+        // fields (`observedAt`, a task's `timeWindow.start`/`.end`) — the
+        // first request bodies this transport sends that need one, per this
+        // property's previous doc comment ("Add one here, not ad hoc per
+        // call site, the day a request body needs one."). `.deferredToDate`,
+        // the default, would encode a `Date` as a `Double` (seconds since
+        // 1970), not the RFC 3339 string the contract's `Timestamp` schema
+        // requires, so every one of those fields would fail server-side
+        // validation without this. Matches the decoder's primary format
+        // above (fractional seconds) — the same format `MapGateway` already
+        // hand-formats `clientTimestamp` with.
+        encoder.dateEncodingStrategy = .custom { date, encoder in
+            var container = encoder.singleValueContainer()
+            try container.encode(ISO8601DateFormatter.withFractionalSeconds.string(from: date))
+        }
+        return encoder
+    }()
 }
 
 /// Marker body/response for a request or response with no JSON content.

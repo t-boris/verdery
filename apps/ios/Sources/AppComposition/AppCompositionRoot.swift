@@ -6,6 +6,9 @@ import FeatureAuthentication
 import FeatureGardens
 import FeatureHealth
 import FeatureMap
+import FeatureObservations
+import FeaturePlants
+import FeatureTasks
 import Foundation
 
 /// The single place where adapters are constructed and injected.
@@ -24,6 +27,9 @@ public final class AppCompositionRoot {
     private let healthGateway: any HealthGateway
     private let gardenGateway: any GardenGateway
     private let mapGateway: any MapGateway
+    private let plantGateway: any PlantGateway
+    private let observationGateway: any ObservationGateway
+    private let taskGateway: any TaskGateway
     private let authenticationGateway: any AuthenticationGateway
     private let log: any DiagnosticLog
 
@@ -60,6 +66,29 @@ public final class AppCompositionRoot {
         // Same scope as the garden gateway: the map editor authenticates and
         // classifies traffic exactly the way garden lifecycle operations do.
         self.mapGateway = URLSessionMapGateway(
+            configuration: configuration,
+            session: session,
+            authTokenProvider: tokenProvider,
+            appCheckTokenProvider: appCheckTokenProvider,
+            log: log
+        )
+        // Plants, observations, and tasks (Phase 4) all authenticate and
+        // classify traffic the same way garden lifecycle operations do.
+        self.plantGateway = URLSessionPlantGateway(
+            configuration: configuration,
+            session: session,
+            authTokenProvider: tokenProvider,
+            appCheckTokenProvider: appCheckTokenProvider,
+            log: log
+        )
+        self.observationGateway = URLSessionObservationGateway(
+            configuration: configuration,
+            session: session,
+            authTokenProvider: tokenProvider,
+            appCheckTokenProvider: appCheckTokenProvider,
+            log: log
+        )
+        self.taskGateway = URLSessionTaskGateway(
             configuration: configuration,
             session: session,
             authTokenProvider: tokenProvider,
@@ -110,6 +139,54 @@ public final class AppCompositionRoot {
             gardenId: gardenId,
             loadGardenMap: LoadGardenMap(gateway: mapGateway),
             submitMapCommand: SubmitMapCommand(gateway: mapGateway),
+            strings: strings
+        )
+    }
+
+    public func makePlantsHomeViewModel(gardenId: String) -> PlantsHomeViewModel {
+        PlantsHomeViewModel(
+            gardenId: gardenId,
+            addPlant: AddPlant(gateway: plantGateway),
+            searchTaxonomyReferences: SearchTaxonomyReferences(gateway: plantGateway),
+            strings: strings
+        )
+    }
+
+    public func makePlantDetailViewModel(gardenId: String, plantId: String) -> PlantDetailViewModel {
+        PlantDetailViewModel(
+            gardenId: gardenId,
+            plantId: plantId,
+            getPlant: GetPlant(gateway: plantGateway),
+            updatePlantDetails: UpdatePlantDetails(gateway: plantGateway),
+            transitionPlantLifecycleStage: TransitionPlantLifecycleStage(gateway: plantGateway),
+            setPlantStatus: SetPlantStatus(gateway: plantGateway),
+            movePlant: MovePlant(gateway: plantGateway),
+            strings: strings
+        )
+    }
+
+    public func makeObservationsTimelineViewModel(gardenId: String) -> ObservationsTimelineViewModel {
+        ObservationsTimelineViewModel(
+            gardenId: gardenId,
+            recordObservation: RecordObservation(gateway: observationGateway),
+            listObservationsForGarden: ListObservationsForGarden(gateway: observationGateway),
+            listObservationsForPlant: ListObservationsForPlant(gateway: observationGateway),
+            correctObservation: CorrectObservation(gateway: observationGateway),
+            strings: strings
+        )
+    }
+
+    public func makeTasksListViewModel(gardenId: String) -> TasksListViewModel {
+        TasksListViewModel(
+            gardenId: gardenId,
+            createManualTask: CreateManualTask(gateway: taskGateway),
+            listTasksForGarden: ListTasksForGarden(gateway: taskGateway),
+            editTask: EditTask(gateway: taskGateway),
+            rescheduleTask: RescheduleTask(gateway: taskGateway),
+            completeTask: CompleteTask(gateway: taskGateway),
+            dismissTask: DismissTask(gateway: taskGateway),
+            skipTask: SkipTask(gateway: taskGateway),
+            deleteTask: DeleteTask(gateway: taskGateway),
             strings: strings
         )
     }

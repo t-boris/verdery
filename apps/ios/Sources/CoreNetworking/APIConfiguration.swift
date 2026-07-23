@@ -48,10 +48,39 @@ public struct APIConfiguration: Equatable, Sendable {
     /// Source: architecture/identity-and-authorization.md, section "12. App Check".
     public static let appCheckHeader = "X-Firebase-AppCheck"
 
-    /// Builds the absolute URL of a versioned operation path such as `health/live`.
+    /// Builds the absolute URL of a versioned operation path such as
+    /// `health/live`, or `gardens?cursor=...` / `gardens/1/tasks?status=a,b`.
+    ///
+    /// A `?` in `path` is split off and attached as the URL's actual query
+    /// component (via `percentEncodedQuery`) rather than left for
+    /// `appendingPathComponent` to absorb into the path segment — which is
+    /// what it does with anything after `?`, silently: it neither splits nor
+    /// rejects it, it just encodes the whole string, query-looking suffix
+    /// included, as one literal path component, leaving `URL.query` `nil`.
+    /// Confirmed directly: a gateway call built exactly this way decoded a
+    /// server-facing path of `.../taxonomy-references?query=tomato&limit=10`
+    /// with no `?` in sight to a request whose `query` was `nil`. Callers
+    /// that build a query string (`GardenGateway.list(cursor:)`,
+    /// `PlantGateway.searchTaxonomyReferences`, ...) already percent-encode
+    /// each value themselves before embedding it, so the split-off query
+    /// string is applied via `percentEncodedQuery`, not `query`, to avoid
+    /// double-encoding it.
     public func url(forOperationPath path: String) -> URL {
-        origin
-            .appendingPathComponent(Self.basePath.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
-            .appendingPathComponent(path)
+        let trimmedBasePath = Self.basePath.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let originWithBasePath = origin.appendingPathComponent(trimmedBasePath)
+
+        guard let queryIndex = path.firstIndex(of: "?") else {
+            return originWithBasePath.appendingPathComponent(path)
+        }
+
+        let pathOnly = String(path[path.startIndex..<queryIndex])
+        let queryString = String(path[path.index(after: queryIndex)...])
+        let pathURL = originWithBasePath.appendingPathComponent(pathOnly)
+
+        guard var components = URLComponents(url: pathURL, resolvingAgainstBaseURL: false) else {
+            return pathURL
+        }
+        components.percentEncodedQuery = queryString
+        return components.url ?? pathURL
     }
 }

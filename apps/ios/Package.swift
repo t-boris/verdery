@@ -40,6 +40,9 @@ let package = Package(
         .library(name: "FeatureAuthentication", targets: ["FeatureAuthentication"]),
         .library(name: "FeatureGardens", targets: ["FeatureGardens"]),
         .library(name: "FeatureMap", targets: ["FeatureMap"]),
+        .library(name: "FeaturePlants", targets: ["FeaturePlants"]),
+        .library(name: "FeatureObservations", targets: ["FeatureObservations"]),
+        .library(name: "FeatureTasks", targets: ["FeatureTasks"]),
         .library(name: "AppComposition", targets: ["AppComposition"]),
     ],
     dependencies: [
@@ -130,6 +133,33 @@ let package = Package(
             dependencies: ["CoreDomain", "CoreNetworking", "CoreLocalization"]
         ),
 
+        // Plant inventory, observations/history, and manual tasks (Phase 4).
+        // No GRDB dependency in any of the three targets below — see each
+        // feature's own view model doc comment (`PlantDetailViewModel`,
+        // `ObservationsTimelineViewModel`, `TasksListViewModel`) for the
+        // always-fresh-from-server reasoning, the same choice `FeatureMap`
+        // already made and for closely related reasons: every mutating
+        // command on a plant or a task carries a server-checked
+        // `expectedRevision`, so a locally cached, possibly-stale revision
+        // would turn every command into a coin flip on a `409`/`412` instead
+        // of the deliberate check the backend performs.
+        //
+        // Source: implementation-plan.md work package P4-IOS-01.
+        .target(
+            name: "FeaturePlants",
+            dependencies: ["CoreDomain", "CoreNetworking", "CoreLocalization"]
+        ),
+
+        .target(
+            name: "FeatureObservations",
+            dependencies: ["CoreDomain", "CoreNetworking", "CoreLocalization"]
+        ),
+
+        .target(
+            name: "FeatureTasks",
+            dependencies: ["CoreDomain", "CoreNetworking", "CoreLocalization"]
+        ),
+
         // The single composition root that constructs adapters and injects them
         // through explicit initializers.
         .target(
@@ -144,6 +174,9 @@ let package = Package(
                 "FeatureAuthentication",
                 "FeatureGardens",
                 "FeatureMap",
+                "FeaturePlants",
+                "FeatureObservations",
+                "FeatureTasks",
                 .product(name: "FirebaseCore", package: "firebase-ios-sdk"),
             ]
         ),
@@ -176,6 +209,18 @@ let package = Package(
         .testTarget(
             name: "FeatureMapTests",
             dependencies: ["FeatureMap"]
+        ),
+        .testTarget(
+            name: "FeaturePlantsTests",
+            dependencies: ["FeaturePlants"]
+        ),
+        .testTarget(
+            name: "FeatureObservationsTests",
+            dependencies: ["FeatureObservations"]
+        ),
+        .testTarget(
+            name: "FeatureTasksTests",
+            dependencies: ["FeatureTasks"]
         ),
         .testTarget(
             name: "ArchitectureTests"

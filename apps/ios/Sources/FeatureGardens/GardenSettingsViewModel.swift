@@ -58,6 +58,9 @@ public final class GardenSettingsViewModel {
     public var archiveTitle: String { strings(.gardensArchive) }
     public var requestDeletionTitle: String { strings(.gardensRequestDeletion) }
     public var openMapEditorTitle: String { strings(.gardensOpenMapEditor) }
+    public var openPlantsTitle: String { strings(.gardensOpenPlants) }
+    public var openObservationsTitle: String { strings(.gardensOpenObservations) }
+    public var openTasksTitle: String { strings(.gardensOpenTasks) }
 
     public func load() async {
         var hadCachedResult = false
