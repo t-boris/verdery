@@ -19,6 +19,7 @@ import type {
 import type { Clock } from '../../../shared/time/clock.js';
 import { GardenAuthorization } from '../../gardens-mapping/public.js';
 import type { GardenRole, MembershipRepository } from '../../gardens-mapping/public.js';
+import { registerMediaRecord } from '../../media/public.js';
 import type { MediaRecord, MediaRepository } from '../../media/public.js';
 import { createObservation } from '../domain/observation.js';
 import type { ImageAnalysisResult } from '../domain/image-analysis-result.js';
@@ -136,13 +137,22 @@ class FakeMediaRepository implements MediaRepository {
     if (!this.existingIds.has(id)) {
       return Promise.resolve(null);
     }
-    return Promise.resolve({
-      id,
-      storageReference: `gs://verdery-media/${id}.jpg`,
-      mimeType: 'image/jpeg',
-      uploadedByProfileId: PROFILE_ID,
-      createdAt: NOW,
-    });
+    return Promise.resolve(
+      registerMediaRecord(
+        id,
+        GARDEN_ID,
+        PROFILE_ID,
+        'garden_photo',
+        'photo.jpg',
+        'image/jpeg',
+        123_456,
+        null,
+        null,
+        null,
+        null,
+        NOW,
+      ),
+    );
   }
 }
 

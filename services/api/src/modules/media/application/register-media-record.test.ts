@@ -11,9 +11,19 @@ import type { MediaRecord } from '../domain/media-record.js';
 import type { MediaRepository } from './media-repository.js';
 import type { MediaTransactionContext, MediaUnitOfWork } from './media-unit-of-work.js';
 import { RegisterMediaRecord } from './register-media-record.js';
+import type { RegisterMediaRecordInput } from './register-media-record.js';
 
 const PROFILE_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0c';
+const GARDEN_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0d';
 const NOW = new Date('2026-07-21T09:00:00Z');
+
+const BASE_INPUT: RegisterMediaRecordInput = {
+  gardenId: GARDEN_ID,
+  mediaClass: 'garden_photo',
+  displayFilename: 'photo.jpg',
+  declaredContentType: 'image/jpeg',
+  declaredByteSize: 123_456,
+};
 
 function fixedClock(): Clock {
   return { now: () => NOW };
@@ -125,7 +135,7 @@ function uniqueViolation(): Error {
 }
 
 describe('RegisterMediaRecord', () => {
-  it('validates, trims, and registers a new media record', async () => {
+  it('validates, normalizes, and registers a new media record with the documented defaults', async () => {
     const media = new FakeMediaRepository();
     const idempotency = new FakeIdempotencyStore();
     const useCase = new RegisterMediaRecord(
@@ -136,22 +146,52 @@ describe('RegisterMediaRecord', () => {
 
     const result = await useCase.execute(
       PROFILE_ID,
-      '  gs://verdery-media/example.jpg  ',
-      '  image/jpeg  ',
-      '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0d',
+      {
+        ...BASE_INPUT,
+        displayFilename: '  ../../photo.jpg  ',
+        declaredContentType: '  image/jpeg  ',
+      },
+      '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0e',
     );
 
     expect(result).toMatchObject({
-      storageReference: 'gs://verdery-media/example.jpg',
-      mimeType: 'image/jpeg',
+      gardenId: GARDEN_ID,
       uploadedByProfileId: PROFILE_ID,
+      mediaClass: 'garden_photo',
+      displayFilename: 'photo.jpg',
+      declaredContentType: 'image/jpeg',
+      declaredByteSize: 123_456,
+      uploadState: 'registered',
+      processingState: null,
+      sensitivityClassification: 'standard',
+      revision: 1,
       createdAt: NOW.toISOString(),
     });
     expect(media.records).toHaveLength(1);
     expect(media.records[0]?.id).toBe(result.id);
   });
 
-  it('rejects a blank mimeType without inserting anything', async () => {
+  it('accepts an omitted gardenId as null', async () => {
+    const media = new FakeMediaRepository();
+    const idempotency = new FakeIdempotencyStore();
+    const useCase = new RegisterMediaRecord(
+      idempotency,
+      new FakeMediaUnitOfWork(media, idempotency),
+      fixedClock(),
+    );
+
+    const { gardenId, ...withoutGardenId } = BASE_INPUT;
+    void gardenId;
+    const result = await useCase.execute(
+      PROFILE_ID,
+      withoutGardenId,
+      '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0f',
+    );
+
+    expect(result.gardenId).toBeNull();
+  });
+
+  it('rejects a blank displayFilename without inserting anything', async () => {
     const media = new FakeMediaRepository();
     const idempotency = new FakeIdempotencyStore();
     const useCase = new RegisterMediaRecord(
@@ -163,15 +203,14 @@ describe('RegisterMediaRecord', () => {
     await expect(
       useCase.execute(
         PROFILE_ID,
-        'gs://verdery-media/example.jpg',
-        '   ',
-        '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0e',
+        { ...BASE_INPUT, displayFilename: '   ' },
+        '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a10',
       ),
     ).rejects.toBeInstanceOf(ValidationError);
     expect(media.records).toHaveLength(0);
   });
 
-  it('rejects a blank storageReference without inserting anything', async () => {
+  it('rejects a blank declaredContentType or a non-positive declaredByteSize without inserting anything', async () => {
     const media = new FakeMediaRepository();
     const idempotency = new FakeIdempotencyStore();
     const useCase = new RegisterMediaRecord(
@@ -181,7 +220,18 @@ describe('RegisterMediaRecord', () => {
     );
 
     await expect(
-      useCase.execute(PROFILE_ID, '   ', 'image/jpeg', '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0f'),
+      useCase.execute(
+        PROFILE_ID,
+        { ...BASE_INPUT, declaredContentType: '   ' },
+        '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a11',
+      ),
+    ).rejects.toBeInstanceOf(ValidationError);
+    await expect(
+      useCase.execute(
+        PROFILE_ID,
+        { ...BASE_INPUT, declaredByteSize: 0 },
+        '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a12',
+      ),
     ).rejects.toBeInstanceOf(ValidationError);
     expect(media.records).toHaveLength(0);
   });
@@ -194,25 +244,15 @@ describe('RegisterMediaRecord', () => {
       new FakeMediaUnitOfWork(media, idempotency),
       fixedClock(),
     );
-    const key = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a10';
+    const key = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a13';
 
-    const first = await useCase.execute(
-      PROFILE_ID,
-      'gs://verdery-media/one.jpg',
-      'image/jpeg',
-      key,
-    );
-    const replay = await useCase.execute(
-      PROFILE_ID,
-      'gs://verdery-media/one.jpg',
-      'image/jpeg',
-      key,
-    );
+    const first = await useCase.execute(PROFILE_ID, BASE_INPUT, key);
+    const replay = await useCase.execute(PROFILE_ID, BASE_INPUT, key);
     expect(replay).toEqual(first);
     expect(media.records).toHaveLength(1);
 
     await expect(
-      useCase.execute(PROFILE_ID, 'gs://verdery-media/two.jpg', 'image/png', key),
+      useCase.execute(PROFILE_ID, { ...BASE_INPUT, displayFilename: 'other.jpg' }, key),
     ).rejects.toBeInstanceOf(ConflictError);
   });
 
@@ -224,15 +264,19 @@ describe('RegisterMediaRecord', () => {
       new FakeMediaUnitOfWork(media, idempotency),
       fixedClock(),
     );
-    const key = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a11';
+    const key = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a14';
 
     // Simulates another concurrent request committing its own `save` between
     // this request's `check` (finding nothing) and this request's own `save`.
     const winnerResult = {
       id: 'winner-media-id',
-      storageReference: 'gs://verdery-media/winner.jpg',
-      mimeType: 'image/jpeg',
+      gardenId: GARDEN_ID,
       uploadedByProfileId: PROFILE_ID,
+      mediaClass: 'garden_photo',
+      displayFilename: 'photo.jpg',
+      declaredContentType: 'image/jpeg',
+      declaredByteSize: 123_456,
+      uploadState: 'registered',
       createdAt: NOW.toISOString(),
     };
     idempotency.saveError = uniqueViolation();
@@ -243,12 +287,7 @@ describe('RegisterMediaRecord', () => {
         Promise.resolve({ kind: 'replay', responseStatusCode: 201, responseBody: winnerResult }),
       );
 
-    const result = await useCase.execute(
-      PROFILE_ID,
-      'gs://verdery-media/example.jpg',
-      'image/jpeg',
-      key,
-    );
+    const result = await useCase.execute(PROFILE_ID, BASE_INPUT, key);
 
     expect(result).toEqual(winnerResult);
     checkSpy.mockRestore();

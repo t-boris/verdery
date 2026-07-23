@@ -115,8 +115,12 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     );
     const media = await registerMediaRecord.execute(
       ownerId,
-      'gs://verdery-media/plant.jpg',
-      'image/jpeg',
+      {
+        mediaClass: 'garden_photo',
+        displayFilename: 'plant.jpg',
+        declaredContentType: 'image/jpeg',
+        declaredByteSize: 123_456,
+      },
       generateUuidV7(),
     );
     return media.id;

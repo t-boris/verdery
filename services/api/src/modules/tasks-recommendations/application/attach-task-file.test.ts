@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ValidationError } from '../../../platform/errors/application-error.js';
+import { registerMediaRecord } from '../../media/public.js';
 import type { MediaRecord } from '../../media/public.js';
 import { AttachTaskFile } from './attach-task-file.js';
 import {
@@ -24,13 +25,20 @@ const OWNER_MEMBERSHIP = {
 };
 
 function mediaRecord(): MediaRecord {
-  return {
-    id: MEDIA_ID,
-    storageReference: `gs://verdery-media/${MEDIA_ID}.jpg`,
-    mimeType: 'image/jpeg',
-    uploadedByProfileId: PROFILE_ID,
-    createdAt: NOW,
-  };
+  return registerMediaRecord(
+    MEDIA_ID,
+    GARDEN_ID,
+    PROFILE_ID,
+    'garden_photo',
+    'photo.jpg',
+    'image/jpeg',
+    123_456,
+    null,
+    null,
+    null,
+    null,
+    NOW,
+  );
 }
 
 describe('AttachTaskFile', () => {

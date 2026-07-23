@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ValidationError } from '../../../platform/errors/application-error.js';
+import { registerMediaRecord } from '../../media/public.js';
 import { AddPlantFromPhoto } from './add-plant-from-photo.js';
 import {
   authorizationGranting,
@@ -22,13 +23,23 @@ const OWNER_MEMBERSHIP = {
 
 function fakesWithMedia() {
   const fakes = createPlantsInventoryFakes();
-  fakes.media.records.set(MEDIA_ID, {
-    id: MEDIA_ID,
-    storageReference: 'gs://verdery-media/example.jpg',
-    mimeType: 'image/jpeg',
-    uploadedByProfileId: PROFILE_ID,
-    createdAt: NOW,
-  });
+  fakes.media.records.set(
+    MEDIA_ID,
+    registerMediaRecord(
+      MEDIA_ID,
+      GARDEN_ID,
+      PROFILE_ID,
+      'garden_photo',
+      'photo.jpg',
+      'image/jpeg',
+      123_456,
+      null,
+      null,
+      null,
+      null,
+      NOW,
+    ),
+  );
   return fakes;
 }
 

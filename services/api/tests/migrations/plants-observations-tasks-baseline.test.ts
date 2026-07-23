@@ -143,13 +143,21 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     return objectId;
   }
 
+  // `media.media_record`'s column set reflects every migration applied up
+  // to and including 1785100000000_media-lifecycle-and-quotas.sql — this
+  // suite's own `migrate(databaseUrl, 'up')` in `beforeAll` always runs the
+  // full chain, not just this file's own migration — so this fixture
+  // matches that later migration's shape, not this file's original one.
   const insertMediaRecord = (overrides: Row = {}) =>
     insertRow(
       'media.media_record',
       withId({
-        storage_reference: 'gs://verdery-media/example.jpg',
-        mime_type: 'image/jpeg',
         uploaded_by_profile_id: profileId,
+        media_class: 'garden_photo',
+        display_filename: 'photo.jpg',
+        declared_content_type: 'image/jpeg',
+        declared_byte_size: 123_456,
+        sensitivity_classification: 'standard',
         ...overrides,
       }),
     );
@@ -250,15 +258,21 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     }
   });
 
-  it('inserts an immutable media record', async () => {
+  // Titled without "immutable" (unlike this migration's own original intent
+  // for `media.media_record`): 1785100000000_media-lifecycle-and-quotas.sql
+  // gives the table a real UPDATE-driven upload/processing state machine,
+  // so that claim no longer holds for the schema this suite's `beforeAll`
+  // actually migrates up to. This test still only proves this migration's
+  // own `media.media_record` table accepts a row and reads it back.
+  it('inserts a media record', async () => {
     await freshFoundation();
     const mediaId = await insertMediaRecord();
 
-    const row = await client.query<{ mime_type: string }>(
-      'SELECT mime_type FROM media.media_record WHERE id = $1',
+    const row = await client.query<{ declared_content_type: string }>(
+      'SELECT declared_content_type FROM media.media_record WHERE id = $1',
       [mediaId],
     );
-    expect(row.rows[0]?.mime_type).toBe('image/jpeg');
+    expect(row.rows[0]?.declared_content_type).toBe('image/jpeg');
   });
 
   it('accepts system-catalog and user-defined taxonomy references, and rejects an unknown source', async () => {
@@ -516,18 +530,19 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving the garden-map-baseline schemas and tables otherwise intact', async () => {
     await client.end();
 
-    // `count: 3` undoes this migration and every migration applied after it
+    // `count: 4` undoes this migration and every migration applied after it
     // (currently search-indexes, which adds indexes on tables this one
-    // creates, and synchronization-baseline, neither of which needs to come
-    // down for its own sake but both of which were applied later and must
-    // unwind first). Update this count when a later migration is added on
+    // creates; synchronization-baseline, which does not depend on anything
+    // this one creates; and media-lifecycle-and-quotas, which extends
+    // `media.media_record` this migration creates and must come down
+    // before it). Update this count when a later migration is added on
     // top.
     await runner({
       databaseUrl,
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 3,
+      count: 4,
       log: () => {},
     });
 
