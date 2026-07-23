@@ -179,7 +179,15 @@ describe('movedRingClosureGeometry', () => {
     const moved = movedRingClosureGeometry(SQUARE, [9, 9]);
     expect(moved).toEqual({
       type: 'Polygon',
-      coordinates: [[[9, 9], [2, 0], [2, 2], [0, 2], [9, 9]]],
+      coordinates: [
+        [
+          [9, 9],
+          [2, 0],
+          [2, 2],
+          [0, 2],
+          [9, 9],
+        ],
+      ],
     });
   });
 

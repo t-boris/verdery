@@ -20,26 +20,11 @@
               "type": "Polygon",
               "coordinates": [
                 [
-                  [
-                    -5,
-                    -5
-                  ],
-                  [
-                    5,
-                    -5
-                  ],
-                  [
-                    5,
-                    5
-                  ],
-                  [
-                    -5,
-                    5
-                  ],
-                  [
-                    -5,
-                    -5
-                  ]
+                  [-5, -5],
+                  [5, -5],
+                  [5, 5],
+                  [-5, 5],
+                  [-5, -5]
                 ]
               ]
             },
@@ -79,26 +64,11 @@
               "type": "Polygon",
               "coordinates": [
                 [
-                  [
-                    -15,
-                    -15
-                  ],
-                  [
-                    15,
-                    -15
-                  ],
-                  [
-                    15,
-                    15
-                  ],
-                  [
-                    -15,
-                    15
-                  ],
-                  [
-                    -15,
-                    -15
-                  ]
+                  [-15, -15],
+                  [15, -15],
+                  [15, 15],
+                  [-15, 15],
+                  [-15, -15]
                 ]
               ]
             },
@@ -121,26 +91,11 @@
               "type": "Polygon",
               "coordinates": [
                 [
-                  [
-                    -12,
-                    4
-                  ],
-                  [
-                    -4,
-                    4
-                  ],
-                  [
-                    -4,
-                    12
-                  ],
-                  [
-                    -12,
-                    12
-                  ],
-                  [
-                    -12,
-                    4
-                  ]
+                  [-12, 4],
+                  [-4, 4],
+                  [-4, 12],
+                  [-12, 12],
+                  [-12, 4]
                 ]
               ]
             },
@@ -167,22 +122,10 @@
             "geometry": {
               "type": "LineString",
               "coordinates": [
-                [
-                  -15,
-                  -15
-                ],
-                [
-                  15,
-                  -15
-                ],
-                [
-                  15,
-                  15
-                ],
-                [
-                  -15,
-                  15
-                ]
+                [-15, -15],
+                [15, -15],
+                [15, 15],
+                [-15, 15]
               ]
             },
             "coordinateSpaceId": "space-1",
@@ -208,14 +151,8 @@
             "geometry": {
               "type": "LineString",
               "coordinates": [
-                [
-                  0,
-                  -15
-                ],
-                [
-                  1,
-                  -15
-                ]
+                [0, -15],
+                [1, -15]
               ]
             },
             "coordinateSpaceId": "space-1",
@@ -241,18 +178,9 @@
             "geometry": {
               "type": "LineString",
               "coordinates": [
-                [
-                  0,
-                  -15
-                ],
-                [
-                  0,
-                  0
-                ],
-                [
-                  -8,
-                  6
-                ]
+                [0, -15],
+                [0, 0],
+                [-8, 6]
               ]
             },
             "coordinateSpaceId": "space-1",
@@ -274,26 +202,11 @@
               "type": "Polygon",
               "coordinates": [
                 [
-                  [
-                    5,
-                    -11
-                  ],
-                  [
-                    11,
-                    -11
-                  ],
-                  [
-                    11,
-                    -5
-                  ],
-                  [
-                    5,
-                    -5
-                  ],
-                  [
-                    5,
-                    -11
-                  ]
+                  [5, -11],
+                  [11, -11],
+                  [11, -5],
+                  [5, -5],
+                  [5, -11]
                 ]
               ]
             },
@@ -321,26 +234,11 @@
               "type": "Polygon",
               "coordinates": [
                 [
-                  [
-                    -6,
-                    2
-                  ],
-                  [
-                    6,
-                    2
-                  ],
-                  [
-                    6,
-                    14
-                  ],
-                  [
-                    -6,
-                    14
-                  ],
-                  [
-                    -6,
-                    2
-                  ]
+                  [-6, 2],
+                  [6, 2],
+                  [6, 14],
+                  [-6, 14],
+                  [-6, 2]
                 ]
               ]
             },
@@ -365,10 +263,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                10,
-                10
-              ]
+              "coordinates": [10, 10]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -393,10 +288,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                8,
-                -8
-              ]
+              "coordinates": [8, -8]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -545,26 +437,11 @@
               "type": "Polygon",
               "coordinates": [
                 [
-                  [
-                    -40,
-                    -40
-                  ],
-                  [
-                    40,
-                    -40
-                  ],
-                  [
-                    40,
-                    40
-                  ],
-                  [
-                    -40,
-                    40
-                  ],
-                  [
-                    -40,
-                    -40
-                  ]
+                  [-40, -40],
+                  [40, -40],
+                  [40, 40],
+                  [-40, 40],
+                  [-40, -40]
                 ]
               ]
             },
@@ -584,10 +461,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -28,
-                -28
-              ]
+              "coordinates": [-28, -28]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -612,10 +486,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -20,
-                -28
-              ]
+              "coordinates": [-20, -28]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -640,10 +511,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -12,
-                -28
-              ]
+              "coordinates": [-12, -28]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -668,10 +536,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -4,
-                -28
-              ]
+              "coordinates": [-4, -28]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -696,10 +561,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                4,
-                -28
-              ]
+              "coordinates": [4, -28]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -724,10 +586,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                12,
-                -28
-              ]
+              "coordinates": [12, -28]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -752,10 +611,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                20,
-                -28
-              ]
+              "coordinates": [20, -28]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -780,10 +636,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                28,
-                -28
-              ]
+              "coordinates": [28, -28]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -808,10 +661,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -28,
-                -20
-              ]
+              "coordinates": [-28, -20]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -836,10 +686,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -20,
-                -20
-              ]
+              "coordinates": [-20, -20]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -864,10 +711,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -12,
-                -20
-              ]
+              "coordinates": [-12, -20]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -892,10 +736,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -4,
-                -20
-              ]
+              "coordinates": [-4, -20]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -920,10 +761,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                4,
-                -20
-              ]
+              "coordinates": [4, -20]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -948,10 +786,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                12,
-                -20
-              ]
+              "coordinates": [12, -20]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -976,10 +811,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                20,
-                -20
-              ]
+              "coordinates": [20, -20]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1004,10 +836,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                28,
-                -20
-              ]
+              "coordinates": [28, -20]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1032,10 +861,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -28,
-                -12
-              ]
+              "coordinates": [-28, -12]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1060,10 +886,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -20,
-                -12
-              ]
+              "coordinates": [-20, -12]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1088,10 +911,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -12,
-                -12
-              ]
+              "coordinates": [-12, -12]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1116,10 +936,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -4,
-                -12
-              ]
+              "coordinates": [-4, -12]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1144,10 +961,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                4,
-                -12
-              ]
+              "coordinates": [4, -12]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1172,10 +986,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                12,
-                -12
-              ]
+              "coordinates": [12, -12]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1200,10 +1011,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                20,
-                -12
-              ]
+              "coordinates": [20, -12]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1228,10 +1036,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                28,
-                -12
-              ]
+              "coordinates": [28, -12]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1256,10 +1061,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -28,
-                -4
-              ]
+              "coordinates": [-28, -4]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1284,10 +1086,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -20,
-                -4
-              ]
+              "coordinates": [-20, -4]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1312,10 +1111,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -12,
-                -4
-              ]
+              "coordinates": [-12, -4]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1340,10 +1136,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -4,
-                -4
-              ]
+              "coordinates": [-4, -4]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1368,10 +1161,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                4,
-                -4
-              ]
+              "coordinates": [4, -4]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1396,10 +1186,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                12,
-                -4
-              ]
+              "coordinates": [12, -4]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1424,10 +1211,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                20,
-                -4
-              ]
+              "coordinates": [20, -4]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1452,10 +1236,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                28,
-                -4
-              ]
+              "coordinates": [28, -4]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1480,10 +1261,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -28,
-                4
-              ]
+              "coordinates": [-28, 4]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1508,10 +1286,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -20,
-                4
-              ]
+              "coordinates": [-20, 4]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1536,10 +1311,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -12,
-                4
-              ]
+              "coordinates": [-12, 4]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1564,10 +1336,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -4,
-                4
-              ]
+              "coordinates": [-4, 4]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1592,10 +1361,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                4,
-                4
-              ]
+              "coordinates": [4, 4]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1620,10 +1386,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                12,
-                4
-              ]
+              "coordinates": [12, 4]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1648,10 +1411,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                20,
-                4
-              ]
+              "coordinates": [20, 4]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1676,10 +1436,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                28,
-                4
-              ]
+              "coordinates": [28, 4]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1704,10 +1461,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -28,
-                12
-              ]
+              "coordinates": [-28, 12]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1732,10 +1486,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -20,
-                12
-              ]
+              "coordinates": [-20, 12]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1760,10 +1511,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -12,
-                12
-              ]
+              "coordinates": [-12, 12]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1788,10 +1536,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -4,
-                12
-              ]
+              "coordinates": [-4, 12]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1816,10 +1561,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                4,
-                12
-              ]
+              "coordinates": [4, 12]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1844,10 +1586,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                12,
-                12
-              ]
+              "coordinates": [12, 12]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1872,10 +1611,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                20,
-                12
-              ]
+              "coordinates": [20, 12]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1900,10 +1636,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                28,
-                12
-              ]
+              "coordinates": [28, 12]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1928,10 +1661,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -28,
-                20
-              ]
+              "coordinates": [-28, 20]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1956,10 +1686,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -20,
-                20
-              ]
+              "coordinates": [-20, 20]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -1984,10 +1711,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -12,
-                20
-              ]
+              "coordinates": [-12, 20]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -2012,10 +1736,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -4,
-                20
-              ]
+              "coordinates": [-4, 20]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -2040,10 +1761,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                4,
-                20
-              ]
+              "coordinates": [4, 20]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -2068,10 +1786,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                12,
-                20
-              ]
+              "coordinates": [12, 20]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -2096,10 +1811,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                20,
-                20
-              ]
+              "coordinates": [20, 20]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -2124,10 +1836,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                28,
-                20
-              ]
+              "coordinates": [28, 20]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -2152,10 +1861,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -28,
-                28
-              ]
+              "coordinates": [-28, 28]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -2180,10 +1886,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -20,
-                28
-              ]
+              "coordinates": [-20, 28]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -2208,10 +1911,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -12,
-                28
-              ]
+              "coordinates": [-12, 28]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -2236,10 +1936,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -4,
-                28
-              ]
+              "coordinates": [-4, 28]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -2264,10 +1961,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                4,
-                28
-              ]
+              "coordinates": [4, 28]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -2292,10 +1986,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                12,
-                28
-              ]
+              "coordinates": [12, 28]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -2320,10 +2011,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                20,
-                28
-              ]
+              "coordinates": [20, 28]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -2348,10 +2036,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                28,
-                28
-              ]
+              "coordinates": [28, 28]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -3293,50 +2978,20 @@
               "coordinates": [
                 [
                   [
-                    [
-                      -20,
-                      -20
-                    ],
-                    [
-                      -18,
-                      -20
-                    ],
-                    [
-                      -18,
-                      -18
-                    ],
-                    [
-                      -20,
-                      -18
-                    ],
-                    [
-                      -20,
-                      -20
-                    ]
+                    [-20, -20],
+                    [-18, -20],
+                    [-18, -18],
+                    [-20, -18],
+                    [-20, -20]
                   ]
                 ],
                 [
                   [
-                    [
-                      18,
-                      18
-                    ],
-                    [
-                      20,
-                      18
-                    ],
-                    [
-                      20,
-                      20
-                    ],
-                    [
-                      18,
-                      20
-                    ],
-                    [
-                      18,
-                      18
-                    ]
+                    [18, 18],
+                    [20, 18],
+                    [20, 20],
+                    [18, 20],
+                    [18, 18]
                   ]
                 ]
               ]
@@ -3360,26 +3015,11 @@
               "type": "Polygon",
               "coordinates": [
                 [
-                  [
-                    4750,
-                    -4850
-                  ],
-                  [
-                    4850,
-                    -4850
-                  ],
-                  [
-                    4850,
-                    -4750
-                  ],
-                  [
-                    4750,
-                    -4750
-                  ],
-                  [
-                    4750,
-                    -4850
-                  ]
+                  [4750, -4850],
+                  [4850, -4850],
+                  [4850, -4750],
+                  [4750, -4750],
+                  [4750, -4850]
                 ]
               ]
             },
@@ -3406,14 +3046,8 @@
             "geometry": {
               "type": "LineString",
               "coordinates": [
-                [
-                  0,
-                  0
-                ],
-                [
-                  12.5,
-                  0
-                ]
+                [0, 0],
+                [12.5, 0]
               ]
             },
             "coordinateSpaceId": "space-1",
@@ -3447,26 +3081,11 @@
               "type": "Polygon",
               "coordinates": [
                 [
-                  [
-                    -20,
-                    -20
-                  ],
-                  [
-                    20,
-                    -20
-                  ],
-                  [
-                    20,
-                    20
-                  ],
-                  [
-                    -20,
-                    20
-                  ],
-                  [
-                    -20,
-                    -20
-                  ]
+                  [-20, -20],
+                  [20, -20],
+                  [20, 20],
+                  [-20, 20],
+                  [-20, -20]
                 ]
               ]
             },
@@ -3489,24 +3108,12 @@
               "type": "MultiLineString",
               "coordinates": [
                 [
-                  [
-                    -10,
-                    -10
-                  ],
-                  [
-                    -10,
-                    10
-                  ]
+                  [-10, -10],
+                  [-10, 10]
                 ],
                 [
-                  [
-                    10,
-                    -10
-                  ],
-                  [
-                    10,
-                    10
-                  ]
+                  [10, -10],
+                  [10, 10]
                 ]
               ]
             },
@@ -3533,26 +3140,11 @@
               "type": "Polygon",
               "coordinates": [
                 [
-                  [
-                    27,
-                    27
-                  ],
-                  [
-                    33,
-                    27
-                  ],
-                  [
-                    33,
-                    33
-                  ],
-                  [
-                    27,
-                    33
-                  ],
-                  [
-                    27,
-                    27
-                  ]
+                  [27, 27],
+                  [33, 27],
+                  [33, 33],
+                  [27, 33],
+                  [27, 27]
                 ]
               ]
             },
@@ -3577,10 +3169,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                0.0001,
-                -0.0001
-              ]
+              "coordinates": [0.0001, -0.0001]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -3605,10 +3194,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -30,
-                -30
-              ]
+              "coordinates": [-30, -30]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -3625,26 +3211,11 @@
               "type": "Polygon",
               "coordinates": [
                 [
-                  [
-                    -36,
-                    -36
-                  ],
-                  [
-                    -24,
-                    -36
-                  ],
-                  [
-                    -24,
-                    -24
-                  ],
-                  [
-                    -36,
-                    -24
-                  ],
-                  [
-                    -36,
-                    -36
-                  ]
+                  [-36, -36],
+                  [-24, -36],
+                  [-24, -24],
+                  [-36, -24],
+                  [-36, -36]
                 ]
               ]
             }
@@ -3662,26 +3233,11 @@
               "type": "Polygon",
               "coordinates": [
                 [
-                  [
-                    -5.5,
-                    -5.5
-                  ],
-                  [
-                    -2.5,
-                    -5.5
-                  ],
-                  [
-                    -2.5,
-                    -2.5
-                  ],
-                  [
-                    -5.5,
-                    -2.5
-                  ],
-                  [
-                    -5.5,
-                    -5.5
-                  ]
+                  [-5.5, -5.5],
+                  [-2.5, -5.5],
+                  [-2.5, -2.5],
+                  [-5.5, -2.5],
+                  [-5.5, -5.5]
                 ]
               ]
             },
@@ -3806,26 +3362,11 @@
               "type": "Polygon",
               "coordinates": [
                 [
-                  [
-                    -36,
-                    -36
-                  ],
-                  [
-                    -24,
-                    -36
-                  ],
-                  [
-                    -24,
-                    -24
-                  ],
-                  [
-                    -36,
-                    -24
-                  ],
-                  [
-                    -36,
-                    -36
-                  ]
+                  [-36, -36],
+                  [-24, -36],
+                  [-24, -24],
+                  [-36, -24],
+                  [-36, -36]
                 ]
               ]
             }
@@ -3862,26 +3403,11 @@
               "type": "Polygon",
               "coordinates": [
                 [
-                  [
-                    -7,
-                    -7
-                  ],
-                  [
-                    -3,
-                    -7
-                  ],
-                  [
-                    -3,
-                    -3
-                  ],
-                  [
-                    -7,
-                    -3
-                  ],
-                  [
-                    -7,
-                    -7
-                  ]
+                  [-7, -7],
+                  [-3, -7],
+                  [-3, -3],
+                  [-7, -3],
+                  [-7, -7]
                 ]
               ]
             },
@@ -3907,26 +3433,11 @@
               "type": "Polygon",
               "coordinates": [
                 [
-                  [
-                    3,
-                    3
-                  ],
-                  [
-                    7,
-                    3
-                  ],
-                  [
-                    7,
-                    7
-                  ],
-                  [
-                    3,
-                    7
-                  ],
-                  [
-                    3,
-                    3
-                  ]
+                  [3, 3],
+                  [7, 3],
+                  [7, 7],
+                  [3, 7],
+                  [3, 3]
                 ]
               ]
             },
@@ -3950,10 +3461,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                1,
-                1
-              ]
+              "coordinates": [1, 1]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -3977,10 +3485,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                2,
-                2
-              ]
+              "coordinates": [2, 2]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
@@ -4006,26 +3511,11 @@
               "type": "Polygon",
               "coordinates": [
                 [
-                  [
-                    -3,
-                    -3
-                  ],
-                  [
-                    3,
-                    -3
-                  ],
-                  [
-                    3,
-                    3
-                  ],
-                  [
-                    -3,
-                    3
-                  ],
-                  [
-                    -3,
-                    -3
-                  ]
+                  [-3, -3],
+                  [3, -3],
+                  [3, 3],
+                  [-3, 3],
+                  [-3, -3]
                 ]
               ]
             },
@@ -4052,26 +3542,11 @@
               "type": "Polygon",
               "coordinates": [
                 [
-                  [
-                    -3,
-                    -3
-                  ],
-                  [
-                    3,
-                    -3
-                  ],
-                  [
-                    3,
-                    3
-                  ],
-                  [
-                    -3,
-                    3
-                  ],
-                  [
-                    -3,
-                    -3
-                  ]
+                  [-3, -3],
+                  [3, -3],
+                  [3, 3],
+                  [-3, 3],
+                  [-3, -3]
                 ]
               ]
             },
@@ -4096,10 +3571,7 @@
           "geometryEnvelope": {
             "geometry": {
               "type": "Point",
-              "coordinates": [
-                -8,
-                8
-              ]
+              "coordinates": [-8, 8]
             },
             "coordinateSpaceId": "space-1",
             "coordinateSpaceKind": "localPlanarMetres",
