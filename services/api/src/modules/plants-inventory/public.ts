@@ -25,10 +25,11 @@
  * without a seeded system catalog to check it against would be premature.
  * Tests seed rows directly.
  *
- * Also deliberately absent: HTTP transport (`registerXxxRoutes`) — the same
- * gap `media`'s own `public.ts` documents, for the same reason: no
- * `@verdery/api-contracts` schema for `Plant` exists yet (P4-CONTRACT-01
- * lands after this work package).
+ * P4-CONTRACT-01 additionally lands this module's HTTP transport
+ * (`registerPlantRoutes`, `PlantRoutesDependencies`) and one new read-only
+ * query, `GetPlant` — see that class's own doc comment for why it was added
+ * — against the `Plants` tag `packages/api-contracts/openapi.yaml` now
+ * declares.
  *
  * Source: architecture/backend-modular-monolith.md, section "5.5 Public Interface".
  */
@@ -73,6 +74,10 @@ export { SetPlantStatus } from './application/set-plant-status.js';
 export { MovePlant } from './application/move-plant.js';
 export type { MovePlantInput } from './application/move-plant.js';
 export { SearchTaxonomyReferences } from './application/search-taxonomy-references.js';
+export { GetPlant } from './application/get-plant.js';
+
+export { registerPlantRoutes } from './transport/plant-routes.js';
+export type { PlantRoutesDependencies } from './transport/plant-routes.js';
 
 export { KyselyPlantRepository } from './persistence/kysely-plant-repository.js';
 export { KyselyPlantPhotoRepository } from './persistence/kysely-plant-photo-repository.js';

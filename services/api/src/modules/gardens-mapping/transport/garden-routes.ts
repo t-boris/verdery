@@ -72,8 +72,14 @@ export function requireIdempotencyKey(request: FastifyRequest): string {
   return key;
 }
 
-/** Unwraps the quoted revision the `If-Match` contract parameter documents (`"7"`). */
-function requireExpectedRevision(request: FastifyRequest): number {
+/**
+ * Unwraps the quoted revision the `If-Match` contract parameter documents
+ * (`"7"`). Exported for reuse by the plants-inventory, observations-history,
+ * and tasks-recommendations transport layers (P4-CONTRACT-01), the same
+ * `import`-not-redeclare reuse `UUID_PATTERN`/`requireGardenId`/
+ * `requireIdempotencyKey`/`invalid` already have.
+ */
+export function requireExpectedRevision(request: FastifyRequest): number {
   // Node's own http types name "if-match" as a single value, never an array
   // — unlike Idempotency-Key and other headers with no built-in type, there
   // is no `Array.isArray` case to unwrap here.

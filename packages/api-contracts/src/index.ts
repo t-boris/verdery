@@ -88,6 +88,51 @@ export type MapCommandPayload = Schemas['MapCommandPayload'];
 export type MapCommandRequest = Schemas['MapCommandRequest'];
 export type MapCommandResult = Schemas['MapCommandResult'];
 
+/** The plants-inventory schemas (P4-CONTRACT-01). */
+export type PlantGroupingKind = Schemas['PlantGroupingKind'];
+export type PlantAcquisitionDateType = Schemas['PlantAcquisitionDateType'];
+export type PlantLifecycleStage = Schemas['PlantLifecycleStage'];
+export type PlantStatus = Schemas['PlantStatus'];
+export type TaxonomySource = Schemas['TaxonomySource'];
+export type Plant = Schemas['Plant'];
+export type PlantPhoto = Schemas['PlantPhoto'];
+export type TaxonomyReference = Schemas['TaxonomyReference'];
+export type TaxonomyReferenceListResult = Schemas['TaxonomyReferenceListResult'];
+export type AddPlantRequest = Schemas['AddPlantRequest'];
+export type AddPlantFromPhotoRequest = Schemas['AddPlantFromPhotoRequest'];
+export type UpdatePlantDetailsRequest = Schemas['UpdatePlantDetailsRequest'];
+export type AttachPlantPhotoRequest = Schemas['AttachPlantPhotoRequest'];
+export type TransitionPlantLifecycleStageRequest = Schemas['TransitionPlantLifecycleStageRequest'];
+export type SetPlantStatusRequest = Schemas['SetPlantStatusRequest'];
+export type MovePlantRequest = Schemas['MovePlantRequest'];
+
+/** The observations-history schemas (P4-CONTRACT-01). */
+export type ObservationActorType = Schemas['ObservationActorType'];
+export type ObservationCorrectionKind = Schemas['ObservationCorrectionKind'];
+export type ImageAnalysisKind = Schemas['ImageAnalysisKind'];
+export type ImageAnalysisResult = Schemas['ImageAnalysisResult'];
+export type ObservationPhoto = Schemas['ObservationPhoto'];
+export type Observation = Schemas['Observation'];
+export type ObservationListResult = Schemas['ObservationListResult'];
+export type RecordObservationRequest = Schemas['RecordObservationRequest'];
+export type CorrectObservationRequest = Schemas['CorrectObservationRequest'];
+
+/** The tasks-recommendations schemas (P4-CONTRACT-01). */
+export type TaskTargetKind = Schemas['TaskTargetKind'];
+export type TaskStatus = Schemas['TaskStatus'];
+export type TaskUrgency = Schemas['TaskUrgency'];
+export type TaskSource = Schemas['TaskSource'];
+export type Task = Schemas['Task'];
+export type TaskAttachment = Schemas['TaskAttachment'];
+export type TaskListResult = Schemas['TaskListResult'];
+export type TaskTimeWindowInput = Schemas['TaskTimeWindowInput'];
+export type CreateManualTaskRequest = Schemas['CreateManualTaskRequest'];
+export type EditTaskRequest = Schemas['EditTaskRequest'];
+export type RescheduleTaskRequest = Schemas['RescheduleTaskRequest'];
+export type CompleteTaskRequest = Schemas['CompleteTaskRequest'];
+export type DismissTaskRequest = Schemas['DismissTaskRequest'];
+export type AttachTaskFileRequest = Schemas['AttachTaskFileRequest'];
+
 /** The API base path. Breaking changes require a new major path. */
 export const API_BASE_PATH = '/v1';
 

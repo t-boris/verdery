@@ -19,12 +19,11 @@
  *   dependency graph, the same way it already does for gardens-mapping,
  *   media, observations-history, and plants-inventory.
  *
- * Also deliberately absent: HTTP transport (`registerXxxRoutes`) — the same
- * gap every sibling Phase 4 module's own `public.ts` documents, for the same
- * reason: no `@verdery/api-contracts` schema for `Task` exists yet
- * (P4-CONTRACT-01 lands after this work package). Every command and query
- * here is exercised end to end against a real database by
- * `tests/integration/tasks-recommendations.test.ts` in the meantime.
+ * P4-CONTRACT-01 additionally lands this module's HTTP transport
+ * (`registerTaskRoutes`, `TaskRoutesDependencies`) against the `Tasks` tag
+ * `packages/api-contracts/openapi.yaml` now declares. No new query or
+ * command was needed — every route maps onto a command or query this module
+ * already had.
  *
  * Source: architecture/backend-modular-monolith.md, section "5.5 Public Interface".
  */
@@ -77,6 +76,9 @@ export { DeleteTask } from './application/delete-task.js';
 export { ListTasksForGarden } from './application/list-tasks-for-garden.js';
 export { AttachTaskFile } from './application/attach-task-file.js';
 export type { AttachTaskFileInput } from './application/attach-task-file.js';
+
+export { registerTaskRoutes } from './transport/task-routes.js';
+export type { TaskRoutesDependencies } from './transport/task-routes.js';
 
 export { KyselyTaskRepository } from './persistence/kysely-task-repository.js';
 export { KyselyTaskAttachmentRepository } from './persistence/kysely-task-attachment-repository.js';

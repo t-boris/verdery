@@ -64,16 +64,19 @@ import {
   ListObservationsForGarden,
   ListObservationsForPlant,
   RecordObservation,
+  registerObservationRoutes,
 } from './modules/observations-history/public.js';
 import {
   AddPlant,
   AddPlantFromPhoto,
   AttachPlantPhoto,
   ConfirmPlantIdentification,
+  GetPlant,
   KyselyPlantRepository,
   KyselyPlantsInventoryUnitOfWork,
   KyselyTaxonomyReferenceRepository,
   MovePlant,
+  registerPlantRoutes,
   SearchTaxonomyReferences,
   SetPlantStatus,
   SetPrimaryPlantPhoto,
@@ -95,6 +98,7 @@ import {
   KyselyTaskRepository,
   KyselyTasksRecommendationsUnitOfWork,
   ListTasksForGarden,
+  registerTaskRoutes,
   RescheduleTask,
   SkipTask,
 } from './modules/tasks-recommendations/public.js';
@@ -346,30 +350,21 @@ export async function buildApplication(
     ),
   };
 
-  // observations-history: owns the append-only `observation` (no revision
-  // column, no UPDATE path — see that module's `public.ts`),
-  // `observation_photo`, and `image_analysis_result` tables. Reuses
-  // gardens-mapping's own `gardenAuthorization` instance, the same
-  // capability matrix ('editGardenContent'/'viewGarden') every other garden-
-  // scoped command already checks against. No transport of its own this
-  // pass, mirroring media's own "no route yet" choice: nothing in this file
-  // reads these commands today — they are exercised end to end by
-  // tests/integration/observations-history.test.ts in the meantime, the
-  // same way media's RegisterMediaRecord is.
+  // observations-history: owns the append-only `observation`, `observation_photo`,
+  // and `image_analysis_result` tables. Reuses `gardenAuthorization`. HTTP
+  // transport (`registerObservationRoutes`, tag `Observations`) wired below.
   const observationRepository = new KyselyObservationRepository(database.queries);
   const observationsHistoryIdempotency = new KyselyIdempotencyStore(database.queries, clock);
   const observationsHistoryUnitOfWork = new KyselyObservationsHistoryUnitOfWork(
     database.queries,
     clock,
   );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
   const recordObservation = new RecordObservation(
     observationsHistoryIdempotency,
     observationsHistoryUnitOfWork,
     gardenAuthorization,
     clock,
   );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
   const correctObservation = new CorrectObservation(
     observationsHistoryIdempotency,
     observationsHistoryUnitOfWork,
@@ -377,12 +372,10 @@ export async function buildApplication(
     observationRepository,
     clock,
   );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
   const listObservationsForGarden = new ListObservationsForGarden(
     observationRepository,
     gardenAuthorization,
   );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
   const listObservationsForPlant = new ListObservationsForPlant(
     observationRepository,
     gardenAuthorization,
@@ -390,37 +383,34 @@ export async function buildApplication(
   // Used below by tasks-recommendations' `CreateManualTask`.
   const getObservation = new GetObservation(observationRepository);
 
+  const observationRoutesDependencies = {
+    recordObservation,
+    correctObservation,
+    listObservationsForGarden,
+    listObservationsForPlant,
+  };
+
   // plants-inventory: owns the mutable `plant` aggregate root, its
   // `plant_photo`/`plant_identification` children, and the read-only
-  // `taxonomy_reference` catalog. Reuses gardens-mapping's own
-  // `gardenAuthorization` instance, the same capability matrix every other
-  // garden-scoped command already checks against, and shares the
-  // transaction-bound `mapObjects`/`media` repository ports through its own
-  // unit of work (see `application/plants-inventory-unit-of-work.ts`) rather
-  // than duplicating gardens-mapping's or media's query logic. No transport
-  // of its own this pass, mirroring media's and observations-history's own
-  // "no route yet" choice: nothing in this file reads these commands today —
-  // they are exercised end to end by
-  // tests/integration/plants-inventory.test.ts in the meantime.
+  // `taxonomy_reference` catalog. Reuses `gardenAuthorization`. HTTP
+  // transport (`registerPlantRoutes`, tag `Plants`) wired below.
   const plantRepository = new KyselyPlantRepository(database.queries);
   const taxonomyReferenceRepository = new KyselyTaxonomyReferenceRepository(database.queries);
   const plantsInventoryIdempotency = new KyselyIdempotencyStore(database.queries, clock);
   const plantsInventoryUnitOfWork = new KyselyPlantsInventoryUnitOfWork(database.queries, clock);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
   const addPlant = new AddPlant(
     plantsInventoryIdempotency,
     plantsInventoryUnitOfWork,
     gardenAuthorization,
     clock,
   );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
   const addPlantFromPhoto = new AddPlantFromPhoto(
     plantsInventoryIdempotency,
     plantsInventoryUnitOfWork,
     gardenAuthorization,
     clock,
   );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const getPlant = new GetPlant(plantRepository, gardenAuthorization);
   const attachPlantPhoto = new AttachPlantPhoto(
     plantRepository,
     plantsInventoryIdempotency,
@@ -428,14 +418,12 @@ export async function buildApplication(
     gardenAuthorization,
     clock,
   );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
   const setPrimaryPlantPhoto = new SetPrimaryPlantPhoto(
     plantRepository,
     plantsInventoryIdempotency,
     plantsInventoryUnitOfWork,
     gardenAuthorization,
   );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
   const updatePlantDetails = new UpdatePlantDetails(
     plantRepository,
     plantsInventoryIdempotency,
@@ -443,7 +431,6 @@ export async function buildApplication(
     gardenAuthorization,
     clock,
   );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
   const confirmPlantIdentification = new ConfirmPlantIdentification(
     plantRepository,
     plantsInventoryIdempotency,
@@ -451,7 +438,6 @@ export async function buildApplication(
     gardenAuthorization,
     clock,
   );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
   const transitionPlantLifecycleStage = new TransitionPlantLifecycleStage(
     plantRepository,
     plantsInventoryIdempotency,
@@ -459,7 +445,6 @@ export async function buildApplication(
     gardenAuthorization,
     clock,
   );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
   const setPlantStatus = new SetPlantStatus(
     plantRepository,
     plantsInventoryIdempotency,
@@ -467,7 +452,6 @@ export async function buildApplication(
     gardenAuthorization,
     clock,
   );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
   const movePlant = new MovePlant(
     plantRepository,
     plantsInventoryIdempotency,
@@ -475,22 +459,32 @@ export async function buildApplication(
     gardenAuthorization,
     clock,
   );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
   const searchTaxonomyReferences = new SearchTaxonomyReferences(taxonomyReferenceRepository);
 
-  // tasks-recommendations: owns `task`, `task_attachment`, and
-  // `task_revision` — the last of Phase 4's sibling modules to land. Reuses
-  // gardenAuthorization and observations-history's `getObservation`
-  // instance (validates `CreateManualTask`'s `originObservationId` — see
-  // that command's own doc comment). No transport this pass: exercised end
-  // to end by tests/integration/tasks-recommendations.test.ts.
+  const plantRoutesDependencies = {
+    addPlant,
+    addPlantFromPhoto,
+    getPlant,
+    updatePlantDetails,
+    attachPlantPhoto,
+    setPrimaryPlantPhoto,
+    confirmPlantIdentification,
+    transitionPlantLifecycleStage,
+    setPlantStatus,
+    movePlant,
+    searchTaxonomyReferences,
+  };
+
+  // tasks-recommendations: owns `task`, `task_attachment`, and `task_revision`.
+  // Reuses `gardenAuthorization` and `getObservation` (validates
+  // `CreateManualTask`'s `originObservationId`). HTTP transport
+  // (`registerTaskRoutes`, tag `Tasks`) wired below.
   const taskRepository = new KyselyTaskRepository(database.queries);
   const tasksRecommendationsIdempotency = new KyselyIdempotencyStore(database.queries, clock);
   const tasksRecommendationsUnitOfWork = new KyselyTasksRecommendationsUnitOfWork(
     database.queries,
     clock,
   );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
   const createManualTask = new CreateManualTask(
     tasksRecommendationsIdempotency,
     tasksRecommendationsUnitOfWork,
@@ -498,7 +492,6 @@ export async function buildApplication(
     getObservation,
     clock,
   );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
   const editTask = new EditTask(
     taskRepository,
     tasksRecommendationsIdempotency,
@@ -506,7 +499,6 @@ export async function buildApplication(
     gardenAuthorization,
     clock,
   );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
   const rescheduleTask = new RescheduleTask(
     taskRepository,
     tasksRecommendationsIdempotency,
@@ -514,7 +506,6 @@ export async function buildApplication(
     gardenAuthorization,
     clock,
   );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
   const completeTask = new CompleteTask(
     taskRepository,
     tasksRecommendationsIdempotency,
@@ -522,7 +513,6 @@ export async function buildApplication(
     gardenAuthorization,
     clock,
   );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
   const dismissTask = new DismissTask(
     taskRepository,
     tasksRecommendationsIdempotency,
@@ -530,7 +520,6 @@ export async function buildApplication(
     gardenAuthorization,
     clock,
   );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
   const skipTask = new SkipTask(
     taskRepository,
     tasksRecommendationsIdempotency,
@@ -538,7 +527,6 @@ export async function buildApplication(
     gardenAuthorization,
     clock,
   );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
   const deleteTask = new DeleteTask(
     taskRepository,
     tasksRecommendationsIdempotency,
@@ -546,9 +534,7 @@ export async function buildApplication(
     gardenAuthorization,
     clock,
   );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
   const listTasksForGarden = new ListTasksForGarden(taskRepository, gardenAuthorization);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
   const attachTaskFile = new AttachTaskFile(
     taskRepository,
     tasksRecommendationsIdempotency,
@@ -556,6 +542,18 @@ export async function buildApplication(
     gardenAuthorization,
     clock,
   );
+
+  const taskRoutesDependencies = {
+    createManualTask,
+    listTasksForGarden,
+    editTask,
+    rescheduleTask,
+    completeTask,
+    dismissTask,
+    skipTask,
+    deleteTask,
+    attachTaskFile,
+  };
 
   await app.register(
     (instance, _options, done) => {
@@ -590,6 +588,9 @@ export async function buildApplication(
       registerAuthentication(instance, { tokenVerifier, provisionProfile });
       registerGardenRoutes(instance, gardenRoutesDependencies);
       registerMapRoutes(instance, mapRoutesDependencies);
+      registerPlantRoutes(instance, plantRoutesDependencies);
+      registerObservationRoutes(instance, observationRoutesDependencies);
+      registerTaskRoutes(instance, taskRoutesDependencies);
       done();
     },
     { prefix: API_BASE_PATH },

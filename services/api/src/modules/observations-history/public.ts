@@ -16,10 +16,11 @@
  *   `ListObservationsForPlant` — to construct this module's dependency
  *   graph, the same way it already does for gardens-mapping and media.
  *
- * No transport of its own this pass, mirroring `media`'s own "no route yet"
- * choice — see that module's `public.ts` for the identical reasoning. Every
- * command and query here is exercised end to end against a real database by
- * `tests/integration/observations-history.test.ts` in the meantime.
+ * P4-CONTRACT-01 additionally lands this module's HTTP transport
+ * (`registerObservationRoutes`, `ObservationRoutesDependencies`) against the
+ * `Observations` tag `packages/api-contracts/openapi.yaml` now declares. No
+ * new query or command was needed — every route maps onto a command or
+ * query this module already had.
  *
  * Source: architecture/backend-modular-monolith.md, section "5.5 Public Interface".
  */
@@ -56,6 +57,10 @@ export type { CorrectObservationInput } from './application/correct-observation.
 export { ListObservationsForGarden } from './application/list-observations-for-garden.js';
 export { ListObservationsForPlant } from './application/list-observations-for-plant.js';
 export { GetObservation } from './application/get-observation.js';
+
+export { registerObservationRoutes } from './transport/observation-routes.js';
+export type { ObservationRoutesDependencies } from './transport/observation-routes.js';
+
 export { KyselyImageAnalysisResultRepository } from './persistence/kysely-image-analysis-result-repository.js';
 export { KyselyObservationPhotoRepository } from './persistence/kysely-observation-photo-repository.js';
 export { KyselyObservationRepository } from './persistence/kysely-observation-repository.js';

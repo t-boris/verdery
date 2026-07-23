@@ -279,6 +279,630 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/gardens/{gardenId}/plants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a plant
+         * @description Adds a plant instance, row, or group to the garden's inventory.
+         *     `taxonomyReferenceId` may be set directly here when the caller already
+         *     knows the species; otherwise leave it unset and identify the plant
+         *     later via a photo or `SearchTaxonomyReferences`.
+         *
+         *     Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
+         */
+        post: operations["addPlant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/plants/from-photo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a plant identified from a photo
+         * @description Creates an `'individual'` plant prefilled from a photo-identification
+         *     pass, and inserts the photo and the identification suggestion in the
+         *     same transaction. `taxonomyReferenceId` on the created plant stays
+         *     unset until the suggestion is confirmed via `ConfirmPlantIdentification`
+         *     — identification never auto-confirms.
+         *
+         *     Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
+         */
+        post: operations["addPlantFromPhoto"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/plants/{plantId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                plantId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get a plant
+         * @description Returns a plant in a garden the caller has active membership in.
+         *     Existence — including a plant id that belongs to a different garden
+         *     than the one named in the path — is concealed as `404`.
+         *
+         *     Source: implementation-plan.md work package P4-CONTRACT-01.
+         */
+        get: operations["getPlant"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update plant details
+         * @description Revision-guarded edit of identity, acquisition, and care-note fields.
+         *     Every property is optional; an omitted property leaves the current
+         *     value unchanged, while an explicit `null` on a nullable property
+         *     clears it. `groupingKind` is immutable and not editable here.
+         *
+         *     Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
+         */
+        patch: operations["updatePlantDetails"];
+        trace?: never;
+    };
+    "/gardens/{gardenId}/plants/{plantId}/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                plantId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Attach a photo to a plant
+         * @description Appends a photo. Never changes the plant's own revision — a photo is
+         *     a child record, not a field of the plant itself — so this command
+         *     carries no `If-Match` precondition.
+         *
+         *     Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
+         */
+        post: operations["attachPlantPhoto"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/plants/{plantId}/photos/{plantPhotoId}/primary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                plantId: components["schemas"]["Uuid"];
+                plantPhotoId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a plant's primary photo
+         * @description Clears any existing primary photo for this plant, then marks this one
+         *     primary, in the same transaction. Does not change the plant's own
+         *     revision, so this command carries no `If-Match` precondition, the
+         *     same as `AttachPlantPhoto`.
+         *
+         *     Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
+         */
+        post: operations["setPrimaryPlantPhoto"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/plants/{plantId}/identification/{identificationId}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                plantId: components["schemas"]["Uuid"];
+                identificationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm a photo-identification suggestion
+         * @description Accepts a prior `plant_identification` suggestion, setting the
+         *     plant's `taxonomyReferenceId` and `acceptedIdentificationId`. The
+         *     named identification must belong to the named plant, or the request
+         *     is rejected.
+         *
+         *     Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
+         */
+        post: operations["confirmPlantIdentification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/plants/{plantId}/lifecycle-stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                plantId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transition a plant's lifecycle stage
+         * @description Sets `lifecycleStage` to any of the eight stages; no ordering is
+         *     enforced, and transitioning to the stage already held is accepted as
+         *     a legitimate, if inert, command.
+         *
+         *     Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
+         */
+        post: operations["transitionPlantLifecycleStage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/plants/{plantId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                plantId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a plant's status
+         * @description Sets `status`, the axis orthogonal to `lifecycleStage`. There is no
+         *     hard-delete command for a plant — removing one from active inventory
+         *     is a transition to `'removed'` or `'dead'` here.
+         *
+         *     Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
+         */
+        post: operations["setPlantStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/plants/{plantId}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                plantId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a plant to a different map placement
+         * @description Updates the plant's placement fields only. Both, when given, must
+         *     reference an active map object in the plant's own garden — the
+         *     garden itself never changes; there is no "move to a different
+         *     garden" command.
+         *
+         *     Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
+         */
+        post: operations["movePlant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/taxonomy-references": {
+        parameters: {
+            query?: {
+                /** @description Case-insensitive match against scientific, common, or variety name. Omit to list the catalog, most recent first. */
+                query?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Search the taxonomy reference catalog
+         * @description Reads `plants_inventory.taxonomy_reference`, the read-only species
+         *     catalog `AddPlant` callers pick a `taxonomyReferenceId` from. Not
+         *     scoped to `gardenId` and carries no authorization check of its own —
+         *     the catalog is not garden-owned data, the same way a product catalog
+         *     is not owned by any one customer, so any authenticated caller may
+         *     search it; `gardenId` is present only for URL consistency with every
+         *     other route under this garden and is validated for shape but
+         *     otherwise unused. Consequently this operation never returns `403` or
+         *     a garden-related `404`.
+         *
+         *     Source: implementation-plan.md work package P4-CONTRACT-01.
+         */
+        get: operations["searchTaxonomyReferences"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/observations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List a garden's observation history
+         * @description Every observation recorded in the garden, most recently observed
+         *     first, correction rows included.
+         *
+         *     Source: implementation-plan.md work packages P4-BE-02, P4-CONTRACT-01.
+         */
+        get: operations["listObservationsForGarden"];
+        put?: never;
+        /**
+         * Record an observation
+         * @description Records a note, a condition summary, and/or photos about the garden,
+         *     a plant within it, or an area (`gardenObjectId`), running one stubbed
+         *     image-analysis pass per attached photo in the same transaction. At
+         *     least one of `noteText`, `conditionSummary`, or a photo is required.
+         *
+         *     Source: implementation-plan.md work packages P4-BE-02, P4-CONTRACT-01.
+         */
+        post: operations["recordObservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/observations/{observationId}/corrections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The observation being corrected. */
+                observationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Correct an observation
+         * @description Inserts a new observation row that points backward to the one it
+         *     corrects; the original is never edited or superseded in place. No
+         *     `gardenId` in the path — the garden is discovered from the original
+         *     observation itself, the same way the command layer resolves it.
+         *
+         *     Source: implementation-plan.md work packages P4-BE-02, P4-CONTRACT-01.
+         */
+        post: operations["correctObservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/plants/{plantId}/observations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                plantId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List a plant's observation history
+         * @description Every observation recorded for one plant, most recently observed
+         *     first, correction rows included. A `plantId` with no observations
+         *     returns an empty list rather than `404`; only an unknown or
+         *     not-visible `gardenId` produces `404`.
+         *
+         *     Source: implementation-plan.md work packages P4-BE-02, P4-CONTRACT-01.
+         */
+        get: operations["listObservationsForPlant"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List a garden's tasks
+         * @description Every task in the garden, optionally restricted to the given
+         *     statuses, soonest-due first (undated tasks last), then by urgency
+         *     descending, then by creation order.
+         *
+         *     Source: implementation-plan.md work packages P4-BE-03, P4-CONTRACT-01.
+         */
+        get: operations["listTasksForGarden"];
+        put?: never;
+        /**
+         * Create a manual task
+         * @description Creates a task with `source: 'manual'` — the only kind this API
+         *     creates; a `'suggested'` task would originate from a recommendation
+         *     entity this phase does not build. `originObservationId`, when given,
+         *     must name an observation that belongs to this garden.
+         *
+         *     Source: implementation-plan.md work packages P4-BE-03, P4-CONTRACT-01.
+         */
+        post: operations["createManualTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/tasks/{taskId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                taskId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit a task
+         * @description Revision-guarded edit of title, notes, schedule, urgency, and
+         *     recurrence rule. Only legal while the task is `'planned'` or
+         *     `'suggested'`; every property is optional, and an explicit `null` on
+         *     a nullable property clears it.
+         *
+         *     Source: implementation-plan.md work packages P4-BE-03, P4-CONTRACT-01.
+         */
+        patch: operations["editTask"];
+        trace?: never;
+    };
+    "/gardens/{gardenId}/tasks/{taskId}/reschedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                taskId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reschedule a task
+         * @description Updates `dueDate`/`timeWindow` only, sharing `EditTask`'s underlying
+         *     update and the same `'planned'`/`'suggested'`-only precondition, kept
+         *     as a distinct command because rescheduling is a distinct first-class
+         *     user action.
+         *
+         *     Source: implementation-plan.md work packages P4-BE-03, P4-CONTRACT-01.
+         */
+        post: operations["rescheduleTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/tasks/{taskId}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                taskId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete a task
+         * @description Transitions the task to `'completed'` and stamps `completedAt`.
+         *     Terminal: only legal while `'planned'` or `'suggested'`. Never
+         *     records an observation on the caller's behalf — that is a separate
+         *     `RecordObservation` call the caller makes on its own if it wants one.
+         *     `completionNote` is accepted for interface completeness but has no
+         *     storage target this pass; it still binds the idempotency fingerprint.
+         *
+         *     Source: implementation-plan.md work packages P4-BE-03, P4-CONTRACT-01.
+         */
+        post: operations["completeTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/tasks/{taskId}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                taskId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss a task
+         * @description Transitions the task to `'dismissed'` — "not doing this at all."
+         *     Terminal: only legal while `'planned'` or `'suggested'`. `reason` is
+         *     accepted for interface completeness but has no storage target this
+         *     pass, the same carve-out `completionNote` documents.
+         *
+         *     Source: implementation-plan.md work packages P4-BE-03, P4-CONTRACT-01.
+         */
+        post: operations["dismissTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/tasks/{taskId}/skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                taskId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Skip a task
+         * @description Transitions the task to `'skipped'` — "not doing this occurrence,"
+         *     distinct in intent from `dismiss`'s "not doing this at all," though
+         *     both are plain terminal transitions with no further data attached.
+         *     Terminal: only legal while `'planned'` or `'suggested'`.
+         *
+         *     Source: implementation-plan.md work packages P4-BE-03, P4-CONTRACT-01.
+         */
+        post: operations["skipTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/tasks/{taskId}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                taskId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete a task
+         * @description Transitions the task to `'deleted'`. `POST`, not HTTP `DELETE`: this
+         *     module has no hard-delete anywhere — deleting a task is a status
+         *     transition, the exact same shape as `SetPlantStatus('removed')` and
+         *     the map's own `deleteObject` command — and every other terminal
+         *     transition on this resource (`complete`, `dismiss`, `skip`) is
+         *     already a `POST` sub-resource action for the same reason. Using
+         *     HTTP `DELETE` for only this one transition, while its four siblings
+         *     stay `POST`, would read as this task alone supporting a hard delete
+         *     it does not have; consistency with its siblings was chosen over the
+         *     more literal HTTP verb. Terminal: only legal while `'planned'` or
+         *     `'suggested'`.
+         *
+         *     Source: implementation-plan.md work packages P4-BE-03, P4-CONTRACT-01.
+         */
+        post: operations["deleteTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/tasks/{taskId}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                taskId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Attach a file to a task
+         * @description Appends a file. Never changes the task's own revision — an
+         *     attachment is a child record, not a field of the task itself — so
+         *     this command carries no `If-Match` precondition, the same as
+         *     `AttachPlantPhoto`.
+         *
+         *     Source: implementation-plan.md work packages P4-BE-03, P4-CONTRACT-01.
+         */
+        post: operations["attachTaskFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -823,6 +1447,300 @@ export interface components {
         MapCommandResult: {
             affectedObjects: components["schemas"]["GardenObject"][];
         };
+        /**
+         * @description Whether `Plant` tracks a single instance, a row, or a group as one record.
+         * @enum {string}
+         */
+        PlantGroupingKind: "individual" | "row" | "group";
+        /** @enum {string} */
+        PlantAcquisitionDateType: "planted" | "sown" | "acquired";
+        /**
+         * @description No ordering is enforced: any stage is reachable from any other, and
+         *     transitioning to the stage already held is accepted as a legitimate,
+         *     if inert, command.
+         * @enum {string}
+         */
+        PlantLifecycleStage: "planned" | "seed" | "seedling" | "transplanted" | "growing" | "flowering" | "fruiting" | "ready_to_harvest";
+        /**
+         * @description The axis orthogonal to `PlantLifecycleStage`. There is no hard-delete
+         *     command for a plant — removing one from active inventory is a
+         *     transition to `removed` or `dead` here.
+         * @enum {string}
+         */
+        PlantStatus: "active" | "dormant" | "archived" | "removed" | "dead";
+        /**
+         * @description Whether a taxonomy reference was seeded independently of any profile, or defined by one.
+         * @enum {string}
+         */
+        TaxonomySource: "system_catalog" | "user_defined";
+        Plant: {
+            id: components["schemas"]["Uuid"];
+            gardenId: components["schemas"]["Uuid"];
+            gardenAreaMapObjectId: components["schemas"]["Uuid"] | null;
+            placementMapObjectId: components["schemas"]["Uuid"] | null;
+            displayName: string;
+            taxonomyReferenceId: components["schemas"]["Uuid"] | null;
+            varietyLabel: string | null;
+            acceptedIdentificationId: components["schemas"]["Uuid"] | null;
+            acquisitionDate: string | null;
+            acquisitionDateType: components["schemas"]["PlantAcquisitionDateType"] | null;
+            groupingKind: components["schemas"]["PlantGroupingKind"];
+            quantity: number | null;
+            lifecycleStage: components["schemas"]["PlantLifecycleStage"];
+            status: components["schemas"]["PlantStatus"];
+            conditionNote: string | null;
+            careGuidanceNote: string | null;
+            revision: components["schemas"]["Revision"];
+            createdByProfileId: components["schemas"]["Uuid"];
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+        };
+        PlantPhoto: {
+            id: components["schemas"]["Uuid"];
+            plantId: components["schemas"]["Uuid"];
+            mediaId: components["schemas"]["Uuid"];
+            isPrimary: boolean;
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        TaxonomyReference: {
+            id: components["schemas"]["Uuid"];
+            scientificName: string;
+            commonName: string | null;
+            varietyName: string | null;
+            source: components["schemas"]["TaxonomySource"];
+            createdByProfileId: components["schemas"]["Uuid"] | null;
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        TaxonomyReferenceListResult: {
+            items: components["schemas"]["TaxonomyReference"][];
+        };
+        /** @description Mirrors `AddPlantInput`. Source: plants-inventory/application/add-plant.ts. */
+        AddPlantRequest: {
+            gardenAreaMapObjectId?: components["schemas"]["Uuid"];
+            placementMapObjectId?: components["schemas"]["Uuid"];
+            displayName: string;
+            taxonomyReferenceId?: components["schemas"]["Uuid"] | null;
+            varietyLabel?: string | null;
+            acquisitionDate?: string | null;
+            acquisitionDateType?: components["schemas"]["PlantAcquisitionDateType"] | null;
+            groupingKind: components["schemas"]["PlantGroupingKind"];
+            /** @description Required and greater than zero unless `groupingKind` is `individual`, which must leave this unset. */
+            quantity?: number | null;
+        };
+        /** @description Mirrors `AddPlantFromPhotoInput`. Source: plants-inventory/application/add-plant-from-photo.ts. */
+        AddPlantFromPhotoRequest: {
+            gardenAreaMapObjectId?: components["schemas"]["Uuid"];
+            placementMapObjectId?: components["schemas"]["Uuid"];
+            photoMediaId: components["schemas"]["Uuid"];
+        };
+        /**
+         * @description Mirrors `PlantDetailsChanges`. Every property is optional; an omitted
+         *     property leaves the current value unchanged, and an explicit `null`
+         *     on a nullable property clears it. Source:
+         *     plants-inventory/domain/plant.ts.
+         */
+        UpdatePlantDetailsRequest: {
+            displayName?: string;
+            taxonomyReferenceId?: components["schemas"]["Uuid"] | null;
+            varietyLabel?: string | null;
+            acquisitionDate?: string | null;
+            acquisitionDateType?: components["schemas"]["PlantAcquisitionDateType"] | null;
+            conditionNote?: string | null;
+            careGuidanceNote?: string | null;
+            quantity?: number | null;
+        };
+        AttachPlantPhotoRequest: {
+            mediaId: components["schemas"]["Uuid"];
+            /** @default false */
+            isPrimary: boolean;
+        };
+        TransitionPlantLifecycleStageRequest: {
+            stage: components["schemas"]["PlantLifecycleStage"];
+        };
+        SetPlantStatusRequest: {
+            status: components["schemas"]["PlantStatus"];
+        };
+        /** @description Mirrors `MovePlantInput`. Source: plants-inventory/application/move-plant.ts. */
+        MovePlantRequest: {
+            gardenAreaMapObjectId?: components["schemas"]["Uuid"];
+            placementMapObjectId?: components["schemas"]["Uuid"];
+        };
+        /** @enum {string} */
+        ObservationActorType: "user" | "system";
+        /** @enum {string} */
+        ObservationCorrectionKind: "amendment" | "supersede";
+        /** @enum {string} */
+        ImageAnalysisKind: "stress" | "disease" | "pest" | "other";
+        /**
+         * @description A stubbed, honest placeholder: `requiresConfirmation` is always
+         *     `true` — an automated diagnosis is never presented as a confirmed
+         *     fact without explicit user confirmation.
+         */
+        ImageAnalysisResult: {
+            id: components["schemas"]["Uuid"];
+            analysisKind: components["schemas"]["ImageAnalysisKind"];
+            suggestedLabel: string;
+            confidenceScore: number;
+            requiresConfirmation: boolean;
+            requestedAdditionalEvidence: boolean;
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        ObservationPhoto: {
+            id: components["schemas"]["Uuid"];
+            mediaId: components["schemas"]["Uuid"];
+            createdAt: components["schemas"]["Timestamp"];
+            analysisResults: components["schemas"]["ImageAnalysisResult"][];
+        };
+        /**
+         * @description Immutable and append-only — no revision, no update path. A
+         *     correction is a separate row (see `correctionKind`/
+         *     `correctsObservationId`), never an edit of this one.
+         */
+        Observation: {
+            id: components["schemas"]["Uuid"];
+            gardenId: components["schemas"]["Uuid"];
+            plantId: components["schemas"]["Uuid"] | null;
+            gardenObjectId: components["schemas"]["Uuid"] | null;
+            actorType: components["schemas"]["ObservationActorType"];
+            createdByProfileId: components["schemas"]["Uuid"] | null;
+            noteText: string | null;
+            conditionSummary: string | null;
+            correctionKind: components["schemas"]["ObservationCorrectionKind"] | null;
+            correctsObservationId: components["schemas"]["Uuid"] | null;
+            /** @description Whether a later observation names this one in its own `correctsObservationId`. */
+            isCorrected: boolean;
+            observedAt: components["schemas"]["Timestamp"];
+            recordedAt: components["schemas"]["Timestamp"];
+            photos: components["schemas"]["ObservationPhoto"][];
+        };
+        ObservationListResult: {
+            items: components["schemas"]["Observation"][];
+        };
+        /**
+         * @description Mirrors `RecordObservationInput`. At least one of `noteText`,
+         *     `conditionSummary`, or a `photoMediaIds` entry is required, enforced
+         *     server-side. Source: observations-history/application/record-observation.ts.
+         */
+        RecordObservationRequest: {
+            plantId?: components["schemas"]["Uuid"] | null;
+            gardenObjectId?: components["schemas"]["Uuid"] | null;
+            noteText?: string | null;
+            conditionSummary?: string | null;
+            /** @description `null` or omitted means "use the server's own timestamp." */
+            observedAt?: components["schemas"]["Timestamp"] | null;
+            /** @default [] */
+            photoMediaIds: components["schemas"]["Uuid"][];
+        };
+        /** @description Mirrors `CorrectObservationInput`. Source: observations-history/application/correct-observation.ts. */
+        CorrectObservationRequest: {
+            correctionKind: components["schemas"]["ObservationCorrectionKind"];
+            noteText?: string | null;
+            conditionSummary?: string | null;
+            /** @default [] */
+            photoMediaIds: components["schemas"]["Uuid"][];
+        };
+        /** @enum {string} */
+        TaskTargetKind: "garden" | "garden_area" | "plant";
+        /**
+         * @description `planned` and `suggested` are the only two statuses a task's status
+         *     or details may still be changed from; the other four are terminal.
+         * @enum {string}
+         */
+        TaskStatus: "planned" | "suggested" | "completed" | "skipped" | "dismissed" | "deleted";
+        /** @enum {string} */
+        TaskUrgency: "low" | "normal" | "high" | "urgent";
+        /**
+         * @description This API only ever creates `manual` tasks; `suggested` would originate from a recommendation entity this phase does not build.
+         * @enum {string}
+         */
+        TaskSource: "manual" | "suggested";
+        Task: {
+            id: components["schemas"]["Uuid"];
+            gardenId: components["schemas"]["Uuid"];
+            targetKind: components["schemas"]["TaskTargetKind"];
+            targetGardenAreaMapObjectId: components["schemas"]["Uuid"] | null;
+            targetPlantId: components["schemas"]["Uuid"] | null;
+            title: string;
+            notes: string | null;
+            status: components["schemas"]["TaskStatus"];
+            dueDate: string | null;
+            timeWindowStart: components["schemas"]["Timestamp"] | null;
+            timeWindowEnd: components["schemas"]["Timestamp"] | null;
+            /** @description Stored only; never parsed, expanded, or validated this pass. */
+            recurrenceRule: string | null;
+            urgency: components["schemas"]["TaskUrgency"];
+            source: components["schemas"]["TaskSource"];
+            originObservationId: components["schemas"]["Uuid"] | null;
+            revision: components["schemas"]["Revision"];
+            createdByProfileId: components["schemas"]["Uuid"];
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+            completedAt: components["schemas"]["Timestamp"] | null;
+        };
+        TaskAttachment: {
+            id: components["schemas"]["Uuid"];
+            taskId: components["schemas"]["Uuid"];
+            mediaId: components["schemas"]["Uuid"];
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        TaskListResult: {
+            items: components["schemas"]["Task"][];
+        };
+        /** @description Shared by `CreateManualTaskRequest`, `EditTaskRequest`, and `RescheduleTaskRequest`. */
+        TaskTimeWindowInput: {
+            start?: components["schemas"]["Timestamp"] | null;
+            end?: components["schemas"]["Timestamp"] | null;
+        };
+        /** @description Mirrors `CreateManualTaskInput`. Source: tasks-recommendations/application/create-manual-task.ts. */
+        CreateManualTaskRequest: {
+            /**
+             * @description Mirrors the migration's `task_target_consistency_check`: `kind:
+             *     garden` sets neither id; `kind: garden_area` sets only
+             *     `gardenAreaMapObjectId`; `kind: plant` sets only `plantId`.
+             */
+            target: {
+                kind: components["schemas"]["TaskTargetKind"];
+                gardenAreaMapObjectId?: components["schemas"]["Uuid"];
+                plantId?: components["schemas"]["Uuid"];
+            };
+            title: string;
+            notes?: string | null;
+            dueDate?: string | null;
+            timeWindow?: components["schemas"]["TaskTimeWindowInput"];
+            urgency?: components["schemas"]["TaskUrgency"];
+            /** @description Must name an observation belonging to this same garden. */
+            originObservationId?: components["schemas"]["Uuid"] | null;
+        };
+        /**
+         * @description Mirrors `EditTaskChanges`. Every property is optional; an omitted
+         *     property leaves the current value unchanged, and an explicit `null`
+         *     on a nullable property clears it. Source
+         *     tasks-recommendations/application/edit-task.ts.
+         */
+        EditTaskRequest: {
+            title?: string;
+            notes?: string | null;
+            dueDate?: string | null;
+            timeWindow?: components["schemas"]["TaskTimeWindowInput"];
+            urgency?: components["schemas"]["TaskUrgency"];
+            recurrenceRule?: string | null;
+        };
+        /** @description Mirrors `RescheduleTaskInput`. Source: tasks-recommendations/application/reschedule-task.ts. */
+        RescheduleTaskRequest: {
+            dueDate?: string | null;
+            timeWindow?: components["schemas"]["TaskTimeWindowInput"];
+        };
+        /** @description `completionNote` is accepted for interface completeness but has no storage target this pass — it still binds the idempotency fingerprint. */
+        CompleteTaskRequest: {
+            completionNote?: string | null;
+        };
+        /** @description `reason` is accepted for interface completeness but has no storage target this pass, the same carve-out `CompleteTaskRequest.completionNote` documents. */
+        DismissTaskRequest: {
+            reason?: string | null;
+        };
+        AttachTaskFileRequest: {
+            mediaId: components["schemas"]["Uuid"];
+        };
     };
     responses: {
         /** @description The request is malformed or fails validation. */
@@ -1303,6 +2221,921 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    addPlant: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddPlantRequest"];
+            };
+        };
+        responses: {
+            /** @description The created plant. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plant"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    addPlantFromPhoto: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddPlantFromPhotoRequest"];
+            };
+        };
+        responses: {
+            /** @description The created plant. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plant"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getPlant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                plantId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The requested plant. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plant"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updatePlantDetails: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                plantId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePlantDetailsRequest"];
+            };
+        };
+        responses: {
+            /** @description The updated plant. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plant"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    attachPlantPhoto: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                plantId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttachPlantPhotoRequest"];
+            };
+        };
+        responses: {
+            /** @description The attached photo. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlantPhoto"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    setPrimaryPlantPhoto: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                plantId: components["schemas"]["Uuid"];
+                plantPhotoId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The now-primary photo. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlantPhoto"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    confirmPlantIdentification: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                plantId: components["schemas"]["Uuid"];
+                identificationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The plant with its identification confirmed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plant"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    transitionPlantLifecycleStage: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                plantId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransitionPlantLifecycleStageRequest"];
+            };
+        };
+        responses: {
+            /** @description The plant at its new lifecycle stage. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plant"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    setPlantStatus: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                plantId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetPlantStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description The plant at its new status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plant"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    movePlant: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                plantId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MovePlantRequest"];
+            };
+        };
+        responses: {
+            /** @description The plant at its new placement. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plant"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    searchTaxonomyReferences: {
+        parameters: {
+            query?: {
+                /** @description Case-insensitive match against scientific, common, or variety name. Omit to list the catalog, most recent first. */
+                query?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Matching taxonomy references. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaxonomyReferenceListResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    listObservationsForGarden: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The garden's observation history. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ObservationListResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    recordObservation: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordObservationRequest"];
+            };
+        };
+        responses: {
+            /** @description The recorded observation. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Observation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    correctObservation: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description The observation being corrected. */
+                observationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CorrectObservationRequest"];
+            };
+        };
+        responses: {
+            /** @description The correction observation. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Observation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listObservationsForPlant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                plantId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The plant's observation history. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ObservationListResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listTasksForGarden: {
+        parameters: {
+            query?: {
+                /** @description Comma-separated statuses to include. Omit to return every status. */
+                status?: components["schemas"]["TaskStatus"][];
+            };
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The garden's tasks. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskListResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createManualTask: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateManualTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description The created task. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    editTask: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                taskId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description The updated task. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    rescheduleTask: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                taskId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RescheduleTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description The rescheduled task. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    completeTask: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                taskId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CompleteTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description The completed task. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    dismissTask: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                taskId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DismissTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description The dismissed task. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    skipTask: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                taskId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The skipped task. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    deleteTask: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                taskId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The deleted (soft) task. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    attachTaskFile: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                taskId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttachTaskFileRequest"];
+            };
+        };
+        responses: {
+            /** @description The attached file. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskAttachment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
 }

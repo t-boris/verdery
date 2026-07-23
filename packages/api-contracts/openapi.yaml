@@ -40,6 +40,12 @@ tags:
     description: Web session exchange for the browser client. Native clients use a Firebase ID token directly and never call these.
   - name: Map
     description: The canonical 2D garden map — objects, their categories and geometry, and the single revision-aware command endpoint that mutates them.
+  - name: Plants
+    description: Plant inventory within a garden — placement on the map, photos, taxonomy identification, lifecycle stage, and status.
+  - name: Observations
+    description: The append-only garden and plant observation history, including per-photo image-analysis results and immutable corrections.
+  - name: Tasks
+    description: Garden care tasks — manual creation, scheduling, completion, and file attachments.
 
 paths:
   /health/live:
@@ -456,6 +462,1113 @@ paths:
           $ref: '#/components/responses/Conflict'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
+
+  /gardens/{gardenId}/plants:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: addPlant
+      tags: [Plants]
+      summary: Add a plant
+      description: |
+        Adds a plant instance, row, or group to the garden's inventory.
+        `taxonomyReferenceId` may be set directly here when the caller already
+        knows the species; otherwise leave it unset and identify the plant
+        later via a photo or `SearchTaxonomyReferences`.
+
+        Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddPlantRequest'
+      responses:
+        '201':
+          description: The created plant.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plant'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /gardens/{gardenId}/plants/from-photo:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: addPlantFromPhoto
+      tags: [Plants]
+      summary: Add a plant identified from a photo
+      description: |
+        Creates an `'individual'` plant prefilled from a photo-identification
+        pass, and inserts the photo and the identification suggestion in the
+        same transaction. `taxonomyReferenceId` on the created plant stays
+        unset until the suggestion is confirmed via `ConfirmPlantIdentification`
+        — identification never auto-confirms.
+
+        Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddPlantFromPhotoRequest'
+      responses:
+        '201':
+          description: The created plant.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plant'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /gardens/{gardenId}/plants/{plantId}:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: plantId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    get:
+      operationId: getPlant
+      tags: [Plants]
+      summary: Get a plant
+      description: |
+        Returns a plant in a garden the caller has active membership in.
+        Existence — including a plant id that belongs to a different garden
+        than the one named in the path — is concealed as `404`.
+
+        Source: implementation-plan.md work package P4-CONTRACT-01.
+      responses:
+        '200':
+          description: The requested plant.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plant'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      operationId: updatePlantDetails
+      tags: [Plants]
+      summary: Update plant details
+      description: |
+        Revision-guarded edit of identity, acquisition, and care-note fields.
+        Every property is optional; an omitted property leaves the current
+        value unchanged, while an explicit `null` on a nullable property
+        clears it. `groupingKind` is immutable and not editable here.
+
+        Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePlantDetailsRequest'
+      responses:
+        '200':
+          description: The updated plant.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plant'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+
+  /gardens/{gardenId}/plants/{plantId}/photos:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: plantId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: attachPlantPhoto
+      tags: [Plants]
+      summary: Attach a photo to a plant
+      description: |
+        Appends a photo. Never changes the plant's own revision — a photo is
+        a child record, not a field of the plant itself — so this command
+        carries no `If-Match` precondition.
+
+        Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttachPlantPhotoRequest'
+      responses:
+        '201':
+          description: The attached photo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlantPhoto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /gardens/{gardenId}/plants/{plantId}/photos/{plantPhotoId}/primary:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: plantId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: plantPhotoId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: setPrimaryPlantPhoto
+      tags: [Plants]
+      summary: Set a plant's primary photo
+      description: |
+        Clears any existing primary photo for this plant, then marks this one
+        primary, in the same transaction. Does not change the plant's own
+        revision, so this command carries no `If-Match` precondition, the
+        same as `AttachPlantPhoto`.
+
+        Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: The now-primary photo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlantPhoto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /gardens/{gardenId}/plants/{plantId}/identification/{identificationId}/confirm:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: plantId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: identificationId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: confirmPlantIdentification
+      tags: [Plants]
+      summary: Confirm a photo-identification suggestion
+      description: |
+        Accepts a prior `plant_identification` suggestion, setting the
+        plant's `taxonomyReferenceId` and `acceptedIdentificationId`. The
+        named identification must belong to the named plant, or the request
+        is rejected.
+
+        Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: The plant with its identification confirmed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plant'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+
+  /gardens/{gardenId}/plants/{plantId}/lifecycle-stage:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: plantId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: transitionPlantLifecycleStage
+      tags: [Plants]
+      summary: Transition a plant's lifecycle stage
+      description: |
+        Sets `lifecycleStage` to any of the eight stages; no ordering is
+        enforced, and transitioning to the stage already held is accepted as
+        a legitimate, if inert, command.
+
+        Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransitionPlantLifecycleStageRequest'
+      responses:
+        '200':
+          description: The plant at its new lifecycle stage.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plant'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+
+  /gardens/{gardenId}/plants/{plantId}/status:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: plantId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: setPlantStatus
+      tags: [Plants]
+      summary: Set a plant's status
+      description: |
+        Sets `status`, the axis orthogonal to `lifecycleStage`. There is no
+        hard-delete command for a plant — removing one from active inventory
+        is a transition to `'removed'` or `'dead'` here.
+
+        Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetPlantStatusRequest'
+      responses:
+        '200':
+          description: The plant at its new status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plant'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+
+  /gardens/{gardenId}/plants/{plantId}/move:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: plantId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: movePlant
+      tags: [Plants]
+      summary: Move a plant to a different map placement
+      description: |
+        Updates the plant's placement fields only. Both, when given, must
+        reference an active map object in the plant's own garden — the
+        garden itself never changes; there is no "move to a different
+        garden" command.
+
+        Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MovePlantRequest'
+      responses:
+        '200':
+          description: The plant at its new placement.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plant'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+
+  /gardens/{gardenId}/taxonomy-references:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: query
+        in: query
+        required: false
+        description: Case-insensitive match against scientific, common, or variety name. Omit to list the catalog, most recent first.
+        schema:
+          type: string
+          maxLength: 200
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+
+    get:
+      operationId: searchTaxonomyReferences
+      tags: [Plants]
+      summary: Search the taxonomy reference catalog
+      description: |
+        Reads `plants_inventory.taxonomy_reference`, the read-only species
+        catalog `AddPlant` callers pick a `taxonomyReferenceId` from. Not
+        scoped to `gardenId` and carries no authorization check of its own —
+        the catalog is not garden-owned data, the same way a product catalog
+        is not owned by any one customer, so any authenticated caller may
+        search it; `gardenId` is present only for URL consistency with every
+        other route under this garden and is validated for shape but
+        otherwise unused. Consequently this operation never returns `403` or
+        a garden-related `404`.
+
+        Source: implementation-plan.md work package P4-CONTRACT-01.
+      responses:
+        '200':
+          description: Matching taxonomy references.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxonomyReferenceListResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /gardens/{gardenId}/observations:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: recordObservation
+      tags: [Observations]
+      summary: Record an observation
+      description: |
+        Records a note, a condition summary, and/or photos about the garden,
+        a plant within it, or an area (`gardenObjectId`), running one stubbed
+        image-analysis pass per attached photo in the same transaction. At
+        least one of `noteText`, `conditionSummary`, or a photo is required.
+
+        Source: implementation-plan.md work packages P4-BE-02, P4-CONTRACT-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordObservationRequest'
+      responses:
+        '201':
+          description: The recorded observation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Observation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    get:
+      operationId: listObservationsForGarden
+      tags: [Observations]
+      summary: List a garden's observation history
+      description: |
+        Every observation recorded in the garden, most recently observed
+        first, correction rows included.
+
+        Source: implementation-plan.md work packages P4-BE-02, P4-CONTRACT-01.
+      responses:
+        '200':
+          description: The garden's observation history.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObservationListResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /observations/{observationId}/corrections:
+    parameters:
+      - name: observationId
+        in: path
+        required: true
+        description: The observation being corrected.
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: correctObservation
+      tags: [Observations]
+      summary: Correct an observation
+      description: |
+        Inserts a new observation row that points backward to the one it
+        corrects; the original is never edited or superseded in place. No
+        `gardenId` in the path — the garden is discovered from the original
+        observation itself, the same way the command layer resolves it.
+
+        Source: implementation-plan.md work packages P4-BE-02, P4-CONTRACT-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CorrectObservationRequest'
+      responses:
+        '201':
+          description: The correction observation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Observation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /gardens/{gardenId}/plants/{plantId}/observations:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: plantId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    get:
+      operationId: listObservationsForPlant
+      tags: [Observations]
+      summary: List a plant's observation history
+      description: |
+        Every observation recorded for one plant, most recently observed
+        first, correction rows included. A `plantId` with no observations
+        returns an empty list rather than `404`; only an unknown or
+        not-visible `gardenId` produces `404`.
+
+        Source: implementation-plan.md work packages P4-BE-02, P4-CONTRACT-01.
+      responses:
+        '200':
+          description: The plant's observation history.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObservationListResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /gardens/{gardenId}/tasks:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: createManualTask
+      tags: [Tasks]
+      summary: Create a manual task
+      description: |
+        Creates a task with `source: 'manual'` — the only kind this API
+        creates; a `'suggested'` task would originate from a recommendation
+        entity this phase does not build. `originObservationId`, when given,
+        must name an observation that belongs to this garden.
+
+        Source: implementation-plan.md work packages P4-BE-03, P4-CONTRACT-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateManualTaskRequest'
+      responses:
+        '201':
+          description: The created task.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    get:
+      operationId: listTasksForGarden
+      tags: [Tasks]
+      summary: List a garden's tasks
+      description: |
+        Every task in the garden, optionally restricted to the given
+        statuses, soonest-due first (undated tasks last), then by urgency
+        descending, then by creation order.
+
+        Source: implementation-plan.md work packages P4-BE-03, P4-CONTRACT-01.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Comma-separated statuses to include. Omit to return every status.
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/TaskStatus'
+      responses:
+        '200':
+          description: The garden's tasks.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskListResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /gardens/{gardenId}/tasks/{taskId}:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    patch:
+      operationId: editTask
+      tags: [Tasks]
+      summary: Edit a task
+      description: |
+        Revision-guarded edit of title, notes, schedule, urgency, and
+        recurrence rule. Only legal while the task is `'planned'` or
+        `'suggested'`; every property is optional, and an explicit `null` on
+        a nullable property clears it.
+
+        Source: implementation-plan.md work packages P4-BE-03, P4-CONTRACT-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditTaskRequest'
+      responses:
+        '200':
+          description: The updated task.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+
+  /gardens/{gardenId}/tasks/{taskId}/reschedule:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: rescheduleTask
+      tags: [Tasks]
+      summary: Reschedule a task
+      description: |
+        Updates `dueDate`/`timeWindow` only, sharing `EditTask`'s underlying
+        update and the same `'planned'`/`'suggested'`-only precondition, kept
+        as a distinct command because rescheduling is a distinct first-class
+        user action.
+
+        Source: implementation-plan.md work packages P4-BE-03, P4-CONTRACT-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RescheduleTaskRequest'
+      responses:
+        '200':
+          description: The rescheduled task.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+
+  /gardens/{gardenId}/tasks/{taskId}/complete:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: completeTask
+      tags: [Tasks]
+      summary: Complete a task
+      description: |
+        Transitions the task to `'completed'` and stamps `completedAt`.
+        Terminal: only legal while `'planned'` or `'suggested'`. Never
+        records an observation on the caller's behalf — that is a separate
+        `RecordObservation` call the caller makes on its own if it wants one.
+        `completionNote` is accepted for interface completeness but has no
+        storage target this pass; it still binds the idempotency fingerprint.
+
+        Source: implementation-plan.md work packages P4-BE-03, P4-CONTRACT-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteTaskRequest'
+      responses:
+        '200':
+          description: The completed task.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+
+  /gardens/{gardenId}/tasks/{taskId}/dismiss:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: dismissTask
+      tags: [Tasks]
+      summary: Dismiss a task
+      description: |
+        Transitions the task to `'dismissed'` — "not doing this at all."
+        Terminal: only legal while `'planned'` or `'suggested'`. `reason` is
+        accepted for interface completeness but has no storage target this
+        pass, the same carve-out `completionNote` documents.
+
+        Source: implementation-plan.md work packages P4-BE-03, P4-CONTRACT-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DismissTaskRequest'
+      responses:
+        '200':
+          description: The dismissed task.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+
+  /gardens/{gardenId}/tasks/{taskId}/skip:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: skipTask
+      tags: [Tasks]
+      summary: Skip a task
+      description: |
+        Transitions the task to `'skipped'` — "not doing this occurrence,"
+        distinct in intent from `dismiss`'s "not doing this at all," though
+        both are plain terminal transitions with no further data attached.
+        Terminal: only legal while `'planned'` or `'suggested'`.
+
+        Source: implementation-plan.md work packages P4-BE-03, P4-CONTRACT-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: The skipped task.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+
+  /gardens/{gardenId}/tasks/{taskId}/delete:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: deleteTask
+      tags: [Tasks]
+      summary: Delete a task
+      description: |
+        Transitions the task to `'deleted'`. `POST`, not HTTP `DELETE`: this
+        module has no hard-delete anywhere — deleting a task is a status
+        transition, the exact same shape as `SetPlantStatus('removed')` and
+        the map's own `deleteObject` command — and every other terminal
+        transition on this resource (`complete`, `dismiss`, `skip`) is
+        already a `POST` sub-resource action for the same reason. Using
+        HTTP `DELETE` for only this one transition, while its four siblings
+        stay `POST`, would read as this task alone supporting a hard delete
+        it does not have; consistency with its siblings was chosen over the
+        more literal HTTP verb. Terminal: only legal while `'planned'` or
+        `'suggested'`.
+
+        Source: implementation-plan.md work packages P4-BE-03, P4-CONTRACT-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: The deleted (soft) task.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+
+  /gardens/{gardenId}/tasks/{taskId}/attachments:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: attachTaskFile
+      tags: [Tasks]
+      summary: Attach a file to a task
+      description: |
+        Appends a file. Never changes the task's own revision — an
+        attachment is a child record, not a field of the task itself — so
+        this command carries no `If-Match` precondition, the same as
+        `AttachPlantPhoto`.
+
+        Source: implementation-plan.md work packages P4-BE-03, P4-CONTRACT-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttachTaskFileRequest'
+      responses:
+        '201':
+          description: The attached file.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskAttachment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
 
 components:
   securitySchemes:
@@ -1582,6 +2695,743 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/GardenObject'
+
+    PlantGroupingKind:
+      type: string
+      enum: [individual, row, group]
+      description: Whether `Plant` tracks a single instance, a row, or a group as one record.
+
+    PlantAcquisitionDateType:
+      type: string
+      enum: [planted, sown, acquired]
+
+    PlantLifecycleStage:
+      type: string
+      enum:
+        - planned
+        - seed
+        - seedling
+        - transplanted
+        - growing
+        - flowering
+        - fruiting
+        - ready_to_harvest
+      description: |
+        No ordering is enforced: any stage is reachable from any other, and
+        transitioning to the stage already held is accepted as a legitimate,
+        if inert, command.
+
+    PlantStatus:
+      type: string
+      enum: [active, dormant, archived, removed, dead]
+      description: |
+        The axis orthogonal to `PlantLifecycleStage`. There is no hard-delete
+        command for a plant — removing one from active inventory is a
+        transition to `removed` or `dead` here.
+
+    TaxonomySource:
+      type: string
+      enum: [system_catalog, user_defined]
+      description: Whether a taxonomy reference was seeded independently of any profile, or defined by one.
+
+    Plant:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          gardenId,
+          gardenAreaMapObjectId,
+          placementMapObjectId,
+          displayName,
+          taxonomyReferenceId,
+          varietyLabel,
+          acceptedIdentificationId,
+          acquisitionDate,
+          acquisitionDateType,
+          groupingKind,
+          quantity,
+          lifecycleStage,
+          status,
+          conditionNote,
+          careGuidanceNote,
+          revision,
+          createdByProfileId,
+          createdAt,
+          updatedAt,
+        ]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        gardenId:
+          $ref: '#/components/schemas/Uuid'
+        gardenAreaMapObjectId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        placementMapObjectId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        taxonomyReferenceId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        varietyLabel:
+          type: [string, 'null']
+        acceptedIdentificationId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        acquisitionDate:
+          oneOf:
+            - type: string
+              format: date
+            - type: 'null'
+        acquisitionDateType:
+          oneOf:
+            - $ref: '#/components/schemas/PlantAcquisitionDateType'
+            - type: 'null'
+        groupingKind:
+          $ref: '#/components/schemas/PlantGroupingKind'
+        quantity:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+        lifecycleStage:
+          $ref: '#/components/schemas/PlantLifecycleStage'
+        status:
+          $ref: '#/components/schemas/PlantStatus'
+        conditionNote:
+          type: [string, 'null']
+        careGuidanceNote:
+          type: [string, 'null']
+        revision:
+          $ref: '#/components/schemas/Revision'
+        createdByProfileId:
+          $ref: '#/components/schemas/Uuid'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+
+    PlantPhoto:
+      type: object
+      additionalProperties: false
+      required: [id, plantId, mediaId, isPrimary, createdAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        plantId:
+          $ref: '#/components/schemas/Uuid'
+        mediaId:
+          $ref: '#/components/schemas/Uuid'
+        isPrimary:
+          type: boolean
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+
+    TaxonomyReference:
+      type: object
+      additionalProperties: false
+      required: [id, scientificName, commonName, varietyName, source, createdByProfileId, createdAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        scientificName:
+          type: string
+        commonName:
+          type: [string, 'null']
+        varietyName:
+          type: [string, 'null']
+        source:
+          $ref: '#/components/schemas/TaxonomySource'
+        createdByProfileId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+
+    TaxonomyReferenceListResult:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaxonomyReference'
+
+    AddPlantRequest:
+      type: object
+      additionalProperties: false
+      required: [displayName, groupingKind]
+      description: 'Mirrors `AddPlantInput`. Source: plants-inventory/application/add-plant.ts.'
+      properties:
+        gardenAreaMapObjectId:
+          $ref: '#/components/schemas/Uuid'
+        placementMapObjectId:
+          $ref: '#/components/schemas/Uuid'
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        taxonomyReferenceId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        varietyLabel:
+          type: [string, 'null']
+        acquisitionDate:
+          oneOf:
+            - type: string
+              format: date
+            - type: 'null'
+        acquisitionDateType:
+          oneOf:
+            - $ref: '#/components/schemas/PlantAcquisitionDateType'
+            - type: 'null'
+        groupingKind:
+          $ref: '#/components/schemas/PlantGroupingKind'
+        quantity:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+          description: Required and greater than zero unless `groupingKind` is `individual`, which must leave this unset.
+
+    AddPlantFromPhotoRequest:
+      type: object
+      additionalProperties: false
+      required: [photoMediaId]
+      description: 'Mirrors `AddPlantFromPhotoInput`. Source: plants-inventory/application/add-plant-from-photo.ts.'
+      properties:
+        gardenAreaMapObjectId:
+          $ref: '#/components/schemas/Uuid'
+        placementMapObjectId:
+          $ref: '#/components/schemas/Uuid'
+        photoMediaId:
+          $ref: '#/components/schemas/Uuid'
+
+    UpdatePlantDetailsRequest:
+      type: object
+      additionalProperties: false
+      description: |
+        Mirrors `PlantDetailsChanges`. Every property is optional; an omitted
+        property leaves the current value unchanged, and an explicit `null`
+        on a nullable property clears it. Source:
+        plants-inventory/domain/plant.ts.
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        taxonomyReferenceId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        varietyLabel:
+          type: [string, 'null']
+        acquisitionDate:
+          oneOf:
+            - type: string
+              format: date
+            - type: 'null'
+        acquisitionDateType:
+          oneOf:
+            - $ref: '#/components/schemas/PlantAcquisitionDateType'
+            - type: 'null'
+        conditionNote:
+          type: [string, 'null']
+        careGuidanceNote:
+          type: [string, 'null']
+        quantity:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+
+    AttachPlantPhotoRequest:
+      type: object
+      additionalProperties: false
+      required: [mediaId]
+      properties:
+        mediaId:
+          $ref: '#/components/schemas/Uuid'
+        isPrimary:
+          type: boolean
+          default: false
+
+    TransitionPlantLifecycleStageRequest:
+      type: object
+      additionalProperties: false
+      required: [stage]
+      properties:
+        stage:
+          $ref: '#/components/schemas/PlantLifecycleStage'
+
+    SetPlantStatusRequest:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          $ref: '#/components/schemas/PlantStatus'
+
+    MovePlantRequest:
+      type: object
+      additionalProperties: false
+      description: 'Mirrors `MovePlantInput`. Source: plants-inventory/application/move-plant.ts.'
+      properties:
+        gardenAreaMapObjectId:
+          $ref: '#/components/schemas/Uuid'
+        placementMapObjectId:
+          $ref: '#/components/schemas/Uuid'
+
+    ObservationActorType:
+      type: string
+      enum: [user, system]
+
+    ObservationCorrectionKind:
+      type: string
+      enum: [amendment, supersede]
+
+    ImageAnalysisKind:
+      type: string
+      enum: [stress, disease, pest, other]
+
+    ImageAnalysisResult:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          analysisKind,
+          suggestedLabel,
+          confidenceScore,
+          requiresConfirmation,
+          requestedAdditionalEvidence,
+          createdAt,
+        ]
+      description: |
+        A stubbed, honest placeholder: `requiresConfirmation` is always
+        `true` — an automated diagnosis is never presented as a confirmed
+        fact without explicit user confirmation.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        analysisKind:
+          $ref: '#/components/schemas/ImageAnalysisKind'
+        suggestedLabel:
+          type: string
+        confidenceScore:
+          type: number
+          minimum: 0
+          maximum: 1
+        requiresConfirmation:
+          type: boolean
+        requestedAdditionalEvidence:
+          type: boolean
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+
+    ObservationPhoto:
+      type: object
+      additionalProperties: false
+      required: [id, mediaId, createdAt, analysisResults]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        mediaId:
+          $ref: '#/components/schemas/Uuid'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        analysisResults:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImageAnalysisResult'
+
+    Observation:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          gardenId,
+          plantId,
+          gardenObjectId,
+          actorType,
+          createdByProfileId,
+          noteText,
+          conditionSummary,
+          correctionKind,
+          correctsObservationId,
+          isCorrected,
+          observedAt,
+          recordedAt,
+          photos,
+        ]
+      description: |
+        Immutable and append-only — no revision, no update path. A
+        correction is a separate row (see `correctionKind`/
+        `correctsObservationId`), never an edit of this one.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        gardenId:
+          $ref: '#/components/schemas/Uuid'
+        plantId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        gardenObjectId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        actorType:
+          $ref: '#/components/schemas/ObservationActorType'
+        createdByProfileId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        noteText:
+          type: [string, 'null']
+        conditionSummary:
+          type: [string, 'null']
+        correctionKind:
+          oneOf:
+            - $ref: '#/components/schemas/ObservationCorrectionKind'
+            - type: 'null'
+        correctsObservationId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        isCorrected:
+          type: boolean
+          description: Whether a later observation names this one in its own `correctsObservationId`.
+        observedAt:
+          $ref: '#/components/schemas/Timestamp'
+        recordedAt:
+          $ref: '#/components/schemas/Timestamp'
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/ObservationPhoto'
+
+    ObservationListResult:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Observation'
+
+    RecordObservationRequest:
+      type: object
+      additionalProperties: false
+      description: |
+        Mirrors `RecordObservationInput`. At least one of `noteText`,
+        `conditionSummary`, or a `photoMediaIds` entry is required, enforced
+        server-side. Source: observations-history/application/record-observation.ts.
+      properties:
+        plantId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        gardenObjectId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        noteText:
+          type: [string, 'null']
+        conditionSummary:
+          type: [string, 'null']
+        observedAt:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+          description: '`null` or omitted means "use the server''s own timestamp."'
+        photoMediaIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/Uuid'
+          default: []
+
+    CorrectObservationRequest:
+      type: object
+      additionalProperties: false
+      required: [correctionKind]
+      description: 'Mirrors `CorrectObservationInput`. Source: observations-history/application/correct-observation.ts.'
+      properties:
+        correctionKind:
+          $ref: '#/components/schemas/ObservationCorrectionKind'
+        noteText:
+          type: [string, 'null']
+        conditionSummary:
+          type: [string, 'null']
+        photoMediaIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/Uuid'
+          default: []
+
+    TaskTargetKind:
+      type: string
+      enum: [garden, garden_area, plant]
+
+    TaskStatus:
+      type: string
+      enum: [planned, suggested, completed, skipped, dismissed, deleted]
+      description: |
+        `planned` and `suggested` are the only two statuses a task's status
+        or details may still be changed from; the other four are terminal.
+
+    TaskUrgency:
+      type: string
+      enum: [low, normal, high, urgent]
+
+    TaskSource:
+      type: string
+      enum: [manual, suggested]
+      description: This API only ever creates `manual` tasks; `suggested` would originate from a recommendation entity this phase does not build.
+
+    Task:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          gardenId,
+          targetKind,
+          targetGardenAreaMapObjectId,
+          targetPlantId,
+          title,
+          notes,
+          status,
+          dueDate,
+          timeWindowStart,
+          timeWindowEnd,
+          recurrenceRule,
+          urgency,
+          source,
+          originObservationId,
+          revision,
+          createdByProfileId,
+          createdAt,
+          updatedAt,
+          completedAt,
+        ]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        gardenId:
+          $ref: '#/components/schemas/Uuid'
+        targetKind:
+          $ref: '#/components/schemas/TaskTargetKind'
+        targetGardenAreaMapObjectId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        targetPlantId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        notes:
+          type: [string, 'null']
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        dueDate:
+          oneOf:
+            - type: string
+              format: date
+            - type: 'null'
+        timeWindowStart:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        timeWindowEnd:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        recurrenceRule:
+          type: [string, 'null']
+          description: Stored only; never parsed, expanded, or validated this pass.
+        urgency:
+          $ref: '#/components/schemas/TaskUrgency'
+        source:
+          $ref: '#/components/schemas/TaskSource'
+        originObservationId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        revision:
+          $ref: '#/components/schemas/Revision'
+        createdByProfileId:
+          $ref: '#/components/schemas/Uuid'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        completedAt:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+
+    TaskAttachment:
+      type: object
+      additionalProperties: false
+      required: [id, taskId, mediaId, createdAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        taskId:
+          $ref: '#/components/schemas/Uuid'
+        mediaId:
+          $ref: '#/components/schemas/Uuid'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+
+    TaskListResult:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+
+    TaskTimeWindowInput:
+      type: object
+      additionalProperties: false
+      description: Shared by `CreateManualTaskRequest`, `EditTaskRequest`, and `RescheduleTaskRequest`.
+      properties:
+        start:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        end:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+
+    CreateManualTaskRequest:
+      type: object
+      additionalProperties: false
+      required: [target, title]
+      description: 'Mirrors `CreateManualTaskInput`. Source: tasks-recommendations/application/create-manual-task.ts.'
+      properties:
+        target:
+          type: object
+          additionalProperties: false
+          required: [kind]
+          description: |
+            Mirrors the migration's `task_target_consistency_check`: `kind:
+            garden` sets neither id; `kind: garden_area` sets only
+            `gardenAreaMapObjectId`; `kind: plant` sets only `plantId`.
+          properties:
+            kind:
+              $ref: '#/components/schemas/TaskTargetKind'
+            gardenAreaMapObjectId:
+              $ref: '#/components/schemas/Uuid'
+            plantId:
+              $ref: '#/components/schemas/Uuid'
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        notes:
+          type: [string, 'null']
+        dueDate:
+          oneOf:
+            - type: string
+              format: date
+            - type: 'null'
+        timeWindow:
+          $ref: '#/components/schemas/TaskTimeWindowInput'
+        urgency:
+          $ref: '#/components/schemas/TaskUrgency'
+        originObservationId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: Must name an observation belonging to this same garden.
+
+    EditTaskRequest:
+      type: object
+      additionalProperties: false
+      description: |
+        Mirrors `EditTaskChanges`. Every property is optional; an omitted
+        property leaves the current value unchanged, and an explicit `null`
+        on a nullable property clears it. Source
+        tasks-recommendations/application/edit-task.ts.
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        notes:
+          type: [string, 'null']
+        dueDate:
+          oneOf:
+            - type: string
+              format: date
+            - type: 'null'
+        timeWindow:
+          $ref: '#/components/schemas/TaskTimeWindowInput'
+        urgency:
+          $ref: '#/components/schemas/TaskUrgency'
+        recurrenceRule:
+          type: [string, 'null']
+
+    RescheduleTaskRequest:
+      type: object
+      additionalProperties: false
+      description: 'Mirrors `RescheduleTaskInput`. Source: tasks-recommendations/application/reschedule-task.ts.'
+      properties:
+        dueDate:
+          oneOf:
+            - type: string
+              format: date
+            - type: 'null'
+        timeWindow:
+          $ref: '#/components/schemas/TaskTimeWindowInput'
+
+    CompleteTaskRequest:
+      type: object
+      additionalProperties: false
+      description: '`completionNote` is accepted for interface completeness but has no storage target this pass — it still binds the idempotency fingerprint.'
+      properties:
+        completionNote:
+          type: [string, 'null']
+
+    DismissTaskRequest:
+      type: object
+      additionalProperties: false
+      description: '`reason` is accepted for interface completeness but has no storage target this pass, the same carve-out `CompleteTaskRequest.completionNote` documents.'
+      properties:
+        reason:
+          type: [string, 'null']
+
+    AttachTaskFileRequest:
+      type: object
+      additionalProperties: false
+      required: [mediaId]
+      properties:
+        mediaId:
+          $ref: '#/components/schemas/Uuid'
 
   responses:
     BadRequest:
