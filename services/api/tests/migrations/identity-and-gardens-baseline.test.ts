@@ -215,8 +215,9 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving the platform-baseline schemas and roles otherwise intact', async () => {
     await client.end();
 
-    // `count: 2` undoes this migration and every migration applied after it
-    // (currently just garden-map-baseline, which depends on tables this one
+    // `count: 3` undoes this migration and every migration applied after it
+    // (currently garden-map-baseline and plants-observations-tasks-baseline,
+    // both of which depend, directly or transitively, on tables this one
     // creates and must come down first). The shared `migrate()` helper runs
     // with an unbounded count, which is correct for 'up' but would also undo
     // platform-baseline here, which this test is specifically checking
@@ -226,7 +227,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 2,
+      count: 3,
       log: () => {},
     });
 
