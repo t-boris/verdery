@@ -4,6 +4,7 @@ import { useLocalization, type MessageKey } from '@/shared/localization/public';
 import { Button } from '@/shared/ui/public';
 
 import { useMapEditorStore } from './editor-store';
+import { GateCreationPrompt } from './gate-creation-prompt';
 import styles from './map-toolbar.module.css';
 import {
   CREATABLE_CATEGORIES,
@@ -18,8 +19,15 @@ const TOOL_LABEL_KEY: Readonly<Record<CreatableCategory, MessageKey>> = {
   lot: 'map.toolbar.createLot',
   structure: 'map.toolbar.createStructure',
   fence: 'map.toolbar.createFence',
+  gate: 'map.toolbar.createGate',
+  path: 'map.toolbar.createPath',
+  zone: 'map.toolbar.createZone',
+  bed: 'map.toolbar.createBed',
+  waterFeature: 'map.toolbar.createWaterFeature',
+  utilityExclusion: 'map.toolbar.createUtilityExclusion',
   tree: 'map.toolbar.createTree',
   plant: 'map.toolbar.createPlant',
+  annotation: 'map.toolbar.createAnnotation',
 };
 
 export interface MapToolbarProps {
@@ -27,7 +35,8 @@ export interface MapToolbarProps {
 }
 
 /**
- * Tool selection, the draft finish/cancel controls, and undo/redo.
+ * Tool selection, the draft finish/cancel controls, the gate fence-pick
+ * prompt, and undo/redo.
  *
  * `aria-pressed` marks the active tool, not colour alone — the `Button`
  * primitive's primary/secondary variants already differ in more than hue,
@@ -43,6 +52,8 @@ export function MapToolbar({ actions }: MapToolbarProps) {
   const isDrafting = draftKind === 'polygon' || draftKind === 'line';
   const minimumDraftPoints = draftKind === 'polygon' ? 3 : 2;
 
+  const hasFence = actions.records.some((record) => record.category === 'fence');
+
   return (
     <div className={styles['toolbar']}>
       <div className={styles['group']} role="group" aria-label={t('map.toolbar.groupLabel')}>
@@ -55,12 +66,21 @@ export function MapToolbar({ actions }: MapToolbarProps) {
         </Button>
         {CREATABLE_CATEGORIES.map((category) => {
           const categoryTool = createToolMode(category);
+          // A gate needs an existing fence to attach to — see
+          // `GateDetails.fenceObjectId`'s doc comment in `object-category.ts`.
+          const disabled = category === 'gate' && !hasFence;
+          // `exactOptionalPropertyTypes` forbids `title={undefined}` — see
+          // the same comment in `shapes/polygon-shape.tsx` — so the
+          // tooltip prop is omitted entirely rather than set to `undefined`.
+          const titleProp = disabled ? { title: t('map.toolbar.gateNeedsFence') } : {};
           return (
             <Button
               key={category}
               variant={tool === categoryTool ? 'primary' : 'secondary'}
               aria-pressed={tool === categoryTool}
+              disabled={disabled}
               onClick={() => store.setTool(categoryTool)}
+              {...titleProp}
             >
               {t(TOOL_LABEL_KEY[category])}
             </Button>
@@ -82,6 +102,8 @@ export function MapToolbar({ actions }: MapToolbarProps) {
           </Button>
         </div>
       )}
+
+      <GateCreationPrompt actions={actions} />
 
       <div className={styles['group']} role="group" aria-label={t('map.history.title')}>
         <Button

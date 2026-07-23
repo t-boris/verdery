@@ -34,6 +34,53 @@ describe('editorReducer', () => {
     expect(toolChanged.draftPoints).toEqual([]);
   });
 
+  it('clears a pending gate geometry and leaves interaction mode whenever the tool changes', () => {
+    const pending = editorReducer(initialEditorState, {
+      type: 'setPendingGateGeometry',
+      geometry: {
+        type: 'LineString',
+        coordinates: [
+          [0, 0],
+          [1, 0],
+        ],
+      },
+    });
+    const inTransform = editorReducer(pending, { type: 'setInteractionMode', mode: 'transform' });
+
+    const toolChanged = editorReducer(inTransform, { type: 'setTool', tool: 'select' });
+    expect(toolChanged.pendingGateGeometry).toBeNull();
+    expect(toolChanged.interactionMode).toBe('idle');
+  });
+
+  it('leaves vertex-edit or transform mode whenever the selection changes', () => {
+    const selected = editorReducer(initialEditorState, { type: 'select', objectId: 'obj-1' });
+    const editing = editorReducer(selected, { type: 'setInteractionMode', mode: 'vertexEdit' });
+    expect(editing.interactionMode).toBe('vertexEdit');
+
+    const reselected = editorReducer(editing, { type: 'select', objectId: 'obj-2' });
+    expect(reselected.interactionMode).toBe('idle');
+  });
+
+  it('toggles an id in and out of the multi-select set', () => {
+    const added = editorReducer(initialEditorState, {
+      type: 'toggleMultiSelect',
+      objectId: 'obj-1',
+    });
+    expect(added.multiSelectedObjectIds).toEqual(['obj-1']);
+
+    const addedSecond = editorReducer(added, { type: 'toggleMultiSelect', objectId: 'obj-2' });
+    expect(addedSecond.multiSelectedObjectIds).toEqual(['obj-1', 'obj-2']);
+
+    const removedFirst = editorReducer(addedSecond, {
+      type: 'toggleMultiSelect',
+      objectId: 'obj-1',
+    });
+    expect(removedFirst.multiSelectedObjectIds).toEqual(['obj-2']);
+
+    const cleared = editorReducer(removedFirst, { type: 'clearMultiSelect' });
+    expect(cleared.multiSelectedObjectIds).toEqual([]);
+  });
+
   it('sets the camera only once via initCamera, ignoring later calls', () => {
     const camera = { centerX: 5, centerY: 5, scale: 30 };
     const initialized = editorReducer(initialEditorState, { type: 'initCamera', camera });

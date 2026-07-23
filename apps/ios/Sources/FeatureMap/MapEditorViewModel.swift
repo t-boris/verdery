@@ -35,6 +35,19 @@ public final class MapEditorViewModel {
     public internal(set) var errorMessage: String?
     /// Drives property-sheet presentation; `nil` means the sheet is closed.
     public internal(set) var propertySheetObjectId: String?
+    /// Set while placing a `gate`, between "user tapped the canvas" and "user
+    /// chose which fence it belongs to" — see `MapEditorViewModelEditing.swift`'s
+    /// gate-creation handling. Drives the fence-picker sheet.
+    public internal(set) var pendingGateCreationScreenPoint: CGPoint?
+    /// The object currently in vertex-edit mode, or `nil` when the canvas is
+    /// in its ordinary select/move mode. See `MapEditorViewModelReshaping.swift`.
+    public internal(set) var vertexEditObjectId: String?
+    /// The vertex handle last tapped while in vertex-edit mode — what the
+    /// shape-edit action bar's "Remove point"/"Split here" act on.
+    public internal(set) var selectedVertexIndex: Int?
+    /// Set while choosing the second object for a `joinLinework` command —
+    /// see `MapEditorViewModelLinework.swift`.
+    public internal(set) var pendingJoinFirstObjectId: String?
 
     let gardenId: String
     let loadGardenMap: LoadGardenMap
@@ -82,6 +95,30 @@ public final class MapEditorViewModel {
         return strings.string(.mapCreateHint, parameters: ["category": creatableCategoryName(armedCreateCategory)])
     }
 
+    public var gatePickerTitle: String { strings(.mapGatePickerTitle) }
+
+    /// Non-`nil` while ``vertexEditObjectId`` is set — the shape-edit action
+    /// bar's instructional banner, matching ``createHint``'s "show a banner
+    /// only while the mode is active" pattern.
+    public var vertexEditHint: String? {
+        guard vertexEditObjectId != nil else { return nil }
+        return strings(.mapVertexEditHint)
+    }
+    public var vertexEditDoneTitle: String { strings(.mapVertexEditDone) }
+    public var vertexEditRemoveTitle: String { strings(.mapVertexEditRemove) }
+    public var vertexEditSplitTitle: String { strings(.mapVertexEditSplitHere) }
+
+    /// Non-`nil` while a join is pending a second object — see
+    /// `MapEditorViewModelLinework.swift`.
+    public var joinSelectionHint: String? {
+        guard let firstId = pendingJoinFirstObjectId, let object = objectsById[firstId] else { return nil }
+        return strings.string(
+            .mapLineworkJoinHint,
+            parameters: ["category": MapCategoryLocalization.name(for: object.category, strings: strings)]
+        )
+    }
+    public var joinCancelTitle: String { strings(.mapLineworkJoinCancel) }
+
     public var canUndo: Bool { undoStack.canUndo && !isSubmitting }
     public var canRedo: Bool { undoStack.canRedo && !isSubmitting }
     /// True when the top undo entry exists but has no computable inverse —
@@ -96,6 +133,20 @@ public final class MapEditorViewModel {
 
     public var selectedObject: GardenMapObject? {
         selectedObjectId.flatMap { objectsById[$0] }
+    }
+
+    /// True when the garden has at least one active `fence` — what gates the
+    /// `gate` toolbar button, since `GateDetails.fenceObjectId` cannot be
+    /// fabricated (see `CreatableMapObjectCategory`'s doc comment).
+    public var hasFence: Bool {
+        objectsById.values.contains { $0.category == .fence && $0.lifecycleState == .active }
+    }
+
+    /// Active fences, in document order — the fence-picker sheet's options
+    /// once a gate placement tap is confirmed.
+    public var availableFences: [GardenMapObject] {
+        orderedObjectIds.compactMap { objectsById[$0] }
+            .filter { $0.category == .fence && $0.lifecycleState == .active }
     }
 
     /// The object the property sheet is actually showing — driven by

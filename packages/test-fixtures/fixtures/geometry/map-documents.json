@@ -1,0 +1,4206 @@
+{
+  "schemaVersion": 1,
+  "description": "Whole garden-map object sets at five complexity levels — small, ordinary, large, pathological, and accessibility — decoded independently by the web and iOS clients from the same wire JSON and checked against the same expected projection, proving the two clients agree on what a real map document means. Covers every one of the 13 garden object categories at least once (see the 'pathological' and 'ordinary' cases for the ones 'ordinary' alone does not reach), and exercises multi-part geometries (MultiPolygon/MultiLineString), nested geometry inside details (a tree canopy), large coordinate magnitudes, long labels, unicode text, boundary-value numerics, and soft-deleted objects.",
+  "source": "architecture/map-rendering-and-editing.md, section \"4. Canonical Object Categories\"",
+  "comparison": "exact",
+  "cases": [
+    {
+      "name": "small",
+      "description": "A brand-new garden with only its lot boundary drawn.",
+      "objects": [
+        {
+          "id": "small-lot",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "lot",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -5,
+                    -5
+                  ],
+                  [
+                    5,
+                    -5
+                  ],
+                  [
+                    5,
+                    5
+                  ],
+                  [
+                    -5,
+                    5
+                  ],
+                  [
+                    -5,
+                    -5
+                  ]
+                ]
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1
+        }
+      ],
+      "expected": [
+        {
+          "id": "small-lot",
+          "category": "lot",
+          "geometryType": "Polygon",
+          "coordinateCount": 5,
+          "label": null,
+          "lifecycleState": "active",
+          "detailsCategory": null,
+          "detailsFields": null
+        }
+      ]
+    },
+    {
+      "name": "ordinary",
+      "description": "A typical suburban garden: lot, house, fence, gate, path, bed, zone, tree, and an assigned plant.",
+      "objects": [
+        {
+          "id": "ord-lot",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "lot",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -15,
+                    -15
+                  ],
+                  [
+                    15,
+                    -15
+                  ],
+                  [
+                    15,
+                    15
+                  ],
+                  [
+                    -15,
+                    15
+                  ],
+                  [
+                    -15,
+                    -15
+                  ]
+                ]
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Backyard"
+        },
+        {
+          "id": "ord-house",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "structure",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -12,
+                    4
+                  ],
+                  [
+                    -4,
+                    4
+                  ],
+                  [
+                    -4,
+                    12
+                  ],
+                  [
+                    -12,
+                    12
+                  ],
+                  [
+                    -12,
+                    4
+                  ]
+                ]
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "House",
+          "details": {
+            "category": "structure",
+            "structureKind": "house",
+            "heightMetres": 6.5
+          }
+        },
+        {
+          "id": "ord-fence",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "fence",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  -15,
+                  -15
+                ],
+                [
+                  15,
+                  -15
+                ],
+                [
+                  15,
+                  15
+                ],
+                [
+                  -15,
+                  15
+                ]
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Perimeter fence",
+          "details": {
+            "category": "fence",
+            "fenceKind": "wood",
+            "heightMetres": 1.8
+          }
+        },
+        {
+          "id": "ord-gate",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "gate",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  0,
+                  -15
+                ],
+                [
+                  1,
+                  -15
+                ]
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Front gate",
+          "details": {
+            "category": "gate",
+            "fenceObjectId": "ord-fence",
+            "widthMetres": 1
+          }
+        },
+        {
+          "id": "ord-path",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "path",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  0,
+                  -15
+                ],
+                [
+                  0,
+                  0
+                ],
+                [
+                  -8,
+                  6
+                ]
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Path to the house"
+        },
+        {
+          "id": "ord-bed",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "bed",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    5,
+                    -11
+                  ],
+                  [
+                    11,
+                    -11
+                  ],
+                  [
+                    11,
+                    -5
+                  ],
+                  [
+                    5,
+                    -5
+                  ],
+                  [
+                    5,
+                    -11
+                  ]
+                ]
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Vegetable bed",
+          "details": {
+            "category": "bed",
+            "bedKind": "raised",
+            "soilNotes": "Amended with compost in spring."
+          }
+        },
+        {
+          "id": "ord-zone",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "zone",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -6,
+                    2
+                  ],
+                  [
+                    6,
+                    2
+                  ],
+                  [
+                    6,
+                    14
+                  ],
+                  [
+                    -6,
+                    14
+                  ],
+                  [
+                    -6,
+                    2
+                  ]
+                ]
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Lawn",
+          "details": {
+            "category": "zone",
+            "zoneKind": "lawn"
+          }
+        },
+        {
+          "id": "ord-tree",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "tree",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                10,
+                10
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Oak",
+          "details": {
+            "category": "tree",
+            "commonName": "Oak",
+            "estimatedHeightMetres": 12,
+            "estimatedSpreadMetres": 8
+          }
+        },
+        {
+          "id": "ord-plant",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                8,
+                -8
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Tomatoes",
+          "details": {
+            "category": "plant",
+            "commonName": "Tomato",
+            "quantity": 6,
+            "spacingMetres": 0.45,
+            "assignedToObjectId": "ord-bed"
+          }
+        }
+      ],
+      "expected": [
+        {
+          "id": "ord-lot",
+          "category": "lot",
+          "geometryType": "Polygon",
+          "coordinateCount": 5,
+          "label": "Backyard",
+          "lifecycleState": "active",
+          "detailsCategory": null,
+          "detailsFields": null
+        },
+        {
+          "id": "ord-house",
+          "category": "structure",
+          "geometryType": "Polygon",
+          "coordinateCount": 5,
+          "label": "House",
+          "lifecycleState": "active",
+          "detailsCategory": "structure",
+          "detailsFields": {
+            "structureKind": "house",
+            "heightMetres": 6.5
+          }
+        },
+        {
+          "id": "ord-fence",
+          "category": "fence",
+          "geometryType": "LineString",
+          "coordinateCount": 4,
+          "label": "Perimeter fence",
+          "lifecycleState": "active",
+          "detailsCategory": "fence",
+          "detailsFields": {
+            "fenceKind": "wood",
+            "heightMetres": 1.8
+          }
+        },
+        {
+          "id": "ord-gate",
+          "category": "gate",
+          "geometryType": "LineString",
+          "coordinateCount": 2,
+          "label": "Front gate",
+          "lifecycleState": "active",
+          "detailsCategory": "gate",
+          "detailsFields": {
+            "fenceObjectId": "ord-fence",
+            "widthMetres": 1
+          }
+        },
+        {
+          "id": "ord-path",
+          "category": "path",
+          "geometryType": "LineString",
+          "coordinateCount": 3,
+          "label": "Path to the house",
+          "lifecycleState": "active",
+          "detailsCategory": null,
+          "detailsFields": null
+        },
+        {
+          "id": "ord-bed",
+          "category": "bed",
+          "geometryType": "Polygon",
+          "coordinateCount": 5,
+          "label": "Vegetable bed",
+          "lifecycleState": "active",
+          "detailsCategory": "bed",
+          "detailsFields": {
+            "bedKind": "raised",
+            "soilNotes": "Amended with compost in spring."
+          }
+        },
+        {
+          "id": "ord-zone",
+          "category": "zone",
+          "geometryType": "Polygon",
+          "coordinateCount": 5,
+          "label": "Lawn",
+          "lifecycleState": "active",
+          "detailsCategory": "zone",
+          "detailsFields": {
+            "zoneKind": "lawn"
+          }
+        },
+        {
+          "id": "ord-tree",
+          "category": "tree",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Oak",
+          "lifecycleState": "active",
+          "detailsCategory": "tree",
+          "detailsFields": {
+            "commonName": "Oak",
+            "estimatedHeightMetres": 12,
+            "estimatedSpreadMetres": 8
+          }
+        },
+        {
+          "id": "ord-plant",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Tomatoes",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Tomato",
+            "quantity": 6,
+            "spacingMetres": 0.45,
+            "assignedToObjectId": "ord-bed"
+          }
+        }
+      ]
+    },
+    {
+      "name": "large",
+      "description": "A large planting bed: 65 objects total.",
+      "objects": [
+        {
+          "id": "large-lot",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "lot",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -40,
+                    -40
+                  ],
+                  [
+                    40,
+                    -40
+                  ],
+                  [
+                    40,
+                    40
+                  ],
+                  [
+                    -40,
+                    40
+                  ],
+                  [
+                    -40,
+                    -40
+                  ]
+                ]
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1
+        },
+        {
+          "id": "large-plant-0-0",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -28,
+                -28
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 0-0",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-0-1",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -20,
+                -28
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 0-1",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-0-2",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -12,
+                -28
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 0-2",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-0-3",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -4,
+                -28
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 0-3",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-0-4",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                4,
+                -28
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 0-4",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-0-5",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                12,
+                -28
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 0-5",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-0-6",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                20,
+                -28
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 0-6",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-0-7",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                28,
+                -28
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 0-7",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-1-0",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -28,
+                -20
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 1-0",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-1-1",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -20,
+                -20
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 1-1",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-1-2",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -12,
+                -20
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 1-2",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-1-3",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -4,
+                -20
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 1-3",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-1-4",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                4,
+                -20
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 1-4",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-1-5",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                12,
+                -20
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 1-5",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-1-6",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                20,
+                -20
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 1-6",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-1-7",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                28,
+                -20
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 1-7",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-2-0",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -28,
+                -12
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 2-0",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-2-1",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -20,
+                -12
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 2-1",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-2-2",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -12,
+                -12
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 2-2",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-2-3",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -4,
+                -12
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 2-3",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-2-4",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                4,
+                -12
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 2-4",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-2-5",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                12,
+                -12
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 2-5",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-2-6",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                20,
+                -12
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 2-6",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-2-7",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                28,
+                -12
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 2-7",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-3-0",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -28,
+                -4
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 3-0",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-3-1",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -20,
+                -4
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 3-1",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-3-2",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -12,
+                -4
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 3-2",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-3-3",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -4,
+                -4
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 3-3",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-3-4",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                4,
+                -4
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 3-4",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-3-5",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                12,
+                -4
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 3-5",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-3-6",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                20,
+                -4
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 3-6",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-3-7",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                28,
+                -4
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 3-7",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-4-0",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -28,
+                4
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 4-0",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-4-1",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -20,
+                4
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 4-1",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-4-2",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -12,
+                4
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 4-2",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-4-3",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -4,
+                4
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 4-3",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-4-4",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                4,
+                4
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 4-4",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-4-5",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                12,
+                4
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 4-5",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-4-6",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                20,
+                4
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 4-6",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-4-7",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                28,
+                4
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 4-7",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-5-0",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -28,
+                12
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 5-0",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-5-1",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -20,
+                12
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 5-1",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-5-2",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -12,
+                12
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 5-2",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-5-3",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -4,
+                12
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 5-3",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-5-4",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                4,
+                12
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 5-4",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-5-5",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                12,
+                12
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 5-5",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-5-6",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                20,
+                12
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 5-6",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-5-7",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                28,
+                12
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 5-7",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-6-0",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -28,
+                20
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 6-0",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-6-1",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -20,
+                20
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 6-1",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-6-2",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -12,
+                20
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 6-2",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-6-3",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -4,
+                20
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 6-3",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-6-4",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                4,
+                20
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 6-4",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-6-5",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                12,
+                20
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 6-5",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-6-6",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                20,
+                20
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 6-6",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-6-7",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                28,
+                20
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 6-7",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-7-0",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -28,
+                28
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 7-0",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-7-1",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -20,
+                28
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 7-1",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-7-2",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -12,
+                28
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 7-2",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-7-3",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -4,
+                28
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 7-3",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-7-4",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                4,
+                28
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 7-4",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-7-5",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                12,
+                28
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 7-5",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-7-6",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                20,
+                28
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 7-6",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-7-7",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                28,
+                28
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Plant 7-7",
+          "details": {
+            "category": "plant",
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        }
+      ],
+      "expected": [
+        {
+          "id": "large-lot",
+          "category": "lot",
+          "geometryType": "Polygon",
+          "coordinateCount": 5,
+          "label": null,
+          "lifecycleState": "active",
+          "detailsCategory": null,
+          "detailsFields": null
+        },
+        {
+          "id": "large-plant-0-0",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 0-0",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-0-1",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 0-1",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-0-2",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 0-2",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-0-3",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 0-3",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-0-4",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 0-4",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-0-5",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 0-5",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-0-6",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 0-6",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-0-7",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 0-7",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-1-0",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 1-0",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-1-1",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 1-1",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-1-2",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 1-2",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-1-3",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 1-3",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-1-4",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 1-4",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-1-5",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 1-5",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-1-6",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 1-6",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-1-7",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 1-7",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-2-0",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 2-0",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-2-1",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 2-1",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-2-2",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 2-2",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-2-3",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 2-3",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-2-4",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 2-4",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-2-5",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 2-5",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-2-6",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 2-6",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-2-7",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 2-7",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-3-0",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 3-0",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-3-1",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 3-1",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-3-2",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 3-2",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-3-3",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 3-3",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-3-4",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 3-4",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-3-5",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 3-5",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-3-6",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 3-6",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-3-7",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 3-7",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-4-0",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 4-0",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-4-1",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 4-1",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-4-2",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 4-2",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-4-3",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 4-3",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-4-4",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 4-4",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-4-5",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 4-5",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-4-6",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 4-6",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-4-7",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 4-7",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-5-0",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 5-0",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-5-1",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 5-1",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-5-2",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 5-2",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-5-3",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 5-3",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-5-4",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 5-4",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-5-5",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 5-5",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-5-6",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 5-6",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-5-7",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 5-7",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-6-0",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 6-0",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-6-1",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 6-1",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-6-2",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 6-2",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-6-3",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 6-3",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-6-4",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 6-4",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-6-5",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 6-5",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-6-6",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 6-6",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-6-7",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 6-7",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-7-0",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 7-0",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-7-1",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 7-1",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-7-2",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 7-2",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-7-3",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 7-3",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-7-4",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 7-4",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-7-5",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 7-5",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-7-6",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 7-6",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        },
+        {
+          "id": "large-plant-7-7",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Plant 7-7",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Lavender",
+            "quantity": 1,
+            "spacingMetres": 0.3
+          }
+        }
+      ]
+    },
+    {
+      "name": "pathological",
+      "description": "Extreme but individually valid geometries, values, and nested structures.",
+      "objects": [
+        {
+          "id": "path-water-multi",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "waterFeature",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "MultiPolygon",
+              "coordinates": [
+                [
+                  [
+                    [
+                      -20,
+                      -20
+                    ],
+                    [
+                      -18,
+                      -20
+                    ],
+                    [
+                      -18,
+                      -18
+                    ],
+                    [
+                      -20,
+                      -18
+                    ],
+                    [
+                      -20,
+                      -20
+                    ]
+                  ]
+                ],
+                [
+                  [
+                    [
+                      18,
+                      18
+                    ],
+                    [
+                      20,
+                      18
+                    ],
+                    [
+                      20,
+                      20
+                    ],
+                    [
+                      18,
+                      20
+                    ],
+                    [
+                      18,
+                      18
+                    ]
+                  ]
+                ]
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Two disjoint ponds"
+        },
+        {
+          "id": "path-utility-large-magnitude",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "utilityExclusion",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    4750,
+                    -4850
+                  ],
+                  [
+                    4850,
+                    -4850
+                  ],
+                  [
+                    4850,
+                    -4750
+                  ],
+                  [
+                    4750,
+                    -4750
+                  ],
+                  [
+                    4750,
+                    -4850
+                  ]
+                ]
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Remote utility easement",
+          "details": {
+            "category": "utilityExclusion",
+            "utilityExclusionKind": "undergroundUtility",
+            "notes": "Far corner of a very large rural lot."
+          }
+        },
+        {
+          "id": "path-annotation-line",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "annotation",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  12.5,
+                  0
+                ]
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Fence-to-house distance",
+          "details": {
+            "category": "annotation",
+            "measurement": {
+              "value": 12.5,
+              "unit": "metres",
+              "acquisitionMethod": "arMeasurement",
+              "originalEntry": "41 ft",
+              "uncertainty": 0.05,
+              "referenceObjectId": "ord-fence",
+              "calibrationRevision": 2
+            }
+          }
+        },
+        {
+          "id": "path-imported-background",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "importedBackground",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -20,
+                    -20
+                  ],
+                  [
+                    20,
+                    -20
+                  ],
+                  [
+                    20,
+                    20
+                  ],
+                  [
+                    -20,
+                    20
+                  ],
+                  [
+                    -20,
+                    -20
+                  ]
+                ]
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Scanned property plan"
+        },
+        {
+          "id": "path-fence-multiline",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "fence",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "MultiLineString",
+              "coordinates": [
+                [
+                  [
+                    -10,
+                    -10
+                  ],
+                  [
+                    -10,
+                    10
+                  ]
+                ],
+                [
+                  [
+                    10,
+                    -10
+                  ],
+                  [
+                    10,
+                    10
+                  ]
+                ]
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Two separate fence runs",
+          "details": {
+            "category": "fence",
+            "fenceKind": "metal"
+          }
+        },
+        {
+          "id": "path-long-label",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "structure",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    27,
+                    27
+                  ],
+                  [
+                    33,
+                    27
+                  ],
+                  [
+                    33,
+                    33
+                  ],
+                  [
+                    27,
+                    33
+                  ],
+                  [
+                    27,
+                    27
+                  ]
+                ]
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "A greenhouse with an unusually long, fully-written description used to make sure long labels survive decoding on both platforms without truncation or crashing",
+          "details": {
+            "category": "structure",
+            "structureKind": "greenhouse"
+          }
+        },
+        {
+          "id": "path-plant-boundary-values",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                0.0001,
+                -0.0001
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Dense micro-planting",
+          "details": {
+            "category": "plant",
+            "commonName": "Moss",
+            "quantity": 500,
+            "spacingMetres": 0.001
+          }
+        },
+        {
+          "id": "path-tree-with-canopy",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "tree",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -30,
+                -30
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Old oak with a mapped canopy",
+          "details": {
+            "category": "tree",
+            "commonName": "Oak",
+            "estimatedHeightMetres": 0,
+            "estimatedSpreadMetres": 0,
+            "canopyGeometry": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -36,
+                    -36
+                  ],
+                  [
+                    -24,
+                    -36
+                  ],
+                  [
+                    -24,
+                    -24
+                  ],
+                  [
+                    -36,
+                    -24
+                  ],
+                  [
+                    -36,
+                    -36
+                  ]
+                ]
+              ]
+            }
+          }
+        },
+        {
+          "id": "path-bed-unicode-notes",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "bed",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -5.5,
+                    -5.5
+                  ],
+                  [
+                    -2.5,
+                    -5.5
+                  ],
+                  [
+                    -2.5,
+                    -2.5
+                  ],
+                  [
+                    -5.5,
+                    -2.5
+                  ],
+                  [
+                    -5.5,
+                    -5.5
+                  ]
+                ]
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Herb spiral",
+          "details": {
+            "category": "bed",
+            "bedKind": "container",
+            "soilNotes": "Mélange de terreau et de compost.\nArrosage quotidien en été — testé à 100%."
+          }
+        }
+      ],
+      "expected": [
+        {
+          "id": "path-water-multi",
+          "category": "waterFeature",
+          "geometryType": "MultiPolygon",
+          "coordinateCount": 10,
+          "label": "Two disjoint ponds",
+          "lifecycleState": "active",
+          "detailsCategory": null,
+          "detailsFields": null
+        },
+        {
+          "id": "path-utility-large-magnitude",
+          "category": "utilityExclusion",
+          "geometryType": "Polygon",
+          "coordinateCount": 5,
+          "label": "Remote utility easement",
+          "lifecycleState": "active",
+          "detailsCategory": "utilityExclusion",
+          "detailsFields": {
+            "utilityExclusionKind": "undergroundUtility",
+            "notes": "Far corner of a very large rural lot."
+          }
+        },
+        {
+          "id": "path-annotation-line",
+          "category": "annotation",
+          "geometryType": "LineString",
+          "coordinateCount": 2,
+          "label": "Fence-to-house distance",
+          "lifecycleState": "active",
+          "detailsCategory": "annotation",
+          "detailsFields": {
+            "measurement": {
+              "value": 12.5,
+              "unit": "metres",
+              "acquisitionMethod": "arMeasurement",
+              "originalEntry": "41 ft",
+              "uncertainty": 0.05,
+              "referenceObjectId": "ord-fence",
+              "calibrationRevision": 2
+            }
+          }
+        },
+        {
+          "id": "path-imported-background",
+          "category": "importedBackground",
+          "geometryType": "Polygon",
+          "coordinateCount": 5,
+          "label": "Scanned property plan",
+          "lifecycleState": "active",
+          "detailsCategory": null,
+          "detailsFields": null
+        },
+        {
+          "id": "path-fence-multiline",
+          "category": "fence",
+          "geometryType": "MultiLineString",
+          "coordinateCount": 4,
+          "label": "Two separate fence runs",
+          "lifecycleState": "active",
+          "detailsCategory": "fence",
+          "detailsFields": {
+            "fenceKind": "metal"
+          }
+        },
+        {
+          "id": "path-long-label",
+          "category": "structure",
+          "geometryType": "Polygon",
+          "coordinateCount": 5,
+          "label": "A greenhouse with an unusually long, fully-written description used to make sure long labels survive decoding on both platforms without truncation or crashing",
+          "lifecycleState": "active",
+          "detailsCategory": "structure",
+          "detailsFields": {
+            "structureKind": "greenhouse"
+          }
+        },
+        {
+          "id": "path-plant-boundary-values",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Dense micro-planting",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Moss",
+            "quantity": 500,
+            "spacingMetres": 0.001
+          }
+        },
+        {
+          "id": "path-tree-with-canopy",
+          "category": "tree",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Old oak with a mapped canopy",
+          "lifecycleState": "active",
+          "detailsCategory": "tree",
+          "detailsFields": {
+            "commonName": "Oak",
+            "estimatedHeightMetres": 0,
+            "estimatedSpreadMetres": 0,
+            "canopyGeometry": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -36,
+                    -36
+                  ],
+                  [
+                    -24,
+                    -36
+                  ],
+                  [
+                    -24,
+                    -24
+                  ],
+                  [
+                    -36,
+                    -24
+                  ],
+                  [
+                    -36,
+                    -36
+                  ]
+                ]
+              ]
+            }
+          }
+        },
+        {
+          "id": "path-bed-unicode-notes",
+          "category": "bed",
+          "geometryType": "Polygon",
+          "coordinateCount": 5,
+          "label": "Herb spiral",
+          "lifecycleState": "active",
+          "detailsCategory": "bed",
+          "detailsFields": {
+            "bedKind": "container",
+            "soilNotes": "Mélange de terreau et de compost.\nArrosage quotidien en été — testé à 100%."
+          }
+        }
+      ]
+    },
+    {
+      "name": "accessibility",
+      "description": "Unlabeled, duplicate-labeled, overlapping, and soft-deleted objects for the accessible object list.",
+      "objects": [
+        {
+          "id": "a11y-unlabeled-1",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "structure",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -7,
+                    -7
+                  ],
+                  [
+                    -3,
+                    -7
+                  ],
+                  [
+                    -3,
+                    -3
+                  ],
+                  [
+                    -7,
+                    -3
+                  ],
+                  [
+                    -7,
+                    -7
+                  ]
+                ]
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "details": {
+            "category": "structure",
+            "structureKind": "shed"
+          }
+        },
+        {
+          "id": "a11y-unlabeled-2",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "structure",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    3,
+                    3
+                  ],
+                  [
+                    7,
+                    3
+                  ],
+                  [
+                    7,
+                    7
+                  ],
+                  [
+                    3,
+                    7
+                  ],
+                  [
+                    3,
+                    3
+                  ]
+                ]
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "details": {
+            "category": "structure",
+            "structureKind": "garage"
+          }
+        },
+        {
+          "id": "a11y-dup-label-1",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                1,
+                1
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Tomatoes",
+          "details": {
+            "category": "plant",
+            "commonName": "Tomato",
+            "quantity": 3
+          }
+        },
+        {
+          "id": "a11y-dup-label-2",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "plant",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                2,
+                2
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Tomatoes",
+          "details": {
+            "category": "plant",
+            "commonName": "Tomato",
+            "quantity": 2
+          }
+        },
+        {
+          "id": "a11y-overlap-1",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "zone",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -3,
+                    -3
+                  ],
+                  [
+                    3,
+                    -3
+                  ],
+                  [
+                    3,
+                    3
+                  ],
+                  [
+                    -3,
+                    3
+                  ],
+                  [
+                    -3,
+                    -3
+                  ]
+                ]
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Lawn",
+          "details": {
+            "category": "zone",
+            "zoneKind": "lawn"
+          }
+        },
+        {
+          "id": "a11y-overlap-2",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "active",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "bed",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -3,
+                    -3
+                  ],
+                  [
+                    3,
+                    -3
+                  ],
+                  [
+                    3,
+                    3
+                  ],
+                  [
+                    -3,
+                    3
+                  ],
+                  [
+                    -3,
+                    -3
+                  ]
+                ]
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Overlapping bed",
+          "details": {
+            "category": "bed",
+            "bedKind": "inGround"
+          }
+        },
+        {
+          "id": "a11y-deleted",
+          "gardenId": "garden-fixture",
+          "lifecycleState": "deleted",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "category": "tree",
+          "geometryEnvelope": {
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -8,
+                8
+              ]
+            },
+            "coordinateSpaceId": "space-1",
+            "coordinateSpaceKind": "localPlanarMetres",
+            "provenance": "manualDrawing"
+          },
+          "revision": 1,
+          "label": "Removed tree",
+          "details": {
+            "category": "tree",
+            "commonName": "Pine"
+          }
+        }
+      ],
+      "expected": [
+        {
+          "id": "a11y-unlabeled-1",
+          "category": "structure",
+          "geometryType": "Polygon",
+          "coordinateCount": 5,
+          "label": null,
+          "lifecycleState": "active",
+          "detailsCategory": "structure",
+          "detailsFields": {
+            "structureKind": "shed"
+          }
+        },
+        {
+          "id": "a11y-unlabeled-2",
+          "category": "structure",
+          "geometryType": "Polygon",
+          "coordinateCount": 5,
+          "label": null,
+          "lifecycleState": "active",
+          "detailsCategory": "structure",
+          "detailsFields": {
+            "structureKind": "garage"
+          }
+        },
+        {
+          "id": "a11y-dup-label-1",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Tomatoes",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Tomato",
+            "quantity": 3
+          }
+        },
+        {
+          "id": "a11y-dup-label-2",
+          "category": "plant",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Tomatoes",
+          "lifecycleState": "active",
+          "detailsCategory": "plant",
+          "detailsFields": {
+            "commonName": "Tomato",
+            "quantity": 2
+          }
+        },
+        {
+          "id": "a11y-overlap-1",
+          "category": "zone",
+          "geometryType": "Polygon",
+          "coordinateCount": 5,
+          "label": "Lawn",
+          "lifecycleState": "active",
+          "detailsCategory": "zone",
+          "detailsFields": {
+            "zoneKind": "lawn"
+          }
+        },
+        {
+          "id": "a11y-overlap-2",
+          "category": "bed",
+          "geometryType": "Polygon",
+          "coordinateCount": 5,
+          "label": "Overlapping bed",
+          "lifecycleState": "active",
+          "detailsCategory": "bed",
+          "detailsFields": {
+            "bedKind": "inGround"
+          }
+        },
+        {
+          "id": "a11y-deleted",
+          "category": "tree",
+          "geometryType": "Point",
+          "coordinateCount": 1,
+          "label": "Removed tree",
+          "lifecycleState": "deleted",
+          "detailsCategory": "tree",
+          "detailsFields": {
+            "commonName": "Pine"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,10 +1,15 @@
 'use client';
 
-import { useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import {
+  useRef,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
 
 import { useLocalization } from '@/shared/localization/public';
-import { classNames } from '@/shared/ui/public';
+import { Button, classNames } from '@/shared/ui/public';
 
+import { useMapEditorStore } from './editor-store';
 import { categoryLabelKey } from './labels';
 import styles from './map-object-list.module.css';
 import type { MapObjectRecord } from './types';
@@ -14,6 +19,11 @@ export interface MapObjectListProps {
   readonly actions: MapEditorActions;
   readonly selectedObjectId: string | null;
   readonly onSelect: (objectId: string) => void;
+}
+
+/** True for the two categories `joinLinework` accepts — see `use-map-editor-linework-actions.ts`. */
+function isJoinable(category: MapObjectRecord['category']): boolean {
+  return category === 'fence' || category === 'path';
 }
 
 /**
@@ -29,11 +39,20 @@ export interface MapObjectListProps {
  * mounted and simply starts reflecting the new selection; Delete/Backspace
  * deletes the row that has focus.
  *
+ * Shift-click toggles a row into a separate multi-select set (independent
+ * of the single `selectedObjectId` the property panel and canvas track),
+ * used only for the fence/path "Join" action below the list — the
+ * lightest-weight multi-select affordance that satisfies `joinLinework`
+ * needing exactly two same-category objects, not a general multi-select
+ * feature.
+ *
  * Source: architecture/map-rendering-and-editing.md, section "19. Accessibility".
  */
 export function MapObjectList({ actions, selectedObjectId, onSelect }: MapObjectListProps) {
   const { t } = useLocalization();
+  const store = useMapEditorStore();
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const multiSelected = store.state.multiSelectedObjectIds;
 
   if (actions.records.length === 0) {
     return (
@@ -74,6 +93,16 @@ export function MapObjectList({ actions, selectedObjectId, onSelect }: MapObject
     }
   };
 
+  const [firstId, secondId] = multiSelected;
+  const first = firstId === undefined ? null : actions.findRecord(firstId);
+  const second = secondId === undefined ? null : actions.findRecord(secondId);
+  const canJoin =
+    multiSelected.length === 2 &&
+    first !== null &&
+    second !== null &&
+    isJoinable(first.category) &&
+    first.category === second.category;
+
   return (
     <div className={styles['panel']}>
       <h2 className={styles['title']}>{t('map.objectList.title')}</h2>
@@ -86,12 +115,42 @@ export function MapObjectList({ actions, selectedObjectId, onSelect }: MapObject
             }}
             record={record}
             selected={record.id === selectedObjectId}
-            onSelect={() => onSelect(record.id)}
+            multiSelected={multiSelected.includes(record.id)}
+            onSelect={(event) => {
+              if (event.shiftKey) {
+                store.toggleMultiSelect(record.id);
+                return;
+              }
+              onSelect(record.id);
+            }}
             onDelete={() => void actions.deleteObject(record.id)}
             onKeyDown={(event) => handleKeyDown(event, index)}
           />
         ))}
       </ul>
+      {multiSelected.length > 0 && (
+        <div className={styles['joinBar']}>
+          <span className={styles['empty']}>
+            {t('map.objectList.multiSelectedCount', { count: multiSelected.length })}
+          </span>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={!canJoin}
+            busy={actions.isSubmitting}
+            onClick={() => {
+              if (firstId !== undefined && secondId !== undefined) {
+                void actions.joinLinework(firstId, secondId);
+              }
+            }}
+          >
+            {t('map.objectList.join')}
+          </Button>
+          <Button type="button" variant="secondary" onClick={() => store.clearMultiSelect()}>
+            {t('map.objectList.clearSelection')}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -99,7 +158,8 @@ export function MapObjectList({ actions, selectedObjectId, onSelect }: MapObject
 interface ObjectListRowProps {
   readonly record: MapObjectRecord;
   readonly selected: boolean;
-  readonly onSelect: () => void;
+  readonly multiSelected: boolean;
+  readonly onSelect: (event: ReactMouseEvent<HTMLButtonElement>) => void;
   readonly onDelete: () => void;
   readonly onKeyDown: (event: ReactKeyboardEvent<HTMLButtonElement>) => void;
   readonly ref: (node: HTMLButtonElement | null) => void;
@@ -108,6 +168,7 @@ interface ObjectListRowProps {
 function ObjectListRow({
   record,
   selected,
+  multiSelected,
   onSelect,
   onDelete,
   onKeyDown,
@@ -122,8 +183,13 @@ function ObjectListRow({
       <button
         ref={ref}
         type="button"
-        className={classNames(styles['itemButton'], selected && styles['itemButtonSelected'])}
+        className={classNames(
+          styles['itemButton'],
+          selected && styles['itemButtonSelected'],
+          multiSelected && styles['itemButtonMultiSelected'],
+        )}
         aria-current={selected || undefined}
+        aria-pressed={multiSelected}
         aria-label={t('map.objectList.selectAriaLabel', { label, category: categoryLabel })}
         onClick={onSelect}
         onKeyDown={onKeyDown}

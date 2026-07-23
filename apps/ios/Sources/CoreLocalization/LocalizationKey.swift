@@ -101,6 +101,8 @@ public enum LocalizationKey: String, Sendable, CaseIterable {
     case mapPropertyDetailsUnavailable = "map.property.detailsUnavailable"
     case mapPropertyMeasurementArea = "map.property.measurementArea"
     case mapPropertyMeasurementLength = "map.property.measurementLength"
+    case mapPropertyEditShape = "map.property.editShape"
+    case mapPropertyDuplicate = "map.property.duplicate"
 
     case mapStructureKindLabel = "map.structure.kindLabel"
     case mapStructureHeightLabel = "map.structure.heightLabel"
@@ -127,4 +129,56 @@ public enum LocalizationKey: String, Sendable, CaseIterable {
     case mapPlantCommonNameLabel = "map.plant.commonNameLabel"
     case mapPlantQuantityLabel = "map.plant.quantityLabel"
     case mapPlantSpacingLabel = "map.plant.spacingLabel"
+    case mapPlantAssignedToLabel = "map.plant.assignedToLabel"
+    case mapPlantAssignedToNone = "map.plant.assignedToNone"
+
+    // Map editor: gate details and gate placement.
+    case mapGateWidthLabel = "map.gate.widthLabel"
+    case mapGateFenceLabel = "map.gate.fenceLabel"
+    case mapCreateGateNoFence = "map.create.gateNoFence"
+    case mapGatePickerTitle = "map.gatePicker.title"
+
+    // Map editor: zone details.
+    case mapZoneKindLabel = "map.zone.kindLabel"
+    case mapZoneKindLawn = "map.zoneKind.lawn"
+    case mapZoneKindGarden = "map.zoneKind.garden"
+    case mapZoneKindMulch = "map.zoneKind.mulch"
+    case mapZoneKindGravel = "map.zoneKind.gravel"
+    case mapZoneKindGroundCover = "map.zoneKind.groundCover"
+    case mapZoneKindOther = "map.zoneKind.other"
+
+    // Map editor: bed details.
+    case mapBedKindLabel = "map.bed.kindLabel"
+    case mapBedSoilNotesLabel = "map.bed.soilNotesLabel"
+    case mapBedKindInGround = "map.bedKind.inGround"
+    case mapBedKindRaised = "map.bedKind.raised"
+    case mapBedKindContainer = "map.bedKind.container"
+
+    // Map editor: utility exclusion details.
+    case mapUtilityExclusionKindLabel = "map.utilityExclusion.kindLabel"
+    case mapUtilityExclusionNotesLabel = "map.utilityExclusion.notesLabel"
+    case mapUtilityExclusionKindUndergroundUtility = "map.utilityExclusionKind.undergroundUtility"
+    case mapUtilityExclusionKindSepticField = "map.utilityExclusionKind.septicField"
+    case mapUtilityExclusionKindWellRadius = "map.utilityExclusionKind.wellRadius"
+    case mapUtilityExclusionKindSetback = "map.utilityExclusionKind.setback"
+    case mapUtilityExclusionKindOther = "map.utilityExclusionKind.other"
+
+    // Map editor: annotation details.
+    case mapAnnotationMeasurementValueLabel = "map.annotation.measurementValueLabel"
+    case mapAnnotationMeasurementUnitLabel = "map.annotation.measurementUnitLabel"
+    case mapMeasurementUnitMetres = "map.measurementUnit.metres"
+    case mapMeasurementUnitSquareMetres = "map.measurementUnit.squareMetres"
+    case mapMeasurementUnitDegrees = "map.measurementUnit.degrees"
+
+    // Map editor: vertex-level shape editing (reshape, resize, rotate).
+    case mapVertexEditHint = "map.vertexEdit.hint"
+    case mapVertexEditDone = "map.vertexEdit.done"
+    case mapVertexEditRemove = "map.vertexEdit.remove"
+    case mapVertexEditSplitHere = "map.vertexEdit.splitHere"
+
+    // Map editor: splitting and joining fence/path linework.
+    case mapLineworkJoinStart = "map.linework.joinStart"
+    case mapLineworkJoinHint = "map.linework.joinHint"
+    case mapLineworkJoinCancel = "map.linework.joinCancel"
+    case mapLineworkJoinIncompatible = "map.linework.joinIncompatible"
 }

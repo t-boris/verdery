@@ -1,25 +1,33 @@
 import CoreDomain
 import CoreGraphics
 
-/// The categories the create toolbar offers in this pass.
+/// The categories the create toolbar offers.
 ///
-/// Five categories, spanning all three geometry shapes (area, line, point) —
-/// enough to prove the tap-to-create → select → drag → edit → delete pattern
-/// generalizes across every shape the canvas draws, not an attempt at all
-/// thirteen. Rendering already handles every category generically (see
-/// `MapObjectRenderKind`); only *creation* is scoped down here.
+/// All twelve non-`importedBackground` categories, spanning every geometry
+/// shape (area, line, point) the canvas draws. `importedBackground` is the
+/// one category deliberately left out: creating one needs a photo/plan
+/// upload flow that does not exist yet — Phase 6 scope
+/// (docs/implementation-plan.md, "Media, Photos, and Property-Plan
+/// Import") — so it is never faked with a placeholder shape here.
 ///
-/// TODO(P3-IOS-01): extend to `gate`, `zone`, `bed`, `waterFeature`,
-/// `utilityExclusion`, `annotation`, `path`, and `importedBackground` once
-/// each has a create flow that makes sense (a gate needs an existing fence to
-/// attach to; an imported background needs a photo-import flow; and so on) —
-/// deliberately not faked with a placeholder shape here.
+/// `gate` is creatable like every other category, but carries an extra
+/// precondition the toolbar and view model enforce together: a gate cannot
+/// exist without an existing `fence` to attach to (`GateDetails.fenceObjectId`
+/// is required, never fabricated). See `MapEditorViewModel.hasFence` and
+/// `MapEditorViewModelEditing.swift`'s gate-creation handling.
 public enum CreatableMapObjectCategory: String, Sendable, CaseIterable, Identifiable {
     case lot
     case structure
     case fence
+    case gate
+    case path
+    case zone
+    case bed
+    case waterFeature
+    case utilityExclusion
     case tree
     case plant
+    case annotation
 
     public var id: String { rawValue }
 
@@ -28,8 +36,15 @@ public enum CreatableMapObjectCategory: String, Sendable, CaseIterable, Identifi
         case .lot: .lot
         case .structure: .structure
         case .fence: .fence
+        case .gate: .gate
+        case .path: .path
+        case .zone: .zone
+        case .bed: .bed
+        case .waterFeature: .waterFeature
+        case .utilityExclusion: .utilityExclusion
         case .tree: .tree
         case .plant: .plant
+        case .annotation: .annotation
         }
     }
 }
@@ -109,15 +124,24 @@ public enum MapGestureCommands {
     }
 
     /// The `createObject` command a toolbar tap commits: a fixed-size default
-    /// shape centred on the tapped location. Freehand drawing is explicitly
-    /// out of scope for this pass (see the work package's scope note) — every
-    /// created object starts as this default and is reshaped only by moving
-    /// it as a whole or editing its properties, never by dragging a vertex.
+    /// shape centred on the tapped location. Freehand drawing of a brand-new
+    /// multi-point shape at creation time remains out of scope (see
+    /// `MapVertexEditCommands`'s and `MapShapeTransform`'s doc comments for
+    /// what *does* reshape an object once it exists) — every created object
+    /// starts as this default shape.
+    ///
+    /// `fenceObjectId` is required, and only meaningful, for `category ==
+    /// .gate` — see `GateDetails`'s doc comment ("a gate is always positioned
+    /// along exactly one fence"). The caller (`MapEditorViewModelEditing.swift`)
+    /// resolves it before calling this, never here: this function stays a
+    /// pure mapping from already-known inputs to a command, not a place that
+    /// reaches into view-model state to find a fence.
     public static func createCommand(
         objectId: String,
         category: CreatableMapObjectCategory,
         at center: Position,
-        label: String?
+        label: String?,
+        fenceObjectId: String? = nil
     ) -> MapCommandPayload {
         .createObject(
             CreateObjectPayload(
@@ -125,31 +149,45 @@ public enum MapGestureCommands {
                 category: category.category,
                 geometry: defaultGeometry(for: category, at: center),
                 label: label,
-                categoryDetails: defaultDetails(for: category)
+                categoryDetails: defaultDetails(for: category, fenceObjectId: fenceObjectId)
             )
         )
     }
 
-    /// Half the side length, in metres, of the square a `lot`/`structure`
-    /// create-tap places. Comfortably clears `minimumPolygonAreaSquareMetres`
-    /// (16 m² versus a 0.01 m² floor) so the created shape never fails
-    /// validation before a user has had a chance to resize it.
+    /// Half the side length, in metres, of the square a `lot`/`structure`/
+    /// `zone`/`bed`/`waterFeature`/`utilityExclusion` create-tap places.
+    /// Comfortably clears `minimumPolygonAreaSquareMetres` (16 m² versus a
+    /// 0.01 m² floor) so the created shape never fails validation before a
+    /// user has had a chance to resize it.
     private static let defaultAreaHalfSideMetres = 2.0
 
-    /// Half the length, in metres, of the line a `fence` create-tap places.
-    /// Clears `minimumLineLengthMetres` (3 m versus a 0.05 m floor) the same way.
+    /// Half the length, in metres, of the line a `fence`/`path` create-tap
+    /// places. Clears `minimumLineLengthMetres` (3 m versus a 0.05 m floor)
+    /// the same way.
     private static let defaultLineHalfLengthMetres = 1.5
+
+    /// Half the length, in metres, of the line a `gate` create-tap places —
+    /// deliberately shorter than `defaultLineHalfLengthMetres`, matching
+    /// `GardenObjectCategory`'s own framing of a gate as "a short segment,
+    /// not a full linework category of its own." Still clears
+    /// `minimumLineLengthMetres` (1 m versus a 0.05 m floor).
+    private static let defaultGateHalfLengthMetres = 0.5
 
     static func defaultGeometry(for category: CreatableMapObjectCategory, at center: Position) -> Geometry {
         switch category {
-        case .lot, .structure:
+        case .lot, .structure, .zone, .bed, .waterFeature, .utilityExclusion:
             return .polygon([defaultSquareRing(center: center)])
-        case .fence:
+        case .fence, .path:
             return .lineString([
                 Position(x: center.x - defaultLineHalfLengthMetres, y: center.y),
                 Position(x: center.x + defaultLineHalfLengthMetres, y: center.y),
             ])
-        case .tree, .plant:
+        case .gate:
+            return .lineString([
+                Position(x: center.x - defaultGateHalfLengthMetres, y: center.y),
+                Position(x: center.x + defaultGateHalfLengthMetres, y: center.y),
+            ])
+        case .tree, .plant, .annotation:
             return .point(center)
         }
     }
@@ -168,22 +206,41 @@ public enum MapGestureCommands {
         return corners + [corners[0]]
     }
 
-    /// Minimal, honest defaults — never fabricated data. `PlantPlacementDetails.commonName`
-    /// starts empty and `quantity` starts at 1 (the schema's own smallest
-    /// meaningful value); a user fills in the real name in the property sheet
-    /// this pass opens immediately after create.
-    static func defaultDetails(for category: CreatableMapObjectCategory) -> GardenObjectDetails? {
+    /// Minimal, honest defaults — never fabricated data.
+    /// `PlantPlacementDetails.commonName` starts empty and `quantity` starts
+    /// at 1 (the schema's own smallest meaningful value); a user fills in the
+    /// real name in the property sheet, which opens immediately after
+    /// create. Mirrors `packages/geometry-contracts/src/object-category.ts`'s
+    /// defaults.
+    ///
+    /// `fenceObjectId` is required for `.gate` — `GateDetails.fenceObjectId`
+    /// is a non-optional `String` — and ignored for every other category.
+    /// Returns `nil` for `.gate` when no fence id is supplied, which the
+    /// caller must treat as "cannot create this gate yet," never as "gate has
+    /// no details."
+    static func defaultDetails(for category: CreatableMapObjectCategory, fenceObjectId: String? = nil) -> GardenObjectDetails? {
         switch category {
-        case .lot:
+        case .lot, .path, .waterFeature:
             return nil
         case .structure:
             return .structure(StructureDetails(structureKind: .other))
         case .fence:
             return .fence(FenceDetails(fenceKind: .other))
+        case .gate:
+            guard let fenceObjectId else { return nil }
+            return .gate(GateDetails(fenceObjectId: fenceObjectId))
+        case .zone:
+            return .zone(ZoneDetails(zoneKind: .other))
+        case .bed:
+            return .bed(BedDetails(bedKind: .inGround))
+        case .utilityExclusion:
+            return .utilityExclusion(UtilityExclusionDetails(utilityExclusionKind: .other))
         case .tree:
             return .tree(TreeDetails())
         case .plant:
             return .plant(PlantPlacementDetails(commonName: "", quantity: 1))
+        case .annotation:
+            return .annotation(AnnotationDetails(measurement: nil))
         }
     }
 }

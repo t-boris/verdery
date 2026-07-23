@@ -11,9 +11,12 @@ import { useMapEditorStore } from './editor-store';
 import { categoryLabelKey } from './labels';
 import { DraftPreviewShape } from './shapes/draft-preview-shape';
 import { ObjectShape } from './shapes/object-shape';
+import { TransformHandles } from './shapes/transform-handles';
+import { VertexHandles } from './shapes/vertex-handles';
 import styles from './map-canvas.module.css';
 import { CREATABLE_GEOMETRY_KIND, creatableCategoryOfTool, type CanvasSize } from './types';
 import type { MapEditorActions } from './use-map-editor-actions';
+import { editableRingOf, isRingClosureVertex, movedRingClosureGeometry } from './vertex-ring';
 import { initialCameraFor, isRecordInViewport, panCamera, toLocal, zoomCamera } from './viewport';
 
 const NUDGE_METRES = 0.1;
@@ -35,8 +38,11 @@ export interface MapCanvasProps {
 
 /**
  * The Konva stage: renders every object in the current viewport, owns pan and
- * zoom, dispatches selection and drag-to-move, and drives the polygon/line
- * draft gesture for the five creatable categories.
+ * zoom, dispatches selection and drag-to-move, drives the polygon/line/point
+ * draft gestures for every creatable category (`types.ts`), and — for the
+ * selected object, while its vertex-edit or transform sub-mode is active —
+ * renders the reshape and resize/rotate handles (`shapes/vertex-handles.tsx`,
+ * `shapes/transform-handles.tsx`).
  *
  * Takes `actions` (from `use-map-editor-actions.ts`) as a prop rather than
  * calling the hook itself — `map-editor.tsx` calls it once and shares the
@@ -84,6 +90,9 @@ export function MapCanvas({ actions }: MapCanvasProps) {
   const creatingCategory = creatableCategoryOfTool(tool);
   const draftKind = creatingCategory === null ? null : CREATABLE_GEOMETRY_KIND[creatingCategory];
   const isDrafting = draftKind === 'polygon' || draftKind === 'line';
+
+  const interactionMode = store.state.interactionMode;
+  const selectedRecord = actions.selectedRecord;
 
   const visibleRecords = actions.records.filter((record) =>
     isRecordInViewport(record, camera, size),
@@ -205,12 +214,20 @@ export function MapCanvas({ actions }: MapCanvasProps) {
     }
   };
 
+  const modeHintKey =
+    interactionMode === 'vertexEdit'
+      ? 'map.canvas.hintVertexEdit'
+      : interactionMode === 'transform'
+        ? 'map.canvas.hintTransform'
+        : null;
+
   const hintKey =
-    draftKind === 'polygon' || draftKind === 'line'
+    modeHintKey ??
+    (draftKind === 'polygon' || draftKind === 'line'
       ? 'map.canvas.hintPath'
       : creatingCategory === null
         ? null
-        : 'map.canvas.hintPoint';
+        : 'map.canvas.hintPoint');
 
   return (
     <div className={styles['canvasArea']}>
@@ -244,24 +261,31 @@ export function MapCanvas({ actions }: MapCanvasProps) {
             onWheel={handleWheel}
           >
             <Layer>
-              {visibleRecords.map((record) => (
-                <ObjectShape
-                  key={record.id}
-                  record={record}
-                  camera={camera}
-                  size={size}
-                  selected={record.id === store.state.selectedObjectId}
-                  draggable={tool === 'select'}
-                  onSelect={store.select}
-                  onMoveEnd={(objectId, dx, dy, resetPosition) => {
-                    void actions.moveObject(objectId, dx, dy).then((result) => {
-                      if (result === null) {
-                        resetPosition();
-                      }
-                    });
-                  }}
-                />
-              ))}
+              {visibleRecords.map((record) => {
+                // Vertex-edit and transform handles fully own repositioning
+                // the selected object while active — whole-object drag would
+                // otherwise fight the handle gestures for the same shape.
+                const isEditingThisObject =
+                  interactionMode !== 'idle' && record.id === store.state.selectedObjectId;
+                return (
+                  <ObjectShape
+                    key={record.id}
+                    record={record}
+                    camera={camera}
+                    size={size}
+                    selected={record.id === store.state.selectedObjectId}
+                    draggable={tool === 'select' && !isEditingThisObject}
+                    onSelect={store.select}
+                    onMoveEnd={(objectId, dx, dy, resetPosition) => {
+                      void actions.moveObject(objectId, dx, dy).then((result) => {
+                        if (result === null) {
+                          resetPosition();
+                        }
+                      });
+                    }}
+                  />
+                );
+              })}
               {isDrafting && draftKind !== null && (
                 <DraftPreviewShape
                   points={store.state.draftPoints}
@@ -269,6 +293,63 @@ export function MapCanvas({ actions }: MapCanvasProps) {
                   kind={draftKind}
                   camera={camera}
                   size={size}
+                />
+              )}
+              {interactionMode === 'vertexEdit' && selectedRecord !== null && (
+                <VertexHandles
+                  record={selectedRecord}
+                  camera={camera}
+                  size={size}
+                  onMoveVertex={(ringIndex, vertexIndex, position) => {
+                    // The closure vertex of a closed ring is stored twice
+                    // (first and last position); `editVertex` touches only
+                    // one stored slot, so moving this one vertex commits a
+                    // full `replaceGeometry` instead, with both copies
+                    // updated — see `isRingClosureVertex` in `vertex-ring.ts`.
+                    const ring = editableRingOf(selectedRecord.geometry);
+                    if (ring !== null && isRingClosureVertex(ring, vertexIndex)) {
+                      void actions.replaceGeometry(
+                        selectedRecord.id,
+                        movedRingClosureGeometry(selectedRecord.geometry, position),
+                      );
+                      return;
+                    }
+                    void actions.editVertex(
+                      selectedRecord.id,
+                      'move',
+                      ringIndex,
+                      vertexIndex,
+                      position,
+                    );
+                  }}
+                  onInsertVertex={(ringIndex, vertexIndex, position) =>
+                    void actions.editVertex(
+                      selectedRecord.id,
+                      'insert',
+                      ringIndex,
+                      vertexIndex,
+                      position,
+                    )
+                  }
+                  onRemoveVertex={(ringIndex, vertexIndex) =>
+                    void actions.editVertex(selectedRecord.id, 'remove', ringIndex, vertexIndex)
+                  }
+                  {...(selectedRecord.category === 'fence' || selectedRecord.category === 'path'
+                    ? {
+                        onSplitAtVertex: (vertexIndex: number) =>
+                          void actions.splitLinework(selectedRecord.id, vertexIndex),
+                      }
+                    : {})}
+                />
+              )}
+              {interactionMode === 'transform' && selectedRecord !== null && (
+                <TransformHandles
+                  record={selectedRecord}
+                  camera={camera}
+                  size={size}
+                  onReplaceGeometry={(geometry) =>
+                    void actions.replaceGeometry(selectedRecord.id, geometry)
+                  }
                 />
               )}
             </Layer>

@@ -107,6 +107,8 @@
 "map.property.detailsUnavailable" = "Editing this category's details isn't implemented yet.";
 "map.property.measurementArea" = "Area: {squareMetres} m²";
 "map.property.measurementLength" = "Length: {metres} m";
+"map.property.editShape" = "Edit shape";
+"map.property.duplicate" = "Duplicate";
 
 /* Map editor: structure details. */
 "map.structure.kindLabel" = "Structure type";
@@ -137,3 +139,55 @@
 "map.plant.commonNameLabel" = "Common name";
 "map.plant.quantityLabel" = "Quantity";
 "map.plant.spacingLabel" = "Spacing (m)";
+"map.plant.assignedToLabel" = "Assigned to";
+"map.plant.assignedToNone" = "None";
+
+/* Map editor: gate details and gate placement. */
+"map.gate.widthLabel" = "Width (m)";
+"map.gate.fenceLabel" = "Fence";
+"map.create.gateNoFence" = "Create a fence before adding a gate.";
+"map.gatePicker.title" = "Choose a fence";
+
+/* Map editor: zone details. */
+"map.zone.kindLabel" = "Zone type";
+"map.zoneKind.lawn" = "Lawn";
+"map.zoneKind.garden" = "Garden bed";
+"map.zoneKind.mulch" = "Mulch";
+"map.zoneKind.gravel" = "Gravel";
+"map.zoneKind.groundCover" = "Ground cover";
+"map.zoneKind.other" = "Other";
+
+/* Map editor: bed details. */
+"map.bed.kindLabel" = "Bed type";
+"map.bed.soilNotesLabel" = "Soil notes";
+"map.bedKind.inGround" = "In-ground";
+"map.bedKind.raised" = "Raised";
+"map.bedKind.container" = "Container";
+
+/* Map editor: utility exclusion details. */
+"map.utilityExclusion.kindLabel" = "Exclusion type";
+"map.utilityExclusion.notesLabel" = "Notes";
+"map.utilityExclusionKind.undergroundUtility" = "Underground utility";
+"map.utilityExclusionKind.septicField" = "Septic field";
+"map.utilityExclusionKind.wellRadius" = "Well radius";
+"map.utilityExclusionKind.setback" = "Setback";
+"map.utilityExclusionKind.other" = "Other";
+
+/* Map editor: annotation details. */
+"map.annotation.measurementValueLabel" = "Measurement value";
+"map.annotation.measurementUnitLabel" = "Unit";
+"map.measurementUnit.metres" = "Metres";
+"map.measurementUnit.squareMetres" = "Square metres";
+"map.measurementUnit.degrees" = "Degrees";
+
+/* Map editor: vertex-level shape editing (reshape, resize, rotate). */
+"map.vertexEdit.hint" = "Drag a point to move it, tap a point to select it. Tap a small dot on an edge to add a point there.";
+"map.vertexEdit.done" = "Done";
+"map.vertexEdit.remove" = "Remove point";
+"map.vertexEdit.splitHere" = "Split here";
+
+/* Map editor: splitting and joining fence/path linework. */
+"map.linework.joinStart" = "Join with…";
+"map.linework.joinHint" = "Select the second {category} to join with.";
+"map.linework.joinCancel" = "Cancel join";
+"map.linework.joinIncompatible" = "Select another object of the same category to join.";

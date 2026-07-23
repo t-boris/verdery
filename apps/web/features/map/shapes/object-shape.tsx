@@ -37,8 +37,8 @@ export interface ObjectShapeProps {
  * One garden object on the Konva stage: a `Group` that owns selection and
  * drag-to-move, wrapping whichever shape component matches the object's
  * geometry type. Every category renders through here — creation is limited
- * to five categories (see `types.ts`), but rendering, selection, and moving
- * are not.
+ * to every category but `importedBackground` (see `types.ts`), but
+ * rendering, selection, and moving are not.
  */
 export function ObjectShape({
   record,

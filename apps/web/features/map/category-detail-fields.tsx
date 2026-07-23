@@ -15,10 +15,21 @@ import type { ChangeEvent } from 'react';
 import { useLocalization, type MessageKey } from '@/shared/localization/public';
 import { Select, TextField } from '@/shared/ui/public';
 
+import {
+  AnnotationFields,
+  BedFields,
+  GateFields,
+  UtilityExclusionFields,
+  ZoneFields,
+} from './category-detail-fields-secondary';
+import type { MapObjectRecord } from './types';
+
 export interface CategoryDetailFieldsProps {
   readonly category: GardenObjectCategory;
   readonly details: GardenObjectDetails | undefined;
   readonly onChange: (details: GardenObjectDetails | undefined) => void;
+  /** Every object in the garden — only `gate`'s read-only fence display needs this. */
+  readonly records: readonly MapObjectRecord[];
 }
 
 const STRUCTURE_KINDS: readonly StructureKind[] = [
@@ -31,8 +42,8 @@ const STRUCTURE_KINDS: readonly StructureKind[] = [
 ];
 const FENCE_KINDS: readonly FenceKind[] = ['wood', 'chainLink', 'vinyl', 'metal', 'hedge', 'other'];
 
-/** Reads a number input's value, treating a blank field as "field cleared", not zero. */
-function parseOptionalNumber(value: string): number | undefined {
+/** Reads a number input's value, treating a blank field as "field cleared", not zero. Exported for `category-detail-fields-secondary.tsx`. */
+export function parseOptionalNumber(value: string): number | undefined {
   if (value.trim() === '') {
     return undefined;
   }
@@ -186,6 +197,13 @@ function TreeFields({
   );
 }
 
+/**
+ * `assignedToObjectId` (the plant's zone/bed placement) is deliberately not
+ * editable here — it commits through the dedicated `assignPlant` command,
+ * not `changeProperties`, via `plant-assignment-field.tsx` in the property
+ * panel. See `command.ts`'s `AssignPlantPayload` and this file's own
+ * `CategoryDetailFields` doc comment.
+ */
 function PlantFields({
   details,
   onChange,
@@ -231,18 +249,6 @@ function PlantFields({
           });
         }}
       />
-      <TextField
-        label={t('map.properties.assignedToObjectId')}
-        value={details.assignedToObjectId ?? ''}
-        onChange={(event: ChangeEvent<HTMLInputElement>) => {
-          const { assignedToObjectId: _drop, ...rest } = details;
-          const value = event.target.value;
-          onChange({
-            category: 'plant',
-            details: value === '' ? rest : { ...rest, assignedToObjectId: value },
-          });
-        }}
-      />
     </>
   );
 }
@@ -252,15 +258,18 @@ function PlantFields({
  * the toolbar can create with a details schema of their own (`structure`,
  * `fence`, `tree`, `plant`). `lot`, `path`, `waterFeature`, and
  * `importedBackground` have no details schema at all (nothing renders).
- * `gate`, `zone`, `bed`, `utilityExclusion`, and `annotation` do have a
- * details schema but no field editor here yet — the label above this
- * component is still fully editable for them, only their specific fields are
- * not; see this work package's final report for why this five-category cut
- * was made instead of covering all nine.
+ * `gate`, `zone`, `bed`, `utilityExclusion`, and `annotation` each have a
+ * form of their own too, defined in `category-detail-fields-secondary.tsx`
+ * (split out to keep this file under this repository's 600-line limit).
+ * Every category with a details schema (`object-category.ts`'s
+ * `GardenObjectDetails` union) now has a field editor here.
  */
-export function CategoryDetailFields({ category, details, onChange }: CategoryDetailFieldsProps) {
-  const { t } = useLocalization();
-
+export function CategoryDetailFields({
+  category,
+  details,
+  onChange,
+  records,
+}: CategoryDetailFieldsProps) {
   switch (category) {
     case 'lot':
     case 'path':
@@ -303,10 +312,52 @@ export function CategoryDetailFields({ category, details, onChange }: CategoryDe
       );
 
     case 'gate':
+      // A real gate object always has a real `fenceObjectId` — it is only
+      // ever created via `completeGateCreation`, which requires one. The
+      // empty-string fallback below only satisfies the type system for an
+      // object that has no details at all, which should not occur in practice.
+      return (
+        <GateFields
+          details={details?.category === 'gate' ? details.details : { fenceObjectId: '' }}
+          onChange={onChange}
+          records={records}
+        />
+      );
+
     case 'zone':
+      return (
+        <ZoneFields
+          details={details?.category === 'zone' ? details.details : { zoneKind: 'other' }}
+          onChange={onChange}
+        />
+      );
+
     case 'bed':
+      return (
+        <BedFields
+          details={details?.category === 'bed' ? details.details : { bedKind: 'inGround' }}
+          onChange={onChange}
+        />
+      );
+
     case 'utilityExclusion':
+      return (
+        <UtilityExclusionFields
+          details={
+            details?.category === 'utilityExclusion'
+              ? details.details
+              : { utilityExclusionKind: 'other' }
+          }
+          onChange={onChange}
+        />
+      );
+
     case 'annotation':
-      return <p role="note">{t('map.properties.detailsNotEditable')}</p>;
+      return (
+        <AnnotationFields
+          details={details?.category === 'annotation' ? details.details : {}}
+          onChange={onChange}
+        />
+      );
   }
 }

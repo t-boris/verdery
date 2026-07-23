@@ -27,21 +27,29 @@ extension View {
     }
 }
 
-/// The property sheet: edits a selected object's label and — for the
-/// categories this pass has a form for (`structure`, `fence`, `tree`,
-/// `plant`) — its category-specific details, plus delete/restore and a
-/// read-only measurement derived from its geometry.
+/// The property sheet: edits a selected object's label and — for every
+/// category with a details schema (`structure`, `fence`, `gate`, `zone`,
+/// `bed`, `tree`, `plant`, `utilityExclusion`, `annotation`) — its
+/// category-specific details, plus delete/restore, duplicate, shape editing,
+/// linework join, and a read-only measurement derived from its geometry.
 ///
-/// Categories with details this pass has no form for (`gate`, `zone`, `bed`,
-/// `utilityExclusion`, `annotation`) show an explicit "not implemented yet"
-/// note instead of a fake control, and Save leaves their existing details
-/// untouched — see ``EditableDetailsState/toDomain(category:existing:)``.
+/// `lot`, `path`, `waterFeature`, and `importedBackground` have no details
+/// schema at all (`GardenObjectDetails`'s doc comment) — their details
+/// section is deliberately empty, not a placeholder.
 struct MapObjectPropertyView: View {
     let object: GardenMapObject
+    let objectsById: [String: GardenMapObject]
     let strings: LocalizedStrings
+    let assignablePlantTargets: [GardenMapObject]
+    let supportsVertexEdit: Bool
+    let canJoin: Bool
     let onSave: (String, GardenObjectDetails?) async -> Void
     let onDelete: () async -> Void
     let onRestore: () async -> Void
+    let onDuplicate: () async -> Void
+    let onAssignPlant: (String?) async -> Void
+    let onEditShape: () -> Void
+    let onBeginJoin: () -> Void
     let onClose: () -> Void
 
     @State private var label: String
@@ -49,17 +57,33 @@ struct MapObjectPropertyView: View {
 
     init(
         object: GardenMapObject,
+        objectsById: [String: GardenMapObject],
         strings: LocalizedStrings,
+        assignablePlantTargets: [GardenMapObject],
+        supportsVertexEdit: Bool,
+        canJoin: Bool,
         onSave: @escaping (String, GardenObjectDetails?) async -> Void,
         onDelete: @escaping () async -> Void,
         onRestore: @escaping () async -> Void,
+        onDuplicate: @escaping () async -> Void,
+        onAssignPlant: @escaping (String?) async -> Void,
+        onEditShape: @escaping () -> Void,
+        onBeginJoin: @escaping () -> Void,
         onClose: @escaping () -> Void
     ) {
         self.object = object
+        self.objectsById = objectsById
         self.strings = strings
+        self.assignablePlantTargets = assignablePlantTargets
+        self.supportsVertexEdit = supportsVertexEdit
+        self.canJoin = canJoin
         self.onSave = onSave
         self.onDelete = onDelete
         self.onRestore = onRestore
+        self.onDuplicate = onDuplicate
+        self.onAssignPlant = onAssignPlant
+        self.onEditShape = onEditShape
+        self.onBeginJoin = onBeginJoin
         self.onClose = onClose
         _label = State(initialValue: object.label ?? "")
         _details = State(initialValue: EditableDetailsState(object.categoryDetails))
@@ -77,9 +101,28 @@ struct MapObjectPropertyView: View {
                     detailsFields
                 }
 
+                if object.category == .plant {
+                    assignedToSection
+                }
+
                 if let measurementText {
                     Section {
                         Text(measurementText).foregroundStyle(.secondary)
+                    }
+                }
+
+                Section {
+                    if supportsVertexEdit {
+                        Button(strings(.mapPropertyEditShape), action: onEditShape)
+                            .accessibilityIdentifier("map.property.editShape")
+                    }
+                    Button(strings(.mapPropertyDuplicate)) {
+                        Task { await onDuplicate() }
+                    }
+                    .accessibilityIdentifier("map.property.duplicate")
+                    if canJoin {
+                        Button(strings(.mapLineworkJoinStart), action: onBeginJoin)
+                            .accessibilityIdentifier("map.property.beginJoin")
                     }
                 }
 
@@ -113,6 +156,33 @@ struct MapObjectPropertyView: View {
         }
     }
 
+    /// The plant-only "Assigned to" picker — a distinct command
+    /// (`assignPlant`) from the label/details Save flow, so it submits on
+    /// change rather than waiting for Save.
+    private var assignedToSection: some View {
+        Section(strings(.mapPlantAssignedToLabel)) {
+            Picker(strings(.mapPlantAssignedToLabel), selection: assignedToBinding) {
+                Text(strings(.mapPlantAssignedToNone)).tag(String?.none)
+                ForEach(assignablePlantTargets) { target in
+                    Text(target.label?.isEmpty == false ? target.label! : strings(.mapListUntitled))
+                        .tag(String?.some(target.id))
+                }
+            }
+            .labelsHidden()
+            .accessibilityIdentifier("map.property.assignedTo")
+        }
+    }
+
+    private var assignedToBinding: Binding<String?> {
+        Binding(
+            get: {
+                if case let .plant(value)? = object.categoryDetails { return value.assignedToObjectId }
+                return nil
+            },
+            set: { newValue in Task { await onAssignPlant(newValue) } }
+        )
+    }
+
     @ViewBuilder
     private var detailsFields: some View {
         switch object.category {
@@ -134,6 +204,38 @@ struct MapObjectPropertyView: View {
             TextField(strings(.mapFenceHeightLabel), text: $details.fenceHeightMetres)
                 .decimalKeyboard()
 
+        case .gate:
+            HStack {
+                Text(strings(.mapGateFenceLabel))
+                Spacer()
+                Text(resolvedGateFenceLabel).foregroundStyle(.secondary)
+            }
+            TextField(strings(.mapGateWidthLabel), text: $details.gateWidthMetres)
+                .decimalKeyboard()
+
+        case .zone:
+            Picker(strings(.mapZoneKindLabel), selection: $details.zoneKind) {
+                ForEach(ZoneKind.allCases, id: \.self) { kind in
+                    Text(MapCategoryLocalization.name(for: kind, strings: strings)).tag(kind)
+                }
+            }
+
+        case .bed:
+            Picker(strings(.mapBedKindLabel), selection: $details.bedKind) {
+                ForEach(BedKind.allCases, id: \.self) { kind in
+                    Text(MapCategoryLocalization.name(for: kind, strings: strings)).tag(kind)
+                }
+            }
+            TextField(strings(.mapBedSoilNotesLabel), text: $details.bedSoilNotes)
+
+        case .utilityExclusion:
+            Picker(strings(.mapUtilityExclusionKindLabel), selection: $details.utilityExclusionKind) {
+                ForEach(UtilityExclusionKind.allCases, id: \.self) { kind in
+                    Text(MapCategoryLocalization.name(for: kind, strings: strings)).tag(kind)
+                }
+            }
+            TextField(strings(.mapUtilityExclusionNotesLabel), text: $details.utilityExclusionNotes)
+
         case .tree:
             TextField(strings(.mapTreeCommonNameLabel), text: $details.treeCommonName)
             TextField(strings(.mapTreeHeightLabel), text: $details.treeHeightMetres)
@@ -148,16 +250,31 @@ struct MapObjectPropertyView: View {
             TextField(strings(.mapPlantSpacingLabel), text: $details.plantSpacingMetres)
                 .decimalKeyboard()
 
+        case .annotation:
+            TextField(strings(.mapAnnotationMeasurementValueLabel), text: $details.annotationMeasurementValue)
+                .decimalKeyboard()
+            Picker(strings(.mapAnnotationMeasurementUnitLabel), selection: $details.annotationMeasurementUnit) {
+                ForEach(MeasurementUnit.allCases, id: \.self) { unit in
+                    Text(MapCategoryLocalization.name(for: unit, strings: strings)).tag(unit)
+                }
+            }
+
         case .lot, .path, .waterFeature, .importedBackground:
             EmptyView()
-
-        case .gate, .zone, .bed, .utilityExclusion, .annotation:
-            // TODO(P3-IOS-01): editable forms for these five once each has a
-            // designed property layout — see this file's doc comment.
-            Text(strings(.mapPropertyDetailsUnavailable))
-                .foregroundStyle(.secondary)
-                .accessibilityIdentifier("map.property.detailsUnavailable")
         }
+    }
+
+    /// The gate's fence, resolved to a display label when the fence object is
+    /// still loaded locally, falling back to the raw id otherwise.
+    /// Reassigning a gate to a different fence is out of scope — this is
+    /// display-only, matching `EditableDetailsState.toDomain`'s handling of
+    /// `fenceObjectId`, which always passes it through unchanged.
+    private var resolvedGateFenceLabel: String {
+        guard case let .gate(value)? = object.categoryDetails else { return "" }
+        if let label = objectsById[value.fenceObjectId]?.label, !label.isEmpty {
+            return label
+        }
+        return value.fenceObjectId
     }
 
     /// A real measurement overlay, computed from the object's actual stored
@@ -197,12 +314,20 @@ struct EditableDetailsState: Equatable {
     var structureHeightMetres: String = ""
     var fenceKind: FenceKind = .other
     var fenceHeightMetres: String = ""
+    var gateWidthMetres: String = ""
+    var zoneKind: ZoneKind = .other
+    var bedKind: BedKind = .inGround
+    var bedSoilNotes: String = ""
+    var utilityExclusionKind: UtilityExclusionKind = .other
+    var utilityExclusionNotes: String = ""
     var treeCommonName: String = ""
     var treeHeightMetres: String = ""
     var treeSpreadMetres: String = ""
     var plantCommonName: String = ""
     var plantQuantity: String = "1"
     var plantSpacingMetres: String = ""
+    var annotationMeasurementValue: String = ""
+    var annotationMeasurementUnit: MeasurementUnit = .metres
 
     init(_ details: GardenObjectDetails?) {
         switch details {
@@ -212,6 +337,16 @@ struct EditableDetailsState: Equatable {
         case let .fence(value):
             fenceKind = value.fenceKind
             fenceHeightMetres = value.heightMetres.map(Self.format) ?? ""
+        case let .gate(value):
+            gateWidthMetres = value.widthMetres.map(Self.format) ?? ""
+        case let .zone(value):
+            zoneKind = value.zoneKind
+        case let .bed(value):
+            bedKind = value.bedKind
+            bedSoilNotes = value.soilNotes ?? ""
+        case let .utilityExclusion(value):
+            utilityExclusionKind = value.utilityExclusionKind
+            utilityExclusionNotes = value.notes ?? ""
         case let .tree(value):
             treeCommonName = value.commonName ?? ""
             treeHeightMetres = value.estimatedHeightMetres.map(Self.format) ?? ""
@@ -220,16 +355,21 @@ struct EditableDetailsState: Equatable {
             plantCommonName = value.commonName
             plantQuantity = String(value.quantity)
             plantSpacingMetres = value.spacingMetres.map(Self.format) ?? ""
-        case .gate, .zone, .bed, .utilityExclusion, .annotation, .none:
+        case let .annotation(value):
+            if let measurement = value.measurement {
+                annotationMeasurementValue = Self.format(measurement.value)
+                annotationMeasurementUnit = measurement.unit
+            }
+        case .none:
             break
         }
     }
 
     private static func format(_ value: Double) -> String { String(value) }
 
-    /// Builds the details payload Save submits. Categories this pass has no
-    /// form for pass `existing` straight through unchanged, rather than
-    /// dropping fields this view never showed the user.
+    /// Builds the details payload Save submits. `lot`, `path`,
+    /// `waterFeature`, and `importedBackground` have no details schema at
+    /// all, so `existing` (always `nil` for them) passes straight through.
     func toDomain(category: GardenObjectCategory, existing: GardenObjectDetails?) -> GardenObjectDetails? {
         switch category {
         case .structure:
@@ -238,6 +378,25 @@ struct EditableDetailsState: Equatable {
             )
         case .fence:
             return .fence(FenceDetails(fenceKind: fenceKind, heightMetres: Double(fenceHeightMetres)))
+        case .gate:
+            // `fenceObjectId` is display-only in this form (see
+            // `MapObjectPropertyView`'s doc comment on `resolvedGateFenceLabel`)
+            // — reassigning a gate to a different fence is out of scope, so
+            // Save always carries the existing fence id through unchanged.
+            var fenceObjectId = ""
+            if case let .gate(value)? = existing { fenceObjectId = value.fenceObjectId }
+            return .gate(GateDetails(fenceObjectId: fenceObjectId, widthMetres: Double(gateWidthMetres)))
+        case .zone:
+            return .zone(ZoneDetails(zoneKind: zoneKind))
+        case .bed:
+            return .bed(BedDetails(bedKind: bedKind, soilNotes: bedSoilNotes.isEmpty ? nil : bedSoilNotes))
+        case .utilityExclusion:
+            return .utilityExclusion(
+                UtilityExclusionDetails(
+                    utilityExclusionKind: utilityExclusionKind,
+                    notes: utilityExclusionNotes.isEmpty ? nil : utilityExclusionNotes
+                )
+            )
         case .tree:
             var canopyGeometry: Geometry?
             if case let .tree(value)? = existing { canopyGeometry = value.canopyGeometry }
@@ -260,7 +419,21 @@ struct EditableDetailsState: Equatable {
                     assignedToObjectId: assignedToObjectId
                 )
             )
-        case .lot, .path, .waterFeature, .importedBackground, .gate, .zone, .bed, .utilityExclusion, .annotation:
+        case .annotation:
+            // The form only ever produces a fresh, user-entered measurement —
+            // originalEntry/uncertainty/referenceObjectId/calibrationRevision
+            // are left unset, matching the work package's own framing: those
+            // fields belong to richer acquisition methods (AR, imported
+            // plans) this simple value+unit form does not attempt.
+            guard let value = Double(annotationMeasurementValue) else {
+                return .annotation(AnnotationDetails(measurement: nil))
+            }
+            return .annotation(
+                AnnotationDetails(
+                    measurement: Measurement(value: value, unit: annotationMeasurementUnit, acquisitionMethod: .userEntered)
+                )
+            )
+        case .lot, .path, .waterFeature, .importedBackground:
             return existing
         }
     }

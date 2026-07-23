@@ -180,18 +180,35 @@ alternative to tapping shapes. `CoreNetworking/MapGateway.swift` speaks
 `GET /gardens/{gardenId}/map` and `POST /gardens/{gardenId}/map/commands` directly — this app hand-writes
 its networking rather than consuming a generated client, the same as `GardenGateway`.
 
-**Categories wired up (create, move, delete/restore, edit label and details)**: `lot`, `structure`,
-`fence`, `tree`, `plant` — one polygon, one line, and one point category beyond the minimum, enough to
-prove the create → select → drag → edit → delete pattern generalizes across every geometry shape the
-canvas draws. Rendering itself is category-agnostic (`MapObjectRenderKind` derives fill/stroke/marker
-from the geometry's own GeoJSON type, not from a category switch), so all 13 categories render
-correctly the moment they appear in a document, including the 8 with no create-toolbar entry yet.
+**Categories wired up (create, move, resize/rotate/reshape, duplicate, delete/restore, edit label and
+details)**: all 12 non-`importedBackground` categories — `lot`, `structure`, `fence`, `gate`, `path`,
+`zone`, `bed`, `waterFeature`, `utilityExclusion`, `tree`, `plant`, `annotation`. `gate` carries an extra
+precondition its create-toolbar button enforces up front: it cannot be created until at least one
+`fence` exists (`GateDetails.fenceObjectId` is required and never fabricated — see
+`MapEditorViewModel.hasFence` and the fence-picker sheet, `MapGateFencePickerView.swift`). Rendering
+itself is category-agnostic (`MapObjectRenderKind` derives fill/stroke/marker from the geometry's own
+GeoJSON type, not from a category switch), so this was always true independent of which categories the
+create toolbar offered.
 
-**Commands wired up**: `createObject`, `moveObject`, `deleteObject`, `restoreObject`, `changeProperties`,
-plus their inverses via `CoreDomain.deriveInverseCommand` for undo/redo. **Explicitly out of scope this
-pass** (see `MapGestureCommands.swift` and `MapObjectPropertyView.swift` for the TODOs): `editVertex`
-(freehand vertex-level reshaping), `splitLinework`/`joinLinework`, multi-select, snapping visualization,
-`assignPlant`, `upsertCalibration`, `decideProposal`, and `duplicateObject`.
+**Commands wired up**: all 11 command types with real data to operate against —
+`createObject`, `moveObject`, `replaceGeometry`, `editVertex`, `splitLinework`, `joinLinework`,
+`changeProperties`, `assignPlant`, `deleteObject`, `restoreObject`, `duplicateObject` — plus their
+inverses via `CoreDomain.deriveInverseCommand` for undo/redo (`splitLinework`/`joinLinework` have no
+single-command inverse by design; `MapUndoStack.topUndoIsBlocked` surfaces that instead of hiding it).
+Vertex-level reshape and whole-shape resize/rotate live behind an explicit "Edit shape" mode
+(`MapEditorViewModelReshaping.swift`, `MapVertexEditCommands.swift`, `MapShapeTransform.swift`); split
+and join live in that same mode plus a minimal join-selection flow
+(`MapEditorViewModelLinework.swift`). **Explicitly out of scope**, and why — see
+`MapGestureCommands.swift`'s and `MapObjectPropertyView.swift`'s doc comments for the same reasoning
+in place at the source:
+- `upsertCalibration` — requires an existing `importedBackground` object (a raster/PDF plan asset) to
+  calibrate against. Nothing in this app can create one yet; plan import is Phase 6 scope.
+- `decideProposal` — requires a system-generated proposal. Nothing in this app produces proposals yet;
+  assisted capture and plan recognition is Phase 10 scope, gated behind a research decision not yet made.
+- Creating `importedBackground` objects — same reasoning as `upsertCalibration`; no image/plan upload
+  flow exists yet (Phase 6 scope).
+- Snapping visualization (architecture doc section "10. Snapping and Constraints") — advisory snap
+  targets/constraints are not part of any of the six work items above and remain unbuilt.
 
 **Local caching**: none — unlike `FeatureGardens`, `FeatureMap` has no GRDB-backed read model. Nearly
 every map command carries an `expectedRevision`; a stale cached revision would turn every command into
@@ -202,10 +219,12 @@ current. See `MapEditorViewModel.swift`'s doc comment for the full reasoning.
 **Testability**: the work package asks for gesture and rendering *logic* to be independently testable
 even though a simulator cannot run here (see "Known environment gap" above) — `MapViewportTransform`
 (the local-metres ↔ screen-points conversion), `MapHitTesting` (point/line/polygon hit tests),
-`MapGestureCommands` (classifying a completed drag, building create/move commands), and `MapUndoStack`
-(undo/redo as inverse commands) are all plain value types with no `SwiftUI` dependency, covered by
-`Tests/FeatureMapTests`. `MapCanvasView`, `MapEditorView`, and the other SwiftUI views stay thin and are
-not unit tested, by design.
+`MapGestureCommands` (classifying a completed drag, building create/move commands, including the
+gate/fence precondition), `MapVertexEditCommands` (vertex move/insert/remove command construction and
+the ring-closure-vertex special case), `MapShapeTransform` (centroid/scale/rotate geometry math and its
+screen-space gesture wrappers), and `MapUndoStack` (undo/redo as inverse commands) are all plain value
+types with no `SwiftUI` dependency, covered by `Tests/FeatureMapTests`. `MapCanvasView`, `MapEditorView`,
+and the other SwiftUI views stay thin and are not unit tested, by design.
 
 **Open question**: `CoreNetworking/MapTransport.swift` documents a pre-existing inconsistency between
 `packages/api-contracts/openapi.yaml` (which declares `StructureDetails`/`FenceDetails`/etc. as *flat*

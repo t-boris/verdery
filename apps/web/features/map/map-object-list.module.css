@@ -58,6 +58,17 @@
   font-weight: var(--font-weight-medium);
 }
 
+.itemButtonMultiSelected {
+  background-color: var(--color-accent-quiet);
+}
+
+.joinBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .marker {
   color: var(--color-accent);
 }

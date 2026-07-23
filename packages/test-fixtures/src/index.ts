@@ -9,11 +9,25 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-/** Absolute path to the fixture root, for runtimes that read the files directly. */
-export const fixtureRoot = fileURLToPath(new URL('../fixtures/', import.meta.url));
+/**
+ * Absolute path to the fixture root, for runtimes that read the files
+ * directly.
+ *
+ * Resolved via `dirname(fileURLToPath(import.meta.url))` rather than the
+ * more common `fileURLToPath(new URL('../fixtures/', import.meta.url))`:
+ * under a jsdom-environment Vitest project (e.g. `apps/web`), Vite's SSR
+ * module runner resolves a `new URL(relative, import.meta.url)` construction
+ * through its own dev-server virtual filesystem — the result comes back as
+ * `http://localhost:.../@fs/...` instead of a `file:` URL, which
+ * `fileURLToPath` then rejects. Reading `import.meta.url` directly, with no
+ * relative-URL construction against it, is unaffected and resolves to the
+ * real on-disk path in every environment this package is loaded from
+ * (Node-environment Vitest projects and this jsdom one alike).
+ */
+export const fixtureRoot = join(dirname(fileURLToPath(import.meta.url)), '../fixtures/');
 
 /** Reads and parses a fixture by its path relative to the fixture root. */
 export function loadFixture<T>(relativePath: string): T {
@@ -103,4 +117,32 @@ export interface CommandInverseFixture {
   readonly source: string;
   readonly comparison: 'exact';
   readonly cases: readonly CommandInverseCase[];
+}
+
+/** The projection both clients derive from a wire `GardenObject` and compare against `expected`. */
+export interface MapDocumentObjectProjection {
+  readonly id: string;
+  readonly category: string;
+  readonly geometryType: string;
+  readonly coordinateCount: number;
+  readonly label: string | null;
+  readonly lifecycleState: string;
+  readonly detailsCategory: string | null;
+  readonly detailsFields: Record<string, unknown> | null;
+}
+
+export interface MapDocumentCase {
+  readonly name: string;
+  readonly description: string;
+  /** Wire-shaped `GardenObject` entries — see `apps/web/core/api/map-wire-types.ts`'s `WireGardenObject`. */
+  readonly objects: readonly unknown[];
+  readonly expected: readonly MapDocumentObjectProjection[];
+}
+
+export interface MapDocumentFixture {
+  readonly schemaVersion: number;
+  readonly description: string;
+  readonly source: string;
+  readonly comparison: 'exact';
+  readonly cases: readonly MapDocumentCase[];
 }

@@ -122,4 +122,89 @@ struct MapGestureCommandsTests {
     func lotHasNoDetails() {
         #expect(MapGestureCommands.defaultDetails(for: .lot) == nil)
     }
+
+    @Test("waterFeature has no default category details, matching lot")
+    func waterFeatureHasNoDetails() {
+        #expect(MapGestureCommands.defaultDetails(for: .waterFeature) == nil)
+    }
+
+    @Test("gate has no default details without a fence id — never fabricated")
+    func gateHasNoDetailsWithoutFence() {
+        #expect(MapGestureCommands.defaultDetails(for: .gate) == nil)
+    }
+
+    @Test("gate's default details carry exactly the supplied fence id")
+    func gateDefaultDetailsCarryFenceId() {
+        guard case let .gate(details)? = MapGestureCommands.defaultDetails(for: .gate, fenceObjectId: "fence-1") else {
+            Issue.record("Expected gate details")
+            return
+        }
+
+        #expect(details.fenceObjectId == "fence-1")
+        #expect(details.widthMetres == nil)
+    }
+
+    @Test("createCommand for a gate carries the fence id through to categoryDetails")
+    func createCommandBuildsGateDetails() {
+        let command = MapGestureCommands.createCommand(
+            objectId: "gate-1", category: .gate, at: Position(x: 0, y: 0), label: nil, fenceObjectId: "fence-1"
+        )
+
+        guard case let .createObject(payload) = command, case let .gate(details)? = payload.categoryDetails else {
+            Issue.record("Expected a createObject command with gate details")
+            return
+        }
+
+        #expect(payload.geometry.type == .lineString)
+        #expect(details.fenceObjectId == "fence-1")
+    }
+
+    @Test("zone/bed/utilityExclusion/annotation default details match object-category.ts's defaults")
+    func newCategoryDefaultsMatchTypeScriptSide() {
+        guard case let .zone(zone)? = MapGestureCommands.defaultDetails(for: .zone) else {
+            Issue.record("Expected zone details")
+            return
+        }
+        #expect(zone.zoneKind == .other)
+
+        guard case let .bed(bed)? = MapGestureCommands.defaultDetails(for: .bed) else {
+            Issue.record("Expected bed details")
+            return
+        }
+        #expect(bed.bedKind == .inGround)
+
+        guard case let .utilityExclusion(exclusion)? = MapGestureCommands.defaultDetails(for: .utilityExclusion) else {
+            Issue.record("Expected utility exclusion details")
+            return
+        }
+        #expect(exclusion.utilityExclusionKind == .other)
+
+        guard case let .annotation(annotation)? = MapGestureCommands.defaultDetails(for: .annotation) else {
+            Issue.record("Expected annotation details")
+            return
+        }
+        #expect(annotation.measurement == nil)
+    }
+
+    @Test("path's default geometry is a line, matching fence's shape")
+    func pathDefaultGeometryIsALine() {
+        let geometry = MapGestureCommands.defaultGeometry(for: .path, at: Position(x: 0, y: 0))
+        #expect(geometry.type == .lineString)
+    }
+
+    @Test("gate's default line is shorter than fence's default line")
+    func gateDefaultLineIsShorterThanFence() {
+        let gateGeometry = MapGestureCommands.defaultGeometry(for: .gate, at: Position(x: 0, y: 0))
+        let fenceGeometry = MapGestureCommands.defaultGeometry(for: .fence, at: Position(x: 0, y: 0))
+
+        #expect(GeometryMeasurement.lineLength(gateGeometry.positions) < GeometryMeasurement.lineLength(fenceGeometry.positions))
+    }
+
+    @Test("CreatableMapObjectCategory covers every non-importedBackground category exactly once")
+    func creatableCategoriesCoverEveryCategoryButImportedBackground() {
+        let creatable = Set(CreatableMapObjectCategory.allCases.map(\.category))
+        let all = Set(GardenObjectCategory.allCases)
+
+        #expect(creatable == all.subtracting([.importedBackground]))
+    }
 }

@@ -59,4 +59,57 @@ public enum MapCategoryLocalization {
     public static func name(for kind: FenceKind, strings: LocalizedStrings) -> String {
         strings(key(for: kind))
     }
+
+    public static func key(for kind: ZoneKind) -> LocalizationKey {
+        switch kind {
+        case .lawn: .mapZoneKindLawn
+        case .garden: .mapZoneKindGarden
+        case .mulch: .mapZoneKindMulch
+        case .gravel: .mapZoneKindGravel
+        case .groundCover: .mapZoneKindGroundCover
+        case .other: .mapZoneKindOther
+        }
+    }
+
+    public static func name(for kind: ZoneKind, strings: LocalizedStrings) -> String {
+        strings(key(for: kind))
+    }
+
+    public static func key(for kind: BedKind) -> LocalizationKey {
+        switch kind {
+        case .inGround: .mapBedKindInGround
+        case .raised: .mapBedKindRaised
+        case .container: .mapBedKindContainer
+        }
+    }
+
+    public static func name(for kind: BedKind, strings: LocalizedStrings) -> String {
+        strings(key(for: kind))
+    }
+
+    public static func key(for kind: UtilityExclusionKind) -> LocalizationKey {
+        switch kind {
+        case .undergroundUtility: .mapUtilityExclusionKindUndergroundUtility
+        case .septicField: .mapUtilityExclusionKindSepticField
+        case .wellRadius: .mapUtilityExclusionKindWellRadius
+        case .setback: .mapUtilityExclusionKindSetback
+        case .other: .mapUtilityExclusionKindOther
+        }
+    }
+
+    public static func name(for kind: UtilityExclusionKind, strings: LocalizedStrings) -> String {
+        strings(key(for: kind))
+    }
+
+    public static func key(for unit: MeasurementUnit) -> LocalizationKey {
+        switch unit {
+        case .metres: .mapMeasurementUnitMetres
+        case .squareMetres: .mapMeasurementUnitSquareMetres
+        case .degrees: .mapMeasurementUnitDegrees
+        }
+    }
+
+    public static func name(for unit: MeasurementUnit, strings: LocalizedStrings) -> String {
+        strings(key(for: unit))
+    }
 }

@@ -1,6 +1,11 @@
 'use client';
 
-import type { MapCommandPayload, ObjectSnapshot, Position } from '@verdery/geometry-contracts';
+import type {
+  Geometry,
+  MapCommandPayload,
+  ObjectSnapshot,
+  Position,
+} from '@verdery/geometry-contracts';
 import { createContext, useContext, useMemo, useReducer, type ReactNode } from 'react';
 
 import type { MessageArguments, MessageKey } from '@/shared/localization/public';
@@ -33,13 +38,27 @@ export interface StatusMessage {
   readonly tone: 'status' | 'alert';
 }
 
+/**
+ * The selected object's interaction sub-mode: `vertexEdit` renders draggable
+ * per-vertex handles (`shapes/vertex-handles.tsx`), `transform` renders the
+ * whole-shape resize/rotate handles (`shapes/transform-handles.tsx`). Both
+ * are exclusive with plain drag-to-move, which `map-canvas.tsx` disables for
+ * the selected object while either is active.
+ */
+export type InteractionMode = 'idle' | 'vertexEdit' | 'transform';
+
 export interface EditorState {
   readonly selectedObjectId: string | null;
+  /** Ids toggled on for the fence/path join-linework flow — see `map-object-list.tsx`. Independent of `selectedObjectId`. */
+  readonly multiSelectedObjectIds: readonly string[];
+  readonly interactionMode: InteractionMode;
   readonly tool: ToolMode;
   readonly camera: MapCamera;
   readonly cameraInitialized: boolean;
   /** In-progress polygon/line vertices while a `create:*` tool is drawing. Cleared on every tool change. */
   readonly draftPoints: readonly Position[];
+  /** A completed gate draft awaiting the user's fence pick before `createObject` is built — see `use-map-editor-actions.ts`. */
+  readonly pendingGateGeometry: Geometry | null;
   readonly undoStack: readonly HistoryEntry[];
   readonly redoStack: readonly HistoryEntry[];
   readonly status: StatusMessage | null;
@@ -47,10 +66,14 @@ export interface EditorState {
 
 type Action =
   | { readonly type: 'select'; readonly objectId: string | null }
+  | { readonly type: 'toggleMultiSelect'; readonly objectId: string }
+  | { readonly type: 'clearMultiSelect' }
+  | { readonly type: 'setInteractionMode'; readonly mode: InteractionMode }
   | { readonly type: 'setTool'; readonly tool: ToolMode }
   | { readonly type: 'setCamera'; readonly camera: MapCamera }
   | { readonly type: 'initCamera'; readonly camera: MapCamera }
   | { readonly type: 'setDraftPoints'; readonly points: readonly Position[] }
+  | { readonly type: 'setPendingGateGeometry'; readonly geometry: Geometry | null }
   | { readonly type: 'pushForward'; readonly entry: HistoryEntry }
   | { readonly type: 'undoApplied'; readonly redoEntry: HistoryEntry }
   | { readonly type: 'redoApplied'; readonly undoEntry: HistoryEntry }
@@ -58,10 +81,13 @@ type Action =
 
 export const initialEditorState: EditorState = {
   selectedObjectId: null,
+  multiSelectedObjectIds: [],
+  interactionMode: 'idle',
   tool: 'select',
   camera: defaultCamera(),
   cameraInitialized: false,
   draftPoints: [],
+  pendingGateGeometry: null,
   undoStack: [],
   redoStack: [],
   status: null,
@@ -70,12 +96,32 @@ export const initialEditorState: EditorState = {
 /** Exported for `editor-store.test.ts` — the reducer is pure and needs no provider to test. */
 export function editorReducer(state: EditorState, action: Action): EditorState {
   switch (action.type) {
+    // Changing the selection always leaves any vertex-edit/transform mode —
+    // both handle sets are drawn for exactly one selected object.
     case 'select':
-      return { ...state, selectedObjectId: action.objectId };
-    // A tool change always abandons whatever draft was in progress — there is
-    // no "resume drawing after switching tools" concept.
+      return { ...state, selectedObjectId: action.objectId, interactionMode: 'idle' };
+    case 'toggleMultiSelect':
+      return {
+        ...state,
+        multiSelectedObjectIds: state.multiSelectedObjectIds.includes(action.objectId)
+          ? state.multiSelectedObjectIds.filter((id) => id !== action.objectId)
+          : [...state.multiSelectedObjectIds, action.objectId],
+      };
+    case 'clearMultiSelect':
+      return { ...state, multiSelectedObjectIds: [] };
+    case 'setInteractionMode':
+      return { ...state, interactionMode: action.mode };
+    // A tool change always abandons whatever draft, pending gate pick, or
+    // interaction mode was in progress — there is no "resume" concept across
+    // a tool switch.
     case 'setTool':
-      return { ...state, tool: action.tool, draftPoints: [] };
+      return {
+        ...state,
+        tool: action.tool,
+        draftPoints: [],
+        pendingGateGeometry: null,
+        interactionMode: 'idle',
+      };
     case 'setCamera':
       return { ...state, camera: action.camera };
     case 'initCamera':
@@ -84,6 +130,8 @@ export function editorReducer(state: EditorState, action: Action): EditorState {
         : { ...state, camera: action.camera, cameraInitialized: true };
     case 'setDraftPoints':
       return { ...state, draftPoints: action.points };
+    case 'setPendingGateGeometry':
+      return { ...state, pendingGateGeometry: action.geometry };
     // A new forward command invalidates whatever could previously be redone.
     case 'pushForward':
       return { ...state, undoStack: [...state.undoStack, action.entry], redoStack: [] };
@@ -107,10 +155,14 @@ export function editorReducer(state: EditorState, action: Action): EditorState {
 export interface MapEditorStore {
   readonly state: EditorState;
   readonly select: (objectId: string | null) => void;
+  readonly toggleMultiSelect: (objectId: string) => void;
+  readonly clearMultiSelect: () => void;
+  readonly setInteractionMode: (mode: InteractionMode) => void;
   readonly setTool: (tool: ToolMode) => void;
   readonly setCamera: (camera: MapCamera) => void;
   readonly initCamera: (camera: MapCamera) => void;
   readonly setDraftPoints: (points: readonly Position[]) => void;
+  readonly setPendingGateGeometry: (geometry: Geometry | null) => void;
   readonly pushForward: (entry: HistoryEntry) => void;
   readonly applyUndoStep: (redoEntry: HistoryEntry) => void;
   readonly applyRedoStep: (undoEntry: HistoryEntry) => void;
@@ -126,10 +178,14 @@ export function MapEditorStoreProvider({ children }: { readonly children: ReactN
     () => ({
       state,
       select: (objectId) => dispatch({ type: 'select', objectId }),
+      toggleMultiSelect: (objectId) => dispatch({ type: 'toggleMultiSelect', objectId }),
+      clearMultiSelect: () => dispatch({ type: 'clearMultiSelect' }),
+      setInteractionMode: (mode) => dispatch({ type: 'setInteractionMode', mode }),
       setTool: (tool) => dispatch({ type: 'setTool', tool }),
       setCamera: (camera) => dispatch({ type: 'setCamera', camera }),
       initCamera: (camera) => dispatch({ type: 'initCamera', camera }),
       setDraftPoints: (points) => dispatch({ type: 'setDraftPoints', points }),
+      setPendingGateGeometry: (geometry) => dispatch({ type: 'setPendingGateGeometry', geometry }),
       pushForward: (entry) => dispatch({ type: 'pushForward', entry }),
       applyUndoStep: (redoEntry) => dispatch({ type: 'undoApplied', redoEntry }),
       applyRedoStep: (undoEntry) => dispatch({ type: 'redoApplied', undoEntry }),

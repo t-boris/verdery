@@ -7,10 +7,13 @@ import { useLocalization } from '@/shared/localization/public';
 import { Button, TextField } from '@/shared/ui/public';
 
 import { CategoryDetailFields } from './category-detail-fields';
+import { useMapEditorStore } from './editor-store';
 import { categoryLabelKey } from './labels';
 import styles from './map-property-panel.module.css';
+import { PlantAssignmentField } from './plant-assignment-field';
 import type { MapObjectRecord } from './types';
 import type { MapEditorActions } from './use-map-editor-actions';
+import { editableRingOf } from './vertex-ring';
 
 export interface MapPropertyPanelProps {
   readonly actions: MapEditorActions;
@@ -51,6 +54,7 @@ function PropertyForm({
   readonly record: MapObjectRecord;
 }) {
   const { t } = useLocalization();
+  const store = useMapEditorStore();
   const [label, setLabel] = useState(record.label ?? '');
   const [details, setDetails] = useState<GardenObjectDetails | undefined>(record.categoryDetails);
   const [saving, setSaving] = useState(false);
@@ -72,6 +76,14 @@ function PropertyForm({
     }
   };
 
+  const canEditVertices = editableRingOf(record.geometry) !== null;
+  const canTransform = record.geometry.type === 'Polygon';
+  const interactionMode = store.state.interactionMode;
+
+  const toggleInteractionMode = (mode: 'vertexEdit' | 'transform') => {
+    store.setInteractionMode(interactionMode === mode ? 'idle' : mode);
+  };
+
   return (
     <div className={styles['panel']}>
       <h2 className={styles['title']}>{t('map.properties.title')}</h2>
@@ -86,7 +98,12 @@ function PropertyForm({
           value={label}
           onChange={(event) => setLabel(event.target.value)}
         />
-        <CategoryDetailFields category={record.category} details={details} onChange={setDetails} />
+        <CategoryDetailFields
+          category={record.category}
+          details={details}
+          onChange={setDetails}
+          records={actions.records}
+        />
         <div className={styles['actions']}>
           <Button type="submit" variant="primary" busy={saving || actions.isSubmitting}>
             {t('map.properties.save')}
@@ -96,6 +113,44 @@ function PropertyForm({
           </Button>
         </div>
       </form>
+      {record.category === 'plant' && <PlantAssignmentField actions={actions} record={record} />}
+      <div className={styles['actions']}>
+        {canEditVertices && (
+          <Button
+            type="button"
+            variant={interactionMode === 'vertexEdit' ? 'primary' : 'secondary'}
+            aria-pressed={interactionMode === 'vertexEdit'}
+            onClick={() => toggleInteractionMode('vertexEdit')}
+          >
+            {t('map.properties.editVertices')}
+          </Button>
+        )}
+        {canTransform && (
+          <Button
+            type="button"
+            variant={interactionMode === 'transform' ? 'primary' : 'secondary'}
+            aria-pressed={interactionMode === 'transform'}
+            onClick={() => toggleInteractionMode('transform')}
+          >
+            {t('map.properties.transform')}
+          </Button>
+        )}
+        <Button
+          type="button"
+          variant="secondary"
+          busy={actions.isSubmitting}
+          onClick={() => void actions.duplicateObject(record.id)}
+        >
+          {t('map.properties.duplicate')}
+        </Button>
+      </div>
+      {(canEditVertices || canTransform) && interactionMode !== 'idle' && (
+        <p className={styles['empty']} role="status">
+          {interactionMode === 'vertexEdit'
+            ? t('map.canvas.hintVertexEdit')
+            : t('map.canvas.hintTransform')}
+        </p>
+      )}
     </div>
   );
 }

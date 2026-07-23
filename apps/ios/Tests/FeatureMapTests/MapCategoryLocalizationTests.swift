@@ -37,4 +37,24 @@ struct MapCategoryLocalizationTests {
     func everyFenceKindHasAName(_ kind: FenceKind) {
         #expect(!MapCategoryLocalization.name(for: kind, strings: strings).isEmpty)
     }
+
+    @Test("Every zone kind resolves to a non-empty name", arguments: ZoneKind.allCases)
+    func everyZoneKindHasAName(_ kind: ZoneKind) {
+        #expect(!MapCategoryLocalization.name(for: kind, strings: strings).isEmpty)
+    }
+
+    @Test("Every bed kind resolves to a non-empty name", arguments: BedKind.allCases)
+    func everyBedKindHasAName(_ kind: BedKind) {
+        #expect(!MapCategoryLocalization.name(for: kind, strings: strings).isEmpty)
+    }
+
+    @Test("Every utility exclusion kind resolves to a non-empty name", arguments: UtilityExclusionKind.allCases)
+    func everyUtilityExclusionKindHasAName(_ kind: UtilityExclusionKind) {
+        #expect(!MapCategoryLocalization.name(for: kind, strings: strings).isEmpty)
+    }
+
+    @Test("Every measurement unit resolves to a non-empty name", arguments: MeasurementUnit.allCases)
+    func everyMeasurementUnitHasAName(_ unit: MeasurementUnit) {
+        #expect(!MapCategoryLocalization.name(for: unit, strings: strings).isEmpty)
+    }
 }

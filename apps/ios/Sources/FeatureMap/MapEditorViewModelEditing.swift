@@ -16,20 +16,25 @@ extension MapEditorViewModel {
         if let category = armedCreateCategory {
             armedCreateCategory = nil
             await createObject(category: category, atScreen: point)
+        } else if pendingJoinFirstObjectId != nil {
+            await completeJoinSelection(atScreen: point)
         } else {
-            select(atScreen: point)
+            selectedObjectId = hitTestObjectId(atScreen: point)
         }
     }
 
-    private func select(atScreen point: CGPoint) {
-        guard case let .loaded(snapshot) = state else { return }
+    /// Shared by ordinary tap-to-select and the join-selection flow
+    /// (`MapEditorViewModelLinework.swift`), which needs the same hit test
+    /// without mutating ``selectedObjectId`` itself.
+    func hitTestObjectId(atScreen point: CGPoint) -> String? {
+        guard case let .loaded(snapshot) = state else { return nil }
 
         let local = transform.localPosition(for: point)
         let toleranceMetres = transform.localDistance(
             forScreenDistance: Double(GeometryTolerances.snapToleranceScreenPixels)
         )
 
-        selectedObjectId = MapHitTesting.hitTest(objects: snapshot.objects, at: local, toleranceMetres: toleranceMetres)
+        return MapHitTesting.hitTest(objects: snapshot.objects, at: local, toleranceMetres: toleranceMetres)
     }
 
     public func beginCreatePlacement(_ category: CreatableMapObjectCategory) {
@@ -42,6 +47,23 @@ extension MapEditorViewModel {
     }
 
     private func createObject(category: CreatableMapObjectCategory, atScreen point: CGPoint) async {
+        // A gate always belongs to an existing fence (`GateDetails.fenceObjectId`
+        // is required, never fabricated) — the toolbar button is disabled
+        // when `hasFence` is false, and this is the defensive re-check for
+        // any path that reaches here regardless (e.g. a tap already in
+        // flight when the last fence was deleted). Once a fence exists, the
+        // tap location is held until the user picks which one in the
+        // fence-picker sheet; see `createGate(fenceObjectId:)`.
+        if category == .gate {
+            armedCreateCategory = nil
+            guard hasFence else {
+                errorMessage = strings(.mapCreateGateNoFence)
+                return
+            }
+            pendingGateCreationScreenPoint = point
+            return
+        }
+
         let center = transform.localPosition(for: point)
         let command = MapGestureCommands.createCommand(
             objectId: UUIDv7.generate(),
@@ -58,6 +80,34 @@ extension MapEditorViewModel {
             self.selectedObjectId = created.id
             self.propertySheetObjectId = created.id
         }
+    }
+
+    /// Completes a gate placement once the user has chosen which fence it
+    /// belongs to in the fence-picker sheet. No-op if no placement is
+    /// pending (defensive; the sheet is only ever shown while one is).
+    public func createGate(fenceObjectId: String) async {
+        guard let point = pendingGateCreationScreenPoint else { return }
+        pendingGateCreationScreenPoint = nil
+
+        let center = transform.localPosition(for: point)
+        let command = MapGestureCommands.createCommand(
+            objectId: UUIDv7.generate(),
+            category: .gate,
+            at: center,
+            label: nil,
+            fenceObjectId: fenceObjectId
+        )
+
+        await submit(command, undoBeforeSnapshot: nil) { created in
+            self.selectedObjectId = created.id
+            self.propertySheetObjectId = created.id
+        }
+    }
+
+    /// Abandons a gate placement without creating anything — the fence-picker
+    /// sheet's Cancel action.
+    public func cancelGateCreation() {
+        pendingGateCreationScreenPoint = nil
     }
 
     /// Called from `MapCanvasView`'s `.onEnded` drag handler — see

@@ -6,20 +6,56 @@ import SwiftUI
 ///
 /// Deliberately thin — the work package asks for gesture and rendering
 /// *logic* to live in independently testable pure types
-/// (`MapViewportTransform`, `MapHitTesting`, `MapGestureCommands`), with the
-/// view itself staying "a thin, mostly-untested layer on top." Every
-/// decision this view makes beyond drawing calls straight into one of those;
-/// nothing here is unit tested, by design.
+/// (`MapViewportTransform`, `MapHitTesting`, `MapGestureCommands`,
+/// `MapVertexEditCommands`, `MapShapeTransform`), with the view itself
+/// staying "a thin, mostly-untested layer on top." Every decision this view
+/// makes beyond drawing calls straight into one of those; nothing here is
+/// unit tested, by design.
+///
+/// Vertex-edit mode (`vertexEditObjectId` non-nil) adds one more class of
+/// gesture target — a vertex handle, an edge-midpoint handle, or (for a
+/// `Polygon`) the resize/rotate handles — to the single `DragGesture` this
+/// view already used for object drag and canvas pan. A handle hit at the
+/// gesture's start claims the whole gesture, exactly like an object hit
+/// already did for `dragObjectId`; when nothing in vertex-edit mode is hit,
+/// the gesture falls through to the ordinary object-drag/pan/tap handling
+/// unchanged, so panning to reach an off-screen handle still works.
 struct MapCanvasView: View {
     let snapshot: MapRenderSnapshot
     let transform: MapViewportTransform
     let selectedObjectId: String?
+    let vertexEditObjectId: String?
+    let selectedVertexIndex: Int?
 
     let onViewportSizeChange: (CGSize) -> Void
     let onTap: (CGPoint) -> Void
     let onPan: (CGSize) -> Void
     let onObjectDragEnded: (String, CGSize) -> Void
     let onZoom: (Double, CGPoint) -> Void
+    let onVertexTap: (String, Int) -> Void
+    let onVertexDragEnded: (String, Int, CGSize) -> Void
+    let onMidpointTap: (String, Int) -> Void
+    let onResizeEnded: (String, Double) -> Void
+    let onRotateEnded: (String, Double) -> Void
+
+    /// One vertex-edit-mode gesture target, resolved once at gesture start —
+    /// the same "classify once, at the boundary" discipline
+    /// `MapGestureCommands.classifyDragEnd` documents for ordinary drags.
+    private enum ReshapeHandle: Equatable {
+        case vertex(objectId: String, index: Int)
+        case midpoint(objectId: String, beforeIndex: Int)
+        case resize(objectId: String)
+        case rotate(objectId: String)
+
+        var objectId: String {
+            switch self {
+            case let .vertex(objectId, _): objectId
+            case let .midpoint(objectId, _): objectId
+            case let .resize(objectId): objectId
+            case let .rotate(objectId): objectId
+            }
+        }
+    }
 
     /// Screen point the current drag gesture began at, `nil` between gestures.
     @State private var dragStartScreen: CGPoint?
@@ -27,10 +63,19 @@ struct MapCanvasView: View {
     /// `MapGestureCommands.classifyDragEnd`'s doc comment on why an
     /// unselected shape pans instead of moving.
     @State private var dragObjectId: String?
+    /// Set only when the drag began on a vertex-edit-mode handle; mutually
+    /// exclusive with `dragObjectId`.
+    @State private var activeHandle: ReshapeHandle?
     /// Screen-space translation of the gesture in progress. Used only to
-    /// preview a pan or an object move; the committed transform or command
-    /// is built once, at `.onEnded`, never from this value directly.
+    /// preview a pan, object move, or vertex drag; the committed transform or
+    /// command is built once, at `.onEnded`, never from this value directly.
     @State private var liveDragTranslation: CGSize = .zero
+    /// The in-progress vertex move / resize / rotate preview for
+    /// `activeHandle`'s object, recomputed on every `.onChanged` via the same
+    /// pure functions the eventual commit uses — never drawn from anything
+    /// but those functions, so the preview can never show something the
+    /// commit would not actually produce.
+    @State private var livePreviewGeometry: Geometry?
     @State private var liveZoomFactor: Double = 1
     @State private var zoomAnchor: CGPoint = .zero
 
@@ -54,22 +99,37 @@ struct MapCanvasView: View {
             .onChanged { value in
                 if dragStartScreen == nil {
                     dragStartScreen = value.startLocation
-                    dragObjectId = selectedObjectId(atScreen: value.startLocation)
+                    activeHandle = vertexEditObjectId != nil ? handleTarget(atScreen: value.startLocation) : nil
+                    if activeHandle == nil {
+                        dragObjectId = selectedObjectId(atScreen: value.startLocation)
+                    }
                 }
                 liveDragTranslation = value.translation
+                if let activeHandle {
+                    updateLivePreview(for: activeHandle, translation: value.translation, currentScreen: value.location)
+                }
             }
             .onEnded { value in
                 let start = dragStartScreen
+                let objectId = dragObjectId
+                let handle = activeHandle
                 dragStartScreen = nil
                 dragObjectId = nil
+                activeHandle = nil
                 liveDragTranslation = .zero
+                livePreviewGeometry = nil
 
                 guard let start else { return }
+
+                if let handle {
+                    commitReshape(handle, start: start, end: value.location)
+                    return
+                }
 
                 switch MapGestureCommands.classifyDragEnd(
                     startScreen: start,
                     endScreen: value.location,
-                    selectedObjectIdAtStart: dragObjectId
+                    selectedObjectIdAtStart: objectId
                 ) {
                 case let .tap(point):
                     onTap(point)
@@ -109,6 +169,126 @@ struct MapCanvasView: View {
             : nil
     }
 
+    /// The vertex-edit-mode handle at `point`, or `nil` when nothing in
+    /// vertex-edit mode is there — priority is vertex handles, then edge
+    /// midpoints, then the whole-shape resize/rotate handles, matching the
+    /// order they are drawn in (a vertex handle always wins a tie against a
+    /// resize/rotate handle placed nearby).
+    private func handleTarget(atScreen point: CGPoint) -> ReshapeHandle? {
+        guard let objectId = vertexEditObjectId,
+            let object = snapshot.objects.first(where: { $0.id == objectId })
+        else { return nil }
+
+        let tolerance = MapGestureCommands.tapThresholdScreenPoints
+        let geometry = object.geometry
+
+        if let indices = MapVertexEditCommands.renderableVertexIndices(of: geometry) {
+            for index in indices {
+                guard let position = MapVertexEditCommands.vertexPosition(of: geometry, index: index) else { continue }
+                if screenDistance(transform.screenPoint(for: position), point) <= tolerance {
+                    return .vertex(objectId: objectId, index: index)
+                }
+            }
+        }
+
+        if let beforeIndices = MapVertexEditCommands.midpointBeforeIndices(of: geometry) {
+            for beforeIndex in beforeIndices {
+                guard let position = MapVertexEditCommands.midpoint(of: geometry, beforeIndex: beforeIndex) else {
+                    continue
+                }
+                if screenDistance(transform.screenPoint(for: position), point) <= tolerance {
+                    return .midpoint(objectId: objectId, beforeIndex: beforeIndex)
+                }
+            }
+        }
+
+        if let resizePoint = resizeHandleScreenPoint(for: geometry, transform: transform),
+            screenDistance(resizePoint, point) <= tolerance {
+            return .resize(objectId: objectId)
+        }
+
+        if let rotatePoint = rotateHandleScreenPoint(for: geometry, transform: transform),
+            screenDistance(rotatePoint, point) <= tolerance {
+            return .rotate(objectId: objectId)
+        }
+
+        return nil
+    }
+
+    private func screenDistance(_ a: CGPoint, _ b: CGPoint) -> Double {
+        let dx = Double(a.x - b.x)
+        let dy = Double(a.y - b.y)
+        return (dx * dx + dy * dy).squareRoot()
+    }
+
+    private func updateLivePreview(for handle: ReshapeHandle, translation: CGSize, currentScreen: CGPoint) {
+        guard let object = snapshot.objects.first(where: { $0.id == handle.objectId }) else { return }
+
+        switch handle {
+        case let .vertex(_, index):
+            guard let original = MapVertexEditCommands.vertexPosition(of: object.geometry, index: index) else { return }
+            let dxMetres = transform.localDistance(forScreenDistance: Double(translation.width))
+            let dyMetres = -transform.localDistance(forScreenDistance: Double(translation.height))
+            let newPosition = Position(x: original.x + dxMetres, y: original.y + dyMetres)
+            livePreviewGeometry = MapVertexEditCommands.movingVertex(in: object.geometry, vertexIndex: index, to: newPosition)
+
+        case .midpoint:
+            break // Insert commits immediately on tap; there is nothing to preview mid-drag.
+
+        case .resize:
+            guard let centroidLocal = MapShapeTransform.polygonCentroid(object.geometry) else { return }
+            let centroidScreen = transform.screenPoint(for: centroidLocal)
+            let startScreen = CGPoint(x: currentScreen.x - translation.width, y: currentScreen.y - translation.height)
+            let factor = MapShapeTransform.resizeFactor(centroidScreen: centroidScreen, startScreen: startScreen, endScreen: currentScreen)
+            livePreviewGeometry = MapShapeTransform.resizedGeometry(object.geometry, factor: factor)
+
+        case .rotate:
+            guard let centroidLocal = MapShapeTransform.polygonCentroid(object.geometry) else { return }
+            let centroidScreen = transform.screenPoint(for: centroidLocal)
+            let startScreen = CGPoint(x: currentScreen.x - translation.width, y: currentScreen.y - translation.height)
+            let degrees = MapShapeTransform.rotationDegrees(centroidScreen: centroidScreen, startScreen: startScreen, endScreen: currentScreen)
+            livePreviewGeometry = MapShapeTransform.rotatedGeometry(object.geometry, degrees: degrees)
+        }
+    }
+
+    private func commitReshape(_ handle: ReshapeHandle, start: CGPoint, end: CGPoint) {
+        let translation = CGSize(width: end.x - start.x, height: end.y - start.y)
+        let magnitude = (translation.width * translation.width + translation.height * translation.height).squareRoot()
+        let isTap = magnitude < MapGestureCommands.tapThresholdScreenPoints
+
+        switch handle {
+        case let .vertex(objectId, index):
+            if isTap {
+                onVertexTap(objectId, index)
+            } else {
+                onVertexDragEnded(objectId, index, translation)
+            }
+
+        case let .midpoint(objectId, beforeIndex):
+            // A drag on a midpoint handle that never becomes a real vertex is
+            // a no-op — there is nothing there yet to move.
+            if isTap {
+                onMidpointTap(objectId, beforeIndex)
+            }
+
+        case let .resize(objectId):
+            guard !isTap, let object = snapshot.objects.first(where: { $0.id == objectId }),
+                let centroidLocal = MapShapeTransform.polygonCentroid(object.geometry)
+            else { return }
+            let centroidScreen = transform.screenPoint(for: centroidLocal)
+            let factor = MapShapeTransform.resizeFactor(centroidScreen: centroidScreen, startScreen: start, endScreen: end)
+            onResizeEnded(objectId, factor)
+
+        case let .rotate(objectId):
+            guard !isTap, let object = snapshot.objects.first(where: { $0.id == objectId }),
+                let centroidLocal = MapShapeTransform.polygonCentroid(object.geometry)
+            else { return }
+            let centroidScreen = transform.screenPoint(for: centroidLocal)
+            let degrees = MapShapeTransform.rotationDegrees(centroidScreen: centroidScreen, startScreen: start, endScreen: end)
+            onRotateEnded(objectId, degrees)
+        }
+    }
+
     // MARK: - Drawing
 
     private func draw(context: GraphicsContext, size: CGSize) {
@@ -116,18 +296,25 @@ struct MapCanvasView: View {
 
         if liveZoomFactor != 1 {
             effectiveTransform = effectiveTransform.zoomed(by: liveZoomFactor, around: zoomAnchor)
-        } else if dragStartScreen != nil, dragObjectId == nil {
+        } else if dragStartScreen != nil, dragObjectId == nil, activeHandle == nil {
             effectiveTransform = effectiveTransform.panned(byScreenTranslation: liveDragTranslation)
         }
 
         for object in snapshot.objects {
             let extraOffset = (object.id == dragObjectId) ? liveDragTranslation : .zero
-            draw(object, context: context, transform: effectiveTransform, extraOffset: extraOffset)
+            let renderGeometry = (activeHandle?.objectId == object.id) ? (livePreviewGeometry ?? object.geometry) : object.geometry
+            draw(object, geometry: renderGeometry, context: context, transform: effectiveTransform, extraOffset: extraOffset)
+        }
+
+        if let vertexEditObjectId, let object = snapshot.objects.first(where: { $0.id == vertexEditObjectId }) {
+            let geometry = (activeHandle != nil) ? (livePreviewGeometry ?? object.geometry) : object.geometry
+            drawVertexHandles(for: geometry, context: context, transform: effectiveTransform)
         }
     }
 
     private func draw(
         _ object: MapRenderObject,
+        geometry: Geometry,
         context: GraphicsContext,
         transform: MapViewportTransform,
         extraOffset: CGSize
@@ -140,9 +327,9 @@ struct MapCanvasView: View {
             return CGPoint(x: screen.x + extraOffset.width, y: screen.y + extraOffset.height)
         }
 
-        switch MapObjectRenderKind(geometryType: object.geometry.type) {
+        switch MapObjectRenderKind(geometryType: geometry.type) {
         case .area:
-            for ring in rings(of: object.geometry) {
+            for ring in rings(of: geometry) {
                 var path = Path()
                 path.addLines(ring.map(point))
                 path.closeSubpath()
@@ -151,7 +338,7 @@ struct MapCanvasView: View {
             }
 
         case .line:
-            for line in lines(of: object.geometry) {
+            for line in lines(of: geometry) {
                 var path = Path()
                 path.addLines(line.map(point))
                 context.stroke(
@@ -162,7 +349,7 @@ struct MapCanvasView: View {
             }
 
         case .marker:
-            for position in object.geometry.positions {
+            for position in geometry.positions {
                 let center = point(position)
                 let radius: CGFloat = isSelected ? 9 : 7
                 let markerRect = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
@@ -178,6 +365,110 @@ struct MapCanvasView: View {
                 }
             }
         }
+    }
+
+    /// Vertex handles (draggable), edge-midpoint handles (tap to insert), and
+    /// — for a `Polygon` — the resize (square) and rotate (circle, offset
+    /// above the shape) handles. Consistent with the selection-indicator
+    /// style already used elsewhere in this view: filled white with a
+    /// coloured stroke, so a handle reads clearly against any category's fill
+    /// colour.
+    private func drawVertexHandles(for geometry: Geometry, context: GraphicsContext, transform: MapViewportTransform) {
+        let strokeColor = Color.accentColor
+
+        if let indices = MapVertexEditCommands.renderableVertexIndices(of: geometry) {
+            for index in indices {
+                guard let position = MapVertexEditCommands.vertexPosition(of: geometry, index: index) else { continue }
+                let isSelected = index == selectedVertexIndex
+                drawCircleHandle(
+                    at: transform.screenPoint(for: position),
+                    context: context,
+                    color: strokeColor,
+                    radius: isSelected ? 8 : 6,
+                    filled: isSelected
+                )
+            }
+        }
+
+        if let beforeIndices = MapVertexEditCommands.midpointBeforeIndices(of: geometry) {
+            for beforeIndex in beforeIndices {
+                guard let position = MapVertexEditCommands.midpoint(of: geometry, beforeIndex: beforeIndex) else {
+                    continue
+                }
+                let center = transform.screenPoint(for: position)
+                let radius: CGFloat = 4
+                let rect = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
+                context.fill(Path(ellipseIn: rect), with: .color(strokeColor.opacity(0.55)))
+            }
+        }
+
+        if let resizePoint = resizeHandleScreenPoint(for: geometry, transform: transform) {
+            drawSquareHandle(at: resizePoint, context: context, color: strokeColor)
+        }
+
+        if let rotatePoint = rotateHandleScreenPoint(for: geometry, transform: transform),
+            let topCenterScreen = topCenterScreenPoint(for: geometry, transform: transform) {
+            var connector = Path()
+            connector.move(to: topCenterScreen)
+            connector.addLine(to: rotatePoint)
+            context.stroke(connector, with: .color(strokeColor.opacity(0.6)), lineWidth: 1)
+            drawCircleHandle(at: rotatePoint, context: context, color: .orange, radius: 7, filled: false)
+        }
+    }
+
+    private func drawCircleHandle(at center: CGPoint, context: GraphicsContext, color: Color, radius: CGFloat, filled: Bool) {
+        let rect = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
+        context.fill(Path(ellipseIn: rect), with: .color(filled ? color : .white))
+        context.stroke(Path(ellipseIn: rect), with: .color(color), lineWidth: 2)
+    }
+
+    private func drawSquareHandle(at center: CGPoint, context: GraphicsContext, color: Color, halfSide: CGFloat = 6) {
+        let rect = CGRect(x: center.x - halfSide, y: center.y - halfSide, width: halfSide * 2, height: halfSide * 2)
+        context.fill(Path(rect), with: .color(.white))
+        context.stroke(Path(rect), with: .color(color), lineWidth: 2)
+    }
+
+    /// Fixed screen-point offset of the rotate handle above the shape's
+    /// bounding box — the classic "handle floating above a connector line"
+    /// pattern, recomputed from the current geometry every draw rather than
+    /// tracked as its own persistent state.
+    private static let rotateHandleOffsetScreenPoints: CGFloat = 28
+
+    private func resizeHandleScreenPoint(for geometry: Geometry, transform: MapViewportTransform) -> CGPoint? {
+        guard case .polygon = geometry, let vertices = MapVertexEditCommands.editableVertices(of: geometry),
+            let bounds = boundingBox(of: vertices)
+        else { return nil }
+        return transform.screenPoint(for: Position(x: bounds.max.x, y: bounds.max.y))
+    }
+
+    private func topCenterScreenPoint(for geometry: Geometry, transform: MapViewportTransform) -> CGPoint? {
+        guard case .polygon = geometry, let vertices = MapVertexEditCommands.editableVertices(of: geometry),
+            let bounds = boundingBox(of: vertices)
+        else { return nil }
+        return transform.screenPoint(for: Position(x: (bounds.min.x + bounds.max.x) / 2, y: bounds.max.y))
+    }
+
+    private func rotateHandleScreenPoint(for geometry: Geometry, transform: MapViewportTransform) -> CGPoint? {
+        guard let topCenterScreen = topCenterScreenPoint(for: geometry, transform: transform) else { return nil }
+        return CGPoint(x: topCenterScreen.x, y: topCenterScreen.y - Self.rotateHandleOffsetScreenPoints)
+    }
+
+    private func boundingBox(of positions: [Position]) -> (min: Position, max: Position)? {
+        guard let first = positions.first else { return nil }
+
+        var minX = first.x
+        var maxX = first.x
+        var minY = first.y
+        var maxY = first.y
+
+        for position in positions.dropFirst() {
+            minX = min(minX, position.x)
+            maxX = max(maxX, position.x)
+            minY = min(minY, position.y)
+            maxY = max(maxY, position.y)
+        }
+
+        return (Position(x: minX, y: minY), Position(x: maxX, y: maxY))
     }
 
     private func rings(of geometry: Geometry) -> [[Position]] {

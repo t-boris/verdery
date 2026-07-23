@@ -1,17 +1,12 @@
 'use client';
 
-import type {
-  GardenObjectDetails,
-  Geometry,
-  MapCommandPayload,
-  ObjectSnapshot,
-  Position,
-} from '@verdery/geometry-contracts';
+import type { GardenObjectDetails, Geometry, Position } from '@verdery/geometry-contracts';
 import { deriveInverseCommand, validateGeometry } from '@verdery/geometry-contracts';
 import { useCallback } from 'react';
 
 import {
   buildChangePropertiesCommand,
+  buildCreateGateObjectCommand,
   buildCreateObjectCommand,
   buildDeleteObjectCommand,
   buildMoveObjectCommand,
@@ -19,36 +14,31 @@ import {
 } from './commands';
 import type { HistoryEntry } from './editor-store';
 import { useMapEditorStore } from './editor-store';
+import { commandNeedsPriorSnapshot, objectIdOf, useCommandCommit } from './map-editor-commit';
 import { toObjectSnapshot } from './object-mapper';
 import { useGardenMap, useSubmitMapCommand } from './queries';
 import { CREATABLE_GEOMETRY_KIND, creatableCategoryOfTool } from './types';
 import type { CreatableCategory, MapObjectRecord } from './types';
-
-/**
- * Every command type this feature ever constructs carries its target as
- * `objectId` — true for all five wired commands (`createObject`,
- * `moveObject`, `changeProperties`, `deleteObject`, and `restoreObject`,
- * which only `deriveInverseCommand` ever produces). Kept as an explicit
- * switch, not a duck-typed `'objectId' in command` check, so adding a sixth
- * wired command type without extending this switch is a compile error.
- */
-function objectIdOf(command: MapCommandPayload): string {
-  switch (command.type) {
-    case 'createObject':
-    case 'moveObject':
-    case 'changeProperties':
-    case 'deleteObject':
-    case 'restoreObject':
-      return command.objectId;
-    default:
-      throw new Error(`Map editor history does not support command type "${command.type}".`);
-  }
-}
+import { useMapEditorGeometryActions } from './use-map-editor-geometry-actions';
+import { useMapEditorLineworkActions } from './use-map-editor-linework-actions';
+import { useMapEditorObjectActions } from './use-map-editor-object-actions';
 
 /**
  * Orchestrates the map editor: combines the query cache (server state), the
  * editor store (selection/tool/undo/redo), and command construction into the
- * five actions the toolbar, canvas, property panel, and object list call.
+ * actions the toolbar, canvas, property panel, and object list call.
+ *
+ * This file owns creation, whole-object move, label/detail editing, delete,
+ * and undo/redo — the original five-command slice, plus the gate-creation
+ * flow (gate needs a user-picked fence before it can be created at all).
+ * Vertex/whole-shape geometry edits, duplication, plant assignment, and
+ * fence/path split-join live in sibling hook files
+ * (`use-map-editor-geometry-actions.ts`, `use-map-editor-object-actions.ts`,
+ * `use-map-editor-linework-actions.ts`) that this hook composes, each
+ * built the same way: they take the shared `commit` function, `findRecord`,
+ * and `store` rather than each independently calling `useSubmitMapCommand`,
+ * so every action shares one mutation, one `isSubmitting` flag, and one undo
+ * stack.
  *
  * Undo and redo are one operation, `stepHistory`, applied to opposite
  * stacks: derive the inverse of the top entry via `deriveInverseCommand`,
@@ -74,37 +64,16 @@ export function useMapEditorActions(gardenId: string) {
   const selectedRecord =
     store.state.selectedObjectId === null ? null : findRecord(store.state.selectedObjectId);
 
-  /** Submits a forward (user-initiated) command and pushes its undo entry. */
-  const commit = useCallback(
-    async (
-      command: MapCommandPayload,
-      priorSnapshot: ObjectSnapshot | null,
-    ): Promise<readonly MapObjectRecord[] | null> => {
-      try {
-        const affected = await submitMutation.mutateAsync(command);
-        const revisionAfterCommand = affected[0]?.revision;
-        if (revisionAfterCommand === undefined) {
-          throw new Error('submitMapCommand returned no affected objects.');
-        }
-
-        const entry: HistoryEntry = {
-          command,
-          priorSnapshot: command.type === 'changeProperties' ? priorSnapshot : null,
-          revisionAfterCommand,
-          objectId: objectIdOf(command),
-        };
-        store.pushForward(entry);
-        return affected;
-      } catch {
-        store.setStatus({ key: 'map.status.commandFailed', tone: 'alert' });
-        return null;
-      }
-    },
-    [store, submitMutation],
-  );
+  const commit = useCommandCommit(store, submitMutation);
 
   const createObject = useCallback(
     async (category: CreatableCategory, geometry: Geometry) => {
+      if (category === 'gate') {
+        // A gate's `fenceObjectId` is required and has no default — it must
+        // go through `completeGateCreation` after the user picks a real
+        // fence, never through this generic path.
+        throw new Error('Gate objects must be created via completeGateCreation, not createObject.');
+      }
       const objectId = generateMapId();
       const command = buildCreateObjectCommand(objectId, category, geometry);
       const affected = await commit(command, null);
@@ -121,6 +90,34 @@ export function useMapEditorActions(gardenId: string) {
     },
     [commit, store],
   );
+
+  /** Submits the gate `createObject` command once the user has picked a real fence for `store.state.pendingGateGeometry`. */
+  const completeGateCreation = useCallback(
+    async (fenceObjectId: string, widthMetres?: number) => {
+      const geometry = store.state.pendingGateGeometry;
+      if (geometry === null) {
+        return null;
+      }
+      const objectId = generateMapId();
+      const command = buildCreateGateObjectCommand(objectId, geometry, fenceObjectId, widthMetres);
+      const affected = await commit(command, null);
+      store.setPendingGateGeometry(null);
+      if (affected !== null) {
+        store.select(objectId);
+        store.setStatus({
+          key: 'map.status.created',
+          args: { label: affected[0]?.label ?? objectId },
+          tone: 'status',
+        });
+      }
+      return affected;
+    },
+    [commit, store],
+  );
+
+  const cancelGateCreation = useCallback(() => {
+    store.setPendingGateGeometry(null);
+  }, [store]);
 
   const moveObject = useCallback(
     async (objectId: string, dx: number, dy: number) => {
@@ -217,18 +214,18 @@ export function useMapEditorActions(gardenId: string) {
       }
 
       const inverseObjectId = objectIdOf(inverse);
-      // Only `changeProperties`'s inverse reads `priorSnapshot` back — see
-      // `deriveInverseCommand`'s switch. The live cache still holds the
-      // pre-step state for every other wired command at this point, since
-      // none of the others remove the object from the list except delete,
-      // whose own inverse (`restoreObject`) never reads `priorSnapshot`.
-      const priorSnapshotForNewEntry =
-        inverse.type === 'changeProperties'
-          ? (() => {
-              const record = findRecord(inverseObjectId);
-              return record === null ? null : toObjectSnapshot(record);
-            })()
-          : null;
+      // Only a command type in `commandNeedsPriorSnapshot` reads
+      // `priorSnapshot` back — see `map-editor-commit.ts`. The live cache
+      // still holds the pre-step state for every other wired command at
+      // this point, since none of the others remove the object from the
+      // list except delete, whose own inverse (`restoreObject`) never reads
+      // `priorSnapshot`.
+      const priorSnapshotForNewEntry = commandNeedsPriorSnapshot(inverse.type)
+        ? (() => {
+            const record = findRecord(inverseObjectId);
+            return record === null ? null : toObjectSnapshot(record);
+          })()
+        : null;
 
       try {
         const affected = await submitMutation.mutateAsync(inverse);
@@ -265,7 +262,7 @@ export function useMapEditorActions(gardenId: string) {
   const undo = useCallback(() => stepHistory('undo'), [stepHistory]);
   const redo = useCallback(() => stepHistory('redo'), [stepHistory]);
 
-  /** A point-category tool (tree, plant) commits immediately on click — no draft state involved. */
+  /** A point-category tool (tree, plant, annotation) commits immediately on click — no draft state involved. */
   const placePoint = useCallback(
     async (category: CreatableCategory, position: Position) => {
       await createObject(category, { type: 'Point', coordinates: position });
@@ -279,6 +276,10 @@ export function useMapEditorActions(gardenId: string) {
    * validation the server itself runs (`validateGeometry`) — immediate
    * feedback per architecture doc section "11. Validation" ("Local
    * validation provides immediate feedback").
+   *
+   * `gate` is the one creatable category that never reaches `createObject`
+   * from here: its draft becomes `store.state.pendingGateGeometry` instead,
+   * awaiting the user's fence pick via `completeGateCreation`.
    */
   const finishDraft = useCallback(async () => {
     const category = creatableCategoryOfTool(store.state.tool);
@@ -313,18 +314,35 @@ export function useMapEditorActions(gardenId: string) {
       return;
     }
 
+    if (category === 'gate') {
+      if (!records.some((record) => record.category === 'fence')) {
+        store.setStatus({ key: 'map.gate.noFenceAvailable', tone: 'alert' });
+        store.setTool('select');
+        return;
+      }
+      store.setPendingGateGeometry(geometry);
+      store.setTool('select');
+      return;
+    }
+
     await createObject(category, geometry);
-  }, [createObject, store]);
+  }, [createObject, records, store]);
 
   const cancelDraft = useCallback(() => {
     store.setTool('select');
   }, [store]);
+
+  const geometryActions = useMapEditorGeometryActions({ commit, findRecord, store });
+  const objectActions = useMapEditorObjectActions({ commit, findRecord, store });
+  const lineworkActions = useMapEditorLineworkActions({ commit, findRecord, store });
 
   return {
     records,
     selectedRecord,
     findRecord,
     createObject,
+    completeGateCreation,
+    cancelGateCreation,
     moveObject,
     changeProperties,
     deleteObject,
@@ -336,6 +354,9 @@ export function useMapEditorActions(gardenId: string) {
     canUndo: store.state.undoStack.length > 0,
     canRedo: store.state.redoStack.length > 0,
     isSubmitting: submitMutation.isPending,
+    ...geometryActions,
+    ...objectActions,
+    ...lineworkActions,
   };
 }
 

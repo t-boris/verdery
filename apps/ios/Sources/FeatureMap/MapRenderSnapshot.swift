@@ -72,9 +72,10 @@ public struct MapRenderSnapshot: Equatable, Sendable {
 /// area, a `LineString`/`MultiLineString` is always a stroked line. Deriving
 /// this from the geometry's own type, rather than switching on category,
 /// means every one of the 13 categories renders correctly the moment it
-/// appears in a document, including the eight this pass has no create-toolbar
-/// entry for — "render every object category," not "render the five this
-/// pass can create."
+/// appears in a document, including `importedBackground`, the one category
+/// with no create-toolbar entry (see `CreatableMapObjectCategory`'s doc
+/// comment) — "render every object category," not only the ones a user can
+/// place from this toolbar.
 public enum MapObjectRenderKind: Sendable, Equatable {
     case area
     case line

@@ -107,6 +107,8 @@
 "map.property.detailsUnavailable" = "Редактирование деталей этой категории пока не реализовано.";
 "map.property.measurementArea" = "Площадь: {squareMetres} м²";
 "map.property.measurementLength" = "Длина: {metres} м";
+"map.property.editShape" = "Редактировать форму";
+"map.property.duplicate" = "Дублировать";
 
 /* Редактор карты: детали строения. */
 "map.structure.kindLabel" = "Тип строения";
@@ -137,3 +139,55 @@
 "map.plant.commonNameLabel" = "Название";
 "map.plant.quantityLabel" = "Количество";
 "map.plant.spacingLabel" = "Расстояние между растениями (м)";
+"map.plant.assignedToLabel" = "Привязано к";
+"map.plant.assignedToNone" = "Нет";
+
+/* Редактор карты: детали калитки и размещение калитки. */
+"map.gate.widthLabel" = "Ширина (м)";
+"map.gate.fenceLabel" = "Забор";
+"map.create.gateNoFence" = "Сначала создайте забор, чтобы добавить калитку.";
+"map.gatePicker.title" = "Выберите забор";
+
+/* Редактор карты: детали зоны. */
+"map.zone.kindLabel" = "Тип зоны";
+"map.zoneKind.lawn" = "Газон";
+"map.zoneKind.garden" = "Цветник";
+"map.zoneKind.mulch" = "Мульча";
+"map.zoneKind.gravel" = "Гравий";
+"map.zoneKind.groundCover" = "Почвопокровные растения";
+"map.zoneKind.other" = "Другое";
+
+/* Редактор карты: детали грядки. */
+"map.bed.kindLabel" = "Тип грядки";
+"map.bed.soilNotesLabel" = "Заметки о почве";
+"map.bedKind.inGround" = "В грунте";
+"map.bedKind.raised" = "Приподнятая";
+"map.bedKind.container" = "В контейнере";
+
+/* Редактор карты: детали зоны ограничения. */
+"map.utilityExclusion.kindLabel" = "Тип ограничения";
+"map.utilityExclusion.notesLabel" = "Заметки";
+"map.utilityExclusionKind.undergroundUtility" = "Подземные коммуникации";
+"map.utilityExclusionKind.septicField" = "Поле септика";
+"map.utilityExclusionKind.wellRadius" = "Радиус скважины";
+"map.utilityExclusionKind.setback" = "Отступ";
+"map.utilityExclusionKind.other" = "Другое";
+
+/* Редактор карты: детали заметки. */
+"map.annotation.measurementValueLabel" = "Значение измерения";
+"map.annotation.measurementUnitLabel" = "Единица измерения";
+"map.measurementUnit.metres" = "Метры";
+"map.measurementUnit.squareMetres" = "Квадратные метры";
+"map.measurementUnit.degrees" = "Градусы";
+
+/* Редактор карты: редактирование формы по узлам (изменение формы, размера, поворот). */
+"map.vertexEdit.hint" = "Перетащите точку, чтобы переместить её, коснитесь точки, чтобы выбрать её. Коснитесь маленькой точки на грани, чтобы добавить в этом месте новую точку.";
+"map.vertexEdit.done" = "Готово";
+"map.vertexEdit.remove" = "Удалить точку";
+"map.vertexEdit.splitHere" = "Разделить здесь";
+
+/* Редактор карты: разделение и объединение линий забора/дорожки. */
+"map.linework.joinStart" = "Объединить с…";
+"map.linework.joinHint" = "Выберите второй объект «{category}» для объединения.";
+"map.linework.joinCancel" = "Отменить объединение";
+"map.linework.joinIncompatible" = "Выберите другой объект той же категории для объединения.";
