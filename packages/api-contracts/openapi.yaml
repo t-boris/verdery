@@ -46,6 +46,8 @@ tags:
     description: The append-only garden and plant observation history, including per-photo image-analysis results and immutable corrections.
   - name: Tasks
     description: Garden care tasks — manual creation, scheduling, completion, and file attachments.
+  - name: Synchronization
+    description: The native offline outbox protocol — client installation registration, bounded batched push of client commands, resumable pull of the server change log, and cheap re-acknowledgement of already-submitted operations.
 
 paths:
   /health/live:
@@ -1652,6 +1654,289 @@ paths:
         '409':
           $ref: '#/components/responses/Conflict'
 
+  /sync/clients/{clientInstallationId}:
+    parameters:
+      - name: clientInstallationId
+        in: path
+        required: true
+        description: Client-generated UUIDv7. Stable for the lifetime of one app installation on one device.
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    put:
+      operationId: registerSyncClient
+      tags: [Synchronization]
+      summary: Register or refresh client installation metadata
+      description: |
+        Registers a new client installation, or refreshes an already-registered
+        one under the same `clientInstallationId` — the "register or refresh"
+        step named first in the initial-synchronization sequence. `PUT` at a
+        client-known id, not `POST`, because the id is minted by the client
+        itself before the first call, not assigned by the server: a second
+        call with the same id and current metadata is an ordinary idempotent
+        refresh, not an ambiguous re-create.
+
+        `protocolVersion` is the sync protocol version this installation
+        currently speaks. A version below the server's supported window is
+        rejected with `409` and `error.code`
+        `sync.protocol_version.unsupported`, the same code and meaning
+        `PushSyncOperations` and `GetSyncChanges` use — registration is the
+        earliest point a badly outdated client can learn it must upgrade,
+        before it ever attempts a push. The rejection never deletes anything
+        client-side; the local outbox is untouched.
+
+        Revocation of a client installation (architecture/offline-synchronization.md,
+        section "22. Security": "Device installation identifiers are
+        application-scoped and revocable") is a support/administrative
+        capability with no endpoint in this contract yet — out of scope for
+        this work package.
+
+        Source: architecture/offline-synchronization.md, section
+        "12. Initial Synchronization", step 1; section "21. Protocol
+        Versioning"; section "22. Security".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncClientRegistrationRequest'
+      responses:
+        '200':
+          description: The refreshed client installation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncClientInstallation'
+        '201':
+          description: The newly registered client installation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncClientInstallation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: |
+            `error.code` `sync.protocol_version.unsupported`: `protocolVersion`
+            is outside the server's currently supported window.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /sync/push:
+    post:
+      operationId: pushSyncOperations
+      tags: [Synchronization]
+      summary: Push a bounded batch of client outbox operations
+      description: |
+        Accepts an ordered batch of client-generated domain commands and
+        processes each in dependency-aware order. A batch that is
+        structurally valid and correctly authenticated always returns `200`
+        with one result per operation — an individual operation conflicting,
+        being rejected, or being blocked never fails the whole batch, so
+        that independent operations in the same batch can still succeed.
+        Only a request-level problem (malformed batch, unsupported protocol
+        version, oversized batch) fails before any operation is processed.
+
+        Unlike every other mutation endpoint in this API, this operation
+        does **not** take the shared `Idempotency-Key` header. Per
+        architecture/offline-synchronization.md, section "9. Server
+        Idempotency" ("Operation ID is the idempotency key for
+        synchronization commands"), each operation's own client-generated
+        `operationId` already is the idempotency key, scoped to that one
+        operation rather than the whole batch — a batch retried with a
+        different mix of operations (for example, with already-accepted
+        operations dropped) is still meaningful, which a single request-level
+        key would not allow for.
+
+        Every command payload names its own `expectedRevision` where a
+        revision precondition applies, the same convention
+        `SubmitMapCommand` already established (not a request-level
+        `If-Match`), because some commands target more than one record at
+        once and need more than one expected revision.
+
+        `actorProfileId` is never read from any operation payload; the
+        server fills it from the authenticated caller for every operation,
+        the same rule every other mutation in this API follows. For the same
+        reason, an outbox operation's local-only bookkeeping fields — retry
+        state and last error category (architecture/offline-synchronization.md,
+        section "7. Outbox Operation") — never travel on the wire; they
+        describe the client's own retry history, not something the server
+        needs to receive.
+
+        Source: architecture/offline-synchronization.md, sections
+        "7. Outbox Operation", "8. Push Protocol", "9. Server Idempotency";
+        architecture/api-design.md, section "16. Synchronization Endpoints".
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncPushRequest'
+      responses:
+        '200':
+          description: One result per submitted operation, in request order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncPushResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: |
+            `error.code` `sync.protocol_version.unsupported`: `protocolVersion`
+            is outside the server's currently supported window. The client's
+            local outbox is not implied lost by this response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: '`operations` exceeds the maximum batch size.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /sync/changes:
+    get:
+      operationId: getSyncChanges
+      tags: [Synchronization]
+      summary: Pull the server change log since a cursor
+      description: |
+        Returns changes in deterministic, ordered, bounded, resumable pages.
+        `nextCursor` is always present, unlike this API's ordinary list
+        endpoints (`ListGardens`, `SearchPlants`), whose `nextCursor` is
+        absent once the caller reaches the end: an ordinary list is re-listed
+        from the start on the next visit, but a sync cursor is a durable
+        position a client resumes from indefinitely, including across an
+        empty page, so it always needs a valid position to resume from next
+        time, even when caught up.
+
+        Authorization is applied per architecture/offline-synchronization.md,
+        section "11. Authorization Changes": a garden the caller has lost
+        access to surfaces as an ordinary `record: 'garden'`,
+        `operation: 'delete'` change (a tombstone for the whole garden
+        partition), not a distinct change shape.
+
+        Source: architecture/offline-synchronization.md, section
+        "10. Pull Protocol"; architecture/api-design.md, section
+        "16. Synchronization Endpoints".
+      parameters:
+        - $ref: '#/components/parameters/SyncAfterCursor'
+        - $ref: '#/components/parameters/Limit'
+        - name: protocolVersion
+          in: query
+          required: true
+          description: The sync protocol version this client currently speaks, checked the same way `PushSyncOperations` checks it.
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: A page of changes plus the cursor to resume from.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncChangesResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: |
+            One of two stable `error.code` values: `sync.changes.cursor_expired`
+            (`after` is older than retained history) or
+            `sync.protocol_version.unsupported` (`protocolVersion` is outside
+            the server's supported window). Both require a full
+            resynchronization per architecture/offline-synchronization.md,
+            section "13. Full Resynchronization".
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /sync/acknowledge:
+    post:
+      operationId: acknowledgeSyncOperations
+      tags: [Synchronization]
+      summary: Re-learn the durable outcome of already-submitted operations
+      description: |
+        Resolves a genuine gap in architecture/offline-synchronization.md:
+        `POST /v1/sync/acknowledge` is named once, in
+        architecture/api-design.md section "16. Synchronization Endpoints",
+        with no request or response shape and no explanation of what it
+        acknowledges, given that push already returns synchronous
+        per-operation results (section "8. Push Protocol") and pull's cursor
+        advancement is purely client-local with no server round trip
+        (section "10. Pull Protocol").
+
+        This endpoint is resolved as a **cheaper alternative to a full push
+        retry**, not a second delivery-confirmation mechanism. Support for
+        this reading:
+
+        - Section "9. Server Idempotency": "An unknown client response after
+          a network failure is resolved by retrying the same operation ID" —
+          this already fully recovers a lost push response; `acknowledge`
+          cannot be required for correctness on top of that.
+        - Section "24. Testing Matrix" lists "Lost response after accepted
+          server commit" as a scenario the protocol must handle — exactly
+          the case a full idempotent retry already resolves, but only by
+          resending the complete canonical payload for every operation whose
+          outcome is merely unknown to the client, which is wasteful for a
+          large batch after, for example, a process death between receiving
+          and durably persisting the push response.
+        - Nothing in the document describes any server-side effect an
+          "acknowledgement" would itself cause — pull needs none (client-local
+          cursor advance), and push already durably persists its outcome the
+          moment it decides it (idempotency record, same transaction).
+
+        So: the client submits operation IDs it believes it already pushed,
+        with no payload, and receives back each one's stored durable outcome
+        — identical in shape to what `PushSyncOperations` would have
+        returned — without re-sending the canonical payload. An operation ID
+        with no stored outcome (never actually received, or its idempotency
+        record has expired) comes back `unknown`; the client's only recourse
+        for that one is a real `PushSyncOperations` retry with its full
+        payload.
+
+        Performs no new mutation and takes no `Idempotency-Key` — it only
+        reports previously decided outcomes.
+
+        Source: architecture/offline-synchronization.md, sections
+        "8. Push Protocol", "9. Server Idempotency", "24. Testing Matrix";
+        architecture/api-design.md, section "16. Synchronization Endpoints".
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncAcknowledgeRequest'
+      responses:
+        '200':
+          description: One result per requested operation ID, in request order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncAcknowledgeResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
 components:
   securitySchemes:
     firebaseIdToken:
@@ -1716,6 +2001,21 @@ components:
         minimum: 1
         maximum: 100
         default: 50
+
+    SyncAfterCursor:
+      name: after
+      in: query
+      required: false
+      description: |
+        Opaque continuation token from a previous `GetSyncChanges` page.
+        Omit only for a first-ever pull. Clients must not parse it. Named
+        `after`, not `cursor`, matching the exact query parameter name
+        architecture/api-design.md section "16. Synchronization Endpoints"
+        and architecture/offline-synchronization.md section "10. Pull
+        Protocol" both specify for this one endpoint.
+      schema:
+        type: string
+        maxLength: 512
 
   headers:
     ETag:
@@ -3527,6 +3827,1093 @@ components:
       properties:
         mediaId:
           $ref: '#/components/schemas/Uuid'
+
+    # ------------------------------------------------------------------
+    # Synchronization (P5-API-01).
+    #
+    # Wire shapes for the native offline outbox protocol: client
+    # installation registration, batched push, resumable pull of the
+    # server change log, and cheap re-acknowledgement of already-pushed
+    # operations. Source: architecture/offline-synchronization.md;
+    # architecture/api-design.md, section "16. Synchronization Endpoints".
+    # ------------------------------------------------------------------
+
+    SyncRecordType:
+      type: string
+      enum: [garden, gardenObject, calibration, plant, observation, task]
+      description: |
+        Every record type this service's sync change log writes today.
+        Matches `SyncRecordType` in
+        services/api/src/platform/sync/sync-record-type.ts exactly — grow
+        that union first when a module starts writing a new type, then add
+        the matching value here.
+
+        `calibration` has no direct branch in `SyncOperationPayload` below:
+        a calibration is written only as a side effect of `map.upsertCalibration`,
+        submitted the same way every other map command is, under
+        `recordType: 'gardenObject'`.
+
+    SyncRecordReference:
+      type: object
+      additionalProperties: false
+      required: [recordId, recordType, revision]
+      description: |
+        The minimum a client needs to know a record changed and at what
+        revision, without the full record body — what an `accepted` or
+        `duplicate` push result carries.
+      properties:
+        recordId:
+          $ref: '#/components/schemas/Uuid'
+        recordType:
+          $ref: '#/components/schemas/SyncRecordType'
+        revision:
+          $ref: '#/components/schemas/Revision'
+
+    Calibration:
+      type: object
+      additionalProperties: false
+      required: [id, backgroundObjectId, revision, referencePoints, createdByProfileId, createdAt]
+      description: |
+        A background-image calibration revision. Recalibration always
+        inserts a new row rather than updating one in place, so `revision`
+        identifies this specific calibration attempt, not a mutable
+        object's current state — mirrors `Calibration` in
+        gardens-mapping/application/calibration-repository.ts. Not exposed
+        by `SubmitMapCommand`'s own response today; introduced here because
+        `GetSyncChanges` needs a real payload for `recordType: 'calibration'`
+        upserts, per architecture/offline-synchronization.md's own
+        requirement that a change "contains enough information to upsert...
+        a local read-model record."
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        backgroundObjectId:
+          $ref: '#/components/schemas/Uuid'
+        revision:
+          $ref: '#/components/schemas/Revision'
+        referencePoints:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required: [imagePixel, localMetres]
+            properties:
+              imagePixel:
+                $ref: '#/components/schemas/Position'
+              localMetres:
+                $ref: '#/components/schemas/Position'
+        residualErrorMetres:
+          type: [number, 'null']
+        createdByProfileId:
+          $ref: '#/components/schemas/Uuid'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+
+    SyncGardenSnapshot:
+      type: object
+      additionalProperties: false
+      required: [recordType, data]
+      properties:
+        recordType:
+          type: string
+          enum: [garden]
+        data:
+          $ref: '#/components/schemas/Garden'
+
+    SyncGardenObjectSnapshot:
+      type: object
+      additionalProperties: false
+      required: [recordType, data]
+      properties:
+        recordType:
+          type: string
+          enum: [gardenObject]
+        data:
+          $ref: '#/components/schemas/GardenObject'
+
+    SyncCalibrationSnapshot:
+      type: object
+      additionalProperties: false
+      required: [recordType, data]
+      properties:
+        recordType:
+          type: string
+          enum: [calibration]
+        data:
+          $ref: '#/components/schemas/Calibration'
+
+    SyncPlantSnapshot:
+      type: object
+      additionalProperties: false
+      required: [recordType, data]
+      properties:
+        recordType:
+          type: string
+          enum: [plant]
+        data:
+          $ref: '#/components/schemas/Plant'
+
+    SyncObservationSnapshot:
+      type: object
+      additionalProperties: false
+      required: [recordType, data]
+      properties:
+        recordType:
+          type: string
+          enum: [observation]
+        data:
+          $ref: '#/components/schemas/Observation'
+
+    SyncTaskSnapshot:
+      type: object
+      additionalProperties: false
+      required: [recordType, data]
+      properties:
+        recordType:
+          type: string
+          enum: [task]
+        data:
+          $ref: '#/components/schemas/Task'
+
+    SyncRecordSnapshot:
+      oneOf:
+        - $ref: '#/components/schemas/SyncGardenSnapshot'
+        - $ref: '#/components/schemas/SyncGardenObjectSnapshot'
+        - $ref: '#/components/schemas/SyncCalibrationSnapshot'
+        - $ref: '#/components/schemas/SyncPlantSnapshot'
+        - $ref: '#/components/schemas/SyncObservationSnapshot'
+        - $ref: '#/components/schemas/SyncTaskSnapshot'
+      discriminator:
+        propertyName: recordType
+        # See Geometry's discriminator comment (above, in the Map section)
+        # for why `mapping` to the actual wire values is required for
+        # openapi-typescript to narrow real JSON by `recordType`.
+        mapping:
+          garden: '#/components/schemas/SyncGardenSnapshot'
+          gardenObject: '#/components/schemas/SyncGardenObjectSnapshot'
+          calibration: '#/components/schemas/SyncCalibrationSnapshot'
+          plant: '#/components/schemas/SyncPlantSnapshot'
+          observation: '#/components/schemas/SyncObservationSnapshot'
+          task: '#/components/schemas/SyncTaskSnapshot'
+      description: The full current representation of one record, used both for `GetSyncChanges` upserts and for a push `conflict` result's current server state.
+
+    SyncChange:
+      type: object
+      additionalProperties: false
+      required: [sequence, gardenId, recordId, recordType, operation, recordRevision, committedAt]
+      description: |
+        One row of `platform.sync_change`. `record` is present when
+        `operation` is `'upsert'` and absent when `operation` is `'delete'`
+        — a tombstone's identity, type, garden, revision, and sequence are
+        already the sibling fields above; no further payload is needed to
+        apply it, per architecture/offline-synchronization.md, section
+        "17. Deletion and Tombstones".
+
+        Source: services/api/src/platform/sync/sync-change-recorder.ts;
+        services/api/src/platform/database/platform-schema.ts (`SyncChangeRow`).
+      properties:
+        sequence:
+          type: integer
+          format: int64
+          description: Strictly increasing within a garden partition. The pull cursor's ordering key.
+        gardenId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: '`null` only for a record with no owning garden; every change this service produces today always has one.'
+        recordId:
+          $ref: '#/components/schemas/Uuid'
+        recordType:
+          $ref: '#/components/schemas/SyncRecordType'
+        operation:
+          type: string
+          enum: [upsert, delete]
+        recordRevision:
+          $ref: '#/components/schemas/Revision'
+        committedAt:
+          $ref: '#/components/schemas/Timestamp'
+        record:
+          $ref: '#/components/schemas/SyncRecordSnapshot'
+
+    SyncChangesResult:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      description: |
+        Unlike `GardenListResult`/`PlantListResult`, `nextCursor` is always
+        present, including on an empty or final page — see `GetSyncChanges`'s
+        own description for why a durable sync cursor cannot use this
+        contract's ordinary "absent once caught up" list convention.
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncChange'
+        nextCursor:
+          type: string
+          description: Opaque continuation token for the next `GetSyncChanges` call. Clients must not parse it.
+
+    SyncCreateGardenCommand:
+      type: object
+      additionalProperties: false
+      required: [commandType, request]
+      description: The new garden's id is `SyncGardenOperationPayload.gardenId`, not a field here — client-generated, the same way `CreateMapObjectCommand.objectId` is.
+      properties:
+        commandType:
+          type: string
+          enum: [gardens.create]
+        request:
+          $ref: '#/components/schemas/CreateGardenRequest'
+
+    SyncRenameGardenCommand:
+      type: object
+      additionalProperties: false
+      required: [commandType, expectedRevision, request]
+      properties:
+        commandType:
+          type: string
+          enum: [gardens.rename]
+        expectedRevision:
+          $ref: '#/components/schemas/Revision'
+        request:
+          $ref: '#/components/schemas/RenameGardenRequest'
+
+    SyncArchiveGardenCommand:
+      type: object
+      additionalProperties: false
+      required: [commandType, expectedRevision]
+      properties:
+        commandType:
+          type: string
+          enum: [gardens.archive]
+        expectedRevision:
+          $ref: '#/components/schemas/Revision'
+
+    SyncRequestGardenDeletionCommand:
+      type: object
+      additionalProperties: false
+      required: [commandType, expectedRevision]
+      properties:
+        commandType:
+          type: string
+          enum: [gardens.delete_request]
+        expectedRevision:
+          $ref: '#/components/schemas/Revision'
+
+    SyncGardenCommand:
+      oneOf:
+        - $ref: '#/components/schemas/SyncCreateGardenCommand'
+        - $ref: '#/components/schemas/SyncRenameGardenCommand'
+        - $ref: '#/components/schemas/SyncArchiveGardenCommand'
+        - $ref: '#/components/schemas/SyncRequestGardenDeletionCommand'
+      discriminator:
+        propertyName: commandType
+        # See Geometry's discriminator comment for why `mapping` to the
+        # actual wire values is required.
+        mapping:
+          gardens.create: '#/components/schemas/SyncCreateGardenCommand'
+          gardens.rename: '#/components/schemas/SyncRenameGardenCommand'
+          gardens.archive: '#/components/schemas/SyncArchiveGardenCommand'
+          gardens.delete_request: '#/components/schemas/SyncRequestGardenDeletionCommand'
+      description: |
+        `commandType` values match this codebase's own internal `OPERATION`
+        idempotency-operation constants (for example `gardens-mapping/application/rename-garden.ts`'s
+        `'gardens.rename'`) exactly, rather than inventing a parallel naming
+        scheme, across every command family below.
+
+    SyncAddPlantCommand:
+      type: object
+      additionalProperties: false
+      required: [commandType, plantId, request]
+      description: '`plantId` is client-generated, carried here because `AddPlantRequest` itself has no id field — REST creation assigns one server-side, but offline optimistic creation needs a stable id up front.'
+      properties:
+        commandType:
+          type: string
+          enum: [plants.addPlant]
+        plantId:
+          $ref: '#/components/schemas/Uuid'
+        request:
+          $ref: '#/components/schemas/AddPlantRequest'
+
+    SyncAddPlantFromPhotoCommand:
+      type: object
+      additionalProperties: false
+      required: [commandType, plantId, request]
+      properties:
+        commandType:
+          type: string
+          enum: [plants.addPlantFromPhoto]
+        plantId:
+          $ref: '#/components/schemas/Uuid'
+        request:
+          $ref: '#/components/schemas/AddPlantFromPhotoRequest'
+
+    SyncUpdatePlantDetailsCommand:
+      type: object
+      additionalProperties: false
+      required: [commandType, plantId, expectedRevision, request]
+      properties:
+        commandType:
+          type: string
+          enum: [plants.updateDetails]
+        plantId:
+          $ref: '#/components/schemas/Uuid'
+        expectedRevision:
+          $ref: '#/components/schemas/Revision'
+        request:
+          $ref: '#/components/schemas/UpdatePlantDetailsRequest'
+
+    SyncAttachPlantPhotoCommand:
+      type: object
+      additionalProperties: false
+      required: [commandType, plantId, plantPhotoId, request]
+      description: No `expectedRevision` — a photo is a child record, not a field of the plant, the same rule `AttachPlantPhoto` documents.
+      properties:
+        commandType:
+          type: string
+          enum: [plants.attachPlantPhoto]
+        plantId:
+          $ref: '#/components/schemas/Uuid'
+        plantPhotoId:
+          $ref: '#/components/schemas/Uuid'
+          description: Client-generated id for the new photo record.
+        request:
+          $ref: '#/components/schemas/AttachPlantPhotoRequest'
+
+    SyncSetPrimaryPlantPhotoCommand:
+      type: object
+      additionalProperties: false
+      required: [commandType, plantId, plantPhotoId]
+      properties:
+        commandType:
+          type: string
+          enum: [plants.setPrimaryPlantPhoto]
+        plantId:
+          $ref: '#/components/schemas/Uuid'
+        plantPhotoId:
+          $ref: '#/components/schemas/Uuid'
+          description: An existing photo of this plant.
+
+    SyncConfirmPlantIdentificationCommand:
+      type: object
+      additionalProperties: false
+      required: [commandType, plantId, identificationId, expectedRevision]
+      description: No request body, matching `ConfirmPlantIdentification`, which takes only path parameters and `If-Match`.
+      properties:
+        commandType:
+          type: string
+          enum: [plants.confirmIdentification]
+        plantId:
+          $ref: '#/components/schemas/Uuid'
+        identificationId:
+          $ref: '#/components/schemas/Uuid'
+        expectedRevision:
+          $ref: '#/components/schemas/Revision'
+
+    SyncTransitionPlantLifecycleStageCommand:
+      type: object
+      additionalProperties: false
+      required: [commandType, plantId, expectedRevision, request]
+      properties:
+        commandType:
+          type: string
+          enum: [plants.transitionLifecycleStage]
+        plantId:
+          $ref: '#/components/schemas/Uuid'
+        expectedRevision:
+          $ref: '#/components/schemas/Revision'
+        request:
+          $ref: '#/components/schemas/TransitionPlantLifecycleStageRequest'
+
+    SyncSetPlantStatusCommand:
+      type: object
+      additionalProperties: false
+      required: [commandType, plantId, expectedRevision, request]
+      properties:
+        commandType:
+          type: string
+          enum: [plants.setStatus]
+        plantId:
+          $ref: '#/components/schemas/Uuid'
+        expectedRevision:
+          $ref: '#/components/schemas/Revision'
+        request:
+          $ref: '#/components/schemas/SetPlantStatusRequest'
+
+    SyncMovePlantCommand:
+      type: object
+      additionalProperties: false
+      required: [commandType, plantId, expectedRevision, request]
+      properties:
+        commandType:
+          type: string
+          enum: [plants.movePlant]
+        plantId:
+          $ref: '#/components/schemas/Uuid'
+        expectedRevision:
+          $ref: '#/components/schemas/Revision'
+        request:
+          $ref: '#/components/schemas/MovePlantRequest'
+
+    SyncPlantCommand:
+      oneOf:
+        - $ref: '#/components/schemas/SyncAddPlantCommand'
+        - $ref: '#/components/schemas/SyncAddPlantFromPhotoCommand'
+        - $ref: '#/components/schemas/SyncUpdatePlantDetailsCommand'
+        - $ref: '#/components/schemas/SyncAttachPlantPhotoCommand'
+        - $ref: '#/components/schemas/SyncSetPrimaryPlantPhotoCommand'
+        - $ref: '#/components/schemas/SyncConfirmPlantIdentificationCommand'
+        - $ref: '#/components/schemas/SyncTransitionPlantLifecycleStageCommand'
+        - $ref: '#/components/schemas/SyncSetPlantStatusCommand'
+        - $ref: '#/components/schemas/SyncMovePlantCommand'
+      discriminator:
+        propertyName: commandType
+        mapping:
+          plants.addPlant: '#/components/schemas/SyncAddPlantCommand'
+          plants.addPlantFromPhoto: '#/components/schemas/SyncAddPlantFromPhotoCommand'
+          plants.updateDetails: '#/components/schemas/SyncUpdatePlantDetailsCommand'
+          plants.attachPlantPhoto: '#/components/schemas/SyncAttachPlantPhotoCommand'
+          plants.setPrimaryPlantPhoto: '#/components/schemas/SyncSetPrimaryPlantPhotoCommand'
+          plants.confirmIdentification: '#/components/schemas/SyncConfirmPlantIdentificationCommand'
+          plants.transitionLifecycleStage: '#/components/schemas/SyncTransitionPlantLifecycleStageCommand'
+          plants.setStatus: '#/components/schemas/SyncSetPlantStatusCommand'
+          plants.movePlant: '#/components/schemas/SyncMovePlantCommand'
+
+    SyncRecordObservationCommand:
+      type: object
+      additionalProperties: false
+      required: [commandType, observationId, request]
+      description: '`observationId` is client-generated, the same reasoning as `SyncAddPlantCommand.plantId`.'
+      properties:
+        commandType:
+          type: string
+          enum: [observations.record]
+        observationId:
+          $ref: '#/components/schemas/Uuid'
+        request:
+          $ref: '#/components/schemas/RecordObservationRequest'
+
+    SyncCorrectObservationCommand:
+      type: object
+      additionalProperties: false
+      required: [commandType, correctedObservationId, observationId, request]
+      description: |
+        A correction inserts a new observation row rather than editing the
+        original, so this command has two distinct ids: `correctedObservationId`
+        (existing, the one being corrected) and `observationId` (new,
+        client-generated, the correction row itself) — mirrors
+        `CorrectObservation`'s own path parameter versus response identity.
+        No `expectedRevision`: observations carry no revision, matching
+        `CorrectObservation` having no `If-Match`.
+      properties:
+        commandType:
+          type: string
+          enum: [observations.correct]
+        correctedObservationId:
+          $ref: '#/components/schemas/Uuid'
+        observationId:
+          $ref: '#/components/schemas/Uuid'
+        request:
+          $ref: '#/components/schemas/CorrectObservationRequest'
+
+    SyncObservationCommand:
+      oneOf:
+        - $ref: '#/components/schemas/SyncRecordObservationCommand'
+        - $ref: '#/components/schemas/SyncCorrectObservationCommand'
+      discriminator:
+        propertyName: commandType
+        mapping:
+          observations.record: '#/components/schemas/SyncRecordObservationCommand'
+          observations.correct: '#/components/schemas/SyncCorrectObservationCommand'
+
+    SyncCreateManualTaskCommand:
+      type: object
+      additionalProperties: false
+      required: [commandType, taskId, request]
+      description: '`taskId` is client-generated, the same reasoning as `SyncAddPlantCommand.plantId`.'
+      properties:
+        commandType:
+          type: string
+          enum: [tasks.createManualTask]
+        taskId:
+          $ref: '#/components/schemas/Uuid'
+        request:
+          $ref: '#/components/schemas/CreateManualTaskRequest'
+
+    SyncEditTaskCommand:
+      type: object
+      additionalProperties: false
+      required: [commandType, taskId, expectedRevision, request]
+      properties:
+        commandType:
+          type: string
+          enum: [tasks.editTask]
+        taskId:
+          $ref: '#/components/schemas/Uuid'
+        expectedRevision:
+          $ref: '#/components/schemas/Revision'
+        request:
+          $ref: '#/components/schemas/EditTaskRequest'
+
+    SyncRescheduleTaskCommand:
+      type: object
+      additionalProperties: false
+      required: [commandType, taskId, expectedRevision, request]
+      properties:
+        commandType:
+          type: string
+          enum: [tasks.rescheduleTask]
+        taskId:
+          $ref: '#/components/schemas/Uuid'
+        expectedRevision:
+          $ref: '#/components/schemas/Revision'
+        request:
+          $ref: '#/components/schemas/RescheduleTaskRequest'
+
+    SyncCompleteTaskCommand:
+      type: object
+      additionalProperties: false
+      required: [commandType, taskId, expectedRevision, request]
+      properties:
+        commandType:
+          type: string
+          enum: [tasks.completeTask]
+        taskId:
+          $ref: '#/components/schemas/Uuid'
+        expectedRevision:
+          $ref: '#/components/schemas/Revision'
+        request:
+          $ref: '#/components/schemas/CompleteTaskRequest'
+
+    SyncDismissTaskCommand:
+      type: object
+      additionalProperties: false
+      required: [commandType, taskId, expectedRevision, request]
+      properties:
+        commandType:
+          type: string
+          enum: [tasks.dismissTask]
+        taskId:
+          $ref: '#/components/schemas/Uuid'
+        expectedRevision:
+          $ref: '#/components/schemas/Revision'
+        request:
+          $ref: '#/components/schemas/DismissTaskRequest'
+
+    SyncSkipTaskCommand:
+      type: object
+      additionalProperties: false
+      required: [commandType, taskId, expectedRevision]
+      description: No request body, matching `SkipTask`, which takes only `If-Match`.
+      properties:
+        commandType:
+          type: string
+          enum: [tasks.skipTask]
+        taskId:
+          $ref: '#/components/schemas/Uuid'
+        expectedRevision:
+          $ref: '#/components/schemas/Revision'
+
+    SyncDeleteTaskCommand:
+      type: object
+      additionalProperties: false
+      required: [commandType, taskId, expectedRevision]
+      description: No request body, matching `DeleteTask`, which takes only `If-Match`. A status transition to `'deleted'`, not a sync tombstone — the same distinction `RequestGardenDeletion` documents for gardens.
+      properties:
+        commandType:
+          type: string
+          enum: [tasks.deleteTask]
+        taskId:
+          $ref: '#/components/schemas/Uuid'
+        expectedRevision:
+          $ref: '#/components/schemas/Revision'
+
+    SyncAttachTaskFileCommand:
+      type: object
+      additionalProperties: false
+      required: [commandType, taskId, taskAttachmentId, request]
+      description: No `expectedRevision` — an attachment is a child record, not a field of the task, the same rule `AttachTaskFile` documents.
+      properties:
+        commandType:
+          type: string
+          enum: [tasks.attachTaskFile]
+        taskId:
+          $ref: '#/components/schemas/Uuid'
+        taskAttachmentId:
+          $ref: '#/components/schemas/Uuid'
+          description: Client-generated id for the new attachment record.
+        request:
+          $ref: '#/components/schemas/AttachTaskFileRequest'
+
+    SyncTaskCommand:
+      oneOf:
+        - $ref: '#/components/schemas/SyncCreateManualTaskCommand'
+        - $ref: '#/components/schemas/SyncEditTaskCommand'
+        - $ref: '#/components/schemas/SyncRescheduleTaskCommand'
+        - $ref: '#/components/schemas/SyncCompleteTaskCommand'
+        - $ref: '#/components/schemas/SyncDismissTaskCommand'
+        - $ref: '#/components/schemas/SyncSkipTaskCommand'
+        - $ref: '#/components/schemas/SyncDeleteTaskCommand'
+        - $ref: '#/components/schemas/SyncAttachTaskFileCommand'
+      discriminator:
+        propertyName: commandType
+        mapping:
+          tasks.createManualTask: '#/components/schemas/SyncCreateManualTaskCommand'
+          tasks.editTask: '#/components/schemas/SyncEditTaskCommand'
+          tasks.rescheduleTask: '#/components/schemas/SyncRescheduleTaskCommand'
+          tasks.completeTask: '#/components/schemas/SyncCompleteTaskCommand'
+          tasks.dismissTask: '#/components/schemas/SyncDismissTaskCommand'
+          tasks.skipTask: '#/components/schemas/SyncSkipTaskCommand'
+          tasks.deleteTask: '#/components/schemas/SyncDeleteTaskCommand'
+          tasks.attachTaskFile: '#/components/schemas/SyncAttachTaskFileCommand'
+
+    SyncGardenOperationPayload:
+      type: object
+      additionalProperties: false
+      required: [recordType, gardenId, command]
+      description: For every `command` here, `gardenId` names the target garden itself — for `gardens.create`, the client-generated id of the new garden.
+      properties:
+        recordType:
+          type: string
+          enum: [garden]
+        gardenId:
+          $ref: '#/components/schemas/Uuid'
+        command:
+          $ref: '#/components/schemas/SyncGardenCommand'
+
+    SyncGardenObjectOperationPayload:
+      type: object
+      additionalProperties: false
+      required: [recordType, gardenId, command]
+      description: |
+        Reuses `MapCommandPayload` — the same 13-command union
+        `SubmitMapCommand` already accepts — unchanged, rather than
+        redefining map commands a second time for sync. `gardenId` is
+        explicit here (unlike `SubmitMapCommand`, which reads it from the
+        URL path) because `PushSyncOperations` has no per-garden path
+        segment: one batch can carry operations for more than one garden.
+      properties:
+        recordType:
+          type: string
+          enum: [gardenObject]
+        gardenId:
+          $ref: '#/components/schemas/Uuid'
+        command:
+          $ref: '#/components/schemas/MapCommandPayload'
+
+    SyncPlantOperationPayload:
+      type: object
+      additionalProperties: false
+      required: [recordType, gardenId, command]
+      properties:
+        recordType:
+          type: string
+          enum: [plant]
+        gardenId:
+          $ref: '#/components/schemas/Uuid'
+        command:
+          $ref: '#/components/schemas/SyncPlantCommand'
+
+    SyncObservationOperationPayload:
+      type: object
+      additionalProperties: false
+      required: [recordType, gardenId, command]
+      properties:
+        recordType:
+          type: string
+          enum: [observation]
+        gardenId:
+          $ref: '#/components/schemas/Uuid'
+        command:
+          $ref: '#/components/schemas/SyncObservationCommand'
+
+    SyncTaskOperationPayload:
+      type: object
+      additionalProperties: false
+      required: [recordType, gardenId, command]
+      properties:
+        recordType:
+          type: string
+          enum: [task]
+        gardenId:
+          $ref: '#/components/schemas/Uuid'
+        command:
+          $ref: '#/components/schemas/SyncTaskCommand'
+
+    SyncOperationPayload:
+      oneOf:
+        - $ref: '#/components/schemas/SyncGardenOperationPayload'
+        - $ref: '#/components/schemas/SyncGardenObjectOperationPayload'
+        - $ref: '#/components/schemas/SyncPlantOperationPayload'
+        - $ref: '#/components/schemas/SyncObservationOperationPayload'
+        - $ref: '#/components/schemas/SyncTaskOperationPayload'
+      discriminator:
+        propertyName: recordType
+        mapping:
+          garden: '#/components/schemas/SyncGardenOperationPayload'
+          gardenObject: '#/components/schemas/SyncGardenObjectOperationPayload'
+          plant: '#/components/schemas/SyncPlantOperationPayload'
+          observation: '#/components/schemas/SyncObservationOperationPayload'
+          task: '#/components/schemas/SyncTaskOperationPayload'
+      description: |
+        The outbox operation's canonical payload — a `oneOf` grouped by
+        target record family (`garden`, `gardenObject`/map commands,
+        `plant`, `observation`, `task`: every record type Phase 4/5
+        established that has a client-issuable command today), each family
+        then discriminated again on its own `commandType`. Deliberately not
+        one flat 24-branch `oneOf` on a single discriminator: `gardenObject`
+        reuses `MapCommandPayload` wholesale, which already discriminates
+        internally on `type`, not `commandType`, so a single shared
+        discriminator property across every branch is not possible without
+        modifying that existing schema.
+
+        `media` is intentionally not a sixth family: media registration and
+        upload have their own lifecycle (architecture/offline-synchronization.md,
+        section "18. Media Coordination") and are declared per-operation via
+        `SyncOperation.mediaPrerequisites`, not submitted as a sync command
+        themselves.
+
+    SyncMediaPrerequisite:
+      type: object
+      additionalProperties: false
+      required: [mediaId]
+      description: |
+        Declares whether an operation may be accepted before its referenced
+        media finishes uploading, per architecture/offline-synchronization.md,
+        section "18. Media Coordination".
+      properties:
+        mediaId:
+          $ref: '#/components/schemas/Uuid'
+        allowPendingUpload:
+          type: boolean
+          default: false
+          description: '`true` for something like a new observation that may sync with `mediaPending`; `false` (the default) for a command that requires verified source media and must stay `blockedByDependency` until it is.'
+
+    SyncOperation:
+      type: object
+      additionalProperties: false
+      required: [operationId, localSequence, payload]
+      description: |
+        One outbox operation on the wire. Per architecture/offline-synchronization.md,
+        section "7. Outbox Operation", two of that section's local outbox
+        fields never appear here: "Authenticated profile ID" (the server
+        fills it from the authenticated caller, never a client claim — the
+        same rule `SubmitMapCommand` documents for `actorProfileId`) and
+        "Retry state and last error category" (purely local bookkeeping
+        about the client's own retry history). "Target record IDs" and
+        "Expected server revision" also aren't repeated here as generic
+        fields — they live inside `payload`'s own typed command, the same
+        way `MapCommandPayload`'s branches already carry their own
+        `objectId`/`expectedRevision` rather than a generic pair at the
+        `MapCommandRequest` level.
+      properties:
+        operationId:
+          $ref: '#/components/schemas/Uuid'
+          description: Client-generated. The idempotency key for this operation (section "9. Server Idempotency") — reusing it with an identical payload replays the stored outcome; reusing it with a different payload is `rejected`.
+        commandVersion:
+          type: integer
+          minimum: 1
+          description: This operation's own command payload version, when it differs from the batch's `operationPayloadVersion` — for example, an operation that has sat unsent in the outbox since before a payload-version bump the rest of this batch was authored under. Defaults to `operationPayloadVersion` when omitted.
+        localSequence:
+          type: integer
+          format: int64
+          minimum: 0
+          description: This operation's position in the client's own local outbox, not its position within this batch — lets the server and telemetry distinguish "batch item 3" from "outbox item 4102" for backlog observability (section "23. Observability").
+        dependsOnOperationIds:
+          type: array
+          maxItems: 20
+          default: []
+          items:
+            $ref: '#/components/schemas/Uuid'
+          description: Operation IDs — in this batch or an earlier one — that must be `accepted` or `duplicate` before this one may process. Makes ordering explicit per section "16. Ordering".
+        mediaPrerequisites:
+          type: array
+          maxItems: 20
+          default: []
+          items:
+            $ref: '#/components/schemas/SyncMediaPrerequisite'
+        payload:
+          $ref: '#/components/schemas/SyncOperationPayload'
+
+    SyncPushRequest:
+      type: object
+      additionalProperties: false
+      required: [clientInstallationId, protocolVersion, operationPayloadVersion, operations]
+      description: |
+        Profile is implicit from the authenticated caller, never a request
+        field, the same rule every other mutation in this API follows.
+        `protocolVersion` is the wire/envelope version (section
+        "21. Protocol Versioning"); `operationPayloadVersion` is the default
+        command-payload version this batch was authored under — see
+        `SyncOperation.commandVersion` for why an individual operation can
+        still override it.
+      properties:
+        clientInstallationId:
+          $ref: '#/components/schemas/Uuid'
+        protocolVersion:
+          type: integer
+          minimum: 1
+        operationPayloadVersion:
+          type: integer
+          minimum: 1
+        operations:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            $ref: '#/components/schemas/SyncOperation'
+
+    SyncOperationError:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      description: Per-operation error detail for a `rejected` push result. Deliberately not the shared `Error` schema's `error` object reused by reference — that shape is the HTTP response envelope; this is one line item inside a `200` batch response, with no `correlationId` or `retryable` of its own.
+      properties:
+        code:
+          type: string
+          description: Stable dotted code, the same convention `Error.error.code` uses. A reused operation ID with a different payload uses `request.idempotency.key_reused`, the exact code `SharedErrorCode.IdempotencyKeyReused` already names.
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+
+    SyncAcceptedOperationResult:
+      type: object
+      additionalProperties: false
+      required: [outcome, operationId, recordRevisions]
+      properties:
+        outcome:
+          type: string
+          enum: [accepted]
+        operationId:
+          $ref: '#/components/schemas/Uuid'
+        recordRevisions:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/SyncRecordReference'
+          description: Every record this operation created or changed, at its new revision — more than one entry for a command like `map.joinLinework` that affects two objects at once.
+
+    SyncDuplicateOperationResult:
+      type: object
+      additionalProperties: false
+      required: [outcome, operationId, recordRevisions]
+      description: |
+        This exact operation ID, with an identical payload, was already
+        `accepted` by a prior push — `recordRevisions` is the same value
+        that original acceptance produced; no new mutation ran. A retry of
+        an operation whose prior outcome was `rejected`, `conflict`,
+        `blockedByDependency`, or `retryLater` simply returns that same
+        outcome again, not `duplicate` — only a previously `accepted`
+        operation, which had a lasting effect that must not repeat, needs
+        this distinct label.
+      properties:
+        outcome:
+          type: string
+          enum: [duplicate]
+        operationId:
+          $ref: '#/components/schemas/Uuid'
+        recordRevisions:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/SyncRecordReference'
+
+    SyncConflictOperationResult:
+      type: object
+      additionalProperties: false
+      required: [outcome, operationId, conflictCode, currentRecord]
+      description: Per section "14.2 Same Mutable Object" — carries the current authorized representation, its current revision (inside `currentRecord`), and a stable conflict type. The original local command remains locally recoverable; this response does not discard it.
+      properties:
+        outcome:
+          type: string
+          enum: [conflict]
+        operationId:
+          $ref: '#/components/schemas/Uuid'
+        conflictCode:
+          type: string
+          description: Stable machine-readable conflict type, localized client-side.
+        currentRecord:
+          $ref: '#/components/schemas/SyncRecordSnapshot'
+
+    SyncRejectedOperationResult:
+      type: object
+      additionalProperties: false
+      required: [outcome, operationId, error]
+      properties:
+        outcome:
+          type: string
+          enum: [rejected]
+        operationId:
+          $ref: '#/components/schemas/Uuid'
+        error:
+          $ref: '#/components/schemas/SyncOperationError'
+
+    SyncBlockedByDependencyOperationResult:
+      type: object
+      additionalProperties: false
+      required: [outcome, operationId, blockingOperationIds]
+      properties:
+        outcome:
+          type: string
+          enum: [blockedByDependency]
+        operationId:
+          $ref: '#/components/schemas/Uuid'
+        blockingOperationIds:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Uuid'
+
+    SyncRetryLaterOperationResult:
+      type: object
+      additionalProperties: false
+      required: [outcome, operationId]
+      description: A transient server-side condition, not a domain outcome — safe for the client to retry with the identical operation ID and payload, unlike `rejected`.
+      properties:
+        outcome:
+          type: string
+          enum: [retryLater]
+        operationId:
+          $ref: '#/components/schemas/Uuid'
+        retryAfterSeconds:
+          type: integer
+          minimum: 0
+        reason:
+          type: string
+          description: Short machine code for telemetry, for example `server.dependency_unavailable`.
+
+    SyncPushOperationResult:
+      oneOf:
+        - $ref: '#/components/schemas/SyncAcceptedOperationResult'
+        - $ref: '#/components/schemas/SyncDuplicateOperationResult'
+        - $ref: '#/components/schemas/SyncConflictOperationResult'
+        - $ref: '#/components/schemas/SyncRejectedOperationResult'
+        - $ref: '#/components/schemas/SyncBlockedByDependencyOperationResult'
+        - $ref: '#/components/schemas/SyncRetryLaterOperationResult'
+      discriminator:
+        propertyName: outcome
+        mapping:
+          accepted: '#/components/schemas/SyncAcceptedOperationResult'
+          duplicate: '#/components/schemas/SyncDuplicateOperationResult'
+          conflict: '#/components/schemas/SyncConflictOperationResult'
+          rejected: '#/components/schemas/SyncRejectedOperationResult'
+          blockedByDependency: '#/components/schemas/SyncBlockedByDependencyOperationResult'
+          retryLater: '#/components/schemas/SyncRetryLaterOperationResult'
+      description: The exact six outcomes architecture/offline-synchronization.md, section "8. Push Protocol" names, no more and no fewer.
+
+    SyncPushResult:
+      type: object
+      additionalProperties: false
+      required: [results]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncPushOperationResult'
+          description: Same length and order as the request's `operations`.
+
+    SyncUnknownOperationResult:
+      type: object
+      additionalProperties: false
+      required: [outcome, operationId]
+      description: No durable outcome is stored for this operation ID under this profile — never actually pushed, or its idempotency record has expired. The client's only recourse is a real `PushSyncOperations` call with the operation's full canonical payload.
+      properties:
+        outcome:
+          type: string
+          enum: [unknown]
+        operationId:
+          $ref: '#/components/schemas/Uuid'
+
+    SyncOperationLookupResult:
+      oneOf:
+        - $ref: '#/components/schemas/SyncAcceptedOperationResult'
+        - $ref: '#/components/schemas/SyncDuplicateOperationResult'
+        - $ref: '#/components/schemas/SyncConflictOperationResult'
+        - $ref: '#/components/schemas/SyncRejectedOperationResult'
+        - $ref: '#/components/schemas/SyncBlockedByDependencyOperationResult'
+        - $ref: '#/components/schemas/SyncRetryLaterOperationResult'
+        - $ref: '#/components/schemas/SyncUnknownOperationResult'
+      discriminator:
+        propertyName: outcome
+        mapping:
+          accepted: '#/components/schemas/SyncAcceptedOperationResult'
+          duplicate: '#/components/schemas/SyncDuplicateOperationResult'
+          conflict: '#/components/schemas/SyncConflictOperationResult'
+          rejected: '#/components/schemas/SyncRejectedOperationResult'
+          blockedByDependency: '#/components/schemas/SyncBlockedByDependencyOperationResult'
+          retryLater: '#/components/schemas/SyncRetryLaterOperationResult'
+          unknown: '#/components/schemas/SyncUnknownOperationResult'
+      description: "`AcknowledgeSyncOperations`'s result: the same six push outcomes, reusing those exact schemas, plus `unknown` for an operation ID the server has no stored result for."
+
+    SyncAcknowledgeRequest:
+      type: object
+      additionalProperties: false
+      required: [clientInstallationId, operationIds]
+      properties:
+        clientInstallationId:
+          $ref: '#/components/schemas/Uuid'
+        operationIds:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            $ref: '#/components/schemas/Uuid'
+          description: Operation IDs the client believes it already pushed and wants the durable outcome of, without resending their payloads.
+
+    SyncAcknowledgeResult:
+      type: object
+      additionalProperties: false
+      required: [results]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncOperationLookupResult'
+          description: Same length and order as the request's `operationIds`.
+
+    SyncClientPlatform:
+      type: string
+      enum: [ios, web]
+      description: The two application platforms this API serves, per architecture/api-design.md's own opening line ("the native Apple and web applications").
+
+    SyncClientRegistrationRequest:
+      type: object
+      additionalProperties: false
+      required: [platform, appVersion, protocolVersion]
+      properties:
+        platform:
+          $ref: '#/components/schemas/SyncClientPlatform'
+        appVersion:
+          type: string
+          description: Build version of the calling client, as free text — the same untyped convention `LivenessResult.version` already uses.
+        protocolVersion:
+          type: integer
+          minimum: 1
+          description: The maximum sync protocol version this installation currently supports.
+
+    SyncClientInstallation:
+      type: object
+      additionalProperties: false
+      required: [id, platform, appVersion, protocolVersion, registeredAt, lastSeenAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        platform:
+          $ref: '#/components/schemas/SyncClientPlatform'
+        appVersion:
+          type: string
+        protocolVersion:
+          type: integer
+          minimum: 1
+        registeredAt:
+          $ref: '#/components/schemas/Timestamp'
+        lastSeenAt:
+          $ref: '#/components/schemas/Timestamp'
+          description: Set to the current time on every successful register-or-refresh call.
 
   responses:
     BadRequest:

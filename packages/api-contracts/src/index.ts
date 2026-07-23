@@ -134,6 +134,85 @@ export type CompleteTaskRequest = Schemas['CompleteTaskRequest'];
 export type DismissTaskRequest = Schemas['DismissTaskRequest'];
 export type AttachTaskFileRequest = Schemas['AttachTaskFileRequest'];
 
+/**
+ * The synchronization schemas (P5-API-01).
+ *
+ * `SyncOperationPayload` groups by target record family (`garden`,
+ * `gardenObject`, `plant`, `observation`, `task`), discriminated on
+ * `recordType`; each family's own `command` union is then discriminated a
+ * second time on `commandType` (or, for `gardenObject`, reuses
+ * `MapCommandPayload`'s existing `type` discriminator unchanged). See
+ * `SyncOperationPayload`'s own description in `openapi.yaml` for why this is
+ * two nested unions rather than one flat one.
+ */
+export type SyncRecordType = Schemas['SyncRecordType'];
+export type SyncRecordReference = Schemas['SyncRecordReference'];
+export type Calibration = Schemas['Calibration'];
+export type SyncGardenSnapshot = Schemas['SyncGardenSnapshot'];
+export type SyncGardenObjectSnapshot = Schemas['SyncGardenObjectSnapshot'];
+export type SyncCalibrationSnapshot = Schemas['SyncCalibrationSnapshot'];
+export type SyncPlantSnapshot = Schemas['SyncPlantSnapshot'];
+export type SyncObservationSnapshot = Schemas['SyncObservationSnapshot'];
+export type SyncTaskSnapshot = Schemas['SyncTaskSnapshot'];
+export type SyncRecordSnapshot = Schemas['SyncRecordSnapshot'];
+export type SyncChange = Schemas['SyncChange'];
+export type SyncChangesResult = Schemas['SyncChangesResult'];
+export type SyncCreateGardenCommand = Schemas['SyncCreateGardenCommand'];
+export type SyncRenameGardenCommand = Schemas['SyncRenameGardenCommand'];
+export type SyncArchiveGardenCommand = Schemas['SyncArchiveGardenCommand'];
+export type SyncRequestGardenDeletionCommand = Schemas['SyncRequestGardenDeletionCommand'];
+export type SyncGardenCommand = Schemas['SyncGardenCommand'];
+export type SyncAddPlantCommand = Schemas['SyncAddPlantCommand'];
+export type SyncAddPlantFromPhotoCommand = Schemas['SyncAddPlantFromPhotoCommand'];
+export type SyncUpdatePlantDetailsCommand = Schemas['SyncUpdatePlantDetailsCommand'];
+export type SyncAttachPlantPhotoCommand = Schemas['SyncAttachPlantPhotoCommand'];
+export type SyncSetPrimaryPlantPhotoCommand = Schemas['SyncSetPrimaryPlantPhotoCommand'];
+export type SyncConfirmPlantIdentificationCommand =
+  Schemas['SyncConfirmPlantIdentificationCommand'];
+export type SyncTransitionPlantLifecycleStageCommand =
+  Schemas['SyncTransitionPlantLifecycleStageCommand'];
+export type SyncSetPlantStatusCommand = Schemas['SyncSetPlantStatusCommand'];
+export type SyncMovePlantCommand = Schemas['SyncMovePlantCommand'];
+export type SyncPlantCommand = Schemas['SyncPlantCommand'];
+export type SyncRecordObservationCommand = Schemas['SyncRecordObservationCommand'];
+export type SyncCorrectObservationCommand = Schemas['SyncCorrectObservationCommand'];
+export type SyncObservationCommand = Schemas['SyncObservationCommand'];
+export type SyncCreateManualTaskCommand = Schemas['SyncCreateManualTaskCommand'];
+export type SyncEditTaskCommand = Schemas['SyncEditTaskCommand'];
+export type SyncRescheduleTaskCommand = Schemas['SyncRescheduleTaskCommand'];
+export type SyncCompleteTaskCommand = Schemas['SyncCompleteTaskCommand'];
+export type SyncDismissTaskCommand = Schemas['SyncDismissTaskCommand'];
+export type SyncSkipTaskCommand = Schemas['SyncSkipTaskCommand'];
+export type SyncDeleteTaskCommand = Schemas['SyncDeleteTaskCommand'];
+export type SyncAttachTaskFileCommand = Schemas['SyncAttachTaskFileCommand'];
+export type SyncTaskCommand = Schemas['SyncTaskCommand'];
+export type SyncGardenOperationPayload = Schemas['SyncGardenOperationPayload'];
+export type SyncGardenObjectOperationPayload = Schemas['SyncGardenObjectOperationPayload'];
+export type SyncPlantOperationPayload = Schemas['SyncPlantOperationPayload'];
+export type SyncObservationOperationPayload = Schemas['SyncObservationOperationPayload'];
+export type SyncTaskOperationPayload = Schemas['SyncTaskOperationPayload'];
+export type SyncOperationPayload = Schemas['SyncOperationPayload'];
+export type SyncMediaPrerequisite = Schemas['SyncMediaPrerequisite'];
+export type SyncOperation = Schemas['SyncOperation'];
+export type SyncPushRequest = Schemas['SyncPushRequest'];
+export type SyncOperationError = Schemas['SyncOperationError'];
+export type SyncAcceptedOperationResult = Schemas['SyncAcceptedOperationResult'];
+export type SyncDuplicateOperationResult = Schemas['SyncDuplicateOperationResult'];
+export type SyncConflictOperationResult = Schemas['SyncConflictOperationResult'];
+export type SyncRejectedOperationResult = Schemas['SyncRejectedOperationResult'];
+export type SyncBlockedByDependencyOperationResult =
+  Schemas['SyncBlockedByDependencyOperationResult'];
+export type SyncRetryLaterOperationResult = Schemas['SyncRetryLaterOperationResult'];
+export type SyncPushOperationResult = Schemas['SyncPushOperationResult'];
+export type SyncPushResult = Schemas['SyncPushResult'];
+export type SyncUnknownOperationResult = Schemas['SyncUnknownOperationResult'];
+export type SyncOperationLookupResult = Schemas['SyncOperationLookupResult'];
+export type SyncAcknowledgeRequest = Schemas['SyncAcknowledgeRequest'];
+export type SyncAcknowledgeResult = Schemas['SyncAcknowledgeResult'];
+export type SyncClientPlatform = Schemas['SyncClientPlatform'];
+export type SyncClientRegistrationRequest = Schemas['SyncClientRegistrationRequest'];
+export type SyncClientInstallation = Schemas['SyncClientInstallation'];
+
 /** The API base path. Breaking changes require a new major path. */
 export const API_BASE_PATH = '/v1';
 
@@ -210,6 +289,21 @@ export const MapErrorCode = {
 } as const;
 
 export type MapErrorCode = (typeof MapErrorCode)[keyof typeof MapErrorCode];
+
+/**
+ * Error codes the synchronization endpoints raise at the whole-request
+ * level (`PushSyncOperations`, `GetSyncChanges`, `RegisterSyncClient`), as
+ * opposed to a per-operation `SyncRejectedOperationResult.error.code`,
+ * which is module-specific and not enumerated here.
+ */
+export const SyncErrorCode = {
+  /** `protocolVersion` is outside the server's currently supported window. Does not imply the client's local outbox was lost. */
+  ProtocolVersionUnsupported: 'sync.protocol_version.unsupported',
+  /** `after` is older than the server's retained change history; a full resynchronization is required. */
+  CursorExpired: 'sync.changes.cursor_expired',
+} as const;
+
+export type SyncErrorCode = (typeof SyncErrorCode)[keyof typeof SyncErrorCode];
 
 /** Narrows an unknown response body to the shared error envelope. */
 export function isApiError(value: unknown): value is ApiError {

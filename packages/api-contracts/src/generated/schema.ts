@@ -922,6 +922,211 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sync/clients/{clientInstallationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Client-generated UUIDv7. Stable for the lifetime of one app installation on one device. */
+                clientInstallationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Register or refresh client installation metadata
+         * @description Registers a new client installation, or refreshes an already-registered
+         *     one under the same `clientInstallationId` — the "register or refresh"
+         *     step named first in the initial-synchronization sequence. `PUT` at a
+         *     client-known id, not `POST`, because the id is minted by the client
+         *     itself before the first call, not assigned by the server: a second
+         *     call with the same id and current metadata is an ordinary idempotent
+         *     refresh, not an ambiguous re-create.
+         *
+         *     `protocolVersion` is the sync protocol version this installation
+         *     currently speaks. A version below the server's supported window is
+         *     rejected with `409` and `error.code`
+         *     `sync.protocol_version.unsupported`, the same code and meaning
+         *     `PushSyncOperations` and `GetSyncChanges` use — registration is the
+         *     earliest point a badly outdated client can learn it must upgrade,
+         *     before it ever attempts a push. The rejection never deletes anything
+         *     client-side; the local outbox is untouched.
+         *
+         *     Revocation of a client installation (architecture/offline-synchronization.md,
+         *     section "22. Security": "Device installation identifiers are
+         *     application-scoped and revocable") is a support/administrative
+         *     capability with no endpoint in this contract yet — out of scope for
+         *     this work package.
+         *
+         *     Source: architecture/offline-synchronization.md, section
+         *     "12. Initial Synchronization", step 1; section "21. Protocol
+         *     Versioning"; section "22. Security".
+         */
+        put: operations["registerSyncClient"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sync/push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Push a bounded batch of client outbox operations
+         * @description Accepts an ordered batch of client-generated domain commands and
+         *     processes each in dependency-aware order. A batch that is
+         *     structurally valid and correctly authenticated always returns `200`
+         *     with one result per operation — an individual operation conflicting,
+         *     being rejected, or being blocked never fails the whole batch, so
+         *     that independent operations in the same batch can still succeed.
+         *     Only a request-level problem (malformed batch, unsupported protocol
+         *     version, oversized batch) fails before any operation is processed.
+         *
+         *     Unlike every other mutation endpoint in this API, this operation
+         *     does **not** take the shared `Idempotency-Key` header. Per
+         *     architecture/offline-synchronization.md, section "9. Server
+         *     Idempotency" ("Operation ID is the idempotency key for
+         *     synchronization commands"), each operation's own client-generated
+         *     `operationId` already is the idempotency key, scoped to that one
+         *     operation rather than the whole batch — a batch retried with a
+         *     different mix of operations (for example, with already-accepted
+         *     operations dropped) is still meaningful, which a single request-level
+         *     key would not allow for.
+         *
+         *     Every command payload names its own `expectedRevision` where a
+         *     revision precondition applies, the same convention
+         *     `SubmitMapCommand` already established (not a request-level
+         *     `If-Match`), because some commands target more than one record at
+         *     once and need more than one expected revision.
+         *
+         *     `actorProfileId` is never read from any operation payload; the
+         *     server fills it from the authenticated caller for every operation,
+         *     the same rule every other mutation in this API follows. For the same
+         *     reason, an outbox operation's local-only bookkeeping fields — retry
+         *     state and last error category (architecture/offline-synchronization.md,
+         *     section "7. Outbox Operation") — never travel on the wire; they
+         *     describe the client's own retry history, not something the server
+         *     needs to receive.
+         *
+         *     Source: architecture/offline-synchronization.md, sections
+         *     "7. Outbox Operation", "8. Push Protocol", "9. Server Idempotency";
+         *     architecture/api-design.md, section "16. Synchronization Endpoints".
+         */
+        post: operations["pushSyncOperations"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sync/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Pull the server change log since a cursor
+         * @description Returns changes in deterministic, ordered, bounded, resumable pages.
+         *     `nextCursor` is always present, unlike this API's ordinary list
+         *     endpoints (`ListGardens`, `SearchPlants`), whose `nextCursor` is
+         *     absent once the caller reaches the end: an ordinary list is re-listed
+         *     from the start on the next visit, but a sync cursor is a durable
+         *     position a client resumes from indefinitely, including across an
+         *     empty page, so it always needs a valid position to resume from next
+         *     time, even when caught up.
+         *
+         *     Authorization is applied per architecture/offline-synchronization.md,
+         *     section "11. Authorization Changes": a garden the caller has lost
+         *     access to surfaces as an ordinary `record: 'garden'`,
+         *     `operation: 'delete'` change (a tombstone for the whole garden
+         *     partition), not a distinct change shape.
+         *
+         *     Source: architecture/offline-synchronization.md, section
+         *     "10. Pull Protocol"; architecture/api-design.md, section
+         *     "16. Synchronization Endpoints".
+         */
+        get: operations["getSyncChanges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sync/acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Re-learn the durable outcome of already-submitted operations
+         * @description Resolves a genuine gap in architecture/offline-synchronization.md:
+         *     `POST /v1/sync/acknowledge` is named once, in
+         *     architecture/api-design.md section "16. Synchronization Endpoints",
+         *     with no request or response shape and no explanation of what it
+         *     acknowledges, given that push already returns synchronous
+         *     per-operation results (section "8. Push Protocol") and pull's cursor
+         *     advancement is purely client-local with no server round trip
+         *     (section "10. Pull Protocol").
+         *
+         *     This endpoint is resolved as a **cheaper alternative to a full push
+         *     retry**, not a second delivery-confirmation mechanism. Support for
+         *     this reading:
+         *
+         *     - Section "9. Server Idempotency": "An unknown client response after
+         *       a network failure is resolved by retrying the same operation ID" —
+         *       this already fully recovers a lost push response; `acknowledge`
+         *       cannot be required for correctness on top of that.
+         *     - Section "24. Testing Matrix" lists "Lost response after accepted
+         *       server commit" as a scenario the protocol must handle — exactly
+         *       the case a full idempotent retry already resolves, but only by
+         *       resending the complete canonical payload for every operation whose
+         *       outcome is merely unknown to the client, which is wasteful for a
+         *       large batch after, for example, a process death between receiving
+         *       and durably persisting the push response.
+         *     - Nothing in the document describes any server-side effect an
+         *       "acknowledgement" would itself cause — pull needs none (client-local
+         *       cursor advance), and push already durably persists its outcome the
+         *       moment it decides it (idempotency record, same transaction).
+         *
+         *     So: the client submits operation IDs it believes it already pushed,
+         *     with no payload, and receives back each one's stored durable outcome
+         *     — identical in shape to what `PushSyncOperations` would have
+         *     returned — without re-sending the canonical payload. An operation ID
+         *     with no stored outcome (never actually received, or its idempotency
+         *     record has expired) comes back `unknown`; the client's only recourse
+         *     for that one is a real `PushSyncOperations` retry with its full
+         *     payload.
+         *
+         *     Performs no new mutation and takes no `Idempotency-Key` — it only
+         *     reports previously decided outcomes.
+         *
+         *     Source: architecture/offline-synchronization.md, sections
+         *     "8. Push Protocol", "9. Server Idempotency", "24. Testing Matrix";
+         *     architecture/api-design.md, section "16. Synchronization Endpoints".
+         */
+        post: operations["acknowledgeSyncOperations"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1765,6 +1970,648 @@ export interface components {
         AttachTaskFileRequest: {
             mediaId: components["schemas"]["Uuid"];
         };
+        /**
+         * @description Every record type this service's sync change log writes today.
+         *     Matches `SyncRecordType` in
+         *     services/api/src/platform/sync/sync-record-type.ts exactly — grow
+         *     that union first when a module starts writing a new type, then add
+         *     the matching value here.
+         *
+         *     `calibration` has no direct branch in `SyncOperationPayload` below:
+         *     a calibration is written only as a side effect of `map.upsertCalibration`,
+         *     submitted the same way every other map command is, under
+         *     `recordType: 'gardenObject'`.
+         * @enum {string}
+         */
+        SyncRecordType: "garden" | "gardenObject" | "calibration" | "plant" | "observation" | "task";
+        /**
+         * @description The minimum a client needs to know a record changed and at what
+         *     revision, without the full record body — what an `accepted` or
+         *     `duplicate` push result carries.
+         */
+        SyncRecordReference: {
+            recordId: components["schemas"]["Uuid"];
+            recordType: components["schemas"]["SyncRecordType"];
+            revision: components["schemas"]["Revision"];
+        };
+        /**
+         * @description A background-image calibration revision. Recalibration always
+         *     inserts a new row rather than updating one in place, so `revision`
+         *     identifies this specific calibration attempt, not a mutable
+         *     object's current state — mirrors `Calibration` in
+         *     gardens-mapping/application/calibration-repository.ts. Not exposed
+         *     by `SubmitMapCommand`'s own response today; introduced here because
+         *     `GetSyncChanges` needs a real payload for `recordType: 'calibration'`
+         *     upserts, per architecture/offline-synchronization.md's own
+         *     requirement that a change "contains enough information to upsert...
+         *     a local read-model record."
+         */
+        Calibration: {
+            id: components["schemas"]["Uuid"];
+            backgroundObjectId: components["schemas"]["Uuid"];
+            revision: components["schemas"]["Revision"];
+            referencePoints: {
+                imagePixel: components["schemas"]["Position"];
+                localMetres: components["schemas"]["Position"];
+            }[];
+            residualErrorMetres?: number | null;
+            createdByProfileId: components["schemas"]["Uuid"];
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        SyncGardenSnapshot: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            recordType: "garden";
+            data: components["schemas"]["Garden"];
+        };
+        SyncGardenObjectSnapshot: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            recordType: "gardenObject";
+            data: components["schemas"]["GardenObject"];
+        };
+        SyncCalibrationSnapshot: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            recordType: "calibration";
+            data: components["schemas"]["Calibration"];
+        };
+        SyncPlantSnapshot: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            recordType: "plant";
+            data: components["schemas"]["Plant"];
+        };
+        SyncObservationSnapshot: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            recordType: "observation";
+            data: components["schemas"]["Observation"];
+        };
+        SyncTaskSnapshot: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            recordType: "task";
+            data: components["schemas"]["Task"];
+        };
+        /** @description The full current representation of one record, used both for `GetSyncChanges` upserts and for a push `conflict` result's current server state. */
+        SyncRecordSnapshot: components["schemas"]["SyncGardenSnapshot"] | components["schemas"]["SyncGardenObjectSnapshot"] | components["schemas"]["SyncCalibrationSnapshot"] | components["schemas"]["SyncPlantSnapshot"] | components["schemas"]["SyncObservationSnapshot"] | components["schemas"]["SyncTaskSnapshot"];
+        /**
+         * @description One row of `platform.sync_change`. `record` is present when
+         *     `operation` is `'upsert'` and absent when `operation` is `'delete'`
+         *     — a tombstone's identity, type, garden, revision, and sequence are
+         *     already the sibling fields above; no further payload is needed to
+         *     apply it, per architecture/offline-synchronization.md, section
+         *     "17. Deletion and Tombstones".
+         *
+         *     Source: services/api/src/platform/sync/sync-change-recorder.ts;
+         *     services/api/src/platform/database/platform-schema.ts (`SyncChangeRow`).
+         */
+        SyncChange: {
+            /**
+             * Format: int64
+             * @description Strictly increasing within a garden partition. The pull cursor's ordering key.
+             */
+            sequence: number;
+            /** @description `null` only for a record with no owning garden; every change this service produces today always has one. */
+            gardenId: components["schemas"]["Uuid"] | null;
+            recordId: components["schemas"]["Uuid"];
+            recordType: components["schemas"]["SyncRecordType"];
+            /** @enum {string} */
+            operation: "upsert" | "delete";
+            recordRevision: components["schemas"]["Revision"];
+            committedAt: components["schemas"]["Timestamp"];
+            record?: components["schemas"]["SyncRecordSnapshot"];
+        };
+        /**
+         * @description Unlike `GardenListResult`/`PlantListResult`, `nextCursor` is always
+         *     present, including on an empty or final page — see `GetSyncChanges`'s
+         *     own description for why a durable sync cursor cannot use this
+         *     contract's ordinary "absent once caught up" list convention.
+         */
+        SyncChangesResult: {
+            items: components["schemas"]["SyncChange"][];
+            /** @description Opaque continuation token for the next `GetSyncChanges` call. Clients must not parse it. */
+            nextCursor: string;
+        };
+        /** @description The new garden's id is `SyncGardenOperationPayload.gardenId`, not a field here — client-generated, the same way `CreateMapObjectCommand.objectId` is. */
+        SyncCreateGardenCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            commandType: "gardens.create";
+            request: components["schemas"]["CreateGardenRequest"];
+        };
+        SyncRenameGardenCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            commandType: "gardens.rename";
+            expectedRevision: components["schemas"]["Revision"];
+            request: components["schemas"]["RenameGardenRequest"];
+        };
+        SyncArchiveGardenCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            commandType: "gardens.archive";
+            expectedRevision: components["schemas"]["Revision"];
+        };
+        SyncRequestGardenDeletionCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            commandType: "gardens.delete_request";
+            expectedRevision: components["schemas"]["Revision"];
+        };
+        /**
+         * @description `commandType` values match this codebase's own internal `OPERATION`
+         *     idempotency-operation constants (for example `gardens-mapping/application/rename-garden.ts`'s
+         *     `'gardens.rename'`) exactly, rather than inventing a parallel naming
+         *     scheme, across every command family below.
+         */
+        SyncGardenCommand: components["schemas"]["SyncCreateGardenCommand"] | components["schemas"]["SyncRenameGardenCommand"] | components["schemas"]["SyncArchiveGardenCommand"] | components["schemas"]["SyncRequestGardenDeletionCommand"];
+        /** @description `plantId` is client-generated, carried here because `AddPlantRequest` itself has no id field — REST creation assigns one server-side, but offline optimistic creation needs a stable id up front. */
+        SyncAddPlantCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            commandType: "plants.addPlant";
+            plantId: components["schemas"]["Uuid"];
+            request: components["schemas"]["AddPlantRequest"];
+        };
+        SyncAddPlantFromPhotoCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            commandType: "plants.addPlantFromPhoto";
+            plantId: components["schemas"]["Uuid"];
+            request: components["schemas"]["AddPlantFromPhotoRequest"];
+        };
+        SyncUpdatePlantDetailsCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            commandType: "plants.updateDetails";
+            plantId: components["schemas"]["Uuid"];
+            expectedRevision: components["schemas"]["Revision"];
+            request: components["schemas"]["UpdatePlantDetailsRequest"];
+        };
+        /** @description No `expectedRevision` — a photo is a child record, not a field of the plant, the same rule `AttachPlantPhoto` documents. */
+        SyncAttachPlantPhotoCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            commandType: "plants.attachPlantPhoto";
+            plantId: components["schemas"]["Uuid"];
+            /** @description Client-generated id for the new photo record. */
+            plantPhotoId: components["schemas"]["Uuid"];
+            request: components["schemas"]["AttachPlantPhotoRequest"];
+        };
+        SyncSetPrimaryPlantPhotoCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            commandType: "plants.setPrimaryPlantPhoto";
+            plantId: components["schemas"]["Uuid"];
+            /** @description An existing photo of this plant. */
+            plantPhotoId: components["schemas"]["Uuid"];
+        };
+        /** @description No request body, matching `ConfirmPlantIdentification`, which takes only path parameters and `If-Match`. */
+        SyncConfirmPlantIdentificationCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            commandType: "plants.confirmIdentification";
+            plantId: components["schemas"]["Uuid"];
+            identificationId: components["schemas"]["Uuid"];
+            expectedRevision: components["schemas"]["Revision"];
+        };
+        SyncTransitionPlantLifecycleStageCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            commandType: "plants.transitionLifecycleStage";
+            plantId: components["schemas"]["Uuid"];
+            expectedRevision: components["schemas"]["Revision"];
+            request: components["schemas"]["TransitionPlantLifecycleStageRequest"];
+        };
+        SyncSetPlantStatusCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            commandType: "plants.setStatus";
+            plantId: components["schemas"]["Uuid"];
+            expectedRevision: components["schemas"]["Revision"];
+            request: components["schemas"]["SetPlantStatusRequest"];
+        };
+        SyncMovePlantCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            commandType: "plants.movePlant";
+            plantId: components["schemas"]["Uuid"];
+            expectedRevision: components["schemas"]["Revision"];
+            request: components["schemas"]["MovePlantRequest"];
+        };
+        SyncPlantCommand: components["schemas"]["SyncAddPlantCommand"] | components["schemas"]["SyncAddPlantFromPhotoCommand"] | components["schemas"]["SyncUpdatePlantDetailsCommand"] | components["schemas"]["SyncAttachPlantPhotoCommand"] | components["schemas"]["SyncSetPrimaryPlantPhotoCommand"] | components["schemas"]["SyncConfirmPlantIdentificationCommand"] | components["schemas"]["SyncTransitionPlantLifecycleStageCommand"] | components["schemas"]["SyncSetPlantStatusCommand"] | components["schemas"]["SyncMovePlantCommand"];
+        /** @description `observationId` is client-generated, the same reasoning as `SyncAddPlantCommand.plantId`. */
+        SyncRecordObservationCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            commandType: "observations.record";
+            observationId: components["schemas"]["Uuid"];
+            request: components["schemas"]["RecordObservationRequest"];
+        };
+        /**
+         * @description A correction inserts a new observation row rather than editing the
+         *     original, so this command has two distinct ids: `correctedObservationId`
+         *     (existing, the one being corrected) and `observationId` (new,
+         *     client-generated, the correction row itself) — mirrors
+         *     `CorrectObservation`'s own path parameter versus response identity.
+         *     No `expectedRevision`: observations carry no revision, matching
+         *     `CorrectObservation` having no `If-Match`.
+         */
+        SyncCorrectObservationCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            commandType: "observations.correct";
+            correctedObservationId: components["schemas"]["Uuid"];
+            observationId: components["schemas"]["Uuid"];
+            request: components["schemas"]["CorrectObservationRequest"];
+        };
+        SyncObservationCommand: components["schemas"]["SyncRecordObservationCommand"] | components["schemas"]["SyncCorrectObservationCommand"];
+        /** @description `taskId` is client-generated, the same reasoning as `SyncAddPlantCommand.plantId`. */
+        SyncCreateManualTaskCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            commandType: "tasks.createManualTask";
+            taskId: components["schemas"]["Uuid"];
+            request: components["schemas"]["CreateManualTaskRequest"];
+        };
+        SyncEditTaskCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            commandType: "tasks.editTask";
+            taskId: components["schemas"]["Uuid"];
+            expectedRevision: components["schemas"]["Revision"];
+            request: components["schemas"]["EditTaskRequest"];
+        };
+        SyncRescheduleTaskCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            commandType: "tasks.rescheduleTask";
+            taskId: components["schemas"]["Uuid"];
+            expectedRevision: components["schemas"]["Revision"];
+            request: components["schemas"]["RescheduleTaskRequest"];
+        };
+        SyncCompleteTaskCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            commandType: "tasks.completeTask";
+            taskId: components["schemas"]["Uuid"];
+            expectedRevision: components["schemas"]["Revision"];
+            request: components["schemas"]["CompleteTaskRequest"];
+        };
+        SyncDismissTaskCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            commandType: "tasks.dismissTask";
+            taskId: components["schemas"]["Uuid"];
+            expectedRevision: components["schemas"]["Revision"];
+            request: components["schemas"]["DismissTaskRequest"];
+        };
+        /** @description No request body, matching `SkipTask`, which takes only `If-Match`. */
+        SyncSkipTaskCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            commandType: "tasks.skipTask";
+            taskId: components["schemas"]["Uuid"];
+            expectedRevision: components["schemas"]["Revision"];
+        };
+        /** @description No request body, matching `DeleteTask`, which takes only `If-Match`. A status transition to `'deleted'`, not a sync tombstone — the same distinction `RequestGardenDeletion` documents for gardens. */
+        SyncDeleteTaskCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            commandType: "tasks.deleteTask";
+            taskId: components["schemas"]["Uuid"];
+            expectedRevision: components["schemas"]["Revision"];
+        };
+        /** @description No `expectedRevision` — an attachment is a child record, not a field of the task, the same rule `AttachTaskFile` documents. */
+        SyncAttachTaskFileCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            commandType: "tasks.attachTaskFile";
+            taskId: components["schemas"]["Uuid"];
+            /** @description Client-generated id for the new attachment record. */
+            taskAttachmentId: components["schemas"]["Uuid"];
+            request: components["schemas"]["AttachTaskFileRequest"];
+        };
+        SyncTaskCommand: components["schemas"]["SyncCreateManualTaskCommand"] | components["schemas"]["SyncEditTaskCommand"] | components["schemas"]["SyncRescheduleTaskCommand"] | components["schemas"]["SyncCompleteTaskCommand"] | components["schemas"]["SyncDismissTaskCommand"] | components["schemas"]["SyncSkipTaskCommand"] | components["schemas"]["SyncDeleteTaskCommand"] | components["schemas"]["SyncAttachTaskFileCommand"];
+        /** @description For every `command` here, `gardenId` names the target garden itself — for `gardens.create`, the client-generated id of the new garden. */
+        SyncGardenOperationPayload: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            recordType: "garden";
+            gardenId: components["schemas"]["Uuid"];
+            command: components["schemas"]["SyncGardenCommand"];
+        };
+        /**
+         * @description Reuses `MapCommandPayload` — the same 13-command union
+         *     `SubmitMapCommand` already accepts — unchanged, rather than
+         *     redefining map commands a second time for sync. `gardenId` is
+         *     explicit here (unlike `SubmitMapCommand`, which reads it from the
+         *     URL path) because `PushSyncOperations` has no per-garden path
+         *     segment: one batch can carry operations for more than one garden.
+         */
+        SyncGardenObjectOperationPayload: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            recordType: "gardenObject";
+            gardenId: components["schemas"]["Uuid"];
+            command: components["schemas"]["MapCommandPayload"];
+        };
+        SyncPlantOperationPayload: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            recordType: "plant";
+            gardenId: components["schemas"]["Uuid"];
+            command: components["schemas"]["SyncPlantCommand"];
+        };
+        SyncObservationOperationPayload: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            recordType: "observation";
+            gardenId: components["schemas"]["Uuid"];
+            command: components["schemas"]["SyncObservationCommand"];
+        };
+        SyncTaskOperationPayload: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            recordType: "task";
+            gardenId: components["schemas"]["Uuid"];
+            command: components["schemas"]["SyncTaskCommand"];
+        };
+        /**
+         * @description The outbox operation's canonical payload — a `oneOf` grouped by
+         *     target record family (`garden`, `gardenObject`/map commands,
+         *     `plant`, `observation`, `task`: every record type Phase 4/5
+         *     established that has a client-issuable command today), each family
+         *     then discriminated again on its own `commandType`. Deliberately not
+         *     one flat 24-branch `oneOf` on a single discriminator: `gardenObject`
+         *     reuses `MapCommandPayload` wholesale, which already discriminates
+         *     internally on `type`, not `commandType`, so a single shared
+         *     discriminator property across every branch is not possible without
+         *     modifying that existing schema.
+         *
+         *     `media` is intentionally not a sixth family: media registration and
+         *     upload have their own lifecycle (architecture/offline-synchronization.md,
+         *     section "18. Media Coordination") and are declared per-operation via
+         *     `SyncOperation.mediaPrerequisites`, not submitted as a sync command
+         *     themselves.
+         */
+        SyncOperationPayload: components["schemas"]["SyncGardenOperationPayload"] | components["schemas"]["SyncGardenObjectOperationPayload"] | components["schemas"]["SyncPlantOperationPayload"] | components["schemas"]["SyncObservationOperationPayload"] | components["schemas"]["SyncTaskOperationPayload"];
+        /**
+         * @description Declares whether an operation may be accepted before its referenced
+         *     media finishes uploading, per architecture/offline-synchronization.md,
+         *     section "18. Media Coordination".
+         */
+        SyncMediaPrerequisite: {
+            mediaId: components["schemas"]["Uuid"];
+            /**
+             * @description `true` for something like a new observation that may sync with `mediaPending`; `false` (the default) for a command that requires verified source media and must stay `blockedByDependency` until it is.
+             * @default false
+             */
+            allowPendingUpload: boolean;
+        };
+        /**
+         * @description One outbox operation on the wire. Per architecture/offline-synchronization.md,
+         *     section "7. Outbox Operation", two of that section's local outbox
+         *     fields never appear here: "Authenticated profile ID" (the server
+         *     fills it from the authenticated caller, never a client claim — the
+         *     same rule `SubmitMapCommand` documents for `actorProfileId`) and
+         *     "Retry state and last error category" (purely local bookkeeping
+         *     about the client's own retry history). "Target record IDs" and
+         *     "Expected server revision" also aren't repeated here as generic
+         *     fields — they live inside `payload`'s own typed command, the same
+         *     way `MapCommandPayload`'s branches already carry their own
+         *     `objectId`/`expectedRevision` rather than a generic pair at the
+         *     `MapCommandRequest` level.
+         */
+        SyncOperation: {
+            /** @description Client-generated. The idempotency key for this operation (section "9. Server Idempotency") — reusing it with an identical payload replays the stored outcome; reusing it with a different payload is `rejected`. */
+            operationId: components["schemas"]["Uuid"];
+            /** @description This operation's own command payload version, when it differs from the batch's `operationPayloadVersion` — for example, an operation that has sat unsent in the outbox since before a payload-version bump the rest of this batch was authored under. Defaults to `operationPayloadVersion` when omitted. */
+            commandVersion?: number;
+            /**
+             * Format: int64
+             * @description This operation's position in the client's own local outbox, not its position within this batch — lets the server and telemetry distinguish "batch item 3" from "outbox item 4102" for backlog observability (section "23. Observability").
+             */
+            localSequence: number;
+            /**
+             * @description Operation IDs — in this batch or an earlier one — that must be `accepted` or `duplicate` before this one may process. Makes ordering explicit per section "16. Ordering".
+             * @default []
+             */
+            dependsOnOperationIds: components["schemas"]["Uuid"][];
+            /** @default [] */
+            mediaPrerequisites: components["schemas"]["SyncMediaPrerequisite"][];
+            payload: components["schemas"]["SyncOperationPayload"];
+        };
+        /**
+         * @description Profile is implicit from the authenticated caller, never a request
+         *     field, the same rule every other mutation in this API follows.
+         *     `protocolVersion` is the wire/envelope version (section
+         *     "21. Protocol Versioning"); `operationPayloadVersion` is the default
+         *     command-payload version this batch was authored under — see
+         *     `SyncOperation.commandVersion` for why an individual operation can
+         *     still override it.
+         */
+        SyncPushRequest: {
+            clientInstallationId: components["schemas"]["Uuid"];
+            protocolVersion: number;
+            operationPayloadVersion: number;
+            operations: components["schemas"]["SyncOperation"][];
+        };
+        /** @description Per-operation error detail for a `rejected` push result. Deliberately not the shared `Error` schema's `error` object reused by reference — that shape is the HTTP response envelope; this is one line item inside a `200` batch response, with no `correlationId` or `retryable` of its own. */
+        SyncOperationError: {
+            /** @description Stable dotted code, the same convention `Error.error.code` uses. A reused operation ID with a different payload uses `request.idempotency.key_reused`, the exact code `SharedErrorCode.IdempotencyKeyReused` already names. */
+            code: string;
+            message: string;
+            details?: components["schemas"]["ErrorDetail"][];
+        };
+        SyncAcceptedOperationResult: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            outcome: "accepted";
+            operationId: components["schemas"]["Uuid"];
+            /** @description Every record this operation created or changed, at its new revision — more than one entry for a command like `map.joinLinework` that affects two objects at once. */
+            recordRevisions: components["schemas"]["SyncRecordReference"][];
+        };
+        /**
+         * @description This exact operation ID, with an identical payload, was already
+         *     `accepted` by a prior push — `recordRevisions` is the same value
+         *     that original acceptance produced; no new mutation ran. A retry of
+         *     an operation whose prior outcome was `rejected`, `conflict`,
+         *     `blockedByDependency`, or `retryLater` simply returns that same
+         *     outcome again, not `duplicate` — only a previously `accepted`
+         *     operation, which had a lasting effect that must not repeat, needs
+         *     this distinct label.
+         */
+        SyncDuplicateOperationResult: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            outcome: "duplicate";
+            operationId: components["schemas"]["Uuid"];
+            recordRevisions: components["schemas"]["SyncRecordReference"][];
+        };
+        /** @description Per section "14.2 Same Mutable Object" — carries the current authorized representation, its current revision (inside `currentRecord`), and a stable conflict type. The original local command remains locally recoverable; this response does not discard it. */
+        SyncConflictOperationResult: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            outcome: "conflict";
+            operationId: components["schemas"]["Uuid"];
+            /** @description Stable machine-readable conflict type, localized client-side. */
+            conflictCode: string;
+            currentRecord: components["schemas"]["SyncRecordSnapshot"];
+        };
+        SyncRejectedOperationResult: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            outcome: "rejected";
+            operationId: components["schemas"]["Uuid"];
+            error: components["schemas"]["SyncOperationError"];
+        };
+        SyncBlockedByDependencyOperationResult: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            outcome: "blockedByDependency";
+            operationId: components["schemas"]["Uuid"];
+            blockingOperationIds: components["schemas"]["Uuid"][];
+        };
+        /** @description A transient server-side condition, not a domain outcome — safe for the client to retry with the identical operation ID and payload, unlike `rejected`. */
+        SyncRetryLaterOperationResult: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            outcome: "retryLater";
+            operationId: components["schemas"]["Uuid"];
+            retryAfterSeconds?: number;
+            /** @description Short machine code for telemetry, for example `server.dependency_unavailable`. */
+            reason?: string;
+        };
+        /** @description The exact six outcomes architecture/offline-synchronization.md, section "8. Push Protocol" names, no more and no fewer. */
+        SyncPushOperationResult: components["schemas"]["SyncAcceptedOperationResult"] | components["schemas"]["SyncDuplicateOperationResult"] | components["schemas"]["SyncConflictOperationResult"] | components["schemas"]["SyncRejectedOperationResult"] | components["schemas"]["SyncBlockedByDependencyOperationResult"] | components["schemas"]["SyncRetryLaterOperationResult"];
+        SyncPushResult: {
+            /** @description Same length and order as the request's `operations`. */
+            results: components["schemas"]["SyncPushOperationResult"][];
+        };
+        /** @description No durable outcome is stored for this operation ID under this profile — never actually pushed, or its idempotency record has expired. The client's only recourse is a real `PushSyncOperations` call with the operation's full canonical payload. */
+        SyncUnknownOperationResult: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            outcome: "unknown";
+            operationId: components["schemas"]["Uuid"];
+        };
+        /** @description `AcknowledgeSyncOperations`'s result: the same six push outcomes, reusing those exact schemas, plus `unknown` for an operation ID the server has no stored result for. */
+        SyncOperationLookupResult: components["schemas"]["SyncAcceptedOperationResult"] | components["schemas"]["SyncDuplicateOperationResult"] | components["schemas"]["SyncConflictOperationResult"] | components["schemas"]["SyncRejectedOperationResult"] | components["schemas"]["SyncBlockedByDependencyOperationResult"] | components["schemas"]["SyncRetryLaterOperationResult"] | components["schemas"]["SyncUnknownOperationResult"];
+        SyncAcknowledgeRequest: {
+            clientInstallationId: components["schemas"]["Uuid"];
+            /** @description Operation IDs the client believes it already pushed and wants the durable outcome of, without resending their payloads. */
+            operationIds: components["schemas"]["Uuid"][];
+        };
+        SyncAcknowledgeResult: {
+            /** @description Same length and order as the request's `operationIds`. */
+            results: components["schemas"]["SyncOperationLookupResult"][];
+        };
+        /**
+         * @description The two application platforms this API serves, per architecture/api-design.md's own opening line ("the native Apple and web applications").
+         * @enum {string}
+         */
+        SyncClientPlatform: "ios" | "web";
+        SyncClientRegistrationRequest: {
+            platform: components["schemas"]["SyncClientPlatform"];
+            /** @description Build version of the calling client, as free text — the same untyped convention `LivenessResult.version` already uses. */
+            appVersion: string;
+            /** @description The maximum sync protocol version this installation currently supports. */
+            protocolVersion: number;
+        };
+        SyncClientInstallation: {
+            id: components["schemas"]["Uuid"];
+            platform: components["schemas"]["SyncClientPlatform"];
+            appVersion: string;
+            protocolVersion: number;
+            registeredAt: components["schemas"]["Timestamp"];
+            /** @description Set to the current time on every successful register-or-refresh call. */
+            lastSeenAt: components["schemas"]["Timestamp"];
+        };
     };
     responses: {
         /** @description The request is malformed or fails validation. */
@@ -1860,6 +2707,15 @@ export interface components {
         Cursor: string;
         /** @description Maximum items to return. */
         Limit: number;
+        /**
+         * @description Opaque continuation token from a previous `GetSyncChanges` page.
+         *     Omit only for a first-ever pull. Clients must not parse it. Named
+         *     `after`, not `cursor`, matching the exact query parameter name
+         *     architecture/api-design.md section "16. Synchronization Endpoints"
+         *     and architecture/offline-synchronization.md section "10. Pull
+         *     Protocol" both specify for this one endpoint.
+         */
+        SyncAfterCursor: string;
     };
     requestBodies: never;
     headers: {
@@ -3200,6 +4056,192 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    registerSyncClient: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Client-generated UUIDv7. Stable for the lifetime of one app installation on one device. */
+                clientInstallationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SyncClientRegistrationRequest"];
+            };
+        };
+        responses: {
+            /** @description The refreshed client installation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncClientInstallation"];
+                };
+            };
+            /** @description The newly registered client installation. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncClientInstallation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /**
+             * @description `error.code` `sync.protocol_version.unsupported`: `protocolVersion`
+             *     is outside the server's currently supported window.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    pushSyncOperations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SyncPushRequest"];
+            };
+        };
+        responses: {
+            /** @description One result per submitted operation, in request order. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncPushResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /**
+             * @description `error.code` `sync.protocol_version.unsupported`: `protocolVersion`
+             *     is outside the server's currently supported window. The client's
+             *     local outbox is not implied lost by this response.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description `operations` exceeds the maximum batch size. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getSyncChanges: {
+        parameters: {
+            query: {
+                /**
+                 * @description Opaque continuation token from a previous `GetSyncChanges` page.
+                 *     Omit only for a first-ever pull. Clients must not parse it. Named
+                 *     `after`, not `cursor`, matching the exact query parameter name
+                 *     architecture/api-design.md section "16. Synchronization Endpoints"
+                 *     and architecture/offline-synchronization.md section "10. Pull
+                 *     Protocol" both specify for this one endpoint.
+                 */
+                after?: components["parameters"]["SyncAfterCursor"];
+                /** @description Maximum items to return. */
+                limit?: components["parameters"]["Limit"];
+                /** @description The sync protocol version this client currently speaks, checked the same way `PushSyncOperations` checks it. */
+                protocolVersion: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of changes plus the cursor to resume from. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncChangesResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /**
+             * @description One of two stable `error.code` values: `sync.changes.cursor_expired`
+             *     (`after` is older than retained history) or
+             *     `sync.protocol_version.unsupported` (`protocolVersion` is outside
+             *     the server's supported window). Both require a full
+             *     resynchronization per architecture/offline-synchronization.md,
+             *     section "13. Full Resynchronization".
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    acknowledgeSyncOperations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SyncAcknowledgeRequest"];
+            };
+        };
+        responses: {
+            /** @description One result per requested operation ID, in request order. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncAcknowledgeResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
 }
