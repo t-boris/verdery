@@ -262,6 +262,12 @@ public enum LocalizationKey: String, Sendable, CaseIterable {
     case plantsTaxonomyLabel = "plants.taxonomyLabel"
     case plantsTaxonomyNone = "plants.taxonomyNone"
     case plantsTaxonomyClear = "plants.taxonomyClear"
+    /// Fallback for the detail screen's identification summary when an
+    /// existing plant's `taxonomyReferenceId` cannot be resolved to a
+    /// friendly name — there is no `GET` for a single taxonomy reference,
+    /// only `SearchTaxonomyReferences`. See `PlantDetailViewModel
+    /// .selectedTaxonomyReferenceDisplay`'s doc comment.
+    case plantsTaxonomyIdentifiedId = "plants.taxonomyIdentifiedId"
     case plantsGardenAreaLabel = "plants.gardenAreaLabel"
     case plantsPlacementLabel = "plants.placementLabel"
     case plantsMapObjectIdHint = "plants.mapObjectIdHint"
@@ -332,6 +338,10 @@ public enum LocalizationKey: String, Sendable, CaseIterable {
     case observationsAnalysisKindDisease = "observations.analysisKind.disease"
     case observationsAnalysisKindPest = "observations.analysisKind.pest"
     case observationsAnalysisKindOther = "observations.analysisKind.other"
+    /// A correction row's own label: names the observation it corrects, the
+    /// same way `apps/web/features/observations/observation-entry.tsx`
+    /// renders `"{kind} of observation {id}"`.
+    case observationsCorrectionOf = "observations.correctionOf"
 
     // Tasks: list, filter, create form, and per-task actions (P4-IOS-01).
     case tasksTitle = "tasks.title"

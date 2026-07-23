@@ -264,6 +264,7 @@
 "plants.taxonomyLabel" = "Species";
 "plants.taxonomyNone" = "Not identified";
 "plants.taxonomyClear" = "Clear identification";
+"plants.taxonomyIdentifiedId" = "Identified: {id}";
 "plants.gardenAreaLabel" = "Garden area object ID";
 "plants.placementLabel" = "Placement object ID";
 "plants.mapObjectIdHint" = "Paste a map object ID directly — a picker isn't wired up yet.";
@@ -334,6 +335,7 @@
 "observations.analysisKind.disease" = "Disease";
 "observations.analysisKind.pest" = "Pest";
 "observations.analysisKind.other" = "Other";
+"observations.correctionOf" = "{kind} of observation {id}";
 
 /* Tasks: list, filter, create form, and per-task actions. */
 "tasks.title" = "Tasks";

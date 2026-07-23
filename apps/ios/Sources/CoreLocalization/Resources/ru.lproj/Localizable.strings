@@ -264,6 +264,7 @@
 "plants.taxonomyLabel" = "Вид";
 "plants.taxonomyNone" = "Не определён";
 "plants.taxonomyClear" = "Сбросить определение";
+"plants.taxonomyIdentifiedId" = "Определён: {id}";
 "plants.gardenAreaLabel" = "ID объекта зоны сада";
 "plants.placementLabel" = "ID объекта размещения";
 "plants.mapObjectIdHint" = "Вставьте ID объекта карты вручную — выбор из списка пока не реализован.";
@@ -334,6 +335,7 @@
 "observations.analysisKind.disease" = "Болезнь";
 "observations.analysisKind.pest" = "Вредитель";
 "observations.analysisKind.other" = "Другое";
+"observations.correctionOf" = "{kind} наблюдения {id}";
 
 /* Задачи: список, фильтр, форма создания и действия с задачей. */
 "tasks.title" = "Задачи";

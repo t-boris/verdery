@@ -13,12 +13,15 @@ struct PlantDetailViewModelTests {
         id: String = "plant-1",
         revision: Int = 1,
         status: PlantStatus = .active,
-        stage: PlantLifecycleStage = .seedling
+        stage: PlantLifecycleStage = .seedling,
+        taxonomyReferenceId: String? = nil,
+        groupingKind: PlantGroupingKind = .individual,
+        quantity: Int? = nil
     ) -> Plant {
         Plant(
             id: id, gardenId: "garden-1", gardenAreaMapObjectId: nil, placementMapObjectId: nil,
-            displayName: "Tomato", taxonomyReferenceId: nil, varietyLabel: nil, acceptedIdentificationId: nil,
-            acquisitionDate: nil, acquisitionDateType: nil, groupingKind: .individual, quantity: nil,
+            displayName: "Tomato", taxonomyReferenceId: taxonomyReferenceId, varietyLabel: nil, acceptedIdentificationId: nil,
+            acquisitionDate: nil, acquisitionDateType: nil, groupingKind: groupingKind, quantity: quantity,
             lifecycleStage: stage, status: status, conditionNote: nil, careGuidanceNote: nil, revision: revision,
             createdByProfileId: "profile-1", createdAt: Date(timeIntervalSince1970: 0), updatedAt: Date(timeIntervalSince1970: 0)
         )
@@ -33,6 +36,7 @@ struct PlantDetailViewModelTests {
             transitionPlantLifecycleStage: TransitionPlantLifecycleStage(gateway: gateway),
             setPlantStatus: SetPlantStatus(gateway: gateway),
             movePlant: MovePlant(gateway: gateway),
+            searchTaxonomyReferences: SearchTaxonomyReferences(gateway: gateway),
             strings: LocalizedStrings(locale: Locale(identifier: "en_GB"))
         )
     }
@@ -166,5 +170,128 @@ struct PlantDetailViewModelTests {
             return
         }
         #expect(summary.revision == 2)
+    }
+
+    @Test("load exposes the raw groupingKind alongside its localized label")
+    func loadExposesRawGroupingKind() async {
+        let gateway = FakePlantGateway(plants: [plant(groupingKind: .row, quantity: 3)])
+        let model = makeModel(gateway: gateway)
+
+        await model.load()
+
+        guard case let .loaded(summary) = model.state else {
+            Issue.record("Expected loaded state")
+            return
+        }
+        #expect(summary.groupingKind == .row)
+    }
+
+    @Test("saveDetails leaves quantity untouched for an individual plant, even if the field holds text")
+    func saveDetailsIgnoresQuantityForIndividualPlant() async {
+        let gateway = FakePlantGateway(plants: [plant(groupingKind: .individual, quantity: nil)])
+        let model = makeModel(gateway: gateway)
+        await model.load()
+
+        // A gated view never lets this happen, but the view model must not
+        // rely on the view alone: an `.individual` plant's quantity must
+        // stay `.unchanged` on the wire regardless of stale form state.
+        model.editedQuantityText = "5"
+        await model.saveDetails()
+
+        guard case let .loaded(summary) = model.state else {
+            Issue.record("Expected loaded state")
+            return
+        }
+        #expect(summary.quantity == nil)
+    }
+
+    @Test("saveDetails applies an edited quantity for a row plant")
+    func saveDetailsAppliesQuantityForRowPlant() async {
+        let gateway = FakePlantGateway(plants: [plant(groupingKind: .row, quantity: 3)])
+        let model = makeModel(gateway: gateway)
+        await model.load()
+
+        model.editedQuantityText = "7"
+        await model.saveDetails()
+
+        guard case let .loaded(summary) = model.state else {
+            Issue.record("Expected loaded state")
+            return
+        }
+        #expect(summary.quantity == 7)
+    }
+
+    @Test("load populates editedTaxonomyReferenceId, and an unresolved id shows a fallback summary")
+    func loadPopulatesTaxonomyFallback() async {
+        let gateway = FakePlantGateway(plants: [plant(taxonomyReferenceId: "tax-1")])
+        let model = makeModel(gateway: gateway)
+
+        await model.load()
+
+        #expect(model.editedTaxonomyReferenceId == "tax-1")
+        #expect(model.selectedTaxonomySummary.contains("tax-1"))
+    }
+
+    @Test("An unidentified plant's taxonomy summary reads 'not identified'")
+    func loadPopulatesTaxonomyNone() async {
+        let gateway = FakePlantGateway(plants: [plant(taxonomyReferenceId: nil)])
+        let model = makeModel(gateway: gateway)
+
+        await model.load()
+
+        #expect(model.editedTaxonomyReferenceId == nil)
+        #expect(model.selectedTaxonomySummary == model.taxonomyNoneLabel)
+    }
+
+    @Test("selectTaxonomy sets the selection, shows its friendly name, and closes the picker")
+    func selectTaxonomyUpdatesSelection() async {
+        let gateway = FakePlantGateway(plants: [plant()])
+        let model = makeModel(gateway: gateway)
+        await model.load()
+        model.isTaxonomyPickerPresented = true
+        let reference = TaxonomyReference(
+            id: "tax-2", scientificName: "Solanum lycopersicum", commonName: "Tomato", varietyName: nil,
+            source: .systemCatalog, createdByProfileId: nil, createdAt: Date(timeIntervalSince1970: 0)
+        )
+
+        model.selectTaxonomy(reference)
+
+        #expect(model.editedTaxonomyReferenceId == "tax-2")
+        #expect(model.selectedTaxonomySummary == "Tomato")
+        #expect(model.isTaxonomyPickerPresented == false)
+    }
+
+    @Test("clearTaxonomy resets the selection back to 'not identified'")
+    func clearTaxonomyResetsSelection() async {
+        let gateway = FakePlantGateway(plants: [plant(taxonomyReferenceId: "tax-1")])
+        let model = makeModel(gateway: gateway)
+        await model.load()
+
+        model.clearTaxonomy()
+
+        #expect(model.editedTaxonomyReferenceId == nil)
+        #expect(model.selectedTaxonomySummary == model.taxonomyNoneLabel)
+    }
+
+    @Test("saveDetails persists the edited taxonomy selection")
+    func saveDetailsPersistsTaxonomySelection() async {
+        let gateway = FakePlantGateway(plants: [plant(taxonomyReferenceId: nil)])
+        let model = makeModel(gateway: gateway)
+        await model.load()
+        let reference = TaxonomyReference(
+            id: "tax-3", scientificName: "Solanum lycopersicum", commonName: "Tomato", varietyName: nil,
+            source: .systemCatalog, createdByProfileId: nil, createdAt: Date(timeIntervalSince1970: 0)
+        )
+        model.selectTaxonomy(reference)
+
+        await model.saveDetails()
+
+        // Round-tripped through the gateway, not just the local field: this
+        // confirms `updatePlantDetails` was actually called with the new id.
+        guard case let .loaded(summary) = model.state else {
+            Issue.record("Expected loaded state")
+            return
+        }
+        #expect(summary.taxonomyReferenceId == "tax-3")
     }
 }

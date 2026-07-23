@@ -147,11 +147,13 @@ public struct ObservationsTimelineView: View {
                         .padding(.horizontal, 6)
                         .background(Capsule().fill(Color.secondary.opacity(0.2)))
                 }
-                if let correctionKindLabel = row.correctionKindLabel {
-                    Text(correctionKindLabel)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+            }
+
+            if let correctionOfText = model.correctionOfText(for: row) {
+                Text(correctionOfText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("observations.row.\(row.id).correctionOf")
             }
 
             if let noteText = row.noteText, !noteText.isEmpty {

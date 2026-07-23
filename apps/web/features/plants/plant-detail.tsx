@@ -55,6 +55,7 @@ export function PlantDetail({ gardenId, plantId }: PlantDetailProps) {
         {plant.quantity !== null && (
           <span>{t('plants.quantityDisplay', { quantity: plant.quantity })}</span>
         )}
+        {plant.taxonomyReferenceId === null && <span>{t('plants.taxonomyNone')}</span>}
       </div>
 
       <Alert tone="info" title={t('plants.mediaGapTitle')}>

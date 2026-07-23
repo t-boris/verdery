@@ -98,6 +98,18 @@ public final class ObservationsTimelineViewModel {
         ObservationsLocalization.correctionKindName(kind, strings: strings)
     }
 
+    /// The correction row's own label, naming the observation it corrects —
+    /// `nil` when `row` is not itself a correction. Mirrors
+    /// `apps/web/features/observations/observation-entry.tsx`'s
+    /// `"{kind} of observation {id}"`.
+    public func correctionOfText(for row: ObservationRow) -> String? {
+        guard let correctionKindLabel = row.correctionKindLabel else { return nil }
+        return strings.string(
+            .observationsCorrectionOf,
+            parameters: ["kind": correctionKindLabel, "id": row.correctsObservationId ?? ""]
+        )
+    }
+
     public func load() async {
         state = .loading
 
@@ -196,6 +208,7 @@ public final class ObservationsTimelineViewModel {
             observedAtText: ObservationsLocalization.formattedObservedAt(observation.observedAt),
             isCorrected: observation.isCorrected,
             correctionKindLabel: observation.correctionKind.map(correctionKindName),
+            correctsObservationId: observation.correctsObservationId,
             analysisSummaries: observation.photos.flatMap(analysisSummaries)
         )
     }

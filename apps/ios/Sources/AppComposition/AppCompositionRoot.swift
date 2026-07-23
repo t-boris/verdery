@@ -161,6 +161,7 @@ public final class AppCompositionRoot {
             transitionPlantLifecycleStage: TransitionPlantLifecycleStage(gateway: plantGateway),
             setPlantStatus: SetPlantStatus(gateway: plantGateway),
             movePlant: MovePlant(gateway: plantGateway),
+            searchTaxonomyReferences: SearchTaxonomyReferences(gateway: plantGateway),
             strings: strings
         )
     }

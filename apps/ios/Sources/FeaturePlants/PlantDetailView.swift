@@ -26,7 +26,7 @@ public struct PlantDetailView: View {
         case let .loaded(summary):
             Form {
                 summarySection(summary)
-                editSection
+                editSection(summary)
                 lifecycleAndStatusSection(summary)
                 moveSection
 
@@ -36,6 +36,18 @@ public struct PlantDetailView: View {
                             .accessibilityIdentifier("plants.detail.failure")
                     }
                 }
+            }
+            .sheet(isPresented: $model.isTaxonomyPickerPresented) {
+                TaxonomyReferencePickerView(
+                    title: model.taxonomyPickerTitle,
+                    searchLabel: model.taxonomyPickerSearchLabel,
+                    emptyMessage: model.taxonomyPickerEmptyMessage,
+                    closeTitle: model.closeTitle,
+                    displayName: { model.taxonomyDisplayName($0) },
+                    search: { await model.searchTaxonomy(query: $0) },
+                    onSelect: { model.selectTaxonomy($0) },
+                    onClose: { model.isTaxonomyPickerPresented = false }
+                )
             }
 
         case let .failed(message):
@@ -59,17 +71,27 @@ public struct PlantDetailView: View {
         }
     }
 
-    private var editSection: some View {
+    private func editSection(_ summary: PlantDetailSummary) -> some View {
         Section(model.editSectionTitle) {
             TextField(model.displayNameLabel, text: $model.editedDisplayName)
                 .accessibilityIdentifier("plants.detail.displayNameField")
+
+            taxonomyRow
+
             TextField(model.varietyLabelLabel, text: $model.editedVarietyLabel)
                 .accessibilityIdentifier("plants.detail.varietyLabelField")
-            TextField(model.quantityLabel, text: $model.editedQuantityText)
-                #if os(iOS)
-                .keyboardType(.numberPad)
-                #endif
-                .accessibilityIdentifier("plants.detail.quantityField")
+
+            // Only a row or a group tracks a quantity — an `.individual`
+            // plant's server-side domain model rejects one outright
+            // (`quantity.not_allowed`), the same gate `PlantsHomeView`'s add
+            // form already applies on creation.
+            if summary.groupingKind != .individual {
+                TextField(model.quantityLabel, text: $model.editedQuantityText)
+                    #if os(iOS)
+                    .keyboardType(.numberPad)
+                    #endif
+                    .accessibilityIdentifier("plants.detail.quantityField")
+            }
 
             Toggle(model.acquisitionDateToggleLabel, isOn: $model.editedHasAcquisitionDate)
                 .accessibilityIdentifier("plants.detail.acquisitionDateToggle")
@@ -99,6 +121,33 @@ public struct PlantDetailView: View {
             }
             .disabled(model.isSubmitting)
             .accessibilityIdentifier("plants.detail.save")
+        }
+    }
+
+    /// The detail screen's read-and-change affordance for an existing
+    /// plant's identification, mirroring `PlantsHomeView`'s own
+    /// `taxonomyRow` for the add-plant form — the same
+    /// `TaxonomyReferencePickerView` sheet, the same search use case, wired
+    /// to this screen's own `UpdatePlantDetails` call instead of `AddPlant`.
+    private var taxonomyRow: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Button {
+                model.isTaxonomyPickerPresented = true
+            } label: {
+                HStack {
+                    Text(model.taxonomyLabel)
+                    Spacer()
+                    Text(model.selectedTaxonomySummary)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("plants.detail.taxonomyRow")
+
+            if model.editedTaxonomyReferenceId != nil {
+                Button(model.taxonomyClearLabel) { model.clearTaxonomy() }
+                    .accessibilityIdentifier("plants.detail.taxonomyClear")
+            }
         }
     }
 

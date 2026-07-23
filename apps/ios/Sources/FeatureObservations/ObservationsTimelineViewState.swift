@@ -22,6 +22,11 @@ public struct ObservationRow: Equatable, Sendable, Identifiable {
     public let isCorrected: Bool
     /// Non-`nil` when this row is itself a correction of another.
     public let correctionKindLabel: String?
+    /// The id of the observation this row corrects — non-`nil` exactly when
+    /// `correctionKindLabel` is, carried separately because it is raw data
+    /// (an id to display, not a translated label) rather than something
+    /// `ObservationsLocalization` resolves.
+    public let correctsObservationId: String?
     public let analysisSummaries: [ObservationAnalysisSummary]
 }
 

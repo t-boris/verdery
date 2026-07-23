@@ -14,6 +14,12 @@ public enum PlantDetailViewState: Equatable, Sendable {
 public struct PlantDetailSummary: Equatable, Sendable {
     public let displayName: String
     public let groupingKindLabel: String
+    /// The raw enum behind `groupingKindLabel`, exposed alongside the
+    /// already-localized label so the view can gate the edit form's
+    /// quantity field the same way `PlantsHomeView`'s add form already
+    /// gates it — without duplicating a second, string-keyed switch just to
+    /// re-derive what this value already is.
+    public let groupingKind: PlantGroupingKind
     public let quantity: Int?
     public let lifecycleStage: PlantLifecycleStage
     public let lifecycleStageLabel: String

@@ -31,6 +31,25 @@ public final class PlantDetailViewModel {
     public var editedAcquisitionDate: Date = .now
     public var editedAcquisitionDateType: PlantAcquisitionDateType = .planted
 
+    /// Non-`nil` means "this plant has an accepted identification"; `nil`
+    /// means "not identified" — the same reading `PlantsHomeViewModel`'s
+    /// `selectedTaxonomyReference` gives the add-plant form. This field
+    /// holds only the id (what the wire format and `saveDetails()` need);
+    /// `selectedTaxonomyReferenceDisplay` below holds the friendly name,
+    /// when one is known.
+    public private(set) var editedTaxonomyReferenceId: String?
+    /// The full `TaxonomyReference` behind `editedTaxonomyReferenceId`, only
+    /// when it is known — set the moment the user picks a match from
+    /// `TaxonomyReferencePickerView`. There is no `GET` for a single
+    /// taxonomy reference by id (only `SearchTaxonomyReferences`, a
+    /// free-text search), so a plant's *existing* identification, loaded
+    /// from the server as a bare id, cannot be resolved to a friendly name
+    /// without the user re-searching for it — `selectedTaxonomySummary`
+    /// falls back to showing the id itself in that case, honestly rather
+    /// than fabricating a lookup this contract does not support.
+    public private(set) var selectedTaxonomyReferenceDisplay: TaxonomyReference?
+    public var isTaxonomyPickerPresented: Bool = false
+
     // Move form fields. Empty means "leave this placement field unchanged" —
     // `MovePlantRequest`'s two fields are not nullable on the wire, so there
     // is no way to explicitly clear a placement through this operation, only
@@ -49,6 +68,7 @@ public final class PlantDetailViewModel {
     private let transitionPlantLifecycleStage: TransitionPlantLifecycleStage
     private let setPlantStatus: SetPlantStatus
     private let movePlant: MovePlant
+    private let searchTaxonomyReferences: SearchTaxonomyReferences
     private let strings: LocalizedStrings
 
     private var currentPlant: Plant?
@@ -61,6 +81,7 @@ public final class PlantDetailViewModel {
         transitionPlantLifecycleStage: TransitionPlantLifecycleStage,
         setPlantStatus: SetPlantStatus,
         movePlant: MovePlant,
+        searchTaxonomyReferences: SearchTaxonomyReferences,
         strings: LocalizedStrings
     ) {
         self.gardenId = gardenId
@@ -70,6 +91,7 @@ public final class PlantDetailViewModel {
         self.transitionPlantLifecycleStage = transitionPlantLifecycleStage
         self.setPlantStatus = setPlantStatus
         self.movePlant = movePlant
+        self.searchTaxonomyReferences = searchTaxonomyReferences
         self.strings = strings
     }
 
@@ -94,6 +116,13 @@ public final class PlantDetailViewModel {
     public var gardenAreaLabel: String { strings(.plantsGardenAreaLabel) }
     public var placementLabel: String { strings(.plantsPlacementLabel) }
     public var mapObjectIdHint: String { strings(.plantsMapObjectIdHint) }
+    public var taxonomyLabel: String { strings(.plantsTaxonomyLabel) }
+    public var taxonomyNoneLabel: String { strings(.plantsTaxonomyNone) }
+    public var taxonomyClearLabel: String { strings(.plantsTaxonomyClear) }
+    public var taxonomyPickerTitle: String { strings(.plantsTaxonomyPickerTitle) }
+    public var taxonomyPickerSearchLabel: String { strings(.plantsTaxonomyPickerSearchLabel) }
+    public var taxonomyPickerEmptyMessage: String { strings(.plantsTaxonomyPickerEmpty) }
+    public var closeTitle: String { strings(.plantsClose) }
 
     public func lifecycleStageName(_ stage: PlantLifecycleStage) -> String {
         PlantsLocalization.lifecycleStageName(stage, strings: strings)
@@ -105,6 +134,43 @@ public final class PlantDetailViewModel {
 
     public func acquisitionDateTypeName(_ type: PlantAcquisitionDateType) -> String {
         PlantsLocalization.acquisitionDateTypeName(type, strings: strings)
+    }
+
+    public func taxonomyDisplayName(_ reference: TaxonomyReference) -> String {
+        PlantsLocalization.taxonomyDisplayName(reference)
+    }
+
+    /// The friendly name when known (the user picked it this session), the
+    /// raw id when an identification exists but its name has not been
+    /// resolved (an existing plant, freshly loaded — see
+    /// `selectedTaxonomyReferenceDisplay`'s doc comment), or
+    /// `taxonomyNoneLabel` when the plant is not identified at all.
+    public var selectedTaxonomySummary: String {
+        guard let editedTaxonomyReferenceId else { return taxonomyNoneLabel }
+        if let selectedTaxonomyReferenceDisplay {
+            return taxonomyDisplayName(selectedTaxonomyReferenceDisplay)
+        }
+        return strings.string(.plantsTaxonomyIdentifiedId, parameters: ["id": editedTaxonomyReferenceId])
+    }
+
+    public func selectTaxonomy(_ reference: TaxonomyReference) {
+        editedTaxonomyReferenceId = reference.id
+        selectedTaxonomyReferenceDisplay = reference
+        isTaxonomyPickerPresented = false
+    }
+
+    public func clearTaxonomy() {
+        editedTaxonomyReferenceId = nil
+        selectedTaxonomyReferenceDisplay = nil
+    }
+
+    /// Passed to `TaxonomyReferencePickerView` as its `search` closure. Never
+    /// throws to the sheet — a search failure just shows no results, since
+    /// leaving the plant's identification unchanged is always a valid
+    /// outcome of this form. Mirrors `PlantsHomeViewModel.searchTaxonomy`.
+    public func searchTaxonomy(query: String) async -> [TaxonomyReference] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (try? await searchTaxonomyReferences(gardenId: gardenId, query: trimmed.isEmpty ? nil : trimmed)) ?? []
     }
 
     public func load() async {
@@ -132,11 +198,18 @@ public final class PlantDetailViewModel {
         editedAcquisitionDateType = plant.acquisitionDateType ?? .planted
         editedGardenAreaMapObjectId = ""
         editedPlacementMapObjectId = ""
+        editedTaxonomyReferenceId = plant.taxonomyReferenceId
+        // Reset rather than carry forward: a friendly name resolved for a
+        // previous load's identification does not necessarily still belong
+        // to this one (a save may have changed it, another client may have
+        // changed it, or this may be a different plant's `apply` call).
+        selectedTaxonomyReferenceDisplay = nil
 
         state = .loaded(
             PlantDetailSummary(
                 displayName: plant.displayName,
                 groupingKindLabel: PlantsLocalization.groupingKindName(plant.groupingKind, strings: strings),
+                groupingKind: plant.groupingKind,
                 quantity: plant.quantity,
                 lifecycleStage: plant.lifecycleStage,
                 lifecycleStageLabel: lifecycleStageName(plant.lifecycleStage),
@@ -157,17 +230,29 @@ public final class PlantDetailViewModel {
             return
         }
 
+        // `quantity` is only offered — and only sent — for a row or a group;
+        // an `.individual` plant's server-side domain model rejects it
+        // outright (`quantity.not_allowed`), the same restriction
+        // `PlantsHomeViewModel.submitAddPlant` already respects on creation.
+        // Mirrors `apps/web/features/plants/plant-details-form.tsx`'s own
+        // `plant.groupingKind === 'individual' ? {} : { quantity: ... }`.
+        let quantityUpdate: FieldUpdate<Int> =
+            plant.groupingKind == .individual
+                ? .unchanged
+                : .set(editedQuantityText.isEmpty ? nil : Int(editedQuantityText))
+
         await perform { [self] in
             try await updatePlantDetails(
                 gardenId: gardenId,
                 plantId: plantId,
                 displayName: trimmedName,
+                taxonomyReferenceId: .set(editedTaxonomyReferenceId),
                 varietyLabel: .set(editedVarietyLabel.isEmpty ? nil : editedVarietyLabel),
                 acquisitionDate: .set(editedHasAcquisitionDate ? CalendarDate.string(from: editedAcquisitionDate) : nil),
                 acquisitionDateType: .set(editedHasAcquisitionDate ? editedAcquisitionDateType : nil),
                 conditionNote: .set(editedConditionNote.isEmpty ? nil : editedConditionNote),
                 careGuidanceNote: .set(editedCareGuidanceNote.isEmpty ? nil : editedCareGuidanceNote),
-                quantity: .set(editedQuantityText.isEmpty ? nil : Int(editedQuantityText)),
+                quantity: quantityUpdate,
                 expectedRevision: plant.revision
             )
         }

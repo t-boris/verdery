@@ -125,5 +125,24 @@ struct ObservationsTimelineViewModelTests {
         // The original's own content must stay exactly as recorded — a
         // correction never edits it in place.
         #expect(original?.noteText == "Looking healthy")
+
+        // The new row names the observation it corrects, both on the row
+        // itself and in the composed label the view renders.
+        let correction = rows.first { $0.id != "obs-1" }
+        #expect(correction?.correctsObservationId == "obs-1")
+        #expect(correction.flatMap(model.correctionOfText) == "Amendment of observation obs-1")
+    }
+
+    @Test("correctionOfText is nil for a row that is not itself a correction")
+    func correctionOfTextNilForNonCorrectionRow() async {
+        let gateway = FakeObservationGateway(observations: [observation(id: "obs-1")])
+        let model = makeModel(gateway: gateway)
+        await model.load()
+
+        guard case let .loaded(rows) = model.state else {
+            Issue.record("Expected loaded state")
+            return
+        }
+        #expect(model.correctionOfText(for: rows[0]) == nil)
     }
 }
