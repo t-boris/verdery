@@ -27,6 +27,11 @@ One Google Cloud project, `verdery-dev`, in `us-central1`, provisioned by the id
   remain open, while product endpoints enforce Firebase/session authentication and server-side
   authorization. Production edge hardening remains P8 work.
 - OpenTelemetry traces exported to Cloud Trace.
+- Four private Cloud Storage buckets for Phase 6 media (`verdery-dev-{user-media,raw-capture,derived,
+exports}`), each with uniform bucket-level access and public access prevention enforced, and the
+  runtime service account granted `roles/storage.objectAdmin` per bucket (not a project-wide role).
+  See `infrastructure/gcloud/scripts/09-media-storage.sh` for the per-bucket lifecycle policy and its
+  reasoning.
 
 ## Deploying
 
@@ -104,6 +109,14 @@ support amd64/linux" — found directly while building this environment for the 
   `deploy-api.sh` now sets `DATABASE_CONNECTION_TIMEOUT_MS=15000` for the deployed environment,
   verified by redeploying the exact image that had just failed and confirming a live `200` from
   `/v1/health/ready`.
+
+- **The four media buckets, their access controls, and their lifecycle rules are real, not just
+  scripted.** `gcloud storage buckets describe` against all four confirms
+  `uniformBucketLevelAccess.enabled: true` and `publicAccessPrevention: enforced`;
+  `gcloud storage buckets get-iam-policy` on `verdery-dev-user-media` confirms the runtime service
+  account holds exactly `roles/storage.objectAdmin` and nothing broader; the `derived`/`exports`
+  buckets' lifecycle configuration was read back and matches the committed JSON exactly (Nearline
+  transition at 30 days; deletion at 7 days, respectively).
 
 ## What is deliberately not here
 
