@@ -121,4 +121,70 @@ struct MigrationIntegrityTests {
 
         #expect(try existingTables(in: dbQueue) == Set(Self.allTables))
     }
+
+    /// "Schema upgrade with pending outbox" (architecture/offline-
+    /// synchronization.md, section "24. Testing Matrix") — completion
+    /// criteria "Mobile upgrades preserve pending operations or provide
+    /// explicit recovery." The tests above already prove a database at the
+    /// PHASE 2 schema (before `sync_outbox` existed at all) migrates forward
+    /// cleanly; what none of them proves is the specific scenario a real app
+    /// upgrade hits once P5-IOS-01 has already shipped: a device with a REAL
+    /// pending outbox operation already queued, at the CURRENT schema,
+    /// receiving a FUTURE migration step on top of it. Simulated here with
+    /// one additional, additive, test-local migration (an inert new column
+    /// on an unrelated table) registered after `LocalDatabase.migrator`'s own
+    /// last step — a stand-in for whatever this repository's next real
+    /// schema change turns out to be, exercising the same "migrate on top of
+    /// a non-empty sync_outbox" path any real future migration will actually
+    /// run through.
+    @Test("A pending outbox operation survives a migration applied on top of the current schema")
+    func pendingOutboxSurvivesAFutureMigration() throws {
+        let dbQueue = try DatabaseQueue(path: temporaryDatabasePath())
+        try LocalDatabase.migrator.migrate(dbQueue)
+
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO sync_outbox (
+                        localSequence, id, profileId, gardenId, commandType, commandVersion,
+                        targetRecordIds, expectedRevision, payload, dependencyOperationIds,
+                        mediaPrerequisiteIds, retryCount, lastErrorCategory, lastAttemptedAt,
+                        resolvesConflictId, createdAt
+                    ) VALUES (
+                        1, 'op-pending-upgrade', 'profile-1', 'garden-1', 'gardens.rename', 1,
+                        '["garden-1"]', 3, '{"recordType":"garden"}', '[]',
+                        '[]', 0, NULL, NULL,
+                        NULL, ?
+                    )
+                    """,
+                arguments: [Date(timeIntervalSince1970: 0)]
+            )
+        }
+
+        // A stand-in future migration, registered on top of the shipped
+        // migrator — additive only (a new nullable column), matching this
+        // repository's own migration discipline ("reversible where
+        // practical... destructive fallback migration is prohibited for
+        // user-created data").
+        var futureMigrator = LocalDatabase.migrator
+        futureMigrator.registerMigration("futureAdditiveChange") { db in
+            try db.alter(table: "garden") { table in
+                table.add(column: "futureUpgradeMarker", .text)
+            }
+        }
+        try futureMigrator.migrate(dbQueue)
+
+        let survivingPayload = try dbQueue.read { db in
+            try String.fetchOne(db, sql: "SELECT payload FROM sync_outbox WHERE id = ?", arguments: ["op-pending-upgrade"])
+        }
+        let survivingExpectedRevision = try dbQueue.read { db in
+            try Int.fetchOne(db, sql: "SELECT expectedRevision FROM sync_outbox WHERE id = ?", arguments: ["op-pending-upgrade"])
+        }
+        #expect(survivingPayload == #"{"recordType":"garden"}"#)
+        #expect(survivingExpectedRevision == 3)
+
+        // The migration itself actually ran, not silently skipped.
+        let hasNewColumn = try dbQueue.read { db in try db.columns(in: "garden").contains { $0.name == "futureUpgradeMarker" } }
+        #expect(hasNewColumn)
+    }
 }

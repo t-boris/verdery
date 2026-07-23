@@ -324,6 +324,61 @@ struct RemoteSyncEnginePullTests {
         #expect(await plantApplier.deletedRecordIds == ["plant-1"])
     }
 
+    /// "Large backlog with bounded memory" (architecture/offline-
+    /// synchronization.md, section "24. Testing Matrix") for pull, at real
+    /// "hundreds+" scale. `stopsAtPageSafetyLimit` above already proves ONE
+    /// `pullChanges()` call stops at `maxPullPagesPerCall` without losing
+    /// progress; this proves the backlog left over after that does not just
+    /// sit there — repeated calls, bounded the same way `pushPending()`'s own
+    /// `RemoteSyncEngineBacklogDrainTests` proves for push, fully drain a
+    /// backlog many times larger than one call's own page-count ceiling.
+    @Test("Repeated pullChanges() calls fully drain a backlog several times larger than one call's own maxPullPagesPerCall ceiling")
+    func repeatedCallsDrainALargePullBacklog() async throws {
+        let cursorStore = InMemorySyncCursorStore()
+        let applier = FakePullApplier(recordType: "garden")
+        let gateway = FakePullSyncGateway()
+        // Five calls' worth at `maxPullPagesPerCall: 3`, `pullPageLimit: 20`:
+        // 15 full pages plus one short page, so the final call's own
+        // "caught up" stopping condition is exercised too, not just the
+        // safety-limit one.
+        let fullPageCount = 15
+        for pageIndex in 0..<fullPageCount {
+            let items = (0..<20).map { itemIndex in
+                change(sequence: Int64(pageIndex * 20 + itemIndex), recordId: "garden-\(pageIndex)-\(itemIndex)")
+            }
+            await gateway.enqueue(.success(SyncChangesPage(items: items, nextCursor: "cursor-\(pageIndex)")))
+        }
+        await gateway.enqueue(.success(SyncChangesPage(
+            items: [change(sequence: 9_999, recordId: "garden-final")],
+            nextCursor: "cursor-final"
+        )))
+        let engine = makeEngine(gateway: gateway, cursorStore: cursorStore, applier: applier, pullPageLimit: 20, maxPullPagesPerCall: 3)
+
+        let totalPages = fullPageCount + 1
+        var callCount = 0
+        // Bounded by `totalPages`, not unconditional: `gateway.callCount` is
+        // the number of pages actually served so far — once it reaches
+        // `totalPages`, every enqueued page (all 16) has been fetched, so a
+        // real defect that stopped progress would leave this loop spinning
+        // forever without a hard ceiling. `callCount <= totalPages` is that
+        // ceiling: it can never legitimately take more calls than there are
+        // pages, since each call fetches at least one.
+        while await gateway.callCount < totalPages, callCount <= totalPages {
+            try await engine.pullChanges()
+            callCount += 1
+        }
+
+        // Five calls of three full pages each (15 pages) leaves the 16th,
+        // short, page for a sixth call — the "caught up" stop, not the
+        // safety limit, is what ends that final call.
+        #expect(callCount == 6)
+        let upsertedIds = await applier.upsertedRecordIds
+        #expect(upsertedIds.count == fullPageCount * 20 + 1)
+        // No id delivered twice across the whole drain.
+        #expect(Set(upsertedIds).count == upsertedIds.count)
+        #expect(try await cursorStore.current()?.cursor == "cursor-final")
+    }
+
     @Test("A genuine transport failure sets waitingForConnectivity and does not advance the cursor")
     func transportFailureSetsWaitingForConnectivity() async throws {
         let cursorStore = InMemorySyncCursorStore()

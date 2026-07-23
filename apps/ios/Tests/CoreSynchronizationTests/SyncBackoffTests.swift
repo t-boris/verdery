@@ -98,4 +98,67 @@ struct SyncBackoffTests {
             attemptCount: 3, lastAttemptedAt: attemptedAt, retryAfter: 1, now: now, randomUnitInterval: { 1.0 }
         ))
     }
+
+    // MARK: - Clock skew (the device's own local clock, not client-vs-server)
+    //
+    // `SyncBackoff.isEligible` only ever compares two instants that both come
+    // from the SAME clock source (`now: @Sendable () -> Date`, always the
+    // device's own `Date.init` in production — see `RemoteSyncEngine.swift`'s
+    // own `now` parameter default) against a `lastAttemptedAt` this same
+    // device wrote to its own `sync_outbox`/in-memory gate moments earlier.
+    // The server's clock never enters this calculation at all: `Retry-After`
+    // (the one server-supplied input) is a relative delta-seconds duration
+    // (`CoreNetworking.HTTPTransport`'s own `Int.init` parse — never an
+    // absolute HTTP-date), added to a LOCAL instant, not compared against a
+    // server-declared "now." There is therefore no client-vs-server skew for
+    // this mechanism to be vulnerable to by construction — what CAN still go
+    // wrong is the device's OWN clock moving unexpectedly relative to
+    // ITSELF (an NTP correction, a manual clock change, a DST transition
+    // implemented as a wall-clock jump on some platforms): the two tests
+    // below pin that `isEligible` degrades safely, never crashes and never
+    // gets stuck permanently ineligible, when that happens.
+    @Test("A backward local clock jump (now before lastAttemptedAt) is treated as not-yet-eligible, not a crash or a negative-duration miscalculation")
+    func backwardClockJumpIsNotYetEligibleNotBroken() {
+        let attemptedAt = Date(timeIntervalSince1970: 10_000)
+        // The device's clock was corrected backward by an hour after the
+        // attempt was recorded — `now` reads earlier than `lastAttemptedAt`.
+        let skewedNow = attemptedAt.addingTimeInterval(-3_600)
+
+        #expect(!SyncBackoff.isEligible(
+            attemptCount: 1, lastAttemptedAt: attemptedAt, now: skewedNow, randomUnitInterval: { 1.0 }
+        ))
+    }
+
+    @Test("Once the device's clock catches back up past lastAttemptedAt plus the computed delay, eligibility recovers on its own — a backward jump is never a permanent lockout")
+    func backwardClockJumpRecoversOnceClockCatchesUp() {
+        let attemptedAt = Date(timeIntervalSince1970: 10_000)
+        let afterBackwardJump = attemptedAt.addingTimeInterval(-3_600)
+        #expect(!SyncBackoff.isEligible(
+            attemptCount: 1, lastAttemptedAt: attemptedAt, now: afterBackwardJump, randomUnitInterval: { 1.0 }
+        ))
+
+        // The same device clock later resumes advancing normally and passes
+        // `lastAttemptedAt + computed delay` again — no special recovery
+        // logic exists or is needed: `isEligible` is a pure function of its
+        // two Date arguments, so it self-heals the moment `now` is
+        // legitimately past the threshold once more.
+        let caughtUp = attemptedAt.addingTimeInterval(SyncBackoff.baseDelaySeconds)
+        #expect(SyncBackoff.isEligible(
+            attemptCount: 1, lastAttemptedAt: attemptedAt, now: caughtUp, randomUnitInterval: { 1.0 }
+        ))
+    }
+
+    @Test("A forward local clock jump (a large, sudden time correction) makes a pending retry immediately eligible, never blocked past its own computed delay")
+    func forwardClockJumpIsImmediatelyEligible() {
+        let attemptedAt = Date(timeIntervalSince1970: 10_000)
+        // The device's clock jumped forward by a full day (a stale device
+        // finally reaching the network and correcting via NTP) — far past
+        // any bounded backoff window this mechanism ever computes
+        // (`maxDelaySeconds` caps at 300).
+        let skewedNow = attemptedAt.addingTimeInterval(86_400)
+
+        #expect(SyncBackoff.isEligible(
+            attemptCount: 5, lastAttemptedAt: attemptedAt, now: skewedNow, randomUnitInterval: { 1.0 }
+        ))
+    }
 }
