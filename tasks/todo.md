@@ -631,3 +631,88 @@ development` run (green end to end). A mistake made while applying this fix — 
   `swift test --skip FeatureMapTests` locally, and trust CI's full-suite run as authoritative.
 - `Task.recurrenceRule` is stored opaquely and never parsed, expanded, or validated — by design, not
   a gap this phase owns. No recurrence-expansion engine exists anywhere in this codebase yet.
+
+# Phase 5 — Native Offline Synchronization and Web Continuity, planning
+
+Scope: every Phase 5 work package, P5-DATA-01 through P5-QA-01. Native user changes survive
+disconnection and process termination, synchronize idempotently, and expose recoverable conflicts.
+Web stays online-first, preserves approved drafts, and shares authoritative revisions and conflict
+semantics rather than building its own sync path.
+
+Source: [docs/implementation-plan.md](../docs/implementation-plan.md) section 14;
+[architecture/offline-synchronization.md](../docs/architecture/offline-synchronization.md);
+[architecture/ios-application-design.md](../docs/architecture/ios-application-design.md) sections
+7-9, 21; [architecture/web-application-design.md](../docs/architecture/web-application-design.md)
+section 9; [ADR-0004](../docs/architecture/decisions/ADR-0004-application-owned-offline-sync.md).
+
+This is substantially larger than any prior phase — a real distributed-sync protocol (outbox,
+idempotent push, incremental pull, conflict categories, tombstones, protocol versioning, revocation,
+fault-injection testing), not a CRUD feature. Two research passes ran before any implementation to
+ground the plan in what already exists, not assumption:
+
+- **Backend**: `platform.sync_change` and `platform.outbox_event` are real Phase 2 skeleton tables,
+  unused by any module until `gardens-mapping` added a first, incomplete, module-local
+  `SyncChangeWriter`/`KyselySyncChangeWriter` — wired into most of its 12 map commands but not its 4
+  Garden-lifecycle commands (`create-garden`, `rename-garden`, `archive-garden`,
+  `request-garden-deletion`). The generic `platform/outbox/{outbox-appender.ts,
+kysely-outbox-appender.ts}` port+adapter is the right model to mirror — module-local was the wrong
+  call for something with zero module-specific typing. `record_revision` is straightforward for every
+  aggregate with a real revision field (`Plant`, `Task`, `GardenObject`, `Garden`); `Observation` has
+  no revision at all (append-only) and uses the same sentinel `1` every aggregate already uses at
+  creation-time, since it's never touched again. `media.media_record` has no `garden_id` and, per
+  architecture doc section 18 ("Record sync contains media IDs and state, not binary data"), does not
+  need its own sync_change entries at all — media state travels inline in the _referencing_ Plant/
+  Observation/Task record's own payload, not as a separate synced record type.
+- **iOS**: `FeatureGardens`'s existing `GardenDatabase`/`LocalGardenStore`/`GardenRecord` GRDB setup
+  is a write-through cache of server-confirmed state (its own doc comment says so explicitly) — 0% of
+  outbox/cursor/conflict/checkpoint/backoff/connectivity-monitoring concepts exist anywhere in
+  `apps/ios/Sources` today, confirmed by grep, not assumed. It must be replaced, not extended.
+  `ios-application-design.md` section 4 already names the target destination —
+  `Core/Persistence` and `Core/Synchronization` — as planned but not-yet-created Core targets, sibling
+  to the existing `CoreNetworking`/`CoreDomain`/`CoreAuthentication`. `FeaturePlants`/
+  `FeatureObservations`/`FeatureTasks`/`FeatureMap` currently have zero GRDB dependency; Phase 5 adds
+  it for the first time. `GardenDatabase.open` keys its local database by Firebase UID; section 7 of
+  the same doc specifies one database per signed-in _profile_ — a real mismatch to resolve, not a
+  style nit. No retry/backoff/jitter exists anywhere in `CoreNetworking` today despite section 9
+  already requiring it generally (not just for sync) — Phase 5's transport hardening should close
+  this for all networking, not only the new sync engine.
+- **Web**: section 9 of `web-application-design.md` explicitly defers full record synchronization in
+  the browser — P5-WEB-01 is bounded to a stale/disconnected indicator plus schema-versioned
+  recoverable local drafts for selected forms and map sessions, reusing server revisions and conflict
+  rules rather than inventing a separate last-write-wins path. Substantially smaller than the native
+  work.
+
+## Planned stages (dependency-ordered, matching the work package table)
+
+1. **Sync log foundation** (P5-DATA-01 continued, backend): promote `SyncChangeWriter` to
+   `platform/sync/` mirroring `platform/outbox/`; finish wiring `gardens-mapping`'s 4 missing
+   commands; wire `plants-inventory`, `observations-history`, `tasks-recommendations`; fix
+   `record_type` naming convention across modules (currently an unenforced free-text column); decide
+   and document the media-state-travels-inline approach concretely against `AttachPlantPhoto`/
+   `AttachTaskFile`/observation photo commands.
+2. **Sync API contracts and backend engine** (P5-API-01, P5-BE-01, P5-BE-02): versioned push/changes/
+   acknowledge/snapshot/registration/upgrade-state endpoints; dependency-aware batch push processing
+   with the six per-operation outcomes; deterministic incremental pull, initial snapshot, partition
+   reset, full resync, revocation, mobile-version policy.
+3. **iOS local foundation** (P5-IOS-01): new `CorePersistence`/`CoreSynchronization` targets — local
+   read models, `sync_outbox`, `sync_cursor`, `sync_conflict`, `sync_operation_result`,
+   `media_transfer`, `local_draft`; a real GRDB migrator continuing from (not destructively replacing)
+   `FeatureGardens`'s existing single-table database; re-key local storage by profile ID.
+4. **iOS mutation routing and engine** (P5-IOS-02, P5-IOS-03): route every existing offline-capable
+   mutation (Garden, Map, Plant, Observation, Task — a retrofit across Phases 2-4's own iOS code, not
+   only new code) through atomic local-projection-plus-outbox transactions; the bounded push/pull
+   engine itself with backoff, checkpointing, and foreground/background/explicit-retry triggers.
+5. **Conflict recovery and revocation** (P5-CONFLICT-01, P5-SEC-01): durable conflict UI/recovery
+   flows; protected local partition removal and stale-push rejection after membership/account
+   revocation.
+6. **Web continuity** (P5-WEB-01): stale/disconnected states and recoverable drafts, bounded scope
+   per the architecture doc.
+7. **Observability** (P5-OBS-01): outbox age, push/pull rates, resync frequency, revocation cleanup,
+   version distribution — no payloads.
+8. **Cross-cutting QA** (P5-QA-01): the specific scenarios that don't fall out of ordinary per-stage
+   testing — randomized convergence, clock skew, large bounded-memory backlog, schema upgrade with a
+   pending outbox, process termination at every checkpoint. Ordinary unit/integration coverage is
+   written alongside each stage above, matching every prior phase's pattern, not deferred to the end.
+
+Each stage will be committed, pushed, and CI-confirmed-green independently, matching the pattern
+established in Phases 3 and 4 — not one single end-of-phase commit.
