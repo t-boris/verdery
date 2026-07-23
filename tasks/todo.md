@@ -1522,3 +1522,86 @@ no outbox operation any stage enqueues has actually reached the server yet), the
 vocabulary (every feature's UI shows only the honest "Saved locally, waiting to sync" slice), conflict
 recovery UI, and any backend change. These are P5-IOS-03's and P5-CONFLICT-01's job next — both now
 unblocked, since P5-IOS-02 (their shared dependency) is complete.
+
+## P5-IOS-03 complete (Stages 5a–5b)
+
+Stage 5a (merged separately) built `CoreNetworking.SyncGateway`'s `registerClient`/`push`/`acknowledge` and
+the real push side, `CoreSynchronization.RemoteSyncEngine.pushPending()`, dispatching each of the six push
+outcomes through a per-record-type `SyncRecordApplier` registry. Stage 5b completes the engine: real pull,
+retry/backoff, checkpointing/triggers, and a status model.
+
+- **Pull is profile-scoped, not per-garden** — a real, confirmed-by-inspection correction, not an
+  assumption carried forward: `GET /sync/changes` (`packages/api-contracts/openapi.yaml`) declares exactly
+  three parameters (`after`, `limit`, `protocolVersion`) and no `gardenId`, and `GetSyncChanges.execute`
+  server-side computes visibility from every membership the caller has, not one requested garden. Stage 3's
+  `CoreDomain.SyncCursor`/`CorePersistence.SyncCursorStore` were built "one cursor per garden partition"
+  ahead of any real consumer; as their first real consumer, this stage corrected both to a one-row,
+  profile-scoped singleton (new migration `recreateSyncCursorAsProfileScopedSingleton`, since nothing real
+  ever wrote to the old shape) rather than building a client that queries a `gardenId` parameter the server
+  does not accept.
+- **`CoreNetworking.SyncGateway.getChanges`**: wraps `GET /sync/changes`, decoding each pulled item's
+  `record.data` a second time into the exact same `GardenTransport`/`GardenObjectTransport`/
+  `PlantTransport`/`GardenTaskTransport` structs `GardenGateway`/`MapGateway`/`PlantGateway`/`TaskGateway`
+  already decode their own always-fresh-from-server reads into — reused, not duplicated, since
+  `SyncRecordSnapshot`'s per-record-type `data` schema is byte-identical to each of those endpoints' own
+  response schema. `calibration`/`observation` decode to `.unprojected(recordType:)` — no typed local
+  projection exists for either (see below).
+- **`CoreSynchronization.SyncPullRecordApplier`**: a new, optional-to-conform-to protocol extending
+  `SyncRecordApplier` with `applyUpsert(_:)`/`applyDelete(recordId:gardenId:revision:)` — pull's "genuinely
+  new or differently-changed record from another device" case, distinct from `applyConfirmed`'s "my own
+  operation got confirmed" case. `GardenSyncRecordApplier`/`MapSyncRecordApplier`/`PlantSyncRecordApplier`/
+  `TaskSyncRecordApplier` all conform; `ObservationSyncRecordApplier` deliberately does not —
+  `LocalObservationStore` caches only this device's own not-yet-synced rows, never a full confirmed-record
+  set a pulled upsert could write into, so `RemoteSyncEngine` skips `observation` changes generically
+  (no pull-capable applier registered), the same "not this client's job to project locally" posture
+  `calibration` already gets on the push side. `GardenSyncRecordApplier.applyDelete` is a deliberate no-op,
+  not an oversight: a `garden`/`delete` change is the access-revocation tombstone, and "removing protected
+  local data" is explicitly P5-SEC-01's own later work package — this stage only delivers and durably
+  records it (the cursor still advances past it). `gardenObject`/`plant`/`task` deletes are real, ordinary
+  tombstones with no such carve-out, applied through two new guarded methods each feature's `Local*Store`
+  gained (`save(_:)`/`delete(id:)` for Map and Tasks; `delete(id:)` alone for Plants, which already had
+  `save(_:)`) — the same "do not clobber a pending local mutation" guard every Stage 4 sub-stage's own
+  `save`/`replaceAll` already implements.
+- **Retry/backoff**: `SyncBackoff` (full jitter, `baseDelaySeconds = 2`, `maxDelaySeconds = 300`, both
+  reasoned defaults documented as such) gates both `pushPending()` (per-operation, via
+  `CoreDomain.OutboxOperation.retryState`, durably updated through `SyncOutboxStore.recordAttempt` — built
+  in Stage 3, never called until now) and `pullChanges()` (a coarser, in-memory, per-engine-instance gate,
+  since pull carries no per-operation retry state to key by at all). `Retry-After` is honored as a floor
+  over the computed exponential delay — required threading a `retryAfterSeconds: Int?` onto
+  `CoreNetworking.APIGatewayError.service` and reading the header in `HTTPTransport`, both new.
+- **Checkpointing**: confirmed, not assumed, genuinely inherent — each pulled page's items are applied
+  through real GRDB transactions and the cursor advances through its own real transaction before the next
+  page starts. NOT literally "one shared SQLite transaction spanning every applied item plus the cursor
+  advance," architecture/offline-synchronization.md section 10's stronger claim — achieving that would need
+  every applier to accept an already-open `Database` handle, crossing the GRDB boundary this stage's own
+  scope does not touch. Recorded as an honest, bounded gap: every apply is an idempotent upsert/delete by
+  stable id, so a crash before the cursor advances just re-applies the same page harmlessly on restart, the
+  same idempotent-retry safety net section 9 already relies on for push.
+- **Triggers**: confirmed, by inspection, that no `NWPathMonitor`/`BGTaskScheduler`/`scenePhase` reference
+  existed anywhere in this codebase before this stage. Wired one real trigger — SwiftUI `scenePhase` ==
+  `.active` in `AppComposition.RootView`, calling a new `SyncEngine.retryNow()` (a protocol-level default
+  `pushPending()` + `pullChanges()`, so `LocalOnlySyncEngine` gets it for free too) — satisfying
+  "App foreground/background transitions" and, since `retryNow()` is exactly what a future explicit-retry
+  button would call, "explicit user retry" structurally. Connectivity-change and background-processing-
+  opportunity triggers are left a documented, real gap: both need genuinely new subsystems (a path-monitor
+  actor; `Info.plist` `BGTaskSchedulerPermittedIdentifiers` plus a registered handler) beyond a small,
+  clearly-scoped addition. Automatic per-feature "local outbox insert" triggers are also a deliberate,
+  separately-scoped follow-up: every feature's own offline-mutation call sites (~20 use cases across five
+  modules) would need touching for one trigger, and the engine itself is already ready to be called that
+  way the moment that follow-up lands.
+- **Status model**: new `CoreSynchronization.SyncEngineStatus` (`unknown`/`synchronizing`/`savedLocally`/
+  `synchronized`/`waitingForConnectivity`/`requiresAttention` — five of section 8's six terms;
+  `Upload pending` stays unmodeled, since no media-upload flow exists anywhere in this codebase yet),
+  exposed as `RemoteSyncEngine.status`, updated after every push/pull cycle. Deliberately NOT wired into any
+  of the five features' own session-scoped `syncStatusLabel`/`MapSaveStatus` placeholders this stage:
+  reconciling a per-screen, per-command signal with an engine-wide one is a real design question spanning
+  every `Feature*` module's view models, and `RemoteSyncEngine` staying a fresh-per-call factory (not a
+  held singleton, to keep the existing profile-switch-safety guarantee every `local*Store()` method already
+  has) means status is only observable within one instance's own call today regardless — both named plainly
+  as a separate follow-up rather than half-wired now.
+- Final full, unfiltered `swift test` count as of Stage 5b: 604 tests, 84 suites (up from Stage 4e's 509;
+  Stage 5a's own count was not recorded in this log — its own tests remain green as of this stage).
+
+**Not done, deliberately**: conflict recovery UI and revocation/protected-data-removal reaction to a garden
+tombstone (P5-CONFLICT-01/P5-SEC-01's own later work), per-feature UI status wiring (see above), any backend
+change.

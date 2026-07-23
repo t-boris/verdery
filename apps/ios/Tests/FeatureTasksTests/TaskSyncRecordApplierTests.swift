@@ -1,4 +1,5 @@
 import CoreDomain
+import CoreNetworking
 import CoreSynchronization
 import Foundation
 import Testing
@@ -43,5 +44,26 @@ struct TaskSyncRecordApplierTests {
         try await applier.applyConfirmed(recordId: "task-1", revision: 2, confirmedAt: Date())
 
         #expect(try await store.fetchAll(gardenId: "garden-1").first?.revision == 2)
+    }
+
+    @Test("applyUpsert writes a genuinely new task pulled from another device")
+    func applyUpsertWritesGenuinelyNewTask() async throws {
+        let store = InMemoryTaskStore()
+        let applier = TaskSyncRecordApplier(localStore: store)
+
+        try await applier.applyUpsert(.task(task(id: "task-2")))
+
+        #expect(try await store.fetchAll(gardenId: "garden-1").contains { $0.id == "task-2" })
+    }
+
+    @Test("applyDelete removes a real tombstone pulled from another device")
+    func applyDeleteRemovesTask() async throws {
+        let store = InMemoryTaskStore()
+        try await store.save(task(id: "task-1"))
+        let applier = TaskSyncRecordApplier(localStore: store)
+
+        try await applier.applyDelete(recordId: "task-1", gardenId: "garden-1", revision: 2)
+
+        #expect(try await store.fetchAll(gardenId: "garden-1").isEmpty)
     }
 }

@@ -167,3 +167,26 @@ struct SyncAcknowledgeRequestTransport: Encodable {
 struct SyncAcknowledgeResultTransport: Decodable {
     let results: [SyncPushOperationResultTransport]
 }
+
+/// `packages/api-contracts/openapi.yaml`, `SyncChange`. `record` stays
+/// `JSONPassthroughValue` here — the whole `{recordType, data}`
+/// `SyncRecordSnapshot` envelope — rather than one of the five typed
+/// snapshot structs: which one applies depends on `recordType`, a sibling
+/// field this struct's own `Decodable` synthesis has no way to branch on,
+/// so `SyncGateway.domainSnapshot(_:recordType:)` does that second, typed
+/// decode pass once `recordType` is already known.
+struct SyncChangeTransport: Decodable {
+    let sequence: Int64
+    let gardenId: String?
+    let recordId: String
+    let recordType: String
+    let operation: String
+    let recordRevision: Int
+    let committedAt: Date
+    let record: JSONPassthroughValue?
+}
+
+struct SyncChangesResultTransport: Decodable {
+    let items: [SyncChangeTransport]
+    let nextCursor: String
+}

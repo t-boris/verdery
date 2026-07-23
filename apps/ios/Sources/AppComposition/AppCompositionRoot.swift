@@ -233,24 +233,33 @@ public final class AppCompositionRoot {
         )
     }
 
-    /// The real, network-backed push engine (P5-IOS-03, Stage 5a) — reads
-    /// `sync_outbox` for the current profile's database and pushes through
-    /// `syncGateway`, applying each of the five features' results through
-    /// its own registered `SyncRecordApplier`. This is the one place a
-    /// concrete `SyncRecordApplier` conformer is named alongside the engine
-    /// it is registered with — see `CoreSynchronization.SyncRecordApplier`'s
-    /// own doc comment for why that pairing can only happen here.
+    /// The real, network-backed push/pull engine (P5-IOS-03, Stages 5a/5b)
+    /// — reads `sync_outbox`/`sync_cursor` for the current profile's
+    /// database, pushes and pulls through `syncGateway`, applying each of
+    /// the five features' results through its own registered
+    /// `SyncRecordApplier`. This is the one place a concrete
+    /// `SyncRecordApplier` conformer is named alongside the engine it is
+    /// registered with — see `CoreSynchronization.SyncRecordApplier`'s own
+    /// doc comment for why that pairing can only happen here.
     ///
     /// Opened fresh per call, matching every `local*Store()` method's own
     /// reasoning below: cheap relative to a call's lifetime, and avoids
     /// holding a database handle open for a profile that has since signed
-    /// out. `pullChanges()` on the returned engine is a genuine no-op this
-    /// stage — see `RemoteSyncEngine`'s own doc comment; nothing calls
-    /// `pushPending()` yet either, since foreground/background/explicit-
-    /// retry triggers are Stage 5b's job, not this stage's — this method
-    /// exists so that a caller (a test today; Stage 5b's triggers tomorrow)
-    /// has a fully wired engine to call it on.
-    public func makeSyncEngine() -> any SyncEngine {
+    /// out. Deliberately still a plain factory, not a stored singleton
+    /// (Stage 5b considered and rejected making this a long-lived, cached
+    /// instance): every trigger this stage wires
+    /// (`RootView`'s scene-phase `.onChange`) calls this fresh each time it
+    /// fires, for the same profile-switch-safety reason `local*Store()`
+    /// already gives — a cached engine instance bound to whatever profile
+    /// was signed in at construction time would keep operating against a
+    /// stale `DatabaseQueue`/profile after a sign-out/sign-in as a different
+    /// user. One real consequence, noted plainly rather than glossed over:
+    /// `RemoteSyncEngine.status` is therefore only observable within one
+    /// instance's own call — see that property's own doc comment, and
+    /// `SyncEngineStatus`'s, for why wiring it into per-screen UI is this
+    /// stage's own deliberately separate follow-up rather than something
+    /// this factory shape could serve today anyway.
+    public func makeSyncEngine() -> RemoteSyncEngine {
         let profileIdentifier = currentProfileIdentifier()
         let appliers: [any SyncRecordApplier] = [
             GardenSyncRecordApplier(localStore: localGardenStore()),
@@ -268,6 +277,7 @@ public final class AppCompositionRoot {
                 operationResultStore: GRDBSyncOperationResultStore(dbQueue: dbQueue),
                 gateway: syncGateway,
                 clientInstallationStore: clientInstallationStore,
+                cursorStore: GRDBSyncCursorStore(dbQueue: dbQueue),
                 appliers: appliers,
                 appVersion: Self.currentAppVersion
             )
@@ -279,6 +289,7 @@ public final class AppCompositionRoot {
                 operationResultStore: InMemorySyncOperationResultStore(),
                 gateway: syncGateway,
                 clientInstallationStore: clientInstallationStore,
+                cursorStore: InMemorySyncCursorStore(),
                 appliers: appliers,
                 appVersion: Self.currentAppVersion
             )

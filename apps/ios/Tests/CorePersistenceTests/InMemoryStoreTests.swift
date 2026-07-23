@@ -6,8 +6,8 @@ import Testing
 
 /// The in-memory doubles behave the same way their GRDB-backed counterparts
 /// do for the contract that matters most to a caller: local processing order
-/// for the outbox, and per-garden cursor independence — the two stores this
-/// work package's brief explicitly asks for a double of. `GRDBSyncOutboxStore
+/// for the outbox, and single-cursor advance/reset for pull — the two stores
+/// this work package's brief explicitly asks for a double of. `GRDBSyncOutboxStore
 /// Tests` and `SyncCursorStoreTests` cover the GRDB-backed implementations'
 /// full behavior; this suite only proves the doubles agree on the same
 /// contract, the same way `InMemoryGardenStoreTests` does for
@@ -56,18 +56,17 @@ struct InMemoryStoreTests {
         #expect(try await store.fetchAll().isEmpty)
     }
 
-    @Test("InMemorySyncCursorStore keeps cursors independent per garden")
-    func inMemoryCursorKeepsGardensIndependent() async throws {
+    @Test("InMemorySyncCursorStore advances then resets the one durable cursor")
+    func inMemoryCursorAdvancesThenResets() async throws {
         let store = InMemorySyncCursorStore()
 
-        try await store.advance(gardenId: "garden-a", cursor: "cursor-a", at: Date(timeIntervalSince1970: 0))
-        try await store.advance(gardenId: "garden-b", cursor: "cursor-b", at: Date(timeIntervalSince1970: 0))
+        try await store.advance(cursor: "cursor-a", at: Date(timeIntervalSince1970: 0))
+        #expect(try await store.current()?.cursor == "cursor-a")
 
-        #expect(try await store.cursor(forGarden: "garden-a")?.cursor == "cursor-a")
-        #expect(try await store.cursor(forGarden: "garden-b")?.cursor == "cursor-b")
+        try await store.advance(cursor: "cursor-b", at: Date(timeIntervalSince1970: 10))
+        #expect(try await store.current()?.cursor == "cursor-b")
 
-        try await store.reset(gardenId: "garden-a")
-        #expect(try await store.cursor(forGarden: "garden-a") == nil)
-        #expect(try await store.cursor(forGarden: "garden-b")?.cursor == "cursor-b")
+        try await store.reset()
+        #expect(try await store.current() == nil)
     }
 }

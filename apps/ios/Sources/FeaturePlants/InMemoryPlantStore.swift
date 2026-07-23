@@ -24,6 +24,11 @@ public actor InMemoryPlantStore: LocalPlantStore {
         plants[plant.id] = plant
     }
 
+    public func delete(plantId: String) async throws {
+        guard !pendingPlantIds.contains(plantId) else { return }
+        plants.removeValue(forKey: plantId)
+    }
+
     @discardableResult
     public func commitOfflineMutation(
         plantId: String,

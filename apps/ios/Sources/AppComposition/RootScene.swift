@@ -40,6 +40,23 @@ public struct RootView: View {
     private let composition: AppCompositionRoot
 
     @State private var path: [AppRoute] = [.gardens]
+    /// App foreground/background transitions — architecture/ios-application-
+    /// design.md, section "8. Synchronization Integration": the
+    /// synchronization engine "reacts to: ... App foreground/background
+    /// transitions." (P5-IOS-03, Stage 5b.)
+    ///
+    /// The only real scene-phase/foreground trigger this codebase wires:
+    /// connectivity-change (`NWPathMonitor`) and background-processing-
+    /// opportunity (`BGTaskScheduler`) triggers remain a real, separate gap
+    /// — confirmed by inspection, not assumed, that nothing in this
+    /// codebase observes either today (no `NWPathMonitor`/`BGTaskScheduler`/
+    /// `scenePhase` reference existed anywhere before this change). Both
+    /// would need genuinely new subsystems (a path monitor actor;
+    /// `BGTaskSchedulerPermittedIdentifiers` in `Info.plist` plus a
+    /// registered background task handler) well beyond "a small, clearly-
+    /// scoped addition," so they are left as a documented gap for a future
+    /// stage rather than built here.
+    @Environment(\.scenePhase) private var scenePhase
 
     public init(composition: AppCompositionRoot) {
         self.composition = composition
@@ -78,6 +95,10 @@ public struct RootView: View {
                         TasksListView(model: composition.makeTasksListViewModel(gardenId: route.gardenId))
                     }
             }
+            .onChange(of: scenePhase) { _, newPhase in
+                guard newPhase == .active else { return }
+                Self.triggerSyncOnForeground(composition: composition)
+            }
         } else {
             NavigationStack {
                 SignInView(model: composition.makeSignInViewModel())
@@ -94,6 +115,25 @@ public struct RootView: View {
             }
         case .serviceHealth:
             ServiceHealthView(model: composition.makeServiceHealthViewModel())
+        }
+    }
+
+    /// A fresh engine per foreground transition, matching `makeSyncEngine()`'s
+    /// own "opened fresh per call" reasoning — a scene-phase transition is
+    /// infrequent enough (once per foregrounding, not a tight loop) that
+    /// constructing one is cheap relative to it, and it always reflects
+    /// whichever profile is currently signed in. Fire-and-forget: this
+    /// trigger has no UI to report failure to yet (`SyncEngineStatus` wiring
+    /// is a deliberately separate follow-up — see `RemoteSyncEngine.status`'s
+    /// own doc comment), so a failure here is silently absorbed the same way
+    /// `retryNow()`'s own doc comment already accepts for the retry trigger:
+    /// the next successful trigger — another foregrounding, or the follow-up
+    /// UI's own explicit retry once built — resolves it.
+    @MainActor
+    private static func triggerSyncOnForeground(composition: AppCompositionRoot) {
+        let engine = composition.makeSyncEngine()
+        Task {
+            try? await engine.retryNow()
         }
     }
 }

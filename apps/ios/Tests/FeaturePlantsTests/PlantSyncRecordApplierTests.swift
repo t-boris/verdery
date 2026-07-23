@@ -1,4 +1,5 @@
 import CoreDomain
+import CoreNetworking
 import CoreSynchronization
 import Foundation
 import Testing
@@ -44,5 +45,26 @@ struct PlantSyncRecordApplierTests {
         try await applier.applyConfirmed(recordId: "plant-1", revision: 3, confirmedAt: Date())
 
         #expect(try await store.fetch(plantId: "plant-1")?.revision == 3)
+    }
+
+    @Test("applyUpsert writes a genuinely new plant pulled from another device")
+    func applyUpsertWritesGenuinelyNewPlant() async throws {
+        let store = InMemoryPlantStore()
+        let applier = PlantSyncRecordApplier(localStore: store)
+
+        try await applier.applyUpsert(.plant(plant(id: "plant-2", revision: 1)))
+
+        #expect(try await store.fetch(plantId: "plant-2")?.displayName == "Tomato")
+    }
+
+    @Test("applyDelete removes a real tombstone pulled from another device")
+    func applyDeleteRemovesPlant() async throws {
+        let store = InMemoryPlantStore()
+        try await store.save(plant(id: "plant-1"))
+        let applier = PlantSyncRecordApplier(localStore: store)
+
+        try await applier.applyDelete(recordId: "plant-1", gardenId: "garden-1", revision: 1)
+
+        #expect(try await store.fetch(plantId: "plant-1") == nil)
     }
 }

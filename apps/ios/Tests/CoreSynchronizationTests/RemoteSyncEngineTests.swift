@@ -42,8 +42,9 @@ struct RemoteSyncEngineTests {
         outboxStore: any SyncOutboxStore = InMemorySyncOutboxStore(),
         conflictStore: any SyncConflictStore = InMemorySyncConflictStore(),
         operationResultStore: any SyncOperationResultStore = InMemorySyncOperationResultStore(),
+        cursorStore: any SyncCursorStore = InMemorySyncCursorStore(),
         gateway: FakeSyncGateway,
-        gardenApplier: FakeSyncRecordApplier
+        gardenApplier: any SyncRecordApplier
     ) -> RemoteSyncEngine {
         RemoteSyncEngine(
             outboxStore: outboxStore,
@@ -51,9 +52,13 @@ struct RemoteSyncEngineTests {
             operationResultStore: operationResultStore,
             gateway: gateway,
             clientInstallationStore: FakeClientInstallationIdentityStore(id: "install-1"),
+            cursorStore: cursorStore,
             appliers: [gardenApplier],
             appVersion: "1.0.0",
-            now: { Date(timeIntervalSince1970: 1_000) }
+            now: { Date(timeIntervalSince1970: 1_000) },
+            // A fixed jitter draw keeps push tests deterministic; backoff's
+            // own randomness is covered separately by `SyncBackoffTests`.
+            randomUnitInterval: { 1.0 }
         )
     }
 
@@ -277,6 +282,113 @@ struct RemoteSyncEngineTests {
         #expect(try await outboxStore.fetchAll().map(\.id) == ["op-1"])
     }
 
+    @Test("retryLater durably records an attempt via SyncOutboxStore.recordAttempt")
+    func retryLaterRecordsDurableAttempt() async throws {
+        let outboxStore = InMemorySyncOutboxStore()
+        try await outboxStore.enqueue(operation(id: "op-1", gardenId: "garden-1"))
+        let gateway = FakeSyncGateway()
+        await gateway.setPushResult { _ in
+            [.retryLater(operationId: "op-1", retryAfterSeconds: nil, reason: "server.dependency_unavailable")]
+        }
+        let engine = makeEngine(outboxStore: outboxStore, gateway: gateway, gardenApplier: FakeSyncRecordApplier(recordType: "garden"))
+
+        try await engine.pushPending()
+
+        let retryState = try await outboxStore.fetchAll().first?.retryState
+        #expect(retryState?.attemptCount == 1)
+        #expect(retryState?.lastErrorCategory == .server)
+        #expect(await engine.status == .savedLocally)
+    }
+
+    @Test("blockedByDependency durably records an attempt via SyncOutboxStore.recordAttempt")
+    func blockedByDependencyRecordsDurableAttempt() async throws {
+        let outboxStore = InMemorySyncOutboxStore()
+        try await outboxStore.enqueue(operation(id: "op-1", gardenId: "garden-1"))
+        let gateway = FakeSyncGateway()
+        await gateway.setPushResult { _ in
+            [.blockedByDependency(operationId: "op-1", blockingOperationIds: ["op-0"])]
+        }
+        let engine = makeEngine(outboxStore: outboxStore, gateway: gateway, gardenApplier: FakeSyncRecordApplier(recordType: "garden"))
+
+        try await engine.pushPending()
+
+        #expect(try await outboxStore.fetchAll().first?.retryState.attemptCount == 1)
+    }
+
+    @Test("after a retryLater outcome, a call still within the backoff window pushes nothing further")
+    func backoffGateSkipsAPushWithinItsWindow() async throws {
+        let outboxStore = InMemorySyncOutboxStore()
+        try await outboxStore.enqueue(operation(id: "op-1", gardenId: "garden-1"))
+        let gateway = FakeSyncGateway()
+        await gateway.setPushResult { _ in
+            [.retryLater(operationId: "op-1", retryAfterSeconds: nil, reason: "server.dependency_unavailable")]
+        }
+        let clock = MutableClock(Date(timeIntervalSince1970: 1_000))
+        let engine = RemoteSyncEngine(
+            outboxStore: outboxStore,
+            conflictStore: InMemorySyncConflictStore(),
+            operationResultStore: InMemorySyncOperationResultStore(),
+            gateway: gateway,
+            clientInstallationStore: FakeClientInstallationIdentityStore(id: "install-1"),
+            cursorStore: InMemorySyncCursorStore(),
+            appliers: [FakeSyncRecordApplier(recordType: "garden")],
+            appVersion: "1.0.0",
+            now: { clock.now },
+            randomUnitInterval: { 1.0 }
+        )
+
+        try await engine.pushPending()
+        let pushCallsAfterFirst = await gateway.pushedOperationBatches.count
+        #expect(pushCallsAfterFirst == 1)
+
+        // Still well within `SyncBackoff.baseDelaySeconds`'s own window.
+        clock.now.addTimeInterval(0.5)
+        try await engine.pushPending()
+        let pushCallsAfterSecond = await gateway.pushedOperationBatches.count
+        #expect(pushCallsAfterSecond == 1, "A push within the backoff window must not call the gateway again.")
+
+        // Past the window — eligible again.
+        clock.now.addTimeInterval(SyncBackoff.baseDelaySeconds)
+        try await engine.pushPending()
+        let pushCallsAfterThird = await gateway.pushedOperationBatches.count
+        #expect(pushCallsAfterThird == 2, "A push after the backoff window elapses must reach the gateway.")
+    }
+
+    @Test("a genuine transport failure during push records an attempt for every operation and sets waitingForConnectivity")
+    func transportFailureDuringPushRecordsAttemptsAndSetsStatus() async throws {
+        let outboxStore = InMemorySyncOutboxStore()
+        try await outboxStore.enqueue(operation(id: "op-1", gardenId: "garden-1"))
+        try await outboxStore.enqueue(operation(id: "op-2", gardenId: "garden-1", localSequence: 2))
+        let gateway = FakeSyncGateway()
+        await gateway.setPushError { .transport(code: .notConnectedToInternet, correlationId: "c-1") }
+        let engine = makeEngine(outboxStore: outboxStore, gateway: gateway, gardenApplier: FakeSyncRecordApplier(recordType: "garden"))
+
+        await #expect(throws: APIGatewayError.self) {
+            try await engine.pushPending()
+        }
+
+        let retryStates = try await outboxStore.fetchAll().map(\.retryState)
+        #expect(retryStates.allSatisfy { $0.attemptCount == 1 && $0.lastErrorCategory == .connectivity })
+        #expect(await engine.status == .waitingForConnectivity)
+    }
+
+    @Test("status is synchronized once the outbox is empty with no failure, and savedLocally while a genuine conflict is still open")
+    func statusReflectsOutboxAndFailureState() async throws {
+        let outboxStore = InMemorySyncOutboxStore()
+        let gateway = FakeSyncGateway()
+        let engine = makeEngine(outboxStore: outboxStore, gateway: gateway, gardenApplier: FakeSyncRecordApplier(recordType: "garden"))
+
+        try await engine.pushPending()
+        #expect(await engine.status == .synchronized)
+
+        try await outboxStore.enqueue(operation(id: "op-1", gardenId: "garden-1"))
+        await gateway.setPushResult { _ in
+            [.accepted(operationId: "op-1", recordRevisions: [SyncRecordReference(recordId: "garden-1", recordType: "garden", revision: 1)])]
+        }
+        try await engine.pushPending()
+        #expect(await engine.status == .synchronized)
+    }
+
     @Test("a record type with no registered applier (e.g. calibration) is skipped without failing the push")
     func unregisteredRecordTypeIsSkipped() async throws {
         let outboxStore = InMemorySyncOutboxStore()
@@ -345,9 +457,14 @@ private actor FakeSyncGateway: SyncGateway {
     private(set) var registerCalls: [RegisterCall] = []
     private(set) var pushedOperationBatches: [[OutboxOperation]] = []
     private var pushResult: (@Sendable ([OutboxOperation]) -> [SyncPushOperationOutcome])?
+    private var pushError: (@Sendable () -> APIGatewayError)?
 
     func setPushResult(_ result: @escaping @Sendable ([OutboxOperation]) -> [SyncPushOperationOutcome]) {
         pushResult = result
+    }
+
+    func setPushError(_ error: @escaping @Sendable () -> APIGatewayError) {
+        pushError = error
     }
 
     func registerClient(clientInstallationId: String, appVersion: String, protocolVersion: Int) async throws {
@@ -361,11 +478,37 @@ private actor FakeSyncGateway: SyncGateway {
         operations: [OutboxOperation]
     ) async throws -> [SyncPushOperationOutcome] {
         pushedOperationBatches.append(operations)
+        if let pushError {
+            throw pushError()
+        }
         return pushResult?(operations) ?? []
     }
 
     func acknowledge(clientInstallationId: String, operationIds: [String]) async throws -> [SyncPushOperationOutcome] {
         []
+    }
+
+    private var pullPagesToReturn: [SyncChangesPage] = []
+    private(set) var pullCallCount = 0
+    private var pullError: (@Sendable () -> APIGatewayError?)?
+
+    func setPullPages(_ pages: [SyncChangesPage]) {
+        pullPagesToReturn = pages
+    }
+
+    func setPullError(_ error: @escaping @Sendable () -> APIGatewayError?) {
+        pullError = error
+    }
+
+    func getChanges(protocolVersion: Int, after: String?, limit: Int) async throws -> SyncChangesPage {
+        if let error = pullError?() {
+            throw error
+        }
+        defer { pullCallCount += 1 }
+        guard pullCallCount < pullPagesToReturn.count else {
+            return SyncChangesPage(items: [], nextCursor: after ?? "cursor-0")
+        }
+        return pullPagesToReturn[pullCallCount]
     }
 }
 
@@ -386,4 +529,19 @@ private struct FakeClientInstallationIdentityStore: ClientInstallationIdentitySt
     let id: String
 
     func currentOrGenerated() async throws -> String { id }
+}
+
+/// A mutable `now()` source for `backoffGateSkipsAPushWithinItsWindow` — the
+/// only test in this file that needs time to actually advance between two
+/// calls on the same engine instance, rather than a single fixed instant.
+/// A plain class, not an actor: `RemoteSyncEngine` is itself an actor, so
+/// every read of `now` already happens from inside its own isolated
+/// context, one call at a time — no concurrent access this needs to guard
+/// against within one test.
+private final class MutableClock: @unchecked Sendable {
+    var now: Date
+
+    init(_ now: Date) {
+        self.now = now
+    }
 }

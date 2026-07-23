@@ -51,6 +51,26 @@ public struct APIErrorBody: Equatable, Sendable, Decodable {
     /// Whether repeating the identical request may succeed later.
     public let retryable: Bool
 
+    /// `Decodable` conformance alone only synthesizes a public `init(from:)`,
+    /// not a public memberwise initializer — added explicitly so a fake
+    /// `SyncGateway` in another module's tests (`CoreSynchronizationTests
+    /// .RemoteSyncEnginePullTests`, P5-IOS-03, Stage 5b) can construct an
+    /// `APIGatewayError.service` value directly, without round-tripping
+    /// through JSON just to build a test fixture.
+    public init(
+        code: String,
+        message: String,
+        correlationId: String,
+        details: [APIErrorDetail]? = nil,
+        retryable: Bool
+    ) {
+        self.code = code
+        self.message = message
+        self.correlationId = correlationId
+        self.details = details
+        self.retryable = retryable
+    }
+
     /// The shared code when this is one the request pipeline itself produces.
     ///
     /// `nil` means the code belongs to a module and is handled by that module's

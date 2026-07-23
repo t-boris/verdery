@@ -155,6 +155,7 @@ struct HTTPTransport: Sendable {
             throw errorForRejectedStatus(
                 statusCode: http.statusCode,
                 data: data,
+                response: http,
                 correlationId: correlationId
             )
         }
@@ -229,16 +230,25 @@ struct HTTPTransport: Sendable {
     private func errorForRejectedStatus(
         statusCode: Int,
         data: Data,
+        response: HTTPURLResponse,
         correlationId: CorrelationIdentifier
     ) -> APIGatewayError {
         guard let envelope = try? Self.decoder.decode(APIErrorEnvelope.self, from: data) else {
             return .unexpectedStatus(statusCode, correlationId: correlationId.value)
         }
 
-        return .service(envelope.error, statusCode: statusCode)
+        let retryAfterSeconds = response.value(forHTTPHeaderField: "Retry-After").flatMap(Int.init)
+        return .service(envelope.error, statusCode: statusCode, retryAfterSeconds: retryAfterSeconds)
     }
 
-    private static let decoder: JSONDecoder = {
+    /// `internal`, not `private`: `SyncGateway.getChanges`'s own decode of
+    /// `SyncChange.record`'s nested `data` payload (P5-IOS-03, Stage 5b)
+    /// needs the exact same fractional-seconds-first RFC 3339 strategy this
+    /// decoder already applies to every other response body — see that
+    /// method's own doc comment for why a second decode pass is needed at
+    /// all (the wire nests a variant-shaped payload one level below what
+    /// `execute<Response: Decodable>` alone can express).
+    static let decoder: JSONDecoder = {
         let decoder = JSONDecoder()
         // The plain `.iso8601` strategy rejects fractional seconds, which
         // every timestamp this API emits carries (`Date.toISOString()` on the

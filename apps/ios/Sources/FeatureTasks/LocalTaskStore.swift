@@ -31,6 +31,22 @@ public protocol LocalTaskStore: Sendable {
     /// comment explains, applied to `task` instead of `garden_object`.
     func replaceAll(gardenId: String, with tasks: [GardenTask]) async throws
 
+    /// Upserts one server-confirmed task, except when it still has a pending
+    /// offline mutation queued — the same guard `replaceAll(gardenId:with:)`
+    /// already applies, narrowed to one record; see `FeatureMap.LocalMapStore
+    /// .save(_:)`'s own doc comment for why a single-record upsert, not a
+    /// whole-garden `replaceAll`, is what a pulled single-task change needs.
+    /// Added in P5-IOS-03, Stage 5b, for `TaskSyncRecordApplier.applyUpsert`.
+    func save(_ task: GardenTask) async throws
+
+    /// Removes one task's local cache row, except when it still has a
+    /// pending offline mutation queued — see `FeaturePlants.LocalPlantStore
+    /// .delete(plantId:)`'s own doc comment for the identical reasoning
+    /// (including why no live server-side producer existing yet does not
+    /// block building this seam). Added in P5-IOS-03, Stage 5b, for
+    /// `TaskSyncRecordApplier.applyDelete`.
+    func delete(taskId: String) async throws
+
     /// Atomically applies one offline-capable task command as a single local
     /// transaction — architecture/offline-synchronization.md, section
     /// "6. Local Mutation Transaction":
@@ -111,6 +127,33 @@ public struct GRDBTaskStore: LocalTaskStore {
                 try TaskRecord(task).save(db)
             }
         }
+    }
+
+    public func save(_ task: GardenTask) async throws {
+        try await dbQueue.write { db in
+            guard try !Self.isPending(taskId: task.id, gardenId: task.gardenId, db: db) else { return }
+            try TaskRecord(task).save(db)
+        }
+    }
+
+    public func delete(taskId: String) async throws {
+        try await dbQueue.write { db in
+            guard let gardenId = try String.fetchOne(db, sql: "SELECT gardenId FROM task WHERE id = ?", arguments: [taskId])
+            else { return }
+            guard try !Self.isPending(taskId: taskId, gardenId: gardenId, db: db) else { return }
+            try db.execute(sql: "DELETE FROM task WHERE id = ?", arguments: [taskId])
+        }
+    }
+
+    /// Shared by `save(_:)`/`delete(taskId:)` — the same `sync_outbox
+    /// .targetRecordIds` lookup `replaceAll(gardenId:with:)` already performs
+    /// per-task, factored out for one task at a time; mirrors
+    /// `FeaturePlants.GRDBPlantStore.isPending`'s identical role.
+    private static func isPending(taskId: String, gardenId: String, db: Database) throws -> Bool {
+        let pendingTargetRecordIdsText = try String.fetchAll(
+            db, sql: "SELECT targetRecordIds FROM sync_outbox WHERE gardenId = ?", arguments: [gardenId]
+        )
+        return pendingTargetRecordIdsText.contains { decodeTargetRecordIds($0).contains(taskId) }
     }
 
     @discardableResult

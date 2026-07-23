@@ -1,3 +1,4 @@
+import CoreNetworking
 import CoreSynchronization
 import Foundation
 
@@ -6,8 +7,9 @@ import Foundation
 /// (`AppCompositionRoot`, the one place allowed to import both
 /// `CoreSynchronization` and every `Feature*` module).
 ///
-/// Source: implementation-plan.md work package P5-IOS-03, Stage 5a.
-public struct TaskSyncRecordApplier: SyncRecordApplier {
+/// Source: implementation-plan.md work package P5-IOS-03, Stages 5a
+/// (`applyConfirmed`) and 5b (`SyncPullRecordApplier`).
+public struct TaskSyncRecordApplier: SyncRecordApplier, SyncPullRecordApplier {
     public let recordType = "task"
 
     private let localStore: any LocalTaskStore
@@ -18,5 +20,14 @@ public struct TaskSyncRecordApplier: SyncRecordApplier {
 
     public func applyConfirmed(recordId: String, revision: Int, confirmedAt: Date) async throws {
         try await localStore.confirmSynced(taskId: recordId, revision: revision)
+    }
+
+    public func applyUpsert(_ snapshot: SyncChangeSnapshot) async throws {
+        guard case let .task(task) = snapshot else { return }
+        try await localStore.save(task)
+    }
+
+    public func applyDelete(recordId: String, gardenId: String?, revision: Int) async throws {
+        try await localStore.delete(taskId: recordId)
     }
 }

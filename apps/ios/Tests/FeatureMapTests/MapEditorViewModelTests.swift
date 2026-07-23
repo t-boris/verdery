@@ -275,6 +275,8 @@ struct MapEditorViewModelTests {
     private struct AlwaysFailingLocalMapStore: LocalMapStore {
         func fetchAll(gardenId: String) async throws -> [GardenMapObject] { [] }
         func replaceAll(gardenId: String, with objects: [GardenMapObject]) async throws {}
+        func save(_ object: GardenMapObject) async throws {}
+        func delete(objectId: String) async throws {}
         func commitOfflineMutation(
             gardenId: String,
             command: @Sendable (_ current: [String: GardenMapObject]) throws -> (

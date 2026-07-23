@@ -30,6 +30,21 @@ public protocol LocalPlantStore: Sendable {
     /// guard.
     func save(_ plant: Plant) async throws
 
+    /// Removes one plant's local cache row, except when it still has a
+    /// pending offline mutation queued — the same guard `save(_:)` applies,
+    /// read in the opposite direction; see `FeatureMap.LocalMapStore
+    /// .delete(objectId:)`'s own doc comment for the identical reasoning
+    /// applied to `garden_object`. A silent no-op when this device has no
+    /// local row for `plantId` either way. Added in P5-IOS-03, Stage 5b, for
+    /// `PlantSyncRecordApplier.applyDelete` — no plant-deletion command
+    /// exists server-side yet (confirmed by inspection: `plants-inventory
+    /// -unit-of-work.ts` names no delete operation today), so nothing
+    /// produces this tombstone in practice yet, but the wire's
+    /// `SyncChange.operation` is generic across every record type and this
+    /// method is a plain, unambiguous mechanical delete — no reason to leave
+    /// the seam unbuilt until a producer exists.
+    func delete(plantId: String) async throws
+
     /// Atomically applies one offline-capable plant command as a single
     /// local transaction — architecture/offline-synchronization.md, section
     /// "6. Local Mutation Transaction":
@@ -83,6 +98,15 @@ public struct GRDBPlantStore: LocalPlantStore {
         try await dbQueue.write { db in
             guard try !Self.isPending(plantId: plant.id, gardenId: plant.gardenId, db: db) else { return }
             try PlantRecord(plant).save(db)
+        }
+    }
+
+    public func delete(plantId: String) async throws {
+        try await dbQueue.write { db in
+            guard let gardenId = try String.fetchOne(db, sql: "SELECT gardenId FROM plant WHERE id = ?", arguments: [plantId])
+            else { return }
+            guard try !Self.isPending(plantId: plantId, gardenId: gardenId, db: db) else { return }
+            try db.execute(sql: "DELETE FROM plant WHERE id = ?", arguments: [plantId])
         }
     }
 

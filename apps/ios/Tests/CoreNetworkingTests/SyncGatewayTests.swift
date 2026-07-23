@@ -12,6 +12,10 @@ import Testing
 /// comment gives. Special attention to `push`'s flexible per-outcome
 /// decoding (`SyncPushOperationResultTransport.makeDomainOutcome()`), since a
 /// bug there would silently misroute a real push result.
+///
+/// `registerClient`/`push`/`acknowledge` only — `getChanges` (pull,
+/// P5-IOS-03 Stage 5b) has its own sibling file, `SyncGatewayPullTests.swift`,
+/// split out purely for this codebase's own file-size discipline.
 @Suite("Sync gateway")
 struct SyncGatewayTests {
     private let origin = URL(string: "https://api.example.test")!

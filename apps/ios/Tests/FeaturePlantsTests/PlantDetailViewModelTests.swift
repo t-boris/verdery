@@ -166,6 +166,10 @@ struct PlantDetailViewModelTests {
             try await inner.save(plant)
         }
 
+        func delete(plantId: String) async throws {
+            try await inner.delete(plantId: plantId)
+        }
+
         func commitOfflineMutation(
             plantId: String,
             command: @Sendable (_ current: Plant?) throws -> (projection: Plant, operation: OutboxOperation)

@@ -33,7 +33,14 @@ extension LocalDatabase {
         }
 
         // architecture/offline-synchronization.md, section "10. Pull
-        // Protocol". One durable cursor per garden partition.
+        // Protocol". Originally "one durable cursor per garden partition" —
+        // corrected below, in "recreateSyncCursorAsProfileScopedSingleton",
+        // once inspecting the shipped `GET /sync/changes` contract confirmed
+        // pull is profile-scoped, not per-garden. Left unedited here, not
+        // rewritten in place: `DatabaseMigrator` tracks applied migrations by
+        // name, and rewriting an already-shipped migration's SQL — rather
+        // than adding a new one — would silently no-op on any database that
+        // already ran it.
         migrator.registerMigration("createSyncCursor") { db in
             try db.create(table: "sync_cursor") { table in
                 table.column("gardenId", .text).primaryKey()
@@ -109,6 +116,26 @@ extension LocalDatabase {
                 table.column("updatedAt", .datetime).notNull()
             }
             try db.create(index: "local_draft_on_profileId", on: "local_draft", columns: ["profileId"])
+        }
+
+        // P5-IOS-03, Stage 5b: `sync_cursor` is recreated as a one-row
+        // singleton table, not one row per garden id — see
+        // `CoreDomain.SyncCursor`'s own doc comment for the full evidence
+        // that `GET /sync/changes` is profile-scoped, not per-garden. Drops
+        // and recreates rather than `ALTER TABLE ... RENAME COLUMN`: the
+        // semantics change entirely (a table keyed by many garden ids
+        // becomes a table with exactly one row), not merely a column's name,
+        // and nothing durable was ever written to the old shape in
+        // production — `SyncCursorStore` had no real caller before this
+        // stage (confirmed by inspection, not assumed; see this stage's own
+        // report).
+        migrator.registerMigration("recreateSyncCursorAsProfileScopedSingleton") { db in
+            try db.drop(table: "sync_cursor")
+            try db.create(table: "sync_cursor") { table in
+                table.column("id", .integer).primaryKey()
+                table.column("cursor", .text).notNull()
+                table.column("updatedAt", .datetime).notNull()
+            }
         }
     }
 }

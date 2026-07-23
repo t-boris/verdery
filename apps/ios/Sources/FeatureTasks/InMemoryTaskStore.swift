@@ -32,6 +32,16 @@ public actor InMemoryTaskStore: LocalTaskStore {
         }
     }
 
+    public func save(_ task: GardenTask) async throws {
+        guard !pendingTaskIds.contains(task.id) else { return }
+        tasks[task.id] = task
+    }
+
+    public func delete(taskId: String) async throws {
+        guard !pendingTaskIds.contains(taskId) else { return }
+        tasks.removeValue(forKey: taskId)
+    }
+
     @discardableResult
     public func commitOfflineMutation(
         taskId: String,

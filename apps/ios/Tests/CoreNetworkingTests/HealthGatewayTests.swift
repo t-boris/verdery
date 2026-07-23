@@ -100,7 +100,7 @@ struct HealthGatewayTests {
             try await gateway.readiness()
         }
 
-        guard case let .service(body, statusCode) = failure else {
+        guard case let .service(body, statusCode, _) = failure else {
             Issue.record("Expected a service error, received \(String(describing: failure)).")
             return
         }

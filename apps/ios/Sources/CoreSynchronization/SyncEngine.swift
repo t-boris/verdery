@@ -47,9 +47,32 @@ public protocol SyncEngine: Sendable {
     /// protocol version, and operations") — and applies their outcomes.
     func pushPending() async throws
 
-    /// Pulls and applies changes for every garden partition with a local
-    /// cursor. Unlike push, the pull request itself is per-garden-partition
-    /// (section "10. Pull Protocol"); an implementation loops its own
-    /// known partitions internally rather than exposing that loop here.
+    /// Pulls and applies changes across every garden the profile currently
+    /// has access to. Pull is profile-scoped, exactly like push — confirmed
+    /// by direct inspection of the shipped `GET /sync/changes` contract
+    /// (`packages/api-contracts/openapi.yaml` declares no `gardenId`
+    /// parameter on this operation) and its server implementation, not
+    /// assumed from section "10. Pull Protocol"'s own prose, which an
+    /// earlier reading of this method's doc comment over-interpreted as
+    /// per-garden — see `CoreDomain.SyncCursor`'s own doc comment for the
+    /// full account. One durable cursor, one call, paged until caught up.
     func pullChanges() async throws
+}
+
+extension SyncEngine {
+    /// Runs one push cycle followed by one pull cycle — the "explicit user
+    /// retry" trigger architecture/ios-application-design.md, section
+    /// "8. Synchronization Integration" names ("User-initiated retry can
+    /// wake eligible work without creating duplicate operation IDs"). A
+    /// default implementation on the protocol itself, not a `RemoteSyncEngine`
+    /// -only addition (P5-IOS-03, Stage 5b): both conformers already
+    /// implement `pushPending()`/`pullChanges()` safely-repeatable-on-demand
+    /// (operation ids are stable UUIDv7s, and `LocalOnlySyncEngine`'s own
+    /// two methods are harmless no-ops/reads), so every `SyncEngine` gets
+    /// this trigger for free rather than each conformer re-declaring the
+    /// same two-line sequence.
+    public func retryNow() async throws {
+        try await pushPending()
+        try await pullChanges()
+    }
 }

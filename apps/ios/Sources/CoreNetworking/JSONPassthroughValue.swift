@@ -74,4 +74,14 @@ enum JSONPassthroughValue: Codable, Equatable, Sendable {
         guard case let .object(fields) = self, case let .string(value)? = fields[key] else { return nil }
         return value
     }
+
+    /// This value's own `key` field, whatever its shape — used by
+    /// `SyncGateway.getChanges` (P5-IOS-03, Stage 5b) to pull `SyncChange
+    /// .record.data` (a `SyncRecordSnapshot`'s per-record-type payload) back
+    /// out for a second, typed decode pass, the same way `stringValue(forKey:)`
+    /// already pulls out `recordType` alone for push's conflict payload.
+    func value(forKey key: String) -> JSONPassthroughValue? {
+        guard case let .object(fields) = self else { return nil }
+        return fields[key]
+    }
 }

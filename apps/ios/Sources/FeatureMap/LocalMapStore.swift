@@ -19,6 +19,34 @@ public protocol LocalMapStore: Sendable {
     func fetchAll(gardenId: String) async throws -> [GardenMapObject]
     func replaceAll(gardenId: String, with objects: [GardenMapObject]) async throws
 
+    /// Upserts one server-confirmed object, except when it still has a
+    /// pending offline mutation queued — mirrors
+    /// `FeatureGardens.LocalGardenStore.save(_:)`'s identical "do not let a
+    /// necessarily-stale server response clobber an unsynced local mutation"
+    /// guard, generalized from "one row per garden" to "one object among a
+    /// garden's many" the same way `replaceAll(gardenId:with:)` already is.
+    /// Added in P5-IOS-03, Stage 5b, for `MapSyncRecordApplier.applyUpsert`:
+    /// a pulled single-object change from another device/session is exactly
+    /// this case, and `replaceAll` (a whole-document replace) would be wrong
+    /// for it — it would delete every other object this device has cached
+    /// for the garden that the pulled page's own bounded item set does not
+    /// happen to also include.
+    func save(_ object: GardenMapObject) async throws
+
+    /// Removes one object's local cache row, except when it still has a
+    /// pending offline mutation queued — the same guard `save(_:)` applies,
+    /// read in the opposite direction: a pending local mutation is this
+    /// device's own unsynced intent for the object, which a same-object
+    /// deletion pulled from another device/session must not silently
+    /// discard out from under it. A silent no-op when this device has no
+    /// local row for `objectId` either way. Added in P5-IOS-03, Stage 5b,
+    /// for `MapSyncRecordApplier.applyDelete` — a real, ordinary tombstone
+    /// (`delete-map-object.ts`/`join`/`split-map-object-linework.ts` already
+    /// produce these server-side today), not the revocation-tombstone
+    /// special case `GardenSyncRecordApplier.applyDelete`'s own doc comment
+    /// explains for `garden`.
+    func delete(objectId: String) async throws
+
     /// Atomically applies one offline-capable map command as a single local
     /// transaction — architecture/offline-synchronization.md, section
     /// "6. Local Mutation Transaction":
@@ -115,6 +143,33 @@ public struct GRDBMapStore: LocalMapStore {
                 try GardenObjectRecord(object).save(db)
             }
         }
+    }
+
+    public func save(_ object: GardenMapObject) async throws {
+        try await dbQueue.write { db in
+            guard try !Self.isPending(objectId: object.id, gardenId: object.gardenId, db: db) else { return }
+            try GardenObjectRecord(object).save(db)
+        }
+    }
+
+    public func delete(objectId: String) async throws {
+        try await dbQueue.write { db in
+            guard let gardenId = try String.fetchOne(db, sql: "SELECT gardenId FROM garden_object WHERE id = ?", arguments: [objectId])
+            else { return }
+            guard try !Self.isPending(objectId: objectId, gardenId: gardenId, db: db) else { return }
+            try db.execute(sql: "DELETE FROM garden_object WHERE id = ?", arguments: [objectId])
+        }
+    }
+
+    /// Shared by `save(_:)`/`delete(objectId:)` — the same `sync_outbox
+    /// .targetRecordIds` lookup `replaceAll(gardenId:with:)` already performs
+    /// per-object, factored out since both new methods need exactly it for
+    /// one object at a time rather than a whole garden's worth.
+    private static func isPending(objectId: String, gardenId: String, db: Database) throws -> Bool {
+        let pendingTargetRecordIdsText = try String.fetchAll(
+            db, sql: "SELECT targetRecordIds FROM sync_outbox WHERE gardenId = ?", arguments: [gardenId]
+        )
+        return pendingTargetRecordIdsText.contains { decodeTargetRecordIds($0).contains(objectId) }
     }
 
     @discardableResult

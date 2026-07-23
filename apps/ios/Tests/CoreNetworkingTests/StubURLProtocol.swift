@@ -15,15 +15,20 @@ final class StubURLProtocol: URLProtocol, @unchecked Sendable {
         let body: Data
         /// Set to simulate a connectivity failure instead of a response.
         let failure: URLError?
+        /// Extra response headers beyond the fixed `Content-Type` every
+        /// answer already carries — added for `SyncGatewayTests`'s own
+        /// `Retry-After` coverage (P5-IOS-03, Stage 5b).
+        let headers: [String: String]
 
-        init(statusCode: Int, body: Data, failure: URLError? = nil) {
+        init(statusCode: Int, body: Data, failure: URLError? = nil, headers: [String: String] = [:]) {
             self.statusCode = statusCode
             self.body = body
             self.failure = failure
+            self.headers = headers
         }
 
-        static func json(_ statusCode: Int, _ json: String) -> Answer {
-            Answer(statusCode: statusCode, body: Data(json.utf8))
+        static func json(_ statusCode: Int, _ json: String, headers: [String: String] = [:]) -> Answer {
+            Answer(statusCode: statusCode, body: Data(json.utf8), headers: headers)
         }
 
         static func transportFailure(_ code: URLError.Code) -> Answer {
@@ -85,7 +90,7 @@ final class StubURLProtocol: URLProtocol, @unchecked Sendable {
             url: request.url ?? URL(fileURLWithPath: "/"),
             statusCode: answer.statusCode,
             httpVersion: "HTTP/1.1",
-            headerFields: ["Content-Type": "application/json"]
+            headerFields: answer.headers.merging(["Content-Type": "application/json"]) { existing, _ in existing }
         )
 
         if let response {

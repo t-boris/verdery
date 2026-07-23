@@ -25,6 +25,21 @@ public actor InMemoryMapStore: LocalMapStore {
         objectsByGardenId[gardenId] = updated
     }
 
+    public func save(_ object: GardenMapObject) async throws {
+        guard !pendingObjectIds.contains(object.id) else { return }
+        var updated = objectsByGardenId[object.gardenId] ?? [:]
+        updated[object.id] = object
+        objectsByGardenId[object.gardenId] = updated
+    }
+
+    public func delete(objectId: String) async throws {
+        guard !pendingObjectIds.contains(objectId) else { return }
+        for (gardenId, objects) in objectsByGardenId where objects[objectId] != nil {
+            objectsByGardenId[gardenId]?.removeValue(forKey: objectId)
+            return
+        }
+    }
+
     @discardableResult
     public func commitOfflineMutation(
         gardenId: String,

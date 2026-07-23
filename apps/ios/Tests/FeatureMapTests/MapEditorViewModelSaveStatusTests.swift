@@ -60,6 +60,14 @@ struct MapEditorViewModelSaveStatusTests {
             try await inner.replaceAll(gardenId: gardenId, with: objects)
         }
 
+        func save(_ object: GardenMapObject) async throws {
+            try await inner.save(object)
+        }
+
+        func delete(objectId: String) async throws {
+            try await inner.delete(objectId: objectId)
+        }
+
         func commitOfflineMutation(
             gardenId: String,
             command: @Sendable (_ current: [String: GardenMapObject]) throws -> (

@@ -7,7 +7,16 @@ import Foundation
 /// Source: architecture/ios-application-design.md, section "16. Error Handling".
 public enum APIGatewayError: Error, Equatable, Sendable {
     /// The service answered with the contract's error envelope.
-    case service(APIErrorBody, statusCode: Int)
+    ///
+    /// `retryAfterSeconds` is the `Retry-After` response header
+    /// (`packages/api-contracts/openapi.yaml`, `components.headers.RetryAfter`
+    /// — documented today only on `TooManyRequests`/`429`, but read
+    /// unconditionally off any rejected status so a future response that
+    /// also sends it is honored without this type changing again), `nil`
+    /// when the response carried none. Added in P5-IOS-03, Stage 5b, for
+    /// architecture/offline-synchronization.md, section "20. Connectivity
+    /// and Backoff": "`Retry-After` is honored."
+    case service(APIErrorBody, statusCode: Int, retryAfterSeconds: Int?)
 
     /// Connectivity failed before an answer arrived.
     case transport(code: URLError.Code, correlationId: String)
@@ -27,7 +36,7 @@ public enum APIGatewayError: Error, Equatable, Sendable {
     /// are retryable by definition and contract violations never are.
     public var isRetryable: Bool {
         switch self {
-        case let .service(body, _): body.retryable
+        case let .service(body, _, _): body.retryable
         case .transport: true
         case .undecodableResponse: false
         case .unexpectedStatus: false
@@ -37,10 +46,18 @@ public enum APIGatewayError: Error, Equatable, Sendable {
     /// Identifier for correlating this failure with server telemetry.
     public var correlationId: String {
         switch self {
-        case let .service(body, _): body.correlationId
+        case let .service(body, _, _): body.correlationId
         case let .transport(_, correlationId): correlationId
         case let .undecodableResponse(_, correlationId): correlationId
         case let .unexpectedStatus(_, correlationId): correlationId
         }
+    }
+
+    /// Seconds the server asked the caller to wait before retrying, `nil`
+    /// for every error class besides `.service` and for a `.service` failure
+    /// whose response carried no `Retry-After` header at all.
+    public var retryAfterSeconds: Int? {
+        if case let .service(_, _, retryAfterSeconds) = self { return retryAfterSeconds }
+        return nil
     }
 }
