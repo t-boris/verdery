@@ -16,7 +16,11 @@ export type { GardenRepository } from './application/garden-repository.js';
 export { GetGarden } from './application/get-garden.js';
 export type { GardensMappingUnitOfWork } from './application/gardens-mapping-unit-of-work.js';
 export { ListGardens } from './application/list-gardens.js';
-export type { MembershipRepository } from './application/membership-repository.js';
+export type {
+  GardenMembershipState,
+  GardenPartitionMembership,
+  MembershipRepository,
+} from './application/membership-repository.js';
 export { RenameGarden } from './application/rename-garden.js';
 export { RequestGardenDeletion } from './application/request-garden-deletion.js';
 export { KyselyGardenRepository } from './persistence/kysely-garden-repository.js';
@@ -64,6 +68,7 @@ export { DecideMapProposal } from './application/decide-map-proposal.js';
 export { DeleteMapObject } from './application/delete-map-object.js';
 export { DuplicateMapObject } from './application/duplicate-map-object.js';
 export { EditMapObjectVertex } from './application/edit-map-object-vertex.js';
+export { GetCalibration } from './application/get-calibration.js';
 export { GetGardenMap } from './application/get-garden-map.js';
 export { GetMapObject } from './application/get-map-object.js';
 export { JoinMapObjectLinework } from './application/join-map-object-linework.js';

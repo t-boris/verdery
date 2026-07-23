@@ -57,6 +57,7 @@ export type { CorrectObservationInput } from './application/correct-observation.
 export { ListObservationsForGarden } from './application/list-observations-for-garden.js';
 export { ListObservationsForPlant } from './application/list-observations-for-plant.js';
 export { GetObservation } from './application/get-observation.js';
+export { GetObservationForSync } from './application/get-observation-for-sync.js';
 
 export { registerObservationRoutes } from './transport/observation-routes.js';
 export type { ObservationRoutesDependencies } from './transport/observation-routes.js';

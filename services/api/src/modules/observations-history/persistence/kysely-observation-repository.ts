@@ -77,6 +77,16 @@ export class KyselyObservationRepository implements ObservationRepository {
     return row === undefined ? null : toObservation(row);
   }
 
+  async getWithHistory(id: Uuid): Promise<ObservationHistoryEntry | null> {
+    const observation = await this.get(id);
+    if (observation === null) {
+      return null;
+    }
+
+    const [entry] = await attachHistoryDetails(this.db, [observation]);
+    return entry ?? null;
+  }
+
   async listForGarden(gardenId: Uuid): Promise<ObservationHistoryEntry[]> {
     const rows = await this.db
       .selectFrom('observations_history.observation')

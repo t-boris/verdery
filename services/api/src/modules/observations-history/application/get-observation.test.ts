@@ -26,6 +26,10 @@ class FakeObservationRepository implements ObservationRepository {
   listForPlant(): Promise<ObservationHistoryEntry[]> {
     throw new Error('not used by this test');
   }
+
+  getWithHistory(): Promise<ObservationHistoryEntry | null> {
+    throw new Error('not used by this test');
+  }
 }
 
 describe('GetObservation', () => {

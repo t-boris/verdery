@@ -301,6 +301,66 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     });
   });
 
+  describe('GET /v1/sync/changes', () => {
+    it('rejects a request missing protocolVersion with 400', async () => {
+      const { token } = await createGardenAsOwner();
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/v1/sync/changes',
+        headers: bearer(token),
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it('returns the garden creation change on a first pull, with nextCursor present', async () => {
+      const { token, garden } = await createGardenAsOwner();
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/v1/sync/changes?protocolVersion=1',
+        headers: bearer(token),
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json<{
+        items: readonly { recordType: string; operation: string; recordId: string }[];
+        nextCursor: string;
+      }>();
+      expect(body.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            recordType: 'garden',
+            operation: 'upsert',
+            recordId: garden.id,
+          }),
+        ]),
+      );
+      expect(typeof body.nextCursor).toBe('string');
+    });
+
+    it('rejects protocolVersion 0 with 400 before it ever reaches the protocol-window guard', async () => {
+      const { token } = await createGardenAsOwner();
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/v1/sync/changes?protocolVersion=0',
+        headers: bearer(token),
+      });
+
+      // `protocolVersion` carries `minimum: 1` on the wire, so `0` fails this
+      // route's own request-level validation before `GetSyncChanges`'s own
+      // `409 sync.protocol_version.unsupported` guard ever runs — the same
+      // "not reachable through real HTTP parsing today" situation
+      // `sync-protocol-version.test.ts`'s own comment documents for the other
+      // two sync routes. That guard's own `409` behavior is instead proven
+      // directly, bypassing HTTP parsing, by
+      // `tests/integration/synchronization-pull.test.ts`.
+      expect(response.statusCode).toBe(400);
+    });
+  });
+
   describe('POST /v1/sync/acknowledge', () => {
     it('reports unknown for an operation id that was never pushed', async () => {
       const { token } = await createGardenAsOwner();

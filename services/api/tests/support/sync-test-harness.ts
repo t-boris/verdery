@@ -28,6 +28,7 @@ import {
   DuplicateMapObject,
   EditMapObjectVertex,
   GardenAuthorization,
+  GetCalibration,
   GetGarden,
   GetMapObject,
   JoinMapObjectLinework,
@@ -48,6 +49,7 @@ import {
   KyselyObservationRepository,
   KyselyObservationsHistoryUnitOfWork,
   CorrectObservation,
+  GetObservationForSync,
   RecordObservation,
 } from '../../src/modules/observations-history/public.js';
 import {
@@ -80,6 +82,8 @@ import {
 import { GetObservation } from '../../src/modules/observations-history/public.js';
 import {
   AcknowledgeSyncOperations,
+  GetSyncChanges,
+  KyselySyncChangeQuery,
   KyselySyncClientInstallationRepository,
   PushSyncOperations,
   RegisterSyncClient,
@@ -394,21 +398,42 @@ export function buildSyncTestHarness(db: Kysely<DatabaseSchema>, clock: Clock) {
   const synchronizationIdempotency = new KyselyIdempotencyStore(db, clock);
   const installations = new KyselySyncClientInstallationRepository(db);
 
+  // Pull (`GetSyncChanges`, P5-BE-02) — mirrors `compose-synchronization.ts`'s
+  // own wiring: reuses `getGarden`/`getMapObject`/`getPlant`/`getTask` above,
+  // adds `getCalibration`/`getObservationForSync` as this pass's own two new
+  // authorized readers, plus the membership and sync-change-log read ports.
+  const membershipRepository = new KyselyMembershipRepository(db);
+  const getCalibration = new GetCalibration(calibrationRepository, gardenAuthorization);
+  const getObservationForSync = new GetObservationForSync(
+    observationRepository,
+    gardenAuthorization,
+  );
+  const syncChangeQuery = new KyselySyncChangeQuery(db);
+  const getSyncChanges = new GetSyncChanges(
+    membershipRepository,
+    syncChangeQuery,
+    { getGarden, getMapObject, getCalibration, getPlant, getObservationForSync, getTask },
+    clock,
+  );
+
   return {
     gardenAuthorization,
     gardenRepository,
     plantRepository,
     taskRepository,
     mapObjectRepository,
+    membershipRepository,
     createGarden,
     renameGarden,
     createMapObject,
+    deleteMapObject,
     addPlant,
     updatePlantDetails,
     createManualTask,
     editTask,
     registerSyncClient: new RegisterSyncClient(installations, synchronizationIdempotency, clock),
     pushSyncOperations: new PushSyncOperations(synchronizationIdempotency, router),
+    getSyncChanges,
     acknowledgeSyncOperations: new AcknowledgeSyncOperations(synchronizationIdempotency),
   };
 }

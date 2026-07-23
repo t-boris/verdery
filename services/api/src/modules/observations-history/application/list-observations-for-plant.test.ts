@@ -23,6 +23,10 @@ class FakeMembershipRepository implements MembershipRepository {
   insertOwner(): Promise<void> {
     throw new Error('not used by this test');
   }
+
+  listMembershipsForProfile(): Promise<never[]> {
+    throw new Error('not used by this test');
+  }
 }
 
 class FakeObservationRepository implements ObservationRepository {
@@ -45,6 +49,10 @@ class FakeObservationRepository implements ObservationRepository {
   listForPlant(gardenId: string, plantId: string): Promise<ObservationHistoryEntry[]> {
     this.lastPlantQuery = { gardenId, plantId };
     return Promise.resolve(this.entries);
+  }
+
+  getWithHistory(): Promise<ObservationHistoryEntry | null> {
+    throw new Error('not used by this test');
   }
 }
 

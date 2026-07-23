@@ -17,6 +17,10 @@ class FakeMembershipRepository implements MembershipRepository {
   insertOwner(): Promise<void> {
     throw new Error('not used by this test');
   }
+
+  listMembershipsForProfile(): Promise<never[]> {
+    throw new Error('not used by this test');
+  }
 }
 
 function membershipWithRole(role: GardenRole): Membership {

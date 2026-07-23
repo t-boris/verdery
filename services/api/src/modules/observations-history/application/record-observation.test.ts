@@ -62,6 +62,10 @@ class FakeMembershipRepository implements MembershipRepository {
   insertOwner(): Promise<void> {
     throw new Error('not used by this test');
   }
+
+  listMembershipsForProfile(): Promise<never[]> {
+    throw new Error('not used by this test');
+  }
 }
 
 function authorizationWithRole(role: GardenRole | null): GardenAuthorization {
@@ -85,6 +89,10 @@ class FakeObservationRepository implements ObservationRepository {
   }
 
   listForPlant(): Promise<ObservationHistoryEntry[]> {
+    throw new Error('not used by this test');
+  }
+
+  getWithHistory(): Promise<ObservationHistoryEntry | null> {
     throw new Error('not used by this test');
   }
 }

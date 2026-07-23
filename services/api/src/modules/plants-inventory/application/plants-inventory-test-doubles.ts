@@ -268,6 +268,10 @@ export class FakeMembershipRepository implements MembershipRepository {
   insertOwner(): Promise<void> {
     throw new Error('not used by this test');
   }
+
+  listMembershipsForProfile(): ReturnType<MembershipRepository['listMembershipsForProfile']> {
+    throw new Error('not used by this test');
+  }
 }
 
 /** A real `GardenAuthorization` backed by a fake membership repository — `GardenAuthorization` is a concrete class with a private field, so a hand-rolled substitute is not structurally assignable; this is the same construction `garden-authorization.test.ts` itself uses. */

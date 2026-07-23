@@ -226,6 +226,10 @@ export class FakeObservationRepository implements ObservationRepository {
   listForPlant(): Promise<ObservationHistoryEntry[]> {
     throw new Error('not used by this test');
   }
+
+  getWithHistory(): Promise<ObservationHistoryEntry | null> {
+    throw new Error('not used by this test');
+  }
 }
 
 /** A real `GetObservation` backed by a fake repository, the same "real concrete class over a fake port" construction `authorizationGranting` below uses for `GardenAuthorization`. */
@@ -241,6 +245,10 @@ export class FakeMembershipRepository implements MembershipRepository {
   }
 
   insertOwner(): Promise<void> {
+    throw new Error('not used by this test');
+  }
+
+  listMembershipsForProfile(): ReturnType<MembershipRepository['listMembershipsForProfile']> {
     throw new Error('not used by this test');
   }
 }

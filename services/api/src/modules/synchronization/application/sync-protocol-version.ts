@@ -1,11 +1,11 @@
 /**
  * The sync protocol version window this server currently supports.
  *
- * Checked by `RegisterSyncClient` and `PushSyncOperations` — "the same code
- * and meaning `PushSyncOperations` and `GetSyncChanges` use" per
- * `registerSyncClient`'s own OpenAPI description. `GetSyncChanges` is
- * P5-BE-02's concern, not built this stage, but this constant and guard are
- * written so that stage only has to import and call them, not redefine them.
+ * Checked by `RegisterSyncClient`, `PushSyncOperations`, and `GetSyncChanges`
+ * — "the same code and meaning `PushSyncOperations` and `GetSyncChanges` use"
+ * per `registerSyncClient`'s own OpenAPI description. `GetSyncChanges`
+ * (P5-BE-02) imports and calls this guard directly rather than redefining
+ * it, exactly as this comment originally anticipated.
  *
  * Only a lower bound exists: this is the sync protocol's first shipped
  * version, so there is no upper bound to reject yet — the server always

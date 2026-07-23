@@ -2,7 +2,12 @@ import type { Kysely } from 'kysely';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { GardenRole } from '../domain/garden-role.js';
-import type { Membership, MembershipRepository } from '../application/membership-repository.js';
+import type {
+  GardenMembershipState,
+  GardenPartitionMembership,
+  Membership,
+  MembershipRepository,
+} from '../application/membership-repository.js';
 
 export class KyselyMembershipRepository implements MembershipRepository {
   constructor(private readonly db: Kysely<DatabaseSchema>) {}
@@ -41,5 +46,18 @@ export class KyselyMembershipRepository implements MembershipRepository {
         updated_at: now,
       })
       .execute();
+  }
+
+  async listMembershipsForProfile(profileId: Uuid): Promise<GardenPartitionMembership[]> {
+    const rows = await this.db
+      .selectFrom('collaboration.membership')
+      .select(['garden_id', 'state'])
+      .where('profile_id', '=', profileId)
+      .execute();
+
+    return rows.map((row) => ({
+      gardenId: row.garden_id,
+      state: row.state as GardenMembershipState,
+    }));
   }
 }

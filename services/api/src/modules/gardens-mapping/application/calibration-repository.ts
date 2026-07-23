@@ -24,5 +24,7 @@ export interface Calibration {
  */
 export interface CalibrationRepository {
   findLatestForBackground(backgroundObjectId: Uuid): Promise<Calibration | null>;
+  /** Looks up one calibration revision by its own id — added for `GetCalibration` (P5-BE-02), which needs a specific past revision, not necessarily the latest one, for a `platform.sync_change` row that may no longer name the background's current revision. */
+  findById(id: Uuid): Promise<Calibration | null>;
   insert(calibration: Calibration): Promise<void>;
 }

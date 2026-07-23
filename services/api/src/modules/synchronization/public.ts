@@ -15,16 +15,21 @@
  * `tasks-recommendations` already established against its three Phase 4
  * siblings, extended to depend on all four business modules at once.
  *
- * P5-BE-01/P5-API-01 (this pass) lands `PUT /v1/sync/clients/{id}`,
- * `POST /v1/sync/push`, and `POST /v1/sync/acknowledge`.
+ * P5-BE-01/P5-API-01 landed `PUT /v1/sync/clients/{id}`, `POST /v1/sync/push`,
+ * and `POST /v1/sync/acknowledge`.
  *
- * P5-BE-02 (a later, separate stage) adds `GET /v1/sync/changes`, the
- * initial snapshot, partition reset, full resynchronization, revocation, and
- * mobile protocol-version policy on top of this same module — new files
- * inside `application/`/`transport/`, not a redesign of what is here. The
- * pull side reads `platform.sync_change` (Stage 1, already landed) the same
- * way this stage's push side writes to it indirectly, through the sibling
- * modules' own commands.
+ * P5-BE-02 (this pass) adds `GET /v1/sync/changes` on top of the same
+ * module — new files inside `application/`/`transport/`/`persistence/`, not a
+ * redesign of what came before. It reads `platform.sync_change` (Stage 1,
+ * already landed) the same way the push side writes to it indirectly,
+ * through the sibling modules' own commands. Initial synchronization, the
+ * snapshot boundary, and full resynchronization are not separate mechanisms
+ * or API surface — `GetSyncChanges`'s own header comment explains why the
+ * single pull endpoint already expresses all three. Authorization revocation
+ * is surfaced as an ordinary garden-tombstone row through the same endpoint;
+ * see that same header comment for what is — and, honestly, is not —
+ * currently wired for it (no command anywhere in this codebase revokes a
+ * membership yet).
  *
  * Source: architecture/backend-modular-monolith.md, section "5.5 Public Interface".
  */
@@ -66,7 +71,26 @@ export {
 export { PushSyncOperations } from './application/push-sync-operations.js';
 export { AcknowledgeSyncOperations } from './application/acknowledge-sync-operations.js';
 
+export {
+  SYNC_CHANGES_RETENTION_MILLISECONDS,
+  decodeSyncChangesCursor,
+  encodeSyncChangesCursor,
+  requireFreshCursor,
+} from './application/sync-changes-cursor.js';
+export type { SyncChangesCursor } from './application/sync-changes-cursor.js';
+export type {
+  SyncChangeQuery,
+  SyncChangeQueryInput,
+  SyncChangeRecord,
+} from './application/sync-change-query.js';
+export { GetSyncChanges } from './application/get-sync-changes.js';
+export type {
+  GetSyncChangesRequest,
+  SyncChangeRecordReaders,
+} from './application/get-sync-changes.js';
+
 export { KyselySyncClientInstallationRepository } from './persistence/kysely-sync-client-installation-repository.js';
+export { KyselySyncChangeQuery } from './persistence/kysely-sync-change-query.js';
 
 export { registerSyncRoutes } from './transport/sync-routes.js';
 export type { SyncRoutesDependencies } from './transport/sync-routes.js';

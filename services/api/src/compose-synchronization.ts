@@ -17,14 +17,20 @@
 
 import {
   KyselyCalibrationRepository,
+  GetCalibration,
   GetMapObject,
   KyselyMapObjectRepository,
+  KyselyMembershipRepository,
 } from './modules/gardens-mapping/public.js';
 import type {
   GardenAuthorization,
   GardenRoutesDependencies,
   MapRoutesDependencies,
 } from './modules/gardens-mapping/public.js';
+import {
+  GetObservationForSync,
+  KyselyObservationRepository,
+} from './modules/observations-history/public.js';
 import type { ObservationRoutesDependencies } from './modules/observations-history/public.js';
 import { KyselyPlantRepository } from './modules/plants-inventory/public.js';
 import type { PlantRoutesDependencies } from './modules/plants-inventory/public.js';
@@ -32,6 +38,8 @@ import { GetTask, KyselyTaskRepository } from './modules/tasks-recommendations/p
 import type { TaskRoutesDependencies } from './modules/tasks-recommendations/public.js';
 import {
   AcknowledgeSyncOperations,
+  GetSyncChanges,
+  KyselySyncChangeQuery,
   KyselySyncClientInstallationRepository,
   PushSyncOperations,
   RegisterSyncClient,
@@ -151,7 +159,46 @@ export function composeSynchronization(
   const pushSyncOperations = new PushSyncOperations(synchronizationIdempotency, router);
   const acknowledgeSyncOperations = new AcknowledgeSyncOperations(synchronizationIdempotency);
 
+  // `GetSyncChanges` (P5-BE-02): three more read-only, pooled dependencies
+  // this pass needs and no existing composition already exposes —
+  // `membershipRepository` for the garden-partition split
+  // `GetSyncChanges`'s own header comment explains, `observationRepository`
+  // for `GetObservationForSync`'s history-enriched read, and
+  // `syncChangeQuery` over `platform.sync_change` itself. `getCalibration`/
+  // `getObservationForSync` are this pass's own two new authorized readers;
+  // `getGarden`/`getMapObject`/`getPlant`/`getTask` are the exact same
+  // instances the router above already uses, reused rather than duplicated —
+  // each is stateless and already authorized per call, so sharing one
+  // instance across both push's conflict payloads and pull's upsert
+  // snapshots is correct, not merely convenient.
+  const membershipRepository = new KyselyMembershipRepository(database.queries);
+  const observationRepository = new KyselyObservationRepository(database.queries);
+  const getCalibration = new GetCalibration(calibrationRepository, gardenAuthorization);
+  const getObservationForSync = new GetObservationForSync(
+    observationRepository,
+    gardenAuthorization,
+  );
+  const syncChangeQuery = new KyselySyncChangeQuery(database.queries);
+  const getSyncChanges = new GetSyncChanges(
+    membershipRepository,
+    syncChangeQuery,
+    {
+      getGarden: gardenRoutesDependencies.getGarden,
+      getMapObject,
+      getCalibration,
+      getPlant: plantRoutesDependencies.getPlant,
+      getObservationForSync,
+      getTask,
+    },
+    clock,
+  );
+
   return {
-    syncRoutesDependencies: { registerSyncClient, pushSyncOperations, acknowledgeSyncOperations },
+    syncRoutesDependencies: {
+      registerSyncClient,
+      pushSyncOperations,
+      getSyncChanges,
+      acknowledgeSyncOperations,
+    },
   };
 }

@@ -39,4 +39,12 @@ export interface ObservationRepository {
   listForGarden(gardenId: Uuid): Promise<ObservationHistoryEntry[]>;
   /** Every observation for the plant, most recently observed first, same shape as `listForGarden`. `gardenId` is redundant with `plantId` alone but kept explicit — every other cross-entity read in this codebase (`MapObjectRepository.findById(gardenId, objectId)`) is scoped by garden the same way. */
   listForPlant(gardenId: Uuid, plantId: Uuid): Promise<ObservationHistoryEntry[]>;
+  /**
+   * `get`'s own shape (single, by id) but with the same corrected-status and
+   * photo/analysis enrichment `listForGarden`/`listForPlant` already attach —
+   * added for `GetObservationForSync` (P5-BE-02), which needs one full
+   * `ObservationResource` per pull row, not the whole garden's or plant's
+   * history.
+   */
+  getWithHistory(id: Uuid): Promise<ObservationHistoryEntry | null>;
 }

@@ -45,6 +45,16 @@ export class KyselyCalibrationRepository implements CalibrationRepository {
     return row === undefined ? null : toCalibration(row);
   }
 
+  async findById(id: Uuid): Promise<Calibration | null> {
+    const row = await this.db
+      .selectFrom('gardens_mapping.calibration')
+      .selectAll()
+      .where('id', '=', id)
+      .executeTakeFirst();
+
+    return row === undefined ? null : toCalibration(row);
+  }
+
   async insert(calibration: Calibration): Promise<void> {
     try {
       await this.db
