@@ -57,6 +57,30 @@ import {
   RegisterMediaRecord,
 } from './modules/media/public.js';
 import {
+  CorrectObservation,
+  GetObservation,
+  KyselyObservationRepository,
+  KyselyObservationsHistoryUnitOfWork,
+  ListObservationsForGarden,
+  ListObservationsForPlant,
+  RecordObservation,
+} from './modules/observations-history/public.js';
+import {
+  AddPlant,
+  AddPlantFromPhoto,
+  AttachPlantPhoto,
+  ConfirmPlantIdentification,
+  KyselyPlantRepository,
+  KyselyPlantsInventoryUnitOfWork,
+  KyselyTaxonomyReferenceRepository,
+  MovePlant,
+  SearchTaxonomyReferences,
+  SetPlantStatus,
+  SetPrimaryPlantPhoto,
+  TransitionPlantLifecycleStage,
+  UpdatePlantDetails,
+} from './modules/plants-inventory/public.js';
+import {
   DatabaseDependencyProbe,
   registerHealthRoutes,
   ServiceHealth,
@@ -308,6 +332,138 @@ export async function buildApplication(
       clock,
     ),
   };
+
+  // observations-history: owns the append-only `observation` (no revision
+  // column, no UPDATE path — see that module's `public.ts`),
+  // `observation_photo`, and `image_analysis_result` tables. Reuses
+  // gardens-mapping's own `gardenAuthorization` instance, the same
+  // capability matrix ('editGardenContent'/'viewGarden') every other garden-
+  // scoped command already checks against. No transport of its own this
+  // pass, mirroring media's own "no route yet" choice: nothing in this file
+  // reads these commands today — they are exercised end to end by
+  // tests/integration/observations-history.test.ts in the meantime, the
+  // same way media's RegisterMediaRecord is.
+  const observationRepository = new KyselyObservationRepository(database.queries);
+  const observationsHistoryIdempotency = new KyselyIdempotencyStore(database.queries, clock);
+  const observationsHistoryUnitOfWork = new KyselyObservationsHistoryUnitOfWork(
+    database.queries,
+    clock,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const recordObservation = new RecordObservation(
+    observationsHistoryIdempotency,
+    observationsHistoryUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const correctObservation = new CorrectObservation(
+    observationsHistoryIdempotency,
+    observationsHistoryUnitOfWork,
+    gardenAuthorization,
+    observationRepository,
+    clock,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const listObservationsForGarden = new ListObservationsForGarden(
+    observationRepository,
+    gardenAuthorization,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const listObservationsForPlant = new ListObservationsForPlant(
+    observationRepository,
+    gardenAuthorization,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const getObservation = new GetObservation(observationRepository);
+
+  // plants-inventory: owns the mutable `plant` aggregate root, its
+  // `plant_photo`/`plant_identification` children, and the read-only
+  // `taxonomy_reference` catalog. Reuses gardens-mapping's own
+  // `gardenAuthorization` instance, the same capability matrix every other
+  // garden-scoped command already checks against, and shares the
+  // transaction-bound `mapObjects`/`media` repository ports through its own
+  // unit of work (see `application/plants-inventory-unit-of-work.ts`) rather
+  // than duplicating gardens-mapping's or media's query logic. No transport
+  // of its own this pass, mirroring media's and observations-history's own
+  // "no route yet" choice: nothing in this file reads these commands today —
+  // they are exercised end to end by
+  // tests/integration/plants-inventory.test.ts in the meantime.
+  const plantRepository = new KyselyPlantRepository(database.queries);
+  const taxonomyReferenceRepository = new KyselyTaxonomyReferenceRepository(database.queries);
+  const plantsInventoryIdempotency = new KyselyIdempotencyStore(database.queries, clock);
+  const plantsInventoryUnitOfWork = new KyselyPlantsInventoryUnitOfWork(database.queries, clock);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const addPlant = new AddPlant(
+    plantsInventoryIdempotency,
+    plantsInventoryUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const addPlantFromPhoto = new AddPlantFromPhoto(
+    plantsInventoryIdempotency,
+    plantsInventoryUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const attachPlantPhoto = new AttachPlantPhoto(
+    plantRepository,
+    plantsInventoryIdempotency,
+    plantsInventoryUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const setPrimaryPlantPhoto = new SetPrimaryPlantPhoto(
+    plantRepository,
+    plantsInventoryIdempotency,
+    plantsInventoryUnitOfWork,
+    gardenAuthorization,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const updatePlantDetails = new UpdatePlantDetails(
+    plantRepository,
+    plantsInventoryIdempotency,
+    plantsInventoryUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const confirmPlantIdentification = new ConfirmPlantIdentification(
+    plantRepository,
+    plantsInventoryIdempotency,
+    plantsInventoryUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const transitionPlantLifecycleStage = new TransitionPlantLifecycleStage(
+    plantRepository,
+    plantsInventoryIdempotency,
+    plantsInventoryUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const setPlantStatus = new SetPlantStatus(
+    plantRepository,
+    plantsInventoryIdempotency,
+    plantsInventoryUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const movePlant = new MovePlant(
+    plantRepository,
+    plantsInventoryIdempotency,
+    plantsInventoryUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const searchTaxonomyReferences = new SearchTaxonomyReferences(taxonomyReferenceRepository);
 
   await app.register(
     (instance, _options, done) => {

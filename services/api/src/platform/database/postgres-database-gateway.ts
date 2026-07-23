@@ -21,6 +21,9 @@ import type { DatabaseGateway, DatabaseSchema } from './database-gateway.js';
 // Side effect: registers the bigint (revision, sync sequence) type parser
 // before any query runs. See that module for why this must be explicit.
 import './pg-bigint-parser.js';
+// Side effect: registers the date (plant.acquisition_date) type parser
+// before any query runs. See that module for why this must be explicit.
+import './pg-date-parser.js';
 
 /** Notified when an idle pooled connection fails outside of any query. */
 export type PoolErrorListener = (error: Error) => void;
