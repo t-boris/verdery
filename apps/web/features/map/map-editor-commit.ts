@@ -7,6 +7,8 @@ import type {
 } from '@verdery/geometry-contracts';
 import { useCallback } from 'react';
 
+import { useIsOnline } from '@/core/connectivity/public';
+
 import type { HistoryEntry, MapEditorStore } from './editor-store';
 import { isCategoryLocked } from './map-layers';
 import type { MapObjectRecord } from './types';
@@ -101,14 +103,33 @@ interface SubmitMutationLike {
  * (`use-map-editor-actions.ts`'s `stepHistory`) submits through
  * `submitMutation` directly, bypassing this gate deliberately: a lock applied
  * after an edit should not strand the user unable to undo that same edit.
+ *
+ * It is also the single choke point for the offline gate (P5-WEB-01): every
+ * command this function guards is rejected, never sent, while the browser
+ * is offline — the in-progress shape a command like `createObject` would
+ * have submitted stays in `store.state.draftPoints`/`pendingGateGeometry`
+ * instead, recoverable via `use-map-draft-persistence.ts`, rather than
+ * either hanging (TanStack Query's default `networkMode: 'online'` would
+ * otherwise silently pause the mutation and fire it the moment connectivity
+ * returns — an implicit queue-and-resubmit this work package's own scope
+ * explicitly excludes) or failing with a confusing transport error.
+ * `stepHistory`'s own direct `submitMutation` call carries the identical
+ * check for the same reason, since it bypasses this function entirely.
  */
 export function useCommandCommit(
   store: MapEditorStore,
   submitMutation: SubmitMutationLike,
   findRecord: (objectId: string) => MapObjectRecord | null,
 ): CommitFn {
+  const isOnline = useIsOnline();
+
   return useCallback(
     async (command, priorSnapshot) => {
+      if (!isOnline) {
+        store.setStatus({ key: 'map.status.offline', tone: 'alert' });
+        return null;
+      }
+
       if (command.type !== 'createObject') {
         const target = findRecord(objectIdOf(command));
         if (target !== null && isCategoryLocked(target.category, store.state.lockedLayers)) {
@@ -137,7 +158,7 @@ export function useCommandCommit(
         return null;
       }
     },
-    [store, submitMutation, findRecord],
+    [store, submitMutation, findRecord, isOnline],
   );
 }
 

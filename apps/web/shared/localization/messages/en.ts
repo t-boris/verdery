@@ -69,6 +69,15 @@ export const englishMessages = {
     'This action does not apply to the object in its current state.',
   'error.unknown': 'The request failed for an unrecognized reason.',
 
+  'connectivity.staleTitle': 'You are offline',
+  'connectivity.staleDescription':
+    'Showing what was already loaded. New changes cannot be saved until the connection returns.',
+
+  'drafts.recoveredTitle': 'Unsaved work recovered',
+  'drafts.recoveredDescription':
+    'This was restored from a draft saved on this device. It has not been sent to the server.',
+  'drafts.discard': 'Discard recovered draft',
+
   'shell.signOut': 'Sign out',
 
   'auth.signInTitle': 'Sign in to Verdery',
@@ -256,6 +265,7 @@ export const englishMessages = {
   'map.status.moveFailed':
     'The move could not be saved. The object was returned to its last saved position.',
   'map.status.commandFailed': 'The change could not be saved.',
+  'map.status.offline': 'This change cannot be sent while offline. It stays in your local draft.',
   'map.status.layerLocked': 'This object is on a locked layer and cannot be changed.',
   'map.status.geometryUpdated': 'Shape updated.',
   'map.status.duplicated': '{label} duplicated.',

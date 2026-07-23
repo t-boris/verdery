@@ -80,3 +80,17 @@ export function failureFromResponse(
     ? failureFromEnvelope(body, status, requestCorrelationId)
     : malformedResponseFailure(status, requestCorrelationId);
 }
+
+/**
+ * True for a failure caused by the request never reaching the API at all —
+ * the same condition `transportFailure` reports (offline, DNS, TLS, CORS, or
+ * abort). Used to decide whether a "stale/disconnected" indicator applies to
+ * an otherwise ordinary `ApiFailure`, as opposed to a genuine domain or
+ * server error the API did manage to respond with.
+ *
+ * Source: architecture/web-application-design.md, section "9. Online-First
+ * Behavior".
+ */
+export function isConnectivityFailure(failure: ApiFailure): boolean {
+  return failure.kind === 'transport';
+}

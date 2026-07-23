@@ -2,11 +2,20 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { RecordObservationRequest } from '@verdery/api-contracts';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
+import { useIsOnline } from '@/core/connectivity/public';
+import { useRecoverableDraft } from '@/core/drafts/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Button, FailureAlert, TextField } from '@/shared/ui/public';
+import {
+  Button,
+  FailureAlert,
+  RecoveredDraftNotice,
+  StaleIndicator,
+  TextField,
+} from '@/shared/ui/public';
 
 import styles from './record-observation-form.module.css';
 import { useRecordObservation } from './queries';
@@ -33,6 +42,21 @@ const recordObservationSchema = z
 
 type RecordObservationValues = z.infer<typeof recordObservationSchema>;
 
+const DEFAULT_VALUES: RecordObservationValues = {
+  noteText: '',
+  conditionSummary: '',
+  plantId: '',
+  gardenObjectId: '',
+  observedAt: '',
+};
+
+/**
+ * Local-draft schema version for this form — see
+ * `core/drafts/local-draft-store.ts`'s doc comment for the versioning
+ * convention.
+ */
+const RECORD_OBSERVATION_DRAFT_SCHEMA_VERSION = 1;
+
 export interface RecordObservationFormProps {
   readonly gardenId: string;
   /**
@@ -52,22 +76,51 @@ export interface RecordObservationFormProps {
  * at all — at least one of `noteText`, `conditionSummary`, or a photo is
  * required, and this form always supplies one of the first two.
  *
+ * Wired to `core/drafts`' recoverable-draft mechanism (P5-WEB-01): field
+ * values are persisted locally while the form is dirty and restored on a
+ * later mount, e.g. after an accidental reload. Submission is disabled
+ * while the browser is offline rather than queued — see
+ * `core/drafts/use-recoverable-draft.ts`'s and
+ * `shared/ui/stale-indicator.tsx`'s doc comments for the reasoning.
+ *
  * Source: packages/api-contracts/openapi.yaml, operation `recordObservation`.
  */
 export function RecordObservationForm({ gardenId, fixedPlantId }: RecordObservationFormProps) {
   const { t } = useLocalization();
   const mutation = useRecordObservation(gardenId);
+  const isOnline = useIsOnline();
 
-  const { register, handleSubmit, formState, reset } = useForm<RecordObservationValues>({
+  const { register, handleSubmit, formState, reset, watch } = useForm<RecordObservationValues>({
     resolver: zodResolver(recordObservationSchema),
-    defaultValues: {
-      noteText: '',
-      conditionSummary: '',
-      plantId: '',
-      gardenObjectId: '',
-      observedAt: '',
-    },
+    defaultValues: DEFAULT_VALUES,
   });
+
+  const draft = useRecoverableDraft<RecordObservationValues>({
+    draftType: 'observations.recordObservation',
+    // A garden-wide draft and a plant-fixed draft are distinct sessions —
+    // both can legitimately be open at once in different tabs.
+    scopeKey: `${gardenId}:${fixedPlantId ?? 'garden'}`,
+    schemaVersion: RECORD_OBSERVATION_DRAFT_SCHEMA_VERSION,
+    payload: watch(),
+    hasUnsavedInput: formState.isDirty,
+  });
+
+  useEffect(() => {
+    if (draft.recoveredPayload === null) {
+      return;
+    }
+    reset(draft.recoveredPayload);
+    draft.acknowledgeRecovered();
+    // Runs once, when `draft.recoveredPayload` transitions from `null` to a
+    // real value right after mount — `reset`/`acknowledgeRecovered` are
+    // intentionally not listed; see `add-plant-form.tsx`'s identical effect
+    // for the full reasoning.
+  }, [draft.recoveredPayload]);
+
+  const discardRecoveredDraft = () => {
+    draft.dismissRecovered();
+    reset(DEFAULT_VALUES);
+  };
 
   const onSubmit = handleSubmit((values) => {
     const input: RecordObservationRequest = {
@@ -94,11 +147,17 @@ export function RecordObservationForm({ gardenId, fixedPlantId }: RecordObservat
         : { observedAt: new Date(values.observedAt).toISOString() }),
     };
 
-    mutation.mutate(input, { onSuccess: () => reset() });
+    mutation.mutate(input, {
+      onSuccess: () => {
+        reset();
+        draft.clearDraft();
+      },
+    });
   });
 
   return (
     <form className={styles['form']} onSubmit={(event) => void onSubmit(event)} noValidate>
+      {draft.recovered && <RecoveredDraftNotice onDiscard={discardRecoveredDraft} />}
       <TextField
         label={t('observations.noteTextLabel')}
         error={
@@ -122,7 +181,8 @@ export function RecordObservationForm({ gardenId, fixedPlantId }: RecordObservat
         {...register('observedAt')}
       />
       <p className={styles['hint']}>{t('observations.mediaGapHint')}</p>
-      <Button type="submit" variant="primary" busy={mutation.isPending}>
+      <StaleIndicator />
+      <Button type="submit" variant="primary" busy={mutation.isPending} disabled={!isOnline}>
         {t('observations.recordSubmit')}
       </Button>
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}

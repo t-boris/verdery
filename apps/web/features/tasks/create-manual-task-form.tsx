@@ -2,11 +2,21 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { CreateManualTaskRequest, TaskTargetKind } from '@verdery/api-contracts';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
+import { useIsOnline } from '@/core/connectivity/public';
+import { useRecoverableDraft } from '@/core/drafts/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Button, FailureAlert, Select, TextField } from '@/shared/ui/public';
+import {
+  Button,
+  FailureAlert,
+  RecoveredDraftNotice,
+  Select,
+  StaleIndicator,
+  TextField,
+} from '@/shared/ui/public';
 
 import styles from './create-manual-task-form.module.css';
 import { TASK_TARGET_KINDS, TASK_URGENCIES, targetKindLabel, urgencyLabel } from './labels';
@@ -35,6 +45,15 @@ const createTaskSchema = z
   });
 
 type CreateTaskValues = z.infer<typeof createTaskSchema>;
+
+const DEFAULT_VALUES: CreateTaskValues = { title: '', targetKind: 'garden', urgency: 'normal' };
+
+/**
+ * Local-draft schema version for this form — see
+ * `core/drafts/local-draft-store.ts`'s doc comment for the versioning
+ * convention.
+ */
+const CREATE_MANUAL_TASK_DRAFT_SCHEMA_VERSION = 1;
 
 function buildTarget(values: CreateTaskValues): CreateManualTaskRequest['target'] {
   if (values.targetKind === 'garden') {
@@ -69,19 +88,53 @@ function buildTimeWindow(values: CreateTaskValues): CreateManualTaskRequest['tim
  * feature reaching into `features/map` for a real picker would violate
  * `architecture/web-application-design.md`, section "20. Dependency Rules".
  *
+ * Wired to `core/drafts`' recoverable-draft mechanism (P5-WEB-01): field
+ * values are persisted locally while the form is dirty and restored on a
+ * later mount, e.g. after an accidental reload. Submission is disabled
+ * while the browser is offline rather than queued — see
+ * `core/drafts/use-recoverable-draft.ts`'s and
+ * `shared/ui/stale-indicator.tsx`'s doc comments for the reasoning.
+ *
  * Source: packages/api-contracts/openapi.yaml, operation `createManualTask`.
  */
 export function CreateManualTaskForm({ gardenId }: { readonly gardenId: string }) {
   const { t } = useLocalization();
   const mutation = useCreateManualTask(gardenId);
+  const isOnline = useIsOnline();
 
   const { register, handleSubmit, formState, watch, reset } = useForm<CreateTaskValues>({
     resolver: zodResolver(createTaskSchema),
-    defaultValues: { title: '', targetKind: 'garden', urgency: 'normal' },
+    defaultValues: DEFAULT_VALUES,
     shouldUnregister: true,
   });
 
   const targetKind = watch('targetKind');
+  const currentValues = watch();
+
+  const draft = useRecoverableDraft<CreateTaskValues>({
+    draftType: 'tasks.createManualTask',
+    scopeKey: gardenId,
+    schemaVersion: CREATE_MANUAL_TASK_DRAFT_SCHEMA_VERSION,
+    payload: currentValues,
+    hasUnsavedInput: formState.isDirty,
+  });
+
+  useEffect(() => {
+    if (draft.recoveredPayload === null) {
+      return;
+    }
+    reset(draft.recoveredPayload);
+    draft.acknowledgeRecovered();
+    // Runs once, when `draft.recoveredPayload` transitions from `null` to a
+    // real value right after mount — `reset`/`acknowledgeRecovered` are
+    // intentionally not listed; see `add-plant-form.tsx`'s identical effect
+    // for the full reasoning.
+  }, [draft.recoveredPayload]);
+
+  const discardRecoveredDraft = () => {
+    draft.dismissRecovered();
+    reset(DEFAULT_VALUES);
+  };
 
   const onSubmit = handleSubmit((values) => {
     const timeWindow = buildTimeWindow(values);
@@ -97,11 +150,17 @@ export function CreateManualTaskForm({ gardenId }: { readonly gardenId: string }
         : { originObservationId: values.originObservationId }),
     };
 
-    mutation.mutate(input, { onSuccess: () => reset() });
+    mutation.mutate(input, {
+      onSuccess: () => {
+        reset();
+        draft.clearDraft();
+      },
+    });
   });
 
   return (
     <form className={styles['form']} onSubmit={(event) => void onSubmit(event)} noValidate>
+      {draft.recovered && <RecoveredDraftNotice onDiscard={discardRecoveredDraft} />}
       <TextField
         label={t('tasks.titleLabel')}
         maxLength={200}
@@ -158,7 +217,8 @@ export function CreateManualTaskForm({ gardenId }: { readonly gardenId: string }
 
       <TextField label={t('tasks.originObservationIdLabel')} {...register('originObservationId')} />
 
-      <Button type="submit" variant="primary" busy={mutation.isPending}>
+      <StaleIndicator />
+      <Button type="submit" variant="primary" busy={mutation.isPending} disabled={!isOnline}>
         {t('tasks.createSubmit')}
       </Button>
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}

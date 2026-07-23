@@ -1,7 +1,8 @@
 'use client';
 
+import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Button, FailureAlert } from '@/shared/ui/public';
+import { Button, FailureAlert, StaleIndicator } from '@/shared/ui/public';
 
 import { ObservationEntry } from './observation-entry';
 import styles from './observation-timeline.module.css';
@@ -39,7 +40,13 @@ export function ObservationTimeline({ gardenId, plantId }: ObservationTimelinePr
     return <p role="status">{t('observations.loading')}</p>;
   }
 
-  if (query.isError) {
+  // `isLoadingError`: a failed first load, with no cached data to fall back
+  // to — the full failure state is all there is to show. A failed
+  // background refetch (`isRefetchError`) instead falls through to the
+  // rendering below, `query.data` still holding the last successful result,
+  // per architecture doc section "9. Online-First Behavior" ("Existing
+  // loaded data remains visible with a stale indicator").
+  if (query.isLoadingError) {
     return (
       <div className={styles['errorState']}>
         <FailureAlert failure={query.error.failure} />
@@ -50,20 +57,26 @@ export function ObservationTimeline({ gardenId, plantId }: ObservationTimelinePr
     );
   }
 
-  if (query.data.items.length === 0) {
-    return <p className={styles['empty']}>{t('observations.empty')}</p>;
-  }
-
   return (
-    <ul className={styles['list']}>
-      {query.data.items.map((observation) => (
-        <ObservationEntry
-          key={observation.id}
-          gardenId={gardenId}
-          plantId={plantId ?? null}
-          observation={observation}
-        />
-      ))}
-    </ul>
+    <>
+      <StaleIndicator failure={query.isError ? query.error.failure : null} />
+      {query.isError && !isConnectivityFailure(query.error.failure) && (
+        <FailureAlert failure={query.error.failure} />
+      )}
+      {query.data.items.length === 0 ? (
+        <p className={styles['empty']}>{t('observations.empty')}</p>
+      ) : (
+        <ul className={styles['list']}>
+          {query.data.items.map((observation) => (
+            <ObservationEntry
+              key={observation.id}
+              gardenId={gardenId}
+              plantId={plantId ?? null}
+              observation={observation}
+            />
+          ))}
+        </ul>
+      )}
+    </>
   );
 }

@@ -1,7 +1,11 @@
 import type { MapCommandPayload } from '@verdery/geometry-contracts';
-import { describe, expect, it } from 'vitest';
+import { onlineManager } from '@tanstack/react-query';
+import { act, renderHook } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { commandNeedsPriorSnapshot, objectIdOf } from './map-editor-commit';
+import { MapEditorStoreProvider, useMapEditorStore } from './editor-store';
+import { commandNeedsPriorSnapshot, objectIdOf, useCommandCommit } from './map-editor-commit';
 
 const objectId = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0b';
 const otherObjectId = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0c';
@@ -107,5 +111,75 @@ describe('commandNeedsPriorSnapshot', () => {
     expect(commandNeedsPriorSnapshot('joinLinework')).toBe(false);
     expect(commandNeedsPriorSnapshot('upsertCalibration')).toBe(false);
     expect(commandNeedsPriorSnapshot('decideProposal')).toBe(false);
+  });
+});
+
+function wrapper({ children }: { readonly children: ReactNode }) {
+  return <MapEditorStoreProvider>{children}</MapEditorStoreProvider>;
+}
+
+const CREATE_COMMAND: MapCommandPayload = {
+  type: 'createObject',
+  objectId,
+  category: 'tree',
+  geometry: { type: 'Point', coordinates: [0, 0] },
+};
+
+describe('useCommandCommit — offline gate (P5-WEB-01)', () => {
+  afterEach(() => {
+    act(() => onlineManager.setOnline(true));
+  });
+
+  it('rejects a command without ever calling the mutation while the browser is offline', async () => {
+    act(() => onlineManager.setOnline(false));
+    const mutateAsync = vi.fn();
+
+    const { result } = renderHook(
+      () => {
+        const store = useMapEditorStore();
+        const commit = useCommandCommit(store, { mutateAsync }, () => null);
+        return { store, commit };
+      },
+      { wrapper },
+    );
+
+    const affected = await act(() => result.current.commit(CREATE_COMMAND, null));
+
+    expect(affected).toBeNull();
+    expect(mutateAsync).not.toHaveBeenCalled();
+    expect(result.current.store.state.status).toEqual({
+      key: 'map.status.offline',
+      tone: 'alert',
+    });
+  });
+
+  it('submits normally while online', async () => {
+    const affectedRecord = [
+      {
+        id: objectId,
+        gardenId: 'garden-1',
+        category: 'tree' as const,
+        geometry: { type: 'Point' as const, coordinates: [0, 0] },
+        lifecycleState: 'active' as const,
+        revision: 1,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+    ];
+    const mutateAsync = vi.fn().mockResolvedValue(affectedRecord);
+
+    const { result } = renderHook(
+      () => {
+        const store = useMapEditorStore();
+        const commit = useCommandCommit(store, { mutateAsync }, () => null);
+        return { store, commit };
+      },
+      { wrapper },
+    );
+
+    const affected = await act(() => result.current.commit(CREATE_COMMAND, null));
+
+    expect(mutateAsync).toHaveBeenCalledWith(CREATE_COMMAND);
+    expect(affected).toEqual(affectedRecord);
   });
 });

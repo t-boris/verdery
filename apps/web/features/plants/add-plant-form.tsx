@@ -3,12 +3,21 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { AddPlantRequest, PlantGroupingKind } from '@verdery/api-contracts';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
+import { useIsOnline } from '@/core/connectivity/public';
+import { useRecoverableDraft } from '@/core/drafts/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Button, FailureAlert, Select, TextField } from '@/shared/ui/public';
+import {
+  Button,
+  FailureAlert,
+  RecoveredDraftNotice,
+  Select,
+  StaleIndicator,
+  TextField,
+} from '@/shared/ui/public';
 
 import {
   PLANT_ACQUISITION_DATE_TYPES,
@@ -51,6 +60,20 @@ const addPlantSchema = z
 
 type AddPlantValues = z.infer<typeof addPlantSchema>;
 
+const DEFAULT_VALUES: AddPlantValues = { displayName: '', groupingKind: 'individual' };
+
+interface AddPlantDraftPayload extends AddPlantValues {
+  readonly taxonomyReferenceId: string | null;
+}
+
+/**
+ * Local-draft schema version for this form. Increment whenever
+ * `AddPlantDraftPayload`'s shape changes in a way an old stored draft could
+ * not be blindly reapplied under — see `core/drafts/local-draft-store.ts`'s
+ * doc comment for the full convention.
+ */
+const ADD_PLANT_DRAFT_SCHEMA_VERSION = 1;
+
 /**
  * Creates a plant instance, row, or group, then hands off to the plant's own
  * detail page — the same create-then-navigate pattern
@@ -64,6 +87,15 @@ type AddPlantValues = z.infer<typeof addPlantSchema>;
  * pass leaves the field as a documented, honest fallback rather than
  * reaching across that boundary.
  *
+ * Wired to `core/drafts`' recoverable-draft mechanism (P5-WEB-01): every
+ * field, plus `taxonomyReferenceId` (which React Hook Form does not own —
+ * `TaxonomyReferenceField` is a controlled component backed by plain
+ * `useState`), is persisted locally while the form is dirty and restored on
+ * a later mount, e.g. after an accidental reload. Submission is disabled
+ * while the browser is offline instead of being queued — see
+ * `core/drafts/use-recoverable-draft.ts`'s and
+ * `shared/ui/stale-indicator.tsx`'s doc comments for the reasoning.
+ *
  * Source: implementation-plan.md work package P4-WEB-01;
  * packages/api-contracts/openapi.yaml, operation `addPlant`.
  */
@@ -71,11 +103,12 @@ export function AddPlantForm({ gardenId }: { readonly gardenId: string }) {
   const { t } = useLocalization();
   const router = useRouter();
   const mutation = useAddPlant(gardenId);
+  const isOnline = useIsOnline();
   const [taxonomyReferenceId, setTaxonomyReferenceId] = useState<string | null>(null);
 
   const { register, handleSubmit, formState, watch, reset } = useForm<AddPlantValues>({
     resolver: zodResolver(addPlantSchema),
-    defaultValues: { displayName: '', groupingKind: 'individual' },
+    defaultValues: DEFAULT_VALUES,
     // `quantity` is conditionally rendered on `groupingKind`; unregistering it
     // on unmount is what makes switching back to `individual` clear a
     // previously typed value instead of leaving a hidden, unfixable error.
@@ -83,6 +116,39 @@ export function AddPlantForm({ gardenId }: { readonly gardenId: string }) {
   });
 
   const groupingKind = watch('groupingKind');
+  const currentValues = watch();
+
+  const draft = useRecoverableDraft<AddPlantDraftPayload>({
+    draftType: 'plants.addPlant',
+    scopeKey: gardenId,
+    schemaVersion: ADD_PLANT_DRAFT_SCHEMA_VERSION,
+    payload: { ...currentValues, taxonomyReferenceId },
+    hasUnsavedInput: formState.isDirty || taxonomyReferenceId !== null,
+  });
+
+  useEffect(() => {
+    if (draft.recoveredPayload === null) {
+      return;
+    }
+    const { taxonomyReferenceId: recoveredTaxonomyReferenceId, ...recoveredValues } =
+      draft.recoveredPayload;
+    reset(recoveredValues);
+    setTaxonomyReferenceId(recoveredTaxonomyReferenceId);
+    draft.acknowledgeRecovered();
+    // Runs exactly once, when `draft.recoveredPayload` transitions from `null`
+    // to a real value right after mount — see `useRecoverableDraft`'s own
+    // doc comment for why this "apply, then acknowledge" split exists.
+    // `reset`/`draft.acknowledgeRecovered` are deliberately not listed:
+    // `reset` is a fresh function identity from React Hook Form on every
+    // render, and `acknowledgeRecovered` is what clears the one dependency
+    // this effect actually reacts to.
+  }, [draft.recoveredPayload]);
+
+  const discardRecoveredDraft = () => {
+    draft.dismissRecovered();
+    reset(DEFAULT_VALUES);
+    setTaxonomyReferenceId(null);
+  };
 
   const onSubmit = handleSubmit((values) => {
     const input: AddPlantRequest = {
@@ -113,6 +179,7 @@ export function AddPlantForm({ gardenId }: { readonly gardenId: string }) {
       onSuccess: (plant) => {
         reset();
         setTaxonomyReferenceId(null);
+        draft.clearDraft();
         router.push(`/application/gardens/${gardenId}/plants/${plant.id}`);
       },
     });
@@ -120,6 +187,7 @@ export function AddPlantForm({ gardenId }: { readonly gardenId: string }) {
 
   return (
     <form className={styles['form']} onSubmit={(event) => void onSubmit(event)} noValidate>
+      {draft.recovered && <RecoveredDraftNotice onDiscard={discardRecoveredDraft} />}
       <TextField
         label={t('plants.displayNameLabel')}
         maxLength={200}
@@ -192,7 +260,8 @@ export function AddPlantForm({ gardenId }: { readonly gardenId: string }) {
         {t('plants.mapObjectIdHint')}
       </p>
 
-      <Button type="submit" variant="primary" busy={mutation.isPending}>
+      <StaleIndicator />
+      <Button type="submit" variant="primary" busy={mutation.isPending} disabled={!isOnline}>
         {t('plants.addSubmit')}
       </Button>
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}

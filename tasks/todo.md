@@ -1805,3 +1805,154 @@ understood, separate gap: that scenario produces a second, unrelated `SyncConfli
 operation's own new `originalOperationId` through the ordinary conflict-recording path, while the first
 conflict's row stays resolved-but-never-removed indefinitely. Left undocumented in code beyond this note
 until a real product decision exists for how deep a retry chain should go.
+
+## P5-WEB-01 complete
+
+Implement explicit stale/disconnected states and schema-versioned recoverable drafts for selected
+`apps/web/` forms and map sessions — Stage 6, the web-side counterpart to Stages 4a–4e/P5-CONFLICT-01's
+native work, deliberately much smaller per architecture/web-application-design.md section "9. Online-First
+Behavior" and its own explicit "Full record synchronization in the browser is deferred" boundary. Two
+research passes ran before touching anything: grepping for any existing `navigator.onLine`/`online`/
+`offline` wiring (none existed) and reading every form/list/detail view and the map editor's command-commit
+path to find the actual, current save/error behavior rather than assume it.
+
+- **Connectivity detection reuses TanStack Query's own `onlineManager` singleton** (`@tanstack/react-query`,
+  re-exported from `@tanstack/query-core`) rather than a hand-rolled `window.addEventListener('online' |
+'offline', …)` pair — confirmed by reading `onlineManager`'s own source first, not assumed: it already
+  exists as this application's own dependency, it is already the exact signal the query client uses to
+  pause queries/mutations under the default `networkMode: 'online'`, and a second independent listener pair
+  risks the two ever disagreeing. New `core/connectivity/network-status.ts` wraps it in one hook,
+  `useIsOnline()`, via `useSyncExternalStore` (a consistent server snapshot of `true`, so hydration never
+  flashes an offline state).
+- **`core/api/failure.ts` gained `isConnectivityFailure(failure)`** (`failure.kind === 'transport'`) — no
+  new failure taxonomy needed; the gateway layer already distinguished "the request never reached the API"
+  from a contract-level or malformed-response failure, which is exactly the distinction a stale/disconnected
+  indicator needs.
+- **`shared/ui/stale-indicator.tsx` (`StaleIndicator`)**: a small `Alert`-backed banner, layered over
+  already-rendered content rather than replacing it, shown when either `useIsOnline()` is false or a passed-
+  in `ApiFailure` is connectivity-classified (covers "browser reachable, API unreachable" too, not just
+  `navigator.onLine`). Renders nothing otherwise. Wired into all four named "list/detail" views
+  (`features/gardens/garden-list.tsx`, `features/tasks/task-list.tsx`,
+  `features/observations/observation-timeline.tsx`, `features/plants/plant-detail.tsx`) and the map editor
+  (`features/map/map-editor.tsx`), plus the three drafted create forms (as a plain offline explanation next
+  to the disabled submit button, no `failure` prop needed there since forms have no background query of
+  their own).
+- **A real, pre-existing "existing data replaced by an error screen" defect, found and fixed, not left
+  because it predates this work package**: TanStack Query v5's `QueryObserverResult` is a discriminated
+  union with `isLoadingError` (failed first load, `data: undefined`) distinct from `isRefetchError` (failed
+  _background_ refetch, `data: TData` — the last successful result — still present); confirmed directly by
+  reading `query-core`'s own `types.ts`, not assumed from the hook's runtime behavior alone. All four list/
+  detail views and the map editor previously branched on the coarser `query.isError` alone and returned a
+  full replacement failure screen for _both_ cases, discarding already-loaded, already-server-confirmed data
+  the moment a background refetch failed — exactly the failure mode architecture doc section 9's "Existing
+  loaded data remains visible with a stale indicator" exists to prevent. Fixed by branching on
+  `isLoadingError` for the full-failure state (nothing to preserve) and letting `isRefetchError` fall through
+  to the ordinary success rendering with `StaleIndicator` layered on top, plus a small inline `FailureAlert`
+  for a _non_-connectivity refetch error (a real server-side problem, e.g. revoked access mid-session, that
+  must not be silently swallowed just because it isn't a connectivity failure).
+- **Point 4's own audit — "does anything render a mutation as succeeded before the server confirms it" —
+  found nothing, verified rather than assumed**: grepped every `setQueryData` call in `apps/web` (nine, across
+  `plants`/`gardens`/`map` `queries.ts`) and confirmed each sits inside a mutation's own `onSuccess`; grepped
+  for `onMutate` (zero results) — no optimistic-update infrastructure exists anywhere in this codebase yet.
+  Every form already correctly gates its "saved"/navigate/reset behavior behind `onSuccess`. This is a
+  documented negative finding, not a skipped check.
+- **Schema-versioned recoverable local drafts — `core/drafts/`**: `local-draft-store.ts` is a thin
+  `localStorage` adapter (`saveLocalDraft`/`loadLocalDraft`/`clearLocalDraft`) storing a
+  `{ schemaVersion, draftType, savedAt, payload }` envelope per `(draftType, scopeKey)` key. `localStorage`,
+  not IndexedDB, for every draft this pass persists — a deliberate size/lifetime call, documented in that
+  file's own doc comment: every draft (form field values, or the map editor's in-progress vertex list) is a
+  small, synchronously-serializable JSON value nowhere near `localStorage`'s practical quota; IndexedDB's
+  async/larger-capacity/transactional advantages have no payoff at this size and are the right tool for a
+  _different_, larger, not-yet-built concern (section 9's "Large imports preserve local recovery metadata" —
+  `features/imports` does not exist in this codebase yet). Each draft type owns one `schemaVersion` integer
+  constant (e.g. `ADD_PLANT_DRAFT_SCHEMA_VERSION = 1`), incremented whenever that payload's shape changes in
+  a way an old stored draft could not be blindly reapplied under — deliberately mirroring the iOS client's
+  own `commandVersion`/`<Payload>.version` convention (`CoreDomain/Synchronization`,
+  e.g. `GardenSyncCommandPayload.version`) for a client-only concept with no server counterpart. A stored
+  draft under a mismatched `schemaVersion` is discarded, never partially applied — proven directly by test.
+- **`useRecoverableDraft` (`core/drafts/use-recoverable-draft.ts`)** is the one hook every drafted surface
+  shares: on mount, looks for a matching-schema draft and surfaces it once as `recoveredPayload` for the
+  caller to apply however its own state is shaped; while `hasUnsavedInput` is true, persists further changes
+  debounced (400 ms default); the moment `hasUnsavedInput` turns false, _clears_ the stored draft immediately
+  rather than merely stopping further saves — proven by test to matter concretely for the map editor
+  (finishing or cancelling an in-progress shape must not leave a stale, later-"recoverable" ghost draft
+  behind) — gated behind the initial recovery check completing first (an `isReady` flag), so this self-clear
+  cannot race ahead of a real recovery and delete the very draft about to be restored.
+- **Restore-automatically-with-a-visible-notice, not offer-to-restore-first — a deliberate, documented
+  choice, not the only option.** `recovered` drives `shared/ui/recovered-draft-notice.tsx`
+  (`RecoveredDraftNotice`), an `Alert` plus an explicit "Discard recovered draft" action. Reasoning recorded
+  in `useRecoverableDraft`'s own doc comment: architecture doc section 11 already establishes the general
+  preference ("Preserve user input after recoverable failures", "Avoid clearing a form after an unknown
+  mutation outcome"); the friendlier default is getting the user's own typing back without an extra click,
+  and the visible notice plus discard action cover "I don't want this" exactly as well as an upfront prompt
+  would, without stopping every ordinary fresh-form visit to ask "restore nothing?". The notice itself is
+  also what keeps a recovered draft from ever reading as architecture doc section 9's forbidden
+  "server-confirmed state before confirmation" — it is always shown as exactly what it is: local, unconfirmed
+  input.
+- **Forms wired**: the three primary create-entry forms named by the work package's own "plant, observation,
+  task forms" wording — `features/plants/add-plant-form.tsx` (including `taxonomyReferenceId`, state React
+  Hook Form does not own, merged into the persisted payload alongside the RHF fields), `features/observations
+/record-observation-form.tsx` (scoped per `gardenId:fixedPlantId ?? 'garden'`, since a garden-wide and a
+  plant-fixed recording session are legitimately independent), `features/tasks/create-manual-task-form.tsx`.
+  Deliberately not every edit form (`TaskEditForm`/`TaskRescheduleForm`/`PlantDetailsForm`/`PlantMoveForm`/
+  `ObservationCorrectionForm`) — a scoping call, documented rather than silently narrowed: edit forms are
+  short, pre-filled from server data, and cheap to redo if lost, unlike a long from-scratch entry; "selected
+  forms" is this work package's own title wording, not "every form".
+- **Map editor draft — `features/map/use-map-draft-persistence.ts`**: persists only
+  `store.state.draftPoints`/`pendingGateGeometry`/`tool` — the map editor's one genuinely in-progress,
+  not-yet-committed command state (every _committed_ command already reaches the server directly per
+  architecture doc section 10, "Commands are committed at stable interaction boundaries", so there is no
+  broader "session" to persist). Selection/camera/layer visibility are ordinary, trivially re-derivable view
+  state, not authored work, and are not persisted. On recovery, `store.setTool` is called before
+  `setDraftPoints`/`setPendingGateGeometry` deliberately — `setTool`'s own reducer case always resets both as
+  part of its "abandon whatever was in progress" behavior, so it must run first, not last.
+- **Disable-with-preserved-draft, not queue-and-resubmit — the spec's own default, applied, not the narrow
+  carve-out.** No workflow in this pass met the spec's "only for supported draft workflows" bar for an
+  explicit queue, so none was built. `map-editor-commit.ts`'s `useCommandCommit` — already documented as "the
+  single choke point" for the layer-lock check — gained a second, identical-shaped gate: offline, every
+  command it guards (create, move, change-properties, delete, geometry edits, linework, plant assignment,
+  duplicate — everything routed through `commit`) is rejected before ever calling `submitMutation.mutateAsync`,
+  with a `map.status.offline` status message; the in-progress shape stays exactly where the draft-persistence
+  hook above already keeps it recoverable. `stepHistory` (undo/redo, `use-map-editor-actions.ts`) bypasses
+  `commit` by its own prior design (a layer lock applied after an edit must not strand undo), so it carries
+  the identical offline check directly rather than inheriting it. The three drafted forms disable their
+  submit `Button` via `disabled={!isOnline}` (native `disabled`, not the `busy` prop — this is a genuinely
+  unavailable action, not a transient in-progress one, and `StaleIndicator` sitting next to it explains why).
+  Explicitly _not_ done: relying on TanStack Query's default `networkMode: 'online'` to "handle" offline
+  mutations by itself — that default already silently pauses a fired mutation and auto-resubmits it the
+  instant connectivity returns, with no visible "waiting" state and no further user action, which is exactly
+  the implicit queue-and-resubmit behavior this work package's own scope excludes. Disabling the control
+  before `mutate()`/`mutateAsync()` is ever called avoids that path entirely rather than fighting it after the
+  fact.
+- **Tests — "Browser restart and disconnect tests" (this work package's own completion evidence, taken
+  literally)**: `core/connectivity/network-status.test.ts` and `core/drafts/{local-draft-store,
+use-recoverable-draft}.test.ts` cover the underlying mechanisms directly (schema-mismatch discard,
+  debounced persistence, immediate clear-on-empty, recovery sequencing). Component-level proof that a draft
+  survives a simulated reload — unmount, then mount a fresh component instance against the same
+  `window.localStorage`, exactly matching how a real browser reload behaves — lives in
+  `features/tasks/create-manual-task-form.test.tsx` (plain fields), `features/plants/add-plant-form.test.tsx`
+  (the RHF-plus-external-state merge case), and `features/map/use-map-draft-persistence.test.tsx` (map
+  geometry, via a real `MapEditorStoreProvider`, not a hand-rolled store double). Offline-disables/
+  online-re-enables-without-auto-resubmit is proven at the form level (`create-manual-task-form.test.tsx`/
+  `add-plant-form.test.tsx`, toggling `onlineManager.setOnline`, asserting the mutation mock is never called
+  on reconnect alone) and at the map-command-choke-point level (`map-editor-commit.test.tsx`'s new
+  `describe('useCommandCommit — offline gate …')`, asserting `mutateAsync` is never invoked while offline).
+  `garden-list.test.tsx` proves the fixed stale-data-visibility defect directly, distinguishing
+  `isLoadingError` (full failure state) from `isRefetchError` (data stays visible, `StaleIndicator` shown).
+  Final `apps/web` Vitest count: 338 tests, 40 files (up from 298/32 before this stage — 40 new tests, 8 new
+  files; every pre-existing test still green, zero regressions).
+- Verification run beyond the new tests themselves: `pnpm --filter @verdery/web build` (production build,
+  succeeds), `pnpm --filter @verdery/web test`, root `pnpm typecheck` (all six workspaces), `pnpm format:check`,
+  `pnpm lint`, `node scripts/check-file-size.mjs` — all clean.
+
+**Not done, deliberately**: any native-style outbox/local-database/push-pull mechanism (explicitly out of
+scope — see this work package's own bounding text); a new client-side conflict-resolution UI (P5-CONFLICT-01
+is iOS-only by the spec's own design); backend changes (none needed — every touched form/command already
+sent whatever `expectedRevision`/idempotency key it always did; a resubmitted recovered draft is an ordinary
+mutation like any other, and a stale-revision rejection is already-correct pre-existing server behavior, not
+a new conflict path); a stale-indicator/draft treatment for every remaining mutation surface in the app
+(`features/gardens/garden-settings.tsx` shows the identical `isError`-hides-data pattern this stage fixed
+elsewhere, and task-row's complete/skip/dismiss/delete and the plant lifecycle/move forms have no offline
+gate — both real, understood, left-for-a-future-pass gaps, not silently missed: the work package's own title
+says "selected forms and map sessions", and `garden-settings.tsx` in particular is a straightforward,
+narrow follow-up using the exact same `isLoadingError`/`isRefetchError` pattern already proven here).

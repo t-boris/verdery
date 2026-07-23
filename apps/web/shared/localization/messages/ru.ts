@@ -61,6 +61,15 @@ export const russianMessages: MessageCatalogue = {
   'error.mapObjectLifecycleConflict': 'Это действие неприменимо к текущему состоянию объекта.',
   'error.unknown': 'Запрос не выполнен по нераспознанной причине.',
 
+  'connectivity.staleTitle': 'Нет подключения',
+  'connectivity.staleDescription':
+    'Показаны уже загруженные данные. Новые изменения нельзя сохранить, пока подключение не восстановится.',
+
+  'drafts.recoveredTitle': 'Восстановлены несохранённые данные',
+  'drafts.recoveredDescription':
+    'Это черновик, сохранённый на этом устройстве. Он ещё не отправлен на сервер.',
+  'drafts.discard': 'Удалить восстановленный черновик',
+
   'shell.signOut': 'Выйти',
 
   'auth.signInTitle': 'Вход в Verdery',
@@ -251,6 +260,8 @@ export const russianMessages: MessageCatalogue = {
   'map.status.moveFailed':
     'Не удалось сохранить перемещение. Объект возвращён на последнюю сохранённую позицию.',
   'map.status.commandFailed': 'Не удалось сохранить изменение.',
+  'map.status.offline':
+    'Это изменение нельзя отправить без подключения к сети. Оно останется в локальном черновике.',
   'map.status.layerLocked':
     'Этот объект находится на заблокированном слое и не может быть изменён.',
   'map.status.geometryUpdated': 'Форма изменена.',

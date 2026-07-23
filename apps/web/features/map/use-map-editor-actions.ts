@@ -4,6 +4,8 @@ import type { GardenObjectDetails, Geometry, Position } from '@verdery/geometry-
 import { deriveInverseCommand, validateGeometry } from '@verdery/geometry-contracts';
 import { useCallback } from 'react';
 
+import { useIsOnline } from '@/core/connectivity/public';
+
 import {
   buildChangePropertiesCommand,
   buildCreateGateObjectCommand,
@@ -56,6 +58,7 @@ export function useMapEditorActions(gardenId: string) {
   const store = useMapEditorStore();
   const mapQuery = useGardenMap(gardenId);
   const submitMutation = useSubmitMapCommand(gardenId);
+  const isOnline = useIsOnline();
 
   const records: readonly MapObjectRecord[] = mapQuery.data?.objects ?? [];
   const findRecord = useCallback(
@@ -198,6 +201,13 @@ export function useMapEditorActions(gardenId: string) {
 
   const stepHistory = useCallback(
     async (direction: 'undo' | 'redo') => {
+      // Bypasses `useCommandCommit` (see that function's doc comment for
+      // why), so the offline gate is repeated here rather than inherited.
+      if (!isOnline) {
+        store.setStatus({ key: 'map.status.offline', tone: 'alert' });
+        return;
+      }
+
       const sourceStack = direction === 'undo' ? store.state.undoStack : store.state.redoStack;
       const top = sourceStack[sourceStack.length - 1];
 
@@ -262,7 +272,7 @@ export function useMapEditorActions(gardenId: string) {
         store.setStatus({ key: 'map.status.commandFailed', tone: 'alert' });
       }
     },
-    [findRecord, store, submitMutation],
+    [findRecord, store, submitMutation, isOnline],
   );
 
   const undo = useCallback(() => stepHistory('undo'), [stepHistory]);

@@ -3,8 +3,9 @@
 import type { TaskStatus } from '@verdery/api-contracts';
 import { useState } from 'react';
 
+import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Button, FailureAlert } from '@/shared/ui/public';
+import { Button, FailureAlert, StaleIndicator } from '@/shared/ui/public';
 
 import { TASK_STATUSES, taskStatusLabel } from './labels';
 import styles from './task-list.module.css';
@@ -54,7 +55,12 @@ export function TaskList({ gardenId }: TaskListProps) {
 
       {query.isPending && <p role="status">{t('tasks.loading')}</p>}
 
-      {query.isError && (
+      {/* `isLoadingError`: a failed first load, with no cached data to fall
+          back to — the full failure state is all there is to show. A failed
+          background refetch (`isRefetchError`) instead falls through to the
+          rendering below, `query.data` still holding the last successful
+          result, per architecture doc section "9. Online-First Behavior". */}
+      {query.isLoadingError && (
         <div className={styles['errorState']}>
           <FailureAlert failure={query.error.failure} />
           <Button variant="secondary" onClick={() => void query.refetch()}>
@@ -63,11 +69,18 @@ export function TaskList({ gardenId }: TaskListProps) {
         </div>
       )}
 
-      {query.isSuccess && query.data.items.length === 0 && (
+      {!query.isLoadingError && (
+        <StaleIndicator failure={query.isError ? query.error.failure : null} />
+      )}
+      {query.isRefetchError && !isConnectivityFailure(query.error.failure) && (
+        <FailureAlert failure={query.error.failure} />
+      )}
+
+      {!query.isLoadingError && query.data !== undefined && query.data.items.length === 0 && (
         <p className={styles['empty']}>{t('tasks.empty')}</p>
       )}
 
-      {query.isSuccess && query.data.items.length > 0 && (
+      {!query.isLoadingError && query.data !== undefined && query.data.items.length > 0 && (
         <ul className={styles['list']}>
           {query.data.items.map((task) => (
             <TaskRow key={task.id} gardenId={gardenId} task={task} />

@@ -192,6 +192,22 @@ from this line of work:
   documented in `tasks/todo.md`'s `P5-SEC-01` entry, distinct from the per-garden membership revocation
   that stage does handle.
 
+**`P5-WEB-01` is also now complete** — the web client's bounded counterpart to the native offline work
+above, scoped by `architecture/web-application-design.md` section 9 to a stale/disconnected indicator over
+already-loaded data, schema-versioned recoverable local drafts, and disabling (not queuing) mutations while
+offline, explicitly excluding any web-side outbox/local-database/push-pull mechanism. `core/connectivity/`
+(`useIsOnline`, reusing TanStack Query's own `onlineManager`) and `shared/ui/stale-indicator.tsx` cover
+detection and display, wired into every garden/plant/observation/task list-or-detail view and the map
+editor — which also fixed a real pre-existing defect where a failed background refetch replaced already-
+loaded data with a full error screen instead of keeping it visible. `core/drafts/` (schema-versioned
+`localStorage` envelopes, one version constant per draft type, mirroring the iOS client's own
+`commandVersion` convention) backs recoverable drafts for the three primary create forms
+(`AddPlantForm`/`RecordObservationForm`/`CreateManualTaskForm`) and the map editor's in-progress
+`draftPoints`/`pendingGateGeometry`. See `tasks/todo.md`'s `P5-WEB-01` entry for the full account, including
+what stayed deliberately out of scope (every remaining mutation surface — task actions, plant lifecycle/move,
+`garden-settings.tsx` — keeps the same offline behavior it had before this stage, a real, documented,
+narrow follow-up rather than a silently missed gap).
+
 **The Phase 2 E2E suite does not run in CI.** `apps/web/e2e/` (Playwright against a real Postgres,
 the Firebase Auth emulator, the real API, and the real web app, orchestrated by
 `apps/web/e2e/run-e2e.sh`) is verified locally but not wired into `.github/workflows/ci.yml`: it

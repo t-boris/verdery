@@ -1,7 +1,8 @@
 'use client';
 
+import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Alert, Card, FailureAlert, StatusPill } from '@/shared/ui/public';
+import { Alert, Card, FailureAlert, StaleIndicator, StatusPill } from '@/shared/ui/public';
 
 import { groupingKindLabel, lifecycleStageLabel, statusLabel, statusTone } from './labels';
 import styles from './plant-detail.module.css';
@@ -39,7 +40,13 @@ export function PlantDetail({ gardenId, plantId }: PlantDetailProps) {
     return <p role="status">{t('plants.loading')}</p>;
   }
 
-  if (query.isError) {
+  // `isLoadingError`: a failed first load, with no cached data to fall back
+  // to — the full failure state is all there is to show. A failed
+  // background refetch (`isRefetchError`) instead falls through below,
+  // `query.data` still holding the last successful result, per architecture
+  // doc section "9. Online-First Behavior" ("Existing loaded data remains
+  // visible with a stale indicator").
+  if (query.isLoadingError) {
     return <FailureAlert failure={query.error.failure} />;
   }
 
@@ -47,6 +54,10 @@ export function PlantDetail({ gardenId, plantId }: PlantDetailProps) {
 
   return (
     <div className={styles['page']}>
+      <StaleIndicator failure={query.isError ? query.error.failure : null} />
+      {query.isError && !isConnectivityFailure(query.error.failure) && (
+        <FailureAlert failure={query.error.failure} />
+      )}
       <div className={styles['summary']}>
         <h2 className={styles['name']}>{plant.displayName}</h2>
         <StatusPill tone={statusTone(plant.status)} label={t(statusLabel(plant.status))} />

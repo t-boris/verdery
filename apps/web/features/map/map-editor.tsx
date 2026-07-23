@@ -3,8 +3,15 @@
 import dynamic from 'next/dynamic';
 import { useEffect } from 'react';
 
+import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Alert, FailureAlert, VisuallyHidden } from '@/shared/ui/public';
+import {
+  Alert,
+  FailureAlert,
+  RecoveredDraftNotice,
+  StaleIndicator,
+  VisuallyHidden,
+} from '@/shared/ui/public';
 
 import { MapEditorStoreProvider, useMapEditorStore } from './editor-store';
 import { MapDisclosureBanner } from './map-disclosure-banner';
@@ -16,6 +23,7 @@ import { MapScaleBadge } from './map-scale-badge';
 import { MapToolbar } from './map-toolbar';
 import { MapWarningsPanel } from './map-warnings-panel';
 import { useGardenMap } from './queries';
+import { useMapDraftPersistence } from './use-map-draft-persistence';
 import { useMapEditorActions } from './use-map-editor-actions';
 
 // Konva and MapLibre both need a real `document`/canvas/WebGL context to
@@ -51,6 +59,7 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
   const mapQuery = useGardenMap(gardenId);
   const store = useMapEditorStore();
   const actions = useMapEditorActions(gardenId);
+  const mapDraft = useMapDraftPersistence(gardenId, store);
 
   // Cmd/Ctrl+Z and Shift+Cmd/Ctrl+Z are global — unlike arrow-key nudging and
   // Delete, which are scoped to the canvas/object list so they never fight a
@@ -81,12 +90,22 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
     return <p role="status">{t('map.loading')}</p>;
   }
 
-  if (mapQuery.isError) {
+  // `isLoadingError`: a failed first load, with no cached document to fall
+  // back to — the full failure state is all there is to show. A failed
+  // background refetch (`isRefetchError`) instead falls through below, the
+  // last-loaded document still rendered, with `StaleIndicator` layered over
+  // it, per architecture doc section "9. Online-First Behavior".
+  if (mapQuery.isLoadingError) {
     return <FailureAlert failure={mapQuery.error.failure} />;
   }
 
   return (
     <div className={styles['editor']}>
+      <StaleIndicator failure={mapQuery.isError ? mapQuery.error.failure : null} />
+      {mapQuery.isError && !isConnectivityFailure(mapQuery.error.failure) && (
+        <FailureAlert failure={mapQuery.error.failure} />
+      )}
+      {mapDraft.recovered && <RecoveredDraftNotice onDiscard={mapDraft.discardRecoveredDraft} />}
       <MapToolbar actions={actions} />
       <MapDisclosureBanner />
       <div className={styles['body']}>
