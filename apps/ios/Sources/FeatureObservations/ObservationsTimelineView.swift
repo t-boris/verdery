@@ -147,6 +147,13 @@ public struct ObservationsTimelineView: View {
                         .padding(.horizontal, 6)
                         .background(Capsule().fill(Color.secondary.opacity(0.2)))
                 }
+                if row.isPendingSync {
+                    Text(model.savedLocallyBadgeText)
+                        .font(.caption)
+                        .padding(.horizontal, 6)
+                        .background(Capsule().fill(Color.secondary.opacity(0.2)))
+                        .accessibilityIdentifier("observations.row.\(row.id).pendingSync")
+                }
             }
 
             if let correctionOfText = model.correctionOfText(for: row) {

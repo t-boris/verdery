@@ -153,17 +153,19 @@ environments is actually provisioned, is a one-time privileged `CREATE EXTENSION
 the same break-glass-superuser mechanism `07-iam-database-bootstrap.sh` already uses, before the
 first automated migration run.
 
-**The rest of P5-IOS-02, and P5-IOS-03's real `SyncEngine`.** `FeatureObservations` and `FeatureTasks`
-still call their gateways online-first, exactly as before Stage 4a; `FeatureGardens` (Stage 4a),
-`FeatureMap` (Stage 4b), and `FeaturePlants` (Stage 4c) now route their offline-capable commands
-through the local-transaction-plus-outbox pattern. `CoreSynchronization.LocalOnlySyncEngine` remains
-the only `SyncEngine` implementation, so no outbox operation any stage so far enqueues is ever actually
-pushed to the server yet; nothing in the UI claims otherwise (`GardensListViewModel`/
-`GardenSettingsViewModel`/`MapEditorViewModel`/`PlantDetailViewModel` show "Saved locally, waiting to
-sync", never "Synchronized"). Conflict recovery (`P5-CONFLICT-01`) and the rest of architecture/
-ios-application-design.md section 8's status vocabulary (`Waiting for connectivity`/`Synchronizing`/
-`Synchronized`/`Requires attention`/`Upload pending`) are unbuilt until a real engine exists to report
-through.
+**The rest of P5-IOS-02, and P5-IOS-03's real `SyncEngine`.** `FeatureTasks` still calls its gateway
+online-first, exactly as before Stage 4a; `FeatureGardens` (Stage 4a), `FeatureMap` (Stage 4b),
+`FeaturePlants` (Stage 4c), and `FeatureObservations` (Stage 4d) now route their offline-capable
+commands through the local-transaction-plus-outbox pattern — `FeatureObservations`'s own version of it
+simplified for `GardenObservation`'s append-only shape (`RecordObservation`/`CorrectObservation` append
+a new local row directly, with no "current" record to load first, unlike the other three).
+`CoreSynchronization.LocalOnlySyncEngine` remains the only `SyncEngine` implementation, so no outbox
+operation any stage so far enqueues is ever actually pushed to the server yet; nothing in the UI claims
+otherwise (`GardensListViewModel`/`GardenSettingsViewModel`/`MapEditorViewModel`/`PlantDetailViewModel`/
+`ObservationsTimelineViewModel` show "Saved locally, waiting to sync", never "Synchronized"). Conflict
+recovery (`P5-CONFLICT-01`) and the rest of architecture/ios-application-design.md section 8's status
+vocabulary (`Waiting for connectivity`/`Synchronizing`/`Synchronized`/`Requires attention`/`Upload
+pending`) are unbuilt until a real engine exists to report through.
 
 **The Phase 2 E2E suite does not run in CI.** `apps/web/e2e/` (Playwright against a real Postgres,
 the Firebase Auth emulator, the real API, and the real web app, orchestrated by

@@ -194,13 +194,11 @@ let package = Package(
         ),
 
         // Plant inventory, observations/history, and manual tasks (Phase 4).
-        // `FeatureObservations`/`FeatureTasks` still have no GRDB dependency
-        // — see each one's own view model doc comment
-        // (`ObservationsTimelineViewModel`, `TasksListViewModel`) for the
-        // always-fresh-from-server reasoning, the same choice `FeatureMap`
-        // already made and for closely related reasons: every mutating
-        // command on an observation or a task carries a server-checked
-        // `expectedRevision` (where one applies), so a locally cached,
+        // `FeatureTasks` still has no GRDB dependency — see its own view
+        // model doc comment (`TasksListViewModel`) for the always-fresh-
+        // from-server reasoning, the same choice `FeatureMap` already made
+        // and for closely related reasons: every mutating command on a task
+        // carries a server-checked `expectedRevision`, so a locally cached,
         // possibly-stale revision would turn every command into a coin flip
         // on a `409`/`412` instead of the deliberate check the backend
         // performs. `FeaturePlants` gained a GRDB dependency in P5-IOS-02
@@ -226,9 +224,34 @@ let package = Package(
             ]
         ),
 
+        // `FeatureObservations` gained a GRDB dependency in P5-IOS-02
+        // (Stage 4d): `LocalObservationStore` durably persists the
+        // purely-local `observation` rows `RecordObservation`/
+        // `CorrectObservation` append offline, the same way `FeaturePlants`'s
+        // `LocalPlantStore` does for `plant` (Stage 4c) — see that target's
+        // own comment above for why `CorePersistence` centralizes the
+        // database's lifecycle/schema while the feature owns its own
+        // read-model repository directly against GRDB. Unlike `plant`,
+        // `garden`, and `garden_object`, an observation carries no
+        // `expectedRevision` at all — see `FeatureObservations
+        // .LocalObservationStore`'s own doc comment for why this table is
+        // shaped differently (append-only, no "current record" to load)
+        // rather than a straight copy of `LocalPlantStore`'s pattern.
+        // `ListObservationsForGarden`/`ListObservationsForPlant` stay
+        // always-fresh-from-server for the same reason as before; only
+        // `RecordObservation`/`CorrectObservation` route through this new
+        // table.
+        //
+        // Source: implementation-plan.md work packages P4-IOS-01, P5-IOS-02.
         .target(
             name: "FeatureObservations",
-            dependencies: ["CoreDomain", "CoreNetworking", "CoreLocalization"]
+            dependencies: [
+                "CoreDomain",
+                "CoreNetworking",
+                "CoreLocalization",
+                "CorePersistence",
+                .product(name: "GRDB", package: "GRDB.swift"),
+            ]
         ),
 
         .target(
@@ -330,7 +353,16 @@ let package = Package(
         ),
         .testTarget(
             name: "FeatureObservationsTests",
-            dependencies: ["FeatureObservations"]
+            dependencies: [
+                "FeatureObservations",
+                // For the offline-mutation tests (P5-IOS-02, Stage 4d): a
+                // real GRDB database via `CorePersistence.LocalDatabase
+                // .migrator`, matching `FeatureGardensTests`/
+                // `FeatureMapTests`/`FeaturePlantsTests`'s identical
+                // rationale.
+                "CorePersistence",
+                .product(name: "GRDB", package: "GRDB.swift"),
+            ]
         ),
         .testTarget(
             name: "FeatureTasksTests",

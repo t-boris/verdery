@@ -328,6 +328,7 @@
 "observations.record.submit" = "Record observation";
 "observations.record.requiresContent" = "Enter a note or a condition summary.";
 "observations.correctedBadge" = "Corrected";
+"observations.status.savedLocally" = "Saved locally, waiting to sync";
 "observations.correctAction" = "Amend or supersede…";
 "observations.analysisDisclaimer" = "Automated suggestion — not a confirmed diagnosis.";
 "observations.additionalEvidenceRequested" = "More evidence (e.g. another photo) would help confirm this.";

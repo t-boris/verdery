@@ -328,6 +328,7 @@
 "observations.record.submit" = "Записать наблюдение";
 "observations.record.requiresContent" = "Введите заметку или сводку состояния.";
 "observations.correctedBadge" = "Исправлено";
+"observations.status.savedLocally" = "Сохранено локально, ожидает синхронизации";
 "observations.correctAction" = "Дополнить или заменить…";
 "observations.analysisDisclaimer" = "Автоматическое предположение — не подтверждённый диагноз.";
 "observations.additionalEvidenceRequested" = "Для подтверждения потребуются дополнительные данные (например, ещё одно фото).";

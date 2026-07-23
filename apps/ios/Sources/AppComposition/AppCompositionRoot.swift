@@ -179,12 +179,15 @@ public final class AppCompositionRoot {
     }
 
     public func makeObservationsTimelineViewModel(gardenId: String) -> ObservationsTimelineViewModel {
-        ObservationsTimelineViewModel(
+        let store = localObservationStore()
+        let profileId = currentProfileIdentifier()
+
+        return ObservationsTimelineViewModel(
             gardenId: gardenId,
-            recordObservation: RecordObservation(gateway: observationGateway),
-            listObservationsForGarden: ListObservationsForGarden(gateway: observationGateway),
+            recordObservation: RecordObservation(localStore: store, profileId: profileId),
+            listObservationsForGarden: ListObservationsForGarden(gateway: observationGateway, localStore: store),
             listObservationsForPlant: ListObservationsForPlant(gateway: observationGateway),
-            correctObservation: CorrectObservation(gateway: observationGateway),
+            correctObservation: CorrectObservation(localStore: store, profileId: profileId),
             strings: strings
         )
     }
@@ -252,6 +255,23 @@ public final class AppCompositionRoot {
         } catch {
             log.record(.error, "Could not open the local plant database; falling back to an in-memory store.")
             return InMemoryPlantStore()
+        }
+    }
+
+    /// Same database file, same fallback behavior as `localGardenStore()`/
+    /// `localMapStore()`/`localPlantStore()` — `garden`, `garden_object`,
+    /// `plant`, and `observation` are four tables in the one per-profile
+    /// database `LocalDatabase.open` manages, per
+    /// `LocalDatabase+ObservationMigration.swift`'s own doc comment.
+    private func localObservationStore() -> any LocalObservationStore {
+        let profileIdentifier = currentProfileIdentifier()
+
+        do {
+            let dbQueue = try LocalDatabase.open(profileIdentifier: profileIdentifier)
+            return GRDBObservationStore(dbQueue: dbQueue)
+        } catch {
+            log.record(.error, "Could not open the local observation database; falling back to an in-memory store.")
+            return InMemoryObservationStore()
         }
     }
 

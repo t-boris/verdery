@@ -332,6 +332,11 @@ public enum LocalizationKey: String, Sendable, CaseIterable {
     case observationsRecordSubmit = "observations.record.submit"
     case observationsRecordRequiresContent = "observations.record.requiresContent"
     case observationsCorrectedBadge = "observations.correctedBadge"
+    /// Shown on a row this device recorded or corrected purely offline this
+    /// session and has not yet confirmed synced — the observation-timeline
+    /// counterpart to `gardensSavedLocally`/`plantsSavedLocally`/
+    /// `mapSaveStatusSavedLocally`.
+    case observationsSavedLocally = "observations.status.savedLocally"
     case observationsCorrectAction = "observations.correctAction"
     case observationsAnalysisDisclaimer = "observations.analysisDisclaimer"
     case observationsAdditionalEvidenceRequested = "observations.additionalEvidenceRequested"

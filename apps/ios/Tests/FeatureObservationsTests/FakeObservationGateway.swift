@@ -9,9 +9,26 @@ final class FakeObservationGateway: ObservationGateway, @unchecked Sendable {
     private var observations: [GardenObservation] = []
     var nextRecordFailure: Error?
     var nextCorrectionFailure: Error?
+    /// Set by a test that wants to simulate the network being unreachable
+    /// for `listObservationsForGarden`/`listObservationsForPlant` — what
+    /// `ObservationsTimelineViewModel.load()`'s pending-fallback path
+    /// (P5-IOS-02, Stage 4d) actually needs coverage of. Not consumed
+    /// (unlike `nextRecordFailure`/`nextCorrectionFailure`): a `load()`
+    /// test typically wants every subsequent list call in the same test to
+    /// keep failing, not just the first.
+    var nextListFailure: Error?
 
     init(observations: [GardenObservation] = []) {
         self.observations = observations
+    }
+
+    /// Test-only hook: appends an observation directly, bypassing
+    /// `recordObservation`'s own id generation — lets a test simulate "the
+    /// server already knows about this exact (client-generated) id," the
+    /// scenario a future push engine would eventually create once one
+    /// exists (P5-IOS-03, not yet built).
+    func seedConfirmed(_ observation: GardenObservation) {
+        observations.append(observation)
     }
 
     func recordObservation(
@@ -50,11 +67,13 @@ final class FakeObservationGateway: ObservationGateway, @unchecked Sendable {
     }
 
     func listObservationsForGarden(gardenId: String) async throws -> [GardenObservation] {
-        observations
+        if let nextListFailure { throw nextListFailure }
+        return observations
     }
 
     func listObservationsForPlant(gardenId: String, plantId: String) async throws -> [GardenObservation] {
-        observations.filter { $0.plantId == plantId }
+        if let nextListFailure { throw nextListFailure }
+        return observations.filter { $0.plantId == plantId }
     }
 
     func correctObservation(

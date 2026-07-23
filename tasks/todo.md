@@ -1103,3 +1103,196 @@ Not done, deliberately: Observations/Tasks retrofits (rest of P5-IOS-02), the re
 full status vocabulary (P5-IOS-03), conflict recovery UI (P5-CONFLICT-01), offline support for
 `AddPlantFromPhoto`/`AttachPlantPhoto`/`SetPrimaryPlantPhoto`/`ConfirmPlantIdentification` (all four
 confirmed unreachable from any shipped UI — see above).
+
+## Stage 4d — P5-IOS-02 fourth slice: `FeatureObservations` offline mutation routing, implementation complete
+
+Scope: the fourth slice of P5-IOS-02 — the two observation commands (`RecordObservation`,
+`CorrectObservation`) retrofitted through the atomic local-projection-plus-outbox pattern Stage 4a
+established, Stage 4b generalized, and Stage 4c reused — deliberately NOT a mechanical copy of any of
+the three, since `GardenObservation` is structurally the odd one out among every aggregate this codebase
+synchronizes (see below). Not `FeatureTasks` (the last remaining P5-IOS-02 stage), not P5-IOS-03 (no real
+push/pull engine yet), not conflict recovery UI (P5-CONFLICT-01), not any backend change.
+
+### What's different about Observations, confirmed against the real code before building anything
+
+- **Append-only by explicit domain design — the single largest structural divergence from Gardens/Map/
+  Plants.** `observation` has no revision column and no UPDATE path at all
+  (`observations-history/domain/observation.ts`'s own header comment): `RecordObservation` is a pure
+  insert with nothing to conflict with, and `CorrectObservation`
+  (`observations-history/application/correct-observation.ts`) inserts an entirely NEW row
+  (`createCorrectionObservation`) rather than loading-and-mutating the one it corrects — confirmed by
+  reading `record-observation.ts`/`correct-observation.ts`/`domain/observation.ts` directly, not assumed
+  from the work package brief. `services/api/src/platform/sync/sync-record-type.ts`'s own
+  `recordRevision: 1` at both call sites is a genuine constant (the aggregate's first-and-only revision),
+  never a placeholder for something that later changes — matching this stage's brief exactly.
+- **Neither command carries `expectedRevision` at all**, confirmed directly against
+  `packages/api-contracts/openapi.yaml`: `SyncRecordObservationCommand`/`SyncCorrectObservationCommand`
+  (lines ~4283-4319) have no such property, and `RecordObservationRequest`/`CorrectObservationRequest`
+  have none either — not merely "always nil" the way `AddPlant.expectedRevision` chooses to be, but
+  structurally absent from the schema, matching the domain reality that an observation is never updated
+  in place.
+- **`CorrectObservation` has two distinct ids, not one**: `correctedObservationId` (the existing row being
+  corrected) and `observationId` (the new, client-generated correction row's own id) —
+  `SyncCorrectObservationCommand`'s own description states this explicitly. The wire request body
+  (`CorrectObservationRequest`) carries neither `plantId` nor `gardenObjectId`: the server derives both
+  from `correctedObservationId` (`createCorrectionObservation` copies `original.plantId`/
+  `original.gardenObjectId`), so this client's own local projection copies the same association from
+  whatever the caller already has, not from a wire field that does not exist.
+- **`commitOfflineMutation(id:command:)`'s load-a-`current`-then-project shape does not fit, and was not
+  force-fit.** Neither command has a "current" local record to load: `RecordObservation` has nothing to
+  load (a pure insert, the same as `AddPlant`'s always-`nil` `current`, but with no OTHER command in the
+  same feature that ever needs a non-`nil` one), and `CorrectObservation` does not load-and-mutate the row
+  it corrects the way `UpdatePlantDetails` loads-and-mutates a plant. Built the simplest correct method
+  instead — see "What changed" below.
+
+### What changed
+
+- **`LocalObservationStore.commitOfflineAppend(_:operation:)`, new — simpler than, not a copy of,
+  `commitOfflineMutation(id:command:)`.** Takes the already-fully-built `GardenObservation` projection and
+  `OutboxOperation` directly, not a closure that receives a `current` neither command would ever use:
+  `RecordObservation`/`CorrectObservation` validate content and build both values entirely from data their
+  own caller already has, before ever touching the store, so there is nothing left for a closure running
+  inside the transaction to still decide. What atomicity still requires — the projection write and the
+  outbox insert commit or roll back together — is identical to every sibling store's guarantee; only the
+  "load current first" step (1 of architecture/offline-synchronization.md section 6) is genuinely absent,
+  not merely skipped. `GRDBObservationStore.commitOfflineAppend` opens one `dbQueue.write` block that calls
+  `ObservationRecord(observation).insert(db)` — a genuine INSERT, not `GardenRecord`/`PlantRecord`/
+  `GardenObjectRecord`'s `.save(db)` upsert, since an observation row is never legitimately re-written once
+  appended — then `SyncOutboxTransactionWriter.enqueue(operation, in: db)`, the same shared helper Stage 4a
+  built. No `save(_:)`/`replaceAll(with:)` method exists on `LocalObservationStore` at all, and no
+  "pending" guard against a stale server response either: nothing ever overwrites an observation row in
+  place, so there is no clobbering risk to protect against — confirmed correct, not merely convenient,
+  by the fact that `ObservationsTimelineViewModel` never calls anything resembling `save(_:)` on this
+  store.
+- **New `observation` GRDB table (`ObservationRecord`/`LocalObservationStore`/`GRDBObservationStore`/
+  `InMemoryObservationStore`), holding ONLY rows this device appended itself, purely offline** — not a
+  full mirror of every server field the way `plant`/`garden`/`garden_object` are. Columns: `id`,
+  `gardenId`, `plantId`, `gardenObjectId`, `noteText`, `conditionSummary`, `correctionKind`,
+  `correctsObservationId`, `observedAt`, `recordedAt`. `actorType` (always `.user` for anything this
+  client creates), `createdByProfileId`, and `photos` (always `[]` — no photo-attachment flow yet) are
+  reconstructed as constants in `domainValue`, not stored columns — narrower than `PlantRecord`'s "same as
+  the domain type's full field set" precedent, and correctly so: that precedent exists specifically
+  because `UpdatePlantDetails` must preserve fields it does not touch, and neither observation command
+  ever partially updates anything (every row is a complete, from-scratch insert). `isCorrected` is not
+  stored at all — it is not a property of one row in isolation but a fact about whether some OTHER row
+  points back to it, so it is recomputed at merge time (see below), never written back to an append-only
+  table that has no row to write it back to.
+- **`RecordObservation`/`CorrectObservation` stop calling `ObservationGateway` synchronously.** Each
+  validates locally (at least a note or a condition summary, mirroring the domain's own
+  `requireObservationContent` restricted to the note/condition half of its three-way rule, since
+  `photoMediaIds` is always `[]` from this client), builds the local projection and an `observations.*`
+  outbox operation, and commits both through `LocalObservationStore.commitOfflineAppend`.
+  `ListObservationsForGarden`/`ListObservationsForPlant` are untouched and stay online, gateway-backed
+  reads. `ListObservationsForGarden` gained one new method, `pending(gardenId:)` — the garden-scoped
+  counterpart to `ListGardens.cached()`/`GetPlant.cached(plantId:)` — wrapping
+  `LocalObservationStore.fetchPending(gardenId:)`; `ListObservationsForPlant` gained nothing, since the
+  local pending set for one garden is expected to stay small enough that an in-memory filter over the
+  unfiltered per-garden read costs nothing a second, plant-scoped store method would save.
+- **Outbox payload** (`ObservationSyncCommandPayload`/`ObservationSyncCommand`) mirrors
+  `packages/api-contracts/openapi.yaml`'s `SyncObservationOperationPayload`/`SyncObservationCommand` field
+  for field: `recordType: "observation"` (singular, not the guessable `"observations"` — matches
+  `sync-record-type.ts`'s own `Observation: 'observation'`), `observations.record`, `observations.correct`.
+  `targetRecordIds` for `CorrectObservation` names only the new correction row's own id, not
+  `correctedObservationId` — the same "id(s) this operation writes to, not every id it references" reading
+  `AddPlant.targetRecordIds` already gives for `gardenAreaMapObjectId`/`placementMapObjectId`. `observedAt`
+  is a pre-formatted RFC 3339 string on the wire, not a raw `Date` — the first outbox payload across
+  Gardens/Map/Plants/Observations to need one at all (`FeaturePlants`'s own `acquisitionDate` is a
+  calendar-date string throughout its whole domain model, never a `Date`); formatted by a small
+  five-line `ObservationTimestampFormatting` helper local to `FeatureObservations`, duplicating
+  (deliberately, not by oversight) `CoreNetworking.ISO8601DateFormatter.withFractionalSeconds`'s exact
+  format options, since that extension is `internal` to `CoreNetworking` and not reachable from here —
+  widening its access level for one caller was judged not worth it against a five-line, no-domain-logic
+  local copy.
+- **UI/merge**: `ObservationsTimelineViewModel.load()` now reads `listObservationsForGarden.pending
+(gardenId:)` alongside the network call and MERGES the two — not the cache-first-then-overwrite shape
+  `GardensListViewModel.load()`/`PlantDetailViewModel.load()` use, and not a "protect a pending row from
+  being clobbered" guard either, because neither applies to an append-only feed: a locally-appended row is
+  never "the same row, now stale" as anything the server could return, so the correct action is to include
+  it exactly once (deduplicated by id, server winning any collision — not expected to occur this stage,
+  since no push engine exists yet, but a safe default for if one someday does), not choose between two
+  versions of one row. `isCorrected` is recomputed across the WHOLE merged set rather than trusted verbatim
+  off either source, so a locally-pending correction of a server-confirmed observation marks that
+  observation "Corrected" immediately, before the correction has any chance to sync. On a network failure,
+  `load()` falls back to the pending set alone ONLY when it is non-empty — an empty pending set on a
+  transport failure still means "unknown," never "confirmed empty," so `.failed` is still shown in that
+  case, mirroring `GardensListViewModel.load()`'s identical `hadCachedResult` reasoning applied to
+  "pending" instead of "cached."
+- **No `GetObservation.cached(id:)`-style fix was needed, unlike Stage 4c's `GetPlant.cached(plantId:)`.**
+  Checked explicitly, per this stage's own brief: `PlantsHomeViewModel.performAdd()` navigates to a
+  separate detail screen for the plant it just created, which is why `PlantDetailViewModel.load()` needed
+  a cache-first read to show it. Observations have no equivalent "navigate to the thing I just created"
+  flow — recording or correcting an observation appends directly into the SAME timeline screen already on
+  screen, so the fix this shape actually needed was the merge in `load()` above, not a cache-first single-
+  record read.
+- **UI**: `ObservationRow` gained `plantId`/`gardenObjectId` (not rendered — carried through so
+  `submitCorrection` can propagate them onto a correction's local projection, since `CorrectObservation`
+  has nowhere else to read them from) and `isPendingSync: Bool`, shown as a "Saved locally, waiting to
+  sync" badge (`observations.status.savedLocally`, en+ru) next to the existing "Corrected" badge — the
+  same copy Stage 4a/4b/4c used for their own single-record `syncStatusLabel`, here per-row instead of
+  per-screen since every row, not one edited record, is independently either confirmed or pending.
+  `submitCorrection` now looks up the row being corrected from `state` itself (by id) rather than only
+  holding `correctingObservationId`, since `CorrectObservation` needs `target.plantId`/
+  `target.gardenObjectId` and `gardenId` (this timeline's own, always the correction's garden — the
+  contract's outer envelope needs it even though `CorrectObservationRequest` itself does not) to build a
+  locally-coherent projection.
+
+### Tests
+
+- [x] Termination-at-boundary fault test: forces a real `sync_outbox` primary-key violation on the second
+      write inside `commitOfflineAppend`'s transaction and proves the projection insert rolls back with it
+      — real GRDB behavior, not a mock (`ObservationOfflineMutationTests.outboxFailureRollsBackProjection`),
+      plus the positive case that both writes are durably present together after a successful commit.
+- [x] `commitOfflineAppend performs a genuine insert, not an upsert — reusing an id fails` — the concrete
+      proof that `ObservationRecord.insert(db)`, not `.save(db)`, is what this table's append-only
+      semantics require.
+- [x] Both commands covered offline (`ObservationsUseCasesOfflineTests`) — no test configures an
+      `ObservationGateway` at all, so a passing suite is itself proof no network call happens — including
+      local-only validation failures (`invalidContent`), each outbox row's stored payload decoded as loose
+      JSON and checked against the contract's field names (including the omitted-not-null distinction for
+      a plain `nil` optional — this request has no `FieldUpdate`-style "omission means something different
+      from null" case the way `UpdatePlantDetailsRequestPayload` does, so Swift's default synthesized
+      `Encodable` omitting the key is correct here, not a gap), and `CorrectObservationRequestPayload`
+      confirmed to carry no `plantId`/`gardenObjectId` keys at all.
+- [x] Timeline-rendering test proving an offline-pending correction still displays its "corrects
+      observation X" relationship correctly before syncing
+      (`correctionOfOfflineObservationDisplaysRelationshipWhileOffline`) — combined with the network-
+      unreachable fallback path in the same test, since a correction routes through local storage
+      unconditionally in this stage (there is no "online" path left to differ from). A second test
+      documents the honest boundary of a no-cache-of-confirmed-rows design: correcting a server-confirmed
+      observation while offline shows the correction (with its relationship intact) but not the original,
+      since nothing caches confirmed rows for the network failure to fall back to
+      (`correctionOfServerObservationWhileOfflineOmitsUncachedOriginal`).
+- [x] `load()`'s pending-fallback behavior covered for both the "something pending" case (shows it) and the
+      "nothing pending" case (still fails, not a false empty state), plus the saved-locally badge clearing
+      once a row's id also appears in a (simulated future) server response.
+- [x] `fetchPending` scoping by `gardenId` covered for both `GRDBObservationStore` (real database) and
+      `InMemoryObservationStore` (fallback).
+- 476 tests, 70 suites (`swift test`, full and unfiltered, run clean with no SIGBUS flake encountered).
+  `FeatureObservationsTests` itself: 29 tests across 4 suites (3 new: `ObservationOfflineMutationTests`,
+  `ObservationsUseCasesOfflineTests`, `InMemoryObservationStoreTests`), up from 7 tests in 1 suite before
+  this stage.
+
+### Judgment calls (for later stages to inherit or reconsider)
+
+- `CorrectObservation.callAsFunction` takes `correctedPlantId`/`correctedGardenObjectId` as plain
+  caller-supplied parameters rather than looking them up from local storage by `correctedObservationId` —
+  the deliberate consequence of there being no "current" record for this command to load at all. The
+  caller (`ObservationsTimelineViewModel.submitCorrection`) always has this data anyway (the row is on
+  screen, being corrected), so requiring the store to hold it too would only add a second source of truth
+  for the exact same value.
+- `gardenId` is now a required parameter of `CorrectObservation.callAsFunction`, unlike the pre-Stage-4d
+  gateway-backed version (which read it from the URL path via `correctedObservationId` alone). The outer
+  `SyncObservationOperationPayload`/`OutboxOperation.gardenId` envelope needs one even though
+  `CorrectObservationRequest`/`SyncCorrectObservationCommand` do not — `ObservationsTimelineViewModel`
+  already has its own `gardenId` (this screen is always scoped to one garden), so this is a straight
+  pass-through, not a new value the view model has to discover.
+- A locally-pending row's `isPendingSync` clears the moment its id also appears in a server response —
+  tested with a hand-seeded fake gateway row standing in for what a real push-then-pull round trip would
+  eventually produce (P5-IOS-03, not yet built), since no such round trip can actually happen this stage.
+- `MigrationIntegrityTests.allTables` was not extended to include `observation` — mirrors Stage 4b's choice
+  to leave `garden_object` off that list and Stage 4c's identical choice for `plant` (confirmed neither
+  was ever added there); the same pre-existing, non-exhaustive-by-design gap this stage inherits rather
+  than introduces.
+
+Not done, deliberately: `FeatureTasks` retrofit (the last remaining P5-IOS-02 stage), the real push/pull
+engine and full status vocabulary (P5-IOS-03), conflict recovery UI (P5-CONFLICT-01), any backend change.
