@@ -85,6 +85,19 @@ import {
   registerHealthRoutes,
   ServiceHealth,
 } from './modules/service-health/public.js';
+import {
+  AttachTaskFile,
+  CompleteTask,
+  CreateManualTask,
+  DeleteTask,
+  DismissTask,
+  EditTask,
+  KyselyTaskRepository,
+  KyselyTasksRecommendationsUnitOfWork,
+  ListTasksForGarden,
+  RescheduleTask,
+  SkipTask,
+} from './modules/tasks-recommendations/public.js';
 import { KyselyAuditLogger } from './platform/audit/kysely-audit-logger.js';
 import { registerAppCheck } from './platform/app-check/app-check-plugin.js';
 import type { AppCheckVerifier } from './platform/app-check/app-check-verifier.js';
@@ -374,7 +387,7 @@ export async function buildApplication(
     observationRepository,
     gardenAuthorization,
   );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  // Used below by tasks-recommendations' `CreateManualTask`.
   const getObservation = new GetObservation(observationRepository);
 
   // plants-inventory: owns the mutable `plant` aggregate root, its
@@ -464,6 +477,85 @@ export async function buildApplication(
   );
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
   const searchTaxonomyReferences = new SearchTaxonomyReferences(taxonomyReferenceRepository);
+
+  // tasks-recommendations: owns `task`, `task_attachment`, and
+  // `task_revision` — the last of Phase 4's sibling modules to land. Reuses
+  // gardenAuthorization and observations-history's `getObservation`
+  // instance (validates `CreateManualTask`'s `originObservationId` — see
+  // that command's own doc comment). No transport this pass: exercised end
+  // to end by tests/integration/tasks-recommendations.test.ts.
+  const taskRepository = new KyselyTaskRepository(database.queries);
+  const tasksRecommendationsIdempotency = new KyselyIdempotencyStore(database.queries, clock);
+  const tasksRecommendationsUnitOfWork = new KyselyTasksRecommendationsUnitOfWork(
+    database.queries,
+    clock,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const createManualTask = new CreateManualTask(
+    tasksRecommendationsIdempotency,
+    tasksRecommendationsUnitOfWork,
+    gardenAuthorization,
+    getObservation,
+    clock,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const editTask = new EditTask(
+    taskRepository,
+    tasksRecommendationsIdempotency,
+    tasksRecommendationsUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const rescheduleTask = new RescheduleTask(
+    taskRepository,
+    tasksRecommendationsIdempotency,
+    tasksRecommendationsUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const completeTask = new CompleteTask(
+    taskRepository,
+    tasksRecommendationsIdempotency,
+    tasksRecommendationsUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const dismissTask = new DismissTask(
+    taskRepository,
+    tasksRecommendationsIdempotency,
+    tasksRecommendationsUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const skipTask = new SkipTask(
+    taskRepository,
+    tasksRecommendationsIdempotency,
+    tasksRecommendationsUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const deleteTask = new DeleteTask(
+    taskRepository,
+    tasksRecommendationsIdempotency,
+    tasksRecommendationsUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const listTasksForGarden = new ListTasksForGarden(taskRepository, gardenAuthorization);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const attachTaskFile = new AttachTaskFile(
+    taskRepository,
+    tasksRecommendationsIdempotency,
+    tasksRecommendationsUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
 
   await app.register(
     (instance, _options, done) => {

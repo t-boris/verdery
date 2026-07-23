@@ -14,6 +14,7 @@ import type { GardensMappingDatabaseSchema } from '../../modules/gardens-mapping
 import type { MediaDatabaseSchema } from '../../modules/media/persistence/schema.js';
 import type { ObservationsHistoryDatabaseSchema } from '../../modules/observations-history/persistence/schema.js';
 import type { PlantsInventoryDatabaseSchema } from '../../modules/plants-inventory/persistence/schema.js';
+import type { TasksRecommendationsDatabaseSchema } from '../../modules/tasks-recommendations/persistence/schema.js';
 import type { PlatformDatabaseSchema } from './platform-schema.js';
 
 /**
@@ -39,6 +40,7 @@ export type DatabaseSchema = IdentityAccessDatabaseSchema &
   MediaDatabaseSchema &
   ObservationsHistoryDatabaseSchema &
   PlantsInventoryDatabaseSchema &
+  TasksRecommendationsDatabaseSchema &
   PlatformDatabaseSchema;
 
 export interface DatabaseGateway {
