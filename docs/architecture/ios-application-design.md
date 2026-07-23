@@ -274,6 +274,8 @@ Errors are classified as:
 
 User-facing errors provide a safe next action. Internal errors retain correlation identifiers but do not reveal tokens, paths, raw provider responses, or private media details.
 
+Plant edit forms validate the same grouping invariant as plant creation before sending a mutation: an individual plant omits quantity, while a row or group requires a positive integer. This prevents a locally editable form from submitting a request the server's plant aggregate must reject.
+
 ## 17. Security and Privacy
 
 - Keychain stores authentication-related secrets under appropriate accessibility classes.

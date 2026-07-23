@@ -16,7 +16,7 @@ import { TaxonomyReferenceField } from './taxonomy-reference-field';
 
 const NONE_VALUE = '';
 
-const editPlantSchema = z.object({
+const editPlantFields = z.object({
   displayName: z.string().trim().min(1).max(200),
   varietyLabel: z.string().trim().max(200).optional(),
   acquisitionDate: z.string().trim().optional(),
@@ -28,7 +28,23 @@ const editPlantSchema = z.object({
   quantity: z.string().trim().optional(),
 });
 
-type EditPlantValues = z.infer<typeof editPlantSchema>;
+export function editPlantSchema(groupingKind: Plant['groupingKind']) {
+  return editPlantFields.superRefine((values, context) => {
+    if (groupingKind === 'individual') return;
+
+    const quantity =
+      values.quantity === undefined || values.quantity === '' ? NaN : Number(values.quantity);
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      context.addIssue({
+        code: 'custom',
+        path: ['quantity'],
+        message: 'positive quantity required',
+      });
+    }
+  });
+}
+
+type EditPlantValues = z.infer<typeof editPlantFields>;
 
 export interface PlantDetailsFormProps {
   readonly gardenId: string;
@@ -61,7 +77,7 @@ export function PlantDetailsForm({ gardenId, plant }: PlantDetailsFormProps) {
   }, [plant.taxonomyReferenceId]);
 
   const { register, handleSubmit, formState } = useForm<EditPlantValues>({
-    resolver: zodResolver(editPlantSchema),
+    resolver: zodResolver(editPlantSchema(plant.groupingKind)),
     values: {
       displayName: plant.displayName,
       varietyLabel: plant.varietyLabel ?? '',

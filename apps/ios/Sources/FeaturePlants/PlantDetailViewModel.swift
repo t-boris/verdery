@@ -224,10 +224,17 @@ public final class PlantDetailViewModel {
     public func saveDetails() async {
         guard let plant = currentPlant else { return }
 
-        let trimmedName = editedDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedName.isEmpty else {
-            actionErrorMessage = strings(.plantsDisplayNameRequired)
+        let resolvedDetails: (displayName: String, quantity: Int?)
+        switch AddPlantFormValidation.resolve(
+            displayName: editedDisplayName,
+            groupingKind: plant.groupingKind,
+            quantityText: editedQuantityText
+        ) {
+        case let .failure(failure):
+            actionErrorMessage = message(for: failure)
             return
+        case let .success(details):
+            resolvedDetails = details
         }
 
         // `quantity` is only offered — and only sent — for a row or a group;
@@ -239,13 +246,13 @@ public final class PlantDetailViewModel {
         let quantityUpdate: FieldUpdate<Int> =
             plant.groupingKind == .individual
                 ? .unchanged
-                : .set(editedQuantityText.isEmpty ? nil : Int(editedQuantityText))
+                : .set(resolvedDetails.quantity)
 
         await perform { [self] in
             try await updatePlantDetails(
                 gardenId: gardenId,
                 plantId: plantId,
-                displayName: trimmedName,
+                displayName: resolvedDetails.displayName,
                 taxonomyReferenceId: .set(editedTaxonomyReferenceId),
                 varietyLabel: .set(editedVarietyLabel.isEmpty ? nil : editedVarietyLabel),
                 acquisitionDate: .set(editedHasAcquisitionDate ? CalendarDate.string(from: editedAcquisitionDate) : nil),
@@ -319,6 +326,14 @@ public final class PlantDetailViewModel {
             strings(.networkUnreachable)
         case .service, .undecodableResponse, .unexpectedStatus:
             strings(.serverUnexpected)
+        }
+    }
+
+    private func message(for failure: AddPlantFormValidation.Failure) -> String {
+        switch failure {
+        case .displayNameRequired: strings(.plantsDisplayNameRequired)
+        case .quantityRequired: strings(.plantsQuantityRequired)
+        case .quantityMustBePositive: strings(.plantsQuantityMustBePositive)
         }
     }
 }

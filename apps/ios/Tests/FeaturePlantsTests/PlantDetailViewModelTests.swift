@@ -221,6 +221,42 @@ struct PlantDetailViewModelTests {
         #expect(summary.quantity == 7)
     }
 
+    @Test("saveDetails rejects a missing row quantity before calling the gateway")
+    func saveDetailsRejectsMissingRowQuantity() async {
+        let gateway = FakePlantGateway(plants: [plant(groupingKind: .row, quantity: 3)])
+        let model = makeModel(gateway: gateway)
+        await model.load()
+
+        model.editedQuantityText = ""
+        await model.saveDetails()
+
+        #expect(model.actionErrorMessage != nil)
+        guard case let .loaded(summary) = model.state else {
+            Issue.record("Expected the loaded state to remain unchanged")
+            return
+        }
+        #expect(summary.quantity == 3)
+        #expect(summary.revision == 1)
+    }
+
+    @Test("saveDetails rejects a non-positive group quantity before calling the gateway")
+    func saveDetailsRejectsNonPositiveGroupQuantity() async {
+        let gateway = FakePlantGateway(plants: [plant(groupingKind: .group, quantity: 4)])
+        let model = makeModel(gateway: gateway)
+        await model.load()
+
+        model.editedQuantityText = "0"
+        await model.saveDetails()
+
+        #expect(model.actionErrorMessage != nil)
+        guard case let .loaded(summary) = model.state else {
+            Issue.record("Expected the loaded state to remain unchanged")
+            return
+        }
+        #expect(summary.quantity == 4)
+        #expect(summary.revision == 1)
+    }
+
     @Test("load populates editedTaxonomyReferenceId, and an unresolved id shows a fallback summary")
     func loadPopulatesTaxonomyFallback() async {
         let gateway = FakePlantGateway(plants: [plant(taxonomyReferenceId: "tax-1")])
