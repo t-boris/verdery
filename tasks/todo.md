@@ -2150,3 +2150,76 @@ owner to record, not something this session claims on its own.
 - **`docs/implementation-plan.md`'s Phase 5 status table entry was stale before this session began**
   (recorded "not started" despite P5-IOS-01 through P5-BE-02 already being implemented) — corrected as
   part of this review, not a new discrepancy introduced here.
+
+# Phase 6 — Media, Photos, and Property-Plan Import, planning
+
+Scope: every Phase 6 work package, P6-PLAT-01 through P6-QA-01. Native and web clients upload ordinary
+photos and sensitive property plans directly and recoverably; the system verifies, derives, authorizes,
+retains, and deletes media correctly; users preview, calibrate, trace, hide, and revisit plan
+backgrounds.
+
+Source: [docs/implementation-plan.md](../docs/implementation-plan.md) section 15;
+[architecture/media-storage-and-processing.md](../docs/architecture/media-storage-and-processing.md)
+(the primary spec — sections 3, 6, 7, 8, 11, 15, 21 named explicitly, read in full);
+[architecture/garden-capture-and-scan.md](../docs/architecture/garden-capture-and-scan.md) section 8;
+[architecture/map-rendering-and-editing.md](../docs/architecture/map-rendering-and-editing.md) section 16.
+
+This is the heaviest-infrastructure phase yet — real private Cloud Storage buckets, resumable direct
+uploads, async verification/processing workers (Cloud Tasks/Cloud Run Jobs), malware scanning,
+image/video/PDF derivative generation, and a full retention/deletion lifecycle, not application code
+alone. Two things are already known before any implementation starts:
+
+- **What already exists**: Phase 4's `media` module is deliberately minimal — `media.media_record`
+  (id, storage_reference, mime_type, uploaded_by_profile_id, created_at) and exactly one command,
+  `RegisterMediaRecord`. No upload authorization, verification, state machine, derivatives, or
+  retention exist yet — this phase grows that stub into the real thing, not a parallel module.
+- **P6-PLANT-01 is blocked the same way P4-OBS-01 was**: it depends explicitly on `P0-PROV-01`
+  ("Evaluate map/imagery, geocoding, weather, plant content/identification... candidates"), which
+  remains undecided (Phase 0 is still "Partially decided" and this specific sub-decision was never
+  resolved). Documented as a deferral once reached, not built with an invented ML vendor — matching
+  `identifyPlantFromPhoto`'s existing honest-placeholder precedent from Phase 4.
+- **Malware scanning (section 8) has no evaluated provider either** — no decision anywhere in this
+  codebase names a scanning service (Cloud-native or third-party). This is a real, separate security
+  gap from the photo-ID question, worth the same honest-placeholder treatment if no provider surfaces
+  during implementation, not silent omission or a fabricated integration.
+- **Real cloud infrastructure provisioning (`P6-PLAT-01`: new buckets, lifecycle rules, IAM) needs a
+  confirmation gate before anything is created against the live `verdery-dev` project**, matching this
+  session's own established precedent (the Phase 5 `pg_trgm` privilege grant) — planned and built
+  behind a real port/adapter first, so everything except the live bucket creation itself can be
+  developed and verified without it.
+
+## Planned stages (dependency-ordered, matching the work package table)
+
+1. **Media data model** (P6-DATA-01): identity, ownership, class, checksum, upload/processing/retention
+   state machine, variants, relationships, quota reservations — grown from the existing minimal
+   `media.media_record`. Pure PostgreSQL + application logic, fully testable via Testcontainers, no
+   live infrastructure needed.
+2. **Storage provisioning** (P6-PLAT-01): the four private buckets (user-media, raw-capture, derived,
+   exports), public-access prevention, lifecycle shells — built as idempotent gcloud scripts matching
+   `infrastructure/gcloud/scripts/`'s existing conventions, with the actual live provisioning gated on
+   explicit confirmation before running against `verdery-dev`.
+3. **Upload API** (P6-API-01): registration, authorized resumable session creation, completion
+   verification, status, short-lived authorized access — behind a real storage port with a fake
+   adapter for tests, the same port-plus-adapter-plus-fake pattern every module in this codebase
+   already uses, so the application layer is fully testable before real buckets exist.
+4. **Async processing foundation** (P6-ASYNC-01): transactional outbox relay and Cloud Tasks paths for
+   verification/derivative jobs, durable job state.
+5. **Validation and derivative workers** (P6-WORKER-01/02): MIME signature, size, dimension/duration,
+   checksum, parser-bomb protection, malware-scanning placeholder (see above); idempotent thumbnails,
+   screen previews, metadata stripping, PDF page previews, plan tiles.
+6. **Clients** (P6-IOS-01, P6-WEB-01): background-capable upload coordination, local durability,
+   progress/pause/retry/recovery on iOS; direct resumable upload with recoverable browser metadata on
+   web.
+7. **Property-plan import and calibration** (P6-PLAN-01/02): document selection, safety validation,
+   page/perspective handling; known-distance calibration, residual error, trace tools, plan-to-map
+   transforms — reusing Phase 3's map command model, not a parallel one.
+8. **Photo identification** (P6-PLANT-01): deferred with reason, per above, unless `P0-PROV-01`
+   resolves during this phase.
+9. **Retention, observability, QA** (P6-RET-01, P6-OBS-01, P6-QA-01): deletion workflow and orphan
+   reconciliation; upload/verification/processing/stored-byte/deletion dashboards, calibrated against
+   this session's own established "-01 observability" delivery bar; the full required testing matrix
+   (unauthorized cross-garden access, malformed inputs, parser limits, signed-access expiry, plan
+   accuracy labels).
+
+Each stage will be committed, pushed, and CI-confirmed-green independently, matching the pattern
+established in every prior phase — not one single end-of-phase commit.
