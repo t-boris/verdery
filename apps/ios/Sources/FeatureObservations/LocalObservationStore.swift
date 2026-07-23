@@ -51,6 +51,27 @@ public protocol LocalObservationStore: Sendable {
     /// insert commit — or roll back — together, in one GRDB transaction.
     @discardableResult
     func commitOfflineAppend(_ observation: GardenObservation, operation: OutboxOperation) async throws -> GardenObservation
+
+    /// Removes one observation's local pending row once this device's own
+    /// `observations.record`/`observations.correct` operation for it is
+    /// accepted or duplicate-confirmed by `POST /sync/push` — the same third
+    /// case `FeatureGardens.LocalGardenStore.confirmSynced(gardenId:revision:)`'s
+    /// own doc comment describes for a mutable record, but shaped
+    /// differently here for the reason this type's own doc comment already
+    /// gives for `commitOfflineAppend` versus `commitOfflineMutation`:
+    /// `GardenObservation` carries no `revision` at all, so there is no
+    /// field to advance — "confirmed" only ever means "no longer only
+    /// locally known." Once confirmed, this row is redundant with what
+    /// `ListObservationsForGarden`/`ListObservationsForPlant`'s own next
+    /// network call will include, so it is removed outright, not updated in
+    /// place — the same removal `fetchPending(gardenId:)`'s own doc comment
+    /// implies by scoping itself to "not yet known to have synced": leaving
+    /// a confirmed row behind would make that scoping a lie. A silent no-op
+    /// when this device has no local row for `observationId`.
+    ///
+    /// Called only by `CoreSynchronization.RemoteSyncEngine`, through
+    /// `ObservationSyncRecordApplier` (P5-IOS-03, Stage 5a).
+    func markSynced(observationId: String) async throws
 }
 
 public struct GRDBObservationStore: LocalObservationStore {
@@ -85,6 +106,15 @@ public struct GRDBObservationStore: LocalObservationStore {
             // requires.
             try SyncOutboxTransactionWriter.enqueue(operation, in: db)
             return observation
+        }
+    }
+
+    public func markSynced(observationId: String) async throws {
+        try await dbQueue.write { db in
+            try db.execute(
+                sql: "DELETE FROM \(ObservationRecord.databaseTableName) WHERE id = ?",
+                arguments: [observationId]
+            )
         }
     }
 }

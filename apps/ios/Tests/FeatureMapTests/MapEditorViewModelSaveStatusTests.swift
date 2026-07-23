@@ -69,6 +69,10 @@ struct MapEditorViewModelSaveStatusTests {
             guard !shouldFail else { throw MapCommandError.objectNotFound(objectId: "tree-1") }
             return try await inner.commitOfflineMutation(gardenId: gardenId, command: command)
         }
+
+        func confirmSynced(objectId: String, revision: Int) async throws {
+            try await inner.confirmSynced(objectId: objectId, revision: revision)
+        }
     }
 
     @Test("saveStatus starts idle, before any command has been submitted")

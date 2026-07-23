@@ -3,6 +3,7 @@ import CoreLocalization
 import CoreNetworking
 import CoreObservability
 import CorePersistence
+import CoreSynchronization
 import FeatureAuthentication
 import FeatureGardens
 import FeatureHealth
@@ -31,7 +32,9 @@ public final class AppCompositionRoot {
     private let plantGateway: any PlantGateway
     private let observationGateway: any ObservationGateway
     private let taskGateway: any TaskGateway
+    private let syncGateway: any SyncGateway
     private let authenticationGateway: any AuthenticationGateway
+    private let clientInstallationStore: any ClientInstallationIdentityStore
     private let log: any DiagnosticLog
 
     public init(
@@ -96,8 +99,28 @@ public final class AppCompositionRoot {
             appCheckTokenProvider: appCheckTokenProvider,
             log: log
         )
+        // Same scope as every Phase 4/5 gateway above.
+        self.syncGateway = URLSessionSyncGateway(
+            configuration: configuration,
+            session: session,
+            authTokenProvider: tokenProvider,
+            appCheckTokenProvider: appCheckTokenProvider,
+            log: log
+        )
         self.authenticationGateway = FirebaseAuthenticationGateway()
         self.sessionObserver = AuthenticationSessionObserver()
+
+        // Device-scoped, not per-profile — see that type's own doc comment
+        // for why. Constructed once here, not per `makeSyncEngine()` call,
+        // since it depends on nothing profile-specific and a fresh
+        // `InMemoryClientInstallationIdentityStore` fallback should not be
+        // re-created (and so re-randomized) on every call either.
+        if let fileStore = try? FileClientInstallationIdentityStore() {
+            self.clientInstallationStore = fileStore
+        } else {
+            log.record(.error, "Could not open the client installation id file; falling back to an in-memory store.")
+            self.clientInstallationStore = InMemoryClientInstallationIdentityStore()
+        }
     }
 
     public func makeServiceHealthViewModel() -> ServiceHealthViewModel {
@@ -208,6 +231,68 @@ public final class AppCompositionRoot {
             deleteTask: DeleteTask(localStore: store, profileId: profileId),
             strings: strings
         )
+    }
+
+    /// The real, network-backed push engine (P5-IOS-03, Stage 5a) — reads
+    /// `sync_outbox` for the current profile's database and pushes through
+    /// `syncGateway`, applying each of the five features' results through
+    /// its own registered `SyncRecordApplier`. This is the one place a
+    /// concrete `SyncRecordApplier` conformer is named alongside the engine
+    /// it is registered with — see `CoreSynchronization.SyncRecordApplier`'s
+    /// own doc comment for why that pairing can only happen here.
+    ///
+    /// Opened fresh per call, matching every `local*Store()` method's own
+    /// reasoning below: cheap relative to a call's lifetime, and avoids
+    /// holding a database handle open for a profile that has since signed
+    /// out. `pullChanges()` on the returned engine is a genuine no-op this
+    /// stage — see `RemoteSyncEngine`'s own doc comment; nothing calls
+    /// `pushPending()` yet either, since foreground/background/explicit-
+    /// retry triggers are Stage 5b's job, not this stage's — this method
+    /// exists so that a caller (a test today; Stage 5b's triggers tomorrow)
+    /// has a fully wired engine to call it on.
+    public func makeSyncEngine() -> any SyncEngine {
+        let profileIdentifier = currentProfileIdentifier()
+        let appliers: [any SyncRecordApplier] = [
+            GardenSyncRecordApplier(localStore: localGardenStore()),
+            MapSyncRecordApplier(localStore: localMapStore()),
+            PlantSyncRecordApplier(localStore: localPlantStore()),
+            ObservationSyncRecordApplier(localStore: localObservationStore()),
+            TaskSyncRecordApplier(localStore: localTaskStore()),
+        ]
+
+        do {
+            let dbQueue = try LocalDatabase.open(profileIdentifier: profileIdentifier)
+            return RemoteSyncEngine(
+                outboxStore: GRDBSyncOutboxStore(dbQueue: dbQueue),
+                conflictStore: GRDBSyncConflictStore(dbQueue: dbQueue),
+                operationResultStore: GRDBSyncOperationResultStore(dbQueue: dbQueue),
+                gateway: syncGateway,
+                clientInstallationStore: clientInstallationStore,
+                appliers: appliers,
+                appVersion: Self.currentAppVersion
+            )
+        } catch {
+            log.record(.error, "Could not open the local synchronization database; falling back to an in-memory outbox.")
+            return RemoteSyncEngine(
+                outboxStore: InMemorySyncOutboxStore(),
+                conflictStore: InMemorySyncConflictStore(),
+                operationResultStore: InMemorySyncOperationResultStore(),
+                gateway: syncGateway,
+                clientInstallationStore: clientInstallationStore,
+                appliers: appliers,
+                appVersion: Self.currentAppVersion
+            )
+        }
+    }
+
+    /// `CFBundleShortVersionString` is unset for the headless `swift build`/
+    /// `swift test` SPM executable (only the Xcode-built app target carries
+    /// a real `Info.plist`) — the same "no bundle metadata outside the real
+    /// app target" gap `VerderyApp`'s own doc comment notes for
+    /// `GoogleService-Info.plist`, so this falls back to a placeholder
+    /// rather than failing.
+    private static var currentAppVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
     }
 
     /// Scoped by Firebase UID; see `CorePersistence.LocalDatabase` for why

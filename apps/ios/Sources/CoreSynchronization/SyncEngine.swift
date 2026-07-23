@@ -18,20 +18,23 @@ import CoreDomain
 /// implementation on top of what `CoreDomain` and `CorePersistence` already
 /// expose.
 ///
-/// The seam a future push/pull synchronization engine implements.
+/// The seam a push/pull synchronization engine implements.
 ///
-/// This work package (P5-IOS-01) is local-storage-only: no network calls, no
-/// real push/pull protocol implementation (see architecture/offline-
-/// synchronization.md, sections "8. Push Protocol" and "10. Pull Protocol"
-/// for what a real implementation of these two methods must eventually do).
-/// This protocol exists so:
+/// This work package (P5-IOS-01) was local-storage-only: no network calls,
+/// no real push/pull protocol implementation. `RemoteSyncEngine`
+/// (P5-IOS-03, Stage 5a) is that real implementation for `pushPending()` —
+/// see its own doc comment; `pullChanges()` stays a no-op on every
+/// conformer, including `RemoteSyncEngine`, until Stage 5b builds the pull
+/// side against `GET /sync/changes` (architecture/offline-synchronization.md,
+/// section "10. Pull Protocol"). This protocol exists so:
 ///
-/// - Later stages (P5-IOS-02/03) have a stable type to build a real,
+/// - Every stage after P5-IOS-01 has a stable type to build a real,
 ///   network-backed implementation against, without every call site
-///   changing.
-/// - This stage's own tests can exercise `CorePersistence`'s local storage
-///   through a realistic shape, via `LocalOnlySyncEngine`, instead of only
-///   testing repositories in isolation.
+///   changing — `RemoteSyncEngine` is proof this worked: nothing outside
+///   `CoreSynchronization`/`AppCompositionRoot` had to change to adopt it.
+/// - `LocalOnlySyncEngine` still lets a caller exercise `CorePersistence`'s
+///   local storage through a realistic shape with no network dependency at
+///   all — a preview, or a test that only cares about the local seam.
 ///
 /// Source: architecture/ios-application-design.md, section
 /// "8. Synchronization Integration" ("The synchronization engine is a

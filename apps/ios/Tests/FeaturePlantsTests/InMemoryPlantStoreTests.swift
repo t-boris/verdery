@@ -102,4 +102,29 @@ struct InMemoryPlantStoreTests {
 
         #expect(try await store.fetch(plantId: "2")?.displayName == "From server")
     }
+
+    @Test("confirmSynced advances the revision and lifts the pending guard, without touching other fields")
+    func confirmSyncedAdvancesRevisionAndLiftsPendingGuard() async throws {
+        let store = InMemoryPlantStore()
+        let pending = plant(id: "1", displayName: "Renamed locally")
+        _ = try await store.commitOfflineMutation(plantId: "1") { _ in
+            (pending, operation(id: "op-1", plantId: "1"))
+        }
+
+        try await store.confirmSynced(plantId: "1", revision: 8)
+
+        let confirmed = try #require(await store.fetch(plantId: "1"))
+        #expect(confirmed.displayName == "Renamed locally")
+        #expect(confirmed.revision == 8)
+
+        try await store.save(plant(id: "1", displayName: "From server"))
+        #expect(try await store.fetch(plantId: "1")?.displayName == "From server")
+    }
+
+    @Test("confirmSynced is a silent no-op for a plant this device has no local row for")
+    func confirmSyncedNoOpForUnknownPlant() async throws {
+        let store = InMemoryPlantStore()
+        try await store.confirmSynced(plantId: "unknown", revision: 3)
+        #expect(try await store.fetch(plantId: "unknown") == nil)
+    }
 }

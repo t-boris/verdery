@@ -53,6 +53,17 @@ public protocol LocalPlantStore: Sendable {
         plantId: String,
         command: @Sendable (_ current: Plant?) throws -> (projection: Plant, operation: OutboxOperation)
     ) async throws -> Plant
+
+    /// Advances a plant's local revision to the server's confirmed value
+    /// once this device's own pending mutation for it is accepted or
+    /// duplicate-confirmed by `POST /sync/push` — the same third case
+    /// `FeatureGardens.LocalGardenStore.confirmSynced(gardenId:revision:)`'s
+    /// own doc comment explains. A silent no-op when this device has no
+    /// local row for `plantId`.
+    ///
+    /// Called only by `CoreSynchronization.RemoteSyncEngine`, through
+    /// `PlantSyncRecordApplier` (P5-IOS-03, Stage 5a).
+    func confirmSynced(plantId: String, revision: Int) async throws
 }
 
 public struct GRDBPlantStore: LocalPlantStore {
@@ -90,6 +101,19 @@ public struct GRDBPlantStore: LocalPlantStore {
             // requires.
             try SyncOutboxTransactionWriter.enqueue(operation, in: db)
             return projection
+        }
+    }
+
+    /// A surgical column-only update — see
+    /// `FeatureGardens.GRDBGardenStore.confirmSynced(gardenId:revision:)`'s
+    /// own doc comment for why this, not a full `PlantRecord` decode/
+    /// re-encode round trip, is what this method needs.
+    public func confirmSynced(plantId: String, revision: Int) async throws {
+        try await dbQueue.write { db in
+            try db.execute(
+                sql: "UPDATE \(PlantRecord.databaseTableName) SET revision = ? WHERE id = ?",
+                arguments: [revision, plantId]
+            )
         }
     }
 

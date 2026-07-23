@@ -243,4 +243,32 @@ struct PlantOfflineMutationTests {
         #expect(try await store.fetch(plantId: "plant-1")?.displayName == "Not synced yet")
         #expect(try await store.fetch(plantId: "plant-2")?.displayName == "From server")
     }
+
+    @Test("confirmSynced advances only the revision column, leaving every other field untouched")
+    func confirmSyncedAdvancesRevisionOnly() async throws {
+        let dbQueue = try makeDatabase()
+        let store = GRDBPlantStore(dbQueue: dbQueue)
+
+        let pending = plant(id: "plant-1", displayName: "Renamed locally", revision: 0)
+        _ = try await store.commitOfflineMutation(plantId: "plant-1") { _ in
+            (pending, self.operation(id: "op-1", plantId: "plant-1", gardenId: "garden-1"))
+        }
+        try await GRDBSyncOutboxStore(dbQueue: dbQueue).remove(operationId: "op-1")
+
+        try await store.confirmSynced(plantId: "plant-1", revision: 6)
+
+        let confirmed = try #require(await store.fetch(plantId: "plant-1"))
+        #expect(confirmed.displayName == "Renamed locally")
+        #expect(confirmed.revision == 6)
+    }
+
+    @Test("confirmSynced is a silent no-op for a plant this device has no local row for")
+    func confirmSyncedNoOpForUnknownPlant() async throws {
+        let dbQueue = try makeDatabase()
+        let store = GRDBPlantStore(dbQueue: dbQueue)
+
+        try await store.confirmSynced(plantId: "unknown", revision: 6)
+
+        #expect(try await store.fetch(plantId: "unknown") == nil)
+    }
 }

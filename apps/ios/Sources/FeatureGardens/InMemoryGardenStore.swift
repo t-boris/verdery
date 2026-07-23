@@ -45,4 +45,21 @@ public actor InMemoryGardenStore: LocalGardenStore {
         pendingGardenIds.insert(projection.id)
         return projection
     }
+
+    public func confirmSynced(gardenId: String, revision: Int) async throws {
+        guard let current = gardens[gardenId] else { return }
+        gardens[gardenId] = Garden(
+            id: current.id,
+            name: current.name,
+            lifecycleState: current.lifecycleState,
+            callerRole: current.callerRole,
+            revision: revision,
+            createdAt: current.createdAt,
+            updatedAt: current.updatedAt
+        )
+        // Mirrors what a real `sync_outbox` row's removal accomplishes for
+        // `GRDBGardenStore`: `save`/`replaceAll` no longer protect this
+        // garden from a server-confirmed overwrite once it is confirmed.
+        pendingGardenIds.remove(gardenId)
+    }
 }

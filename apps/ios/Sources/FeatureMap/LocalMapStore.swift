@@ -49,6 +49,21 @@ public protocol LocalMapStore: Sendable {
         gardenId: String,
         command: @Sendable (_ current: [String: GardenMapObject]) throws -> (projections: [GardenMapObject], operation: OutboxOperation)
     ) async throws -> [GardenMapObject]
+
+    /// Advances one map object's local revision to the server's confirmed
+    /// value once this device's own pending mutation for it is accepted or
+    /// duplicate-confirmed by `POST /sync/push` — the same third case
+    /// `FeatureGardens.LocalGardenStore.confirmSynced(gardenId:revision:)`'s
+    /// own doc comment explains, generalized to "one object among a
+    /// garden's many" instead of "the one garden itself". Scoped by the
+    /// object's own id, not `gardenId`, because a single push result's
+    /// `recordRevisions` only ever names the specific objects a command
+    /// affected — never every object in the garden. A silent no-op when
+    /// this device has no local row for `objectId`.
+    ///
+    /// Called only by `CoreSynchronization.RemoteSyncEngine`, through
+    /// `MapSyncRecordApplier` (P5-IOS-03, Stage 5a).
+    func confirmSynced(objectId: String, revision: Int) async throws
 }
 
 public struct GRDBMapStore: LocalMapStore {
@@ -124,6 +139,21 @@ public struct GRDBMapStore: LocalMapStore {
             // requires.
             try SyncOutboxTransactionWriter.enqueue(operation, in: db)
             return projections
+        }
+    }
+
+    /// A surgical column-only update — see
+    /// `FeatureGardens.GRDBGardenStore.confirmSynced(gardenId:revision:)`'s
+    /// own doc comment for why this, not a full `GardenObjectRecord`
+    /// decode/re-encode round trip (which would also risk re-throwing a
+    /// `geometry`/`categoryDetails` JSON encoding failure for a value that
+    /// is not actually changing), is what this method needs.
+    public func confirmSynced(objectId: String, revision: Int) async throws {
+        try await dbQueue.write { db in
+            try db.execute(
+                sql: "UPDATE \(GardenObjectRecord.databaseTableName) SET revision = ? WHERE id = ?",
+                arguments: [revision, objectId]
+            )
         }
     }
 

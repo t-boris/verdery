@@ -54,6 +54,17 @@ public protocol LocalTaskStore: Sendable {
         taskId: String,
         command: @Sendable (_ current: GardenTask?) throws -> (projection: GardenTask, operation: OutboxOperation)
     ) async throws -> GardenTask
+
+    /// Advances a task's local revision to the server's confirmed value once
+    /// this device's own pending mutation for it is accepted or
+    /// duplicate-confirmed by `POST /sync/push` — the same third case
+    /// `FeatureGardens.LocalGardenStore.confirmSynced(gardenId:revision:)`'s
+    /// own doc comment explains. A silent no-op when this device has no
+    /// local row for `taskId`.
+    ///
+    /// Called only by `CoreSynchronization.RemoteSyncEngine`, through
+    /// `TaskSyncRecordApplier` (P5-IOS-03, Stage 5a).
+    func confirmSynced(taskId: String, revision: Int) async throws
 }
 
 public struct GRDBTaskStore: LocalTaskStore {
@@ -117,6 +128,19 @@ public struct GRDBTaskStore: LocalTaskStore {
             // requires.
             try SyncOutboxTransactionWriter.enqueue(operation, in: db)
             return projection
+        }
+    }
+
+    /// A surgical column-only update — see
+    /// `FeatureGardens.GRDBGardenStore.confirmSynced(gardenId:revision:)`'s
+    /// own doc comment for why this, not a full `TaskRecord` decode/
+    /// re-encode round trip, is what this method needs.
+    public func confirmSynced(taskId: String, revision: Int) async throws {
+        try await dbQueue.write { db in
+            try db.execute(
+                sql: "UPDATE \(TaskRecord.databaseTableName) SET revision = ? WHERE id = ?",
+                arguments: [revision, taskId]
+            )
         }
     }
 

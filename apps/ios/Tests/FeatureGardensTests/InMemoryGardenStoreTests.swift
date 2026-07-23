@@ -106,4 +106,31 @@ struct InMemoryGardenStoreTests {
 
         #expect(try await store.fetchAll().first?.name == "Renamed locally")
     }
+
+    @Test("confirmSynced advances the revision and lifts the pending guard, without touching other fields")
+    func confirmSyncedAdvancesRevisionAndLiftsPendingGuard() async throws {
+        let store = InMemoryGardenStore()
+        let pending = garden(id: "1", name: "Renamed locally", createdAt: Date(timeIntervalSince1970: 0))
+        _ = try await store.commitOfflineMutation(gardenId: "1") { _ in
+            (pending, operation(id: "op-1", gardenId: "1"))
+        }
+
+        try await store.confirmSynced(gardenId: "1", revision: 9)
+
+        let confirmed = try #require(await store.fetchAll().first)
+        #expect(confirmed.name == "Renamed locally")
+        #expect(confirmed.revision == 9)
+
+        // The pending guard is lifted: a later server-confirmed overwrite is
+        // no longer blocked, since this operation is no longer pending.
+        try await store.save(garden(id: "1", name: "From server", createdAt: Date(timeIntervalSince1970: 0)))
+        #expect(try await store.fetchAll().first?.name == "From server")
+    }
+
+    @Test("confirmSynced is a silent no-op for a garden this device has no local row for")
+    func confirmSyncedNoOpForUnknownGarden() async throws {
+        let store = InMemoryGardenStore()
+        try await store.confirmSynced(gardenId: "unknown", revision: 3)
+        #expect(try await store.fetchAll().isEmpty)
+    }
 }

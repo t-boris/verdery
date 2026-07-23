@@ -23,4 +23,10 @@ public actor InMemoryObservationStore: LocalObservationStore {
         observationsByGardenId[observation.gardenId, default: []].append(observation)
         return observation
     }
+
+    public func markSynced(observationId: String) async throws {
+        for (gardenId, observations) in observationsByGardenId {
+            observationsByGardenId[gardenId] = observations.filter { $0.id != observationId }
+        }
+    }
 }

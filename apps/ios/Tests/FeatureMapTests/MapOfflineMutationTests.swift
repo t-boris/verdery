@@ -270,4 +270,32 @@ struct MapOfflineMutationTests {
 
         #expect(try await store.fetchAll(gardenId: "garden-1").isEmpty)
     }
+
+    @Test("confirmSynced advances only the revision column, leaving geometry and other fields untouched")
+    func confirmSyncedAdvancesRevisionOnly() async throws {
+        let dbQueue = try makeDatabase()
+        let store = GRDBMapStore(dbQueue: dbQueue)
+
+        let pending = object(id: "obj-1", revision: 0)
+        _ = try await store.commitOfflineMutation(gardenId: "garden-1") { _ in
+            ([pending], self.operation(id: "op-1", targetRecordIds: ["obj-1"]))
+        }
+        try await GRDBSyncOutboxStore(dbQueue: dbQueue).remove(operationId: "op-1")
+
+        try await store.confirmSynced(objectId: "obj-1", revision: 5)
+
+        let confirmed = try #require(await store.fetchAll(gardenId: "garden-1").first)
+        #expect(confirmed.label == "Old Oak")
+        #expect(confirmed.revision == 5)
+    }
+
+    @Test("confirmSynced is a silent no-op for an object this device has no local row for")
+    func confirmSyncedNoOpForUnknownObject() async throws {
+        let dbQueue = try makeDatabase()
+        let store = GRDBMapStore(dbQueue: dbQueue)
+
+        try await store.confirmSynced(objectId: "unknown", revision: 5)
+
+        #expect(try await store.fetchAll(gardenId: "garden-1").isEmpty)
+    }
 }

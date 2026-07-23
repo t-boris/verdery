@@ -246,4 +246,32 @@ struct TaskOfflineMutationTests {
         #expect(try await store.fetchAll(gardenId: "garden-1").map(\.id) == ["task-1"])
         #expect(try await store.fetchAll(gardenId: "garden-2").map(\.id) == ["task-2"])
     }
+
+    @Test("confirmSynced advances only the revision column, leaving every other field untouched")
+    func confirmSyncedAdvancesRevisionOnly() async throws {
+        let dbQueue = try makeDatabase()
+        let store = GRDBTaskStore(dbQueue: dbQueue)
+
+        let pending = task(id: "task-1", title: "Renamed locally", revision: 1)
+        _ = try await store.commitOfflineMutation(taskId: "task-1") { _ in
+            (pending, self.operation(id: "op-1", taskId: "task-1"))
+        }
+        try await GRDBSyncOutboxStore(dbQueue: dbQueue).remove(operationId: "op-1")
+
+        try await store.confirmSynced(taskId: "task-1", revision: 7)
+
+        let confirmed = try #require(await store.fetchAll(gardenId: "garden-1").first)
+        #expect(confirmed.title == "Renamed locally")
+        #expect(confirmed.revision == 7)
+    }
+
+    @Test("confirmSynced is a silent no-op for a task this device has no local row for")
+    func confirmSyncedNoOpForUnknownTask() async throws {
+        let dbQueue = try makeDatabase()
+        let store = GRDBTaskStore(dbQueue: dbQueue)
+
+        try await store.confirmSynced(taskId: "unknown", revision: 7)
+
+        #expect(try await store.fetchAll(gardenId: "garden-1").isEmpty)
+    }
 }

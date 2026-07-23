@@ -39,6 +39,23 @@ public protocol LocalGardenStore: Sendable {
         gardenId: String,
         command: @Sendable (_ current: Garden?) throws -> (projection: Garden, operation: OutboxOperation)
     ) async throws -> Garden
+
+    /// Advances a garden's local revision to the server's confirmed value
+    /// once this device's own pending mutation for it is accepted or
+    /// duplicate-confirmed by `POST /sync/push` — a third case alongside
+    /// `save(_:)`/`replaceAll(with:)` (a first-time server fetch) and
+    /// `commitOfflineMutation` (a brand-new local mutation): this is
+    /// neither. It is THIS device's own already-applied optimistic
+    /// projection, now confirmed, so nothing about the garden's content
+    /// changes — only its revision. A silent no-op when this device has no
+    /// local row for `gardenId` — already removed, or never cached — the
+    /// same defensive posture `save(_:)`/`replaceAll(with:)` already take
+    /// toward a garden they do not know about.
+    ///
+    /// Called only by `CoreSynchronization.RemoteSyncEngine`, through
+    /// `GardenSyncRecordApplier` (P5-IOS-03, Stage 5a) — see that type's own
+    /// doc comment.
+    func confirmSynced(gardenId: String, revision: Int) async throws
 }
 
 public struct GRDBGardenStore: LocalGardenStore {
@@ -120,6 +137,23 @@ public struct GRDBGardenStore: LocalGardenStore {
             // here requires.
             try SyncOutboxTransactionWriter.enqueue(operation, in: db)
             return projection
+        }
+    }
+
+    /// A surgical column-only update, not a full domain round trip: every
+    /// other field is untouched by definition (this device's own optimistic
+    /// projection was already correct content, only unconfirmed), so there
+    /// is nothing to gain from decoding the whole row into a `Garden` and
+    /// re-encoding it just to change one column. A `WHERE id = ?` that
+    /// matches no row is a no-op, which is exactly `confirmSynced`'s own
+    /// documented "no local row" behavior — no separate existence check
+    /// needed.
+    public func confirmSynced(gardenId: String, revision: Int) async throws {
+        try await dbQueue.write { db in
+            try db.execute(
+                sql: "UPDATE \(GardenRecord.databaseTableName) SET revision = ? WHERE id = ?",
+                arguments: [revision, gardenId]
+            )
         }
     }
 }

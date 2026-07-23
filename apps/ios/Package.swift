@@ -122,19 +122,23 @@ let package = Package(
             ]
         ),
 
-        // The synchronization seam: `SyncEngine`, the protocol a future
-        // push/pull engine implements, plus a local-storage-only
-        // implementation. No network dependency yet — see `SyncEngine.swift`
-        // for why `CoreNetworking` is deliberately not a dependency here
-        // until a later work package builds the real push/pull protocol.
+        // The synchronization seam: `SyncEngine`, the protocol the push/pull
+        // engine implements, a local-storage-only implementation kept for
+        // previews/tests, and — as of P5-IOS-03 Stage 5a — the real,
+        // network-backed `RemoteSyncEngine`. `CoreNetworking` became a
+        // dependency this stage: `SyncEngine.swift`'s own doc comment
+        // explains it was deliberately absent through P5-IOS-01 only
+        // "until a later work package builds the real push/pull protocol" —
+        // this is that work package, so `RemoteSyncEngine` can call
+        // `CoreNetworking.SyncGateway` directly.
         //
         // Source: architecture/ios-application-design.md, section
         // "8. Synchronization Integration"; architecture/offline-
-        // synchronization.md; implementation-plan.md work package
-        // P5-IOS-01.
+        // synchronization.md; implementation-plan.md work packages
+        // P5-IOS-01, P5-IOS-03.
         .target(
             name: "CoreSynchronization",
-            dependencies: ["CoreDomain", "CorePersistence"]
+            dependencies: ["CoreDomain", "CorePersistence", "CoreNetworking"]
         ),
 
         // Feature template. A feature may depend on Core; Core never names a
@@ -164,6 +168,12 @@ let package = Package(
                 // database's lifecycle and schema, not every table's
                 // repository.
                 "CorePersistence",
+                // For `CoreSynchronization.SyncRecordApplier`, which
+                // `GardenSyncRecordApplier` conforms to (P5-IOS-03,
+                // Stage 5a) — see that target's own comment for why a
+                // Feature may depend on this Core target but not the
+                // reverse.
+                "CoreSynchronization",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ]
         ),
@@ -189,6 +199,10 @@ let package = Package(
                 "CoreNetworking",
                 "CoreLocalization",
                 "CorePersistence",
+                // For `CoreSynchronization.SyncRecordApplier`, which
+                // `MapSyncRecordApplier` conforms to (P5-IOS-03, Stage 5a) —
+                // see `FeatureGardens`'s identical comment above.
+                "CoreSynchronization",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ]
         ),
@@ -213,6 +227,10 @@ let package = Package(
                 "CoreNetworking",
                 "CoreLocalization",
                 "CorePersistence",
+                // For `CoreSynchronization.SyncRecordApplier`, which
+                // `PlantSyncRecordApplier` conforms to (P5-IOS-03, Stage 5a)
+                // — see `FeatureGardens`'s identical comment above.
+                "CoreSynchronization",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ]
         ),
@@ -243,6 +261,10 @@ let package = Package(
                 "CoreNetworking",
                 "CoreLocalization",
                 "CorePersistence",
+                // For `CoreSynchronization.SyncRecordApplier`, which
+                // `ObservationSyncRecordApplier` conforms to (P5-IOS-03,
+                // Stage 5a) — see `FeatureGardens`'s identical comment above.
+                "CoreSynchronization",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ]
         ),
@@ -272,6 +294,10 @@ let package = Package(
                 "CoreNetworking",
                 "CoreLocalization",
                 "CorePersistence",
+                // For `CoreSynchronization.SyncRecordApplier`, which
+                // `TaskSyncRecordApplier` conforms to (P5-IOS-03, Stage 5a) —
+                // see `FeatureGardens`'s identical comment above.
+                "CoreSynchronization",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ]
         ),
@@ -290,6 +316,13 @@ let package = Package(
                 // composition still opens directly here — see
                 // `AppCompositionRoot.localGardenStore()`.
                 "CorePersistence",
+                // For `RemoteSyncEngine` and `SyncRecordApplier` — this is
+                // the one place allowed to import both `CoreSynchronization`
+                // and every `Feature*` module, so it is the only place a
+                // concrete `SyncRecordApplier` conformer is ever named
+                // alongside the engine it is registered with (P5-IOS-03,
+                // Stage 5a).
+                "CoreSynchronization",
                 "FeatureHealth",
                 "FeatureAuthentication",
                 "FeatureGardens",
@@ -324,7 +357,10 @@ let package = Package(
         ),
         .testTarget(
             name: "CoreSynchronizationTests",
-            dependencies: ["CoreSynchronization"]
+            // For `CoreNetworking.SyncGateway`/`SyncPushOperationOutcome`,
+            // which `RemoteSyncEngineTests`'s fake gateway conforms to and
+            // constructs (P5-IOS-03, Stage 5a).
+            dependencies: ["CoreSynchronization", "CoreNetworking"]
         ),
         .testTarget(
             name: "FeatureHealthTests",
@@ -342,6 +378,10 @@ let package = Package(
                 // `CorePersistenceTests.MigrationIntegrityTests` already
                 // uses for schema/transaction tests.
                 "CorePersistence",
+                // For `GardenSyncRecordApplierTests` (P5-IOS-03, Stage 5a),
+                // which references `CoreSynchronization.SyncRecordApplier`
+                // directly.
+                "CoreSynchronization",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ]
         ),
@@ -353,6 +393,9 @@ let package = Package(
                 // database via `CorePersistence.LocalDatabase.migrator`,
                 // matching `FeatureGardensTests`'s identical rationale above.
                 "CorePersistence",
+                // For `MapSyncRecordApplierTests` (P5-IOS-03, Stage 5a) —
+                // see `FeatureGardensTests`'s identical comment above.
+                "CoreSynchronization",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ]
         ),
@@ -365,6 +408,9 @@ let package = Package(
                 // matching `FeatureGardensTests`/`FeatureMapTests`'s
                 // identical rationale.
                 "CorePersistence",
+                // For `PlantSyncRecordApplierTests` (P5-IOS-03, Stage 5a) —
+                // see `FeatureGardensTests`'s identical comment above.
+                "CoreSynchronization",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ]
         ),
@@ -378,6 +424,10 @@ let package = Package(
                 // `FeatureMapTests`/`FeaturePlantsTests`'s identical
                 // rationale.
                 "CorePersistence",
+                // For `ObservationSyncRecordApplierTests` (P5-IOS-03,
+                // Stage 5a) — see `FeatureGardensTests`'s identical comment
+                // above.
+                "CoreSynchronization",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ]
         ),
@@ -391,6 +441,9 @@ let package = Package(
                 // `FeatureMapTests`/`FeaturePlantsTests`/
                 // `FeatureObservationsTests`'s identical rationale.
                 "CorePersistence",
+                // For `TaskSyncRecordApplierTests` (P5-IOS-03, Stage 5a) —
+                // see `FeatureGardensTests`'s identical comment above.
+                "CoreSynchronization",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ]
         ),

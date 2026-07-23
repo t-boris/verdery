@@ -56,7 +56,12 @@ public enum LocalDatabase {
         return dbQueue
     }
 
-    private static func applicationSupportDirectory() throws -> URL {
+    /// `internal`, not `private`: `ClientInstallationIdentityStore` also
+    /// needs the application-support root — the client installation id file
+    /// lives at `device/client-installation-id` under it, a sibling of
+    /// `profiles/`, not inside any one profile's directory. See that type's
+    /// own doc comment for why the id is device-scoped, not per-profile.
+    static func applicationSupportDirectory() throws -> URL {
         try FileManager.default.url(
             for: .applicationSupportDirectory,
             in: .userDomainMask,

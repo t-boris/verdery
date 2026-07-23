@@ -42,4 +42,34 @@ public actor InMemoryTaskStore: LocalTaskStore {
         pendingTaskIds.insert(projection.id)
         return projection
     }
+
+    public func confirmSynced(taskId: String, revision: Int) async throws {
+        guard let current = tasks[taskId] else { return }
+        tasks[taskId] = GardenTask(
+            id: current.id,
+            gardenId: current.gardenId,
+            targetKind: current.targetKind,
+            targetGardenAreaMapObjectId: current.targetGardenAreaMapObjectId,
+            targetPlantId: current.targetPlantId,
+            title: current.title,
+            notes: current.notes,
+            status: current.status,
+            dueDate: current.dueDate,
+            timeWindowStart: current.timeWindowStart,
+            timeWindowEnd: current.timeWindowEnd,
+            recurrenceRule: current.recurrenceRule,
+            urgency: current.urgency,
+            source: current.source,
+            originObservationId: current.originObservationId,
+            revision: revision,
+            createdByProfileId: current.createdByProfileId,
+            createdAt: current.createdAt,
+            updatedAt: current.updatedAt,
+            completedAt: current.completedAt
+        )
+        // Mirrors what a real `sync_outbox` row's removal accomplishes for
+        // `GRDBTaskStore`: `replaceAll` no longer protects this task from a
+        // server-confirmed overwrite once it is confirmed.
+        pendingTaskIds.remove(taskId)
+    }
 }

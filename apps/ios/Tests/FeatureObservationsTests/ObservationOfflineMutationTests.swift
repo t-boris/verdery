@@ -204,4 +204,31 @@ struct ObservationOfflineMutationTests {
         #expect(stored.first?.correctionKind == .supersede)
         #expect(stored.first?.correctsObservationId == "obs-1")
     }
+
+    @Test("markSynced removes the confirmed observation's local row entirely")
+    func markSyncedRemovesRow() async throws {
+        let dbQueue = try makeDatabase()
+        let store = GRDBObservationStore(dbQueue: dbQueue)
+
+        _ = try await store.commitOfflineAppend(
+            observation(id: "obs-1"), operation: operation(id: "op-1", observationId: "obs-1")
+        )
+        _ = try await store.commitOfflineAppend(
+            observation(id: "obs-2"), operation: operation(id: "op-2", observationId: "obs-2")
+        )
+
+        try await store.markSynced(observationId: "obs-1")
+
+        #expect(try await store.fetchPending(gardenId: "garden-1").map(\.id) == ["obs-2"])
+    }
+
+    @Test("markSynced is a silent no-op for an observation this device has no local row for")
+    func markSyncedNoOpForUnknownObservation() async throws {
+        let dbQueue = try makeDatabase()
+        let store = GRDBObservationStore(dbQueue: dbQueue)
+
+        try await store.markSynced(observationId: "unknown")
+
+        #expect(try await store.fetchPending(gardenId: "garden-1").isEmpty)
+    }
 }

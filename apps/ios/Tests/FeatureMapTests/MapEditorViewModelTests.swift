@@ -283,6 +283,7 @@ struct MapEditorViewModelTests {
         ) async throws -> [GardenMapObject] {
             throw MapCommandError.objectNotFound(objectId: "tree-1")
         }
+        func confirmSynced(objectId: String, revision: Int) async throws {}
     }
 
     @Test("A local commit failure surfaces an error without corrupting the undo stack")

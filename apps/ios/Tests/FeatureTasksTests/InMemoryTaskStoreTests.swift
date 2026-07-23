@@ -95,4 +95,29 @@ struct InMemoryTaskStoreTests {
         #expect(try await store.fetchAll(gardenId: "garden-1").map(\.id) == ["1"])
         #expect(try await store.fetchAll(gardenId: "garden-2").map(\.id) == ["2"])
     }
+
+    @Test("confirmSynced advances the revision and lifts the pending guard, without touching other fields")
+    func confirmSyncedAdvancesRevisionAndLiftsPendingGuard() async throws {
+        let store = InMemoryTaskStore()
+        let pending = task(id: "1", title: "Renamed locally")
+        _ = try await store.commitOfflineMutation(taskId: "1") { _ in
+            (pending, operation(id: "op-1", taskId: "1"))
+        }
+
+        try await store.confirmSynced(taskId: "1", revision: 5)
+
+        let confirmed = try #require(await store.fetchAll(gardenId: "garden-1").first)
+        #expect(confirmed.title == "Renamed locally")
+        #expect(confirmed.revision == 5)
+
+        try await store.replaceAll(gardenId: "garden-1", with: [task(id: "1", title: "From server")])
+        #expect(try await store.fetchAll(gardenId: "garden-1").first?.title == "From server")
+    }
+
+    @Test("confirmSynced is a silent no-op for a task this device has no local row for")
+    func confirmSyncedNoOpForUnknownTask() async throws {
+        let store = InMemoryTaskStore()
+        try await store.confirmSynced(taskId: "unknown", revision: 3)
+        #expect(try await store.fetchAll(gardenId: "garden-1").isEmpty)
+    }
 }

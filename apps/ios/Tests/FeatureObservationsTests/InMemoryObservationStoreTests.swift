@@ -70,4 +70,24 @@ struct InMemoryObservationStoreTests {
         #expect(try await store.fetchPending(gardenId: "garden-1") == [inGardenOne])
         #expect(try await store.fetchPending(gardenId: "garden-2") == [inGardenTwo])
     }
+
+    @Test("markSynced removes the confirmed observation, leaving the rest of the garden's pending set untouched")
+    func markSyncedRemovesConfirmedObservation() async throws {
+        let store = InMemoryObservationStore()
+        let first = observation(id: "obs-1")
+        let second = observation(id: "obs-2")
+        _ = try await store.commitOfflineAppend(first, operation: operation(id: "op-1", observationId: "obs-1"))
+        _ = try await store.commitOfflineAppend(second, operation: operation(id: "op-2", observationId: "obs-2"))
+
+        try await store.markSynced(observationId: "obs-1")
+
+        #expect(try await store.fetchPending(gardenId: "garden-1") == [second])
+    }
+
+    @Test("markSynced is a silent no-op for an observation this device has no local row for")
+    func markSyncedNoOpForUnknownObservation() async throws {
+        let store = InMemoryObservationStore()
+        try await store.markSynced(observationId: "unknown")
+        #expect(try await store.fetchPending(gardenId: "garden-1").isEmpty)
+    }
 }

@@ -41,4 +41,21 @@ public actor InMemoryMapStore: LocalMapStore {
         objectsByGardenId[gardenId] = updated
         return projections
     }
+
+    public func confirmSynced(objectId: String, revision: Int) async throws {
+        for (gardenId, objects) in objectsByGardenId {
+            guard let current = objects[objectId] else { continue }
+            var updated = objects
+            // Same content, new revision, same `updatedAt` — nothing about
+            // the object's displayed state changed, only its confirmed sync
+            // status. `replacingSnapshot` already expresses exactly that.
+            updated[objectId] = current.replacingSnapshot(current.snapshot, revision: revision, updatedAt: current.updatedAt)
+            objectsByGardenId[gardenId] = updated
+            // Mirrors what a real `sync_outbox` row's removal accomplishes
+            // for `GRDBMapStore`: `replaceAll` no longer protects this
+            // object from a server-confirmed overwrite once it is confirmed.
+            pendingObjectIds.remove(objectId)
+            return
+        }
+    }
 }

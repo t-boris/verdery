@@ -173,6 +173,10 @@ struct PlantDetailViewModelTests {
             guard !shouldFail else { throw PlantCommandError.localRecordNotFound }
             return try await inner.commitOfflineMutation(plantId: plantId, command: command)
         }
+
+        func confirmSynced(plantId: String, revision: Int) async throws {
+            try await inner.confirmSynced(plantId: plantId, revision: revision)
+        }
     }
 
     /// A stale server revision can no longer be what causes `saveDetails` to
