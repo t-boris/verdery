@@ -1956,3 +1956,197 @@ elsewhere, and task-row's complete/skip/dismiss/delete and the plant lifecycle/m
 gate — both real, understood, left-for-a-future-pass gaps, not silently missed: the work package's own title
 says "selected forms and map sessions", and `garden-settings.tsx` in particular is a straightforward,
 narrow follow-up using the exact same `isLoadingError`/`isRefetchError` pattern already proven here).
+
+# Phase 5 — Native Offline Synchronization and Web Continuity, implementation complete, G5 pending
+
+Scope: every Phase 5 work package, P5-DATA-01 through P5-QA-01. Native user changes survive
+disconnection and process termination, synchronize idempotently, and expose recoverable conflicts.
+Web stays online-first, preserving approved drafts and reusing server revisions and conflict rules
+rather than building its own sync path.
+
+Source: [docs/implementation-plan.md](../docs/implementation-plan.md) section 14. This section
+summarizes and cross-references the fifteen dated stage sections above (the planning entry, Stages
+4a–4e, "P5-IOS-02 complete", "P5-IOS-03 complete", "P5-SEC-01 complete", "P5-CONFLICT-01 complete",
+"P5-WEB-01 complete") plus this session's P5-OBS-01 and P5-QA-01 work, rather than repeating their
+detail. Read those sections for the full account of any item below.
+
+## Tasks
+
+### Backend
+
+- [x] P5-DATA-01 `platform.sync_change` (a real Phase 2 skeleton, unused until this phase) wired into
+      every mutating command across `gardens-mapping`, `plants-inventory`, `observations-history`,
+      `tasks-recommendations` via a new platform-level `platform/sync/` port, promoted from
+      `gardens-mapping`'s own first, incomplete, module-local attempt
+- [x] P5-API-01 the full `Synchronization` OpenAPI tag: client registration, push, pull, acknowledge —
+      including a real, documented resolution of `POST /sync/acknowledge`'s genuine, otherwise
+      unexplained spec gap
+- [x] P5-BE-01 dependency-aware push batch processing (a real topological pass, not an approximation),
+      five of six push outcomes with real producers (`retryLater` honestly left unreachable — no
+      command in this codebase throws `DependencyUnavailableError`), idempotency-by-operationId reusing
+      the existing `platform.idempotency_record`/`IdempotencyStore` rather than a new table
+- [x] P5-BE-02 deterministic incremental pull (profile-scoped, not per-garden — a real correction found
+      by direct contract inspection during Stage 5b, not assumed from earlier stages' own doc comments),
+      initial sync and full resync both resolved as the same call with an omitted cursor (no separate
+      endpoint), revocation-tombstone visibility correctly preserved even for a profile whose membership
+      has already gone non-active
+
+### iOS
+
+- [x] P5-IOS-01 `CorePersistence`/`CoreSynchronization` — six new local tables, a GRDB migrator
+      continuing (not replacing) `FeatureGardens`'s existing schema, `SyncEngine`'s generic seam
+- [x] P5-IOS-02 all five features (Gardens, Map, Plants, Observations, Tasks — Stages 4a–4e) routed
+      through atomic local-projection-plus-outbox transactions; Map's retrofit found and fixed a real
+      Phase 3 gap (no actual local command-application logic existed, only gesture-preview math);
+      Observations' append-only shape correctly got a simpler, genuinely different commit method
+      instead of a mechanical copy of the mutable-record pattern
+- [x] P5-IOS-03 the real bounded push/pull engine (Stages 5a–5b): `SyncGateway`, the
+      `SyncRecordApplier`/`SyncPullRecordApplier` seam keeping `CoreSynchronization` free of any
+      `Feature*` import, exponential backoff with jitter, `Retry-After` honored, a five-of-six-term
+      status model
+- [x] P5-CONFLICT-01 all four recovery actions (keep server, reapply, duplicate, manual review) with a
+      real per-command-type "safely replayable" table verified against every payload shape, deferred
+      conflict closure proven as an explicit two-step timing test, a reachable conflict list/detail UI
+- [x] P5-SEC-01 cascade removal of a revoked garden's data across all five local tables plus its
+      still-pending outbox operations, via a generic per-applier seam; the named "offline removal
+      attack" test proving the actual security boundary (one offline session, closed at the next pull)
+
+### Web
+
+- [x] P5-WEB-01 the fully bounded spec (stale indicator, schema-versioned recoverable drafts for three
+      forms and the map editor, disable-not-queue while offline) — plus a real, pre-existing defect
+      found and fixed along the way (every list/detail view discarded already-loaded data behind a full
+      error screen on any background refetch failure, not just a first-load failure)
+
+### Observability and quality
+
+- [x] P5-OBS-01 payload-free structured logging for push outcomes, pull lag, and full-resync triggers;
+      an honest account of what has no producer yet (revocation cleanup); a concrete, non-deployed
+      dashboard/alert-candidate writeup calibrated against Phase 1's own delivered bar for a "-01"
+      observability work package
+- [x] P5-QA-01 an 18-item testing-matrix assessment before writing anything new; genuine gaps closed
+      (randomized convergence, clock skew precisely scoped to where the protocol actually uses time,
+      large backlog on both push and pull, schema upgrade with a populated outbox, process termination
+      with a corrected understanding of the real safety mechanism); two real defects found and
+      deliberately left unfixed pending a product/architecture decision (see Known limitations)
+
+## Deferred with reason
+
+| Item                                                                                                      | Reason                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Membership/account revocation itself (the command)                                                        | A genuine, pre-existing, product-wide gap confirmed by inspection during both P5-BE-02 and P5-SEC-01: `MembershipRepository` exposes only `insertOwner`; nothing anywhere transitions a membership row to `'removed'`. Not this phase's to build — P5-SEC-01/P5-BE-02 both made the sync protocol _correct in advance_ for the day a revocation command exists, verified with tests that manually drive the state a real revocation would produce. |
+| Sign-out clearing local sync data                                                                         | Investigated during P5-SEC-01: no sign-out flow exists anywhere in this codebase yet (`AuthenticationGateway.signOut()` has zero callers, no Settings/Shell UI triggers it) — real, separate cross-module work with no UI trigger yet to hang it off, not a minimal addition.                                                                                                                                                                      |
+| Three testing-matrix items needing organizations/client engagements/publications                          | Confirmed by grep: no organization, client-engagement, or publication concept exists anywhere in this codebase. Owned by Phase 9's own not-yet-started work packages, not fakeable here without building the underlying feature first.                                                                                                                                                                                                             |
+| Media upload before/after record sync (testing-matrix item)                                               | The same, already-repeatedly-documented media-upload gap this whole session has tracked since Phase 4 — owned by `P6-API-01`.                                                                                                                                                                                                                                                                                                                      |
+| Auth/authorization/validation failures retried like transient failures                                    | A real defect found during P5-QA-01: `RemoteSyncEngine`'s whole-push-call failure path records any `APIGatewayError`'s category but never gates retry eligibility on it, in tension with architecture section 20's "do not retry automatically as transient failures" — a rule the per-operation push-outcome path already correctly honors. Needs a product/architecture decision, not a QA-stage fix; see Known limitations.                     |
+| P5-CONFLICT-01's multi-write resolution paths are not one shared transaction                              | Also found during P5-QA-01: `resolveKeepingServerVersion`/`resolveReapplyingLocalIntent`/`resolveDuplicatingAsNewObject` each issue several independent store writes. A crash between them is a real, narrow window; restructuring it is an architecture change requiring approval, not built here.                                                                                                                                                |
+| `garden-settings.tsx`'s stale-data-visibility gap, task-row actions, and plant lifecycle/move forms (web) | P5-WEB-01's own title says "selected forms and map sessions" — `garden-settings.tsx` has the identical `isError`-hides-data pattern already fixed everywhere else, a narrow, understood follow-up using the exact same proven fix.                                                                                                                                                                                                                 |
+| G5 approval                                                                                               | A repository-owner decision, not an automatic consequence of implementation and test evidence — see Review below.                                                                                                                                                                                                                                                                                                                                  |
+
+## Review
+
+Every Phase 5 work package is implemented and verified against real systems: real PostgreSQL
+(Testcontainers integration tests throughout, plus the real `verdery-dev` Cloud SQL instance for every
+migration in this phase), Swift built and tested against CI's own pinned toolchain at every stage, and
+a real Next.js production build for the web work. G5 approval itself is a decision for the repository
+owner to record, not something this session claims on its own.
+
+### Verified evidence
+
+| Check                                                    | Result                                                                                                                                                                                                                                                                                                                     |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm check:all`                                         | passes: format, lint, typecheck (6/6 workspace packages), the 600-line file-size rule, **963 tests across 130 files** (`services/api` 478, `apps/web` 338, `geometry-contracts` 96, `test-fixtures` 18, `api-contracts` 29, `services/workers` 4)                                                                          |
+| `swift build && swift test` (apps/ios, full, unfiltered) | **674 tests, 93 suites**, clean — both locally (no SIGBUS flake on the runs this session's final stages used) and on CI's own pinned toolchain (`gh run view --job=89347511390`: "Test run with 674 tests in 93 suites passed")                                                                                            |
+| CI on `master` (`66892f3`, all gates)                    | passes: secret scan, formatting/file-size, Swift package (full suite), lint/types/tests, all-gates summary                                                                                                                                                                                                                 |
+| Real `verdery-dev` deploys, every migration this phase   | `1785000000000_synchronization-baseline.sql` (client installations) applied and verified via a real Cloud Run migration-job execution and a full `Deploy to development` run, including the live-request check                                                                                                             |
+| Backend contract                                         | `pnpm --filter @verdery/api-contracts lint:contract && generate:check` clean at every stage; a dedicated contract test (`SyncRecordType parity`) cross-checks the generated schema against `services/api/src/platform/sync/sync-record-type.ts`'s real source directly, since the DB column itself has no CHECK constraint |
+| Architecture dependency rules (iOS)                      | `swift test --filter DependencyRuleTests`: all 4 pass — confirmed by grep and by this automated suite that no `Feature*` module is ever imported under `CoreSynchronization`/`CoreNetworking`/`CorePersistence`, the single most important structural constraint this phase's engine design depended on                    |
+
+### Defects found and fixed during this session
+
+1. **`platform.sync_change`'s only prior writer (`gardens-mapping`) was module-local and incomplete.**
+   4 of its 16 commands (Garden lifecycle) never wrote a sync_change row at all. Promoted to a
+   platform-level port mirroring `platform/outbox/`'s own shape and wired into all 4 missing commands
+   plus 19 more across 3 other modules.
+2. **Three photo/file-attachment commands (`AttachPlantPhoto`, `SetPrimaryPlantPhoto`,
+   `AttachTaskFile`) never bumped their owning aggregate's revision**, so nothing would have emitted a
+   sync_change row recording that a new photo/attachment existed. Each now writes one directly using
+   the aggregate's already-fetched, unbumped revision — a true statement of the record's revision at
+   that moment, not an incremented lie.
+3. **`pg_trgm` (from the immediately-preceding Phase 4 work, surfaced during this phase's first real
+   deploy) needed database-level `CREATE`, which the least-privilege migration identity lacked** —
+   found via a real failed `verdery-dev` deploy, root-caused with a local non-superuser Postgres
+   reproduction before touching live infrastructure, fixed with a narrow, targeted grant, applied for
+   real and verified via a live migration-job re-execution and a full deploy re-run.
+4. **8 already-shipped Phase 3/4 creation commands across 5 modules had no way to accept a
+   client-generated id**, blocking offline optimistic creation entirely. Retrofitted with an optional
+   id parameter, verified byte-for-byte non-breaking for every existing REST caller (their idempotency
+   fingerprints never change, since `JSON.stringify` drops an always-`undefined` field).
+5. **`FeatureMap`'s Phase 3 doc comment's own claim — "no optimistic local mutation" — undersold a
+   deeper gap**: no actual local command-application logic existed at all for several commands
+   (`editVertex` insert/remove, `splitLinework`, `joinLinework`, `assignPlant`), only gesture-preview
+   geometry math. Written fresh, mirroring the backend's own geometry primitives and per-command
+   handlers line-for-line (verified, not assumed — `splitLineString`'s exact boundary condition and
+   slice points, `joinLineStrings`' exact overlap-detection, both confirmed byte-identical to the TS
+   source). Also fixed a real, pre-existing inaccuracy in `CoreDomain.MapCommandResult`'s own doc
+   comment (claimed `joinLinework` affects "two" objects; the real backend handlers return three).
+6. **`CorePersistence.SyncCursorStore` was built "one per garden partition" in Stage 3, ahead of any
+   real consumer, and was wrong** — direct inspection of the shipped `GET /sync/changes` contract
+   during Stage 5b proved pull is profile-scoped, exactly like push. Corrected via a new migration that
+   drops and recreates the table (safe: nothing real ever wrote the old shape), eliminating an entire
+   unnecessary "which gardens does this device care about" mechanism.
+7. **`Tasks`' local list read-model had a real, undiscovered data-loss bug waiting to happen**: writing
+   a server-side status-filtered fetch straight through `replaceAll` would have silently deleted every
+   task outside the filter from local storage the first time a filtered list loaded. Found and fixed
+   before it ever shipped, by only write-through on an unfiltered fetch.
+8. **A Swift `guard let x = try foo() else` bug** in the conflict-resolution payload editor — this
+   pattern only runs its `else` branch when `foo()` returns `nil`, never when it throws, so a malformed
+   stored payload would have leaked `JSONSerialization`'s own untyped `NSError` instead of the
+   documented typed command error. Caught by the new tests on first run, fixed by downgrading to `try?`
+   before the guard.
+9. **Every web list/detail view and the map editor discarded already-loaded data behind a full error
+   screen on any background refetch failure**, not just a genuine first-load failure — directly
+   contradicting architecture section 9's own first bullet ("existing loaded data remains visible with
+   a stale indicator"). Fixed using TanStack Query's `isLoadingError`/`isRefetchError` distinction.
+10. **`PushSyncOperations` never checked the sync protocol version**, despite the OpenAPI operation's
+    own `409` response documenting `sync.protocol_version.unsupported` identically to `GetSyncChanges`,
+    which does check it — found while verifying P5-OBS-01's new logging, fixed with the same one-line
+    call `GetSyncChanges` already makes (currently unreachable over real HTTP either way, since the
+    wire schema's own `minimum: 1` matches today's floor — a genuine contract-consistency fix, not a
+    live behavior change, until a future protocol version bump makes it reachable).
+11. **A server-side crash-window claim in `push-sync-operations.ts`'s own header comment was proven,
+    not just trusted** — and the mechanism that actually keeps a crash-then-retry safe turned out to be
+    a second, independent per-command idempotency layer neither this session's own first test draft nor
+    the original comment had fully accounted for, corrected once the real behavior was observed.
+
+### Known limitations
+
+- **Membership/account revocation has no real producer anywhere in this codebase.** P5-BE-02 and
+  P5-SEC-01 both made the sync protocol and the client's local-removal reaction _correct in advance_,
+  verified with tests that manually drive the state a real revocation command would produce — but nothing
+  in this codebase can revoke membership today. See Deferred with reason.
+- **An authentication/authorization/validation failure on a whole push call is currently retried the
+  same as a genuine transient failure**, once backoff elapses — in tension with architecture section
+  20's own words. The per-operation push-outcome path already correctly distinguishes these; the
+  whole-call transport-failure path does not yet. Needs a product/architecture decision on the intended
+  behavior (e.g., should this require explicit user re-authentication before any retry?), not a
+  QA-stage fix — see `RemoteSyncEngineFailureCategoryTests.swift`'s own header comment for the precise
+  account.
+- **P5-CONFLICT-01's three resolution paths are not one shared GRDB transaction.** A crash between
+  their several independent store writes is a real, narrow, understood window (an outbox row removed
+  but the local record not yet updated to the server's version) — restructuring this is an architecture
+  change requiring approval, not built here.
+- **Three testing-matrix items and one prior-phase gap remain genuinely untestable/unbuilt**:
+  organization-membership, client-engagement, and publication-revocation scenarios (Phase 9, not
+  started); media upload before/after sync (Phase 6, not started, already tracked since Phase 4).
+- **Web's stale-indicator/draft treatment covers three forms and the map editor, not every mutation
+  surface.** `garden-settings.tsx` has the identical, already-solved `isError`-hides-data pattern;
+  task-row actions and the plant lifecycle/move forms have no offline gate yet. All three are narrow,
+  understood follow-ups using patterns this phase already proved, not silently missed gaps.
+- **The local `swift test` SIGBUS flake** (root-caused and CI-confirmed benign since Phase 3/4, see
+  `apps/ios/README.md`) remains present and unrelated to any Phase 5 change; every stage's own
+  verification either avoided it entirely or explicitly noted CI as the authoritative signal on the
+  rare run that hit it.
+- **`docs/implementation-plan.md`'s Phase 5 status table entry was stale before this session began**
+  (recorded "not started" despite P5-IOS-01 through P5-BE-02 already being implemented) — corrected as
+  part of this review, not a new discrepancy introduced here.
