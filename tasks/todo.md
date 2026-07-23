@@ -333,7 +333,8 @@ Source: [docs/implementation-plan.md](../docs/implementation-plan.md) section 12
       whole-shape resize/rotate, duplicate, dedicated plant assignment, and fence/path split/join
       all wired to real commands, not placeholder UI
 - [x] P3-WEB-02 MapLibre provider adapter (OpenFreeMap — free, no API key, swappable by design),
-      attribution, cache limits, local/geographic transform
+      attribution, cache limits, local/geographic transform. **OpenFreeMap confirmed as the final
+      provider choice by the repository owner (2026-07-23)**, not just a reversible default
 - [x] P3-IOS-01 SwiftUI Canvas/Core Graphics scene: immutable render snapshots, selection, gestures,
       commands, properties, measurement overlays — the same category and command coverage as web
 - [x] P3-IOS-02 optional MapKit context; canonical garden geometry stays provider-independent
@@ -362,7 +363,6 @@ Source: [docs/implementation-plan.md](../docs/implementation-plan.md) section 12
 | `upsertCalibration`/`decideProposal` client UI; `importedBackground` creation                      | Fully implemented at the domain/contract/backend layers, but neither app can produce the data these need: `upsertCalibration` needs an existing imported plan (Phase 6, "Media, Photos, and Property-Plan Import"), `decideProposal` needs a generated proposal (Phase 10, gated behind an explicit research decision the plan has not made). Building client UI for either now would have nothing real to operate on. |
 | Cross-object validation (unexpected overlaps, a plant inside a blocked structure, a detached gate) | `services/api`'s `GetGardenMap` honestly returns `validationSummary: []` — real geometry/topology queries are out of scope for P3-BE-01/02, documented in place. P3-UX-01's warnings UI is fully built and verified against constructed fixtures; it becomes live with zero further client work once this separate backend effort lands.                                                                               |
 | P3-PERF-01 scored against Phase 0 performance budgets                                              | P0-QA-01 ("Define measurable budgets for core latency, map interaction, sync convergence...") has not been completed — no numeric budgets exist to score against yet. This is a Phase 0 product/ops decision, not an engineering gap; see Review for what was measured instead.                                                                                                                                        |
-| Basemap tile provider, final selection                                                             | Defaulted to OpenFreeMap (free, no API key, matching the architecture's own "provider adapter, swappable" design goal) as the most defensible reversible choice; the repository owner has not given final sign-off between OpenFreeMap and a paid alternative (MapTiler/Mapbox/Stadia).                                                                                                                                |
 | G3 approval                                                                                        | A repository-owner decision, not an automatic consequence of implementation and test evidence — see Review below                                                                                                                                                                                                                                                                                                       |
 
 ## Review
@@ -457,5 +457,3 @@ the repository owner to record, not something this session claims on its own.
   architecture doc section 12), are this session's reasonable defaults, not decisions recorded
   anywhere else — easy to change (each is a single named constant or a one-line mapping) if a
   designer wants different values.
-- The final basemap tile provider choice (OpenFreeMap vs. a paid alternative) has not been
-  explicitly confirmed by the repository owner — see Deferred with reason.
