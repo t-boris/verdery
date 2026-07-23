@@ -1,6 +1,6 @@
 'use client';
 
-import type { Position } from '@verdery/geometry-contracts';
+import { SNAP_TOLERANCE_SCREEN_PIXELS, type Position } from '@verdery/geometry-contracts';
 import type Konva from 'konva';
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { Layer, Stage } from 'react-konva';
@@ -14,6 +14,7 @@ import { ObjectShape } from './shapes/object-shape';
 import { TransformHandles } from './shapes/transform-handles';
 import { VertexHandles } from './shapes/vertex-handles';
 import styles from './map-canvas.module.css';
+import { snapPosition, type SnapContext, type SnapResult } from './snapping';
 import { CREATABLE_GEOMETRY_KIND, creatableCategoryOfTool, type CanvasSize } from './types';
 import type { MapEditorActions } from './use-map-editor-actions';
 import { editableRingOf, isRingClosureVertex, movedRingClosureGeometry } from './vertex-ring';
@@ -60,6 +61,7 @@ export function MapCanvas({ actions }: MapCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [size, setSize] = useState<CanvasSize>({ width: 0, height: 0 });
   const [pointerLocal, setPointerLocal] = useState<Position | null>(null);
+  const [draftSnap, setDraftSnap] = useState<SnapResult | null>(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -98,6 +100,34 @@ export function MapCanvas({ actions }: MapCanvasProps) {
     isRecordInViewport(record, camera, size),
   );
 
+  // Vertex/edge proximity tolerance converted from a constant screen-pixel
+  // radius to local metres at the current zoom — the same pattern
+  // `isRecordInViewport` (`viewport.ts`) already uses for its own margin.
+  // Source: architecture/map-rendering-and-editing.md, section "3.3 Screen
+  // Space"; `SNAP_TOLERANCE_SCREEN_PIXELS`'s own doc comment.
+  const snapToleranceMetres = SNAP_TOLERANCE_SCREEN_PIXELS / camera.scale;
+
+  /**
+   * The snap context for the in-progress draft: every object in the garden
+   * is a candidate target, and the reference for the three direction/distance
+   * snaps is the previously placed draft point (`null` for the first point,
+   * which disables those three and leaves only vertex/edge snapping).
+   *
+   * `disabled` is driven by the platform Cmd/Meta key (`metaKey`, or
+   * `ctrlKey` on non-Mac platforms — the same either/or this feature already
+   * uses for the global undo/redo shortcut in `map-editor.tsx`) held while
+   * clicking or moving the pointer. Alt and Shift are already claimed by
+   * `shapes/vertex-handles.tsx` (remove/split a vertex) for this same
+   * gesture family, so reusing either here would collide; Cmd/Meta is the
+   * remaining modifier with no existing meaning on this canvas.
+   */
+  const draftSnapContext = (nativeEvent: { metaKey: boolean; ctrlKey: boolean }): SnapContext => ({
+    objects: actions.records,
+    referencePoint: store.state.draftPoints[store.state.draftPoints.length - 1] ?? null,
+    toleranceMetres: snapToleranceMetres,
+    disabled: nativeEvent.metaKey || nativeEvent.ctrlKey,
+  });
+
   const handleStageClick = (event: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     const stage = event.target.getStage();
     if (stage === null || event.target !== stage) {
@@ -117,7 +147,8 @@ export function MapCanvas({ actions }: MapCanvasProps) {
     }
 
     if (draftKind === 'polygon' || draftKind === 'line') {
-      store.setDraftPoints([...store.state.draftPoints, local]);
+      const { position } = snapPosition(local, draftSnapContext(event.evt));
+      store.setDraftPoints([...store.state.draftPoints, position]);
     } else {
       void actions.placePoint(creatingCategory, local);
     }
@@ -135,9 +166,15 @@ export function MapCanvas({ actions }: MapCanvasProps) {
     }
     const stage = event.target.getStage();
     const pointer = stage?.getPointerPosition();
-    setPointerLocal(
-      pointer === null || pointer === undefined ? null : toLocal(pointer, camera, size),
-    );
+    if (pointer === null || pointer === undefined) {
+      setPointerLocal(null);
+      setDraftSnap(null);
+      return;
+    }
+    const local = toLocal(pointer, camera, size);
+    const { position, snap } = snapPosition(local, draftSnapContext(event.evt));
+    setPointerLocal(position);
+    setDraftSnap(snap);
   };
 
   const handleStageDragEnd = (event: Konva.KonvaEventObject<DragEvent>) => {
@@ -293,11 +330,13 @@ export function MapCanvas({ actions }: MapCanvasProps) {
                   kind={draftKind}
                   camera={camera}
                   size={size}
+                  snap={draftSnap}
                 />
               )}
               {interactionMode === 'vertexEdit' && selectedRecord !== null && (
                 <VertexHandles
                   record={selectedRecord}
+                  records={actions.records}
                   camera={camera}
                   size={size}
                   onMoveVertex={(ringIndex, vertexIndex, position) => {

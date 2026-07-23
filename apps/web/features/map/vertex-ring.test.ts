@@ -9,6 +9,7 @@ import {
   isRingClosureVertex,
   midpointOf,
   movedRingClosureGeometry,
+  referenceVertexFor,
 } from './vertex-ring';
 
 const SQUARE = {
@@ -171,6 +172,27 @@ describe('canRemoveVertexAt', () => {
       ] as const,
     };
     expect(canRemoveVertexAt(triangle, 1)).toBe(false);
+  });
+});
+
+describe('referenceVertexFor', () => {
+  it('uses the immediately preceding vertex for any index above zero', () => {
+    const ring = editableRingOf(SQUARE);
+    if (ring === null) throw new Error('expected an editable ring');
+    expect(referenceVertexFor(ring, 1)).toEqual([0, 0]);
+    expect(referenceVertexFor(ring, 2)).toEqual([2, 0]);
+  });
+
+  it("wraps a closed ring's index 0 to the vertex before the closing duplicate", () => {
+    const ring = editableRingOf(SQUARE);
+    if (ring === null) throw new Error('expected an editable ring');
+    expect(referenceVertexFor(ring, 0)).toEqual([0, 2]);
+  });
+
+  it("falls back to the next vertex for an open LineString's index 0", () => {
+    const ring = editableRingOf(LINE);
+    if (ring === null) throw new Error('expected an editable ring');
+    expect(referenceVertexFor(ring, 0)).toEqual([1, 0]);
   });
 });
 

@@ -35,6 +35,10 @@ extension MapEditorViewModel {
         selectedObjectId = objectId
         selectedVertexIndex = nil
         propertySheetObjectId = nil
+        // A suppression armed in a previous vertex-edit session must never
+        // silently carry into this new one — see
+        // `isVertexDragSnapSuppressed`'s doc comment.
+        isVertexDragSnapSuppressed = false
     }
 
     /// Exits vertex-edit mode without discarding any already-committed edit
@@ -43,6 +47,13 @@ extension MapEditorViewModel {
     public func endVertexEdit() {
         vertexEditObjectId = nil
         selectedVertexIndex = nil
+        isVertexDragSnapSuppressed = false
+    }
+
+    /// Arms/disarms ``isVertexDragSnapSuppressed`` — the vertex-edit action
+    /// bar's snap-toggle button.
+    public func toggleVertexDragSnapSuppression() {
+        isVertexDragSnapSuppressed.toggle()
     }
 
     /// Toggles which vertex handle the shape-edit action bar's "Remove
@@ -75,7 +86,12 @@ extension MapEditorViewModel {
     /// for an ordinary vertex, or `replaceGeometry` for a closed polygon
     /// ring's shared start/end vertex (see `MapVertexEditCommands`).
     /// `translationScreen` is the gesture's raw screen-space translation,
-    /// exactly like `handleObjectDragEnded`'s.
+    /// exactly like `handleObjectDragEnded`'s. Runs the raw candidate
+    /// position through ``MapSnapping`` first, unless the drag was armed to
+    /// skip it (``resolvedVertexDragPosition(_:object:vertexIndex:originalPosition:)``) —
+    /// the same computation `MapCanvasView`'s live preview already ran on
+    /// every `.onChanged`, so what actually commits always matches what the
+    /// user watched the handle snap onto mid-drag.
     public func commitVertexMove(objectId: String, vertexIndex: Int, translationScreen: CGSize) async {
         guard let object = objectsById[objectId],
             let originalPosition = MapVertexEditCommands.vertexPosition(of: object.geometry, index: vertexIndex)
@@ -83,7 +99,13 @@ extension MapEditorViewModel {
 
         let dxMetres = transform.localDistance(forScreenDistance: Double(translationScreen.width))
         let dyMetres = -transform.localDistance(forScreenDistance: Double(translationScreen.height))
-        let newPosition = Position(x: originalPosition.x + dxMetres, y: originalPosition.y + dyMetres)
+        let rawPosition = Position(x: originalPosition.x + dxMetres, y: originalPosition.y + dyMetres)
+        let newPosition = resolvedVertexDragPosition(
+            rawPosition,
+            object: object,
+            vertexIndex: vertexIndex,
+            originalPosition: originalPosition
+        )
 
         guard
             let command = MapVertexEditCommands.moveVertexCommand(
@@ -96,6 +118,32 @@ extension MapEditorViewModel {
         else { return }
 
         await submit(command, undoBeforeSnapshot: object.snapshot)
+    }
+
+    /// `rawPosition` adjusted by ``MapSnapping``, or passed through
+    /// unchanged when ``MapEditorViewModel/isVertexDragSnapSuppressed`` is
+    /// set or the render snapshot is not currently loaded. Always consumes
+    /// ``MapEditorViewModel/isVertexDragSnapSuppressed`` — the suppression
+    /// is per-gesture, spent the instant a drag actually attempts to
+    /// commit, regardless of whether a command ends up being built from the
+    /// result.
+    private func resolvedVertexDragPosition(
+        _ rawPosition: Position,
+        object: GardenMapObject,
+        vertexIndex: Int,
+        originalPosition: Position
+    ) -> Position {
+        defer { isVertexDragSnapSuppressed = false }
+        guard !isVertexDragSnapSuppressed, case let .loaded(snapshot) = state else { return rawPosition }
+
+        return MapSnapping.snap(
+            candidate: rawPosition,
+            objects: snapshot.objects,
+            excludedObjectId: object.id,
+            excludedVertexPosition: originalPosition,
+            referencePoint: MapSnapping.referencePosition(in: object.geometry, vertexIndex: vertexIndex),
+            toleranceMetres: transform.localDistance(forScreenDistance: Double(GeometryTolerances.snapToleranceScreenPixels))
+        ).position
     }
 
     /// Commits an "insert a vertex on this edge" action — always at the

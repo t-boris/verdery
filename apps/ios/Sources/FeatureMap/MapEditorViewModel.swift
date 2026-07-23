@@ -45,6 +45,17 @@ public final class MapEditorViewModel {
     /// The vertex handle last tapped while in vertex-edit mode — what the
     /// shape-edit action bar's "Remove point"/"Split here" act on.
     public internal(set) var selectedVertexIndex: Int?
+    /// Armed by the vertex-edit action bar's snap toggle to skip
+    /// ``MapSnapping`` for exactly the *next* vertex-handle drag — the
+    /// touch-appropriate stand-in for a keyboard modifier (this app has
+    /// none) that lets a user temporarily disable snapping, per
+    /// architecture/map-rendering-and-editing.md section "10". Consumed
+    /// (reset to `false`) the moment that drag commits
+    /// (`MapEditorViewModelReshaping.commitVertexMove`), or vertex-edit mode
+    /// starts or ends, so it never persists as a standing "snapping is off"
+    /// preference — persisting it across gestures is explicitly out of
+    /// scope this pass.
+    public internal(set) var isVertexDragSnapSuppressed = false
     /// Set while choosing the second object for a `joinLinework` command —
     /// see `MapEditorViewModelLinework.swift`.
     public internal(set) var pendingJoinFirstObjectId: String?
@@ -107,6 +118,13 @@ public final class MapEditorViewModel {
     public var vertexEditDoneTitle: String { strings(.mapVertexEditDone) }
     public var vertexEditRemoveTitle: String { strings(.mapVertexEditRemove) }
     public var vertexEditSplitTitle: String { strings(.mapVertexEditSplitHere) }
+    /// The vertex-edit action bar's snap-toggle button title — one of two,
+    /// depending on ``isVertexDragSnapSuppressed``, each phrased as the
+    /// action tapping it performs (matching ``vertexEditRemoveTitle``'s and
+    /// ``vertexEditSplitTitle``'s "imperative verb" phrasing).
+    public var vertexEditSnapToggleTitle: String {
+        strings(isVertexDragSnapSuppressed ? .mapVertexEditSnapEnable : .mapVertexEditSnapDisable)
+    }
 
     /// Non-`nil` while a join is pending a second object — see
     /// `MapEditorViewModelLinework.swift`.

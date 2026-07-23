@@ -7,10 +7,10 @@ import SwiftUI
 /// Deliberately thin — the work package asks for gesture and rendering
 /// *logic* to live in independently testable pure types
 /// (`MapViewportTransform`, `MapHitTesting`, `MapGestureCommands`,
-/// `MapVertexEditCommands`, `MapShapeTransform`), with the view itself
-/// staying "a thin, mostly-untested layer on top." Every decision this view
-/// makes beyond drawing calls straight into one of those; nothing here is
-/// unit tested, by design.
+/// `MapVertexEditCommands`, `MapShapeTransform`, `MapSnapping`), with the
+/// view itself staying "a thin, mostly-untested layer on top." Every
+/// decision this view makes beyond drawing calls straight into one of
+/// those; nothing here is unit tested, by design.
 ///
 /// Vertex-edit mode (`vertexEditObjectId` non-nil) adds one more class of
 /// gesture target — a vertex handle, an edge-midpoint handle, or (for a
@@ -19,13 +19,20 @@ import SwiftUI
 /// gesture's start claims the whole gesture, exactly like an object hit
 /// already did for `dragObjectId`; when nothing in vertex-edit mode is hit,
 /// the gesture falls through to the ordinary object-drag/pan/tap handling
-/// unchanged, so panning to reach an off-screen handle still works.
+/// unchanged, so panning to reach an off-screen handle still works. A vertex
+/// handle's drag additionally runs through `MapSnapping` on every
+/// `.onChanged` (unless `isVertexDragSnapSuppressed`), previewed here and
+/// committed identically by `MapEditorViewModelReshaping.commitVertexMove`.
 struct MapCanvasView: View {
     let snapshot: MapRenderSnapshot
     let transform: MapViewportTransform
     let selectedObjectId: String?
     let vertexEditObjectId: String?
     let selectedVertexIndex: Int?
+    /// True while the vertex-edit action bar's snap toggle has armed
+    /// suppression for the next vertex-handle drag — see
+    /// `MapEditorViewModel.isVertexDragSnapSuppressed`'s doc comment.
+    let isVertexDragSnapSuppressed: Bool
 
     let onViewportSizeChange: (CGSize) -> Void
     let onTap: (CGPoint) -> Void
@@ -76,6 +83,12 @@ struct MapCanvasView: View {
     /// but those functions, so the preview can never show something the
     /// commit would not actually produce.
     @State private var livePreviewGeometry: Geometry?
+    /// The snap that produced `livePreviewGeometry`'s moved vertex, kept
+    /// only while it actually applied (`kind != nil`) — what
+    /// `drawSnapIndicator` draws. `nil` between gestures, while dragging
+    /// anything other than a vertex handle, and whenever the current
+    /// candidate is not close enough to any snap target.
+    @State private var activeSnapResult: MapSnapResult?
     @State private var liveZoomFactor: Double = 1
     @State private var zoomAnchor: CGPoint = .zero
 
@@ -100,6 +113,7 @@ struct MapCanvasView: View {
                 if dragStartScreen == nil {
                     dragStartScreen = value.startLocation
                     activeHandle = vertexEditObjectId != nil ? handleTarget(atScreen: value.startLocation) : nil
+                    activeSnapResult = nil
                     if activeHandle == nil {
                         dragObjectId = selectedObjectId(atScreen: value.startLocation)
                     }
@@ -118,6 +132,7 @@ struct MapCanvasView: View {
                 activeHandle = nil
                 liveDragTranslation = .zero
                 livePreviewGeometry = nil
+                activeSnapResult = nil
 
                 guard let start else { return }
 
@@ -225,12 +240,25 @@ struct MapCanvasView: View {
         guard let object = snapshot.objects.first(where: { $0.id == handle.objectId }) else { return }
 
         switch handle {
-        case let .vertex(_, index):
+        case let .vertex(objectId, index):
             guard let original = MapVertexEditCommands.vertexPosition(of: object.geometry, index: index) else { return }
             let dxMetres = transform.localDistance(forScreenDistance: Double(translation.width))
             let dyMetres = -transform.localDistance(forScreenDistance: Double(translation.height))
-            let newPosition = Position(x: original.x + dxMetres, y: original.y + dyMetres)
-            livePreviewGeometry = MapVertexEditCommands.movingVertex(in: object.geometry, vertexIndex: index, to: newPosition)
+            let rawPosition = Position(x: original.x + dxMetres, y: original.y + dyMetres)
+
+            let result = isVertexDragSnapSuppressed
+                ? MapSnapResult.unsnapped(rawPosition)
+                : MapSnapping.snap(
+                    candidate: rawPosition,
+                    objects: snapshot.objects,
+                    excludedObjectId: objectId,
+                    excludedVertexPosition: original,
+                    referencePoint: MapSnapping.referencePosition(in: object.geometry, vertexIndex: index),
+                    toleranceMetres: transform.localDistance(forScreenDistance: Double(GeometryTolerances.snapToleranceScreenPixels))
+                )
+
+            activeSnapResult = result.kind != nil ? result : nil
+            livePreviewGeometry = MapVertexEditCommands.movingVertex(in: object.geometry, vertexIndex: index, to: result.position)
 
         case .midpoint:
             break // Insert commits immediately on tap; there is nothing to preview mid-drag.
@@ -309,6 +337,15 @@ struct MapCanvasView: View {
         if let vertexEditObjectId, let object = snapshot.objects.first(where: { $0.id == vertexEditObjectId }) {
             let geometry = (activeHandle != nil) ? (livePreviewGeometry ?? object.geometry) : object.geometry
             drawVertexHandles(for: geometry, context: context, transform: effectiveTransform)
+
+            if let activeSnapResult, case let .vertex(_, index) = activeHandle {
+                drawSnapIndicator(
+                    activeSnapResult,
+                    referencePoint: MapSnapping.referencePosition(in: object.geometry, vertexIndex: index),
+                    context: context,
+                    transform: effectiveTransform
+                )
+            }
         }
     }
 
@@ -413,6 +450,48 @@ struct MapCanvasView: View {
             connector.addLine(to: rotatePoint)
             context.stroke(connector, with: .color(strokeColor.opacity(0.6)), lineWidth: 1)
             drawCircleHandle(at: rotatePoint, context: context, color: .orange, radius: 7, filled: false)
+        }
+    }
+
+    /// The colour every ``MapSnapKind`` renders as — one consistent colour
+    /// for "something snapped," distinguished from the ordinary handle's
+    /// accent colour, is enough of a cue without needing a colour per kind.
+    private static let snapIndicatorColor = Color.green
+
+    /// A lightweight cue for whichever snap `result` reports: a highlighted
+    /// ring at the snapped position, plus — for a reference-relative snap
+    /// (horizontal/vertical/angle/distance) — a short dashed guide line back
+    /// to `referencePoint`, so the alignment reads visually rather than only
+    /// being inferable from where the handle jumped to. Reuses
+    /// `drawCircleHandle`'s existing look rather than introducing a new
+    /// handle style, matching this view's "does not need to be elaborate"
+    /// brief.
+    private func drawSnapIndicator(
+        _ result: MapSnapResult,
+        referencePoint: Position?,
+        context: GraphicsContext,
+        transform: MapViewportTransform
+    ) {
+        let targetScreen = transform.screenPoint(for: result.position)
+
+        if let referencePoint, isReferenceRelative(result.kind) {
+            var guideLine = Path()
+            guideLine.move(to: transform.screenPoint(for: referencePoint))
+            guideLine.addLine(to: targetScreen)
+            context.stroke(
+                guideLine,
+                with: .color(Self.snapIndicatorColor.opacity(0.7)),
+                style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])
+            )
+        }
+
+        drawCircleHandle(at: targetScreen, context: context, color: Self.snapIndicatorColor, radius: 9, filled: false)
+    }
+
+    private func isReferenceRelative(_ kind: MapSnapKind?) -> Bool {
+        switch kind {
+        case .horizontal, .vertical, .angleIncrement, .roundDistance: true
+        case .vertex, .edge, nil: false
         }
     }
 

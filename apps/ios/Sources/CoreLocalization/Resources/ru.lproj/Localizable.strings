@@ -185,6 +185,8 @@
 "map.vertexEdit.done" = "Готово";
 "map.vertexEdit.remove" = "Удалить точку";
 "map.vertexEdit.splitHere" = "Разделить здесь";
+"map.vertexEdit.snapDisable" = "Отключить прилипание";
+"map.vertexEdit.snapEnable" = "Включить прилипание";
 
 /* Редактор карты: разделение и объединение линий забора/дорожки. */
 "map.linework.joinStart" = "Объединить с…";

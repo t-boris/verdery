@@ -77,3 +77,5 @@ export function styleForCategory(category: GardenObjectCategory): CategoryStyle 
 
 export const SELECTION_STROKE = '#2563eb';
 export const DRAFT_STROKE = '#2563eb';
+/** Distinct from `SELECTION_STROKE`/`DRAFT_STROKE`'s blue so an active snap (`snapping.ts`) reads as its own signal, not a selection or draft-line color. */
+export const SNAP_INDICATOR_STROKE = '#f97316';

@@ -185,6 +185,8 @@
 "map.vertexEdit.done" = "Done";
 "map.vertexEdit.remove" = "Remove point";
 "map.vertexEdit.splitHere" = "Split here";
+"map.vertexEdit.snapDisable" = "Disable snap";
+"map.vertexEdit.snapEnable" = "Enable snap";
 
 /* Map editor: splitting and joining fence/path linework. */
 "map.linework.joinStart" = "Join with…";

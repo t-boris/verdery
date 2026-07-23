@@ -120,6 +120,28 @@ export function canRemoveVertexAt(ring: EditableRing, vertexIndex: number): bool
 }
 
 /**
+ * A sensible single reference vertex for the reference-relative snaps
+ * (`snapping.ts`'s horizontal/vertical, angle-increment, and round-distance
+ * checks) while dragging `vertexIndex`: the immediately preceding vertex in
+ * the ring, matching how a person draws — the segment being shaped is the one
+ * ending at the vertex just moved.
+ *
+ * Index 0 has no preceding vertex to fall back on in an open `LineString`, so
+ * it uses the *following* vertex instead. A closed ring's index 0 does have a
+ * true previous vertex — the one just before the stored closing duplicate,
+ * at `positions.length - 2` — since the ring wraps around to it.
+ */
+export function referenceVertexFor(ring: EditableRing, vertexIndex: number): Position | null {
+  if (vertexIndex > 0) {
+    return ring.positions[vertexIndex - 1] ?? null;
+  }
+  if (ring.closed) {
+    return ring.positions[ring.positions.length - 2] ?? null;
+  }
+  return ring.positions[1] ?? null;
+}
+
+/**
  * Rebuilds a Polygon's exterior ring with both the first and last stored
  * position set to `position` — the `replaceGeometry` counterpart to moving
  * the ring-closure vertex (see `isRingClosureVertex`). Returns `geometry`

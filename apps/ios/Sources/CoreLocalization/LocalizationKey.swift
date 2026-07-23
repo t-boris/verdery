@@ -175,6 +175,8 @@ public enum LocalizationKey: String, Sendable, CaseIterable {
     case mapVertexEditDone = "map.vertexEdit.done"
     case mapVertexEditRemove = "map.vertexEdit.remove"
     case mapVertexEditSplitHere = "map.vertexEdit.splitHere"
+    case mapVertexEditSnapDisable = "map.vertexEdit.snapDisable"
+    case mapVertexEditSnapEnable = "map.vertexEdit.snapEnable"
 
     // Map editor: splitting and joining fence/path linework.
     case mapLineworkJoinStart = "map.linework.joinStart"

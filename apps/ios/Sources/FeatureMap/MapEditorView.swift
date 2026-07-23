@@ -165,6 +165,7 @@ public struct MapEditorView: View {
                     selectedObjectId: model.selectedObjectId,
                     vertexEditObjectId: model.vertexEditObjectId,
                     selectedVertexIndex: model.selectedVertexIndex,
+                    isVertexDragSnapSuppressed: model.isVertexDragSnapSuppressed,
                     onViewportSizeChange: { model.updateViewportSize($0) },
                     onTap: { point in Task { await model.handleCanvasTap(atScreen: point) } },
                     onPan: { model.pan(byScreenTranslation: $0) },
@@ -220,6 +221,16 @@ public struct MapEditorView: View {
                     }
                     .accessibilityIdentifier("map.editor.vertexEdit.split")
                 }
+
+                // Arms/disarms snapping for the next vertex-handle drag only
+                // — this app's touch-appropriate stand-in for the web
+                // editor's Cmd/Option-click modifier. See
+                // `MapEditorViewModel.isVertexDragSnapSuppressed`'s doc
+                // comment.
+                Button(model.vertexEditSnapToggleTitle) {
+                    model.toggleVertexDragSnapSuppression()
+                }
+                .accessibilityIdentifier("map.editor.vertexEdit.snapToggle")
 
                 Spacer()
 

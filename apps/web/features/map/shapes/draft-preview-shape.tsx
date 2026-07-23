@@ -1,9 +1,12 @@
 import type { Position } from '@verdery/geometry-contracts';
 import { Circle, Line } from 'react-konva';
 
-import { DRAFT_STROKE } from '../category-style';
+import { DRAFT_STROKE, SNAP_INDICATOR_STROKE } from '../category-style';
+import type { SnapResult } from '../snapping';
 import type { CanvasSize, MapCamera } from '../types';
 import { toScreen } from '../viewport';
+
+const SNAP_INDICATOR_RADIUS_PX = 8;
 
 export interface DraftPreviewShapeProps {
   readonly points: readonly Position[];
@@ -12,6 +15,8 @@ export interface DraftPreviewShapeProps {
   readonly kind: 'polygon' | 'line';
   readonly camera: MapCamera;
   readonly size: CanvasSize;
+  /** The snap (if any) currently applying to `pointer`, from `snapping.ts#snapPosition` — drawn as a small highlight ring so the user can tell snapping is active before they click. `null`/`undefined` renders nothing extra. */
+  readonly snap?: SnapResult | null;
 }
 
 /**
@@ -24,7 +29,14 @@ export interface DraftPreviewShapeProps {
  * state"): nothing here is a domain command until the toolbar's "Finish
  * shape" action builds one from `points`.
  */
-export function DraftPreviewShape({ points, pointer, kind, camera, size }: DraftPreviewShapeProps) {
+export function DraftPreviewShape({
+  points,
+  pointer,
+  kind,
+  camera,
+  size,
+  snap,
+}: DraftPreviewShapeProps) {
   if (points.length === 0) {
     return null;
   }
@@ -42,6 +54,9 @@ export function DraftPreviewShape({ points, pointer, kind, camera, size }: Draft
           screenPoints[0]?.y ?? 0,
         ]
       : null;
+
+  const snapIndicator =
+    snap === null || snap === undefined ? null : toScreen(snap.position, camera, size);
 
   return (
     <>
@@ -67,6 +82,17 @@ export function DraftPreviewShape({ points, pointer, kind, camera, size }: Draft
           listening={false}
         />
       ))}
+      {snapIndicator !== null && (
+        <Circle
+          x={snapIndicator.x}
+          y={snapIndicator.y}
+          radius={SNAP_INDICATOR_RADIUS_PX}
+          stroke={SNAP_INDICATOR_STROKE}
+          strokeWidth={2}
+          fill="transparent"
+          listening={false}
+        />
+      )}
     </>
   );
 }
