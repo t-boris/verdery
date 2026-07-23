@@ -11,6 +11,7 @@
 import type { Kysely } from 'kysely';
 import type { IdentityAccessDatabaseSchema } from '../../modules/identity-access/persistence/schema.js';
 import type { GardensMappingDatabaseSchema } from '../../modules/gardens-mapping/persistence/schema.js';
+import type { MediaDatabaseSchema } from '../../modules/media/persistence/schema.js';
 import type { PlatformDatabaseSchema } from './platform-schema.js';
 
 /**
@@ -33,6 +34,7 @@ import type { PlatformDatabaseSchema } from './platform-schema.js';
  */
 export type DatabaseSchema = IdentityAccessDatabaseSchema &
   GardensMappingDatabaseSchema &
+  MediaDatabaseSchema &
   PlatformDatabaseSchema;
 
 export interface DatabaseGateway {

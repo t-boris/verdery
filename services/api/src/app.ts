@@ -52,6 +52,11 @@ import {
   ProvisionProfile,
 } from './modules/identity-access/public.js';
 import {
+  KyselyMediaRepository,
+  KyselyMediaUnitOfWork,
+  RegisterMediaRecord,
+} from './modules/media/public.js';
+import {
   DatabaseDependencyProbe,
   registerHealthRoutes,
   ServiceHealth,
@@ -159,6 +164,23 @@ export async function buildApplication(
     clock,
     identityAuditLogger,
   );
+
+  // media: owns the minimal, immutable `media.media_record` stand-in — see
+  // that module's `public.ts` doc comment for the full rationale. No
+  // transport of its own this pass, and no sibling module yet either, so
+  // nothing in this file reads `mediaRepository` or `registerMediaRecord`
+  // today: `mediaRepository` is what plants-inventory, observations-history,
+  // and tasks-recommendations will receive injected into their own
+  // composition-root wiring next, the same way `gardenRepository` below is
+  // shared across every gardens-mapping command; `registerMediaRecord` is
+  // exercised end to end against a real database by
+  // tests/integration/media.test.ts in the meantime.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const mediaRepository = new KyselyMediaRepository(database.queries);
+  const mediaIdempotency = new KyselyIdempotencyStore(database.queries, clock);
+  const mediaUnitOfWork = new KyselyMediaUnitOfWork(database.queries, clock);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
+  const registerMediaRecord = new RegisterMediaRecord(mediaIdempotency, mediaUnitOfWork, clock);
 
   // gardens-mapping: owns gardens and, in Phase 2 only, garden membership —
   // see membership-repository.ts for why. Read paths use the pooled
