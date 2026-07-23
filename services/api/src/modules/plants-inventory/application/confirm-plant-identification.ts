@@ -77,6 +77,13 @@ export class ConfirmPlantIdentification {
           status: null,
           actorProfileId: profileId,
         });
+        await context.syncChanges.record({
+          gardenId: confirmed.gardenId,
+          recordId: confirmed.id,
+          recordType: 'plant',
+          operation: 'upsert',
+          recordRevision: confirmed.revision,
+        });
 
         return toPlantResource(confirmed);
       },

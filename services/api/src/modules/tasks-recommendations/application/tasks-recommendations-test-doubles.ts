@@ -16,6 +16,10 @@ import type {
   IdempotencyRecordInput,
   IdempotencyStore,
 } from '../../../platform/idempotency/idempotency-store.js';
+import type {
+  SyncChangeInput,
+  SyncChangeRecorder,
+} from '../../../platform/sync/sync-change-recorder.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import { GardenAuthorization } from '../../gardens-mapping/public.js';
@@ -129,6 +133,15 @@ export class FakeTaskRevisionJournalWriter implements TaskRevisionJournalWriter 
 
   record(entry: TaskRevisionJournalEntry): Promise<void> {
     this.entries.push(entry);
+    return Promise.resolve();
+  }
+}
+
+export class FakeSyncChangeRecorder implements SyncChangeRecorder {
+  readonly entries: SyncChangeInput[] = [];
+
+  record(input: SyncChangeInput): Promise<void> {
+    this.entries.push(input);
     return Promise.resolve();
   }
 }
@@ -297,6 +310,7 @@ export interface TasksRecommendationsFakes {
   readonly mapObjects: FakeMapObjectRepository;
   readonly plants: FakePlantRepository;
   readonly media: FakeMediaRepository;
+  readonly syncChanges: FakeSyncChangeRecorder;
 }
 
 export function createTasksRecommendationsFakes(options?: {
@@ -311,6 +325,7 @@ export function createTasksRecommendationsFakes(options?: {
     mapObjects: new FakeMapObjectRepository(options?.mapObjectSummaries),
     plants: new FakePlantRepository(options?.plants),
     media: new FakeMediaRepository(),
+    syncChanges: new FakeSyncChangeRecorder(),
   };
 }
 

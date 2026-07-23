@@ -258,6 +258,26 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       .where('is_primary', '=', true)
       .execute();
     expect(primaryAfterFlip).toEqual([{ id: firstPhoto.id }]);
+
+    // Neither AttachPlantPhoto nor SetPrimaryPlantPhoto bumps plant.revision
+    // (see both commands' own doc comments), but each still writes its own
+    // sync_change row for the *plant* — a puller must learn its photos
+    // changed even though the plant's own revision stayed put. Four
+    // sync_change rows total, all at revision 1: addPlant, the two
+    // AttachPlantPhoto calls, and the SetPrimaryPlantPhoto flip.
+    const syncChangeRows = await db
+      .selectFrom('platform.sync_change')
+      .select(['record_revision', 'operation'])
+      .where('record_id', '=', plant.id)
+      .where('record_type', '=', 'plant')
+      .orderBy('sequence', 'asc')
+      .execute();
+    expect(syncChangeRows).toEqual([
+      { record_revision: 1, operation: 'upsert' },
+      { record_revision: 1, operation: 'upsert' },
+      { record_revision: 1, operation: 'upsert' },
+      { record_revision: 1, operation: 'upsert' },
+    ]);
   });
 
   it('confirms an identification, resolving the accepted_identification_id circular FK, and rejects a mismatched plant', async () => {

@@ -48,6 +48,13 @@ export class RenameGarden {
         (garden) => renameGarden(garden, rawName, now),
       );
 
+      await context.syncChanges.record({
+        gardenId: renamed.id,
+        recordId: renamed.id,
+        recordType: 'garden',
+        operation: 'upsert',
+        recordRevision: renamed.revision,
+      });
       await context.outbox.append({
         eventType: 'garden.renamed',
         aggregateType: 'garden',

@@ -89,6 +89,7 @@ export class EditTask {
         applyTaskDetailChanges(
           context.tasks,
           context.revisionJournal,
+          context.syncChanges,
           taskId,
           expectedRevision,
           toDetailChanges(changes),

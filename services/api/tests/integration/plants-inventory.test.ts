@@ -223,6 +223,18 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       status: 'active',
     });
 
+    const syncChangeRow = await db
+      .selectFrom('platform.sync_change')
+      .selectAll()
+      .where('record_id', '=', plant.id)
+      .where('record_type', '=', 'plant')
+      .executeTakeFirst();
+    expect(syncChangeRow).toMatchObject({
+      garden_id: gardenId,
+      operation: 'upsert',
+      record_revision: 1,
+    });
+
     await expect(
       handlers.addPlant.execute(
         gardenId,
@@ -427,6 +439,19 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       .where('id', '=', plant.id)
       .executeTakeFirst();
     expect(stillExists).toBeDefined();
+
+    // The status transition to 'removed' is an 'upsert' sync_change, never
+    // a 'delete' tombstone: the row is still readable (asserted above), so
+    // a puller must still be able to see the plant, now at status
+    // 'removed', not have it disappear from its own sync feed.
+    const syncChangeRow = await db
+      .selectFrom('platform.sync_change')
+      .selectAll()
+      .where('record_id', '=', plant.id)
+      .where('record_type', '=', 'plant')
+      .where('record_revision', '=', removed.revision)
+      .executeTakeFirst();
+    expect(syncChangeRow).toMatchObject({ operation: 'upsert' });
   });
 
   it('moves a plant within its own garden and rejects a target from a different garden', async () => {

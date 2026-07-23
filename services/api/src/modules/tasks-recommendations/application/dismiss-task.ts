@@ -59,6 +59,7 @@ export class DismissTask {
         transitionTaskStatus(
           context.tasks,
           context.revisionJournal,
+          context.syncChanges,
           taskId,
           expectedRevision,
           'dismissed',

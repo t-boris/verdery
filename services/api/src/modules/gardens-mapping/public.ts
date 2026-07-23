@@ -57,7 +57,6 @@ export type {
   RevisionJournalEntry,
   RevisionJournalWriter,
 } from './application/revision-journal-writer.js';
-export type { SyncChangeEntry, SyncChangeWriter } from './application/sync-change-writer.js';
 export { AssignPlantToTarget } from './application/assign-plant-to-target.js';
 export { ChangeMapObjectProperties } from './application/change-map-object-properties.js';
 export { CreateMapObject } from './application/create-map-object.js';
@@ -77,6 +76,5 @@ export { KyselyCoordinateSpaceRepository } from './persistence/kysely-coordinate
 export { KyselyGeoreferenceRepository } from './persistence/kysely-georeference-repository.js';
 export { KyselyMapObjectRepository } from './persistence/kysely-map-object-repository.js';
 export { KyselyRevisionJournalWriter } from './persistence/kysely-revision-journal-writer.js';
-export { KyselySyncChangeWriter } from './persistence/kysely-sync-change-writer.js';
 export { registerMapRoutes } from './transport/map-routes.js';
 export type { MapRoutesDependencies } from './transport/map-routes.js';

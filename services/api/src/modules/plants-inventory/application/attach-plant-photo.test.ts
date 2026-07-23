@@ -57,6 +57,18 @@ describe('AttachPlantPhoto', () => {
     expect(fakes.plantPhotos.photos.size).toBe(1);
     expect(fakes.plants.plants.get(PLANT_ID)?.revision).toBe(1);
     expect(fakes.revisionJournal.entries).toHaveLength(0);
+    // Not touching `plant.revision` does not mean sync stays silent: a
+    // sync_change row still records the plant at its own (unbumped)
+    // revision, so a puller learns a new photo exists on it.
+    expect(fakes.syncChanges.entries).toEqual([
+      {
+        gardenId: GARDEN_ID,
+        recordId: PLANT_ID,
+        recordType: 'plant',
+        operation: 'upsert',
+        recordRevision: 1,
+      },
+    ]);
   });
 
   it('clears any existing primary before setting isPrimary: true', async () => {

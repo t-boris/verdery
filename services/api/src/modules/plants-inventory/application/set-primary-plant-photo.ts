@@ -5,7 +5,9 @@
  * enforces at most one per plant, but only if the clear happens first.
  *
  * Does not touch `plant` itself, the same as `AttachPlantPhoto` — no
- * `expectedRevision`, no `plant_revision` journal entry.
+ * `expectedRevision`, no `plant_revision` journal entry. Still writes a
+ * `platform.sync_change` row for the plant, at its unbumped revision — see
+ * `AttachPlantPhoto`'s own doc comment for why.
  */
 
 import type { IdempotencyStore } from '../../../platform/idempotency/idempotency-store.js';
@@ -34,7 +36,12 @@ export class SetPrimaryPlantPhoto {
     plantPhotoId: Uuid,
     idempotencyKey: string,
   ): Promise<PlantPhotoResource> {
-    await requirePlantAndAuthorize(this.plants, this.authorization, plantId, profileId);
+    const plant = await requirePlantAndAuthorize(
+      this.plants,
+      this.authorization,
+      plantId,
+      profileId,
+    );
 
     const idempotencyInput = {
       actorProfileId: profileId,
@@ -56,6 +63,13 @@ export class SetPrimaryPlantPhoto {
 
         await context.plantPhotos.clearPrimaryForPlant(plantId);
         await context.plantPhotos.setPrimary(plantPhotoId);
+        await context.syncChanges.record({
+          gardenId: plant.gardenId,
+          recordId: plant.id,
+          recordType: 'plant',
+          operation: 'upsert',
+          recordRevision: plant.revision,
+        });
 
         return toPlantPhotoResource({ ...photo, isPrimary: true });
       },

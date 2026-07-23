@@ -48,6 +48,19 @@ describe('DeleteTask', () => {
 
     expect(result.status).toBe('deleted');
     expect(fakes.tasks.tasks.has(TASK_ID)).toBe(true);
+    // The sync-change entry mirrors that: an 'upsert' at the task's new
+    // revision, never a 'delete' tombstone — a puller must still be able to
+    // read this task's terminal 'deleted' status back, which a tombstone
+    // would prevent.
+    expect(fakes.syncChanges.entries).toEqual([
+      {
+        gardenId: GARDEN_ID,
+        recordId: TASK_ID,
+        recordType: 'task',
+        operation: 'upsert',
+        recordRevision: result.revision,
+      },
+    ]);
   });
 
   it('is terminal: rejects deleting an already-deleted task', async () => {

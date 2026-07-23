@@ -90,6 +90,19 @@ export class CorrectObservation {
           now,
         });
         await context.observations.insert(correction);
+        // 'upsert' at `recordRevision: 1`, exactly like `RecordObservation`:
+        // a correction is a new row with its own new `record_id` (see
+        // `domain/observation.ts`'s `createCorrectionObservation`), never a
+        // mutation of the original — so it is its own separate sync-change
+        // insert, not an update to the original observation's row, and it
+        // is that new row's own first-and-only revision.
+        await context.syncChanges.record({
+          gardenId: correction.gardenId,
+          recordId: correction.id,
+          recordType: 'observation',
+          operation: 'upsert',
+          recordRevision: 1,
+        });
 
         const photos = await attachObservationPhotos(
           context,

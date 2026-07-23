@@ -4,6 +4,13 @@
  * `task-revision-journal-writer.ts`'s doc comment on `TaskCommandType` for
  * why, the same carve-out `AttachPlantPhoto` documents for `plant`/
  * `plant_photo`.
+ *
+ * Still writes a `platform.sync_change` row for the *task* (not the
+ * attachment, which has no sync record type of its own — see
+ * `architecture/offline-synchronization.md` section 18), at
+ * `task.revision` exactly as fetched by `requireTaskAndAuthorize` — never
+ * bumped, since this command does not touch `task` — the same reasoning
+ * `AttachPlantPhoto` documents for `plant`.
  */
 
 import type { IdempotencyStore } from '../../../platform/idempotency/idempotency-store.js';
@@ -40,7 +47,7 @@ export class AttachTaskFile {
     input: AttachTaskFileInput,
     idempotencyKey: string,
   ): Promise<TaskAttachmentResource> {
-    await requireTaskAndAuthorize(this.tasks, this.authorization, taskId, profileId);
+    const task = await requireTaskAndAuthorize(this.tasks, this.authorization, taskId, profileId);
 
     const idempotencyInput = {
       actorProfileId: profileId,
@@ -63,6 +70,13 @@ export class AttachTaskFile {
         const now = this.clock.now();
         const attachment = createTaskAttachment(generateUuidV7(), taskId, input.mediaId, now);
         await context.taskAttachments.insert(attachment);
+        await context.syncChanges.record({
+          gardenId: task.gardenId,
+          recordId: task.id,
+          recordType: 'task',
+          operation: 'upsert',
+          recordRevision: task.revision,
+        });
 
         return toTaskAttachmentResource(attachment);
       },

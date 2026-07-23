@@ -10,6 +10,10 @@ import type {
   IdempotencyRecordInput,
   IdempotencyStore,
 } from '../../../platform/idempotency/idempotency-store.js';
+import type {
+  SyncChangeInput,
+  SyncChangeRecorder,
+} from '../../../platform/sync/sync-change-recorder.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import { GardenAuthorization } from '../../gardens-mapping/public.js';
 import type { GardenRole, MembershipRepository } from '../../gardens-mapping/public.js';
@@ -178,6 +182,15 @@ class FakeIdempotencyStore implements IdempotencyStore {
   }
 }
 
+class FakeSyncChangeRecorder implements SyncChangeRecorder {
+  readonly entries: SyncChangeInput[] = [];
+
+  record(input: SyncChangeInput): Promise<void> {
+    this.entries.push(input);
+    return Promise.resolve();
+  }
+}
+
 class FakeUnitOfWork implements ObservationsHistoryUnitOfWork {
   constructor(private readonly context: ObservationsHistoryTransactionContext) {}
 
@@ -191,6 +204,7 @@ interface Harness {
   readonly observations: FakeObservationRepository;
   readonly observationPhotos: FakeObservationPhotoRepository;
   readonly imageAnalysisResults: FakeImageAnalysisResultRepository;
+  readonly syncChanges: FakeSyncChangeRecorder;
 }
 
 function buildHarness(options: {
@@ -202,6 +216,7 @@ function buildHarness(options: {
   const observationPhotos = new FakeObservationPhotoRepository();
   const imageAnalysisResults = new FakeImageAnalysisResultRepository();
   const idempotency = new FakeIdempotencyStore();
+  const syncChanges = new FakeSyncChangeRecorder();
   const context: ObservationsHistoryTransactionContext = {
     observations,
     observationPhotos,
@@ -209,6 +224,7 @@ function buildHarness(options: {
     plants: new FakePlantOwnershipRepository(options.plantGardenIds ?? new Map()),
     media: new FakeMediaRepository(options.mediaIds ?? new Set()),
     idempotency,
+    syncChanges,
   };
 
   const recordObservation = new RecordObservation(
@@ -218,7 +234,7 @@ function buildHarness(options: {
     fixedClock(),
   );
 
-  return { recordObservation, observations, observationPhotos, imageAnalysisResults };
+  return { recordObservation, observations, observationPhotos, imageAnalysisResults, syncChanges };
 }
 
 const NOTE_ONLY_INPUT: RecordObservationInput = {
@@ -232,7 +248,7 @@ const NOTE_ONLY_INPUT: RecordObservationInput = {
 
 describe('RecordObservation', () => {
   it('records a plant-level observation and returns it uncorrected', async () => {
-    const { recordObservation, observations } = buildHarness({
+    const { recordObservation, observations, syncChanges } = buildHarness({
       plantGardenIds: new Map([[PLANT_ID, GARDEN_ID]]),
     });
 
@@ -252,6 +268,15 @@ describe('RecordObservation', () => {
       photos: [],
     });
     expect(observations.rows).toHaveLength(1);
+    expect(syncChanges.entries).toEqual([
+      {
+        gardenId: GARDEN_ID,
+        recordId: resource.id,
+        recordType: 'observation',
+        operation: 'upsert',
+        recordRevision: 1,
+      },
+    ]);
   });
 
   it('records a garden-object (area-level) observation', async () => {

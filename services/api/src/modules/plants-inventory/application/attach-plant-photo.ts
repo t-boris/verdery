@@ -3,6 +3,18 @@
  * `expectedRevision`, no `plant_revision` journal entry — see
  * `plant-revision-journal-writer.ts`'s doc comment on `PlantCommandType` for
  * why.
+ *
+ * Still writes a `platform.sync_change` row for the *plant* (not the photo,
+ * which has no sync record type of its own — see
+ * `architecture/offline-synchronization.md` section 18, "record sync
+ * contains media IDs and state, not binary data"): a client polling the sync
+ * feed for this garden needs to learn a new photo exists on this plant, and
+ * the plant's own row is what a re-fetch would return it through. Uses
+ * `plant.revision` exactly as fetched by `requirePlantAndAuthorize` — never
+ * bumped, since this command does not touch `plant` — which is a true
+ * statement of the plant's revision at the moment of this write, not a lie:
+ * a client is not promised the revision advances on every sync entry, only
+ * that the entry names the revision the record actually carries.
  */
 
 import type { IdempotencyStore } from '../../../platform/idempotency/idempotency-store.js';
@@ -40,7 +52,12 @@ export class AttachPlantPhoto {
     input: AttachPlantPhotoInput,
     idempotencyKey: string,
   ): Promise<PlantPhotoResource> {
-    await requirePlantAndAuthorize(this.plants, this.authorization, plantId, profileId);
+    const plant = await requirePlantAndAuthorize(
+      this.plants,
+      this.authorization,
+      plantId,
+      profileId,
+    );
 
     const idempotencyInput = {
       actorProfileId: profileId,
@@ -71,6 +88,13 @@ export class AttachPlantPhoto {
 
         const photo = createPlantPhoto(generateUuidV7(), plantId, input.mediaId, isPrimary, now);
         await context.plantPhotos.insert(photo);
+        await context.syncChanges.record({
+          gardenId: plant.gardenId,
+          recordId: plant.id,
+          recordType: 'plant',
+          operation: 'upsert',
+          recordRevision: plant.revision,
+        });
 
         return toPlantPhotoResource(photo);
       },

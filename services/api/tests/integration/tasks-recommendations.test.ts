@@ -276,6 +276,18 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       due_date: '2026-08-01',
     });
 
+    const syncChangeRow = await db
+      .selectFrom('platform.sync_change')
+      .selectAll()
+      .where('record_id', '=', areaTask.id)
+      .where('record_type', '=', 'task')
+      .executeTakeFirst();
+    expect(syncChangeRow).toMatchObject({
+      garden_id: gardenId,
+      operation: 'upsert',
+      record_revision: 1,
+    });
+
     await expect(
       handlers.createManualTask.execute(
         gardenId,
@@ -394,6 +406,18 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       .where('id', '=', toDelete.id)
       .executeTakeFirst();
     expect(stillExists).toBeDefined();
+
+    // The sync_change entry for DeleteTask mirrors that: an 'upsert' at the
+    // task's new revision, never a 'delete' tombstone — a puller must still
+    // be able to read this task's terminal 'deleted' status back.
+    const deleteSyncChange = await db
+      .selectFrom('platform.sync_change')
+      .selectAll()
+      .where('record_id', '=', toDelete.id)
+      .where('record_type', '=', 'task')
+      .where('record_revision', '=', deleted.revision)
+      .executeTakeFirst();
+    expect(deleteSyncChange).toMatchObject({ operation: 'upsert' });
 
     // Cross-terminal rejection: a dismissed task cannot then be completed.
     await expect(
@@ -516,6 +540,23 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     const unchanged = await handlers.taskRepository.findById(task.id);
     expect(unchanged?.revision).toBe(1);
+
+    // AttachTaskFile does not bump task.revision (asserted above), but it
+    // still writes its own sync_change row for the task, at its unbumped
+    // revision — a puller must learn a new attachment exists on it even
+    // though the task's own revision stayed put. Two rows total:
+    // createManualTask (revision 1) and this attach, also at revision 1.
+    const syncChangeRows = await db
+      .selectFrom('platform.sync_change')
+      .select(['record_revision', 'operation'])
+      .where('record_id', '=', task.id)
+      .where('record_type', '=', 'task')
+      .orderBy('sequence', 'asc')
+      .execute();
+    expect(syncChangeRows).toEqual([
+      { record_revision: 1, operation: 'upsert' },
+      { record_revision: 1, operation: 'upsert' },
+    ]);
 
     await expect(
       handlers.attachTaskFile.execute(

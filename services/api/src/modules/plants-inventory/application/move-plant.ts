@@ -92,6 +92,13 @@ export class MovePlant {
           status: null,
           actorProfileId: profileId,
         });
+        await context.syncChanges.record({
+          gardenId: moved.gardenId,
+          recordId: moved.id,
+          recordType: 'plant',
+          operation: 'upsert',
+          recordRevision: moved.revision,
+        });
 
         return toPlantResource(moved);
       },

@@ -1,6 +1,7 @@
 import type { Kysely } from 'kysely';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
 import { KyselyIdempotencyStore } from '../../../platform/idempotency/kysely-idempotency-store.js';
+import { KyselySyncChangeRecorder } from '../../../platform/sync/kysely-sync-change-recorder.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import { KyselyMediaRepository } from '../../media/public.js';
 import type {
@@ -27,6 +28,7 @@ export class KyselyObservationsHistoryUnitOfWork implements ObservationsHistoryU
         plants: new KyselyPlantOwnershipRepository(trx),
         media: new KyselyMediaRepository(trx),
         idempotency: new KyselyIdempotencyStore(trx, this.clock),
+        syncChanges: new KyselySyncChangeRecorder(trx),
       };
 
       return work(context);

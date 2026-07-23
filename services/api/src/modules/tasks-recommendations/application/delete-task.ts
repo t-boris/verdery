@@ -56,6 +56,7 @@ export class DeleteTask {
         transitionTaskStatus(
           context.tasks,
           context.revisionJournal,
+          context.syncChanges,
           taskId,
           expectedRevision,
           'deleted',

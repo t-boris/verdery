@@ -53,6 +53,18 @@ export class RequestGardenDeletion {
         (garden) => requestGardenDeletion(garden, now),
       );
 
+      // 'upsert', not 'delete': this only flips `lifecycleState` to
+      // `'deletion_requested'` — the row, and the garden's visibility to
+      // sync, are both untouched (see this file's own header comment). A
+      // sync tombstone is for a record that stops existing for the puller,
+      // which does not happen here.
+      await context.syncChanges.record({
+        gardenId: requested.id,
+        recordId: requested.id,
+        recordType: 'garden',
+        operation: 'upsert',
+        recordRevision: requested.revision,
+      });
       await context.outbox.append({
         eventType: 'garden.deletion_requested',
         aggregateType: 'garden',

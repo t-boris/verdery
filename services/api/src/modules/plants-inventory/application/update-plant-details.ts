@@ -60,6 +60,13 @@ export class UpdatePlantDetails {
           status: null,
           actorProfileId: profileId,
         });
+        await context.syncChanges.record({
+          gardenId: updated.gardenId,
+          recordId: updated.id,
+          recordType: 'plant',
+          operation: 'upsert',
+          recordRevision: updated.revision,
+        });
 
         return toPlantResource(updated);
       },

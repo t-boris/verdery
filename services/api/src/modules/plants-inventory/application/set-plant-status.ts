@@ -66,6 +66,17 @@ export class SetPlantStatus {
           status: transitioned.status,
           actorProfileId: profileId,
         });
+        // 'upsert', even for a transition to 'removed'/'dead': there is no
+        // hard-delete for a plant (see this file's own header comment and
+        // `domain/plant-lifecycle.ts`'s), so the row remains fully readable
+        // and this stays a status upsert, never a sync tombstone.
+        await context.syncChanges.record({
+          gardenId: transitioned.gardenId,
+          recordId: transitioned.id,
+          recordType: 'plant',
+          operation: 'upsert',
+          recordRevision: transitioned.revision,
+        });
 
         return toPlantResource(transitioned);
       },

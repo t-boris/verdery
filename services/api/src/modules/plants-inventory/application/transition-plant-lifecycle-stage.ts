@@ -60,6 +60,13 @@ export class TransitionPlantLifecycleStage {
           status: null,
           actorProfileId: profileId,
         });
+        await context.syncChanges.record({
+          gardenId: transitioned.gardenId,
+          recordId: transitioned.id,
+          recordType: 'plant',
+          operation: 'upsert',
+          recordRevision: transitioned.revision,
+        });
 
         return toPlantResource(transitioned);
       },

@@ -14,6 +14,7 @@
  * when a caller happens to include `dueDate` among its changes.
  */
 
+import type { SyncChangeRecorder } from '../../../platform/sync/sync-change-recorder.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { TaskDetailChanges } from '../domain/task.js';
 import { updateTaskDetails } from '../domain/task.js';
@@ -25,6 +26,7 @@ import { toTaskResource, type TaskResource } from './task-view.js';
 export async function applyTaskDetailChanges(
   tasks: TaskRepository,
   revisionJournal: TaskRevisionJournalWriter,
+  syncChanges: SyncChangeRecorder,
   taskId: Uuid,
   expectedRevision: number,
   changes: TaskDetailChanges,
@@ -43,6 +45,13 @@ export async function applyTaskDetailChanges(
     status: null,
     dueDate: changes.dueDate !== undefined ? updated.dueDate : null,
     actorProfileId,
+  });
+  await syncChanges.record({
+    gardenId: updated.gardenId,
+    recordId: updated.id,
+    recordType: 'task',
+    operation: 'upsert',
+    recordRevision: updated.revision,
   });
 
   return toTaskResource(updated);

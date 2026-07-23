@@ -3,6 +3,7 @@ import { KyselyAuditLogger } from '../../../platform/audit/kysely-audit-logger.j
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
 import { KyselyIdempotencyStore } from '../../../platform/idempotency/kysely-idempotency-store.js';
 import { KyselyOutboxAppender } from '../../../platform/outbox/kysely-outbox-appender.js';
+import { KyselySyncChangeRecorder } from '../../../platform/sync/kysely-sync-change-recorder.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import type {
   GardensMappingTransactionContext,
@@ -14,7 +15,6 @@ import { KyselyGardenRepository } from './kysely-garden-repository.js';
 import { KyselyMapObjectRepository } from './kysely-map-object-repository.js';
 import { KyselyMembershipRepository } from './kysely-membership-repository.js';
 import { KyselyRevisionJournalWriter } from './kysely-revision-journal-writer.js';
-import { KyselySyncChangeWriter } from './kysely-sync-change-writer.js';
 
 export class KyselyGardensMappingUnitOfWork implements GardensMappingUnitOfWork {
   constructor(
@@ -34,7 +34,7 @@ export class KyselyGardensMappingUnitOfWork implements GardensMappingUnitOfWork 
         coordinateSpaces: new KyselyCoordinateSpaceRepository(trx),
         calibrations: new KyselyCalibrationRepository(trx),
         revisionJournal: new KyselyRevisionJournalWriter(trx),
-        syncChanges: new KyselySyncChangeWriter(trx),
+        syncChanges: new KyselySyncChangeRecorder(trx),
       };
 
       return work(context);

@@ -32,6 +32,13 @@ export class CreateGarden {
       await context.gardens.insert(garden);
       await context.memberships.insertOwner(generateUuidV7(), garden.id, profileId, now);
 
+      await context.syncChanges.record({
+        gardenId: garden.id,
+        recordId: garden.id,
+        recordType: 'garden',
+        operation: 'upsert',
+        recordRevision: garden.revision,
+      });
       await context.outbox.append({
         eventType: 'garden.created',
         aggregateType: 'garden',

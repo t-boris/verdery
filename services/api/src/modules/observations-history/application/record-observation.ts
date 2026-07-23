@@ -86,6 +86,17 @@ export class RecordObservation {
           now,
         });
         await context.observations.insert(observation);
+        // `recordRevision: 1` always: `observation` carries no revision
+        // column — every row is a first-and-only insert (see
+        // `domain/observation.ts`'s own header comment) — so `1` is this
+        // aggregate's genuinely constant value, not a placeholder.
+        await context.syncChanges.record({
+          gardenId: observation.gardenId,
+          recordId: observation.id,
+          recordType: 'observation',
+          operation: 'upsert',
+          recordRevision: 1,
+        });
 
         const photos = await attachObservationPhotos(
           context,

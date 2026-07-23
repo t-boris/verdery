@@ -54,6 +54,7 @@ export class SkipTask {
         transitionTaskStatus(
           context.tasks,
           context.revisionJournal,
+          context.syncChanges,
           taskId,
           expectedRevision,
           'skipped',

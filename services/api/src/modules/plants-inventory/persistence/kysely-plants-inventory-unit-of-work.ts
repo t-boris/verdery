@@ -3,6 +3,7 @@ import { KyselyMapObjectRepository } from '../../gardens-mapping/public.js';
 import { KyselyMediaRepository } from '../../media/public.js';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
 import { KyselyIdempotencyStore } from '../../../platform/idempotency/kysely-idempotency-store.js';
+import { KyselySyncChangeRecorder } from '../../../platform/sync/kysely-sync-change-recorder.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import type {
   PlantsInventoryTransactionContext,
@@ -29,6 +30,7 @@ export class KyselyPlantsInventoryUnitOfWork implements PlantsInventoryUnitOfWor
         idempotency: new KyselyIdempotencyStore(trx, this.clock),
         mapObjects: new KyselyMapObjectRepository(trx),
         media: new KyselyMediaRepository(trx),
+        syncChanges: new KyselySyncChangeRecorder(trx),
       };
 
       return work(context);

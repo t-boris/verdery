@@ -2,9 +2,11 @@
  * Transaction boundary for tasks-recommendations commands.
  *
  * Every port a command handler needs is bound to the same transaction, so a
- * task's new state, its attachment rows, its revision-journal entry, and its
- * idempotency record commit or roll back together — the same rule
- * `PlantsInventoryUnitOfWork` documents for plant commands.
+ * task's new state, its attachment rows, its revision-journal entry, its
+ * sync-change entry, and its idempotency record commit or roll back together
+ * — the same rule `PlantsInventoryUnitOfWork` documents for plant commands.
+ * `syncChanges` is the platform-level `SyncChangeRecorder` (see
+ * `platform/sync/sync-change-recorder.ts`), not a module-local port.
  *
  * `mapObjects`, `plants`, and `media` are bound here too, transaction-scoped,
  * even though this module does not own any of those tables:
@@ -39,6 +41,7 @@ import type { MapObjectRepository } from '../../gardens-mapping/public.js';
 import type { MediaRepository } from '../../media/public.js';
 import type { PlantRepository } from '../../plants-inventory/public.js';
 import type { IdempotencyStore } from '../../../platform/idempotency/idempotency-store.js';
+import type { SyncChangeRecorder } from '../../../platform/sync/sync-change-recorder.js';
 import type { TaskAttachmentRepository } from './task-attachment-repository.js';
 import type { TaskRepository } from './task-repository.js';
 import type { TaskRevisionJournalWriter } from './task-revision-journal-writer.js';
@@ -51,6 +54,7 @@ export interface TasksRecommendationsTransactionContext {
   readonly mapObjects: MapObjectRepository;
   readonly plants: PlantRepository;
   readonly media: MediaRepository;
+  readonly syncChanges: SyncChangeRecorder;
 }
 
 export interface TasksRecommendationsUnitOfWork {

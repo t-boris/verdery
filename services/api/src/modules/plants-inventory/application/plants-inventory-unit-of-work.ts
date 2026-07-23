@@ -3,8 +3,10 @@
  *
  * Every port a command handler needs is bound to the same transaction, so a
  * plant's new state, its photo/identification rows, its revision-journal
- * entry, and its idempotency record commit or roll back together — the same
- * rule `GardensMappingUnitOfWork` documents for map commands.
+ * entry, its sync-change entry, and its idempotency record commit or roll
+ * back together — the same rule `GardensMappingUnitOfWork` documents for map
+ * commands. `syncChanges` is the platform-level `SyncChangeRecorder` (see
+ * `platform/sync/sync-change-recorder.ts`), not a module-local port.
  *
  * `mapObjects` and `media` are bound here too, transaction-scoped, even
  * though this module does not own either table: `AddPlant`, `AddPlantFromPhoto`,
@@ -25,6 +27,7 @@
 import type { MapObjectRepository } from '../../gardens-mapping/public.js';
 import type { MediaRepository } from '../../media/public.js';
 import type { IdempotencyStore } from '../../../platform/idempotency/idempotency-store.js';
+import type { SyncChangeRecorder } from '../../../platform/sync/sync-change-recorder.js';
 import type { PlantIdentificationRepository } from './plant-identification-repository.js';
 import type { PlantPhotoRepository } from './plant-photo-repository.js';
 import type { PlantRepository } from './plant-repository.js';
@@ -38,6 +41,7 @@ export interface PlantsInventoryTransactionContext {
   readonly idempotency: IdempotencyStore;
   readonly mapObjects: MapObjectRepository;
   readonly media: MediaRepository;
+  readonly syncChanges: SyncChangeRecorder;
 }
 
 export interface PlantsInventoryUnitOfWork {

@@ -137,6 +137,18 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       .where('event_type', '=', 'garden.created')
       .executeTakeFirst();
     expect(auditEvent).toBeDefined();
+
+    const syncChangeRow = await db
+      .selectFrom('platform.sync_change')
+      .selectAll()
+      .where('record_id', '=', garden.id)
+      .where('record_type', '=', 'garden')
+      .executeTakeFirst();
+    expect(syncChangeRow).toMatchObject({
+      garden_id: garden.id,
+      operation: 'upsert',
+      record_revision: 1,
+    });
   });
 
   it('replays the same idempotency key without creating a second garden, and rejects a reused key with a different name', async () => {
@@ -322,6 +334,67 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       .where('event_type', '=', 'garden.renamed')
       .executeTakeFirst();
     expect(auditEvent).toBeDefined();
+
+    const syncChangeRow = await db
+      .selectFrom('platform.sync_change')
+      .selectAll()
+      .where('record_id', '=', garden.id)
+      .where('record_type', '=', 'garden')
+      .where('record_revision', '=', renamed.revision)
+      .executeTakeFirst();
+    expect(syncChangeRow).toMatchObject({ garden_id: garden.id, operation: 'upsert' });
+  });
+
+  it('records an upsert sync_change for archive and for a deletion request, never a delete tombstone', async () => {
+    const ownerId = randomUUID();
+    await insertProfile(db, ownerId);
+
+    const clock = fixedClock(new Date());
+    const createGarden = new CreateGarden(
+      new KyselyIdempotencyStore(db, clock),
+      new KyselyGardensMappingUnitOfWork(db, clock),
+      clock,
+    );
+    const garden = await createGarden.execute(ownerId, 'Backyard', randomUUID());
+
+    const authorization = new GardenAuthorization(new KyselyMembershipRepository(db));
+    const archiveGarden = new ArchiveGarden(
+      new KyselyIdempotencyStore(db, clock),
+      new KyselyGardensMappingUnitOfWork(db, clock),
+      authorization,
+      clock,
+    );
+    const archived = await archiveGarden.execute(garden.id, ownerId, garden.revision, randomUUID());
+
+    const requestGardenDeletion = new RequestGardenDeletion(
+      new KyselyIdempotencyStore(db, clock),
+      new KyselyGardensMappingUnitOfWork(db, clock),
+      authorization,
+      clock,
+    );
+    const requested = await requestGardenDeletion.execute(
+      garden.id,
+      ownerId,
+      archived.revision,
+      randomUUID(),
+    );
+
+    const syncChangeRows = await db
+      .selectFrom('platform.sync_change')
+      .selectAll()
+      .where('record_id', '=', garden.id)
+      .where('record_type', '=', 'garden')
+      .orderBy('sequence', 'asc')
+      .execute();
+
+    // create (revision 1), archive (revision 2), deletion request (revision
+    // 3) — every one of them 'upsert': `RequestGardenDeletion` only flips
+    // `lifecycleState`, it never removes the garden's visibility to sync
+    // (see that command's own doc comment), so it is not a tombstone either.
+    expect(syncChangeRows.map((row) => row.record_revision)).toEqual([1, 2, 3]);
+    expect(syncChangeRows.map((row) => row.operation)).toEqual(['upsert', 'upsert', 'upsert']);
+    expect(syncChangeRows[1]).toMatchObject({ record_revision: archived.revision });
+    expect(syncChangeRows[2]).toMatchObject({ record_revision: requested.revision });
   });
 
   it('lets only the owner archive or request deletion; an editor can view but not manage', async () => {

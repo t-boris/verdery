@@ -136,6 +136,13 @@ export class CreateManualTask {
           dueDate: task.dueDate,
           actorProfileId: profileId,
         });
+        await context.syncChanges.record({
+          gardenId: task.gardenId,
+          recordId: task.id,
+          recordType: 'task',
+          operation: 'upsert',
+          recordRevision: task.revision,
+        });
 
         return toTaskResource(task);
       },

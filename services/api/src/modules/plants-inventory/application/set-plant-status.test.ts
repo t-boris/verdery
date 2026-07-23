@@ -71,7 +71,7 @@ describe('SetPlantStatus', () => {
       fixedClock(NOW),
     );
 
-    await setPlantStatus.execute(
+    const result = await setPlantStatus.execute(
       PLANT_ID,
       PROFILE_ID,
       1,
@@ -80,6 +80,19 @@ describe('SetPlantStatus', () => {
     );
 
     expect(fakes.plants.plants.has(PLANT_ID)).toBe(true);
+    // The sync-change entry mirrors that: an 'upsert' at the plant's new
+    // revision, never a 'delete' tombstone — a puller must still be able to
+    // read this plant's 'removed' status back, which a tombstone would
+    // prevent.
+    expect(fakes.syncChanges.entries).toEqual([
+      {
+        gardenId: GARDEN_ID,
+        recordId: PLANT_ID,
+        recordType: 'plant',
+        operation: 'upsert',
+        recordRevision: result.revision,
+      },
+    ]);
   });
 
   it('rejects a stale expectedRevision', async () => {

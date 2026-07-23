@@ -57,6 +57,18 @@ describe('AttachTaskFile', () => {
     expect(fakes.taskAttachments.attachments.size).toBe(1);
     expect(fakes.revisionJournal.entries).toHaveLength(0);
     expect(fakes.tasks.tasks.get(TASK_ID)?.revision).toBe(1);
+    // Not touching `task.revision` does not mean sync stays silent: a
+    // sync_change row still records the task at its own (unbumped)
+    // revision, so a puller learns a new attachment exists on it.
+    expect(fakes.syncChanges.entries).toEqual([
+      {
+        gardenId: GARDEN_ID,
+        recordId: TASK_ID,
+        recordType: 'task',
+        operation: 'upsert',
+        recordRevision: 1,
+      },
+    ]);
   });
 
   it('rejects a mediaId that does not resolve to an existing media record', async () => {

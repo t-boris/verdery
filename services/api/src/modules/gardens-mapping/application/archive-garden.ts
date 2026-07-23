@@ -47,6 +47,13 @@ export class ArchiveGarden {
         (garden) => archiveGarden(garden, now),
       );
 
+      await context.syncChanges.record({
+        gardenId: archived.id,
+        recordId: archived.id,
+        recordType: 'garden',
+        operation: 'upsert',
+        recordRevision: archived.revision,
+      });
       await context.outbox.append({
         eventType: 'garden.archived',
         aggregateType: 'garden',

@@ -16,6 +16,10 @@ import type {
   IdempotencyRecordInput,
   IdempotencyStore,
 } from '../../../platform/idempotency/idempotency-store.js';
+import type {
+  SyncChangeInput,
+  SyncChangeRecorder,
+} from '../../../platform/sync/sync-change-recorder.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import { GardenAuthorization } from '../../gardens-mapping/public.js';
@@ -205,6 +209,15 @@ export class FakePlantRevisionJournalWriter implements PlantRevisionJournalWrite
   }
 }
 
+export class FakeSyncChangeRecorder implements SyncChangeRecorder {
+  readonly entries: SyncChangeInput[] = [];
+
+  record(input: SyncChangeInput): Promise<void> {
+    this.entries.push(input);
+    return Promise.resolve();
+  }
+}
+
 /** Every method a `plantId`/`objectId`-scoped lookup could need; only `findById` is exercised by this module's own commands. */
 export class FakeMapObjectRepository implements MapObjectRepository {
   constructor(private readonly summaries: Map<Uuid, MapObjectSummary> = new Map()) {}
@@ -322,6 +335,7 @@ export interface PlantsInventoryFakes {
   readonly idempotency: FakeIdempotencyStore;
   readonly mapObjects: FakeMapObjectRepository;
   readonly media: FakeMediaRepository;
+  readonly syncChanges: FakeSyncChangeRecorder;
 }
 
 export function createPlantsInventoryFakes(
@@ -335,6 +349,7 @@ export function createPlantsInventoryFakes(
     idempotency: new FakeIdempotencyStore(),
     mapObjects: new FakeMapObjectRepository(mapObjectSummaries),
     media: new FakeMediaRepository(),
+    syncChanges: new FakeSyncChangeRecorder(),
   };
 }
 

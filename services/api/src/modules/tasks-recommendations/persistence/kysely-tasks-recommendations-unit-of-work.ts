@@ -4,6 +4,7 @@ import { KyselyMediaRepository } from '../../media/public.js';
 import { KyselyPlantRepository } from '../../plants-inventory/public.js';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
 import { KyselyIdempotencyStore } from '../../../platform/idempotency/kysely-idempotency-store.js';
+import { KyselySyncChangeRecorder } from '../../../platform/sync/kysely-sync-change-recorder.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import type {
   TasksRecommendationsTransactionContext,
@@ -29,6 +30,7 @@ export class KyselyTasksRecommendationsUnitOfWork implements TasksRecommendation
         mapObjects: new KyselyMapObjectRepository(trx),
         plants: new KyselyPlantRepository(trx),
         media: new KyselyMediaRepository(trx),
+        syncChanges: new KyselySyncChangeRecorder(trx),
       };
 
       return work(context);

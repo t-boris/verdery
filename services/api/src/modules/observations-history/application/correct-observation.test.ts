@@ -11,6 +11,10 @@ import type {
   IdempotencyRecordInput,
   IdempotencyStore,
 } from '../../../platform/idempotency/idempotency-store.js';
+import type {
+  SyncChangeInput,
+  SyncChangeRecorder,
+} from '../../../platform/sync/sync-change-recorder.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import { GardenAuthorization } from '../../gardens-mapping/public.js';
 import type { GardenRole, MembershipRepository } from '../../gardens-mapping/public.js';
@@ -179,6 +183,15 @@ class FakeIdempotencyStore implements IdempotencyStore {
   }
 }
 
+class FakeSyncChangeRecorder implements SyncChangeRecorder {
+  readonly entries: SyncChangeInput[] = [];
+
+  record(input: SyncChangeInput): Promise<void> {
+    this.entries.push(input);
+    return Promise.resolve();
+  }
+}
+
 class FakeUnitOfWork implements ObservationsHistoryUnitOfWork {
   constructor(private readonly context: ObservationsHistoryTransactionContext) {}
 
@@ -206,6 +219,7 @@ interface Harness {
   readonly correctObservation: CorrectObservation;
   readonly observations: FakeObservationRepository;
   readonly original: Observation;
+  readonly syncChanges: FakeSyncChangeRecorder;
 }
 
 function buildHarness(options: {
@@ -217,6 +231,7 @@ function buildHarness(options: {
   const observations = new FakeObservationRepository(
     options.seedOriginal === false ? [] : [original],
   );
+  const syncChanges = new FakeSyncChangeRecorder();
   const context: ObservationsHistoryTransactionContext = {
     observations,
     observationPhotos: new FakeObservationPhotoRepository(),
@@ -224,6 +239,7 @@ function buildHarness(options: {
     plants: new FakePlantOwnershipRepository(),
     media: new FakeMediaRepository(options.mediaIds ?? new Set()),
     idempotency: new FakeIdempotencyStore(),
+    syncChanges,
   };
   const idempotency = context.idempotency;
 
@@ -235,7 +251,7 @@ function buildHarness(options: {
     fixedClock(),
   );
 
-  return { correctObservation, observations, original };
+  return { correctObservation, observations, original, syncChanges };
 }
 
 const AMENDMENT_INPUT: CorrectObservationInput = {
@@ -266,6 +282,28 @@ describe('CorrectObservation', () => {
     });
     expect(observations.rows).toHaveLength(2);
     expect(observations.rows[0]).toEqual(originalSnapshot);
+  });
+
+  it("records its own sync-change entry, at the new row's recordId, not the original observation's", async () => {
+    const { correctObservation, original, syncChanges } = buildHarness({});
+
+    const resource = await correctObservation.execute(
+      original.id,
+      PROFILE_ID,
+      AMENDMENT_INPUT,
+      randomUUID(),
+    );
+
+    expect(syncChanges.entries).toEqual([
+      {
+        gardenId: original.gardenId,
+        recordId: resource.id,
+        recordType: 'observation',
+        operation: 'upsert',
+        recordRevision: 1,
+      },
+    ]);
+    expect(resource.id).not.toBe(original.id);
   });
 
   it('supports the supersede correction kind', async () => {

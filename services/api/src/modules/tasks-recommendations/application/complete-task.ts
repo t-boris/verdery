@@ -75,6 +75,7 @@ export class CompleteTask {
         transitionTaskStatus(
           context.tasks,
           context.revisionJournal,
+          context.syncChanges,
           taskId,
           expectedRevision,
           'completed',

@@ -79,6 +79,7 @@ export class RescheduleTask {
         applyTaskDetailChanges(
           context.tasks,
           context.revisionJournal,
+          context.syncChanges,
           taskId,
           expectedRevision,
           toDetailChanges(input),

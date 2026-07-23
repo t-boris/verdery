@@ -234,6 +234,18 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       .executeTakeFirstOrThrow();
     expect(row.plant_id).toBe(plantId);
     expect(row.actor_type).toBe('user');
+
+    const syncChangeRow = await db
+      .selectFrom('platform.sync_change')
+      .selectAll()
+      .where('record_id', '=', resource.id)
+      .where('record_type', '=', 'observation')
+      .executeTakeFirst();
+    expect(syncChangeRow).toMatchObject({
+      garden_id: gardenId,
+      operation: 'upsert',
+      record_revision: 1,
+    });
   });
 
   it('records a garden-object (area-level) observation', async () => {
@@ -458,6 +470,30 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       .where('id', '=', original.id)
       .executeTakeFirstOrThrow();
     expect(originalRowAfter).toEqual(originalRowBefore);
+
+    // A correction is its own separate sync_change insert, at the new row's
+    // own recordId, never an update to the original observation's row —
+    // matching "the original row in the database completely unchanged"
+    // this test's own title already asserts for the observation row itself.
+    const originalSyncChange = await db
+      .selectFrom('platform.sync_change')
+      .selectAll()
+      .where('record_id', '=', original.id)
+      .where('record_type', '=', 'observation')
+      .execute();
+    expect(originalSyncChange).toHaveLength(1);
+
+    const correctionSyncChange = await db
+      .selectFrom('platform.sync_change')
+      .selectAll()
+      .where('record_id', '=', correction.id)
+      .where('record_type', '=', 'observation')
+      .executeTakeFirst();
+    expect(correctionSyncChange).toMatchObject({
+      garden_id: gardenId,
+      operation: 'upsert',
+      record_revision: 1,
+    });
   });
 
   it('corrects an observation with a supersede, and the original now reports as corrected while the correction itself does not', async () => {
