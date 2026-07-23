@@ -63,6 +63,23 @@ check "Cloud Run service exists" gcloud run services describe "${VERDERY_CLOUD_R
 check "App Check reCAPTCHA Enterprise key exists" bash -c \
   "[[ -n \$(gcloud recaptcha keys list --project='${VERDERY_PROJECT_ID}' --filter='displayName=${VERDERY_PROJECT_ID}-web-app-check' --format='value(name)') ]]"
 
+# Media buckets: existence, uniform bucket-level access, and public access
+# prevention, for all four. Lifecycle configuration is not re-verified here
+# by content (bucket-level checks confirm presence, not the exact JSON) —
+# `gcloud storage buckets describe --format=json` includes the applied
+# `lifecycle` field for anyone who needs to inspect it by hand.
+for bucket in \
+  "${VERDERY_USER_MEDIA_BUCKET}" \
+  "${VERDERY_RAW_CAPTURE_BUCKET}" \
+  "${VERDERY_DERIVED_BUCKET}" \
+  "${VERDERY_EXPORTS_BUCKET}"; do
+  check "bucket exists: ${bucket}" gcloud storage buckets describe "gs://${bucket}" --project="${VERDERY_PROJECT_ID}"
+  check "uniform bucket-level access enabled: ${bucket}" bash -c \
+    "[[ \$(gcloud storage buckets describe 'gs://${bucket}' --project='${VERDERY_PROJECT_ID}' --format='value(uniform_bucket_level_access)') == True ]]"
+  check "public access prevention enforced: ${bucket}" bash -c \
+    "[[ \$(gcloud storage buckets describe 'gs://${bucket}' --project='${VERDERY_PROJECT_ID}' --format='value(public_access_prevention)') == enforced ]]"
+done
+
 echo
 if [[ "${FAILURES}" -eq 0 ]]; then
   echo "All checks passed."

@@ -29,6 +29,7 @@ declare -A APIS=(
   [monitoring.googleapis.com]="Dashboards and alerting"
   [cloudresourcemanager.googleapis.com]="IAM policy binding on the project"
   [recaptchaenterprise.googleapis.com]="Web App Check attestation, P2-APPCHK-01"
+  [storage.googleapis.com]="Media buckets (user-media, raw-capture, derived, exports), P6-PLAT-01"
 )
 
 for api in "${!APIS[@]}"; do

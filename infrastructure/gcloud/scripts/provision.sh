@@ -22,7 +22,8 @@ for step in \
   04-artifact-registry.sh \
   05-service-accounts.sh \
   06-workload-identity-federation.sh \
-  08-app-check-recaptcha.sh; do
+  08-app-check-recaptcha.sh \
+  09-media-storage.sh; do
   echo "=== ${step} ==="
   bash "${step}" "${ENVIRONMENT}"
   echo

@@ -10,6 +10,9 @@ for the developer-facing narrative (what exists, how to deploy, how it was verif
 ```text
 config/
   dev.env          Environment-specific values. staging.env / prod.env follow the same shape.
+  lifecycle/       Bucket lifecycle-rule JSON used by 09-media-storage.sh, environment-independent
+                    (the same retention numbers apply to dev/staging/prod; only the bucket names
+                    they are applied to differ, from dev.env etc.).
 
 scripts/
   lib/common.sh                        Shared helpers every script sources.
@@ -22,7 +25,8 @@ scripts/
   06-workload-identity-federation.sh   Keyless GitHub Actions trust.
   07-iam-database-bootstrap.sh         One-time: grants a service account database access.
   08-app-check-recaptcha.sh            reCAPTCHA Enterprise key for web App Check.
-  provision.sh                         Runs 00–06 and 08 in order (07 stays manual, see below).
+  09-media-storage.sh                  Media buckets: user-media, raw-capture, derived, exports.
+  provision.sh                         Runs 00–06, 08, and 09 in order (07 stays manual, see below).
   verify.sh                            Read-only check of what actually exists.
   deploy-migration-job.sh              Creates or updates the migration Cloud Run Job.
   deploy-api.sh                        Builds nothing; deploys an already-pushed image.
