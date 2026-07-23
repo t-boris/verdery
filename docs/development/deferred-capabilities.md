@@ -79,6 +79,17 @@ table; `AttachTaskFile` gained no offline support, for the same reason `AddPlant
 now route every reachable offline-capable command through the local-projection-plus-outbox pattern. See
 `tasks/todo.md`'s Stage 4a–4e sections for the full account of each.
 
+`P5-OBS-01` instruments push/pull without payloads: `POST /sync/push` logs one `sync.push.completed`
+structured line per batch (aggregate accepted/duplicate/rejected/conflict/blockedByDependency/
+retryLater counts, plus `protocolVersion`); `GET /sync/changes` logs `sync.pull.completed` (page size,
+cursor freshness, a computed pull-lag proxy) on success and `sync.pull.rejected` (`errorCode`) on the
+two full-resync triggers or any other typed rejection. On iOS, `RemoteSyncEngine` logs the oldest
+pending outbox operation's age through `CoreObservability.DiagnosticLog` at the start of every
+`pushPending()` call — the one sync metric only the device can observe. See
+[observability-and-analytics.md](../architecture/observability-and-analytics.md)'s own "Synchronization
+dashboard and alert candidates" subsection for the concrete Cloud Logging queries, log-based metrics,
+dashboard widgets, and alert thresholds this data supports.
+
 ## What remains deferred, and why
 
 **Staging and production.** Only `verdery-dev` exists. Creating `verdery-staging` and `verdery-prod`
@@ -120,6 +131,22 @@ not an automatic consequence of passing tests, and is not claimed by this docume
 monitor-only mode (P2-APPCHK-01): every request's classification (valid, missing, invalid) is
 recorded as structured backend telemetry, but no dedicated dashboard view was built over that
 telemetry. Enforcement (rollout stage 3) is separately and deliberately not enabled anywhere.
+
+**Sync dashboard, alert policies, and Crashlytics (P5-OBS-01).** The same shape as the App Check
+dashboard entry above, applied to synchronization: `sync.push.completed`/`sync.pull.completed`/
+`sync.pull.rejected` are real, verified structured backend log lines (see the "What now exists"
+section above), but no Cloud Monitoring dashboard or alert policy was deployed over them — this
+matches Phase 1's own `P1-OBS-01` delivery bar (real traces verified against one live request, not a
+deployed dashboard/alerting artifact), not a shortfall specific to this stage. Separately, and for a
+different reason: `apps/ios/Package.swift` declares no `FirebaseCrashlytics`/`FirebasePerformance`
+dependency (only `FirebaseAuth`/`FirebaseAppCheck`/`FirebaseCore`), so architecture/observability-and-
+analytics.md section 8's Crashlytics destination for native telemetry is not wired at all yet, for
+any signal, not only the new outbox-age one — adding either dependency needs its own ADR under this
+repository's third-party-dependency rule. The outbox-age metric itself is real and logged locally
+(`RemoteSyncEngine` → `CoreObservability.DiagnosticLog`), just not exported anywhere a dashboard could
+read it yet. `platform.sync_client_installation.revoked_at` has no telemetry either, for a third,
+distinct reason: no command anywhere in this codebase writes it at all (see the `P5-SEC-01` entry
+below), so there is no event to log a metric about, not merely an unbuilt dashboard.
 
 **Photo and file attachment in the Phase 4 web client.** `AddPlantFromPhoto`, `AttachPlantPhoto`,
 `SetPrimaryPlantPhoto`, `ConfirmPlantIdentification`, and `AttachTaskFile` all need a real `media`

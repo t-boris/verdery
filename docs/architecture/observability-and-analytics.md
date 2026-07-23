@@ -2,7 +2,7 @@
 
 > Status: Draft 0.2
 > Decision status: Approved baseline  
-> Last updated: July 22, 2026
+> Last updated: July 23, 2026
 
 ## 1. Purpose
 
@@ -193,6 +193,100 @@ Required dashboards:
 - Deletion and retention compliance.
 
 Each dashboard links to its runbook and owning component.
+
+### Synchronization dashboard and alert candidates (P5-OBS-01)
+
+The signals below are real, structured log lines already emitted by
+`services/api/src/modules/synchronization/transport/sync-routes.ts` (verified against a real
+push/pull cycle in `tests/http/sync-routes.test.ts`, not code review alone) — not a deployed
+dashboard or alert policy. This section records what a "Mobile synchronization health" dashboard
+(the entry already named above) and its alerts would concretely be built from, matching this
+repository's Phase 1 precedent for an "-01" observability work package: real signals, verified once,
+plus a documented account of the dashboard/alerts they support — see
+[deferred-capabilities.md](../development/deferred-capabilities.md) for why a deployed Cloud
+Monitoring dashboard/alert policy is not this work package's own deliverable.
+
+**What is logged, per request, no payload content:**
+
+| Event                 | Fields                                                                                                                    | Emitted by                                                                                                                                                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sync.push.completed` | `protocolVersion`, `operationCount`, `accepted`, `duplicate`, `rejected`, `conflict`, `blockedByDependency`, `retryLater` | Every `POST /sync/push` call.                                                                                                                                                                                               |
+| `sync.pull.completed` | `protocolVersion`, `cursorPresent`, `pageSize`, `pullLagMilliseconds` (absent when the page is empty)                     | Every successful `GET /sync/changes`.                                                                                                                                                                                       |
+| `sync.pull.rejected`  | `protocolVersion`, `cursorPresent`, `errorCode`                                                                           | A pull that throws before serving a page — covers `sync.changes.cursor_expired` and `sync.protocol_version.unsupported` (the two full-resync triggers), plus any other typed rejection (for example an undecodable cursor). |
+
+`pullLagMilliseconds` is "how long ago the most recent change on this page was committed, relative
+to now" — a proxy computable from data the pull endpoint already fetches, not "how far behind the
+client's cursor is from history's current head" (which would need a second query). See
+`services/api/src/modules/synchronization/application/sync-pull-lag.ts`'s own header comment for the
+full reasoning.
+
+**Log-based metrics these fields support** (Cloud Monitoring, one per field, filtered by `event`):
+
+- `sync_push_accepted` / `sync_push_duplicate` / `sync_push_rejected` / `sync_push_conflict` /
+  `sync_push_blocked_by_dependency` / `sync_push_retry_later` — DISTRIBUTION metrics, value extractor
+  `jsonPayload.<field>`, filter `jsonPayload.event="sync.push.completed"`.
+- `sync_pull_page_size` — DISTRIBUTION metric, value extractor `jsonPayload.pageSize`, filter
+  `jsonPayload.event="sync.pull.completed"`.
+- `sync_pull_lag_ms` — DISTRIBUTION metric, value extractor `jsonPayload.pullLagMilliseconds`, same
+  filter.
+- `sync_pull_rejected` — a counter metric filtered to `jsonPayload.event="sync.pull.rejected"`, with a
+  label extractor on `jsonPayload.errorCode` — one time series per rejection code.
+- `sync_protocol_version` — a counter metric filtered to `jsonPayload.event=("sync.push.completed" OR
+"sync.pull.completed" OR "sync.pull.rejected")`, with a label extractor on `jsonPayload.protocolVersion`.
+
+**Dashboard widgets these metrics support:**
+
+- **Push outcome rate** — stacked area of `ALIGN_SUM` over each `sync_push_*` metric, 1-minute
+  buckets. Reads at a glance whether accepted pushes dominate, and whether rejected/conflict/blocked
+  bands are growing.
+- **Pull page size and lag** — two time series: `sync_pull_page_size` (mean and p95) and
+  `sync_pull_lag_ms` (p50 and p95). A page size sitting at the `Limit` maximum (100) for a sustained
+  window means clients are arriving with a large backlog to catch up on, not that pull itself is slow.
+- **Full-resync frequency** — `sync_pull_rejected` grouped by `errorCode`, `ALIGN_RATE` per hour. The
+  `sync.changes.cursor_expired` series is exactly "how often is a client forced through a full
+  resynchronization" (architecture/offline-synchronization.md, section "13. Full Resynchronization").
+- **Protocol version distribution** — `sync_protocol_version` grouped by `protocolVersion`, as a
+  stacked bar or pie over a rolling window. This is what decides when raising
+  `MIN_SUPPORTED_SYNC_PROTOCOL_VERSION` (`sync-protocol-version.ts`) stops affecting live traffic.
+
+**Alert candidates, with reasoned starting thresholds** (per section 14, exact targets still need
+approval before production; these are starting points, not committed SLOs):
+
+- **Push rejection-rate burn**: `sum(sync_push_rejected) / (sum(sync_push_accepted) +
+sum(sync_push_rejected) + sum(sync_push_conflict))` over a trailing 10-minute window exceeds 5% —
+  the same shape as this section's own worked example. A sustained spike usually means a client-side
+  regression (a build shipping operations the server now rejects), not routine per-operation domain
+  conflict.
+- **Full-resync rate burn**: `sum(sync_pull_rejected) / (sum(sync_pull_completed) +
+sum(sync_pull_rejected))` over a trailing 1-hour window exceeds 2%. `cursor_expired` firing at scale
+  usually means clients are going offline far longer than the 30-day retention window
+  (`SYNC_CHANGES_RETENTION_MILLISECONDS`) accounts for, or a client bug is discarding its cursor.
+- **Pull lag regression**: `sync_pull_lag_ms` p95 exceeds 24 hours, sustained over 30 minutes — most
+  pulls are arriving a day or more after the change they are fetching was committed, suggesting
+  clients have stopped syncing regularly, not that any one request is slow.
+
+Deliberately not proposed as an alert: push `conflict` rate alone. A same-object edit conflict is an
+expected, routine outcome of collaborative editing (section 7's own "Revision conflicts and
+idempotency duplicates" already frames it as a metric, not an incident) — worth a dashboard trend,
+not a page.
+
+**Revocation cleanup has no telemetry, and this is deliberate, not an oversight.**
+`platform.sync_client_installation.revoked_at` has no writer anywhere in this codebase (confirmed by
+inspection — the same "no fabricated telemetry for an event that can't happen" finding
+`retryLater`'s own outcome already established for push). There is nothing to log a metric about
+until a revocation producer exists; adding one is out of this work package's scope.
+
+**Outbox backlog age (iOS) is a local diagnostic today, not a Cloud-side signal.**
+`CoreSynchronization.RemoteSyncEngine` logs it through `CoreObservability.DiagnosticLog` (the same
+unified-logging record every `CoreNetworking` gateway already uses) at the start of every
+`pushPending()` call — visible on-device (Console.app/`log show`), not exported anywhere a Cloud
+Monitoring dashboard or alert could read it. Section 8's Crashlytics destination for this signal is
+not wired: this codebase declares no `FirebaseCrashlytics`/`FirebasePerformance` dependency in
+`apps/ios/Package.swift` today (only `FirebaseAuth`/`FirebaseAppCheck`/`FirebaseCore`), and adding one
+is a new third-party SDK this repository's own rule requires an ADR for — out of proportion for one
+metric. The concrete next step, once such a dependency is deliberately added under its own ADR, is
+promoting this same computed value into a Crashlytics custom key or a Performance trace attribute; no
+new computation would be needed, only a new sink.
 
 ## 14. SLOs
 

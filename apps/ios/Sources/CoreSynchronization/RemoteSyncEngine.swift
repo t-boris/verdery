@@ -1,5 +1,6 @@
 import CoreDomain
 import CoreNetworking
+import CoreObservability
 import CorePersistence
 import Foundation
 
@@ -88,6 +89,14 @@ public actor RemoteSyncEngine: SyncEngine {
     /// tests (this stage's own testing requirement: "deterministic, not
     /// flaky").
     let randomUnitInterval: @Sendable () -> Double
+    /// Privacy-safe local diagnostics — the same `DiagnosticLog` protocol
+    /// every `CoreNetworking` gateway already takes, applied here for the one
+    /// sync metric only the device can observe: outbox backlog age (see
+    /// `logOutboxBacklogAge()`'s own doc comment for why this is a local log
+    /// record rather than a Crashlytics/Firebase Performance event). Defaults
+    /// to `NoOperationDiagnosticLog()`, the same default every gateway
+    /// initializer uses, so existing call sites need no change.
+    let log: any DiagnosticLog
 
     /// Registration is a one-time-per-process step, not per push cycle: the
     /// endpoint is a "register or refresh" idempotent `PUT`
@@ -145,7 +154,8 @@ public actor RemoteSyncEngine: SyncEngine {
         now: @escaping @Sendable () -> Date = Date.init,
         generateConflictId: @escaping @Sendable () -> String = UUIDv7.generate,
         generateOperationId: @escaping @Sendable () -> String = UUIDv7.generate,
-        randomUnitInterval: @escaping @Sendable () -> Double = { Double.random(in: 0..<1) }
+        randomUnitInterval: @escaping @Sendable () -> Double = { Double.random(in: 0..<1) },
+        log: any DiagnosticLog = NoOperationDiagnosticLog()
     ) {
         self.outboxStore = outboxStore
         self.conflictStore = conflictStore
@@ -163,6 +173,7 @@ public actor RemoteSyncEngine: SyncEngine {
         self.generateConflictId = generateConflictId
         self.generateOperationId = generateOperationId
         self.randomUnitInterval = randomUnitInterval
+        self.log = log
     }
 
     /// Submits every eligible pending outbox operation in one bounded batch.
@@ -191,6 +202,7 @@ public actor RemoteSyncEngine: SyncEngine {
     /// `retryState` can express "the whole batch just failed together."
     public func pushPending() async throws {
         try await ensureClientRegistered()
+        try await logOutboxBacklogAge()
 
         guard SyncBackoff.isEligible(
             attemptCount: pushFailureGate?.attemptCount ?? 0,
@@ -261,6 +273,41 @@ public actor RemoteSyncEngine: SyncEngine {
             pushFailureGate = nil
             try await refreshIdleStatus()
         }
+    }
+
+    /// Logs the oldest pending outbox operation's age, once per
+    /// `pushPending()` call — architecture/observability-and-analytics.md,
+    /// section "7. Service Metrics" → "Synchronization": "Outbox backlog age
+    /// on devices through privacy-safe summaries." This is the one sync
+    /// metric only the device can observe directly: a pending operation, by
+    /// definition, has not reached the server yet, so no server-side log can
+    /// ever carry it.
+    ///
+    /// Recorded through `CoreObservability.DiagnosticLog` (the local
+    /// unified-logging record every `CoreNetworking` gateway already uses),
+    /// not a Crashlytics/Firebase Performance event: confirmed by inspection
+    /// of `Package.swift` that this codebase has neither dependency wired
+    /// today — only `FirebaseAuth`/`FirebaseAppCheck`/`FirebaseCore` are
+    /// declared — and architecture/observability-and-analytics.md section 8's
+    /// own Crashlytics destination is accordingly out of proportion to add
+    /// for one metric (a new third-party SDK dependency needs its own ADR
+    /// under this repository's dependency rule, not a side effect of an
+    /// observability work package). The count and duration logged here are
+    /// exactly the kind of "privacy-safe summary" section 7 asks for — never
+    /// the operation's `commandType`, `payload`, or `targetRecordIds`.
+    private func logOutboxBacklogAge() async throws {
+        let pending = try await outboxStore.fetchAll()
+        guard let oldestCreatedAt = pending.map(\.createdAt).min() else {
+            log.record(.info, "Sync outbox backlog: empty.", correlationId: nil)
+            return
+        }
+
+        let ageSeconds = Int(now().timeIntervalSince(oldestCreatedAt).rounded())
+        log.record(
+            .info,
+            "Sync outbox backlog: \(pending.count) pending, oldest age \(ageSeconds)s.",
+            correlationId: nil
+        )
     }
 
     /// Every pending operation whose backoff window (if any) has elapsed —

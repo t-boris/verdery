@@ -100,6 +100,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   let db: Kysely<DatabaseSchema>;
   let tokenVerifier: FakeTokenVerifier;
   let app: FastifyInstance;
+  let logRecords: string[];
 
   beforeAll(async () => {
     container = await new PostgreSqlContainer(POSTGIS_IMAGE).withPlatform(POSTGIS_PLATFORM).start();
@@ -124,7 +125,12 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     };
 
     tokenVerifier = new FakeTokenVerifier();
-    app = await buildTestApplication({ database, tokenVerifier });
+    logRecords = [];
+    app = await buildTestApplication({
+      database,
+      tokenVerifier,
+      onLogRecord: (record) => logRecords.push(record),
+    });
   });
 
   afterAll(async () => {
@@ -132,6 +138,14 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     await db.destroy();
     await container?.stop();
   });
+
+  /** The most recently logged record whose `event` field matches — parsed, not a raw string search. */
+  function lastLogEvent(event: string): Record<string, unknown> | undefined {
+    const matches = logRecords
+      .map((record) => JSON.parse(record) as Record<string, unknown>)
+      .filter((parsed) => parsed['event'] === event);
+    return matches.at(-1);
+  }
 
   function bearer(token: string): { authorization: string } {
     return { authorization: `Bearer ${token}` };
@@ -220,6 +234,15 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       expect(response.statusCode).toBe(400);
     });
 
+    // No HTTP-level test for the `409 sync.protocol_version.unsupported`
+    // response here either, for the identical reason the client-registration
+    // `describe` block above documents: `protocolVersion` carries
+    // `minimum: 1` on the wire, so no structurally valid request can reach
+    // it today. `tests/integration/synchronization.test.ts` proves
+    // `PushSyncOperations.execute` itself raises the right error, calling it
+    // directly and bypassing request parsing, the same way that file's
+    // pull-side equivalent already does for `GetSyncChanges`.
+
     it('accepts a garden rename operation and returns 200 with an accepted result', async () => {
       const { token, garden } = await createGardenAsOwner();
       const operationId = generateUuidV7();
@@ -263,6 +286,20 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
           ],
         },
       ]);
+
+      // P5-OBS-01: one aggregate-count log line per batch, no operation
+      // payloads — see sync-routes.ts's own header comment.
+      const logged = lastLogEvent('sync.push.completed');
+      expect(logged).toMatchObject({
+        protocolVersion: 1,
+        operationCount: 1,
+        accepted: 1,
+        duplicate: 0,
+        rejected: 0,
+        conflict: 0,
+        blockedByDependency: 0,
+        retryLater: 0,
+      });
     });
 
     it('never fails the whole batch for a per-operation domain problem — always 200', async () => {
@@ -298,6 +335,11 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
       expect(response.statusCode).toBe(200);
       expect(asPushResult(response).results[0]).toMatchObject({ outcome: 'conflict' });
+
+      expect(lastLogEvent('sync.push.completed')).toMatchObject({
+        accepted: 0,
+        conflict: 1,
+      });
     });
   });
 
@@ -338,6 +380,44 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
         ]),
       );
       expect(typeof body.nextCursor).toBe('string');
+
+      // P5-OBS-01: page size and lag, no record content — see sync-routes.ts's
+      // own header comment. `pullLagMilliseconds` is present (the page is not
+      // empty) and non-negative — the exact value depends on real wall-clock
+      // timing between the write and this read, so only its shape is checked.
+      const logged = lastLogEvent('sync.pull.completed');
+      expect(logged).toMatchObject({ protocolVersion: 1, cursorPresent: false });
+      expect(logged?.['pageSize']).toBeGreaterThanOrEqual(1);
+      expect(logged?.['pullLagMilliseconds']).toBeGreaterThanOrEqual(0);
+    });
+
+    it('logs sync.pull.rejected, not sync.pull.completed, when the cursor cannot be decoded', async () => {
+      const { token } = await createGardenAsOwner();
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/v1/sync/changes?protocolVersion=1&after=not-a-valid-cursor',
+        headers: bearer(token),
+      });
+
+      // Same `SharedErrorCode.RequestInvalid` (`request.invalid`, with a
+      // `request.cursor.invalid` detail pointer at `/after`) `ValidationError`
+      // `decodeSyncChangesCursor` raises for any malformed `after` — not the
+      // two stable full-resync `409` codes (`sync.changes.cursor_expired`/
+      // `sync.protocol_version.unsupported`), which this suite's own earlier
+      // comment already establishes are unreachable through real HTTP request
+      // parsing today and are instead proven directly by
+      // `tests/integration/synchronization-pull.test.ts`. This still proves
+      // the same `sync.pull.rejected` logging path fires on a real
+      // `ApplicationError` thrown from `GetSyncChanges.execute()`.
+      expect(response.statusCode).toBe(400);
+
+      const rejected = lastLogEvent('sync.pull.rejected');
+      expect(rejected).toMatchObject({
+        protocolVersion: 1,
+        cursorPresent: true,
+        errorCode: 'request.invalid',
+      });
     });
 
     it('rejects protocolVersion 0 with 400 before it ever reaches the protocol-window guard', async () => {

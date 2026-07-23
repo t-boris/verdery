@@ -294,7 +294,8 @@ public final class AppCompositionRoot {
                 clientInstallationStore: clientInstallationStore,
                 cursorStore: GRDBSyncCursorStore(dbQueue: dbQueue),
                 appliers: appliers,
-                appVersion: Self.currentAppVersion
+                appVersion: Self.currentAppVersion,
+                log: log
             )
         } catch {
             log.record(.error, "Could not open the local synchronization database; falling back to an in-memory outbox.")
@@ -306,7 +307,8 @@ public final class AppCompositionRoot {
                 clientInstallationStore: clientInstallationStore,
                 cursorStore: InMemorySyncCursorStore(),
                 appliers: appliers,
-                appVersion: Self.currentAppVersion
+                appVersion: Self.currentAppVersion,
+                log: log
             )
         }
     }

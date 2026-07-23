@@ -65,6 +65,7 @@ import {
 } from './sync-push-idempotency.js';
 import type { SyncOperationOutcome } from './sync-operation-outcome.js';
 import type { SyncOperationRouter } from './sync-operation-router.js';
+import { requireSupportedSyncProtocolVersion } from './sync-protocol-version.js';
 
 interface OrderableOperation extends DependencyAwareOperation {
   readonly operation: SyncOperation;
@@ -132,6 +133,14 @@ export class PushSyncOperations {
   ) {}
 
   async execute(profileId: Uuid, request: SyncPushRequest): Promise<SyncPushResult> {
+    // The OpenAPI operation's own `409` response documents
+    // `sync.protocol_version.unsupported` for push, identically to
+    // `GetSyncChanges`'s own check below it — this call was missing
+    // entirely until found while verifying P5-OBS-01's new protocol-version
+    // logging, which is what makes an unsupported version visible at all
+    // now that it is actually rejected instead of silently processed.
+    requireSupportedSyncProtocolVersion(request.protocolVersion);
+
     // Phase 1: resolve every operation's own durable outcome, if any, before
     // any dependency evaluation — an operation already durably decided
     // (in this batch's own idempotency store, from a prior push) needs no

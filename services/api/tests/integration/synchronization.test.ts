@@ -303,6 +303,25 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     });
   });
 
+  it('rejects protocolVersion below the supported window with sync.protocol_version.unsupported', async () => {
+    // Mirrors synchronization-pull.test.ts's identical test for
+    // GetSyncChanges: PushSyncOperations.execute is missing this exact
+    // guard call, despite the OpenAPI operation's own `409` response
+    // documenting it identically to the pull endpoint's — found and fixed
+    // while verifying P5-OBS-01's new protocol-version logging. Currently
+    // unreachable over real HTTP the same way pull's own equivalent test
+    // notes (`protocolVersion` carries `minimum: 1` on the wire, the
+    // current floor), so this calls `execute` directly, bypassing request
+    // parsing, the same way the pull-side test already does.
+    const now = new Date('2026-07-21T09:28:00Z');
+    const { ownerId } = await createGardenWithOwner(now);
+    const harness = buildSyncTestHarness(db, fixedClock(now));
+
+    await expect(
+      harness.pushSyncOperations.execute(ownerId, { ...pushRequest([]), protocolVersion: 0 }),
+    ).rejects.toMatchObject({ code: 'sync.protocol_version.unsupported' });
+  });
+
   it('registers a new client installation and refreshes it on a second call', async () => {
     const now = new Date('2026-07-21T09:30:00Z');
     const ownerId = generateUuidV7();
