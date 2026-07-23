@@ -237,8 +237,10 @@ public enum LocalizationKey: String, Sendable, CaseIterable {
     // Map editor: persistent save-status indicator (P3-UX-01) — richer than
     // `errorMessage`'s one-shot display, see `MapSaveStatus`.
     case mapSaveStatusSaving = "map.saveStatus.saving"
+    case mapSaveStatusSavedLocally = "map.saveStatus.savedLocally"
     case mapSaveStatusSaved = "map.saveStatus.saved"
     case mapSaveStatusFailed = "map.saveStatus.failed"
+    case mapErrorLocalCommandFailed = "map.error.localCommandFailed"
 
     // Plants: entry point (add/open), taxonomy search, and detail screen
     // (P4-IOS-01).

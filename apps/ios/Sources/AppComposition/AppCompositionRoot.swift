@@ -137,10 +137,14 @@ public final class AppCompositionRoot {
     }
 
     public func makeMapEditorViewModel(gardenId: String) -> MapEditorViewModel {
-        MapEditorViewModel(
+        let store = localMapStore()
+        let profileId = currentProfileIdentifier()
+
+        return MapEditorViewModel(
             gardenId: gardenId,
-            loadGardenMap: LoadGardenMap(gateway: mapGateway),
+            loadGardenMap: LoadGardenMap(gateway: mapGateway, localStore: store),
             submitMapCommand: SubmitMapCommand(gateway: mapGateway),
+            applyMapCommandOffline: ApplyMapCommandOffline(localStore: store, profileId: profileId),
             strings: strings
         )
     }
@@ -210,6 +214,22 @@ public final class AppCompositionRoot {
         } catch {
             log.record(.error, "Could not open the local garden database; falling back to an in-memory store.")
             return InMemoryGardenStore()
+        }
+    }
+
+    /// Same database file, same fallback behavior as `localGardenStore()` —
+    /// `garden` and `garden_object` are two tables in the one per-profile
+    /// database `LocalDatabase.open` manages, per
+    /// `LocalDatabase+MapObjectMigration.swift`'s own doc comment.
+    private func localMapStore() -> any LocalMapStore {
+        let profileIdentifier = currentProfileIdentifier()
+
+        do {
+            let dbQueue = try LocalDatabase.open(profileIdentifier: profileIdentifier)
+            return GRDBMapStore(dbQueue: dbQueue)
+        } catch {
+            log.record(.error, "Could not open the local map database; falling back to an in-memory store.")
+            return InMemoryMapStore()
         }
     }
 

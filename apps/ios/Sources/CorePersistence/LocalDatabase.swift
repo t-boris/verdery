@@ -90,6 +90,7 @@ public enum LocalDatabase {
         }
 
         registerSynchronizationMigrations(on: &migrator)
+        registerMapObjectMigration(on: &migrator)
 
         return migrator
     }

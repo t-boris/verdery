@@ -107,10 +107,12 @@ struct MapEditorViewModelTests {
     }
 
     private func makeModel(gateway: FakeMapGateway) -> MapEditorViewModel {
-        MapEditorViewModel(
+        let localStore = InMemoryMapStore()
+        return MapEditorViewModel(
             gardenId: "garden-1",
-            loadGardenMap: LoadGardenMap(gateway: gateway),
+            loadGardenMap: LoadGardenMap(gateway: gateway, localStore: localStore),
             submitMapCommand: SubmitMapCommand(gateway: gateway),
+            applyMapCommandOffline: ApplyMapCommandOffline(localStore: localStore, profileId: "profile-1"),
             strings: LocalizedStrings(locale: Locale(identifier: "en_GB"))
         )
     }
@@ -139,10 +141,12 @@ struct MapEditorViewModelTests {
             }
         }
 
+        let localStore = InMemoryMapStore()
         let model = MapEditorViewModel(
             gardenId: "garden-1",
-            loadGardenMap: LoadGardenMap(gateway: AlwaysFailingGateway()),
+            loadGardenMap: LoadGardenMap(gateway: AlwaysFailingGateway(), localStore: localStore),
             submitMapCommand: SubmitMapCommand(gateway: AlwaysFailingGateway()),
+            applyMapCommandOffline: ApplyMapCommandOffline(localStore: localStore, profileId: "profile-1"),
             strings: LocalizedStrings(locale: Locale(identifier: "en_GB"))
         )
         await model.load()
@@ -169,7 +173,7 @@ struct MapEditorViewModelTests {
         #expect(renderedIds(model).count == 1)
     }
 
-    @Test("A completed object drag commits exactly one moveObject command and updates the object's position")
+    @Test("A completed object drag commits locally and updates the object's position, with no gateway call")
     func dragCommitsMove() async {
         let gateway = FakeMapGateway(objects: [tree()])
         let model = makeModel(gateway: gateway)
@@ -177,11 +181,12 @@ struct MapEditorViewModelTests {
 
         await model.handleObjectDragEnded(objectId: "tree-1", translationScreen: CGSize(width: 100, height: 0))
 
-        #expect(gateway.submittedCommands.count == 1)
-        guard case .moveObject = gateway.submittedCommands.first else {
-            Issue.record("Expected exactly one moveObject command")
-            return
-        }
+        // P5-IOS-02 (Stage 4b): the offline commit path never touches the
+        // gateway — a passing suite proves no network call happens, matching
+        // `FeatureGardensTests.GardenOfflineMutationTests`'s identical
+        // approach.
+        #expect(gateway.submittedCommands.isEmpty)
+        #expect(model.saveStatus == .savedLocally)
 
         guard case let .loaded(snapshot) = model.state, let moved = snapshot.objects.first else {
             Issue.record("Expected a loaded object")
@@ -262,24 +267,43 @@ struct MapEditorViewModelTests {
         #expect(abs(position(of: "tree-1", in: model)!.x - movedX) < 0.0001)
     }
 
-    @Test("A stale local revision fails the command without corrupting the undo stack")
-    func staleRevisionSurfacesErrorWithoutRecordingUndo() async {
-        let gateway = FakeMapGateway(objects: [tree(revision: 1)])
-        let model = makeModel(gateway: gateway)
-        await model.load()
+    /// A `LocalMapStore` that always fails to commit — standing in for a
+    /// local persistence failure (the new, actual failure surface for a
+    /// command now that it never reaches the gateway at all; see
+    /// `dragCommitsMove`'s doc comment on why a stale server revision can no
+    /// longer be what causes `submit` to fail from this call path).
+    private struct AlwaysFailingLocalMapStore: LocalMapStore {
+        func fetchAll(gardenId: String) async throws -> [GardenMapObject] { [] }
+        func replaceAll(gardenId: String, with objects: [GardenMapObject]) async throws {}
+        func commitOfflineMutation(
+            gardenId: String,
+            command: @Sendable (_ current: [String: GardenMapObject]) throws -> (
+                projections: [GardenMapObject], operation: OutboxOperation
+            )
+        ) async throws -> [GardenMapObject] {
+            throw MapCommandError.objectNotFound(objectId: "tree-1")
+        }
+    }
 
-        // Simulate a concurrent edit from elsewhere: bump the server's
-        // revision without the view model knowing.
-        _ = try? await gateway.submitCommand(
+    @Test("A local commit failure surfaces an error without corrupting the undo stack")
+    func localCommitFailureSurfacesErrorWithoutRecordingUndo() async {
+        let gateway = FakeMapGateway(objects: [tree(revision: 1)])
+        let model = MapEditorViewModel(
             gardenId: "garden-1",
-            command: .changeProperties(ChangePropertiesPayload(objectId: "tree-1", expectedRevision: 1, label: "Elsewhere")),
-            idempotencyKey: "external"
+            loadGardenMap: LoadGardenMap(gateway: gateway, localStore: InMemoryMapStore()),
+            submitMapCommand: SubmitMapCommand(gateway: gateway),
+            applyMapCommandOffline: ApplyMapCommandOffline(localStore: AlwaysFailingLocalMapStore(), profileId: "profile-1"),
+            strings: LocalizedStrings(locale: Locale(identifier: "en_GB"))
         )
+        await model.load()
 
         await model.handleObjectDragEnded(objectId: "tree-1", translationScreen: CGSize(width: 50, height: 0))
 
         #expect(model.errorMessage != nil)
+        #expect(model.saveStatus == .failed)
         #expect(!model.canUndo)
+        // No command ever reaches the gateway on this path either.
+        #expect(gateway.submittedCommands.isEmpty)
     }
 
     private func position(of objectId: String, in model: MapEditorViewModel) -> Position? {

@@ -1,16 +1,18 @@
 import CoreDomain
 import CoreGraphics
-import CoreNetworking
 
 /// Selection, creation, movement, property editing, delete, and restore.
 ///
-/// Every method here submits exactly one command and, only once the server
-/// confirms it, folds the result into local state — this pass has no
-/// optimistic local mutation, so a rejected or dropped request never leaves
-/// the canvas showing a change the server did not actually make. The
-/// trade-off is a brief round trip before the UI updates; wiring an
-/// optimistic-then-reconcile path is future polish, not correctness this
-/// pass depends on.
+/// Every method here submits exactly one command through
+/// `submit(_:undoBeforeSnapshot:onSuccess:)`, which — as of P5-IOS-02 (Stage
+/// 4b) — commits it as one atomic local transaction
+/// (`MapEditorViewModel.applyMapCommandOffline`) and folds the result into
+/// local state immediately, no network round trip. Before this stage, this
+/// same method waited on a real server response first ("this pass has no
+/// optimistic local mutation"); seeing the object move/appear/disappear
+/// immediately, before any sync has happened, is now the correct, honestly-
+/// scoped behavior — see `MapSaveStatus.savedLocally`'s doc comment for how
+/// the UI represents that this is a local save, not a confirmed one.
 extension MapEditorViewModel {
     public func handleCanvasTap(atScreen point: CGPoint) async {
         if let category = armedCreateCategory {
@@ -222,13 +224,14 @@ extension MapEditorViewModel {
 
     /// Submits a user-initiated command (never an undo/redo resubmission —
     /// see `MapEditorViewModelUndoRedo.swift`, which manages the stack
-    /// itself), folds the confirmed result into local state, and records an
-    /// undo entry.
+    /// itself), folds the locally-committed result into local state, and
+    /// records an undo entry.
     ///
     /// Also drives ``MapEditorViewModel/saveStatus`` — `.saving` for the
-    /// duration of the request, then `.saved` or `.failed` depending on the
-    /// outcome. `.failed` is left standing (not reset to `.idle`) until the
-    /// next command actually succeeds, per ``MapSaveStatus``'s doc comment.
+    /// duration of the local commit, then `.savedLocally` or `.failed`
+    /// depending on the outcome. `.failed` is left standing (not reset to
+    /// `.idle`) until the next command actually succeeds, per
+    /// ``MapSaveStatus``'s doc comment.
     func submit(
         _ command: MapCommandPayload,
         undoBeforeSnapshot: ObjectSnapshot?,
@@ -239,10 +242,25 @@ extension MapEditorViewModel {
         errorMessage = nil
         defer { isSubmitting = false }
 
+        // Only unset before the first `load()` completes; every entry point
+        // that can reach `submit` already requires a loaded document first.
+        // A real early return here, not a force-unwrap, matching
+        // `MapCommandError`'s own "not reachable through the shipped UI
+        // today, kept as a tested failure mode" posture.
+        guard let coordinateSpaceId else {
+            errorMessage = strings(.mapErrorLocalCommandFailed)
+            saveStatus = .failed
+            return
+        }
+
         do {
-            let result = try await submitMapCommand(gardenId: gardenId, command: command)
-            saveStatus = .saved
-            guard let target = foldAffectedObjects(result.affectedObjects) else { return }
+            let affectedObjects = try await applyMapCommandOffline(
+                gardenId: gardenId,
+                coordinateSpaceId: coordinateSpaceId,
+                command: command
+            )
+            saveStatus = .savedLocally
+            guard let target = foldAffectedObjects(affectedObjects) else { return }
 
             undoStack.recordAccepted(
                 MapUndoEntry(
@@ -253,11 +271,8 @@ extension MapEditorViewModel {
                 )
             )
             onSuccess?(target)
-        } catch let error as APIGatewayError {
-            errorMessage = message(for: error)
-            saveStatus = .failed
         } catch {
-            errorMessage = strings(.serverUnexpected)
+            errorMessage = strings(.mapErrorLocalCommandFailed)
             saveStatus = .failed
         }
     }

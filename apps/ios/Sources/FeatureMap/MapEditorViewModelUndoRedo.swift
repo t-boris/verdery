@@ -1,9 +1,8 @@
 import CoreDomain
-import CoreNetworking
 
 /// Undo and redo: submit ``MapUndoStack``'s computed inverse command through
-/// the same gateway path as any other edit, then report the confirmed result
-/// back to the stack. Neither method mutates `undoStack` on failure — an
+/// the same local commit path as any other edit, then report the result back
+/// to the stack. Neither method mutates `undoStack` on failure — an
 /// unconfirmed submission must not advance either stack, or a retry would
 /// invert a change that was never actually reverted.
 extension MapEditorViewModel {
@@ -25,8 +24,8 @@ extension MapEditorViewModel {
 
     /// Drives ``MapEditorViewModel/saveStatus`` the same way
     /// `MapEditorViewModelEditing.submit(_:undoBeforeSnapshot:onSuccess:)`
-    /// does — undo/redo is a real command submission through the same
-    /// gateway path as any other edit, so it reports the same save status.
+    /// does — undo/redo is a real command submission through the same local
+    /// commit path as any other edit, so it reports the same save status.
     private func submitUndoRedo(
         _ command: MapCommandPayload,
         confirm: (ObjectSnapshot?, Int) -> Void
@@ -36,17 +35,24 @@ extension MapEditorViewModel {
         errorMessage = nil
         defer { isSubmitting = false }
 
+        guard let coordinateSpaceId else {
+            errorMessage = strings(.mapErrorLocalCommandFailed)
+            saveStatus = .failed
+            return
+        }
+
         do {
-            let result = try await submitMapCommand(gardenId: gardenId, command: command)
-            saveStatus = .saved
-            guard let target = foldAffectedObjects(result.affectedObjects) else { return }
+            let affectedObjects = try await applyMapCommandOffline(
+                gardenId: gardenId,
+                coordinateSpaceId: coordinateSpaceId,
+                command: command
+            )
+            saveStatus = .savedLocally
+            guard let target = foldAffectedObjects(affectedObjects) else { return }
 
             confirm(target.snapshot, target.revision)
-        } catch let error as APIGatewayError {
-            errorMessage = message(for: error)
-            saveStatus = .failed
         } catch {
-            errorMessage = strings(.serverUnexpected)
+            errorMessage = strings(.mapErrorLocalCommandFailed)
             saveStatus = .failed
         }
     }

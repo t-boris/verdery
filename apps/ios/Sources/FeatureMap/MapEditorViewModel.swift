@@ -7,23 +7,19 @@ import Observation
 /// View model for the map editor: rendering data, selection, viewport,
 /// undo/redo, and every editing command this pass wires up.
 ///
-/// No local GRDB cache backs this view model, unlike `GardensListViewModel`.
-/// Nearly every map command payload carries an `expectedRevision` (see
-/// `CoreDomain/Map/MapCommandPayloads.swift`) — optimistic concurrency the
-/// backend enforces on purpose — and the undo stack's correctness depends on
-/// knowing the *exact* revision the server last assigned. A locally cached,
-/// possibly-stale revision would turn every command into a coin flip on a
-/// `409`/`412` instead of the deliberate check the backend performs; the
-/// garden list's cache exists to make a list feel instant before a network
-/// round trip resolves, and there is no equivalent value here — the editor
-/// cannot let a user start moving shapes against data it cannot vouch is
-/// current, and it cannot draw anything before the first `GET .../map`
-/// completes regardless of a cache. Offline editing with a local outbox is
-/// explicitly out of scope for this pass (architecture/offline-
-/// synchronization.md), so "always fresh from server" is the whole caching
-/// policy, not a placeholder for a fuller one.
+/// Reads are still always fresh from the server, never cache-first — see
+/// `LoadGardenMap`'s doc comment for why the reasoning that originally
+/// justified this ("nearly every map command payload carries an
+/// `expectedRevision`... a locally cached, possibly-stale revision would turn
+/// every command into a coin flip on a `409`/`412`") still holds even now
+/// that a local `garden_object` table exists behind it (P5-IOS-02, Stage 4b).
+/// What changed in that stage is the *write* path: every command below now
+/// commits through `applyMapCommandOffline` — one atomic local transaction,
+/// no network call — instead of waiting on `submitMapCommand`'s round trip;
+/// see `MapEditorViewModelEditing.submit`'s own doc comment.
 ///
-/// Source: implementation-plan.md work packages P3-IOS-01, P3-IOS-02.
+/// Source: implementation-plan.md work packages P3-IOS-01, P3-IOS-02,
+/// P5-IOS-02.
 @MainActor
 @Observable
 public final class MapEditorViewModel {
@@ -88,11 +84,19 @@ public final class MapEditorViewModel {
     let gardenId: String
     let loadGardenMap: LoadGardenMap
     let submitMapCommand: SubmitMapCommand
+    let applyMapCommandOffline: ApplyMapCommandOffline
     let strings: LocalizedStrings
 
     var objectsById: [String: GardenMapObject] = [:]
     var orderedObjectIds: [String] = []
     var undoStack = MapUndoStack()
+    /// Set from the document's `coordinateSpaceId` on every `load()` —
+    /// `createObject`/`duplicateObject`'s offline projection needs this to
+    /// build a brand-new `GardenMapObject` without a network call (the online
+    /// path instead has the server derive it lazily; see
+    /// `create-map-object.ts`'s own doc comment). `nil` only before the first
+    /// `load()` completes, exactly like `georeference` just below.
+    var coordinateSpaceId: String?
     private var hasFitInitialViewport = false
     private var viewportSize = CGSize.zero
 
@@ -100,11 +104,13 @@ public final class MapEditorViewModel {
         gardenId: String,
         loadGardenMap: LoadGardenMap,
         submitMapCommand: SubmitMapCommand,
+        applyMapCommandOffline: ApplyMapCommandOffline,
         strings: LocalizedStrings
     ) {
         self.gardenId = gardenId
         self.loadGardenMap = loadGardenMap
         self.submitMapCommand = submitMapCommand
+        self.applyMapCommandOffline = applyMapCommandOffline
         self.strings = strings
     }
 
@@ -170,6 +176,7 @@ public final class MapEditorViewModel {
     public var disclosureDismissTitle: String { strings(.mapDisclosureDismiss) }
 
     public var saveStatusSavingText: String { strings(.mapSaveStatusSaving) }
+    public var saveStatusSavedLocallyText: String { strings(.mapSaveStatusSavedLocally) }
     public var saveStatusSavedText: String { strings(.mapSaveStatusSaved) }
     public var saveStatusFailedText: String { strings(.mapSaveStatusFailed) }
 
@@ -265,6 +272,7 @@ public final class MapEditorViewModel {
             orderedObjectIds = document.objects.map(\.id)
             georeference = document.georeference
             validationSummary = document.validationSummary
+            coordinateSpaceId = document.coordinateSpaceId
             undoStack = MapUndoStack()
             hasFitInitialViewport = false
             refreshRenderState()

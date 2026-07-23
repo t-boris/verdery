@@ -32,12 +32,43 @@ struct MapEditorViewModelSaveStatusTests {
     }
 
     private func makeModel(gateway: FakeMapGateway) -> MapEditorViewModel {
-        MapEditorViewModel(
+        let localStore = InMemoryMapStore()
+        return MapEditorViewModel(
             gardenId: "garden-1",
-            loadGardenMap: LoadGardenMap(gateway: gateway),
+            loadGardenMap: LoadGardenMap(gateway: gateway, localStore: localStore),
             submitMapCommand: SubmitMapCommand(gateway: gateway),
+            applyMapCommandOffline: ApplyMapCommandOffline(localStore: localStore, profileId: "profile-1"),
             strings: LocalizedStrings(locale: Locale(identifier: "en_GB"))
         )
+    }
+
+    /// A `LocalMapStore` that can be toggled to fail every
+    /// `commitOfflineMutation` call, delegating to a real `InMemoryMapStore`
+    /// otherwise — lets a test force the local-commit failure path
+    /// (`.failed`) and then a real subsequent success (`.savedLocally`)
+    /// without needing a gateway at all, since P5-IOS-02's offline commit
+    /// path never reaches one.
+    private final class ToggleableLocalMapStore: LocalMapStore, @unchecked Sendable {
+        private let inner = InMemoryMapStore()
+        var shouldFail = false
+
+        func fetchAll(gardenId: String) async throws -> [GardenMapObject] {
+            try await inner.fetchAll(gardenId: gardenId)
+        }
+
+        func replaceAll(gardenId: String, with objects: [GardenMapObject]) async throws {
+            try await inner.replaceAll(gardenId: gardenId, with: objects)
+        }
+
+        func commitOfflineMutation(
+            gardenId: String,
+            command: @Sendable (_ current: [String: GardenMapObject]) throws -> (
+                projections: [GardenMapObject], operation: OutboxOperation
+            )
+        ) async throws -> [GardenMapObject] {
+            guard !shouldFail else { throw MapCommandError.objectNotFound(objectId: "tree-1") }
+            return try await inner.commitOfflineMutation(gardenId: gardenId, command: command)
+        }
     }
 
     @Test("saveStatus starts idle, before any command has been submitted")
@@ -48,31 +79,31 @@ struct MapEditorViewModelSaveStatusTests {
         #expect(model.saveStatus == .idle)
     }
 
-    @Test("A successful command settles saveStatus to saved")
-    func successfulCommandSettlesToSaved() async {
-        let model = makeModel(gateway: FakeMapGateway(objects: [tree()]))
+    @Test("A successful command settles saveStatus to savedLocally, with no gateway call")
+    func successfulCommandSettlesToSavedLocally() async {
+        let gateway = FakeMapGateway(objects: [tree()])
+        let model = makeModel(gateway: gateway)
         await model.load()
 
         await model.handleObjectDragEnded(objectId: "tree-1", translationScreen: CGSize(width: 50, height: 0))
 
-        #expect(model.saveStatus == .saved)
+        #expect(model.saveStatus == .savedLocally)
+        #expect(gateway.submittedCommands.isEmpty)
     }
 
-    @Test("A rejected command sets saveStatus to failed and it persists — unlike errorMessage, a later unrelated read does not clear it")
-    func rejectedCommandPersistsAsFailed() async {
+    @Test("A local commit failure sets saveStatus to failed and it persists — unlike errorMessage, a later unrelated read does not clear it")
+    func localFailurePersistsAsFailed() async {
         let gateway = FakeMapGateway(objects: [tree(revision: 1)])
-        let model = makeModel(gateway: gateway)
-        await model.load()
-
-        // Simulate a concurrent edit from elsewhere, forcing this view
-        // model's next command to fail on a stale `expectedRevision` — the
-        // same setup `MapEditorViewModelTests.staleRevisionSurfacesErrorWithoutRecordingUndo`
-        // uses.
-        _ = try? await gateway.submitCommand(
+        let store = ToggleableLocalMapStore()
+        let model = MapEditorViewModel(
             gardenId: "garden-1",
-            command: .changeProperties(ChangePropertiesPayload(objectId: "tree-1", expectedRevision: 1, label: "Elsewhere")),
-            idempotencyKey: "external"
+            loadGardenMap: LoadGardenMap(gateway: gateway, localStore: store),
+            submitMapCommand: SubmitMapCommand(gateway: gateway),
+            applyMapCommandOffline: ApplyMapCommandOffline(localStore: store, profileId: "profile-1"),
+            strings: LocalizedStrings(locale: Locale(identifier: "en_GB"))
         )
+        await model.load()
+        store.shouldFail = true
 
         await model.handleObjectDragEnded(objectId: "tree-1", translationScreen: CGSize(width: 50, height: 0))
 
@@ -86,25 +117,26 @@ struct MapEditorViewModelSaveStatusTests {
         #expect(model.saveStatus == .failed)
     }
 
-    @Test("Once a later command succeeds, saveStatus moves on from failed to saved")
+    @Test("Once a later command succeeds, saveStatus moves on from failed to savedLocally")
     func laterSuccessClearsFailedStatus() async {
         let gateway = FakeMapGateway(objects: [tree(revision: 1)])
-        let model = makeModel(gateway: gateway)
+        let store = ToggleableLocalMapStore()
+        let model = MapEditorViewModel(
+            gardenId: "garden-1",
+            loadGardenMap: LoadGardenMap(gateway: gateway, localStore: store),
+            submitMapCommand: SubmitMapCommand(gateway: gateway),
+            applyMapCommandOffline: ApplyMapCommandOffline(localStore: store, profileId: "profile-1"),
+            strings: LocalizedStrings(locale: Locale(identifier: "en_GB"))
+        )
         await model.load()
 
-        _ = try? await gateway.submitCommand(
-            gardenId: "garden-1",
-            command: .changeProperties(ChangePropertiesPayload(objectId: "tree-1", expectedRevision: 1, label: "Elsewhere")),
-            idempotencyKey: "external"
-        )
+        store.shouldFail = true
         await model.handleObjectDragEnded(objectId: "tree-1", translationScreen: CGSize(width: 50, height: 0))
         #expect(model.saveStatus == .failed)
 
-        // Reload to pick up the real current revision, then submit a command
-        // that actually succeeds.
-        await model.load()
+        store.shouldFail = false
         await model.duplicate(objectId: "tree-1")
 
-        #expect(model.saveStatus == .saved)
+        #expect(model.saveStatus == .savedLocally)
     }
 }

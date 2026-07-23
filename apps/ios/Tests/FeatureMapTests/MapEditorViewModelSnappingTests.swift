@@ -55,10 +55,12 @@ struct MapEditorViewModelSnappingTests {
     }
 
     private func makeModel(gateway: FakeMapGateway) -> MapEditorViewModel {
-        MapEditorViewModel(
+        let localStore = InMemoryMapStore()
+        return MapEditorViewModel(
             gardenId: "garden-1",
-            loadGardenMap: LoadGardenMap(gateway: gateway),
+            loadGardenMap: LoadGardenMap(gateway: gateway, localStore: localStore),
             submitMapCommand: SubmitMapCommand(gateway: gateway),
+            applyMapCommandOffline: ApplyMapCommandOffline(localStore: localStore, profileId: "profile-1"),
             strings: LocalizedStrings(locale: Locale(identifier: "en_GB"))
         )
     }

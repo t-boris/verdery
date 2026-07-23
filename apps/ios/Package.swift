@@ -170,13 +170,27 @@ let package = Package(
 
         // The map editor: SwiftUI Canvas rendering, selection, gestures,
         // commands, properties, measurement overlays, and an optional MapKit
-        // backdrop. No GRDB dependency — see `MapEditorViewModel`'s doc
-        // comment for the always-fresh-from-server caching decision.
+        // backdrop.
         //
-        // Source: implementation-plan.md work packages P3-IOS-01, P3-IOS-02.
+        // Gained a GRDB dependency in P5-IOS-02 (Stage 4b): `LocalMapStore`
+        // durably persists the local `garden_object` read model an offline
+        // command's optimistic projection commits against, the same way
+        // `FeatureGardens`'s `GRDBGardenStore` already does for `garden` —
+        // see that target's own comment just above for why `CorePersistence`
+        // centralizes the database's lifecycle/schema while the feature owns
+        // its own read-model repository directly against GRDB.
+        //
+        // Source: implementation-plan.md work packages P3-IOS-01, P3-IOS-02,
+        // P5-IOS-02.
         .target(
             name: "FeatureMap",
-            dependencies: ["CoreDomain", "CoreNetworking", "CoreLocalization"]
+            dependencies: [
+                "CoreDomain",
+                "CoreNetworking",
+                "CoreLocalization",
+                "CorePersistence",
+                .product(name: "GRDB", package: "GRDB.swift"),
+            ]
         ),
 
         // Plant inventory, observations/history, and manual tasks (Phase 4).
@@ -277,7 +291,14 @@ let package = Package(
         ),
         .testTarget(
             name: "FeatureMapTests",
-            dependencies: ["FeatureMap"]
+            dependencies: [
+                "FeatureMap",
+                // For the offline-mutation tests (P5-IOS-02): a real GRDB
+                // database via `CorePersistence.LocalDatabase.migrator`,
+                // matching `FeatureGardensTests`'s identical rationale above.
+                "CorePersistence",
+                .product(name: "GRDB", package: "GRDB.swift"),
+            ]
         ),
         .testTarget(
             name: "FeaturePlantsTests",

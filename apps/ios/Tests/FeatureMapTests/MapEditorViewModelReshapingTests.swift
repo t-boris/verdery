@@ -115,10 +115,12 @@ struct MapEditorViewModelReshapingTests {
     }
 
     private func makeModel(gateway: FakeMapGateway) -> MapEditorViewModel {
-        MapEditorViewModel(
+        let localStore = InMemoryMapStore()
+        return MapEditorViewModel(
             gardenId: "garden-1",
-            loadGardenMap: LoadGardenMap(gateway: gateway),
+            loadGardenMap: LoadGardenMap(gateway: gateway, localStore: localStore),
             submitMapCommand: SubmitMapCommand(gateway: gateway),
+            applyMapCommandOffline: ApplyMapCommandOffline(localStore: localStore, profileId: "profile-1"),
             strings: LocalizedStrings(locale: Locale(identifier: "en_GB"))
         )
     }
@@ -173,15 +175,12 @@ struct MapEditorViewModelReshapingTests {
         #expect(model.pendingGateCreationScreenPoint == nil)
         #expect(model.selectedObjectId != nil)
 
-        let gateCommandDetails = gateway.submittedCommands.compactMap { command -> GateDetails? in
-            guard case let .createObject(payload) = command, case let .gate(value)? = payload.categoryDetails else {
-                return nil
-            }
-            return value
-        }.first
-
-        guard let details = gateCommandDetails else {
-            Issue.record("Expected a createObject command carrying gate details")
+        // The offline commit path never touches the gateway (P5-IOS-02);
+        // check the locally-created object's own details instead of a
+        // gateway spy.
+        #expect(gateway.submittedCommands.isEmpty)
+        guard let newId = model.selectedObjectId, case let .gate(details)? = model.objectsById[newId]?.categoryDetails else {
+            Issue.record("Expected the created gate to carry gate details")
             return
         }
         #expect(details.fenceObjectId == "fence-1")
@@ -202,10 +201,8 @@ struct MapEditorViewModelReshapingTests {
         // east by 5 metres at this test's default 20-points-per-metre scale.
         await model.commitVertexMove(objectId: "structure-1", vertexIndex: 1, translationScreen: CGSize(width: 100, height: 0))
 
-        guard case .editVertex = gateway.submittedCommands.last else {
-            Issue.record("Expected an editVertex command")
-            return
-        }
+        // The offline commit path never touches the gateway (P5-IOS-02).
+        #expect(gateway.submittedCommands.isEmpty)
         guard case let .polygon(rings)? = model.objectsById["structure-1"]?.geometry else {
             Issue.record("Expected updated polygon geometry")
             return
@@ -222,10 +219,8 @@ struct MapEditorViewModelReshapingTests {
         model.beginVertexEdit(objectId: "structure-1")
         await model.commitVertexMove(objectId: "structure-1", vertexIndex: 0, translationScreen: CGSize(width: 100, height: 0))
 
-        guard case .replaceGeometry = gateway.submittedCommands.last else {
-            Issue.record("Expected a replaceGeometry command")
-            return
-        }
+        // The offline commit path never touches the gateway (P5-IOS-02).
+        #expect(gateway.submittedCommands.isEmpty)
         guard case let .polygon(rings)? = model.objectsById["structure-1"]?.geometry else {
             Issue.record("Expected updated polygon geometry")
             return
@@ -357,10 +352,8 @@ struct MapEditorViewModelReshapingTests {
 
         await model.assignPlant(objectId: "plant-1", targetObjectId: "zone-1")
 
-        guard case .assignPlant = gateway.submittedCommands.last else {
-            Issue.record("Expected an assignPlant command")
-            return
-        }
+        // The offline commit path never touches the gateway (P5-IOS-02).
+        #expect(gateway.submittedCommands.isEmpty)
         guard case let .plant(details)? = model.objectsById["plant-1"]?.categoryDetails else {
             Issue.record("Expected plant details")
             return

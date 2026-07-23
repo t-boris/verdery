@@ -55,10 +55,12 @@ struct MapEditorViewModelLayersTests {
     }
 
     private func makeModel(gateway: FakeMapGateway) -> MapEditorViewModel {
-        MapEditorViewModel(
+        let localStore = InMemoryMapStore()
+        return MapEditorViewModel(
             gardenId: "garden-1",
-            loadGardenMap: LoadGardenMap(gateway: gateway),
+            loadGardenMap: LoadGardenMap(gateway: gateway, localStore: localStore),
             submitMapCommand: SubmitMapCommand(gateway: gateway),
+            applyMapCommandOffline: ApplyMapCommandOffline(localStore: localStore, profileId: "profile-1"),
             strings: LocalizedStrings(locale: Locale(identifier: "en_GB"))
         )
     }
@@ -256,6 +258,9 @@ struct MapEditorViewModelLayersTests {
 
         await model.handleObjectDragEnded(objectId: "tree-1", translationScreen: CGSize(width: 100, height: 0))
 
-        #expect(gateway.submittedCommands.count == 1)
+        // The offline commit path never touches the gateway (P5-IOS-02); the
+        // interaction actually completing is what proves it was not blocked.
+        #expect(gateway.submittedCommands.isEmpty)
+        #expect(model.saveStatus == .savedLocally)
     }
 }

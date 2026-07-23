@@ -441,6 +441,11 @@ public struct MapEditorView: View {
             .accessibilityLabel(model.saveStatusSavingText)
             .accessibilityIdentifier("map.editor.saveStatus.saving")
 
+        case .savedLocally:
+            Label(model.saveStatusSavedLocallyText, systemImage: "checkmark.icloud")
+                .font(.caption)
+                .accessibilityIdentifier("map.editor.saveStatus.savedLocally")
+
         case .saved:
             Label(model.saveStatusSavedText, systemImage: "checkmark.circle.fill")
                 .font(.caption)

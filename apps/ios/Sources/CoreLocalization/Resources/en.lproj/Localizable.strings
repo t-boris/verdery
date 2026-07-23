@@ -240,8 +240,12 @@
 
 /* Map editor: persistent save-status indicator. */
 "map.saveStatus.saving" = "Saving…";
+"map.saveStatus.savedLocally" = "Saved locally, waiting to sync";
 "map.saveStatus.saved" = "Saved";
 "map.saveStatus.failed" = "Save failed";
+
+/* Map editor: local offline-commit failure (not a network/server error). */
+"map.error.localCommandFailed" = "Something went wrong saving this change on your device. Try again.";
 
 /* Plants: entry point (add/open), taxonomy search, and detail screen. */
 "plants.title" = "Plants";

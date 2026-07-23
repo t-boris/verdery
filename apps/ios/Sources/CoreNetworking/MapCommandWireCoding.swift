@@ -22,7 +22,18 @@ import Foundation
 /// the only difference is `categoryDetails`'s two cases. Confirmed against
 /// the real server during this work package — see
 /// `GardenObjectDetailsWireCoding`'s doc comment for the full story.
-enum MapCommandWireCoding {
+///
+/// `public` since P5-IOS-02 (Stage 4b): `FeatureMap.GardenObjectSyncCommandPayload`
+/// reuses this exact wire coding for an offline command's outbox payload —
+/// `packages/api-contracts/openapi.yaml`'s `SyncGardenObjectOperationPayload`
+/// reuses `MapCommandPayload` verbatim for the *push* wire shape too, so the
+/// outbox's stored payload must be this same flat encoding, not
+/// `MapCommandCoding.swift`'s domain-shaped one, for a later stage's real
+/// push call to decode and forward without another local migration —
+/// matching `FeatureGardens.GardenSyncCommandPayload`'s identical reasoning.
+/// Duplicating this ~150-line switch a second time in `FeatureMap` instead of
+/// widening this one type's visibility was judged the worse option.
+public enum MapCommandWireCoding {
     private enum CodingKeys: String, CodingKey {
         case type
         case objectId
@@ -55,7 +66,7 @@ enum MapCommandWireCoding {
         case offsetMetres
     }
 
-    static func encode(_ payload: MapCommandPayload, to encoder: any Encoder) throws {
+    public static func encode(_ payload: MapCommandPayload, to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(payload.type, forKey: .type)
 

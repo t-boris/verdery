@@ -788,3 +788,151 @@ implementation, so nothing pushed by this stage ever actually reaches the server
 
 Not done, deliberately: Map/Plants/Observations/Tasks retrofits (rest of P5-IOS-02), the real push/pull
 engine and full status vocabulary (P5-IOS-03), conflict recovery UI (P5-CONFLICT-01).
+
+## Stage 4b — P5-IOS-02 second slice: `FeatureMap` offline mutation routing, implementation complete
+
+Scope: the second slice of P5-IOS-02 — every reachable map-object command (create, move, replace
+geometry, edit vertex, split/join linework, change properties, assign plant, delete, restore,
+duplicate) retrofitted through the same atomic local-projection-plus-outbox pattern Stage 4a
+established for `FeatureGardens`. Not the rest of P5-IOS-02 (Plants/Observations/Tasks, still
+online-first), not P5-IOS-03 (no real push/pull engine yet), not `upsertCalibration`/`decideProposal`
+(still no real client UI producer — see "Deferred with reason").
+
+### What's different about Map, confirmed against the real code before building anything
+
+- Map already had one generic command dispatch (`CoreDomain.MapCommandPayload`, 13 cases) rather than
+  Gardens' four separate command types, and that type is already fully `Codable`
+  (`MapCommandCoding.swift`) and already mirrors `packages/api-contracts/openapi.yaml`'s own
+  `MapCommandPayload` schema field-for-field — confirmed directly against the YAML, not assumed. So
+  this stage needed no new 13-branch payload type the way Gardens needed a new `GardenSyncCommand`;
+  only a thin wrapper (`GardenObjectSyncOperationPayload`) adding the contract's `recordType`/`gardenId`
+  envelope around the existing type.
+- `MapEditorViewModelEditing.swift`'s own prior doc comment said plainly: "this pass has no optimistic
+  local mutation" — every command previously waited for the server's confirmed response before
+  touching local state at all. The premise that Phase 3 had already built local command-application
+  logic reusable for this stage was only partially true: gesture-preview geometry math already existed
+  (`MapShapeTransform` resize/rotate, `MapVertexEditCommands.movingVertex`), but nothing computed what
+  _applying_ `editVertex(.insert/.remove)`, `splitLinework`, `joinLinework`, or `assignPlant` produces
+  without a round trip. This stage added that missing piece (`MapCommandProjection`), mirroring the
+  backend's own geometry primitives and per-command handlers
+  (`services/api/.../domain/geometry-edit.ts`, `services/api/.../application/*.ts`) exactly rather than
+  inventing new semantics — including the corrected discovery that `splitLinework`/`joinLinework` each
+  affect **three** objects (the soft-deleted source(s) plus the new piece(s)), not the two
+  `CoreDomain.MapCommandResult`'s own pre-existing doc comment suggested.
+- Judgment call on local durability mechanism: `FeatureMap` gained its own durable GRDB table
+  (`garden_object`, via a new `CorePersistence.LocalDatabase+MapObjectMigration.swift` migration and a
+  new `FeatureMap.GRDBMapStore`), the same table-per-feature shape Gardens used — not a thinner
+  "replay the outbox to reconstruct state" mechanism. architecture/ios-application-design.md, section
+  "11. Garden Map Feature" already specifies the target shape ("a read-only base document derived from
+  SQLite"), and section "6. State Ownership" classifies map data as ordinary "durable garden and plant
+  data" (SQLite-owned), not local-bookkeeping-only. A table-less design would also have made
+  `commitOfflineMutation`'s multi-object case (`joinLinework` needs both source objects' current state
+  in the same transaction) unworkable without re-deriving state by replaying every prior local command
+  in order — real complexity with no corresponding benefit given the outbox's own row already exists
+  for the durability the "just replay it" idea was trying to get for free.
+- `FeatureMap` gained a `CorePersistence`/GRDB dependency in `Package.swift` it did not have before —
+  the same shape `FeatureGardens` already has, and covered by `ArchitectureTests.DependencyRuleTests`
+  (Feature → Core, never Feature → Feature).
+
+### What changed
+
+- `MapEditorViewModelEditing.submit`/`MapEditorViewModelUndoRedo.submitUndoRedo` stop calling
+  `SubmitMapCommand`/`MapGateway` synchronously. Each now commits through
+  `FeatureMap.ApplyMapCommandOffline` — one method for every reachable command type, matching the
+  online `SubmitMapCommand`'s own already-generic shape, not one method per command the way Gardens'
+  four separate commands needed. `SubmitMapCommand`/`MapGateway` are untouched and stay in use by
+  `LoadGardenMap` and, unused for now, for a later stage's real push engine — exactly `GardenGateway`'s
+  Stage 4a treatment.
+- Atomicity: `GRDBMapStore.commitOfflineMutation` opens exactly one `dbQueue.write` block that loads
+  every current `garden_object` row for the garden, runs the caller's validate-and-project closure
+  (`MapCommandProjection.apply`, in `ApplyMapCommandOffline`), upserts every projected object, and
+  inserts the `sync_outbox` row through the same shared `CorePersistence.SyncOutboxTransactionWriter`
+  Stage 4a built — one real SQLite transaction covering N projection writes plus the outbox insert, not
+  independent writes.
+- `GRDBMapStore.replaceAll(gardenId:with:)` (and `InMemoryMapStore`'s mirror) skip overwriting an
+  object with a pending outbox operation — the same "do not let a stale server response clobber an
+  unsynced local mutation" guard Stage 4a added for Gardens, generalized: since a map command's
+  affected object ids live inside `sync_outbox.targetRecordIds` (a JSON array, because
+  `splitLinework`/`joinLinework` name more than one), not a scalar `gardenId` column match, the guard
+  decodes that column instead of a single comparison. `LoadGardenMap` now persists every `GET .../map`
+  response into this table via `replaceAll`, which the offline commit path depends on for a durable
+  "current object state" to apply against — `MapEditorViewModel` itself stays always-fresh-from-server
+  for reads (the reasoning in its own doc comment — exact revision needed for every command — still
+  holds); the local table exists for durability, not to make loading feel instant.
+- Outbox payload shape (`FeatureMap.GardenObjectSyncOperationPayload`) mirrors
+  `packages/api-contracts/openapi.yaml`'s `SyncGardenObjectOperationPayload` field for field, including
+  the exact discriminator string (`recordType: "gardenObject"`, not the guessable `"mapObject"`) — this
+  stage's own version of Stage 4a's `gardens.delete_request` catch. `command` encodes through
+  `CoreNetworking.MapCommandWireCoding` (made `public` for this — see judgment calls below), the same
+  flat wire shape `SubmitMapCommand`'s live online request already uses, not `MapCommandPayload`'s own
+  domain-shaped `Codable` conformance (which stays nested-`categoryDetails`-shaped for
+  `InverseCommandTests`' fixture). `OutboxOperation.commandType` uses `"map.<type>"` (e.g.
+  `"map.createObject"`), verified against the backend's own internal operation-naming convention in
+  `services/api/.../application/*.ts` (`const OPERATION = 'map.createObject'`), not invented.
+- UI: `MapSaveStatus` gained `.savedLocally`, shown as "Saved locally, waiting to sync"
+  (`map.saveStatus.savedLocally`, en+ru) — the exact same copy Stage 4a used for Gardens. `.saved`
+  (server-confirmed) stays declared but unused by any code path today, the same "left in place for a
+  later stage" treatment `SubmitMapCommand`/`MapGateway` get, rather than removed or repurposed to mean
+  something weaker than its name claims.
+
+### Tests
+
+- [x] Termination-at-boundary fault test: forces a real `sync_outbox` primary-key violation on the
+      second write inside `commitOfflineMutation`'s transaction and proves every projection write rolls
+      back with it, including the multi-object case
+      (`MapOfflineMutationTests.outboxFailureRollsBackProjections`), plus the positive case that every
+      write is durably present together after a successful commit.
+- [x] Offline coverage via `ApplyMapCommandOffline` (`MapUseCasesOfflineTests`) for create, move,
+      delete, and split specifically (this stage's own minimum bar, since split/join carry real
+      structural complexity), plus join and a local-validation failure — none of these tests configure
+      a `MapGateway` at all, so a passing suite is itself proof no network call happens. Each outbox
+      row's stored payload is decoded as loose JSON and checked against the contract's field names,
+      including the flat (not nested) `categoryDetails` shape for `createObject`.
+- [x] `replaceAll` pending-preservation covered for the multi-target-per-operation case specifically
+      (a pending `splitLinework`/`joinLinework`-shaped operation must protect exactly the object ids it
+      names, not the whole garden), not only the single-target case Gardens' equivalent test covers.
+- [x] Every pre-existing `FeatureMapTests` assertion that depended on the now-removed online round trip
+      (gateway-mediated stale-revision rejection, `gateway.submittedCommands` inspection) was rewritten
+      to test the actual new behavior, not deleted outright — see "Judgment calls" below.
+- 218 tests, 43 suites unaffected (`swift test --skip FeatureMapTests`); `FeatureMapTests` itself
+  191 → 206 tests, 18 → 20 suites (`swift test --filter FeatureMapTests`), run clean twice with no
+  SIGBUS flake encountered.
+
+### Judgment calls (for later stages to inherit or reconsider)
+
+- `CoreNetworking.MapCommandWireCoding` (previously module-internal, encode-only) was made `public` so
+  `FeatureMap.GardenObjectSyncOperationPayload` could reuse its exact ~150-line wire-shaping switch
+  instead of duplicating it a second time. Judged the better call than the duplication, since a future
+  drift between two independently-maintained copies of the same encoding would be a real correctness
+  risk (the outbox payload must match the wire exactly for a future push engine to forward it
+  unmodified); flagging here since it widens a Core module's public surface, which this repo's
+  CLAUDE.md asks to be called out explicitly rather than done silently.
+- A map object created or cloned offline gets local `revision = 0` — the exact same sentinel and
+  reasoning as Stage 4a's `unconfirmedGardenRevision`. A locally-applied command never bumps `revision`
+  for an _existing_ object either (stays exactly `current.revision`): the next command chained locally
+  against the same object must still quote the last server-confirmed revision as its own
+  `expectedRevision`, since that is what the server still has until a real push engine confirms this
+  one — bumping it locally would make every subsequent locally-queued command against that object
+  guaranteed to conflict once actually pushed. This was not a concern Stage 4a had to reason about
+  explicitly (Gardens has no `expectedRevision`-bearing command chained against the same record within
+  one offline session in the same way), so it is called out here for later stages to inherit.
+- `OutboxOperation.expectedRevision` (a single optional `Int`, local bookkeeping only — never repeated
+  on the wire for `gardenObject` operations, which carry their revision(s) inside `payload` itself) has
+  no single correct value for `joinLinework`, which carries two (`firstExpectedRevision`/
+  `secondExpectedRevision`). Chose the first object's, documented in `MapCommandProjection
+.primaryExpectedRevision(for:)` as a deliberate simplification of a purely observational field, not a
+  wire-format decision.
+- Existing `FeatureMapTests` assertions built around the pre-Stage-4b online round trip (a "stale
+  revision" test relying on `FakeMapGateway` rejecting a conflicting command, several
+  `gateway.submittedCommands` inspections) were rewritten rather than deleted: the stale-revision test
+  became a local-commit-failure test (a `LocalMapStore` that always throws), since a stale server
+  revision can no longer be what causes `submit` to fail from this call path at all — that discovery is
+  now the server's job once a real push engine exists (P5-CONFLICT-01), not this transaction's, exactly
+  mirroring the local-only-validation stance Stage 4a already took for Gardens' four commands.
+
+Not done, deliberately: Plants/Observations/Tasks retrofits (rest of P5-IOS-02), the real push/pull
+engine and full status vocabulary (P5-IOS-03), conflict recovery UI (P5-CONFLICT-01),
+`upsertCalibration`/`decideProposal` offline support (still no real client UI producer — see "Deferred
+with reason": `upsertCalibration` needs an imported plan, Phase 6; `decideProposal` needs a generated
+proposal, Phase 10 — confirmed by grep that neither command is referenced anywhere in `FeatureMap`
+outside its own domain/coding types).

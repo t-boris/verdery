@@ -106,6 +106,66 @@ public enum MapVertexEditCommands {
         }
     }
 
+    /// `geometry` with a new vertex inserted at `vertexIndex`, taking
+    /// `position` — the local counterpart of the backend's
+    /// `applyVertexOperation(..., operation: 'insert', ...)`
+    /// (`services/api/.../domain/geometry-edit.ts`'s `splice(vertexIndex, 0,
+    /// position)`), added in P5-IOS-02 (Stage 4b) so an offline `editVertex`
+    /// command's optimistic local projection can compute the resulting
+    /// geometry without a server round trip — `moveVertexCommand`'s sibling
+    /// `movingVertex(in:vertexIndex:to:)` already did this for `.move`; this
+    /// is the same shape for `.insert`. Scoped identically to every other
+    /// function in this file: `LineString` and the exterior ring of a
+    /// single-ring `Polygon` only.
+    public static func insertingVertex(in geometry: Geometry, vertexIndex: Int, position: Position) -> Geometry? {
+        switch geometry {
+        case let .lineString(line):
+            guard vertexIndex >= 0, vertexIndex <= line.count else { return nil }
+            var updated = line
+            updated.insert(position, at: vertexIndex)
+            return .lineString(updated)
+
+        case let .polygon(rings):
+            guard var exterior = rings.first, vertexIndex >= 0, vertexIndex <= exterior.count else { return nil }
+            exterior.insert(position, at: vertexIndex)
+            var updatedRings = rings
+            updatedRings[0] = exterior
+            return .polygon(updatedRings)
+
+        case .point, .multiLineString, .multiPolygon:
+            return nil
+        }
+    }
+
+    /// `geometry` with the vertex at `vertexIndex` removed — the `.remove`
+    /// counterpart to `insertingVertex(in:vertexIndex:position:)` just above,
+    /// added for the same P5-IOS-02 reason. Callers needing the ring-closure
+    /// safety `removeVertexCommand`'s `canRemoveVertex` already checks (never
+    /// removing a `Polygon`'s shared start/end vertex) must call
+    /// `canRemoveVertex` themselves first — this function only performs the
+    /// index removal, matching the backend's own `applyVertexOperation`,
+    /// which likewise only bounds-checks and never re-derives that
+    /// ring-closure rule.
+    public static func removingVertex(in geometry: Geometry, vertexIndex: Int) -> Geometry? {
+        switch geometry {
+        case let .lineString(line):
+            guard vertexIndex >= 0, vertexIndex < line.count else { return nil }
+            var updated = line
+            updated.remove(at: vertexIndex)
+            return .lineString(updated)
+
+        case let .polygon(rings):
+            guard var exterior = rings.first, vertexIndex >= 0, vertexIndex < exterior.count else { return nil }
+            exterior.remove(at: vertexIndex)
+            var updatedRings = rings
+            updatedRings[0] = exterior
+            return .polygon(updatedRings)
+
+        case .point, .multiLineString, .multiPolygon:
+            return nil
+        }
+    }
+
     /// The command a vertex-handle drag commits, or `nil` when `geometry` or
     /// `vertexIndex` is not one vertex editing supports.
     public static func moveVertexCommand(
