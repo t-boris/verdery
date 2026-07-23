@@ -13,4 +13,9 @@ public struct GardenSettingsSummary: Equatable, Sendable {
     public let isOwner: Bool
     public let isActive: Bool
     public let revision: Int
+    /// Set to a localized "Saved locally" label when this session's most
+    /// recent mutation on this garden hasn't been confirmed synchronized yet
+    /// — `nil` otherwise. See `GardensListViewModel.summary(for:)`'s doc
+    /// comment for the same, deliberately session-scoped, decision.
+    public let syncStatusLabel: String?
 }

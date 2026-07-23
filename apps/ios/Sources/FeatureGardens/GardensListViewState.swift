@@ -5,6 +5,12 @@ public struct GardenSummary: Equatable, Sendable, Identifiable {
     public let name: String
     public let lifecycleLabel: String
     public let roleLabel: String
+    /// Set to a localized "Saved locally" label when this garden reflects a
+    /// local-only mutation from the current session that this pilot stage
+    /// cannot yet confirm has synchronized — `nil` otherwise. See
+    /// `GardensListViewModel.summary(for:)`'s doc comment for the scoping
+    /// rationale.
+    public let syncStatusLabel: String?
 }
 
 /// Immutable display state for the garden list screen.

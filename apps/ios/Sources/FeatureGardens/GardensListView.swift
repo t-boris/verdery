@@ -78,6 +78,13 @@ public struct GardensListView: View {
             Text("\(item.lifecycleLabel) · \(item.roleLabel)")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+
+            if let syncStatusLabel = item.syncStatusLabel {
+                Text(syncStatusLabel)
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+                    .accessibilityIdentifier("gardens.row.syncStatus")
+            }
         }
     }
 }

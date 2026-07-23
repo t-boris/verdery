@@ -45,6 +45,7 @@
 "gardens.create.nameLabel" = "Название сада";
 "gardens.create.submit" = "Создать сад";
 "gardens.name.required" = "Введите название длиной до 120 символов.";
+"gardens.status.savedLocally" = "Сохранено локально, ожидает синхронизации";
 "gardens.lifecycle.active" = "Активен";
 "gardens.lifecycle.archived" = "В архиве";
 "gardens.lifecycle.deletionRequested" = "Запрошено удаление";

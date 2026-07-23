@@ -40,6 +40,7 @@ public enum LocalizationKey: String, Sendable, CaseIterable {
     case gardensCreateNameLabel = "gardens.create.nameLabel"
     case gardensCreateSubmit = "gardens.create.submit"
     case gardensNameRequired = "gardens.name.required"
+    case gardensSavedLocally = "gardens.status.savedLocally"
     case gardensLifecycleActive = "gardens.lifecycle.active"
     case gardensLifecycleArchived = "gardens.lifecycle.archived"
     case gardensLifecycleDeletionRequested = "gardens.lifecycle.deletionRequested"

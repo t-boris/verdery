@@ -262,7 +262,18 @@ let package = Package(
         ),
         .testTarget(
             name: "FeatureGardensTests",
-            dependencies: ["FeatureGardens"]
+            dependencies: [
+                "FeatureGardens",
+                // For the offline-mutation tests (P5-IOS-02): they construct
+                // a real GRDB database via `CorePersistence.LocalDatabase
+                // .migrator` and read the resulting `sync_outbox` rows back
+                // through `CorePersistence.GRDBSyncOutboxStore`, the same
+                // real-database-over-mock approach
+                // `CorePersistenceTests.MigrationIntegrityTests` already
+                // uses for schema/transaction tests.
+                "CorePersistence",
+                .product(name: "GRDB", package: "GRDB.swift"),
+            ]
         ),
         .testTarget(
             name: "FeatureMapTests",

@@ -116,21 +116,22 @@ public final class AppCompositionRoot {
 
         return GardensListViewModel(
             listGardens: ListGardens(gateway: gardenGateway, localStore: store),
-            createGarden: CreateGarden(gateway: gardenGateway, localStore: store),
+            createGarden: CreateGarden(localStore: store, profileId: currentProfileIdentifier()),
             strings: strings
         )
     }
 
     public func makeGardenSettingsViewModel(gardenId: String) -> GardenSettingsViewModel {
         let store = localGardenStore()
+        let profileId = currentProfileIdentifier()
 
         return GardenSettingsViewModel(
             gardenId: gardenId,
             listGardens: ListGardens(gateway: gardenGateway, localStore: store),
             getGarden: GetGarden(gateway: gardenGateway, localStore: store),
-            renameGarden: RenameGarden(gateway: gardenGateway, localStore: store),
-            archiveGarden: ArchiveGarden(gateway: gardenGateway, localStore: store),
-            requestGardenDeletion: RequestGardenDeletion(gateway: gardenGateway, localStore: store),
+            renameGarden: RenameGarden(localStore: store, profileId: profileId),
+            archiveGarden: ArchiveGarden(localStore: store, profileId: profileId),
+            requestGardenDeletion: RequestGardenDeletion(localStore: store, profileId: profileId),
             strings: strings
         )
     }
@@ -201,7 +202,7 @@ public final class AppCompositionRoot {
     /// to open relative to a screen's lifetime, and this avoids holding a
     /// database handle open for a profile that has since signed out.
     private func localGardenStore() -> any LocalGardenStore {
-        let profileIdentifier = sessionObserver.currentFirebaseUid ?? "signed-out"
+        let profileIdentifier = currentProfileIdentifier()
 
         do {
             let dbQueue = try LocalDatabase.open(profileIdentifier: profileIdentifier)
@@ -210,5 +211,18 @@ public final class AppCompositionRoot {
             log.record(.error, "Could not open the local garden database; falling back to an in-memory store.")
             return InMemoryGardenStore()
         }
+    }
+
+    /// The same identifier `localGardenStore()` opens the on-disk database
+    /// by, also used to tag every garden outbox operation's `profileId`
+    /// (P5-IOS-02). That field is local bookkeeping only — the contract's
+    /// `SyncOperation` has no profile field; the server fills the
+    /// authenticated caller's profile itself
+    /// (`packages/api-contracts/openapi.yaml`, `SyncOperation`'s own
+    /// description) — so reusing this client-local scoping identifier here,
+    /// rather than the application profile ID this client never fetches
+    /// directly, does not create a wire-format mismatch.
+    private func currentProfileIdentifier() -> String {
+        sessionObserver.currentFirebaseUid ?? "signed-out"
     }
 }

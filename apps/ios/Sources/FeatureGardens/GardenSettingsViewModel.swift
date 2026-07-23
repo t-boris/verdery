@@ -33,6 +33,15 @@ public final class GardenSettingsViewModel {
     private let strings: LocalizedStrings
 
     private var currentGarden: Garden?
+    /// Set once a rename/archive/deletion request commits locally this
+    /// session — see `GardensListViewModel.summary(for:)`'s doc comment for
+    /// why this status is session-scoped rather than durable. Also guards
+    /// `load()` from re-applying a fresh `GetGarden` network response: while
+    /// this is `true`, that response is necessarily stale (it reflects the
+    /// server's state from before this pilot stage's still-unpushed local
+    /// mutation), so applying it would revert the screen to a state the user
+    /// already changed.
+    private var isSavedLocally = false
 
     public init(
         gardenId: String,
@@ -75,7 +84,10 @@ public final class GardenSettingsViewModel {
         }
 
         do {
-            apply(try await getGarden(gardenId: gardenId))
+            let fetched = try await getGarden(gardenId: gardenId)
+            if !isSavedLocally {
+                apply(fetched)
+            }
         } catch let error as APIGatewayError {
             if !hadCachedResult {
                 state = .failed(message: message(for: error))
@@ -97,7 +109,8 @@ public final class GardenSettingsViewModel {
                 roleLabel: roleLabel(for: garden.callerRole),
                 isOwner: garden.callerRole == .owner,
                 isActive: garden.lifecycleState == .active,
-                revision: garden.revision
+                revision: garden.revision,
+                syncStatusLabel: isSavedLocally ? strings(.gardensSavedLocally) : nil
             )
         )
     }
@@ -108,7 +121,9 @@ public final class GardenSettingsViewModel {
         guard !name.isEmpty, name != garden.name else { return }
 
         await perform { [self] in
-            try await renameGarden(gardenId: gardenId, name: name, expectedRevision: garden.revision)
+            let result = try await renameGarden(gardenId: gardenId, name: name, expectedRevision: garden.revision)
+            isSavedLocally = true
+            return result
         }
     }
 
@@ -116,7 +131,9 @@ public final class GardenSettingsViewModel {
         guard let garden = currentGarden else { return }
 
         await perform { [self] in
-            try await archiveGarden(gardenId: gardenId, expectedRevision: garden.revision)
+            let result = try await archiveGarden(gardenId: gardenId, expectedRevision: garden.revision)
+            isSavedLocally = true
+            return result
         }
     }
 
@@ -128,6 +145,7 @@ public final class GardenSettingsViewModel {
                 gardenId: gardenId,
                 expectedRevision: garden.revision
             )
+            isSavedLocally = true
             didRequestDeletion = true
             return result
         }
@@ -141,6 +159,8 @@ public final class GardenSettingsViewModel {
         do {
             let garden = try await action()
             apply(garden)
+        } catch let error as GardenCommandError {
+            actionErrorMessage = message(for: error)
         } catch let error as APIGatewayError {
             actionErrorMessage = message(for: error)
         } catch {
@@ -169,6 +189,15 @@ public final class GardenSettingsViewModel {
         case .transport:
             strings(.networkUnreachable)
         case .service, .undecodableResponse, .unexpectedStatus:
+            strings(.serverUnexpected)
+        }
+    }
+
+    private func message(for failure: GardenCommandError) -> String {
+        switch failure {
+        case .invalidName:
+            strings(.gardensNameRequired)
+        case .localRecordNotFound, .payloadEncodingFailed:
             strings(.serverUnexpected)
         }
     }

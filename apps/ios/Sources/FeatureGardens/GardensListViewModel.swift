@@ -23,6 +23,20 @@ public final class GardensListViewModel {
     private let createGarden: CreateGarden
     private let strings: LocalizedStrings
 
+    /// Garden IDs created locally during the current session whose outbox
+    /// operation this pilot stage (P5-IOS-02) cannot yet confirm pushed —
+    /// `CoreSynchronization.LocalOnlySyncEngine` never actually synchronizes
+    /// anything yet. Deliberately session-scoped rather than derived from a
+    /// persisted, outbox-backed query: the full status vocabulary
+    /// (architecture/ios-application-design.md, section "8. Synchronization
+    /// Integration" — `Waiting for connectivity`, `Synchronizing`,
+    /// `Synchronized`, `Requires attention`, `Upload pending`) needs a real
+    /// `SyncEngine` to report through, which is P5-IOS-03's job. This is the
+    /// minimal, honest slice: "saved locally, not yet synchronized"
+    /// immediately after the local transaction that made it true, and for as
+    /// long as this screen instance's session lasts.
+    private var locallySavedGardenIds: Set<String> = []
+
     public init(listGardens: ListGardens, createGarden: CreateGarden, strings: LocalizedStrings) {
         self.listGardens = listGardens
         self.createGarden = createGarden
@@ -48,8 +62,15 @@ public final class GardensListViewModel {
         }
 
         do {
-            let fresh = try await listGardens()
-            state = .loaded(fresh.map(summary))
+            // The network response itself is not rendered directly: a
+            // garden with a pending offline mutation is deliberately left
+            // out of it having synced yet (`LocalGardenStore
+            // .replaceAll(with:)`), so the authoritative view for display is
+            // always what local storage now holds, read back after the
+            // refresh lands.
+            _ = try await listGardens()
+            let merged = try await listGardens.cached()
+            state = .loaded(merged.map(summary))
         } catch let error as APIGatewayError {
             if !hadCachedResult {
                 state = .failed(message: message(for: error))
@@ -70,9 +91,12 @@ public final class GardensListViewModel {
         defer { isCreating = false }
 
         do {
-            _ = try await createGarden(name: name)
+            let garden = try await createGarden(name: name)
+            locallySavedGardenIds.insert(garden.id)
             newGardenName = ""
             await load()
+        } catch let error as GardenCommandError {
+            createErrorMessage = message(for: error)
         } catch let error as APIGatewayError {
             createErrorMessage = message(for: error)
         } catch {
@@ -85,7 +109,8 @@ public final class GardensListViewModel {
             id: garden.id,
             name: garden.name,
             lifecycleLabel: lifecycleLabel(for: garden.lifecycleState),
-            roleLabel: roleLabel(for: garden.callerRole)
+            roleLabel: roleLabel(for: garden.callerRole),
+            syncStatusLabel: locallySavedGardenIds.contains(garden.id) ? strings(.gardensSavedLocally) : nil
         )
     }
 
@@ -110,6 +135,15 @@ public final class GardensListViewModel {
         case .transport:
             strings(.networkUnreachable)
         case .service, .undecodableResponse, .unexpectedStatus:
+            strings(.serverUnexpected)
+        }
+    }
+
+    private func message(for failure: GardenCommandError) -> String {
+        switch failure {
+        case .invalidName:
+            strings(.gardensNameRequired)
+        case .localRecordNotFound, .payloadEncodingFailed:
             strings(.serverUnexpected)
         }
     }

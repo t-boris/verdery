@@ -716,3 +716,75 @@ kysely-outbox-appender.ts}` port+adapter is the right model to mirror — module
 
 Each stage will be committed, pushed, and CI-confirmed-green independently, matching the pattern
 established in Phases 3 and 4 — not one single end-of-phase commit.
+
+## Stage 4a — P5-IOS-02 pilot: `FeatureGardens` offline mutation routing, implementation complete
+
+Scope: the first slice of P5-IOS-02 only — `CreateGarden`/`RenameGarden`/`ArchiveGarden`/
+`RequestGardenDeletion` retrofitted as the pilot the rest of Stage 4 (Map, Plants, Observations, Tasks)
+copies. Not the rest of P5-IOS-02 (those four features are still online-first/gateway-backed and
+untouched), not P5-IOS-03 (the real push/pull `SyncEngine` — `LocalOnlySyncEngine` remains the only
+implementation, so nothing pushed by this stage ever actually reaches the server yet).
+
+### What changed
+
+- `FeatureGardens.GardensUseCases`'s four commands stop calling `GardenGateway` synchronously. Each now
+  validates locally (name non-empty and ≤120 characters — the contract's own limit, already described
+  by the previously-declared-but-unwired `gardens.name.required` catalogue string; garden-must-exist-
+  locally for rename/archive/delete), builds the optimistic local projection, and enqueues a `gardens.*`
+  outbox operation — all inside one GRDB transaction
+  (`LocalGardenStore.commitOfflineMutation(gardenId:command:)`, new). `GardenGateway` itself is
+  untouched and stays in use by `ListGardens`/`GetGarden`.
+- Atomicity: `GRDBGardenStore.commitOfflineMutation` opens exactly one `dbQueue.write` block that loads
+  the current row, runs the caller's validation/projection closure, saves the `garden` row, and inserts
+  the `sync_outbox` row through a new shared helper
+  (`CorePersistence.SyncOutboxTransactionWriter`, which `GRDBSyncOutboxStore.enqueue(_:)` itself now
+  also calls) — one real SQLite transaction, not two independent writes, matching
+  architecture/offline-synchronization.md section 6 exactly.
+- `GRDBGardenStore.replaceAll(with:)`/`save(_:)` (and `InMemoryGardenStore`'s mirrors) now skip
+  overwriting a garden that still has a pending `sync_outbox` operation. Without this, the very next
+  online list refresh or `GetGarden` call would silently clobber an unsynced local mutation with the
+  server's (necessarily stale) prior state — a necessary companion fix, not scope creep: the outbox
+  pattern this stage builds does not actually hold "saved locally until the server accepts it" without it.
+- UI: `GardenSummary`/`GardenSettingsSummary` gained `syncStatusLabel: String?`, shown as "Saved
+  locally, waiting to sync" (`gardens.status.savedLocally`, en+ru) for a garden mutated locally this
+  session. Deliberately session-scoped, not derived from a persisted outbox query — the full status
+  vocabulary (`Synchronizing`/`Synchronized`/etc.) needs a real `SyncEngine` to report through, which is
+  P5-IOS-03's job; this is the honestly-scoped "Saved locally" slice only.
+- Outbox payload shape (`OutboxOperation.payload`, new `GardenSyncCommandPayload`/`GardenSyncCommand`
+  types) mirrors `packages/api-contracts/openapi.yaml`'s `SyncGardenOperationPayload`/`SyncGardenCommand`
+  field for field, including the exact discriminator strings (`gardens.create`, `gardens.rename`,
+  `gardens.archive`, and — not the guessable `gardens.requestDeletion` — `gardens.delete_request`), so a
+  later stage's real push call can decode it without another local migration.
+
+### Tests
+
+- [x] Termination-at-boundary fault test: forces a real `sync_outbox` primary-key violation on the
+      second write inside `commitOfflineMutation`'s transaction and proves the first write (the garden
+      projection) rolls back with it — real GRDB behavior, not a mock
+      (`GardenOfflineMutationTests.outboxFailureRollsBackProjection`), plus the positive case that both
+      writes are durably present together after a successful commit.
+- [x] All four commands covered offline — no test configures a `GardenGateway` at all, so a passing
+      suite is itself proof no network call happens — including local-only validation failures, and
+      each outbox row's stored payload decoded against a contract-shaped mirror type.
+- [x] `replaceAll`/`save` pending-preservation covered for both `GRDBGardenStore` (real database) and
+      `InMemoryGardenStore` (fallback).
+- 196 → 218 tests, 41 → 43 suites (`swift test --skip FeatureMapTests`, the pre-existing, root-caused,
+  unrelated local flake).
+
+### Judgment calls (for later stages to inherit or reconsider)
+
+- A garden created offline gets local `revision = 0` — below the contract's `Revision` minimum of 1, so
+  it can never be mistaken for a real server revision. `Garden.revision` stays a plain `Int` rather than
+  `Int?` across the whole feature for this one local-only case.
+- `OutboxOperation.profileId` reuses the same Firebase-UID-based identifier `LocalDatabase.open` already
+  scopes the local database by. It is local bookkeeping only — the contract's `SyncOperation` has no
+  profile field; the server fills it from the authenticated caller — so this does not create a
+  wire-format mismatch, and avoids inventing a second identifier this client cannot fetch without a
+  network call it does not yet make.
+- `GardensListViewModel.load()`/`GardenSettingsViewModel.load()` now re-render from local storage after
+  a network refresh (`listGardens.cached()` / an `isSavedLocally` guard) rather than the raw network
+  response, so a pending mutation's optimistic state cannot be visually reverted by a stale server
+  response arriving after it. A minimal, targeted view-model change, not a new status-tracking system.
+
+Not done, deliberately: Map/Plants/Observations/Tasks retrofits (rest of P5-IOS-02), the real push/pull
+engine and full status vocabulary (P5-IOS-03), conflict recovery UI (P5-CONFLICT-01).

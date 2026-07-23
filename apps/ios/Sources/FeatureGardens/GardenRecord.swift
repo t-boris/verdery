@@ -4,20 +4,26 @@ import GRDB
 
 /// GRDB row shape for the local garden read model.
 ///
-/// This is a cache of the last server-confirmed state, populated after a
-/// successful API call — not an offline outbox with pending local writes.
-/// The full offline-synchronization protocol (outbox, conflict resolution,
-/// tombstones) now has its schema in `CorePersistence` (`sync_outbox`,
-/// `sync_cursor`, `sync_conflict`, `sync_operation_result`, `media_transfer`,
-/// `local_draft` — see `CorePersistence.LocalDatabase`), but wiring any
-/// feature's use cases to it, this one included, is still out of scope
-/// (P5-IOS-02 and later). This table exists so the garden list has
-/// something to show immediately on a cold launch, before the network
-/// request completes.
+/// Originally (P2-IOS-01/P5-IOS-01) a cache of the last server-confirmed
+/// state only, populated after a successful API call. As of P5-IOS-02 (the
+/// offline-synchronization pilot for this feature) a row can also hold an
+/// optimistic local projection that has not been server-confirmed yet —
+/// `CreateGarden`, `RenameGarden`, `ArchiveGarden`, and
+/// `RequestGardenDeletion` write one here in the same GRDB transaction as
+/// the paired `sync_outbox` insert (`LocalGardenStore
+/// .commitOfflineMutation(gardenId:command:)`), rather than only after a
+/// network round trip. `replaceAll(with:)`/`save(_:)` protect any row that
+/// still has a pending `sync_outbox` operation from being overwritten by a
+/// server response that necessarily predates it.
+///
+/// The full offline-synchronization protocol otherwise (conflict
+/// resolution, tombstones, an actual push/pull `SyncEngine`) still has no
+/// feature wired to it — see `CoreSynchronization.LocalOnlySyncEngine`'s own
+/// doc comment; that remains later stages' scope (P5-IOS-03 and beyond).
 ///
 /// Source: implementation-plan.md work packages P2-IOS-01 ("local read
-/// model"), P5-IOS-01; architecture/offline-synchronization.md, section
-/// "3. Non-Goals".
+/// model"), P5-IOS-01, P5-IOS-02; architecture/offline-synchronization.md,
+/// section "6. Local Mutation Transaction".
 struct GardenRecord: Codable, FetchableRecord, PersistableRecord {
     static let databaseTableName = "garden"
 

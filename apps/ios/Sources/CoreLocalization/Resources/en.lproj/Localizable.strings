@@ -45,6 +45,7 @@
 "gardens.create.nameLabel" = "Garden name";
 "gardens.create.submit" = "Create garden";
 "gardens.name.required" = "Enter a name up to 120 characters.";
+"gardens.status.savedLocally" = "Saved locally, waiting to sync";
 "gardens.lifecycle.active" = "Active";
 "gardens.lifecycle.archived" = "Archived";
 "gardens.lifecycle.deletionRequested" = "Deletion requested";

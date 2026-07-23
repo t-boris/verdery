@@ -55,6 +55,11 @@ management to `apps/web/`: `features/plants`, `features/observations`, `features
 gateways in `apps/web/core/api/`, covering every operation the `Plants`, `Observations`, and `Tasks`
 contract tags define except the photo/file-dependent ones — see the next section.
 
+Phase 5 Stage 4a (`P5-IOS-02` pilot) retrofits `FeatureGardens`'s four garden-lifecycle commands
+(create, rename, archive, request deletion) to route through one atomic local-projection-plus-outbox
+GRDB transaction instead of an online-first network call — see `tasks/todo.md`'s Stage 4a section for
+the full account. This is the pattern the rest of Stage 4 copies, not the rest of Stage 4 itself.
+
 ## What remains deferred, and why
 
 **Staging and production.** Only `verdery-dev` exists. Creating `verdery-staging` and `verdery-prod`
@@ -136,6 +141,17 @@ already a no-op every time this migration re-runs. It would resurface on `verder
 environments is actually provisioned, is a one-time privileged `CREATE EXTENSION postgis` run via
 the same break-glass-superuser mechanism `07-iam-database-bootstrap.sh` already uses, before the
 first automated migration run.
+
+**The rest of P5-IOS-02, and P5-IOS-03's real `SyncEngine`.** `FeatureMap`, `FeaturePlants`,
+`FeatureObservations`, and `FeatureTasks` still call their gateways online-first, exactly as before
+Stage 4a — only `FeatureGardens` routes through the local-transaction-plus-outbox pattern so far.
+`CoreSynchronization.LocalOnlySyncEngine` remains the only `SyncEngine` implementation, so no outbox
+operation this stage (or a future per-feature retrofit) enqueues is ever actually pushed to the server
+yet; nothing in the UI claims otherwise (`GardensListViewModel`/`GardenSettingsViewModel` show "Saved
+locally, waiting to sync", never "Synchronized"). Conflict recovery (`P5-CONFLICT-01`) and the rest of
+architecture/ios-application-design.md section 8's status vocabulary
+(`Waiting for connectivity`/`Synchronizing`/`Synchronized`/`Requires attention`/`Upload pending`) are
+unbuilt until a real engine exists to report through.
 
 **The Phase 2 E2E suite does not run in CI.** `apps/web/e2e/` (Playwright against a real Postgres,
 the Firebase Auth emulator, the real API, and the real web app, orchestrated by

@@ -39,15 +39,7 @@ public struct GRDBSyncOutboxStore: SyncOutboxStore {
     @discardableResult
     public func enqueue(_ operation: OutboxOperation) async throws -> OutboxOperation {
         try await dbQueue.write { db in
-            // Serialized by GRDB's writer queue: no two `enqueue` calls on
-            // this `dbQueue` observe the same `MAX(localSequence)`.
-            let nextSequence = try Int64.fetchOne(
-                db,
-                sql: "SELECT COALESCE(MAX(localSequence), 0) + 1 FROM sync_outbox"
-            ) ?? 1
-            let assigned = operation.assigningLocalSequence(nextSequence)
-            try OutboxOperationRecord(assigned).insert(db)
-            return assigned
+            try SyncOutboxTransactionWriter.enqueue(operation, in: db)
         }
     }
 

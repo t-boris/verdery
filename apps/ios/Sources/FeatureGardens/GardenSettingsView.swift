@@ -33,6 +33,12 @@ public struct GardenSettingsView: View {
                 Section {
                     Text("\(summary.lifecycleLabel) · \(summary.roleLabel)")
                         .foregroundStyle(.secondary)
+
+                    if let syncStatusLabel = summary.syncStatusLabel {
+                        Text(syncStatusLabel)
+                            .foregroundStyle(.orange)
+                            .accessibilityIdentifier("gardens.settings.syncStatus")
+                    }
                 }
 
                 // Available to every role, not only the owner — unlike
