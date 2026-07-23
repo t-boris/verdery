@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Bootstraps Cloud SQL IAM database authentication: enables the IAM auth flag,
 # creates an IAM database user for each service account that needs to connect,
-# and grants those users membership in the NOLOGIN group roles the migration
-# creates (verdery_application, verdery_migration).
+# grants those users membership in the NOLOGIN group roles the migration
+# creates (verdery_application, verdery_migration), and grants
+# verdery_migration database-level CREATE so migrations can install Postgres
+# "trusted" extensions (see the grant below for what that means and why).
 #
 # WHY THIS SCRIPT EXISTS, AND WHY IT IS UNLIKE THE OTHERS
 #
@@ -131,6 +133,38 @@ PGPASSWORD="${superuser_password}" psql \
   -v ON_ERROR_STOP=1 <<SQL
 ${grant_statements}
 
+-- A Postgres "trusted" extension (one whose control file sets
+-- \`trusted = true\`, e.g. pg_trgm) can be installed by any role holding
+-- CREATE on the current database — it does not need superuser or Cloud
+-- SQL's cloudsqlsuperuser. But CREATE EXTENSION runs as the *connecting*
+-- identity, before a migration's own \`SET ROLE verdery_migration\`, so that
+-- privilege has to already be held (inherited via role membership, which
+-- Postgres roles do by default) at connection time — granting it to
+-- verdery_migration itself, the same group role every migration-running IAM
+-- user above was just granted membership in, rather than to each
+-- per-service-account user individually, keeps this consistent with that
+-- pattern and covers every future migration identity automatically.
+--
+-- Confirmed necessary by a real failure deploying
+-- 1784950000000_search-indexes.sql's \`CREATE EXTENSION IF NOT EXISTS
+-- pg_trgm\` through the automated migration job against verdery-dev: \`ERROR:
+-- permission denied to create extension "pg_trgm" — Must have CREATE
+-- privilege on current database\`. Confirmed sufficient (superuser is not
+-- required) with a local, non-superuser reproduction before writing this
+-- grant.
+--
+-- This does not help postgis: postgis is not a trusted extension and needs
+-- real elevated privilege regardless of database-level CREATE. Only already
+-- installed on verdery-dev's already-provisioned database today — a fresh
+-- environment's first \`CREATE EXTENSION postgis\` (in
+-- 1784710800000_platform-baseline.sql) would hit the same class of failure
+-- this grant fixes for pg_trgm, and would need a privileged, superuser-run
+-- statement of its own, not this grant. Tracked in
+-- docs/implementation-plan.md's Phase 4 review as a known limitation, not
+-- fixed here — out of scope for unblocking today's already-provisioned
+-- verdery-dev deploy.
+GRANT CREATE ON DATABASE "${VERDERY_SQL_DATABASE_NAME}" TO verdery_migration;
+
 -- node-pg-migrate creates its own tracking table the first time any
 -- migration runs, owned by whichever identity ran that first migration
 -- (this superuser, on a fresh environment). The migration file grants
@@ -139,7 +173,7 @@ ${grant_statements}
 -- schema-level CREATE, so every subsequent least-privilege migration run
 -- also needs explicit row access to the table the first run already made.
 --
--- Row privileges on the table are not enough: `id` is a serial column, so
+-- Row privileges on the table are not enough: \`id\` is a serial column, so
 -- every INSERT into pgmigrations calls nextval() on the sequence Postgres
 -- generated for it, and a sequence is its own relation with its own ACL —
 -- GRANT INSERT on the table never implies USAGE on the sequence behind one
