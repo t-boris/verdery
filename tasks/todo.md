@@ -2296,3 +2296,59 @@ built on top of P6-DATA-01/PLAT-01/API-01, the immediately-preceding stages.
   `partial`/`cancelled`/`expired` job states are real, tested pure domain transitions with no live
   caller yet, exactly the posture `beginMediaProcessing`/`markMediaProcessed`/
   `markMediaProcessingFailed` themselves held from P6-DATA-01 until this stage gave them one.
+
+### Deploy incident, found and fixed after this stage's own merge
+
+Landing this stage broke the live `verdery-dev` deploy pipeline for real — not a pre-merge gap, a real
+outage of the _pipeline_ (the previously-deployed revision kept serving throughout; no user-facing
+downtime). Root-caused and fixed as four separate, verified commits, each confirmed against real
+infrastructure before moving to the next:
+
+1. `services/workers`' new Testcontainers integration test hit Vitest's default 10s hook timeout on
+   CI's slower shared runner (`services/api/vitest.config.ts` already sets 180s for the identical
+   reason; `services/workers/vitest.config.ts` never inherited it, being a newer package). Fixed by
+   matching `services/api`'s exact setting.
+2. `deploy-migration-job.sh` never set the six new required `MEDIA_*` variables `deploy-api.sh` was
+   updated with — the migration job shares `configuration-schema.ts`'s whole-process startup
+   validation with the main service, and fails at `loadConfiguration()` without every one of them. The
+   exact bug class this script's own header comment already named for `FIREBASE_PROJECT_ID`
+   ("added in Phase 2... deploy-dev.yml only ever updated its image, never its environment
+   variables"), recurred. Fixed with the same real values `deploy-api.sh` uses, plus a clearly-labeled
+   non-functional placeholder for `MEDIA_PROCESSING_CALLBACK_AUDIENCE` (this job never serves that
+   route or verifies an inbound token against it).
+3. `CREATE ROLE verdery_worker`, even correctly placed before `SET ROLE verdery_migration`, still
+   failed with "permission denied to create role" — `GRANT CREATE ON DATABASE` (the fix that already
+   worked for `pg_trgm` in Phase 5) does not generalize to `CREATE ROLE`, which needs `CREATEROLE` or
+   superuser. `verdery_migration`/`verdery_application` themselves only succeeded being created because
+   platform-baseline's own first-ever run used a more privileged connecting identity than the
+   automated pipeline's ordinary IAM identity has today — that migration's own comment on the adjacent
+   `ALTER DEFAULT PRIVILEGES` grant already said as much. Fixed the same way this repository's
+   least-privilege model handles every other privileged one-time action: pre-created the role once via
+   `07-iam-database-bootstrap.sh`'s existing break-glass superuser session (run with explicit
+   confirmation, given it's a live-infrastructure action) rather than granting the automated pipeline
+   `CREATEROLE`, a broad, privilege-escalation-adjacent capability deliberately not handed to routine
+   deploys. A real process mistake made while running this fix, caught and corrected in the same
+   session: reused `verdery-dev-deployer`'s email out of habit instead of `verdery-dev-api-runtime`,
+   recreating the exact over-privileged IAM database user Phase 5 had already found and removed —
+   caught immediately by re-checking `gcloud sql users list`, cleaned up again with the same script
+   Phase 5 wrote for it, confirmed clean afterward.
+4. `deploy-api.sh` itself had a structural bug, not just a missing variable: it omitted
+   `MEDIA_PROCESSING_CALLBACK_AUDIENCE` from the _first_ `gcloud run deploy --set-env-vars` call,
+   planning to set it in a second, self-referential `gcloud run services update` call once the
+   service's URL was known — but `--set-env-vars` _replaces_ the complete env var set, not merges, so
+   the first call always produced a revision missing this non-optional variable
+   (`configuration-schema.ts` requires a non-empty string), crashing on startup before the second call
+   ever ran. Not a one-time bootstrap problem — every future redeploy would have failed identically
+   forever. Fixed by looking up the already-existing, already-stable service URL _before_ deploying
+   (the common case for `verdery-api-dev`, which has existed since Phase 1) so the real value reaches
+   the first call directly; only a genuinely first-ever deploy of a brand new service still needs the
+   original placeholder-then-correct two-step shape.
+
+Independently verified after all four fixes, not just trusted from a green workflow summary: read every
+job step of the resulting `Deploy to development` run individually (`Run database migrations`,
+`Deploy to Cloud Run`, and `Verify the deployment answers a real request` each explicitly green, not
+just the aggregate job status), confirmed a genuinely new Cloud Run revision was serving
+(`verdery-api-dev-00057-gvs`, not the stale pre-incident one), confirmed the real service URL landed in
+`MEDIA_PROCESSING_CALLBACK_AUDIENCE` via a live `gcloud run services describe`, and confirmed
+`verdery-dev-pg`'s IAM database users and public-IP exposure were both back to their exact pre-incident
+state.
