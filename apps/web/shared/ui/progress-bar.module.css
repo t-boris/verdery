@@ -1,0 +1,45 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.label {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.bar {
+  flex: 1;
+  block-size: var(--space-3);
+  appearance: none;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.bar::-webkit-progress-bar {
+  background-color: var(--color-surface-sunken);
+}
+
+.bar::-webkit-progress-value {
+  background-color: var(--color-accent);
+  transition: inline-size var(--duration-fast) ease-out;
+}
+
+.bar::-moz-progress-bar {
+  background-color: var(--color-accent);
+}
+
+.percent {
+  min-inline-size: 3ch;
+  text-align: end;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}

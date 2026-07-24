@@ -207,20 +207,34 @@ read it yet. `platform.sync_client_installation.revoked_at` has no telemetry eit
 distinct reason: no command anywhere in this codebase writes it at all (see the `P5-SEC-01` entry
 below), so there is no event to log a metric about, not merely an unbuilt dashboard.
 
-**Photo and file attachment in the Phase 4 web client.** `AddPlantFromPhoto`, `AttachPlantPhoto`,
-`SetPrimaryPlantPhoto`, `ConfirmPlantIdentification`, and `AttachTaskFile` all need a real `media`
-record. `P6-API-01` (media registration, authorized resumable upload session, completion
-verification, status, and authorized short-lived access — `packages/api-contracts/openapi.yaml` tag
-`Media`) has now landed, so a `mediaId` can be produced end to end against the real backend and real
-Cloud Storage buckets. What remains is purely the web client's own wiring: each of the five gateway
-methods (`plant-gateway.ts`, `task-gateway.ts`) is still implemented and unit-tested for contract
-completeness only, and no `features/plants`/`features/tasks` hook or component calls the new `Media`
-endpoints yet. `features/plants/plant-detail.tsx` still shows a plain notice explaining the gap
-instead of a control that would only fail; `RecordObservation`'s photo support is still left off
-`RecordObservationForm` the same way, though the contract already lets a note and/or a condition
-summary stand on their own without a photo, so recording an observation itself is not blocked. This
-resolves with `P6-WEB-01` (direct resumable upload, recoverable browser metadata where allowed,
-progress, retry, and authorized previews).
+**Photo and file attachment in the Phase 4 web client — partially fixed by `P6-WEB-01`.**
+`AddPlantFromPhoto`, `AttachPlantPhoto`, `SetPrimaryPlantPhoto`, `ConfirmPlantIdentification`, and
+`AttachTaskFile` all need a real `media` record. `P6-API-01` (media registration, authorized
+resumable upload session, completion verification, status, and authorized short-lived access —
+`packages/api-contracts/openapi.yaml` tag `Media`) landed first, so a `mediaId` could already be
+produced end to end against the real backend and real Cloud Storage buckets; what was missing was
+the web client's own wiring. `P6-WEB-01` now builds that wiring as a real, reusable capability —
+`core/api/media-gateway.ts`, a real browser-side Cloud Storage resumable-upload driver
+(`features/media/resumable-upload-driver.ts`, `gcs-resumable-transport.ts`) with real chunked
+progress, pause, retry, and IndexedDB-backed resume-after-reload
+(`indexed-db-pending-upload-store.ts`), completion verification, processing-state polling, and an
+authorized preview (`MediaPreview`) — and wires ONE concrete attachment point end to end:
+`GardenPhotoUpload` (`media_class: 'garden_photo'`), mounted on the garden settings page
+(`app/application/gardens/[gardenId]/page.tsx`). Garden photo needs no further "attach" step the way
+plant/task/observation photos do (registering the upload against a `gardenId` already is the
+attachment), which is exactly why it was chosen as the first, fully-working target rather than
+spreading thin across several partial ones.
+
+**Still open**: `plant-gateway.ts`'s `attachPhoto`/`setPrimaryPhoto`/`addFromPhoto`/
+`confirmIdentification` and `task-gateway.ts`'s `attachFile` remain implemented and unit-tested for
+contract completeness only, with no `features/plants`/`features/tasks` hook or component calling
+them — `features/plants/plant-detail.tsx` still shows its plain gap notice instead of a control that
+would only fail. `RecordObservation`'s photo support is still left off `RecordObservationForm` the
+same way, though the contract already lets a note and/or a condition summary stand on their own
+without a photo, so recording an observation itself is not blocked. Each of these can now reuse
+`features/media`'s upload machinery directly (the same `useMediaUpload` hook, parameterized by
+`mediaClass`, already returns the `mediaId` these commands need) — the remaining work is UI wiring
+per attachment point, not new upload infrastructure.
 
 **Photo-identification and photo-analysis ML services.** `plants-inventory`'s `identifyPlantFromPhoto`
 and `observations-history`'s `analyzeObservationPhoto` are honest, clearly-labeled placeholders —
@@ -270,8 +284,12 @@ from this line of work:
 - `SyncEngineStatus.requiresAttention` is still not wired into any UI — `FeatureSyncConflicts` reads the
   durable open-conflict list directly instead (a different, more robust signal for "does this garden need
   attention" than a live engine instance's own last-cycle outcome; see that feature's own reasoning).
-  `Upload pending` (media transfer) also stays unmodeled — no media-upload flow exists anywhere in this
-  codebase yet.
+  `Upload pending` (media transfer) also stays unmodeled — this is specifically about
+  `CoreSynchronization.SyncEngineStatus`, an iOS-only concept; iOS itself still has no media-upload
+  flow of its own to report status for (`P6-IOS-01`, separate work). The web client now has a real
+  one (`P6-WEB-01`, `apps/web/features/media`), with no equivalent "requires attention" style status
+  surface of its own to reconcile against — its upload state is shown directly by the widget driving
+  the upload, not through a separate engine-wide status concept.
 - Connectivity-change (`NWPathMonitor`) and background-processing-opportunity (`BGTaskScheduler`) sync
   triggers remain unbuilt; only app-foreground (`scenePhase`) and explicit calls trigger a push/pull cycle
   today.

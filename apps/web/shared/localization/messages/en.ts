@@ -118,6 +118,9 @@ export const englishMessages = {
   'gardens.requestDeletion': 'Delete garden',
   'gardens.requestDeletionConfirm':
     'Request deletion of this garden? This starts a recovery-window deletion process.',
+  'gardens.photosTitle': 'Photos',
+  'gardens.photosDescription':
+    'Upload a photo of this garden. Uploading happens directly to storage, with real progress, pause, and resume.',
 
   'map.page.title': 'Garden map',
   'map.page.backToSettings': 'Garden settings',
@@ -370,7 +373,7 @@ export const englishMessages = {
   'plants.moved': 'Placement saved.',
   'plants.mediaGapTitle': 'Photos are not available yet',
   'plants.mediaGapDescription':
-    'Photo identification, photo galleries, and identification confirmation all need a real uploaded file, and this application does not have a file-upload flow yet. These actions are intentionally left out of this page rather than shown as controls that would only fail.',
+    'Photo identification, photo galleries, and identification confirmation all need a real uploaded file. Uploading itself now works elsewhere in this application (a garden photo, from the garden settings page), but is not yet connected to a plant. These actions are intentionally left out of this page rather than shown as controls that would only fail.',
 
   'plants.enum.groupingKind.individual': 'Individual',
   'plants.enum.groupingKind.row': 'Row',
@@ -403,7 +406,7 @@ export const englishMessages = {
   'observations.gardenObjectIdLabel': 'Garden area (map object ID, optional)',
   'observations.observedAtLabel': 'Observed at',
   'observations.mediaGapHint':
-    'Photo attachments are not available yet — this application has no file-upload flow. A note and/or a condition summary is enough to record an observation.',
+    'Photo attachments are not connected to observations yet, though uploading itself now works elsewhere in this application (a garden photo, from the garden settings page). A note and/or a condition summary is enough to record an observation.',
   'observations.historyTitle': 'History',
   'observations.loading': 'Loading the observation history.',
   'observations.retry': 'Try again',
@@ -483,4 +486,42 @@ export const englishMessages = {
   'tasks.enum.urgency.normal': 'Normal',
   'tasks.enum.urgency.high': 'High',
   'tasks.enum.urgency.urgent': 'Urgent',
+
+  'media.selectFile': 'Choose a photo',
+  'media.tooLarge': 'This file is larger than the {max} limit. Choose a smaller photo.',
+  'media.progressLabel': 'Uploading {filename}: {uploaded} of {total}',
+  'media.pause': 'Pause',
+  'media.resume': 'Resume upload',
+  'media.retry': 'Retry',
+  'media.cancel': 'Cancel upload',
+  'media.recoverableDescription':
+    'An interrupted upload was found: {filename}, {percent}% already sent. Resume it, or discard it and start over.',
+  'media.resumeRecovered': 'Resume interrupted upload',
+  'media.discardRecovered': 'Discard',
+  'media.previewLoading': 'Loading preview.',
+  'media.previewAlt': 'Uploaded photo: {filename}',
+  'media.rejectedDescription':
+    'This file could not be verified — what actually arrived did not match what was declared when the upload started. Choose the file again and retry.',
+  'media.processingFailedDescription':
+    'This file uploaded and was verified, but could not be processed. You can try uploading it again.',
+
+  'media.phase.idle': '',
+  'media.phase.recoverable': 'An interrupted upload was found.',
+  'media.phase.registering': 'Preparing the upload.',
+  'media.phase.uploading': 'Uploading.',
+  'media.phase.paused': 'Upload paused.',
+  'media.phase.completing': 'Finishing the upload.',
+  'media.phase.processing': 'Verifying and processing the upload. This can take a moment.',
+  'media.phase.processed': 'Ready.',
+  'media.phase.rejected': 'This file was rejected.',
+  'media.phase.processingFailed': 'Processing failed for this file.',
+  'media.phase.sessionExpired':
+    'The upload session expired before it finished. Retry to start again.',
+  'media.phase.uploadFailed': 'The upload did not finish.',
+  'media.phase.apiFailed': 'The request did not succeed.',
+
+  'media.failureReason.networkError':
+    'The upload was interrupted by a network problem. It can be retried from where it left off.',
+  'media.failureReason.unexpectedStatus':
+    'Cloud Storage rejected the upload with an unexpected response. Retrying will start a new upload session.',
 } as const;

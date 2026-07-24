@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { getRequestTranslator } from '@/shared/localization/server';
 
 import { GardenSettings } from '@/features/gardens/public';
+import { GardenPhotoUpload } from '@/features/media/public';
 
 import styles from './page.module.css';
 
@@ -40,6 +41,7 @@ export default async function GardenSettingsPage({
         </nav>
       </div>
       <GardenSettings gardenId={gardenId} />
+      <GardenPhotoUpload gardenId={gardenId} />
     </div>
   );
 }

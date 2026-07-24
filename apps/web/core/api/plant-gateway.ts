@@ -173,11 +173,13 @@ function taxonomySearchQuery(query: string | null, limit: number | null): string
  * `addFromPhoto`, `attachPhoto`, `setPrimaryPhoto`, and `confirmIdentification`
  * are implemented for contract completeness and are covered by
  * `plant-gateway.test.ts`, but no `features/plants` hook or component calls
- * them this pass: each needs a real `media` record, and this codebase has no
- * upload flow yet (`media.media_record` only records that a file reference
- * exists — see `docs/development/deferred-capabilities.md`). Wiring a control
- * that always fails would be a silently-broken UI, so these stay gateway-only
- * until Phase 6 media upload lands.
+ * them yet: each needs a real `media` record. A working browser upload flow
+ * now exists (`features/media`, P6-WEB-01) and is wired to garden photos,
+ * but reusing it for a plant photo specifically is a real, separate
+ * follow-up not built in that same pass — see
+ * `docs/development/deferred-capabilities.md`. Wiring a control that always
+ * fails would be a silently-broken UI, so these stay gateway-only until
+ * that follow-up lands.
  *
  * Source: packages/api-contracts/openapi.yaml, tag `Plants`;
  * architecture/web-application-design.md, section "8. API Access".

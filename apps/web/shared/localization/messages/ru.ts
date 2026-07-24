@@ -110,6 +110,9 @@ export const russianMessages: MessageCatalogue = {
   'gardens.requestDeletion': 'Удалить сад',
   'gardens.requestDeletionConfirm':
     'Запросить удаление этого сада? Начнётся процесс удаления с периодом восстановления.',
+  'gardens.photosTitle': 'Фотографии',
+  'gardens.photosDescription':
+    'Загрузите фотографию этого сада. Загрузка идёт напрямую в хранилище, с реальным прогрессом, паузой и возобновлением.',
 
   'map.page.title': 'Карта сада',
   'map.page.backToSettings': 'Настройки сада',
@@ -368,7 +371,7 @@ export const russianMessages: MessageCatalogue = {
   'plants.moved': 'Размещение сохранено.',
   'plants.mediaGapTitle': 'Фотографии пока недоступны',
   'plants.mediaGapDescription':
-    'Идентификация по фото, галерея фотографий и подтверждение идентификации требуют реально загруженного файла, а в этом приложении пока нет функции загрузки файлов. Эти действия намеренно не показаны на этой странице, а не представлены как неработающие элементы управления.',
+    'Идентификация по фото, галерея фотографий и подтверждение идентификации требуют реально загруженного файла. Загрузка файлов уже работает в другом месте приложения (фотография сада, на странице настроек сада), но пока не связана с растением. Эти действия намеренно не показаны на этой странице, а не представлены как неработающие элементы управления.',
 
   'plants.enum.groupingKind.individual': 'Отдельное растение',
   'plants.enum.groupingKind.row': 'Ряд',
@@ -401,7 +404,7 @@ export const russianMessages: MessageCatalogue = {
   'observations.gardenObjectIdLabel': 'Зона сада (ID объекта карты, необязательно)',
   'observations.observedAtLabel': 'Время наблюдения',
   'observations.mediaGapHint':
-    'Прикрепление фотографий пока недоступно — в этом приложении нет функции загрузки файлов. Для записи наблюдения достаточно заметки и/или сводки состояния.',
+    'Прикрепление фотографий пока не связано с наблюдениями, хотя загрузка файлов уже работает в другом месте приложения (фотография сада, на странице настроек сада). Для записи наблюдения достаточно заметки и/или сводки состояния.',
   'observations.historyTitle': 'История',
   'observations.loading': 'Загрузка истории наблюдений.',
   'observations.retry': 'Повторить',
@@ -482,4 +485,42 @@ export const russianMessages: MessageCatalogue = {
   'tasks.enum.urgency.normal': 'Обычная',
   'tasks.enum.urgency.high': 'Высокая',
   'tasks.enum.urgency.urgent': 'Срочная',
+
+  'media.selectFile': 'Выбрать фотографию',
+  'media.tooLarge': 'Этот файл больше ограничения в {max}. Выберите файл меньшего размера.',
+  'media.progressLabel': 'Загрузка {filename}: {uploaded} из {total}',
+  'media.pause': 'Пауза',
+  'media.resume': 'Возобновить загрузку',
+  'media.retry': 'Повторить',
+  'media.cancel': 'Отменить загрузку',
+  'media.recoverableDescription':
+    'Обнаружена прерванная загрузка: {filename}, уже отправлено {percent}%. Возобновите её или начните заново.',
+  'media.resumeRecovered': 'Возобновить прерванную загрузку',
+  'media.discardRecovered': 'Отклонить',
+  'media.previewLoading': 'Загрузка предпросмотра.',
+  'media.previewAlt': 'Загруженная фотография: {filename}',
+  'media.rejectedDescription':
+    'Этот файл не удалось подтвердить — то, что фактически было получено, не совпало с заявленным при начале загрузки. Выберите файл заново и повторите попытку.',
+  'media.processingFailedDescription':
+    'Файл был загружен и подтверждён, но не удалось его обработать. Попробуйте загрузить его снова.',
+
+  'media.phase.idle': '',
+  'media.phase.recoverable': 'Обнаружена прерванная загрузка.',
+  'media.phase.registering': 'Подготовка загрузки.',
+  'media.phase.uploading': 'Идёт загрузка.',
+  'media.phase.paused': 'Загрузка приостановлена.',
+  'media.phase.completing': 'Завершение загрузки.',
+  'media.phase.processing': 'Проверка и обработка загрузки. Это может занять некоторое время.',
+  'media.phase.processed': 'Готово.',
+  'media.phase.rejected': 'Этот файл был отклонён.',
+  'media.phase.processingFailed': 'Обработка этого файла не удалась.',
+  'media.phase.sessionExpired':
+    'Сессия загрузки истекла до завершения. Повторите, чтобы начать заново.',
+  'media.phase.uploadFailed': 'Загрузка не завершилась.',
+  'media.phase.apiFailed': 'Запрос не выполнен.',
+
+  'media.failureReason.networkError':
+    'Загрузка была прервана из-за проблемы с сетью. Её можно повторить с того места, где она остановилась.',
+  'media.failureReason.unexpectedStatus':
+    'Облачное хранилище отклонило загрузку неожиданным ответом. Повтор начнёт новую сессию загрузки.',
 };

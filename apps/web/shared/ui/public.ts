@@ -10,6 +10,7 @@ export { Alert, type AlertProps, type AlertTone } from './alert';
 export { Button, type ButtonProps, type ButtonVariant } from './button';
 export { Card, type CardProps } from './card';
 export { FailureAlert } from './failure-alert';
+export { ProgressBar, type ProgressBarProps } from './progress-bar';
 export { RecoveredDraftNotice, type RecoveredDraftNoticeProps } from './recovered-draft-notice';
 export { Select, type SelectOption, type SelectProps } from './select';
 export { StaleIndicator, type StaleIndicatorProps } from './stale-indicator';

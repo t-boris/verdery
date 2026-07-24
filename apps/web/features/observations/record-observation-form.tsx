@@ -70,11 +70,13 @@ export interface RecordObservationFormProps {
 }
 
 /**
- * `RecordObservationRequest` without photo support: this codebase has no
- * upload flow yet (the same gap `features/plants` documents), and the
- * contract already allows a note and/or a condition summary with no photo
- * at all — at least one of `noteText`, `conditionSummary`, or a photo is
- * required, and this form always supplies one of the first two.
+ * `RecordObservationRequest` without photo support: a working upload flow
+ * now exists (`features/media`, P6-WEB-01) but is not yet wired to this
+ * form (the same not-yet-reused gap `features/plants/plant-detail.tsx`
+ * documents), and the contract already allows a note and/or a condition
+ * summary with no photo at all — at least one of `noteText`,
+ * `conditionSummary`, or a photo is required, and this form always
+ * supplies one of the first two.
  *
  * Wired to `core/drafts`' recoverable-draft mechanism (P5-WEB-01): field
  * values are persisted locally while the form is dirty and restored on a

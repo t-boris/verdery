@@ -23,11 +23,12 @@ export interface PlantDetailProps {
  * Photo identification (`AddPlantFromPhoto`), photo attachment
  * (`AttachPlantPhoto`/`SetPrimaryPlantPhoto`), and identification
  * confirmation (`ConfirmPlantIdentification`) are omitted from this UI: each
- * needs a real `media` record, and this codebase has no upload flow yet —
- * `media.media_record` only records that a file reference exists. A
- * disabled or always-failing control would be a silently-broken UI, so this
- * pass surfaces the gap as a plain, honest notice instead. See
- * `docs/development/deferred-capabilities.md`.
+ * needs a real `media` record. A working upload flow now exists
+ * (`features/media`, P6-WEB-01) and is wired to garden photos, but not yet
+ * to a plant — that reuse is a real, separate follow-up, not built in this
+ * pass. A disabled or always-failing control would be a silently-broken UI,
+ * so this pass still surfaces the gap as a plain, honest notice instead.
+ * See `docs/development/deferred-capabilities.md`.
  *
  * Source: implementation-plan.md work package P4-WEB-01;
  * packages/api-contracts/openapi.yaml, operation `getPlant`.
