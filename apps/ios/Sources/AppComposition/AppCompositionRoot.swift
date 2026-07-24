@@ -289,6 +289,13 @@ public final class AppCompositionRoot {
             return RemoteSyncEngine(
                 outboxStore: GRDBSyncOutboxStore(dbQueue: dbQueue),
                 conflictStore: GRDBSyncConflictStore(dbQueue: dbQueue),
+                // Same `dbQueue` as the outbox/conflict stores immediately
+                // above — required for real transaction atomicity between
+                // them (`SyncTransactionContext`'s own doc comment): two
+                // different `DatabaseQueue` connections to the same SQLite
+                // file cannot share one GRDB transaction, so this only works
+                // because all three are constructed from this one instance.
+                outboxConflictTransaction: GRDBSyncConflictResolutionOutboxTransaction(dbQueue: dbQueue),
                 operationResultStore: GRDBSyncOperationResultStore(dbQueue: dbQueue),
                 gateway: syncGateway,
                 clientInstallationStore: clientInstallationStore,

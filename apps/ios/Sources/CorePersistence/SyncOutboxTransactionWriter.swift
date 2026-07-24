@@ -33,4 +33,17 @@ public enum SyncOutboxTransactionWriter {
         try OutboxOperationRecord(assigned).insert(db)
         return assigned
     }
+
+    /// `Database`-parameter twin of `GRDBSyncOutboxStore.remove(operationId:)`
+    /// — added for `RemoteSyncEngine+ConflictResolution.swift`'s
+    /// `resolveReapplyingLocalIntent`/`resolveDuplicatingAsNewObject`, which
+    /// need this removal to commit or roll back together with the new
+    /// resolution operation's own `enqueue(_:in:)` call above and the
+    /// conflict's own `SyncConflictTransactionWriter.resolve(...)` call, all
+    /// three against the one `Database` connection a shared
+    /// `SyncConflictResolutionOutboxTransaction.run(_:)` call already holds
+    /// open — see `SyncTransactionContext`'s own doc comment for why.
+    public static func remove(operationId: String, in db: Database) throws {
+        _ = try OutboxOperationRecord.deleteOne(db, key: operationId)
+    }
 }

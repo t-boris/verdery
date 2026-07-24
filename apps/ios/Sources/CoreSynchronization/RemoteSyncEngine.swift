@@ -38,6 +38,15 @@ public actor RemoteSyncEngine: SyncEngine {
 
     let outboxStore: any SyncOutboxStore
     let conflictStore: any SyncConflictStore
+    /// Runs the outbox+conflict portion of one conflict-resolution recovery
+    /// action as a single real GRDB transaction — `RemoteSyncEngine
+    /// +ConflictResolution.swift`'s own header comment has the full account
+    /// of the gap this closes and what it deliberately still leaves open.
+    /// `nil` for every existing test double and for the in-memory fallback
+    /// `AppCompositionRoot` uses when the on-disk database cannot be opened —
+    /// see `SyncTransactionContext.swift`'s own doc comment for why that is
+    /// the right default rather than a gap to paper over.
+    let outboxConflictTransaction: (any SyncConflictResolutionOutboxTransaction)?
     let operationResultStore: any SyncOperationResultStore
     let gateway: any SyncGateway
     let clientInstallationStore: any ClientInstallationIdentityStore
@@ -141,6 +150,7 @@ public actor RemoteSyncEngine: SyncEngine {
     public init(
         outboxStore: any SyncOutboxStore,
         conflictStore: any SyncConflictStore,
+        outboxConflictTransaction: (any SyncConflictResolutionOutboxTransaction)? = nil,
         operationResultStore: any SyncOperationResultStore,
         gateway: any SyncGateway,
         clientInstallationStore: any ClientInstallationIdentityStore,
@@ -159,6 +169,7 @@ public actor RemoteSyncEngine: SyncEngine {
     ) {
         self.outboxStore = outboxStore
         self.conflictStore = conflictStore
+        self.outboxConflictTransaction = outboxConflictTransaction
         self.operationResultStore = operationResultStore
         self.gateway = gateway
         self.clientInstallationStore = clientInstallationStore
@@ -185,12 +196,18 @@ public actor RemoteSyncEngine: SyncEngine {
     /// "20. Connectivity and Backoff": "Authentication, authorization,
     /// validation, and conflict failures do not retry automatically as
     /// transient failures", implying transient ones (this method's own
-    /// concern) DO retry automatically, but not immediately/unboundedly.
-    /// An operation that has never been attempted (`retryState.attemptCount
-    /// == 0`) — including one still carrying an open conflict, which this
-    /// method never marks as attempted (see `apply(_:to:)`'s `.conflict`
-    /// branch) — is always immediately eligible, unchanged from Stage 5a's
-    /// behavior.
+    /// concern) DO retry automatically, but not immediately/unboundedly. An
+    /// operation whose most recent attempt classified as one of those four
+    /// non-transient categories (`SyncErrorCategory
+    /// .isEligibleForAutomaticRetry`, `false`) is excluded from THIS batch
+    /// regardless of how much time has elapsed — that category needs a user
+    /// action (an explicit `retryNow()`, or a real conflict resolution) to
+    /// become eligible again, not a longer wait; see `eligiblePending()`'s
+    /// own doc comment. An operation that has never been attempted
+    /// (`retryState.attemptCount == 0`) — including one still carrying an
+    /// open conflict, which this method never marks as attempted (see
+    /// `apply(_:to:)`'s `.conflict` branch) — is always immediately
+    /// eligible, unchanged from Stage 5a's behavior.
     ///
     /// Uses `SyncOutboxStore.recordAttempt` (built in Stage 3, never called
     /// before this stage) for durable, per-operation, cross-relaunch
@@ -200,7 +217,17 @@ public actor RemoteSyncEngine: SyncEngine {
     /// failure that prevents the whole push call from returning any
     /// per-operation outcome at all, so no single operation's own
     /// `retryState` can express "the whole batch just failed together."
+    /// `pushFailureGate` itself stays purely timing-based, unaware of
+    /// category — it exists only to avoid an avoidably-early re-attempt of
+    /// the gateway call itself; `eligiblePending()`'s own category filter is
+    /// what actually withholds a non-transient-category operation from that
+    /// attempt once it is made, so `pushFailureGate` needs no category logic
+    /// of its own to close this defect.
     public func pushPending() async throws {
+        try await pushPending(bypassingAutomaticRetryGate: false)
+    }
+
+    private func pushPending(bypassingAutomaticRetryGate: Bool) async throws {
         try await ensureClientRegistered()
         try await logOutboxBacklogAge()
 
@@ -214,7 +241,7 @@ public actor RemoteSyncEngine: SyncEngine {
             return
         }
 
-        let pending = try await eligiblePending()
+        let pending = try await eligiblePending(bypassingAutomaticRetryGate: bypassingAutomaticRetryGate)
         guard !pending.isEmpty else {
             try await refreshIdleStatus()
             return
@@ -310,12 +337,37 @@ public actor RemoteSyncEngine: SyncEngine {
         )
     }
 
-    /// Every pending operation whose backoff window (if any) has elapsed —
-    /// `SyncBackoff.isEligible`, evaluated per operation against its own
-    /// durable `retryState`.
-    private func eligiblePending() async throws -> [OutboxOperation] {
+    /// Every pending operation eligible for this batch: its backoff window
+    /// (if any) has elapsed, AND — unless `bypassingAutomaticRetryGate` is
+    /// set — its most recent failure did not classify as one of the four
+    /// categories architecture/offline-synchronization.md, section
+    /// "20. Connectivity and Backoff" excludes from automatic retry
+    /// (`SyncErrorCategory.isEligibleForAutomaticRetry`). That second check
+    /// is deliberately independent of elapsed time: no amount of waiting
+    /// makes an authentication/authorization/validation/conflict failure
+    /// retry-worthy on its own, so `SyncBackoff`'s timing gate is never even
+    /// consulted for such an operation until either its `lastErrorCategory`
+    /// changes (a later attempt — automatic or explicit — records a
+    /// different category) or the caller bypasses this gate outright.
+    ///
+    /// `bypassingAutomaticRetryGate` is `true` only for `retryNow()`'s own
+    /// explicit-retry override — architecture/offline-synchronization.md,
+    /// section "20. Connectivity and Backoff": "User-initiated retry can
+    /// wake eligible work..." names automatic retry specifically as what
+    /// is restricted, not user-initiated retry. The per-operation backoff
+    /// TIMING check still applies even when bypassing the category gate: an
+    /// operation still inside its own pacing window stays excluded from an
+    /// explicit retry too, the same protection every attempt gets — this
+    /// defect is about category, not about ignoring backoff pacing
+    /// altogether.
+    private func eligiblePending(bypassingAutomaticRetryGate: Bool) async throws -> [OutboxOperation] {
         try await outboxStore.fetchAll().filter { operation in
-            SyncBackoff.isEligible(
+            if !bypassingAutomaticRetryGate,
+               let lastErrorCategory = operation.retryState.lastErrorCategory,
+               !lastErrorCategory.isEligibleForAutomaticRetry {
+                return false
+            }
+            return SyncBackoff.isEligible(
                 attemptCount: operation.retryState.attemptCount,
                 lastAttemptedAt: operation.retryState.lastAttemptedAt,
                 now: now(),
@@ -477,9 +529,55 @@ public actor RemoteSyncEngine: SyncEngine {
     }
 
     /// Recomputes `status` from durable state alone (no failure this cycle):
-    /// `.synchronized` once the outbox is empty, `.savedLocally` while
-    /// anything is still queued.
+    /// `.synchronized` once the outbox is empty; otherwise `.requiresAttention`
+    /// if anything still queued is permanently excluded from automatic retry
+    /// by `eligiblePending()`'s own category filter (its most recent failure
+    /// classified as authentication/authorization/validation/conflict — the
+    /// operation is durably "saved locally" but will never leave that state
+    /// on its own, which is a real difference from `.savedLocally`'s own
+    /// documented meaning: "queued but nothing durably failed"); otherwise
+    /// `.savedLocally` while anything else is still queued (genuinely
+    /// waiting on backoff timing, or never yet attempted).
     func refreshIdleStatus() async throws {
-        status = try await outboxStore.fetchAll().isEmpty ? .synchronized : .savedLocally
+        let pending = try await outboxStore.fetchAll()
+        if pending.isEmpty {
+            status = .synchronized
+        } else if pending.contains(where: { operation in
+            guard let category = operation.retryState.lastErrorCategory else { return false }
+            return !category.isEligibleForAutomaticRetry
+        }) {
+            status = .requiresAttention
+        } else {
+            status = .savedLocally
+        }
+    }
+
+    /// Explicit user-initiated retry — architecture/offline-synchronization.md,
+    /// section "20. Connectivity and Backoff": "User-initiated retry can wake
+    /// eligible work without creating duplicate operation IDs." Overrides
+    /// `SyncEngine`'s own default `pushPending() + pullChanges()` sequence
+    /// only to pass `bypassingAutomaticRetryGate: true` through to
+    /// `pushPending(bypassingAutomaticRetryGate:)`: an operation whose most
+    /// recent failure classified as authentication/authorization/validation/
+    /// conflict is excluded from an AUTOMATIC `pushPending()` call's next
+    /// batch (`eligiblePending(bypassingAutomaticRetryGate:)`'s own doc
+    /// comment), per that section's "do not retry automatically as transient
+    /// failures" — but that clause names automatic retry specifically, not
+    /// user-initiated retry, so this method still attempts it. Operation ids
+    /// are stable UUIDv7s regardless of which path submits them, so repeating
+    /// this call creates no duplicates, matching the quoted sentence exactly.
+    ///
+    /// Declared directly on this actor, not just inherited from `SyncEngine`'s
+    /// protocol extension: `retryNow()` is not a protocol requirement (see
+    /// that extension's own doc comment for why — every conformer gets the
+    /// default for free), so a caller holding this concrete `RemoteSyncEngine`
+    /// type (every real call site in this codebase does — `AppCompositionRoot
+    /// .makeSyncEngine()` returns it concretely, never boxed as `any
+    /// SyncEngine`) resolves to THIS declaration instead of the protocol
+    /// extension's default, the ordinary Swift rule that a concrete type's own
+    /// member shadows a non-required protocol extension default.
+    public func retryNow() async throws {
+        try await pushPending(bypassingAutomaticRetryGate: true)
+        try await pullChanges()
     }
 }
