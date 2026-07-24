@@ -55,12 +55,38 @@ env_vars+=",MEDIA_USER_MEDIA_BUCKET=${VERDERY_USER_MEDIA_BUCKET}"
 env_vars+=",MEDIA_RAW_CAPTURE_BUCKET=${VERDERY_RAW_CAPTURE_BUCKET}"
 env_vars+=",MEDIA_DERIVED_BUCKET=${VERDERY_DERIVED_BUCKET}"
 env_vars+=",MEDIA_EXPORTS_BUCKET=${VERDERY_EXPORTS_BUCKET}"
-# P6-ASYNC-01: the worker identity Cloud Tasks mints OIDC tokens for. The
-# callback's own audience (its full URL) is not known until this exact
-# `gcloud run deploy` call finishes — Cloud Run assigns the service URL on
-# first deploy — so it is set in a second, self-referential
-# `gcloud run services update` call below rather than guessed here.
 env_vars+=",MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL=${VERDERY_WORKER_SERVICE_ACCOUNT_ID}@${VERDERY_PROJECT_ID}.iam.gserviceaccount.com"
+
+# `MEDIA_PROCESSING_CALLBACK_AUDIENCE` is the callback route's own OIDC
+# audience — this exact service's own URL. The ORIGINAL version of this
+# script omitted it from the `--set-env-vars` call below entirely, planning
+# to set it in a second, self-referential `gcloud run services update` call
+# once the URL was known — but `gcloud run deploy --set-env-vars` REPLACES
+# the complete env var set, not merges, so that first call always produced a
+# revision missing this non-optional variable
+# (configuration-schema.ts: `z.string().min(1)`), which crashed on startup
+# before that second call ever ran: a real, live deploy failure
+# ("MEDIA_PROCESSING_CALLBACK_AUDIENCE: Invalid input: expected string,
+# received undefined", `verdery-api-dev-00055-p8g` never starting) — not a
+# one-time bootstrap problem, since every later redeploy would have hit the
+# identical crash the exact same way.
+#
+# Cloud Run service URLs are stable across every revision of the same
+# service (this script's own prior comment already knew this) — for an
+# ALREADY-EXISTING service, the URL is therefore already known before this
+# deploy ever runs, so it belongs in this first call, not a follow-up one.
+# Only a genuinely first-ever deploy of a brand new service (no URL exists
+# yet at all) still needs the placeholder-then-correct two-step shape below.
+if resource_exists gcloud run services describe "${VERDERY_CLOUD_RUN_SERVICE_NAME}" \
+  --project="${VERDERY_PROJECT_ID}" --region="${VERDERY_REGION}"; then
+  existing_service_url="$(gcloud run services describe "${VERDERY_CLOUD_RUN_SERVICE_NAME}" \
+    --project="${VERDERY_PROJECT_ID}" --region="${VERDERY_REGION}" --format="value(status.url)")"
+  env_vars+=",MEDIA_PROCESSING_CALLBACK_AUDIENCE=${existing_service_url}/v1/internal/media-processing-jobs"
+else
+  log "${VERDERY_CLOUD_RUN_SERVICE_NAME} does not exist yet — deploying once with a placeholder"
+  log "MEDIA_PROCESSING_CALLBACK_AUDIENCE (corrected below once a real URL exists)."
+  env_vars+=",MEDIA_PROCESSING_CALLBACK_AUDIENCE=pending-first-deploy"
+fi
 
 log "Deploying ${IMAGE} to ${VERDERY_CLOUD_RUN_SERVICE_NAME}"
 gcloud run deploy "${VERDERY_CLOUD_RUN_SERVICE_NAME}" \
@@ -83,10 +109,11 @@ gcloud run deploy "${VERDERY_CLOUD_RUN_SERVICE_NAME}" \
 service_url="$(gcloud run services describe "${VERDERY_CLOUD_RUN_SERVICE_NAME}" \
   --project="${VERDERY_PROJECT_ID}" --region="${VERDERY_REGION}" --format="value(status.url)")"
 
-# Second, self-referential update: the callback route's own OIDC audience is
-# this exact service's own URL, only knowable after the deploy above
-# assigned it. A no-op on every later redeploy (the URL is stable across
-# revisions of the same Cloud Run service).
+# Corrects the placeholder from a genuinely first-ever deploy (see above) to
+# the real, now-known URL. A true no-op on every other redeploy — the
+# service already existed, so the first `--set-env-vars` call above already
+# set the real, correct value, and this second call updates it to the exact
+# same string.
 callback_audience="${service_url}/v1/internal/media-processing-jobs"
 log "Setting media-processing callback audience: ${callback_audience}"
 gcloud run services update "${VERDERY_CLOUD_RUN_SERVICE_NAME}" \
