@@ -209,6 +209,10 @@ export class FakeMediaRepository implements MediaRepository {
   update(): Promise<boolean> {
     throw new Error('not used by this test');
   }
+
+  findDerivative(): Promise<MediaRecord | null> {
+    throw new Error('not used by this test');
+  }
 }
 
 /** Only `get` is exercised — `GetObservation` (used to build a real instance below) never calls the others. */

@@ -260,6 +260,10 @@ export class FakeMediaRepository implements MediaRepository {
   update(): Promise<boolean> {
     throw new Error('not used by this test');
   }
+
+  findDerivative(): Promise<MediaRecord | null> {
+    throw new Error('not used by this test');
+  }
 }
 
 export class FakeMembershipRepository implements MembershipRepository {

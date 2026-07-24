@@ -25,6 +25,7 @@ import type { Membership, MembershipRepository } from '../../gardens-mapping/pub
 import type { MediaRecord } from '../domain/media-record.js';
 import type { ProcessingJob } from '../domain/processing-job.js';
 import type { QuotaReservation } from '../domain/quota-reservation.js';
+import type { FindDerivativeInput } from './media-repository.js';
 import type { ProcessingJobRepository } from './processing-job-repository.js';
 import type {
   MediaObjectMetadata,
@@ -68,6 +69,19 @@ export class FakeMediaRepository implements MediaRepository {
     }
     this.records.set(record.id, record);
     return Promise.resolve(true);
+  }
+
+  findDerivative(input: FindDerivativeInput): Promise<MediaRecord | null> {
+    const match = [...this.records.values()].find(
+      (record) =>
+        record.derivedFromMediaId === input.derivedFromMediaId &&
+        record.transformationVersion === input.transformationVersion &&
+        record.derivativeKind === input.derivativeKind &&
+        record.tileZoomLevel === (input.tile?.zoomLevel ?? null) &&
+        record.tileX === (input.tile?.x ?? null) &&
+        record.tileY === (input.tile?.y ?? null),
+    );
+    return Promise.resolve(match ?? null);
   }
 }
 

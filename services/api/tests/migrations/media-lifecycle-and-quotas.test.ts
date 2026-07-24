@@ -177,6 +177,12 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
         'retention_deadline_at',
         'derived_from_media_id',
         'transformation_version',
+        // Added by 1785300000000_media-derivative-identity.sql
+        // (P6-WORKER-02) — see that migration's own header comment.
+        'derivative_kind',
+        'tile_zoom_level',
+        'tile_x',
+        'tile_y',
         'revision',
         'created_at',
         'updated_at',
@@ -468,17 +474,18 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     await client.end();
 
-    // `count: 2` undoes 1785200000000_media-processing-jobs.sql (now the
-    // newest migration) first, then this one — matching every earlier
-    // migration test's own convention of unwinding whatever landed on top
-    // since this file was written. Update again the next time a migration
-    // is added on top of that one.
+    // `count: 3` undoes 1785300000000_media-derivative-identity.sql and
+    // 1785200000000_media-processing-jobs.sql (the two newest migrations)
+    // first, then this one — matching every earlier migration test's own
+    // convention of unwinding whatever landed on top since this file was
+    // written. Update again the next time a migration is added on top of
+    // that one.
     await runner({
       databaseUrl,
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 2,
+      count: 3,
       log: () => {},
     });
 

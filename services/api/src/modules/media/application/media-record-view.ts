@@ -35,6 +35,10 @@ export interface MediaRecordResource {
   readonly retentionDeadlineAt: string | null;
   readonly derivedFromMediaId: string | null;
   readonly transformationVersion: number | null;
+  readonly derivativeKind: string | null;
+  readonly tileZoomLevel: number | null;
+  readonly tileX: number | null;
+  readonly tileY: number | null;
   readonly revision: number;
   readonly createdAt: string;
   readonly updatedAt: string;
@@ -62,6 +66,10 @@ export function toMediaRecordResource(record: MediaRecord): MediaRecordResource 
       record.retentionDeadlineAt === null ? null : record.retentionDeadlineAt.toISOString(),
     derivedFromMediaId: record.derivedFromMediaId,
     transformationVersion: record.transformationVersion,
+    derivativeKind: record.derivativeKind,
+    tileZoomLevel: record.tileZoomLevel,
+    tileX: record.tileX,
+    tileY: record.tileY,
     revision: record.revision,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),

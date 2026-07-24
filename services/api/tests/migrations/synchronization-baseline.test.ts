@@ -141,17 +141,18 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving the search-indexes schemas and tables otherwise intact', async () => {
     await client.end();
 
-    // `count: 3` undoes this migration and every migration applied after it
-    // (currently media-lifecycle-and-quotas and media-processing-jobs,
-    // neither of which depends on `platform.sync_client_installation` but
-    // both of which were applied later and must unwind first). Update this
-    // count when a later migration is added on top.
+    // `count: 4` undoes this migration and every migration applied after it
+    // (currently media-lifecycle-and-quotas, media-processing-jobs, and
+    // media-derivative-identity, none of which depends on
+    // `platform.sync_client_installation` but all of which were applied
+    // later and must unwind first). Update this count when a later
+    // migration is added on top.
     await runner({
       databaseUrl,
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 3,
+      count: 4,
       log: () => {},
     });
 

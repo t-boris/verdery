@@ -5,10 +5,12 @@ import {
   deriveDefaultSensitivityClassification,
   normalizeChecksumSha256,
   normalizeDisplayFilename,
+  registerDerivativeMediaRecord,
   registerMediaRecord,
   validateDeclaredByteSize,
   validateDeclaredContentType,
 } from './media-record.js';
+import type { RegisterDerivativeMediaRecordInput } from './media-record.js';
 
 const MEDIA_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0b';
 const GARDEN_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0c';
@@ -72,6 +74,10 @@ describe('registerMediaRecord', () => {
       retentionDeadlineAt: null,
       derivedFromMediaId: null,
       transformationVersion: null,
+      derivativeKind: null,
+      tileZoomLevel: null,
+      tileX: null,
+      tileY: null,
       revision: 1,
       createdAt: NOW,
       updatedAt: NOW,
@@ -115,6 +121,89 @@ describe('registerMediaRecord', () => {
     expect(() => registerFixture({ displayFilename: '   ' })).toThrow(ValidationError);
     expect(() => registerFixture({ declaredContentType: '   ' })).toThrow(ValidationError);
     expect(() => registerFixture({ declaredByteSize: 0 })).toThrow(ValidationError);
+  });
+});
+
+const DERIVATIVE_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a10';
+const VALID_DERIVATIVE_CHECKSUM = 'b'.repeat(64);
+
+function registerDerivativeFixture(overrides: Partial<RegisterDerivativeMediaRecordInput> = {}) {
+  return registerDerivativeMediaRecord(
+    DERIVATIVE_ID,
+    {
+      gardenId: GARDEN_ID,
+      uploadedByProfileId: PROFILE_ID,
+      displayFilename: 'photo.jpg',
+      contentType: 'image/jpeg',
+      byteSize: 40_000,
+      checksumSha256: VALID_DERIVATIVE_CHECKSUM,
+      bucketName: 'derived-bucket',
+      objectKey: 'ab/019.../object-uuid',
+      derivedFromMediaId: ORIGINAL_MEDIA_ID,
+      transformationVersion: 1,
+      derivativeKind: 'thumbnail',
+      tile: null,
+      ...overrides,
+    },
+    NOW,
+  );
+}
+
+describe('registerDerivativeMediaRecord', () => {
+  it('starts a non-tile derivative directly at available, with both content-type/byte-size columns already verified', () => {
+    const record = registerDerivativeFixture();
+
+    expect(record).toMatchObject({
+      id: DERIVATIVE_ID,
+      gardenId: GARDEN_ID,
+      uploadedByProfileId: PROFILE_ID,
+      mediaClass: 'derived_preview',
+      displayFilename: 'photo.jpg',
+      declaredContentType: 'image/jpeg',
+      verifiedContentType: 'image/jpeg',
+      declaredByteSize: 40_000,
+      verifiedByteSize: 40_000,
+      checksumSha256: VALID_DERIVATIVE_CHECKSUM,
+      bucketName: 'derived-bucket',
+      objectKey: 'ab/019.../object-uuid',
+      uploadState: 'available',
+      processingState: null,
+      sensitivityClassification: 'standard',
+      derivedFromMediaId: ORIGINAL_MEDIA_ID,
+      transformationVersion: 1,
+      derivativeKind: 'thumbnail',
+      tileZoomLevel: null,
+      tileX: null,
+      tileY: null,
+      revision: 1,
+    });
+  });
+
+  it('records a tile derivative with its XYZ coordinates', () => {
+    const record = registerDerivativeFixture({
+      derivativeKind: 'tile',
+      tile: { zoomLevel: 3, x: 5, y: 2 },
+    });
+
+    expect(record.derivativeKind).toBe('tile');
+    expect(record.tileZoomLevel).toBe(3);
+    expect(record.tileX).toBe(5);
+    expect(record.tileY).toBe(2);
+  });
+
+  it('rejects tile coordinates on a non-tile derivativeKind', () => {
+    expect(() =>
+      registerDerivativeFixture({
+        derivativeKind: 'thumbnail',
+        tile: { zoomLevel: 0, x: 0, y: 0 },
+      }),
+    ).toThrow(ValidationError);
+  });
+
+  it("rejects derivativeKind 'tile' with no tile coordinates", () => {
+    expect(() => registerDerivativeFixture({ derivativeKind: 'tile', tile: null })).toThrow(
+      ValidationError,
+    );
   });
 });
 

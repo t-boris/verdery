@@ -47,6 +47,10 @@ class FakeMediaRepository implements MediaRepository {
   update(): Promise<boolean> {
     throw new Error('not used by this test');
   }
+
+  findDerivative(): Promise<MediaRecord | null> {
+    throw new Error('not used by this test');
+  }
 }
 
 /** Not exercised by `RegisterMediaRecord` (P6-DATA-01's own command, which never reserves quota) — present only to satisfy `MediaTransactionContext`'s shape. */

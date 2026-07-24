@@ -169,6 +169,82 @@ Orientation is normalized. EXIF location is removed from derivatives unless the 
 
 Derivative generation is idempotent and addressed by source checksum plus transformation version.
 
+### 9.1 Implemented derivative profile (P6-WORKER-02)
+
+Real images only, for the two media classes real derivative production is grounded in a documented
+use case: garden photos and raster (non-PDF) imported plans. A PDF-classed imported plan gets no
+derivative yet — page rendering needs `poppler`/`pdftoppm` (a native binary dependency, the same class
+already deferred for video/`ffprobe`) or a heavier `pdf.js`+canvas WASM stack; neither is evaluated or
+present in this stack. See section 11.1 below.
+
+| Derivative kind           | Media classes produced for | Long-edge size | Format | Quality  |
+| ------------------------- | -------------------------- | -------------- | ------ | -------- |
+| Thumbnail                 | Garden photo, raster plan  | 320 px         | JPEG   | 70       |
+| Screen preview            | Garden photo, raster plan  | 1,600 px       | JPEG   | 82       |
+| High-resolution review    | Raster plan only           | 4,096 px       | JPEG   | 90       |
+| Tile (per XYZ coordinate) | Raster plan only           | 256 px tile    | PNG    | lossless |
+
+None of these numbers is named anywhere else in this document; each is a reasoned default, documented
+the same "no number decided yet, pick one and say so" posture `services/workers/src/configuration.ts`'s
+own `RELAY_POLL_INTERVAL_MS`/`RELAY_BATCH_SIZE` comments and `09-media-storage.sh`'s own export-bucket
+lifecycle rule already established:
+
+- **Thumbnail/screen preview sizes** are ordinary grid-cell and full-screen-viewing bounds; never
+  upscaled past a smaller source's own native resolution.
+- **The high-resolution review image is built only for a raster plan, not a garden photo.** A plan
+  document is used as a zoomable map background for tracing and calibration (section 8's plan-import
+  flow reads a plan through to "trace or accept editable object proposals"; the map-rendering design's
+  own "Plan Import and Calibration" describes recalibration and control-point placement against it) —
+  a use case that plausibly zooms in past what a 1,600 px screen preview can render cleanly. A garden
+  photo has no equivalent close-inspection use case named anywhere in this document; the screen
+  preview, plus the original itself (still privately downloadable via signed access for the rare case
+  someone needs full native detail), is judged sufficient. Building a third, redundant size for every
+  garden photo uniformly was rejected as ungrounded invention.
+- **All three raster sizes are JPEG**, trading a transparent source's alpha channel (flattened) for
+  meaningfully smaller derivative bytes at a visually equivalent quality for in-app photo/plan-
+  background display — the only use these three sizes serve.
+- **Metadata stripping is unconditional, not selective**: every derivative this stage produces has
+  ALL EXIF/ICC/XMP metadata removed (GPS location included), matching this section's own "EXIF
+  location is removed ... unless the product explicitly needs and authorizes it" read literally —
+  nothing in this codebase authorizes retaining any of it. EXIF orientation is applied to the pixels
+  before the tag itself is stripped, so every derivative renders upright without a client reading EXIF.
+- **Idempotency key**: `(derivedFromMediaId, transformationVersion, derivativeKind[, tileZoomLevel,
+tileX, tileY])` — the addition of `derivativeKind` (and, for a tile, its XYZ coordinate) to this
+  section's own "source checksum plus transformation version" phrase is necessary because one source
+  now produces MULTIPLE derivatives per version (a thumbnail, a screen preview, optionally a
+  high-resolution image, and for a plan, many tiles), which the original two-part key alone cannot
+  distinguish between. Enforced by two real, partial unique database indexes
+  (`migrations/1785300000000_media-derivative-identity.sql`), not just application-layer checking —
+  regenerating the identical derivative for the identical source+version+kind is a real, database-
+  guaranteed no-op.
+- Each produced derivative becomes its OWN new `media.media_record` row (`media_class =
+'derived_preview'`, `derivedFromMediaId`/`transformationVersion`/`derivativeKind` set), not a blob
+  written to the derived bucket with no application-layer record — matching `media-record.ts`'s own
+  pre-existing self-referencing model. Registration is a privileged write performed by `services/api`
+  (`verdery_worker` has zero access to `media.media_record`), driven by the derivative-generation
+  job's authenticated result payload, the same trust boundary P6-WORKER-01 established for validation
+  outcomes.
+
+### 11.1 Implemented tile pyramid defaults (P6-WORKER-02)
+
+Standard XYZ/slippy-map addressing (`{z}/{x}/{y}`, top-left origin) — this app's own map rendering
+(ADR-0005, P3-WEB-02) already uses MapLibre, which speaks this scheme natively, so this reuses it
+rather than inventing a new convention. Tile size is 256 px, the universal default for this scheme
+(the same default MapLibre, Leaflet, OpenStreetMap, and virtually every XYZ tile provider ship with);
+no document anywhere in this repository names a tile size or zoom-level count, so 256 px is a reasoned
+default, documented here explicitly.
+
+Zoom levels follow standard image-pyramid construction: the deepest level (`maxZoomLevel`) tiles the
+source at its own native resolution; each level below halves the resolution again, stopping at level 0
+once a level fits in exactly one tile (a source already smaller than one tile produces a single level,
+zoom 0, one tile). `maxZoomLevel = max(0, ceil(log2(maxNativeDimensionPx / 256)))`. Tile output is PNG,
+not JPEG — a boundary tile whose level dimensions are not an exact multiple of 256 px is padded to a
+full square with a transparent margin (JPEG has no alpha channel to pad with); MapLibre's XYZ raster
+source expects uniform tile dimensions.
+
+**PDF page-preview rendering is deliberately out of scope for this stage** (P6-WORKER-02). See section
+9.1 above and `docs/development/deferred-capabilities.md`.
+
 ## 10. Video Handling
 
 Raw video validation records duration, dimensions, codec, frame rate, and audio presence. Unsupported codecs may be transcoded in a worker or rejected with actionable guidance.
@@ -340,7 +416,22 @@ unit/malicious-fixture coverage. The API result callback records success, partia
 or cancellation through revision-guarded domain transitions, and signed access requires a successful
 validation state.
 
-The worker image has not been deployed to `verdery-dev`. The existing Phase 6 platform follow-ups
+P6-WORKER-02 is implemented in `services/workers/src/derivatives`: real thumbnail/screen-preview/
+high-resolution/tile derivative generation via `sharp` (now a real production dependency, not the
+devDependency-only test-fixture role it held in P6-WORKER-01), a direct GCS write to the derived
+bucket, and idempotent registration of each produced derivative as its own new `media.media_record`
+row through `services/api`'s extended `RecordMediaProcessingResult`
+(`application/derivative-eligibility.ts`, `application/derivative-registration.ts`). A successful
+`media_validation` job for a raster-eligible media class now appends a second outbox event
+(`media.derivative_generation_requested`), reusing the same relay/Cloud Tasks/HTTP-callback machinery
+P6-ASYNC-01/P6-WORKER-01 already built, dispatched by `job_kind` through one shared HTTP target
+(`MediaProcessingJobRouter`). See section 9.1/11.1 above for the implemented derivative sizes and tile
+defaults, and `docs/development/deferred-capabilities.md` for the PDF-page-preview gap this stage
+deliberately leaves open.
+
+Neither worker image has been deployed to `verdery-dev`. The existing Phase 6 platform follow-ups
 still apply: worker Cloud SQL IAM connectivity, queue/service rollout, always-allocated CPU for the
-interval relay, and selection/integration of a real malware scanner. P6-WORKER-02 derivatives are
-not implemented.
+interval relay, and selection/integration of a real malware scanner. The derived-bucket write IAM
+grant this stage's own derivative-generation job needs (`roles/storage.objectCreator`, scoped to the
+derived bucket) is written in `infrastructure/gcloud/scripts/10-media-processing-queue.sh` but not
+executed against any real environment.

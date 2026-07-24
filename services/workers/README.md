@@ -2,8 +2,10 @@
 
 Independently deployed workers for media verification, derivatives, and scheduled processing.
 
-P6-ASYNC-01 added the transactional-outbox relay. P6-WORKER-01 adds the authenticated media
-validation target and real byte-validation pipeline.
+P6-ASYNC-01 added the transactional-outbox relay. P6-WORKER-01 added the authenticated media
+validation target and real byte-validation pipeline. P6-WORKER-02 adds real derivative generation
+(thumbnails, screen previews, high-resolution plan images, and XYZ tile pyramids), sharing this same
+target and relay via job-kind dispatch — see below.
 
 A worker has its own composition root, service identity, configuration, health behavior, and
 deployment. It shares versioned contract packages (`@verdery/api-contracts`) with the API but never
@@ -11,15 +13,21 @@ imports the running API application. See
 [backend-modular-monolith.md](../../docs/architecture/backend-modular-monolith.md), section
 "19. Worker Boundary".
 
-## The transactional outbox relay (P6-ASYNC-01)
+## The transactional outbox relay (P6-ASYNC-01, extended by P6-WORKER-02)
 
-`src/relay/outbox-relay.ts` scans `platform.outbox_event` for unpublished
-`media.processing_requested` rows (appended by `@verdery/api`'s `CompleteMediaUpload` when a media
-record reaches `available`), and for each one:
+`src/relay/outbox-relay.ts` scans `platform.outbox_event` for unpublished rows of EITHER of two
+recognized event types — `media.processing_requested` (appended by `@verdery/api`'s
+`CompleteMediaUpload` when a media record reaches `available`) or, new in P6-WORKER-02,
+`media.derivative_generation_requested` (appended by `@verdery/api`'s
+`RecordMediaProcessingResult` after a successful `media_validation` result for a raster-eligible
+media class) — and for each one:
 
-1. Creates a durable `media.processing_job` row, keyed by the triggering outbox event's own id.
-2. Enqueues a Cloud Tasks task carrying that job's manifest, targeting this service at
-   `POST /internal/media-validation-jobs/:jobId`.
+1. Creates a durable `media.processing_job` row, keyed by the triggering outbox event's own id, with
+   `job_kind` set from the event's own type (`media_validation` or `derivative_generation` — see
+   `src/job-kind.ts`).
+2. Enqueues a Cloud Tasks task carrying that job's manifest (now itself carrying `jobKind`), targeting
+   this service at `POST /internal/media-validation-jobs/:jobId` — the SAME route for both job kinds,
+   see "Job-kind dispatch" below.
 3. Marks the outbox row published.
 
 The relay is driven on a plain interval (`RELAY_POLL_INTERVAL_MS`) via `src/relay/poller.ts`.
@@ -68,6 +76,54 @@ unavailability honestly; PDF tasks return a retryable 503 and are never labelled
 can still pass the constrained image parser. The provider decision remains explicit in
 `docs/development/deferred-capabilities.md`.
 
+## Job-kind dispatch (P6-WORKER-02)
+
+`src/validation/validation-http-server.ts` (name unchanged from P6-WORKER-01, despite no longer being
+validation-only — see that file's own header comment for why) is now given a
+`src/media-processing-job-router.ts` `MediaProcessingJobRouter` as its processor instead of a bare
+`ProcessMediaValidationJob`. The router reads the inbound manifest's own `jobKind` field
+(`media_validation` when absent, for every manifest built before P6-WORKER-02 added the field) and
+dispatches to either `ProcessMediaValidationJob` (unchanged) or, new this stage,
+`ProcessMediaDerivativeGenerationJob`. One HTTP route, one Cloud Tasks queue, one task URL, one OIDC
+audience serve both job kinds — see this stage's own report for why this was chosen over a second,
+parallel entrypoint.
+
+## Derivative generation (P6-WORKER-02)
+
+`src/derivatives/process-media-derivative-generation-job.ts` runs only against a media id whose OWN
+`media_validation` job already succeeded (never against untrusted, unvalidated bytes — decoding here
+is decoding an already-trusted file, the reasoning behind moving `sharp` from `devDependencies` to a
+real production `dependencies` entry this stage):
+
+1. Downloads the source object (the same bounded `MediaObjectSource`/`GcsMediaObjectSource` validation
+   already uses).
+2. Decodes once, applies EXIF orientation to the pixels, and strips ALL metadata (EXIF, ICC, XMP —
+   GPS location included) unconditionally (`src/derivatives/image-derivative-generator.ts`).
+3. Builds every derivative `src/derivatives/derivative-profile.ts`'s `derivativeProfileFor` names for
+   this media class:
+   - `garden_photo`: thumbnail (320px, JPEG q70) and screen preview (1600px, JPEG q82).
+   - `imported_plan` (raster only — a PDF-classed plan gets no derivative yet, see "PDF page previews"
+     below): thumbnail, screen preview, a high-resolution review image (4096px, JPEG q90 — a raster
+     plan is used as a zoomable map background, unlike a garden photo), and a real XYZ/slippy-map tile
+     pyramid (256px tiles, top-left origin, standard image-pyramid zoom levels down to a single-tile
+     overview — `src/derivatives/tile-pyramid-generator.ts`).
+4. Writes each produced derivative directly to the derived bucket (`MEDIA_DERIVED_BUCKET`) using this
+   service's own runtime identity — `src/derivatives/gcs-derivative-object-sink.ts`, a real,
+   server-initiated GCS write, unlike validation's read-only download or the API's own client-facing
+   resumable-upload-session dance.
+5. Posts a result whose `outputObjects` carry everything `@verdery/api`'s
+   `record-media-processing-result.ts` needs to register each produced object as its own new
+   `media.media_record` row — idempotent, addressed by `(derivedFromMediaId, transformationVersion,
+derivativeKind[, tile coordinates])`, enforced by a real database constraint
+   (`migrations/1785300000000_media-derivative-identity.sql`).
+
+**PDF page previews are explicitly out of scope for this stage.** Rasterizing a PDF page needs either
+`poppler`/`pdftoppm` (a native binary dependency, the same class already deferred for video/`ffprobe`)
+or a heavier `pdf.js`+canvas WASM stack — neither is in this stack. A PDF-classed `imported_plan`
+therefore never becomes derivative-eligible (`@verdery/api`'s own
+`application/derivative-eligibility.ts` excludes it by content type) and gets no
+preview/tile derivative yet.
+
 ## Environment
 
 | Variable                                         | Required | Default             | Meaning                                                             |
@@ -89,6 +145,7 @@ can still pass the constrained image parser. The provider decision remains expli
 | `MEDIA_PROCESSING_RESULT_CALLBACK_URL`           | yes      | —                   | The API's internal result callback base URL                         |
 | `MEDIA_PROCESSING_RESULT_CALLBACK_AUDIENCE`      | yes      | —                   | Audience used for the worker-to-API ID token                        |
 | `MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL` | yes      | —                   | The service account Cloud Tasks mints the callback's OIDC token for |
+| `MEDIA_DERIVED_BUCKET`                           | yes      | —                   | The derived bucket the derivative-generation job writes to directly |
 
 `DATABASE_URL` only — no Cloud SQL IAM connection mode yet, unlike the API. Real Cloud SQL IAM
 wiring for this package's own database connection is a documented follow-up; see

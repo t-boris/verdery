@@ -15,6 +15,7 @@ const VALID_ENVIRONMENT = {
     'https://verdery-api-dev.example/v1/internal/media-processing-jobs',
   MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL:
     'verdery-dev-worker@verdery-dev.iam.gserviceaccount.com',
+  MEDIA_DERIVED_BUCKET: 'verdery-dev-derived',
 } as const;
 
 describe('loadConfiguration', () => {
@@ -43,6 +44,7 @@ describe('loadConfiguration', () => {
         invokerServiceAccountEmail:
           VALID_ENVIRONMENT.MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL,
       },
+      mediaDerivedBucket: VALID_ENVIRONMENT.MEDIA_DERIVED_BUCKET,
     });
   });
 

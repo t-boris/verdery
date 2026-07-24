@@ -99,6 +99,19 @@ exists. Video/raw-capture is explicitly out of scope (needs `ffprobe`, a native 
 deliberately deferred) and stays at its pre-existing declared-metadata-trusted level — see the
 malware-provider/worker-rollout entry below.
 
+Phase 6 also now includes real P6-WORKER-02 derivative generation in `services/workers/src/derivatives`:
+`sharp`-based thumbnail/screen-preview/high-resolution/tile production for garden photos and raster
+(non-PDF) imported plans, unconditional EXIF stripping (GPS location included) with orientation
+normalized into the pixels first, a direct GCS write to the derived bucket using the worker's own
+identity, and idempotent registration of each produced derivative as its own new `media.media_record`
+row through `services/api`'s extended result-recording path — enforced by a real, partial-unique-index
+database constraint, not just application-layer checking. A successful validation for a raster-eligible
+media class now triggers this automatically via a second outbox event
+(`media.derivative_generation_requested`), reusing the same relay/Cloud Tasks machinery. `sharp` is
+now a real production dependency of `services/workers` (moved out of `devDependencies`, where
+P6-WORKER-01 deliberately confined it) — see the PDF-page-preview entry below for what this stage still
+does not build.
+
 ## What remains deferred, and why
 
 **Staging and production.** Only `verdery-dev` exists. Creating `verdery-staging` and `verdery-prod`
@@ -131,7 +144,11 @@ be completed (including a real `DATABASE_URL` Secret Manager secret —
 and Cloud Run service must be deployed, and the interval relay must receive always-allocated CPU (or
 move to a scheduler-triggered execution model). The image, Dockerfile, and deploy script are ready,
 but none of those live-infrastructure actions was performed as part of P6-WORKER-01, and no
-`deploy-dev.yml` step builds or deploys the workers image yet either.
+`deploy-dev.yml` step builds or deploys the workers image yet either. P6-WORKER-02 adds one more
+not-yet-executed prerequisite to this same list: `10-media-processing-queue.sh` now also grants
+`roles/storage.objectCreator` on the derived bucket to the worker service account (the write access
+its own derivative-generation job needs — see that script's own updated comment), written and
+syntax-checked but not run against any real project.
 
 **Video/raw-capture deep validation (P6-WORKER-01 scope boundary).** Duration, codec, and frame-rate
 validation (architecture/media-storage-and-processing.md section 10) needs `ffprobe`, a native binary
@@ -140,6 +157,19 @@ images too (picking pure-JS `file-type`/`image-size` over a native decoder). A `
 is short-circuited to an accepted, clearly-labeled result before any byte is downloaded, preserving
 exactly the declared-metadata-trusted level P6-API-01 already established. No video parser exists
 anywhere in this codebase; a future stage builds one.
+
+**PDF page-preview rendering (P6-WORKER-02 scope boundary).** Architecture/media-storage-and-
+processing.md section 11 names "Page previews" as something plan-document processing may produce;
+P6-WORKER-02 does not build this for a PDF-classed `imported_plan`. Rasterizing a PDF page needs
+either `poppler`/`pdftoppm` (a native binary dependency — the same class already deferred for
+video/`ffprobe`, and for the identical "no native binary dependency in this stack" reason) or a
+heavier `pdf.js`+canvas WASM stack; neither has been evaluated or added. A PDF-classed `imported_plan`
+is therefore never derivative-eligible (`services/api`'s `application/derivative-eligibility.ts`
+excludes `application/pdf` from its raster-content-type allowlist) — it gets no thumbnail, screen
+preview, high-resolution image, or tile pyramid yet, only the real byte-level validation P6-WORKER-01
+already performs. Raster (non-PDF) plans are fully supported by this stage's real derivative pipeline,
+tile pyramid included. A future stage builds PDF page rendering once a rasterizer dependency is
+evaluated and approved.
 
 **Break-glass credential rotation procedure.** `07-iam-database-bootstrap.sh` rotates the Postgres
 superuser password on every run and stores it in Secret Manager, but there is no scheduled rotation

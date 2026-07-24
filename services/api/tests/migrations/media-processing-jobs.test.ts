@@ -229,7 +229,12 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     await client.end();
 
-    await migrate(databaseUrl, 'down', 1);
+    // `count: 2` undoes 1785300000000_media-derivative-identity.sql (now
+    // the newest migration, extending `media.media_record` again — nothing
+    // this file's own assertions below check) first, then this migration
+    // itself. Update again the next time a migration is added on top of
+    // that one.
+    await migrate(databaseUrl, 'down', 2);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

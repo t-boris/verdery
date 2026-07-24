@@ -394,6 +394,14 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     expect(jobAfterSecond).toEqual(jobAfterFirst);
   });
 });
+// P6-WORKER-02's own derivative-generation chaining/idempotency scenarios
+// (a successful raster-eligible validation appends the second outbox event;
+// a derivative-generation job's result registers a real, distinct
+// media_record row; regeneration is a real database-backed no-op; a new
+// transformationVersion produces a second row) live in
+// media-derivative-generation.test.ts — split out once this stage's own
+// additions would have pushed this file past the repository's 600-line
+// file-size rule.
 function successfulResult(jobId: string): MediaProcessingResult {
   return {
     jobId,

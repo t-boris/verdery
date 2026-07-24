@@ -2538,3 +2538,197 @@ test code — no real file, malware sample, or downloaded asset anywhere in this
   for this reason, but the deploy has not been run.
 - P6-WORKER-02 (derivative generation) remains not started; this stage's job-kind and callback design
   deliberately leave room for it without a further schema change (see "Key decisions").
+
+## Stage 6 — P6-WORKER-02, implementation complete
+
+Real thumbnail/screen-preview/high-resolution/tile-pyramid derivative generation is implemented in
+`services/workers/src/derivatives`, chained automatically off a successful `media_validation` result
+for a raster-eligible media class, and registered as new, idempotent `media.media_record` rows by
+`services/api`'s extended `RecordMediaProcessingResult`.
+
+### Key decisions
+
+- **Derivative kinds and sizes: thumbnail (320px, JPEG q70) and screen preview (1,600px, JPEG q82)
+  for both `garden_photo` and raster `imported_plan`; a high-resolution review image (4,096px, JPEG
+  q90) and a real XYZ tile pyramid (256px tiles) for raster `imported_plan` only.** None of these
+  numbers is named anywhere in this repository's docs; each is a reasoned default, documented in
+  `docs/architecture/media-storage-and-processing.md` section 9.1/11.1 with the same "no number
+  decided yet, pick one and say so" posture `configuration.ts`'s own `RELAY_POLL_INTERVAL_MS`/
+  `RELAY_BATCH_SIZE` comments already established. The high-resolution image is deliberately NOT built
+  for garden photos: a raster plan is used as a zoomable map background (garden-capture-and-scan.md
+  section 8, map-rendering-and-editing.md section 16's "Plan Import and Calibration"), a real close-
+  inspection use case; a garden photo has none named anywhere, so its screen preview plus the still-
+  privately-downloadable original are judged sufficient — building a third, redundant size uniformly
+  was rejected as ungrounded invention.
+- **Tile pyramid: XYZ/slippy-map addressing (top-left origin), 256px tiles, standard image-pyramid
+  zoom levels down to a single-tile overview.** Reuses the SAME scheme this app's own MapLibre map
+  rendering (ADR-0005, P3-WEB-02) already speaks natively, rather than inventing a new convention —
+  the repository owner's own explicit direction for taking tile pyramids in scope this stage, ahead of
+  P6-PLAN-01/02 (the packages that will actually consume tiles) starting. `maxZoomLevel = max(0,
+ceil(log2(maxNativeDimensionPx / 256)))`; level 0 always fits in exactly one tile by construction.
+  Tile output is PNG, not JPEG (the same JPEG choice every other raster derivative uses): a boundary
+  tile whose level dimensions are not an exact multiple of 256px is padded to a full square with a
+  transparent margin, and JPEG has no alpha channel to pad with.
+- **PDF page previews stay out of scope, per the repository owner's own pre-approved decision.**
+  Rasterizing a PDF page needs `poppler`/`pdftoppm` (a native binary, the same class already deferred
+  for video/`ffprobe`) or a heavier `pdf.js`+canvas WASM stack; neither is evaluated or present in this
+  stack. `services/api`'s `application/derivative-eligibility.ts` excludes `application/pdf` from its
+  raster-content-type allowlist, so a PDF-classed `imported_plan` never becomes derivative-eligible —
+  it gets the real byte-level validation P6-WORKER-01 already built, and nothing more yet, the same
+  honest deferral shape P6-WORKER-01 itself used for video.
+- **`sharp` becomes a real production dependency**, moved from `services/workers`'
+  `devDependencies` (where P6-WORKER-01 deliberately confined it, using it only to fabricate test
+  fixtures, for parser-bomb-protection reasons that do not apply here) to `dependencies`. This
+  stage's own reasoning: derivative generation only ever runs against a media id whose OWN
+  `media_validation` job already succeeded — decoding it here is decoding an already-trusted file, not
+  an attacker-controlled one, so the "no native full-decode dependency" posture P6-WORKER-01 applied to
+  UNTRUSTED bytes does not extend to this stage's TRUSTED ones.
+- **Job orchestration: a new outbox event and job kind, reusing the existing relay/Cloud Tasks/HTTP-
+  callback machinery, not a second dispatch mechanism.** A successful `media_validation` result for a
+  raster-eligible media class (`services/api`'s `application/derivative-eligibility.ts`) now appends a
+  SECOND outbox event, `media.derivative_generation_requested`
+  (`MEDIA_DERIVATIVE_GENERATION_REQUESTED_EVENT_TYPE`, `@verdery/api-contracts`), reusing
+  `MediaProcessingRequestedEventPayload`'s existing shape rather than inventing a new one (the two
+  payloads are structurally identical; the derivative event's own `checksumSha256` is always the REAL
+  worker-computed one, never null). `services/workers`' relay (`outbox-relay.ts`) now recognizes both
+  event types, maps each to its own `job_kind`
+  (`MEDIA_VALIDATION_JOB_KIND`/`MEDIA_DERIVATIVE_GENERATION_JOB_KIND`, `services/workers/src/job-kind.ts`
+  — narrowly duplicated from `services/api`'s own `domain/processing-job.ts` constants, the same
+  cross-boundary duplication precedent `relay-database-schema.ts` already set), and threads `jobKind`
+  onto the Cloud Tasks manifest (`MediaProcessingManifest.jobKind`, new, OPTIONAL field — absent means
+  `media_validation`, so every P6-WORKER-01 manifest literal built before this field existed keeps its
+  original meaning with zero required edits).
+- **HTTP dispatch: generalize the existing endpoint via a small router, not a second parallel
+  entrypoint.** `services/workers/src/media-processing-job-router.ts`'s `MediaProcessingJobRouter`
+  reads `manifest.jobKind` and dispatches to `ProcessMediaValidationJob` or, new this stage,
+  `ProcessMediaDerivativeGenerationJob`. `validation-http-server.ts` needed no structural change — it
+  already only required a narrow `execute(manifest)` port, which the router satisfies structurally —
+  only its zod schema gained an optional `jobKind` field. Its class name and route
+  (`/internal/media-validation-jobs/:jobId`) are UNCHANGED from P6-WORKER-01 despite no longer being
+  validation-only: renaming both across `main.ts`, its own test file, `README.md`, and every
+  `MEDIA_PROCESSING_TASK_URL` reference in `deploy-workers.sh` was judged more churn than the rename
+  was worth for a route no client ever addresses by name. One HTTP route, one Cloud Tasks queue, one
+  task URL, one OIDC audience serve both job kinds.
+- **Idempotency: `derivativeKind` (plus tile XYZ coordinates) joins `derivedFromMediaId`/
+  `transformationVersion` as the real identity key, enforced by two real, partial unique database
+  indexes.** Section 9's own "addressed by source checksum plus transformation version" phrase is, on
+  its own, insufficient once one source produces MULTIPLE derivatives per version (a thumbnail, a
+  screen preview, optionally a high-resolution image, and for a plan, many tiles) — a new migration
+  (`1785300000000_media-derivative-identity.sql`) adds `derivative_kind`/`tile_zoom_level`/`tile_x`/
+  `tile_y` columns to `media.media_record` plus two partial unique indexes (one for non-tile
+  derivatives keyed on `(derivedFromMediaId, transformationVersion, derivativeKind)`, one for tiles
+  keyed on the same pair plus XYZ coordinates — two indexes, not one, because Postgres treats every
+  NULL as distinct in a unique index, so a single index across all six columns would never actually
+  constrain non-tile rows, whose tile columns are always NULL). `services/api`'s new
+  `application/derivative-registration.ts` checks `findDerivative` before inserting (the fast,
+  common-case no-op) AND catches a unique-violation on insert as a race-condition fallback (the
+  database's own guarantee under real concurrency), mirroring `run-idempotent-command.ts`'s own
+  `isUniqueViolation` precedent.
+- **Each derivative becomes its own new `media.media_record` row, started directly at `available`, not
+  `registered`.** `domain/media-record.ts` gains a dedicated `registerDerivativeMediaRecord`
+  constructor, distinct from the pre-existing `registerMediaRecord` (whose own `derivedFromMediaId`/
+  `transformationVersion` parameters predate this stage and remain usable on their own): a worker-
+  produced derivative's bytes are already durably written to the derived bucket by the time
+  `services/api` learns about it, so walking it through `authorizeMediaUpload`/`beginMediaUpload`/
+  `beginMediaVerification`/`markMediaAvailable` would model a client upload session that never
+  happens. `mediaClass` is always `'derived_preview'` (section 3's own "Thumbnail, optimized image,
+  plan tiles" — every kind this stage produces is one of those three, never a `processing_output`
+  diagnostic artifact); `gardenId`/`uploadedByProfileId` are propagated from the source row (a
+  worker-produced derivative has no independent human actor of its own).
+- **The source media's `processingState` is never re-transitioned by a derivative-generation job's own
+  result.** `RecordMediaProcessingResult.execute` now branches on `job.jobKind`: a
+  `MEDIA_VALIDATION_JOB_KIND` result drives `beginMediaProcessing`/`markMediaProcessed`/
+  `markMediaProcessingFailed` exactly as P6-WORKER-01 built it (plus, on success, the new derivative-
+  eligibility check); a `MEDIA_DERIVATIVE_GENERATION_JOB_KIND` result registers each output object as
+  a new row instead, and deliberately never calls those three transitions again — the source already
+  reached `processingState = 'processed'` when ITS OWN validation job succeeded, and
+  `beginMediaProcessing` requires `processingState === null` by design, so calling it a second time
+  would be a guaranteed `DomainRuleViolatedError`, not a real second processing stage the source needs
+  to pass through.
+- **The write-access IAM gap: `roles/storage.objectCreator` on the derived bucket only, combined with
+  the pre-existing `roles/storage.objectViewer` grant on all four buckets.** The exact narrower-than-
+  `objectAdmin` role `10-media-processing-queue.sh`'s own P6-WORKER-01-era comment anticipated
+  ("P6-WORKER-02 will need a separate, explicit derived-output write grant"). `objectCreator` grants
+  only `storage.objects.create` — no delete, no ACL change, no overwrite of another identity's
+  objects — sufficient because every derivative object key is a freshly-minted, opaque UUID (never
+  reused, per `09-media-storage.sh`'s own "a new derivative ... is always a new object, never a write
+  to an existing key"), and nothing in this worker's own code ever calls delete or update-ACL on a
+  Cloud Storage object. Written and syntax-checked (`bash -n`), not executed against `verdery-dev`.
+
+### Implemented behavior
+
+- `services/workers/src/derivatives/derivative-profile.ts`: pure decision logic for which derivative
+  kinds to build per media class, and the tile-pyramid zoom-level/tile-count geometry.
+- `services/workers/src/derivatives/image-derivative-generator.ts`: decodes the source once via
+  `sharp`, applies EXIF orientation to the pixels, strips ALL metadata (EXIF/ICC/XMP, GPS location
+  included) unconditionally — `sharp` never copies input metadata to output unless `.withMetadata()`
+  is explicitly called, which this module never does — and resizes to each target size without ever
+  upscaling a smaller source.
+- `services/workers/src/derivatives/tile-pyramid-generator.ts`: renders every XYZ tile the plan
+  describes, PNG, padded to a full square at pyramid boundaries.
+- `services/workers/src/derivatives/derivative-object-key.ts`: opaque
+  `<shard>/<sourceMediaId>/<objectUuid>` object keys, narrowly mirroring `services/api`'s own
+  `generateObjectKey` without importing its `src/`.
+- `services/workers/src/derivatives/gcs-derivative-object-sink.ts`: the worker's own DIRECT GCS write
+  to the derived bucket (its own service-account identity, no signed-upload-session dance — a
+  server-initiated write, not a client one).
+- `services/workers/src/derivatives/process-media-derivative-generation-job.ts`: the orchestrator,
+  mirroring `process-media-validation-job.ts`'s own `execute(manifest) -> record -> return` shape.
+- `services/api/src/modules/media/application/derivative-eligibility.ts` and
+  `derivative-registration.ts`: which validation results trigger derivative generation, and how a
+  produced output object becomes (or reuses) a real `media_record` row.
+- `services/api/src/modules/media/domain/media-record.ts`: `MediaDerivativeKind`, `TileCoordinates`,
+  the four new `MediaRecord` fields, and `registerDerivativeMediaRecord`.
+- `migrations/1785300000000_media-derivative-identity.sql`: `derivative_kind`/tile columns, five new
+  CHECK constraints, and the two partial unique indexes.
+
+### Verified evidence
+
+| Check                                                                     | Result                                                                                                                                                                                                                |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm --filter @verdery/workers build && test`                            | 16 files / 90 tests pass (baseline before this stage: 9 files / 54 tests)                                                                                                                                             |
+| `pnpm --filter @verdery/api build && test`                                | 101 files / 671 tests pass (baseline before this stage: 97 files / 630 tests)                                                                                                                                         |
+| Root `pnpm build` / `typecheck` / `lint` / `check:file-size`              | all pass, including `apps/web`, unaffected                                                                                                                                                                            |
+| `pnpm format:check`                                                       | passes for every file this stage touched (one pre-existing, unrelated untracked file outside this stage's scope, `docs/.claude/CLAUDE.md`, is separately unformatted)                                                 |
+| `docker build -f services/workers/Dockerfile -t verdery-workers-verify .` | builds; production image confirmed to CONTAIN `sharp`, and a real `sharp` decode/encode call inside the built container succeeds (produced real PNG bytes) — the inverse of P6-WORKER-01's own confirmed-absent check |
+| Migration tests (Testcontainers, real Postgres)                           | new `media-derivative-identity.test.ts` (9 tests) plus every pre-existing migration test's own `count: N` rollback assertion updated for the new migration landing on top — all pass                                  |
+| Integration tests (Testcontainers, real Postgres)                         | new `media-derivative-generation.test.ts` (4 tests, split out from `media-processing.test.ts` once this stage's own additions would have pushed it past the 600-line file-size rule) — all pass                       |
+
+**Checksum/version reproducibility tests** (this work package's own named completion evidence):
+regenerating the identical derivative (same source, `transformationVersion`, `derivativeKind`, tile
+coordinates) across two independent jobs is a real, database-backed no-op — proven at the unit level
+(`derivative-registration.test.ts`) and the real-Postgres integration level
+(`media-derivative-generation.test.ts`, asserting a `COUNT(*) = 1` after two runs); a genuinely new
+`transformationVersion` produces a second, distinct row at both levels. EXIF location is verified
+actually absent from a produced derivative using a real fixture with real GPS EXIF tags (constructed
+via `sharp`, confirmed via its own raw EXIF bytes containing the GPS-IFD-pointer tag before stripping)
+— `image-derivative-generator.test.ts`. Orientation normalization is verified to rotate real pixel
+content correctly (not just a metadata flag) using an asymmetric red/blue fixture with EXIF
+orientation 6, confirming the red marker moves from the top row to the right column post-rotation —
+the same file. The tile pyramid's own XYZ addressing is verified internally consistent (tile count per
+level matches the standard doubling relationship, every `(zoomLevel, x, y)` triple within a level's
+bounds is produced exactly once, the deepest level always covers the full native resolution, level 0
+always fits in exactly one tile) — `derivative-profile.test.ts`, `tile-pyramid-generator.test.ts`.
+
+### Known limitations, deliberately deferred
+
+- PDF page-preview rendering (architecture section 11) is not built — needs `poppler`/`pdftoppm` or a
+  `pdf.js`+WASM stack, neither evaluated. A PDF-classed `imported_plan` gets real byte-level
+  validation (P6-WORKER-01) and nothing more; see `docs/development/deferred-capabilities.md`.
+- The derived-bucket write IAM grant (`roles/storage.objectCreator`) is written and syntax-checked,
+  not executed against `verdery-dev` — the same "written, not run" boundary every prior Phase 6 stage's
+  own infrastructure changes have held to.
+- Every P6-WORKER-01 deployment prerequisite still applies unchanged (worker Cloud SQL IAM
+  connectivity, an always-CPU Cloud Run configuration for the interval relay, a selected malware
+  provider, a real `DATABASE_URL` secret) — this stage adds no new blocker to that list beyond the one
+  IAM grant above.
+- Large plan images near the validation policy's own 40-megapixel/16,384px-per-axis ceiling can
+  produce a large number of tiles in one synchronous job (a worst-case 16,384×16,384 source produces
+  up to ~5,461 tiles across 7 zoom levels) — this stage does not chunk or background this work; a
+  documented, honest trade-off, not a silent gap, left for a future stage if real plan sizes at that
+  scale turn out to matter.
+- No live HEIC/HEIF fixture was constructed for derivative-generation tests (hand-building valid HEIC
+  bytes in a test file is impractical, the same practical limit P6-WORKER-01's own malicious-fixture
+  suite implicitly accepted for that format) — `sharp`'s HEIF decode support is confirmed present in
+  the installed binary (`sharp.versions.heif`) and exercised implicitly through the same code path
+  JPEG/PNG fixtures already prove correct, but not through a literal HEIC byte fixture.

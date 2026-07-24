@@ -16,7 +16,10 @@
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { promisify } from 'node:util';
-import { MEDIA_PROCESSING_REQUESTED_EVENT_TYPE } from '@verdery/api-contracts';
+import {
+  MEDIA_DERIVATIVE_GENERATION_REQUESTED_EVENT_TYPE,
+  MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
+} from '@verdery/api-contracts';
 import type { MediaProcessingRequestedEventPayload } from '@verdery/api-contracts';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { Kysely, PostgresDialect } from 'kysely';
@@ -231,5 +234,48 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     const result = await relay.tick();
     expect(result.claimed).toBe(0);
+  });
+
+  it('claims a real media.derivative_generation_requested row and creates a real derivative_generation job (P6-WORKER-02)', async () => {
+    const { eventId: mediaValidationEventId, mediaId } = await insertMediaAndOutboxEvent();
+    // Mark the media_validation event already published, so it does not
+    // compete with the row this test cares about.
+    await pool.query('UPDATE platform.outbox_event SET published_at = now() WHERE id = $1', [
+      mediaValidationEventId,
+    ]);
+
+    const derivativeEventId = randomUUID();
+    await pool.query(
+      `INSERT INTO platform.outbox_event
+         (id, event_type, aggregate_type, aggregate_id, payload, occurred_at)
+       VALUES ($1, $2, 'media_record', $3, $4, now())`,
+      [
+        derivativeEventId,
+        MEDIA_DERIVATIVE_GENERATION_REQUESTED_EVENT_TYPE,
+        mediaId,
+        JSON.stringify(payload(mediaId)),
+      ],
+    );
+
+    const mediaProcessingQueue = new FakeMediaProcessingQueue();
+    const relay = new OutboxRelay({
+      outboxEvents: new KyselyOutboxEventStore(db),
+      processingJobs: new KyselyProcessingJobStore(db),
+      mediaProcessingQueue,
+      clock: fixedClock(NOW),
+      logger: silentLogger(),
+      batchSize: 20,
+    });
+
+    const result = await relay.tick();
+
+    expect(result).toEqual({ claimed: 1, enqueued: 1, alreadyQueued: 0, failed: 0 });
+    expect(mediaProcessingQueue.enqueued[0]?.manifest.jobKind).toBe('derivative_generation');
+
+    const jobRow = await pool.query<{ job_kind: string; state: string }>(
+      'SELECT job_kind, state FROM media.processing_job WHERE id = $1',
+      [derivativeEventId],
+    );
+    expect(jobRow.rows[0]).toEqual({ job_kind: 'derivative_generation', state: 'queued' });
   });
 });

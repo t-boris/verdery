@@ -52,9 +52,9 @@
 # bucket class the app orchestrates today (needs object delete). Section 18
 # also asks for "separate read/write permissions by worker role", but the
 # P6-WORKER-01 now has a distinct service account and needs read-only object
-# access. That narrower grant lives in 10-media-processing-queue.sh because
-# this script can run before the worker identity exists. P6-WORKER-02's
-# derived-output write grant remains future work.
+# access. That narrower grant (plus P6-WORKER-02's own additional derived-
+# bucket create-only write grant) lives in 10-media-processing-queue.sh
+# because this script can run before the worker identity exists.
 #
 # Idempotent: bucket creation and the IAM binding are both skip/no-op safe
 # to re-run. Lifecycle configuration is applied on every run (not gated

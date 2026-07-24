@@ -28,6 +28,7 @@ export interface RelayProcessingJob {
   readonly mediaId: string;
   readonly processorConfigVersion: string;
   readonly state: RelayProcessingJobState;
+  readonly jobKind: string;
 }
 
 export interface EnsureRequestedInput {
@@ -36,6 +37,8 @@ export interface EnsureRequestedInput {
   readonly processorConfigVersion: string;
   readonly inputChecksums: readonly string[];
   readonly traceId: string | null;
+  /** `MEDIA_VALIDATION_JOB_KIND` or `MEDIA_DERIVATIVE_GENERATION_JOB_KIND` (`../job-kind.ts`) — `outbox-relay.ts`'s own `jobKindForEventType` decides which, from the triggering outbox event's `eventType`. */
+  readonly jobKind: string;
 }
 
 export interface ProcessingJobStore {

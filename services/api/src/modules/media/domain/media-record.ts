@@ -52,6 +52,26 @@ export type MediaClass =
  */
 export type MediaSensitivityClassification = 'standard' | 'sensitive' | 'restricted';
 
+/**
+ * The four derivative kinds P6-WORKER-02 produces, matching
+ * migrations/1785300000000_media-derivative-identity.sql's own
+ * `media_record_derivative_kind_check` exactly and mirroring
+ * `@verdery/api-contracts`' `MediaDerivativeKind` (that package's own copy
+ * is the wire vocabulary a processing result reports; this one is the
+ * domain/database vocabulary a `MediaRecord` row stores — kept as two
+ * separate declarations, not one shared import, the same "domain layer does
+ * not import contract types" boundary this module's sibling files already
+ * hold to).
+ */
+export type MediaDerivativeKind = 'thumbnail' | 'screen_preview' | 'high_resolution' | 'tile';
+
+/** XYZ/slippy-map tile coordinates (top-left origin) — meaningful only on a row with `derivativeKind === 'tile'`. */
+export interface TileCoordinates {
+  readonly zoomLevel: number;
+  readonly x: number;
+  readonly y: number;
+}
+
 export interface MediaRecord {
   readonly id: Uuid;
   /**
@@ -106,6 +126,23 @@ export interface MediaRecord {
   readonly derivedFromMediaId: Uuid | null;
   /** Meaningful only alongside `derivedFromMediaId`; enforced by `media_record_transformation_version_requires_derivative_check`. */
   readonly transformationVersion: number | null;
+  /**
+   * Which of the four P6-WORKER-02 derivative kinds this row is — `null` for
+   * every non-derivative row and, in principle, for a derivative row created
+   * some OTHER way (`registerMediaRecord`'s own `derivedFromMediaId`/
+   * `transformationVersion` parameters predate this stage and remain usable
+   * on their own — see that function's own doc comment). Every derivative
+   * `registerDerivativeMediaRecord` below produces always sets this.
+   * Enforced together with `transformationVersion` by
+   * `media_record_derivative_kind_requires_version_check` and the two
+   * partial unique indexes migrations/1785300000000_media-derivative-
+   * identity.sql adds for real, database-enforced idempotency.
+   */
+  readonly derivativeKind: MediaDerivativeKind | null;
+  /** Set together (all three, or none) only when `derivativeKind === 'tile'`; see `TileCoordinates`. */
+  readonly tileZoomLevel: number | null;
+  readonly tileX: number | null;
+  readonly tileY: number | null;
   /** Optimistic-concurrency counter — "Transitions are server-owned and revisioned" (section 6). Bumped by every domain transition, including registration itself (starts at 1). */
   readonly revision: number;
   readonly createdAt: Date;
@@ -271,11 +308,22 @@ function validateTransformationVersion(
 
 /**
  * Registers a new media record in the `registered` state (section 6's
- * entry point). Serves both ordinary client uploads (P6-API-01's future
- * use, `derivedFromMediaId`/`transformationVersion` left `null`) and
- * internal derivative creation (a future processing worker's use, with
- * both set) through the one constructor — the same "one constructor, every
+ * entry point). Serves both ordinary client uploads (P6-API-01's own use,
+ * `derivedFromMediaId`/`transformationVersion` left `null`) and, in
+ * principle, an internal derivative record whose bytes still need the
+ * ordinary upload/verification flow — the same "one constructor, every
  * caller" shape `createPlant` already uses for plants-inventory.
+ *
+ * P6-WORKER-02's OWN derivatives do NOT use this constructor, despite
+ * fitting that second description on paper: a worker-produced derivative's
+ * bytes are already durably written to the derived bucket by the time
+ * `services/api` ever learns about it (see this stage's own report on the
+ * worker's own direct GCS write), so starting it at `registered` and making
+ * it walk through `authorizeMediaUpload`/`beginMediaUpload`/
+ * `beginMediaVerification`/`markMediaAvailable` would be modeling a session
+ * that never happens for a real value it can never assume. Use
+ * `registerDerivativeMediaRecord` below instead, which starts a derivative
+ * row directly at `available` with `derivativeKind`/tile coordinates set.
  */
 export function registerMediaRecord(
   id: Uuid,
@@ -311,6 +359,104 @@ export function registerMediaRecord(
     retentionDeadlineAt: null,
     derivedFromMediaId,
     transformationVersion: validateTransformationVersion(derivedFromMediaId, transformationVersion),
+    derivativeKind: null,
+    tileZoomLevel: null,
+    tileX: null,
+    tileY: null,
+    revision: 1,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+/** Mirrors migrations/1785300000000_media-derivative-identity.sql's own `media_record_tile_coordinates_require_tile_kind_check`/pairing checks one level up, the same "clean ValidationError instead of a raw CHECK violation" precedent `validateTransformationVersion` above already sets. */
+function validateDerivativeTileCoordinates(
+  derivativeKind: MediaDerivativeKind,
+  tile: TileCoordinates | null,
+): TileCoordinates | null {
+  const requiresTile = derivativeKind === 'tile';
+  if (requiresTile === (tile !== null)) {
+    return tile;
+  }
+
+  throw new ValidationError(
+    SharedErrorCode.RequestInvalid,
+    requiresTile
+      ? "derivativeKind 'tile' requires tile coordinates."
+      : "tile coordinates require derivativeKind 'tile'.",
+    { details: [{ code: 'media.media_record.tile.requires_tile_kind', pointer: '/tile' }] },
+  );
+}
+
+export interface RegisterDerivativeMediaRecordInput {
+  /** Propagated from the source media row — a derivative belongs to the same garden its source does. */
+  readonly gardenId: Uuid | null;
+  /** Propagated from the source media row — see this stage's own report for why a worker-produced derivative has no independent human actor of its own. */
+  readonly uploadedByProfileId: Uuid;
+  readonly displayFilename: string;
+  /** The derivative's own real, worker-verified content type and byte size — always both "declared" and "verified" at once, since nothing else ever declares a derivative before the worker itself produces and verifies it in the same step. */
+  readonly contentType: string;
+  readonly byteSize: number;
+  readonly checksumSha256: string;
+  readonly bucketName: string;
+  readonly objectKey: string;
+  readonly derivedFromMediaId: Uuid;
+  readonly transformationVersion: number;
+  readonly derivativeKind: MediaDerivativeKind;
+  readonly tile: TileCoordinates | null;
+}
+
+/**
+ * Registers a P6-WORKER-02-produced derivative directly at `available` —
+ * see `registerMediaRecord`'s own doc comment above for why this is a
+ * separate constructor rather than a special case of that one.
+ * `mediaClass` is always `'derived_preview'`: section 3's own class table
+ * calls this "Thumbnail, optimized image, plan tiles" by name, and every
+ * kind this stage produces (thumbnail, screen preview, high-resolution
+ * review image, tile) is one of those three things, never a
+ * `processing_output` diagnostic artifact.
+ */
+export function registerDerivativeMediaRecord(
+  id: Uuid,
+  input: RegisterDerivativeMediaRecordInput,
+  now: Date,
+): MediaRecord {
+  const contentType = validateDeclaredContentType(input.contentType);
+  const byteSize = validateDeclaredByteSize(input.byteSize);
+  const checksumSha256 = normalizeChecksumSha256(input.checksumSha256);
+  const tile = validateDerivativeTileCoordinates(input.derivativeKind, input.tile);
+
+  return {
+    id,
+    gardenId: input.gardenId,
+    uploadedByProfileId: input.uploadedByProfileId,
+    mediaClass: 'derived_preview',
+    displayFilename: normalizeDisplayFilename(input.displayFilename),
+    declaredContentType: contentType,
+    verifiedContentType: contentType,
+    declaredByteSize: byteSize,
+    verifiedByteSize: byteSize,
+    checksumSha256,
+    bucketName: input.bucketName,
+    objectKey: input.objectKey,
+    uploadState: 'available',
+    // `null`, not `'processed'`: a derivative is never itself the SUBJECT of
+    // a further processing pipeline — see media-lifecycle.ts's own header
+    // comment, "NULL means ... 'not applicable' [for] a class that never
+    // will [process]."
+    processingState: null,
+    captureSessionId: null,
+    sensitivityClassification: deriveDefaultSensitivityClassification('derived_preview'),
+    retentionDeadlineAt: null,
+    derivedFromMediaId: input.derivedFromMediaId,
+    transformationVersion: validateTransformationVersion(
+      input.derivedFromMediaId,
+      input.transformationVersion,
+    ),
+    derivativeKind: input.derivativeKind,
+    tileZoomLevel: tile?.zoomLevel ?? null,
+    tileX: tile?.x ?? null,
+    tileY: tile?.y ?? null,
     revision: 1,
     createdAt: now,
     updatedAt: now,

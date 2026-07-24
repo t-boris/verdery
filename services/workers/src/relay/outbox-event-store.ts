@@ -15,6 +15,15 @@
 export interface OutboxEventRecord {
   readonly id: string;
   readonly aggregateId: string;
+  /**
+   * `media.processing_requested` (P6-ASYNC-01) or, new in P6-WORKER-02,
+   * `media.derivative_generation_requested` — `outbox-relay.ts`'s own
+   * `jobKindForEventType` reads this to decide which `job_kind` a job
+   * created for this event should carry, and therefore which processor
+   * `services/api`'s `RecordMediaProcessingResult` will eventually route
+   * its result to.
+   */
+  readonly eventType: string;
   /** Already the parsed JSON value — never a string needing a second `JSON.parse`. */
   readonly payload: unknown;
   readonly traceId: string | null;
@@ -22,12 +31,13 @@ export interface OutboxEventRecord {
 
 export interface OutboxEventStore {
   /**
-   * Claims up to `limit` unpublished, media-processing-relevant outbox rows,
-   * oldest first. "Claims" here means "reads" — this stage's own crash-
-   * recovery design (see `outbox-relay.ts`'s own header comment) does not
-   * need a row-level lock: idempotent job creation and Cloud Tasks' own
-   * deterministic task-name deduplication are what make a row processed
-   * twice safe, not exclusivity of the read itself.
+   * Claims up to `limit` unpublished, media-processing-relevant outbox rows
+   * (both event types this relay recognizes — see `OutboxEventRecord.eventType`'s
+   * own doc comment), oldest first. "Claims" here means "reads" — this
+   * stage's own crash-recovery design (see `outbox-relay.ts`'s own header
+   * comment) does not need a row-level lock: idempotent job creation and
+   * Cloud Tasks' own deterministic task-name deduplication are what make a
+   * row processed twice safe, not exclusivity of the read itself.
    */
   claimUnpublished(limit: number): Promise<readonly OutboxEventRecord[]>;
 

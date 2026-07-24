@@ -51,21 +51,41 @@
  * one event is retried on the NEXT tick (the outbox row stays unpublished),
  * never a poison-message loop that jams every other pending event.
  *
- * Source: implementation-plan.md work package P6-ASYNC-01;
+ * P6-WORKER-02 extends this relay with a SECOND recognized event type,
+ * `MEDIA_DERIVATIVE_GENERATION_REQUESTED_EVENT_TYPE` (appended by
+ * `services/api`'s `RecordMediaProcessingResult` on a successful
+ * `media_validation` result for a raster-eligible media class — see that
+ * file's own header comment). `jobKindForEventType` below maps an event's
+ * own `eventType` to the `job_kind` the job created for it should carry;
+ * everything else in this file's own crash-recovery/idempotency machinery
+ * is unchanged and applies identically to both event types — the same
+ * `ensureRequested`/`enqueue`/`markQueued`/`markPublished` sequence, just
+ * parameterized by `jobKind` now instead of a single hardcoded value.
+ *
+ * Source: implementation-plan.md work packages P6-ASYNC-01, P6-WORKER-02;
  * architecture/asynchronous-processing.md, sections "4. Transactional
  * Outbox", "5. Cloud Tasks", "11. Idempotency", "12. Retry Classification".
  */
 
-import type {
-  MediaProcessingManifest,
-  MediaProcessingRequestedEventPayload,
+import {
+  MEDIA_DERIVATIVE_GENERATION_REQUESTED_EVENT_TYPE,
+  type MediaProcessingManifest,
+  type MediaProcessingRequestedEventPayload,
 } from '@verdery/api-contracts';
+import { MEDIA_DERIVATIVE_GENERATION_JOB_KIND, MEDIA_VALIDATION_JOB_KIND } from '../job-kind.js';
 import type { Logger } from '../logger.js';
 import type { OutboxEventRecord, OutboxEventStore } from './outbox-event-store.js';
 import type { MediaProcessingQueue } from './media-processing-queue.js';
 import type { ProcessingJobStore } from './processing-job-store.js';
 
 const DEFAULT_PROCESSOR_CONFIG_VERSION = 'v1';
+
+/** See this file's own header comment. */
+function jobKindForEventType(eventType: string): string {
+  return eventType === MEDIA_DERIVATIVE_GENERATION_REQUESTED_EVENT_TYPE
+    ? MEDIA_DERIVATIVE_GENERATION_JOB_KIND
+    : MEDIA_VALIDATION_JOB_KIND;
+}
 
 export interface Clock {
   now(): Date;
@@ -91,6 +111,7 @@ function buildManifest(
   job: { readonly id: string; readonly mediaId: string; readonly processorConfigVersion: string },
   payload: MediaProcessingRequestedEventPayload,
   traceId: string | null,
+  jobKind: string,
 ): MediaProcessingManifest {
   return {
     jobId: job.id,
@@ -104,6 +125,7 @@ function buildManifest(
       expectedContentType: payload.contentType,
       expectedByteSize: payload.byteSize,
     },
+    jobKind,
     ...(traceId === null ? {} : { traceId }),
   };
 }
@@ -142,6 +164,7 @@ export class OutboxRelay {
   /** Returns `true` when this call actually enqueued a Cloud Tasks task, `false` when the job was already past `requested` (crash-recovery replay). */
   private async processOne(event: OutboxEventRecord): Promise<boolean> {
     const payload = event.payload as MediaProcessingRequestedEventPayload;
+    const jobKind = jobKindForEventType(event.eventType);
     const now = this.deps.clock.now();
 
     const job = await this.deps.processingJobs.ensureRequested(
@@ -151,13 +174,14 @@ export class OutboxRelay {
         processorConfigVersion: DEFAULT_PROCESSOR_CONFIG_VERSION,
         inputChecksums: payload.checksumSha256 === null ? [] : [payload.checksumSha256],
         traceId: event.traceId,
+        jobKind,
       },
       now,
     );
 
     let wasEnqueued = false;
     if (job.state === 'requested') {
-      const manifest = buildManifest(job, payload, event.traceId);
+      const manifest = buildManifest(job, payload, event.traceId, job.jobKind);
       await this.deps.mediaProcessingQueue.enqueue({ taskName: job.id, manifest });
       await this.deps.processingJobs.markQueued(job.id, now);
       wasEnqueued = true;

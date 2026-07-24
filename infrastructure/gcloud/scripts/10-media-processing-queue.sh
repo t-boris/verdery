@@ -94,8 +94,7 @@ grant_project_role "serviceAccount:${worker_email}" "roles/logging.logWriter"
 grant_project_role "serviceAccount:${worker_email}" "roles/monitoring.metricWriter"
 
 # Validation reads originals but never writes or deletes them. Keep this at
-# bucket scope and below objectAdmin: P6-WORKER-02 will need a separate,
-# explicit derived-output write grant.
+# bucket scope and below objectAdmin.
 for bucket_name in \
   "${VERDERY_USER_MEDIA_BUCKET}" \
   "${VERDERY_RAW_CAPTURE_BUCKET}" \
@@ -108,6 +107,33 @@ for bucket_name in \
     --role="roles/storage.objectViewer" \
     --quiet >/dev/null
 done
+
+# P6-WORKER-02's own derived-output write grant — the "separate, explicit"
+# one the comment above used to flag as future work. The derivative-
+# generation job writes produced thumbnail/screen-preview/high-resolution/
+# tile bytes directly to the derived bucket (its own GCS write, not a
+# client's signed-upload-session — see
+# `services/workers/src/derivatives/gcs-derivative-object-sink.ts`'s own
+# header comment). `roles/storage.objectCreator` (create-only: grants
+# `storage.objects.create`, nothing else) rather than `roles/storage.
+# objectAdmin` (which would also grant delete/overwrite/ACL-change on every
+# object in the bucket, including originals another identity wrote) —
+# combined with the `objectViewer` grant this same loop already gives the
+# worker on all four buckets (needed here for a produced derivative's own
+# read-back, and defense-in-depth if a future stage needs to re-read a
+# derivative it just wrote), this is the least-privilege pairing the
+# derivative-generation job actually needs: create new objects, read
+# objects, never delete or modify an existing one — object keys are always
+# fresh, opaque UUIDs (never reused, per 09-media-storage.sh's own "a new
+# derivative ... is always a new object, never a write to an existing key"),
+# so create-only is sufficient; nothing in this worker's own code ever
+# calls delete or update-ACL on a Cloud Storage object.
+log "Granting roles/storage.objectCreator on ${VERDERY_DERIVED_BUCKET} to ${worker_email}"
+gcloud storage buckets add-iam-policy-binding "gs://${VERDERY_DERIVED_BUCKET}" \
+  --project="${VERDERY_PROJECT_ID}" \
+  --member="serviceAccount:${worker_email}" \
+  --role="roles/storage.objectCreator" \
+  --quiet >/dev/null
 
 # --- Cloud Tasks queue -------------------------------------------------
 # Default retry/rate config: architecture/asynchronous-processing.md section

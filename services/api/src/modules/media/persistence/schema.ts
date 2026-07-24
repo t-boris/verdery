@@ -32,6 +32,11 @@ export interface MediaRecordRow {
   retention_deadline_at: Date | null;
   derived_from_media_id: string | null;
   transformation_version: number | null;
+  /** Added by migrations/1785300000000_media-derivative-identity.sql — see `domain/media-record.ts`'s own `MediaDerivativeKind`/`TileCoordinates` doc comments. */
+  derivative_kind: string | null;
+  tile_zoom_level: number | null;
+  tile_x: number | null;
+  tile_y: number | null;
   revision: Generated<number>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;

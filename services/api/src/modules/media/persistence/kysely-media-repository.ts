@@ -1,10 +1,11 @@
 import type { Kysely } from 'kysely';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
-import type { MediaRepository } from '../application/media-repository.js';
+import type { FindDerivativeInput, MediaRepository } from '../application/media-repository.js';
 import type { MediaProcessingState, MediaUploadState } from '../domain/media-lifecycle.js';
 import type {
   MediaClass,
+  MediaDerivativeKind,
   MediaRecord,
   MediaSensitivityClassification,
 } from '../domain/media-record.js';
@@ -29,6 +30,10 @@ interface MediaRecordRowLike {
   retention_deadline_at: Date | null;
   derived_from_media_id: string | null;
   transformation_version: number | null;
+  derivative_kind: string | null;
+  tile_zoom_level: number | null;
+  tile_x: number | null;
+  tile_y: number | null;
   revision: number;
   created_at: Date;
   updated_at: Date;
@@ -55,6 +60,10 @@ function toMediaRecord(row: MediaRecordRowLike): MediaRecord {
     retentionDeadlineAt: row.retention_deadline_at,
     derivedFromMediaId: row.derived_from_media_id,
     transformationVersion: row.transformation_version,
+    derivativeKind: row.derivative_kind as MediaDerivativeKind | null,
+    tileZoomLevel: row.tile_zoom_level,
+    tileX: row.tile_x,
+    tileY: row.tile_y,
     revision: row.revision,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -87,6 +96,10 @@ export class KyselyMediaRepository implements MediaRepository {
         retention_deadline_at: record.retentionDeadlineAt,
         derived_from_media_id: record.derivedFromMediaId,
         transformation_version: record.transformationVersion,
+        derivative_kind: record.derivativeKind,
+        tile_zoom_level: record.tileZoomLevel,
+        tile_x: record.tileX,
+        tile_y: record.tileY,
         revision: record.revision,
         created_at: record.createdAt,
         updated_at: record.updatedAt,
@@ -126,6 +139,10 @@ export class KyselyMediaRepository implements MediaRepository {
         retention_deadline_at: record.retentionDeadlineAt,
         derived_from_media_id: record.derivedFromMediaId,
         transformation_version: record.transformationVersion,
+        derivative_kind: record.derivativeKind,
+        tile_zoom_level: record.tileZoomLevel,
+        tile_x: record.tileX,
+        tile_y: record.tileY,
         revision: record.revision,
         updated_at: record.updatedAt,
       })
@@ -134,5 +151,37 @@ export class KyselyMediaRepository implements MediaRepository {
       .executeTakeFirst();
 
     return (result?.numUpdatedRows ?? 0n) === 1n;
+  }
+
+  /**
+   * The application-layer half of this stage's idempotency guarantee — see
+   * `derivative-registration.ts`'s own doc comment for how this is combined
+   * with migrations/1785300000000_media-derivative-identity.sql's two
+   * partial unique indexes (the DATABASE-layer half, the ultimate guarantee
+   * under a real concurrent race) to satisfy "regenerating the exact same
+   * derivative for the exact same source checksum and transformation-version
+   * pins must be a safe no-op."
+   */
+  async findDerivative(input: FindDerivativeInput): Promise<MediaRecord | null> {
+    let query = this.db
+      .selectFrom('media.media_record')
+      .selectAll()
+      .where('derived_from_media_id', '=', input.derivedFromMediaId)
+      .where('transformation_version', '=', input.transformationVersion)
+      .where('derivative_kind', '=', input.derivativeKind);
+
+    query =
+      input.tile === null
+        ? query
+            .where('tile_zoom_level', 'is', null)
+            .where('tile_x', 'is', null)
+            .where('tile_y', 'is', null)
+        : query
+            .where('tile_zoom_level', '=', input.tile.zoomLevel)
+            .where('tile_x', '=', input.tile.x)
+            .where('tile_y', '=', input.tile.y);
+
+    const row = await query.executeTakeFirst();
+    return row === undefined ? null : toMediaRecord(row);
   }
 }

@@ -1,4 +1,5 @@
-import type { MediaProcessingResult } from '@verdery/api-contracts';
+import { MEDIA_DERIVATIVE_GENERATION_REQUESTED_EVENT_TYPE } from '@verdery/api-contracts';
+import type { MediaProcessingOutputObject, MediaProcessingResult } from '@verdery/api-contracts';
 import { describe, expect, it } from 'vitest';
 import {
   authorizeMediaUpload,
@@ -7,7 +8,11 @@ import {
   markMediaAvailable,
 } from '../domain/media-lifecycle.js';
 import { registerMediaRecord } from '../domain/media-record.js';
-import { createProcessingJob, markProcessingJobQueued } from '../domain/processing-job.js';
+import {
+  createProcessingJob,
+  markProcessingJobQueued,
+  MEDIA_DERIVATIVE_GENERATION_JOB_KIND,
+} from '../domain/processing-job.js';
 import type { ProcessingJob } from '../domain/processing-job.js';
 import { RecordMediaProcessingResult } from './record-media-processing-result.js';
 import { createMediaFakes, fixedClock, FakeMediaUnitOfWork } from './media-test-doubles.js';
@@ -157,4 +162,247 @@ describe('RecordMediaProcessingResult', () => {
   // second writer between them. See
   // tests/integration/media-processing.test.ts's own concurrent-delivery
   // case for that proof against real PostgreSQL.
+
+  describe('derivative-generation chaining (P6-WORKER-02)', () => {
+    it('a successful validation result for a raster-eligible media class appends media.derivative_generation_requested', async () => {
+      const { useCase, fakes } = buildUseCase();
+      fakes.media.records.set(MEDIA_ID, availableMedia());
+      await fakes.processingJobs.insert(queuedJob());
+
+      await useCase.execute(JOB_ID, {
+        ...SUCCESS_RESULT,
+        inputChecksums: ['e'.repeat(64)],
+        resultSummary: { accepted: true, detectedContentType: 'image/jpeg', byteSize: 123_456 },
+      });
+
+      expect(fakes.outbox.events).toHaveLength(1);
+      expect(fakes.outbox.events[0]).toMatchObject({
+        eventType: MEDIA_DERIVATIVE_GENERATION_REQUESTED_EVENT_TYPE,
+        aggregateType: 'media_record',
+        aggregateId: MEDIA_ID,
+        payload: {
+          mediaId: MEDIA_ID,
+          gardenId: GARDEN_ID,
+          mediaClass: 'garden_photo',
+          bucketName: 'bucket',
+          objectKey: 'object-key',
+          contentType: 'image/jpeg',
+          byteSize: 123_456,
+          checksumSha256: 'e'.repeat(64),
+        },
+      });
+    });
+
+    it('a successful validation result for a PDF-classed imported_plan does NOT append the derivative event (out of scope this stage)', async () => {
+      const { useCase, fakes } = buildUseCase();
+      const plan = registerMediaRecord(
+        MEDIA_ID,
+        GARDEN_ID,
+        PROFILE_ID,
+        'imported_plan',
+        'plan.pdf',
+        'application/pdf',
+        200_000,
+        null,
+        null,
+        null,
+        null,
+        NOW,
+      );
+      const authorized = authorizeMediaUpload(plan, 'bucket', 'object-key', NOW);
+      const uploading = beginMediaUpload(authorized, NOW);
+      const verifying = beginMediaVerification(uploading, NOW);
+      fakes.media.records.set(
+        MEDIA_ID,
+        markMediaAvailable(verifying, 'application/pdf', 200_000, null, NOW),
+      );
+      await fakes.processingJobs.insert(queuedJob());
+
+      await useCase.execute(JOB_ID, {
+        ...SUCCESS_RESULT,
+        inputChecksums: ['f'.repeat(64)],
+        resultSummary: {
+          accepted: true,
+          detectedContentType: 'application/pdf',
+          byteSize: 200_000,
+        },
+      });
+
+      expect(fakes.outbox.events).toHaveLength(0);
+    });
+
+    it('a validation FAILURE does not append the derivative event either', async () => {
+      const { useCase, fakes } = buildUseCase();
+      fakes.media.records.set(MEDIA_ID, availableMedia());
+      await fakes.processingJobs.insert(queuedJob());
+
+      await useCase.execute(JOB_ID, {
+        ...SUCCESS_RESULT,
+        resultSummary: { accepted: false, validationCode: 'malformed_file' },
+        outcome: 'failed_terminal',
+      });
+
+      expect(fakes.outbox.events).toHaveLength(0);
+    });
+
+    const THUMBNAIL_OUTPUT: MediaProcessingOutputObject = {
+      bucketName: 'derived-bucket',
+      objectKey: 'ab/media/thumb-uuid',
+      checksumSha256: 'a'.repeat(64),
+      contentType: 'image/jpeg',
+      byteSize: 8_000,
+      derivativeKind: 'thumbnail',
+      transformationVersion: 1,
+    };
+
+    function queuedDerivativeJob(): ProcessingJob {
+      const requested = createProcessingJob(
+        {
+          id: JOB_ID,
+          mediaId: MEDIA_ID,
+          processorConfigVersion: 'v1',
+          inputChecksums: ['b'.repeat(64)],
+          jobKind: MEDIA_DERIVATIVE_GENERATION_JOB_KIND,
+        },
+        NOW,
+      );
+      return markProcessingJobQueued(requested, NOW);
+    }
+
+    function processedMedia() {
+      const available = availableMedia();
+      // A derivative-generation job only ever targets a media row whose OWN
+      // validation already succeeded — `processingState` is already
+      // `processed`, never `null`, by the time this job's result arrives.
+      return { ...available, processingState: 'processed' as const };
+    }
+
+    it('registers each produced output object as its own new media_record row, without re-touching the source processingState', async () => {
+      const { useCase, fakes } = buildUseCase();
+      fakes.media.records.set(MEDIA_ID, processedMedia());
+      await fakes.processingJobs.insert(queuedDerivativeJob());
+
+      await useCase.execute(JOB_ID, {
+        jobId: JOB_ID,
+        processorVersion: 'media-derivative-generator-v1',
+        inputChecksums: ['b'.repeat(64)],
+        outputObjects: [THUMBNAIL_OUTPUT],
+        resultSummary: { derivativeCount: 1 },
+        qualityDiagnostics: null,
+        resourceMetrics: { durationMs: 40 },
+        outcome: 'succeeded',
+      });
+
+      const source = await fakes.media.get(MEDIA_ID);
+      // Source media untouched beyond what it already was — the source's
+      // OWN processingState/revision never move a second time for this job
+      // kind (see this module's own header comment on why).
+      expect(source?.processingState).toBe('processed');
+      expect(source?.revision).toBe(processedMedia().revision);
+
+      const derivative = await fakes.media.findDerivative({
+        derivedFromMediaId: MEDIA_ID,
+        transformationVersion: 1,
+        derivativeKind: 'thumbnail',
+        tile: null,
+      });
+      expect(derivative).not.toBeNull();
+      expect(derivative?.mediaClass).toBe('derived_preview');
+      expect(derivative?.uploadState).toBe('available');
+      expect(derivative?.bucketName).toBe('derived-bucket');
+
+      const job = await fakes.processingJobs.get(JOB_ID);
+      expect(job?.state).toBe('succeeded');
+    });
+
+    it('regenerating the exact same derivative for the exact same source+version+kind is a safe no-op: no duplicate media_record row', async () => {
+      const { useCase, fakes } = buildUseCase();
+      fakes.media.records.set(MEDIA_ID, processedMedia());
+      await fakes.processingJobs.insert(queuedDerivativeJob());
+
+      const result: MediaProcessingResult = {
+        jobId: JOB_ID,
+        processorVersion: 'media-derivative-generator-v1',
+        inputChecksums: ['b'.repeat(64)],
+        outputObjects: [THUMBNAIL_OUTPUT],
+        resultSummary: { derivativeCount: 1 },
+        qualityDiagnostics: null,
+        resourceMetrics: { durationMs: 40 },
+        outcome: 'succeeded',
+      };
+      await useCase.execute(JOB_ID, result);
+      const countAfterFirst = fakes.media.records.size;
+
+      // A second, independent derivative-generation job for the SAME media,
+      // reporting the identical output object (a real operator re-run, or a
+      // fresh outbox delivery reaching a second job) — not the SAME job id
+      // (that case is already covered by the generic "duplicate delivery"
+      // no-op above, at the job-state level).
+      const secondJobId = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9b0e';
+      await fakes.processingJobs.insert(
+        markProcessingJobQueued(
+          createProcessingJob(
+            {
+              id: secondJobId,
+              mediaId: MEDIA_ID,
+              processorConfigVersion: 'v1',
+              inputChecksums: ['b'.repeat(64)],
+              jobKind: MEDIA_DERIVATIVE_GENERATION_JOB_KIND,
+            },
+            NOW,
+          ),
+          NOW,
+        ),
+      );
+      await useCase.execute(secondJobId, { ...result, jobId: secondJobId });
+
+      expect(fakes.media.records.size).toBe(countAfterFirst);
+    });
+
+    it('a genuinely new transformationVersion produces a new derivative row alongside the old one', async () => {
+      const { useCase, fakes } = buildUseCase();
+      fakes.media.records.set(MEDIA_ID, processedMedia());
+      await fakes.processingJobs.insert(queuedDerivativeJob());
+      await useCase.execute(JOB_ID, {
+        jobId: JOB_ID,
+        processorVersion: 'media-derivative-generator-v1',
+        inputChecksums: ['b'.repeat(64)],
+        outputObjects: [THUMBNAIL_OUTPUT],
+        resultSummary: { derivativeCount: 1 },
+        qualityDiagnostics: null,
+        resourceMetrics: { durationMs: 40 },
+        outcome: 'succeeded',
+      });
+      const countAfterFirst = fakes.media.records.size;
+
+      const secondJobId = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9b0f';
+      await fakes.processingJobs.insert(
+        markProcessingJobQueued(
+          createProcessingJob(
+            {
+              id: secondJobId,
+              mediaId: MEDIA_ID,
+              processorConfigVersion: 'v1',
+              inputChecksums: ['b'.repeat(64)],
+              jobKind: MEDIA_DERIVATIVE_GENERATION_JOB_KIND,
+            },
+            NOW,
+          ),
+          NOW,
+        ),
+      );
+      await useCase.execute(secondJobId, {
+        jobId: secondJobId,
+        processorVersion: 'media-derivative-generator-v1',
+        inputChecksums: ['b'.repeat(64)],
+        outputObjects: [{ ...THUMBNAIL_OUTPUT, transformationVersion: 2 }],
+        resultSummary: { derivativeCount: 1 },
+        qualityDiagnostics: null,
+        resourceMetrics: { durationMs: 40 },
+        outcome: 'succeeded',
+      });
+
+      expect(fakes.media.records.size).toBe(countAfterFirst + 1);
+    });
+  });
 });

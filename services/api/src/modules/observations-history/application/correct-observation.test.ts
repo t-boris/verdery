@@ -137,6 +137,10 @@ class FakeMediaRepository implements MediaRepository {
     throw new Error('not used by this test');
   }
 
+  findDerivative(): Promise<MediaRecord | null> {
+    throw new Error('not used by this test');
+  }
+
   get(id: string): Promise<MediaRecord | null> {
     if (!this.existingIds.has(id)) {
       return Promise.resolve(null);

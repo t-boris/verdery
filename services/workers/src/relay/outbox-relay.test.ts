@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import type { MediaProcessingRequestedEventPayload } from '@verdery/api-contracts';
+import {
+  MEDIA_DERIVATIVE_GENERATION_REQUESTED_EVENT_TYPE,
+  MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
+  type MediaProcessingRequestedEventPayload,
+} from '@verdery/api-contracts';
+import { MEDIA_DERIVATIVE_GENERATION_JOB_KIND, MEDIA_VALIDATION_JOB_KIND } from '../job-kind.js';
 import { OutboxRelay } from './outbox-relay.js';
 import {
   FakeMediaProcessingQueue,
@@ -58,6 +63,7 @@ describe('OutboxRelay.tick', () => {
     outboxEvents.seed({
       id: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c00',
       aggregateId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c01',
+      eventType: MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
       payload: payload(),
       traceId: 'trace-1',
     });
@@ -95,6 +101,7 @@ describe('OutboxRelay.tick', () => {
     outboxEvents.seed({
       id: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c00',
       aggregateId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c01',
+      eventType: MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
       payload: payload(),
       traceId: null,
     });
@@ -113,6 +120,7 @@ describe('OutboxRelay.tick', () => {
     outboxEvents.seed({
       id: eventId,
       aggregateId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c01',
+      eventType: MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
       payload: payload(),
       traceId: null,
     });
@@ -125,6 +133,7 @@ describe('OutboxRelay.tick', () => {
       mediaId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c01',
       processorConfigVersion: 'v1',
       state: 'queued',
+      jobKind: MEDIA_VALIDATION_JOB_KIND,
     });
     const { relay, mediaProcessingQueue } = buildRelay({ outboxEvents, processingJobs });
 
@@ -141,6 +150,7 @@ describe('OutboxRelay.tick', () => {
       outboxEvents.seed({
         id: `019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c1${index}`,
         aggregateId: `019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c2${index}`,
+        eventType: MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
         payload: payload({ mediaId: `019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c2${index}` }),
         traceId: null,
       });
@@ -159,6 +169,7 @@ describe('OutboxRelay.tick', () => {
       outboxEvents.seed({
         id: `019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c1${index}`,
         aggregateId: `019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c2${index}`,
+        eventType: MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
         payload: payload({ mediaId: `019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c2${index}` }),
         traceId: null,
       });
@@ -175,12 +186,14 @@ describe('OutboxRelay.tick', () => {
     outboxEvents.seed({
       id: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c10',
       aggregateId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c20',
+      eventType: MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
       payload: payload({ mediaId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c20' }),
       traceId: null,
     });
     outboxEvents.seed({
       id: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c11',
       aggregateId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c21',
+      eventType: MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
       payload: payload({ mediaId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c21' }),
       traceId: null,
     });
@@ -198,5 +211,44 @@ describe('OutboxRelay.tick', () => {
     ).length;
     expect(queuedCount).toBe(1);
     expect(outboxEvents.markPublishedCalls).toHaveLength(1);
+  });
+
+  it('a media.derivative_generation_requested event creates a derivative_generation job, carrying jobKind on its Cloud Tasks manifest (P6-WORKER-02)', async () => {
+    const outboxEvents = new FakeOutboxEventStore();
+    const eventId = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c30';
+    outboxEvents.seed({
+      id: eventId,
+      aggregateId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c31',
+      eventType: MEDIA_DERIVATIVE_GENERATION_REQUESTED_EVENT_TYPE,
+      payload: payload({ mediaId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c31' }),
+      traceId: null,
+    });
+    const { relay, processingJobs, mediaProcessingQueue } = buildRelay({ outboxEvents });
+
+    const result = await relay.tick();
+
+    expect(result).toEqual({ claimed: 1, enqueued: 1, alreadyQueued: 0, failed: 0 });
+    expect(processingJobs.jobs.get(eventId)?.jobKind).toBe(MEDIA_DERIVATIVE_GENERATION_JOB_KIND);
+    expect(mediaProcessingQueue.enqueued[0]?.manifest.jobKind).toBe(
+      MEDIA_DERIVATIVE_GENERATION_JOB_KIND,
+    );
+  });
+
+  it('a media.processing_requested event still creates a media_validation job with jobKind set explicitly on its manifest', async () => {
+    const outboxEvents = new FakeOutboxEventStore();
+    const eventId = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c40';
+    outboxEvents.seed({
+      id: eventId,
+      aggregateId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c41',
+      eventType: MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
+      payload: payload({ mediaId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c41' }),
+      traceId: null,
+    });
+    const { relay, processingJobs, mediaProcessingQueue } = buildRelay({ outboxEvents });
+
+    await relay.tick();
+
+    expect(processingJobs.jobs.get(eventId)?.jobKind).toBe(MEDIA_VALIDATION_JOB_KIND);
+    expect(mediaProcessingQueue.enqueued[0]?.manifest.jobKind).toBe(MEDIA_VALIDATION_JOB_KIND);
   });
 });

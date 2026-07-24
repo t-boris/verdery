@@ -65,6 +65,17 @@ export const environmentSchema = z.object({
   MEDIA_PROCESSING_RESULT_CALLBACK_URL: z.string().url(),
   MEDIA_PROCESSING_RESULT_CALLBACK_AUDIENCE: z.string().min(1),
   MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL: z.string().min(1),
+
+  // P6-WORKER-02: the derived bucket the derivative-generation job writes
+  // produced thumbnail/screen-preview/high-resolution/tile bytes to,
+  // directly (its own GCS write, unlike the read-only validation job — see
+  // `derivatives/gcs-derivative-object-sink.ts`'s own header comment). Same
+  // env var name `services/api`'s own `platform/configuration/
+  // configuration-schema.ts` already uses for the identical physical bucket
+  // (`MEDIA_DERIVED_BUCKET`), so both services' configuration point at the
+  // same value under the same name, not two independently-named ones that
+  // could drift.
+  MEDIA_DERIVED_BUCKET: z.string().min(1),
 });
 
 export type RawEnvironment = z.infer<typeof environmentSchema>;
@@ -99,6 +110,7 @@ export interface WorkerConfiguration {
   readonly database: WorkerDatabaseConfiguration;
   readonly relay: RelayConfiguration;
   readonly mediaProcessing: MediaProcessingQueueConfiguration;
+  readonly mediaDerivedBucket: string;
 }
 
 /** Raised when the process environment cannot produce a valid configuration. */
@@ -137,6 +149,7 @@ function toWorkerConfiguration(raw: RawEnvironment): WorkerConfiguration {
       resultCallbackAudience: raw.MEDIA_PROCESSING_RESULT_CALLBACK_AUDIENCE,
       invokerServiceAccountEmail: raw.MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL,
     },
+    mediaDerivedBucket: raw.MEDIA_DERIVED_BUCKET,
   };
 }
 

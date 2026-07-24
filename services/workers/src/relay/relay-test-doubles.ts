@@ -71,6 +71,7 @@ export class FakeProcessingJobStore implements ProcessingJobStore {
       mediaId: input.mediaId,
       processorConfigVersion: input.processorConfigVersion,
       state: 'requested',
+      jobKind: input.jobKind,
     };
     this.jobs.set(input.id, created);
     return Promise.resolve(created);

@@ -1,7 +1,16 @@
-import { MEDIA_PROCESSING_REQUESTED_EVENT_TYPE } from '@verdery/api-contracts';
+import {
+  MEDIA_DERIVATIVE_GENERATION_REQUESTED_EVENT_TYPE,
+  MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
+} from '@verdery/api-contracts';
 import type { Kysely } from 'kysely';
 import type { OutboxEventRecord, OutboxEventStore } from './outbox-event-store.js';
 import type { RelayDatabaseSchema } from './relay-database-schema.js';
+
+/** The two event types this relay recognizes — see `OutboxEventRecord.eventType`'s own doc comment. */
+const RECOGNIZED_EVENT_TYPES = [
+  MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
+  MEDIA_DERIVATIVE_GENERATION_REQUESTED_EVENT_TYPE,
+] as const;
 
 export class KyselyOutboxEventStore implements OutboxEventStore {
   constructor(private readonly db: Kysely<RelayDatabaseSchema>) {}
@@ -9,9 +18,9 @@ export class KyselyOutboxEventStore implements OutboxEventStore {
   async claimUnpublished(limit: number): Promise<readonly OutboxEventRecord[]> {
     const rows = await this.db
       .selectFrom('platform.outbox_event')
-      .select(['id', 'aggregate_id', 'payload', 'trace_id'])
+      .select(['id', 'aggregate_id', 'event_type', 'payload', 'trace_id'])
       .where('published_at', 'is', null)
-      .where('event_type', '=', MEDIA_PROCESSING_REQUESTED_EVENT_TYPE)
+      .where('event_type', 'in', RECOGNIZED_EVENT_TYPES)
       .orderBy('occurred_at', 'asc')
       .limit(limit)
       .execute();
@@ -19,6 +28,7 @@ export class KyselyOutboxEventStore implements OutboxEventStore {
     return rows.map((row) => ({
       id: row.id,
       aggregateId: row.aggregate_id,
+      eventType: row.event_type,
       payload: row.payload,
       traceId: row.trace_id,
     }));

@@ -224,17 +224,18 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving the plants-observations-tasks-baseline schemas and tables otherwise intact', async () => {
     await client.end();
 
-    // `count: 4` undoes this migration and every migration applied after it
-    // (currently synchronization-baseline, media-lifecycle-and-quotas, and
-    // media-processing-jobs, none of which depend on anything this one
-    // creates but all of which were applied later and must unwind first).
-    // Update this count when a later migration is added on top.
+    // `count: 5` undoes this migration and every migration applied after it
+    // (currently synchronization-baseline, media-lifecycle-and-quotas,
+    // media-processing-jobs, and media-derivative-identity, none of which
+    // depend on anything this one creates but all of which were applied
+    // later and must unwind first). Update this count when a later
+    // migration is added on top.
     await runner({
       databaseUrl,
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 4,
+      count: 5,
       log: () => {},
     });
 

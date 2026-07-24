@@ -2,18 +2,23 @@
  * Worker process entry point.
  *
  * Runs both worker-owned entry points: the transactional outbox relay and
- * the authenticated HTTP target that validates private media bytes.
+ * the authenticated HTTP target that now dispatches (via
+ * `MediaProcessingJobRouter`) to either the validator or, new in
+ * P6-WORKER-02, the derivative generator.
  *
  * Source: architecture/backend-modular-monolith.md, section "19. Worker Boundary";
- *         docs/implementation-plan.md, work packages P6-ASYNC-01 and
- *         P6-WORKER-01.
+ *         docs/implementation-plan.md, work packages P6-ASYNC-01,
+ *         P6-WORKER-01, P6-WORKER-02.
  */
 
 import { CloudTasksClient } from '@google-cloud/tasks';
 import { Storage } from '@google-cloud/storage';
 import { registerGracefulShutdown } from './bootstrap/graceful-shutdown.js';
 import { ConfigurationError, loadConfiguration } from './configuration.js';
+import { GcsDerivativeObjectSink } from './derivatives/gcs-derivative-object-sink.js';
+import { ProcessMediaDerivativeGenerationJob } from './derivatives/process-media-derivative-generation-job.js';
 import { createLogger, SERVICE_NAME } from './logger.js';
+import { MediaProcessingJobRouter } from './media-processing-job-router.js';
 import { CloudTasksMediaProcessingQueue } from './relay/cloud-tasks-media-processing-queue.js';
 import { KyselyOutboxEventStore } from './relay/kysely-outbox-event-store.js';
 import { KyselyProcessingJobStore } from './relay/kysely-processing-job-store.js';
@@ -71,18 +76,31 @@ async function main(): Promise<void> {
   );
 
   const storage = new Storage();
+  // One shared result recorder: both job kinds post their structured result
+  // to the SAME authenticated hop-2 callback (`services/api`'s
+  // `RecordMediaProcessingResult` branches on `job.jobKind` itself, not on
+  // which recorder posted it).
+  const resultRecorder = new GoogleApiResultRecorder(
+    configuration.mediaProcessing.resultCallbackUrl,
+    configuration.mediaProcessing.resultCallbackAudience,
+  );
+  const jobRouter = new MediaProcessingJobRouter(
+    new ProcessMediaValidationJob(
+      new MediaValidator(new GcsMediaObjectSource(storage), new UnavailableMalwareScanner()),
+      resultRecorder,
+    ),
+    new ProcessMediaDerivativeGenerationJob(
+      new GcsMediaObjectSource(storage),
+      new GcsDerivativeObjectSink(storage, configuration.mediaDerivedBucket),
+      resultRecorder,
+    ),
+  );
   const validationServer = new ValidationHttpServer(
     new GoogleOidcInvocationVerifier(
       configuration.mediaProcessing.taskUrl,
       configuration.mediaProcessing.invokerServiceAccountEmail,
     ),
-    new ProcessMediaValidationJob(
-      new MediaValidator(new GcsMediaObjectSource(storage), new UnavailableMalwareScanner()),
-      new GoogleApiResultRecorder(
-        configuration.mediaProcessing.resultCallbackUrl,
-        configuration.mediaProcessing.resultCallbackAudience,
-      ),
-    ),
+    jobRouter,
     logger,
   );
   await validationServer.listen(configuration.httpPort);

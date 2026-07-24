@@ -8,12 +8,22 @@ import {
 } from './oidc-invocation-verifier.js';
 
 /**
- * The one method this HTTP server needs from `ProcessMediaValidationJob` —
- * a narrow port, not the concrete class, matching this codebase's own
+ * The one method this HTTP server needs from its processor — a narrow port,
+ * not a concrete class, matching this codebase's own
  * port-plus-adapter-plus-fake convention (see `MediaProcessingResultRecorder`
  * for the identical shape). `ProcessMediaValidationJob` satisfies this
- * interface structurally without declaring `implements`; a test fake can
- * satisfy it too, without needing to construct a real `MediaValidator`.
+ * interface structurally without declaring `implements`; so does
+ * `MediaProcessingJobRouter` (P6-WORKER-02, `../media-processing-job-
+ * router.ts`) — `main.ts` wires the router here now, not a bare validator,
+ * so this ONE server dispatches an inbound manifest to either the validator
+ * or the derivative generator by its own `jobKind`. This class's own name
+ * and route (`/internal/media-validation-jobs/:jobId`) are unchanged from
+ * P6-WORKER-01 despite that: renaming both across `main.ts`, this file's own
+ * test, `services/workers/README.md`, and every `MEDIA_PROCESSING_TASK_URL`
+ * reference in `infrastructure/gcloud/scripts/deploy-workers.sh` was judged
+ * more churn than the rename was worth for a route no client ever sees by
+ * name — see this stage's own report for the full "generalize vs. add a
+ * second entrypoint" reasoning.
  */
 export interface MediaValidationJobProcessor {
   execute(manifest: MediaProcessingManifest): Promise<MediaProcessingResult>;
@@ -38,6 +48,10 @@ const manifestSchema = z.object({
     expectedByteSize: z.number().int().positive(),
   }),
   traceId: z.string().min(1).optional(),
+  // Absent means `media_validation` — see `MediaProcessingManifest.jobKind`'s
+  // own doc comment in `@verdery/api-contracts` and
+  // `MediaProcessingJobRouter`'s own header comment.
+  jobKind: z.string().min(1).optional(),
 });
 
 async function readJson(request: IncomingMessage): Promise<unknown> {

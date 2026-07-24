@@ -69,6 +69,11 @@ result_callback_base="${api_service_url}/v1/internal/media-processing-jobs"
 
 env_vars="VERDERY_ENVIRONMENT=${VERDERY_ENVIRONMENT}"
 env_vars+=",TRACING_ENABLED=${VERDERY_TRACING_ENABLED:-false}"
+# P6-WORKER-02: the derived bucket the derivative-generation job writes to
+# directly — same env var name services/api's own deploy-api.sh already
+# uses for the identical physical bucket (MEDIA_DERIVED_BUCKET), see that
+# script's own `env_vars` block.
+env_vars+=",MEDIA_DERIVED_BUCKET=${VERDERY_DERIVED_BUCKET}"
 env_vars+=",MEDIA_PROCESSING_QUEUE_PROJECT_ID=${VERDERY_PROJECT_ID}"
 env_vars+=",MEDIA_PROCESSING_QUEUE_LOCATION=${VERDERY_REGION}"
 env_vars+=",MEDIA_PROCESSING_QUEUE_NAME=${VERDERY_MEDIA_PROCESSING_QUEUE_NAME}"

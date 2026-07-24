@@ -1,5 +1,14 @@
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
-import type { MediaRecord } from '../domain/media-record.js';
+import type { MediaDerivativeKind, MediaRecord, TileCoordinates } from '../domain/media-record.js';
+
+/** The idempotency key `findDerivative` looks up by — see `derivative-registration.ts`'s own doc comment. */
+export interface FindDerivativeInput {
+  readonly derivedFromMediaId: Uuid;
+  readonly transformationVersion: number;
+  readonly derivativeKind: MediaDerivativeKind;
+  /** `null` for a non-tile derivative — every tile column is `NULL` on that row. */
+  readonly tile: TileCoordinates | null;
+}
 
 /**
  * Port for `media.media_record`.
@@ -27,4 +36,6 @@ export interface MediaRepository {
   get(id: Uuid): Promise<MediaRecord | null>;
   /** Writes `record` only if the stored row's current revision equals `expectedRevision`. Returns whether the write applied. */
   update(record: MediaRecord, expectedRevision: number): Promise<boolean>;
+  /** `null` when no derivative exists yet at this identity — see `FindDerivativeInput`'s own doc comment. */
+  findDerivative(input: FindDerivativeInput): Promise<MediaRecord | null>;
 }

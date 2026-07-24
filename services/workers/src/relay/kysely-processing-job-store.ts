@@ -12,12 +12,14 @@ function toRelayProcessingJob(row: {
   media_id: string;
   processor_config_version: string;
   state: string;
+  job_kind: string;
 }): RelayProcessingJob {
   return {
     id: row.id,
     mediaId: row.media_id,
     processorConfigVersion: row.processor_config_version,
     state: row.state as RelayProcessingJobState,
+    jobKind: row.job_kind,
   };
 }
 
@@ -34,14 +36,14 @@ export class KyselyProcessingJobStore implements ProcessingJobStore {
       .values({
         id: input.id,
         media_id: input.mediaId,
-        job_kind: 'media_validation',
+        job_kind: input.jobKind,
         processor_config_version: input.processorConfigVersion,
         input_checksums: [...input.inputChecksums],
         trace_id: input.traceId,
         updated_at: now,
       })
       .onConflict((oc) => oc.column('id').doNothing())
-      .returning(['id', 'media_id', 'processor_config_version', 'state'])
+      .returning(['id', 'media_id', 'processor_config_version', 'state', 'job_kind'])
       .executeTakeFirst();
 
     if (inserted !== undefined) {
@@ -53,7 +55,7 @@ export class KyselyProcessingJobStore implements ProcessingJobStore {
     // its current state instead of assuming it is still `requested`.
     const existing = await this.db
       .selectFrom('media.processing_job')
-      .select(['id', 'media_id', 'processor_config_version', 'state'])
+      .select(['id', 'media_id', 'processor_config_version', 'state', 'job_kind'])
       .where('id', '=', input.id)
       .executeTakeFirstOrThrow();
 

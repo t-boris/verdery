@@ -86,8 +86,25 @@ export interface ProcessingJob {
   readonly updatedAt: Date;
 }
 
-/** This stage's own single job kind — see this file's header comment on why the vocabulary stops at one entry today. */
+/** P6-WORKER-01's own single job kind — see this file's header comment. */
 export const MEDIA_VALIDATION_JOB_KIND = 'media_validation';
+
+/**
+ * P6-WORKER-02's own job kind — the SAME literal
+ * 1785200000000_media-processing-jobs.sql's `job_kind` column already
+ * defaulted to before P6-WORKER-01 overrode it with
+ * `MEDIA_VALIDATION_JOB_KIND` (that migration's own comment: "this stage
+ * produces exactly one kind (`derivative_generation`, the resolution
+ * documented above)"), so this constant does not introduce a new string —
+ * it names the one the schema already anticipated. A successful
+ * `MEDIA_VALIDATION_JOB_KIND` job for a raster-eligible media class triggers
+ * exactly one job of this kind (see
+ * `application/derivative-eligibility.ts`); `record-media-processing-
+ * result.ts` branches on this constant to register produced derivatives as
+ * new `media_record` rows instead of re-transitioning the source media's
+ * `processingState` (already `processed`).
+ */
+export const MEDIA_DERIVATIVE_GENERATION_JOB_KIND = 'derivative_generation';
 
 function requireState(
   job: ProcessingJob,
