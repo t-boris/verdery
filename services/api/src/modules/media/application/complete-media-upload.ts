@@ -26,33 +26,10 @@
  * appends it is only reached once, on the one call that actually performs
  * the transition.
  *
- * P6-ASYNC-01 RESOLUTION — "verification" vs. "derivative-generation
- * trigger": this stage's own work-package title ("Cloud Tasks paths for
- * media verification and derivatives") could describe either a deeper async
- * verification pass or the first real processing stage. The synchronous
- * verification this method already performs (declared-vs-actual
- * content-type/size, above) is P6-API-01's, already complete; the outbox
- * event appended below on the `available` branch is section 7 step 7's own
- * words made literal — "API marks media available and emits processing
- * events" — and is this stage's real trigger for the FIRST REAL processing
- * stage, derivative generation (P6-WORKER-02), not a second verification
- * pass. Grounds for this reading, concretely:
- *
- * - Section 9 ties derivative generation to "source checksum plus
- *   transformation version" — exactly what `media.processing_job.
- *   input_checksums`/`processor_config_version` (migrations/1785200000000_
- *   media-processing-jobs.sql) exist to carry, and exactly what this
- *   event's payload supplies to the relay.
- * - Deeper file validation (MIME signature, malware scanning, parser-bomb
- *   protection) is explicitly P6-WORKER-01's job and explicitly out of this
- *   stage's own scope per the work package's dependency listing — so this
- *   stage cannot honestly claim to trigger a "verification job" nothing yet
- *   consumes for that purpose.
- * - The job-state and Cloud Tasks infrastructure this stage builds (see
- *   `record-media-processing-result.ts`, `services/workers`' relay) is kept
- *   generic — a free-text `job_kind` column, not a hardcoded single
- *   purpose — precisely so a real P6-WORKER-01 stage can reuse it for a
- *   genuine verification job later without a schema change.
+ * The outbox event starts P6-WORKER-01's deeper byte validation after the
+ * cheap synchronous Cloud Storage metadata check succeeds. Signed access is
+ * withheld until that job succeeds. Derivative generation remains a
+ * separate P6-WORKER-02 job.
  */
 
 import { MEDIA_PROCESSING_REQUESTED_EVENT_TYPE, type Media } from '@verdery/api-contracts';
@@ -173,15 +150,15 @@ export class CompleteMediaUpload {
 
         if (accepted) {
           // Section 7 step 7: "API marks media available and emits
-          // processing events" — see this file's own header comment for why
-          // this is the derivative-generation trigger, not a second
-          // verification pass. `bucketName`/`objectKey` are non-null here
+          // processing events" — this first event requests constrained byte
+          // validation. `bucketName`/`objectKey` are non-null here
           // for the same reason the metadata read above already relies on:
           // both are always set once `uploadState` reached `authorized`.
           const payload: MediaProcessingRequestedEventPayload = {
             mediaId: resolved.id,
             gardenId: resolved.gardenId,
             mediaClass: resolved.mediaClass,
+            displayFilename: resolved.displayFilename,
             bucketName: resolved.bucketName as string,
             objectKey: resolved.objectKey as string,
             contentType: resolved.verifiedContentType as string,

@@ -488,6 +488,16 @@ Native and web clients upload ordinary photos and sensitive property plans direc
 | P6-OBS-01    | Add upload, verification, processing, stored-byte, orphan, retention, and deletion-lag dashboards                                                               | WS-OPS                   | P6 media pipeline      | Dashboard and runbook evidence                          |
 | P6-QA-01     | Test unauthorized cross-garden access, viewer restrictions, malformed inputs, parser limits, signed-access expiry, and plan accuracy labels                     | WS-QA, WS-SEC            | All P6 implementation  | G6 release evidence                                     |
 
+Implementation status (July 24, 2026): P6-DATA-01, P6-PLAT-01, P6-API-01, P6-ASYNC-01, and
+P6-WORKER-01 are implemented. P6-WORKER-01 replaces the prior direct Cloud Tasks → API placeholder
+with Cloud Tasks → validation worker → authenticated API result callback, adds streaming GCS
+materialization, signature/size/checksum/extension checks, bounded image/PDF/video parsers, structured
+metadata/outcomes, signed-access gating, a malicious-fixture suite, and a production Dockerfile. The
+worker is not yet rolled out to `verdery-dev`; Cloud SQL IAM wiring, an always-CPU Cloud Run
+configuration for the interval relay, and a selected malware provider remain explicit deployment
+dependencies. PDF validation fails retryably while that scanner is unavailable rather than recording
+a false clean result. P6-WORKER-02 and later packages have not started.
+
 ### 15.3 Exit Criteria
 
 - Media bytes bypass the interactive API.

@@ -1,3 +1,4 @@
+import type { MediaProcessingResult } from '@verdery/api-contracts';
 import { describe, expect, it } from 'vitest';
 import {
   authorizeMediaUpload,
@@ -17,6 +18,16 @@ const MEDIA_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9b0b';
 const JOB_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9b0a';
 const NOW = new Date('2026-07-21T09:00:00Z');
 const LATER = new Date('2026-07-21T09:05:00Z');
+const SUCCESS_RESULT: MediaProcessingResult = {
+  jobId: JOB_ID,
+  processorVersion: 'media-validator-v1',
+  inputChecksums: [],
+  outputObjects: [],
+  resultSummary: { accepted: true },
+  qualityDiagnostics: null,
+  resourceMetrics: { durationMs: 25 },
+  outcome: 'succeeded',
+};
 
 function availableMedia() {
   const registered = registerMediaRecord(
@@ -65,12 +76,12 @@ function buildUseCase() {
 }
 
 describe('RecordMediaProcessingResult', () => {
-  it('advances a queued job to succeeded with a placeholder result, and drives media.processingState to processed', async () => {
+  it('records a successful validator result and drives media.processingState to processed', async () => {
     const { useCase, fakes } = buildUseCase();
     fakes.media.records.set(MEDIA_ID, availableMedia());
     await fakes.processingJobs.insert(queuedJob());
 
-    await useCase.execute(JOB_ID);
+    await useCase.execute(JOB_ID, SUCCESS_RESULT);
 
     const media = await fakes.media.get(MEDIA_ID);
     expect(media?.processingState).toBe('processed');
@@ -80,15 +91,50 @@ describe('RecordMediaProcessingResult', () => {
 
     const job = await fakes.processingJobs.get(JOB_ID);
     expect(job?.state).toBe('succeeded');
-    expect(job?.outcomeCode).toBe('placeholder_derivative_generation');
-    expect(job?.resultSummary).toMatchObject({ jobKind: 'derivative_generation' });
+    expect(job?.outcomeCode).toBe('succeeded');
+    expect(job?.resultSummary).toMatchObject({ accepted: true });
     expect(job?.completedAt).toEqual(LATER);
   });
 
   it('throws when no job exists at the given id', async () => {
     const { useCase } = buildUseCase();
 
-    await expect(useCase.execute(JOB_ID)).rejects.toMatchObject({ category: 'notFound' });
+    await expect(useCase.execute(JOB_ID, SUCCESS_RESULT)).rejects.toMatchObject({
+      category: 'notFound',
+    });
+  });
+
+  it('records a terminal validation rejection and marks media processing failed', async () => {
+    const { useCase, fakes } = buildUseCase();
+    fakes.media.records.set(MEDIA_ID, availableMedia());
+    await fakes.processingJobs.insert(queuedJob());
+
+    await useCase.execute(JOB_ID, {
+      ...SUCCESS_RESULT,
+      resultSummary: { accepted: false, validationCode: 'malformed_file' },
+      qualityDiagnostics: { validationCode: 'malformed_file' },
+      outcome: 'failed_terminal',
+    });
+
+    expect((await fakes.media.get(MEDIA_ID))?.processingState).toBe('processing_failed');
+    const job = await fakes.processingJobs.get(JOB_ID);
+    expect(job).toMatchObject({
+      state: 'failed_terminal',
+      outcomeCode: 'malformed_file',
+      qualityDiagnostics: { validationCode: 'malformed_file' },
+    });
+  });
+
+  it('rejects a successful result that does not confirm the expected checksum', async () => {
+    const { useCase, fakes } = buildUseCase();
+    fakes.media.records.set(MEDIA_ID, availableMedia());
+    await fakes.processingJobs.insert(queuedJob({ inputChecksums: ['a'.repeat(64)] }));
+
+    await expect(useCase.execute(JOB_ID, SUCCESS_RESULT)).rejects.toMatchObject({
+      category: 'domainRuleViolated',
+      code: 'media.processing_result.input_checksum_mismatch',
+    });
+    expect((await fakes.media.get(MEDIA_ID))?.processingState).toBeNull();
   });
 
   it('is idempotent: a duplicate delivery against an already-succeeded job is a silent no-op', async () => {
@@ -96,10 +142,10 @@ describe('RecordMediaProcessingResult', () => {
     fakes.media.records.set(MEDIA_ID, availableMedia());
     await fakes.processingJobs.insert(queuedJob());
 
-    await useCase.execute(JOB_ID);
+    await useCase.execute(JOB_ID, SUCCESS_RESULT);
     const jobAfterFirst = await fakes.processingJobs.get(JOB_ID);
 
-    await useCase.execute(JOB_ID);
+    await useCase.execute(JOB_ID, SUCCESS_RESULT);
     const jobAfterSecond = await fakes.processingJobs.get(JOB_ID);
 
     expect(jobAfterSecond).toEqual(jobAfterFirst);

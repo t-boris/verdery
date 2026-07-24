@@ -67,7 +67,7 @@ export class GetMediaAccess {
       'viewGarden',
     );
 
-    if (record.uploadState !== 'available') {
+    if (record.uploadState !== 'available' || record.processingState !== 'processed') {
       throw mediaNotAvailableError();
     }
 

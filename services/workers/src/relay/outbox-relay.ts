@@ -98,6 +98,12 @@ function buildManifest(
     processorConfigVersion: job.processorConfigVersion,
     inputObjects: [{ bucketName: payload.bucketName, objectKey: payload.objectKey }],
     expectedChecksums: payload.checksumSha256 === null ? [] : [payload.checksumSha256],
+    validation: {
+      mediaClass: payload.mediaClass,
+      displayFilename: payload.displayFilename,
+      expectedContentType: payload.contentType,
+      expectedByteSize: payload.byteSize,
+    },
     ...(traceId === null ? {} : { traceId }),
   };
 }
@@ -143,6 +149,8 @@ export class OutboxRelay {
         id: event.id,
         mediaId: payload.mediaId,
         processorConfigVersion: DEFAULT_PROCESSOR_CONFIG_VERSION,
+        inputChecksums: payload.checksumSha256 === null ? [] : [payload.checksumSha256],
+        traceId: event.traceId,
       },
       now,
     );

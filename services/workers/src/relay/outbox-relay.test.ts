@@ -18,6 +18,7 @@ function payload(
     mediaId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c01',
     gardenId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c02',
     mediaClass: 'garden_photo',
+    displayFilename: 'photo.jpg',
     bucketName: 'verdery-dev-user-media',
     objectKey: 'shard/019827ab.../object',
     contentType: 'image/jpeg',
@@ -74,6 +75,12 @@ describe('OutboxRelay.tick', () => {
           { bucketName: 'verdery-dev-user-media', objectKey: 'shard/019827ab.../object' },
         ],
         expectedChecksums: [],
+        validation: {
+          mediaClass: 'garden_photo',
+          displayFilename: 'photo.jpg',
+          expectedContentType: 'image/jpeg',
+          expectedByteSize: 123_456,
+        },
         traceId: 'trace-1',
       },
     });

@@ -61,6 +61,7 @@ function payload(mediaId: string): MediaProcessingRequestedEventPayload {
     mediaId,
     gardenId: null,
     mediaClass: 'garden_photo',
+    displayFilename: 'photo.jpg',
     bucketName: 'verdery-dev-user-media',
     objectKey: `shard/${mediaId}/object`,
     contentType: 'image/jpeg',

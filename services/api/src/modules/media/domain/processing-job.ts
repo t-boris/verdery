@@ -16,11 +16,8 @@
  *                  └────────────→ expired
  * ```
  *
- * `record-media-processing-result.ts` is the only real caller this stage
- * wires: `createProcessingJob` → `markProcessingJobQueued` →
- * `markProcessingJobSucceeded`, in that order, exactly once per job, because
- * this stage's own callback is an honest placeholder that always succeeds
- * (see that file's own header comment). Every other transition below
+ * The validation worker now drives success and terminal-failure transitions
+ * through `record-media-processing-result.ts`. Other transitions below
  * (`markProcessingJobRunning`, `markProcessingJobPartial`,
  * `markProcessingJobFailedRetryable`, `retryProcessingJob`,
  * `markProcessingJobFailedTerminal`, `markProcessingJobCancelled`,
@@ -90,7 +87,7 @@ export interface ProcessingJob {
 }
 
 /** This stage's own single job kind — see this file's header comment on why the vocabulary stops at one entry today. */
-export const DERIVATIVE_GENERATION_JOB_KIND = 'derivative_generation';
+export const MEDIA_VALIDATION_JOB_KIND = 'media_validation';
 
 function requireState(
   job: ProcessingJob,
@@ -119,7 +116,7 @@ export function createProcessingJob(input: CreateProcessingJobInput, now: Date):
   return {
     id: input.id,
     mediaId: input.mediaId,
-    jobKind: input.jobKind ?? DERIVATIVE_GENERATION_JOB_KIND,
+    jobKind: input.jobKind ?? MEDIA_VALIDATION_JOB_KIND,
     processorConfigVersion: input.processorConfigVersion,
     state: 'requested',
     attempt: 1,
@@ -151,7 +148,7 @@ export function markProcessingJobQueued(job: ProcessingJob, now: Date): Processi
   };
 }
 
-/** `queued` -> `running`. No live caller this stage: this stage's placeholder callback resolves a job directly from `queued` to a terminal state in one step (see this file's header comment), but a real worker that reports "I have started" before it finishes needs this transition, so it is defined and tested now. */
+/** `queued` -> `running`. Reserved for a worker that reports start separately from its terminal result. */
 export function markProcessingJobRunning(job: ProcessingJob, now: Date): ProcessingJob {
   requireState(job, ['queued'], 'markProcessingJobRunning');
 
@@ -196,7 +193,7 @@ export function markProcessingJobSucceeded(
   return completeJob(job, 'succeeded', result, now);
 }
 
-/** `queued`/`running` -> `partial`. No live caller this stage — see this file's header comment. */
+/** `queued`/`running` -> `partial`. */
 export function markProcessingJobPartial(
   job: ProcessingJob,
   result: ProcessingJobResultInput,
@@ -232,7 +229,7 @@ export function retryProcessingJob(job: ProcessingJob, now: Date): ProcessingJob
   };
 }
 
-/** `queued`/`running` -> `failed_terminal`. No live caller this stage. */
+/** `queued`/`running` -> `failed_terminal`. Used for invalid or malicious media. */
 export function markProcessingJobFailedTerminal(
   job: ProcessingJob,
   result: ProcessingJobResultInput,
@@ -242,7 +239,7 @@ export function markProcessingJobFailedTerminal(
   return completeJob(job, 'failed_terminal', result, now);
 }
 
-/** `queued`/`running` -> `cancelled`. No live caller this stage — section "14. Cancellation" of architecture/asynchronous-processing.md is not implemented by this work package. */
+/** `queued`/`running` -> `cancelled`. */
 export function markProcessingJobCancelled(
   job: ProcessingJob,
   result: ProcessingJobResultInput,

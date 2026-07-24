@@ -51,14 +51,10 @@
 # ("Delete derivatives... Delete original and raw objects") spans every
 # bucket class the app orchestrates today (needs object delete). Section 18
 # also asks for "separate read/write permissions by worker role", but the
-# worker roles that would justify a second, more restricted service account
-# (P6-WORKER-01: validators, P6-WORKER-02: derivative generation) do not
-# exist as running workloads yet — per implementation-plan.md, both depend
-# on P6-ASYNC-01, which itself depends on P6-API-01, several stages away.
-# Granting a role to a service account with no workload to run it is
-# infrastructure ahead of a real need, so that split is deferred to the
-# stage that actually builds those workers, not created here as an unused
-# placeholder identity.
+# P6-WORKER-01 now has a distinct service account and needs read-only object
+# access. That narrower grant lives in 10-media-processing-queue.sh because
+# this script can run before the worker identity exists. P6-WORKER-02's
+# derived-output write grant remains future work.
 #
 # Idempotent: bucket creation and the IAM binding are both skip/no-op safe
 # to re-run. Lifecycle configuration is applied on every run (not gated

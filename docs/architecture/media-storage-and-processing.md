@@ -1,8 +1,8 @@
 # Media Storage and Processing Design
 
-> Status: Draft 0.2
+> Status: Draft 0.3
 > Decision status: Approved baseline  
-> Last updated: July 22, 2026
+> Last updated: July 24, 2026
 
 ## 1. Purpose
 
@@ -101,8 +101,12 @@ Transitions are server-owned and revisioned.
 3. API creates a backend-authorized resumable Cloud Storage upload session.
 4. Client uploads directly to Cloud Storage and persists local progress.
 5. Completion event or explicit client call triggers verification.
-6. Verifier reads authoritative object metadata and, where necessary, content signature.
-7. API marks media available and emits processing events.
+6. The synchronous completion command compares authoritative object metadata with the registration,
+   then emits a durable `media.processing_requested` event.
+7. A private validation worker reads the bytes, posts a structured result, and the API records the
+   job/media terminal state.
+8. Signed access remains blocked until validation succeeds. Derivative work may begin only after
+   that success.
 
 Upload authorization is single-purpose, short-lived, size-bounded where supported, and scoped to one object.
 
@@ -120,6 +124,37 @@ Validation includes:
 - Rejection of active or unsupported content.
 
 Unverified objects are isolated from normal downloads and processors.
+
+### 8.1 Implemented validation profile (P6-WORKER-01)
+
+Images and PDF/documents only. Raw capture (Garden Scan video, AR artifacts) is explicitly out of
+scope for this stage — video duration/codec/frame-rate validation needs `ffprobe`, a native binary
+dependency not yet in this stack, deliberately deferred to a later stage. A `raw_capture` manifest is
+accepted at today's declared-metadata-trusted level without deep byte inspection; no video parser
+exists anywhere in this pipeline.
+
+| Media class       | Accepted types                    | Maximum bytes                              |
+| ----------------- | --------------------------------- | ------------------------------------------ |
+| Garden photo      | JPEG, PNG, WebP, HEIC, HEIF       | 25 MiB                                     |
+| Imported plan     | Garden-photo raster types, PDF    | 50 MiB                                     |
+| Raw capture       | Not deeply validated (see above)  | Declared byte size only, no worker ceiling |
+| Derived preview   | Garden-photo raster types         | 50 MiB                                     |
+| Processing output | Raster types, PDF                 | 1 GiB                                      |
+| Export package    | No accepted validator profile yet | 2 GiB ceiling                              |
+
+Raster dimension reading uses a pure-JS, header-only parser (no native image-decoding dependency, and
+no full pixel decode) bounded to 40 megapixels and 16,384 pixels per axis — MIME signature is
+verified separately, from magic bytes, also via a pure-JS detector. Never decoding pixel data is a
+deliberate trade-off: the declared-dimension check plus the download's own streaming byte cap is this
+stage's decompression/parser-bomb protection for images, at the cost of not catching corruption
+confined entirely to a well-formed header's pixel payload. PDF preflight does not execute or
+decompress content; it requires a valid envelope and cross-reference representation, limits documents
+to 100 pages and 200 objects per page, and rejects encryption, JavaScript, launch actions, embedded
+files, open actions, rich media, and XFA.
+
+The current malware adapter is deliberately `unavailable`, not a fake clean result. PDF validation
+therefore fails retryably until a provider is selected. Raster plans do not require the unavailable
+document scanner and remain supported through the constrained image parser.
 
 ## 9. Image Derivatives
 
@@ -174,6 +209,7 @@ Jobs receive a manifest containing:
 - Job and media IDs.
 - Input object references.
 - Expected checksums.
+- Media class, normalized display filename, expected content type, and expected byte size.
 - Processor configuration version.
 - Output object prefix or approved target IDs.
 - Trace context.
@@ -194,6 +230,9 @@ Workers publish or record:
 - Terminal success, partial success, cancellation, or failure code.
 
 The backend validates result ownership and expected job attempt before making derivatives visible.
+The implemented path is Cloud Tasks → validation worker → authenticated API result callback. The
+worker service account is checked at both inbound boundaries; the manifest and result contain no
+credentials or signed URLs.
 
 ## 15. Retention and Lifecycle
 
@@ -248,6 +287,9 @@ Quota reservation and release are idempotent. A failed abandoned upload eventual
 - App Check on upload-session creation.
 - Egress restrictions for untrusted parsers.
 
+The validation worker materializes inputs only in a per-job temporary directory with mode `0600`,
+deletes it in a `finally` path, and never logs object bytes, user filenames, or URLs.
+
 ## 19. Observability
 
 Measure:
@@ -269,6 +311,7 @@ Logs use media ID and classification, not signed URLs, user filenames, addresses
 - Duplicate completion notification.
 - Declared versus actual type and size mismatch.
 - Malformed image, video, and PDF fixtures.
+- Active-content PDF, type spoofing, truncated image, checksum mismatch, and malware outcomes.
 - Checksum mismatch.
 - Unauthorized cross-garden access.
 - Viewer access restrictions.
@@ -289,3 +332,15 @@ Logs use media ID and classification, not signed URLs, user filenames, addresses
 - Client media access requires both publication entitlement and current engagement authorization.
 - Deletion reaches every derivative and processing artifact.
 - Processing is reproducible from versioned manifests where retained inputs permit it.
+
+## 22. Current implementation boundary
+
+P6-WORKER-01 is implemented in `services/workers/src/validation` with a production Dockerfile and
+unit/malicious-fixture coverage. The API result callback records success, partial, terminal failure,
+or cancellation through revision-guarded domain transitions, and signed access requires a successful
+validation state.
+
+The worker image has not been deployed to `verdery-dev`. The existing Phase 6 platform follow-ups
+still apply: worker Cloud SQL IAM connectivity, queue/service rollout, always-allocated CPU for the
+interval relay, and selection/integration of a real malware scanner. P6-WORKER-02 derivatives are
+not implemented.

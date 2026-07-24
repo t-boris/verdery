@@ -2291,10 +2291,9 @@ built on top of P6-DATA-01/PLAT-01/API-01, the immediately-preceding stages.
   `@google-cloud/tasks`.
 - `10-media-processing-queue.sh` has not been run against any real environment; `verdery-dev` has no
   live Cloud Tasks queue or worker service account yet.
-- The placeholder processing callback always succeeds — `failed_retryable`/`failed_terminal`/
-  `partial`/`cancelled`/`expired` job states are real, tested pure domain transitions with no live
-  caller yet, exactly the posture `beginMediaProcessing`/`markMediaProcessed`/
-  `markMediaProcessingFailed` themselves held from P6-DATA-01 until this stage gave them one.
+- The placeholder processing callback always succeeded at the end of this stage. P6-WORKER-01
+  subsequently removed it and gave `succeeded`/`failed_terminal` real validation-worker callers; see
+  Stage 5 below.
 
 ### Deploy incident, found and fixed after this stage's own merge
 
@@ -2351,3 +2350,191 @@ just the aggregate job status), confirmed a genuinely new Cloud Run revision was
 `MEDIA_PROCESSING_CALLBACK_AUDIENCE` via a live `gcloud run services describe`, and confirmed
 `verdery-dev-pg`'s IAM database users and public-IP exposure were both back to their exact pre-incident
 state.
+
+## Stage 5 — P6-WORKER-01, implementation complete
+
+Constrained private-media validation is implemented in `services/workers/src/validation`. This stage
+also replaces P6-ASYNC-01's temporary direct Cloud Tasks → API success callback with the real,
+two-hop path:
+
+```text
+transactional outbox relay (services/workers)
+  → Cloud Tasks (hop 1's own OIDC token, minted for services/workers' own callback audience)
+  → authenticated validation worker (services/workers, downloads bytes, runs real checks)
+  → authenticated API result callback (hop 2's own OIDC token, self-minted via google-auth-library,
+    same audience/service-account verification mechanism GoogleOidcInvocationVerifier already used)
+  → revision-guarded media/job terminal state (services/api owns this write exclusively)
+```
+
+### Key decisions
+
+- **Two-hop authentication, one verifier design reused twice, code duplicated narrowly**: hop 1
+  (Cloud Tasks → `services/workers`) and hop 2 (`services/workers` → `services/api`) are both
+  Google-signed OIDC ID tokens checked against an expected audience and service-account email —
+  the exact mechanism `services/api/src/platform/tasks/{cloud-tasks-invocation-verifier.ts,
+google-oidc-invocation-verifier.ts}` already used for the single-hop P6-ASYNC-01 placeholder. This
+  works unchanged for hop 2 because Google ID tokens are verifiable the same way regardless of
+  which caller requested them (Cloud Tasks' own OIDC minting, or `google-auth-library`'s
+  `GoogleAuth.getIdTokenClient(audience)` called directly from `services/workers`' own runtime
+  identity for hop 2 — see `google-api-result-recorder.ts`) — a standard GCP service-to-service
+  pattern, not a new invention. The verifier PORT/ADAPTER pair is duplicated narrowly into
+  `services/workers/src/validation/oidc-invocation-verifier.ts` rather than shared from
+  `services/api`, following this session's own established precedent
+  (`relay-database-schema.ts`'s "duplicate narrowly rather than share a big cross-service layer,"
+  restated for this stage): `services/workers` has its own composition root and does not import
+  `services/api`'s `src/` (architecture/backend-modular-monolith.md section "19. Worker Boundary").
+  `services/api`'s own inbound verifier needed NO code change for hop 2 — only its doc comments and
+  the meaning of its two configuration values changed (`MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL`
+  now names `services/workers`' own runtime service account, not Cloud Tasks' invoker identity;
+  `MEDIA_PROCESSING_CALLBACK_AUDIENCE` is unchanged, still the callback URL).
+- **Job-kind decision: replace, with a new kind.** The SAME `media.processing_requested` outbox
+  event and the SAME `media.processing_job` row lifecycle this stage's real validation now drives —
+  the placeholder callback P6-ASYNC-01 built is gone, not left running alongside this — but the job
+  now records `job_kind = 'media_validation'` (`MEDIA_VALIDATION_JOB_KIND`,
+  `services/api/src/modules/media/domain/processing-job.ts`), not the old default
+  `'derivative_generation'`: 1785200000000_media-processing-jobs.sql's own comment explicitly
+  anticipated "a real P6-WORKER-01 stage will need its own kind alongside it" without a schema
+  change, since `job_kind` is free text. `services/workers`' relay
+  (`outbox-relay.ts`/`kysely-processing-job-store.ts`) writes this kind explicitly on job creation.
+  A future P6-WORKER-02 (derivative generation, not built here) is left free to trigger its OWN job
+  kind off a successful validation outcome without needing a schema change either.
+- **`GetMediaAccess` judgment call: deny.** `record.processingState !== 'processed'` (not just
+  `uploadState !== 'available'`) now gates the signed-download endpoint
+  (`services/api/src/modules/media/application/get-media-access.ts`). Grounds: section 8's
+  "Unverified objects are isolated from normal downloads and processors" reads naturally as covering
+  a record that has FAILED deep validation, not only one still awaiting it — a MIME-signature
+  mismatch can mean a disguised executable, and section 18's security posture gives no reason to
+  keep serving bytes this stage has positively identified as suspect. This is a strict, real
+  behavior change from the P6-ASYNC-01 baseline (which only checked `uploadState`) and is covered by
+  `get-media-access.test.ts` for both "still processing" and "processing failed validation."
+- **Real byte-level checks run in `services/workers`, never in `services/api`**, matching
+  `MediaStorageGateway`'s own "Binary media bypasses the interactive API data path" boundary: MIME
+  signature (`content-signature.ts`, via `file-type`), byte size and streaming SHA-256
+  (`gcs-media-object-source.ts`, computed while downloading — the checksum computation P6-API-01
+  explicitly deferred out of the interactive API), image dimensions (`image-metadata-parser.ts`, via
+  `image-size`, header-only), and a non-executing PDF preflight (`pdf-metadata-parser.ts`, hand-
+  written: header/xref/EOF integrity, encryption and active-content-marker rejection, page-count and
+  object-cardinality parser-bomb ceilings — no PDF library exists in this stack, and none of this
+  needs one). `services/workers` writes nothing to `media.media_record` directly (`verdery_worker`
+  has zero grants there); the terminal `processingState` write happens exclusively in `services/api`
+  via the existing revision-guarded `beginMediaProcessing`/`markMediaProcessed`/
+  `markMediaProcessingFailed` transitions, driven by the AUTHENTICATED hop-2 payload's own
+  `outcome`/`resultSummary` (`record-media-processing-result.ts`) — trusted because the caller's
+  identity was already cryptographically verified, the same trust level Cloud Tasks' own single-hop
+  call carried before this stage.
+- **`file-type` + `image-size`, not `sharp`** — this stage's own pre-approved architecture decision,
+  restored after an intermediate draft of this stage briefly used `sharp` (a native `libvips`
+  binding) instead; see "Corrections made during this stage's own review" below. `image-size` reads
+  ONLY the bytes a format's dimension fields live in (never decodes pixels), which is itself most of
+  this stage's decompression/parser-bomb protection for images; the download's own streaming byte
+  cap (`GcsMediaObjectSource`) is the remaining defense-in-depth layer, matching the "document why
+  header-only reads are sufficient, or add an explicit byte cap" instruction this work package
+  itself gave — both are true here.
+- **Malware scanning: an honest, always-inconclusive placeholder**, matching Phase 4's own
+  `identifyPlantFromPhoto`/`analyzeObservationPhoto` precedent exactly. `UnavailableMalwareScanner`
+  (`validation-result.ts`) always reports `status: 'unavailable'`; for the one class that requires a
+  scan today (`imported_plan`, PDF), an unavailable scan is converted into a retryable worker failure
+  (`MalwareScanUnavailableError` → HTTP 503, Cloud Tasks retries) rather than either fabricating
+  "clean" or permanently rejecting a real file for a capability gap. No malware-scanning provider
+  decision exists anywhere in this codebase; this placeholder is not a substitute for one.
+- **Video/raw-capture stays entirely out of scope, enforced structurally, not just by omission.**
+  `process-media-validation-job.ts` recognizes `mediaClass === 'raw_capture'` and returns an
+  accepted, clearly-labeled `video_validation_deferred` result BEFORE `MediaValidator`/
+  `MediaObjectSource` is ever touched — no bytes are downloaded, no parser runs — preserving
+  P6-API-01's pre-existing declared-metadata-trusted level for video exactly as it was.
+  `validation-policy.ts` has no policy entry for `raw_capture` at all. This is deliberately NOT the
+  same code path as `validation_policy_missing` (a genuinely unrecognized media class, which DOES
+  reject) — conflating the two would have silently started rejecting every video upload the moment
+  this stage shipped.
+
+### Corrections made during this stage's own review
+
+An earlier draft of this stage, produced before an API-error interruption, shipped two real defects
+caught on review before landing:
+
+1. **A hand-rolled MP4/QuickTime ISO-BMFF box parser (`video-metadata-parser.ts`) parsed video
+   duration, dimensions, codec, and audio presence** — exactly the capability this work package's own
+   brief named explicitly out of scope ("needs ffprobe, a native binary dependency... do not touch
+   video handling at all"). Deleted entirely; replaced with the structural short-circuit described
+   above. `validation-policy.ts`'s `maxVideoDurationMs` field and `VIDEO_TYPES` allowlist entries
+   were removed with it, and `ValidationMetadata.kind` no longer has a `'video'` member.
+2. **Image dimension reading used `sharp` (a native `libvips` binding) with a full pixel decode
+   (`image.stats()`), and MIME detection used a hand-rolled magic-byte table** — both contradicting
+   this work package's own pre-approved decision ("MIME-signature detection and dimension reading
+   use two new pure-JS, no-native-dependency libraries: `file-type`... and `image-size`"). Using a
+   native full-decode dependency for images while refusing one (`ffprobe`) for video for the
+   identical "no native binary dependency" reason was an internally inconsistent, undocumented fork
+   of that same reasoning. Replaced with `file-type` (MIME signature) and `image-size` (header-only
+   dimensions); `sharp` moved to `devDependencies`, used only to fabricate valid PNG fixtures in
+   tests, confirmed absent from the built production container (`docker run ... node -e
+"require('fs').existsSync('node_modules/sharp')"` → `false`).
+
+### Implemented behavior
+
+- Streams one private GCS object into a mode-`0600` per-job temporary directory, enforces the
+  media-class byte ceiling DURING the stream (rejecting before fully reading, `ObjectTooLargeError`),
+  computes a real streaming SHA-256, and deletes the directory in a `finally` path
+  (`gcs-media-object-source.ts`).
+- Verifies MIME magic (`file-type`), normalized display-filename extension, exact authoritative byte
+  size, accepted media-class/type pairing, and any client-supplied checksum.
+- Reads raster-image dimensions header-only with `image-size` under 40-megapixel and
+  16,384-pixel-per-axis limits — never a full pixel decode (see "Key decisions" above).
+- Performs a non-executing PDF preflight with a 100-page/object-cardinality ceiling and rejects
+  malformed envelopes, encryption, JavaScript, launch/open actions, embedded files, rich media, and
+  XFA.
+- Short-circuits `raw_capture` (video) as accepted-but-unvalidated, matching P6-API-01's existing
+  declared-metadata-trusted level — no video parsing exists anywhere in this stage.
+- Records real structured success or terminal validation-failure results. Signed media access now
+  requires `processingState = processed` (a real, documented behavior change — see "Key decisions"),
+  so a record still processing OR one that failed validation is not downloadable.
+- Adds a real `MalwareScanner` port; the default adapter is the honest `unavailable` placeholder.
+- Adds `services/workers/Dockerfile`; verified building and running the compiled image locally, but
+  no live worker/queue deployment was performed.
+
+### Verified evidence
+
+| Check                                                               | Result                                                                                                   |
+| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `pnpm --filter @verdery/workers build && test`                      | 9 files / 54 tests pass (baseline before this stage: 4 files / 23 tests)                                 |
+| `pnpm --filter @verdery/api build && test`                          | 97 files / 630 tests pass (baseline before this stage: 97 files / 628 tests)                             |
+| Root `pnpm typecheck` / `lint` / `format:check` / `check:file-size` | all pass for every file this stage touched                                                               |
+| `docker build -f services/workers/Dockerfile .`                     | builds; production image confirmed NOT to contain `sharp`, confirmed to contain `file-type`/`image-size` |
+| Malicious fixture suite (synthetic bytes only, no real samples)     | see below                                                                                                |
+
+**Malicious fixture suite** (`media-validator.test.ts`, `content-signature.test.ts`,
+`gcs-media-object-source.test.ts`, `process-media-validation-job.test.ts`): valid bounded image
+accept; MIME-signature type spoof (declared PNG, real JPEG bytes); header-truncated image
+`image-size` cannot parse; a "dimension bomb" (a structurally valid but hand-built PNG whose IHDR
+declares 50,000 × 50,000 pixels); checksum mismatch; byte-size mismatch; filename/extension
+mismatch; a file exactly at, one byte over, and over-mid-stream past the byte-size cap
+(`ObjectTooLargeError`, real `actualBytes`/`maxBytes` reported); active PDF content (JavaScript,
+encryption); detected malware; an unavailable malware scanner converted to a retryable failure, not
+a fabricated "clean"; a `raw_capture` manifest proven to never touch object bytes at all
+(`NeverCalledObjectSource` throws if invoked). Every fixture is synthetic, hand-constructed bytes in
+test code — no real file, malware sample, or downloaded asset anywhere in this suite.
+
+### Known limitations, deliberately deferred
+
+- Video/raw-capture duration, codec, and frame-rate validation (architecture section 10) is not
+  built — it needs `ffprobe`, a native binary dependency not yet in this stack, deliberately
+  deferred to a later stage per this work package's own scope. Video keeps today's declared-
+  metadata-trusted level unchanged.
+- Image dimension reading never performs a full pixel decode (see "Key decisions"): corruption
+  confined entirely to the pixel payload AFTER a well-formed header is not caught by this stage. A
+  documented, accepted trade-off for staying on a pure-JS dependency, not a silent gap.
+- A real malware-scanning provider is still undecided anywhere in this codebase; the placeholder
+  never fabricates a verdict.
+- `verdery-dev` worker Cloud SQL IAM connection/membership and a real `DATABASE_URL` secret remain
+  unperformed (P6-ASYNC-01's own, still-open follow-up; unchanged by this stage). The bucket-read IAM
+  grant for `verdery-dev-worker` itself already exists from P6-ASYNC-01's own
+  `10-media-processing-queue.sh` (`roles/storage.objectViewer` on all four media buckets) — nothing
+  new was needed there. This stage adds `infrastructure/gcloud/scripts/deploy-workers.sh` (mirrors
+  `deploy-api.sh`'s current, already-fixed URL-lookup-before-first-deploy structure) and a
+  `VERDERY_WORKER_DATABASE_URL_SECRET_NAME` config placeholder in `dev.env`; both are written and
+  syntax-checked (`bash -n`), NOT executed — see this stage's own final report for exactly what CI/CD
+  wiring is left for the repository owner.
+- The interval relay still requires always-allocated Cloud Run CPU (or replacement by a scheduled
+  trigger) before deployment — `deploy-workers.sh` requests `--no-cpu-throttling --min-instances=1`
+  for this reason, but the deploy has not been run.
+- P6-WORKER-02 (derivative generation) remains not started; this stage's job-kind and callback design
+  deliberately leave room for it without a further schema change (see "Key decisions").

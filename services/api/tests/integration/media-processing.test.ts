@@ -25,7 +25,10 @@
 
 import { randomUUID } from 'node:crypto';
 import { MEDIA_PROCESSING_REQUESTED_EVENT_TYPE } from '@verdery/api-contracts';
-import type { MediaProcessingRequestedEventPayload } from '@verdery/api-contracts';
+import type {
+  MediaProcessingRequestedEventPayload,
+  MediaProcessingResult,
+} from '@verdery/api-contracts';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { Kysely, PostgresDialect } from 'kysely';
 import { runner } from 'node-pg-migrate';
@@ -224,7 +227,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       new KyselyMediaUnitOfWork(db, fixedClock(later)),
       fixedClock(later),
     );
-    await recordMediaProcessingResult.execute(outboxRow.id);
+    await recordMediaProcessingResult.execute(outboxRow.id, successfulResult(outboxRow.id));
 
     const mediaRepository = new KyselyMediaRepository(db);
     const media = await mediaRepository.get(mediaId);
@@ -232,8 +235,77 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     const jobAfter = await processingJobRepository.get(outboxRow.id);
     expect(jobAfter?.state).toBe('succeeded');
-    expect(jobAfter?.outcomeCode).toBe('placeholder_derivative_generation');
+    expect(jobAfter?.outcomeCode).toBe('succeeded');
     expect(jobAfter?.completedAt).toEqual(later);
+  });
+
+  it('a real validation rejection lands as processing_failed with a structured, actionable reason on the real media_record and job row (P6-WORKER-01)', async () => {
+    const now = new Date('2026-07-21T09:00:00Z');
+    const later = new Date('2026-07-21T09:05:00Z');
+    const { gardenId, ownerId } = await createGardenWithOwner(now);
+    const { mediaId } = await completeAnUpload(gardenId, ownerId, fixedClock(now));
+
+    const outboxRow = await db
+      .selectFrom('platform.outbox_event')
+      .selectAll()
+      .where('aggregate_id', '=', mediaId)
+      .where('event_type', '=', MEDIA_PROCESSING_REQUESTED_EVENT_TYPE)
+      .executeTakeFirstOrThrow();
+
+    const processingJobRepository = new KyselyProcessingJobRepository(db);
+    const requested = createProcessingJob(
+      { id: outboxRow.id, mediaId, processorConfigVersion: 'v1', inputChecksums: [] },
+      now,
+    );
+    await processingJobRepository.insert(requested);
+    await processingJobRepository.updateState(
+      markProcessingJobQueued(requested, now),
+      requested.revision,
+    );
+
+    // What the real MediaValidator (services/workers) would report for a
+    // MIME-signature mismatch — a byte-level rejection, not a placeholder.
+    const rejection: MediaProcessingResult = {
+      jobId: outboxRow.id,
+      processorVersion: 'media-validator-v1',
+      inputChecksums: [],
+      outputObjects: [],
+      resultSummary: {
+        accepted: false,
+        validationCode: 'content_type_mismatch',
+        detectedContentType: 'image/png',
+      },
+      qualityDiagnostics: { validationCode: 'content_type_mismatch' },
+      resourceMetrics: { durationMs: 40 },
+      outcome: 'failed_terminal',
+    };
+
+    const recordMediaProcessingResult = new RecordMediaProcessingResult(
+      new KyselyMediaUnitOfWork(db, fixedClock(later)),
+      fixedClock(later),
+    );
+    await recordMediaProcessingResult.execute(outboxRow.id, rejection);
+
+    const mediaRepository = new KyselyMediaRepository(db);
+    const media = await mediaRepository.get(mediaId);
+    // uploadState stays `available` (section 6's diagram draws no arrow from
+    // `processing_failed` back to `uploadState`) — only processingState
+    // reflects the rejection.
+    expect(media?.uploadState).toBe('available');
+    expect(media?.processingState).toBe('processing_failed');
+
+    const jobAfter = await processingJobRepository.get(outboxRow.id);
+    expect(jobAfter?.state).toBe('failed_terminal');
+    // GET .../media/{mediaId} (GetMediaStatus -> toMediaResource) surfaces
+    // media.processingState directly; the concrete rejection reason a caller
+    // needs to act on lives on the job row's own outcomeCode/resultSummary,
+    // matching this codebase's "always give a concrete, actionable reason"
+    // convention (see media-errors.ts's own dotted-code shape).
+    expect(jobAfter?.outcomeCode).toBe('content_type_mismatch');
+    expect(jobAfter?.resultSummary).toMatchObject({
+      accepted: false,
+      validationCode: 'content_type_mismatch',
+    });
   });
 
   it('two concurrent callback deliveries for the same job resolve safely: exactly one wins, neither throws, and the media record advances exactly once', async () => {
@@ -267,7 +339,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     );
 
     await expect(
-      Promise.all([recordFirst.execute(outboxRow.id), recordSecond.execute(outboxRow.id)]),
+      Promise.all([
+        recordFirst.execute(outboxRow.id, successfulResult(outboxRow.id)),
+        recordSecond.execute(outboxRow.id, successfulResult(outboxRow.id)),
+      ]),
     ).resolves.toBeDefined();
 
     const mediaRepository = new KyselyMediaRepository(db);
@@ -310,12 +385,24 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       new KyselyMediaUnitOfWork(db, fixedClock(now)),
       fixedClock(now),
     );
-    await recordMediaProcessingResult.execute(outboxRow.id);
+    await recordMediaProcessingResult.execute(outboxRow.id, successfulResult(outboxRow.id));
     const jobAfterFirst = await processingJobRepository.get(outboxRow.id);
 
-    await recordMediaProcessingResult.execute(outboxRow.id);
+    await recordMediaProcessingResult.execute(outboxRow.id, successfulResult(outboxRow.id));
     const jobAfterSecond = await processingJobRepository.get(outboxRow.id);
 
     expect(jobAfterSecond).toEqual(jobAfterFirst);
   });
 });
+function successfulResult(jobId: string): MediaProcessingResult {
+  return {
+    jobId,
+    processorVersion: 'media-validator-v1',
+    inputChecksums: [],
+    outputObjects: [],
+    resultSummary: { accepted: true },
+    qualityDiagnostics: null,
+    resourceMetrics: { durationMs: 25 },
+    outcome: 'succeeded',
+  };
+}

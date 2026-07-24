@@ -6,12 +6,9 @@
  * separate from the API's is what makes that separation real rather than
  * aspirational.
  *
- * P6-ASYNC-01 grows this from the Phase 1 deployment-unit skeleton (three
- * fields) into what the transactional-outbox relay actually needs to run:
- * its own narrow database connection (see `src/relay/relay-database-schema.ts`
- * for why this is a SEPARATE, smaller Kysely schema from the API's own,
- * touching only the two tables the relay is granted access to) and the
- * Cloud Tasks queue/callback target it enqueues jobs against.
+ * P6-ASYNC-01 adds the narrow relay database and Cloud Tasks configuration.
+ * P6-WORKER-01 adds the inbound validation target and the authenticated API
+ * result callback.
  *
  * `DATABASE_URL` only — no `cloudSqlIam` mode, unlike the API. Adding the
  * Cloud SQL connector (`@google-cloud/cloud-sql-connector`) to this package
@@ -37,6 +34,7 @@ export const environmentSchema = z.object({
   VERDERY_ENVIRONMENT: z.enum(['development', 'staging', 'production']),
   SERVICE_VERSION: z.string().min(1).default('0.0.0-development'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+  HTTP_PORT: positiveInteger.default(8080),
 
   // The relay's own narrow database connection. A plain connection string,
   // not Cloud SQL IAM mode — see this file's own header comment.
@@ -57,15 +55,15 @@ export const environmentSchema = z.object({
   RELAY_POLL_INTERVAL_MS: durationMilliseconds.default(5_000),
   RELAY_BATCH_SIZE: positiveInteger.default(20),
 
-  // The Cloud Tasks queue the relay enqueues media-processing jobs onto, and
-  // the callback URL (services/api's own internal endpoint) and invoking
-  // service-account identity Cloud Tasks uses to call it back. Real resource
-  // names, not inferred — see infrastructure/gcloud/scripts/10-media-
-  // processing-queue.sh (drafted, not yet run against any real environment).
+  // Cloud Tasks invokes `TASK_URL`; the validation worker posts a structured
+  // result to `RESULT_CALLBACK_URL` with an ID token minted for the callback
+  // audience. Resource names are explicit and contain no credentials.
   MEDIA_PROCESSING_QUEUE_PROJECT_ID: z.string().min(1),
   MEDIA_PROCESSING_QUEUE_LOCATION: z.string().min(1),
   MEDIA_PROCESSING_QUEUE_NAME: z.string().min(1),
-  MEDIA_PROCESSING_CALLBACK_URL: z.string().min(1),
+  MEDIA_PROCESSING_TASK_URL: z.string().url(),
+  MEDIA_PROCESSING_RESULT_CALLBACK_URL: z.string().url(),
+  MEDIA_PROCESSING_RESULT_CALLBACK_AUDIENCE: z.string().min(1),
   MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL: z.string().min(1),
 });
 
@@ -87,7 +85,9 @@ export interface MediaProcessingQueueConfiguration {
   readonly projectId: string;
   readonly location: string;
   readonly queueName: string;
-  readonly callbackUrl: string;
+  readonly taskUrl: string;
+  readonly resultCallbackUrl: string;
+  readonly resultCallbackAudience: string;
   readonly invokerServiceAccountEmail: string;
 }
 
@@ -95,6 +95,7 @@ export interface WorkerConfiguration {
   readonly environment: DeploymentEnvironment;
   readonly serviceVersion: string;
   readonly logLevel: RawEnvironment['LOG_LEVEL'];
+  readonly httpPort: number;
   readonly database: WorkerDatabaseConfiguration;
   readonly relay: RelayConfiguration;
   readonly mediaProcessing: MediaProcessingQueueConfiguration;
@@ -116,6 +117,7 @@ function toWorkerConfiguration(raw: RawEnvironment): WorkerConfiguration {
     environment: raw.VERDERY_ENVIRONMENT,
     serviceVersion: raw.SERVICE_VERSION,
     logLevel: raw.LOG_LEVEL,
+    httpPort: raw.HTTP_PORT,
     database: {
       url: raw.DATABASE_URL,
       maxConnections: raw.DATABASE_POOL_MAX_CONNECTIONS,
@@ -130,7 +132,9 @@ function toWorkerConfiguration(raw: RawEnvironment): WorkerConfiguration {
       projectId: raw.MEDIA_PROCESSING_QUEUE_PROJECT_ID,
       location: raw.MEDIA_PROCESSING_QUEUE_LOCATION,
       queueName: raw.MEDIA_PROCESSING_QUEUE_NAME,
-      callbackUrl: raw.MEDIA_PROCESSING_CALLBACK_URL,
+      taskUrl: raw.MEDIA_PROCESSING_TASK_URL,
+      resultCallbackUrl: raw.MEDIA_PROCESSING_RESULT_CALLBACK_URL,
+      resultCallbackAudience: raw.MEDIA_PROCESSING_RESULT_CALLBACK_AUDIENCE,
       invokerServiceAccountEmail: raw.MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL,
     },
   };

@@ -61,8 +61,8 @@ export class CloudTasksMediaProcessingQueue implements MediaProcessingQueue {
     private readonly client: CloudTasksClient,
     /** `projects/{project}/locations/{location}/queues/{queue}`. */
     private readonly queuePath: string,
-    /** The callback base URL — see `configuration.ts`'s own `mediaProcessing.callbackUrl` doc comment; the job id is appended per-task below. */
-    private readonly callbackUrl: string,
+    /** The validation-worker route base URL; the job id is appended per task. */
+    private readonly taskUrl: string,
     private readonly invokerServiceAccountEmail: string,
   ) {}
 
@@ -76,12 +76,12 @@ export class CloudTasksMediaProcessingQueue implements MediaProcessingQueue {
           name: taskName,
           httpRequest: {
             httpMethod: 'POST',
-            url: `${this.callbackUrl}/${message.manifest.jobId}/callback`,
+            url: `${this.taskUrl}/${message.manifest.jobId}`,
             headers: { 'Content-Type': 'application/json' },
             body: Buffer.from(JSON.stringify(message.manifest)).toString('base64'),
             oidcToken: {
               serviceAccountEmail: this.invokerServiceAccountEmail,
-              audience: this.callbackUrl,
+              audience: this.taskUrl,
             },
           },
         },

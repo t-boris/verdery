@@ -35,7 +35,7 @@ describe('createProcessingJob', () => {
     expect(job).toMatchObject({
       id: JOB_ID,
       mediaId: MEDIA_ID,
-      jobKind: 'derivative_generation',
+      jobKind: 'media_validation',
       state: 'requested',
       attempt: 1,
       revision: 1,

@@ -8,7 +8,10 @@ const VALID_ENVIRONMENT = {
   MEDIA_PROCESSING_QUEUE_PROJECT_ID: 'verdery-dev',
   MEDIA_PROCESSING_QUEUE_LOCATION: 'us-central1',
   MEDIA_PROCESSING_QUEUE_NAME: 'media-processing-dev',
-  MEDIA_PROCESSING_CALLBACK_URL:
+  MEDIA_PROCESSING_TASK_URL: 'https://verdery-worker-dev.example/internal/media-validation-jobs',
+  MEDIA_PROCESSING_RESULT_CALLBACK_URL:
+    'https://verdery-api-dev.example/v1/internal/media-processing-jobs',
+  MEDIA_PROCESSING_RESULT_CALLBACK_AUDIENCE:
     'https://verdery-api-dev.example/v1/internal/media-processing-jobs',
   MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL:
     'verdery-dev-worker@verdery-dev.iam.gserviceaccount.com',
@@ -22,6 +25,7 @@ describe('loadConfiguration', () => {
       environment: 'development',
       serviceVersion: '0.0.0-development',
       logLevel: 'info',
+      httpPort: 8080,
       database: {
         url: VALID_ENVIRONMENT.DATABASE_URL,
         maxConnections: 5,
@@ -33,7 +37,9 @@ describe('loadConfiguration', () => {
         projectId: 'verdery-dev',
         location: 'us-central1',
         queueName: 'media-processing-dev',
-        callbackUrl: VALID_ENVIRONMENT.MEDIA_PROCESSING_CALLBACK_URL,
+        taskUrl: VALID_ENVIRONMENT.MEDIA_PROCESSING_TASK_URL,
+        resultCallbackUrl: VALID_ENVIRONMENT.MEDIA_PROCESSING_RESULT_CALLBACK_URL,
+        resultCallbackAudience: VALID_ENVIRONMENT.MEDIA_PROCESSING_RESULT_CALLBACK_AUDIENCE,
         invokerServiceAccountEmail:
           VALID_ENVIRONMENT.MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL,
       },

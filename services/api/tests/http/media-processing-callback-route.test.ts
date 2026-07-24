@@ -21,7 +21,7 @@ import { runner } from 'node-pg-migrate';
 import type { FastifyInstance } from 'fastify';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { ApiError, MediaProcessingManifest } from '@verdery/api-contracts';
+import type { ApiError, MediaProcessingResult } from '@verdery/api-contracts';
 import { buildTestApplication } from '../support/application.js';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
 import { registerMediaRecord } from '../../src/modules/media/domain/media-record.js';
@@ -158,13 +158,16 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     return { mediaId, jobId };
   }
 
-  function manifestFor(jobId: string, mediaId: string): MediaProcessingManifest {
+  function resultFor(jobId: string): MediaProcessingResult {
     return {
       jobId,
-      mediaId,
-      processorConfigVersion: 'v1',
-      inputObjects: [{ bucketName: 'bucket', objectKey: 'object-key' }],
-      expectedChecksums: [],
+      processorVersion: 'media-validator-v1',
+      inputChecksums: [],
+      outputObjects: [],
+      resultSummary: { accepted: true },
+      qualityDiagnostics: null,
+      resourceMetrics: { durationMs: 25 },
+      outcome: 'succeeded',
     };
   }
 
@@ -175,7 +178,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       method: 'POST',
       url: `/v1/internal/media-processing-jobs/${jobId}/callback`,
       headers: { authorization: `Bearer ${VALID_TOKEN}` },
-      payload: manifestFor(jobId, mediaId),
+      payload: resultFor(jobId),
     });
 
     expect(response.statusCode).toBe(204);
@@ -190,7 +193,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const response = await app.inject({
       method: 'POST',
       url: `/v1/internal/media-processing-jobs/${jobId}/callback`,
-      payload: manifestFor(jobId, generateUuidV7()),
+      payload: resultFor(jobId),
     });
 
     expect(response.statusCode).toBe(401);
@@ -204,7 +207,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       method: 'POST',
       url: `/v1/internal/media-processing-jobs/${jobId}/callback`,
       headers: { authorization: 'Bearer wrong-token' },
-      payload: manifestFor(jobId, generateUuidV7()),
+      payload: resultFor(jobId),
     });
 
     expect(response.statusCode).toBe(401);
@@ -215,7 +218,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       method: 'POST',
       url: '/v1/internal/media-processing-jobs/not-a-uuid/callback',
       headers: { authorization: `Bearer ${VALID_TOKEN}` },
-      payload: manifestFor(generateUuidV7(), generateUuidV7()),
+      payload: resultFor(generateUuidV7()),
     });
 
     expect(response.statusCode).toBe(400);
@@ -228,7 +231,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       method: 'POST',
       url: `/v1/internal/media-processing-jobs/${jobId}/callback`,
       headers: { authorization: `Bearer ${VALID_TOKEN}` },
-      payload: manifestFor(generateUuidV7(), generateUuidV7()),
+      payload: resultFor(generateUuidV7()),
     });
 
     expect(response.statusCode).toBe(400);
@@ -241,7 +244,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       method: 'POST',
       url: `/v1/internal/media-processing-jobs/${jobId}/callback`,
       headers: { authorization: `Bearer ${VALID_TOKEN}` },
-      payload: manifestFor(jobId, generateUuidV7()),
+      payload: resultFor(jobId),
     });
 
     expect(response.statusCode).toBe(404);

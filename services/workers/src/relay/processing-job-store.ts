@@ -34,6 +34,8 @@ export interface EnsureRequestedInput {
   readonly id: string;
   readonly mediaId: string;
   readonly processorConfigVersion: string;
+  readonly inputChecksums: readonly string[];
+  readonly traceId: string | null;
 }
 
 export interface ProcessingJobStore {

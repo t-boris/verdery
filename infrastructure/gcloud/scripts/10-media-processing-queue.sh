@@ -93,6 +93,22 @@ grant_project_role "serviceAccount:${worker_email}" "roles/cloudsql.instanceUser
 grant_project_role "serviceAccount:${worker_email}" "roles/logging.logWriter"
 grant_project_role "serviceAccount:${worker_email}" "roles/monitoring.metricWriter"
 
+# Validation reads originals but never writes or deletes them. Keep this at
+# bucket scope and below objectAdmin: P6-WORKER-02 will need a separate,
+# explicit derived-output write grant.
+for bucket_name in \
+  "${VERDERY_USER_MEDIA_BUCKET}" \
+  "${VERDERY_RAW_CAPTURE_BUCKET}" \
+  "${VERDERY_DERIVED_BUCKET}" \
+  "${VERDERY_EXPORTS_BUCKET}"; do
+  log "Granting roles/storage.objectViewer on ${bucket_name} to ${worker_email}"
+  gcloud storage buckets add-iam-policy-binding "gs://${bucket_name}" \
+    --project="${VERDERY_PROJECT_ID}" \
+    --member="serviceAccount:${worker_email}" \
+    --role="roles/storage.objectViewer" \
+    --quiet >/dev/null
+done
+
 # --- Cloud Tasks queue -------------------------------------------------
 # Default retry/rate config: architecture/asynchronous-processing.md section
 # 5 requires "explicit target, service identity, retry policy, rate,
@@ -145,7 +161,8 @@ log "  1. Grant verdery_worker Cloud SQL IAM database membership to ${worker_ema
 log "     (07-iam-database-bootstrap.sh does not yet know this role; a manual"
 log "     GRANT is needed until that script is extended)."
 log "  2. Deploy services/workers with its MEDIA_PROCESSING_* and DATABASE_URL"
-log "     environment variables set."
+log "     environment variables set, always-allocated CPU, and authenticated"
+log "     Cloud Run invocation."
 log "  3. Set MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL=${worker_email} on"
 log "     the API service (deploy-api.sh already does this from"
 log "     VERDERY_WORKER_SERVICE_ACCOUNT_ID)."

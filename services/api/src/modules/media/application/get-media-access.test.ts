@@ -3,7 +3,10 @@ import {
   authorizeMediaUpload,
   beginMediaUpload,
   beginMediaVerification,
+  beginMediaProcessing,
   markMediaAvailable,
+  markMediaProcessed,
+  markMediaProcessingFailed,
 } from '../domain/media-lifecycle.js';
 import { registerMediaRecord } from '../domain/media-record.js';
 import type { MediaClass, MediaRecord } from '../domain/media-record.js';
@@ -42,7 +45,8 @@ function availableRecord(mediaClass: MediaClass): MediaRecord {
   const authorized = authorizeMediaUpload(registered, BUCKET, OBJECT_KEY, NOW);
   const uploading = beginMediaUpload(authorized, NOW);
   const verifying = beginMediaVerification(uploading, NOW);
-  return markMediaAvailable(verifying, 'image/jpeg', 123_456, null, NOW);
+  const available = markMediaAvailable(verifying, 'image/jpeg', 123_456, null, NOW);
+  return markMediaProcessed(beginMediaProcessing(available, NOW), NOW);
 }
 
 function buildUseCase(record: MediaRecord, role: 'owner' | 'editor' | 'viewer') {
@@ -63,7 +67,7 @@ function buildUseCase(record: MediaRecord, role: 'owner' | 'editor' | 'viewer') 
 }
 
 describe('GetMediaAccess', () => {
-  it('returns a short-lived signed URL for available, standard-classified media', async () => {
+  it('returns a short-lived signed URL for validated, standard-classified media', async () => {
     const { useCase, storage } = buildUseCase(availableRecord('garden_photo'), 'owner');
 
     const result = await useCase.execute(GARDEN_ID, MEDIA_ID, PROFILE_ID);
@@ -93,6 +97,28 @@ describe('GetMediaAccess', () => {
     await expect(useCase.execute(GARDEN_ID, MEDIA_ID, PROFILE_ID)).rejects.toMatchObject({
       category: 'conflict',
     });
+  });
+
+  it('rejects access while an available upload still awaits byte validation', async () => {
+    const validated = availableRecord('garden_photo');
+    const awaitingValidation = { ...validated, processingState: null } as MediaRecord;
+    const { useCase } = buildUseCase(awaitingValidation, 'owner');
+
+    await expect(useCase.execute(GARDEN_ID, MEDIA_ID, PROFILE_ID)).rejects.toMatchObject({
+      category: 'conflict',
+    });
+  });
+
+  it('rejects access to media that failed real byte-level validation (P6-WORKER-01) — a MIME/dimension/checksum rejection must not remain downloadable', async () => {
+    const validated = availableRecord('garden_photo');
+    const rejected = { ...validated, processingState: null } as MediaRecord;
+    const failedValidation = markMediaProcessingFailed(beginMediaProcessing(rejected, NOW), NOW);
+    const { useCase, storage } = buildUseCase(failedValidation, 'owner');
+
+    await expect(useCase.execute(GARDEN_ID, MEDIA_ID, PROFILE_ID)).rejects.toMatchObject({
+      category: 'conflict',
+    });
+    expect(storage.createSignedUrlCalls).toHaveLength(0);
   });
 
   it('allows a viewer to access ordinary standard-classified media', async () => {

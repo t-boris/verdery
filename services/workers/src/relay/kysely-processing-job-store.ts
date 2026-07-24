@@ -34,7 +34,10 @@ export class KyselyProcessingJobStore implements ProcessingJobStore {
       .values({
         id: input.id,
         media_id: input.mediaId,
+        job_kind: 'media_validation',
         processor_config_version: input.processorConfigVersion,
+        input_checksums: [...input.inputChecksums],
+        trace_id: input.traceId,
         updated_at: now,
       })
       .onConflict((oc) => oc.column('id').doNothing())

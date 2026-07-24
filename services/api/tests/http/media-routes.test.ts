@@ -252,6 +252,14 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     expect(status.statusCode).toBe(200);
     expect(asMedia(status).uploadState).toBe('available');
 
+    // The real validation worker owns this transition. This HTTP transport
+    // suite does not run services/workers, so seed its successful outcome.
+    await db
+      .updateTable('media.media_record')
+      .set({ processing_state: 'processed' })
+      .where('id', '=', registered.media.id)
+      .execute();
+
     const access = await app.inject({
       method: 'GET',
       url: `/v1/gardens/${garden.id}/media/${registered.media.id}/access`,

@@ -132,6 +132,14 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     return profileId;
   }
 
+  async function seedSuccessfulValidation(mediaId: string): Promise<void> {
+    await db
+      .updateTable('media.media_record')
+      .set({ processing_state: 'processed' })
+      .where('id', '=', mediaId)
+      .execute();
+  }
+
   it('registers, opens a session, verifies to available, commits quota, and grants access — end to end', async () => {
     const now = new Date('2026-07-21T09:00:00Z');
     const clock = fixedClock(now);
@@ -199,6 +207,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       new FakeAuditLogger(),
       clock,
     );
+    await expect(getMediaAccess.execute(gardenId, session.media.id, ownerId)).rejects.toMatchObject(
+      { category: 'conflict' },
+    );
+    await seedSuccessfulValidation(session.media.id);
     const access = await getMediaAccess.execute(gardenId, session.media.id, ownerId);
     expect(access.url).toContain(TEST_BUCKETS.userMedia);
   });
@@ -363,6 +375,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       photoSession.media.revision,
       randomUUID(),
     );
+    await seedSuccessfulValidation(photoSession.media.id);
     await expect(
       getMediaAccess.execute(gardenId, photoSession.media.id, viewerId),
     ).resolves.toBeDefined();
@@ -380,6 +393,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       rawSession.media.revision,
       randomUUID(),
     );
+    await seedSuccessfulValidation(rawSession.media.id);
     await expect(
       getMediaAccess.execute(gardenId, rawSession.media.id, viewerId),
     ).rejects.toMatchObject({ category: 'forbidden' });

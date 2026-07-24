@@ -90,6 +90,15 @@ pending outbox operation's age through `CoreObservability.DiagnosticLog` at the 
 dashboard and alert candidates" subsection for the concrete Cloud Logging queries, log-based metrics,
 dashboard widgets, and alert thresholds this data supports.
 
+Phase 6 now includes the real P6-WORKER-01 media validator in `services/workers`: private GCS
+streaming with SHA-256 and byte ceilings, MIME magic and extension checks, bounded pure-JS image/PDF
+parsers (`file-type`/`image-size`, no native decoding dependency), structured metadata and failure
+outcomes, authenticated Cloud Tasks input, authenticated worker-to-API results, signed-access gating,
+and malicious fixtures. The former direct Cloud Tasks → API fixed-success placeholder no longer
+exists. Video/raw-capture is explicitly out of scope (needs `ffprobe`, a native binary dependency,
+deliberately deferred) and stays at its pre-existing declared-metadata-trusted level — see the
+malware-provider/worker-rollout entry below.
+
 ## What remains deferred, and why
 
 **Staging and production.** Only `verdery-dev` exists. Creating `verdery-staging` and `verdery-prod`
@@ -111,6 +120,26 @@ state model.
 
 **Container image scanning.** Images build and push through the deploy workflow, but no
 vulnerability scan runs against them yet. This unblocks with the security hardening work in `P8`.
+
+**Media malware provider and worker rollout (P6-WORKER-01 operational boundary).** The validation
+worker has a real `MalwareScanner` port but no provider has been evaluated or selected. Its default
+adapter returns `unavailable`; PDF tasks fail retryably and are never represented as clean. Raster
+plans remain supported by the constrained image decoder. Before the worker can run in
+`verdery-dev`, the already-documented `verdery_worker` Cloud SQL IAM membership/connection path must
+be completed (including a real `DATABASE_URL` Secret Manager secret —
+`infrastructure/gcloud/scripts/deploy-workers.sh` references one that does not exist yet), the queue
+and Cloud Run service must be deployed, and the interval relay must receive always-allocated CPU (or
+move to a scheduler-triggered execution model). The image, Dockerfile, and deploy script are ready,
+but none of those live-infrastructure actions was performed as part of P6-WORKER-01, and no
+`deploy-dev.yml` step builds or deploys the workers image yet either.
+
+**Video/raw-capture deep validation (P6-WORKER-01 scope boundary).** Duration, codec, and frame-rate
+validation (architecture/media-storage-and-processing.md section 10) needs `ffprobe`, a native binary
+dependency not yet in this stack — the same class of dependency P6-WORKER-01 deliberately avoided for
+images too (picking pure-JS `file-type`/`image-size` over a native decoder). A `raw_capture` manifest
+is short-circuited to an accepted, clearly-labeled result before any byte is downloaded, preserving
+exactly the declared-metadata-trusted level P6-API-01 already established. No video parser exists
+anywhere in this codebase; a future stage builds one.
 
 **Break-glass credential rotation procedure.** `07-iam-database-bootstrap.sh` rotates the Postgres
 superuser password on every run and stores it in Secret Manager, but there is no scheduled rotation

@@ -1,17 +1,16 @@
 /**
  * Worker process entry point.
  *
- * Phase 1 delivered the deployment unit only: configuration, logging, and
- * lifecycle. P6-ASYNC-01 is the first real job registered here: the
- * transactional-outbox relay for media-processing jobs, driven on a plain
- * interval — see `relay/outbox-relay.ts`'s own header comment for why it
- * lives in this package and how it behaves.
+ * Runs both worker-owned entry points: the transactional outbox relay and
+ * the authenticated HTTP target that validates private media bytes.
  *
  * Source: architecture/backend-modular-monolith.md, section "19. Worker Boundary";
- *         docs/implementation-plan.md, work package P6-ASYNC-01.
+ *         docs/implementation-plan.md, work packages P6-ASYNC-01 and
+ *         P6-WORKER-01.
  */
 
 import { CloudTasksClient } from '@google-cloud/tasks';
+import { Storage } from '@google-cloud/storage';
 import { registerGracefulShutdown } from './bootstrap/graceful-shutdown.js';
 import { ConfigurationError, loadConfiguration } from './configuration.js';
 import { createLogger, SERVICE_NAME } from './logger.js';
@@ -21,6 +20,13 @@ import { KyselyProcessingJobStore } from './relay/kysely-processing-job-store.js
 import { OutboxRelay } from './relay/outbox-relay.js';
 import { createRelayPoller } from './relay/poller.js';
 import { createRelayDatabase } from './relay/relay-database.js';
+import { GcsMediaObjectSource } from './validation/gcs-media-object-source.js';
+import { GoogleApiResultRecorder } from './validation/google-api-result-recorder.js';
+import { MediaValidator } from './validation/media-validator.js';
+import { GoogleOidcInvocationVerifier } from './validation/oidc-invocation-verifier.js';
+import { ProcessMediaValidationJob } from './validation/process-media-validation-job.js';
+import { UnavailableMalwareScanner } from './validation/validation-result.js';
+import { ValidationHttpServer } from './validation/validation-http-server.js';
 
 async function main(): Promise<void> {
   // Configuration failures happen before a logger exists, so they go to stderr.
@@ -60,9 +66,26 @@ async function main(): Promise<void> {
   const mediaProcessingQueue = new CloudTasksMediaProcessingQueue(
     cloudTasksClient,
     queuePath,
-    configuration.mediaProcessing.callbackUrl,
+    configuration.mediaProcessing.taskUrl,
     configuration.mediaProcessing.invokerServiceAccountEmail,
   );
+
+  const storage = new Storage();
+  const validationServer = new ValidationHttpServer(
+    new GoogleOidcInvocationVerifier(
+      configuration.mediaProcessing.taskUrl,
+      configuration.mediaProcessing.invokerServiceAccountEmail,
+    ),
+    new ProcessMediaValidationJob(
+      new MediaValidator(new GcsMediaObjectSource(storage), new UnavailableMalwareScanner()),
+      new GoogleApiResultRecorder(
+        configuration.mediaProcessing.resultCallbackUrl,
+        configuration.mediaProcessing.resultCallbackAudience,
+      ),
+    ),
+    logger,
+  );
+  await validationServer.listen(configuration.httpPort);
 
   const relay = new OutboxRelay({
     outboxEvents: new KyselyOutboxEventStore(relayDatabase.db),
@@ -81,6 +104,7 @@ async function main(): Promise<void> {
       event: 'service.started',
       service: SERVICE_NAME,
       pollIntervalMs: configuration.relay.pollIntervalMs,
+      httpPort: configuration.httpPort,
     },
     'Worker started',
   );
@@ -88,6 +112,7 @@ async function main(): Promise<void> {
   registerGracefulShutdown({
     drain: async () => {
       await poller.stop();
+      await validationServer.close();
       await relayDatabase.close();
       await cloudTasksClient.close();
     },

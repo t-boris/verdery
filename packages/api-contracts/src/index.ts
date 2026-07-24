@@ -392,6 +392,7 @@ export interface MediaProcessingRequestedEventPayload {
   readonly mediaId: string;
   readonly gardenId: string | null;
   readonly mediaClass: string;
+  readonly displayFilename: string;
   readonly bucketName: string;
   readonly objectKey: string;
   readonly contentType: string;
@@ -402,9 +403,8 @@ export interface MediaProcessingRequestedEventPayload {
 /**
  * One input object a processing job reads. Never a signed URL or credential
  * — section 13: "The manifest contains no storage credentials. Workload
- * identity grants access." The worker (today: this stage's own placeholder
- * callback) resolves `bucketName`/`objectKey` through its own service
- * identity.
+ * identity grants access." The validation worker resolves
+ * `bucketName`/`objectKey` through its own service identity.
  */
 export interface MediaProcessingInputObject {
   readonly bucketName: string;
@@ -425,6 +425,17 @@ export interface MediaProcessingManifest {
   readonly inputObjects: readonly MediaProcessingInputObject[];
   /** Section 13: "Expected checksums." Empty when the source media carried none at registration. */
   readonly expectedChecksums: readonly string[];
+  /**
+   * Immutable facts captured from the accepted upload record. Validators
+   * compare these values with bytes and parser output; they never trust
+   * Cloud Storage metadata as a content signature.
+   */
+  readonly validation: {
+    readonly mediaClass: string;
+    readonly displayFilename: string;
+    readonly expectedContentType: string;
+    readonly expectedByteSize: number;
+  };
   /** Section 13: "Trace context." Propagated from the domain command that triggered this job, when known. */
   readonly traceId?: string;
 }
@@ -447,12 +458,8 @@ export interface MediaProcessingOutputObject {
 export type MediaProcessingOutcome = 'succeeded' | 'partial' | 'failed_terminal' | 'cancelled';
 
 /**
- * The result a processing job records (section 14's field list). This
- * stage's own callback handler is an honest placeholder: no real validator
- * (P6-WORKER-01) or derivative generator (P6-WORKER-02) exists yet, so every
- * result it produces uses this exact shape with fixed, clearly-fake values —
- * see `services/api/src/modules/media/application/record-media-processing-
- * result.ts`'s own header comment.
+ * The result a processing job records (section 14's field list). Validators
+ * and future derivative processors share this versioned worker/API boundary.
  */
 export interface MediaProcessingResult {
   readonly jobId: string;

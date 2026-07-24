@@ -42,6 +42,8 @@ export interface ProcessingJobRow {
   processor_config_version: Generated<string>;
   state: Generated<string>;
   attempt: Generated<number>;
+  input_checksums: string[];
+  trace_id: string | null;
   revision: Generated<number>;
   queued_at: Date | null;
   updated_at: Generated<Date>;
