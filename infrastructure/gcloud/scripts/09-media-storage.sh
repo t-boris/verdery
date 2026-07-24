@@ -124,6 +124,30 @@ grant_runtime_object_admin() {
     >/dev/null
 }
 
+# Browser CORS for direct resumable uploads (P6-WEB-01). The web client PUTs
+# file bytes straight to a Cloud Storage resumable session URL (architecture
+# section 2's "Binary media bypasses the interactive API data path"), which
+# is a cross-origin request from the browser's perspective — without a CORS
+# policy on the bucket, the preflight fails and no browser upload can ever
+# succeed (found live: `cors: null` on verdery-dev-user-media while P6-WEB-01
+# was verified against the real bucket). Only the user-media bucket gets
+# this: it is the only bucket browsers write to directly. Methods are PUT
+# (the resumable protocol's only data verb) plus OPTIONS (preflight);
+# response headers cover the resumable protocol's own Content-Range/Range
+# offset negotiation. Origins currently list only local development — no
+# deployed web origin exists yet (the web app itself is undeployed, and the
+# API's own HTTP_ALLOWED_ORIGINS is empty for the same reason); extend the
+# JSON when one does.
+apply_cors_file() {
+  local bucket_name="${1}" cors_file="${2}"
+
+  log "Applying CORS configuration to ${bucket_name} (${cors_file##*/})"
+  gcloud storage buckets update "gs://${bucket_name}" \
+    --project="${VERDERY_PROJECT_ID}" \
+    --cors-file="${cors_file}" \
+    >/dev/null
+}
+
 # --- user-media -------------------------------------------------------
 # Garden photos and imported plan documents (section 3). Section 15: these
 # "remain until deleted by user, garden, or account policy" — a decision the
@@ -132,6 +156,7 @@ grant_runtime_object_admin() {
 # lifecycle rule is applied.
 create_bucket_if_needed "${VERDERY_USER_MEDIA_BUCKET}"
 grant_runtime_object_admin "${VERDERY_USER_MEDIA_BUCKET}"
+apply_cors_file "${VERDERY_USER_MEDIA_BUCKET}" "${GCLOUD_ROOT}/config/cors/user-media-cors.json"
 
 # --- raw-capture --------------------------------------------------------
 # Garden Scan video, AR artifacts, depth data (section 3). Section 15 states

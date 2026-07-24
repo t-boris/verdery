@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["http://localhost:3000"],
+    "method": ["PUT", "OPTIONS"],
+    "responseHeader": ["Content-Type", "Content-Range", "Range", "X-Goog-Resumable"],
+    "maxAgeSeconds": 3600
+  }
+]

@@ -32,6 +32,12 @@ exports}`), each with uniform bucket-level access and public access prevention e
   runtime service account granted `roles/storage.objectAdmin` per bucket (not a project-wide role).
   See `infrastructure/gcloud/scripts/09-media-storage.sh` for the per-bucket lifecycle policy and its
   reasoning.
+- A CORS policy on `verdery-dev-user-media` only (P6-WEB-01): `PUT`/`OPTIONS` from
+  `http://localhost:3000`, response headers limited to the resumable-upload protocol's own
+  (`Content-Type`, `Content-Range`, `Range`, `X-Goog-Resumable`). Required because browsers PUT
+  upload bytes directly to resumable session URLs, which is cross-origin; no deployed web origin
+  exists yet, so local development is the only origin listed —
+  `infrastructure/gcloud/config/cors/user-media-cors.json` is the file to extend when one does.
 
 ## Deploying
 
@@ -117,6 +123,13 @@ support amd64/linux" — found directly while building this environment for the 
   account holds exactly `roles/storage.objectAdmin` and nothing broader; the `derived`/`exports`
   buckets' lifecycle configuration was read back and matches the committed JSON exactly (Nearline
   transition at 30 days; deletion at 7 days, respectively).
+
+- **The user-media bucket's CORS policy is live, not just scripted.** Applied via
+  `gcloud storage buckets update --cors-file` and read back with
+  `gcloud storage buckets describe --format="json(cors_config)"` — the live configuration matches
+  `config/cors/user-media-cors.json` exactly. The gap it closes was itself found live, not assumed:
+  P6-WEB-01's verification against the real bucket surfaced `cors: null`, which would have failed
+  every real browser's upload preflight.
 
 ## What is deliberately not here
 
