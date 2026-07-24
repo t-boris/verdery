@@ -151,6 +151,40 @@ extension LocalDatabase {
             }
         }
 
+        // P6-IOS-01: the columns `CoreMediaTransfer.MediaUploadCoordinator`
+        // needs to drive registration, resumable upload, and recovery end to
+        // end — see `CoreDomain.MediaTransfer`'s own doc comment for what
+        // each means. Additive only, matching
+        // `addResolvesConflictIdToSyncOutbox`'s own precedent immediately
+        // below: no row existed in this table before this stage gave it a
+        // real caller (confirmed by the same "no real caller" inspection
+        // `CoreSynchronization.SyncEngineStatus`'s own doc comment already
+        // recorded), so there is no pre-existing data whose absence of these
+        // columns needs reconciling — `mediaClass`/`displayFilename`/
+        // `declaredContentType`/`declaredByteSize` default to values no real
+        // row will ever actually read (SQLite requires a `DEFAULT` for a
+        // `NOT NULL` column added to a non-empty table; this table is empty
+        // in every real deployment, but the migration must still be
+        // syntactically valid against SQLite's own rule for adding a
+        // `NOT NULL` column).
+        migrator.registerMigration("addMediaFieldsToMediaTransfer") { db in
+            try db.alter(table: "media_transfer") { table in
+                table.add(column: "mediaClass", .text).notNull().defaults(to: "garden_photo")
+                table.add(column: "displayFilename", .text).notNull().defaults(to: "")
+                table.add(column: "declaredContentType", .text).notNull().defaults(to: "")
+                table.add(column: "declaredByteSize", .integer).notNull().defaults(to: 0)
+                table.add(column: "mediaId", .text)
+                table.add(column: "uploadUrl", .text)
+                table.add(column: "uploadUrlExpiresAt", .datetime)
+                table.add(column: "mediaRevision", .integer)
+                table.add(column: "bytesSent", .integer).notNull().defaults(to: 0)
+                table.add(column: "serverUploadState", .text)
+                table.add(column: "serverProcessingState", .text)
+                table.add(column: "failureReason", .text)
+            }
+            try db.create(index: "media_transfer_on_mediaId", on: "media_transfer", columns: ["mediaId"])
+        }
+
         // P5-CONFLICT-01: `CoreDomain.SyncConflict.recordType` — the
         // `SyncRecordType` wire value the resolution mechanism needs to look
         // up the right `CoreSynchronization.SyncRecordApplier` generically.

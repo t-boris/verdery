@@ -14,6 +14,13 @@ public protocol MediaTransferStore: Sendable {
     /// Every transfer for one garden not yet in a terminal state
     /// (`retained` or `deleted`).
     func fetchPending(gardenId: String) async throws -> [MediaTransfer]
+
+    /// Every transfer across every garden not yet in a terminal state — what
+    /// `CoreMediaTransfer.MediaUploadCoordinator`'s relaunch recovery sweep
+    /// needs (P6-IOS-01): recovery has no single garden to scope by, the
+    /// same reason `CoreSynchronization.RemoteSyncEngine` reads
+    /// `SyncOutboxStore.fetchAll()` unscoped rather than per garden.
+    func fetchAllPending() async throws -> [MediaTransfer]
 }
 
 public struct GRDBMediaTransferStore: MediaTransferStore {
@@ -41,6 +48,18 @@ public struct GRDBMediaTransferStore: MediaTransferStore {
         return try await dbQueue.read { db in
             try MediaTransferRecord
                 .filter(Column("gardenId") == gardenId)
+                .filter(!terminalStates.contains(Column("state")))
+                .order(Column("createdAt"))
+                .fetchAll(db)
+                .compactMap(\.domainValue)
+        }
+    }
+
+    public func fetchAllPending() async throws -> [MediaTransfer] {
+        let terminalStates = [MediaTransferState.retained.rawValue, MediaTransferState.deleted.rawValue]
+
+        return try await dbQueue.read { db in
+            try MediaTransferRecord
                 .filter(!terminalStates.contains(Column("state")))
                 .order(Column("createdAt"))
                 .fetchAll(db)

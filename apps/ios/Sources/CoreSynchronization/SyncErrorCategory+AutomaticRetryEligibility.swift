@@ -27,8 +27,19 @@ import CoreDomain
 /// for keeping `SyncErrorCategory`'s OWN classification out of
 /// `CoreNetworking` — this is a second, retry-policy-specific classification
 /// of the same enum, equally specific to synchronization.
+///
+/// `public`, not `internal`, as of P6-IOS-01: `CoreMediaTransfer
+/// .MediaUploadCoordinator` needs the identical "which failures retry
+/// automatically vs. need user action" policy for media-transfer failures —
+/// architecture/offline-synchronization.md, section "18. Media Coordination"
+/// ("Media upload retry and sync retry are separately observable") describes
+/// two independent retry mechanisms, not two independent POLICIES, and this
+/// codebase's own instruction to reuse `SyncErrorCategory
+/// +AutomaticRetryEligibility.swift`'s reasoning rather than re-deriving it
+/// is best honored by widening this property's visibility, not copying its
+/// switch statement into a second module.
 extension SyncErrorCategory {
-    var isEligibleForAutomaticRetry: Bool {
+    public var isEligibleForAutomaticRetry: Bool {
         switch self {
         case .authentication, .authorization, .validation, .conflict:
             false

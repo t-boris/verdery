@@ -21,6 +21,22 @@ struct MediaTransferRecord: Codable, FetchableRecord, PersistableRecord {
     let serverConfirmedAt: Date?
     let createdAt: Date
     let updatedAt: Date
+
+    // P6-IOS-01: the fields `MediaUploadCoordinator` needs to drive
+    // registration, resumable upload, and recovery end to end — see
+    // `CoreDomain.MediaTransfer`'s own doc comment for what each means.
+    let mediaClass: String
+    let displayFilename: String
+    let declaredContentType: String
+    let declaredByteSize: Int64
+    let mediaId: String?
+    let uploadUrl: String?
+    let uploadUrlExpiresAt: Date?
+    let mediaRevision: Int?
+    let bytesSent: Int64
+    let serverUploadState: String?
+    let serverProcessingState: String?
+    let failureReason: String?
 }
 
 extension MediaTransferRecord {
@@ -37,10 +53,25 @@ extension MediaTransferRecord {
         self.serverConfirmedAt = transfer.serverConfirmedAt
         self.createdAt = transfer.createdAt
         self.updatedAt = transfer.updatedAt
+        self.mediaClass = transfer.mediaClass.rawValue
+        self.displayFilename = transfer.displayFilename
+        self.declaredContentType = transfer.declaredContentType
+        self.declaredByteSize = transfer.declaredByteSize
+        self.mediaId = transfer.mediaId
+        self.uploadUrl = transfer.uploadUrl
+        self.uploadUrlExpiresAt = transfer.uploadUrlExpiresAt
+        self.mediaRevision = transfer.mediaRevision
+        self.bytesSent = transfer.bytesSent
+        self.serverUploadState = transfer.serverUploadState
+        self.serverProcessingState = transfer.serverProcessingState
+        self.failureReason = transfer.failureReason
     }
 
     var domainValue: MediaTransfer? {
-        guard let state = MediaTransferState(rawValue: state) else { return nil }
+        guard
+            let state = MediaTransferState(rawValue: state),
+            let mediaClass = MediaClass(rawValue: mediaClass)
+        else { return nil }
 
         return MediaTransfer(
             id: id,
@@ -56,7 +87,19 @@ extension MediaTransferRecord {
             ),
             serverConfirmedAt: serverConfirmedAt,
             createdAt: createdAt,
-            updatedAt: updatedAt
+            updatedAt: updatedAt,
+            mediaClass: mediaClass,
+            displayFilename: displayFilename,
+            declaredContentType: declaredContentType,
+            declaredByteSize: declaredByteSize,
+            mediaId: mediaId,
+            uploadUrl: uploadUrl,
+            uploadUrlExpiresAt: uploadUrlExpiresAt,
+            mediaRevision: mediaRevision,
+            bytesSent: bytesSent,
+            serverUploadState: serverUploadState,
+            serverProcessingState: serverProcessingState,
+            failureReason: failureReason
         )
     }
 }

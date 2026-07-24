@@ -327,6 +327,7 @@
 "observations.observedAtLabel" = "Время наблюдения";
 "observations.record.submit" = "Записать наблюдение";
 "observations.record.requiresContent" = "Введите заметку или сводку состояния.";
+"observations.record.photoNotReady" = "Дождитесь завершения загрузки фото или удалите его.";
 "observations.correctedBadge" = "Исправлено";
 "observations.status.savedLocally" = "Сохранено локально, ожидает синхронизации";
 "observations.correctAction" = "Дополнить или заменить…";
@@ -402,3 +403,15 @@
 "syncConflicts.action.reapply" = "Повторить моё изменение";
 "syncConflicts.action.duplicate" = "Дублировать как новый объект";
 "syncConflicts.action.review" = "Сравнить версии";
+"media.attach.sectionTitle" = "Фото";
+"media.attach.pickButton" = "Добавить фото";
+"media.attach.retryButton" = "Повторить";
+"media.attach.removeButton" = "Удалить";
+"media.status.preparing" = "Подготовка…";
+"media.status.waitingForConnectivity" = "Ожидание подключения…";
+"media.status.uploadingPercent" = "Загрузка… {percent}%";
+"media.status.verifying" = "Проверка…";
+"media.status.processing" = "Обработка…";
+"media.status.ready" = "Фото прикреплено";
+"media.status.rejected" = "Фото отклонено";
+"media.status.failed" = "Не удалось загрузить";

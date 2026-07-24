@@ -1,5 +1,6 @@
 import CoreDomain
 import CoreLocalization
+import CoreMediaTransfer
 import CoreNetworking
 import Foundation
 import Observation
@@ -66,6 +67,11 @@ public final class ObservationsTimelineViewModel {
     public private(set) var correctionErrorMessage: String?
 
     public let gardenId: String
+    /// The record form's own "Add Photo" affordance — `nil` for a view
+    /// model built with no media-upload capability wired in, matching
+    /// `FeaturePlants.PlantDetailViewModel.photoAttachment`'s identical
+    /// optionality and reasoning.
+    public let photoAttachment: PhotoAttachmentController?
     private let recordObservation: RecordObservation
     private let listObservationsForGarden: ListObservationsForGarden
     private let listObservationsForPlant: ListObservationsForPlant
@@ -78,7 +84,8 @@ public final class ObservationsTimelineViewModel {
         listObservationsForGarden: ListObservationsForGarden,
         listObservationsForPlant: ListObservationsForPlant,
         correctObservation: CorrectObservation,
-        strings: LocalizedStrings
+        strings: LocalizedStrings,
+        photoAttachment: PhotoAttachmentController? = nil
     ) {
         self.gardenId = gardenId
         self.recordObservation = recordObservation
@@ -86,6 +93,7 @@ public final class ObservationsTimelineViewModel {
         self.listObservationsForPlant = listObservationsForPlant
         self.correctObservation = correctObservation
         self.strings = strings
+        self.photoAttachment = photoAttachment
     }
 
     public var title: String { strings(.observationsTitle) }
@@ -109,6 +117,34 @@ public final class ObservationsTimelineViewModel {
     public var correctActionTitle: String { strings(.observationsCorrectAction) }
     public var analysisDisclaimer: String { strings(.observationsAnalysisDisclaimer) }
     public var additionalEvidenceRequested: String { strings(.observationsAdditionalEvidenceRequested) }
+    public var photoSectionTitle: String { strings(.mediaAttachSectionTitle) }
+    public var photoPickButtonTitle: String { strings(.mediaAttachPickButton) }
+    public var photoRetryButtonTitle: String { strings(.mediaAttachRetryButton) }
+    public var photoRemoveButtonTitle: String { strings(.mediaAttachRemoveButton) }
+    /// See `FeaturePlants.PlantDetailViewModel.photoStatusText`'s identical
+    /// doc comment.
+    public var photoStatusText: String {
+        PhotoAttachmentStatusLocalization.text(for: photoAttachment?.status ?? .idle, strings: strings)
+    }
+    /// Whether the record form's submit action should be disabled: a photo
+    /// pick is in progress but not yet `.ready` — submitting now would
+    /// either drop the picked photo silently or (if `photoMediaIds` could
+    /// somehow reference a not-yet-confirmed upload) violate the invariant
+    /// this file's own doc comment on `RecordObservation`'s `photoMediaIds`
+    /// establishes. Not blocked by `.idle` (no photo picked at all — the
+    /// contract's own "note and/or condition alone is valid" stays true) or
+    /// by `.ready`/a terminal failure (the user can still submit without
+    /// the photo, or after removing it).
+    public var isPhotoBlockingSubmit: Bool {
+        guard let status = photoAttachment?.status else { return false }
+        switch status {
+        case .idle, .ready, .rejected, .failed:
+            return false
+        case .preparing, .waitingForConnectivity, .uploading, .verifying, .processing:
+            return true
+        }
+    }
+
     public var correctionSheetTitle: String { strings(.observationsCorrectionSheetTitle) }
     public var correctionKindLabel: String { strings(.observationsCorrectionKindLabel) }
     public var correctionSubmitTitle: String { strings(.observationsCorrectionSubmit) }
@@ -174,6 +210,24 @@ public final class ObservationsTimelineViewModel {
         await load()
     }
 
+    /// Picks a photo for the record form — durably persists it and starts
+    /// background upload immediately, well before the user submits the
+    /// observation itself, the same "capture/select now, upload in the
+    /// background regardless of when the surrounding form is submitted"
+    /// shape `FeaturePlants.PlantDetailViewModel.pickPhoto` uses.
+    public func pickRecordPhoto(data: Data, contentType: String) async {
+        guard let photoAttachment else { return }
+        await photoAttachment.attach(data: data, displayFilename: "observation-photo", contentType: contentType)
+    }
+
+    public func retryRecordPhotoUpload() async {
+        await photoAttachment?.retry()
+    }
+
+    public func discardRecordPhoto() async {
+        await photoAttachment?.discard()
+    }
+
     public func submitRecordObservation() async {
         let note = recordNoteText.trimmingCharacters(in: .whitespacesAndNewlines)
         let condition = recordConditionSummary.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -181,10 +235,16 @@ public final class ObservationsTimelineViewModel {
             recordErrorMessage = strings(.observationsRecordRequiresContent)
             return
         }
+        guard !isPhotoBlockingSubmit else {
+            recordErrorMessage = strings(.observationsRecordPhotoNotReady)
+            return
+        }
 
         isSubmittingRecord = true
         recordErrorMessage = nil
         defer { isSubmittingRecord = false }
+
+        let photoMediaIds = photoAttachment?.mediaId.map { [$0] } ?? []
 
         do {
             _ = try await recordObservation(
@@ -193,9 +253,20 @@ public final class ObservationsTimelineViewModel {
                 gardenObjectId: recordGardenObjectId.isEmpty ? nil : recordGardenObjectId,
                 noteText: note.isEmpty ? nil : note,
                 conditionSummary: condition.isEmpty ? nil : condition,
-                observedAt: recordHasObservedAt ? recordObservedAt : nil
+                observedAt: recordHasObservedAt ? recordObservedAt : nil,
+                photoMediaIds: photoMediaIds
             )
             resetRecordForm()
+            // The row now owns this photo's `mediaId` server-side —
+            // forget this controller's own tracking of it so a second,
+            // unrelated photo pick for the NEXT observation starts clean,
+            // matching `resetRecordForm`'s identical "clear everything the
+            // form held" purpose for its other fields. Best-effort: the
+            // durable local file/row this discards is already safely
+            // `.retained` server-side by this point (a precondition
+            // `isPhotoBlockingSubmit` enforced above), so this never
+            // discards an unconfirmed upload.
+            await photoAttachment?.discard()
             await load()
         } catch let error as ObservationCommandError {
             recordErrorMessage = message(for: error)

@@ -41,7 +41,8 @@ struct PlantDetailViewModelTests {
             setPlantStatus: SetPlantStatus(localStore: localStore, profileId: "profile-1"),
             movePlant: MovePlant(localStore: localStore, profileId: "profile-1"),
             searchTaxonomyReferences: SearchTaxonomyReferences(gateway: gateway),
-            strings: LocalizedStrings(locale: Locale(identifier: "en_GB"))
+            strings: LocalizedStrings(locale: Locale(identifier: "en_GB")),
+            attachPlantPhoto: AttachPlantPhoto(gateway: gateway, generateIdempotencyKey: { "fixed-key" })
         )
     }
 
@@ -383,5 +384,42 @@ struct PlantDetailViewModelTests {
             return
         }
         #expect(summary.taxonomyReferenceId == "tax-3")
+    }
+
+    // MARK: - Photo attachment (P6-IOS-01)
+
+    @Test("attachPickedPhoto calls AttachPlantPhoto and sets the confirmation flag")
+    func attachPickedPhotoSucceeds() async {
+        let gateway = FakePlantGateway(plants: [plant()])
+        let model = makeModel(gateway: gateway)
+        await model.load()
+
+        #expect(model.photoAttachedConfirmation == false)
+
+        await model.attachPickedPhoto(mediaId: "media-42")
+
+        #expect(model.photoAttachedConfirmation == true)
+        #expect(model.photoAttachErrorMessage == nil)
+    }
+
+    @Test("attachPickedPhoto surfaces a gateway failure without setting the confirmation flag")
+    func attachPickedPhotoSurfacesFailure() async {
+        let gateway = FakePlantGateway(plants: [plant()])
+        gateway.attachPlantPhotoError = APIGatewayError.transport(code: .notConnectedToInternet, correlationId: "c-1")
+        let model = makeModel(gateway: gateway)
+        await model.load()
+
+        await model.attachPickedPhoto(mediaId: "media-42")
+
+        #expect(model.photoAttachedConfirmation == false)
+        #expect(model.photoAttachErrorMessage != nil)
+    }
+
+    @Test("a PlantDetailViewModel with no photo-attachment capability wired in exposes no photoAttachment")
+    func noPhotoAttachmentWiredByDefault() {
+        let gateway = FakePlantGateway(plants: [plant()])
+        let model = makeModel(gateway: gateway)
+
+        #expect(model.photoAttachment == nil)
     }
 }

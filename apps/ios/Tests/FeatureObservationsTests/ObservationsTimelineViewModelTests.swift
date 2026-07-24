@@ -301,4 +301,27 @@ struct ObservationsTimelineViewModelTests {
         #expect(afterRows.count == 1)
         #expect(afterRows.first?.isPendingSync == false)
     }
+
+    // MARK: - Photo attachment (P6-IOS-01)
+
+    @Test("a view model with no photo-attachment capability wired in never blocks submit and exposes an empty status")
+    func noPhotoAttachmentWiredByDefault() {
+        let gateway = FakeObservationGateway(observations: [])
+        let model = makeModel(gateway: gateway)
+
+        #expect(model.photoAttachment == nil)
+        #expect(model.isPhotoBlockingSubmit == false)
+        #expect(model.photoStatusText == "")
+    }
+
+    @Test("submitRecordObservation still succeeds with no photo attached")
+    func submitSucceedsWithNoPhoto() async {
+        let gateway = FakeObservationGateway(observations: [])
+        let model = makeModel(gateway: gateway)
+        model.recordNoteText = "Looking healthy"
+
+        await model.submitRecordObservation()
+
+        #expect(model.recordErrorMessage == nil)
+    }
 }

@@ -38,6 +38,7 @@ let package = Package(
         .library(name: "CoreAuthentication", targets: ["CoreAuthentication"]),
         .library(name: "CorePersistence", targets: ["CorePersistence"]),
         .library(name: "CoreSynchronization", targets: ["CoreSynchronization"]),
+        .library(name: "CoreMediaTransfer", targets: ["CoreMediaTransfer"]),
         .library(name: "FeatureHealth", targets: ["FeatureHealth"]),
         .library(name: "FeatureAuthentication", targets: ["FeatureAuthentication"]),
         .library(name: "FeatureGardens", targets: ["FeatureGardens"]),
@@ -142,6 +143,42 @@ let package = Package(
             dependencies: ["CoreDomain", "CorePersistence", "CoreNetworking"]
         ),
 
+        // Background-capable media registration/upload/verify coordination
+        // (P6-IOS-01): local file durability before any network call, the
+        // resumable-upload session Cloud Storage wire protocol over a real
+        // `URLSessionConfiguration.background(withIdentifier:)` transport,
+        // progress/pause/retry/recovery, and explicit completion/status
+        // polling. Depends on `CoreSynchronization` — a Core-on-Core
+        // dependency with real precedent (`CoreSynchronization` itself
+        // depends on `CorePersistence`/`CoreNetworking`) — for `SyncBackoff`
+        // and the now-`public` `SyncErrorCategory.isEligibleForAutomaticRetry`
+        // / `APIGatewayError.syncErrorCategory`: the exact "which failures
+        // retry automatically vs. need user action" policy
+        // architecture/offline-synchronization.md, section "18. Media
+        // Coordination" says media-transfer retry shares with sync retry,
+        // reused rather than re-derived.
+        //
+        // Source: architecture/ios-application-design.md, sections
+        // "4. Application Structure", "13. Media Transfer";
+        // architecture/media-storage-and-processing.md; implementation-plan.md
+        // work package P6-IOS-01.
+        .target(
+            name: "CoreMediaTransfer",
+            dependencies: [
+                "CoreDomain",
+                "CoreObservability",
+                "CorePersistence",
+                "CoreNetworking",
+                "CoreSynchronization",
+                // For `PhotoAttachmentStatusLocalization` — one shared,
+                // localized rendering of `PhotoAttachmentStatus`, reused by
+                // both `FeaturePlants` and `FeatureObservations` rather than
+                // each independently writing the same switch-to-string
+                // mapping twice.
+                "CoreLocalization",
+            ]
+        ),
+
         // Feature template. A feature may depend on Core; Core never names a
         // feature.
         .target(
@@ -232,6 +269,11 @@ let package = Package(
                 // `PlantSyncRecordApplier` conforms to (P5-IOS-03, Stage 5a)
                 // — see `FeatureGardens`'s identical comment above.
                 "CoreSynchronization",
+                // For `CoreMediaTransfer.PhotoAttachmentController`, which
+                // `PlantDetailViewModel` uses to give the plant detail
+                // screen's "Attach Photo" affordance real upload capability
+                // (P6-IOS-01).
+                "CoreMediaTransfer",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ]
         ),
@@ -266,6 +308,12 @@ let package = Package(
                 // `ObservationSyncRecordApplier` conforms to (P5-IOS-03,
                 // Stage 5a) — see `FeatureGardens`'s identical comment above.
                 "CoreSynchronization",
+                // For `CoreMediaTransfer.PhotoAttachmentController`, which
+                // `ObservationsTimelineViewModel` uses to give the "record
+                // observation" form's photo attachment real upload
+                // capability (P6-IOS-01) — the same reason `FeaturePlants`
+                // gained this dependency.
+                "CoreMediaTransfer",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ]
         ),
@@ -345,6 +393,12 @@ let package = Package(
                 // alongside the engine it is registered with (P5-IOS-03,
                 // Stage 5a).
                 "CoreSynchronization",
+                // For `MediaUploadCoordinator`/`URLSessionMediaGateway` —
+                // the composition root is where the background `URLSession`
+                // identifier and the app-delegate background-completion
+                // handoff (`VerderyApp`'s own `AppDelegate`) are wired
+                // together (P6-IOS-01).
+                "CoreMediaTransfer",
                 "FeatureHealth",
                 "FeatureAuthentication",
                 "FeatureGardens",
@@ -384,6 +438,19 @@ let package = Package(
             // which `RemoteSyncEngineTests`'s fake gateway conforms to and
             // constructs (P5-IOS-03, Stage 5a).
             dependencies: ["CoreSynchronization", "CoreNetworking"]
+        ),
+        .testTarget(
+            name: "CoreMediaTransferTests",
+            dependencies: [
+                "CoreMediaTransfer",
+                // For a real GRDB database via `CorePersistence.LocalDatabase
+                // .migrator`, matching every other `Core*Tests`/`Feature*Tests`
+                // target's identical real-database-over-mock rationale.
+                "CorePersistence",
+                // For `PhotoAttachmentStatusLocalizationTests`.
+                "CoreLocalization",
+                .product(name: "GRDB", package: "GRDB.swift"),
+            ]
         ),
         .testTarget(
             name: "FeatureHealthTests",
@@ -434,6 +501,9 @@ let package = Package(
                 // For `PlantSyncRecordApplierTests` (P5-IOS-03, Stage 5a) —
                 // see `FeatureGardensTests`'s identical comment above.
                 "CoreSynchronization",
+                // For `AttachPlantPhotoTests` (P6-IOS-01), which references
+                // `CoreMediaTransfer.PhotoAttachmentStatus` directly.
+                "CoreMediaTransfer",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ]
         ),
@@ -447,6 +517,10 @@ let package = Package(
                 // `FeatureMapTests`/`FeaturePlantsTests`'s identical
                 // rationale.
                 "CorePersistence",
+                // For `AttachPlantPhotoTests`-equivalent photo-attachment
+                // tests (P6-IOS-01), which reference
+                // `CoreMediaTransfer.PhotoAttachmentStatus` directly.
+                "CoreMediaTransfer",
                 // For `ObservationSyncRecordApplierTests` (P5-IOS-03,
                 // Stage 5a) — see `FeatureGardensTests`'s identical comment
                 // above.

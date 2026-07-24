@@ -332,6 +332,9 @@ public enum LocalizationKey: String, Sendable, CaseIterable {
     case observationsObservedAtLabel = "observations.observedAtLabel"
     case observationsRecordSubmit = "observations.record.submit"
     case observationsRecordRequiresContent = "observations.record.requiresContent"
+    /// Shown when the record form's submit action is blocked because a
+    /// picked photo has not finished uploading yet (`isPhotoBlockingSubmit`).
+    case observationsRecordPhotoNotReady = "observations.record.photoNotReady"
     case observationsCorrectedBadge = "observations.correctedBadge"
     /// Shown on a row this device recorded or corrected purely offline this
     /// session and has not yet confirmed synced — the observation-timeline
@@ -416,4 +419,22 @@ public enum LocalizationKey: String, Sendable, CaseIterable {
     case syncConflictsActionReapply = "syncConflicts.action.reapply"
     case syncConflictsActionDuplicate = "syncConflicts.action.duplicate"
     case syncConflictsActionReview = "syncConflicts.action.review"
+
+    // Media attachment (P6-IOS-01): shared copy for the "Attach Photo"
+    // affordance both `FeaturePlants.PlantDetailView` and
+    // `FeatureObservations.ObservationsTimelineView` use, rendered through
+    // `CoreMediaTransfer.PhotoAttachmentStatusLocalization` so both features
+    // read identically rather than each writing its own copy.
+    case mediaAttachSectionTitle = "media.attach.sectionTitle"
+    case mediaAttachPickButton = "media.attach.pickButton"
+    case mediaAttachRetryButton = "media.attach.retryButton"
+    case mediaAttachRemoveButton = "media.attach.removeButton"
+    case mediaStatusPreparing = "media.status.preparing"
+    case mediaStatusWaitingForConnectivity = "media.status.waitingForConnectivity"
+    case mediaStatusUploadingPercent = "media.status.uploadingPercent"
+    case mediaStatusVerifying = "media.status.verifying"
+    case mediaStatusProcessing = "media.status.processing"
+    case mediaStatusReady = "media.status.ready"
+    case mediaStatusRejected = "media.status.rejected"
+    case mediaStatusFailed = "media.status.failed"
 }

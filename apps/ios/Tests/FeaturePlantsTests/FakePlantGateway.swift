@@ -10,6 +10,9 @@ final class FakePlantGateway: PlantGateway, @unchecked Sendable {
     private var plants: [String: Plant]
     var taxonomyResults: [TaxonomyReference] = []
     var searchQueries: [String?] = []
+    /// Set by a test to make `attachPlantPhoto` fail instead of succeeding
+    /// — `AttachPlantPhotoTests`'s own "propagates a gateway failure" case.
+    var attachPlantPhotoError: Error?
 
     init(plants: [Plant] = []) {
         self.plants = Dictionary(uniqueKeysWithValues: plants.map { ($0.id, $0) })
@@ -132,7 +135,8 @@ final class FakePlantGateway: PlantGateway, @unchecked Sendable {
         isPrimary: Bool?,
         idempotencyKey: String
     ) async throws -> PlantPhoto {
-        PlantPhoto(id: "photo-1", plantId: plantId, mediaId: mediaId, isPrimary: isPrimary ?? false, createdAt: Date(timeIntervalSince1970: 0))
+        if let attachPlantPhotoError { throw attachPlantPhotoError }
+        return PlantPhoto(id: "photo-1", plantId: plantId, mediaId: mediaId, isPrimary: isPrimary ?? false, createdAt: Date(timeIntervalSince1970: 0))
     }
 
     func setPrimaryPlantPhoto(

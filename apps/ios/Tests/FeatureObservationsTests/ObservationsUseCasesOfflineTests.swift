@@ -170,6 +170,36 @@ struct ObservationsUseCasesOfflineTests {
         #expect(result.conditionSummary == "Wilting leaves")
     }
 
+    @Test("RecordObservation threads a real mediaId through to the outbox payload's photoMediaIds (P6-IOS-01)")
+    func recordObservationThreadsPhotoMediaIds() async throws {
+        let dbQueue = try makeDatabase()
+        let store = GRDBObservationStore(dbQueue: dbQueue)
+        let outbox = GRDBSyncOutboxStore(dbQueue: dbQueue)
+        let recordObservation = RecordObservation(
+            localStore: store,
+            profileId: "profile-1",
+            generateOperationId: { "operation-1" },
+            generateObservationId: { "obs-1" }
+        )
+
+        let result = try await recordObservation(
+            gardenId: "garden-1",
+            noteText: "New growth",
+            photoMediaIds: ["media-42"]
+        )
+
+        // The local optimistic projection stays `photos: []` — see
+        // `RecordObservation`'s own doc comment for why — but the wire
+        // payload this device will actually push carries the real id.
+        #expect(result.photos.isEmpty)
+
+        let operation = try #require(try await outbox.fetchAll().first)
+        let json = try decodedPayloadJSON(operation)
+        let command = try #require(json["command"] as? [String: Any])
+        let request = try #require(command["request"] as? [String: Any])
+        #expect(request["photoMediaIds"] as? [String] == ["media-42"])
+    }
+
     // MARK: - CorrectObservation
 
     @Test("CorrectObservation writes a local projection and an observations.correct outbox row")

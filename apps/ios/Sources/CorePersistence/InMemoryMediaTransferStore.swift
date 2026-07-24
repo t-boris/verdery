@@ -19,4 +19,10 @@ public actor InMemoryMediaTransferStore: MediaTransferStore {
             .filter { $0.gardenId == gardenId && $0.state != .retained && $0.state != .deleted }
             .sorted { $0.createdAt < $1.createdAt }
     }
+
+    public func fetchAllPending() async throws -> [MediaTransfer] {
+        transfersById.values
+            .filter { $0.state != .retained && $0.state != .deleted }
+            .sorted { $0.createdAt < $1.createdAt }
+    }
 }

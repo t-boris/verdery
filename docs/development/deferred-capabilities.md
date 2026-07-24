@@ -236,6 +236,59 @@ without a photo, so recording an observation itself is not blocked. Each of thes
 `mediaClass`, already returns the `mediaId` these commands need) — the remaining work is UI wiring
 per attachment point, not new upload infrastructure.
 
+**Photo and file attachment on iOS — resolved by `P6-IOS-01`.** The iOS half of the same gap this
+section describes for web is now closed. `CoreMediaTransfer` (new Core module) provides: durable
+local-file-first capture (`LocalMediaFileStore`/`FileManagerLocalMediaFileStore` — the file and its
+`CoreDomain.MediaTransfer` row are both written before any network call, reusing
+`CorePersistence.LocalDatabase`'s own per-profile `Application Support` root); a real Cloud Storage
+resumable-upload client (`GCSResumableUpload`, implementing the actual wire protocol — a whole-object
+`Content-Range` `PUT` for the normal case, a zero-byte status-check `PUT` plus a sliced remaining-range
+`PUT` to resume after an interruption); a genuinely background-capable transport
+(`URLSessionBackgroundUploadTransport`, a real `URLSessionConfiguration.background(withIdentifier:)`
+session with `sessionSendsLaunchEvents = true`, wired to `VerderyApp`'s new `AppDelegate` for
+`application(_:handleEventsForBackgroundURLSession:completionHandler:)`); and the coordinator tying it
+together (`MediaUploadCoordinator`, an actor) — registration, upload, `CompleteMediaUpload`, a bounded
+`GetMediaStatus` poll for `processingState`, real byte-progress, retry-category gating reusing
+`CoreSynchronization.SyncErrorCategory.isEligibleForAutomaticRetry`/`SyncBackoff` directly (now `public`
+for this reuse) rather than re-deriving the same policy, and relaunch recovery (a `.uploading` transfer
+whose OS-tracked task survived is left alone; one that did not is resumed through the real status-check
+path; a `.verifying` transfer re-confirms completion, idempotently). `media_transfer` — scaffolded in
+`P5-IOS-01` with no real caller (see `CoreSynchronization.SyncEngineStatus`'s doc comment above) — gained
+the columns this coordinator needs via an additive migration, and `CoreDomain.MediaTransfer`'s own `id`
+doc comment is corrected: it is this row's LOCAL identity, never the same value as the server-assigned
+`mediaId` (`RegisterMediaUploadRequest` has no client-suppliable id field at all — the prior doc comment
+was simply wrong, not yet exercised by any real caller). Two concrete attachment points now have real
+upload capability: `FeaturePlants.PlantDetailView` ("Attach Photo", calling the previously-gateway-only-
+tested `AttachPlantPhoto` once the upload reaches `available`) and `FeatureObservations
+.ObservationsTimelineView`'s record-observation form (`RecordObservation`/`CorrectObservation` now
+accept real `photoMediaIds`, submit disabled while a picked photo is still mid-upload). Both use a
+shared `PhotoAttachmentController`/`PhotoAttachmentStatusLocalization` (English/Russian) rather than
+duplicating the same progress/retry/status UI glue twice. `AddPlantFromPhoto`/`SetPrimaryPlantPhoto`/
+`ConfirmPlantIdentification`/`AttachTaskFile` remain UI-unreached on iOS, the same "implemented and
+tested at the gateway layer, no real caller" gap this section already describes for their web
+counterparts — genuinely separate follow-ups, not attempted here.
+
+Known, deliberately scoped gaps this stage leaves open: (1) photo ACQUISITION is library selection
+(`PhotosPicker`) only — no live camera capture UI; architecture/ios-application-design.md section
+"12. Capture Architecture" describes a separate `Core/PlatformCapabilities`+`Features/GardenCapture`
+investment this work package's own title (registration/upload/verify COORDINATION) does not require
+building. (2) The single, app-lifetime `MediaUploadCoordinator` resolves its local database from
+whichever profile is current at `AppCompositionRoot` construction, not re-resolved on a later
+sign-in/sign-out within the same process — every `local*Store()` factory re-reads the current profile
+per call specifically to stay correct across a switch, which this coordinator cannot do without either
+tearing down its one background session (losing an OS-tracked in-flight transfer) or giving
+`MediaTransfer` its own profile column and a runtime rebind path; narrow in practice (a single
+signed-in profile per device, already restored by the time any screen reachable behind
+`sessionObserver.isSignedIn` could invoke it) but a real, undismissed edge case, not silently ignored.
+(3) An offline-recorded observation cannot reference a still-uploading photo's media id — architecture/
+offline-synchronization.md section "18. Media Coordination"'s `mediaPending`/dependency-blocked concept
+is not implemented; the UI itself blocks submission until the photo resolves `ready` instead, an honest
+narrower behavior, not a silent drop. (4) A `.retained` transfer whose `processingState` was still
+`processing` when the app last quit does not resume its bounded poll automatically on relaunch — only
+`PhotoAttachmentController.refreshStatus()`'s manual re-check reaches it. (5) Real background-transfer
+behavior (the app actually suspended or killed mid-upload, the OS relaunching it to deliver a finished
+transfer) could only be reasoned about, not executed, in this environment — see this stage's own report.
+
 **Photo-identification and photo-analysis ML services.** `plants-inventory`'s `identifyPlantFromPhoto`
 and `observations-history`'s `analyzeObservationPhoto` are honest, clearly-labeled placeholders —
 always "no suggestion, zero confidence" — not disguised guesses. `AddPlantFromPhoto` and
@@ -285,11 +338,16 @@ from this line of work:
   durable open-conflict list directly instead (a different, more robust signal for "does this garden need
   attention" than a live engine instance's own last-cycle outcome; see that feature's own reasoning).
   `Upload pending` (media transfer) also stays unmodeled — this is specifically about
-  `CoreSynchronization.SyncEngineStatus`, an iOS-only concept; iOS itself still has no media-upload
-  flow of its own to report status for (`P6-IOS-01`, separate work). The web client now has a real
-  one (`P6-WEB-01`, `apps/web/features/media`), with no equivalent "requires attention" style status
-  surface of its own to reconcile against — its upload state is shown directly by the widget driving
-  the upload, not through a separate engine-wide status concept.
+  `CoreSynchronization.SyncEngineStatus`, an iOS-only concept, which `P6-IOS-01` deliberately left
+  untouched: iOS now has a real media-upload flow of its own
+  (`CoreMediaTransfer.MediaUploadCoordinator`), but its per-attachment status
+  (`PhotoAttachmentStatus`) is a separate, purpose-built vocabulary surfaced directly by the screen
+  driving one photo's upload (`PlantDetailView`/`ObservationsTimelineView`), the same "shown by the
+  widget driving the upload, not through a separate engine-wide status concept" shape `P6-WEB-01`
+  already chose for the identical reason — reconciling it into `SyncEngineStatus`'s own engine-wide
+  view remains exactly the unbuilt reconciliation the bullet above already names for every other
+  feature's session-scoped status label. The web client has an equivalent real flow
+  (`P6-WEB-01`, `apps/web/features/media`).
 - Connectivity-change (`NWPathMonitor`) and background-processing-opportunity (`BGTaskScheduler`) sync
   triggers remain unbuilt; only app-foreground (`scenePhase`) and explicit calls trigger a push/pull cycle
   today.

@@ -1,5 +1,7 @@
 import CoreAuthentication
+import CoreDomain
 import CoreLocalization
+import CoreMediaTransfer
 import CoreNetworking
 import CoreObservability
 import CorePersistence
@@ -34,9 +36,57 @@ public final class AppCompositionRoot {
     private let observationGateway: any ObservationGateway
     private let taskGateway: any TaskGateway
     private let syncGateway: any SyncGateway
+    private let mediaGateway: any MediaGateway
     private let authenticationGateway: any AuthenticationGateway
     private let clientInstallationStore: any ClientInstallationIdentityStore
     private let log: any DiagnosticLog
+
+    /// The real background-capable upload transport (P6-IOS-01) —
+    /// constructed eagerly, here in `init`, not lazily on first screen
+    /// visit: architecture/ios-application-design.md, section
+    /// "13. Media Transfer" requires surviving app suspension AND
+    /// termination, and a background `URLSession` must exist as early in
+    /// the launch sequence as possible to reliably reconnect to whatever
+    /// the OS kept alive — `VerderyApp`'s own `AppDelegate` hands this
+    /// instance's `handleBackgroundURLSessionEvents` the completion handler
+    /// the OS gives `application(_:handleEventsForBackgroundURLSession:
+    /// completionHandler:)`, which can fire immediately after launch if the
+    /// OS relaunched the app specifically to deliver a finished transfer.
+    private let mediaUploadTransport: URLSessionBackgroundUploadTransport
+    /// The single, app-lifetime `MediaUploadCoordinator` instance — NOT a
+    /// per-call factory like every `local*Store()`/`makeSyncEngine()` method
+    /// below, for two combined reasons neither of which allows it here: (1)
+    /// `mediaUploadTransport`'s one background `URLSession` may only have
+    /// one delegate/one live event stream — a second coordinator instance
+    /// subscribing to the same `AsyncStream` would race the first for
+    /// events, not receive its own copy (`AsyncStream` has single-consumer
+    /// semantics); (2) unlike a request-scoped store, this coordinator owns
+    /// a genuinely long-lived subscription task, so "opened fresh per call"
+    /// would leak one abandoned subscription per screen visit.
+    ///
+    /// Known, deliberate limitation, not an oversight: `transferStore`
+    /// below is resolved from `currentProfileIdentifier()` ONCE, at this
+    /// `init`, not re-resolved on a later sign-in/sign-out within the same
+    /// process — every other `local*Store()` method re-reads
+    /// `currentProfileIdentifier()` per call specifically to stay correct
+    /// across a profile switch, which this type cannot do without either
+    /// tearing down and rebuilding the background session (losing any
+    /// in-flight OS-tracked transfer) or giving `MediaTransfer` rows their
+    /// own profile column and a runtime rebind path — both real, scoped
+    /// follow-ups, not attempted here. In practice this reads correctly for
+    /// the overwhelmingly common case (a single signed-in profile per
+    /// device, already signed in at cold launch): `AuthenticationSessionObserver`
+    /// restores a persisted Firebase session synchronously at construction
+    /// when one exists (see that type's own doc comment) — see this stage's
+    /// own report for the account-switch edge case this leaves open.
+    private let mediaUploadCoordinator: MediaUploadCoordinator
+
+    /// Fixed, stable identifier for the one background upload session this
+    /// process ever creates — must never change between app versions (the
+    /// OS correlates a relaunch's `handleEventsForBackgroundURLSession`
+    /// callback to the session that started the transfer by this string
+    /// alone).
+    public static let mediaBackgroundSessionIdentifier = "com.verdery.app.media-upload"
 
     public init(
         configuration: APIConfiguration,
@@ -108,6 +158,16 @@ public final class AppCompositionRoot {
             appCheckTokenProvider: appCheckTokenProvider,
             log: log
         )
+        // Same scope as every Phase 4/5 gateway above. Never used to
+        // transfer the media bytes themselves — only registration/
+        // completion/status/access, per `MediaGateway`'s own doc comment.
+        self.mediaGateway = URLSessionMediaGateway(
+            configuration: configuration,
+            session: session,
+            authTokenProvider: tokenProvider,
+            appCheckTokenProvider: appCheckTokenProvider,
+            log: log
+        )
         self.authenticationGateway = FirebaseAuthenticationGateway()
         self.sessionObserver = AuthenticationSessionObserver()
 
@@ -122,6 +182,32 @@ public final class AppCompositionRoot {
             log.record(.error, "Could not open the client installation id file; falling back to an in-memory store.")
             self.clientInstallationStore = InMemoryClientInstallationIdentityStore()
         }
+
+        // Eager, app-lifetime construction — see `mediaUploadTransport`'s
+        // and `mediaUploadCoordinator`'s own doc comments above for why.
+        // `currentProfileIdentifier()` is safe to call here: `sessionObserver`
+        // (the only property it reads) is already assigned above.
+        self.mediaUploadTransport = URLSessionBackgroundUploadTransport(
+            sessionIdentifier: Self.mediaBackgroundSessionIdentifier
+        )
+
+        let mediaTransferStore: any MediaTransferStore
+        do {
+            let dbQueue = try LocalDatabase.open(profileIdentifier: sessionObserver.currentFirebaseUid ?? "signed-out")
+            mediaTransferStore = GRDBMediaTransferStore(dbQueue: dbQueue)
+        } catch {
+            log.record(.error, "Could not open the local media transfer database; falling back to an in-memory store.")
+            mediaTransferStore = InMemoryMediaTransferStore()
+        }
+        self.mediaUploadCoordinator = MediaUploadCoordinator(
+            fileStore: FileManagerLocalMediaFileStore(),
+            transferStore: mediaTransferStore,
+            gateway: mediaGateway,
+            uploadTransport: mediaUploadTransport,
+            log: log
+        )
+        let coordinatorToStart = mediaUploadCoordinator
+        Task { await coordinatorToStart.start() }
     }
 
     public func makeServiceHealthViewModel() -> ServiceHealthViewModel {
@@ -198,7 +284,12 @@ public final class AppCompositionRoot {
             setPlantStatus: SetPlantStatus(localStore: store, profileId: profileId),
             movePlant: MovePlant(localStore: store, profileId: profileId),
             searchTaxonomyReferences: SearchTaxonomyReferences(gateway: plantGateway),
-            strings: strings
+            strings: strings,
+            // P6-IOS-01: real background-capable upload capability for the
+            // "Attach Photo" affordance — see `makePhotoAttachmentController`'s
+            // own doc comment.
+            photoAttachment: makePhotoAttachmentController(gardenId: gardenId, mediaClass: .gardenPhoto),
+            attachPlantPhoto: AttachPlantPhoto(gateway: plantGateway)
         )
     }
 
@@ -212,8 +303,46 @@ public final class AppCompositionRoot {
             listObservationsForGarden: ListObservationsForGarden(gateway: observationGateway, localStore: store),
             listObservationsForPlant: ListObservationsForPlant(gateway: observationGateway),
             correctObservation: CorrectObservation(localStore: store, profileId: profileId),
-            strings: strings
+            strings: strings,
+            // P6-IOS-01: real background-capable upload capability for the
+            // record-observation form's photo attachment — see
+            // `makePhotoAttachmentController`'s own doc comment.
+            photoAttachment: makePhotoAttachmentController(gardenId: gardenId, mediaClass: .gardenPhoto)
         )
+    }
+
+    /// One fresh `PhotoAttachmentController` per screen (unlike
+    /// `mediaUploadCoordinator` itself, this IS cheap and safe to construct
+    /// per call — it holds no background session, only a subscription to
+    /// the one shared coordinator's per-transfer update stream, torn down
+    /// naturally once the screen's own view model is released) — wired to
+    /// the single shared `mediaUploadCoordinator`, so every attachment
+    /// still funnels through the one real background upload session
+    /// regardless of which screen started it.
+    private func makePhotoAttachmentController(gardenId: String, mediaClass: MediaClass) -> PhotoAttachmentController {
+        PhotoAttachmentController(
+            coordinator: mediaUploadCoordinator,
+            gardenId: gardenId,
+            profileId: currentProfileIdentifier(),
+            mediaClass: mediaClass
+        )
+    }
+
+    /// Forwards the app delegate's own `application(_:
+    /// handleEventsForBackgroundURLSession:completionHandler:)` to
+    /// `mediaUploadTransport` — see `VerderyApp`'s own `AppDelegate` for the
+    /// UIKit-side half of this handoff. A session identifier that does not
+    /// match this process's own single background session (should not
+    /// happen in practice — this app creates exactly one — but a defensive
+    /// check costs nothing) calls the handler immediately rather than
+    /// hanging it.
+    public func handleBackgroundURLSessionEvents(identifier: String, completionHandler: @escaping @Sendable () -> Void) {
+        guard identifier == Self.mediaBackgroundSessionIdentifier else {
+            completionHandler()
+            return
+        }
+
+        Task { await mediaUploadTransport.handleBackgroundSessionEvents(completionHandler: completionHandler) }
     }
 
     public func makeTasksListViewModel(gardenId: String) -> TasksListViewModel {

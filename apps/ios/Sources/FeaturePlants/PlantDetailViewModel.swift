@@ -1,5 +1,6 @@
 import CoreDomain
 import CoreLocalization
+import CoreMediaTransfer
 import CoreNetworking
 import Foundation
 import Observation
@@ -74,6 +75,25 @@ public final class PlantDetailViewModel {
     public let gardenId: String
     public let plantId: String
 
+    /// The "Attach Photo" affordance's own upload progress/status —
+    /// `nil` only for a `PlantDetailViewModel` built with no media-upload
+    /// capability wired in (every existing test double, and every
+    /// `PlantDetailViewModel` this codebase constructs anywhere else keeps
+    /// working unchanged; `AppCompositionRoot.makePlantDetailViewModel`
+    /// supplies a real one). `PlantDetailView` reads this directly — it is
+    /// itself `@Observable`, so a nested read is tracked the same way a
+    /// top-level property read is.
+    public let photoAttachment: PhotoAttachmentController?
+    private let attachPlantPhoto: AttachPlantPhoto?
+    /// Set once `attachPlantPhoto` succeeds this screen session — an
+    /// ephemeral confirmation, not a durable "this plant's photos" list:
+    /// `Plant` (this client's own domain type) carries no `photos` field at
+    /// all, and no `GET` endpoint to list a plant's attached photos is
+    /// modeled anywhere in this codebase yet (a real, separate gap, not a
+    /// hidden one — see this stage's own report).
+    public private(set) var photoAttachedConfirmation: Bool = false
+    public private(set) var photoAttachErrorMessage: String?
+
     private let getPlant: GetPlant
     private let updatePlantDetails: UpdatePlantDetails
     private let transitionPlantLifecycleStage: TransitionPlantLifecycleStage
@@ -101,7 +121,9 @@ public final class PlantDetailViewModel {
         setPlantStatus: SetPlantStatus,
         movePlant: MovePlant,
         searchTaxonomyReferences: SearchTaxonomyReferences,
-        strings: LocalizedStrings
+        strings: LocalizedStrings,
+        photoAttachment: PhotoAttachmentController? = nil,
+        attachPlantPhoto: AttachPlantPhoto? = nil
     ) {
         self.gardenId = gardenId
         self.plantId = plantId
@@ -112,6 +134,22 @@ public final class PlantDetailViewModel {
         self.movePlant = movePlant
         self.searchTaxonomyReferences = searchTaxonomyReferences
         self.strings = strings
+        self.photoAttachment = photoAttachment
+        self.attachPlantPhoto = attachPlantPhoto
+    }
+
+    public var photoSectionTitle: String { strings(.mediaAttachSectionTitle) }
+    public var photoPickButtonTitle: String { strings(.mediaAttachPickButton) }
+    public var photoRetryButtonTitle: String { strings(.mediaAttachRetryButton) }
+    public var photoRemoveButtonTitle: String { strings(.mediaAttachRemoveButton) }
+
+    /// Localized text for the current photo-attachment status — a thin
+    /// wrapper over `CoreMediaTransfer.PhotoAttachmentStatusLocalization` so
+    /// `PlantDetailView` never needs its own `LocalizedStrings` instance
+    /// (view models are this codebase's only holder of one, matching every
+    /// other screen).
+    public var photoStatusText: String {
+        PhotoAttachmentStatusLocalization.text(for: photoAttachment?.status ?? .idle, strings: strings)
     }
 
     public var title: String { strings(.plantsDetailTitle) }
@@ -328,6 +366,49 @@ public final class PlantDetailViewModel {
     /// not a hard delete — there is no `DELETE` endpoint for a plant.
     public func delete() async {
         await setStatus(.removed)
+    }
+
+    /// Starts a brand-new photo attachment: durably persists `data` and
+    /// kicks off background registration/upload — see
+    /// `CoreMediaTransfer.MediaUploadCoordinator.enqueue`'s own doc comment
+    /// for the local-durability guarantee this inherits. `attachPickedPhoto`
+    /// below is the caller's own responsibility to invoke once
+    /// `photoAttachment.mediaId` becomes non-`nil` — `PlantDetailView`
+    /// itself does that via `.onChange(of:)`, keeping the "when is the
+    /// upload actually done" observation in the view (which already reads
+    /// `photoAttachment.status` for progress) rather than duplicated here.
+    public func pickPhoto(data: Data, contentType: String) async {
+        guard let photoAttachment else { return }
+        photoAttachedConfirmation = false
+        photoAttachErrorMessage = nil
+        await photoAttachment.attach(data: data, displayFilename: "plant-\(plantId)-photo", contentType: contentType)
+    }
+
+    /// The last step of the pick → upload → verify → attach sequence:
+    /// `AttachPlantPhoto` against the server-confirmed `mediaId`
+    /// `photoAttachment.status` resolved to `.ready`.
+    public func attachPickedPhoto(mediaId: String) async {
+        guard let attachPlantPhoto else { return }
+
+        do {
+            _ = try await attachPlantPhoto(gardenId: gardenId, plantId: plantId, mediaId: mediaId)
+            photoAttachedConfirmation = true
+            photoAttachErrorMessage = nil
+        } catch let error as APIGatewayError {
+            photoAttachErrorMessage = message(for: error)
+        } catch {
+            photoAttachErrorMessage = strings(.serverUnexpected)
+        }
+    }
+
+    public func retryPhotoUpload() async {
+        await photoAttachment?.retry()
+    }
+
+    public func discardPickedPhoto() async {
+        photoAttachedConfirmation = false
+        photoAttachErrorMessage = nil
+        await photoAttachment?.discard()
     }
 
     public func submitMove() async {

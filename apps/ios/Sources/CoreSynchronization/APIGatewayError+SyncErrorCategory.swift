@@ -15,8 +15,15 @@ import CoreNetworking
 /// error type stays unaware of a classification vocabulary the rest of the
 /// networking layer (health checks, garden/plant/task/observation/map
 /// gateways) has no use for.
+///
+/// `public`, not `internal`, as of P6-IOS-01: `CoreMediaTransfer
+/// .MediaUploadCoordinator` classifies the same `APIGatewayError` its own
+/// `MediaGateway` calls (`registerMediaUpload`/`completeMediaUpload`/
+/// `getMediaStatus`) can throw, through this exact mapping — see
+/// `SyncErrorCategory+AutomaticRetryEligibility.swift`'s identical
+/// visibility-widening rationale.
 extension APIGatewayError {
-    var syncErrorCategory: SyncErrorCategory {
+    public var syncErrorCategory: SyncErrorCategory {
         switch self {
         case .transport:
             .connectivity

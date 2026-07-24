@@ -26,7 +26,19 @@ struct MediaTransferStoreTests {
             byteCount: 4096,
             state: state,
             createdAt: Date(timeIntervalSince1970: 0),
-            updatedAt: Date(timeIntervalSince1970: 0)
+            updatedAt: Date(timeIntervalSince1970: 0),
+            mediaClass: .gardenPhoto,
+            displayFilename: "\(id).jpg",
+            declaredContentType: "image/jpeg",
+            declaredByteSize: 4096,
+            mediaId: "server-\(id)",
+            uploadUrl: "https://storage.googleapis.com/upload/\(id)",
+            uploadUrlExpiresAt: Date(timeIntervalSince1970: 3600),
+            mediaRevision: 1,
+            bytesSent: 2048,
+            serverUploadState: "authorized",
+            serverProcessingState: nil,
+            failureReason: nil
         )
     }
 

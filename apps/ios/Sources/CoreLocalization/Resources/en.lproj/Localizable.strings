@@ -327,6 +327,7 @@
 "observations.observedAtLabel" = "Observed at";
 "observations.record.submit" = "Record observation";
 "observations.record.requiresContent" = "Enter a note or a condition summary.";
+"observations.record.photoNotReady" = "Wait for the photo to finish uploading, or remove it.";
 "observations.correctedBadge" = "Corrected";
 "observations.status.savedLocally" = "Saved locally, waiting to sync";
 "observations.correctAction" = "Amend or supersede…";
@@ -402,3 +403,15 @@
 "syncConflicts.action.reapply" = "Reapply my change";
 "syncConflicts.action.duplicate" = "Duplicate as new object";
 "syncConflicts.action.review" = "Compare versions";
+"media.attach.sectionTitle" = "Photo";
+"media.attach.pickButton" = "Add Photo";
+"media.attach.retryButton" = "Retry";
+"media.attach.removeButton" = "Remove";
+"media.status.preparing" = "Preparing…";
+"media.status.waitingForConnectivity" = "Waiting for connection…";
+"media.status.uploadingPercent" = "Uploading… {percent}%";
+"media.status.verifying" = "Verifying…";
+"media.status.processing" = "Processing…";
+"media.status.ready" = "Photo attached";
+"media.status.rejected" = "Photo rejected";
+"media.status.failed" = "Upload failed";

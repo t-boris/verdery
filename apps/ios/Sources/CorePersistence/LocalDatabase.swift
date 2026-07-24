@@ -56,12 +56,18 @@ public enum LocalDatabase {
         return dbQueue
     }
 
-    /// `internal`, not `private`: `ClientInstallationIdentityStore` also
-    /// needs the application-support root — the client installation id file
-    /// lives at `device/client-installation-id` under it, a sibling of
-    /// `profiles/`, not inside any one profile's directory. See that type's
-    /// own doc comment for why the id is device-scoped, not per-profile.
-    static func applicationSupportDirectory() throws -> URL {
+    /// `public`, not just `internal`, as of P6-IOS-01: `CoreMediaTransfer
+    /// .FileManagerLocalMediaFileStore` needs the same application-support
+    /// root to place durable media files at `profiles/<profileId>/media/`, a
+    /// sibling of `profiles/<profileId>/gardens.sqlite` — reusing this
+    /// resolution rather than a second module independently re-deriving
+    /// `FileManager.url(for: .applicationSupportDirectory, ...)` keeps both
+    /// the database file and every profile's media files rooted at the same
+    /// place. `ClientInstallationIdentityStore` already relies on the same
+    /// widening precedent within this module — the id file lives at
+    /// `device/client-installation-id` under it, a sibling of `profiles/`,
+    /// not inside any one profile's directory.
+    public static func applicationSupportDirectory() throws -> URL {
         try FileManager.default.url(
             for: .applicationSupportDirectory,
             in: .userDomainMask,

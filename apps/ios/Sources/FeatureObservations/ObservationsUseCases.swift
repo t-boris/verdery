@@ -27,12 +27,25 @@ import Foundation
 /// `expectedRevision` either, matching the domain reality that an
 /// observation is never updated in place.
 ///
-/// `photoMediaIds` is always `[]` from every use case here: attaching a
-/// photo needs a `mediaId`, and this codebase has no file-upload flow yet to
-/// produce one (`media.media_record` only records that a reference exists).
-/// `RecordObservation`/`CorrectObservation` still work fully without a photo
-/// — the contract only requires *one* of `noteText`, `conditionSummary`, or a
-/// photo — so this is an honest reduction in scope, not a broken command.
+/// `photoMediaIds` accepts real, already-uploaded media ids as of P6-IOS-01:
+/// `CoreMediaTransfer.MediaUploadCoordinator` is the file-upload flow this
+/// doc comment previously said did not exist yet. Still defaults to `[]` —
+/// `RecordObservation`/`CorrectObservation` work fully without a photo, the
+/// contract only requiring *one* of `noteText`, `conditionSummary`, or a
+/// photo — so recording a note-only observation is unaffected. A caller
+/// (`ObservationsTimelineViewModel.submitRecordObservation`) only ever
+/// passes a non-empty array once `PhotoAttachmentController.status` has
+/// resolved to `.ready`, i.e. once the media is durably `available`
+/// server-side — never a locally-pending, unconfirmed upload's id: this
+/// command routes through the offline outbox exactly like every field
+/// above, and the outbox has no dependency-blocking mechanism for "wait
+/// until this media id is confirmed" the way architecture/offline-
+/// synchronization.md, section "18. Media Coordination"'s own `mediaPending`
+/// concept describes — a real, documented gap this stage's own report
+/// covers, not silently papered over. Practically: submitting the
+/// observation while offline with a photo still uploading is blocked by the
+/// UI itself (the submit action stays disabled until the photo is ready),
+/// not by this command.
 ///
 /// Source: implementation-plan.md work package P4-IOS-01, P5-IOS-02;
 /// packages/api-contracts/openapi.yaml, tag `Observations`, `Synchronization`.
@@ -63,7 +76,8 @@ public struct RecordObservation: Sendable {
         gardenObjectId: String? = nil,
         noteText: String? = nil,
         conditionSummary: String? = nil,
-        observedAt: Date? = nil
+        observedAt: Date? = nil,
+        photoMediaIds: [String] = []
     ) async throws -> GardenObservation {
         let (normalizedNote, normalizedCondition) = try validatedContent(noteText: noteText, conditionSummary: conditionSummary)
         let observationId = generateObservationId()
@@ -84,6 +98,16 @@ public struct RecordObservation: Sendable {
             isCorrected: false,
             observedAt: observedAt ?? timestamp,
             recordedAt: timestamp,
+            // The local optimistic projection stays `photos: []` even when
+            // `photoMediaIds` is non-empty: a full `ObservationPhoto` needs a
+            // server-assigned photo-record id this device does not have
+            // until the next successful sync pulls it back — the same
+            // "unconfirmed until the server round-trips it" gap
+            // `unconfirmedPlantRevision`'s own doc comment names for a
+            // different field. The photo itself is not lost — its
+            // `mediaId` is already durably `available` server-side by the
+            // time this command is even built (see this file's own doc
+            // comment) — only its LOCAL, pre-sync display is deferred.
             photos: []
         )
         let operation = OutboxOperation(
@@ -104,7 +128,7 @@ public struct RecordObservation: Sendable {
                         noteText: normalizedNote,
                         conditionSummary: normalizedCondition,
                         observedAt: observedAt.map(ObservationTimestampFormatting.string(from:)),
-                        photoMediaIds: []
+                        photoMediaIds: photoMediaIds
                     )
                 )
             ),
@@ -202,7 +226,8 @@ public struct CorrectObservation: Sendable {
         correctedGardenObjectId: String? = nil,
         correctionKind: ObservationCorrectionKind,
         noteText: String? = nil,
-        conditionSummary: String? = nil
+        conditionSummary: String? = nil,
+        photoMediaIds: [String] = []
     ) async throws -> GardenObservation {
         let (normalizedNote, normalizedCondition) = try validatedContent(noteText: noteText, conditionSummary: conditionSummary)
         let observationId = generateObservationId()
@@ -253,7 +278,7 @@ public struct CorrectObservation: Sendable {
                         correctionKind: correctionKind,
                         noteText: normalizedNote,
                         conditionSummary: normalizedCondition,
-                        photoMediaIds: []
+                        photoMediaIds: photoMediaIds
                     )
                 )
             ),

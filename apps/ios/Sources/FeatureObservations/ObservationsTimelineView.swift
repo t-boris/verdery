@@ -1,21 +1,25 @@
 import CoreDomain
+import CoreMediaTransfer
+import PhotosUI
 import SwiftUI
 
 /// A garden's observation timeline: chronological history, an optional
-/// per-plant filter, a "record observation" form, and a correction
-/// ("amend"/"supersede") action per row.
+/// per-plant filter, a "record observation" form (including, as of
+/// P6-IOS-01, a photo attachment), and a correction ("amend"/"supersede")
+/// action per row.
 ///
 /// A row's `isCorrected` flag and any photo-analysis results are surfaced
 /// plainly — never as a confirmed diagnosis — and correcting a row never
 /// edits it: the original stays visible underneath the new correction row.
 ///
-/// Photo attachment is out of scope this pass: `RecordObservation`/
-/// `CorrectObservation` never populate `photoMediaIds` (see
-/// `ObservationsUseCases.swift`'s doc comment) because this codebase has no
-/// file-upload flow yet to produce a `mediaId` from. Recording a note and/or
-/// a condition summary works fully without a photo.
+/// Photo attachment is real, working upload capability as of P6-IOS-01 —
+/// see `ObservationsTimelineViewModel.photoAttachment`'s own doc comment.
+/// Recording a note and/or a condition summary still works fully without a
+/// photo; the submit action is disabled only while a picked photo is still
+/// mid-upload (`ObservationsTimelineViewModel.isPhotoBlockingSubmit`).
 public struct ObservationsTimelineView: View {
     @State private var model: ObservationsTimelineViewModel
+    @State private var pickedPhotoItem: PhotosPickerItem?
 
     public init(model: ObservationsTimelineViewModel) {
         _model = State(wrappedValue: model)
@@ -30,6 +34,10 @@ public struct ObservationsTimelineView: View {
         .navigationTitle(model.title)
         .task { await model.load() }
         .refreshable { await model.load() }
+        .onChange(of: pickedPhotoItem) { _, newItem in
+            guard let newItem else { return }
+            Task { await loadAndAttach(newItem) }
+        }
         .sheet(isPresented: isCorrectionSheetPresented) {
             ObservationCorrectionSheetView(
                 title: model.correctionSheetTitle,
@@ -92,6 +100,8 @@ public struct ObservationsTimelineView: View {
                     .accessibilityIdentifier("observations.record.observedAtPicker")
             }
 
+            photoPickerRow
+
             if let message = model.recordErrorMessage {
                 Text(message).foregroundStyle(.red)
                     .accessibilityIdentifier("observations.record.failure")
@@ -100,9 +110,47 @@ public struct ObservationsTimelineView: View {
             Button(model.recordSubmitTitle) {
                 Task { await model.submitRecordObservation() }
             }
-            .disabled(model.isSubmittingRecord)
+            .disabled(model.isSubmittingRecord || model.isPhotoBlockingSubmit)
             .accessibilityIdentifier("observations.record.submit")
         }
+    }
+
+    /// Absent entirely for a view model built with no `photoAttachment` —
+    /// see `FeaturePlants.PlantDetailView.photoSection`'s identical
+    /// reasoning.
+    @ViewBuilder
+    private var photoPickerRow: some View {
+        if let photoAttachment = model.photoAttachment {
+            PhotosPicker(model.photoPickButtonTitle, selection: $pickedPhotoItem, matching: .images)
+                .accessibilityIdentifier("observations.record.photo.pick")
+
+            if photoAttachment.status != .idle {
+                Text(model.photoStatusText)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("observations.record.photo.status")
+
+                if photoAttachment.status.isRetryable, case .failed = photoAttachment.status {
+                    Button(model.photoRetryButtonTitle) {
+                        Task { await model.retryRecordPhotoUpload() }
+                    }
+                    .accessibilityIdentifier("observations.record.photo.retry")
+                }
+
+                Button(model.photoRemoveButtonTitle, role: .destructive) {
+                    pickedPhotoItem = nil
+                    Task { await model.discardRecordPhoto() }
+                }
+                .accessibilityIdentifier("observations.record.photo.remove")
+            }
+        }
+    }
+
+    /// See `FeaturePlants.PlantDetailView.loadAndAttach`'s identical doc
+    /// comment.
+    private func loadAndAttach(_ item: PhotosPickerItem) async {
+        guard let data = try? await item.loadTransferable(type: Data.self) else { return }
+        let contentType = item.supportedContentTypes.first?.preferredMIMEType ?? "image/jpeg"
+        await model.pickRecordPhoto(data: data, contentType: contentType)
     }
 
     @ViewBuilder
