@@ -165,6 +165,36 @@ ${grant_statements}
 -- verdery-dev deploy.
 GRANT CREATE ON DATABASE "${VERDERY_SQL_DATABASE_NAME}" TO verdery_migration;
 
+-- \`CREATE ROLE\` requires the connecting role to hold \`CREATEROLE\` or be
+-- superuser — a least-privilege migration identity has neither, confirmed by
+-- a real failure deploying 1785200000000_media-processing-jobs.sql through
+-- the automated migration job against verdery-dev: \`ERROR: permission
+-- denied to create role\`, even with the statement correctly placed before
+-- that migration's own \`SET ROLE verdery_migration\` (the same fix that
+-- already worked for \`CREATE EXTENSION pg_trgm\` above does not generalize
+-- to \`CREATE ROLE\` — a stronger privilege \`GRANT CREATE ON DATABASE\` does
+-- not confer). \`verdery_migration\`/\`verdery_application\` themselves
+-- (1784710800000_platform-baseline.sql) only ever succeeded being created by
+-- a migration because that migration's very first real run used a more
+-- privileged connecting identity than the automated pipeline's ordinary IAM
+-- identity uses today — that migration's own comment two sections up
+-- ("A superuser has it implicitly; a least-privilege deployment identity
+-- does not") already says as much for the ALTER DEFAULT PRIVILEGES grant
+-- alongside it. \`verdery_worker\` (1785200000000_media-processing-jobs.sql,
+-- P6-ASYNC-01) is the first NEW role any migration has tried to create
+-- since that original bootstrap — pre-creating it here, once, with this
+-- script's own superuser session, is what lets that migration's identical
+-- \`IF NOT EXISTS\` guard skip its own \`CREATE ROLE\` attempt and proceed to
+-- its \`GRANT\`s, which verdery_migration's already-held schema-level
+-- privileges are sufficient for.
+DO \$\$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'verdery_worker') THEN
+    CREATE ROLE verdery_worker NOLOGIN;
+  END IF;
+END
+\$\$;
+
 -- node-pg-migrate creates its own tracking table the first time any
 -- migration runs, owned by whichever identity ran that first migration
 -- (this superuser, on a fresh environment). The migration file grants
