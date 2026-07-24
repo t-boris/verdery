@@ -5,6 +5,7 @@ import type {
   MovePlantRequest,
   Plant,
   PlantLifecycleStage,
+  PlantListResult,
   PlantStatus,
   TaxonomyReferenceListResult,
   UpdatePlantDetailsRequest,
@@ -19,6 +20,7 @@ import {
   generateIdempotencyKey,
   isFailure,
   type ApiResult,
+  type SearchPlantsParams,
 } from '@/core/api/public';
 
 /**
@@ -27,14 +29,18 @@ import {
  * Mirrors `features/gardens/queries.ts`: gateway wrapped in `useMemo`,
  * `unwrap` turns a typed `ApiResult` failure into `ApiFailureError`, and
  * every mutation folds its authoritative response back into the one plant
- * query it affects with `setQueryData` — there is no `GET
- * /gardens/{gardenId}/plants` list endpoint in the contract to invalidate
- * (see `plants-page.tsx`'s doc comment for how the UI copes with that gap).
+ * query it affects with `setQueryData`. `useSearchPlants` backs the garden
+ * inventory list (`plant-list.tsx`) against `SearchPlants`
+ * (`GET /gardens/{gardenId}/plants`, P4-SEARCH-01) — the endpoint this file
+ * used to have no client for; see `docs/development/deferred-capabilities.md`
+ * for the now-closed history of that gap.
  *
  * Source: architecture/web-application-design.md, section "8. API Access".
  */
 
 const plantQueryKey = (gardenId: string, plantId: string) => ['plants', gardenId, plantId] as const;
+const plantSearchQueryKey = (gardenId: string, params: SearchPlantsParams) =>
+  ['plants', gardenId, 'search', params] as const;
 const taxonomySearchQueryKey = (gardenId: string, query: string) =>
   ['taxonomy-references', gardenId, query] as const;
 
@@ -47,6 +53,22 @@ function unwrap<TData>(result: ApiResult<TData>): TData {
     throw new ApiFailureError(result);
   }
   return result.data;
+}
+
+/**
+ * Backs the garden inventory list (`plant-list.tsx`). `params` is included in
+ * the query key so a change to any filter — the free-text query, a structured
+ * filter, or the pagination cursor — is treated as a distinct cached page
+ * rather than silently reusing a stale one, the same convention
+ * `useTaxonomyReferenceSearch` below already follows for its own `query` key.
+ */
+export function useSearchPlants(gardenId: string, params: SearchPlantsParams) {
+  const gateway = usePlantGateway();
+
+  return useQuery<PlantListResult, ApiFailureError>({
+    queryKey: plantSearchQueryKey(gardenId, params),
+    queryFn: async ({ signal }) => unwrap(await gateway.search(gardenId, params, signal)),
+  });
 }
 
 export function usePlant(gardenId: string, plantId: string) {

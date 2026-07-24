@@ -24,7 +24,7 @@ export { generateIdempotencyKey } from './idempotency-key';
 export { createMapGateway, type MapGateway, type MapViewportBounds } from './map-gateway';
 export { fromWireCategoryDetails } from './map-wire-types';
 export { createObservationGateway, type ObservationGateway } from './observation-gateway';
-export { createPlantGateway, type PlantGateway } from './plant-gateway';
+export { createPlantGateway, type PlantGateway, type SearchPlantsParams } from './plant-gateway';
 export { createTaskGateway, type TaskGateway } from './task-gateway';
 export type {
   WireCategoryDetails,

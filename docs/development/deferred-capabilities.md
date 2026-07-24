@@ -170,12 +170,19 @@ always "no suggestion, zero confidence" — not disguised guesses. `AddPlantFrom
 auto-confirms from a photo, and an observation's `suggestedLabel` never claims automated analysis
 happened. Building a real service is out of scope for Phase 4 and has no owning work package yet.
 
-**`GET /gardens/{gardenId}/plants` exists but no client calls it.** `P4-SEARCH-01` closed the
-backend gap both clients' Phase 4 code had documented (no way to list a garden's plant inventory —
-each fell back to create-then-navigate or open-by-id). Neither `apps/web/features/plants/queries.ts`
-nor `apps/ios/Sources/FeaturePlants/PlantsHomeView.swift` was updated to call the new endpoint; both
-still cite the now-stale "no list operation" rationale in their own comments. A real, if contained,
-follow-up: build the list view against an endpoint that already exists and is already tested.
+**~~`GET /gardens/{gardenId}/plants` exists but no client calls it~~ — fixed for web, still open for
+iOS.** `P4-SEARCH-01` closed the backend gap both clients' Phase 4 code had documented (no way to
+list a garden's plant inventory — each fell back to create-then-navigate or open-by-id). The web
+client's half is now closed: `plant-gateway.ts` gained a `search` method against `SearchPlants`,
+`features/plants/queries.ts` gained `useSearchPlants`, and a new `plant-list.tsx` (free-text
+`displayName` search plus "Load more" cursor pagination, the same stale/loading/error-state
+conventions `garden-list.tsx`/`task-list.tsx` use) is wired into the plants page alongside the
+existing add/open-by-id forms — a user can now actually browse a garden's inventory, not only create
+or navigate to a known id. Structured filters (`lifecycleStage`/`status`/`groupingKind`) were left
+out of this pass as a deliberate, documented scope call — the endpoint accepts them, but no filter UI
+was built beyond the text search box. `apps/ios/Sources/FeaturePlants/PlantsHomeView.swift` still
+carries the now-stale "no list operation" comment and was explicitly out of scope for this (web-only)
+follow-up; the iOS half of this gap remains open.
 
 **Fixed (Phase 6).** `1784710800000_platform-baseline.sql`'s `CREATE EXTENSION postgis` needs real
 elevated privilege (not a Postgres "trusted" extension, unlike `pg_trgm`), which the automated deploy
@@ -229,10 +236,26 @@ loaded data with a full error screen instead of keeping it visible. `core/drafts
 `localStorage` envelopes, one version constant per draft type, mirroring the iOS client's own
 `commandVersion` convention) backs recoverable drafts for the three primary create forms
 (`AddPlantForm`/`RecordObservationForm`/`CreateManualTaskForm`) and the map editor's in-progress
-`draftPoints`/`pendingGateGeometry`. See `tasks/todo.md`'s `P5-WEB-01` entry for the full account, including
-what stayed deliberately out of scope (every remaining mutation surface — task actions, plant lifecycle/move,
-`garden-settings.tsx` — keeps the same offline behavior it had before this stage, a real, documented,
-narrow follow-up rather than a silently missed gap).
+`draftPoints`/`pendingGateGeometry`. See `tasks/todo.md`'s `P5-WEB-01` entry for the full account,
+including what stayed deliberately out of scope at the time (every remaining mutation surface — task
+actions, plant lifecycle/move, `garden-settings.tsx` — kept the same offline behavior it had before
+this stage, a real, documented, narrow follow-up rather than a silently missed gap).
+
+**That narrow follow-up is now closed.** `garden-settings.tsx` was fixed identically to
+`garden-list.tsx`'s own `isLoadingError`/`isRefetchError` distinction (a failed first load replaces
+the view with a full failure state; a failed background refetch instead keeps the already-loaded
+garden visible with `StaleIndicator` layered on top), proven by a new `garden-settings.test.tsx`
+mirroring `garden-list.test.tsx`'s own three cases. `task-row.tsx`'s complete/skip/dismiss/delete
+actions and `features/plants/plant-lifecycle-controls.tsx`/`plant-move-form.tsx`'s save-stage/
+save-status/delete/move actions all gained the same `disabled={!isOnline}` gate
+`create-manual-task-form.tsx` already used, with no new local-draft persistence (each is a simple
+state-transition command, not free-text input) — the parent list/detail view in each case already
+renders a `StaleIndicator`, so no second one was added per row. `garden-settings.tsx`'s own
+rename/archive/request-deletion mutations, `create-garden-form.tsx`, `task-edit-form.tsx`,
+`task-reschedule-form.tsx`, and `plant-details-form.tsx` were found, during this pass, to have the
+identical missing-offline-gate shape but were not part of this documented follow-up's named scope and
+were deliberately left untouched — a real, adjacent, still-open gap, flagged here rather than fixed
+unilaterally.
 
 **The Phase 2 E2E suite does not run in CI.** `apps/web/e2e/` (Playwright against a real Postgres,
 the Firebase Auth emulator, the real API, and the real web app, orchestrated by

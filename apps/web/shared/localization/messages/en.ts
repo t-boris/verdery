@@ -317,7 +317,15 @@ export const englishMessages = {
   'map.saveStatus.failed': 'Not saved',
 
   'plants.pageTitle': 'Plants',
-  'plants.pageDescription': 'Add a plant to this garden, or open one you already know the id of.',
+  'plants.pageDescription':
+    "Browse this garden's plants, add a new one, or open one you already know the id of.",
+  'plants.inventoryTitle': 'Your plants',
+  'plants.searchLabel': 'Search by name',
+  'plants.listLoading': 'Loading plants.',
+  'plants.listLoadingMore': 'Loading more plants.',
+  'plants.listRetry': 'Try again',
+  'plants.listEmpty': 'No plants match your search yet.',
+  'plants.listLoadMore': 'Load more',
   'plants.openByIdTitle': 'Open a plant',
   'plants.openByIdLabel': 'Plant ID',
   'plants.openByIdSubmit': 'Open',

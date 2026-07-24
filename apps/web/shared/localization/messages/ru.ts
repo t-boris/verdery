@@ -316,7 +316,14 @@ export const russianMessages: MessageCatalogue = {
 
   'plants.pageTitle': 'Растения',
   'plants.pageDescription':
-    'Добавьте растение в этот сад или откройте растение, идентификатор которого уже известен.',
+    'Просмотрите растения этого сада, добавьте новое или откройте растение, идентификатор которого уже известен.',
+  'plants.inventoryTitle': 'Ваши растения',
+  'plants.searchLabel': 'Поиск по названию',
+  'plants.listLoading': 'Загрузка растений.',
+  'plants.listLoadingMore': 'Загрузка дополнительных растений.',
+  'plants.listRetry': 'Повторить',
+  'plants.listEmpty': 'По вашему запросу растения не найдены.',
+  'plants.listLoadMore': 'Загрузить ещё',
   'plants.openByIdTitle': 'Открыть растение',
   'plants.openByIdLabel': 'ID растения',
   'plants.openByIdSubmit': 'Открыть',

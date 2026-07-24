@@ -97,6 +97,46 @@ describe('createPlantGateway', () => {
     expect(result).toEqual(expect.objectContaining({ ok: true, data: PLANT }));
   });
 
+  it('searches plants with no parameters against the bare collection path', async () => {
+    const { gateway, recorded } = gatewayRecording(jsonResponse({ items: [PLANT] }, 200));
+
+    const result = await gateway.search(GARDEN_ID, {});
+
+    expect(recorded[0]?.url).toBe(`${ORIGIN}/v1/gardens/${GARDEN_ID}/plants`);
+    expect(recorded[0]?.init.method).toBe('GET');
+    expect(result).toEqual(expect.objectContaining({ ok: true, data: { items: [PLANT] } }));
+  });
+
+  it('encodes the free-text query, comma-joined structured filters, cursor, and limit', async () => {
+    const { gateway, recorded } = gatewayRecording(jsonResponse({ items: [] }, 200));
+
+    await gateway.search(GARDEN_ID, {
+      query: 'tomato',
+      lifecycleStage: ['seed', 'seedling'],
+      status: ['active'],
+      groupingKind: ['individual', 'row'],
+      cursor: 'opaque-cursor',
+      limit: 25,
+    });
+
+    const url = new URL(recorded[0]?.url ?? '');
+    expect(url.pathname).toBe(`/v1/gardens/${GARDEN_ID}/plants`);
+    expect(url.searchParams.get('query')).toBe('tomato');
+    expect(url.searchParams.get('lifecycleStage')).toBe('seed,seedling');
+    expect(url.searchParams.get('status')).toBe('active');
+    expect(url.searchParams.get('groupingKind')).toBe('individual,row');
+    expect(url.searchParams.get('cursor')).toBe('opaque-cursor');
+    expect(url.searchParams.get('limit')).toBe('25');
+  });
+
+  it('omits empty-array filters and a blank query rather than sending empty parameters', async () => {
+    const { gateway, recorded } = gatewayRecording(jsonResponse({ items: [] }, 200));
+
+    await gateway.search(GARDEN_ID, { query: '', lifecycleStage: [], status: null });
+
+    expect(recorded[0]?.url).toBe(`${ORIGIN}/v1/gardens/${GARDEN_ID}/plants`);
+  });
+
   it('sends the quoted revision as If-Match and the idempotency key on updateDetails', async () => {
     const { gateway, recorded } = gatewayRecording(jsonResponse(PLANT, 200));
 

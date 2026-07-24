@@ -3,6 +3,7 @@
 import type { Task } from '@verdery/api-contracts';
 import { useState } from 'react';
 
+import { useIsOnline } from '@/core/connectivity/public';
 import { useLocalization } from '@/shared/localization/public';
 import { Button, FailureAlert, StatusPill, TextField } from '@/shared/ui/public';
 
@@ -35,6 +36,16 @@ type OpenPanel = 'none' | 'edit' | 'reschedule';
  * transition rather than a real `DELETE`, but is labeled "Delete"
  * regardless — see `core/api/task-gateway.ts`'s module doc comment.
  *
+ * `Complete`/`Dismiss`/`Skip`/`Delete` are additionally disabled while the
+ * browser is offline (P5-WEB-01 follow-up), the same `disabled={!isOnline}`
+ * pattern `create-manual-task-form.tsx` uses: each is a simple
+ * state-transition command, not free-text input a user could lose, so a
+ * disabled button is sufficient without local-draft persistence — see
+ * `map-editor-commit.ts`'s own offline gate for pure state-transition
+ * commands for the identical reasoning. The parent `TaskList` already
+ * renders a `StaleIndicator` above every row, so no second one is needed
+ * here.
+ *
  * Source: packages/api-contracts/openapi.yaml, tag `Tasks`.
  */
 export function TaskRow({ gardenId, task }: TaskRowProps) {
@@ -42,6 +53,7 @@ export function TaskRow({ gardenId, task }: TaskRowProps) {
   const [openPanel, setOpenPanel] = useState<OpenPanel>('none');
   const [completionNote, setCompletionNote] = useState('');
   const [dismissReason, setDismissReason] = useState('');
+  const isOnline = useIsOnline();
 
   const completeMutation = useCompleteTask(gardenId, task.id);
   const dismissMutation = useDismissTask(gardenId, task.id);
@@ -106,10 +118,20 @@ export function TaskRow({ gardenId, task }: TaskRowProps) {
           >
             {t('tasks.reschedule')}
           </Button>
-          <Button variant="secondary" busy={skipMutation.isPending} onClick={onSkip}>
+          <Button
+            variant="secondary"
+            busy={skipMutation.isPending}
+            disabled={!isOnline}
+            onClick={onSkip}
+          >
             {t('tasks.skip')}
           </Button>
-          <Button variant="secondary" busy={deleteMutation.isPending} onClick={onDelete}>
+          <Button
+            variant="secondary"
+            busy={deleteMutation.isPending}
+            disabled={!isOnline}
+            onClick={onDelete}
+          >
             {t('tasks.delete')}
           </Button>
         </div>
@@ -129,7 +151,12 @@ export function TaskRow({ gardenId, task }: TaskRowProps) {
             value={completionNote}
             onChange={(event) => setCompletionNote(event.target.value)}
           />
-          <Button variant="primary" busy={completeMutation.isPending} onClick={onComplete}>
+          <Button
+            variant="primary"
+            busy={completeMutation.isPending}
+            disabled={!isOnline}
+            onClick={onComplete}
+          >
             {t('tasks.complete')}
           </Button>
         </div>
@@ -141,7 +168,12 @@ export function TaskRow({ gardenId, task }: TaskRowProps) {
             value={dismissReason}
             onChange={(event) => setDismissReason(event.target.value)}
           />
-          <Button variant="secondary" busy={dismissMutation.isPending} onClick={onDismiss}>
+          <Button
+            variant="secondary"
+            busy={dismissMutation.isPending}
+            disabled={!isOnline}
+            onClick={onDismiss}
+          >
             {t('tasks.dismiss')}
           </Button>
         </div>

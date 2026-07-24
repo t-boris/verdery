@@ -3,6 +3,7 @@
 import type { MovePlantRequest, Plant } from '@verdery/api-contracts';
 import { useEffect, useState, type FormEvent } from 'react';
 
+import { useIsOnline } from '@/core/connectivity/public';
 import { useLocalization } from '@/shared/localization/public';
 import { Button, FailureAlert, TextField } from '@/shared/ui/public';
 
@@ -23,11 +24,21 @@ export interface PlantMoveFormProps {
  * explicit `null` — there is no "clear the placement" affordance in this
  * command.
  *
+ * Submission is additionally disabled while the browser is offline
+ * (P5-WEB-01 follow-up), the same `disabled={!isOnline}` pattern
+ * `create-manual-task-form.tsx` uses: this is a simple state-transition
+ * command over two id fields, not free-text input a user could lose, so a
+ * disabled button is sufficient without local-draft persistence — see
+ * `map-editor-commit.ts`'s own offline gate for pure state-transition
+ * commands for the identical reasoning. The parent `PlantDetail` already
+ * renders a `StaleIndicator`, so no second one is needed here.
+ *
  * Source: packages/api-contracts/openapi.yaml, operation `movePlant`.
  */
 export function PlantMoveForm({ gardenId, plant }: PlantMoveFormProps) {
   const { t } = useLocalization();
   const mutation = useMovePlant(gardenId, plant.id);
+  const isOnline = useIsOnline();
   const [gardenAreaMapObjectId, setGardenAreaMapObjectId] = useState(
     plant.gardenAreaMapObjectId ?? '',
   );
@@ -70,7 +81,7 @@ export function PlantMoveForm({ gardenId, plant }: PlantMoveFormProps) {
         onChange={(event) => setPlacementMapObjectId(event.target.value)}
       />
       <p className={styles['hint']}>{t('plants.mapObjectIdHint')}</p>
-      <Button type="submit" variant="secondary" busy={mutation.isPending}>
+      <Button type="submit" variant="secondary" busy={mutation.isPending} disabled={!isOnline}>
         {t('plants.move')}
       </Button>
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}

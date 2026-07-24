@@ -6,10 +6,12 @@
 export { AddPlantForm } from './add-plant-form';
 export { OpenPlantByIdForm } from './open-plant-by-id-form';
 export { PlantDetail } from './plant-detail';
+export { PlantList } from './plant-list';
 export {
   useAddPlant,
   useMovePlant,
   usePlant,
+  useSearchPlants,
   useSetPlantStatus,
   useTaxonomyReferenceSearch,
   useTransitionPlantLifecycleStage,

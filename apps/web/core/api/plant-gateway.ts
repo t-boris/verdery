@@ -4,7 +4,9 @@ import type {
   AttachPlantPhotoRequest,
   MovePlantRequest,
   Plant,
+  PlantGroupingKind,
   PlantLifecycleStage,
+  PlantListResult,
   PlantPhoto,
   PlantStatus,
   TaxonomyReferenceListResult,
@@ -15,6 +17,22 @@ import { IDEMPOTENCY_KEY_HEADER, IF_MATCH_HEADER } from '@verdery/api-contracts'
 import type { ApiClient } from './client';
 import { csrfHeader } from './csrf';
 import type { ApiResult } from './result';
+
+/**
+ * Every parameter `SearchPlants` accepts, all optional. `query` is a
+ * trigram-fuzzy match against `displayName`; `lifecycleStage`/`status`/
+ * `groupingKind` are structured filters, each combinable and each accepting
+ * more than one value; `cursor`/`limit` paginate the same way `ListGardens`
+ * does.
+ */
+export interface SearchPlantsParams {
+  readonly query?: string | null;
+  readonly lifecycleStage?: readonly PlantLifecycleStage[] | null;
+  readonly status?: readonly PlantStatus[] | null;
+  readonly groupingKind?: readonly PlantGroupingKind[] | null;
+  readonly cursor?: string | null;
+  readonly limit?: number | null;
+}
 
 export interface PlantGateway {
   add(
@@ -30,6 +48,11 @@ export interface PlantGateway {
     signal?: AbortSignal,
   ): Promise<ApiResult<Plant>>;
   get(gardenId: string, plantId: string, signal?: AbortSignal): Promise<ApiResult<Plant>>;
+  search(
+    gardenId: string,
+    params: SearchPlantsParams,
+    signal?: AbortSignal,
+  ): Promise<ApiResult<PlantListResult>>;
   updateDetails(
     gardenId: string,
     plantId: string,
@@ -100,6 +123,38 @@ function revisionHeaders(expectedRevision: number, idempotencyKey: string): Reco
   };
 }
 
+function searchPlantsQuery(params: SearchPlantsParams): string {
+  const search = new URLSearchParams();
+  if (params.query !== undefined && params.query !== null && params.query !== '') {
+    search.set('query', params.query);
+  }
+  if (
+    params.lifecycleStage !== undefined &&
+    params.lifecycleStage !== null &&
+    params.lifecycleStage.length > 0
+  ) {
+    search.set('lifecycleStage', params.lifecycleStage.join(','));
+  }
+  if (params.status !== undefined && params.status !== null && params.status.length > 0) {
+    search.set('status', params.status.join(','));
+  }
+  if (
+    params.groupingKind !== undefined &&
+    params.groupingKind !== null &&
+    params.groupingKind.length > 0
+  ) {
+    search.set('groupingKind', params.groupingKind.join(','));
+  }
+  if (params.cursor !== undefined && params.cursor !== null) {
+    search.set('cursor', params.cursor);
+  }
+  if (params.limit !== undefined && params.limit !== null) {
+    search.set('limit', String(params.limit));
+  }
+  const query = search.toString();
+  return query === '' ? '' : `?${query}`;
+}
+
 function taxonomySearchQuery(query: string | null, limit: number | null): string {
   const params = new URLSearchParams();
   if (query !== null) {
@@ -153,6 +208,14 @@ export function createPlantGateway(client: ApiClient): PlantGateway {
       return client.request<Plant>({
         method: 'GET',
         path: `/gardens/${gardenId}/plants/${plantId}`,
+        ...(signal === undefined ? {} : { signal }),
+      });
+    },
+
+    search(gardenId, params, signal) {
+      return client.request<PlantListResult>({
+        method: 'GET',
+        path: `/gardens/${gardenId}/plants${searchPlantsQuery(params)}`,
         ...(signal === undefined ? {} : { signal }),
       });
     },
