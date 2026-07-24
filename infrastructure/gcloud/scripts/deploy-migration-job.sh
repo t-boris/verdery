@@ -35,6 +35,27 @@ env_vars+=",DATABASE_INSTANCE_CONNECTION_NAME=${VERDERY_PROJECT_ID}:${VERDERY_RE
 env_vars+=",DATABASE_IAM_USER=${VERDERY_RUNTIME_SERVICE_ACCOUNT_ID}@${VERDERY_PROJECT_ID}.iam"
 env_vars+=",DATABASE_NAME=${VERDERY_SQL_DATABASE_NAME}"
 env_vars+=",FIREBASE_PROJECT_ID=${VERDERY_PROJECT_ID}"
+# This job shares configuration-schema.ts's single, whole-process startup
+# validation with the main API service — this is the exact bug class this
+# script's own header comment already names for `FIREBASE_PROJECT_ID`,
+# recurred for six more required variables P6-API-01/P6-ASYNC-01 added and
+# only `deploy-api.sh` was updated to supply. `gcloud run jobs execute`
+# fails the job at `loadConfiguration()`, before a single migration file
+# runs, without every one of these present — confirmed by a real failed
+# execution, not assumed.
+env_vars+=",MEDIA_USER_MEDIA_BUCKET=${VERDERY_USER_MEDIA_BUCKET}"
+env_vars+=",MEDIA_RAW_CAPTURE_BUCKET=${VERDERY_RAW_CAPTURE_BUCKET}"
+env_vars+=",MEDIA_DERIVED_BUCKET=${VERDERY_DERIVED_BUCKET}"
+env_vars+=",MEDIA_EXPORTS_BUCKET=${VERDERY_EXPORTS_BUCKET}"
+env_vars+=",MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL=${VERDERY_WORKER_SERVICE_ACCOUNT_ID}@${VERDERY_PROJECT_ID}.iam.gserviceaccount.com"
+# Unlike deploy-api.sh, this job has no service URL of its own to build a
+# real callback audience from — it runs migrations and exits, and never
+# serves the media-processing callback route or verifies an inbound OIDC
+# token against this value. `configuration-schema.ts` only requires the
+# variable be a non-empty string (`z.string().min(1)`, not a URL format), so
+# a clearly-labeled, non-functional placeholder satisfies startup validation
+# without implying this job does something it does not.
+env_vars+=",MEDIA_PROCESSING_CALLBACK_AUDIENCE=unused-by-migration-job"
 
 log "Deploying ${IMAGE} to ${job_name}"
 gcloud run jobs deploy "${job_name}" \
