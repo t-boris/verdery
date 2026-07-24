@@ -195,6 +195,23 @@ BEGIN
 END
 \$\$;
 
+-- \`postgis\` is not a Postgres "trusted" extension (unlike \`pg_trgm\` above),
+-- so \`GRANT CREATE ON DATABASE\` does not help it — it needs this same
+-- superuser session, the identical reasoning \`CREATE ROLE verdery_worker\`
+-- above already documents for its own privilege class. Currently a no-op on
+-- \`verdery-dev\` (already installed there since 1784710800000_platform-
+-- baseline.sql's own first run, confirmed by inspection before writing
+-- this) — this exists so a genuinely fresh environment's first-ever
+-- \`verdery-dev\`-pipeline deploy does not hit the identical class of
+-- failure the pg_trgm/verdery_worker incidents already did, discovered and
+-- documented (not fixed) as a known limitation in the Phase 4 review and
+-- P6-ASYNC-01's own deploy-incident writeup. Version-pinned to match
+-- \`platform-baseline.sql\`'s own \`VERSION '3.5.2'\` exactly — installing a
+-- different default version here would make that migration's own
+-- version-assertion block fail instead of silently succeeding on a
+-- version-mismatched extension.
+CREATE EXTENSION IF NOT EXISTS postgis VERSION '3.5.2';
+
 -- node-pg-migrate creates its own tracking table the first time any
 -- migration runs, owned by whichever identity ran that first migration
 -- (this superuser, on a fresh environment). The migration file grants

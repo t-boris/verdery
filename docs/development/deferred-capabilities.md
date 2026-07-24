@@ -177,19 +177,15 @@ nor `apps/ios/Sources/FeaturePlants/PlantsHomeView.swift` was updated to call th
 still cite the now-stale "no list operation" rationale in their own comments. A real, if contained,
 follow-up: build the list view against an endpoint that already exists and is already tested.
 
-**A fresh environment's first deploy would hit the same class of failure `P4-SEARCH-01` hit for
-`pg_trgm`, for `postgis`.** `1784710800000_platform-baseline.sql`'s `CREATE EXTENSION postgis`
-needs real elevated privilege (not a Postgres "trusted" extension, unlike `pg_trgm` — confirmed by a
-local, non-superuser reproduction while diagnosing the `pg_trgm` failure below), which the automated
-deploy pipeline's least-privilege Cloud SQL IAM identity does not have and
-`07-iam-database-bootstrap.sh`'s new `GRANT CREATE ON DATABASE ... TO verdery_migration` cannot grant
-(that grant only covers trusted extensions). This is currently invisible on `verdery-dev` because
-postgis is already installed there from Phase 1, so `CREATE EXTENSION IF NOT EXISTS postgis` is
-already a no-op every time this migration re-runs. It would resurface on `verdery-staging` or
-`verdery-prod`'s first-ever deploy. No work package owns this yet; the fix, when one of those
-environments is actually provisioned, is a one-time privileged `CREATE EXTENSION postgis` run via
-the same break-glass-superuser mechanism `07-iam-database-bootstrap.sh` already uses, before the
-first automated migration run.
+**Fixed (Phase 6).** `1784710800000_platform-baseline.sql`'s `CREATE EXTENSION postgis` needs real
+elevated privilege (not a Postgres "trusted" extension, unlike `pg_trgm`), which the automated deploy
+pipeline's least-privilege Cloud SQL IAM identity does not have. `07-iam-database-bootstrap.sh` now
+installs `postgis VERSION '3.5.2'` defensively via its own break-glass superuser session — the exact
+mechanism this entry used to describe as the eventual fix, now actually written (prompted by hitting
+the identical privilege-class failure for `CREATE ROLE verdery_worker` during P6-ASYNC-01, which
+confirmed the same root cause and made writing this fix immediate rather than deferred). Verified as a
+real no-op against `verdery-dev` today (postgis already installed there since Phase 1); not yet
+exercised against a genuinely fresh environment, since none exists yet.
 
 **`P5-IOS-02`/`P5-IOS-03`/`P5-SEC-01`/`P5-CONFLICT-01` are all now complete** — `CoreSynchronization
 .RemoteSyncEngine` is the real, network-backed push/pull engine (no longer `LocalOnlySyncEngine` only);
