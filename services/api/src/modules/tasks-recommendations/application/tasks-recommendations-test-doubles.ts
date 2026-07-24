@@ -205,6 +205,10 @@ export class FakeMediaRepository implements MediaRepository {
   get(id: Uuid): Promise<MediaRecord | null> {
     return Promise.resolve(this.records.get(id) ?? null);
   }
+
+  update(): Promise<boolean> {
+    throw new Error('not used by this test');
+  }
 }
 
 /** Only `get` is exercised — `GetObservation` (used to build a real instance below) never calls the others. */

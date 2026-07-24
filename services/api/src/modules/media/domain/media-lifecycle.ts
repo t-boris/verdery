@@ -117,12 +117,24 @@ export function beginMediaVerification(media: MediaRecord, now: Date): MediaReco
  * section 8's "Declared versus actual type and size mismatch") is that
  * future verifier's own decision, not this function's: this function only
  * records an already-decided "accepted" outcome.
+ *
+ * `checksumSha256` is nullable, unlike `verifiedContentType`/
+ * `verifiedByteSize`: P6-API-01's own synchronous verifier (`CompleteMediaUpload`)
+ * reads real object metadata (content type, size) from Cloud Storage, but
+ * never downloads and hashes the object's bytes to compute a real SHA-256 —
+ * doing that from the interactive API would violate section 2's own
+ * principle, "Binary media bypasses the interactive API data path." A real
+ * content-hash verification is P6-WORKER-01's job. This parameter therefore
+ * carries through whatever value was already on the record (the client's own
+ * declared checksum, or `null` if none was supplied) unchanged — recording
+ * that a checksum was never independently confirmed against real bytes at
+ * this stage, not asserting a new one.
  */
 export function markMediaAvailable(
   media: MediaRecord,
   verifiedContentType: string,
   verifiedByteSize: number,
-  checksumSha256: string,
+  checksumSha256: string | null,
   now: Date,
 ): MediaRecord {
   requireUploadState(media, 'verifying', 'markMediaAvailable');

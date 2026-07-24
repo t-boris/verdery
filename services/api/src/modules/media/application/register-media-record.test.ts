@@ -8,7 +8,9 @@ import type {
 } from '../../../platform/idempotency/idempotency-store.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import type { MediaRecord } from '../domain/media-record.js';
+import type { QuotaReservation } from '../domain/quota-reservation.js';
 import type { MediaRepository } from './media-repository.js';
+import type { QuotaReservationRepository } from './quota-reservation-repository.js';
 import type { MediaTransactionContext, MediaUnitOfWork } from './media-unit-of-work.js';
 import { RegisterMediaRecord } from './register-media-record.js';
 import type { RegisterMediaRecordInput } from './register-media-record.js';
@@ -39,6 +41,25 @@ class FakeMediaRepository implements MediaRepository {
 
   get(id: string): Promise<MediaRecord | null> {
     return Promise.resolve(this.records.find((record) => record.id === id) ?? null);
+  }
+
+  update(): Promise<boolean> {
+    throw new Error('not used by this test');
+  }
+}
+
+/** Not exercised by `RegisterMediaRecord` (P6-DATA-01's own command, which never reserves quota) — present only to satisfy `MediaTransactionContext`'s shape. */
+class FakeQuotaReservationRepository implements QuotaReservationRepository {
+  insert(): Promise<void> {
+    throw new Error('not used by this test');
+  }
+
+  findByMediaId(): Promise<QuotaReservation | null> {
+    throw new Error('not used by this test');
+  }
+
+  updateState(): Promise<void> {
+    throw new Error('not used by this test');
   }
 }
 
@@ -118,13 +139,19 @@ class FakeIdempotencyStore implements IdempotencyStore {
 
 /** Not transactional, unlike `KyselyMediaUnitOfWork` — a unit test does not need a real rollback, only the same context shape. */
 class FakeMediaUnitOfWork implements MediaUnitOfWork {
+  private readonly quotaReservations = new FakeQuotaReservationRepository();
+
   constructor(
     private readonly media: MediaRepository,
     private readonly idempotency: IdempotencyStore,
   ) {}
 
   run<T>(work: (context: MediaTransactionContext) => Promise<T>): Promise<T> {
-    return work({ media: this.media, idempotency: this.idempotency });
+    return work({
+      media: this.media,
+      quotaReservations: this.quotaReservations,
+      idempotency: this.idempotency,
+    });
   }
 }
 

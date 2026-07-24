@@ -5,6 +5,10 @@ const VALID_ENVIRONMENT = {
   VERDERY_ENVIRONMENT: 'development',
   DATABASE_URL: 'postgresql://verdery:secret-value@localhost:5432/verdery',
   FIREBASE_PROJECT_ID: 'verdery-dev',
+  MEDIA_USER_MEDIA_BUCKET: 'verdery-dev-user-media',
+  MEDIA_RAW_CAPTURE_BUCKET: 'verdery-dev-raw-capture',
+  MEDIA_DERIVED_BUCKET: 'verdery-dev-derived',
+  MEDIA_EXPORTS_BUCKET: 'verdery-dev-exports',
 } as const;
 
 describe('loadConfiguration', () => {
@@ -82,6 +86,10 @@ describe('loadConfiguration', () => {
       DATABASE_IAM_USER: 'verdery-dev-api-runtime@verdery-dev.iam',
       DATABASE_NAME: 'verdery',
       FIREBASE_PROJECT_ID: 'verdery-dev',
+      MEDIA_USER_MEDIA_BUCKET: 'verdery-dev-user-media',
+      MEDIA_RAW_CAPTURE_BUCKET: 'verdery-dev-raw-capture',
+      MEDIA_DERIVED_BUCKET: 'verdery-dev-derived',
+      MEDIA_EXPORTS_BUCKET: 'verdery-dev-exports',
     });
 
     expect(configuration.database).toEqual(

@@ -16,6 +16,7 @@ import underPressure from '@fastify/under-pressure';
 import { API_BASE_PATH } from '@verdery/api-contracts';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import { composeGardensMapping } from './compose-gardens-mapping.js';
+import { composeMedia } from './compose-media.js';
 import { composeSynchronization } from './compose-synchronization.js';
 import { registerGardenRoutes, registerMapRoutes } from './modules/gardens-mapping/public.js';
 import {
@@ -23,11 +24,8 @@ import {
   KyselyProfileRepository,
   ProvisionProfile,
 } from './modules/identity-access/public.js';
-import {
-  KyselyMediaRepository,
-  KyselyMediaUnitOfWork,
-  RegisterMediaRecord,
-} from './modules/media/public.js';
+import { registerMediaRoutes } from './modules/media/public.js';
+import type { MediaStorageGateway } from './modules/media/public.js';
 import {
   CorrectObservation,
   GetObservation,
@@ -102,6 +100,15 @@ export interface ApplicationDependencies {
   readonly tokenVerifier: TokenVerifier;
   readonly appCheckVerifier: AppCheckVerifier;
   readonly clock: Clock;
+  /**
+   * The media module's Cloud Storage port, already constructed — mirrors
+   * `tokenVerifier`/`appCheckVerifier`: `main.ts` builds the concrete
+   * adapter (`GcsMediaStorageGateway`, wrapping a `@google-cloud/storage`
+   * client authenticated through Application Default Credentials) and this
+   * file only ever depends on the port interface, so a test can substitute a
+   * fake here the same way it substitutes `stubTokenVerifier()`.
+   */
+  readonly mediaStorageGateway: MediaStorageGateway;
 }
 
 /**
@@ -115,7 +122,15 @@ const MAX_EVENT_LOOP_DELAY_MS = 1_000;
 export async function buildApplication(
   dependencies: ApplicationDependencies,
 ): Promise<FastifyInstance> {
-  const { configuration, logger, database, tokenVerifier, appCheckVerifier, clock } = dependencies;
+  const {
+    configuration,
+    logger,
+    database,
+    tokenVerifier,
+    appCheckVerifier,
+    clock,
+    mediaStorageGateway,
+  } = dependencies;
 
   const app = Fastify({
     loggerInstance: logger,
@@ -180,23 +195,6 @@ export async function buildApplication(
     identityAuditLogger,
   );
 
-  // media: owns the minimal, immutable `media.media_record` stand-in — see
-  // that module's `public.ts` doc comment for the full rationale. No
-  // transport of its own this pass, and no sibling module yet either, so
-  // nothing in this file reads `mediaRepository` or `registerMediaRecord`
-  // today: `mediaRepository` is what plants-inventory, observations-history,
-  // and tasks-recommendations will receive injected into their own
-  // composition-root wiring next, the same way `gardenAuthorization` below is
-  // shared across every gardens-mapping-dependent command; `registerMediaRecord`
-  // is exercised end to end against a real database by
-  // tests/integration/media.test.ts in the meantime.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
-  const mediaRepository = new KyselyMediaRepository(database.queries);
-  const mediaIdempotency = new KyselyIdempotencyStore(database.queries, clock);
-  const mediaUnitOfWork = new KyselyMediaUnitOfWork(database.queries, clock);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above.
-  const registerMediaRecord = new RegisterMediaRecord(mediaIdempotency, mediaUnitOfWork, clock);
-
   // gardens-mapping and the garden map (P3-BE-01, P3-BE-02): garden
   // lifecycle and map-object dependency wiring, split into
   // `compose-gardens-mapping.ts` purely to keep this file under the
@@ -204,6 +202,19 @@ export async function buildApplication(
   // comment. `gardenAuthorization` is reused by every module wired below.
   const { gardenAuthorization, gardenRoutesDependencies, mapRoutesDependencies } =
     composeGardensMapping(database, clock);
+
+  // media (P6-API-01): registration, authorized resumable upload sessions,
+  // completion verification, status, and authorized short-lived access.
+  // Reuses `gardenAuthorization`. HTTP transport (`registerMediaRoutes`, tag
+  // `Media`) wired below. Split into `compose-media.ts` for the same
+  // 600-line reason `compose-gardens-mapping.ts` was split out.
+  const { mediaRoutesDependencies } = composeMedia(
+    database,
+    clock,
+    gardenAuthorization,
+    mediaStorageGateway,
+    configuration.media.buckets,
+  );
 
   // observations-history: owns the append-only `observation`, `observation_photo`,
   // and `image_analysis_result` tables. Reuses `gardenAuthorization`. HTTP
@@ -465,6 +476,7 @@ export async function buildApplication(
       registerPlantRoutes(instance, plantRoutesDependencies);
       registerObservationRoutes(instance, observationRoutesDependencies);
       registerTaskRoutes(instance, taskRoutesDependencies);
+      registerMediaRoutes(instance, mediaRoutesDependencies);
       registerSyncRoutes(instance, syncRoutesDependencies);
       done();
     },

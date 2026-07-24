@@ -133,6 +133,10 @@ class FakeMediaRepository implements MediaRepository {
     throw new Error('not used by this test');
   }
 
+  update(): Promise<boolean> {
+    throw new Error('not used by this test');
+  }
+
   get(id: string): Promise<MediaRecord | null> {
     if (!this.existingIds.has(id)) {
       return Promise.resolve(null);

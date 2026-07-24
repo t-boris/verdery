@@ -256,6 +256,10 @@ export class FakeMediaRepository implements MediaRepository {
   get(id: Uuid): Promise<MediaRecord | null> {
     return Promise.resolve(this.records.get(id) ?? null);
   }
+
+  update(): Promise<boolean> {
+    throw new Error('not used by this test');
+  }
 }
 
 export class FakeMembershipRepository implements MembershipRepository {

@@ -86,6 +86,30 @@ export const environmentSchema = z.object({
   DATABASE_STATEMENT_TIMEOUT_MS: durationMilliseconds.default(10_000),
 
   SHUTDOWN_GRACE_PERIOD_MS: durationMilliseconds.default(15_000),
+
+  // The four private Cloud Storage buckets architecture/media-storage-and-
+  // processing.md section 4 names, provisioned for `verdery-dev` by
+  // infrastructure/gcloud/scripts/09-media-storage.sh. Real names, not
+  // inferred: they differ per environment
+  // (infrastructure/gcloud/config/dev.env's own `VERDERY_*_BUCKET`
+  // variables), so a misconfigured deployment fails at startup rather than
+  // silently writing to the wrong bucket.
+  MEDIA_USER_MEDIA_BUCKET: z.string().min(1),
+  MEDIA_RAW_CAPTURE_BUCKET: z.string().min(1),
+  MEDIA_DERIVED_BUCKET: z.string().min(1),
+  MEDIA_EXPORTS_BUCKET: z.string().min(1),
+
+  // Section 18: "Signed access with short expiration" and section 7:
+  // "Upload authorization is single-purpose, short-lived." No specific
+  // duration is named anywhere in this repository's docs, so both are
+  // reasoned defaults, documented here — the same "no number decided yet,
+  // pick one and say so" posture `09-media-storage.sh`'s own export-bucket
+  // lifecycle rule already sets. One hour gives a client enough time to
+  // begin a resumable upload after registration without holding a
+  // long-lived credential open; fifteen minutes is a standard short-lived
+  // window for a signed read URL.
+  MEDIA_UPLOAD_SESSION_TTL_MS: durationMilliseconds.default(3_600_000),
+  MEDIA_SIGNED_DOWNLOAD_TTL_MS: durationMilliseconds.default(900_000),
 });
 
 export type RawEnvironment = z.infer<typeof environmentSchema>;
@@ -161,6 +185,18 @@ export interface CloudSqlIamDatabaseConfiguration extends DatabasePoolTuning {
 
 export type DatabaseConfiguration = UrlDatabaseConfiguration | CloudSqlIamDatabaseConfiguration;
 
+/** Bucket names and access-TTL tuning for `MediaStorageGateway`. */
+export interface MediaConfiguration {
+  readonly buckets: {
+    readonly userMedia: string;
+    readonly rawCapture: string;
+    readonly derived: string;
+    readonly exports: string;
+  };
+  readonly uploadSessionTtlMs: number;
+  readonly signedDownloadTtlMs: number;
+}
+
 export interface ApplicationConfiguration {
   readonly environment: DeploymentEnvironment;
   readonly serviceVersion: string;
@@ -169,6 +205,7 @@ export interface ApplicationConfiguration {
   readonly database: DatabaseConfiguration;
   readonly shutdownGracePeriodMs: number;
   readonly firebaseProjectId: string;
+  readonly media: MediaConfiguration;
 }
 
 function toDatabaseConfiguration(raw: RawEnvironment): DatabaseConfiguration {
@@ -209,5 +246,15 @@ export function toApplicationConfiguration(raw: RawEnvironment): ApplicationConf
     database: toDatabaseConfiguration(raw),
     shutdownGracePeriodMs: raw.SHUTDOWN_GRACE_PERIOD_MS,
     firebaseProjectId: raw.FIREBASE_PROJECT_ID,
+    media: {
+      buckets: {
+        userMedia: raw.MEDIA_USER_MEDIA_BUCKET,
+        rawCapture: raw.MEDIA_RAW_CAPTURE_BUCKET,
+        derived: raw.MEDIA_DERIVED_BUCKET,
+        exports: raw.MEDIA_EXPORTS_BUCKET,
+      },
+      uploadSessionTtlMs: raw.MEDIA_UPLOAD_SESSION_TTL_MS,
+      signedDownloadTtlMs: raw.MEDIA_SIGNED_DOWNLOAD_TTL_MS,
+    },
   };
 }

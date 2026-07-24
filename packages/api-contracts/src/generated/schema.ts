@@ -922,6 +922,169 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/gardens/{gardenId}/media": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register a media upload and open its upload session
+         * @description Combines architecture/media-storage-and-processing.md section 7
+         *     ("Upload Flow") steps 2 and 3 in one call: authorizes garden access,
+         *     reserves quota, creates the media record (`registered`), then
+         *     immediately creates a backend-authorized resumable Cloud Storage
+         *     upload session and advances the record to `authorized`. These two
+         *     steps are not split across two endpoints and not left for the client
+         *     to sequence itself — an `authorized` record with no session, or a
+         *     session with no record, is not a usable intermediate state for any
+         *     caller, matching this codebase's "one command, one clear side
+         *     effect" convention applied to the one side effect a caller actually
+         *     needs from registration: an upload it can start.
+         *
+         *     The client then uploads directly to `uploadUrl` — never through this
+         *     API (section 2, "Binary media bypasses the interactive API data
+         *     path") — and calls `CompleteMediaUpload` once finished.
+         *
+         *     Garden-scoped only this stage: a media row's `gardenId` is nullable
+         *     at the domain layer for a future pre-garden registration case (plan
+         *     import onboarding, P6-PLAN-01), but that endpoint shape does not
+         *     exist yet, so every registration through this contract names its
+         *     garden in the path.
+         *
+         *     Source: implementation-plan.md work package P6-API-01;
+         *     architecture/media-storage-and-processing.md, section "7. Upload Flow".
+         */
+        post: operations["registerMediaUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/media/{mediaId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                mediaId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read a media record's current status
+         * @description Any garden role that can view the garden can read a media record's
+         *     status — the section 12 viewer restriction applies to download
+         *     access (`GetMediaAccess`), not to reading state.
+         *
+         *     Source: implementation-plan.md work package P6-API-01.
+         */
+        get: operations["getMediaStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/media/{mediaId}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                mediaId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify a finished upload and resolve it to available or rejected
+         * @description Explicit, client-triggered completion verification only — there is
+         *     no event-driven or Pub/Sub-triggered path yet (that is
+         *     P6-ASYNC-01's own scope). Drives the record through
+         *     `uploading` -> `verifying` and then to a terminal outcome: reads
+         *     real object metadata from Cloud Storage and compares it against the
+         *     declared content type and byte size (section 8/20, "Declared versus
+         *     actual type and size mismatch"). A mismatch, or a missing object,
+         *     resolves to `rejected`; an exact match resolves to `available`. Both
+         *     outcomes are a successful `200` response — verification concluding
+         *     with a rejection is not a request failure.
+         *
+         *     Full content-hash (SHA-256) verification against the object's real
+         *     bytes is not performed here: that requires downloading and hashing
+         *     the object, which this synchronous interactive endpoint does not do
+         *     (section 2) — it remains P6-WORKER-01's job. When the client
+         *     declared a checksum at registration, that declared value is carried
+         *     through unchanged on success, never independently confirmed at this
+         *     stage.
+         *
+         *     Idempotent under a duplicate completion notification: calling this
+         *     again against an already-`available` or already-`rejected` record
+         *     simply returns the record's current state rather than re-verifying
+         *     or erroring.
+         *
+         *     Source: implementation-plan.md work package P6-API-01;
+         *     architecture/media-storage-and-processing.md, sections "7. Upload
+         *     Flow", "8. File Validation", "20. Testing".
+         */
+        post: operations["completeMediaUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/media/{mediaId}/access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                mediaId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get short-lived authorized download access to a media object
+         * @description Implements section 12's download flow: authenticates, authorizes
+         *     garden role, and returns a short-lived signed download mechanism —
+         *     never a permanent URL. Only `available` media can be accessed.
+         *
+         *     Enforces section 12's own stricter line for the operational viewer
+         *     role: a viewer may access ordinary accepted photos according to
+         *     garden capability, but not `restricted`-classified media (raw scan
+         *     artifacts) unless explicitly allowed. No "explicitly allowed"
+         *     override mechanism exists anywhere in this codebase's role model yet,
+         *     so this is currently an unconditional denial for viewers against
+         *     `restricted` media, not a configurable one.
+         *
+         *     The client-portal-specific rules section 12's last paragraph
+         *     describes (organization/client-engagement/publication entitlement)
+         *     are out of scope: those concepts do not exist anywhere in this
+         *     codebase yet (Phase 9, not started), the same deferral Phase 5
+         *     already applied to the identical gap.
+         *
+         *     Source: implementation-plan.md work package P6-API-01;
+         *     architecture/media-storage-and-processing.md, section "12. Download Flow".
+         */
+        get: operations["getMediaAccess"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sync/clients/{clientInstallationId}": {
         parameters: {
             query?: never;
@@ -1969,6 +2132,99 @@ export interface components {
         };
         AttachTaskFileRequest: {
             mediaId: components["schemas"]["Uuid"];
+        };
+        /**
+         * @description Matches section 3's class table exactly. No separate "purpose" field
+         *     exists: see `media.media_record.media_class`'s own migration comment
+         *     for why "purpose" resolves to this field alone.
+         * @enum {string}
+         */
+        MediaClass: "garden_photo" | "imported_plan" | "raw_capture" | "derived_preview" | "processing_output" | "export_package";
+        /**
+         * @description Section 6's upload state machine, one column, server-owned and
+         *     revisioned. `uploading` and `verifying` are transient from this
+         *     contract's own point of view: `CompleteMediaUpload` drives a record
+         *     through both in one call, so neither state is normally observed by a
+         *     `GetMediaStatus` read between them.
+         * @enum {string}
+         */
+        MediaUploadState: "registered" | "authorized" | "uploading" | "verifying" | "rejected" | "available" | "deletion_scheduled" | "deleted";
+        /**
+         * @description Orthogonal to `uploadState` — see `domain/media-lifecycle.ts`'s own
+         *     header comment for why this is a second, independent column rather
+         *     than a continuation of the same state machine. `null` means
+         *     processing has not started (or does not apply to this media class).
+         *     No P6-API-01 endpoint transitions this column; it is surfaced here
+         *     read-only, populated once P6-WORKER-02 exists.
+         * @enum {string}
+         */
+        MediaProcessingState: "processing" | "processed" | "processing_failed";
+        /**
+         * @description Derived from `mediaClass` at registration, never client-supplied.
+         *     `restricted` (raw capture) is the classification `GetMediaAccess`
+         *     denies to the operational viewer role per section 12.
+         * @enum {string}
+         */
+        MediaSensitivityClassification: "standard" | "sensitive" | "restricted";
+        Media: {
+            id: components["schemas"]["Uuid"];
+            /**
+             * @description The domain record's own `gardenId` is nullable (a pre-garden
+             *     registration case P6-PLAN-01 will use), but every endpoint this
+             *     contract exposes is garden-scoped, so every `Media` reachable
+             *     through it always has one.
+             */
+            gardenId: components["schemas"]["Uuid"];
+            uploadedByProfileId: components["schemas"]["Uuid"];
+            mediaClass: components["schemas"]["MediaClass"];
+            displayFilename: string;
+            declaredContentType: string;
+            /** @description Set once `CompleteMediaUpload` reads real object metadata. `null` until then. */
+            verifiedContentType: string | null;
+            declaredByteSize: number;
+            /** @description Set once `CompleteMediaUpload` reads real object metadata. `null` until then. */
+            verifiedByteSize: number | null;
+            /**
+             * @description The client's own declared checksum, when supplied at
+             *     registration; `null` otherwise. Never independently confirmed
+             *     against the object's real bytes by this stage — see
+             *     `CompleteMediaUpload`'s own description.
+             */
+            checksumSha256: string | null;
+            uploadState: components["schemas"]["MediaUploadState"];
+            processingState: components["schemas"]["MediaProcessingState"] | null;
+            sensitivityClassification: components["schemas"]["MediaSensitivityClassification"];
+            revision: components["schemas"]["Revision"];
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+        };
+        RegisterMediaUploadRequest: {
+            mediaClass: components["schemas"]["MediaClass"];
+            displayFilename: string;
+            declaredContentType: string;
+            declaredByteSize: number;
+            /** @description Supplied "when available" (section 7, step 1). Omit when not yet computed. */
+            checksumSha256?: string;
+        };
+        /**
+         * @description `RegisterMediaUpload`'s response: the newly `authorized` media record
+         *     plus the backend-authorized resumable upload session the client
+         *     uploads directly to.
+         */
+        MediaUploadSession: {
+            media: components["schemas"]["Media"];
+            /**
+             * Format: uri
+             * @description Resumable upload session URI. The client issues its own PUT requests here directly — never through this API.
+             */
+            uploadUrl: string;
+            uploadUrlExpiresAt: components["schemas"]["Timestamp"];
+        };
+        /** @description `GetMediaAccess`'s response: a short-lived signed download URL. Never a permanent one. */
+        MediaAccess: {
+            /** Format: uri */
+            url: string;
+            expiresAt: components["schemas"]["Timestamp"];
         };
         /**
          * @description Every record type this service's sync change log writes today.
@@ -4052,6 +4308,137 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    registerMediaUpload: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterMediaUploadRequest"];
+            };
+        };
+        responses: {
+            /** @description The registered, upload-authorized media record and its upload session. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaUploadSession"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getMediaStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                mediaId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The media record. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Media"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    completeMediaUpload: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                mediaId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The resolved media record (`available` or `rejected`). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Media"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    getMediaAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                mediaId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Short-lived signed download access. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaAccess"];
+                };
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

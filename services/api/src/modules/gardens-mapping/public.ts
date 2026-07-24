@@ -19,6 +19,7 @@ export { ListGardens } from './application/list-gardens.js';
 export type {
   GardenMembershipState,
   GardenPartitionMembership,
+  Membership,
   MembershipRepository,
 } from './application/membership-repository.js';
 export { RenameGarden } from './application/rename-garden.js';

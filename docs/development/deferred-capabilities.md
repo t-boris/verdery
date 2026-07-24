@@ -150,15 +150,18 @@ below), so there is no event to log a metric about, not merely an unbuilt dashbo
 
 **Photo and file attachment in the Phase 4 web client.** `AddPlantFromPhoto`, `AttachPlantPhoto`,
 `SetPrimaryPlantPhoto`, `ConfirmPlantIdentification`, and `AttachTaskFile` all need a real `media`
-record, and — the same gap `media.media_record`'s own module limits already document — this
-codebase has no upload flow yet: nothing can produce a `mediaId` for these commands to use. Each of
-the five gateway methods (`plant-gateway.ts`, `task-gateway.ts`) is implemented and unit-tested for
-contract completeness, but no `features/plants`/`features/tasks` hook or component calls them.
-`features/plants/plant-detail.tsx` shows a plain notice explaining the gap instead of a control that
-would only fail; `RecordObservation`'s photo support is left off `RecordObservationForm` the same
-way, though the contract already lets a note and/or a condition summary stand on their own without a
-photo, so recording an observation itself is not blocked. This unblocks with `P6-API-01` (media
-registration and upload).
+record. `P6-API-01` (media registration, authorized resumable upload session, completion
+verification, status, and authorized short-lived access — `packages/api-contracts/openapi.yaml` tag
+`Media`) has now landed, so a `mediaId` can be produced end to end against the real backend and real
+Cloud Storage buckets. What remains is purely the web client's own wiring: each of the five gateway
+methods (`plant-gateway.ts`, `task-gateway.ts`) is still implemented and unit-tested for contract
+completeness only, and no `features/plants`/`features/tasks` hook or component calls the new `Media`
+endpoints yet. `features/plants/plant-detail.tsx` still shows a plain notice explaining the gap
+instead of a control that would only fail; `RecordObservation`'s photo support is still left off
+`RecordObservationForm` the same way, though the contract already lets a note and/or a condition
+summary stand on their own without a photo, so recording an observation itself is not blocked. This
+resolves with `P6-WEB-01` (direct resumable upload, recoverable browser metadata where allowed,
+progress, retry, and authorized previews).
 
 **Photo-identification and photo-analysis ML services.** `plants-inventory`'s `identifyPlantFromPhoto`
 and `observations-history`'s `analyzeObservationPhoto` are honest, clearly-labeled placeholders —

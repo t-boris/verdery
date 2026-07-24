@@ -134,6 +134,16 @@ export type CompleteTaskRequest = Schemas['CompleteTaskRequest'];
 export type DismissTaskRequest = Schemas['DismissTaskRequest'];
 export type AttachTaskFileRequest = Schemas['AttachTaskFileRequest'];
 
+/** The media schemas (P6-API-01). */
+export type MediaClass = Schemas['MediaClass'];
+export type MediaUploadState = Schemas['MediaUploadState'];
+export type MediaProcessingState = Schemas['MediaProcessingState'];
+export type MediaSensitivityClassification = Schemas['MediaSensitivityClassification'];
+export type Media = Schemas['Media'];
+export type RegisterMediaUploadRequest = Schemas['RegisterMediaUploadRequest'];
+export type MediaUploadSession = Schemas['MediaUploadSession'];
+export type MediaAccess = Schemas['MediaAccess'];
+
 /**
  * The synchronization schemas (P5-API-01).
  *
@@ -304,6 +314,33 @@ export const SyncErrorCode = {
 } as const;
 
 export type SyncErrorCode = (typeof SyncErrorCode)[keyof typeof SyncErrorCode];
+
+/**
+ * Error codes the media module's endpoints raise (P6-API-01).
+ *
+ * `UploadStateConflict` is deliberately distinct from
+ * `media-lifecycle.ts`'s own internal `media.media_record.upload_state_conflict`
+ * domain-layer code: the application layer checks `uploadState` itself
+ * before ever calling a raw lifecycle transition function for
+ * `CompleteMediaUpload`, so a client only ever sees this clean, contract-level
+ * code, never the domain layer's own internal one — the same
+ * "translate, do not leak internals" precedent
+ * `translateCheckViolation` sets for raw database constraint violations.
+ */
+export const MediaErrorCode = {
+  /** No media record exists at this ID, or it does not belong to the garden named in the path, or the caller lacks the capability to see it. */
+  NotFound: 'media.not_found',
+  /** The supplied `If-Match` revision no longer matches the stored media record. */
+  StaleRevision: 'media.stale_revision',
+  /** `CompleteMediaUpload` was called while the record is in an upload state it cannot verify from (for example, still `registered`, or already `deletion_scheduled`). */
+  UploadStateConflict: 'media.upload_state_conflict',
+  /** `GetMediaAccess` was called before the media reached `available`. */
+  NotAvailable: 'media.not_available',
+  /** The operational viewer role attempted to access `restricted`-classified media (section 12). */
+  ViewerAccessRestricted: 'media.viewer_access_restricted',
+} as const;
+
+export type MediaErrorCode = (typeof MediaErrorCode)[keyof typeof MediaErrorCode];
 
 /** Narrows an unknown response body to the shared error envelope. */
 export function isApiError(value: unknown): value is ApiError {

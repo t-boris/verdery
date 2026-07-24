@@ -21,6 +21,7 @@
     "@fastify/under-pressure": "^9.1.0",
     "@google-cloud/cloud-sql-connector": "^1.11.2",
     "@google-cloud/opentelemetry-cloud-trace-exporter": "^3.0.0",
+    "@google-cloud/storage": "^7.21.0",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/instrumentation-fastify": "^0.57.0",
     "@opentelemetry/instrumentation-http": "^0.221.0",
@@ -45,6 +46,7 @@
     "@types/node": "^26.1.1",
     "@types/pg": "^8.15.6",
     "@verdery/test-fixtures": "workspace:*",
+    "google-auth-library": "^9.15.1",
     "testcontainers": "^12.0.4",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"

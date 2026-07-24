@@ -10,6 +10,8 @@
 
 import type { FastifyInstance } from 'fastify';
 import { buildApplication } from '../../src/app.js';
+import { FakeMediaStorageGateway } from '../../src/modules/media/application/media-test-doubles.js';
+import type { MediaStorageGateway } from '../../src/modules/media/public.js';
 import type { AppCheckVerifier } from '../../src/platform/app-check/app-check-verifier.js';
 import type { TokenVerifier } from '../../src/platform/authentication/token-verifier.js';
 import type { ApplicationConfiguration } from '../../src/platform/configuration/configuration-schema.js';
@@ -38,6 +40,16 @@ export const testConfiguration: ApplicationConfiguration = {
   },
   shutdownGracePeriodMs: 1_000,
   firebaseProjectId: 'verdery-test',
+  media: {
+    buckets: {
+      userMedia: 'test-user-media',
+      rawCapture: 'test-raw-capture',
+      derived: 'test-derived',
+      exports: 'test-exports',
+    },
+    uploadSessionTtlMs: 3_600_000,
+    signedDownloadTtlMs: 900_000,
+  },
 };
 
 /** A database that answers health checks according to the supplied behavior. */
@@ -69,6 +81,11 @@ export function stubAppCheckVerifier(): AppCheckVerifier {
   };
 }
 
+/** Never touches real Cloud Storage. Suites that don't exercise the media routes need nothing more specific than this default instance. */
+export function stubMediaStorageGateway(): MediaStorageGateway {
+  return new FakeMediaStorageGateway();
+}
+
 export interface TestApplicationOptions {
   readonly ping?: () => Promise<void>;
   /** Captures log records so tests can assert on structured output. */
@@ -76,6 +93,7 @@ export interface TestApplicationOptions {
   readonly database?: DatabaseGateway;
   readonly tokenVerifier?: TokenVerifier;
   readonly appCheckVerifier?: AppCheckVerifier;
+  readonly mediaStorageGateway?: MediaStorageGateway;
 }
 
 export async function buildTestApplication(
@@ -92,5 +110,6 @@ export async function buildTestApplication(
     tokenVerifier: options.tokenVerifier ?? stubTokenVerifier(),
     appCheckVerifier: options.appCheckVerifier ?? stubAppCheckVerifier(),
     clock: new SystemClock(),
+    mediaStorageGateway: options.mediaStorageGateway ?? stubMediaStorageGateway(),
   });
 }

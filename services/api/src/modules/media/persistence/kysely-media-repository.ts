@@ -103,4 +103,36 @@ export class KyselyMediaRepository implements MediaRepository {
 
     return row === undefined ? null : toMediaRecord(row);
   }
+
+  /** Mirrors `KyselyPlantRepository.update`'s exact revision-guarded shape. */
+  async update(record: MediaRecord, expectedRevision: number): Promise<boolean> {
+    const result = await this.db
+      .updateTable('media.media_record')
+      .set({
+        garden_id: record.gardenId,
+        media_class: record.mediaClass,
+        display_filename: record.displayFilename,
+        declared_content_type: record.declaredContentType,
+        verified_content_type: record.verifiedContentType,
+        declared_byte_size: record.declaredByteSize,
+        verified_byte_size: record.verifiedByteSize,
+        checksum_sha256: record.checksumSha256,
+        bucket_name: record.bucketName,
+        object_key: record.objectKey,
+        upload_state: record.uploadState,
+        processing_state: record.processingState,
+        capture_session_id: record.captureSessionId,
+        sensitivity_classification: record.sensitivityClassification,
+        retention_deadline_at: record.retentionDeadlineAt,
+        derived_from_media_id: record.derivedFromMediaId,
+        transformation_version: record.transformationVersion,
+        revision: record.revision,
+        updated_at: record.updatedAt,
+      })
+      .where('id', '=', record.id)
+      .where('revision', '=', expectedRevision)
+      .executeTakeFirst();
+
+    return (result?.numUpdatedRows ?? 0n) === 1n;
+  }
 }

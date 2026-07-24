@@ -7,9 +7,11 @@
  * Source: architecture/backend-modular-monolith.md, section "9. Composition Root".
  */
 
+import { Storage } from '@google-cloud/storage';
 import { applicationDefault, initializeApp } from 'firebase-admin/app';
 import { buildApplication } from './app.js';
 import { registerGracefulShutdown } from './bootstrap/graceful-shutdown.js';
+import { GcsMediaStorageGateway } from './modules/media/public.js';
 import { FirebaseAppCheckVerifier } from './platform/app-check/firebase-app-check-verifier.js';
 import { FirebaseTokenVerifier } from './platform/authentication/firebase-token-verifier.js';
 import {
@@ -69,6 +71,13 @@ async function main(): Promise<void> {
   const tokenVerifier = new FirebaseTokenVerifier(firebaseApp);
   const appCheckVerifier = new FirebaseAppCheckVerifier(firebaseApp);
   const clock = new SystemClock();
+  // Application Default Credentials again — no downloaded service account
+  // key, the same posture every other Google Cloud client here takes.
+  const mediaStorageGateway = new GcsMediaStorageGateway(
+    new Storage(),
+    configuration.media.uploadSessionTtlMs,
+    configuration.media.signedDownloadTtlMs,
+  );
 
   const app = await buildApplication({
     configuration,
@@ -77,6 +86,7 @@ async function main(): Promise<void> {
     tokenVerifier,
     appCheckVerifier,
     clock,
+    mediaStorageGateway,
   });
 
   registerGracefulShutdown({

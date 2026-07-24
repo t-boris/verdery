@@ -7,6 +7,7 @@ import type {
   MediaUnitOfWork,
 } from '../application/media-unit-of-work.js';
 import { KyselyMediaRepository } from './kysely-media-repository.js';
+import { KyselyQuotaReservationRepository } from './kysely-quota-reservation-repository.js';
 
 export class KyselyMediaUnitOfWork implements MediaUnitOfWork {
   constructor(
@@ -18,6 +19,7 @@ export class KyselyMediaUnitOfWork implements MediaUnitOfWork {
     return this.db.transaction().execute(async (trx) => {
       const context: MediaTransactionContext = {
         media: new KyselyMediaRepository(trx),
+        quotaReservations: new KyselyQuotaReservationRepository(trx),
         idempotency: new KyselyIdempotencyStore(trx, this.clock),
       };
 
