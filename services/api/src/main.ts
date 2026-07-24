@@ -14,6 +14,7 @@ import { registerGracefulShutdown } from './bootstrap/graceful-shutdown.js';
 import { GcsMediaStorageGateway } from './modules/media/public.js';
 import { FirebaseAppCheckVerifier } from './platform/app-check/firebase-app-check-verifier.js';
 import { FirebaseTokenVerifier } from './platform/authentication/firebase-token-verifier.js';
+import { GoogleOidcInvocationVerifier } from './platform/tasks/google-oidc-invocation-verifier.js';
 import {
   ConfigurationError,
   loadConfiguration,
@@ -78,6 +79,10 @@ async function main(): Promise<void> {
     configuration.media.uploadSessionTtlMs,
     configuration.media.signedDownloadTtlMs,
   );
+  const cloudTasksInvocationVerifier = new GoogleOidcInvocationVerifier(
+    configuration.media.processingCallback.audience,
+    configuration.media.processingCallback.invokerServiceAccountEmail,
+  );
 
   const app = await buildApplication({
     configuration,
@@ -87,6 +92,7 @@ async function main(): Promise<void> {
     appCheckVerifier,
     clock,
     mediaStorageGateway,
+    cloudTasksInvocationVerifier,
   });
 
   registerGracefulShutdown({

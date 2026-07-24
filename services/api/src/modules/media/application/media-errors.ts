@@ -54,3 +54,8 @@ export function mediaViewerAccessRestrictedError(): ForbiddenError {
     'The viewer role cannot access this media.',
   );
 }
+
+/** Raised by `RecordMediaProcessingResult` (P6-ASYNC-01) when the callback names a job ID with no matching `media.processing_job` row — an unrecognized job, not a duplicate delivery of a known one. */
+export function processingJobNotFoundError(): NotFoundError {
+  return new NotFoundError(MediaErrorCode.ProcessingJobNotFound, 'Processing job not found.');
+}

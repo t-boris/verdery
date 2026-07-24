@@ -17,12 +17,15 @@ import type {
   IdempotencyRecordInput,
   IdempotencyStore,
 } from '../../../platform/idempotency/idempotency-store.js';
+import type { OutboxAppender, OutboxEventInput } from '../../../platform/outbox/outbox-appender.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import { GardenAuthorization } from '../../gardens-mapping/public.js';
 import type { Membership, MembershipRepository } from '../../gardens-mapping/public.js';
 import type { MediaRecord } from '../domain/media-record.js';
+import type { ProcessingJob } from '../domain/processing-job.js';
 import type { QuotaReservation } from '../domain/quota-reservation.js';
+import type { ProcessingJobRepository } from './processing-job-repository.js';
 import type {
   MediaObjectMetadata,
   MediaResumableUploadSession,
@@ -136,6 +139,38 @@ export class FakeMediaStorageGateway implements MediaStorageGateway {
       url: `https://storage.googleapis.com/${target.bucketName}/${target.objectKey}?signature=fake`,
       expiresAt: new Date(now.getTime() + ttl),
     });
+  }
+}
+
+/** Records every appended event; never publishes anywhere — the same "record what was called" shape `FakeAuditLogger` below uses. */
+export class FakeOutboxAppender implements OutboxAppender {
+  readonly events: OutboxEventInput[] = [];
+
+  append(input: OutboxEventInput): Promise<void> {
+    this.events.push(input);
+    return Promise.resolve();
+  }
+}
+
+export class FakeProcessingJobRepository implements ProcessingJobRepository {
+  readonly jobs = new Map<Uuid, ProcessingJob>();
+
+  insert(job: ProcessingJob): Promise<void> {
+    this.jobs.set(job.id, job);
+    return Promise.resolve();
+  }
+
+  get(id: Uuid): Promise<ProcessingJob | null> {
+    return Promise.resolve(this.jobs.get(id) ?? null);
+  }
+
+  updateState(job: ProcessingJob, expectedRevision: number): Promise<boolean> {
+    const existing = this.jobs.get(job.id);
+    if (existing === undefined || existing.revision !== expectedRevision) {
+      return Promise.resolve(false);
+    }
+    this.jobs.set(job.id, job);
+    return Promise.resolve(true);
   }
 }
 
@@ -258,6 +293,8 @@ export interface MediaFakes {
   readonly media: FakeMediaRepository;
   readonly quotaReservations: FakeQuotaReservationRepository;
   readonly idempotency: FakeIdempotencyStore;
+  readonly outbox: FakeOutboxAppender;
+  readonly processingJobs: FakeProcessingJobRepository;
 }
 
 export function createMediaFakes(): MediaFakes {
@@ -265,6 +302,8 @@ export function createMediaFakes(): MediaFakes {
     media: new FakeMediaRepository(),
     quotaReservations: new FakeQuotaReservationRepository(),
     idempotency: new FakeIdempotencyStore(),
+    outbox: new FakeOutboxAppender(),
+    processingJobs: new FakeProcessingJobRepository(),
   };
 }
 

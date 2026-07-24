@@ -9,6 +9,10 @@ const VALID_ENVIRONMENT = {
   MEDIA_RAW_CAPTURE_BUCKET: 'verdery-dev-raw-capture',
   MEDIA_DERIVED_BUCKET: 'verdery-dev-derived',
   MEDIA_EXPORTS_BUCKET: 'verdery-dev-exports',
+  MEDIA_PROCESSING_CALLBACK_AUDIENCE:
+    'https://verdery-api-dev.example/v1/internal/media-processing-jobs',
+  MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL:
+    'verdery-dev-worker@verdery-dev.iam.gserviceaccount.com',
 } as const;
 
 describe('loadConfiguration', () => {
@@ -90,6 +94,10 @@ describe('loadConfiguration', () => {
       MEDIA_RAW_CAPTURE_BUCKET: 'verdery-dev-raw-capture',
       MEDIA_DERIVED_BUCKET: 'verdery-dev-derived',
       MEDIA_EXPORTS_BUCKET: 'verdery-dev-exports',
+      MEDIA_PROCESSING_CALLBACK_AUDIENCE:
+        'https://verdery-api-dev.example/v1/internal/media-processing-jobs',
+      MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL:
+        'verdery-dev-worker@verdery-dev.iam.gserviceaccount.com',
     });
 
     expect(configuration.database).toEqual(

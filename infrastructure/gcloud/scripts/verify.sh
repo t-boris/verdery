@@ -80,6 +80,13 @@ for bucket in \
     "[[ \$(gcloud storage buckets describe 'gs://${bucket}' --project='${VERDERY_PROJECT_ID}' --format='value(public_access_prevention)') == enforced ]]"
 done
 
+# P6-ASYNC-01: the relay's own service account and Cloud Tasks queue.
+check "worker service account exists" gcloud iam service-accounts describe \
+  "${VERDERY_WORKER_SERVICE_ACCOUNT_ID}@${VERDERY_PROJECT_ID}.iam.gserviceaccount.com" --project="${VERDERY_PROJECT_ID}"
+
+check "media-processing Cloud Tasks queue exists" gcloud tasks queues describe \
+  "${VERDERY_MEDIA_PROCESSING_QUEUE_NAME}" --project="${VERDERY_PROJECT_ID}" --location="${VERDERY_REGION}"
+
 echo
 if [[ "${FAILURES}" -eq 0 ]]; then
   echo "All checks passed."

@@ -16,6 +16,7 @@ import type { AppCheckVerifier } from '../../src/platform/app-check/app-check-ve
 import type { TokenVerifier } from '../../src/platform/authentication/token-verifier.js';
 import type { ApplicationConfiguration } from '../../src/platform/configuration/configuration-schema.js';
 import type { DatabaseGateway } from '../../src/platform/database/database-gateway.js';
+import type { CloudTasksInvocationVerifier } from '../../src/platform/tasks/cloud-tasks-invocation-verifier.js';
 import { createLogger } from '../../src/platform/telemetry/logger.js';
 import { SystemClock } from '../../src/shared/time/clock.js';
 
@@ -49,6 +50,10 @@ export const testConfiguration: ApplicationConfiguration = {
     },
     uploadSessionTtlMs: 3_600_000,
     signedDownloadTtlMs: 900_000,
+    processingCallback: {
+      audience: 'https://verdery-api-test.example/v1/internal/media-processing-jobs',
+      invokerServiceAccountEmail: 'verdery-worker-test@verdery-test.iam.gserviceaccount.com',
+    },
   },
 };
 
@@ -86,6 +91,16 @@ export function stubMediaStorageGateway(): MediaStorageGateway {
   return new FakeMediaStorageGateway();
 }
 
+/** Rejects every call. Suites that don't exercise the media-processing callback route need nothing more specific. */
+export function stubCloudTasksInvocationVerifier(): CloudTasksInvocationVerifier {
+  return {
+    verify: () =>
+      Promise.reject(
+        new Error('stubCloudTasksInvocationVerifier: no behavior configured for this test'),
+      ),
+  };
+}
+
 export interface TestApplicationOptions {
   readonly ping?: () => Promise<void>;
   /** Captures log records so tests can assert on structured output. */
@@ -94,6 +109,7 @@ export interface TestApplicationOptions {
   readonly tokenVerifier?: TokenVerifier;
   readonly appCheckVerifier?: AppCheckVerifier;
   readonly mediaStorageGateway?: MediaStorageGateway;
+  readonly cloudTasksInvocationVerifier?: CloudTasksInvocationVerifier;
 }
 
 export async function buildTestApplication(
@@ -111,5 +127,7 @@ export async function buildTestApplication(
     appCheckVerifier: options.appCheckVerifier ?? stubAppCheckVerifier(),
     clock: new SystemClock(),
     mediaStorageGateway: options.mediaStorageGateway ?? stubMediaStorageGateway(),
+    cloudTasksInvocationVerifier:
+      options.cloudTasksInvocationVerifier ?? stubCloudTasksInvocationVerifier(),
   });
 }

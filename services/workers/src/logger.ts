@@ -24,8 +24,14 @@ const REDACTED_PATHS: readonly string[] = [
 
 export const SERVICE_NAME = 'verdery-workers';
 
+/** Only the fields `createLogger` actually reads — narrower than the full `WorkerConfiguration` so a test does not need to fabricate database/relay/Cloud Tasks settings just to build a logger. */
+export type LoggerConfiguration = Pick<
+  WorkerConfiguration,
+  'logLevel' | 'serviceVersion' | 'environment'
+>;
+
 export function createLogger(
-  configuration: WorkerConfiguration,
+  configuration: LoggerConfiguration,
   destination?: DestinationStream,
 ): Logger {
   return pino(

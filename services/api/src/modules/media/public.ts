@@ -73,6 +73,32 @@ export {
 export type { MediaRepository } from './application/media-repository.js';
 export type { MediaRecordResource } from './application/media-record-view.js';
 export type { MediaUnitOfWork, MediaTransactionContext } from './application/media-unit-of-work.js';
+// P6-ASYNC-01: durable processing-job state, the processing-result callback
+// command, and the Cloud Tasks invocation verifier port.
+export type {
+  ProcessingJob,
+  ProcessingJobOutputObject,
+  ProcessingJobResourceMetrics,
+  ProcessingJobState,
+} from './domain/processing-job.js';
+export {
+  createProcessingJob,
+  isProcessingJobTerminal,
+  markProcessingJobCancelled,
+  markProcessingJobExpired,
+  markProcessingJobFailedRetryable,
+  markProcessingJobFailedTerminal,
+  markProcessingJobPartial,
+  markProcessingJobQueued,
+  markProcessingJobRunning,
+  markProcessingJobSucceeded,
+  retryProcessingJob,
+} from './domain/processing-job.js';
+export type { ProcessingJobRepository } from './application/processing-job-repository.js';
+export { KyselyProcessingJobRepository } from './persistence/kysely-processing-job-repository.js';
+export { RecordMediaProcessingResult } from './application/record-media-processing-result.js';
+export type { MediaProcessingCallbackRouteDependencies } from './transport/media-processing-callback-route.js';
+export { registerMediaProcessingCallbackRoute } from './transport/media-processing-callback-route.js';
 export type { RegisterMediaRecordInput } from './application/register-media-record.js';
 export { RegisterMediaRecord } from './application/register-media-record.js';
 

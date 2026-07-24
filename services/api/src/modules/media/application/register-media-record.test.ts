@@ -12,6 +12,7 @@ import type { QuotaReservation } from '../domain/quota-reservation.js';
 import type { MediaRepository } from './media-repository.js';
 import type { QuotaReservationRepository } from './quota-reservation-repository.js';
 import type { MediaTransactionContext, MediaUnitOfWork } from './media-unit-of-work.js';
+import { FakeOutboxAppender, FakeProcessingJobRepository } from './media-test-doubles.js';
 import { RegisterMediaRecord } from './register-media-record.js';
 import type { RegisterMediaRecordInput } from './register-media-record.js';
 
@@ -140,6 +141,8 @@ class FakeIdempotencyStore implements IdempotencyStore {
 /** Not transactional, unlike `KyselyMediaUnitOfWork` — a unit test does not need a real rollback, only the same context shape. */
 class FakeMediaUnitOfWork implements MediaUnitOfWork {
   private readonly quotaReservations = new FakeQuotaReservationRepository();
+  private readonly outbox = new FakeOutboxAppender();
+  private readonly processingJobs = new FakeProcessingJobRepository();
 
   constructor(
     private readonly media: MediaRepository,
@@ -151,6 +154,8 @@ class FakeMediaUnitOfWork implements MediaUnitOfWork {
       media: this.media,
       quotaReservations: this.quotaReservations,
       idempotency: this.idempotency,
+      outbox: this.outbox,
+      processingJobs: this.processingJobs,
     });
   }
 }

@@ -55,7 +55,42 @@ export interface QuotaReservationRow {
   updated_at: Generated<Date>;
 }
 
+/**
+ * `input_checksums`/`output_objects`/`result_summary`/`quality_diagnostics`/
+ * `resource_metrics` are `jsonb` in the migration, read/written as plain
+ * `unknown` here — `persistence/kysely-processing-job-repository.ts` owns the
+ * narrow cast to `domain/processing-job.ts`'s own typed shapes, the same
+ * "the row type stays honestly untyped where Postgres itself is untyped"
+ * precedent this module already sets for jsonb-backed columns elsewhere.
+ *
+ * Source: migrations/1785200000000_media-processing-jobs.sql.
+ */
+export interface ProcessingJobRow {
+  id: string;
+  media_id: string;
+  job_kind: Generated<string>;
+  processor_config_version: Generated<string>;
+  state: Generated<string>;
+  attempt: Generated<number>;
+  input_checksums: Generated<unknown>;
+  // `unknown` already subsumes `null` — Postgres returns SQL NULL as JS
+  // `null` for these nullable jsonb columns, which `unknown` accepts without
+  // a redundant explicit union member.
+  output_objects: unknown;
+  result_summary: unknown;
+  quality_diagnostics: unknown;
+  resource_metrics: unknown;
+  outcome_code: string | null;
+  trace_id: string | null;
+  revision: Generated<number>;
+  created_at: Generated<Date>;
+  queued_at: Date | null;
+  completed_at: Date | null;
+  updated_at: Generated<Date>;
+}
+
 export interface MediaDatabaseSchema {
   'media.media_record': MediaRecordRow;
   'media.quota_reservation': QuotaReservationRow;
+  'media.processing_job': ProcessingJobRow;
 }

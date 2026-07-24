@@ -4,7 +4,15 @@ import { generateUuidV7 } from '../../shared/identifiers/uuid.js';
 import type { Clock } from '../../shared/time/clock.js';
 import type { OutboxAppender, OutboxEventInput } from './outbox-appender.js';
 
-/** No relay publishes these events yet in Phase 2; see the migration's comment on this table. */
+/**
+ * `services/workers`' own transactional-outbox relay (P6-ASYNC-01,
+ * `src/relay/outbox-relay.ts` there) is the first, and so far only, reader
+ * of this table — scoped to the `media.processing_requested` event type
+ * this module's own `CompleteMediaUpload` appends. Every other event type
+ * any module appends here (e.g. `garden.created`) still has no relay or
+ * subscriber; this appender itself does not know or care which event types
+ * are consumed downstream.
+ */
 export class KyselyOutboxAppender implements OutboxAppender {
   constructor(
     private readonly db: Kysely<DatabaseSchema>,

@@ -20,17 +20,24 @@ import {
   GetMediaStatus,
   KyselyMediaRepository,
   KyselyMediaUnitOfWork,
+  RecordMediaProcessingResult,
   RegisterMediaUpload,
 } from './modules/media/public.js';
-import type { MediaRoutesDependencies, MediaStorageGateway } from './modules/media/public.js';
+import type {
+  MediaProcessingCallbackRouteDependencies,
+  MediaRoutesDependencies,
+  MediaStorageGateway,
+} from './modules/media/public.js';
 import { KyselyAuditLogger } from './platform/audit/kysely-audit-logger.js';
 import type { DatabaseGateway } from './platform/database/database-gateway.js';
 import { KyselyIdempotencyStore } from './platform/idempotency/kysely-idempotency-store.js';
 import type { MediaConfiguration } from './platform/configuration/configuration-schema.js';
+import type { CloudTasksInvocationVerifier } from './platform/tasks/cloud-tasks-invocation-verifier.js';
 import type { Clock } from './shared/time/clock.js';
 
 export interface MediaComposition {
   readonly mediaRoutesDependencies: MediaRoutesDependencies;
+  readonly mediaProcessingCallbackRouteDependencies: MediaProcessingCallbackRouteDependencies;
 }
 
 /**
@@ -48,6 +55,7 @@ export function composeMedia(
   gardenAuthorization: GardenAuthorization,
   mediaStorageGateway: MediaStorageGateway,
   bucketNames: MediaConfiguration['buckets'],
+  cloudTasksInvocationVerifier: CloudTasksInvocationVerifier,
 ): MediaComposition {
   const mediaRepository = new KyselyMediaRepository(database.queries);
   const mediaIdempotency = new KyselyIdempotencyStore(database.queries, clock);
@@ -80,5 +88,20 @@ export function composeMedia(
     ),
   };
 
-  return { mediaRoutesDependencies };
+  // P6-ASYNC-01: the Cloud Tasks processing-callback route. Its own unit of
+  // work is deliberately a fresh `KyselyMediaUnitOfWork` instance, not
+  // `mediaUnitOfWork` reused from above — both are stateless wrappers around
+  // the same pooled `database.queries`, so there is no shared-state reason to
+  // reuse one, and keeping this composition block self-contained mirrors how
+  // `composeSynchronization` builds its own dependencies from already-built
+  // pieces without threading every intermediate variable across blocks.
+  const mediaProcessingCallbackRouteDependencies: MediaProcessingCallbackRouteDependencies = {
+    recordMediaProcessingResult: new RecordMediaProcessingResult(
+      new KyselyMediaUnitOfWork(database.queries, clock),
+      clock,
+    ),
+    cloudTasksInvocationVerifier,
+  };
+
+  return { mediaRoutesDependencies, mediaProcessingCallbackRouteDependencies };
 }

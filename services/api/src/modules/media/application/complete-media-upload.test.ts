@@ -1,3 +1,4 @@
+import { MEDIA_PROCESSING_REQUESTED_EVENT_TYPE } from '@verdery/api-contracts';
 import { describe, expect, it } from 'vitest';
 import { authorizeMediaUpload } from '../domain/media-lifecycle.js';
 import { registerMediaRecord } from '../domain/media-record.js';
@@ -110,6 +111,35 @@ describe('CompleteMediaUpload', () => {
     expect(reservation?.state).toBe('committed');
   });
 
+  it('appends a media.processing_requested outbox event exactly once when it resolves to available', async () => {
+    const { useCase, fakes } = buildUseCase();
+
+    const result = await useCase.execute(
+      GARDEN_ID,
+      MEDIA_ID,
+      PROFILE_ID,
+      2,
+      '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a30',
+    );
+
+    expect(result.uploadState).toBe('available');
+    expect(fakes.outbox.events).toHaveLength(1);
+    expect(fakes.outbox.events[0]).toMatchObject({
+      eventType: MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
+      aggregateType: 'media_record',
+      aggregateId: MEDIA_ID,
+      payload: {
+        mediaId: MEDIA_ID,
+        gardenId: GARDEN_ID,
+        mediaClass: 'garden_photo',
+        bucketName: BUCKET,
+        objectKey: OBJECT_KEY,
+        contentType: 'image/jpeg',
+        byteSize: 123_456,
+      },
+    });
+  });
+
   it('resolves to rejected on a declared/actual byte-size mismatch, and releases the quota reservation', async () => {
     const { useCase, fakes } = buildUseCase({
       metadata: { contentType: 'image/jpeg', sizeBytes: 999 },
@@ -127,6 +157,8 @@ describe('CompleteMediaUpload', () => {
     expect(result.verifiedContentType).toBeNull();
     const reservation = [...fakes.quotaReservations.reservations.values()][0];
     expect(reservation?.state).toBe('released');
+    // No processing was ever triggered for a rejected upload.
+    expect(fakes.outbox.events).toHaveLength(0);
   });
 
   it('resolves to rejected on a declared/actual content-type mismatch', async () => {
@@ -160,7 +192,7 @@ describe('CompleteMediaUpload', () => {
   });
 
   it('is idempotent under a duplicate completion notification: a second call against an already-available record replays it without re-verifying', async () => {
-    const { useCase, storage } = buildUseCase();
+    const { useCase, storage, fakes } = buildUseCase();
 
     await useCase.execute(
       GARDEN_ID,
@@ -181,6 +213,8 @@ describe('CompleteMediaUpload', () => {
     // Only the first call actually read object metadata; the duplicate
     // notification short-circuited before touching the gateway again.
     expect(storage.getMetadataCalls).toHaveLength(1);
+    // ...and only the first call appended the processing-requested event.
+    expect(fakes.outbox.events).toHaveLength(1);
   });
 
   it('rejects verifying a record that is not yet authorized (still registered)', async () => {

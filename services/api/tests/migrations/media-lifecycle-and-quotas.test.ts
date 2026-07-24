@@ -468,15 +468,17 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     await client.end();
 
-    // `count: 1` undoes only this migration — it is currently the newest.
-    // Update this to unwind a later migration first once one exists on top
-    // of this one, matching every earlier migration test's own convention.
+    // `count: 2` undoes 1785200000000_media-processing-jobs.sql (now the
+    // newest migration) first, then this one — matching every earlier
+    // migration test's own convention of unwinding whatever landed on top
+    // since this file was written. Update again the next time a migration
+    // is added on top of that one.
     await runner({
       databaseUrl,
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 1,
+      count: 2,
       log: () => {},
     });
 

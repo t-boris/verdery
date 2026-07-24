@@ -110,6 +110,21 @@ export const environmentSchema = z.object({
   // window for a signed read URL.
   MEDIA_UPLOAD_SESSION_TTL_MS: durationMilliseconds.default(3_600_000),
   MEDIA_SIGNED_DOWNLOAD_TTL_MS: durationMilliseconds.default(900_000),
+
+  // P6-ASYNC-01: the media-processing callback Cloud Tasks invokes
+  // (`POST /v1/internal/media-processing-jobs/:jobId/callback`).
+  // `MEDIA_PROCESSING_CALLBACK_AUDIENCE` is the exact URL the relay's Cloud
+  // Tasks queue was configured to call and the OIDC token's own `aud` claim
+  // must match; `MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL` is the one
+  // service account this deployment's queue mints tokens for. Neither is a
+  // secret — both name resources, not credentials, the same reasoning
+  // `instanceConnectionName` above already documents for Cloud SQL.
+  //
+  // Source: architecture/asynchronous-processing.md, section
+  // "17. Security"; infrastructure/gcloud/scripts/10-media-processing-queue.sh
+  // (drafted, not yet run against any real environment).
+  MEDIA_PROCESSING_CALLBACK_AUDIENCE: z.string().min(1),
+  MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL: z.string().min(1),
 });
 
 export type RawEnvironment = z.infer<typeof environmentSchema>;
@@ -195,6 +210,11 @@ export interface MediaConfiguration {
   };
   readonly uploadSessionTtlMs: number;
   readonly signedDownloadTtlMs: number;
+  /** P6-ASYNC-01: the media-processing callback's own OIDC verification target. */
+  readonly processingCallback: {
+    readonly audience: string;
+    readonly invokerServiceAccountEmail: string;
+  };
 }
 
 export interface ApplicationConfiguration {
@@ -255,6 +275,10 @@ export function toApplicationConfiguration(raw: RawEnvironment): ApplicationConf
       },
       uploadSessionTtlMs: raw.MEDIA_UPLOAD_SESSION_TTL_MS,
       signedDownloadTtlMs: raw.MEDIA_SIGNED_DOWNLOAD_TTL_MS,
+      processingCallback: {
+        audience: raw.MEDIA_PROCESSING_CALLBACK_AUDIENCE,
+        invokerServiceAccountEmail: raw.MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL,
+      },
     },
   };
 }

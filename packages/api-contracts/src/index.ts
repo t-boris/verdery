@@ -338,9 +338,132 @@ export const MediaErrorCode = {
   NotAvailable: 'media.not_available',
   /** The operational viewer role attempted to access `restricted`-classified media (section 12). */
   ViewerAccessRestricted: 'media.viewer_access_restricted',
+  /** No `media.processing_job` row exists at the job ID a processing callback named (P6-ASYNC-01). */
+  ProcessingJobNotFound: 'media.processing_job_not_found',
 } as const;
 
 export type MediaErrorCode = (typeof MediaErrorCode)[keyof typeof MediaErrorCode];
+
+/**
+ * Media processing job manifest and result contract (P6-ASYNC-01).
+ *
+ * Hand-written, not OpenAPI-generated: this is a machine-to-machine contract
+ * between the API's transactional-outbox relay (`services/workers`) and the
+ * API's own processing-result callback, never a client-facing HTTP request
+ * or response body, so it has no place in `openapi.yaml`'s public surface —
+ * the same reasoning that keeps `SharedErrorCode` and `API_BASE_PATH` here
+ * as hand-written additions "OpenAPI cannot express" (see this file's own
+ * header comment).
+ *
+ * `@verdery/api-contracts` is the shared, versioned contract package both
+ * `services/api` and `services/workers` already depend on (see each
+ * package's `package.json`) — exactly what architecture/backend-modular-
+ * monolith.md section "19. Worker Boundary" means by "Workers share
+ * versioned contracts and selected domain packages but do not import the
+ * running API application." Neither service imports the other's `src/`;
+ * both import this package's compiled types instead.
+ *
+ * Source: architecture/media-storage-and-processing.md, sections
+ * "13. Processing Manifest", "14. Processing Result";
+ * architecture/asynchronous-processing.md, sections "3. Message Envelope",
+ * "10. Job State Machine".
+ */
+
+/**
+ * The `platform.outbox_event.event_type` `CompleteMediaUpload` appends in
+ * the same transaction as the `available` transition, and the exact value
+ * `services/workers`' relay filters `platform.outbox_event` on. A shared
+ * constant here means the producer (`services/api`) and the consumer
+ * (`services/workers`) can never drift on the literal string independently.
+ */
+export const MEDIA_PROCESSING_REQUESTED_EVENT_TYPE = 'media.processing_requested';
+
+/**
+ * The `platform.outbox_event.payload` shape for
+ * `MEDIA_PROCESSING_REQUESTED_EVENT_TYPE`. Carries everything the relay
+ * needs to build a `MediaProcessingManifest` (below) directly from the
+ * outbox row alone, so the relay never needs read access to
+ * `media.media_record` itself — see `services/workers`' own relay for why
+ * that narrower access footprint matters (architecture/media-storage-and-
+ * processing.md section "18. Security": "Separate read/write permissions by
+ * worker role").
+ */
+export interface MediaProcessingRequestedEventPayload {
+  readonly mediaId: string;
+  readonly gardenId: string | null;
+  readonly mediaClass: string;
+  readonly bucketName: string;
+  readonly objectKey: string;
+  readonly contentType: string;
+  readonly byteSize: number;
+  readonly checksumSha256: string | null;
+}
+
+/**
+ * One input object a processing job reads. Never a signed URL or credential
+ * — section 13: "The manifest contains no storage credentials. Workload
+ * identity grants access." The worker (today: this stage's own placeholder
+ * callback) resolves `bucketName`/`objectKey` through its own service
+ * identity.
+ */
+export interface MediaProcessingInputObject {
+  readonly bucketName: string;
+  readonly objectKey: string;
+}
+
+/**
+ * The manifest a processing job receives (section 13's field list). Sent as
+ * the Cloud Tasks HTTP task body — see `services/workers`' relay and
+ * `services/api`'s processing-callback route, both of which import this
+ * type rather than redeclaring it.
+ */
+export interface MediaProcessingManifest {
+  readonly jobId: string;
+  readonly mediaId: string;
+  /** Section 13: "Processor configuration version." A free-form version tag, not a semver requirement. */
+  readonly processorConfigVersion: string;
+  readonly inputObjects: readonly MediaProcessingInputObject[];
+  /** Section 13: "Expected checksums." Empty when the source media carried none at registration. */
+  readonly expectedChecksums: readonly string[];
+  /** Section 13: "Trace context." Propagated from the domain command that triggered this job, when known. */
+  readonly traceId?: string;
+}
+
+/** One output object a processing job produced. */
+export interface MediaProcessingOutputObject {
+  readonly bucketName: string;
+  readonly objectKey: string;
+  readonly checksumSha256: string;
+}
+
+/**
+ * Terminal outcome codes a processing job can reach (architecture/
+ * asynchronous-processing.md section "10. Job State Machine"'s terminal and
+ * near-terminal nodes reachable from a single delivery attempt: `succeeded`,
+ * `partial`, `failed_terminal`, `cancelled`. `failed_retryable` and
+ * `expired` are job STATES, not outcomes a result payload reports — a
+ * retryable failure means no result was ever produced for that attempt.
+ */
+export type MediaProcessingOutcome = 'succeeded' | 'partial' | 'failed_terminal' | 'cancelled';
+
+/**
+ * The result a processing job records (section 14's field list). This
+ * stage's own callback handler is an honest placeholder: no real validator
+ * (P6-WORKER-01) or derivative generator (P6-WORKER-02) exists yet, so every
+ * result it produces uses this exact shape with fixed, clearly-fake values —
+ * see `services/api/src/modules/media/application/record-media-processing-
+ * result.ts`'s own header comment.
+ */
+export interface MediaProcessingResult {
+  readonly jobId: string;
+  readonly processorVersion: string;
+  readonly inputChecksums: readonly string[];
+  readonly outputObjects: readonly MediaProcessingOutputObject[];
+  readonly resultSummary: Record<string, unknown>;
+  readonly qualityDiagnostics: Record<string, unknown> | null;
+  readonly resourceMetrics: { readonly durationMs: number } | null;
+  readonly outcome: MediaProcessingOutcome;
+}
 
 /** Narrows an unknown response body to the shared error envelope. */
 export function isApiError(value: unknown): value is ApiError {

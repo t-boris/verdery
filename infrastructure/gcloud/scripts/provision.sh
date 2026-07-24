@@ -23,13 +23,18 @@ for step in \
   05-service-accounts.sh \
   06-workload-identity-federation.sh \
   08-app-check-recaptcha.sh \
-  09-media-storage.sh; do
+  09-media-storage.sh \
+  10-media-processing-queue.sh; do
   echo "=== ${step} ==="
   bash "${step}" "${ENVIRONMENT}"
   echo
 done
 
 echo "Provisioning complete. Run 07-iam-database-bootstrap.sh next, attended,"
-echo "naming the service account(s) that need database access:"
+echo "naming the service account(s) that need database access — including the"
+echo "worker service account 10-media-processing-queue.sh just created, which"
+echo "additionally needs verdery_worker membership (see that script's own"
+echo "header comment for the follow-up 07-iam-database-bootstrap.sh does not"
+echo "yet automate):"
 echo
 echo "  bash 07-iam-database-bootstrap.sh ${ENVIRONMENT} <service-account-email>..."

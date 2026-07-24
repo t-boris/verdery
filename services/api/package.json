@@ -34,6 +34,7 @@
     "@verdery/geometry-contracts": "workspace:*",
     "fastify": "^5.10.0",
     "firebase-admin": "^14.2.0",
+    "google-auth-library": "^9.15.1",
     "kysely": "^0.29.4",
     "node-pg-migrate": "^9.0.0",
     "pg": "^8.22.0",
@@ -46,7 +47,6 @@
     "@types/node": "^26.1.1",
     "@types/pg": "^8.15.6",
     "@verdery/test-fixtures": "workspace:*",
-    "google-auth-library": "^9.15.1",
     "testcontainers": "^12.0.4",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"

@@ -2223,3 +2223,76 @@ alone. Two things are already known before any implementation starts:
 
 Each stage will be committed, pushed, and CI-confirmed-green independently, matching the pattern
 established in every prior phase — not one single end-of-phase commit.
+
+## Stage 4 — P6-ASYNC-01, implementation complete
+
+Transactional outbox relay and Cloud Tasks paths for media processing, with durable job state —
+built on top of P6-DATA-01/PLAT-01/API-01, the immediately-preceding stages.
+
+### Key decisions
+
+- **Relay location**: `services/workers`, driven on a plain `setInterval` poll loop
+  (`src/relay/poller.ts`), not an HTTP-triggered endpoint — no existing Cloud Scheduler → HTTP
+  convention exists yet in this codebase to reuse, and workers' own doc comment already anticipated
+  "scheduled processing ... registered here." The relay's own database access is a deliberately
+  narrow, hand-duplicated Kysely schema (`src/relay/relay-database-schema.ts`) touching only
+  `platform.outbox_event` and `media.processing_job` — never `media.media_record` — matching a new
+  least-privilege `verdery_worker` database role (migrations/1785200000000_media-processing-jobs.sql).
+- **Callback location**: `services/api`, not `services/workers` — the domain transitions
+  (`beginMediaProcessing`/`markMediaProcessed`/`markMediaProcessingFailed`) already existed, unused,
+  from P6-DATA-01, and section 14's "The backend validates result ownership" names the backend
+  directly. `RecordMediaProcessingResult` reuses them rather than duplicating raw SQL in the worker.
+- **"Verification" vs. "derivative-generation trigger"**: P6-API-01's `CompleteMediaUpload` already
+  performs the documented synchronous verification (declared vs. actual content-type/size). The
+  outbox event this stage appends on the `available` transition (`media.processing_requested`) is
+  section 7 step 7's own "emits processing events" made literal — the trigger for the first real
+  processing stage (derivative generation, P6-WORKER-02), built generically enough for a future
+  P6-WORKER-01 job kind to reuse.
+- **Durable job state**: new `media.processing_job` table, one row per attempt, matching sections
+  13/14's field list and asynchronous-processing.md's nine-state job machine
+  (`domain/processing-job.ts`). `media_record.processing_state` is driven by a direct write in the
+  SAME transaction as the job's own terminal update, not a second outbox round trip.
+- **Cloud Tasks**: `@google-cloud/tasks` added to `services/workers` (real dependency, same
+  ADR-0002/ADR-0006-covered reasoning `@google-cloud/storage` used in P6-PLAT-01/API-01). Task names
+  are deterministic (the triggering outbox event's own id), giving Cloud Tasks' own dedup as a second
+  idempotency layer on top of `ON CONFLICT (id) DO NOTHING` job creation.
+- **Provisioning script** (`infrastructure/gcloud/scripts/10-media-processing-queue.sh`): written and
+  syntax-checked (`bash -n`), added to `provision.sh`'s sequence, NOT executed against `verdery-dev` —
+  same scope boundary P6-PLAT-01 drew for `09-media-storage.sh`.
+
+### Defects found and fixed this stage
+
+1. **The new migration's `CREATE ROLE verdery_worker` ran under `SET ROLE verdery_migration`**, which
+   lacks `CREATEROLE` — every migration test in the repository failed with "permission denied to
+   create role" until role creation moved before the `SET ROLE`, matching
+   `1784710800000_platform-baseline.sql`'s own ordering for `verdery_migration`/`verdery_application`.
+2. **`deploy-api.sh` never set the four `MEDIA_*_BUCKET` environment variables** P6-API-01's own
+   `configuration-schema.ts` requires at startup — a pre-existing gap from a prior stage, found while
+   wiring this stage's own two new required variables and fixed alongside them rather than left next
+   to a startup-config failure the script was never actually avoiding.
+3. **Five existing migration tests' "rolls back N migrations" counts** needed bumping by one now that
+   this stage's migration is the newest in the chain — the same maintenance every prior migration in
+   this chain already required of the one before it, per each test's own documented convention.
+
+### Verified evidence
+
+| Check                                                               | Result                                                                         |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `pnpm --filter @verdery/api build && test`                          | 97 files / 625 tests pass (baseline before this stage: ~92 files / ~588 tests) |
+| `pnpm --filter @verdery/workers build && test`                      | 3 files / 16 tests pass (baseline: 1 file / 4 tests)                           |
+| Root `pnpm typecheck` / `lint` / `format:check` / `check:file-size` | all pass                                                                       |
+| `bash -n` on the new/modified infra scripts                         | all pass                                                                       |
+
+### Known limitations
+
+- Real Cloud SQL IAM database access for the worker's own connection is not wired — `services/workers`
+  connects via a plain `DATABASE_URL` for now, documented as a follow-up in `configuration.ts` and
+  `10-media-processing-queue.sh` rather than adding a second new Google Cloud dependency
+  (`@google-cloud/cloud-sql-connector`) unasked in the same stage that already justifies
+  `@google-cloud/tasks`.
+- `10-media-processing-queue.sh` has not been run against any real environment; `verdery-dev` has no
+  live Cloud Tasks queue or worker service account yet.
+- The placeholder processing callback always succeeds — `failed_retryable`/`failed_terminal`/
+  `partial`/`cancelled`/`expired` job states are real, tested pure domain transitions with no live
+  caller yet, exactly the posture `beginMediaProcessing`/`markMediaProcessed`/
+  `markMediaProcessingFailed` themselves held from P6-DATA-01 until this stage gave them one.

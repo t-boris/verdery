@@ -44,6 +44,23 @@ env_vars+=",DATABASE_CONNECTION_TIMEOUT_MS=15000"
 # Source: architecture/identity-and-authorization.md, section
 # "2. Identity Authority".
 env_vars+=",FIREBASE_PROJECT_ID=${VERDERY_PROJECT_ID}"
+# The four private media buckets P6-PLAT-01 provisions
+# (09-media-storage.sh) and P6-API-01's endpoints require at startup
+# (configuration-schema.ts: MEDIA_*_BUCKET are non-optional). Discovered
+# missing from this script entirely while wiring P6-ASYNC-01's own two new
+# required variables below — a real gap predating this stage, fixed here
+# rather than left alongside new variables that would otherwise sit next to
+# a startup-config failure this script was never actually completing.
+env_vars+=",MEDIA_USER_MEDIA_BUCKET=${VERDERY_USER_MEDIA_BUCKET}"
+env_vars+=",MEDIA_RAW_CAPTURE_BUCKET=${VERDERY_RAW_CAPTURE_BUCKET}"
+env_vars+=",MEDIA_DERIVED_BUCKET=${VERDERY_DERIVED_BUCKET}"
+env_vars+=",MEDIA_EXPORTS_BUCKET=${VERDERY_EXPORTS_BUCKET}"
+# P6-ASYNC-01: the worker identity Cloud Tasks mints OIDC tokens for. The
+# callback's own audience (its full URL) is not known until this exact
+# `gcloud run deploy` call finishes — Cloud Run assigns the service URL on
+# first deploy — so it is set in a second, self-referential
+# `gcloud run services update` call below rather than guessed here.
+env_vars+=",MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL=${VERDERY_WORKER_SERVICE_ACCOUNT_ID}@${VERDERY_PROJECT_ID}.iam.gserviceaccount.com"
 
 log "Deploying ${IMAGE} to ${VERDERY_CLOUD_RUN_SERVICE_NAME}"
 gcloud run deploy "${VERDERY_CLOUD_RUN_SERVICE_NAME}" \
@@ -65,6 +82,18 @@ gcloud run deploy "${VERDERY_CLOUD_RUN_SERVICE_NAME}" \
 
 service_url="$(gcloud run services describe "${VERDERY_CLOUD_RUN_SERVICE_NAME}" \
   --project="${VERDERY_PROJECT_ID}" --region="${VERDERY_REGION}" --format="value(status.url)")"
+
+# Second, self-referential update: the callback route's own OIDC audience is
+# this exact service's own URL, only knowable after the deploy above
+# assigned it. A no-op on every later redeploy (the URL is stable across
+# revisions of the same Cloud Run service).
+callback_audience="${service_url}/v1/internal/media-processing-jobs"
+log "Setting media-processing callback audience: ${callback_audience}"
+gcloud run services update "${VERDERY_CLOUD_RUN_SERVICE_NAME}" \
+  --project="${VERDERY_PROJECT_ID}" \
+  --region="${VERDERY_REGION}" \
+  --update-env-vars="MEDIA_PROCESSING_CALLBACK_AUDIENCE=${callback_audience}" \
+  --quiet >/dev/null
 
 log "Deployed. Service URL: ${service_url}"
 log ""

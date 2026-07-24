@@ -24,7 +24,10 @@ import {
   KyselyProfileRepository,
   ProvisionProfile,
 } from './modules/identity-access/public.js';
-import { registerMediaRoutes } from './modules/media/public.js';
+import {
+  registerMediaProcessingCallbackRoute,
+  registerMediaRoutes,
+} from './modules/media/public.js';
 import type { MediaStorageGateway } from './modules/media/public.js';
 import {
   CorrectObservation,
@@ -84,6 +87,7 @@ import type { ApplicationConfiguration } from './platform/configuration/configur
 import type { DatabaseGateway } from './platform/database/database-gateway.js';
 import { KyselyIdempotencyStore } from './platform/idempotency/kysely-idempotency-store.js';
 import { registerErrorHandling } from './platform/errors/error-handler.js';
+import type { CloudTasksInvocationVerifier } from './platform/tasks/cloud-tasks-invocation-verifier.js';
 import { generateRequestId, registerCorrelation } from './platform/telemetry/correlation.js';
 import type { Clock } from './shared/time/clock.js';
 
@@ -109,6 +113,13 @@ export interface ApplicationDependencies {
    * fake here the same way it substitutes `stubTokenVerifier()`.
    */
   readonly mediaStorageGateway: MediaStorageGateway;
+  /**
+   * P6-ASYNC-01: verifies the Cloud Tasks OIDC token on the media-processing
+   * callback. Same "port arrives already constructed" shape as
+   * `mediaStorageGateway`: `main.ts` builds the real `GoogleOidcInvocationVerifier`,
+   * tests substitute a fake.
+   */
+  readonly cloudTasksInvocationVerifier: CloudTasksInvocationVerifier;
 }
 
 /**
@@ -130,6 +141,7 @@ export async function buildApplication(
     appCheckVerifier,
     clock,
     mediaStorageGateway,
+    cloudTasksInvocationVerifier,
   } = dependencies;
 
   const app = Fastify({
@@ -208,12 +220,13 @@ export async function buildApplication(
   // Reuses `gardenAuthorization`. HTTP transport (`registerMediaRoutes`, tag
   // `Media`) wired below. Split into `compose-media.ts` for the same
   // 600-line reason `compose-gardens-mapping.ts` was split out.
-  const { mediaRoutesDependencies } = composeMedia(
+  const { mediaRoutesDependencies, mediaProcessingCallbackRouteDependencies } = composeMedia(
     database,
     clock,
     gardenAuthorization,
     mediaStorageGateway,
     configuration.media.buckets,
+    cloudTasksInvocationVerifier,
   );
 
   // observations-history: owns the append-only `observation`, `observation_photo`,
@@ -453,6 +466,22 @@ export async function buildApplication(
   await app.register(
     (instance, _options, done) => {
       registerSessionRoutes(instance, { tokenVerifier, provisionProfile });
+      done();
+    },
+    { prefix: API_BASE_PATH },
+  );
+
+  // Unauthenticated by Firebase's own pipeline: Cloud Tasks, not an app
+  // user, calls this endpoint, authenticating itself with a Google-signed
+  // OIDC token that `cloudTasksInvocationVerifier` checks inside the route
+  // handler itself (P6-ASYNC-01) — the same "this is how access is
+  // established in the first place, so it cannot itself require the
+  // ordinary session pipeline" reasoning the session routes above already
+  // apply, with a different, machine-to-machine identity check standing in
+  // for Firebase.
+  await app.register(
+    (instance, _options, done) => {
+      registerMediaProcessingCallbackRoute(instance, mediaProcessingCallbackRouteDependencies);
       done();
     },
     { prefix: API_BASE_PATH },

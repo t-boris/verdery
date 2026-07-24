@@ -210,6 +210,9 @@ importers:
       firebase-admin:
         specifier: ^14.2.0
         version: 14.2.0
+      google-auth-library:
+        specifier: ^9.15.1
+        version: 9.15.1
       kysely:
         specifier: ^0.29.4
         version: 0.29.4
@@ -241,9 +244,6 @@ importers:
       '@verdery/test-fixtures':
         specifier: workspace:*
         version: link:../../packages/test-fixtures
-      google-auth-library:
-        specifier: ^9.15.1
-        version: 9.15.1
       testcontainers:
         specifier: ^12.0.4
         version: 12.0.4
@@ -256,12 +256,21 @@ importers:
 
   services/workers:
     dependencies:
+      '@google-cloud/tasks':
+        specifier: ^6.2.3
+        version: 6.2.3
       '@verdery/api-contracts':
         specifier: workspace:*
         version: link:../../packages/api-contracts
       '@verdery/geometry-contracts':
         specifier: workspace:*
         version: link:../../packages/geometry-contracts
+      kysely:
+        specifier: ^0.29.4
+        version: 0.29.4
+      pg:
+        specifier: ^8.22.0
+        version: 8.22.0
       pino:
         specifier: ^10.3.1
         version: 10.3.1
@@ -269,9 +278,21 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
+      '@testcontainers/postgresql':
+        specifier: ^12.0.4
+        version: 12.0.4
       '@types/node':
         specifier: ^26.1.1
         version: 26.1.1
+      '@types/pg':
+        specifier: ^8.20.0
+        version: 8.20.0
+      node-pg-migrate:
+        specifier: ^9.0.0
+        version: 9.0.0(@types/pg@8.20.0)(pg@8.22.0)
+      testcontainers:
+        specifier: ^12.0.4
+        version: 12.0.4
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -690,6 +711,10 @@ packages:
   '@google-cloud/storage@7.21.0':
     resolution: {integrity: sha512-l+IFTkd+6Y5LoAuXyYCKNAKtw/Ci+rAMqgdTB1jv4iZiLhw0rtq+0qjIRbBizXkNzEFmXiXUW0H7sZQQvk1ffA==}
     engines: {node: '>=14'}
+
+  '@google-cloud/tasks@6.2.3':
+    resolution: {integrity: sha512-US4162TMwam5QXKmZAzoiHIBpdc5K+eDKxfO2hjBsPM1UxuB8feIZQ8kbrTxgp6mggrnUukfbrXetIEMnWfBvw==}
+    engines: {node: '>=18'}
 
   '@googleapis/sqladmin@37.0.0':
     resolution: {integrity: sha512-LBxSb3V+avoqsTHY/KsSR4/3FGnRfUw8yhGjx6ihTE5w7Y6l1EZkcx62aCCfCNkaigCQDvgiJG2Pq2jxN1sfag==}
@@ -4153,6 +4178,12 @@ snapshots:
       - encoding
       - supports-color
 
+  '@google-cloud/tasks@6.2.3':
+    dependencies:
+      google-gax: 5.0.7
+    transitivePeerDependencies:
+      - supports-color
+
   '@googleapis/sqladmin@37.0.0':
     dependencies:
       googleapis-common: 8.0.2
@@ -5873,7 +5904,6 @@ snapshots:
       rimraf: 5.0.10
     transitivePeerDependencies:
       - supports-color
-    optional: true
 
   google-logging-utils@0.0.2: {}
 
@@ -5945,7 +5975,6 @@ snapshots:
       debug: 4.4.3(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
-    optional: true
 
   https-proxy-agent@5.0.1:
     dependencies:
@@ -6336,8 +6365,7 @@ snapshots:
 
   normalize-path@3.0.0: {}
 
-  object-hash@3.0.0:
-    optional: true
+  object-hash@3.0.0: {}
 
   object-inspect@1.13.4: {}
 
@@ -6539,7 +6567,6 @@ snapshots:
   proto3-json-serializer@3.0.4:
     dependencies:
       protobufjs: 7.6.5
-    optional: true
 
   protobufjs@7.6.5:
     dependencies:
@@ -6669,7 +6696,6 @@ snapshots:
       teeny-request: 10.1.3
     transitivePeerDependencies:
       - supports-color
-    optional: true
 
   retry@0.12.0: {}
 
@@ -6937,7 +6963,6 @@ snapshots:
       stream-events: 1.0.5
     transitivePeerDependencies:
       - supports-color
-    optional: true
 
   teeny-request@9.0.0:
     dependencies:
