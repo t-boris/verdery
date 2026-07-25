@@ -47,6 +47,11 @@ public struct GardenSettingsView: View {
                 // re-enforce role restrictions server-side regardless of what
                 // this screen shows.
                 Section {
+                    NavigationLink(value: GardenTodayRoute(gardenId: model.gardenId)) {
+                        Text(model.openTodayTitle)
+                    }
+                    .accessibilityIdentifier("gardens.settings.openToday")
+
                     NavigationLink(value: GardenMapEditorRoute(gardenId: model.gardenId)) {
                         Text(model.openMapEditorTitle)
                     }

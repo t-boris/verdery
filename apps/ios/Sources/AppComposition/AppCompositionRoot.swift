@@ -12,6 +12,7 @@ import FeatureHealth
 import FeatureMap
 import FeatureObservations
 import FeaturePlants
+import FeatureRecommendations
 import FeatureSyncConflicts
 import FeatureTasks
 import Foundation
@@ -35,11 +36,15 @@ public final class AppCompositionRoot {
     private let plantGateway: any PlantGateway
     private let observationGateway: any ObservationGateway
     private let taskGateway: any TaskGateway
+    private let recommendationGateway: any RecommendationGateway
     private let syncGateway: any SyncGateway
     private let mediaGateway: any MediaGateway
     private let authenticationGateway: any AuthenticationGateway
     private let clientInstallationStore: any ClientInstallationIdentityStore
-    private let log: any DiagnosticLog
+    // Module-internal, not `private`: read by the per-profile store
+    // factories in `AppCompositionRoot+LocalStores.swift`, a same-type
+    // extension in another file — see that file's own doc comment.
+    let log: any DiagnosticLog
 
     /// The real background-capable upload transport (P6-IOS-01) —
     /// constructed eagerly, here in `init`, not lazily on first screen
@@ -54,8 +59,9 @@ public final class AppCompositionRoot {
     /// OS relaunched the app specifically to deliver a finished transfer.
     private let mediaUploadTransport: URLSessionBackgroundUploadTransport
     /// The single, app-lifetime `MediaUploadCoordinator` instance — NOT a
-    /// per-call factory like every `local*Store()`/`makeSyncEngine()` method
-    /// below, for two combined reasons neither of which allows it here: (1)
+    /// per-call factory like `makeSyncEngine()` below and every
+    /// `local*Store()` method (`AppCompositionRoot+LocalStores.swift`), for
+    /// two combined reasons neither of which allows it here: (1)
     /// `mediaUploadTransport`'s one background `URLSession` may only have
     /// one delegate/one live event stream — a second coordinator instance
     /// subscribing to the same `AsyncStream` would race the first for
@@ -144,6 +150,15 @@ public final class AppCompositionRoot {
             log: log
         )
         self.taskGateway = URLSessionTaskGateway(
+            configuration: configuration,
+            session: session,
+            authTokenProvider: tokenProvider,
+            appCheckTokenProvider: appCheckTokenProvider,
+            log: log
+        )
+        // The Today recommendation surface (P7-IOS-01) authenticates and
+        // classifies traffic the same way every Phase 4+ gateway above does.
+        self.recommendationGateway = URLSessionRecommendationGateway(
             configuration: configuration,
             session: session,
             authTokenProvider: tokenProvider,
@@ -382,6 +397,23 @@ public final class AppCompositionRoot {
         )
     }
 
+    /// One garden's Today recommendation screen (P7-IOS-01). No local store
+    /// and no profile id: every use case here is online, gateway-backed by
+    /// deliberate decision — see `FeatureRecommendations.TodayUseCases`'s
+    /// own doc comment.
+    public func makeTodayViewModel(gardenId: String) -> TodayViewModel {
+        TodayViewModel(
+            gardenId: gardenId,
+            loadToday: LoadToday(gateway: recommendationGateway),
+            completeRecommendation: CompleteRecommendation(gateway: recommendationGateway),
+            postponeRecommendation: PostponeRecommendation(gateway: recommendationGateway),
+            dismissRecommendation: DismissRecommendation(gateway: recommendationGateway),
+            markRecommendationIrrelevant: MarkRecommendationIrrelevant(gateway: recommendationGateway),
+            convertRecommendationToTask: ConvertRecommendationToTask(gateway: recommendationGateway),
+            strings: strings
+        )
+    }
+
     /// One garden's durable sync conflicts screen (P5-CONFLICT-01). Shares
     /// `makeSyncEngine()`'s own "opened fresh per call" reasoning for both
     /// the conflict store and the engine it hands `SyncConflictsViewModel`
@@ -406,7 +438,8 @@ public final class AppCompositionRoot {
     /// doc comment for why that pairing can only happen here.
     ///
     /// Opened fresh per call, matching every `local*Store()` method's own
-    /// reasoning below: cheap relative to a call's lifetime, and avoids
+    /// reasoning (`AppCompositionRoot+LocalStores.swift`): cheap relative
+    /// to a call's lifetime, and avoids
     /// holding a database handle open for a profile that has since signed
     /// out. Deliberately still a plain factory, not a stored singleton
     /// (Stage 5b considered and rejected making this a long-lived, cached
@@ -476,123 +509,5 @@ public final class AppCompositionRoot {
     /// rather than failing.
     private static var currentAppVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
-    }
-
-    /// Scoped by Firebase UID; see `CorePersistence.LocalDatabase` for why
-    /// that, not the application profile ID, is what "per-profile" means on
-    /// this client.
-    ///
-    /// Opened fresh per call rather than cached: SQLite connections are cheap
-    /// to open relative to a screen's lifetime, and this avoids holding a
-    /// database handle open for a profile that has since signed out.
-    private func localGardenStore() -> any LocalGardenStore {
-        let profileIdentifier = currentProfileIdentifier()
-
-        do {
-            let dbQueue = try LocalDatabase.open(profileIdentifier: profileIdentifier)
-            return GRDBGardenStore(dbQueue: dbQueue)
-        } catch {
-            log.record(.error, "Could not open the local garden database; falling back to an in-memory store.")
-            return InMemoryGardenStore()
-        }
-    }
-
-    /// Same database file, same fallback behavior as `localGardenStore()` —
-    /// `garden` and `garden_object` are two tables in the one per-profile
-    /// database `LocalDatabase.open` manages, per
-    /// `LocalDatabase+MapObjectMigration.swift`'s own doc comment.
-    private func localMapStore() -> any LocalMapStore {
-        let profileIdentifier = currentProfileIdentifier()
-
-        do {
-            let dbQueue = try LocalDatabase.open(profileIdentifier: profileIdentifier)
-            return GRDBMapStore(dbQueue: dbQueue)
-        } catch {
-            log.record(.error, "Could not open the local map database; falling back to an in-memory store.")
-            return InMemoryMapStore()
-        }
-    }
-
-    /// Same database file, same fallback behavior as `localGardenStore()`/
-    /// `localMapStore()` — `garden`, `garden_object`, and `plant` are three
-    /// tables in the one per-profile database `LocalDatabase.open` manages,
-    /// per `LocalDatabase+PlantMigration.swift`'s own doc comment.
-    private func localPlantStore() -> any LocalPlantStore {
-        let profileIdentifier = currentProfileIdentifier()
-
-        do {
-            let dbQueue = try LocalDatabase.open(profileIdentifier: profileIdentifier)
-            return GRDBPlantStore(dbQueue: dbQueue)
-        } catch {
-            log.record(.error, "Could not open the local plant database; falling back to an in-memory store.")
-            return InMemoryPlantStore()
-        }
-    }
-
-    /// Same database file, same fallback behavior as `localGardenStore()`/
-    /// `localMapStore()`/`localPlantStore()` — `garden`, `garden_object`,
-    /// `plant`, and `observation` are four tables in the one per-profile
-    /// database `LocalDatabase.open` manages, per
-    /// `LocalDatabase+ObservationMigration.swift`'s own doc comment.
-    private func localObservationStore() -> any LocalObservationStore {
-        let profileIdentifier = currentProfileIdentifier()
-
-        do {
-            let dbQueue = try LocalDatabase.open(profileIdentifier: profileIdentifier)
-            return GRDBObservationStore(dbQueue: dbQueue)
-        } catch {
-            log.record(.error, "Could not open the local observation database; falling back to an in-memory store.")
-            return InMemoryObservationStore()
-        }
-    }
-
-    /// Same database file, same fallback behavior as `localGardenStore()`/
-    /// `localMapStore()`/`localPlantStore()`/`localObservationStore()` —
-    /// `garden`, `garden_object`, `plant`, `observation`, and `task` are five
-    /// tables in the one per-profile database `LocalDatabase.open` manages,
-    /// per `LocalDatabase+TaskMigration.swift`'s own doc comment.
-    private func localTaskStore() -> any LocalTaskStore {
-        let profileIdentifier = currentProfileIdentifier()
-
-        do {
-            let dbQueue = try LocalDatabase.open(profileIdentifier: profileIdentifier)
-            return GRDBTaskStore(dbQueue: dbQueue)
-        } catch {
-            log.record(.error, "Could not open the local task database; falling back to an in-memory store.")
-            return InMemoryTaskStore()
-        }
-    }
-
-    /// Same database file, same fallback behavior as `localGardenStore()`/
-    /// `localMapStore()`/`localPlantStore()`/`localObservationStore()`/
-    /// `localTaskStore()` — `sync_conflict` is one more table in the one
-    /// per-profile database `LocalDatabase.open` manages. Not itself a
-    /// `Local*Store` (no read-model this device projects), named to match
-    /// `CorePersistence.SyncConflictStore`'s own type instead, the same way
-    /// `makeSyncEngine()` names `GRDBSyncOutboxStore`/`GRDBSyncCursorStore`
-    /// directly rather than through a `local*Store()`-style wrapper.
-    private func syncConflictStore() -> any SyncConflictStore {
-        let profileIdentifier = currentProfileIdentifier()
-
-        do {
-            let dbQueue = try LocalDatabase.open(profileIdentifier: profileIdentifier)
-            return GRDBSyncConflictStore(dbQueue: dbQueue)
-        } catch {
-            log.record(.error, "Could not open the local sync conflict database; falling back to an in-memory store.")
-            return InMemorySyncConflictStore()
-        }
-    }
-
-    /// The same identifier `localGardenStore()` opens the on-disk database
-    /// by, also used to tag every garden outbox operation's `profileId`
-    /// (P5-IOS-02). That field is local bookkeeping only — the contract's
-    /// `SyncOperation` has no profile field; the server fills the
-    /// authenticated caller's profile itself
-    /// (`packages/api-contracts/openapi.yaml`, `SyncOperation`'s own
-    /// description) — so reusing this client-local scoping identifier here,
-    /// rather than the application profile ID this client never fetches
-    /// directly, does not create a wire-format mismatch.
-    private func currentProfileIdentifier() -> String {
-        sessionObserver.currentFirebaseUid ?? "signed-out"
     }
 }

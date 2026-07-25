@@ -416,17 +416,35 @@ that backlog late is safe by the flow's own design: the send worker rechecks rec
 freshness, preference, and expiration immediately before delivery (notifications.md section 9), so
 a stale candidate-created event closes without a notification.
 
-**Offline Today actions in the sync protocol — P7-IOS-01's decision.** The P7-BE-01 recommendation
-commands are deliberately NOT routed through `POST /v1/sync/push`: recommendations are not a synced
-record family (candidates are server-generated, and no client replicates them offline today), so
-adding `recommendation` operations to the sync contract now would be dead surface no client
-consumes — the same "wiring dependencies no caller reaches is dead composition" posture P7-DATA-01
-and P7-INT-01 applied to their own unwired halves. The commands are SHAPED for that future exactly
-like the task commands (idempotency key reusable as a sync `operationId`, `expectedRevision`
-guards, per-operation conflict semantics), so if the iOS stage decides Today actions must work
-offline, a `route-recommendation-operation.ts` following `route-task-operation.ts`'s pattern plus
-the sync payload contracts is the whole gap. The CONVERTED task, by contrast, is a task — its
-creation already writes the `sync_change` row offline clients pull.
+**Offline Today actions in the sync protocol — decided by P7-IOS-01: not built.** The P7-BE-01
+recommendation commands are deliberately NOT routed through `POST /v1/sync/push`: recommendations
+are not a synced record family (candidates are server-generated, and no client replicates them
+offline today), so adding `recommendation` operations to the sync contract now would be dead
+surface no client consumes — the same "wiring dependencies no caller reaches is dead composition"
+posture P7-DATA-01 and P7-INT-01 applied to their own unwired halves. The commands are SHAPED for
+that future exactly like the task commands (idempotency key reusable as a sync `operationId`,
+`expectedRevision` guards, per-operation conflict semantics), so if a later stage decides Today
+actions must work offline, a `route-recommendation-operation.ts` following
+`route-task-operation.ts`'s pattern plus the sync payload contracts is the whole gap.
+P7-IOS-01 has now made that decision explicitly: the native Today surface is ONLINE-ONLY with
+honest degradation (a named "Today needs a connection" state on a first-load transport failure; a
+kept, explicitly stale-labeled in-memory set when a refresh fails after a successful fetch this
+session; a real empty state) — the calibration flow's established precedent — because first
+presentation, expiry, and supersession are server-decided facts a local projection would have to
+fabricate. The sync-push routing therefore remains available to a future stage that revisits the
+decision, with the gap unchanged. The CONVERTED task, by contrast, is a task — its creation
+already writes the `sync_change` row offline clients pull.
+
+**`originRecommendationId` on the iOS task model (P7-IOS-01 scope boundary).** The contract's
+`Task` schema gained the additive `originRecommendationId` member in P7-BE-01, and the web client
+reads it. The iOS client tolerates it (proven by a gateway decode test) but does not yet model
+it: `CoreDomain.GardenTask`, `CoreNetworking.GardenTaskTransport`, the local GRDB `task` table
+(`TaskRecord` plus a `LocalDatabase` column migration), and `TaskSyncRecordApplier` would all
+need the field, rippling through every `GardenTask` construction site — real, scoped work no
+current iOS surface consumes: the conversion flow links by construction (the response carries the
+task), and no iOS task UI displays origin lineage yet. The first iOS surface that must
+DISTINGUISH a conversion-completion from a manual task on device brings the field through that
+whole path with it.
 
 **Garden-area target display names in Today (P7-BE-01 scope boundary).** `targetDisplayName`
 resolves the plant's current display name for plant targets and `null` for garden targets (the

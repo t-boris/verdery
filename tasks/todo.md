@@ -4301,3 +4301,70 @@ OR explanation IS NOT NULL`) policed state vocabulary too — an unknown state t
   (two `Task` literals gained the additive field).
 - Root `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `node scripts/check-file-size.mjs` all
   clean.
+
+## Stage 20 — P7-IOS-01, implementation complete
+
+The native Today surface is real: a new `FeatureRecommendations` module (the `Recommendations`
+feature the iOS application-structure doc already reserves) presents the garden's prioritized
+recommendation set with reason, urgency, uncertainty, and controls — the phase exit criterion's
+own words — routed from garden settings like every feature, over a new `RecommendationGateway`
+speaking P7-BE-01's `Recommendations` tag exactly.
+
+### Key decisions
+
+- **Today is an ONLINE surface with honest degradation** — Stage 19's anticipated decision, made
+  explicitly, on the calibration precedent. `FeatureRecommendations` owns no local table and no
+  `CorePersistence`/`CoreSynchronization` dependency (the `FeatureHealth` shape): first
+  presentation, expiry, and supersession are server-decided facts a local projection would have
+  to fabricate. The decided degraded states, each named and tested: first-load transport failure
+  → a "Today needs a connection" state (`TodayViewState.offline`); a failed REFRESH after a
+  successful fetch this session → the last-fetched set kept on screen behind an explicit
+  staleness notice naming the load time (in-memory only, deliberately); a degraded backend on
+  first load → the established failure surface; an empty set → a real loaded-empty state, never
+  an error.
+- **`JSONValue` moved from `CoreNetworking` (internal `JSONPassthroughValue`) to `CoreDomain`,
+  public**: the contract's deliberately open shapes (`factValue: {}`, factor `basis`) gave the
+  passthrough JSON value a real domain role, and a duplicated second enum would have to be kept
+  byte-identical by review. Sync-transport call sites renamed; behavior unchanged, now directly
+  covered by `CoreDomainTests/JSONValueTests`.
+- **The domain composes what the wire flattens**: `CoreDomain.TodayRecommendation` is
+  `Recommendation` plus the view-only members; the contract's flat schema exists only because two
+  `additionalProperties: false` schemas cannot compose via `allOf` (its own note), a constraint
+  Swift does not have. The transport decodes the flat shape and recomposes.
+- **Uncertainty is rendered, never re-interpreted**: the `confidence` factor's signed
+  contribution and key-sorted basis (including any stale-weather label) render as readable text
+  on the row; the same pure rules (`TodayLocalization`) render the full priority breakdown and
+  the evidence list (a `.null` `factValue` shows the fact key alone — the referenced row itself
+  is the value) on the detail screen.
+- **Commands follow the established conventions**: use cases generate a fresh idempotency key
+  per attempt (`SubmitMapCommand`'s responsibility split); gateways send `If-Match` +
+  `Idempotency-Key` exactly like `TaskGateway`. A 409/412 — the legitimate race Stage 19
+  documents — surfaces as its own "changed on the server" message AND refreshes the list.
+  Mark-irrelevant, the one command with no transition and no revision bump, deliberately
+  refreshes nothing and acknowledges with a recorded-feedback notice instead.
+- **Conversion linkage**: the created task (rule's action title, stored explanation as notes,
+  `source: 'suggested'`, `status: 'planned'`) drives an "Added to tasks" confirmation pinned to
+  the converted item's own detail screen, with an open-tasks link through a new `TodayTasksRoute`
+  marker resolved by the composition root — the converted task appearing in the garden's task
+  list IS this phase's outcome-history linkage (no history read endpoint exists).
+- **`AppCompositionRoot` split at the 600-line limit**: the per-profile `local*Store()` factories
+  and `currentProfileIdentifier()` moved whole into `AppCompositionRoot+LocalStores.swift` — the
+  established topic-scoped-extension mechanics.
+
+### Verification evidence
+
+- `swift test`: 782 tests / 109 suites before → **808 tests / 114 suites** after (+26/+5):
+  `RecommendationGatewayTests` (paths, limit query, revision/idempotency headers, postpone body
+  with and without the horizon, 201 conversion decode — including proof the additive
+  `originRecommendationId` on `Task` is tolerated), `JSONValueTests`, `TodayViewModelTests`
+  (presentation incl. uncertainty text, elevated-risk labeling, target labels, and all four
+  degraded states), `TodayLocalizationTests`, and `TodayCareLoopEndToEndTests` — the acceptance
+  evidence: the complete native care loop at the view-model layer against a stateful fake
+  gateway (fetch → prioritized presentation → conversion with field carry-over → every feedback
+  outcome → refreshed list → honest empty state → the trail read back from recorded rows alone),
+  plus revision-conflict refresh, offline action, and unknown-item no-op. No simulator exists in
+  the headless environment; the thin SwiftUI layer itself is the one untested slice, per the
+  established "pure types under thin views" convention.
+- `swift build` zero warnings; `node scripts/check-file-size.mjs`, `pnpm lint`,
+  `pnpm format:check` all clean. Localization catalogues gained 50 `today.*` keys in both
+  languages, verified by the existing catalogue-parity suite.

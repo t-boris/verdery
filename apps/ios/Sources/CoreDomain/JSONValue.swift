@@ -2,23 +2,32 @@ import Foundation
 
 /// A JSON value carried through unmodified.
 ///
-/// Used where a field's contents are opaque to this client — today, only
-/// `SyncConflictOperationResult.currentRecord` (`packages/api-contracts/openapi.yaml`):
-/// this transport layer needs to preserve that value for
-/// `CoreDomain.SyncConflict.serverRepresentation` (itself documented as
-/// "JSON-encoded and opaque to this layer" — a later stage's conflict
-/// recovery UI, P5-CONFLICT-01, is what actually interprets it), without
-/// modeling every one of `SyncRecordSnapshot`'s five record-type branches as
-/// typed Swift structs here.
-enum JSONPassthroughValue: Codable, Equatable, Sendable {
+/// Used where a field's contents are structurally open on the wire and this
+/// client must preserve them without modeling every possible shape:
+///
+/// - `SyncConflictOperationResult.currentRecord` and `SyncChange.record`
+///   (`CoreNetworking`'s sync transport), where the value is opaque to the
+///   transport layer and re-decoded per record type one level down.
+/// - `RecommendationEvidence.factValue` and
+///   `RecommendationPriorityFactor.basis` (P7-IOS-01), where the contract
+///   deliberately declares open shapes (`factValue: {}`, `basis:
+///   additionalProperties: true`) — the engine's stored facts are rendered
+///   as readable text by the Today feature, never re-interpreted.
+///
+/// Lived in `CoreNetworking` as the internal `JSONPassthroughValue` until
+/// P7-IOS-01; the recommendation domain models above are what moved it here
+/// and made it public — `CoreDomain` cannot import `CoreNetworking`, and a
+/// second, duplicated JSON enum would have to be kept byte-identical by
+/// review.
+public enum JSONValue: Codable, Equatable, Sendable {
     case null
     case bool(Bool)
     case number(Double)
     case string(String)
-    case array([JSONPassthroughValue])
-    case object([String: JSONPassthroughValue])
+    case array([JSONValue])
+    case object([String: JSONValue])
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
 
         if container.decodeNil() {
@@ -29,16 +38,16 @@ enum JSONPassthroughValue: Codable, Equatable, Sendable {
             self = .number(value)
         } else if let value = try? container.decode(String.self) {
             self = .string(value)
-        } else if let value = try? container.decode([JSONPassthroughValue].self) {
+        } else if let value = try? container.decode([JSONValue].self) {
             self = .array(value)
-        } else if let value = try? container.decode([String: JSONPassthroughValue].self) {
+        } else if let value = try? container.decode([String: JSONValue].self) {
             self = .object(value)
         } else {
             throw DecodingError.dataCorruptedError(in: container, debugDescription: "Unsupported JSON value.")
         }
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
 
         switch self {
@@ -56,13 +65,13 @@ enum JSONPassthroughValue: Codable, Equatable, Sendable {
     /// `FeatureGardens.GardenSyncCommandPayload`'s own doc comment) directly
     /// into a `SyncOperation.payload` request field, with no intermediate
     /// typed re-modeling.
-    init(jsonText: String) throws {
-        self = try JSONDecoder().decode(JSONPassthroughValue.self, from: Data(jsonText.utf8))
+    public init(jsonText: String) throws {
+        self = try JSONDecoder().decode(JSONValue.self, from: Data(jsonText.utf8))
     }
 
     /// Re-serializes to compact JSON text — used for
     /// `CoreDomain.SyncConflict.serverRepresentation`.
-    func jsonText() throws -> String {
+    public func jsonText() throws -> String {
         let data = try JSONEncoder().encode(self)
         return String(decoding: data, as: UTF8.self)
     }
@@ -70,7 +79,7 @@ enum JSONPassthroughValue: Codable, Equatable, Sendable {
     /// This value's own `key` field, when `self` is a JSON object and that
     /// field is a JSON string — used to read `currentRecord.recordType`
     /// without modeling the whole snapshot shape.
-    func stringValue(forKey key: String) -> String? {
+    public func stringValue(forKey key: String) -> String? {
         guard case let .object(fields) = self, case let .string(value)? = fields[key] else { return nil }
         return value
     }
@@ -80,7 +89,7 @@ enum JSONPassthroughValue: Codable, Equatable, Sendable {
     /// .record.data` (a `SyncRecordSnapshot`'s per-record-type payload) back
     /// out for a second, typed decode pass, the same way `stringValue(forKey:)`
     /// already pulls out `recordType` alone for push's conflict payload.
-    func value(forKey key: String) -> JSONPassthroughValue? {
+    public func value(forKey key: String) -> JSONValue? {
         guard case let .object(fields) = self else { return nil }
         return fields[key]
     }

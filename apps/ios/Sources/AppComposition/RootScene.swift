@@ -4,6 +4,7 @@ import FeatureHealth
 import FeatureMap
 import FeatureObservations
 import FeaturePlants
+import FeatureRecommendations
 import FeatureSyncConflicts
 import FeatureTasks
 import SwiftUI
@@ -102,6 +103,18 @@ public struct RootView: View {
                         )
                     }
                     .navigationDestination(for: GardenTasksRoute.self) { route in
+                        TasksListView(model: composition.makeTasksListViewModel(gardenId: route.gardenId))
+                    }
+                    // P7-IOS-01: the garden's Today recommendation screen,
+                    // and the Today feature's own post-conversion link into
+                    // the same garden's task list — two marker routes, the
+                    // same reason `GardenTasksRoute` exists (features never
+                    // depend on each other; only this composition layer
+                    // names both).
+                    .navigationDestination(for: GardenTodayRoute.self) { route in
+                        TodayView(model: composition.makeTodayViewModel(gardenId: route.gardenId))
+                    }
+                    .navigationDestination(for: TodayTasksRoute.self) { route in
                         TasksListView(model: composition.makeTasksListViewModel(gardenId: route.gardenId))
                     }
                     // P5-CONFLICT-01: the durable conflict list/compare/

@@ -66,6 +66,7 @@ public final class GardenSettingsViewModel {
     public var renameSubmitTitle: String { strings(.gardensRenameSubmit) }
     public var archiveTitle: String { strings(.gardensArchive) }
     public var requestDeletionTitle: String { strings(.gardensRequestDeletion) }
+    public var openTodayTitle: String { strings(.gardensOpenToday) }
     public var openMapEditorTitle: String { strings(.gardensOpenMapEditor) }
     public var openPlanUploadTitle: String { strings(.gardensOpenPlanUpload) }
     public var openPlantsTitle: String { strings(.gardensOpenPlants) }

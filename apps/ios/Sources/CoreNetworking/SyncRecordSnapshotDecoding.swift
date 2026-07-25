@@ -27,7 +27,7 @@ public enum SyncRecordSnapshotDecoding {
     /// Decodes the full `{recordType, data}` envelope from raw JSON text —
     /// `CoreDomain.SyncConflict.serverRepresentation`'s own shape.
     public static func decode(json: String) throws -> SyncChangeSnapshot {
-        let envelope = try JSONPassthroughValue(jsonText: json)
+        let envelope = try JSONValue(jsonText: json)
         guard let recordType = envelope.stringValue(forKey: "recordType") else {
             throw APIGatewayError.undecodableResponse(statusCode: 200, correlationId: "")
         }
@@ -42,7 +42,7 @@ public enum SyncRecordSnapshotDecoding {
     /// `data` schema for each record type is the exact same `Garden`/
     /// `GardenObject`/`Plant`/`Task` schema those endpoints already return.
     ///
-    /// `record` arrives as `JSONPassthroughValue` — the same "flexible whole-
+    /// `record` arrives as `JSONValue` — the same "flexible whole-
     /// envelope decode, then a second typed pass once the discriminator is
     /// known" shape `SyncPushOperationResultTransport.currentRecord` already
     /// uses for push's conflict payload — because `HTTPTransport.execute`'s
@@ -52,7 +52,7 @@ public enum SyncRecordSnapshotDecoding {
     /// teaching `SyncChangeTransport` a custom keyed-container decoder for a
     /// five-way discriminated union it would otherwise need to duplicate
     /// `SyncRecordSnapshot`'s own discriminator mapping to get right.
-    static func decode(_ record: JSONPassthroughValue, recordType: String) throws -> SyncChangeSnapshot {
+    static func decode(_ record: JSONValue, recordType: String) throws -> SyncChangeSnapshot {
         guard recordType == "garden" || recordType == "gardenObject" || recordType == "plant" || recordType == "task" else {
             // `calibration`/`observation`, or an unrecognized future record
             // type — no typed local projection exists to decode into; see

@@ -38,12 +38,12 @@ struct SyncOperationTransport: Encodable {
     let localSequence: Int64
     let dependsOnOperationIds: [String]
     let mediaPrerequisites: [SyncMediaPrerequisiteTransport]
-    let payload: JSONPassthroughValue
+    let payload: JSONValue
 
     /// - Parameter operation: `operation.payload` is already the exact
     ///   `SyncOperationPayload` wire shape (`{recordType, gardenId, command}`)
     ///   — see `FeatureGardens.GardenSyncCommandPayload`'s own doc comment —
-    ///   so this only parses it back into a `JSONPassthroughValue` to embed,
+    ///   so this only parses it back into a `JSONValue` to embed,
     ///   never re-derives it. `mediaPrerequisites` all default to
     ///   `allowPendingUpload: false`: `OutboxOperation.mediaPrerequisiteIds`
     ///   is a plain `[String]` with no richer per-id flag yet — nothing in
@@ -62,7 +62,7 @@ struct SyncOperationTransport: Encodable {
         self.mediaPrerequisites = operation.mediaPrerequisiteIds.map {
             SyncMediaPrerequisiteTransport(mediaId: $0, allowPendingUpload: false)
         }
-        self.payload = try JSONPassthroughValue(jsonText: operation.payload)
+        self.payload = try JSONValue(jsonText: operation.payload)
     }
 }
 
@@ -89,7 +89,7 @@ struct SyncPushOperationResultTransport: Decodable {
     let operationId: String
     let recordRevisions: [SyncRecordReferenceTransport]?
     let conflictCode: String?
-    let currentRecord: JSONPassthroughValue?
+    let currentRecord: JSONValue?
     let error: SyncOperationErrorTransport?
     let blockingOperationIds: [String]?
     let retryAfterSeconds: Int?
@@ -169,7 +169,7 @@ struct SyncAcknowledgeResultTransport: Decodable {
 }
 
 /// `packages/api-contracts/openapi.yaml`, `SyncChange`. `record` stays
-/// `JSONPassthroughValue` here — the whole `{recordType, data}`
+/// `JSONValue` here — the whole `{recordType, data}`
 /// `SyncRecordSnapshot` envelope — rather than one of the five typed
 /// snapshot structs: which one applies depends on `recordType`, a sibling
 /// field this struct's own `Decodable` synthesis has no way to branch on,
@@ -183,7 +183,7 @@ struct SyncChangeTransport: Decodable {
     let operation: String
     let recordRevision: Int
     let committedAt: Date
-    let record: JSONPassthroughValue?
+    let record: JSONValue?
 }
 
 struct SyncChangesResultTransport: Decodable {

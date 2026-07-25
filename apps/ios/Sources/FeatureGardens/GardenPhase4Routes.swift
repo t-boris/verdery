@@ -60,3 +60,15 @@ public struct GardenPlanUploadRoute: Hashable, Sendable {
         self.gardenId = gardenId
     }
 }
+
+/// Requests to navigate from this garden's settings screen to its Today
+/// recommendation screen (P7-IOS-01) — the same marker-type pattern as
+/// every route above; `FeatureGardens` cannot depend on
+/// `FeatureRecommendations` either.
+public struct GardenTodayRoute: Hashable, Sendable {
+    public let gardenId: String
+
+    public init(gardenId: String) {
+        self.gardenId = gardenId
+    }
+}

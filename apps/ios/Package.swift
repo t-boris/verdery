@@ -46,6 +46,7 @@ let package = Package(
         .library(name: "FeaturePlants", targets: ["FeaturePlants"]),
         .library(name: "FeatureObservations", targets: ["FeatureObservations"]),
         .library(name: "FeatureTasks", targets: ["FeatureTasks"]),
+        .library(name: "FeatureRecommendations", targets: ["FeatureRecommendations"]),
         .library(name: "FeatureSyncConflicts", targets: ["FeatureSyncConflicts"]),
         .library(name: "AppComposition", targets: ["AppComposition"]),
     ],
@@ -358,6 +359,21 @@ let package = Package(
             ]
         ),
 
+        // The Today recommendation surface (P7-IOS-01): the prioritized set,
+        // per-item detail with evidence and priority breakdown, and the five
+        // online feedback/conversion commands. Deliberately shaped like
+        // `FeatureHealth` — no GRDB, no `CorePersistence`, no
+        // `CoreSynchronization`: Today is an ONLINE surface (recommendations
+        // are not a synced record family; their commands are deliberately
+        // absent from the sync push protocol — see docs/development/
+        // deferred-capabilities.md, "Offline Today actions in the sync
+        // protocol"), so this feature owns no local read-model table and
+        // degrades honestly when offline instead of projecting one.
+        .target(
+            name: "FeatureRecommendations",
+            dependencies: ["CoreDomain", "CoreNetworking", "CoreLocalization"]
+        ),
+
         // Durable-conflict list and compare/resolve screen (P5-CONFLICT-01).
         // No GRDB dependency of its own — unlike `FeatureGardens`/`FeatureMap`/
         // `FeaturePlants`/`FeatureObservations`/`FeatureTasks`, this feature
@@ -413,6 +429,7 @@ let package = Package(
                 "FeaturePlants",
                 "FeatureObservations",
                 "FeatureTasks",
+                "FeatureRecommendations",
                 "FeatureSyncConflicts",
                 .product(name: "FirebaseCore", package: "firebase-ios-sdk"),
             ]
@@ -550,6 +567,10 @@ let package = Package(
                 "CoreSynchronization",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ]
+        ),
+        .testTarget(
+            name: "FeatureRecommendationsTests",
+            dependencies: ["FeatureRecommendations"]
         ),
         .testTarget(
             name: "FeatureSyncConflictsTests",
