@@ -13,7 +13,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { Kysely, PostgresDialect } from 'kysely';
 import { runner } from 'node-pg-migrate';
 import pg from 'pg';
@@ -47,10 +47,9 @@ import type { DatabaseSchema } from '../../src/platform/database/database-gatewa
 import { KyselyIdempotencyStore } from '../../src/platform/idempotency/kysely-idempotency-store.js';
 import { generateUuidV7 } from '../../src/shared/identifiers/uuid.js';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
+import { startPostgresTestContainer } from '../support/postgres-container.js';
 
 const SUITE_NAME = 'recommendation AI explanation integration';
-const POSTGIS_IMAGE = 'postgis/postgis:17-3.5';
-const POSTGIS_PLATFORM = 'linux/amd64';
 const MIGRATIONS_DIRECTORY = new URL('../../migrations', import.meta.url).pathname;
 
 const dockerAvailable = await isDockerAvailable();
@@ -73,7 +72,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   let authorization: GardenAuthorization;
 
   beforeAll(async () => {
-    container = await new PostgreSqlContainer(POSTGIS_IMAGE).withPlatform(POSTGIS_PLATFORM).start();
+    container = await startPostgresTestContainer();
     const databaseUrl = container.getConnectionUri();
 
     await runner({
@@ -281,6 +280,70 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const offAgain = await off.sweep.execute();
     expect(offAgain.embellishment).toBeNull();
     expect(adapter.callCount).toBe(1);
+  });
+
+  it('MODEL OUTAGE end to end: a failing provider writes no verdict, Today keeps the deterministic reason, and the next sweep retries the same candidate', async () => {
+    // P7-QA-01 model-outage case through the real sweep phase: section 14's
+    // "retry only for safe transient outcomes" — a provider outage must
+    // leave NO durable verdict (absence doubles as the retry marker), the
+    // user-facing surface must keep functioning on the deterministic text,
+    // and the very next run must retry the SAME candidate and succeed once
+    // the provider recovers.
+    await deleteAllGardens();
+    const clock = new SteppingClock(START);
+    const { ownerId, gardenId } = await seedGarden(clock, ['Outage tomato']);
+    const adapter = new FakeAiExplanationProviderAdapter({
+      kind: 'fail',
+      error: new Error('vertex unreachable'),
+    });
+    const surface = makeSurface(clock, adapter);
+
+    // First sweep: generation succeeds, the embellishment phase hits the
+    // outage — a counted transient, nothing stored.
+    const outageRun = await surface.sweep.execute();
+    expect(outageRun.candidatesCreated).toBe(1);
+    expect(outageRun.embellishment).toMatchObject({
+      candidatesConsidered: 1,
+      accepted: 0,
+      rejected: 0,
+      transientFailures: 1,
+    });
+    expect(adapter.callCount).toBe(1);
+    const verdictsAfterOutage = await db
+      .selectFrom('tasks_recommendations.recommendation_ai_explanation')
+      .selectAll()
+      .execute();
+    expect(verdictsAfterOutage).toHaveLength(0);
+
+    // The application functions through the outage: Today serves the
+    // deterministic reason with the AI path enabled and the provider down.
+    const during = await surface.todayOn.execute(gardenId, ownerId, 10);
+    expect(during.result.items[0]).toMatchObject({
+      explanationSource: 'deterministic',
+      embellishedExplanation: null,
+    });
+
+    // Provider recovers: the next scheduled run selects the SAME candidate
+    // again (absence is the retry marker) and records the accepted verdict.
+    adapter.setBehavior({
+      kind: 'outcome',
+      outcome: {
+        kind: 'draft',
+        draft: { explanation: ACCEPTED_TEXT, evidenceKeysUsed: ['plant.lifecycle_stage'] },
+      },
+    });
+    const recoveredRun = await surface.sweep.execute();
+    expect(recoveredRun.embellishment).toMatchObject({
+      candidatesConsidered: 1,
+      accepted: 1,
+      transientFailures: 0,
+    });
+    expect(adapter.callCount).toBe(2);
+    const served = await surface.todayOn.execute(gardenId, ownerId, 10);
+    expect(served.result.items[0]).toMatchObject({
+      explanationSource: 'ai_embellished',
+      embellishedExplanation: ACCEPTED_TEXT,
+    });
   });
 
   it('a rejected draft is recorded with its outcome and Today keeps serving the deterministic reason', async () => {

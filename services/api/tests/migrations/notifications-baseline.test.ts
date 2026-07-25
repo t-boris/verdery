@@ -13,17 +13,15 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { runner } from 'node-pg-migrate';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import '../../src/platform/database/pg-bigint-parser.js';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
+import { startPostgresTestContainer } from '../support/postgres-container.js';
 
 const SUITE_NAME = 'notifications baseline migration';
-
-const POSTGIS_IMAGE = 'postgis/postgis:17-3.5';
-const POSTGIS_PLATFORM = 'linux/amd64';
 
 const MIGRATIONS_DIRECTORY = new URL('../../migrations', import.meta.url).pathname;
 
@@ -58,7 +56,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   let gardenId: string;
 
   beforeAll(async () => {
-    container = await new PostgreSqlContainer(POSTGIS_IMAGE).withPlatform(POSTGIS_PLATFORM).start();
+    container = await startPostgresTestContainer();
     databaseUrl = container.getConnectionUri();
 
     await migrate(databaseUrl, 'up');

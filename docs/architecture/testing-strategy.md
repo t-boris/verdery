@@ -76,6 +76,14 @@ Test:
 
 SQLite is not a substitute for server persistence tests.
 
+Container startup is coordinated (P7-QA-01): every backend suite still owns its dedicated
+PostgreSQL/PostGIS container, but `services/api/tests/support/postgres-container.ts` bounds how
+many container startups run at once machine-wide and retries Testcontainers' non-configurable
+10-second port-binding inspection once. Without the bound, a full run's initial wave of ~20
+simultaneous emulated `initdb` starts saturated the Docker daemon and failed healthy suites.
+Docker availability is probed once per run in vitest global setup (with retries) and handed to
+every fork, so a momentarily slow daemon can no longer silently skip a healthy suite.
+
 ## 7. API Contract Tests
 
 - Lint OpenAPI.

@@ -90,6 +90,33 @@ describe('RunWeatherRefreshSweep', () => {
     });
   });
 
+  it('a provider outage on one garden never stops the rest of the batch — only quota exhaustion does', async () => {
+    // P7-QA-01 provider-outage posture, pinned at the sweep level: each
+    // garden is independent, so a timeout or failure is a counted per-garden
+    // degradation and every later candidate is still considered — the
+    // design's one batch-stopping outcome is quota exhaustion (below).
+    const source = candidateSource([GARDEN_A, GARDEN_B, GARDEN_C]);
+    const record = { id: 'irrelevant' } as unknown as never;
+    const refresh = refresher({
+      [GARDEN_A]: { outcome: 'unavailable', reason: 'providerFailed' },
+      [GARDEN_B]: { outcome: 'unavailable', reason: 'providerTimeout' },
+      [GARDEN_C]: { outcome: 'refreshed', records: [record] },
+    });
+
+    const result = await new RunWeatherRefreshSweep(source, refresh).execute();
+
+    expect(refresh.calls).toEqual([GARDEN_A, GARDEN_B, GARDEN_C]);
+    expect(result).toEqual({
+      gardensConsidered: 3,
+      refreshed: 1,
+      freshCacheHits: 0,
+      staleServed: 0,
+      unavailable: 2,
+      degradationReasons: { providerFailed: 1, providerTimeout: 1 },
+      stoppedOnQuotaExhaustion: false,
+    });
+  });
+
   it('stops the batch honestly on a typed quotaExhausted outcome instead of grinding through refusals', async () => {
     const source = candidateSource([GARDEN_A, GARDEN_B, GARDEN_C]);
     const refresh = refresher({

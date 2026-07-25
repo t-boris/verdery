@@ -31,7 +31,16 @@
  *    an invented fact ("Missing facts remain missing", section 4).
  *
  * What this deliberately does NOT attempt: spelled-out numerals ("two
- *    liters", "два литра") and action phrasings outside the lexicon.
+ *    liters", "два литра"), action phrasings outside the lexicon,
+ *    section 9's "Exceeds uncertainty rules" (a rephrase that strengthens
+ *    the baseline's stated uncertainty — "may be frost-sensitive" into a
+ *    certainty — has no lexicon here; the only structural guard is that
+ *    the uncertainty wording lives in the baseline the draft is judged
+ *    against), and user-supplied text INSIDE the baseline: the plant
+ *    display name is embedded in the stored explanation, so an action
+ *    word in a name extends the permitted action vocabulary (pinned as an
+ *    accepted fixture; prohibited categories and numbers stay enforced
+ *    regardless).
  * Those residuals are what section 16's HUMAN evaluation pass reviews —
  * named in `tests/ai-explanation-fixtures/README.md`, the launch-rule
  * catalog's own honest-review posture.

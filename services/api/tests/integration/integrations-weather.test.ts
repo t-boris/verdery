@@ -18,7 +18,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { Kysely, PostgresDialect, sql } from 'kysely';
 import { runner } from 'node-pg-migrate';
 import pg from 'pg';
@@ -45,10 +45,9 @@ import { KyselyProviderQuotaRepository } from '../../src/modules/integrations/pe
 import { KyselyWeatherRecordRepository } from '../../src/modules/integrations/persistence/kysely-weather-record-repository.js';
 import type { DatabaseSchema } from '../../src/platform/database/database-gateway.js';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
+import { startPostgresTestContainer } from '../support/postgres-container.js';
 
 const SUITE_NAME = 'integrations weather integration';
-const POSTGIS_IMAGE = 'postgis/postgis:17-3.5';
-const POSTGIS_PLATFORM = 'linux/amd64';
 const MIGRATIONS_DIRECTORY = new URL('../../migrations', import.meta.url).pathname;
 
 const dockerAvailable = await isDockerAvailable();
@@ -67,7 +66,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   let profileId: string;
 
   beforeAll(async () => {
-    container = await new PostgreSqlContainer(POSTGIS_IMAGE).withPlatform(POSTGIS_PLATFORM).start();
+    container = await startPostgresTestContainer();
     const databaseUrl = container.getConnectionUri();
 
     await runner({
@@ -235,6 +234,83 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const refetched = await refresh.execute({ gardenId });
     expect(refetched.outcome).toBe('refreshed');
     expect(adapter.callCount).toBe(2);
+  });
+
+  it('resolves CONTRADICTORY stored records deterministically: the latest fetch wins, created_at breaks a fetch-time tie, history stays whole', async () => {
+    // P7-QA-01 contradictory-fact case: append-only fetch facts can disagree
+    // (a re-fetch after a provider correction, or two providers' readings for
+    // the same moment). The rule engine consumes exactly ONE record —
+    // whatever `findLatest` returns — so the resolution order
+    // (fetched_at DESC, created_at DESC, id DESC) is load-bearing: without a
+    // pinned deterministic winner, evaluation would flap between
+    // contradictory readings run to run.
+    const gardenId = await insertGeoreferencedGarden(4.3, 52.1);
+    const records = new KyselyWeatherRecordRepository(db);
+    const base = {
+      gardenId,
+      providerKey: 'fake-provider-a',
+      kind: 'observation' as const,
+      location: { latitude: 52.1, longitude: 4.3 },
+      sourceUnits: {
+        temperature: 'celsius',
+        precipitation: 'millimetre',
+        windSpeed: null,
+        humidity: null,
+      },
+      quality: { confidence: null, label: null },
+      licenseNote: 'seed license',
+      attributionText: null,
+    };
+    const measurements = (temperatureCelsius: number, precipitationMm: number) => ({
+      temperatureCelsius,
+      precipitationMm,
+      windSpeedMps: null,
+      humidityPercent: null,
+    });
+    const olderFetchAt = new Date(START.getTime() - 2 * HOUR_MS);
+    const newerFetchAt = new Date(START.getTime() - HOUR_MS);
+    await records.insertMany([
+      // The older fetch claims a warm dry day...
+      {
+        ...base,
+        id: randomUUID(),
+        effectiveAt: olderFetchAt,
+        fetchedAt: olderFetchAt,
+        createdAt: olderFetchAt,
+        measurements: measurements(27, 0),
+      },
+      // ...the newer fetch contradicts it outright for the same garden...
+      {
+        ...base,
+        id: randomUUID(),
+        effectiveAt: newerFetchAt,
+        fetchedAt: newerFetchAt,
+        createdAt: newerFetchAt,
+        measurements: measurements(8, 12),
+      },
+      // ...and a third row shares the newer fetch instant but was written
+      // earlier — the created_at tie-break must lose to the row above.
+      {
+        ...base,
+        id: randomUUID(),
+        effectiveAt: newerFetchAt,
+        fetchedAt: newerFetchAt,
+        createdAt: new Date(newerFetchAt.getTime() - 60_000),
+        measurements: measurements(31, 0),
+      },
+    ]);
+
+    const latest = await records.findLatest(gardenId, 'observation');
+    expect(latest?.measurements).toEqual(measurements(8, 12));
+
+    // The contradiction is never repaired away: every fetch fact survives as
+    // append-only history.
+    const stored = await db
+      .selectFrom('integrations.weather_record')
+      .select(db.fn.countAll<number>().as('rows'))
+      .where('garden_id', '=', gardenId)
+      .executeTakeFirstOrThrow();
+    expect(Number(stored.rows)).toBe(3);
   });
 
   it('returns the typed no-provider outcome with zero providers configured and persists nothing', async () => {

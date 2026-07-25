@@ -40,6 +40,18 @@ NOT claim to prove **quality** or **completeness**:
   phrasings outside the concept lists pass undetected — the lexicon's documented bias is
   over-rejection, never under-rejection, but a sufficiently novel phrasing is a residual risk
   only human review of REAL model outputs can assess.
+- Section 9's "Exceeds uncertainty rules" has no dedicated check: a draft that strengthens the
+  baseline's stated uncertainty ("may be frost-sensitive" rephrased as a certainty) passes the
+  five deterministic checks. The human evaluation pass reviews certainty drift explicitly.
+- User text inside the baseline (P7-QA-01): the ONE user-controlled text channel into the
+  prompt is the plant display name, embedded in the rendered deterministic explanation
+  (evidence fact values are machine-shaped by construction — `ObservationFact` carries no note
+  text). The injection fixtures in `lifecycle-harvest-readiness-check.fixtures.ts` prove an
+  instruction-shaped name cannot legitimize prohibited content in either language — and PIN the
+  residual honestly: an action word inside a name ("Prune-me rose") extends the permitted
+  action vocabulary, bounded to the ten benign care concepts. Closing that residual would need
+  the validation input to separate rule text from user-supplied placeholder values — a design
+  change a future stage owns deliberately.
 - No fixture can judge whether accepted embellishments are actually GOOD Russian or English —
   fluent, warm, faithful in tone. That is section 16's human quality evaluation.
 - The fixtures are constructed drafts, not recorded Vertex outputs: no Vertex access is enabled

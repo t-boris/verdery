@@ -19,7 +19,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { MEDIA_DELETION_REQUESTED_EVENT_TYPE } from '@verdery/api-contracts';
-import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { Kysely, PostgresDialect } from 'kysely';
 import { runner } from 'node-pg-migrate';
 import pg from 'pg';
@@ -53,10 +53,9 @@ import { KyselyIdempotencyStore } from '../../src/platform/idempotency/kysely-id
 import type { DatabaseSchema } from '../../src/platform/database/database-gateway.js';
 import type { Clock } from '../../src/shared/time/clock.js';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
+import { startPostgresTestContainer } from '../support/postgres-container.js';
 
 const SUITE_NAME = 'media deletion attachment-reference races';
-const POSTGIS_IMAGE = 'postgis/postgis:17-3.5';
-const POSTGIS_PLATFORM = 'linux/amd64';
 const MIGRATIONS_DIRECTORY = new URL('../../migrations', import.meta.url).pathname;
 const NOW = new Date('2026-07-21T09:00:00Z');
 const VALIDATION_CHECKSUM = 'e'.repeat(64);
@@ -76,7 +75,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   let db: Kysely<DatabaseSchema>;
 
   beforeAll(async () => {
-    container = await new PostgreSqlContainer(POSTGIS_IMAGE).withPlatform(POSTGIS_PLATFORM).start();
+    container = await startPostgresTestContainer();
     const databaseUrl = container.getConnectionUri();
 
     await runner({

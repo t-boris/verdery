@@ -13,7 +13,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { RECOMMENDATION_CANDIDATE_CREATED_EVENT_TYPE } from '@verdery/api-contracts';
-import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { Kysely, PostgresDialect } from 'kysely';
 import { runner } from 'node-pg-migrate';
 import pg from 'pg';
@@ -34,10 +34,9 @@ import {
 } from '../../src/modules/tasks-recommendations/public.js';
 import type { DatabaseSchema } from '../../src/platform/database/database-gateway.js';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
+import { startPostgresTestContainer } from '../support/postgres-container.js';
 
 const SUITE_NAME = 'recommendation evaluation sweep integration';
-const POSTGIS_IMAGE = 'postgis/postgis:17-3.5';
-const POSTGIS_PLATFORM = 'linux/amd64';
 const MIGRATIONS_DIRECTORY = new URL('../../migrations', import.meta.url).pathname;
 
 const dockerAvailable = await isDockerAvailable();
@@ -57,7 +56,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   let profileId: string;
 
   beforeAll(async () => {
-    container = await new PostgreSqlContainer(POSTGIS_IMAGE).withPlatform(POSTGIS_PLATFORM).start();
+    container = await startPostgresTestContainer();
     const databaseUrl = container.getConnectionUri();
 
     await runner({
@@ -144,6 +143,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       await trx.deleteFrom('tasks_recommendations.recommendation_evidence').execute();
       await trx.deleteFrom('tasks_recommendations.recommendation_candidate').execute();
       await trx.deleteFrom('plants_inventory.plant').execute();
+      await trx.deleteFrom('integrations.weather_record').execute();
       await trx.deleteFrom('gardens_mapping.garden').execute();
     });
   }
@@ -249,6 +249,122 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       .where('event_type', '=', RECOMMENDATION_CANDIDATE_CREATED_EVENT_TYPE)
       .executeTakeFirstOrThrow();
     expect(Number(eventCount.count)).toBe(1);
+  });
+
+  it('carries STALE weather honestly through the whole scheduled path: labeled candidate, elevated-risk skip, typed counter', async () => {
+    // P7-QA-01 stale-weather end-to-end: the per-rule postures the fixtures
+    // pin at the engine level (`useLabeledStale` for the watering rule,
+    // `skip` for the elevated-risk frost rule) proven through the REAL
+    // sweep against real rows — the stale label must survive into the
+    // persisted evidence and factor rows Today re-reads, and the frost
+    // skip must surface as the sweep summary's typed `weatherStale` count.
+    await deleteAllGardens();
+    const gardenId = await insertGarden('active');
+    await insertPlant(gardenId, 'growing');
+
+    const records = new KyselyWeatherRecordRepository(db);
+    const weatherBase = {
+      gardenId,
+      providerKey: 'fake-provider-a',
+      location: { latitude: 52.1, longitude: 4.3 },
+      quality: { confidence: null, label: null },
+      licenseNote: 'seed license',
+      attributionText: null,
+    };
+    // Fetched two hours before START — past the one-hour observation
+    // freshness window, so the read classifies it stale.
+    const staleObservationId = randomUUID();
+    const observationFetchedAt = new Date(START.getTime() - 2 * HOUR_MS);
+    // Fetched seven hours before START — past the six-hour forecast window
+    // — about a freezing moment still ahead of the evaluation instant.
+    const forecastFetchedAt = new Date(START.getTime() - 7 * HOUR_MS);
+    await records.insertMany([
+      {
+        ...weatherBase,
+        id: staleObservationId,
+        kind: 'observation',
+        effectiveAt: observationFetchedAt,
+        fetchedAt: observationFetchedAt,
+        createdAt: observationFetchedAt,
+        measurements: {
+          temperatureCelsius: 27,
+          precipitationMm: 0,
+          windSpeedMps: null,
+          humidityPercent: null,
+        },
+        sourceUnits: {
+          temperature: 'celsius',
+          precipitation: 'millimetre',
+          windSpeed: null,
+          humidity: null,
+        },
+      },
+      {
+        ...weatherBase,
+        id: randomUUID(),
+        kind: 'forecast',
+        effectiveAt: new Date(START.getTime() + 6 * HOUR_MS),
+        fetchedAt: forecastFetchedAt,
+        createdAt: forecastFetchedAt,
+        measurements: {
+          temperatureCelsius: -2,
+          precipitationMm: null,
+          windSpeedMps: null,
+          humidityPercent: null,
+        },
+        sourceUnits: {
+          temperature: 'celsius',
+          precipitation: null,
+          windSpeed: null,
+          humidity: null,
+        },
+      },
+    ]);
+
+    const summary = await makeSweep(new SteppingClock(START)).execute();
+    expect(summary).toEqual({
+      gardensEvaluated: 1,
+      // The watering rule's declared posture is `useLabeledStale`: it fires.
+      candidatesCreated: 1,
+      candidatesSuperseded: 0,
+      candidatesExpired: 0,
+      lostRaces: 0,
+      // The elevated-risk frost rule's declared posture is `skip`: a stale
+      // forecast produces nothing, and the skip is a typed counter.
+      ruleSkips: { weatherStale: 1 },
+      embellishment: null,
+    });
+
+    const rows = await candidateRows();
+    expect(rows).toHaveLength(1);
+    const candidateId = rows[0]?.id ?? '';
+
+    // The stale label is durable in the evidence row, pinned to the exact
+    // stored record the reading came from.
+    const weatherEvidence = await db
+      .selectFrom('tasks_recommendations.recommendation_evidence')
+      .select(['source_weather_record_id', 'fact_value'])
+      .where('candidate_id', '=', candidateId)
+      .where('fact_key', '=', 'weather.dry_spell_observation')
+      .executeTakeFirstOrThrow();
+    expect(weatherEvidence.source_weather_record_id).toBe(staleObservationId);
+    expect(weatherEvidence.fact_value).toMatchObject({
+      freshness: 'stale',
+      temperatureCelsius: 27,
+    });
+
+    // ...and in the confidence factor: the reduced stale-weather
+    // contribution with the label in its basis, exactly what Today re-reads.
+    const confidenceFactor = await db
+      .selectFrom('tasks_recommendations.recommendation_priority_factor')
+      .select(['factor_value'])
+      .where('candidate_id', '=', candidateId)
+      .where('factor_kind', '=', 'confidence')
+      .executeTakeFirstOrThrow();
+    expect(confidenceFactor.factor_value).toEqual({
+      contribution: 8,
+      basis: { weatherFreshness: 'stale' },
+    });
   });
 
   it('concurrent sweep invocations serialize on the per-garden advisory lock — no duplicate candidates, no duplicate events', async () => {

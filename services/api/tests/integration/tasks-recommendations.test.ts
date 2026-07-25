@@ -17,7 +17,7 @@
  * architecture/testing-strategy.md, section "6. Backend Integration Tests".
  */
 
-import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import type { Geometry } from '@verdery/geometry-contracts';
 import { Kysely, PostgresDialect } from 'kysely';
 import { runner } from 'node-pg-migrate';
@@ -57,10 +57,9 @@ import {
 import { generateUuidV7 } from '../../src/shared/identifiers/uuid.js';
 import type { Clock } from '../../src/shared/time/clock.js';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
+import { startPostgresTestContainer } from '../support/postgres-container.js';
 
 const SUITE_NAME = 'tasks-recommendations integration';
-const POSTGIS_IMAGE = 'postgis/postgis:17-3.5';
-const POSTGIS_PLATFORM = 'linux/amd64';
 const MIGRATIONS_DIRECTORY = new URL('../../migrations', import.meta.url).pathname;
 
 const dockerAvailable = await isDockerAvailable();
@@ -98,7 +97,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   let db: Kysely<DatabaseSchema>;
 
   beforeAll(async () => {
-    container = await new PostgreSqlContainer(POSTGIS_IMAGE).withPlatform(POSTGIS_PLATFORM).start();
+    container = await startPostgresTestContainer();
     const databaseUrl = container.getConnectionUri();
 
     await runner({

@@ -18,7 +18,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { Kysely, PostgresDialect, sql } from 'kysely';
 import { runner } from 'node-pg-migrate';
 import type { FastifyInstance } from 'fastify';
@@ -26,6 +26,7 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildTestApplication } from '../support/application.js';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
+import { startPostgresTestContainer } from '../support/postgres-container.js';
 import type { Garden as GardenResource, NotificationDevice } from '@verdery/api-contracts';
 import { RECOMMENDATION_CANDIDATE_CREATED_EVENT_TYPE } from '@verdery/api-contracts';
 import { UnauthenticatedError } from '../../src/platform/errors/application-error.js';
@@ -42,8 +43,6 @@ import { generateUuidV7 } from '../../src/shared/identifiers/uuid.js';
 import '../../src/platform/database/pg-bigint-parser.js';
 
 const SUITE_NAME = 'notification device and delivery routes (HTTP)';
-const POSTGIS_IMAGE = 'postgis/postgis:17-3.5';
-const POSTGIS_PLATFORM = 'linux/amd64';
 const MIGRATIONS_DIRECTORY = new URL('../../migrations', import.meta.url).pathname;
 
 const WORKER_TOKEN = 'Bearer worker-test-token';
@@ -106,7 +105,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   let app: FastifyInstance;
 
   beforeAll(async () => {
-    container = await new PostgreSqlContainer(POSTGIS_IMAGE).withPlatform(POSTGIS_PLATFORM).start();
+    container = await startPostgresTestContainer();
     const databaseUrl = container.getConnectionUri();
 
     await runner({

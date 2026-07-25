@@ -12,16 +12,16 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { runner } from 'node-pg-migrate';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
+import { startPostgresTestContainer } from '../support/postgres-container.js';
 
 const SUITE_NAME = 'platform baseline migration';
 
 /** Pinned by ADR-0009. The image tag encodes both PostgreSQL 17 and PostGIS 3.5. */
-const POSTGIS_IMAGE = 'postgis/postgis:17-3.5';
 
 /**
  * The pinned image publishes a linux/amd64 manifest only.
@@ -31,7 +31,6 @@ const POSTGIS_IMAGE = 'postgis/postgis:17-3.5';
  * it, Docker on Apple silicon fails the pull with "no matching manifest", which
  * looked like a passing suite only because Docker happened to be stopped.
  */
-const POSTGIS_PLATFORM = 'linux/amd64';
 
 const MIGRATIONS_DIRECTORY = fileURLToPath(new URL('../../migrations', import.meta.url));
 
@@ -94,7 +93,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   let databaseUrl: string;
 
   beforeAll(async () => {
-    container = await new PostgreSqlContainer(POSTGIS_IMAGE).withPlatform(POSTGIS_PLATFORM).start();
+    container = await startPostgresTestContainer();
     databaseUrl = container.getConnectionUri();
 
     await migrate(databaseUrl, 'up');

@@ -17,7 +17,7 @@
 import { randomUUID } from 'node:crypto';
 import { RECOMMENDATION_CANDIDATE_CREATED_EVENT_TYPE } from '@verdery/api-contracts';
 import type { NotificationDomainEventEnvelope } from '@verdery/api-contracts';
-import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { Kysely, PostgresDialect, sql } from 'kysely';
 import { runner } from 'node-pg-migrate';
 import pg from 'pg';
@@ -35,10 +35,9 @@ import type { DatabaseSchema } from '../../src/platform/database/database-gatewa
 import type { Clock } from '../../src/shared/time/clock.js';
 import { generateUuidV7 } from '../../src/shared/identifiers/uuid.js';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
+import { startPostgresTestContainer } from '../support/postgres-container.js';
 
 const SUITE_NAME = 'notification delivery integration';
-const POSTGIS_IMAGE = 'postgis/postgis:17-3.5';
-const POSTGIS_PLATFORM = 'linux/amd64';
 const MIGRATIONS_DIRECTORY = new URL('../../migrations', import.meta.url).pathname;
 
 const dockerAvailable = await isDockerAvailable();
@@ -74,7 +73,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   let sweep: RunNotificationDeliverySweep;
 
   beforeAll(async () => {
-    container = await new PostgreSqlContainer(POSTGIS_IMAGE).withPlatform(POSTGIS_PLATFORM).start();
+    container = await startPostgresTestContainer();
     const databaseUrl = container.getConnectionUri();
 
     await runner({
@@ -294,6 +293,35 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     // Terminal: a second sweep claims nothing for this intent.
     const again = await sweep.execute();
     expect(again.intentsClaimed).toBe(0);
+  });
+
+  it('REDELIVERED EVENT after the send: still exactly one intent and exactly one push — the dedup chain holds past delivery', async () => {
+    // P7-QA-01 duplicate-alert chain closure: the relay's publish-first/
+    // record-second crash window redelivers `candidate_created` AT LEAST
+    // once, and a replay may arrive AFTER the push already went out. The
+    // FULL unique (recipient, dedup_key) index — deliberately not filtered
+    // to pending — must refuse to recreate the intent in any state, so the
+    // user never receives a second push for the same candidate.
+    clock.set(NOW);
+    const { gardenId, candidateId, intentId } = await seedDeliverableWorld('replay-token');
+
+    const first = await sweep.execute();
+    expect(first).toMatchObject({ intentsSent: 1 });
+    expect(sender.sent.filter((message) => message.token === 'replay-token')).toHaveLength(1);
+
+    const replay = await applyPolicy.execute(candidateEvent(gardenId, candidateId));
+    expect(replay).toMatchObject({ intentsCreated: 0, intentsDeduplicated: 1 });
+
+    const rows = await db
+      .selectFrom('notifications.notification_intent')
+      .select(['id', 'state'])
+      .where('recommendation_candidate_id', '=', candidateId)
+      .execute();
+    expect(rows).toEqual([{ id: intentId, state: 'sent' }]);
+
+    const second = await sweep.execute();
+    expect(second.intentsClaimed).toBe(0);
+    expect(sender.sent.filter((message) => message.token === 'replay-token')).toHaveLength(1);
   });
 
   it('INVALID TOKEN: disables the device durably with the typed reason, fails the intent, and a re-registration reactivates the channel', async () => {

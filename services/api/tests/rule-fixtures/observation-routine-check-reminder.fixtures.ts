@@ -222,4 +222,44 @@ export const observationRoutineCheckReminderFixtures: readonly RuleFixture[] = [
       plannedCandidates: [],
     },
   },
+  {
+    name: 'contradictory facts: a future-dated observation suppresses the reminder instead of inventing an interval',
+    reviewNotes:
+      'P7-QA-01 contradictory-fact case. The plant’s latest observation is timestamped twenty ' +
+      'days AFTER the evaluation instant — a record that contradicts the clock (client clock ' +
+      'skew or a user-edited timestamp), far enough out that a sign-blind interval would read ' +
+      'as twenty overdue days. The engine measures the interval honestly from the real record, ' +
+      'gets a NEGATIVE day count, and reports not-eligible — it neither invents an overdue ' +
+      'interval nor clamps the contradictory timestamp to something more plausible. Review: is ' +
+      'silent suppression the right posture for a future-dated observation, or should such ' +
+      'records be surfaced to the user elsewhere?',
+    facts: gardenFacts({
+      plants: [plantFact({ plantId: PLANT_A_ID, createdAt: TWENTY_DAYS_AGO })],
+      observations: [
+        {
+          observationId: OBSERVATION_ID,
+          plantId: PLANT_A_ID,
+          observedAt: new Date(FIXTURE_NOW.getTime() + 20 * DAY_MS),
+        },
+      ],
+    }),
+    prior: noPrior(),
+    expected: {
+      decisions: [
+        BOTH_WEATHER_RULES_SKIP[0],
+        notEligibleDecision(
+          'observation.routine-check-reminder',
+          PLANT_A_ID,
+          'plant.recently_observed',
+        ),
+        notEligibleDecision(
+          'lifecycle.harvest-readiness-check',
+          PLANT_A_ID,
+          'plant.not_ready_to_harvest',
+        ),
+        BOTH_WEATHER_RULES_SKIP[1],
+      ],
+      plannedCandidates: [],
+    },
+  },
 ];

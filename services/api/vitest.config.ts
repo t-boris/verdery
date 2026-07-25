@@ -9,5 +9,8 @@ export default defineConfig({
     // Source: architecture/testing-strategy.md, section "6. Backend Integration Tests".
     testTimeout: 180_000,
     hookTimeout: 180_000,
+    // One authoritative Docker probe per run, handed to every fork —
+    // see tests/support/global-setup.ts (P7-QA-01).
+    globalSetup: ['tests/support/global-setup.ts'],
   },
 });
