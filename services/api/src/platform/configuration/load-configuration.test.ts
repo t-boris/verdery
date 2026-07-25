@@ -16,6 +16,32 @@ const VALID_ENVIRONMENT = {
 } as const;
 
 describe('loadConfiguration', () => {
+  it('refuses a signed-access lifetime that is zero or longer than Cloud Storage will sign', () => {
+    // T-SIGN-07: an unbounded value turns short-lived signed access into a
+    // long-lived bearer credential from one typo. The ceiling is Cloud
+    // Storage's own V4 limit, not an invented policy number.
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+    expect(() =>
+      loadConfiguration({ ...VALID_ENVIRONMENT, MEDIA_SIGNED_DOWNLOAD_TTL_MS: '0' }),
+    ).toThrow(ConfigurationError);
+    expect(() =>
+      loadConfiguration({
+        ...VALID_ENVIRONMENT,
+        MEDIA_SIGNED_DOWNLOAD_TTL_MS: String(sevenDaysMs + 1),
+      }),
+    ).toThrow(ConfigurationError);
+    expect(() =>
+      loadConfiguration({ ...VALID_ENVIRONMENT, MEDIA_UPLOAD_SESSION_TTL_MS: '0' }),
+    ).toThrow(ConfigurationError);
+    expect(
+      loadConfiguration({
+        ...VALID_ENVIRONMENT,
+        MEDIA_SIGNED_DOWNLOAD_TTL_MS: String(sevenDaysMs),
+      }).media.signedDownloadTtlMs,
+    ).toBe(sevenDaysMs);
+  });
+
   it('applies documented defaults to optional variables', () => {
     const configuration = loadConfiguration(VALID_ENVIRONMENT);
 

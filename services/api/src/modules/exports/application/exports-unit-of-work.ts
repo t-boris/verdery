@@ -14,12 +14,22 @@ import type { IdempotencyStore } from '../../../platform/idempotency/idempotency
 import type { OutboxAppender } from '../../../platform/outbox/outbox-appender.js';
 import type { MediaRepository } from '../../media/public.js';
 import type { ExportRequestRepository } from './export-request-repository.js';
+import type { AuditLogger } from '../../../platform/audit/audit-logger.js';
 
 export interface ExportsTransactionContext {
   readonly exportRequests: ExportRequestRepository;
   readonly media: MediaRepository;
   readonly outbox: OutboxAppender;
   readonly idempotency: IdempotencyStore;
+  /**
+   * An export is the highest-value data-egress operation in the product, and
+   * it was the one privileged command writing no audit trail at all while
+   * both sibling modules bound this same port.
+   *
+   * Source: threat-model.md, T-SUPPORT-05 (P8-SEC-01);
+   * security-and-privacy.md section 21 ("Export and deletion requests").
+   */
+  readonly audit: AuditLogger;
 }
 
 export interface ExportsUnitOfWork {

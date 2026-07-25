@@ -88,6 +88,18 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     expect(requested.boundaryAt).toBeNull();
     expect(requested.expiresAt).toBeNull();
 
+    // The audit trail exists atomically with the request: an export is the
+    // product's highest-value data egress and used to leave no trace at all
+    // (threat-model.md, T-SUPPORT-05).
+    const auditRows = await db
+      .selectFrom('platform.audit_event')
+      .select(['event_type', 'subject_id', 'actor_profile_id'])
+      .where('subject_id', '=', requested.id)
+      .execute();
+    expect(auditRows).toHaveLength(1);
+    expect(auditRows[0]?.event_type).toBe('export.requested');
+    expect(auditRows[0]?.actor_profile_id).toBe(owner);
+
     // The durable trigger exists atomically with the request.
     const requestedEvents = await outboxEventsOfType(db, EXPORT_REQUESTED_EVENT_TYPE);
     expect(

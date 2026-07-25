@@ -8,6 +8,7 @@
 
 import type { Kysely } from 'kysely';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
+import { KyselyAuditLogger } from '../../../platform/audit/kysely-audit-logger.js';
 import { KyselyIdempotencyStore } from '../../../platform/idempotency/kysely-idempotency-store.js';
 import { KyselyOutboxAppender } from '../../../platform/outbox/kysely-outbox-appender.js';
 import type { Clock } from '../../../shared/time/clock.js';
@@ -31,6 +32,7 @@ export class KyselyExportsUnitOfWork implements ExportsUnitOfWork {
         media: new KyselyMediaRepository(trx),
         outbox: new KyselyOutboxAppender(trx, this.clock),
         idempotency: new KyselyIdempotencyStore(trx, this.clock),
+        audit: new KyselyAuditLogger(trx, this.clock),
       };
 
       return work(context);

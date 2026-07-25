@@ -49,6 +49,8 @@ import { toExportRequestResource } from './export-view.js';
 import type { ExportsUnitOfWork } from './exports-unit-of-work.js';
 import { runIdempotentCommand } from './run-idempotent-command.js';
 
+const EXPORT_REQUESTED_AUDIT_EVENT_TYPE = 'export.requested';
+
 const ONE_ACTIVE_INDEX_NAME = 'export_request_one_active_per_requester';
 
 export interface RequestExportInput {
@@ -120,6 +122,19 @@ export class RequestExport {
           );
 
           await context.exportRequests.insert(request);
+
+          // An export is the product's highest-value data egress; before this
+          // it was the only privileged command leaving no trace, while both
+          // sibling modules already bound the same logger.
+          // Source: threat-model.md, T-SUPPORT-05 (P8-SEC-01).
+          await context.audit.record({
+            eventType: EXPORT_REQUESTED_AUDIT_EVENT_TYPE,
+            subjectType: 'export_request',
+            subjectId: request.id,
+            actorProfileId: request.requesterProfileId,
+            actorType: 'user',
+            details: { scope: request.scope, gardenId: request.gardenId },
+          });
 
           const payload: ExportRequestedEventPayload = {
             exportRequestId: request.id,

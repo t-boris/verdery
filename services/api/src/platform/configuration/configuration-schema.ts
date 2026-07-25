@@ -27,6 +27,23 @@ const positiveInteger = z.coerce.number().int().positive();
 const durationMilliseconds = z.coerce.number().int().min(0);
 
 /**
+ * A duration that must stay genuinely short-lived: positive, and capped at
+ * Cloud Storage's own V4 signing limit ("Max allowed expiration is seven
+ * days" — `@google-cloud/storage`'s signer rejects more outright, so a
+ * larger number buys nothing and only hides the mistake until a request
+ * fails).
+ *
+ * Bounded rather than merely defaulted because an unbounded value silently
+ * turns short-lived signed access — the only thing between a leaked URL and
+ * open access to sensitive media — into a long-lived bearer credential, from
+ * a single environment-variable typo nothing would reject.
+ *
+ * Source: threat-model.md, T-SIGN-07 (P8-SEC-01).
+ */
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+const shortLivedDurationMilliseconds = z.coerce.number().int().positive().max(SEVEN_DAYS_MS);
+
+/**
  * Comma-separated origin list. An empty value means "no cross-origin browser
  * client is allowed", which is the correct default for a service reached
  * through its own edge.
@@ -108,8 +125,8 @@ export const environmentSchema = z.object({
   // begin a resumable upload after registration without holding a
   // long-lived credential open; fifteen minutes is a standard short-lived
   // window for a signed read URL.
-  MEDIA_UPLOAD_SESSION_TTL_MS: durationMilliseconds.default(3_600_000),
-  MEDIA_SIGNED_DOWNLOAD_TTL_MS: durationMilliseconds.default(900_000),
+  MEDIA_UPLOAD_SESSION_TTL_MS: shortLivedDurationMilliseconds.default(3_600_000),
+  MEDIA_SIGNED_DOWNLOAD_TTL_MS: shortLivedDurationMilliseconds.default(900_000),
 
   // P6-ASYNC-01: the media-processing callback Cloud Tasks invokes
   // (`POST /v1/internal/media-processing-jobs/:jobId/callback`).
