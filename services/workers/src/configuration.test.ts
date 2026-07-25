@@ -16,6 +16,7 @@ const VALID_ENVIRONMENT = {
   MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL:
     'verdery-dev-worker@verdery-dev.iam.gserviceaccount.com',
   MEDIA_DERIVED_BUCKET: 'verdery-dev-derived',
+  MEDIA_RETENTION_SWEEP_URL: 'https://verdery-api-dev.example/v1/internal/media-retention/sweep',
 } as const;
 
 describe('loadConfiguration', () => {
@@ -45,6 +46,10 @@ describe('loadConfiguration', () => {
           VALID_ENVIRONMENT.MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL,
       },
       mediaDerivedBucket: VALID_ENVIRONMENT.MEDIA_DERIVED_BUCKET,
+      retentionSweep: {
+        sweepUrl: VALID_ENVIRONMENT.MEDIA_RETENTION_SWEEP_URL,
+        intervalMs: 3_600_000,
+      },
     });
   });
 

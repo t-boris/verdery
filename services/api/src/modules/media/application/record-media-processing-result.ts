@@ -27,6 +27,24 @@
  *   design (`media-lifecycle.ts`) — calling it again here would be a
  *   guaranteed `DomainRuleViolatedError`, not a real second processing
  *   stage the source media itself needs to pass through.
+ *
+ * P6-RET-01 adds the third kind and the deletion-versus-processing race
+ * guards (section 16's "Deletion is asynchronous and idempotent"):
+ *
+ * - A `MEDIA_DELETION_JOB_KIND` result: objects confirmed absent drives
+ *   `deletion_scheduled -> deleted` plus the residual completion steps
+ *   (`completeMediaDeletion` — derivative rows, quota release, audit); any
+ *   other outcome records only the job, leaving the record
+ *   `deletion_scheduled` ("recoverable provider failure is reported
+ *   internally", section 16).
+ * - BOTH processing kinds now guard on the source's `uploadState`: a
+ *   deletion scheduled while a processing job was in flight (the job may
+ *   have been created and even dispatched before the scheduling
+ *   transaction cancelled its siblings) can no longer be corrupted by the
+ *   late result — the job completes as `cancelled` instead, and a late
+ *   DERIVATIVE result's already-written bytes are re-covered by re-emitting
+ *   the standard deletion event (idempotent by design — the same prefixes,
+ *   a fresh event id, and completion that converges on `deleted`).
  */
 
 import {
@@ -44,6 +62,7 @@ import {
 } from '../domain/media-lifecycle.js';
 import type { MediaRecord } from '../domain/media-record.js';
 import {
+  MEDIA_DELETION_JOB_KIND,
   MEDIA_DERIVATIVE_GENERATION_JOB_KIND,
   markProcessingJobCancelled,
   markProcessingJobFailedTerminal,
@@ -53,8 +72,15 @@ import {
 import type { ProcessingJob, ProcessingJobResultInput } from '../domain/processing-job.js';
 import { deriveEligibleDerivativeSourceContentType } from './derivative-eligibility.js';
 import { parseDerivativeOutput, registerDerivativeIfAbsent } from './derivative-registration.js';
+import {
+  appendMediaDeletionRequestedEvent,
+  completeMediaDeletion,
+} from './media-deletion-workflow.js';
 import { processingJobNotFoundError } from './media-errors.js';
 import type { MediaTransactionContext, MediaUnitOfWork } from './media-unit-of-work.js';
+
+/** The `outcomeCode` a processing job completed against an already-deletion-scheduled source carries. */
+export const SOURCE_NOT_AVAILABLE_OUTCOME_CODE = 'media_not_available';
 
 function toDomainResult(result: MediaProcessingResult): ProcessingJobResultInput {
   return {
@@ -99,6 +125,8 @@ export class RecordMediaProcessingResult {
   constructor(
     private readonly unitOfWork: MediaUnitOfWork,
     private readonly clock: Clock,
+    /** The derived bucket name — needed to (re-)emit deletion events covering derivative bytes; see `media-deletion-workflow.ts`. */
+    private readonly derivedBucketName: string,
   ) {}
 
   async execute(jobId: Uuid, result: MediaProcessingResult): Promise<void> {
@@ -109,8 +137,11 @@ export class RecordMediaProcessingResult {
       }
 
       if (job.state !== 'queued' && job.state !== 'running') {
-        // Duplicate delivery of an already-resolved job — see this file's
-        // own header comment on idempotency.
+        // Duplicate delivery of an already-resolved job — including a job
+        // the deletion workflow cancelled whose Cloud Tasks dispatch could
+        // not be recalled. A cancelled DERIVATIVE job may still have
+        // written real bytes before this callback arrived; re-cover them.
+        await this.cleanUpLateDerivativeBytes(context, job, result);
         return;
       }
       requireSuccessfulInputChecksums(job, result);
@@ -124,6 +155,21 @@ export class RecordMediaProcessingResult {
       }
 
       const now = this.clock.now();
+
+      if (job.jobKind === MEDIA_DELETION_JOB_KIND) {
+        await this.recordDeletionResult(context, job, media, result, now);
+        return;
+      }
+
+      // P6-RET-01 race guard, both processing kinds: the source moved out
+      // of `available` (deletion scheduled, or already deleted) while this
+      // job was in flight. Complete the job as cancelled — section 16 step
+      // 3's cancellation, applied at the last possible moment — and never
+      // touch the media row the deletion workflow now owns.
+      if (media.uploadState !== 'available') {
+        await this.cancelAgainstUnavailableSource(context, job, media, result, now);
+        return;
+      }
 
       if (job.jobKind === MEDIA_DERIVATIVE_GENERATION_JOB_KIND) {
         await this.recordDerivativeGenerationResult(context, job, media, result, now);
@@ -232,5 +278,85 @@ export class RecordMediaProcessingResult {
     }
 
     await context.processingJobs.updateState(completeJob(job, result, now), job.revision);
+  }
+
+  /** `MEDIA_DELETION_JOB_KIND` path — see this file's own header comment. */
+  private async recordDeletionResult(
+    context: MediaTransactionContext,
+    job: ProcessingJob,
+    media: MediaRecord,
+    result: MediaProcessingResult,
+    now: Date,
+  ): Promise<void> {
+    if (result.outcome === 'succeeded') {
+      await completeMediaDeletion(context, media, now);
+    }
+    // Any other outcome: the job row itself is section 16 step 6's
+    // "record provider retry state" — the record stays
+    // `deletion_scheduled` and user-visible deletion remains pending.
+    await context.processingJobs.updateState(completeJob(job, result, now), job.revision);
+  }
+
+  /** The in-flight half of the deletion race guard — see this file's own header comment. */
+  private async cancelAgainstUnavailableSource(
+    context: MediaTransactionContext,
+    job: ProcessingJob,
+    media: MediaRecord,
+    result: MediaProcessingResult,
+    now: Date,
+  ): Promise<void> {
+    const cancelled = markProcessingJobCancelled(
+      job,
+      {
+        outcomeCode: SOURCE_NOT_AVAILABLE_OUTCOME_CODE,
+        resultSummary: result.resultSummary,
+        resourceMetrics: result.resourceMetrics,
+      },
+      now,
+    );
+    await context.processingJobs.updateState(cancelled, job.revision);
+
+    if (this.hasDerivativeBytesToCleanUp(job, media, result)) {
+      await appendMediaDeletionRequestedEvent(context, media, this.derivedBucketName);
+    }
+  }
+
+  /** The already-terminal half of the same guard (a cancelled job's undeliverable-to-recall Cloud Tasks dispatch still ran) — see `execute`. */
+  private async cleanUpLateDerivativeBytes(
+    context: MediaTransactionContext,
+    job: ProcessingJob,
+    result: MediaProcessingResult,
+  ): Promise<void> {
+    if (job.jobKind !== MEDIA_DERIVATIVE_GENERATION_JOB_KIND || result.outputObjects.length === 0) {
+      return;
+    }
+    const media = await context.media.get(job.mediaId);
+    if (media === null || this.hasDerivativeBytesToCleanUp(job, media, result) === false) {
+      return;
+    }
+    await appendMediaDeletionRequestedEvent(context, media, this.derivedBucketName);
+  }
+
+  /**
+   * A late DERIVATIVE result with real outputs against a source in the
+   * deletion pipeline means bytes were written to the derived bucket that
+   * no deletion job is guaranteed to have covered (the main deletion may
+   * already have run before this job wrote them). Re-emitting the standard
+   * deletion event re-deletes the same prefixes idempotently and its
+   * completion converges on `deleted` — see the workflow's own comments.
+   * Requires the record to still carry its storage target (always true
+   * past `authorized`).
+   */
+  private hasDerivativeBytesToCleanUp(
+    job: ProcessingJob,
+    media: MediaRecord,
+    result: MediaProcessingResult,
+  ): boolean {
+    return (
+      job.jobKind === MEDIA_DERIVATIVE_GENERATION_JOB_KIND &&
+      result.outputObjects.length > 0 &&
+      (media.uploadState === 'deletion_scheduled' || media.uploadState === 'deleted') &&
+      media.bucketName !== null
+    );
   }
 }

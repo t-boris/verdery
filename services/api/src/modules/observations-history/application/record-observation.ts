@@ -102,6 +102,7 @@ export class RecordObservation {
 
         const photos = await attachObservationPhotos(
           context,
+          observation.gardenId,
           observation.id,
           input.photoMediaIds,
           now,

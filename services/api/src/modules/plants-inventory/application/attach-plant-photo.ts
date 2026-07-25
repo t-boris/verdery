@@ -23,7 +23,7 @@ import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import type { GardenAuthorization } from '../../gardens-mapping/public.js';
 import { createPlantPhoto } from '../domain/plant-photo.js';
-import { invalidMediaReferenceError } from './plant-errors.js';
+import { invalidMediaReferenceError, mediaNotAvailableForAttachmentError } from './plant-errors.js';
 import { toPlantPhotoResource, type PlantPhotoResource } from './plant-photo-view.js';
 import type { PlantRepository } from './plant-repository.js';
 import type { PlantsInventoryUnitOfWork } from './plants-inventory-unit-of-work.js';
@@ -78,9 +78,19 @@ export class AttachPlantPhoto {
       idempotencyInput,
       201,
       async (context) => {
-        const media = await context.media.get(input.mediaId);
-        if (media === null) {
+        // `getForShare` + the garden and availability checks are P6-RET-01's
+        // attach-side half of the attach-versus-delete lock protocol — see
+        // media-deletion-workflow.ts's own lock-ordering comment. The garden
+        // check also closes a pre-existing gap: a bare existence check let a
+        // media id from a DIFFERENT garden be referenced here, which (once
+        // references block deletion) would let a stranger's row pin media
+        // they cannot even read.
+        const media = await context.media.getForShare(input.mediaId);
+        if (media === null || media.gardenId !== plant.gardenId) {
           throw invalidMediaReferenceError('/mediaId');
+        }
+        if (media.uploadState !== 'available') {
+          throw mediaNotAvailableForAttachmentError('/mediaId');
         }
 
         const now = this.clock.now();

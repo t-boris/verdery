@@ -249,4 +249,34 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     expect(response.statusCode).toBe(404);
   });
+
+  // The retention-sweep trigger (P6-RET-01) shares this suite: same app
+  // build, same fake verifier, same machine-to-machine posture — see
+  // `media-retention-sweep-route.ts`'s own header comment.
+  it('runs the retention sweep with a valid OIDC token, returning the counts summary', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/internal/media-retention/sweep',
+      headers: { authorization: `Bearer ${VALID_TOKEN}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    // An empty database sweeps to all-zero counts, deterministically.
+    expect(response.json<Record<string, number>>()).toEqual({
+      retentionScheduled: 0,
+      retentionSkippedReferenced: 0,
+      staleScheduled: 0,
+      lostRaces: 0,
+    });
+  });
+
+  it('rejects an unauthenticated retention-sweep trigger with 401', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/internal/media-retention/sweep',
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(asError(response).error.code).toBe('auth.unauthenticated');
+  });
 });

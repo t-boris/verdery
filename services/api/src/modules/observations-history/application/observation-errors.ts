@@ -41,11 +41,28 @@ export function plantNotInGardenError(): ValidationError {
 export function photoMediaNotFoundError(mediaId: Uuid): ValidationError {
   return new ValidationError(
     SharedErrorCode.RequestInvalid,
-    'photoMediaIds must reference existing media records.',
+    'photoMediaIds must reference existing media records in this garden.',
     {
       details: [
         {
           code: 'observation.photo_media_not_found',
+          pointer: '/photoMediaIds',
+          parameters: { mediaId },
+        },
+      ],
+    },
+  );
+}
+
+/** A real, same-garden media record that is not `available` — still uploading, rejected, or in the deletion pipeline (P6-RET-01's attach-versus-delete guard). */
+export function photoMediaNotAvailableError(mediaId: Uuid): ValidationError {
+  return new ValidationError(
+    SharedErrorCode.RequestInvalid,
+    'photoMediaIds must reference media whose upload has completed and is not being deleted.',
+    {
+      details: [
+        {
+          code: 'observation.photo_media_not_available',
           pointer: '/photoMediaIds',
           parameters: { mediaId },
         },

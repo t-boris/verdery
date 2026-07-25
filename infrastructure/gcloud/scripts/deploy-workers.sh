@@ -86,6 +86,11 @@ env_vars+=",MEDIA_PROCESSING_QUEUE_NAME=${VERDERY_MEDIA_PROCESSING_QUEUE_NAME}"
 env_vars+=",MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL=${worker_email}"
 env_vars+=",MEDIA_PROCESSING_RESULT_CALLBACK_URL=${result_callback_base}"
 env_vars+=",MEDIA_PROCESSING_RESULT_CALLBACK_AUDIENCE=${result_callback_base}"
+# P6-RET-01: the API's internal retention-sweep endpoint the worker's own
+# interval scheduler POSTs to, authenticated for the SAME audience as the
+# result callback (one worker-to-API identity). The interval itself keeps
+# its configuration default (hourly) unless overridden here.
+env_vars+=",MEDIA_RETENTION_SWEEP_URL=${api_service_url}/v1/internal/media-retention/sweep"
 
 # `MEDIA_PROCESSING_TASK_URL` is self-referential (this service's own
 # validation-job route) — the exact same "look up the already-existing

@@ -68,11 +68,17 @@
  */
 
 import {
+  MEDIA_DELETION_REQUESTED_EVENT_TYPE,
   MEDIA_DERIVATIVE_GENERATION_REQUESTED_EVENT_TYPE,
+  type MediaDeletionRequestedEventPayload,
   type MediaProcessingManifest,
   type MediaProcessingRequestedEventPayload,
 } from '@verdery/api-contracts';
-import { MEDIA_DERIVATIVE_GENERATION_JOB_KIND, MEDIA_VALIDATION_JOB_KIND } from '../job-kind.js';
+import {
+  MEDIA_DELETION_JOB_KIND,
+  MEDIA_DERIVATIVE_GENERATION_JOB_KIND,
+  MEDIA_VALIDATION_JOB_KIND,
+} from '../job-kind.js';
 import type { Logger } from '../logger.js';
 import type { OutboxEventRecord, OutboxEventStore } from './outbox-event-store.js';
 import type { MediaProcessingQueue } from './media-processing-queue.js';
@@ -82,9 +88,14 @@ const DEFAULT_PROCESSOR_CONFIG_VERSION = 'v1';
 
 /** See this file's own header comment. */
 function jobKindForEventType(eventType: string): string {
-  return eventType === MEDIA_DERIVATIVE_GENERATION_REQUESTED_EVENT_TYPE
-    ? MEDIA_DERIVATIVE_GENERATION_JOB_KIND
-    : MEDIA_VALIDATION_JOB_KIND;
+  switch (eventType) {
+    case MEDIA_DERIVATIVE_GENERATION_REQUESTED_EVENT_TYPE:
+      return MEDIA_DERIVATIVE_GENERATION_JOB_KIND;
+    case MEDIA_DELETION_REQUESTED_EVENT_TYPE:
+      return MEDIA_DELETION_JOB_KIND;
+    default:
+      return MEDIA_VALIDATION_JOB_KIND;
+  }
 }
 
 export interface Clock {
@@ -113,6 +124,13 @@ function buildManifest(
   traceId: string | null,
   jobKind: string,
 ): MediaProcessingManifest {
+  // A `media.deletion_requested` payload is the processing payload plus
+  // `objectPrefixes` (see the contract type's own doc comment); the
+  // manifest carries them through as its optional `deletion` block, and
+  // everything else stays the shared shape both other kinds already use.
+  const deletionPayload =
+    jobKind === MEDIA_DELETION_JOB_KIND ? (payload as MediaDeletionRequestedEventPayload) : null;
+
   return {
     jobId: job.id,
     mediaId: job.mediaId,
@@ -127,6 +145,9 @@ function buildManifest(
     },
     jobKind,
     ...(traceId === null ? {} : { traceId }),
+    ...(deletionPayload === null
+      ? {}
+      : { deletion: { objectPrefixes: deletionPayload.objectPrefixes } }),
   };
 }
 

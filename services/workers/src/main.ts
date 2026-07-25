@@ -15,6 +15,8 @@ import { CloudTasksClient } from '@google-cloud/tasks';
 import { Storage } from '@google-cloud/storage';
 import { registerGracefulShutdown } from './bootstrap/graceful-shutdown.js';
 import { ConfigurationError, loadConfiguration } from './configuration.js';
+import { GcsObjectDeleter } from './deletion/gcs-object-deleter.js';
+import { ProcessMediaDeletionJob } from './deletion/process-media-deletion-job.js';
 import { GcsDerivativeObjectSink } from './derivatives/gcs-derivative-object-sink.js';
 import { ProcessMediaDerivativeGenerationJob } from './derivatives/process-media-derivative-generation-job.js';
 import { createLogger, SERVICE_NAME } from './logger.js';
@@ -25,6 +27,8 @@ import { KyselyProcessingJobStore } from './relay/kysely-processing-job-store.js
 import { OutboxRelay } from './relay/outbox-relay.js';
 import { createRelayPoller } from './relay/poller.js';
 import { createRelayDatabase } from './relay/relay-database.js';
+import { createRetentionSweepScheduler } from './retention/retention-sweep-scheduler.js';
+import { GoogleApiRetentionSweepTrigger } from './retention/retention-sweep-trigger.js';
 import { GcsMediaObjectSource } from './validation/gcs-media-object-source.js';
 import { GoogleApiResultRecorder } from './validation/google-api-result-recorder.js';
 import { MediaValidator } from './validation/media-validator.js';
@@ -94,6 +98,8 @@ async function main(): Promise<void> {
       new GcsDerivativeObjectSink(storage, configuration.mediaDerivedBucket),
       resultRecorder,
     ),
+    // P6-RET-01: prefix-scoped object deletion with absence verification.
+    new ProcessMediaDeletionJob(new GcsObjectDeleter(storage), resultRecorder),
   );
   const validationServer = new ValidationHttpServer(
     new GoogleOidcInvocationVerifier(
@@ -117,11 +123,27 @@ async function main(): Promise<void> {
   const poller = createRelayPoller(relay, configuration.relay.pollIntervalMs, logger);
   poller.start();
 
+  // P6-RET-01: the retention-sweep interval. The sweep itself runs in
+  // services/api; this process only supplies the schedule and its
+  // authenticated trigger — see retention/retention-sweep-trigger.ts's own
+  // header comment for the privilege-boundary reasoning.
+  const retentionSweepScheduler = createRetentionSweepScheduler(
+    new GoogleApiRetentionSweepTrigger(
+      configuration.retentionSweep.sweepUrl,
+      configuration.mediaProcessing.resultCallbackAudience,
+      logger,
+    ),
+    configuration.retentionSweep.intervalMs,
+    logger,
+  );
+  retentionSweepScheduler.start();
+
   logger.info(
     {
       event: 'service.started',
       service: SERVICE_NAME,
       pollIntervalMs: configuration.relay.pollIntervalMs,
+      retentionSweepIntervalMs: configuration.retentionSweep.intervalMs,
       httpPort: configuration.httpPort,
     },
     'Worker started',
@@ -130,6 +152,7 @@ async function main(): Promise<void> {
   registerGracefulShutdown({
     drain: async () => {
       await poller.stop();
+      await retentionSweepScheduler.stop();
       await validationServer.close();
       await relayDatabase.close();
       await cloudTasksClient.close();

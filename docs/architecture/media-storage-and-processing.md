@@ -346,6 +346,52 @@ Cloud Storage lifecycle rules perform only actions that align with PostgreSQL re
 
 Lifecycle deletion must not race an active retry, support case, or legal hold.
 
+### 15.1 Implemented retention profile (P6-RET-01)
+
+One domain table (`services/api/src/modules/media/domain/media-retention.ts`) is the single source
+both the user-visible policy statement (`GetMediaRetentionPolicy`, `GET /media/retention-policy`)
+and the enforcing sweep read, so display and enforcement cannot drift. Honesty rules it:
+
+- **`export_package` — 7 days from registration, ENFORCED.** The one duration-based rule computable
+  today: no document names a number, but `09-media-storage.sh`'s exports-bucket lifecycle rule
+  already chose and documented 7 days, and that script's own comment demands the application layer
+  reconcile with it — `registerMediaRecord` now stamps `retention_deadline_at = registration + 7
+days` on exactly this class, using the same constant.
+- **`raw_capture` — 30 days after successful extraction, DECLARED but `enforced: false`.** The
+  anchoring event (successful extraction) has no producer until Garden Scan (Phase 10), so no
+  raw-capture deadline is ever computed yet. The policy endpoint states the rule with an explicit
+  `enforced` flag rather than claiming an enforcement that does not run — this is the work
+  package's "user-visible raw-capture policy foundation", scoped honestly. The sweep MECHANISM
+  already processes any record whose deadline passes, whichever future stage sets it.
+- **Every other class** carries no duration-based rule (`retentionDays: null`, section 3's own
+  "Until user or garden deletion" / "Rebuildable; lifecycle-managed" language), and nothing is
+  invented.
+
+**Orphan reconciliation** (this section's "metadata without objects", and section 17's "A failed
+abandoned upload eventually releases reserved capacity"): the sweep also reconciles records still
+in a pre-`available` upload state whose `updated_at` is older than **7 days** — grounded, not
+arbitrary: a Cloud Storage resumable upload session is only resumable for one week, so an older
+registration can never complete; the figure also matches the exports bucket's own 7-day precedent.
+Because partial bytes may exist under an `authorized` target, reconciliation routes through the
+REAL deletion workflow (section 16.1) rather than flipping rows terminal in place; a row that never
+had a storage target completes to `deleted` in the same transaction. The quota reservation is
+released when the row reaches `deleted`. A `rejected` record's bytes are deliberately NOT swept —
+`rejected` is terminal evidence with no documented retention duration; see
+`docs/development/deferred-capabilities.md`.
+
+**Where the sweep runs**: in `services/api` (`RunMediaRetentionSweep`), triggered hourly by the
+worker's own interval scheduler through an authenticated internal endpoint
+(`POST /internal/media-retention/sweep`, verified with the same worker OIDC identity as the
+processing-result callback). The worker deliberately gains NO database access for this:
+`verdery_worker` has never been able to read `media.media_record`
+(1785200000000_media-processing-jobs.sql's grant reasoning), and the sweep's reads and privileged
+writes stay behind that boundary — the worker contributes only its poll loop (this codebase's one
+established home for periodic work) and its already-verified identity. Candidates are processed in
+bounded batches (25 per category per run), each in its own transaction. The reverse direction of
+this section's orphan pairing — Cloud Storage objects with NO metadata row at all — has no listing
+mechanism yet and is deferred (see `deferred-capabilities.md`); the prefix-scoped deletion design
+below prevents the known ways such objects arise.
+
 ## 16. Deletion Workflow
 
 Deletion is asynchronous and idempotent:
@@ -360,6 +406,67 @@ Deletion is asynchronous and idempotent:
 8. Emit completion.
 
 User-visible deletion remains pending until required objects are confirmed deleted or a recoverable provider failure is reported internally.
+
+### 16.1 Implemented deletion profile (P6-RET-01)
+
+`services/api` owns every state transition; the worker owns the bytes; the two meet through the
+same outbox/Cloud Tasks/callback machinery every processing job already rides. Step by step:
+
+1-2. **Revoke access + mark scheduled** are ONE act: every read path already gates on `available`
+(`GetMediaAccess`, derivative listing), so the revision-guarded `available → deletion_scheduled`
+transition IS the revocation. Initiators: `DeleteGardenMedia`
+(`POST /gardens/{gardenId}/media/{mediaId}/delete` — `editGardenContent`, If-Match-guarded,
+replay-idempotent, originals only) and the retention sweep (15.1). Every derivative row is
+bulk-transitioned with its source in the same transaction — a tile pyramid's thousands of rows make
+this deliberately set-based, with the state gate in the statement's own `WHERE`.
+
+3. **Cancel eligible pending processing**: every `requested`/`queued` job for the media is marked
+   `cancelled` in the scheduling transaction. A Cloud Tasks dispatch already in flight cannot be
+   recalled, so `RecordMediaProcessingResult` additionally guards BOTH processing kinds at result
+   time: a result landing against a non-`available` source completes its job as `cancelled`
+   (`media_not_available`) and never touches the record — and a late DERIVATIVE result's
+   already-written bytes are re-covered by re-emitting the standard deletion event (idempotent: same
+   prefixes, fresh event id, convergent completion).
+
+4-5. **Delete derivatives, original, and raw objects**: the `media.deletion_requested` outbox event
+(appended in the scheduling transaction) becomes a `media_deletion` job through the existing relay,
+executed by `services/workers/src/deletion/` with the worker's own storage identity — the API never
+deletes objects. Deletion is PREFIX-scoped, not key-enumerated: every object ever written for one
+record — the original AND every derivative, registered or orphaned — lives under the same
+`<shard>/<mediaUuid>/` prefix by construction (`objectKeyPrefixForMedia` and the worker's
+`generateDerivativeObjectKey` share the identical shard computation, pinned by tests on both
+sides), so two bucket/prefix pairs cover the entire fan-out in one bounded payload. A record that
+never had a storage target skips the round-trip and completes in place.
+
+6. **Verify absence or record retry state**: the worker re-lists each prefix after deleting and
+   reports `succeeded` only on zero remaining objects; missing-on-delete is success (idempotent,
+   at-least-once). A verification or provider failure is a retryable 5xx (Cloud Tasks' bounded
+   retries), the job row is the internal retry record, and the media stays `deletion_scheduled` —
+   user-visible deletion remains pending, exactly as this section requires.
+
+7. **Purge or minimize metadata** is NOT this stage: the row survives at `deleted` as audit
+   evidence; row purge belongs to the garden/account deletion workflows (data-export-and-deletion.md),
+   which do not exist yet.
+
+8. **Emit completion**: the succeeded callback drives `deletion_scheduled → deleted` (plus the
+   derivative rows), releases the quota reservation (section 17's "released bytes" — including a
+   `committed` one, legal exactly here because the bytes are confirmed gone), and records the
+   `media.deleted` audit event; `media.deletion_requested` was audited with the initiating actor at
+   scheduling. Both audits ride the workflow's own transactions.
+
+**Referenced media cannot be deleted**: a record still referenced by a plant photo, observation
+photo, task attachment, or imported-background map object answers `409 media.referenced` (one
+detail per kind) and the whole scheduling transaction rolls back. The guard runs AFTER the row
+update deliberately, paired with a `FOR SHARE` read (`MediaRepository.getForShare`) in every
+attachment command — the two sides serialize on the media row, so neither ordering of the
+attach-versus-delete race can leave an attachment pointing at deleted media. Attachment commands
+also now require a same-garden, `available` record (closing a pre-existing gap where a bare
+existence check allowed cross-garden references).
+
+**IAM**: the worker's delete capability is a project-level CUSTOM role carrying exactly
+`storage.objects.delete` (no predefined role grants delete without create/overwrite), bound per
+bucket on all four media buckets — written in `10-media-processing-queue.sh`, not executed live,
+the same boundary every grant in that script holds to.
 
 ## 17. Quotas
 
@@ -453,9 +560,22 @@ P6-ASYNC-01/P6-WORKER-01 already built, dispatched by `job_kind` through one sha
 defaults, and `docs/development/deferred-capabilities.md` for the PDF-page-preview gap this stage
 deliberately leaves open.
 
+P6-RET-01 is implemented across both services: the deletion workflow (sections 15.1/16.1 above) —
+`DeleteGardenMedia`, the `media.deletion_requested` outbox event, the relay's third recognized
+event type, the worker's `media_deletion` job (`services/workers/src/deletion/`, prefix-scoped
+delete with absence verification), and the completion path in `RecordMediaProcessingResult`; the
+retention sweep (`RunMediaRetentionSweep`, hourly worker-triggered through the authenticated
+internal sweep endpoint); the export-package retention deadline stamped at registration; the
+user-visible retention policy (`GetMediaRetentionPolicy`); deletion-versus-processing and
+attach-versus-delete race guards, proven by Testcontainers race tests
+(`tests/integration/media-deletion.test.ts`, `media-deletion-references.test.ts`,
+`media-retention-sweep.test.ts`).
+
 Neither worker image has been deployed to `verdery-dev`. The existing Phase 6 platform follow-ups
 still apply: worker Cloud SQL IAM connectivity, queue/service rollout, always-allocated CPU for the
 interval relay, and selection/integration of a real malware scanner. The derived-bucket write IAM
 grant this stage's own derivative-generation job needs (`roles/storage.objectCreator`, scoped to the
 derived bucket) is written in `infrastructure/gcloud/scripts/10-media-processing-queue.sh` but not
-executed against any real environment.
+executed against any real environment; P6-RET-01 adds, to that same written-not-executed list, the
+custom `verderyMediaObjectDeleter` role (`storage.objects.delete` only, bound on all four media
+buckets) and `deploy-workers.sh`'s `MEDIA_RETENTION_SWEEP_URL` variable.

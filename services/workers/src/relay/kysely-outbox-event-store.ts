@@ -1,4 +1,5 @@
 import {
+  MEDIA_DELETION_REQUESTED_EVENT_TYPE,
   MEDIA_DERIVATIVE_GENERATION_REQUESTED_EVENT_TYPE,
   MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
 } from '@verdery/api-contracts';
@@ -6,10 +7,11 @@ import type { Kysely } from 'kysely';
 import type { OutboxEventRecord, OutboxEventStore } from './outbox-event-store.js';
 import type { RelayDatabaseSchema } from './relay-database-schema.js';
 
-/** The two event types this relay recognizes — see `OutboxEventRecord.eventType`'s own doc comment. */
+/** The three event types this relay recognizes — see `OutboxEventRecord.eventType`'s own doc comment. */
 const RECOGNIZED_EVENT_TYPES = [
   MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
   MEDIA_DERIVATIVE_GENERATION_REQUESTED_EVENT_TYPE,
+  MEDIA_DELETION_REQUESTED_EVENT_TYPE,
 ] as const;
 
 export class KyselyOutboxEventStore implements OutboxEventStore {

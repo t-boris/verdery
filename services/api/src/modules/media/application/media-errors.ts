@@ -59,3 +59,24 @@ export function mediaViewerAccessRestrictedError(): ForbiddenError {
 export function processingJobNotFoundError(): NotFoundError {
   return new NotFoundError(MediaErrorCode.ProcessingJobNotFound, 'Processing job not found.');
 }
+
+/** Raised by `DeleteGardenMedia` (P6-RET-01) when attachment rows still reference the record — one detail entry per referencing kind, so a client can say WHAT must be detached first. */
+export function mediaReferencedError(referenceKinds: readonly string[]): ConflictError {
+  return new ConflictError(
+    MediaErrorCode.Referenced,
+    'This media is still referenced and cannot be deleted until the referencing records are removed.',
+    {
+      details: referenceKinds.map((kind) => ({
+        code: `media.referenced.${kind}`,
+      })),
+    },
+  );
+}
+
+/** Raised by `DeleteGardenMedia` (P6-RET-01) when the path names a derivative row directly — a derivative is deleted with its source, never independently. */
+export function mediaDerivativeNotDeletableError(): ConflictError {
+  return new ConflictError(
+    MediaErrorCode.DerivativeNotDeletable,
+    'A derivative is deleted together with its original, not independently.',
+  );
+}

@@ -3092,3 +3092,139 @@ keys, and the one offline-path test constructing the payload was updated. `swift
 721 tests / 100 suites, all green. What remains genuinely deferred for iOS is unchanged: the
 calibration UI and a Swift `derivePlanCalibration` versus the shared math fixtures — the wire
 model itself is now in parity.
+
+## Stage 11 — P6-RET-01, implementation complete
+
+Ordinary-media retention, orphan reconciliation, derivative cleanup, the end-to-end deletion
+workflow, and the user-visible raw-capture policy foundation are real: a user (or the retention
+sweep) can delete media, the bytes actually die in Cloud Storage through the established worker
+machinery, the record reaches `deleted` only after absence is verified, quota is released, and
+every race the work package names is guarded and proven against real PostgreSQL.
+
+### Key decisions
+
+- **Deletion workflow shape — API owns state, worker owns bytes, one shared machinery.**
+  `DeleteGardenMedia` (`POST /gardens/{gardenId}/media/{mediaId}/delete` — POST-not-DELETE per
+  `deleteTask`'s own documented precedent; `editGardenContent`; If-Match; idempotent replay) runs
+  section 16 steps 1-5 in one transaction: revision-guarded `available → deletion_scheduled` (the
+  transition IS the access revocation — every read path already gates on `available`), bulk
+  derivative-row scheduling, cancellation of every `requested`/`queued` job (the domain's
+  `markProcessingJobCancelled` gained `requested` as a source, grounded in step 3's own words), a
+  `media.deletion_requested` outbox event, and a user-actored audit event. The relay recognizes
+  the third event type and enqueues a **new `media_deletion` job kind** — the free-text `job_kind`
+  used for exactly what it was built for — through the same queue/HTTP-target/callback; the
+  worker's `ProcessMediaDeletionJob` deletes and then RE-LISTS each prefix (step 6's "verify
+  absence" literally, missing-on-delete = success); the succeeded callback drives
+  `deletion_scheduled → deleted`, bulk-completes derivative rows, releases the quota reservation
+  (a new `releaseQuotaReservationForDeletedMedia` domain transition — `committed → released` is
+  legal exactly when bytes are confirmed gone, documented against the ordinary release's own
+  contrary reasoning), and records the system-actored `media.deleted` audit event. Any other
+  outcome leaves the record `deletion_scheduled` — "user-visible deletion remains pending".
+- **Prefix-scoped deletion, not key enumeration — the derivative fan-out answer.** Every object
+  ever written for one record (original AND every derivative, registered or orphaned) lives under
+  the same `<shard>/<mediaUuid>/` prefix: the API's `generateObjectKey` and the worker's
+  `generateDerivativeObjectKey` share the identical sha256-shard computation, now pinned by tests
+  on both sides. The event carries two bucket/prefix pairs (source + derived, deduped) — bounded
+  payload for a tile pyramid's thousands of objects, and any bytes a cancelled/late derivative job
+  wrote without registering a row die under the same prefix. The prefix embeds the full media
+  UUID, so it can never match another record's objects.
+- **Referenced-attachment rule: block, loudly, race-free.** A record referenced by a plant photo,
+  observation photo, task attachment, or imported-background map object answers
+  `409 media.referenced` (one detail per kind) and the WHOLE scheduling transaction rolls back —
+  the rule `imported_background_details`' own migration comment anticipated ("must fail loudly ...
+  not silently orphan"), applied uniformly. Because deletion is a state transition, the
+  RESTRICT-shaped FKs never fire on their own, so a `MediaReferenceFinder` port (Kysely adapter
+  reading the four tables — the `KyselyPlantOwnershipRepository` cross-schema precedent) makes the
+  rule explicit. The check runs AFTER the row update, paired with a new
+  `MediaRepository.getForShare` (`FOR SHARE`) read in every attachment command, so the two sides
+  serialize on the media row under either interleaving. Fixed in place along the way: attachment
+  commands only checked media EXISTENCE — a cross-garden media id was attachable (which, under the
+  new rule, would have let a stranger's row pin media they cannot read), and a
+  `registered`/`rejected`/`deletion_scheduled` record was attachable too. All four attach points
+  now require a same-garden, `available` record.
+- **Retention: one honest table, one enforced rule.** `domain/media-retention.ts` is the single
+  source both `GET /media/retention-policy` (the contract's new `MediaClassRetentionPolicy`, with
+  an explicit `enforced` flag) and the sweep read. `export_package` = 7 days from registration,
+  ENFORCED (`registerMediaRecord` stamps `retention_deadline_at`; the figure is
+  `09-media-storage.sh`'s own already-live exports-bucket rule, reconciled exactly as that
+  script's comment demanded). `raw_capture` = 30 days after successful extraction, DECLARED but
+  `enforced: false` — the anchoring event has no producer until Garden Scan (Phase 10); declaring
+  without claiming enforcement is the "user-visible raw-capture policy foundation" scoped
+  honestly. No other class gets an invented number.
+- **Orphan reconciliation: pre-`available` records stale past 7 days** (grounded: a GCS resumable
+  session is only resumable for one week, so an older registration can never complete; matches the
+  exports 7-day precedent) are routed through the REAL deletion workflow via a new documented
+  domain edge (`scheduleStaleMediaUploadDeletion`) — partial bytes may exist under an `authorized`
+  target, so flipping rows terminal in place would leak them; a never-authorized row (no storage
+  target) completes to `deleted` in the same transaction. Reservation released at `deleted`
+  (section 17's "A failed abandoned upload eventually releases reserved capacity"). `rejected`
+  rows are deliberately NOT swept (terminal evidence, no documented retention duration) —
+  deferred with reason.
+- **The sweep runs in `services/api`, and `verdery_worker` gains ZERO new database access.** The
+  alternative — the worker scanning `media.media_record` — would trade the deliberately-held
+  boundary (that role has never been able to read the table) for one query's convenience. Instead
+  the worker contributes exactly what it uniquely has: an already-awake interval process (the poll
+  loop is this codebase's one established home for periodic work) and an already-verified OIDC
+  identity. `retention/retention-sweep-scheduler.ts` (hourly, overlap-guarded like `poller.ts`)
+  POSTs to `POST /internal/media-retention/sweep` (same verifier and audience as the result
+  callback — one worker-to-API identity), and `RunMediaRetentionSweep` does every read and
+  privileged write in-process, 25 candidates per category per run, each in its own transaction.
+- **IAM: a custom role, because least privilege demanded one.** Deletion needs
+  `storage.objects.delete`, and NO predefined role grants it without also granting
+  create/overwrite (`objectAdmin` — explicitly rejected by `10-media-processing-queue.sh`'s own
+  earlier reasoning). The script now creates a project-level `verderyMediaObjectDeleter` custom
+  role carrying exactly that one permission and binds it per bucket on all four media buckets;
+  `deploy-workers.sh` gained `MEDIA_RETENTION_SWEEP_URL`. Both written and `bash -n`-checked, NOT
+  executed live — the same boundary every prior grant in that script holds.
+- **Race guards in the result path.** Both processing kinds now guard on the source's
+  `uploadState`: a result landing against a deletion-scheduled source completes its job as
+  `cancelled` (`media_not_available`) and never touches the record; a late DERIVATIVE result's
+  already-written bytes are re-covered by re-emitting the standard deletion event (same prefixes,
+  fresh event id, convergent completion — no special cleanup kind needed because the standard
+  event is already idempotent end to end). `Media` gained an optional `retentionDeadlineAt`
+  (emitted from every read, optional in the contract only to spare existing client fixtures — the
+  `derivatives` precedent).
+
+### Verified evidence
+
+| Check                                                 | Result                                                                                                                         |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm --filter @verdery/api build && test`            | 116 files / 774 tests pass (baseline 108 / 723), real Postgres via Testcontainers                                              |
+| `pnpm --filter @verdery/workers build && test`        | 18 files / 101 tests pass (baseline 16 / 90)                                                                                   |
+| `pnpm --filter @verdery/api-contracts` checks         | redocly lint, generate:check, 29 contract tests all pass                                                                       |
+| Root `pnpm typecheck` / `lint` / `format:check`       | all pass                                                                                                                       |
+| `node scripts/check-file-size.mjs`                    | passes (contract index split into `media-processing.ts`; two oversized test files split)                                       |
+| `bash -n` on both touched shell scripts               | passes                                                                                                                         |
+| **Lifecycle/deletion race tests** (required evidence) | `media-deletion.test.ts` (6), `media-deletion-references.test.ts` (2), `media-retention-sweep.test.ts` (3) — all real-Postgres |
+
+The race tests cover exactly the races the work package names: deletion racing an in-flight
+processing job (both the scheduling-time cancellation and the late-result guard, including the
+job-created-after-scheduling window); a derivative registering while its source is being deleted
+(no row registered, job cancelled, byte-cleanup re-emit); double-delete idempotency (one event,
+duplicate completion converges, single `media.deleted` audit); and an attachment reference
+appearing on either side of deletion scheduling (attach-first → `409` + REAL transaction rollback
+leaves the record untouched; delete-first → the attach-side availability gate rejects and inserts
+nothing).
+
+### Fixed in place (not deferred)
+
+1. **Cross-garden media references**: `AttachPlantPhoto`/`AddPlantFromPhoto`/
+   `attachObservationPhotos`/`AttachTaskFile` accepted any existing media id regardless of garden —
+   now garden-scoped, concealed as the existing invalid-reference error (the
+   `validate-imported-plan-reference` precedent).
+2. **Attaching non-`available` media**: the same four commands accepted `registered`/`rejected`
+   records; now gated on `available` with per-module `media_not_available` codes, which is also
+   the attach-side half of the race protocol.
+3. **File-size violations introduced mid-stage**: contract index (635) split along the
+   hand-written machine-to-machine seam into `media-processing.ts`; the two oversized test files
+   split along their own describe boundaries.
+
+### Known limitations, deliberately deferred (all in `deferred-capabilities.md` with reasons)
+
+- Raw-capture deadline SETTING (Phase 10 owns the extraction event; mechanism complete).
+- Rejected-upload byte cleanup (terminal evidence, no documented retention duration — product
+  decision needed).
+- Bucket-side orphan listing (objects with no row at all — needs a listing reconciler no current
+  component is placed to run; the prefix design prevents the known ways such objects arise).
+- iOS/web deletion UI (backend + contract only this stage, per scope).
+- Live infrastructure actions (custom role, sweep env var — written, not executed).

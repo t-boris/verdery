@@ -5,7 +5,9 @@ Independently deployed workers for media verification, derivatives, and schedule
 P6-ASYNC-01 added the transactional-outbox relay. P6-WORKER-01 added the authenticated media
 validation target and real byte-validation pipeline. P6-WORKER-02 adds real derivative generation
 (thumbnails, screen previews, high-resolution plan images, and XYZ tile pyramids), sharing this same
-target and relay via job-kind dispatch — see below.
+target and relay via job-kind dispatch — see below. P6-RET-01 adds the media-deletion job (the one
+component in the whole system that deletes Cloud Storage objects) and the hourly retention-sweep
+trigger.
 
 A worker has its own composition root, service identity, configuration, health behavior, and
 deployment. It shares versioned contract packages (`@verdery/api-contracts`) with the API but never
@@ -15,16 +17,16 @@ imports the running API application. See
 
 ## The transactional outbox relay (P6-ASYNC-01, extended by P6-WORKER-02)
 
-`src/relay/outbox-relay.ts` scans `platform.outbox_event` for unpublished rows of EITHER of two
+`src/relay/outbox-relay.ts` scans `platform.outbox_event` for unpublished rows of any of THREE
 recognized event types — `media.processing_requested` (appended by `@verdery/api`'s
-`CompleteMediaUpload` when a media record reaches `available`) or, new in P6-WORKER-02,
-`media.derivative_generation_requested` (appended by `@verdery/api`'s
-`RecordMediaProcessingResult` after a successful `media_validation` result for a raster-eligible
-media class) — and for each one:
+`CompleteMediaUpload` when a media record reaches `available`), `media.derivative_generation_requested`
+(appended by `@verdery/api`'s `RecordMediaProcessingResult` after a successful `media_validation`
+result for a raster-eligible media class, P6-WORKER-02), or `media.deletion_requested` (appended by
+the API's deletion workflow when a record is scheduled for deletion, P6-RET-01) — and for each one:
 
 1. Creates a durable `media.processing_job` row, keyed by the triggering outbox event's own id, with
-   `job_kind` set from the event's own type (`media_validation` or `derivative_generation` — see
-   `src/job-kind.ts`).
+   `job_kind` set from the event's own type (`media_validation`, `derivative_generation`, or
+   `media_deletion` — see `src/job-kind.ts`).
 2. Enqueues a Cloud Tasks task carrying that job's manifest (now itself carrying `jobKind`), targeting
    this service at `POST /internal/media-validation-jobs/:jobId` — the SAME route for both job kinds,
    see "Job-kind dispatch" below.
@@ -83,10 +85,10 @@ validation-only — see that file's own header comment for why) is now given a
 `src/media-processing-job-router.ts` `MediaProcessingJobRouter` as its processor instead of a bare
 `ProcessMediaValidationJob`. The router reads the inbound manifest's own `jobKind` field
 (`media_validation` when absent, for every manifest built before P6-WORKER-02 added the field) and
-dispatches to either `ProcessMediaValidationJob` (unchanged) or, new this stage,
-`ProcessMediaDerivativeGenerationJob`. One HTTP route, one Cloud Tasks queue, one task URL, one OIDC
-audience serve both job kinds — see this stage's own report for why this was chosen over a second,
-parallel entrypoint.
+dispatches to `ProcessMediaValidationJob` (unchanged), `ProcessMediaDerivativeGenerationJob`
+(P6-WORKER-02), or `ProcessMediaDeletionJob` (P6-RET-01). One HTTP route, one Cloud Tasks queue, one
+task URL, one OIDC audience serve every job kind — see the P6-WORKER-02 report for why this was
+chosen over parallel entrypoints.
 
 ## Derivative generation (P6-WORKER-02)
 
@@ -124,6 +126,32 @@ therefore never becomes derivative-eligible (`@verdery/api`'s own
 `application/derivative-eligibility.ts` excludes it by content type) and gets no
 preview/tile derivative yet.
 
+## Media deletion (P6-RET-01)
+
+`src/deletion/process-media-deletion-job.ts` executes the byte-removal half of the deletion
+workflow (architecture/media-storage-and-processing.md section 16.1): for each bucket/prefix pair
+the manifest's `deletion.objectPrefixes` carries — every object ever stored for one media record
+lives under its own `<shard>/<mediaUuid>/` prefix, originals and derivatives alike — it deletes
+every object (`src/deletion/gcs-object-deleter.ts`; an already-missing object is success, since
+deletion is idempotent under at-least-once delivery), then RE-LISTS the prefix and reports
+`succeeded` only on zero remaining objects (section 16 step 6's "verify absence" literally). A
+verification or provider failure is a retryable throw (Cloud Tasks' bounded retries); the record
+stays `deletion_scheduled` on the API side until absence is confirmed. IAM: listing rides the
+existing `objectViewer` grants; the delete itself needs the custom `verderyMediaObjectDeleter` role
+(`storage.objects.delete` only) `10-media-processing-queue.sh` creates and binds — written, not yet
+executed live.
+
+## Retention-sweep trigger (P6-RET-01)
+
+`src/retention/retention-sweep-scheduler.ts` POSTs to the API's authenticated internal sweep
+endpoint (`MEDIA_RETENTION_SWEEP_URL`) hourly, with an ID token minted for the same audience as the
+result callback (`src/retention/retention-sweep-trigger.ts`). The sweep itself — scanning
+`media.media_record` for passed retention deadlines and stale never-completed uploads, and every
+privileged transition that follows — runs entirely in `services/api`: `verdery_worker` has
+deliberately never been able to read `media.media_record`, and this stage keeps that boundary
+exactly as narrow as it was. This process contributes only its interval loop and its
+already-verified identity.
+
 ## Environment
 
 | Variable                                         | Required | Default             | Meaning                                                             |
@@ -146,6 +174,8 @@ preview/tile derivative yet.
 | `MEDIA_PROCESSING_RESULT_CALLBACK_AUDIENCE`      | yes      | —                   | Audience used for the worker-to-API ID token                        |
 | `MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL` | yes      | —                   | The service account Cloud Tasks mints the callback's OIDC token for |
 | `MEDIA_DERIVED_BUCKET`                           | yes      | —                   | The derived bucket the derivative-generation job writes to directly |
+| `MEDIA_RETENTION_SWEEP_URL`                      | yes      | —                   | The API's internal retention-sweep endpoint this worker triggers    |
+| `MEDIA_RETENTION_SWEEP_INTERVAL_MS`              | no       | `3600000`           | How often the retention sweep is triggered                          |
 
 `DATABASE_URL` only — no Cloud SQL IAM connection mode yet, unlike the API. Real Cloud SQL IAM
 wiring for this package's own database connection is a documented follow-up; see

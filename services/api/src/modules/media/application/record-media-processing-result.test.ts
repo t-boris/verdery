@@ -76,6 +76,7 @@ function buildUseCase() {
   const useCase = new RecordMediaProcessingResult(
     new FakeMediaUnitOfWork(fakes),
     fixedClock(LATER),
+    'test-derived',
   );
   return { useCase, fakes };
 }

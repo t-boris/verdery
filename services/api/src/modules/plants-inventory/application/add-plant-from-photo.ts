@@ -21,7 +21,7 @@ import { createPlant, type PlantPlacement } from '../domain/plant.js';
 import { createPlantIdentification } from '../domain/plant-identification.js';
 import { createPlantPhoto } from '../domain/plant-photo.js';
 import { identifyPlantFromPhoto } from './identify-plant-from-photo.js';
-import { invalidMediaReferenceError } from './plant-errors.js';
+import { invalidMediaReferenceError, mediaNotAvailableForAttachmentError } from './plant-errors.js';
 import { toPlantResource, type PlantResource } from './plant-view.js';
 import type { PlantsInventoryUnitOfWork } from './plants-inventory-unit-of-work.js';
 import { requirePlacementReferencesGardenObjects } from './require-plant-placement-in-garden.js';
@@ -76,9 +76,14 @@ export class AddPlantFromPhoto {
       idempotencyInput,
       201,
       async (context) => {
-        const media = await context.media.get(input.photoMediaId);
-        if (media === null) {
+        // P6-RET-01's attach-side guard — same shape and reasoning as
+        // AttachPlantPhoto's own comment on this identical block.
+        const media = await context.media.getForShare(input.photoMediaId);
+        if (media === null || media.gardenId !== gardenId) {
           throw invalidMediaReferenceError('/photoMediaId');
+        }
+        if (media.uploadState !== 'available') {
+          throw mediaNotAvailableForAttachmentError('/photoMediaId');
         }
 
         const now = this.clock.now();

@@ -99,6 +99,18 @@ exists. Video/raw-capture is explicitly out of scope (needs `ffprobe`, a native 
 deliberately deferred) and stays at its pre-existing declared-metadata-trusted level — see the
 malware-provider/worker-rollout entry below.
 
+Phase 6 also now includes P6-RET-01: the real, end-to-end media-deletion workflow (a user command
+`DeleteGardenMedia`, prefix-scoped Cloud Storage deletion executed by a new `media_deletion` worker
+job with absence verification, `deletion_scheduled -> deleted` driven by the authenticated result
+callback, derivative-row fan-out, processing-job cancellation, quota release on confirmed deletion,
+and audit events at both ends), the hourly retention sweep (worker-triggered, API-executed —
+`verdery_worker` gains zero new database access), the enforced export-package 7-day retention
+deadline, stale-upload orphan reconciliation (7-day window), the user-visible retention policy
+endpoint (`GET /media/retention-policy`, raw-capture declared but honestly `enforced: false`), and
+attach-versus-delete race guards across every attachment command. See
+architecture/media-storage-and-processing.md sections 15.1/16.1 for the implemented profile and the
+entries below for what this stage deliberately leaves open.
+
 Phase 6 also now includes real P6-WORKER-02 derivative generation in `services/workers/src/derivatives`:
 `sharp`-based thumbnail/screen-preview/high-resolution/tile production for garden photos and raster
 (non-PDF) imported plans, unconditional EXIF stripping (GPS location included) with orientation
@@ -148,7 +160,46 @@ but none of those live-infrastructure actions was performed as part of P6-WORKER
 not-yet-executed prerequisite to this same list: `10-media-processing-queue.sh` now also grants
 `roles/storage.objectCreator` on the derived bucket to the worker service account (the write access
 its own derivative-generation job needs — see that script's own updated comment), written and
-syntax-checked but not run against any real project.
+syntax-checked but not run against any real project. P6-RET-01 adds two more, in the same
+written-not-executed state: the custom `verderyMediaObjectDeleter` role (`storage.objects.delete`
+only — no predefined role grants delete without also granting create/overwrite) created and bound
+per bucket by `10-media-processing-queue.sh`, and `deploy-workers.sh`'s new
+`MEDIA_RETENTION_SWEEP_URL` environment variable (the worker's hourly sweep trigger fails loudly at
+configuration load without it).
+
+**Raw-capture retention enforcement (P6-RET-01 scope boundary).** The 30-days-after-successful-
+extraction rule (architecture/media-storage-and-processing.md section 15; garden-capture-and-scan.md
+section 17) is DECLARED through `GET /media/retention-policy` with an explicit `enforced: false`
+flag, and the sweep already processes any record whose `retention_deadline_at` passes — but nothing
+sets a raw-capture deadline yet, because the anchoring event (successful extraction) has no producer
+until Garden Scan lands (Phase 10). When that stage records an extraction outcome, its one remaining
+job here is to stamp `retention_deadline_at = extraction + 30 days` (the constant already exists in
+`domain/media-retention.ts`) and flip the policy entry to `enforced: true`; the sweep and deletion
+workflow need no further change. "Users may delete raw media sooner" already works: `DeleteGardenMedia`
+accepts any `available` original, raw capture included.
+
+**Rejected-upload byte cleanup (P6-RET-01 scope boundary).** A `rejected` record (declared/actual
+mismatch at completion, or a failed validation) may hold real bytes, and the deletion workflow never
+touches it: `rejected` is a terminal state carrying evidence of what was rejected, section 6's
+diagram draws no outgoing edge from it, and no document names a retention duration for that evidence
+(section 3's "retained only long enough for recovery and support policy" names a policy that does
+not exist yet). Sweeping those bytes needs a product/policy decision first — recorded here rather
+than a number invented.
+
+**Bucket-side orphan listing (P6-RET-01 scope boundary).** Section 15's orphan pairing has two
+directions; this stage implements "metadata without objects" (stale registrations reconciled through
+the deletion workflow). The reverse — Cloud Storage objects with no `media_record` row at all —
+would need a bucket-listing reconciler comparing object inventories against the database, which no
+current component is placed to run (the API deliberately never lists buckets; the worker
+deliberately never reads `media.media_record`). The prefix-scoped deletion design prevents the known
+ways such objects arise (late derivative writes are re-covered by cleanup re-emits), so what remains
+is a defense-in-depth audit job for a future operational stage, not a correctness gap this stage
+knows how to produce.
+
+**iOS/web deletion UI (P6-RET-01 scope boundary).** The contract and backend are complete
+(`deleteGardenMedia`, `getMediaRetentionPolicy`), but no client calls either yet — the same
+"gateway-tested, no UI caller" posture the attachment entries above already document. The web
+client's `GardenPhotoUpload`/`MediaPreview` surfaces would be the natural first wiring point.
 
 **Video/raw-capture deep validation (P6-WORKER-01 scope boundary).** Duration, codec, and frame-rate
 validation (architecture/media-storage-and-processing.md section 10) needs `ffprobe`, a native binary

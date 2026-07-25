@@ -1118,6 +1118,115 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/gardens/{gardenId}/media/{mediaId}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                mediaId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete a media record and its stored objects
+         * @description Starts section 16's asynchronous deletion workflow for one ORIGINAL
+         *     media record: revokes new access immediately (a
+         *     `deletion_scheduled` record can no longer be signed by
+         *     `GetMediaAccess`), schedules the record and every derivative row
+         *     produced from it, cancels eligible pending processing jobs, and
+         *     emits the durable event the worker-side deletion job executes the
+         *     actual Cloud Storage object removal through. The record reaches
+         *     `deleted` only after object absence is confirmed — "User-visible
+         *     deletion remains pending until required objects are confirmed
+         *     deleted" (section 16) — so the response's `uploadState` is
+         *     `deletion_scheduled`, not `deleted`.
+         *
+         *     `POST`, not HTTP `DELETE`, for exactly `deleteTask`'s own
+         *     documented reason: this is a governed state transition on a row
+         *     that survives (metadata is retained per audit policy until a later
+         *     purge stage), not a hard row delete — using the literal verb would
+         *     misrepresent that.
+         *
+         *     Only an ORIGINAL can be named here: a derivative row is deleted
+         *     with its source, never independently (`409`,
+         *     `media.derivative_not_deletable`) — its bytes are rebuildable
+         *     artifacts of the original, and independently deleting one would
+         *     leave the original's `derivatives` array silently self-healing on
+         *     the next regeneration anyway.
+         *
+         *     A record still referenced by an attachment row — a plant photo, an
+         *     observation photo, a task attachment, or an imported-background map
+         *     object — is not deletable (`409`, `media.referenced`, with one
+         *     detail entry naming each referencing kind): the referencing record
+         *     must be removed first. This is the same rule the database's own
+         *     RESTRICT-shaped foreign keys and
+         *     `imported_background_details`' migration comment ("deleting a media
+         *     record out from under a background must fail loudly") already
+         *     encode, surfaced as a clean contract error instead of a constraint
+         *     violation.
+         *
+         *     Idempotent under replay: a record already `deletion_scheduled` or
+         *     `deleted` returns its current state unchanged, never a second
+         *     workflow.
+         *
+         *     Authorization: `editGardenContent` — deleting a photo is editing
+         *     garden content, the same capability that attached it.
+         *
+         *     Source: implementation-plan.md work package P6-RET-01;
+         *     architecture/media-storage-and-processing.md, sections
+         *     "15. Retention and Lifecycle", "16. Deletion Workflow".
+         */
+        post: operations["deleteGardenMedia"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/media/retention-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the retention policy per media class
+         * @description The user-visible statement of section 15's retention rules, one
+         *     entry per media class — static policy data, the single source the
+         *     server itself enforces from, so what a client displays and what the
+         *     retention sweep executes can never drift.
+         *
+         *     Honesty over completeness: each entry carries an `enforced` flag.
+         *     The raw-capture rule ("30 days after successful extraction",
+         *     architecture/garden-capture-and-scan.md section 17) is DECLARED
+         *     here but reported `enforced: false` — the anchoring event
+         *     (successful extraction) has no producer until Garden Scan lands
+         *     (Phase 10), so no raw-capture deadline is ever set yet, and
+         *     claiming enforcement would be false. The export-package rule
+         *     (7 days from registration, the same figure the exports bucket's own
+         *     live lifecycle rule uses) is both declared and enforced.
+         *
+         *     Authenticated but not garden-scoped: policy is product-wide, not
+         *     per-garden.
+         *
+         *     Source: implementation-plan.md work package P6-RET-01;
+         *     architecture/media-storage-and-processing.md, section
+         *     "15. Retention and Lifecycle"; architecture/garden-capture-and-scan.md,
+         *     section "17. Privacy and Retention".
+         */
+        get: operations["getMediaRetentionPolicy"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sync/clients/{clientInstallationId}": {
         parameters: {
             query?: never;
@@ -2389,6 +2498,18 @@ export interface components {
             processingState: components["schemas"]["MediaProcessingState"] | null;
             sensitivityClassification: components["schemas"]["MediaSensitivityClassification"];
             /**
+             * Format: date-time
+             * @description When this record's retention deadline passes and the retention
+             *     sweep schedules its deletion (P6-RET-01). `null` for every
+             *     class with no computable deadline yet — see
+             *     `GetMediaRetentionPolicy` for the per-class rules and which
+             *     are actually enforced. Set at registration only for
+             *     `export_package` today; the raw-capture rule is anchored to a
+             *     successful-extraction event that has no producer until Garden
+             *     Scan (Phase 10).
+             */
+            retentionDeadlineAt?: string | null;
+            /**
              * @description The record's own available display derivatives (P6-PLAN-01).
              *     Populated by the read operations a client displays media
              *     through — `GetMediaStatus` and `ListGardenMedia` — and absent
@@ -2457,6 +2578,38 @@ export interface components {
             /** Format: uri */
             url: string;
             expiresAt: components["schemas"]["Timestamp"];
+        };
+        /**
+         * @description What a class's retention period counts FROM (P6-RET-01). `none`:
+         *     no duration-based rule — the class is retained until user, garden,
+         *     or account deletion (section 15). `registration`: the deadline is
+         *     computed when the upload is registered (`export_package`'s 7-day
+         *     expiry — the deadline is known up front). `successful_extraction`:
+         *     the deadline anchors to a raw capture's successful extraction
+         *     event (section 3's "30 days after successful extraction") — an
+         *     event with no producer until Garden Scan (Phase 10), which is why
+         *     that entry reports `enforced: false`.
+         * @enum {string}
+         */
+        MediaRetentionAnchor: "none" | "registration" | "successful_extraction";
+        /** @description One media class's retention rule — see `GetMediaRetentionPolicy`. */
+        MediaClassRetentionPolicy: {
+            mediaClass: components["schemas"]["MediaClass"];
+            /** @description Days from the anchor to the retention deadline. `null` when `anchor` is `none`. */
+            retentionDays: number | null;
+            anchor: components["schemas"]["MediaRetentionAnchor"];
+            /**
+             * @description Whether the server actually computes and enforces this rule
+             *     today. `false` declares intent honestly rather than claiming
+             *     an enforcement that does not run — the raw-capture rule stays
+             *     `false` until its anchoring extraction event exists (Phase 10).
+             */
+            enforced: boolean;
+            /** @description One-sentence human-readable statement of the rule, mirroring section 3's own class table. */
+            summary: string;
+        };
+        MediaRetentionPolicyResult: {
+            policies: components["schemas"]["MediaClassRetentionPolicy"][];
         };
         /**
          * @description Every record type this service's sync change log writes today.
@@ -4718,6 +4871,67 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    deleteGardenMedia: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                mediaId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The media record with deletion scheduled (or its already-terminal state, on replay). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Media"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    getMediaRetentionPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The retention policy for every media class. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaRetentionPolicyResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
     registerSyncClient: {

@@ -174,7 +174,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     return objectId;
   }
 
-  async function createMedia(ownerId: string, now: Date): Promise<string> {
+  async function createMedia(ownerId: string, gardenId: string, now: Date): Promise<string> {
     const clock = fixedClock(now);
     const registerMediaRecord = new RegisterMediaRecord(
       new KyselyIdempotencyStore(db, clock),
@@ -191,6 +191,15 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       },
       generateUuidV7(),
     );
+    // Attachment commands now require a same-garden, `available` record
+    // (P6-RET-01's attach-versus-delete guard); `RegisterMediaRecord` is the
+    // internal garden-less constructor, so this test drives the row to the
+    // state a real completed upload reaches directly.
+    await db
+      .updateTable('media.media_record')
+      .set({ garden_id: gardenId, upload_state: 'available' })
+      .where('id', '=', record.id)
+      .execute();
     return record.id;
   }
 
@@ -287,7 +296,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('records a photo-only observation with no note or summary, inserting a photo row and a stubbed, requires-confirmation analysis result', async () => {
     const now = new Date('2026-07-21T09:00:00Z');
     const { ownerId, gardenId } = await createGardenWithOwner(now);
-    const mediaId = await createMedia(ownerId, now);
+    const mediaId = await createMedia(ownerId, gardenId, now);
     const handlers = buildHandlers(fixedClock(now));
 
     const resource = await handlers.recordObservation.execute(

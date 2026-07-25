@@ -257,6 +257,11 @@ export class FakeMediaRepository implements MediaRepository {
     return Promise.resolve(this.records.get(id) ?? null);
   }
 
+  /** No real lock in memory — same read as `get`, matching the media module's own fake. */
+  getForShare(id: Uuid): Promise<MediaRecord | null> {
+    return this.get(id);
+  }
+
   update(): Promise<boolean> {
     throw new Error('not used by this test');
   }
@@ -270,6 +275,22 @@ export class FakeMediaRepository implements MediaRepository {
   }
 
   listDisplayDerivatives(): Promise<readonly MediaRecord[]> {
+    throw new Error('not used by this test');
+  }
+
+  scheduleDerivativesForDeletion(): Promise<number> {
+    throw new Error('not used by this test');
+  }
+
+  markScheduledDerivativesDeleted(): Promise<number> {
+    throw new Error('not used by this test');
+  }
+
+  listRetentionExpired(): Promise<readonly MediaRecord[]> {
+    throw new Error('not used by this test');
+  }
+
+  listStaleUploads(): Promise<readonly MediaRecord[]> {
     throw new Error('not used by this test');
   }
 }

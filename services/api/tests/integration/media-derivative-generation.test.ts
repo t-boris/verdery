@@ -198,6 +198,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const recordMediaProcessingResult = new RecordMediaProcessingResult(
       new KyselyMediaUnitOfWork(db, fixedClock(now)),
       fixedClock(now),
+      TEST_BUCKETS.derived,
     );
     await recordMediaProcessingResult.execute(outboxRow.id, {
       jobId: outboxRow.id,
@@ -256,6 +257,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const recordMediaProcessingResult = new RecordMediaProcessingResult(
       new KyselyMediaUnitOfWork(db, fixedClock(later)),
       fixedClock(later),
+      TEST_BUCKETS.derived,
     );
     await recordMediaProcessingResult.execute(outboxRow.id, {
       jobId: outboxRow.id,
@@ -313,6 +315,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const recordMediaProcessingResult = new RecordMediaProcessingResult(
       new KyselyMediaUnitOfWork(db, fixedClock(now)),
       fixedClock(now),
+      TEST_BUCKETS.derived,
     );
     const output = thumbnailOutput();
     await recordMediaProcessingResult.execute(jobId, {
@@ -373,6 +376,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       const recordMediaProcessingResult = new RecordMediaProcessingResult(
         new KyselyMediaUnitOfWork(db, fixedClock(now)),
         fixedClock(now),
+        TEST_BUCKETS.derived,
       );
       await recordMediaProcessingResult.execute(jobId, {
         jobId,
@@ -432,6 +436,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       const recordMediaProcessingResult = new RecordMediaProcessingResult(
         new KyselyMediaUnitOfWork(db, fixedClock(now)),
         fixedClock(now),
+        TEST_BUCKETS.derived,
       );
       await recordMediaProcessingResult.execute(jobId, {
         jobId,

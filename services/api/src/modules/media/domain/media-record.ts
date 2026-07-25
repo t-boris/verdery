@@ -27,6 +27,7 @@ import { SharedErrorCode } from '@verdery/api-contracts';
 import { ValidationError } from '../../../platform/errors/application-error.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { MediaProcessingState, MediaUploadState } from './media-lifecycle.js';
+import { deriveDefaultRetentionDeadline } from './media-retention.js';
 
 /**
  * Matches architecture/media-storage-and-processing.md section 3's table
@@ -116,10 +117,14 @@ export interface MediaRecord {
   readonly captureSessionId: Uuid | null;
   readonly sensitivityClassification: MediaSensitivityClassification;
   /**
-   * Null at registration for every class — no concrete retention duration
-   * exists anywhere in this repository's docs to compute one from yet (see
-   * the migration's own comment). A future stage computes this once a real
-   * event/duration exists to anchor it to.
+   * P6-RET-01: computed at registration for the one class with a real,
+   * registration-anchored rule (`export_package`, 7 days — see
+   * `media-retention.ts` for why that figure and no other is computable
+   * today); `null` for every other class, including `raw_capture`, whose
+   * "30 days after successful extraction" rule stays event-anchored on an
+   * event with no producer until Garden Scan (Phase 10). The retention
+   * sweep (`RunMediaRetentionSweep`) schedules deletion for any `available`
+   * record whose deadline has passed, whichever future stage set it.
    */
   readonly retentionDeadlineAt: Date | null;
   /** Set only on a derivative row — the original this row was produced from. */
@@ -356,7 +361,7 @@ export function registerMediaRecord(
     processingState: null,
     captureSessionId,
     sensitivityClassification: deriveDefaultSensitivityClassification(mediaClass),
-    retentionDeadlineAt: null,
+    retentionDeadlineAt: deriveDefaultRetentionDeadline(mediaClass, now),
     derivedFromMediaId,
     transformationVersion: validateTransformationVersion(derivedFromMediaId, transformationVersion),
     derivativeKind: null,

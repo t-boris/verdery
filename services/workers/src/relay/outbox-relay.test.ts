@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
+  MEDIA_DELETION_REQUESTED_EVENT_TYPE,
   MEDIA_DERIVATIVE_GENERATION_REQUESTED_EVENT_TYPE,
   MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
+  type MediaDeletionRequestedEventPayload,
   type MediaProcessingRequestedEventPayload,
 } from '@verdery/api-contracts';
-import { MEDIA_DERIVATIVE_GENERATION_JOB_KIND, MEDIA_VALIDATION_JOB_KIND } from '../job-kind.js';
+import {
+  MEDIA_DELETION_JOB_KIND,
+  MEDIA_DERIVATIVE_GENERATION_JOB_KIND,
+  MEDIA_VALIDATION_JOB_KIND,
+} from '../job-kind.js';
 import { OutboxRelay } from './outbox-relay.js';
 import {
   FakeMediaProcessingQueue,
@@ -250,5 +256,36 @@ describe('OutboxRelay.tick', () => {
 
     expect(processingJobs.jobs.get(eventId)?.jobKind).toBe(MEDIA_VALIDATION_JOB_KIND);
     expect(mediaProcessingQueue.enqueued[0]?.manifest.jobKind).toBe(MEDIA_VALIDATION_JOB_KIND);
+  });
+
+  it('a media.deletion_requested event creates a media_deletion job whose manifest carries the deletion prefixes and no expected checksums (P6-RET-01)', async () => {
+    const outboxEvents = new FakeOutboxEventStore();
+    const eventId = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c50';
+    const deletionPayload: MediaDeletionRequestedEventPayload = {
+      ...payload({ mediaId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c51', checksumSha256: null }),
+      objectPrefixes: [
+        { bucketName: 'verdery-dev-user-media', objectKeyPrefix: 'ab/media-id/' },
+        { bucketName: 'verdery-dev-derived', objectKeyPrefix: 'ab/media-id/' },
+      ],
+    };
+    outboxEvents.seed({
+      id: eventId,
+      aggregateId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c51',
+      eventType: MEDIA_DELETION_REQUESTED_EVENT_TYPE,
+      payload: deletionPayload,
+      traceId: null,
+    });
+    const { relay, processingJobs, mediaProcessingQueue } = buildRelay({ outboxEvents });
+
+    const result = await relay.tick();
+
+    expect(result).toEqual({ claimed: 1, enqueued: 1, alreadyQueued: 0, failed: 0 });
+    expect(processingJobs.jobs.get(eventId)?.jobKind).toBe(MEDIA_DELETION_JOB_KIND);
+    const manifest = mediaProcessingQueue.enqueued[0]?.manifest;
+    expect(manifest?.jobKind).toBe(MEDIA_DELETION_JOB_KIND);
+    expect(manifest?.expectedChecksums).toEqual([]);
+    expect(manifest?.deletion).toEqual({
+      objectPrefixes: deletionPayload.objectPrefixes,
+    });
   });
 });

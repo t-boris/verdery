@@ -25,20 +25,25 @@ const OWNER_MEMBERSHIP = {
 };
 
 function mediaRecord(): MediaRecord {
-  return registerMediaRecord(
-    MEDIA_ID,
-    GARDEN_ID,
-    PROFILE_ID,
-    'garden_photo',
-    'photo.jpg',
-    'image/jpeg',
-    123_456,
-    null,
-    null,
-    null,
-    null,
-    NOW,
-  );
+  return {
+    ...registerMediaRecord(
+      MEDIA_ID,
+      GARDEN_ID,
+      PROFILE_ID,
+      'garden_photo',
+      'photo.jpg',
+      'image/jpeg',
+      123_456,
+      null,
+      null,
+      null,
+      null,
+      NOW,
+    ),
+    // Attachment now requires an `available` record (P6-RET-01's
+    // attach-versus-delete guard).
+    uploadState: 'available' as const,
+  };
 }
 
 describe('AttachTaskFile', () => {

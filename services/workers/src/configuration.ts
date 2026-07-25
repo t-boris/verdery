@@ -76,6 +76,21 @@ export const environmentSchema = z.object({
   // same value under the same name, not two independently-named ones that
   // could drift.
   MEDIA_DERIVED_BUCKET: z.string().min(1),
+
+  // P6-RET-01: the API's internal retention-sweep endpoint this worker's
+  // interval scheduler POSTs to (`retention/`), authenticated with an ID
+  // token minted for the SAME audience as the result callback — one
+  // worker-to-API identity, not a second audience that could drift. The
+  // sweep itself runs in `services/api` (privileged media reads/writes stay
+  // there); this worker contributes only the schedule — see
+  // `retention/retention-sweep-scheduler.ts`'s own header comment. One hour
+  // is a reasoned default (the same "no number decided yet, pick one and
+  // say so" posture the relay's own interval documents above): retention
+  // deadlines and the 7-day staleness window are day-granular, so hourly is
+  // already far finer than the policy it enforces, without being so slow a
+  // passed deadline lingers a business day.
+  MEDIA_RETENTION_SWEEP_URL: z.string().url(),
+  MEDIA_RETENTION_SWEEP_INTERVAL_MS: durationMilliseconds.default(3_600_000),
 });
 
 export type RawEnvironment = z.infer<typeof environmentSchema>;
@@ -102,6 +117,12 @@ export interface MediaProcessingQueueConfiguration {
   readonly invokerServiceAccountEmail: string;
 }
 
+/** P6-RET-01 — see the schema's own comment on these two variables. */
+export interface RetentionSweepConfiguration {
+  readonly sweepUrl: string;
+  readonly intervalMs: number;
+}
+
 export interface WorkerConfiguration {
   readonly environment: DeploymentEnvironment;
   readonly serviceVersion: string;
@@ -111,6 +132,7 @@ export interface WorkerConfiguration {
   readonly relay: RelayConfiguration;
   readonly mediaProcessing: MediaProcessingQueueConfiguration;
   readonly mediaDerivedBucket: string;
+  readonly retentionSweep: RetentionSweepConfiguration;
 }
 
 /** Raised when the process environment cannot produce a valid configuration. */
@@ -150,6 +172,10 @@ function toWorkerConfiguration(raw: RawEnvironment): WorkerConfiguration {
       invokerServiceAccountEmail: raw.MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL,
     },
     mediaDerivedBucket: raw.MEDIA_DERIVED_BUCKET,
+    retentionSweep: {
+      sweepUrl: raw.MEDIA_RETENTION_SWEEP_URL,
+      intervalMs: raw.MEDIA_RETENTION_SWEEP_INTERVAL_MS,
+    },
   };
 }
 

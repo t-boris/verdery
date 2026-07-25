@@ -29,11 +29,25 @@
  *   file's own header comment for why this is a direct write rather than a
  *   second outbox round trip.
  *
+ * P6-RET-01 adds two more, both for the deletion workflow:
+ *
+ * - `audit`: the deletion workflow's `media.deletion_requested`/
+ *   `media.deleted` audit events must commit or roll back WITH the state
+ *   transition they describe (the `AuditLogger` port's own contract) —
+ *   unlike `GetMediaAccess`'s read-path access audit, which stays outside
+ *   any transaction, this module's own gardens-mapping-style transactional
+ *   audit binding, mirroring `GardensMappingTransactionContext.auditLogger`.
+ * - `references`: the referenced-media guard must run inside the deletion
+ *   transaction, after the `deletion_scheduled` update — see
+ *   `media-deletion-workflow.ts`'s lock-ordering comment.
+ *
  * Source: architecture/backend-modular-monolith.md, section "12. Transactions".
  */
 
+import type { AuditLogger } from '../../../platform/audit/audit-logger.js';
 import type { IdempotencyStore } from '../../../platform/idempotency/idempotency-store.js';
 import type { OutboxAppender } from '../../../platform/outbox/outbox-appender.js';
+import type { MediaReferenceFinder } from './media-reference-finder.js';
 import type { MediaRepository } from './media-repository.js';
 import type { ProcessingJobRepository } from './processing-job-repository.js';
 import type { QuotaReservationRepository } from './quota-reservation-repository.js';
@@ -44,6 +58,8 @@ export interface MediaTransactionContext {
   readonly idempotency: IdempotencyStore;
   readonly outbox: OutboxAppender;
   readonly processingJobs: ProcessingJobRepository;
+  readonly audit: AuditLogger;
+  readonly references: MediaReferenceFinder;
 }
 
 export interface MediaUnitOfWork {

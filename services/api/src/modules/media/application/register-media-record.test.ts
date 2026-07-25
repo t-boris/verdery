@@ -12,7 +12,12 @@ import type { QuotaReservation } from '../domain/quota-reservation.js';
 import type { MediaRepository } from './media-repository.js';
 import type { QuotaReservationRepository } from './quota-reservation-repository.js';
 import type { MediaTransactionContext, MediaUnitOfWork } from './media-unit-of-work.js';
-import { FakeOutboxAppender, FakeProcessingJobRepository } from './media-test-doubles.js';
+import {
+  FakeAuditLogger,
+  FakeMediaReferenceFinder,
+  FakeOutboxAppender,
+  FakeProcessingJobRepository,
+} from './media-test-doubles.js';
 import { RegisterMediaRecord } from './register-media-record.js';
 import type { RegisterMediaRecordInput } from './register-media-record.js';
 
@@ -44,6 +49,10 @@ class FakeMediaRepository implements MediaRepository {
     return Promise.resolve(this.records.find((record) => record.id === id) ?? null);
   }
 
+  getForShare(id: string): Promise<MediaRecord | null> {
+    return this.get(id);
+  }
+
   update(): Promise<boolean> {
     throw new Error('not used by this test');
   }
@@ -57,6 +66,22 @@ class FakeMediaRepository implements MediaRepository {
   }
 
   listDisplayDerivatives(): Promise<readonly MediaRecord[]> {
+    throw new Error('not used by this test');
+  }
+
+  scheduleDerivativesForDeletion(): Promise<number> {
+    throw new Error('not used by this test');
+  }
+
+  markScheduledDerivativesDeleted(): Promise<number> {
+    throw new Error('not used by this test');
+  }
+
+  listRetentionExpired(): Promise<readonly MediaRecord[]> {
+    throw new Error('not used by this test');
+  }
+
+  listStaleUploads(): Promise<readonly MediaRecord[]> {
     throw new Error('not used by this test');
   }
 }
@@ -155,6 +180,8 @@ class FakeMediaUnitOfWork implements MediaUnitOfWork {
   private readonly quotaReservations = new FakeQuotaReservationRepository();
   private readonly outbox = new FakeOutboxAppender();
   private readonly processingJobs = new FakeProcessingJobRepository();
+  private readonly audit = new FakeAuditLogger();
+  private readonly references = new FakeMediaReferenceFinder();
 
   constructor(
     private readonly media: MediaRepository,
@@ -168,6 +195,8 @@ class FakeMediaUnitOfWork implements MediaUnitOfWork {
       idempotency: this.idempotency,
       outbox: this.outbox,
       processingJobs: this.processingJobs,
+      audit: this.audit,
+      references: this.references,
     });
   }
 }

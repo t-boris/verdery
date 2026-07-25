@@ -6,6 +6,7 @@ import {
 import {
   commitQuotaReservation,
   releaseQuotaReservation,
+  releaseQuotaReservationForDeletedMedia,
   reserveMediaQuota,
 } from './quota-reservation.js';
 
@@ -161,5 +162,43 @@ describe('releaseQuotaReservation', () => {
       T0,
     );
     expect(() => releaseQuotaReservation(committed, T1)).toThrow(DomainRuleViolatedError);
+  });
+});
+
+describe('releaseQuotaReservationForDeletedMedia (P6-RET-01)', () => {
+  it('releases a committed reservation — the one moment committed bytes stop being consumed (objects confirmed absent)', () => {
+    const committed = commitQuotaReservation(
+      reserveMediaQuota(RESERVATION_ID, 'garden', GARDEN_ID, null, MEDIA_ID, 500, T0),
+      T0,
+    );
+
+    const released = releaseQuotaReservationForDeletedMedia(committed, T1);
+    expect(released.state).toBe('released');
+    expect(released.updatedAt).toEqual(T1);
+  });
+
+  it('releases a still-reserved reservation (an orphan-reconciled upload that never committed)', () => {
+    const reservation = reserveMediaQuota(
+      RESERVATION_ID,
+      'garden',
+      GARDEN_ID,
+      null,
+      MEDIA_ID,
+      500,
+      T0,
+    );
+
+    expect(releaseQuotaReservationForDeletedMedia(reservation, T1).state).toBe('released');
+  });
+
+  it('is idempotent under a duplicate deletion-completion callback: an already-released reservation is returned unchanged', () => {
+    const released = releaseQuotaReservation(
+      reserveMediaQuota(RESERVATION_ID, 'garden', GARDEN_ID, null, MEDIA_ID, 500, T0),
+      T1,
+    );
+
+    expect(releaseQuotaReservationForDeletedMedia(released, new Date('2026-07-21T10:00:00Z'))).toBe(
+      released,
+    );
   });
 });

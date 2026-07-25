@@ -11,6 +11,7 @@ import {
   markMediaProcessingFailed,
   markMediaRejected,
   scheduleMediaDeletion,
+  scheduleStaleMediaUploadDeletion,
 } from './media-lifecycle.js';
 import { registerMediaRecord } from './media-record.js';
 import type { MediaRecord } from './media-record.js';
@@ -200,5 +201,29 @@ describe('markMediaDeleted', () => {
 
   it('rejects a source not yet deletion_scheduled', () => {
     expect(() => markMediaDeleted(available(), T1)).toThrow(DomainRuleViolatedError);
+  });
+});
+
+describe('scheduleStaleMediaUploadDeletion (P6-RET-01 orphan reconciliation)', () => {
+  it('moves every pre-available state to deletion_scheduled', () => {
+    for (const record of [registered(), authorized(), uploading(), verifying()]) {
+      const scheduled = scheduleStaleMediaUploadDeletion(record, T1);
+      expect(scheduled.uploadState).toBe('deletion_scheduled');
+      expect(scheduled.revision).toBe(record.revision + 1);
+    }
+  });
+
+  it('rejects available (the user command owns that edge), rejected (terminal evidence), and the two deletion states', () => {
+    expect(() => scheduleStaleMediaUploadDeletion(available(), T1)).toThrow(
+      DomainRuleViolatedError,
+    );
+    expect(() => scheduleStaleMediaUploadDeletion(markMediaRejected(verifying(), T1), T1)).toThrow(
+      DomainRuleViolatedError,
+    );
+    const scheduled = scheduleMediaDeletion(available(), T1);
+    expect(() => scheduleStaleMediaUploadDeletion(scheduled, T1)).toThrow(DomainRuleViolatedError);
+    expect(() => scheduleStaleMediaUploadDeletion(markMediaDeleted(scheduled, T1), T1)).toThrow(
+      DomainRuleViolatedError,
+    );
   });
 });

@@ -226,6 +226,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const recordMediaProcessingResult = new RecordMediaProcessingResult(
       new KyselyMediaUnitOfWork(db, fixedClock(later)),
       fixedClock(later),
+      TEST_BUCKETS.derived,
     );
     await recordMediaProcessingResult.execute(outboxRow.id, successfulResult(outboxRow.id));
 
@@ -283,6 +284,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const recordMediaProcessingResult = new RecordMediaProcessingResult(
       new KyselyMediaUnitOfWork(db, fixedClock(later)),
       fixedClock(later),
+      TEST_BUCKETS.derived,
     );
     await recordMediaProcessingResult.execute(outboxRow.id, rejection);
 
@@ -332,10 +334,12 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const recordFirst = new RecordMediaProcessingResult(
       new KyselyMediaUnitOfWork(db, fixedClock(now)),
       fixedClock(now),
+      TEST_BUCKETS.derived,
     );
     const recordSecond = new RecordMediaProcessingResult(
       new KyselyMediaUnitOfWork(db, fixedClock(now)),
       fixedClock(now),
+      TEST_BUCKETS.derived,
     );
 
     await expect(
@@ -384,6 +388,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const recordMediaProcessingResult = new RecordMediaProcessingResult(
       new KyselyMediaUnitOfWork(db, fixedClock(now)),
       fixedClock(now),
+      TEST_BUCKETS.derived,
     );
     await recordMediaProcessingResult.execute(outboxRow.id, successfulResult(outboxRow.id));
     const jobAfterFirst = await processingJobRepository.get(outboxRow.id);

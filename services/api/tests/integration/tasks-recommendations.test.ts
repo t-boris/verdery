@@ -169,7 +169,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     return plant.id;
   }
 
-  async function registerMedia(ownerId: string, clock: Clock): Promise<string> {
+  async function registerMedia(ownerId: string, gardenId: string, clock: Clock): Promise<string> {
     const registerMediaRecord = new RegisterMediaRecord(
       new KyselyIdempotencyStore(db, clock),
       new KyselyMediaUnitOfWork(db, clock),
@@ -185,6 +185,15 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       },
       generateUuidV7(),
     );
+    // Attachment commands now require a same-garden, `available` record
+    // (P6-RET-01's attach-versus-delete guard); `RegisterMediaRecord` is the
+    // internal garden-less constructor, so this test drives the row to the
+    // state a real completed upload reaches directly.
+    await db
+      .updateTable('media.media_record')
+      .set({ garden_id: gardenId, upload_state: 'available' })
+      .where('id', '=', media.id)
+      .execute();
     return media.id;
   }
 
@@ -525,7 +534,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       { target: { kind: 'garden' }, title: 'Water the garden' },
       generateUuidV7(),
     );
-    const mediaId = await registerMedia(ownerId, fixedClock(now));
+    const mediaId = await registerMedia(ownerId, gardenId, fixedClock(now));
 
     const attachment = await handlers.attachTaskFile.execute(
       task.id,

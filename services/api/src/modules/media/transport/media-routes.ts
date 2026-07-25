@@ -15,6 +15,7 @@ import type {
   Media,
   MediaAccess,
   MediaListResult,
+  MediaRetentionPolicyResult,
   MediaUploadSession,
 } from '@verdery/api-contracts';
 import { IDEMPOTENCY_KEY_HEADER, IF_MATCH_HEADER, SharedErrorCode } from '@verdery/api-contracts';
@@ -22,7 +23,9 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { ValidationError } from '../../../platform/errors/application-error.js';
 import { UUID_PATTERN } from '../../gardens-mapping/transport/garden-routes.js';
 import type { CompleteMediaUpload } from '../application/complete-media-upload.js';
+import type { DeleteGardenMedia } from '../application/delete-garden-media.js';
 import type { GetMediaAccess } from '../application/get-media-access.js';
+import type { GetMediaRetentionPolicy } from '../application/get-media-retention-policy.js';
 import type { GetMediaStatus } from '../application/get-media-status.js';
 import type { ListGardenMedia } from '../application/list-garden-media.js';
 import type { MediaClass } from '../domain/media-record.js';
@@ -34,6 +37,8 @@ export interface MediaRoutesDependencies {
   readonly getMediaStatus: GetMediaStatus;
   readonly getMediaAccess: GetMediaAccess;
   readonly listGardenMedia: ListGardenMedia;
+  readonly deleteGardenMedia: DeleteGardenMedia;
+  readonly getMediaRetentionPolicy: GetMediaRetentionPolicy;
 }
 
 const MEDIA_CLASSES: readonly MediaClass[] = [
@@ -292,5 +297,33 @@ export function registerMediaRoutes(
     );
 
     return reply.status(200).send(access);
+  });
+
+  // POST sub-resource action, not HTTP DELETE — the same reasoning
+  // `deleteTask`'s contract description documents: a governed state
+  // transition on a surviving row, not a hard delete (P6-RET-01).
+  app.post('/gardens/:gardenId/media/:mediaId/delete', async (request, reply) => {
+    const gardenId = requireGardenId(request);
+    const mediaId = requireMediaId(request);
+    const idempotencyKey = requireIdempotencyKey(request);
+    const expectedRevision = requireExpectedRevision(request);
+
+    const media: Media = await dependencies.deleteGardenMedia.execute(
+      gardenId,
+      mediaId,
+      request.actorContext.profileId,
+      expectedRevision,
+      idempotencyKey,
+    );
+
+    return reply.status(200).send(media);
+  });
+
+  // Product-wide static policy — authenticated but not garden-scoped
+  // (P6-RET-01); see the contract operation's own description.
+  app.get('/media/retention-policy', async (_request, reply) => {
+    const policy: MediaRetentionPolicyResult = dependencies.getMediaRetentionPolicy.execute();
+
+    return reply.status(200).send(policy);
   });
 }

@@ -197,13 +197,60 @@ export function markMediaProcessingFailed(media: MediaRecord, now: Date): MediaR
 
 /**
  * `available` -> `deletion_scheduled`. Independent of `processingState`'s
- * current value by design — see this file's own header comment; canceling
- * any in-flight processing as part of deletion (section 16, step 3,
- * "Cancel eligible pending processing") is explicitly a later stage's job
- * (the deletion workflow, not this one).
+ * current value by design — see this file's own header comment. Canceling
+ * in-flight processing as part of deletion (section 16, step 3, "Cancel
+ * eligible pending processing") is the deletion WORKFLOW's job
+ * (`application/media-deletion-workflow.ts`, P6-RET-01), not this
+ * transition's — this function stays a pure state edge.
  */
 export function scheduleMediaDeletion(media: MediaRecord, now: Date): MediaRecord {
   requireUploadState(media, 'available', 'scheduleMediaDeletion');
+
+  return {
+    ...media,
+    uploadState: 'deletion_scheduled',
+    revision: media.revision + 1,
+    updatedAt: now,
+  };
+}
+
+/** The pre-`available` states a stale, never-completed upload can be orphan-reconciled from — see `scheduleStaleMediaUploadDeletion`. */
+const STALE_UPLOAD_STATES: readonly MediaUploadState[] = [
+  'registered',
+  'authorized',
+  'uploading',
+  'verifying',
+];
+
+/**
+ * Orphan reconciliation's own edge (P6-RET-01): any pre-`available` state
+ * -> `deletion_scheduled`. Section 6's diagram draws `deletion_scheduled`
+ * only below `available`, so this edge is an addition the diagram does not
+ * draw — added deliberately, not silently, on two textual grounds the same
+ * document states outright: section 15's "Orphan detection reconciles
+ * objects without valid metadata and metadata without objects" (a
+ * registration whose upload never completed IS metadata whose object never
+ * validly arrived — though partial bytes may exist, which is exactly why
+ * the reconciliation routes through the real deletion workflow rather than
+ * flipping the row terminal in place), and section 17's "A failed
+ * abandoned upload eventually releases reserved capacity" (the release
+ * happens when the workflow confirms the bytes gone and marks the row
+ * `deleted`). Only the retention sweep calls this, and only for records
+ * older than the documented staleness window (`domain/media-retention.ts`)
+ * — a client-facing command never reaches it.
+ *
+ * `rejected` is deliberately NOT included: it is a terminal state carrying
+ * real evidence (this upload failed verification), and no document names a
+ * retention duration for that evidence — see
+ * `docs/development/deferred-capabilities.md` (P6-RET-01 entry).
+ */
+export function scheduleStaleMediaUploadDeletion(media: MediaRecord, now: Date): MediaRecord {
+  if (!STALE_UPLOAD_STATES.includes(media.uploadState)) {
+    throw new DomainRuleViolatedError(
+      'media.media_record.upload_state_conflict',
+      `scheduleStaleMediaUploadDeletion requires media '${media.id}' to be in a pre-available upload state, but it is '${media.uploadState}'.`,
+    );
+  }
 
   return {
     ...media,

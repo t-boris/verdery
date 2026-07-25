@@ -116,6 +116,12 @@ describe('terminal transitions from queued or running', () => {
     expect(isProcessingJobTerminal(markProcessingJobPartial(queued(), RESULT, T1))).toBe(true);
   });
 
+  it('cancelled is also reachable from requested — the deletion workflow cancelling a not-yet-enqueued job (P6-RET-01, section 16 step 3)', () => {
+    const cancelled = markProcessingJobCancelled(requested(), RESULT, T1);
+    expect(cancelled.state).toBe('cancelled');
+    expect(isProcessingJobTerminal(cancelled)).toBe(true);
+  });
+
   it('failed_retryable is reachable but not terminal', () => {
     const failed = markProcessingJobFailedRetryable(queued(), RESULT, T1);
     expect(failed.state).toBe('failed_retryable');

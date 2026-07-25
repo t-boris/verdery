@@ -27,9 +27,13 @@
  */
 
 import type { MediaProcessingManifest, MediaProcessingResult } from '@verdery/api-contracts';
-import { MEDIA_DERIVATIVE_GENERATION_JOB_KIND, MEDIA_VALIDATION_JOB_KIND } from './job-kind.js';
+import {
+  MEDIA_DELETION_JOB_KIND,
+  MEDIA_DERIVATIVE_GENERATION_JOB_KIND,
+  MEDIA_VALIDATION_JOB_KIND,
+} from './job-kind.js';
 
-/** The one method both `ProcessMediaValidationJob` and `ProcessMediaDerivativeGenerationJob` already expose — this router's own dependency shape, and the same shape `validation-http-server.ts`'s own `MediaValidationJobProcessor` port already declares. */
+/** The one method `ProcessMediaValidationJob`, `ProcessMediaDerivativeGenerationJob`, and `ProcessMediaDeletionJob` all expose — this router's own dependency shape, and the same shape `validation-http-server.ts`'s own `MediaValidationJobProcessor` port already declares. */
 export interface MediaProcessingJobExecutor {
   execute(manifest: MediaProcessingManifest): Promise<MediaProcessingResult>;
 }
@@ -38,6 +42,7 @@ export class MediaProcessingJobRouter implements MediaProcessingJobExecutor {
   constructor(
     private readonly validationJob: MediaProcessingJobExecutor,
     private readonly derivativeGenerationJob: MediaProcessingJobExecutor,
+    private readonly deletionJob: MediaProcessingJobExecutor,
   ) {}
 
   /** `manifest.jobKind` absent (every manifest built before this field existed) defaults to `MEDIA_VALIDATION_JOB_KIND` — see `MediaProcessingManifest.jobKind`'s own doc comment in `@verdery/api-contracts`. */
@@ -45,6 +50,9 @@ export class MediaProcessingJobRouter implements MediaProcessingJobExecutor {
     const jobKind = manifest.jobKind ?? MEDIA_VALIDATION_JOB_KIND;
     if (jobKind === MEDIA_DERIVATIVE_GENERATION_JOB_KIND) {
       return this.derivativeGenerationJob.execute(manifest);
+    }
+    if (jobKind === MEDIA_DELETION_JOB_KIND) {
+      return this.deletionJob.execute(manifest);
     }
     return this.validationJob.execute(manifest);
   }

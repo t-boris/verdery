@@ -23,9 +23,8 @@ const OWNER_MEMBERSHIP = {
 
 function fakesWithMedia() {
   const fakes = createPlantsInventoryFakes();
-  fakes.media.records.set(
-    MEDIA_ID,
-    registerMediaRecord(
+  fakes.media.records.set(MEDIA_ID, {
+    ...registerMediaRecord(
       MEDIA_ID,
       GARDEN_ID,
       PROFILE_ID,
@@ -39,7 +38,10 @@ function fakesWithMedia() {
       null,
       NOW,
     ),
-  );
+    // Attachment now requires an `available` record (P6-RET-01's
+    // attach-versus-delete guard).
+    uploadState: 'available' as const,
+  });
   return fakes;
 }
 

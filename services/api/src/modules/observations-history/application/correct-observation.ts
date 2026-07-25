@@ -108,6 +108,7 @@ export class CorrectObservation {
 
         const photos = await attachObservationPhotos(
           context,
+          correction.gardenId,
           correction.id,
           input.photoMediaIds,
           now,

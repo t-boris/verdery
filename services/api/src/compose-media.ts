@@ -16,16 +16,20 @@
 import type { GardenAuthorization } from './modules/gardens-mapping/public.js';
 import {
   CompleteMediaUpload,
+  DeleteGardenMedia,
   GetMediaAccess,
+  GetMediaRetentionPolicy,
   GetMediaStatus,
   KyselyMediaRepository,
   KyselyMediaUnitOfWork,
   ListGardenMedia,
   RecordMediaProcessingResult,
   RegisterMediaUpload,
+  RunMediaRetentionSweep,
 } from './modules/media/public.js';
 import type {
   MediaProcessingCallbackRouteDependencies,
+  MediaRetentionSweepRouteDependencies,
   MediaRoutesDependencies,
   MediaStorageGateway,
 } from './modules/media/public.js';
@@ -39,6 +43,7 @@ import type { Clock } from './shared/time/clock.js';
 export interface MediaComposition {
   readonly mediaRoutesDependencies: MediaRoutesDependencies;
   readonly mediaProcessingCallbackRouteDependencies: MediaProcessingCallbackRouteDependencies;
+  readonly mediaRetentionSweepRouteDependencies: MediaRetentionSweepRouteDependencies;
 }
 
 /**
@@ -88,6 +93,15 @@ export function composeMedia(
       auditLogger,
       clock,
     ),
+    // P6-RET-01: user-facing deletion and the static retention policy.
+    deleteGardenMedia: new DeleteGardenMedia(
+      mediaIdempotency,
+      mediaUnitOfWork,
+      gardenAuthorization,
+      bucketNames,
+      clock,
+    ),
+    getMediaRetentionPolicy: new GetMediaRetentionPolicy(),
   };
 
   // P6-ASYNC-01: the Cloud Tasks processing-callback route. Its own unit of
@@ -101,9 +115,25 @@ export function composeMedia(
     recordMediaProcessingResult: new RecordMediaProcessingResult(
       new KyselyMediaUnitOfWork(database.queries, clock),
       clock,
+      bucketNames.derived,
     ),
     cloudTasksInvocationVerifier,
   };
 
-  return { mediaRoutesDependencies, mediaProcessingCallbackRouteDependencies };
+  // P6-RET-01: the worker-triggered retention sweep — same verifier, same
+  // machine-to-machine posture as the processing callback above.
+  const mediaRetentionSweepRouteDependencies: MediaRetentionSweepRouteDependencies = {
+    runMediaRetentionSweep: new RunMediaRetentionSweep(
+      new KyselyMediaUnitOfWork(database.queries, clock),
+      bucketNames,
+      clock,
+    ),
+    cloudTasksInvocationVerifier,
+  };
+
+  return {
+    mediaRoutesDependencies,
+    mediaProcessingCallbackRouteDependencies,
+    mediaRetentionSweepRouteDependencies,
+  };
 }

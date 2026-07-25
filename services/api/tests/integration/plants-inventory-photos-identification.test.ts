@@ -107,7 +107,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     return { ownerId, gardenId: garden.id };
   }
 
-  async function registerMedia(ownerId: string, clock: Clock): Promise<string> {
+  async function registerMedia(ownerId: string, gardenId: string, clock: Clock): Promise<string> {
     const registerMediaRecord = new RegisterMediaRecord(
       new KyselyIdempotencyStore(db, clock),
       new KyselyMediaUnitOfWork(db, clock),
@@ -123,6 +123,15 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       },
       generateUuidV7(),
     );
+    // Attachment commands now require a same-garden, `available` record
+    // (P6-RET-01's attach-versus-delete guard); `RegisterMediaRecord` is the
+    // internal garden-less constructor, so this test drives the row to the
+    // state a real completed upload reaches directly.
+    await db
+      .updateTable('media.media_record')
+      .set({ garden_id: gardenId, upload_state: 'available' })
+      .where('id', '=', media.id)
+      .execute();
     return media.id;
   }
 
@@ -181,7 +190,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const now = new Date('2026-07-21T09:00:00Z');
     const { ownerId, gardenId } = await createGardenWithOwner(now);
     const handlers = buildHandlers(fixedClock(now));
-    const mediaId = await registerMedia(ownerId, fixedClock(now));
+    const mediaId = await registerMedia(ownerId, gardenId, fixedClock(now));
 
     const plant = await handlers.addPlantFromPhoto.execute(
       gardenId,
@@ -216,8 +225,8 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const now = new Date('2026-07-21T09:00:00Z');
     const { ownerId, gardenId } = await createGardenWithOwner(now);
     const handlers = buildHandlers(fixedClock(now));
-    const firstMediaId = await registerMedia(ownerId, fixedClock(now));
-    const secondMediaId = await registerMedia(ownerId, fixedClock(now));
+    const firstMediaId = await registerMedia(ownerId, gardenId, fixedClock(now));
+    const secondMediaId = await registerMedia(ownerId, gardenId, fixedClock(now));
 
     const plant = await handlers.addPlant.execute(
       gardenId,
@@ -289,7 +298,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const { ownerId, gardenId } = await createGardenWithOwner(now);
     const handlers = buildHandlers(fixedClock(now));
     const taxonomyId = await insertTaxonomyReference('Solanum lycopersicum', 'Tomato');
-    const mediaId = await registerMedia(ownerId, fixedClock(now));
+    const mediaId = await registerMedia(ownerId, gardenId, fixedClock(now));
 
     const plant = await handlers.addPlant.execute(
       gardenId,

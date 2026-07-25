@@ -26,6 +26,7 @@ import {
 } from './modules/identity-access/public.js';
 import {
   registerMediaProcessingCallbackRoute,
+  registerMediaRetentionSweepRoute,
   registerMediaRoutes,
 } from './modules/media/public.js';
 import type { MediaStorageGateway } from './modules/media/public.js';
@@ -220,7 +221,11 @@ export async function buildApplication(
   // Reuses `gardenAuthorization`. HTTP transport (`registerMediaRoutes`, tag
   // `Media`) wired below. Split into `compose-media.ts` for the same
   // 600-line reason `compose-gardens-mapping.ts` was split out.
-  const { mediaRoutesDependencies, mediaProcessingCallbackRouteDependencies } = composeMedia(
+  const {
+    mediaRoutesDependencies,
+    mediaProcessingCallbackRouteDependencies,
+    mediaRetentionSweepRouteDependencies,
+  } = composeMedia(
     database,
     clock,
     gardenAuthorization,
@@ -482,6 +487,9 @@ export async function buildApplication(
   await app.register(
     (instance, _options, done) => {
       registerMediaProcessingCallbackRoute(instance, mediaProcessingCallbackRouteDependencies);
+      // P6-RET-01: the worker-triggered retention sweep, same
+      // machine-to-machine identity check as the callback above.
+      registerMediaRetentionSweepRoute(instance, mediaRetentionSweepRouteDependencies);
       done();
     },
     { prefix: API_BASE_PATH },

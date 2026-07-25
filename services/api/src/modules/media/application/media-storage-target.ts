@@ -70,8 +70,22 @@ export function selectBucketName(mediaClass: MediaClass, buckets: MediaStorageBu
  * once, at `authorizeMediaUpload`).
  */
 export function generateObjectKey(mediaId: Uuid): string {
-  const shard = createHash('sha256').update(mediaId).digest('hex').slice(0, 2);
-  const objectUuid = generateUuidV7();
+  return `${objectKeyPrefixForMedia(mediaId)}${generateUuidV7()}`;
+}
 
-  return `${shard}/${mediaId}/${objectUuid}`;
+/**
+ * The `<shard>/<mediaUuid>/` prefix every object ever stored for one media
+ * record lives under — the original (`generateObjectKey` above) and every
+ * worker-produced derivative (`services/workers`' own
+ * `generateDerivativeObjectKey`, which mirrors this exact shard computation
+ * for the SOURCE media id; see that file's own header comment). The
+ * deletion workflow (P6-RET-01) deletes by this prefix rather than
+ * enumerating object keys: it reaches a tile pyramid's thousands of
+ * objects, and any orphaned bytes a cancelled or late derivative job wrote
+ * without ever registering a row, in one bounded payload. The prefix embeds
+ * the full media UUID, so it can never match another record's objects.
+ */
+export function objectKeyPrefixForMedia(mediaId: Uuid): string {
+  const shard = createHash('sha256').update(mediaId).digest('hex').slice(0, 2);
+  return `${shard}/${mediaId}/`;
 }

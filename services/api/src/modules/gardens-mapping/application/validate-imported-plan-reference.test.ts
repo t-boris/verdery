@@ -40,12 +40,16 @@ function planMediaRecord(overrides: Partial<MediaRecord> = {}): MediaRecord {
   };
 }
 
-/** Only `get` is exercised — the validator never writes or lists. */
+/** Only `getForShare` is exercised — the validator never writes or lists. */
 class FakeMediaRepository implements MediaRepository {
   constructor(private readonly record: MediaRecord | null) {}
 
   get(id: string): Promise<MediaRecord | null> {
     return Promise.resolve(this.record !== null && this.record.id === id ? this.record : null);
+  }
+
+  getForShare(id: string): Promise<MediaRecord | null> {
+    return this.get(id);
   }
 
   insert(): Promise<void> {
@@ -65,6 +69,22 @@ class FakeMediaRepository implements MediaRepository {
   }
 
   listDisplayDerivatives(): Promise<readonly MediaRecord[]> {
+    throw new Error('not used by this test');
+  }
+
+  scheduleDerivativesForDeletion(): Promise<number> {
+    throw new Error('not used by this test');
+  }
+
+  markScheduledDerivativesDeleted(): Promise<number> {
+    throw new Error('not used by this test');
+  }
+
+  listRetentionExpired(): Promise<readonly MediaRecord[]> {
+    throw new Error('not used by this test');
+  }
+
+  listStaleUploads(): Promise<readonly MediaRecord[]> {
     throw new Error('not used by this test');
   }
 }

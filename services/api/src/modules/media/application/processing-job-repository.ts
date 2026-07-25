@@ -27,4 +27,12 @@ export interface ProcessingJobRepository {
   get(id: Uuid): Promise<ProcessingJob | null>;
   /** Writes `job` only if the stored row's current revision equals `expectedRevision`. Returns whether the write applied. */
   updateState(job: ProcessingJob, expectedRevision: number): Promise<boolean>;
+  /**
+   * Every non-terminal (`requested`/`queued`/`running`) job for one media
+   * record — the set the deletion workflow cancels per section 16 step 3
+   * ("Cancel eligible pending processing"), P6-RET-01. Served by the
+   * migration's own partial `media_processing_job_state_idx`, which indexes
+   * exactly the non-terminal states.
+   */
+  listActiveForMedia(mediaId: Uuid): Promise<readonly ProcessingJob[]>;
 }

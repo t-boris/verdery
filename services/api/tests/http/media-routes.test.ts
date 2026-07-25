@@ -357,4 +357,76 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     expect(response.statusCode).toBe(404);
     expect(asError(response).error.code).toBe('media.not_found');
   });
+
+  it('deletes media over real HTTP with If-Match, returning the deletion_scheduled record (P6-RET-01)', async () => {
+    const { token, garden } = await createGardenAsOwner();
+    const registered = asMediaUploadSession(await registerUpload(token, garden.id));
+    const completed = await app.inject({
+      method: 'POST',
+      url: `/v1/gardens/${garden.id}/media/${registered.media.id}/complete`,
+      headers: {
+        ...bearer(token),
+        'idempotency-key': generateUuidV7(),
+        'if-match': `"${String(registered.media.revision)}"`,
+      },
+    });
+    const available = asMedia(completed);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/v1/gardens/${garden.id}/media/${registered.media.id}/delete`,
+      headers: {
+        ...bearer(token),
+        'idempotency-key': generateUuidV7(),
+        'if-match': `"${String(available.revision)}"`,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(asMedia(response).uploadState).toBe('deletion_scheduled');
+  });
+
+  it('rejects deletion missing the If-Match header with 400', async () => {
+    const { token, garden } = await createGardenAsOwner();
+    const registered = asMediaUploadSession(await registerUpload(token, garden.id));
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/v1/gardens/${garden.id}/media/${registered.media.id}/delete`,
+      headers: { ...bearer(token), 'idempotency-key': generateUuidV7() },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it('serves the retention policy to any authenticated caller, raw-capture declared but not enforced (P6-RET-01)', async () => {
+    const token = randomUUID();
+    tokenVerifier.registerIdToken(token, randomUUID());
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/media/retention-policy',
+      headers: bearer(token),
+    });
+
+    expect(response.statusCode).toBe(200);
+    const result = response.json<{
+      policies: { mediaClass: string; retentionDays: number | null; enforced: boolean }[];
+    }>();
+    expect(result.policies).toHaveLength(6);
+    expect(result.policies.find((policy) => policy.mediaClass === 'raw_capture')).toMatchObject({
+      retentionDays: 30,
+      enforced: false,
+    });
+    expect(result.policies.find((policy) => policy.mediaClass === 'export_package')).toMatchObject({
+      retentionDays: 7,
+      enforced: true,
+    });
+  });
+
+  it('rejects an unauthenticated retention-policy read with 401', async () => {
+    const response = await app.inject({ method: 'GET', url: '/v1/media/retention-policy' });
+
+    expect(response.statusCode).toBe(401);
+  });
 });

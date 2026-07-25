@@ -93,6 +93,19 @@ export class KyselyProcessingJobRepository implements ProcessingJobRepository {
     return row === undefined ? null : toProcessingJob(row);
   }
 
+  /** See the port's own doc comment — served by the migration's partial non-terminal-state index. */
+  async listActiveForMedia(mediaId: Uuid): Promise<readonly ProcessingJob[]> {
+    const rows = await this.db
+      .selectFrom('media.processing_job')
+      .selectAll()
+      .where('media_id', '=', mediaId)
+      .where('state', 'in', ['requested', 'queued', 'running'])
+      .orderBy('created_at', 'asc')
+      .execute();
+
+    return rows.map(toProcessingJob);
+  }
+
   async updateState(job: ProcessingJob, expectedRevision: number): Promise<boolean> {
     const result = await this.db
       .updateTable('media.processing_job')

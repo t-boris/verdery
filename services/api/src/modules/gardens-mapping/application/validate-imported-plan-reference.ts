@@ -57,7 +57,11 @@ export async function requireImportedBackgroundPlanMedia(
     return;
   }
 
-  const record = await media.get(details.details.planMediaId);
+  // `getForShare`, not `get` (P6-RET-01): the attach-side half of the
+  // attach-versus-delete lock protocol — see `media-deletion-workflow.ts`'s
+  // own lock-ordering comment. Both callers run inside their command's
+  // transaction (`context.media`), so the share lock is real.
+  const record = await media.getForShare(details.details.planMediaId);
   if (record === null || record.gardenId !== gardenId || record.mediaClass !== 'imported_plan') {
     throw invalidReference(
       'map.imported_background.plan_media_not_found',

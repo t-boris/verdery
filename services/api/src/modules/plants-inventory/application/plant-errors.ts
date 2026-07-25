@@ -75,11 +75,20 @@ export function invalidPlantPlacementError(pointer: string): ValidationError {
   );
 }
 
-/** A `mediaId` that `MediaRepository.get` does not return. */
+/** A `mediaId` that `MediaRepository.getForShare` does not return, or that belongs to a different garden — both concealed identically, the same reasoning `validate-imported-plan-reference.ts` documents for its own garden check. */
 export function invalidMediaReferenceError(pointer: string): ValidationError {
   return new ValidationError(
     SharedErrorCode.RequestInvalid,
-    'mediaId must reference an existing media record.',
+    'mediaId must reference an existing media record in this garden.',
     { details: [{ code: 'plants_inventory.plant.invalid_media_reference', pointer }] },
+  );
+}
+
+/** A real, same-garden media record that is not `available` — still uploading, rejected, or in the deletion pipeline (P6-RET-01's attach-versus-delete guard; see `media-deletion-workflow.ts`'s lock-ordering comment). */
+export function mediaNotAvailableForAttachmentError(pointer: string): ValidationError {
+  return new ValidationError(
+    SharedErrorCode.RequestInvalid,
+    'mediaId must reference media whose upload has completed and is not being deleted.',
+    { details: [{ code: 'plants_inventory.plant.media_not_available', pointer }] },
   );
 }

@@ -52,6 +52,18 @@ const manifestSchema = z.object({
   // own doc comment in `@verdery/api-contracts` and
   // `MediaProcessingJobRouter`'s own header comment.
   jobKind: z.string().min(1).optional(),
+  // Present only on a `media_deletion` manifest (P6-RET-01) — the
+  // bucket/prefix pairs the deletion job removes; `ProcessMediaDeletionJob`
+  // itself treats a deletion manifest arriving without one as terminally
+  // malformed, so this schema does not duplicate that jobKind-conditional
+  // rule here.
+  deletion: z
+    .object({
+      objectPrefixes: z
+        .array(z.object({ bucketName: z.string().min(1), objectKeyPrefix: z.string().min(1) }))
+        .min(1),
+    })
+    .optional(),
 });
 
 async function readJson(request: IncomingMessage): Promise<unknown> {

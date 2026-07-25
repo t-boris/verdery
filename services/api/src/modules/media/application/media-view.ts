@@ -41,6 +41,10 @@ export function toMediaResource(record: MediaRecord): Media {
     uploadState: record.uploadState,
     processingState: record.processingState,
     sensitivityClassification: record.sensitivityClassification,
+    // Emitted from every path (optional in the contract only to spare
+    // pre-existing client fixtures a breaking required-field addition —
+    // the `derivatives` precedent; see the schema's own description).
+    retentionDeadlineAt: record.retentionDeadlineAt?.toISOString() ?? null,
     revision: record.revision,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),

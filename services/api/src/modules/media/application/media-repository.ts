@@ -54,8 +54,52 @@ export interface MediaRecordPage {
 export interface MediaRepository {
   insert(record: MediaRecord): Promise<void>;
   get(id: Uuid): Promise<MediaRecord | null>;
+  /**
+   * `get` plus a `FOR SHARE` row lock held to the end of the enclosing
+   * transaction (P6-RET-01) — the attach-side half of the
+   * attach-versus-delete lock protocol `application/media-deletion-
+   * workflow.ts` documents. Every command that inserts a row REFERENCING a
+   * media record (plant photo, observation photo, task attachment,
+   * imported background) reads the record through this method inside its
+   * own transaction, so a concurrent `DeleteGardenMedia` — whose
+   * `deletion_scheduled` UPDATE conflicts with the share lock — is
+   * serialized: whichever commits first, the other observes it (the attach
+   * re-reads a `deletion_scheduled` state and rejects; the delete's
+   * post-update reference check sees the committed attachment and rolls
+   * back). Meaningful only inside a transaction; on the pooled non-
+   * transactional handle it degrades to a plain read.
+   */
+  getForShare(id: Uuid): Promise<MediaRecord | null>;
   /** Writes `record` only if the stored row's current revision equals `expectedRevision`. Returns whether the write applied. */
   update(record: MediaRecord, expectedRevision: number): Promise<boolean>;
+  /**
+   * Bulk `available` -> `deletion_scheduled` for every derivative row of
+   * one source (P6-RET-01) — set-based deliberately, not row-by-row domain
+   * transitions: a raster plan's tile pyramid alone can run to thousands
+   * of derivative rows, and each one's transition is the identical
+   * guarded edge (`scheduleMediaDeletion`'s own `available` precondition,
+   * expressed as the statement's `WHERE upload_state = 'available'`;
+   * `revision` and `updated_at` advance exactly as the domain function
+   * would advance them). Returns how many rows transitioned.
+   */
+  scheduleDerivativesForDeletion(derivedFromMediaId: Uuid, now: Date): Promise<number>;
+  /** Bulk `deletion_scheduled` -> `deleted` for one source's derivative rows — the completion half of `scheduleDerivativesForDeletion`, same set-based reasoning. */
+  markScheduledDerivativesDeleted(derivedFromMediaId: Uuid, now: Date): Promise<number>;
+  /**
+   * `available` ORIGINAL records whose `retention_deadline_at` has passed,
+   * oldest deadline first — the retention sweep's first candidate set
+   * (P6-RET-01). Bounded by `limit`; the sweep drains the backlog across
+   * successive runs rather than in one unbounded pass.
+   */
+  listRetentionExpired(now: Date, limit: number): Promise<readonly MediaRecord[]>;
+  /**
+   * Records still in a pre-`available` upload state whose `updated_at` is
+   * older than `cutoff` — the retention sweep's orphan-reconciliation
+   * candidate set (P6-RET-01; section 15's "metadata without objects" and
+   * section 17's "A failed abandoned upload eventually releases reserved
+   * capacity"). Bounded by `limit`, oldest first.
+   */
+  listStaleUploads(cutoff: Date, limit: number): Promise<readonly MediaRecord[]>;
   /** `null` when no derivative exists yet at this identity — see `FindDerivativeInput`'s own doc comment. */
   findDerivative(input: FindDerivativeInput): Promise<MediaRecord | null>;
   /**

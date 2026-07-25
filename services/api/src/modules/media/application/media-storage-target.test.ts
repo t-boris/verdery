@@ -1,5 +1,10 @@
+import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { generateObjectKey, selectBucketName } from './media-storage-target.js';
+import {
+  generateObjectKey,
+  objectKeyPrefixForMedia,
+  selectBucketName,
+} from './media-storage-target.js';
 import type { MediaStorageBucketNames } from './media-storage-target.js';
 
 const BUCKETS: MediaStorageBucketNames = {
@@ -61,5 +66,27 @@ describe('generateObjectKey', () => {
     const shardA = generateObjectKey('019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0b').split('/')[0];
     const shardB = generateObjectKey('019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0c').split('/')[0];
     expect(shardA).not.toBe(shardB);
+  });
+});
+
+describe('objectKeyPrefixForMedia (P6-RET-01)', () => {
+  const MEDIA_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0b';
+
+  it('is exactly the prefix every generateObjectKey key for the same media id starts with — the invariant prefix-scoped deletion rests on', () => {
+    const prefix = objectKeyPrefixForMedia(MEDIA_ID);
+    expect(generateObjectKey(MEDIA_ID).startsWith(prefix)).toBe(true);
+    expect(prefix).toMatch(/^[0-9a-f]{2}\/[0-9a-f-]{36}\/$/u);
+  });
+
+  it('shards by sha256 of the media id — the identical computation the worker-side generateDerivativeObjectKey mirrors, so one prefix covers original AND derivatives', () => {
+    // sha256('019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0b') pinned to its first
+    // two hex characters: if either side ever changes its shard
+    // derivation, this pin and the worker's own key test drift apart
+    // loudly instead of the deletion prefix silently missing derivatives.
+    const prefix = objectKeyPrefixForMedia(MEDIA_ID);
+    expect(prefix.endsWith(`/${MEDIA_ID}/`)).toBe(true);
+    expect(prefix.split('/')[0]).toBe(
+      createHash('sha256').update(MEDIA_ID).digest('hex').slice(0, 2),
+    );
   });
 });

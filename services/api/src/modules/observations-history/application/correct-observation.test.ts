@@ -149,12 +149,28 @@ class FakeMediaRepository implements MediaRepository {
     throw new Error('not used by this test');
   }
 
+  scheduleDerivativesForDeletion(): Promise<number> {
+    throw new Error('not used by this test');
+  }
+
+  markScheduledDerivativesDeleted(): Promise<number> {
+    throw new Error('not used by this test');
+  }
+
+  listRetentionExpired(): Promise<readonly MediaRecord[]> {
+    throw new Error('not used by this test');
+  }
+
+  listStaleUploads(): Promise<readonly MediaRecord[]> {
+    throw new Error('not used by this test');
+  }
+
   get(id: string): Promise<MediaRecord | null> {
     if (!this.existingIds.has(id)) {
       return Promise.resolve(null);
     }
-    return Promise.resolve(
-      registerMediaRecord(
+    return Promise.resolve({
+      ...registerMediaRecord(
         id,
         GARDEN_ID,
         PROFILE_ID,
@@ -168,7 +184,14 @@ class FakeMediaRepository implements MediaRepository {
         null,
         NOW,
       ),
-    );
+      // Attachment now requires an `available` record (P6-RET-01's
+      // attach-versus-delete guard).
+      uploadState: 'available' as const,
+    });
+  }
+
+  getForShare(id: string): Promise<MediaRecord | null> {
+    return this.get(id);
   }
 }
 

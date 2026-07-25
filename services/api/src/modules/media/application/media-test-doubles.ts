@@ -25,6 +25,7 @@ import type { Membership, MembershipRepository } from '../../gardens-mapping/pub
 import type { MediaRecord } from '../domain/media-record.js';
 import type { ProcessingJob } from '../domain/processing-job.js';
 import type { QuotaReservation } from '../domain/quota-reservation.js';
+import type { MediaReferenceFinder, MediaReferenceKind } from './media-reference-finder.js';
 import type {
   FindDerivativeInput,
   ListForGardenInput,
@@ -66,6 +67,11 @@ export class FakeMediaRepository implements MediaRepository {
     return Promise.resolve(this.records.get(id) ?? null);
   }
 
+  /** No real lock in memory — a unit test needs the same read, not the `FOR SHARE` serialization (that lives in the Testcontainers integration tests). */
+  getForShare(id: Uuid): Promise<MediaRecord | null> {
+    return this.get(id);
+  }
+
   update(record: MediaRecord, expectedRevision: number): Promise<boolean> {
     const existing = this.records.get(record.id);
     if (existing === undefined || existing.revision !== expectedRevision) {
@@ -73,6 +79,70 @@ export class FakeMediaRepository implements MediaRepository {
     }
     this.records.set(record.id, record);
     return Promise.resolve(true);
+  }
+
+  /** In-memory mirror of the bulk `available` -> `deletion_scheduled` derivative transition. */
+  scheduleDerivativesForDeletion(derivedFromMediaId: Uuid, now: Date): Promise<number> {
+    return Promise.resolve(
+      this.bulkTransitionDerivatives(derivedFromMediaId, 'available', 'deletion_scheduled', now),
+    );
+  }
+
+  /** In-memory mirror of the bulk `deletion_scheduled` -> `deleted` derivative transition. */
+  markScheduledDerivativesDeleted(derivedFromMediaId: Uuid, now: Date): Promise<number> {
+    return Promise.resolve(
+      this.bulkTransitionDerivatives(derivedFromMediaId, 'deletion_scheduled', 'deleted', now),
+    );
+  }
+
+  private bulkTransitionDerivatives(
+    derivedFromMediaId: Uuid,
+    from: MediaRecord['uploadState'],
+    to: MediaRecord['uploadState'],
+    now: Date,
+  ): number {
+    let transitioned = 0;
+    for (const [id, record] of this.records) {
+      if (record.derivedFromMediaId === derivedFromMediaId && record.uploadState === from) {
+        this.records.set(id, {
+          ...record,
+          uploadState: to,
+          revision: record.revision + 1,
+          updatedAt: now,
+        });
+        transitioned += 1;
+      }
+    }
+    return transitioned;
+  }
+
+  /** In-memory mirror of `KyselyMediaRepository.listRetentionExpired`. */
+  listRetentionExpired(now: Date, limit: number): Promise<readonly MediaRecord[]> {
+    const matches = [...this.records.values()]
+      .filter(
+        (record) =>
+          record.retentionDeadlineAt !== null &&
+          record.retentionDeadlineAt.getTime() <= now.getTime() &&
+          record.uploadState === 'available' &&
+          record.derivedFromMediaId === null,
+      )
+      .sort(
+        (a, b) =>
+          (a.retentionDeadlineAt as Date).getTime() - (b.retentionDeadlineAt as Date).getTime(),
+      );
+    return Promise.resolve(matches.slice(0, limit));
+  }
+
+  /** In-memory mirror of `KyselyMediaRepository.listStaleUploads`. */
+  listStaleUploads(cutoff: Date, limit: number): Promise<readonly MediaRecord[]> {
+    const staleStates = ['registered', 'authorized', 'uploading', 'verifying'];
+    const matches = [...this.records.values()]
+      .filter(
+        (record) =>
+          staleStates.includes(record.uploadState) && record.updatedAt.getTime() < cutoff.getTime(),
+      )
+      .sort((a, b) => a.updatedAt.getTime() - b.updatedAt.getTime());
+    return Promise.resolve(matches.slice(0, limit));
   }
 
   findDerivative(input: FindDerivativeInput): Promise<MediaRecord | null> {
@@ -234,6 +304,26 @@ export class FakeProcessingJobRepository implements ProcessingJobRepository {
     this.jobs.set(job.id, job);
     return Promise.resolve(true);
   }
+
+  listActiveForMedia(mediaId: Uuid): Promise<readonly ProcessingJob[]> {
+    const active = [...this.jobs.values()]
+      .filter(
+        (job) =>
+          job.mediaId === mediaId &&
+          (job.state === 'requested' || job.state === 'queued' || job.state === 'running'),
+      )
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    return Promise.resolve(active);
+  }
+}
+
+/** Answers with a fixed set of reference kinds — empty by default (nothing references the media). */
+export class FakeMediaReferenceFinder implements MediaReferenceFinder {
+  constructor(public kinds: readonly MediaReferenceKind[] = []) {}
+
+  findReferenceKinds(): Promise<readonly MediaReferenceKind[]> {
+    return Promise.resolve(this.kinds);
+  }
 }
 
 export class FakeAuditLogger implements AuditLogger {
@@ -357,6 +447,8 @@ export interface MediaFakes {
   readonly idempotency: FakeIdempotencyStore;
   readonly outbox: FakeOutboxAppender;
   readonly processingJobs: FakeProcessingJobRepository;
+  readonly audit: FakeAuditLogger;
+  readonly references: FakeMediaReferenceFinder;
 }
 
 export function createMediaFakes(): MediaFakes {
@@ -366,6 +458,8 @@ export function createMediaFakes(): MediaFakes {
     idempotency: new FakeIdempotencyStore(),
     outbox: new FakeOutboxAppender(),
     processingJobs: new FakeProcessingJobRepository(),
+    audit: new FakeAuditLogger(),
+    references: new FakeMediaReferenceFinder(),
   };
 }
 

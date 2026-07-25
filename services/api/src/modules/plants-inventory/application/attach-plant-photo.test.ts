@@ -26,9 +26,8 @@ const OWNER_MEMBERSHIP = {
 function fakesWithPlantAndMedia() {
   const fakes = createPlantsInventoryFakes();
   fakes.plants.plants.set(PLANT_ID, buildPlant({ id: PLANT_ID, gardenId: GARDEN_ID }));
-  fakes.media.records.set(
-    MEDIA_ID,
-    registerMediaRecord(
+  fakes.media.records.set(MEDIA_ID, {
+    ...registerMediaRecord(
       MEDIA_ID,
       GARDEN_ID,
       PROFILE_ID,
@@ -42,7 +41,11 @@ function fakesWithPlantAndMedia() {
       null,
       NOW,
     ),
-  );
+    // Attachment now requires an `available` record (P6-RET-01's
+    // attach-versus-delete guard) — the state a real upload reaches before
+    // any UI offers attaching it.
+    uploadState: 'available' as const,
+  });
   return fakes;
 }
 

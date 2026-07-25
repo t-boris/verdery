@@ -19,7 +19,7 @@ import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import type { GardenAuthorization } from '../../gardens-mapping/public.js';
 import { createTaskAttachment } from '../domain/task-attachment.js';
-import { invalidMediaReferenceError } from './task-errors.js';
+import { invalidMediaReferenceError, mediaNotAvailableForAttachmentError } from './task-errors.js';
 import { requireTaskAndAuthorize } from './require-task-and-authorize.js';
 import { runIdempotentCommand } from './run-idempotent-command.js';
 import { toTaskAttachmentResource, type TaskAttachmentResource } from './task-attachment-view.js';
@@ -64,9 +64,14 @@ export class AttachTaskFile {
       idempotencyInput,
       201,
       async (context) => {
-        const media = await context.media.get(input.mediaId);
-        if (media === null) {
+        // P6-RET-01's attach-side guard — same shape and reasoning as
+        // AttachPlantPhoto's own comment on this identical block.
+        const media = await context.media.getForShare(input.mediaId);
+        if (media === null || media.gardenId !== task.gardenId) {
           throw invalidMediaReferenceError('/mediaId');
+        }
+        if (media.uploadState !== 'available') {
+          throw mediaNotAvailableForAttachmentError('/mediaId');
         }
 
         const now = this.clock.now();

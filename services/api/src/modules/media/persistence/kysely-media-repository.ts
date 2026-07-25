@@ -163,6 +163,18 @@ export class KyselyMediaRepository implements MediaRepository {
     return row === undefined ? null : toMediaRecord(row);
   }
 
+  /** See the port's own doc comment for the attach-versus-delete lock protocol this serves. */
+  async getForShare(id: Uuid): Promise<MediaRecord | null> {
+    const row = await this.db
+      .selectFrom('media.media_record')
+      .selectAll()
+      .where('id', '=', id)
+      .forShare()
+      .executeTakeFirst();
+
+    return row === undefined ? null : toMediaRecord(row);
+  }
+
   /** Mirrors `KyselyPlantRepository.update`'s exact revision-guarded shape. */
   async update(record: MediaRecord, expectedRevision: number): Promise<boolean> {
     const result = await this.db
@@ -266,6 +278,68 @@ export class KyselyMediaRepository implements MediaRepository {
       items: pageRows.map(toMediaRecord),
       nextCursor: hasMore && last !== undefined ? encodeCursor(last.created_at, last.id) : null,
     };
+  }
+
+  /** Bulk `available` -> `deletion_scheduled` — see the port's own doc comment for why this is set-based. */
+  async scheduleDerivativesForDeletion(derivedFromMediaId: Uuid, now: Date): Promise<number> {
+    const result = await this.db
+      .updateTable('media.media_record')
+      .set((eb) => ({
+        upload_state: 'deletion_scheduled',
+        revision: eb('revision', '+', 1),
+        updated_at: now,
+      }))
+      .where('derived_from_media_id', '=', derivedFromMediaId)
+      .where('upload_state', '=', 'available')
+      .executeTakeFirst();
+
+    return Number(result?.numUpdatedRows ?? 0n);
+  }
+
+  /** Bulk `deletion_scheduled` -> `deleted` — the completion half of `scheduleDerivativesForDeletion`. */
+  async markScheduledDerivativesDeleted(derivedFromMediaId: Uuid, now: Date): Promise<number> {
+    const result = await this.db
+      .updateTable('media.media_record')
+      .set((eb) => ({
+        upload_state: 'deleted',
+        revision: eb('revision', '+', 1),
+        updated_at: now,
+      }))
+      .where('derived_from_media_id', '=', derivedFromMediaId)
+      .where('upload_state', '=', 'deletion_scheduled')
+      .executeTakeFirst();
+
+    return Number(result?.numUpdatedRows ?? 0n);
+  }
+
+  /** `available` originals with a passed retention deadline, oldest deadline first — see the port's own doc comment. */
+  async listRetentionExpired(now: Date, limit: number): Promise<readonly MediaRecord[]> {
+    const rows = await this.db
+      .selectFrom('media.media_record')
+      .selectAll()
+      .where('retention_deadline_at', 'is not', null)
+      .where('retention_deadline_at', '<=', now)
+      .where('upload_state', '=', 'available')
+      .where('derived_from_media_id', 'is', null)
+      .orderBy('retention_deadline_at', 'asc')
+      .limit(limit)
+      .execute();
+
+    return rows.map(toMediaRecord);
+  }
+
+  /** Pre-`available` records stale past `cutoff`, oldest first — see the port's own doc comment. */
+  async listStaleUploads(cutoff: Date, limit: number): Promise<readonly MediaRecord[]> {
+    const rows = await this.db
+      .selectFrom('media.media_record')
+      .selectAll()
+      .where('upload_state', 'in', ['registered', 'authorized', 'uploading', 'verifying'])
+      .where('updated_at', '<', cutoff)
+      .orderBy('updated_at', 'asc')
+      .limit(limit)
+      .execute();
+
+    return rows.map(toMediaRecord);
   }
 
   /** `DISTINCT ON (derivative_kind)` at the latest `transformation_version` — see the port's own doc comment. */

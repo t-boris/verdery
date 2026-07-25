@@ -59,7 +59,29 @@ export {
   markMediaProcessingFailed,
   markMediaRejected,
   scheduleMediaDeletion,
+  scheduleStaleMediaUploadDeletion,
 } from './domain/media-lifecycle.js';
+// P6-RET-01: retention policy, deletion workflow, and the retention sweep.
+export type { MediaClassRetentionRule, MediaRetentionAnchor } from './domain/media-retention.js';
+export {
+  deriveDefaultRetentionDeadline,
+  EXPORT_PACKAGE_RETENTION_DAYS,
+  MEDIA_RETENTION_RULES,
+  RAW_CAPTURE_RETENTION_DAYS,
+  STALE_UPLOAD_RECONCILIATION_DAYS,
+  staleUploadCutoff,
+} from './domain/media-retention.js';
+export type {
+  MediaReferenceFinder,
+  MediaReferenceKind,
+} from './application/media-reference-finder.js';
+export { DeleteGardenMedia } from './application/delete-garden-media.js';
+export { GetMediaRetentionPolicy } from './application/get-media-retention-policy.js';
+export { RunMediaRetentionSweep } from './application/run-media-retention-sweep.js';
+export type { MediaRetentionSweepResult } from './application/run-media-retention-sweep.js';
+export { KyselyMediaReferenceFinder } from './persistence/kysely-media-reference-finder.js';
+export type { MediaRetentionSweepRouteDependencies } from './transport/media-retention-sweep-route.js';
+export { registerMediaRetentionSweepRoute } from './transport/media-retention-sweep-route.js';
 export type {
   QuotaReservation,
   QuotaReservationScopeKind,

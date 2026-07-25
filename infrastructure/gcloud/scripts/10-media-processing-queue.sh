@@ -135,6 +135,52 @@ gcloud storage buckets add-iam-policy-binding "gs://${VERDERY_DERIVED_BUCKET}" \
   --role="roles/storage.objectCreator" \
   --quiet >/dev/null
 
+# P6-RET-01's media-deletion job grant. The worker's `media_deletion` job
+# (services/workers/src/deletion/) is the ONE component in this system that
+# deletes Cloud Storage objects: it deletes every object under a media
+# record's own `<shard>/<mediaUuid>/` prefix and re-lists the prefix to
+# verify absence (architecture/media-storage-and-processing.md section 16,
+# steps 4-6). Listing/reading is already covered by the objectViewer loop
+# above; the delete itself needs `storage.objects.delete`, and NO predefined
+# role grants that without also granting create/overwrite on every object in
+# the bucket (`roles/storage.objectAdmin` — explicitly rejected by the
+# objectCreator comment above for exactly that reason). A project-level
+# CUSTOM role carrying `storage.objects.delete` alone, bound per bucket, is
+# the least-privilege remainder: the worker can delete and verify, and still
+# cannot overwrite an original or change an ACL. Bound on all four buckets
+# because a deletion job's prefixes span the record's own class bucket
+# (user-media, raw-capture, derived, or exports — see services/api's
+# `selectBucketName`) plus the derived bucket its derivative objects live in.
+#
+# SCOPE BOUNDARY: written and syntax-checked, NOT executed against any real
+# environment — the same boundary every other grant in this script holds to.
+deleter_role_id="verderyMediaObjectDeleter"
+if resource_exists gcloud iam roles describe "${deleter_role_id}" \
+  --project="${VERDERY_PROJECT_ID}"; then
+  log "Custom role already exists: ${deleter_role_id}"
+else
+  log "Creating custom role: ${deleter_role_id} (storage.objects.delete only)"
+  gcloud iam roles create "${deleter_role_id}" \
+    --project="${VERDERY_PROJECT_ID}" \
+    --title="Verdery media object deleter" \
+    --description="Delete-only Cloud Storage object access for the media-deletion worker job (P6-RET-01)." \
+    --permissions="storage.objects.delete" \
+    --stage=GA
+fi
+
+for bucket_name in \
+  "${VERDERY_USER_MEDIA_BUCKET}" \
+  "${VERDERY_RAW_CAPTURE_BUCKET}" \
+  "${VERDERY_DERIVED_BUCKET}" \
+  "${VERDERY_EXPORTS_BUCKET}"; do
+  log "Granting projects/${VERDERY_PROJECT_ID}/roles/${deleter_role_id} on ${bucket_name} to ${worker_email}"
+  gcloud storage buckets add-iam-policy-binding "gs://${bucket_name}" \
+    --project="${VERDERY_PROJECT_ID}" \
+    --member="serviceAccount:${worker_email}" \
+    --role="projects/${VERDERY_PROJECT_ID}/roles/${deleter_role_id}" \
+    --quiet >/dev/null
+done
+
 # --- Cloud Tasks queue -------------------------------------------------
 # Default retry/rate config: architecture/asynchronous-processing.md section
 # 5 requires "explicit target, service identity, retry policy, rate,

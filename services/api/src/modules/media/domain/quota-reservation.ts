@@ -157,3 +157,31 @@ export function releaseQuotaReservation(
 
   return { ...reservation, state: 'released', updatedAt: now };
 }
+
+/**
+ * Any state -> `released`, idempotently — the DELETION-workflow release
+ * (P6-RET-01), deliberately a separate function from
+ * `releaseQuotaReservation` above rather than a loosening of it. That
+ * function's own doc comment explains why a `committed` reservation cannot
+ * ordinarily be released: "its bytes are already counted as durably
+ * consumed ... releasing them would silently under-count real usage." That
+ * reasoning holds exactly as long as the bytes exist. Media deletion is the
+ * one moment it inverts: `markMediaDeleted` is only ever applied after the
+ * deletion job confirmed the objects absent from Cloud Storage (section 16,
+ * step 6), so NOT releasing the committed reservation there would
+ * permanently over-count usage the user can no longer see or free — section
+ * 17's "released bytes" read literally. Idempotent like the ordinary
+ * release ("Quota reservation and release are idempotent"), because the
+ * deletion completion callback that calls it is itself delivered
+ * at-least-once.
+ */
+export function releaseQuotaReservationForDeletedMedia(
+  reservation: QuotaReservation,
+  now: Date,
+): QuotaReservation {
+  if (reservation.state === 'released') {
+    return reservation;
+  }
+
+  return { ...reservation, state: 'released', updatedAt: now };
+}

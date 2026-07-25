@@ -106,6 +106,18 @@ export const MEDIA_VALIDATION_JOB_KIND = 'media_validation';
  */
 export const MEDIA_DERIVATIVE_GENERATION_JOB_KIND = 'derivative_generation';
 
+/**
+ * P6-RET-01's own job kind: delete every Cloud Storage object under a media
+ * record's own key prefixes and verify absence (architecture/media-storage-
+ * and-processing.md section 16, steps 4-6). Created by the relay from a
+ * `media.deletion_requested` outbox event, executed by
+ * `services/workers/src/deletion/`, its result recorded through the same
+ * authenticated callback as the two processing kinds — `record-media-
+ * processing-result.ts` branches on this constant to drive
+ * `deletion_scheduled -> deleted` and release the quota reservation.
+ */
+export const MEDIA_DELETION_JOB_KIND = 'media_deletion';
+
 function requireState(
   job: ProcessingJob,
   expected: readonly ProcessingJobState[],
@@ -256,13 +268,29 @@ export function markProcessingJobFailedTerminal(
   return completeJob(job, 'failed_terminal', result, now);
 }
 
-/** `queued`/`running` -> `cancelled`. */
+/**
+ * `requested`/`queued`/`running` -> `cancelled`. `requested` was added to
+ * the accepted sources by P6-RET-01: architecture/media-storage-and-
+ * processing.md section 16 step 3 says the deletion workflow must "Cancel
+ * eligible pending processing", and a job the relay has recorded but not
+ * yet enqueued is the MOST eligible pending processing there is — the
+ * asynchronous-processing state diagram draws `cancelled` only off
+ * `running`, but this same function already accepted `queued` since
+ * P6-ASYNC-01 for the identical practical reason (a result reporting
+ * cancellation arrives against a job the worker never separately marked
+ * running). Cancelling a `requested` job also closes the relay race
+ * cleanly: `markQueued` is state-guarded (`WHERE state = 'requested'`), so
+ * a relay tick that already read the job as `requested` can still enqueue
+ * the Cloud Tasks task but can never move a cancelled job back to
+ * `queued` — the eventual delivery then lands on a terminal job and the
+ * callback treats it as a duplicate.
+ */
 export function markProcessingJobCancelled(
   job: ProcessingJob,
   result: ProcessingJobResultInput,
   now: Date,
 ): ProcessingJob {
-  requireState(job, ['queued', 'running'], 'markProcessingJobCancelled');
+  requireState(job, ['requested', 'queued', 'running'], 'markProcessingJobCancelled');
   return completeJob(job, 'cancelled', result, now);
 }
 
