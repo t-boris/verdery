@@ -57,6 +57,20 @@ env_vars+=",MEDIA_DERIVED_BUCKET=${VERDERY_DERIVED_BUCKET}"
 env_vars+=",MEDIA_EXPORTS_BUCKET=${VERDERY_EXPORTS_BUCKET}"
 env_vars+=",MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL=${VERDERY_WORKER_SERVICE_ACCOUNT_ID}@${VERDERY_PROJECT_ID}.iam.gserviceaccount.com"
 
+# Browser CORS for the deployed web client (Phase 8 web deployment stage).
+# The web service URL is stable across revisions, so an already-existing web
+# service contributes its origin here on every API deploy — the same
+# lookup-when-it-exists shape MEDIA_PROCESSING_CALLBACK_AUDIENCE below uses.
+# Before the web service's own first deployment this stays empty, which the
+# API treats as "no cross-origin browser client is allowed" — the safe,
+# pre-existing default.
+if resource_exists gcloud run services describe "${VERDERY_WEB_SERVICE_NAME}" \
+  --project="${VERDERY_PROJECT_ID}" --region="${VERDERY_REGION}"; then
+  web_origin="$(gcloud run services describe "${VERDERY_WEB_SERVICE_NAME}" \
+    --project="${VERDERY_PROJECT_ID}" --region="${VERDERY_REGION}" --format="value(status.url)")"
+  env_vars+=",HTTP_ALLOWED_ORIGINS=${web_origin}"
+fi
+
 # `MEDIA_PROCESSING_CALLBACK_AUDIENCE` is the callback route's own OIDC
 # audience — this exact service's own URL. The ORIGINAL version of this
 # script omitted it from the `--set-env-vars` call below entirely, planning

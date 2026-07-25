@@ -114,3 +114,36 @@ jobs:
           SERVICE_URL=$(gcloud run services describe verdery-api-dev \
             --project="${PROJECT_ID}" --region="${REGION}" --format="value(status.url)")
           curl --fail --silent --show-error "${SERVICE_URL}/v1/health/ready"
+
+      # The web client. NEXT_PUBLIC_* values are baked at BUILD time (that is
+      # what the prefix means) from the committed, non-secret .env.example
+      # values plus the live API origin — see apps/web/Dockerfile's own header.
+      # Deployed only after the API verified healthy above, so a broken API
+      # deploy never ships a web build pointing at it.
+      - name: Build and push the web image
+        id: web_image
+        run: |
+          API_ORIGIN=$(gcloud run services describe verdery-api-dev \
+            --project="${PROJECT_ID}" --region="${REGION}" --format="value(status.url)")
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/web:${GITHUB_SHA}"
+          docker build -f apps/web/Dockerfile -t "${IMAGE}" \
+            --build-arg NEXT_PUBLIC_API_ORIGIN="${API_ORIGIN}" \
+            --build-arg NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyCpCHmqYIRCBHChWqEYsLSZwz7EKjnWBoU \
+            --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=verdery-dev.firebaseapp.com \
+            --build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID=verdery-dev \
+            --build-arg NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=verdery-dev.firebasestorage.app \
+            --build-arg NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=417008876420 \
+            --build-arg NEXT_PUBLIC_FIREBASE_APP_ID=1:417008876420:web:f41b91b1e56ec5ab217bd1 \
+            --build-arg NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY=6LfS618tAAAAAMMgqPSYDBKUEMdZ9xKQJGdv3Ehm \
+            .
+          docker push "${IMAGE}"
+          echo "image=${IMAGE}" >> "${GITHUB_OUTPUT}"
+
+      - name: Deploy the web client to Cloud Run
+        run: infrastructure/gcloud/scripts/deploy-web.sh dev "${{ steps.web_image.outputs.image }}"
+
+      - name: Verify the web deployment serves a page
+        run: |
+          WEB_URL=$(gcloud run services describe verdery-web-dev \
+            --project="${PROJECT_ID}" --region="${REGION}" --format="value(status.url)")
+          curl --fail --silent --show-error --output /dev/null "${WEB_URL}/auth/sign-in"

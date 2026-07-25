@@ -32,6 +32,12 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // `standalone` emits a self-contained server (server.js + traced
+  // node_modules) — the canonical Next.js container deployment, and the only
+  // output mode that does not need the whole pnpm workspace at runtime.
+  // Local `next dev`/`next start` behavior is unchanged.
+  // Source: implementation-plan.md Phase 8 (web deployment stage).
+  output: 'standalone',
   headers() {
     return Promise.resolve([{ source: '/:path*', headers: securityHeaders }]);
   },
