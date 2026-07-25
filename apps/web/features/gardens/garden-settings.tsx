@@ -51,8 +51,11 @@ export function GardenSettings({ gardenId }: { readonly gardenId: string }) {
 
   // Redirects back once deletion has been requested: this page has nothing
   // further a member can do here, and the list already reflects the new state.
+  // `purging` (P8-DELETE-01) redirects for the stronger reason that the
+  // garden is mid-purge and every command against it now fails.
   useEffect(() => {
-    if (query.data?.lifecycleState === 'deletionRequested') {
+    const state = query.data?.lifecycleState;
+    if (state === 'deletionRequested' || state === 'purging') {
       router.push('/application/gardens');
     }
   }, [query.data?.lifecycleState, router]);

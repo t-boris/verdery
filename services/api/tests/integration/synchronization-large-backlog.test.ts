@@ -44,7 +44,7 @@ import '../../src/platform/database/pg-date-parser.js';
 import type { DatabaseSchema } from '../../src/platform/database/database-gateway.js';
 import { generateUuidV7 } from '../../src/shared/identifiers/uuid.js';
 import type { Clock } from '../../src/shared/time/clock.js';
-import { buildSyncTestHarness } from '../support/sync-test-harness.js';
+import { buildSyncTestHarness, syncActor } from '../support/sync-test-harness.js';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
 import { startPostgresTestContainer } from '../support/postgres-container.js';
 
@@ -145,7 +145,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       addPlantOperation(gardenId, index),
     );
 
-    const result = await harness.pushSyncOperations.execute(ownerId, pushRequest(operations));
+    const result = await harness.pushSyncOperations.execute(
+      syncActor(ownerId),
+      pushRequest(operations),
+    );
 
     expect(result.results).toHaveLength(MAX_PUSH_BATCH_SIZE);
     expect(result.results.every((entry) => entry.outcome === 'accepted')).toBe(true);
@@ -184,7 +187,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     // but the loop keeps this test correct if backlogSize ever grows past it.
     for (let start = 0; start < operations.length; start += MAX_PUSH_BATCH_SIZE) {
       const batch = operations.slice(start, start + MAX_PUSH_BATCH_SIZE);
-      await harness.pushSyncOperations.execute(ownerId, pushRequest(batch));
+      await harness.pushSyncOperations.execute(syncActor(ownerId), pushRequest(batch));
     }
 
     const collectedRecordIds = new Set<string>();

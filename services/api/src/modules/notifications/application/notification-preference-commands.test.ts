@@ -11,12 +11,14 @@ import {
 } from './notification-preference-commands.js';
 import type { UpdateNotificationPreferencesInput } from './notification-preference-commands.js';
 import {
-  authorizationDenying,
-  authorizationGranting,
   createNotificationsFakes,
   FakeNotificationsUnitOfWork,
   fixedClock,
 } from './notification-test-doubles.js';
+import {
+  authorizationDenying,
+  authorizationGranting,
+} from './notification-authorization-test-doubles.js';
 
 const NOW = new Date('2026-07-20T12:00:00Z');
 const ME = '01890000-0000-7000-8000-0000000000f1';

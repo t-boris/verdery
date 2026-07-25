@@ -94,6 +94,17 @@ import { KyselyIdempotencyStore } from '../../src/platform/idempotency/kysely-id
 import type { Clock } from '../../src/shared/time/clock.js';
 import type { Kysely } from 'kysely';
 
+/**
+ * The narrow `{ profileId, authenticatedAt }` every deletion-gated command
+ * needs (P8-DELETE-01) — `ActorContext` satisfies it structurally in
+ * production; a test supplies the two fields. `authenticatedAt` defaults to
+ * "just now", the ordinary case: a suite that wants the step-up gate to
+ * REFUSE passes an old instant explicitly.
+ */
+export function syncActor(profileId: string, authenticatedAt: Date = new Date()) {
+  return { profileId, authenticatedAt };
+}
+
 export function buildSyncTestHarness(db: Kysely<DatabaseSchema>, clock: Clock) {
   const gardenAuthorization = new GardenAuthorization(new KyselyMembershipRepository(db));
 

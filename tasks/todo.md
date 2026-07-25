@@ -5743,3 +5743,120 @@ Georgia, serif` for headings/wordmark; system sans for body; size scale xs–2xl
 Markup changes were confined to layout structure (shell nav, page headers, auth cards, Today
 card header); no gateway, query, store, routing, or validation logic changed, and no test
 assertion needed updating — the suite's role/label/text selectors survived the restyle intact.
+
+## Stage 32 — P8-DELETE-01, implementation complete
+
+Garden and account deletion, finished: recent-auth gates, the 30-day recovery window and a restore
+that fully reverses it, ownership resolution, offline revocation, a checkpointed resumable purge
+that waits for media bytes, Firebase identity deletion, and completion evidence that names nothing
+it deleted. No new dependency; `verdery_worker` gains nothing.
+
+### Two state machines
+
+- **Garden** (`gardens_mapping.garden.lifecycle_state`): `active|archived → deletion_requested`
+  (request; stamps `recovery_deadline_at`) → `active` (restore) **or** `purging` (the sweep's
+  claim — the point of no return) → the row is deleted. No `deleted` value: purged is the absence
+  of the row.
+- **Account** (`identity_access.profile.account_state`): `active → deletion_requested` (which by
+  itself disables ordinary access — `isAccountUsable` was already the single gate) → `active`
+  (restore) **or** `disabled` (claim) → `purged`. The ROW SURVIVES, minimized to an opaque
+  tombstone: ~20 NOT NULL foreign keys point at it from content in SHARED gardens that outlive the
+  account, so deleting it would destroy other people's gardens. `firebase_uid` becomes an
+  unresolvable `purged:<profileId>`; locale/time zone reset; nothing personal remains.
+
+### Ownership resolution (section 11), as implemented
+
+| Situation                    | Resolution                   | Effect                                                               |
+| ---------------------------- | ---------------------------- | -------------------------------------------------------------------- |
+| Sole active owner            | `gardenDeletionRequested`    | Garden enters its own deletion on the SAME deadline; purges with it. |
+| Another active owner remains | `ownershipRetainedByCoOwner` | Garden survives; only the leaver's membership is revoked.            |
+| Editor / viewer              | `membershipRevoked`          | Garden untouched.                                                    |
+
+Derived at read time from garden lifecycle + membership state/role/`updated_at`, never stored: a
+stored copy would be a second answer to a question that already has one, and the two would disagree
+after a restore. The co-owner branch IS section 11's "transfer", resolved by ownership that already
+exists rather than by inventing an invitation flow that does not.
+
+### Purge mechanics
+
+An ordered **data plan** (`purge-plan.ts`), leaves first: `{ table, predicate }` steps, batched by
+`ctid`, one transaction per step, one checkpoint row per step recording the deleted count. That
+shape makes every step trivially idempotent (re-running deletes zero), which is what makes a crash
+safe to resume from anywhere. Consecutive steps may share a `group` and commit together — needed
+exactly once, where `recommendation_candidate` / `recommendation_evidence` / `task` form a real
+cycle the schema resolves with `DEFERRABLE`.
+
+**Media first, and the purge WAITS.** Phase 1 hands every media record to the P6-RET-01 workflow;
+phase 2 defers the whole purge until all of them are `deleted` (bytes verified absent by the
+worker's prefix re-list). Deleting rows first would leave orphaned objects nothing points at.
+
+**Completeness proved against the catalog, not asserted.** The suite derives garden-referencing
+tables from `pg_constraint`'s transitive closure UNION tables carrying a garden-id column with no
+FK (`notification_intent` has exactly that), and requires each to be a plan step or a documented
+exception. A future migration that adds a garden-scoped table and forgets the plan fails that test.
+
+**Before → after** for one fully populated garden (17 tables with rows across 9 schemas): every
+plan-named table 0 rows; cascade children (`structure_details`, `notification_delivery_attempt`)
+0 rows; garden row absent. Survivors, by design: `platform.sync_change` (the tombstone),
+`collaboration.membership` (reduced to `removed` tombstones), `platform.audit_event`, and
+`deletion.deletion_record` + `purge_checkpoint`.
+
+### Three decisions worth defending
+
+- **`collaboration.membership` lost its garden foreign key.** A revoked membership row IS the
+  offline revocation tombstone — `GetSyncChanges` decides tombstone visibility from that table — so
+  it must outlive the garden or the one change that matters most becomes undeliverable the instant
+  the purge removes the garden row. Same reasoning `platform.sync_change` already documented for
+  having no foreign keys at all.
+- **`platform.sync_change.target_profile_id` (new, nullable).** A revocation tombstone must reach
+  the revoked collaborator; the SAME row read by the still-active owner would make the owner's
+  client discard a garden they can still recover. `NULL` keeps the original meaning, so every
+  ordinary change is unaffected. This closed a latent P5 gap, not just a deletion one.
+- **Jobs are cancelled at PURGE time, not request time.** Cancelling a media job is irreversible
+  while the request is reversible for 30 days; a restored garden must not come back with
+  half-processed media. In-flight exports are transitioned to `failed`/`subject_purged` so a worker
+  still holding one cannot register a package for a garden that no longer exists.
+
+### Contract and surfaces
+
+- New tag `Account`: `POST` / `GET` / `DELETE /account/deletion`. These three routes are the ONLY
+  ones registered in an encapsulation context admitting a `deletion_requested` account — a recovery
+  window the user cannot act inside is not a recovery window (the authentication plugin's own
+  header had anticipated this opt-out).
+- `DELETE /gardens/{gardenId}/delete-request` (restore). `Garden.recoveryDeadlineAt` added;
+  `GardenLifecycleState` gains `purging`.
+- `DeletionErrorCode` (recent-auth, not-found, already-requested, not-recoverable).
+- Recent auth is enforced on the OFFLINE path too: `requestGardenDeletion` through `POST /sync/push`
+  reads the pushing session's `auth_time`, because exempting sync would leave the gate bypassable
+  by wrapping the command in a batch. `PushSyncOperations` now takes the actor, not a bare id.
+- Fifth sweep: `POST /v1/internal/deletion/sweep`, hourly, worker `DELETION_SWEEP_URL`.
+
+### Verification
+
+| Check                                                          | Result                                    |
+| -------------------------------------------------------------- | ----------------------------------------- |
+| `pnpm --filter @verdery/api build` + `test`                    | 206 files / 1508 tests (from 198 / 1453)  |
+| `pnpm --filter @verdery/workers build` + `test`                | 22 files / 133 tests (from 22 / 132)      |
+| `pnpm --filter @verdery/web build` + `test`                    | 62 files / 519 tests (from 62 / 518)      |
+| `pnpm --filter @verdery/api-contracts lint:contract`           | valid                                     |
+| `pnpm --filter @verdery/api-contracts test` + `generate:check` | 29 tests; generated client in sync        |
+| Root `typecheck` / `lint` / `format:check` / `check:file-size` | all pass                                  |
+| Migration tests incl. rollback ripple                          | 21 files / 178 tests, down/up round-trips |
+| `bash -n infrastructure/gcloud/scripts/deploy-workers.sh`      | clean                                     |
+
+**Rollback ripple**: every earlier migration test carries a hand-maintained "migrate down N" count
+measured from the END of the chain, so adding one migration shifted all eighteen of them by one —
+found by the full suite, fixed, re-verified. `check:file-size` also forced two splits this stage
+caused: `compose-plants-inventory.ts` out of `app.ts` (which the deletion module's own composition
+and encapsulation context pushed to 618 lines) and `notification-authorization-test-doubles.ts` out
+of the notifications doubles (which the widened `MembershipRepository` pushed to 605).
+
+**Web touched minimally, and only where the new state would otherwise be a bug**: `purging` is now a
+handled `GardenLifecycleState` — a label (`gardens.lifecyclePurging`, en + ru) and the settings
+page's redirect, which previously fired only on `deletionRequested` and would have left a user on a
+page whose every command now fails. No new client feature; requesting deletion from the UI stays out
+of scope.
+
+**Client UI is out of scope and is a dated gap, not an open deferral**: the App Store requires an
+in-app account-deletion path, so P8-STORE-01 cannot ship without an iOS screen over
+`POST /account/deletion`. The endpoints are ready and need no backend change.

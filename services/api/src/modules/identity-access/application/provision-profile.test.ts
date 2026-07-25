@@ -46,6 +46,14 @@ class FakeProfileRepository implements ProfileRepository {
     this.profiles.push(profile);
     return Promise.resolve();
   }
+
+  update(): Promise<boolean> {
+    throw new Error('not used by this test');
+  }
+
+  listDeletionDue(): Promise<Profile[]> {
+    throw new Error('not used by this test');
+  }
 }
 
 class FakeIdentityProviderLinkRepository implements IdentityProviderLinkRepository {
@@ -132,6 +140,9 @@ describe('ProvisionProfile', () => {
       revision: 1,
       createdAt: NOW,
       updatedAt: NOW,
+      deletionRequestedAt: null,
+      recoveryDeadlineAt: null,
+      purgedAt: null,
     };
     const originalFind = profiles.findByFirebaseUid.bind(profiles);
     const findSpy = vi

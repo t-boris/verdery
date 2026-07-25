@@ -13,7 +13,7 @@ import type { Garden } from '../domain/garden.js';
 import type { GardenRole } from '../domain/garden-role.js';
 
 export function toGardenResource(garden: Garden, callerRole: GardenRole): GardenResource {
-  return {
+  const resource: GardenResource = {
     id: garden.id,
     name: garden.name,
     lifecycleState:
@@ -23,4 +23,13 @@ export function toGardenResource(garden: Garden, callerRole: GardenRole): Garden
     createdAt: garden.createdAt.toISOString(),
     updatedAt: garden.updatedAt.toISOString(),
   };
+
+  // Assigned rather than conditionally spread so `exactOptionalPropertyTypes`
+  // can see the key is only ever present with a real value — the same posture
+  // `toCalibrationSnapshot`'s optional derivation fields already take.
+  if (garden.recoveryDeadlineAt !== null) {
+    resource.recoveryDeadlineAt = garden.recoveryDeadlineAt.toISOString();
+  }
+
+  return resource;
 }

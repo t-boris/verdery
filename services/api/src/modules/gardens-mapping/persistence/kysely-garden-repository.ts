@@ -95,6 +95,7 @@ interface GardenRowLike {
   created_at: Date;
   updated_at: Date;
   deletion_requested_at: Date | null;
+  recovery_deadline_at: Date | null;
 }
 
 function toGarden(row: GardenRowLike): Garden {
@@ -107,6 +108,7 @@ function toGarden(row: GardenRowLike): Garden {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletionRequestedAt: row.deletion_requested_at,
+    recoveryDeadlineAt: row.recovery_deadline_at,
   };
 }
 
@@ -135,6 +137,7 @@ export class KyselyGardenRepository implements GardenRepository {
         created_at: garden.createdAt,
         updated_at: garden.updatedAt,
         deletion_requested_at: garden.deletionRequestedAt,
+        recovery_deadline_at: garden.recoveryDeadlineAt,
       })
       .execute();
   }
@@ -148,12 +151,26 @@ export class KyselyGardenRepository implements GardenRepository {
         revision: garden.revision,
         updated_at: garden.updatedAt,
         deletion_requested_at: garden.deletionRequestedAt,
+        recovery_deadline_at: garden.recoveryDeadlineAt,
       })
       .where('id', '=', garden.id)
       .where('revision', '=', expectedRevision)
       .executeTakeFirst();
 
     return (result?.numUpdatedRows ?? 0n) === 1n;
+  }
+
+  async listDeletionDue(now: Date, limit: number): Promise<Garden[]> {
+    const rows = await this.db
+      .selectFrom('gardens_mapping.garden')
+      .selectAll()
+      .where('lifecycle_state', '=', 'deletion_requested')
+      .where('recovery_deadline_at', '<=', now)
+      .orderBy('recovery_deadline_at', 'asc')
+      .limit(limit)
+      .execute();
+
+    return rows.map(toGarden);
   }
 
   async listForProfile(
@@ -192,6 +209,7 @@ export class KyselyGardenRepository implements GardenRepository {
         'g.created_at',
         'g.updated_at',
         'g.deletion_requested_at',
+        'g.recovery_deadline_at',
         'm.role as caller_role',
       ])
       .orderBy('g.created_at', 'desc')
@@ -248,6 +266,7 @@ export class KyselyGardenRepository implements GardenRepository {
         'g.created_at',
         'g.updated_at',
         'g.deletion_requested_at',
+        'g.recovery_deadline_at',
         'm.role as caller_role',
       ])
       .select(sql<number>`similarity(g.name, ${nameQuery})`.as('rank_score'))

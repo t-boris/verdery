@@ -18,6 +18,7 @@ import type { AiExplanationProviderAdapter } from './modules/integrations/public
 import { GcsMediaStorageGateway } from './modules/media/public.js';
 import { FcmPushMessageSender } from './modules/notifications/public.js';
 import { FirebaseAppCheckVerifier } from './platform/app-check/firebase-app-check-verifier.js';
+import { FirebaseIdentityProviderAccountGateway } from './platform/authentication/firebase-identity-provider-account-gateway.js';
 import { FirebaseTokenVerifier } from './platform/authentication/firebase-token-verifier.js';
 import { GoogleOidcInvocationVerifier } from './platform/tasks/google-oidc-invocation-verifier.js';
 import {
@@ -80,6 +81,9 @@ async function main(): Promise<void> {
   // and App Check verifiers (ADR-0002) — no new dependency class, no new
   // credential.
   const pushMessageSender = new FcmPushMessageSender(getMessaging(firebaseApp));
+  // P8-DELETE-01: account purge's identity half — the same Admin SDK app
+  // again, so deleting a Firebase user needs no new credential either.
+  const identityProviderAccounts = new FirebaseIdentityProviderAccountGateway(firebaseApp);
   const clock = new SystemClock();
   // Application Default Credentials again — no downloaded service account
   // key, the same posture every other Google Cloud client here takes.
@@ -131,6 +135,7 @@ async function main(): Promise<void> {
     cloudTasksInvocationVerifier,
     aiExplanationAdapter,
     pushMessageSender,
+    identityProviderAccounts,
   });
 
   registerGracefulShutdown({

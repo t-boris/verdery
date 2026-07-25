@@ -116,6 +116,13 @@ env_vars+=",NOTIFICATION_DELIVERY_SWEEP_URL=${api_service_url}/v1/internal/notif
 # loudly without it. No interval variable — the relay's poll cadence
 # schedules the enqueue, and Cloud Tasks delivers the job.
 env_vars+=",EXPORT_PROCESSING_API_URL=${api_service_url}/v1/internal/exports"
+# P8-DELETE-01: the API's internal deletion-sweep endpoint — the fifth
+# scheduled sweep, same derivation and same audience; services/workers'
+# configuration load fails loudly without it, deliberately, because a
+# deletion that is never swept is a deletion that never happens. The
+# interval keeps its configuration default (one hour) unless overridden
+# here.
+env_vars+=",DELETION_SWEEP_URL=${api_service_url}/v1/internal/deletion/sweep"
 
 # `MEDIA_PROCESSING_TASK_URL` is self-referential (this service's own
 # validation-job route) — the exact same "look up the already-existing

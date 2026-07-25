@@ -143,6 +143,15 @@ export const environmentSchema = z.object({
   // prefix) arrives in the snapshot response rather than being configured
   // twice.
   EXPORT_PROCESSING_API_URL: z.string().url(),
+
+  // P8-DELETE-01: the API's internal deletion-sweep endpoint — the fifth
+  // sweep, same shape and same audience as the four above. One hour is a
+  // reasoned default in the same documented posture: the deadline it enforces
+  // is the 30-day recovery window, which is day-granular, so hourly is
+  // already far finer than the policy it enforces while keeping a purge that
+  // deferred on media byte deletion moving without a long stall.
+  DELETION_SWEEP_URL: z.string().url(),
+  DELETION_SWEEP_INTERVAL_MS: durationMilliseconds.default(3_600_000),
 });
 
 export type RawEnvironment = z.infer<typeof environmentSchema>;
@@ -193,6 +202,8 @@ export interface WorkerConfiguration {
   readonly notificationDeliverySweep: SweepScheduleConfiguration;
   /** P8-EXPORT-01 — see the schema's own comment on `EXPORT_PROCESSING_API_URL`. */
   readonly exportProcessingApiUrl: string;
+  /** P8-DELETE-01 — see the schema's own comment on `DELETION_SWEEP_URL`. */
+  readonly deletionSweep: SweepScheduleConfiguration;
 }
 
 /** Raised when the process environment cannot produce a valid configuration. */
@@ -250,6 +261,10 @@ function toWorkerConfiguration(raw: RawEnvironment): WorkerConfiguration {
       intervalMs: raw.NOTIFICATION_DELIVERY_SWEEP_INTERVAL_MS,
     },
     exportProcessingApiUrl: raw.EXPORT_PROCESSING_API_URL,
+    deletionSweep: {
+      sweepUrl: raw.DELETION_SWEEP_URL,
+      intervalMs: raw.DELETION_SWEEP_INTERVAL_MS,
+    },
   };
 }
 

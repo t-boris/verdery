@@ -192,14 +192,53 @@ export interface paths {
         /**
          * Request garden deletion
          * @description Owner-only lifecycle command. Starts the deletion workflow; it does
-         *     not delete the garden immediately. Purge after the recovery window is
-         *     a separate, not-yet-implemented asynchronous workflow.
+         *     not delete the garden immediately (architecture/data-export-and-
+         *     deletion.md, section 10).
          *
-         *     Source: implementation-plan.md work packages P2-API-01, P2-SEC-01;
-         *     architecture/data-and-geospatial-design.md, section "15. Deletion".
+         *     Requires RECENT authentication (section 10.1): a session whose
+         *     underlying sign-in is older than 30 minutes is rejected with `403`
+         *     and `error.code` `deletion.recent_authentication_required`.
+         *
+         *     On acceptance the garden stops accepting edits, every NON-owner
+         *     membership is revoked (each revoked member's next `getSyncChanges`
+         *     pull carries the garden as an ordinary `delete` tombstone so their
+         *     offline clients purge local copies), and `recoveryDeadlineAt` is
+         *     stamped 30 days out. `restoreGarden` fully reverses all of that until
+         *     the deadline passes; afterwards the deletion sweep purges the garden
+         *     irreversibly.
+         *
+         *     Source: implementation-plan.md work packages P2-API-01, P2-SEC-01,
+         *     P8-DELETE-01; architecture/data-and-geospatial-design.md, section
+         *     "15. Deletion"; architecture/data-export-and-deletion.md, section
+         *     "10. Garden Deletion".
          */
         post: operations["requestGardenDeletion"];
-        delete?: never;
+        /**
+         * Withdraw a garden deletion request within the recovery window
+         * @description Owner-only. Reverses `requestGardenDeletion` completely while the
+         *     garden is still inside its recovery window: the lifecycle state
+         *     returns to `active`, `recoveryDeadlineAt` is cleared, and every
+         *     membership revoked by the deletion request is reactivated (each
+         *     restored member's next pull carries the garden as an ordinary
+         *     `upsert`, so their client repopulates).
+         *
+         *     Requires RECENT authentication, exactly like the request it reverses.
+         *
+         *     Recovery ends when the deletion sweep claims the garden. That claim
+         *     revokes every remaining membership in the same transaction — the
+         *     offline-client revocation of section 10.6 — so a later attempt is
+         *     `404` (`garden.not_found`), the same concealment every garden route
+         *     applies to a caller with no membership. A restore that RACES the
+         *     claim (authorized before it, applied after) instead gets `409` with
+         *     `error.code` `deletion.not_recoverable`. Either way "a deletion
+         *     request cannot return to active accidentally after purge begins"
+         *     (architecture/data-export-and-deletion.md, section 16) holds.
+         *
+         *     Source: implementation-plan.md work package P8-DELETE-01;
+         *     architecture/data-export-and-deletion.md, sections "10. Garden
+         *     Deletion", "16. Failure and Retry".
+         */
+        delete: operations["restoreGarden"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1422,6 +1461,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/account/deletion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the caller's own account-deletion state
+         * @description The caller's pending deletion — state, deadline, and the recorded
+         *     per-garden ownership resolution. Reachable while the account is
+         *     inside its recovery window, which is the whole point: it is how a
+         *     signed-in-but-disabled user sees what will happen and when.
+         *
+         *     `404` (`deletion.not_found`) when no deletion is pending.
+         */
+        get: operations["getAccountDeletion"];
+        put?: never;
+        /**
+         * Request deletion of the caller's own account
+         * @description Starts account deletion for the authenticated caller
+         *     (architecture/data-export-and-deletion.md, section 11). Nothing is
+         *     deleted immediately: the account enters a 30-day recovery window
+         *     during which ordinary access is disabled and only this resource
+         *     remains reachable.
+         *
+         *     Requires RECENT authentication: a session whose underlying sign-in is
+         *     older than 30 minutes is rejected with `403` and `error.code`
+         *     `deletion.recent_authentication_required`.
+         *
+         *     OWNERSHIP RESOLUTION runs synchronously and is reported in
+         *     `gardens` (section 11, "Resolves owned shared gardens by transfer or
+         *     deletion policy"):
+         *
+         *     - A garden the caller owns ALONE enters `deletionRequested` with the
+         *       same recovery deadline as the account, and is purged with it —
+         *       resolution `gardenDeletionRequested`.
+         *     - A garden with another active owner survives; the caller's own
+         *       membership is revoked — resolution `ownershipRetainedByCoOwner`.
+         *     - A garden where the caller is only an editor or viewer survives; the
+         *       membership is revoked — resolution `membershipRevoked`.
+         *
+         *     Every revocation surfaces to the caller's other offline clients as an
+         *     ordinary `garden` `delete` change on the next pull.
+         *
+         *     Immediate irreversible deletion (section 12) is deliberately not
+         *     offered: the recovery window is unconditional.
+         *
+         *     Source: implementation-plan.md work package P8-DELETE-01;
+         *     architecture/data-export-and-deletion.md, section "11. Account Deletion".
+         */
+        post: operations["requestAccountDeletion"];
+        /**
+         * Withdraw an account-deletion request within the recovery window
+         * @description Reverses `requestAccountDeletion` completely: the account returns to
+         *     `active`, every membership revoked by the request is reactivated, and
+         *     every garden the request put into `deletionRequested` returns to
+         *     `active`.
+         *
+         *     Requires RECENT authentication, exactly like the request it reverses.
+         *
+         *     Once the deletion sweep has claimed the account recovery is
+         *     impossible and the response is `409` with `error.code`
+         *     `deletion.not_recoverable`.
+         *
+         *     Source: implementation-plan.md work package P8-DELETE-01;
+         *     architecture/data-export-and-deletion.md, sections "11. Account
+         *     Deletion", "16. Failure and Retry".
+         */
+        delete: operations["restoreAccount"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/exports": {
         parameters: {
             query?: never;
@@ -1967,13 +2081,20 @@ export interface components {
         Revision: number;
         /**
          * @description `deletionRequested` starts the deletion workflow; it is not immediate
-         *     deletion. No `deleted` value exists yet: nothing can reach it before
-         *     the purge workflow that would produce it is built.
+         *     deletion. The garden stays recoverable through `restoreGarden` until
+         *     `recoveryDeadlineAt` passes.
          *
-         *     Source: architecture/data-and-geospatial-design.md, section "15. Deletion".
+         *     `purging` is the point of no return (P8-DELETE-01): the deletion sweep
+         *     has claimed the garden and is executing the irreversible purge.
+         *     `restoreGarden` refuses it, and the garden row itself disappears when
+         *     the purge completes — no `deleted` value exists because no readable
+         *     garden survives to carry one.
+         *
+         *     Source: architecture/data-and-geospatial-design.md, section "15. Deletion";
+         *     architecture/data-export-and-deletion.md, section "10. Garden Deletion".
          * @enum {string}
          */
-        GardenLifecycleState: "active" | "archived" | "deletionRequested";
+        GardenLifecycleState: "active" | "archived" | "deletionRequested" | "purging";
         /**
          * @description The authenticated caller's own role on this garden. Informational for
          *     client UI only — the server re-evaluates authorization on every
@@ -1991,6 +2112,15 @@ export interface components {
             revision: components["schemas"]["Revision"];
             createdAt: components["schemas"]["Timestamp"];
             updatedAt: components["schemas"]["Timestamp"];
+            /**
+             * @description When the 30-day recovery window closes and the irreversible purge
+             *     becomes eligible (P8-DELETE-01). Present only while
+             *     `lifecycleState` is `deletionRequested` or `purging`; absent
+             *     otherwise.
+             *
+             *     Source: architecture/data-export-and-deletion.md, section "10. Garden Deletion".
+             */
+            recoveryDeadlineAt?: components["schemas"]["Timestamp"];
         };
         GardenListResult: {
             items: components["schemas"]["Garden"][];
@@ -4000,6 +4130,50 @@ export interface components {
             updatedAt: components["schemas"]["Timestamp"];
         };
         /**
+         * @description `recoveryWindow` — the deletion is pending and fully reversible
+         *     through `restoreAccount` until `recoveryDeadlineAt`.
+         *
+         *     `purging` — the deletion sweep has claimed the account and the
+         *     irreversible purge is running; recovery is refused from here on
+         *     (architecture/data-export-and-deletion.md, section 16: "A deletion
+         *     request cannot return to active accidentally after purge begins").
+         *     A finished purge leaves no readable account at all, so no third
+         *     value exists.
+         * @enum {string}
+         */
+        AccountDeletionState: "recoveryWindow" | "purging";
+        /**
+         * @description How one garden the caller had access to was resolved by the account
+         *     deletion (architecture/data-export-and-deletion.md, section 11,
+         *     "Resolves owned shared gardens by transfer or deletion policy").
+         *
+         *     - `gardenDeletionRequested` — the caller was the only owner; the
+         *       garden entered its own deletion with the account's deadline.
+         *     - `ownershipRetainedByCoOwner` — another active owner remains; the
+         *       garden survives and only the caller's membership was revoked.
+         *     - `membershipRevoked` — the caller was an editor or viewer; the
+         *       garden survives untouched.
+         * @enum {string}
+         */
+        AccountDeletionGardenResolution: "gardenDeletionRequested" | "ownershipRetainedByCoOwner" | "membershipRevoked";
+        AccountDeletionGarden: {
+            gardenId: components["schemas"]["Uuid"];
+            resolution: components["schemas"]["AccountDeletionGardenResolution"];
+        };
+        /**
+         * @description The caller's own pending account deletion (P8-DELETE-01). Contains
+         *     no personal data beyond identifiers the caller already holds — it is
+         *     a status resource, not a copy of what is being deleted.
+         */
+        AccountDeletion: {
+            profileId: components["schemas"]["Uuid"];
+            state: components["schemas"]["AccountDeletionState"];
+            requestedAt: components["schemas"]["Timestamp"];
+            recoveryDeadlineAt: components["schemas"]["Timestamp"];
+            /** @description How each garden the caller had access to at request time was resolved. */
+            gardens: components["schemas"]["AccountDeletionGarden"][];
+        };
+        /**
          * @description The notification's server-owned type vocabulary, deliberately open
          *     (a plain string, not an enum) so a new type never breaks an
          *     already-shipped client — an unknown type must render through the
@@ -4557,7 +4731,46 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The garden, now in the deletion_requested lifecycle state. */
+            /** @description The garden, now in the deletionRequested lifecycle state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Garden"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    restoreGarden: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The garden, restored to the active lifecycle state. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -6060,6 +6273,87 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    getAccountDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The pending account deletion. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountDeletion"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    requestAccountDeletion: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The account is now inside its recovery window. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountDeletion"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    restoreAccount: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The account is active again and no deletion is pending. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     requestExport: {

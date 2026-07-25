@@ -10,6 +10,7 @@
  */
 
 import type { SyncOperationPayload } from '@verdery/api-contracts';
+import type { DeletionActor } from '../../../shared/deletion/deletion-policy.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { GardenObjectOperationRouterDependencies } from './route-garden-object-operation.js';
 import { routeGardenObjectOperation } from './route-garden-object-operation.js';
@@ -35,13 +36,18 @@ export class SyncOperationRouter {
   constructor(private readonly deps: SyncOperationRouterDependencies) {}
 
   async route(
-    profileId: Uuid,
+    actor: DeletionActor,
     operationId: Uuid,
     payload: SyncOperationPayload,
   ): Promise<SyncOperationOutcome> {
+    const profileId = actor.profileId;
+
     switch (payload.recordType) {
       case 'garden':
-        return routeGardenOperation(this.deps.garden, profileId, operationId, payload);
+        // The one family whose commands include a step-up-gated operation
+        // (`requestGardenDeletion`), so it receives the whole actor rather
+        // than the profile id alone — see `routeGardenOperation`.
+        return routeGardenOperation(this.deps.garden, actor, operationId, payload);
       case 'gardenObject':
         return routeGardenObjectOperation(this.deps.gardenObject, profileId, operationId, payload);
       case 'plant':

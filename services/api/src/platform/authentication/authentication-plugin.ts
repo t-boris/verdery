@@ -14,7 +14,11 @@
  * inside each individual use case avoids repeating the same check six times
  * for no behavioral difference. A future endpoint that must remain reachable
  * for a non-active account (account recovery, for example) is not something
- * Phase 2 has, and can opt out of this plugin's context when it exists.
+ * Phase 2 has, and can opt out of this plugin's context when it exists — and
+ * P8-DELETE-01 is where that happened: the account-deletion routes register
+ * in their own context with `additionalPermittedAccountStates`, because a
+ * recovery window that locks the user out of withdrawing their own request is
+ * not a recovery window.
  *
  * Source: architecture/api-design.md, section "9. Actor Context";
  * architecture/identity-and-authorization.md, sections
@@ -24,7 +28,11 @@
 
 import { SharedErrorCode } from '@verdery/api-contracts';
 import type { FastifyInstance } from 'fastify';
-import { isAccountUsable, type ProvisionProfile } from '../../modules/identity-access/public.js';
+import {
+  isAccountUsable,
+  type AccountState,
+  type ProvisionProfile,
+} from '../../modules/identity-access/public.js';
 import type {
   ActorContext,
   AuthenticationCredentialKind,
@@ -45,6 +53,19 @@ declare module 'fastify' {
 export interface AuthenticationPluginDependencies {
   readonly tokenVerifier: TokenVerifier;
   readonly provisionProfile: ProvisionProfile;
+  /**
+   * Account states admitted IN ADDITION to `active` (P8-DELETE-01) — the
+   * opt-out this file's own header anticipated ("A future endpoint that must
+   * remain reachable for a non-active account (account recovery, for
+   * example) ... can opt out of this plugin's context when it exists").
+   *
+   * Exactly one caller supplies it: the account-deletion routes, which admit
+   * `deletion_requested` so a user inside their recovery window can still
+   * see what is pending and withdraw it. Everything else gets the default —
+   * `active` only — because a plugin instance grants what it lists and
+   * nothing more.
+   */
+  readonly additionalPermittedAccountStates?: readonly AccountState[];
 }
 
 function extractBearerToken(authorizationHeader: string | undefined): string | null {
@@ -92,7 +113,11 @@ export function registerAuthentication(
 
     const profile = await dependencies.provisionProfile.execute(credential);
 
-    if (!isAccountUsable(profile.accountState)) {
+    const permitted =
+      isAccountUsable(profile.accountState) ||
+      (dependencies.additionalPermittedAccountStates ?? []).includes(profile.accountState);
+
+    if (!permitted) {
       throw new ForbiddenError(
         SharedErrorCode.Forbidden,
         'This account cannot currently use the application.',

@@ -131,10 +131,11 @@ export function registerSyncRoutes(
   app.post('/sync/push', async (request, reply) => {
     const body = parseSyncPushRequest(request.body);
 
-    const result = await dependencies.pushSyncOperations.execute(
-      request.actorContext.profileId,
-      body,
-    );
+    // The whole actor context, not just the profile id: `ActorContext`
+    // structurally satisfies the narrow `{ profileId, authenticatedAt }` the
+    // push needs to enforce garden deletion's step-up gate on the offline
+    // path too (P8-DELETE-01).
+    const result = await dependencies.pushSyncOperations.execute(request.actorContext, body);
 
     request.log.info(
       {

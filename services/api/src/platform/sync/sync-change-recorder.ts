@@ -27,6 +27,16 @@ export interface SyncChangeInput {
   readonly recordType: SyncRecordType;
   readonly operation: SyncChangeOperation;
   readonly recordRevision: number;
+  /**
+   * P8-DELETE-01: omit (or `null`) for an ordinary record change — every
+   * profile the visibility rule admits receives it, the meaning every writer
+   * before this had. Supply a profile id only for a change that concerns ONE
+   * member and would be actively wrong for the others: membership revocation
+   * and restoration, where the revoked collaborator must purge the garden
+   * locally while the owner deciding whether to withdraw the request must
+   * not. See the deletion baseline migration's own comment.
+   */
+  readonly targetProfileId?: Uuid | null;
 }
 
 export interface SyncChangeRecorder {

@@ -6,6 +6,7 @@ import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type {
   FindDerivativeInput,
   ListForGardenInput,
+  MediaPurgeScope,
   MediaRecordPage,
   MediaRepository,
 } from '../application/media-repository.js';
@@ -340,6 +341,47 @@ export class KyselyMediaRepository implements MediaRepository {
       .execute();
 
     return rows.map(toMediaRecord);
+  }
+
+  async listPurgeCandidates(
+    scope: MediaPurgeScope,
+    limit: number,
+  ): Promise<readonly MediaRecord[]> {
+    const rows = await this.scopedQuery(scope)
+      .selectAll()
+      .where('derived_from_media_id', 'is', null)
+      .where('upload_state', 'not in', ['deletion_scheduled', 'deleted'])
+      .orderBy('id', 'asc')
+      .limit(limit)
+      .execute();
+
+    return rows.map(toMediaRecord);
+  }
+
+  async countUndeletedForPurge(scope: MediaPurgeScope): Promise<number> {
+    const row = await this.scopedQuery(scope)
+      .select((eb) => eb.fn.countAll<string>().as('remaining'))
+      .where('upload_state', '<>', 'deleted')
+      .executeTakeFirstOrThrow();
+
+    return Number(row.remaining);
+  }
+
+  /**
+   * The scope's own `WHERE`, shared by the candidate list and the drain
+   * count so the two can never disagree about what the scope contains.
+   * `accountPackages` matches only garden-less export packages the requester
+   * owns — see `MediaPurgeScope`'s own doc comment.
+   */
+  private scopedQuery(scope: MediaPurgeScope) {
+    const query = this.db.selectFrom('media.media_record');
+
+    return scope.kind === 'garden'
+      ? query.where('garden_id', '=', scope.gardenId)
+      : query
+          .where('garden_id', 'is', null)
+          .where('uploaded_by_profile_id', '=', scope.profileId)
+          .where('media_class', '=', 'export_package');
   }
 
   /** `DISTINCT ON (derivative_kind)` at the latest `transformation_version` — see the port's own doc comment. */

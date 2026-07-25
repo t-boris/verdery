@@ -6,6 +6,7 @@ import type {
   GardenMembershipState,
   GardenPartitionMembership,
   Membership,
+  MembershipDetail,
   MembershipRepository,
 } from '../application/membership-repository.js';
 
@@ -60,4 +61,52 @@ export class KyselyMembershipRepository implements MembershipRepository {
       state: row.state as GardenMembershipState,
     }));
   }
+
+  async listForGarden(gardenId: Uuid): Promise<MembershipDetail[]> {
+    const rows = await this.db
+      .selectFrom('collaboration.membership')
+      .select(['id', 'garden_id', 'profile_id', 'role', 'state', 'updated_at'])
+      .where('garden_id', '=', gardenId)
+      .orderBy('id', 'asc')
+      .execute();
+
+    return rows.map(toMembershipDetail);
+  }
+
+  async listDetailsForProfile(profileId: Uuid): Promise<MembershipDetail[]> {
+    const rows = await this.db
+      .selectFrom('collaboration.membership')
+      .select(['id', 'garden_id', 'profile_id', 'role', 'state', 'updated_at'])
+      .where('profile_id', '=', profileId)
+      .orderBy('id', 'asc')
+      .execute();
+
+    return rows.map(toMembershipDetail);
+  }
+
+  async setState(membershipId: Uuid, state: GardenMembershipState, now: Date): Promise<void> {
+    await this.db
+      .updateTable('collaboration.membership')
+      .set({ state, updated_at: now })
+      .where('id', '=', membershipId)
+      .execute();
+  }
+}
+
+function toMembershipDetail(row: {
+  id: string;
+  garden_id: string;
+  profile_id: string;
+  role: string;
+  state: string;
+  updated_at: Date;
+}): MembershipDetail {
+  return {
+    id: row.id,
+    gardenId: row.garden_id,
+    profileId: row.profile_id,
+    role: row.role as GardenRole,
+    state: row.state as GardenMembershipState,
+    updatedAt: row.updated_at,
+  };
 }

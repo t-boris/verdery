@@ -100,6 +100,7 @@ export const russianMessages: MessageCatalogue = {
   'gardens.lifecycleActive': 'Активен',
   'gardens.lifecycleArchived': 'В архиве',
   'gardens.lifecycleDeletionRequested': 'Запрошено удаление',
+  'gardens.lifecyclePurging': 'Удаляется',
   'gardens.roleOwner': 'Владелец',
   'gardens.roleEditor': 'Редактор',
   'gardens.roleViewer': 'Наблюдатель',

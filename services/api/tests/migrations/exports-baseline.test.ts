@@ -257,7 +257,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   });
 
   it('rolls back cleanly: the exports schema drops whole, garden_id NOT NULL returns, and re-migrating up succeeds', async () => {
-    await migrate(databaseUrl, 'down', 1);
+    await migrate(databaseUrl, 'down', 2);
 
     const schema = await client.query(
       `SELECT 1 FROM information_schema.schemata WHERE schema_name = 'exports'`,

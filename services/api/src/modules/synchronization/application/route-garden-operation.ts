@@ -32,6 +32,7 @@ import type {
   RenameGarden,
   RequestGardenDeletion,
 } from '../../gardens-mapping/public.js';
+import type { DeletionActor } from '../../../shared/deletion/deletion-policy.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import { executeAndMapOutcome } from './execute-and-map-outcome.js';
 import type { SyncOperationOutcome } from './sync-operation-outcome.js';
@@ -50,11 +51,12 @@ function toRecordRevisions(garden: GardenResource): SyncRecordReference[] {
 
 export async function routeGardenOperation(
   deps: GardenOperationRouterDependencies,
-  profileId: Uuid,
+  actor: DeletionActor,
   operationId: Uuid,
   payload: SyncGardenOperationPayload,
 ): Promise<SyncOperationOutcome> {
   const { gardenId, command } = payload;
+  const profileId = actor.profileId;
 
   const fetchCurrentRecord = async () => ({
     recordType: 'garden' as const,
@@ -100,10 +102,18 @@ export async function routeGardenOperation(
       }, fetchCurrentRecord);
 
     case 'gardens.delete_request':
+      // The whole actor, not just the profile id: garden deletion is
+      // step-up gated (data-export-and-deletion.md section 10.1), and the
+      // gate reads the pushing session's own `auth_time`. A queued deletion
+      // pushed from a stale session is `rejected` with
+      // `deletion.recent_authentication_required` — per-operation, like
+      // every other rejection — and the client re-authenticates and pushes
+      // again. Exempting the offline path would leave the whole gate
+      // bypassable by wrapping the command in a sync batch.
       return executeAndMapOutcome(async () => {
         const garden = await deps.requestGardenDeletion.execute(
           gardenId,
-          profileId,
+          actor,
           command.expectedRevision,
           operationId,
         );

@@ -51,7 +51,7 @@ import '../../src/platform/database/pg-date-parser.js';
 import type { DatabaseSchema } from '../../src/platform/database/database-gateway.js';
 import { generateUuidV7 } from '../../src/shared/identifiers/uuid.js';
 import type { Clock } from '../../src/shared/time/clock.js';
-import { buildSyncTestHarness } from '../support/sync-test-harness.js';
+import { buildSyncTestHarness, syncActor } from '../support/sync-test-harness.js';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
 import { startPostgresTestContainer } from '../support/postgres-container.js';
 
@@ -223,7 +223,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const batches = randomBatches(operations, random);
 
     for (const batch of batches) {
-      const result = await harness.pushSyncOperations.execute(ownerId, pushRequest(batch));
+      const result = await harness.pushSyncOperations.execute(
+        syncActor(ownerId),
+        pushRequest(batch),
+      );
       for (const entry of result.results) {
         // Every operation here is genuinely independent and well-formed —
         // any non-`accepted` outcome means either this test's own batching

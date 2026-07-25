@@ -20,15 +20,32 @@ export type {
   GardenMembershipState,
   GardenPartitionMembership,
   Membership,
+  MembershipDetail,
   MembershipRepository,
 } from './application/membership-repository.js';
 export { RenameGarden } from './application/rename-garden.js';
 export { RequestGardenDeletion } from './application/request-garden-deletion.js';
+export { RestoreGardenDeletion } from './application/restore-garden-deletion.js';
+// P8-DELETE-01: the membership half of deletion and recovery, reused by
+// account deletion's ownership resolution and by the deletion purge.
+export {
+  activeOwners,
+  restoreGardenMemberships,
+  revokeGardenMemberships,
+} from './application/garden-membership-revocation.js';
+export type { MembershipRevocationPorts } from './application/garden-membership-revocation.js';
+// P8-DELETE-01: the garden lifecycle transitions the deletion module drives
+// through the same public `GardenRepository` port it already binds.
+export {
+  claimGardenForPurge,
+  requestGardenDeletion as applyGardenDeletionRequest,
+  restoreGarden as applyGardenRestore,
+} from './domain/garden.js';
 export { KyselyGardenRepository } from './persistence/kysely-garden-repository.js';
 export { KyselyGardensMappingUnitOfWork } from './persistence/kysely-gardens-mapping-unit-of-work.js';
 export { KyselyMembershipRepository } from './persistence/kysely-membership-repository.js';
 export type { GardensMappingDatabaseSchema } from './persistence/schema.js';
-export { registerGardenRoutes } from './transport/garden-routes.js';
+export { registerGardenRoutes, UUID_PATTERN } from './transport/garden-routes.js';
 export type { GardenRoutesDependencies } from './transport/garden-routes.js';
 
 // Garden map (P3-BE-01, P3-BE-02).

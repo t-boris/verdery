@@ -15,6 +15,8 @@ import type { MediaStorageGateway } from '../../src/modules/media/public.js';
 import { FakePushMessageSender } from '../../src/modules/notifications/application/notification-test-doubles.js';
 import type { PushMessageSender } from '../../src/modules/notifications/public.js';
 import type { AppCheckVerifier } from '../../src/platform/app-check/app-check-verifier.js';
+import { FakeIdentityProviderAccountGateway } from '../../src/platform/authentication/identity-provider-account-test-double.js';
+import type { IdentityProviderAccountGateway } from '../../src/platform/authentication/identity-provider-account-gateway.js';
 import type { TokenVerifier } from '../../src/platform/authentication/token-verifier.js';
 import type { ApplicationConfiguration } from '../../src/platform/configuration/configuration-schema.js';
 import type { DatabaseGateway } from '../../src/platform/database/database-gateway.js';
@@ -125,6 +127,15 @@ export function stubCloudTasksInvocationVerifier(): CloudTasksInvocationVerifier
   };
 }
 
+/**
+ * Never touches Firebase Authentication (P8-DELETE-01). Every test-built
+ * application gets this, so no test can delete a real identity — the same
+ * structural guarantee `stubMediaStorageGateway` gives for Cloud Storage.
+ */
+export function stubIdentityProviderAccountGateway(): FakeIdentityProviderAccountGateway {
+  return new FakeIdentityProviderAccountGateway();
+}
+
 /** Never touches FCM (P7-NOTIF-02). Suites that don't exercise the delivery sweep need nothing more specific than this accepting fake. */
 export function stubPushMessageSender(): PushMessageSender {
   return new FakePushMessageSender();
@@ -140,6 +151,7 @@ export interface TestApplicationOptions {
   readonly mediaStorageGateway?: MediaStorageGateway;
   readonly cloudTasksInvocationVerifier?: CloudTasksInvocationVerifier;
   readonly pushMessageSender?: PushMessageSender;
+  readonly identityProviderAccounts?: IdentityProviderAccountGateway;
 }
 
 export async function buildTestApplication(
@@ -162,5 +174,7 @@ export async function buildTestApplication(
     // P7-AI-01: `null` exactly as main.ts passes with the kill-switch off.
     aiExplanationAdapter: null,
     pushMessageSender: options.pushMessageSender ?? stubPushMessageSender(),
+    identityProviderAccounts:
+      options.identityProviderAccounts ?? stubIdentityProviderAccountGateway(),
   });
 }

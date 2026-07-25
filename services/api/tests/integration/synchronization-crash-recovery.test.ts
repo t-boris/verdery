@@ -65,7 +65,7 @@ import type { DatabaseSchema } from '../../src/platform/database/database-gatewa
 import { SYNC_PUSH_OPERATION } from '../../src/modules/synchronization/application/sync-push-idempotency.js';
 import { generateUuidV7 } from '../../src/shared/identifiers/uuid.js';
 import type { Clock } from '../../src/shared/time/clock.js';
-import { buildSyncTestHarness } from '../support/sync-test-harness.js';
+import { buildSyncTestHarness, syncActor } from '../support/sync-test-harness.js';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
 import { startPostgresTestContainer } from '../support/postgres-container.js';
 
@@ -160,7 +160,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const operationId = generateUuidV7();
     const operation = renameGardenOperation(gardenId, 1, 'Sunroom', operationId);
 
-    const first = await harness.pushSyncOperations.execute(ownerId, pushRequest([operation]));
+    const first = await harness.pushSyncOperations.execute(
+      syncActor(ownerId),
+      pushRequest([operation]),
+    );
     expect(first.results[0]).toMatchObject({
       outcome: 'accepted',
       recordRevisions: [{ recordType: 'garden', recordId: gardenId, revision: 2 }],
@@ -192,7 +195,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     // the same `operationId`, per `route-garden-operation.ts`'s own header
     // comment) still remembers it, and replays its own stored `accepted`
     // result instead of re-executing the rename.
-    const retry = await harness.pushSyncOperations.execute(ownerId, pushRequest([operation]));
+    const retry = await harness.pushSyncOperations.execute(
+      syncActor(ownerId),
+      pushRequest([operation]),
+    );
 
     // The wire outcome reads as an ordinary `accepted` (the sync layer has
     // no memory of the first attempt, so it cannot relabel this a

@@ -104,6 +104,27 @@ pending → active → deletion_requested → disabled → purged
 
 State transitions are audited and idempotent.
 
+### 7.1 Implemented account-state profile (P8-DELETE-01)
+
+Every transition on the deletion arm now has a producer, and the state names carry their documented
+meanings exactly:
+
+- `active → deletion_requested` — `POST /account/deletion`, behind a 30-minute step-up gate.
+  "Access is disabled or limited during the recovery window" needs no separate mechanism:
+  `isAccountUsable` already answers `false` here, so every authenticated route refuses the session.
+  The three account-deletion routes are deliberately registered in their own encapsulation context
+  that admits this one state — the "limited" half of the definition, and the only way a recovery
+  window can be acted inside.
+- `deletion_requested → active` — `DELETE /account/deletion`, inside the window, same gate.
+- `deletion_requested → disabled` — the deletion sweep claiming the purge. "Credentials and domain
+  operations are blocked pending purge" is literally the situation; from here recovery is refused.
+- `disabled → purged` — the purge completing, AFTER the Firebase identity is deleted. The row
+  survives as a minimized tombstone (an unresolvable `firebase_uid`, default settings, no personal
+  data) because shared-garden content this account authored still references it; see
+  `data-export-and-deletion.md` section 11.1 for why deleting it is not possible.
+
+`pending` and `suspended` still have no producer, unchanged.
+
 ## 8. Operational Garden Roles
 
 Initial operational roles are:

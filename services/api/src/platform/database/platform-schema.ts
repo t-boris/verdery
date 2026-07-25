@@ -62,6 +62,14 @@ export interface SyncChangeRow {
   operation: 'upsert' | 'delete';
   record_revision: number;
   committed_at: Generated<Date>;
+  /**
+   * P8-DELETE-01: `null` means "every profile the ordinary visibility rule
+   * admits" (every row written before, and every ordinary record change
+   * written after); a profile id narrows the row to that one reader. Only
+   * membership revocation and restoration write it — see the migration's own
+   * comment for why revocation forces the distinction.
+   */
+  target_profile_id: string | null;
 }
 
 export interface AuditEventRow {

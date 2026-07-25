@@ -3,7 +3,15 @@ import {
   DomainRuleViolatedError,
   ValidationError,
 } from '../../../platform/errors/application-error.js';
-import { archiveGarden, createGarden, renameGarden, requestGardenDeletion } from './garden.js';
+import {
+  archiveGarden,
+  claimGardenForPurge,
+  createGarden,
+  renameGarden,
+  requestGardenDeletion,
+  restoreGarden,
+} from './garden.js';
+import { DELETION_RECOVERY_WINDOW_MS } from '../../../shared/deletion/deletion-policy.js';
 
 const OWNER_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0b';
 const GARDEN_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0c';
@@ -23,6 +31,7 @@ describe('createGarden', () => {
       createdAt: NOW,
       updatedAt: NOW,
       deletionRequestedAt: null,
+      recoveryDeadlineAt: null,
     });
   });
 
@@ -94,5 +103,61 @@ describe('requestGardenDeletion', () => {
   it('is not idempotent at the domain layer: a second request on an already-requested garden is a conflict', () => {
     const garden = requestGardenDeletion(createGarden(GARDEN_ID, 'Backyard', OWNER_ID, NOW), LATER);
     expect(() => requestGardenDeletion(garden, LATER)).toThrow(DomainRuleViolatedError);
+  });
+});
+
+describe('the recovery window and the point of no return (P8-DELETE-01)', () => {
+  const requested = (): ReturnType<typeof requestGardenDeletion> =>
+    requestGardenDeletion(createGarden(GARDEN_ID, 'Backyard', OWNER_ID, NOW), LATER);
+
+  it('stamps the 30-day recovery deadline from the request instant', () => {
+    expect(requested().recoveryDeadlineAt).toEqual(
+      new Date(LATER.getTime() + DELETION_RECOVERY_WINDOW_MS),
+    );
+  });
+
+  it('restores to active, clearing both the request instant and the deadline', () => {
+    const restored = restoreGarden(requested(), LATER);
+
+    expect(restored).toMatchObject({
+      lifecycleState: 'active',
+      deletionRequestedAt: null,
+      recoveryDeadlineAt: null,
+      revision: 3,
+    });
+  });
+
+  it('refuses to restore a garden with no pending deletion', () => {
+    const garden = createGarden(GARDEN_ID, 'Backyard', OWNER_ID, NOW);
+    expect(() => restoreGarden(garden, LATER)).toThrow(DomainRuleViolatedError);
+  });
+
+  it('refuses to restore once the purge is claimed, and says so with its own code', () => {
+    const purging = claimGardenForPurge(requested(), LATER);
+
+    expect(() => restoreGarden(purging, LATER)).toThrow(
+      expect.objectContaining({ code: 'deletion.not_recoverable' }) as Error,
+    );
+  });
+
+  it('claims only from deletion_requested, and re-claiming a purging garden burns no revision', () => {
+    const purging = claimGardenForPurge(requested(), LATER);
+    expect(purging.lifecycleState).toBe('purging');
+    expect(purging.revision).toBe(3);
+
+    // The resume case: an interrupted purge's next sweep pass.
+    expect(claimGardenForPurge(purging, LATER)).toBe(purging);
+
+    expect(() => claimGardenForPurge(createGarden(GARDEN_ID, 'B', OWNER_ID, NOW), LATER)).toThrow(
+      DomainRuleViolatedError,
+    );
+  });
+
+  it('keeps a purging garden immutable, exactly like one merely pending deletion', () => {
+    const purging = claimGardenForPurge(requested(), LATER);
+
+    expect(() => renameGarden(purging, 'New name', LATER)).toThrow(DomainRuleViolatedError);
+    expect(() => archiveGarden(purging, LATER)).toThrow(DomainRuleViolatedError);
+    expect(() => requestGardenDeletion(purging, LATER)).toThrow(DomainRuleViolatedError);
   });
 });

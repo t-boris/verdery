@@ -40,7 +40,7 @@ import type {
   MediaStorageObjectTarget,
 } from './media-storage-gateway.js';
 import type { MediaStorageBucketNames } from './media-storage-target.js';
-import type { MediaRepository } from './media-repository.js';
+import type { MediaPurgeScope, MediaRepository } from './media-repository.js';
 import type { QuotaReservationRepository } from './quota-reservation-repository.js';
 import type { MediaTransactionContext, MediaUnitOfWork } from './media-unit-of-work.js';
 
@@ -201,6 +201,34 @@ export class FakeMediaRepository implements MediaRepository {
     }
     return Promise.resolve([...byKind.values()]);
   }
+
+  /** In-memory mirror of the purge scope predicate — see `MediaPurgeScope`. */
+  listPurgeCandidates(scope: MediaPurgeScope, limit: number): Promise<readonly MediaRecord[]> {
+    const candidates = [...this.records.values()].filter(
+      (record) =>
+        this.inScope(record, scope) &&
+        record.derivedFromMediaId === null &&
+        record.uploadState !== 'deletion_scheduled' &&
+        record.uploadState !== 'deleted',
+    );
+    return Promise.resolve(candidates.slice(0, limit));
+  }
+
+  countUndeletedForPurge(scope: MediaPurgeScope): Promise<number> {
+    return Promise.resolve(
+      [...this.records.values()].filter(
+        (record) => this.inScope(record, scope) && record.uploadState !== 'deleted',
+      ).length,
+    );
+  }
+
+  private inScope(record: MediaRecord, scope: MediaPurgeScope): boolean {
+    return scope.kind === 'garden'
+      ? record.gardenId === scope.gardenId
+      : record.gardenId === null &&
+          record.uploadedByProfileId === scope.profileId &&
+          record.mediaClass === 'export_package';
+  }
 }
 
 export class FakeQuotaReservationRepository implements QuotaReservationRepository {
@@ -353,6 +381,18 @@ export class FakeMembershipRepository implements MembershipRepository {
   }
 
   listMembershipsForProfile(): ReturnType<MembershipRepository['listMembershipsForProfile']> {
+    throw new Error('not used by this test');
+  }
+
+  listForGarden(): ReturnType<MembershipRepository['listForGarden']> {
+    throw new Error('not used by this test');
+  }
+
+  listDetailsForProfile(): ReturnType<MembershipRepository['listDetailsForProfile']> {
+    throw new Error('not used by this test');
+  }
+
+  setState(): Promise<void> {
     throw new Error('not used by this test');
   }
 }

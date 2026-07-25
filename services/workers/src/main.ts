@@ -34,6 +34,7 @@ import { createRelayDatabase } from './relay/relay-database.js';
 import { GoogleApiSweepTrigger } from './sweeps/google-api-sweep-trigger.js';
 import { createIntervalSweepScheduler } from './sweeps/interval-sweep-scheduler.js';
 import type {
+  DeletionSweepSummary,
   NotificationDeliverySweepSummary,
   RecommendationEvaluationSweepSummary,
   RetentionSweepSummary,
@@ -151,8 +152,9 @@ async function main(): Promise<void> {
   const poller = createRelayPoller(relay, configuration.relay.pollIntervalMs, logger);
   poller.start();
 
-  // The three scheduled sweeps (P6-RET-01 retention; P7-ASYNC-01 weather
-  // refresh and recommendation evaluation). Each sweep itself runs in
+  // The scheduled sweeps (P6-RET-01 retention; P7-ASYNC-01 weather refresh
+  // and recommendation evaluation; P7-NOTIF-02 delivery; P8-DELETE-01
+  // deletion). Each sweep itself runs in
   // services/api; this process only supplies the schedule and its
   // authenticated trigger — see sweeps/sweep-trigger.ts's own header
   // comment for the privilege-boundary reasoning. All three authenticate
@@ -242,6 +244,29 @@ async function main(): Promise<void> {
   );
   notificationDeliverySweepScheduler.start();
 
+  // P8-DELETE-01: the deletion sweep — the fifth scheduled sweep, same shape
+  // and same audience. The purge itself (privileged deletes across every
+  // module's tables, the Firebase identity deletion) runs in services/api;
+  // this process contributes only the hourly tick.
+  const deletionSweepScheduler = createIntervalSweepScheduler(
+    new GoogleApiSweepTrigger<DeletionSweepSummary>(
+      configuration.deletionSweep.sweepUrl,
+      sweepAudience,
+      {
+        completedEvent: 'deletion.sweep_completed',
+        completedMessage: 'Deletion sweep completed',
+      },
+      logger,
+    ),
+    configuration.deletionSweep.intervalMs,
+    {
+      failedEvent: 'deletion.sweep_failed',
+      failedMessage: 'Deletion sweep trigger failed; it will be retried on the next interval',
+    },
+    logger,
+  );
+  deletionSweepScheduler.start();
+
   logger.info(
     {
       event: 'service.started',
@@ -252,6 +277,7 @@ async function main(): Promise<void> {
       recommendationEvaluationSweepIntervalMs:
         configuration.recommendationEvaluationSweep.intervalMs,
       notificationDeliverySweepIntervalMs: configuration.notificationDeliverySweep.intervalMs,
+      deletionSweepIntervalMs: configuration.deletionSweep.intervalMs,
       httpPort: configuration.httpPort,
     },
     'Worker started',
@@ -264,6 +290,7 @@ async function main(): Promise<void> {
       await weatherRefreshSweepScheduler.stop();
       await recommendationEvaluationSweepScheduler.stop();
       await notificationDeliverySweepScheduler.stop();
+      await deletionSweepScheduler.stop();
       await validationServer.close();
       await relayDatabase.close();
       await cloudTasksClient.close();

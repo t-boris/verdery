@@ -12,6 +12,8 @@ export interface GardenRow {
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
   deletion_requested_at: Date | null;
+  /** P8-DELETE-01 — non-null exactly while `lifecycle_state` is `deletion_requested` or `purging`. */
+  recovery_deadline_at: Date | null;
 }
 
 /** Table lives in the `collaboration` schema; see membership-repository.ts for why this module owns it in Phase 2. */

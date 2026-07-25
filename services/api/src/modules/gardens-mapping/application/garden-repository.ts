@@ -45,4 +45,12 @@ export interface GardenRepository {
     limit: number,
     nameQuery: string | null,
   ): Promise<GardenListPage>;
+
+  /**
+   * Gardens whose 30-day recovery window has closed and whose purge the
+   * deletion sweep may now claim, oldest deadline first, bounded by `limit`
+   * (P8-DELETE-01). Never includes a garden already `purging`: that one is
+   * resumed from its own deletion record, not re-claimed.
+   */
+  listDeletionDue(now: Date, limit: number): Promise<Garden[]>;
 }

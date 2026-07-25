@@ -927,6 +927,49 @@ pipeline is implemented and tested end to end (see `data-export-and-deletion.md`
   P6-RET-01 delete-only role already bound there); written and reviewed, NOT executed — the
   standing infra boundary.
 
+**Deletion residuals (P8-DELETE-01 scope boundaries).** Garden and account deletion — recent-auth
+gates, the 30-day recovery window and its restore, ownership resolution, the revocation cascade,
+the checkpointed purge, media byte deletion through the P6 workflow, the Firebase identity
+deletion, and the surviving completion evidence — are implemented and verified end to end (see
+`data-export-and-deletion.md` sections 10.1, 11.1, 13.1). What the stage deliberately did NOT
+build, each with its flip condition:
+
+- **Client UI for deletion.** The contract ships (`openapi.yaml`, tags `Account` and `Gardens`); no
+  web or iOS surface calls it yet. This is a KNOWN GAP WITH A DEADLINE, not an open-ended
+  deferral: the App Store requires an in-app account-deletion path, so P8-STORE-01 cannot ship
+  without an iOS screen over `POST /account/deletion`. The endpoints are ready and need no backend
+  change.
+- **A restored member's local content.** Restoring a garden (or an account) reactivates the
+  membership and emits a `garden` `upsert`, but does NOT re-emit the garden's content records — the
+  restored client purged them locally on the revocation tombstone. The client's own recovery is the
+  full resynchronization `offline-synchronization.md` section 13 already prescribes for
+  "authorization partitions changed incompatibly" (drop the cursor, pull from the beginning). No
+  server change is required for that; a client-side rule is. Flips into server scope only if
+  per-garden resumable pull is ever added.
+- **Immediate irreversible deletion** (section 12). The recovery window is unconditional. Section
+  12 permits an immediate path "when shared ownership, fraud/security review, and legal obligations
+  permit it" — none of those review processes exist, and a destructive path gated on absent
+  processes would be a liability, not a feature. Flips with the support/fraud tooling P8-SUPPORT-01
+  owns.
+- **Ownership TRANSFER as an alternative to deletion.** Section 11's "by transfer or deletion
+  policy" is resolved today by whichever branch is representable: a co-owner keeps the garden, a
+  sole owner's garden is deleted. Offering a real transfer means naming a recipient, and there is
+  no invitation or ownership-transfer flow to name one through. Flips with the collaboration work
+  package that adds invitations.
+- **Analytics-identifier removal at external providers** (section 11's "Removes analytics
+  identifiers where supported and required"). No analytics provider processes end-user identifiers
+  today (P7-ANALYTICS-01 measures server-side care-loop quality only), so there is no identifier to
+  remove and nothing to call. Flips the moment a provider is introduced.
+- **Membership-tombstone pruning.** A `removed` membership row survives its purged garden forever so
+  an offline client can still converge. The set grows by one row per (purged garden, member) and is
+  tiny, but nothing ever prunes it. The flip is a rule the sync module can decide honestly —
+  "every registered installation of this profile has pulled past the tombstone's sequence" — which
+  needs per-installation cursor tracking the protocol does not store yet.
+- **Backup reapplication of deletions** (section 14). Deletion reaches active systems; nothing yet
+  reapplies a deletion record after a restore from an operational backup. Belongs with P8-DB-01's
+  backup/PITR work and P8-REL-01's restore runbook, which own the restore procedure this rule
+  attaches to.
+
 ## What is _not_ deferred
 
 The pnpm workspace and its version pins, the OpenAPI contract and its generated client, shared

@@ -373,7 +373,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     );
     const requested = await requestGardenDeletion.execute(
       garden.id,
-      ownerId,
+      { profileId: ownerId, authenticatedAt: new Date() },
       archived.revision,
       randomUUID(),
     );
@@ -473,7 +473,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     const requested = await requestGardenDeletion.execute(
       garden.id,
-      ownerId,
+      { profileId: ownerId, authenticatedAt: new Date() },
       garden.revision,
       randomUUID(),
     );

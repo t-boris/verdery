@@ -8,6 +8,7 @@ describe('lifecycleLabel', () => {
     ['active', 'gardens.lifecycleActive'],
     ['archived', 'gardens.lifecycleArchived'],
     ['deletionRequested', 'gardens.lifecycleDeletionRequested'],
+    ['purging', 'gardens.lifecyclePurging'],
   ])('maps %s to %s', (state, key) => {
     expect(lifecycleLabel(state)).toBe(key);
   });

@@ -48,6 +48,12 @@ export class KyselySyncChangeQuery implements SyncChangeQuery {
       .selectFrom('platform.sync_change')
       .selectAll()
       .where('sequence', '>', afterSequence)
+      // P8-DELETE-01: a row addressed to one profile is invisible to every
+      // other reader, whatever the garden-visibility branches below decide.
+      // `null` — every ordinary record change — passes unchanged.
+      .where((eb) =>
+        eb.or([eb('target_profile_id', 'is', null), eb('target_profile_id', '=', input.profileId)]),
+      )
       .where((eb) => this.visibilityCondition(eb, activeGardenIds, tombstoneOnlyGardenIds))
       .orderBy('sequence', 'asc')
       .limit(limit)

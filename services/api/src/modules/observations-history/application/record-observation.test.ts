@@ -67,6 +67,18 @@ class FakeMembershipRepository implements MembershipRepository {
   listMembershipsForProfile(): Promise<never[]> {
     throw new Error('not used by this test');
   }
+
+  listForGarden(): Promise<never[]> {
+    throw new Error('not used by this test');
+  }
+
+  listDetailsForProfile(): Promise<never[]> {
+    throw new Error('not used by this test');
+  }
+
+  setState(): Promise<void> {
+    throw new Error('not used by this test');
+  }
 }
 
 function authorizationWithRole(role: GardenRole | null): GardenAuthorization {
@@ -144,6 +156,14 @@ class FakeMediaRepository implements MediaRepository {
   }
 
   listDisplayDerivatives(): Promise<readonly MediaRecord[]> {
+    throw new Error('not used by this test');
+  }
+
+  listPurgeCandidates(): Promise<readonly MediaRecord[]> {
+    throw new Error('not used by this test');
+  }
+
+  countUndeletedForPurge(): Promise<number> {
     throw new Error('not used by this test');
   }
 

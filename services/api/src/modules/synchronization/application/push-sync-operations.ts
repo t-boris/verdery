@@ -55,6 +55,7 @@ import type {
 import { SharedErrorCode } from '@verdery/api-contracts';
 import { ConflictError } from '../../../platform/errors/application-error.js';
 import type { IdempotencyStore } from '../../../platform/idempotency/idempotency-store.js';
+import type { DeletionActor } from '../../../shared/deletion/deletion-policy.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { DependencyAwareOperation } from './order-sync-operations.js';
 import { orderAndProcessSyncOperations } from './order-sync-operations.js';
@@ -132,7 +133,9 @@ export class PushSyncOperations {
     private readonly router: SyncOperationRouter,
   ) {}
 
-  async execute(profileId: Uuid, request: SyncPushRequest): Promise<SyncPushResult> {
+  async execute(actor: DeletionActor, request: SyncPushRequest): Promise<SyncPushResult> {
+    const profileId = actor.profileId;
+
     // The OpenAPI operation's own `409` response documents
     // `sync.protocol_version.unsupported` for push, identically to
     // `GetSyncChanges`'s own check below it — this call was missing
@@ -225,7 +228,7 @@ export class PushSyncOperations {
         }
 
         const outcome = await this.router.route(
-          profileId,
+          actor,
           operation.operationId,
           operation.operation.payload,
         );

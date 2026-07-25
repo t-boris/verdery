@@ -32,6 +32,18 @@ class FakeMembershipRepository implements MembershipRepository {
   listMembershipsForProfile(): Promise<never[]> {
     throw new Error('not used by this test');
   }
+
+  listForGarden(): Promise<never[]> {
+    throw new Error('not used by this test');
+  }
+
+  listDetailsForProfile(): Promise<never[]> {
+    throw new Error('not used by this test');
+  }
+
+  setState(): Promise<void> {
+    throw new Error('not used by this test');
+  }
 }
 
 class FakeObservationRepository implements ObservationRepository {

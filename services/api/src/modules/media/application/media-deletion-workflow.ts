@@ -33,10 +33,12 @@
  *     job row while the record stays `deletion_scheduled` ("User-visible
  *     deletion remains pending until required objects are confirmed
  *     deleted").
- *  7. "Purge or minimize metadata" — NOT this stage: the row survives at
- *     `deleted` as audit evidence; row purge policy belongs to the
- *     garden/account deletion workflows (data-export-and-deletion.md),
- *     which do not exist yet.
+ *  7. "Purge or minimize metadata" — not this workflow's own step: the row
+ *     survives at `deleted` as audit evidence, and row purge belongs to the
+ *     garden/account deletion workflows (data-export-and-deletion.md), which
+ *     P8-DELETE-01 built. Those workflows delete the row only AFTER this
+ *     workflow has confirmed the bytes absent — see
+ *     `schedule-purge-media-deletion.ts`.
  *  8. "Emit completion" — the `media.deleted` audit event, recorded when
  *     absence is confirmed, plus the quota release (section 17's
  *     "released bytes", `releaseQuotaReservationForDeletedMedia`).
@@ -88,7 +90,14 @@ const DELETED_AUDIT_EVENT_TYPE = 'media.deleted';
 export interface MediaDeletionInitiator {
   readonly actorProfileId: Uuid | null;
   readonly actorType: AuditActorType;
-  readonly reason: 'user_request' | 'retention_deadline' | 'stale_upload' | 'derivative_cleanup';
+  readonly reason:
+    | 'user_request'
+    | 'retention_deadline'
+    | 'stale_upload'
+    | 'derivative_cleanup'
+    /** P8-DELETE-01: a garden or account purge past its recovery window. */
+    | 'garden_purge'
+    | 'account_purge';
 }
 
 /**

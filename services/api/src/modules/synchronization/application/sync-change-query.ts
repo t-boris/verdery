@@ -20,6 +20,8 @@ import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { SyncRecordType } from '../../../platform/sync/sync-record-type.js';
 
 export interface SyncChangeQueryInput {
+  /** The pulling profile. A row addressed to a DIFFERENT profile (`target_profile_id`, P8-DELETE-01) is invisible here regardless of the garden lists below; an unaddressed row — every ordinary record change — is unaffected. */
+  readonly profileId: Uuid;
   /** Gardens the caller currently has active membership on — every change for these is visible. */
   readonly activeGardenIds: readonly Uuid[];
   /** Gardens the caller has some (non-active) membership history for but no longer active access to — only that garden's own `record: 'garden'`, `operation: 'delete'` tombstone is visible from these. */

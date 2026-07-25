@@ -3,7 +3,8 @@
  * P7-ASYNC-01 generalized it when the third and fourth sweep arrived).
  *
  * Every sweep — media retention, weather refresh, recommendation
- * evaluation — runs entirely in `services/api` behind an authenticated
+ * evaluation, notification delivery, deletion — runs entirely in
+ * `services/api` behind an authenticated
  * internal endpoint, because the privileged reads and writes each sweep
  * performs live there: `verdery_worker` has deliberately never been able to
  * read `media.media_record`, any `gardens_mapping`/`plants_inventory`
@@ -66,6 +67,16 @@ export interface RecommendationEvaluationSweepSummary {
   readonly ruleSkips: Readonly<Record<string, number>>;
   /** `null` whenever the API's `RECOMMENDATION_AI_EXPLANATION_ENABLED` kill-switch keeps the phase from existing (every environment today). */
   readonly embellishment: RecommendationEmbellishmentSummary | null;
+}
+
+/** Mirrors `services/api`'s `DeletionSweepResult` (P8-DELETE-01). */
+export interface DeletionSweepSummary {
+  readonly gardensClaimed: number;
+  readonly accountsClaimed: number;
+  readonly purgesCompleted: number;
+  readonly purgesDeferred: number;
+  readonly purgesFailed: number;
+  readonly lostClaims: number;
 }
 
 /** Mirrors `services/api`'s `NotificationDeliverySweepResult` (P7-NOTIF-02). */

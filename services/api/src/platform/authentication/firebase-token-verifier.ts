@@ -1,8 +1,9 @@
 /**
  * Firebase Admin SDK adapter for {@link TokenVerifier}.
  *
- * One of two files in the service allowed to import `firebase-admin` — the
- * other is `platform/app-check/firebase-app-check-verifier.ts`. Runs under
+ * One of three files in the service allowed to import `firebase-admin` — the
+ * others are `platform/app-check/firebase-app-check-verifier.ts` and
+ * `firebase-identity-provider-account-gateway.ts`. Runs under
  * the runtime service account's own Google identity — no downloaded service
  * account key — matching `roles/firebaseauth.admin` granted in
  * infrastructure/gcloud/scripts/05-service-accounts.sh.

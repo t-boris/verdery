@@ -21,6 +21,7 @@ export class KyselySyncChangeRecorder implements SyncChangeRecorder {
         record_type: input.recordType,
         operation: input.operation,
         record_revision: input.recordRevision,
+        target_profile_id: input.targetProfileId ?? null,
       })
       .execute();
   }

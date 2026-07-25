@@ -1445,10 +1445,13 @@ Durability"), and the account/garden purge contract in
 Deletion is the one scenario where **doing nothing has a compliance cost**. Every other runbook can
 end in "wait for it to drain"; this one cannot, because a user was told their data would be removed.
 
-The purge workflow itself is `P8-DELETE-01`, landing concurrently. Its schema is already in the
-repository (`services/api/migrations/1786400000000_deletion-baseline.sql`). The steps below stay at
-the operational level — states, evidence, and decisions — so they survive that work package's
-landing.
+The purge workflow itself is `P8-DELETE-01`, now landed
+(`services/api/migrations/1786400000000_deletion-baseline.sql`, `services/api/src/modules/deletion/`).
+The sweep that drives it is `POST /v1/internal/deletion/sweep`, triggered hourly by
+`verdery-workers`' `DELETION_SWEEP_URL` scheduler — so "is the sweep running at all?" below is
+answered by whether that service is deployed and its tick is logging `deletion.sweep_completed`.
+The steps here stay at the operational level — states, evidence, and decisions — which is why they
+needed no revision when the work package landed.
 
 ### The state machine, and the deliberate hole in it
 

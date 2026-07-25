@@ -278,6 +278,14 @@ export class FakeMediaRepository implements MediaRepository {
     throw new Error('not used by this test');
   }
 
+  listPurgeCandidates(): Promise<readonly MediaRecord[]> {
+    throw new Error('not used by this test');
+  }
+
+  countUndeletedForPurge(): Promise<number> {
+    throw new Error('not used by this test');
+  }
+
   scheduleDerivativesForDeletion(): Promise<number> {
     throw new Error('not used by this test');
   }
@@ -307,6 +315,18 @@ export class FakeMembershipRepository implements MembershipRepository {
   }
 
   listMembershipsForProfile(): ReturnType<MembershipRepository['listMembershipsForProfile']> {
+    throw new Error('not used by this test');
+  }
+
+  listForGarden(): ReturnType<MembershipRepository['listForGarden']> {
+    throw new Error('not used by this test');
+  }
+
+  listDetailsForProfile(): ReturnType<MembershipRepository['listDetailsForProfile']> {
+    throw new Error('not used by this test');
+  }
+
+  setState(): Promise<void> {
     throw new Error('not used by this test');
   }
 }

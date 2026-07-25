@@ -264,6 +264,12 @@ export type ExportRequestState = Schemas['ExportRequestState'];
 export type CreateExportRequest = Schemas['CreateExportRequest'];
 export type ExportRequest = Schemas['ExportRequest'];
 
+/** The account-deletion schemas (P8-DELETE-01). */
+export type AccountDeletionState = Schemas['AccountDeletionState'];
+export type AccountDeletionGardenResolution = Schemas['AccountDeletionGardenResolution'];
+export type AccountDeletionGarden = Schemas['AccountDeletionGarden'];
+export type AccountDeletion = Schemas['AccountDeletion'];
+
 /** The API base path. Breaking changes require a new major path. */
 export const API_BASE_PATH = '/v1';
 
@@ -455,6 +461,27 @@ export const ExportErrorCode = {
 } as const;
 
 export type ExportErrorCode = (typeof ExportErrorCode)[keyof typeof ExportErrorCode];
+
+/**
+ * Error codes the deletion surface raises (P8-DELETE-01) — shared by garden
+ * deletion (`requestGardenDeletion`, `restoreGarden`) and account deletion
+ * (`requestAccountDeletion`, `restoreAccount`, `getAccountDeletion`), because
+ * both halves enforce exactly the same three rules: a recent sign-in, a state
+ * a request or a restore can actually proceed from, and the point of no
+ * return once a purge has been claimed.
+ */
+export const DeletionErrorCode = {
+  /** Deletion and restore require a recent sign-in (architecture/data-export-and-deletion.md sections 10.1 and 11); the session's `auth_time` is too old. */
+  RecentAuthenticationRequired: 'deletion.recent_authentication_required',
+  /** No deletion is pending for the caller's account. */
+  NotFound: 'deletion.not_found',
+  /** A deletion is already pending for this subject. */
+  AlreadyRequested: 'deletion.already_requested',
+  /** The recovery window is over: the purge has been claimed and the subject can never return to active (section 16). */
+  NotRecoverable: 'deletion.not_recoverable',
+} as const;
+
+export type DeletionErrorCode = (typeof DeletionErrorCode)[keyof typeof DeletionErrorCode];
 
 /** Narrows an unknown response body to the shared error envelope. */
 export function isApiError(value: unknown): value is ApiError {

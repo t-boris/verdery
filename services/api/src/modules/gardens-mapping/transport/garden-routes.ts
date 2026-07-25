@@ -24,6 +24,7 @@ import type { GetGarden } from '../application/get-garden.js';
 import type { ListGardens } from '../application/list-gardens.js';
 import type { RenameGarden } from '../application/rename-garden.js';
 import type { RequestGardenDeletion } from '../application/request-garden-deletion.js';
+import type { RestoreGardenDeletion } from '../application/restore-garden-deletion.js';
 
 export interface GardenRoutesDependencies {
   readonly listGardens: ListGardens;
@@ -32,6 +33,8 @@ export interface GardenRoutesDependencies {
   readonly renameGarden: RenameGarden;
   readonly archiveGarden: ArchiveGarden;
   readonly requestGardenDeletion: RequestGardenDeletion;
+  /** P8-DELETE-01 — withdraws a deletion request inside its recovery window. */
+  readonly restoreGardenDeletion: RestoreGardenDeletion;
 }
 
 // Matches `components.schemas.Uuid` in packages/api-contracts/openapi.yaml exactly.
@@ -220,7 +223,22 @@ export function registerGardenRoutes(
 
     const garden = await dependencies.requestGardenDeletion.execute(
       gardenId,
-      request.actorContext.profileId,
+      request.actorContext,
+      expectedRevision,
+      idempotencyKey,
+    );
+
+    return reply.status(200).send(garden);
+  });
+
+  app.delete('/gardens/:gardenId/delete-request', async (request, reply) => {
+    const gardenId = requireGardenId(request);
+    const idempotencyKey = requireIdempotencyKey(request);
+    const expectedRevision = requireExpectedRevision(request);
+
+    const garden = await dependencies.restoreGardenDeletion.execute(
+      gardenId,
+      request.actorContext,
       expectedRevision,
       idempotencyKey,
     );

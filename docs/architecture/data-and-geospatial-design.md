@@ -243,6 +243,18 @@ Ending a client engagement revokes client access without deleting the service pr
 
 The baseline user recovery window is 30 days unless the user selects immediate irreversible deletion where supported or legal policy requires another behavior.
 
+### 15.1 Implemented deletion-state profile (P8-DELETE-01)
+
+The four explicit states map onto `gardens_mapping.garden.lifecycle_state` as: `active`;
+`deletion_requested` (user-deleted and recoverable, carrying `recovery_deadline_at`); `purging`
+(scheduled for purge — the point of no return, from which restore is refused); and purged, which is
+represented by the ABSENCE of the row rather than a fifth value, because the purge deletes it. What
+survives instead is `platform.sync_change` (the garden's own `delete` tombstone), the `removed`
+membership rows that make that tombstone deliverable, and the completion evidence in
+`deletion.deletion_record` — see `data-export-and-deletion.md` sections 10.1 and 13.1 for the
+purge's dependency order and what it may retain. Immediate irreversible deletion is deliberately
+not offered; the recovery window is unconditional.
+
 ## 16. Synchronization Change Log
 
 The server maintains an ordered change log containing:
@@ -258,6 +270,21 @@ The server maintains an ordered change log containing:
 Payload strategy may use compact current snapshots or references. A client can resume from a durable cursor and receive deterministic bounded pages.
 
 Change-log retention must exceed the supported offline interval or force a clearly handled full resynchronization.
+
+### 16.1 Implemented authorization-partition metadata (P8-DELETE-01)
+
+"Authorization partition metadata" is two columns, added when revocation forced the distinction.
+`garden_id` is the partition itself, and `target_profile_id` (nullable) narrows one row to a single
+reader: `NULL` means "everyone the ordinary visibility rule admits" — the meaning every row written
+before P8-DELETE-01 has, and every ordinary record change written after it — while a profile id
+addresses the row to exactly one member.
+
+Only membership revocation and restoration write it, because only they produce a change that is
+simultaneously right for one reader and wrong for another: a garden deletion request must give the
+revoked collaborator a `delete` tombstone so their offline client purges its local copy, while the
+still-active OWNER — the only person who can withdraw the request — must not receive that same row.
+Neither column carries a foreign key, for the reason this table has never had one: a tombstone must
+remain readable after the garden or profile it names is gone.
 
 ## 17. Idempotency Records
 

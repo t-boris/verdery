@@ -11,20 +11,28 @@ export interface Membership {
 /**
  * `collaboration.membership.state` as this codebase's own migration already
  * constrains it (`membership_state_check CHECK (state IN ('active',
- * 'removed'))`) — `'removed'` is schema-anticipated but has zero producers
- * today: no command anywhere transitions a membership row to it (confirmed
- * by inspection for P5-BE-02 — `insertOwner` below is still the only write
- * this interface exposes). `listMembershipsForProfile` is written against the
- * full two-value type regardless, so `GetSyncChanges`'s own tombstone
- * filtering (see `get-sync-changes.ts`'s header comment) is already correct
- * the day a real revocation command starts writing `'removed'`, with no
- * change needed here or there.
+ * 'removed'))`). `'removed'` was schema-anticipated with zero producers until
+ * P8-DELETE-01: garden deletion revokes non-owner members at request time,
+ * restore reactivates them, and the purge revokes whoever remains. A
+ * `'removed'` row is the offline-synchronization revocation tombstone and
+ * deliberately OUTLIVES the purged garden it names — see the deletion
+ * baseline migration for why the garden foreign key had to go.
  */
 export type GardenMembershipState = 'active' | 'removed';
 
 export interface GardenPartitionMembership {
   readonly gardenId: Uuid;
   readonly state: GardenMembershipState;
+}
+
+/** A membership row with everything the deletion workflows decide on: who, which role, which state, and when the state last moved. */
+export interface MembershipDetail {
+  readonly id: Uuid;
+  readonly gardenId: Uuid;
+  readonly profileId: Uuid;
+  readonly role: GardenRole;
+  readonly state: GardenMembershipState;
+  readonly updatedAt: Date;
 }
 
 /**
@@ -53,4 +61,19 @@ export interface MembershipRepository {
    * removed still needs to learn that fact from its next pull.
    */
   listMembershipsForProfile(profileId: Uuid): Promise<GardenPartitionMembership[]>;
+
+  /**
+   * Every membership row on one garden, in any state (P8-DELETE-01). The
+   * deletion workflows need the whole set, not just the active part: request
+   * time decides who to revoke from the active rows, restore decides who to
+   * reactivate from the removed ones, and the purge needs to know that
+   * nobody is left active.
+   */
+  listForGarden(gardenId: Uuid): Promise<MembershipDetail[]>;
+
+  /** Every membership row this profile has, with role and state — the ownership-resolution input for account deletion (P8-DELETE-01). */
+  listDetailsForProfile(profileId: Uuid): Promise<MembershipDetail[]>;
+
+  /** Moves one membership row between `active` and `removed`, stamping `updated_at` — which is what later tells a restore which rows a given deletion request revoked. */
+  setState(membershipId: Uuid, state: GardenMembershipState, now: Date): Promise<void>;
 }

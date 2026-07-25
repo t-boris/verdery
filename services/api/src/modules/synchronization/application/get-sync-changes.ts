@@ -54,22 +54,22 @@
  * tombstone-visibility carve-out from leaking to a profile who never had
  * access in the first place.
  *
- * **What is verified, not assumed, about who actually produces a
- * `'removed'` membership state today: nobody.** `MembershipRepository`
- * exposes exactly two writes — `insertOwner` (garden creation) and nothing
- * else; no command anywhere in this codebase (`identity-access`,
- * `gardens-mapping`, or otherwise) transitions a membership row away from
- * `'active'`, confirmed by inspection, the same way Stage 1 confirmed no
- * producer for `retryLater`. `collaboration.membership.state`'s own `CHECK`
- * constraint already anticipates `'removed'` (schema-first, unused), but
- * membership revocation is a genuine, currently unimplemented product-wide
- * gap — not merely a sync-side omission — and this is not the work package
- * that adds a revocation command. What this method *does* do is make the
- * pull side correct in advance: the moment a future revocation command
- * exists and writes its `platform.sync_change` tombstone the same way every
- * other mutating command already does (see `delete-map-object.ts` for the
- * established pattern), it is delivered correctly with zero further changes
- * here.
+ * **Who produces a `'removed'` membership state (P8-DELETE-01 — this was
+ * "nobody" until deletion shipped):** `RequestGardenDeletion` revokes every
+ * non-owner member, `RestoreGardenDeletion` reactivates exactly those, and
+ * the deletion purge revokes whoever is left before the garden row itself
+ * disappears. The pull side written here needed no change to deliver any of
+ * it, exactly as this comment predicted — with ONE addition that revocation
+ * did force, in `platform.sync_change` rather than here: a revocation
+ * tombstone is addressed to the revoked profile alone
+ * (`target_profile_id`), because the same row reaching the still-active
+ * owner would make the owner's client discard a garden they can still
+ * recover. See the deletion baseline migration's own comment.
+ *
+ * A membership row therefore now OUTLIVES its garden: the purge deletes the
+ * garden row but leaves the `'removed'` membership behind precisely so
+ * `tombstoneOnlyGardenIds` below keeps working for a client that has not
+ * reconnected yet.
  *
  * ## Building each upsert row's `record`
  *
@@ -226,6 +226,7 @@ export class GetSyncChanges {
       .map((membership) => membership.gardenId);
 
     const rows = await this.syncChanges.listAfter({
+      profileId,
       activeGardenIds,
       tombstoneOnlyGardenIds,
       afterSequence: cursor.afterSequence,

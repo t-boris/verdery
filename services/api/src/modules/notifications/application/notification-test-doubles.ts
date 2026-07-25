@@ -16,8 +16,6 @@ import type {
 } from '../../../platform/idempotency/idempotency-store.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
-import { GardenAuthorization } from '../../gardens-mapping/public.js';
-import type { GardenRole, MembershipRepository } from '../../gardens-mapping/public.js';
 import type { NotificationDevice } from '../domain/notification-device.js';
 import type { NotificationIntent } from '../domain/notification-intent.js';
 import { INBOX_VISIBLE_STATES } from '../domain/notification-intent.js';
@@ -526,38 +524,6 @@ export class FakeIdempotencyStore implements IdempotencyStore {
         : { responseStatusCode: existing.responseStatusCode, responseBody: existing.responseBody },
     );
   }
-}
-
-export interface FakeMembership {
-  readonly id: string;
-  readonly gardenId: Uuid;
-  readonly profileId: Uuid;
-  readonly role: GardenRole;
-}
-
-class FakeMembershipRepository implements MembershipRepository {
-  constructor(private readonly membership: FakeMembership | null) {}
-
-  findActiveMembership(): ReturnType<MembershipRepository['findActiveMembership']> {
-    return Promise.resolve(this.membership);
-  }
-
-  insertOwner(): Promise<void> {
-    throw new Error('not used by this test');
-  }
-
-  listMembershipsForProfile(): ReturnType<MembershipRepository['listMembershipsForProfile']> {
-    throw new Error('not used by this test');
-  }
-}
-
-/** A real `GardenAuthorization` over a fake membership — the sibling modules' own construction. */
-export function authorizationGranting(membership: FakeMembership): GardenAuthorization {
-  return new GardenAuthorization(new FakeMembershipRepository(membership));
-}
-
-export function authorizationDenying(): GardenAuthorization {
-  return new GardenAuthorization(new FakeMembershipRepository(null));
 }
 
 export interface NotificationsFakes {

@@ -69,6 +69,14 @@ class FakeMediaRepository implements MediaRepository {
     throw new Error('not used by this test');
   }
 
+  listPurgeCandidates(): Promise<readonly MediaRecord[]> {
+    throw new Error('not used by this test');
+  }
+
+  countUndeletedForPurge(): Promise<number> {
+    throw new Error('not used by this test');
+  }
+
   scheduleDerivativesForDeletion(): Promise<number> {
     throw new Error('not used by this test');
   }

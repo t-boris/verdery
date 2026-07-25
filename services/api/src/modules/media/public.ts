@@ -82,6 +82,10 @@ export { DeleteGardenMedia } from './application/delete-garden-media.js';
 export { GetMediaRetentionPolicy } from './application/get-media-retention-policy.js';
 export { RunMediaRetentionSweep } from './application/run-media-retention-sweep.js';
 export type { MediaRetentionSweepResult } from './application/run-media-retention-sweep.js';
+// P8-DELETE-01: the purge's entry into the same byte-deletion workflow.
+export type { MediaDeletionInitiator } from './application/media-deletion-workflow.js';
+export { SchedulePurgeMediaDeletion } from './application/schedule-purge-media-deletion.js';
+export type { SchedulePurgeMediaDeletionResult } from './application/schedule-purge-media-deletion.js';
 export { KyselyMediaReferenceFinder } from './persistence/kysely-media-reference-finder.js';
 export type { MediaRetentionSweepRouteDependencies } from './transport/media-retention-sweep-route.js';
 export { registerMediaRetentionSweepRoute } from './transport/media-retention-sweep-route.js';
@@ -95,7 +99,7 @@ export {
   releaseQuotaReservation,
   reserveMediaQuota,
 } from './domain/quota-reservation.js';
-export type { MediaRepository } from './application/media-repository.js';
+export type { MediaPurgeScope, MediaRepository } from './application/media-repository.js';
 export type { MediaRecordResource } from './application/media-record-view.js';
 export type { MediaUnitOfWork, MediaTransactionContext } from './application/media-unit-of-work.js';
 // P6-ASYNC-01: durable processing-job state, the processing-result callback

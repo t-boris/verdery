@@ -12,6 +12,10 @@ export interface ProfileRow {
   revision: Generated<number>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
+  /** P8-DELETE-01 — the account's own recovery window and purge evidence. */
+  deletion_requested_at: Date | null;
+  recovery_deadline_at: Date | null;
+  purged_at: Date | null;
 }
 
 export interface IdentityProviderLinkRow {

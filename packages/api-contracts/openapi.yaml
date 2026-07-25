@@ -54,6 +54,8 @@ tags:
     description: The native offline outbox protocol — client installation registration, bounded batched push of client commands, resumable pull of the server change log, and cheap re-acknowledgement of already-submitted operations.
   - name: Notifications
     description: The per-user in-app notification inbox — the durable user-facing record of eligible notifications, with read state, dismissal, expiration, and stable deep links — plus the caller's own notification preferences (per-type and per-channel toggles with optional per-garden overrides, quiet hours, and time zone). Intents are created exclusively by the server-side notification policy from domain events; these operations read and annotate them, never create them.
+  - name: Account
+    description: The caller's own account lifecycle — requesting deletion of the account and everything it solely owns, inspecting the resulting 30-day recovery window and its per-garden resolution, and withdrawing the request before the deadline. These are the only operations reachable while an account is inside its recovery window; every other endpoint refuses a non-active account.
   - name: Exports
     description: Portable data export — request an asynchronous account-wide or garden-scoped export package (ZIP with JSON, GeoJSON, CSV, entitled media, checksums, and a README), poll its state, and obtain a short-lived signed download URL while the package is within its 7-day expiry window. Generation is asynchronous and checkpointed; completion is announced through the in-app notification inbox.
 
@@ -340,17 +342,79 @@ paths:
       summary: Request garden deletion
       description: |
         Owner-only lifecycle command. Starts the deletion workflow; it does
-        not delete the garden immediately. Purge after the recovery window is
-        a separate, not-yet-implemented asynchronous workflow.
+        not delete the garden immediately (architecture/data-export-and-
+        deletion.md, section 10).
 
-        Source: implementation-plan.md work packages P2-API-01, P2-SEC-01;
-        architecture/data-and-geospatial-design.md, section "15. Deletion".
+        Requires RECENT authentication (section 10.1): a session whose
+        underlying sign-in is older than 30 minutes is rejected with `403`
+        and `error.code` `deletion.recent_authentication_required`.
+
+        On acceptance the garden stops accepting edits, every NON-owner
+        membership is revoked (each revoked member's next `getSyncChanges`
+        pull carries the garden as an ordinary `delete` tombstone so their
+        offline clients purge local copies), and `recoveryDeadlineAt` is
+        stamped 30 days out. `restoreGarden` fully reverses all of that until
+        the deadline passes; afterwards the deletion sweep purges the garden
+        irreversibly.
+
+        Source: implementation-plan.md work packages P2-API-01, P2-SEC-01,
+        P8-DELETE-01; architecture/data-and-geospatial-design.md, section
+        "15. Deletion"; architecture/data-export-and-deletion.md, section
+        "10. Garden Deletion".
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
         - $ref: '#/components/parameters/IfMatch'
       responses:
         '200':
-          description: The garden, now in the deletion_requested lifecycle state.
+          description: The garden, now in the deletionRequested lifecycle state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Garden'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+
+    delete:
+      operationId: restoreGarden
+      tags: [Gardens]
+      summary: Withdraw a garden deletion request within the recovery window
+      description: |
+        Owner-only. Reverses `requestGardenDeletion` completely while the
+        garden is still inside its recovery window: the lifecycle state
+        returns to `active`, `recoveryDeadlineAt` is cleared, and every
+        membership revoked by the deletion request is reactivated (each
+        restored member's next pull carries the garden as an ordinary
+        `upsert`, so their client repopulates).
+
+        Requires RECENT authentication, exactly like the request it reverses.
+
+        Recovery ends when the deletion sweep claims the garden. That claim
+        revokes every remaining membership in the same transaction — the
+        offline-client revocation of section 10.6 — so a later attempt is
+        `404` (`garden.not_found`), the same concealment every garden route
+        applies to a caller with no membership. A restore that RACES the
+        claim (authorized before it, applied after) instead gets `409` with
+        `error.code` `deletion.not_recoverable`. Either way "a deletion
+        request cannot return to active accidentally after purge begins"
+        (architecture/data-export-and-deletion.md, section 16) holds.
+
+        Source: implementation-plan.md work package P8-DELETE-01;
+        architecture/data-export-and-deletion.md, sections "10. Garden
+        Deletion", "16. Failure and Retry".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: The garden, restored to the active lifecycle state.
           content:
             application/json:
               schema:
@@ -2376,6 +2440,114 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /account/deletion:
+    post:
+      operationId: requestAccountDeletion
+      tags: [Account]
+      summary: Request deletion of the caller's own account
+      description: |
+        Starts account deletion for the authenticated caller
+        (architecture/data-export-and-deletion.md, section 11). Nothing is
+        deleted immediately: the account enters a 30-day recovery window
+        during which ordinary access is disabled and only this resource
+        remains reachable.
+
+        Requires RECENT authentication: a session whose underlying sign-in is
+        older than 30 minutes is rejected with `403` and `error.code`
+        `deletion.recent_authentication_required`.
+
+        OWNERSHIP RESOLUTION runs synchronously and is reported in
+        `gardens` (section 11, "Resolves owned shared gardens by transfer or
+        deletion policy"):
+
+        - A garden the caller owns ALONE enters `deletionRequested` with the
+          same recovery deadline as the account, and is purged with it —
+          resolution `gardenDeletionRequested`.
+        - A garden with another active owner survives; the caller's own
+          membership is revoked — resolution `ownershipRetainedByCoOwner`.
+        - A garden where the caller is only an editor or viewer survives; the
+          membership is revoked — resolution `membershipRevoked`.
+
+        Every revocation surfaces to the caller's other offline clients as an
+        ordinary `garden` `delete` change on the next pull.
+
+        Immediate irreversible deletion (section 12) is deliberately not
+        offered: the recovery window is unconditional.
+
+        Source: implementation-plan.md work package P8-DELETE-01;
+        architecture/data-export-and-deletion.md, section "11. Account Deletion".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: The account is now inside its recovery window.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDeletion'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    get:
+      operationId: getAccountDeletion
+      tags: [Account]
+      summary: Get the caller's own account-deletion state
+      description: |
+        The caller's pending deletion — state, deadline, and the recorded
+        per-garden ownership resolution. Reachable while the account is
+        inside its recovery window, which is the whole point: it is how a
+        signed-in-but-disabled user sees what will happen and when.
+
+        `404` (`deletion.not_found`) when no deletion is pending.
+      responses:
+        '200':
+          description: The pending account deletion.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDeletion'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      operationId: restoreAccount
+      tags: [Account]
+      summary: Withdraw an account-deletion request within the recovery window
+      description: |
+        Reverses `requestAccountDeletion` completely: the account returns to
+        `active`, every membership revoked by the request is reactivated, and
+        every garden the request put into `deletionRequested` returns to
+        `active`.
+
+        Requires RECENT authentication, exactly like the request it reverses.
+
+        Once the deletion sweep has claimed the account recovery is
+        impossible and the response is `409` with `error.code`
+        `deletion.not_recoverable`.
+
+        Source: implementation-plan.md work package P8-DELETE-01;
+        architecture/data-export-and-deletion.md, sections "11. Account
+        Deletion", "16. Failure and Retry".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: The account is active again and no deletion is pending.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
   /exports:
     post:
       operationId: requestExport
@@ -3172,13 +3344,20 @@ components:
 
     GardenLifecycleState:
       type: string
-      enum: [active, archived, deletionRequested]
+      enum: [active, archived, deletionRequested, purging]
       description: |
         `deletionRequested` starts the deletion workflow; it is not immediate
-        deletion. No `deleted` value exists yet: nothing can reach it before
-        the purge workflow that would produce it is built.
+        deletion. The garden stays recoverable through `restoreGarden` until
+        `recoveryDeadlineAt` passes.
 
-        Source: architecture/data-and-geospatial-design.md, section "15. Deletion".
+        `purging` is the point of no return (P8-DELETE-01): the deletion sweep
+        has claimed the garden and is executing the irreversible purge.
+        `restoreGarden` refuses it, and the garden row itself disappears when
+        the purge completes — no `deleted` value exists because no readable
+        garden survives to carry one.
+
+        Source: architecture/data-and-geospatial-design.md, section "15. Deletion";
+        architecture/data-export-and-deletion.md, section "10. Garden Deletion".
 
     GardenRole:
       type: string
@@ -3211,6 +3390,16 @@ components:
           $ref: '#/components/schemas/Timestamp'
         updatedAt:
           $ref: '#/components/schemas/Timestamp'
+        recoveryDeadlineAt:
+          allOf:
+            - $ref: '#/components/schemas/Timestamp'
+          description: |
+            When the 30-day recovery window closes and the irreversible purge
+            becomes eligible (P8-DELETE-01). Present only while
+            `lifecycleState` is `deletionRequested` or `purging`; absent
+            otherwise.
+
+            Source: architecture/data-export-and-deletion.md, section "10. Garden Deletion".
 
     GardenListResult:
       type: object
@@ -7116,6 +7305,68 @@ components:
           $ref: '#/components/schemas/Timestamp'
         updatedAt:
           $ref: '#/components/schemas/Timestamp'
+
+    AccountDeletionState:
+      type: string
+      enum: [recoveryWindow, purging]
+      description: |
+        `recoveryWindow` — the deletion is pending and fully reversible
+        through `restoreAccount` until `recoveryDeadlineAt`.
+
+        `purging` — the deletion sweep has claimed the account and the
+        irreversible purge is running; recovery is refused from here on
+        (architecture/data-export-and-deletion.md, section 16: "A deletion
+        request cannot return to active accidentally after purge begins").
+        A finished purge leaves no readable account at all, so no third
+        value exists.
+
+    AccountDeletionGardenResolution:
+      type: string
+      enum: [gardenDeletionRequested, ownershipRetainedByCoOwner, membershipRevoked]
+      description: |
+        How one garden the caller had access to was resolved by the account
+        deletion (architecture/data-export-and-deletion.md, section 11,
+        "Resolves owned shared gardens by transfer or deletion policy").
+
+        - `gardenDeletionRequested` — the caller was the only owner; the
+          garden entered its own deletion with the account's deadline.
+        - `ownershipRetainedByCoOwner` — another active owner remains; the
+          garden survives and only the caller's membership was revoked.
+        - `membershipRevoked` — the caller was an editor or viewer; the
+          garden survives untouched.
+
+    AccountDeletionGarden:
+      type: object
+      additionalProperties: false
+      required: [gardenId, resolution]
+      properties:
+        gardenId:
+          $ref: '#/components/schemas/Uuid'
+        resolution:
+          $ref: '#/components/schemas/AccountDeletionGardenResolution'
+
+    AccountDeletion:
+      type: object
+      additionalProperties: false
+      required: [profileId, state, requestedAt, recoveryDeadlineAt, gardens]
+      description: |
+        The caller's own pending account deletion (P8-DELETE-01). Contains
+        no personal data beyond identifiers the caller already holds — it is
+        a status resource, not a copy of what is being deleted.
+      properties:
+        profileId:
+          $ref: '#/components/schemas/Uuid'
+        state:
+          $ref: '#/components/schemas/AccountDeletionState'
+        requestedAt:
+          $ref: '#/components/schemas/Timestamp'
+        recoveryDeadlineAt:
+          $ref: '#/components/schemas/Timestamp'
+        gardens:
+          type: array
+          description: How each garden the caller had access to at request time was resolved.
+          items:
+            $ref: '#/components/schemas/AccountDeletionGarden'
 
     NotificationType:
       type: string

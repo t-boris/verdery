@@ -30,7 +30,7 @@ import '../../src/platform/database/pg-date-parser.js';
 import type { DatabaseSchema } from '../../src/platform/database/database-gateway.js';
 import { generateUuidV7 } from '../../src/shared/identifiers/uuid.js';
 import type { Clock } from '../../src/shared/time/clock.js';
-import { buildSyncTestHarness } from '../support/sync-test-harness.js';
+import { buildSyncTestHarness, syncActor } from '../support/sync-test-harness.js';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
 import { startPostgresTestContainer } from '../support/postgres-container.js';
 
@@ -143,7 +143,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const harness = buildSyncTestHarness(db, fixedClock(now));
 
     const result = await harness.pushSyncOperations.execute(
-      ownerId,
+      syncActor(ownerId),
       pushRequest([
         renameGardenOperation(gardenId, 1, 'Front Yard'),
         addPlantOperation(gardenId, 'Tomato'),
@@ -171,7 +171,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const harness = buildSyncTestHarness(db, fixedClock(now));
 
     const result = await harness.pushSyncOperations.execute(
-      ownerId,
+      syncActor(ownerId),
       pushRequest([
         renameGardenOperation(gardenId, 99, 'Stale Rename'),
         addPlantOperation(gardenId, 'Basil'),
@@ -204,7 +204,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     };
 
     const result = await harness.pushSyncOperations.execute(
-      ownerId,
+      syncActor(ownerId),
       pushRequest([failingRename, dependentAddPlant]),
     );
 
@@ -230,13 +230,19 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const harness = buildSyncTestHarness(db, fixedClock(now));
     const operation = renameGardenOperation(gardenId, 1, 'Sunroom');
 
-    const first = await harness.pushSyncOperations.execute(ownerId, pushRequest([operation]));
+    const first = await harness.pushSyncOperations.execute(
+      syncActor(ownerId),
+      pushRequest([operation]),
+    );
     expect(first.results[0]).toMatchObject({
       outcome: 'accepted',
       recordRevisions: [{ recordType: 'garden', recordId: gardenId, revision: 2 }],
     });
 
-    const second = await harness.pushSyncOperations.execute(ownerId, pushRequest([operation]));
+    const second = await harness.pushSyncOperations.execute(
+      syncActor(ownerId),
+      pushRequest([operation]),
+    );
     expect(second.results[0]).toMatchObject({
       outcome: 'duplicate',
       operationId: operation.operationId,
@@ -256,13 +262,13 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const operationId = generateUuidV7();
 
     const first = await harness.pushSyncOperations.execute(
-      ownerId,
+      syncActor(ownerId),
       pushRequest([renameGardenOperation(gardenId, 1, 'Sunroom', operationId)]),
     );
     expect(first.results[0]).toMatchObject({ outcome: 'accepted' });
 
     const second = await harness.pushSyncOperations.execute(
-      ownerId,
+      syncActor(ownerId),
       pushRequest([renameGardenOperation(gardenId, 1, 'Different Name', operationId)]),
     );
     expect(second.results[0]).toMatchObject({
@@ -282,7 +288,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const harness = buildSyncTestHarness(db, fixedClock(now));
     const operation = renameGardenOperation(gardenId, 1, 'Conservatory');
 
-    await harness.pushSyncOperations.execute(ownerId, pushRequest([operation]));
+    await harness.pushSyncOperations.execute(syncActor(ownerId), pushRequest([operation]));
 
     const neverPushedOperationId = generateUuidV7();
     const acknowledged = await harness.acknowledgeSyncOperations.execute(ownerId, {
@@ -317,7 +323,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const harness = buildSyncTestHarness(db, fixedClock(now));
 
     await expect(
-      harness.pushSyncOperations.execute(ownerId, { ...pushRequest([]), protocolVersion: 0 }),
+      harness.pushSyncOperations.execute(syncActor(ownerId), {
+        ...pushRequest([]),
+        protocolVersion: 0,
+      }),
     ).rejects.toMatchObject({ code: 'sync.protocol_version.unsupported' });
   });
 

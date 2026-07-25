@@ -10,6 +10,11 @@ export function lifecycleLabel(state: Garden['lifecycleState']): MessageKey {
       return 'gardens.lifecycleArchived';
     case 'deletionRequested':
       return 'gardens.lifecycleDeletionRequested';
+    // P8-DELETE-01: the deletion sweep has claimed the garden and the purge
+    // is running. Distinct from `deletionRequested` because it is no longer
+    // recoverable, and the label must not imply otherwise.
+    case 'purging':
+      return 'gardens.lifecyclePurging';
   }
 }
 

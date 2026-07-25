@@ -195,6 +195,51 @@ Garden deletion:
 
 Client engagement termination is not garden deletion. It revokes portal access, closes pending client invitations, stops future delivery, and executes the engagement handoff/export policy while preserving authorized provider-internal operational records.
 
+### 10.1 Implemented garden-deletion profile (P8-DELETE-01)
+
+`RequestGardenDeletion` (gardens-mapping) opens the window; the deletion sweep closes it. Step by
+step against the list above:
+
+1. **Owner capability and recent authentication.** The `manageGarden` capability, plus a **30-minute**
+   step-up gate evaluated against the session's own `auth_time` — the same figure and the same
+   never-trust-a-client-claim posture P8-EXPORT-01 set for account-wide export, stated once in
+   `shared/deletion/deletion-policy.ts` so garden and account deletion cannot drift apart. The gate
+   applies to the RESTORE direction too: an attacker who can silently withdraw a victim's
+   protective deletion has defeated the same protection from the other side. It also applies on the
+   offline path — `requestGardenDeletion` pushed through `POST /sync/push` is gated on the pushing
+   session's `auth_time` and rejected per-operation otherwise, because exempting sync would leave
+   the whole gate bypassable by wrapping the command in a batch.
+2. **Resolves other owners and shared access** and **6. emits revocation changes** happen together,
+   at REQUEST time: every non-owner membership moves to `removed` and each revoked member receives
+   the garden as an ordinary `garden`/`delete` change on their next pull, so their offline client
+   purges its local copy (section 13). The requesting OWNER keeps their membership — they are the
+   only person who can withdraw the request, and a recovery window that locks out the person who
+   might change their mind is not a recovery window.
+3. **Marks deletion requested and revokes new edits** — the lifecycle transition; the domain's own
+   `requireMutable` already refuses every content command from `deletion_requested` onward.
+4. **The approved recovery window** — `recovery_deadline_at`, stamped 30 days out (section 11 names
+   the figure once, for the whole feature). `DELETE /gardens/{gardenId}/delete-request` reverses
+   everything above until the sweep claims the garden.
+5. **Cancels or closes pending jobs** happens at PURGE time, not request time, and deliberately:
+   cancelling a media job is irreversible while the request is reversible for thirty days, so a
+   restored garden must not come back with half-processed media. At purge, media processing jobs
+   are cancelled by the deletion workflow itself (one media record at a time) and an in-flight
+   export request is transitioned to `failed` with `subject_purged` before its rows go, so a worker
+   still holding it cannot complete and register a package for a garden that no longer exists.
+6. **Purges domain records, media, derivatives, and exports** — see section 13.1.
+7. **Verifies provider cleanup** — the purge does not delete a single `media_record` row until every
+   one of the garden's media records is `deleted`, which the P6-RET-01 workflow only reaches after
+   the worker re-lists each object prefix and finds it empty. Bytes confirmed absent, then rows.
+8. **Records non-sensitive completion evidence** — see section 13.1's evidence paragraph.
+
+A REQUIRED SCHEMA CONCESSION, recorded because it looks like a weakening and is not:
+`collaboration.membership` lost its foreign key to `gardens_mapping.garden`. A revoked membership
+row IS the offline-synchronization revocation tombstone (`GetSyncChanges` decides what a client may
+still learn from exactly that table), so it must outlive the garden it names — otherwise the one
+change that matters most becomes undeliverable the instant the purge removes the garden row. This
+is the reasoning `platform.sync_change` already documents for having no foreign keys at all,
+applied to the second table the same protocol reads.
+
 ## 11. Account Deletion
 
 The baseline recovery window is 30 days. During the window, ordinary access is disabled and the user may recover through a verified process where offered.
@@ -210,6 +255,51 @@ After the deadline, an idempotent workflow:
 - Deletes Firebase Authentication identity after application preconditions.
 - Records completion.
 
+### 11.1 Implemented account-deletion profile (P8-DELETE-01)
+
+`POST /account/deletion` (tag `Account`) requires the same 30-minute step-up gate as garden
+deletion and moves the account to `deletion_requested`, which by itself is what "ordinary access is
+disabled" means: `isAccountUsable` already gates every authenticated route on `active`. The three
+account-deletion routes are the ONLY ones registered in an encapsulation context that admits
+`deletion_requested`, because a window the user cannot act inside is not a recovery window — the
+authentication plugin's own header anticipated exactly this opt-out.
+
+**Ownership resolution** runs synchronously inside the request transaction and is reported back on
+the resource, so the user sees what happens to each garden before the deadline rather than
+afterwards:
+
+| Situation                    | Resolution                   | Effect                                                                      |
+| ---------------------------- | ---------------------------- | --------------------------------------------------------------------------- |
+| Sole active owner            | `gardenDeletionRequested`    | The garden enters its own deletion on the SAME deadline and purges with it. |
+| Another active owner remains | `ownershipRetainedByCoOwner` | The garden survives; only this membership is revoked.                       |
+| Editor or viewer             | `membershipRevoked`          | The garden is untouched.                                                    |
+
+The co-owner branch IS section 11's "transfer" branch, resolved by the co-owner already holding
+ownership rather than by inventing a transfer flow: naming a recipient requires an invitation
+mechanism that does not exist yet (recorded in `deferred-capabilities.md`). Every revocation writes
+the leaver an addressed `garden`/`delete` change, so their other devices converge too.
+`DELETE /account/deletion` reverses the account state, every membership the request revoked, and
+every garden it put into deletion.
+
+After the deadline the sweep claims the account into `disabled` — the state
+`identity-and-authorization.md` section 7's `deletion_requested → disabled → purged` already
+names — and the purge runs in a strictly ordered sequence: personal rows, then the identity
+provider, then the tombstone. **That order is the failure-safety argument.** The provider call
+needs the real `firebase_uid`, which the tombstone destroys; and if the provider refuses, the
+account stays `disabled` (unusable, still purgeable) rather than `purged` with a signable
+credential outstanding.
+
+**The profile ROW survives, minimized.** It has to: roughly twenty NOT NULL foreign keys point at
+it from content inside SHARED gardens that outlive the account
+(`plant.created_by_profile_id`, `garden_object_revision.actor_profile_id`,
+`media_record.uploaded_by_profile_id`, …), and that content belongs to those gardens, not to the
+person. Deleting the row is therefore impossible without destroying other people's gardens. What is
+possible, and what the purge does, is to leave nothing but an opaque identifier: `firebase_uid`
+becomes an unresolvable `purged:<profileId>` (the column is NOT NULL and UNIQUE, so it is replaced
+rather than nulled, and the value can never collide with a real Firebase uid or be used to look the
+person up), locale and time zone return to defaults, and `account_state` is `purged`. A later
+sign-in by the same human lands on a brand-new profile.
+
 ## 12. Immediate Deletion
 
 Immediate irreversible deletion may be offered when shared ownership, fraud/security review, and legal obligations permit it. The UI must explain that recovery becomes impossible.
@@ -224,6 +314,63 @@ Deletion and authorization revocation are represented in synchronization changes
 - Delete local media owned exclusively by the deleted resource.
 
 A device that never reconnects remains subject to operating-system local data protection and documented sign-out controls.
+
+### 13.1 Implemented purge and offline-convergence profile (P8-DELETE-01)
+
+**The purge is an ordered data plan, not a procedure** (`modules/deletion/application/purge-plan.ts`):
+a list of `{ table, predicate }` steps, leaves first. That shape buys three properties a
+hand-written procedure could only claim — every step batches identically, every step is trivially
+idempotent (re-running a completed one deletes zero rows, which is what makes a crashed purge safe
+to retry from anywhere), and each step's name is both its checkpoint key and its evidence row.
+Deletes are batched by `ctid` inside each step, and each step is its own transaction, so the
+longest lock a purge holds is one step of one subject. Consecutive steps may share a `group` and
+commit together — needed exactly once, where `recommendation_candidate`, `recommendation_evidence`,
+and `task` form a genuine reference cycle the schema resolves with a `DEFERRABLE` constraint.
+
+**The purge waits for bytes.** Phase 1 hands every media record to the P6-RET-01 deletion workflow;
+phase 2 is a gate that defers the whole purge until every one of those records is `deleted`.
+Deleting the rows first would leave orphaned objects in a bucket with nothing in the database
+pointing at them — undeletable and unauditable. Waiting costs a sweep interval; not waiting costs
+unrecoverable residue.
+
+**Completeness is proved against the catalog, not asserted.** The end-to-end suite derives every
+garden-referencing table from `pg_constraint` (the transitive closure of foreign keys to
+`gardens_mapping.garden`) UNION every table carrying a garden-id column without one — because
+`notification_intent.garden_id` deliberately has no foreign key and a future table could make the
+same choice — and requires each to be a plan step or a documented exception. A migration that adds
+a garden-scoped table and forgets the plan fails that test. The account half derives its own list
+the same way from foreign keys to `identity_access.profile`.
+
+**What survives a purge, and why:**
+
+| Survivor                                          | Reason                                                                                                 |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `platform.sync_change`                            | The garden's `delete` tombstone. Purging it would delete the row an offline client reconnects to find. |
+| `collaboration.membership`                        | Reduced to `removed` tombstones — how `GetSyncChanges` decides what a revoked client may still learn.  |
+| `platform.audit_event`                            | The completion trail (`garden.purge_started`, `garden.purged`, `account.purged`).                      |
+| `deletion.deletion_record` (+ `purge_checkpoint`) | The purge job, which is also the completion evidence.                                                  |
+| `identity_access.profile`                         | Account purge only, minimized to a tombstone — see section 11.1.                                       |
+
+**The evidence contains identifiers, timestamps, and COUNTS. Nothing else** — no name, no filename,
+no location, no row copied out before deletion, and never a database error message (a stuck purge
+records the fixed marker `purge_failed`, because an error text can quote a value from the row being
+deleted). Section 19's "verifiable without retaining deleted content" is a schema fact here, and the
+end-to-end suite asserts it directly by searching the evidence for the deleted garden's name, the
+deleted account's Firebase uid, and a deleted device token.
+
+**Offline convergence needed one addition to the P5 protocol**: `platform.sync_change
+.target_profile_id`. A revocation tombstone must reach the revoked collaborator, but the SAME row
+read by the still-active owner would make the owner's client discard a garden they can still
+recover — the two readers cannot both be served by one unaddressed row. `NULL` keeps the original
+meaning ("everyone the visibility rule admits"), so every ordinary record change is unaffected.
+
+**Where it runs.** The sweep is the fifth to ride the established worker-tick → OIDC-endpoint
+machinery (`POST /v1/internal/deletion/sweep`, hourly). `verdery_worker` gains nothing: running the
+purge there would mean granting it DELETE on every module's tables, the single widest privilege
+grant this codebase could make, to save one HTTP hop. Claiming a subject is a TRANSITION, not a
+timestamp comparison — the subject moves to `purging`/`disabled` in the same transaction that
+inserts its deletion record, after which restore is refused, so a user racing the sweep loses or
+wins by whichever transaction commits first rather than by two processes reading a clock.
 
 ## 14. Backups
 

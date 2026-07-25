@@ -137,6 +137,30 @@ Organization membership alone never causes a garden partition grant. An active g
 
 Client engagement grants do not include the operational garden partition. The initial responsive web portal queries publication-only endpoints online. A future native client portal must use a separate read-only publication partition and cannot reuse operational records.
 
+### 11.1 Implemented revocation profile (P8-DELETE-01)
+
+Revocation now has real producers: a garden deletion request revokes every non-owner member, the
+deletion sweep's claim revokes whoever remains, and an account deletion revokes the leaver's own
+memberships. Each one is delivered as the ORDINARY change the contract already documents — a
+`garden` record with `operation: 'delete'` — never a distinct change shape.
+
+Two properties this needed, neither of which the pull side had to change to gain:
+
+- **Addressed rows.** `platform.sync_change.target_profile_id` (see
+  `data-and-geospatial-design.md` section 16.1) narrows a revocation tombstone to the revoked
+  member. Without it the still-active owner would receive the same row and discard a garden they
+  can still recover.
+- **Tombstones that outlive their garden.** A `removed` membership row survives the purge — it is
+  what `GetSyncChanges` reads to decide that a revoked client may still see this one garden's own
+  `delete` change. A client that reconnects months after the purge still converges.
+
+RESTORING access is the asymmetric case, and it lands on this section's own answer rather than on
+new machinery: reactivating a membership emits a `garden` `upsert`, but the garden's CONTENT
+records are not re-emitted, because the client purged them locally on the tombstone. That is
+"authorization partitions changed incompatibly" (section 13), whose prescribed recovery is a full
+resynchronization — the client drops its cursor and pulls from the beginning. Recorded as a
+client-side obligation in `docs/development/deferred-capabilities.md`.
+
 ## 12. Initial Synchronization
 
 Initial sync uses a consistent bounded snapshot:

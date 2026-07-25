@@ -9,6 +9,15 @@
 export type { AccountState } from './domain/account-state.js';
 export { isAccountUsable } from './domain/account-state.js';
 export type { Profile } from './domain/profile.js';
+// P8-DELETE-01: the account lifecycle transitions the deletion module drives
+// through the same public `ProfileRepository` port it binds.
+export {
+  claimAccountForPurge,
+  markAccountPurged,
+  purgedFirebaseUid,
+  requestAccountDeletion,
+  restoreAccount,
+} from './domain/profile.js';
 export type { IdentityProviderLinkRepository } from './application/identity-provider-link-repository.js';
 export type { ProfileRepository } from './application/profile-repository.js';
 export { ProvisionProfile } from './application/provision-profile.js';

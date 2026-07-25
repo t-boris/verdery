@@ -44,6 +44,7 @@ import {
   RenameGarden,
   ReplaceMapObjectGeometry,
   RequestGardenDeletion,
+  RestoreGardenDeletion,
   RestoreMapObject,
   SplitMapObjectLinework,
   UpsertMapCalibration,
@@ -93,6 +94,12 @@ export function composeGardensMapping(
       clock,
     ),
     requestGardenDeletion: new RequestGardenDeletion(
+      gardenIdempotency,
+      gardensMappingUnitOfWork,
+      gardenAuthorization,
+      clock,
+    ),
+    restoreGardenDeletion: new RestoreGardenDeletion(
       gardenIdempotency,
       gardensMappingUnitOfWork,
       gardenAuthorization,

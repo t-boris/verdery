@@ -108,6 +108,7 @@ export const englishMessages = {
   'gardens.lifecycleActive': 'Active',
   'gardens.lifecycleArchived': 'Archived',
   'gardens.lifecycleDeletionRequested': 'Deletion requested',
+  'gardens.lifecyclePurging': 'Being deleted',
   'gardens.roleOwner': 'Owner',
   'gardens.roleEditor': 'Editor',
   'gardens.roleViewer': 'Viewer',

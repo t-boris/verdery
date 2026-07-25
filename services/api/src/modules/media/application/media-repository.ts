@@ -51,6 +51,21 @@ export interface MediaRecordPage {
  * validate a referenced media id exists before writing their own foreign key
  * to it.
  */
+/**
+ * What a purge is clearing media for (P8-DELETE-01).
+ *
+ * `garden` is every media record the garden owns. `accountPackages` is
+ * narrower on purpose: the only media an ACCOUNT purge owns outright are the
+ * requester's own export packages, which are deliberately registered with no
+ * garden (see `CompleteExport`) precisely so no garden-scoped route can serve
+ * them. Everything else the person ever uploaded belongs to a garden — either
+ * one being purged alongside the account, or one that survives with a
+ * co-owner and keeps its content.
+ */
+export type MediaPurgeScope =
+  | { readonly kind: 'garden'; readonly gardenId: Uuid }
+  | { readonly kind: 'accountPackages'; readonly profileId: Uuid };
+
 export interface MediaRepository {
   insert(record: MediaRecord): Promise<void>;
   get(id: Uuid): Promise<MediaRecord | null>;
@@ -116,4 +131,20 @@ export interface MediaRepository {
    * deferred (see `Media.derivatives`' contract description).
    */
   listDisplayDerivatives(derivedFromMediaId: Uuid): Promise<readonly MediaRecord[]>;
+  /**
+   * ORIGINAL records inside one purge scope that have not yet entered the
+   * deletion pipeline (P8-DELETE-01). Derivative rows are excluded because
+   * they follow their source through `scheduleDerivativesForDeletion`, the
+   * same reason `DeleteGardenMedia` refuses a derivative directly. Bounded
+   * by `limit`; a scope with more media finishes over successive sweep
+   * passes, which the drain gate below makes safe.
+   */
+  listPurgeCandidates(scope: MediaPurgeScope, limit: number): Promise<readonly MediaRecord[]>;
+  /**
+   * How many records in the scope — originals AND derivatives — have not yet
+   * reached `deleted`. The purge's gate: zero is the only value that means
+   * every byte the deletion workflow owed has been confirmed absent
+   * (P8-DELETE-01).
+   */
+  countUndeletedForPurge(scope: MediaPurgeScope): Promise<number>;
 }

@@ -187,6 +187,10 @@ heartbeat on every round-trip (all-zero counts included):
 - **Notification delivery** (`NOTIFICATION_DELIVERY_SWEEP_URL`, minutely, P7-NOTIF-02): pending
   push-eligible intents through send-time rechecks and FCM attempts.
   `notifications.delivery_sweep_completed`.
+- **Deletion** (`DELETION_SWEEP_URL`, hourly, P8-DELETE-01): gardens and accounts whose 30-day
+  recovery window has closed are claimed (the point of no return) and purged — media bytes through
+  the established deletion workflow, then the ordered, checkpointed row cascade, then the Firebase
+  identity for an account. `deletion.sweep_completed`.
 
 Every sweep itself — every privileged read and write — runs entirely in `services/api`:
 `verdery_worker` has deliberately never been able to read `media.media_record`, any garden or plant
@@ -226,6 +230,8 @@ as it was. This process contributes only its interval loops and its already-veri
 | `NOTIFICATION_DELIVERY_SWEEP_URL`                | yes      | —                   | The API's internal notification-delivery sweep endpoint (P7-NOTIF-02) |
 | `NOTIFICATION_DELIVERY_SWEEP_INTERVAL_MS`        | no       | `60000`             | How often the notification-delivery sweep is triggered                |
 | `EXPORT_PROCESSING_API_URL`                      | yes      | —                   | The API's internal export endpoints' base URL (P8-EXPORT-01)          |
+| `DELETION_SWEEP_URL`                             | yes      | —                   | The API's internal deletion-sweep endpoint (P8-DELETE-01)             |
+| `DELETION_SWEEP_INTERVAL_MS`                     | no       | `3600000`           | How often the deletion sweep is triggered                             |
 
 `DATABASE_URL` only — no Cloud SQL IAM connection mode yet, unlike the API. Real Cloud SQL IAM
 wiring for this package's own database connection is a documented follow-up; see

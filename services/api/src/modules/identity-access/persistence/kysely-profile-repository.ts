@@ -22,6 +22,9 @@ function toProfile(row: Selectable<ProfileRow>): Profile {
     revision: row.revision,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    deletionRequestedAt: row.deletion_requested_at,
+    recoveryDeadlineAt: row.recovery_deadline_at,
+    purgedAt: row.purged_at,
   };
 }
 
@@ -60,7 +63,44 @@ export class KyselyProfileRepository implements ProfileRepository {
         revision: profile.revision,
         created_at: profile.createdAt,
         updated_at: profile.updatedAt,
+        deletion_requested_at: profile.deletionRequestedAt,
+        recovery_deadline_at: profile.recoveryDeadlineAt,
+        purged_at: profile.purgedAt,
       })
       .execute();
+  }
+
+  async update(profile: Profile, expectedRevision: number): Promise<boolean> {
+    const result = await this.db
+      .updateTable('identity_access.profile')
+      .set({
+        firebase_uid: profile.firebaseUid,
+        account_state: profile.accountState,
+        locale: profile.locale,
+        time_zone: profile.timeZone,
+        revision: profile.revision,
+        updated_at: profile.updatedAt,
+        deletion_requested_at: profile.deletionRequestedAt,
+        recovery_deadline_at: profile.recoveryDeadlineAt,
+        purged_at: profile.purgedAt,
+      })
+      .where('id', '=', profile.id)
+      .where('revision', '=', expectedRevision)
+      .executeTakeFirst();
+
+    return (result?.numUpdatedRows ?? 0n) === 1n;
+  }
+
+  async listDeletionDue(now: Date, limit: number): Promise<Profile[]> {
+    const rows = await this.db
+      .selectFrom('identity_access.profile')
+      .selectAll()
+      .where('account_state', '=', 'deletion_requested')
+      .where('recovery_deadline_at', '<=', now)
+      .orderBy('recovery_deadline_at', 'asc')
+      .limit(limit)
+      .execute();
+
+    return rows.map(toProfile);
   }
 }

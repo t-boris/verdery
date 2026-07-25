@@ -15,11 +15,13 @@ import helmet from '@fastify/helmet';
 import underPressure from '@fastify/under-pressure';
 import { API_BASE_PATH } from '@verdery/api-contracts';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
+import { composeDeletion } from './compose-deletion.js';
 import { composeExports } from './compose-exports.js';
 import { composeGardensMapping } from './compose-gardens-mapping.js';
 import { composeIntegrations } from './compose-integrations.js';
 import { composeMedia } from './compose-media.js';
 import { composeNotifications } from './compose-notifications.js';
+import { composePlantsInventory } from './compose-plants-inventory.js';
 import { composeSynchronization } from './compose-synchronization.js';
 import { composeTasksRecommendations } from './compose-tasks-recommendations.js';
 import { registerWeatherRefreshSweepRoute } from './modules/integrations/public.js';
@@ -31,6 +33,10 @@ import {
   ProvisionProfile,
 } from './modules/identity-access/public.js';
 import { registerExportInternalRoutes, registerExportRoutes } from './modules/exports/public.js';
+import {
+  registerAccountDeletionRoutes,
+  registerDeletionSweepRoute,
+} from './modules/deletion/public.js';
 import {
   registerMediaProcessingCallbackRoute,
   registerMediaRetentionSweepRoute,
@@ -54,24 +60,7 @@ import {
   RecordObservation,
   registerObservationRoutes,
 } from './modules/observations-history/public.js';
-import {
-  AddPlant,
-  AddPlantFromPhoto,
-  AttachPlantPhoto,
-  ConfirmPlantIdentification,
-  GetPlant,
-  KyselyPlantRepository,
-  KyselyPlantsInventoryUnitOfWork,
-  KyselyTaxonomyReferenceRepository,
-  MovePlant,
-  registerPlantRoutes,
-  SearchPlants,
-  SearchTaxonomyReferences,
-  SetPlantStatus,
-  SetPrimaryPlantPhoto,
-  TransitionPlantLifecycleStage,
-  UpdatePlantDetails,
-} from './modules/plants-inventory/public.js';
+import { registerPlantRoutes } from './modules/plants-inventory/public.js';
 import {
   DatabaseDependencyProbe,
   registerHealthRoutes,
@@ -87,6 +76,7 @@ import { KyselyAuditLogger } from './platform/audit/kysely-audit-logger.js';
 import { registerAppCheck } from './platform/app-check/app-check-plugin.js';
 import type { AppCheckVerifier } from './platform/app-check/app-check-verifier.js';
 import { registerAuthentication } from './platform/authentication/authentication-plugin.js';
+import type { IdentityProviderAccountGateway } from './platform/authentication/identity-provider-account-gateway.js';
 import { registerSessionRoutes } from './platform/authentication/transport/session-routes.js';
 import type { TokenVerifier } from './platform/authentication/token-verifier.js';
 import type { ApplicationConfiguration } from './platform/configuration/configuration-schema.js';
@@ -141,6 +131,15 @@ export interface ApplicationDependencies {
    * constructed" shape as `mediaStorageGateway`.
    */
   readonly pushMessageSender: PushMessageSender;
+  /**
+   * P8-DELETE-01: the Firebase Authentication boundary account purge uses to
+   * delete the identity itself (`deleteUser`). Same "port arrives already
+   * constructed" shape as `mediaStorageGateway`: `main.ts` builds the real
+   * `FirebaseIdentityProviderAccountGateway` over the same `firebase-admin`
+   * app the token verifier uses; tests substitute a fake, so no test can
+   * reach a real identity provider.
+   */
+  readonly identityProviderAccounts: IdentityProviderAccountGateway;
 }
 
 /**
@@ -165,6 +164,7 @@ export async function buildApplication(
     cloudTasksInvocationVerifier,
     aiExplanationAdapter,
     pushMessageSender,
+    identityProviderAccounts,
   } = dependencies;
 
   const app = Fastify({
@@ -302,90 +302,10 @@ export async function buildApplication(
   // plants-inventory: owns the mutable `plant` aggregate root, its
   // `plant_photo`/`plant_identification` children, and the read-only
   // `taxonomy_reference` catalog. Reuses `gardenAuthorization`. HTTP
-  // transport (`registerPlantRoutes`, tag `Plants`) wired below.
-  const plantRepository = new KyselyPlantRepository(database.queries);
-  const taxonomyReferenceRepository = new KyselyTaxonomyReferenceRepository(database.queries);
-  const plantsInventoryIdempotency = new KyselyIdempotencyStore(database.queries, clock);
-  const plantsInventoryUnitOfWork = new KyselyPlantsInventoryUnitOfWork(database.queries, clock);
-  const addPlant = new AddPlant(
-    plantsInventoryIdempotency,
-    plantsInventoryUnitOfWork,
-    gardenAuthorization,
-    clock,
-  );
-  const addPlantFromPhoto = new AddPlantFromPhoto(
-    plantsInventoryIdempotency,
-    plantsInventoryUnitOfWork,
-    gardenAuthorization,
-    clock,
-  );
-  const getPlant = new GetPlant(plantRepository, gardenAuthorization);
-  const searchPlants = new SearchPlants(plantRepository, gardenAuthorization);
-  const attachPlantPhoto = new AttachPlantPhoto(
-    plantRepository,
-    plantsInventoryIdempotency,
-    plantsInventoryUnitOfWork,
-    gardenAuthorization,
-    clock,
-  );
-  const setPrimaryPlantPhoto = new SetPrimaryPlantPhoto(
-    plantRepository,
-    plantsInventoryIdempotency,
-    plantsInventoryUnitOfWork,
-    gardenAuthorization,
-  );
-  const updatePlantDetails = new UpdatePlantDetails(
-    plantRepository,
-    plantsInventoryIdempotency,
-    plantsInventoryUnitOfWork,
-    gardenAuthorization,
-    clock,
-  );
-  const confirmPlantIdentification = new ConfirmPlantIdentification(
-    plantRepository,
-    plantsInventoryIdempotency,
-    plantsInventoryUnitOfWork,
-    gardenAuthorization,
-    clock,
-  );
-  const transitionPlantLifecycleStage = new TransitionPlantLifecycleStage(
-    plantRepository,
-    plantsInventoryIdempotency,
-    plantsInventoryUnitOfWork,
-    gardenAuthorization,
-    clock,
-  );
-  const setPlantStatus = new SetPlantStatus(
-    plantRepository,
-    plantsInventoryIdempotency,
-    plantsInventoryUnitOfWork,
-    gardenAuthorization,
-    clock,
-  );
-  const movePlant = new MovePlant(
-    plantRepository,
-    plantsInventoryIdempotency,
-    plantsInventoryUnitOfWork,
-    gardenAuthorization,
-    clock,
-  );
-  const searchTaxonomyReferences = new SearchTaxonomyReferences(taxonomyReferenceRepository);
-
-  const plantRoutesDependencies = {
-    addPlant,
-    addPlantFromPhoto,
-    getPlant,
-    searchPlants,
-    updatePlantDetails,
-    attachPlantPhoto,
-    setPrimaryPlantPhoto,
-    confirmPlantIdentification,
-    transitionPlantLifecycleStage,
-    setPlantStatus,
-    movePlant,
-    searchTaxonomyReferences,
-  };
-
+  // transport (`registerPlantRoutes`, tag `Plants`) wired below. Split into
+  // `compose-plants-inventory.ts` for the same 600-line reason as its
+  // siblings.
+  const plantRoutesDependencies = composePlantsInventory(database, clock, gardenAuthorization);
   // integrations (P7-ASYNC-01, P7-AI-01): the weather registry (zero
   // registrations — P0-PROV-01 undecided), both weather use cases, the
   // scheduled weather-refresh sweep + internal route, and the bounded
@@ -463,6 +383,20 @@ export async function buildApplication(
     cloudTasksInvocationVerifier,
   );
 
+  // deletion (P8-DELETE-01): the account-deletion command surface and the
+  // internal sweep that purges gardens and accounts once their 30-day
+  // recovery windows close. Reuses the media module's byte-deletion workflow,
+  // the Firebase identity boundary, and the same worker-to-API invocation
+  // verifier as every other internal endpoint. Split into
+  // `compose-deletion.ts` for the same 600-line reason as its siblings.
+  const { accountDeletionRoutesDependencies, deletionSweepRouteDependencies } = composeDeletion(
+    database,
+    clock,
+    configuration.media.buckets,
+    identityProviderAccounts,
+    cloudTasksInvocationVerifier,
+  );
+
   // synchronization (P5-BE-01, P5-API-01): the native offline outbox
   // protocol's client-registration, push, and acknowledge endpoints. Depends
   // on every module wired above — it routes across all five record families
@@ -528,6 +462,8 @@ export async function buildApplication(
       // P8-EXPORT-01: the export-generation worker's snapshot/checkpoint/
       // completion endpoints — same identity check again.
       registerExportInternalRoutes(instance, exportInternalRoutesDependencies);
+      // P8-DELETE-01: the deletion sweep — same identity check, fifth sweep.
+      registerDeletionSweepRoute(instance, deletionSweepRouteDependencies);
       done();
     },
     { prefix: API_BASE_PATH },
@@ -557,6 +493,26 @@ export async function buildApplication(
       registerMediaRoutes(instance, mediaRoutesDependencies);
       registerExportRoutes(instance, exportRoutesDependencies);
       registerSyncRoutes(instance, syncRoutesDependencies);
+      done();
+    },
+    { prefix: API_BASE_PATH },
+  );
+
+  // P8-DELETE-01: its own encapsulation context, and the ONLY one that admits
+  // a non-active account. A user inside their 30-day recovery window is
+  // deliberately unusable everywhere else (`isAccountUsable`), which would
+  // otherwise make withdrawing their own deletion request impossible — see
+  // `account-deletion-routes.ts` for why the admission is exactly one state
+  // and exactly three routes.
+  await app.register(
+    (instance, _options, done) => {
+      registerAppCheck(instance, { appCheckVerifier });
+      registerAuthentication(instance, {
+        tokenVerifier,
+        provisionProfile,
+        additionalPermittedAccountStates: ['deletion_requested'],
+      });
+      registerAccountDeletionRoutes(instance, accountDeletionRoutesDependencies);
       done();
     },
     { prefix: API_BASE_PATH },

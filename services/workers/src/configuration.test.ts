@@ -24,6 +24,7 @@ const VALID_ENVIRONMENT = {
   NOTIFICATION_DELIVERY_SWEEP_URL:
     'https://verdery-api-dev.example/v1/internal/notification-delivery/sweep',
   EXPORT_PROCESSING_API_URL: 'https://verdery-api-dev.example/v1/internal/exports',
+  DELETION_SWEEP_URL: 'https://verdery-api-dev.example/v1/internal/deletion/sweep',
 } as const;
 
 describe('loadConfiguration', () => {
@@ -71,7 +72,24 @@ describe('loadConfiguration', () => {
         intervalMs: 60_000,
       },
       exportProcessingApiUrl: VALID_ENVIRONMENT.EXPORT_PROCESSING_API_URL,
+      deletionSweep: {
+        sweepUrl: VALID_ENVIRONMENT.DELETION_SWEEP_URL,
+        intervalMs: 3_600_000,
+      },
     });
+  });
+
+  it('rejects a missing DELETION_SWEEP_URL — the purge would never be triggered, and a deletion that never completes is the one failure a deletion feature must not have (P8-DELETE-01)', () => {
+    const { DELETION_SWEEP_URL: _omit, ...withoutDeletionSweepUrl } = VALID_ENVIRONMENT;
+    try {
+      loadConfiguration(withoutDeletionSweepUrl);
+      expect.unreachable('A missing DELETION_SWEEP_URL must be rejected');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ConfigurationError);
+      expect((error as ConfigurationError).variables).toEqual(
+        expect.arrayContaining(['DELETION_SWEEP_URL']),
+      );
+    }
   });
 
   it('rejects a missing EXPORT_PROCESSING_API_URL — the export job cannot reach its snapshot endpoints without a target (P8-EXPORT-01)', () => {
