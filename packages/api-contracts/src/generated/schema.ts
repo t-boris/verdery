@@ -1648,6 +1648,42 @@ export interface components {
             measurement?: components["schemas"]["Measurement"];
         };
         /**
+         * @description The server-owned calibration block a CALIBRATED background's
+         *     details carry (P6-PLAN-02): the full inputs (so recalibration can
+         *     re-derive and re-display them), the derived transform, and the
+         *     honest error report. Sourced from the background's latest
+         *     `gardens_mapping.calibration` revision — the single storage of
+         *     transforms; the details table stores only the state flag.
+         */
+        ImportedBackgroundCalibration: {
+            /**
+             * @description Monotonically increasing per background — "recalibration
+             *     creates a new background transform revision" (section 16).
+             *     Distinct from the object's own optimistic-concurrency
+             *     `revision`, which bumps on EVERY edit: a consumer that cached
+             *     traced geometry can tell "the background moved under me" (this
+             *     changed) apart from ordinary edits.
+             */
+            transformRevision: components["schemas"]["Revision"];
+            pageAspectRatio: number;
+            knownDistance: components["schemas"]["PlanKnownDistance"];
+            referencePoints: {
+                planPoint: components["schemas"]["PlanPoint"];
+                localMetres: components["schemas"]["Position"];
+                /** @description Distance in metres between this control point's mapped plan point and its stated local point, under the stored transform. */
+                residualMetres: number;
+            }[];
+            manualAdjustment?: components["schemas"]["ManualCalibrationAdjustment"];
+            transform: components["schemas"]["PlanTransform"];
+            /**
+             * @description Aggregate root-mean-square of the per-point residuals. `null`
+             *     ("not expressed") below two control points — a one-point fit
+             *     is exact by construction, and reporting zero for it would be
+             *     false precision (section 16).
+             */
+            rmsErrorMetres: number | null;
+        };
+        /**
          * @description The non-authoritative background asset a plan import produces
          *     (architecture/map-rendering-and-editing.md, section "16. Plan Import
          *     and Calibration"). Added by P6-PLAN-01: before it, this category
@@ -1684,15 +1720,26 @@ export interface components {
              */
             isBackgroundVisible: boolean;
             /**
-             * @description Only `uncalibrated` exists this stage: no plan-to-map transform
-             *     is stored, and the interface must say so rather than pretend a
-             *     1:1 transform is meaningful ("prevents false precision" —
-             *     section 16). P6-PLAN-02 (known-distance calibration, control
-             *     points, residual error, transform revisions) widens this enum
-             *     and attaches the real transform data.
+             * @description Server-owned. `createObject` requires `uncalibrated`;
+             *     `changeProperties` must echo the current stored state — only
+             *     the `upsertCalibration` command changes it. There is
+             *     deliberately no intermediate or quality-graded state: quality
+             *     is the continuous `calibration.rmsErrorMetres` (including its
+             *     honest absence below two control points), not a threshold
+             *     bucket ("displays calibration quality and prevents false
+             *     precision" — section 16).
              * @enum {string}
              */
-            calibrationState: "uncalibrated";
+            calibrationState: "uncalibrated" | "calibrated";
+            /**
+             * @description Present exactly when `calibrationState` is `calibrated`.
+             *     READ-ONLY: server-populated from the background's latest
+             *     calibration revision. A `createObject`/`changeProperties`
+             *     payload that echoes it back is ignored — the server always
+             *     preserves its own stored block; only the `upsertCalibration`
+             *     command produces a new revision.
+             */
+            calibration?: components["schemas"]["ImportedBackgroundCalibration"];
         };
         /**
          * @description Present only for categories that have specialized fields. `lot`,
@@ -1852,6 +1899,69 @@ export interface components {
             /** @description `null` unassigns the plant from any zone or bed. */
             targetObjectId: components["schemas"]["Uuid"] | null;
         };
+        /**
+         * @description A point on an imported plan page in plan-fraction units: pixel x
+         *     AND pixel y each divided by the displayed rendition's WIDTH (y
+         *     down, image convention). Resolution-independent, because every
+         *     derivative preserves the page's aspect ratio — the same `[u, v]`
+         *     names the same ink on the screen preview, the high-resolution
+         *     image, or the original. `u` runs 0..1; `v` runs 0..pageAspectRatio.
+         *     See `calibration.ts` in `@verdery/geometry-contracts` for the full
+         *     convention.
+         */
+        PlanPoint: number[];
+        /** @description Two plan points and the real-world distance between them — the uniform-scale source (section 16, "one known-distance segment"). */
+        PlanKnownDistance: {
+            pointA: components["schemas"]["PlanPoint"];
+            pointB: components["schemas"]["PlanPoint"];
+            distanceMetres: number;
+        };
+        /**
+         * @description The section-16 "manual origin and orientation adjustment", stored
+         *     as INPUT (rotate about the local origin, then translate — composed
+         *     on top of the fitted transform) so recalibration re-derives it
+         *     instead of overwriting a transform.
+         */
+        ManualCalibrationAdjustment: {
+            rotationRadians: number;
+            translationMetres: {
+                dx: number;
+                dy: number;
+            };
+        };
+        /**
+         * @description The derived plan-space → local-space SIMILARITY transform (uniform
+         *     scale + rotation + translation):
+         *     `local = translationMetres + metresPerPlanUnit · R(rotationRadians) · (u, −v)`.
+         *     Deliberately not a 6-DOF affine — shear would absorb input noise
+         *     and manufacture precision (section 16, "prevents false
+         *     precision"). Always server-derived, never client-authored.
+         */
+        PlanTransform: {
+            /** @description Metres per plan-fraction unit, i.e. the page's full width in metres. */
+            metresPerPlanUnit: number;
+            /** @description Counter-clockwise rotation in local space, normalized to (−π, π]. */
+            rotationRadians: number;
+            translationMetres: {
+                x: number;
+                y: number;
+            };
+        };
+        /** @description One control point — a plan point paired with the local-space point it must land on. */
+        CalibrationReferencePoint: {
+            planPoint: components["schemas"]["PlanPoint"];
+            localMetres: components["schemas"]["Position"];
+        };
+        /**
+         * @description Calibrates (or recalibrates) an imported background from the full
+         *     section-16 input set. The server derives the transform, per-point
+         *     residuals, aggregate RMS, and the background's page-footprint
+         *     geometry — a client never submits a transform. Revision-guarded
+         *     like every object-mutating command, because applying a calibration
+         *     rewrites the background object's details and geometry. Reshaped by
+         *     P6-PLAN-02 from its P3 reference-points-only scaffold (which no
+         *     client ever submitted).
+         */
         UpsertCalibrationCommand: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -1859,10 +1969,13 @@ export interface components {
              */
             type: "upsertCalibration";
             backgroundObjectId: components["schemas"]["Uuid"];
-            referencePoints: {
-                imagePixel: components["schemas"]["Position"];
-                localMetres: components["schemas"]["Position"];
-            }[];
+            expectedRevision: components["schemas"]["Revision"];
+            /** @description Page height / width, measured by the client from the displayed raster (the API exposes no raster dimensions). */
+            pageAspectRatio: number;
+            knownDistance: components["schemas"]["PlanKnownDistance"];
+            /** @description Optional control points — may be empty; a known distance plus manual placement is a legitimate calibration. */
+            referencePoints: components["schemas"]["CalibrationReferencePoint"][];
+            manualAdjustment?: components["schemas"]["ManualCalibrationAdjustment"];
         };
         DecideProposalCommand: {
             /**
@@ -2380,15 +2493,25 @@ export interface components {
          *     upserts, per architecture/offline-synchronization.md's own
          *     requirement that a change "contains enough information to upsert...
          *     a local read-model record."
+         *
+         *     P6-PLAN-02 added the calibration inputs (known distance, page
+         *     aspect ratio, manual adjustment) and the derived transform and
+         *     residuals; each is optional here only because a legacy P3-shaped
+         *     row carries none of them — every row the reworked command writes
+         *     carries them all.
          */
         Calibration: {
             id: components["schemas"]["Uuid"];
             backgroundObjectId: components["schemas"]["Uuid"];
             revision: components["schemas"]["Revision"];
-            referencePoints: {
-                imagePixel: components["schemas"]["Position"];
-                localMetres: components["schemas"]["Position"];
-            }[];
+            referencePoints: components["schemas"]["CalibrationReferencePoint"][];
+            knownDistance?: components["schemas"]["PlanKnownDistance"];
+            pageAspectRatio?: number;
+            manualAdjustment?: components["schemas"]["ManualCalibrationAdjustment"];
+            transform?: components["schemas"]["PlanTransform"];
+            /** @description Aligned index-for-index with `referencePoints`. */
+            pointResidualsMetres?: number[];
+            /** @description Aggregate RMS over the point residuals; `null` below two control points, and on every legacy row. */
             residualErrorMetres?: number | null;
             createdByProfileId: components["schemas"]["Uuid"];
             createdAt: components["schemas"]["Timestamp"];

@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { LocalizationProvider } from '@/shared/localization/public';
 
+import { MapEditorStoreProvider } from './editor-store';
 import { ImportedBackgroundPanel } from './imported-background-panel';
 import { useGardenPlanMediaList } from './media-queries';
 import type { MapObjectRecord } from './types';
@@ -93,10 +94,13 @@ function stubActions(
 function renderPanel(actions: ReturnType<typeof stubActions>) {
   render(
     <LocalizationProvider locale="en">
-      <ImportedBackgroundPanel
-        gardenId="garden-1"
-        actions={actions as unknown as MapEditorActions}
-      />
+      {/* The panel reads the editor store for the tracing-opacity preference (P6-PLAN-02). */}
+      <MapEditorStoreProvider>
+        <ImportedBackgroundPanel
+          gardenId="garden-1"
+          actions={actions as unknown as MapEditorActions}
+        />
+      </MapEditorStoreProvider>
     </LocalizationProvider>,
   );
 }

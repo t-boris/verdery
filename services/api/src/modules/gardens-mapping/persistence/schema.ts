@@ -153,9 +153,12 @@ export interface AnnotationDetailsRow {
 
 /**
  * `calibration_state` is `Generated<string>` for the same reason
- * `CoordinateSpaceRow.kind` is: the migration's CHECK pins it to its one
- * current value (`'uncalibrated'`), and P6-PLAN-02 widens that by
- * migration, not by a type change here.
+ * `CoordinateSpaceRow.kind` is: the migration's CHECK constrains it (to
+ * `'uncalibrated' | 'calibrated'` since P6-PLAN-02), and Kysely row types
+ * describe what a column returns, not the CHECK's vocabulary. The current
+ * transform itself is NOT stored here — the latest
+ * `gardens_mapping.calibration` revision is the single source the read
+ * path joins (see `imported-background-details.ts`).
  */
 export interface ImportedBackgroundDetailsRow {
   garden_object_id: string;
@@ -183,11 +186,28 @@ export interface GardenObjectRevisionRow {
   recorded_at: Generated<Date>;
 }
 
+/**
+ * P6-PLAN-02 extended this row with the calibration INPUTS (`known_distance`,
+ * `page_aspect_ratio`, `manual_adjustment`) and the DERIVED similarity
+ * transform plus residuals. Every nullable-here column is nullable only for
+ * legacy P3-shaped rows; rows written by the reworked `upsertCalibration`
+ * command always carry them (the migration's `calibration_transform_atomic_check`).
+ */
 export interface CalibrationRow {
   id: string;
   background_object_id: string;
   revision: Generated<number>;
   reference_points: JsonValue;
+  // No `| null` on the jsonb columns: JsonValue is `unknown`, which
+  // already subsumes null (see platform-schema.ts).
+  known_distance: JsonValue;
+  page_aspect_ratio: number | null;
+  manual_adjustment: JsonValue;
+  metres_per_plan_unit: number | null;
+  rotation_radians: number | null;
+  translation_x_metres: number | null;
+  translation_y_metres: number | null;
+  point_residuals_metres: JsonValue;
   residual_error_metres: number | null;
   created_by_profile_id: string;
   created_at: Generated<Date>;

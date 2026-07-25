@@ -215,7 +215,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving the platform-baseline schemas and roles otherwise intact', async () => {
     await client.end();
 
-    // `count: 9` undoes this migration and every migration applied after it
+    // `count: 10` undoes this migration and every migration applied after it
     // (currently garden-map-baseline, plants-observations-tasks-baseline,
     // search-indexes, synchronization-baseline, media-lifecycle-and-quotas,
     // media-processing-jobs, and media-derivative-identity, each of which
@@ -229,7 +229,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 9,
+      count: 10,
       log: () => {},
     });
 

@@ -58,6 +58,30 @@ export { densifyCubicChain, isValidControlPointCount, segmentCount } from './cur
 export type { CurveKind, CurveMetadata } from './curve.js';
 
 export {
+  applyPlanTransform,
+  CalibrationInputError,
+  derivePlanCalibration,
+  manualAdjustmentBetween,
+  MAXIMUM_CONTROL_POINT_COUNT,
+  MAXIMUM_PAGE_ASPECT_RATIO,
+  MINIMUM_KNOWN_DISTANCE_SEGMENT_PLAN_UNITS,
+  normalizeRotation,
+  planPageFootprint,
+  planPointForLocal,
+  rotatePlanTransformAbout,
+  translatePlanTransform,
+} from './calibration.js';
+export type {
+  CalibrationControlPoint,
+  CalibrationInputIssueCode,
+  ManualCalibrationAdjustment,
+  PlanCalibrationDerivation,
+  PlanCalibrationInput,
+  PlanKnownDistance,
+  PlanTransform,
+} from './calibration.js';
+
+export {
   distanceBetween,
   isGeometryValid,
   lineLength,
@@ -73,11 +97,13 @@ export type {
   AnnotationDetails,
   BedDetails,
   BedKind,
+  CalibratedReferencePoint,
   FenceDetails,
   FenceKind,
   GardenObjectCategory,
   GardenObjectDetails,
   GateDetails,
+  ImportedBackgroundCalibration,
   ImportedBackgroundCalibrationState,
   ImportedBackgroundDetails,
   PlantPlacementDetails,

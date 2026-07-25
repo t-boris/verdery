@@ -313,7 +313,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     expect(rows.rows).toEqual([{ revision: '1', command_type: 'createObject' }]);
   });
 
-  it('requires at least one calibration reference point', async () => {
+  it('requires calibration inputs: reference points, or (post-P6-PLAN-02) a known distance', async () => {
     await freshGarden();
     const backgroundId = randomUUID();
 
@@ -324,6 +324,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       [backgroundId, gardenId, coordinateSpaceId, SQUARE_POLYGON_WKT, profileId],
     );
 
+    // This suite runs with EVERY migration applied, so the constraint that
+    // fires is 1785500000000_background-calibration-transform.sql's relaxed
+    // replacement of the baseline's not-empty CHECK: no reference points is
+    // fine WITH a known distance, but never with neither.
     await expect(
       client.query(
         `INSERT INTO gardens_mapping.calibration
@@ -331,7 +335,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
          VALUES ($1, $2, '[]'::jsonb, $3)`,
         [randomUUID(), backgroundId, profileId],
       ),
-    ).rejects.toThrow(/calibration_reference_points_not_empty_check/);
+    ).rejects.toThrow(/calibration_inputs_present_check/);
 
     await client.query(
       `INSERT INTO gardens_mapping.calibration
@@ -349,7 +353,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving the identity-and-gardens-baseline schemas and tables otherwise intact', async () => {
     await client.end();
 
-    // `count: 8` undoes this migration and every migration applied after it
+    // `count: 9` undoes this migration and every migration applied after it
     // (currently plants-observations-tasks-baseline, search-indexes,
     // synchronization-baseline, media-lifecycle-and-quotas,
     // media-processing-jobs, and media-derivative-identity, each of which
@@ -361,7 +365,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 8,
+      count: 9,
       log: () => {},
     });
 

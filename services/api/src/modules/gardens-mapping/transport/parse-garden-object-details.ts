@@ -41,8 +41,15 @@ const UTILITY_EXCLUSION_KINDS = [
   'other',
 ] as const;
 const MEASUREMENT_UNITS = ['metres', 'squareMetres', 'degrees'] as const;
-/** Only `uncalibrated` exists this stage — see `ImportedBackgroundCalibrationState`'s doc comment (P6-PLAN-02 widens this). */
-const IMPORTED_BACKGROUND_CALIBRATION_STATES = ['uncalibrated'] as const;
+/**
+ * Both states parse here because `changeProperties` must ECHO a calibrated
+ * background's current state; whether the submitted state is legitimate
+ * for the target object is `validate-imported-background-state.ts`'s job
+ * (this module's own header comment: shape here, applicability there).
+ * The read-only `calibration` block is deliberately NOT parsed — a client
+ * echoing it back is ignored, and the server re-attaches its stored block.
+ */
+const IMPORTED_BACKGROUND_CALIBRATION_STATES = ['uncalibrated', 'calibrated'] as const;
 const MEASUREMENT_ACQUISITION_METHODS = [
   'userEntered',
   'derivedFromGeometry',

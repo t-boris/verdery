@@ -141,7 +141,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving the search-indexes schemas and tables otherwise intact', async () => {
     await client.end();
 
-    // `count: 5` undoes this migration and every migration applied after it
+    // `count: 6` undoes this migration and every migration applied after it
     // (currently media-lifecycle-and-quotas, media-processing-jobs, and
     // media-derivative-identity, none of which depends on
     // `platform.sync_client_installation` but all of which were applied
@@ -152,7 +152,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 5,
+      count: 6,
       log: () => {},
     });
 

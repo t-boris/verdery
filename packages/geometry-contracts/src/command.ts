@@ -18,6 +18,11 @@
  * "7. Editor Command Model" and "9. Undo and Redo".
  */
 
+import type {
+  CalibrationControlPoint,
+  ManualCalibrationAdjustment,
+  PlanKnownDistance,
+} from './calibration.js';
 import type { Geometry } from './geometry.js';
 import type { GardenObjectCategory, GardenObjectDetails } from './object-category.js';
 
@@ -103,13 +108,26 @@ export interface AssignPlantPayload {
   readonly targetObjectId: string | null;
 }
 
+/**
+ * Calibrates (or recalibrates) an imported background: the full input set
+ * `derivePlanCalibration` (calibration.ts) needs. The server derives the
+ * transform, residuals, and footprint geometry from these inputs - a client
+ * never submits a transform directly. Revision-guarded like every other
+ * object-mutating command, because applying a calibration rewrites the
+ * background object's details and geometry. P6-PLAN-02 reshaped this
+ * payload from its P3 reference-points-only scaffold (nothing built or
+ * submitted the old shape).
+ */
 export interface UpsertCalibrationPayload {
   readonly type: 'upsertCalibration';
   readonly backgroundObjectId: string;
-  readonly referencePoints: readonly {
-    readonly imagePixel: readonly [number, number];
-    readonly localMetres: readonly [number, number];
-  }[];
+  readonly expectedRevision: number;
+  /** Page height / width, measured by the client from the displayed raster. */
+  readonly pageAspectRatio: number;
+  readonly knownDistance: PlanKnownDistance;
+  /** Optional control points - may be empty; scale alone plus manual placement is a legitimate calibration. */
+  readonly referencePoints: readonly CalibrationControlPoint[];
+  readonly manualAdjustment?: ManualCalibrationAdjustment;
 }
 
 export type ProposalDecision = 'accept' | 'modifyAndAccept' | 'reject';

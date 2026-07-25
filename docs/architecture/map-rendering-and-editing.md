@@ -261,12 +261,10 @@ one-row-per-object detail-table shape every other detail-bearing category uses):
   Distinct from the web client's client-local layer-2 visibility preference, which hides every
   imported background at once and resets on reload; the persisted flag hides one background's plan
   imagery while its object outline stays selectable.
-- `calibrationState` — pinned to `'uncalibrated'` this stage (database CHECK included). No
-  transform is stored at all: an uncalibrated background has no plan-to-map transform, and the UI
-  shows an explicit "not calibrated" indication instead of pretending a 1:1 transform is
-  meaningful. P6-PLAN-02 (known-distance calibration, control points, residual error, transform
-  revisions — building on the existing `gardens_mapping.calibration` table) widens this state and
-  attaches the real transform.
+- `calibrationState` — `'uncalibrated'` at creation: a fresh background has no plan-to-map
+  transform, and the UI shows an explicit "not calibrated" indication instead of pretending a 1:1
+  transform is meaningful. P6-PLAN-02 widened it to `'uncalibrated' | 'calibrated'` — see
+  section 16.2.
 
 Creation, visibility toggling, and removal are the EXISTING map commands (`createObject`,
 `changeProperties`, `deleteObject`) — revision-guarded and idempotent like every other category,
@@ -280,6 +278,54 @@ Web display renders the plan's screen-preview derivative "contain"-fit inside th
 object's placeholder polygon, under all garden geometry. Tile CONSUMPTION is deferred even though
 the server-side pyramid exists (section 11.1 of the media design) — see
 `docs/development/deferred-capabilities.md`.
+
+### 16.2 Implemented calibration profile (P6-PLAN-02)
+
+Calibration extends the P3-era `gardens_mapping.calibration` table and `upsertCalibration`
+command — which already modeled per-background revisions ("recalibration is a new row") and a
+then-unpopulated residual-error column — rather than building a parallel mechanism. Verified
+against the real code: that table was always plan-background calibration; garden-level geographic
+placement is the separate `georeference` table.
+
+- **Inputs (stored, so recalibration re-derives instead of restarting):** the one known-distance
+  segment (two plan points + a distance in metres), zero or more control points (plan point ↔
+  local point), an optional manual adjustment (rotate about the local origin, then translate),
+  and the page aspect ratio (height/width, client-measured — the API exposes no raster
+  dimensions). Plan points are "plan-fraction" coordinates: pixel x AND y divided by the displayed
+  rendition's WIDTH, y down — isotropic and resolution-independent, since every derivative
+  preserves the page's aspect ratio.
+- **Derived transform:** a SIMILARITY transform (uniform scale + rotation + translation),
+  `local = t + s · R(θ) · (u, −v)` — exactly the degrees of freedom this section's own vocabulary
+  names. A 6-DOF affine was rejected: shear would absorb input noise and manufacture precision.
+  Scale comes from the known distance alone; rotation and translation from a least-squares rigid
+  fit (2D Kabsch, scale fixed) over the control points; the manual adjustment composes on top.
+  The math lives once in `@verdery/geometry-contracts` (`calibration.ts`), pinned by the shared
+  `geometry/calibration.json` fixtures, so client previews and the server's authoritative
+  derivation are the same computation.
+- **Quality, honestly:** per-control-point residuals and their RMS are computed against the final
+  stored transform. RMS is `null` below two control points — a one-point fit is exact by
+  construction, and reporting zero would be false precision. Every surface (canvas badge, panels)
+  shows "±N cm estimated error" or explicitly states that accuracy is not estimated.
+- **Transform revisions:** each (re)calibration inserts a new `calibration` row with a
+  per-background monotonically increasing `revision`, surfaced as
+  `details.calibration.transformRevision` — deliberately distinct from the object's
+  optimistic-concurrency revision, so a consumer can tell "the background moved under me" apart
+  from ordinary edits. The details table stores only the state flag; the read path joins the
+  latest calibration revision, so state and transform cannot drift in storage.
+- **Server-owned state:** `calibrationState` flips only through `upsertCalibration` (now
+  revision-guarded — it rewrites the object's details AND geometry). `createObject` requires
+  `'uncalibrated'`; `changeProperties` must echo the current state and always keeps the stored
+  `calibration` block. Applying a calibration replaces the placeholder polygon with the
+  transformed page footprint, so the selectable outline and the rendered imagery coincide;
+  geometry-editing commands are rejected for a calibrated background, and a drag on the web
+  becomes a recalibration with the delta folded into the manual adjustment. Duplicating a
+  calibrated background yields an uncalibrated copy (revisions belong to the source).
+- **Tracing needs no new tools:** the calibrated image renders at its transform under all garden
+  geometry, non-listening, and the ordinary drawing tools (P3) draw over it unchanged; the one
+  added affordance is a client-local underlay-opacity control for dimming a dense plan while
+  tracing. Geographic anchors remain deferred with reasoning
+  (`docs/development/deferred-capabilities.md`): they require the not-yet-existing
+  georeference-authoring capability, after which plan→geographic composes for free.
 
 ## 17. Generated Proposals
 

@@ -35,6 +35,9 @@ extension MapCommandPayload: Codable {
         case targetObjectId
         case backgroundObjectId
         case referencePoints
+        case pageAspectRatio
+        case knownDistance
+        case manualAdjustment
         case proposalId
         case decision
         case editedGeometry
@@ -159,8 +162,16 @@ extension MapCommandPayload: Codable {
                     backgroundObjectId: try container.decode(
                         String.self, forKey: .backgroundObjectId
                     ),
+                    expectedRevision: try container.decode(Int.self, forKey: .expectedRevision),
+                    pageAspectRatio: try container.decode(Double.self, forKey: .pageAspectRatio),
+                    knownDistance: try container.decode(
+                        PlanKnownDistance.self, forKey: .knownDistance
+                    ),
                     referencePoints: try container.decode(
-                        [CalibrationReferencePoint].self, forKey: .referencePoints
+                        [CalibrationControlPoint].self, forKey: .referencePoints
+                    ),
+                    manualAdjustment: try container.decodeIfPresent(
+                        ManualCalibrationAdjustment.self, forKey: .manualAdjustment
                     )
                 )
             )
@@ -263,7 +274,11 @@ extension MapCommandPayload: Codable {
 
         case let .upsertCalibration(payload):
             try container.encode(payload.backgroundObjectId, forKey: .backgroundObjectId)
+            try container.encode(payload.expectedRevision, forKey: .expectedRevision)
+            try container.encode(payload.pageAspectRatio, forKey: .pageAspectRatio)
+            try container.encode(payload.knownDistance, forKey: .knownDistance)
             try container.encode(payload.referencePoints, forKey: .referencePoints)
+            try container.encodeIfPresent(payload.manualAdjustment, forKey: .manualAdjustment)
 
         case let .decideProposal(payload):
             try container.encode(payload.proposalId, forKey: .proposalId)

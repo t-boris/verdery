@@ -3,6 +3,7 @@
 import { Image as KonvaImage, Rect, Text } from 'react-konva';
 
 import { containFitRect, geometryScreenRect } from '../background-fit';
+import { calibratedImagePlacement } from '../background-placement';
 import type { CanvasSize, MapCamera, MapObjectRecord } from '../types';
 import { useBackgroundImage } from '../use-background-image';
 
@@ -11,33 +12,44 @@ export interface BackgroundImageShapeProps {
   readonly gardenId: string;
   readonly camera: MapCamera;
   readonly size: CanvasSize;
-  /** Localized "not calibrated" badge text — localization stays outside the canvas layer. */
-  readonly notCalibratedLabel: string;
+  /** Localized state/quality badge text — localization stays outside the canvas layer. Section 16: quality is always displayed, never implied. */
+  readonly badgeLabel: string;
+  /** Client-local underlay opacity (`editor-store.ts#backgroundOpacity`) — dimmable for tracing. */
+  readonly opacity: number;
 }
 
 const BADGE_FONT_SIZE = 11;
 const BADGE_PADDING = 4;
 
 /**
- * One imported background's raster underlay (P6-PLAN-01): the plan's
- * screen-preview derivative, "contain"-fit inside the object polygon's own
- * bounding box (`background-fit.ts` — a placeholder placement, since an
- * uncalibrated background HAS no plan-to-map transform), plus the explicit
- * "not calibrated" badge section 16 requires ("displays calibration quality
- * and prevents false precision"). A plan with no displayable derivative
- * (every PDF today) renders only its badge — the object's own polygon
- * outline is already drawn by `ObjectShape` above this layer, so there is
- * no broken-image state.
+ * One imported background's raster underlay: the plan's screen-preview
+ * derivative, drawn under all garden geometry with the calibration badge
+ * section 16 requires ("displays calibration quality and prevents false
+ * precision").
  *
- * `listening={false}` throughout: the underlay must never steal clicks from
- * the polygon shape that owns selection.
+ * - CALIBRATED (P6-PLAN-02): the image draws exactly at its plan-to-map
+ *   transform (`background-placement.ts`) — scale, rotation, and
+ *   translation — so traced geometry aligns with the plan's ink. The
+ *   object's own polygon is the server-derived page footprint and
+ *   coincides with the image by construction.
+ * - UNCALIBRATED (P6-PLAN-01): "contain"-fit inside the placeholder
+ *   polygon's bounding box (`background-fit.ts`), never stretched, with
+ *   the explicit "not calibrated" badge.
+ *
+ * A plan with no displayable derivative (every PDF today) renders only its
+ * badge — the object's own polygon outline is already drawn by
+ * `ObjectShape` above this layer, so there is no broken-image state.
+ *
+ * `listening={false}` throughout: the underlay must never steal clicks
+ * from the polygon shape that owns selection.
  */
 export function BackgroundImageShape({
   record,
   gardenId,
   camera,
   size,
-  notCalibratedLabel,
+  badgeLabel,
+  opacity,
 }: BackgroundImageShapeProps) {
   const details =
     record.categoryDetails?.category === 'importedBackground'
@@ -50,51 +62,70 @@ export function BackgroundImageShape({
     return null;
   }
 
-  const showBadge = details.calibrationState === 'uncalibrated';
-  const badgeWidth = notCalibratedLabel.length * BADGE_FONT_SIZE * 0.62 + BADGE_PADDING * 2;
+  const badgeWidth = badgeLabel.length * BADGE_FONT_SIZE * 0.62 + BADGE_PADDING * 2;
   const badgeHeight = BADGE_FONT_SIZE + BADGE_PADDING * 2;
 
-  const fit =
-    state.kind === 'ready'
-      ? containFitRect(bounds, state.image.naturalWidth / state.image.naturalHeight)
-      : null;
+  const calibration = details.calibration;
 
-  return (
-    <>
-      {state.kind === 'ready' && fit !== null && (
+  let imageNode = null;
+  if (state.kind === 'ready') {
+    if (calibration !== undefined) {
+      const placement = calibratedImagePlacement(
+        calibration.transform,
+        calibration.pageAspectRatio,
+        camera,
+        size,
+      );
+      imageNode = (
+        <KonvaImage
+          image={state.image}
+          x={placement.x}
+          y={placement.y}
+          width={placement.width}
+          height={placement.height}
+          rotation={placement.rotationDeg}
+          opacity={opacity}
+          listening={false}
+        />
+      );
+    } else {
+      const fit = containFitRect(bounds, state.image.naturalWidth / state.image.naturalHeight);
+      imageNode = (
         <KonvaImage
           image={state.image}
           x={fit.x}
           y={fit.y}
           width={fit.width}
           height={fit.height}
-          opacity={0.85}
+          opacity={opacity}
           listening={false}
         />
-      )}
-      {showBadge && (
-        <>
-          <Rect
-            x={bounds.x}
-            y={bounds.y}
-            width={badgeWidth}
-            height={badgeHeight}
-            fill="rgba(255, 249, 219, 0.92)"
-            stroke="#8a6d1a"
-            strokeWidth={1}
-            cornerRadius={3}
-            listening={false}
-          />
-          <Text
-            text={notCalibratedLabel}
-            x={bounds.x + BADGE_PADDING}
-            y={bounds.y + BADGE_PADDING}
-            fontSize={BADGE_FONT_SIZE}
-            fill="#8a6d1a"
-            listening={false}
-          />
-        </>
-      )}
+      );
+    }
+  }
+
+  return (
+    <>
+      {imageNode}
+      <Rect
+        x={bounds.x}
+        y={bounds.y}
+        width={badgeWidth}
+        height={badgeHeight}
+        fill="rgba(255, 249, 219, 0.92)"
+        stroke="#8a6d1a"
+        strokeWidth={1}
+        cornerRadius={3}
+        listening={false}
+      />
+      <Text
+        text={badgeLabel}
+        x={bounds.x + BADGE_PADDING}
+        y={bounds.y + BADGE_PADDING}
+        fontSize={BADGE_FONT_SIZE}
+        fill="#8a6d1a"
+        listening={false}
+      />
     </>
   );
 }

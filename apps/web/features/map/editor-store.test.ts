@@ -139,3 +139,47 @@ describe('editorReducer', () => {
     expect(next.undoStack).toEqual([undoEntry]);
   });
 });
+
+describe('editorReducer calibration session (P6-PLAN-02)', () => {
+  const draft = {
+    objectId: 'bg-1',
+    segmentPoints: [],
+    distanceText: '',
+    referencePoints: [],
+    pendingPlanPoint: null,
+    manualAdjustment: null,
+    capture: 'segment' as const,
+  };
+
+  it('stores and clears the calibration draft', () => {
+    const active = editorReducer(initialEditorState, { type: 'setCalibrationDraft', draft });
+    expect(active.calibrationDraft).toBe(draft);
+
+    const cleared = editorReducer(active, { type: 'setCalibrationDraft', draft: null });
+    expect(cleared.calibrationDraft).toBeNull();
+  });
+
+  it('abandons the session whenever the selection or tool changes — it is bound to one selected background', () => {
+    const active = editorReducer(initialEditorState, { type: 'setCalibrationDraft', draft });
+
+    expect(
+      editorReducer(active, { type: 'select', objectId: 'other' }).calibrationDraft,
+    ).toBeNull();
+    expect(editorReducer(active, { type: 'setTool', tool: 'select' }).calibrationDraft).toBeNull();
+  });
+
+  it('clamps the tracing opacity so imagery can be dimmed but never hidden through this control', () => {
+    expect(
+      editorReducer(initialEditorState, { type: 'setBackgroundOpacity', opacity: 0.5 })
+        .backgroundOpacity,
+    ).toBe(0.5);
+    expect(
+      editorReducer(initialEditorState, { type: 'setBackgroundOpacity', opacity: 0 })
+        .backgroundOpacity,
+    ).toBe(0.15);
+    expect(
+      editorReducer(initialEditorState, { type: 'setBackgroundOpacity', opacity: 2 })
+        .backgroundOpacity,
+    ).toBe(1);
+  });
+});

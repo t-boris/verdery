@@ -47,6 +47,12 @@ export function objectIdOf(command: MapCommandPayload): string {
       return command.plantObjectId;
     case 'joinLinework':
       return command.resultObjectId;
+    // Calibration targets exactly one background object. Its inverse is
+    // `null` (the design excludes calibration from single-command undo —
+    // recalibration is the correction path), the same posture split/join
+    // already hold on this stack.
+    case 'upsertCalibration':
+      return command.backgroundObjectId;
     default:
       throw new Error(`Map editor history does not support command type "${command.type}".`);
   }

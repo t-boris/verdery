@@ -195,10 +195,26 @@ orientation to derivative pixels) does not exist: keystone/perspective correctio
 plan has no server capability, and no client-side warping was half-built around that gap. A future
 capture-quality stage owns it if product need materializes.
 
-**iOS plan import (P6-PLAN-01 follow-up).** The contract now carries everything the flow needs
-(`ImportedBackgroundDetails`, `ListGardenMedia`, `Media.derivatives`); the iOS client has not been
-built against it yet — a dedicated follow-up work package implements document selection, upload,
-and background management on `apps/ios`.
+**iOS plan import and calibration (P6-PLAN-01/-02 follow-up).** The contract now carries
+everything the flow needs (`ImportedBackgroundDetails` with its `calibration` block,
+`ListGardenMedia`, `Media.derivatives`, the reworked `UpsertCalibrationCommand`); the iOS client
+has not been built against it yet — a dedicated follow-up work package implements document
+selection, upload, background management, and the calibration flow on `apps/ios`. That follow-up
+must also update `MapCommand.swift`'s `UpsertCalibrationPayload` to the reshaped P6-PLAN-02
+payload (expected revision, page aspect ratio, known distance, plan-fraction reference points,
+manual adjustment) and implement the Swift half of `derivePlanCalibration` against the shared
+`geometry/calibration.json` fixtures — the `command-inverse.json` fixture already carries the new
+payload shape.
+
+**Geographic anchors as calibration inputs (P6-PLAN-02 scope boundary).** Section 16 lists
+"optional geographic anchors" among the calibration inputs — pinning a plan point directly to a
+WGS84 coordinate. This is genuinely blocked, not skipped: entering a geographic anchor requires
+AUTHORING the garden's local→WGS84 georeference, and no `upsertGeoreference` command exists
+anywhere in the system (`georeference-repository.ts` documents the read-only posture; the
+history-preserving `gardens_mapping.georeference` table has no writer). Once a garden CAN be
+georeferenced, plan→geographic placement already composes for free — plan→local is this stage's
+calibration transform and local→WGS84 is the georeference — so the missing piece is the
+georeference-authoring capability, its own future work package, not more calibration modeling.
 
 **Break-glass credential rotation procedure.** `07-iam-database-bootstrap.sh` rotates the Postgres
 superuser password on every run and stores it in Secret Manager, but there is no scheduled rotation

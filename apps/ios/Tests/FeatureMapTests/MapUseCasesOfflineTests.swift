@@ -326,7 +326,18 @@ struct MapUseCasesOfflineTests {
         let command = MapCommandPayload.upsertCalibration(
             UpsertCalibrationPayload(
                 backgroundObjectId: "background-1",
-                referencePoints: [CalibrationReferencePoint(imagePixel: Position(x: 0, y: 0), localMetres: Position(x: 0, y: 0))]
+                expectedRevision: 1,
+                pageAspectRatio: 0.75,
+                knownDistance: PlanKnownDistance(
+                    pointA: Position(x: 0.1, y: 0.1),
+                    pointB: Position(x: 0.6, y: 0.1),
+                    distanceMetres: 10
+                ),
+                referencePoints: [
+                    CalibrationControlPoint(
+                        planPoint: Position(x: 0, y: 0), localMetres: Position(x: 0, y: 0)
+                    )
+                ]
             )
         )
 

@@ -196,25 +196,77 @@ public struct AssignPlantPayload: Equatable, Sendable {
     }
 }
 
-/// One correspondence between an image pixel and a local-metres position,
-/// used to calibrate an imported background plan.
-public struct CalibrationReferencePoint: Equatable, Sendable, Codable {
-    public let imagePixel: Position
+/// Two points on the plan and the real-world distance between them — the
+/// uniform-scale source. Plan points are "plan-fraction" coordinates
+/// (pixels divided by the rendition's width, y down), the
+/// resolution-independent plane `geometry-contracts/src/calibration.ts`
+/// defines.
+public struct PlanKnownDistance: Equatable, Sendable, Codable {
+    public let pointA: Position
+    public let pointB: Position
+    public let distanceMetres: Double
+
+    public init(pointA: Position, pointB: Position, distanceMetres: Double) {
+        self.pointA = pointA
+        self.pointB = pointB
+        self.distanceMetres = distanceMetres
+    }
+}
+
+/// One plan-fraction point paired with the local-space point it must land on
+/// (P6-PLAN-02 reshaped this from the earlier image-pixel scaffold; nothing
+/// ever submitted the old shape).
+public struct CalibrationControlPoint: Equatable, Sendable, Codable {
+    public let planPoint: Position
     public let localMetres: Position
 
-    public init(imagePixel: Position, localMetres: Position) {
-        self.imagePixel = imagePixel
+    public init(planPoint: Position, localMetres: Position) {
+        self.planPoint = planPoint
         self.localMetres = localMetres
     }
 }
 
+/// User-applied correction on top of the fitted transform: rotate about the
+/// local origin, then translate.
+public struct ManualCalibrationAdjustment: Equatable, Sendable, Codable {
+    public let rotationRadians: Double
+    public let translationMetres: PlanarOffset
+
+    public init(rotationRadians: Double, translationMetres: PlanarOffset) {
+        self.rotationRadians = rotationRadians
+        self.translationMetres = translationMetres
+    }
+}
+
+/// The full calibration input set (`derivePlanCalibration`'s own) — the
+/// server derives the transform, residuals, and footprint from these; a
+/// client never submits a transform directly. Revision-guarded since
+/// P6-PLAN-02: applying a calibration rewrites the background object's
+/// details and geometry.
 public struct UpsertCalibrationPayload: Equatable, Sendable {
     public let backgroundObjectId: String
-    public let referencePoints: [CalibrationReferencePoint]
+    public let expectedRevision: Int
+    /// Page height / width, measured by the client from the displayed raster.
+    public let pageAspectRatio: Double
+    public let knownDistance: PlanKnownDistance
+    /// May be empty — scale alone plus manual placement is a legitimate calibration.
+    public let referencePoints: [CalibrationControlPoint]
+    public let manualAdjustment: ManualCalibrationAdjustment?
 
-    public init(backgroundObjectId: String, referencePoints: [CalibrationReferencePoint]) {
+    public init(
+        backgroundObjectId: String,
+        expectedRevision: Int,
+        pageAspectRatio: Double,
+        knownDistance: PlanKnownDistance,
+        referencePoints: [CalibrationControlPoint],
+        manualAdjustment: ManualCalibrationAdjustment? = nil
+    ) {
         self.backgroundObjectId = backgroundObjectId
+        self.expectedRevision = expectedRevision
+        self.pageAspectRatio = pageAspectRatio
+        self.knownDistance = knownDistance
         self.referencePoints = referencePoints
+        self.manualAdjustment = manualAdjustment
     }
 }
 

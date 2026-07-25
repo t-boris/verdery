@@ -83,13 +83,25 @@ describe('objectIdOf', () => {
     expect(objectIdOf(command)).toBe(otherObjectId);
   });
 
-  it('throws for command types this feature never constructs', () => {
+  it('tracks the background object for upsertCalibration (P6-PLAN-02)', () => {
     const command: MapCommandPayload = {
       type: 'upsertCalibration',
       backgroundObjectId: objectId,
+      expectedRevision: 1,
+      pageAspectRatio: 0.75,
+      knownDistance: { pointA: [0.1, 0.1], pointB: [0.6, 0.1], distanceMetres: 10 },
       referencePoints: [],
     };
-    expect(() => objectIdOf(command)).toThrow(/upsertCalibration/);
+    expect(objectIdOf(command)).toBe(objectId);
+  });
+
+  it('throws for command types this feature never constructs', () => {
+    const command: MapCommandPayload = {
+      type: 'decideProposal',
+      proposalId: objectId,
+      decision: 'accept',
+    };
+    expect(() => objectIdOf(command)).toThrow(/decideProposal/);
   });
 });
 

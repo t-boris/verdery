@@ -13,6 +13,7 @@ import {
   VisuallyHidden,
 } from '@/shared/ui/public';
 
+import { CalibrationPanel } from './calibration-panel';
 import { MapEditorStoreProvider, useMapEditorStore } from './editor-store';
 import { ImportedBackgroundPanel } from './imported-background-panel';
 import { MapDisclosureBanner } from './map-disclosure-banner';
@@ -118,6 +119,7 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
         <div className={styles['sidebar']}>
           <MapLayerPanel actions={actions} />
           <ImportedBackgroundPanel gardenId={gardenId} actions={actions} />
+          <CalibrationPanel gardenId={gardenId} actions={actions} />
           <MapObjectList
             actions={actions}
             selectedObjectId={store.state.selectedObjectId}

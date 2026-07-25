@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "description": "Plan-background calibration derivation: known-distance scale, control-point rigid fit, manual adjustment composition, per-point residuals with aggregate RMS, and the derived page footprint. Inputs are plan-fraction points (x and y both divided by the page's pixel WIDTH, y down); outputs follow calibration.ts's documented rounding grids, so every runtime must reproduce these numbers byte-identically.",
+  "source": "architecture/map-rendering-and-editing.md section 16; garden-capture-and-scan.md section 8; ADR-0010",
+  "comparison": "exact",
+  "cases": [
+    {
+      "name": "known distance alone yields uniform scale with identity placement",
+      "input": {
+        "pageAspectRatio": 0.75,
+        "knownDistance": { "pointA": [0.1, 0.1], "pointB": [0.6, 0.1], "distanceMetres": 10 },
+        "referencePoints": []
+      },
+      "expected": {
+        "transform": {
+          "metresPerPlanUnit": 20,
+          "rotationRadians": 0,
+          "translationMetres": { "x": 0, "y": 0 }
+        },
+        "pointResidualsMetres": [],
+        "rmsErrorMetres": null,
+        "footprint": [
+          [0, -15],
+          [20, -15],
+          [20, 0],
+          [0, 0],
+          [0, -15]
+        ]
+      }
+    },
+    {
+      "name": "diagonal known-distance segment with a manual translation",
+      "input": {
+        "pageAspectRatio": 1,
+        "knownDistance": { "pointA": [0, 0], "pointB": [0.3, 0.4], "distanceMetres": 25 },
+        "referencePoints": [],
+        "manualAdjustment": { "rotationRadians": 0, "translationMetres": { "dx": 4, "dy": -2.5 } }
+      },
+      "expected": {
+        "transform": {
+          "metresPerPlanUnit": 50,
+          "rotationRadians": 0,
+          "translationMetres": { "x": 4, "y": -2.5 }
+        },
+        "pointResidualsMetres": [],
+        "rmsErrorMetres": null,
+        "footprint": [
+          [4, -52.5],
+          [54, -52.5],
+          [54, -2.5],
+          [4, -2.5],
+          [4, -52.5]
+        ]
+      }
+    },
+    {
+      "name": "one control point pins translation and reports no aggregate error",
+      "input": {
+        "pageAspectRatio": 0.5,
+        "knownDistance": { "pointA": [0, 0], "pointB": [1, 0], "distanceMetres": 40 },
+        "referencePoints": [{ "planPoint": [0.5, 0.25], "localMetres": [10, 10] }]
+      },
+      "expected": {
+        "transform": {
+          "metresPerPlanUnit": 40,
+          "rotationRadians": 0,
+          "translationMetres": { "x": -10, "y": 20 }
+        },
+        "pointResidualsMetres": [0],
+        "rmsErrorMetres": null,
+        "footprint": [
+          [-10, 0],
+          [30, 0],
+          [30, 20],
+          [-10, 20],
+          [-10, 0]
+        ]
+      }
+    },
+    {
+      "name": "two control points recover a quarter-turn rotation exactly",
+      "input": {
+        "pageAspectRatio": 1,
+        "knownDistance": { "pointA": [0, 0], "pointB": [1, 0], "distanceMetres": 8 },
+        "referencePoints": [
+          { "planPoint": [0, 0], "localMetres": [2, 1] },
+          { "planPoint": [1, 0], "localMetres": [2, 9] }
+        ]
+      },
+      "expected": {
+        "transform": {
+          "metresPerPlanUnit": 8,
+          "rotationRadians": 1.570796327,
+          "translationMetres": { "x": 2, "y": 1 }
+        },
+        "pointResidualsMetres": [0, 0],
+        "rmsErrorMetres": 0,
+        "footprint": [
+          [10, 1],
+          [10, 9],
+          [2, 9],
+          [2, 1],
+          [10, 1]
+        ]
+      }
+    },
+    {
+      "name": "manual adjustment composes on top of a fitted transform and residuals report the visible placement",
+      "input": {
+        "pageAspectRatio": 1,
+        "knownDistance": { "pointA": [0, 0], "pointB": [1, 0], "distanceMetres": 8 },
+        "referencePoints": [
+          { "planPoint": [0, 0], "localMetres": [2, 1] },
+          { "planPoint": [1, 0], "localMetres": [2, 9] }
+        ],
+        "manualAdjustment": {
+          "rotationRadians": 1.5707963267948966,
+          "translationMetres": { "dx": 1, "dy": -1 }
+        }
+      },
+      "expected": {
+        "transform": {
+          "metresPerPlanUnit": 8,
+          "rotationRadians": 3.141592654,
+          "translationMetres": { "x": 0, "y": 1 }
+        },
+        "pointResidualsMetres": [2, 12.8062],
+        "rmsErrorMetres": 9.1651,
+        "footprint": [
+          [0, 9],
+          [-8, 9],
+          [-8, 1],
+          [0, 1],
+          [0, 9]
+        ]
+      }
+    }
+  ],
+  "rejectedCases": [
+    {
+      "name": "a non-positive known distance cannot derive a scale",
+      "input": {
+        "pageAspectRatio": 1,
+        "knownDistance": { "pointA": [0, 0], "pointB": [1, 0], "distanceMetres": 0 },
+        "referencePoints": []
+      },
+      "expectedCode": "known_distance_not_positive"
+    },
+    {
+      "name": "coincident segment endpoints are degenerate",
+      "input": {
+        "pageAspectRatio": 1,
+        "knownDistance": { "pointA": [0.5, 0.5], "pointB": [0.5, 0.5], "distanceMetres": 10 },
+        "referencePoints": []
+      },
+      "expectedCode": "known_distance_segment_degenerate"
+    },
+    {
+      "name": "a plan point off the page is rejected",
+      "input": {
+        "pageAspectRatio": 0.5,
+        "knownDistance": { "pointA": [0, 0], "pointB": [1, 0], "distanceMetres": 10 },
+        "referencePoints": [{ "planPoint": [0.5, 0.75], "localMetres": [0, 0] }]
+      },
+      "expectedCode": "plan_point_outside_page"
+    },
+    {
+      "name": "a non-positive page aspect ratio is rejected",
+      "input": {
+        "pageAspectRatio": 0,
+        "knownDistance": { "pointA": [0, 0], "pointB": [1, 0], "distanceMetres": 10 },
+        "referencePoints": []
+      },
+      "expectedCode": "page_aspect_ratio_invalid"
+    }
+  ]
+}

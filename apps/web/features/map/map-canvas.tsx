@@ -7,10 +7,17 @@ import { Layer, Stage } from 'react-konva';
 
 import { useLocalization } from '@/shared/localization/public';
 
+import { calibrationStateText } from './calibration-labels';
+import {
+  draftWithLocalPoint,
+  draftWithManualTranslation,
+  draftWithPlanPoint,
+} from './calibration-session';
 import { useMapEditorStore } from './editor-store';
 import { categoryLabelKey } from './labels';
 import { isCategoryHidden, isCategoryLocked } from './map-layers';
 import { BackgroundImageShape } from './shapes/background-image-shape';
+import { CalibrationOverlay } from './shapes/calibration-overlay';
 import { DraftPreviewShape } from './shapes/draft-preview-shape';
 import { ObjectShape } from './shapes/object-shape';
 import { TransformHandles } from './shapes/transform-handles';
@@ -107,6 +114,15 @@ export function MapCanvas({ actions }: MapCanvasProps) {
       !isCategoryHidden(record.category, store.state.hiddenLayers),
   );
 
+  // The in-progress calibration session (P6-PLAN-02), if any: its record
+  // renders through `CalibrationOverlay` (live preview + capture surface)
+  // instead of the ordinary underlay below.
+  const calibrationDraft = store.state.calibrationDraft;
+  const calibrationRecord =
+    calibrationDraft === null
+      ? null
+      : (actions.records.find((record) => record.id === calibrationDraft.objectId) ?? null);
+
   // Imported-background raster underlays (P6-PLAN-01), drawn under every
   // object shape. Two independent visibility controls both apply: the
   // client-local layer-2 toggle (already applied by `visibleRecords`) and
@@ -116,8 +132,18 @@ export function MapCanvas({ actions }: MapCanvasProps) {
   const visibleBackgrounds = visibleRecords.filter(
     (record) =>
       record.categoryDetails?.category === 'importedBackground' &&
-      record.categoryDetails.details.isBackgroundVisible,
+      record.categoryDetails.details.isBackgroundVisible &&
+      record.id !== calibrationRecord?.id,
   );
+
+  /** Section 16's always-visible state/quality badge — honest ± text, never implied exactness. */
+  const backgroundBadgeLabel = (record: (typeof visibleBackgrounds)[number]): string =>
+    calibrationStateText(
+      t,
+      record.categoryDetails?.category === 'importedBackground'
+        ? record.categoryDetails.details.calibration
+        : undefined,
+    );
 
   // Vertex/edge proximity tolerance converted from a constant screen-pixel
   // radius to local metres at the current zoom — the same pattern
@@ -148,6 +174,12 @@ export function MapCanvas({ actions }: MapCanvasProps) {
   });
 
   const handleStageClick = (event: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+    // While a calibration session is active, every meaningful click goes to
+    // `CalibrationOverlay`'s capture surface — a stray stage click must not
+    // deselect the background and silently kill the session.
+    if (calibrationDraft !== null) {
+      return;
+    }
     const stage = event.target.getStage();
     if (stage === null || event.target !== stage) {
       // A shape's own onClick already ran and selected it.
@@ -324,7 +356,8 @@ export function MapCanvas({ actions }: MapCanvasProps) {
                   gardenId={record.gardenId}
                   camera={camera}
                   size={size}
-                  notCalibratedLabel={t('map.background.notCalibrated')}
+                  badgeLabel={backgroundBadgeLabel(record)}
+                  opacity={store.state.backgroundOpacity}
                 />
               ))}
               {visibleRecords.map((record) => {
@@ -427,6 +460,24 @@ export function MapCanvas({ actions }: MapCanvasProps) {
                   size={size}
                   onReplaceGeometry={(geometry) =>
                     void actions.replaceGeometry(selectedRecord.id, geometry)
+                  }
+                />
+              )}
+              {calibrationDraft !== null && calibrationRecord !== null && (
+                <CalibrationOverlay
+                  record={calibrationRecord}
+                  gardenId={calibrationRecord.gardenId}
+                  draft={calibrationDraft}
+                  camera={camera}
+                  size={size}
+                  onPlanPoint={(point) =>
+                    store.setCalibrationDraft(draftWithPlanPoint(calibrationDraft, point))
+                  }
+                  onLocalPoint={(point) =>
+                    store.setCalibrationDraft(draftWithLocalPoint(calibrationDraft, point))
+                  }
+                  onDragDelta={(dx, dy) =>
+                    store.setCalibrationDraft(draftWithManualTranslation(calibrationDraft, dx, dy))
                   }
                 />
               )}

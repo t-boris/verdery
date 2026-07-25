@@ -2908,3 +2908,187 @@ owner's "do not leave fixable issues to a later phase" directive) rather than re
    original fallback).
 
 Final counts after review fixes: api 105 files / 700 tests; web 54 files / 423 tests.
+
+## Stage 10 — P6-PLAN-02 (backend + contract + web), implementation complete
+
+Calibration is real end to end: a plan background can be calibrated from one known-distance
+segment plus optional control points, the derived plan-to-map transform places the imagery exactly
+(traced geometry aligns), residual error is computed and displayed honestly, recalibration creates
+a new transform revision, and manual origin/orientation adjustment — including dragging an
+already-calibrated background — rides the same command path as re-derivable input. iOS remains the
+dedicated follow-up (now covering both plan import and calibration).
+
+### Key decisions
+
+- **Calibration EXTENDS the P3 `gardens_mapping.calibration` machinery — verified, not assumed.**
+  Investigation of the real code settled the extends-vs-separate question the Stage 9 seam left
+  open: that table was never garden-level geographic calibration (that is `georeference`) — it
+  already modeled per-background calibration with a monotonic per-background `revision`
+  ("recalibration is a new row"), reference points, and a `residual_error_metres` column whose own
+  TODO said it awaited "a best-fit local-to-image transform" — exactly this work package's math.
+  Migration `1785500000000_background-calibration-transform.sql` adds the input columns
+  (`known_distance`, `page_aspect_ratio`, `manual_adjustment`), the derived similarity-transform
+  columns (atomic by CHECK), `point_residuals_metres`, relaxes the reference-points CHECK (zero
+  control points is legitimate WITH a known distance), and widens the details
+  `calibration_state` CHECK to its promised second value. The details table gains NO transform
+  columns: the latest calibration row is the single storage the read path joins
+  (`imported-background-details.ts`, batched, never N+1), so state and transform cannot drift.
+- **Transform representation: a SIMILARITY transform (uniform scale + rotation + translation),
+  not 6-DOF affine.** `local = t + s·R(θ)·(u, −v)` — exactly section 16's own degrees of freedom
+  ("one known-distance segment for uniform scale", "control points for rotation"). Shear /
+  anisotropic scale would absorb input noise and paper distortion into fabricated precision — the
+  exact thing section 16 forbids. Documented in `calibration.ts`'s module comment.
+- **Plan space is "plan-fraction" coordinates** — pixel x AND y divided by the displayed
+  rendition's WIDTH (isotropic, y down). Resolution-independent by construction (every derivative
+  preserves aspect ratio), which matters because the API deliberately exposes no raster
+  dimensions, so original-pixel coordinates would be uncomputable by any client. The page aspect
+  ratio (height/width) is a client-measured calibration input, bounding `v` and shaping the
+  footprint.
+- **The math lives once, in `@verdery/geometry-contracts` (`calibration.ts`), pinned by shared
+  fixtures.** `derivePlanCalibration` = scale from the segment; rotation+translation from a 2D
+  Kabsch least-squares rigid fit with scale held fixed (0 points → identity placement; 1 point →
+  translation only); manual adjustment composed on top; outputs rounded on fixed decimal grids
+  (ADR-0010's reasoning) so every runtime reproduces the fixtures byte-identically. Helpers for
+  clients: `applyPlanTransform`/`planPointForLocal` (both directions),
+  `translatePlanTransform`/`rotatePlanTransformAbout`/`manualAdjustmentBetween` (recording user
+  gestures as re-derivable INPUT), `planPageFootprint` (the transformed page rectangle as a
+  closed CCW polygon, mm-rounded). `geometry/calibration.json` (packages/test-fixtures): five
+  hand-computable success cases — scale-only, diagonal segment + manual translation, one-point
+  translation pin, exact quarter-turn recovery from two control points, manual composition with
+  honest nonzero residuals — each with expected transform, per-point residuals, RMS, and
+  footprint, plus four rejected-input cases; consumed by the geometry unit tests AND driven
+  through the real API command path by `map-calibration.test.ts`.
+- **Residuals and RMS, honestly.** Per-point residuals are distances between each control point's
+  mapped plan point and its stated local point, measured against the FINAL stored transform (the
+  placement the user sees — a manual adjustment away from the fit shows up as error, correctly).
+  Aggregate RMS is `null` below two control points: a one-point fit is exact by construction and
+  "±0" would be false precision. P3's `residual_error_metres` column now stores the real RMS.
+  Surfaces: canvas badge, background panel, property panel, calibration panel — all through one
+  `calibrationStateText` helper ("Calibrated · ±N cm estimated error" / "accuracy not
+  estimated"), centimetres below a metre, metres above, no fake digits.
+- **`calibrationState` is exactly `'uncalibrated' | 'calibrated'`** — no intermediate or
+  quality-graded state invented: section 16 wants quality DISPLAYED, and the honest signal is the
+  continuous RMS (including its absence), not a threshold bucket the docs never define.
+- **Transform revisioning**: each (re)calibration inserts a new `calibration` row; its
+  per-background monotonic `revision` is surfaced as `details.calibration.transformRevision` —
+  deliberately distinct from the object's optimistic-concurrency revision (which bumps on EVERY
+  edit), so consumers can tell "the background moved under me" apart from ordinary edits.
+- **Command shape: the dedicated `upsertCalibration` command, reworked — not `changeProperties`.**
+  It already existed as a first-class canonical command, and calibration is structured, validated
+  math with server-derived outputs, not a client-authored details replacement. The payload gained
+  `expectedRevision` (the command now rewrites the object's details AND geometry, so it is
+  revision-guarded like every mutating command — the sync push router's conflict recovery now
+  fetches the current record too), `pageAspectRatio`, `knownDistance`, plan-fraction
+  `referencePoints` (may be empty), and `manualAdjustment`. One transaction: derive → insert
+  calibration revision → rewrite the object (state `'calibrated'`, geometry = transformed page
+  footprint) → journal + BOTH sync records (calibration history entry AND gardenObject upsert, so
+  offline clients get the current transform through ordinary object sync) + outbox + audit.
+  Undo: excluded from single-command undo by the design's own rule (`deriveInverseCommand` →
+  `null`); recalibration — a re-derivation from stored inputs, never a restart — is the
+  correction path. Nothing had ever submitted the P3 payload shape (verified), so reshaping it
+  broke no client; the `command-inverse.json` fixture entry was updated, and the iOS follow-up
+  (already deferred) owns `MapCommand.swift` parity.
+- **Calibration fields are server-owned, loudly.** `createObject` requires `'uncalibrated'`;
+  `changeProperties` must echo the current state (rejected otherwise) and always gets the stored
+  `calibration` block re-attached (`withServerOwnedCalibration`) so a wholesale details
+  replacement can never strip a transform; a client-echoed block is ignored per OpenAPI read-only
+  convention (the parser never even materializes it). Geometry commands (`moveObject`,
+  `replaceGeometry`, `editVertex`) are REJECTED for a calibrated background — its footprint is
+  derived from its transform, and letting them diverge would split the selectable outline from
+  the rendered imagery; the web routes drags/nudges to a manual-adjustment recalibration instead,
+  so the gesture still works. `duplicateObject` resets the copy to uncalibrated (calibration
+  revisions belong to the source). All covered by unit tests
+  (`validate-imported-background-state.test.ts`, 11) and integration tests.
+- **Web calibration flow** (`calibration-session.ts` pure transitions + `calibration-panel.tsx` +
+  `shapes/calibration-overlay.tsx`): select a background → Calibrate → click the two segment ends
+  on the plan (screen→plan-fraction inverse picking for both contain-fit and transform
+  placements, `background-placement.ts`) → enter the distance → live preview derives with the
+  SAME shared math the server runs → optional control points (click plan point, then map point;
+  per-point residuals listed; removable) → drag the preview (manual translation) and/or set a
+  rotation-degrees adjustment (pivoted about the footprint center via
+  `rotatePlanTransformAbout` + `manualAdjustmentBetween`) → Apply. A fresh scale-only calibration
+  seeds a manual placement centered on the current placeholder box so the preview never teleports
+  to the origin. Recalibration seeds the session from the stored inputs. The overlay's
+  full-canvas capture rectangle keeps session clicks from selecting objects while panning/zoom
+  keep working; PDFs (no displayable image) cannot start a session — stated, not broken.
+- **Calibrated rendering replaces the 20 m placeholder fit**: `BackgroundImageShape` draws the
+  image at its transform (position/rotation/scale via `calibratedImagePlacement` — local CCW
+  becomes Konva's clockwise-positive rotation on the y-down screen), coinciding with the
+  server-derived footprint polygon by construction; uncalibrated backgrounds keep the honest
+  contain-fit. The badge always shows state/quality.
+- **Trace tools required no new drawing system — verified.** The P3 draw tools (polygon/line/
+  point with snapping) already operate above the non-listening underlay; the calibrated underlay
+  changes only WHERE the image draws. The one genuinely missing affordance was dimming a dense
+  plan while tracing: a client-local underlay-opacity slider (0.15–1, editor-store preference
+  like layer visibility) now applies to background imagery.
+- **Geographic anchors: deferred with verified reasoning, not half-built.** Entering one requires
+  AUTHORING the garden's georeference, and no `upsertGeoreference` command exists anywhere
+  (georeference-repository.ts documents the read-only posture). Once authoring exists,
+  plan→geographic composes for free (plan→local ∘ local→WGS84). Recorded in
+  `deferred-capabilities.md`.
+
+### Verified evidence
+
+| Check                                                        | Result                                                                                                                                                             |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm --filter @verdery/geometry-contracts test`             | 113 tests pass (baseline 96) — calibration derivation, fixtures, helper round-trips                                                                                |
+| `pnpm --filter @verdery/api build && test`                   | 108 files / 723 tests pass (baseline 105 / 700), real Postgres via Testcontainers                                                                                  |
+| `pnpm --filter @verdery/web build && test`                   | 57 files / 455 tests pass (baseline 54 / 423)                                                                                                                      |
+| `pnpm --filter @verdery/workers build && test`               | 16 files / 90 tests pass, unchanged — contract change broke nothing downstream                                                                                     |
+| `pnpm --filter @verdery/test-fixtures test`                  | 21 tests pass — new `calibration.json` validates under the fixture-package invariants                                                                              |
+| `pnpm --filter @verdery/api-contracts lint:contract`         | passes (redocly)                                                                                                                                                   |
+| `pnpm --filter @verdery/api-contracts generate:check + test` | generated client current; 29 contract tests pass                                                                                                                   |
+| Root `pnpm typecheck` / `lint` / `format:check`              | all pass                                                                                                                                                           |
+| `node scripts/check-file-size.mjs`                           | passes (map-object-details' importedBackground branch split out for the limit)                                                                                     |
+| Migration tests                                              | new `background-calibration-transform.test.ts` (7 tests incl. rollback); every earlier migration test's rollback count bumped                                      |
+| Integration tests                                            | new `map-calibration.test.ts` (5 tests): fixture-driven calibrate, recalibrate + stale-revision conflict, input rejection, server-ownership rules, duplicate reset |
+
+One flaky non-failure observed once during the first full API run: a Postgres
+`57P01` teardown race in `synchronization-randomized-convergence.test.ts` (all 723 tests passed;
+the file passes in isolation and the full suite passed clean on rerun) — a parallel
+Testcontainers teardown artifact, unrelated to this stage's changes.
+
+### Known limitations, deliberately deferred
+
+- Geographic anchors (blocked on the nonexistent georeference-authoring capability) and iOS plan
+  import + calibration (the already-deferred `apps/ios` follow-up, which now also owns
+  `MapCommand.swift`'s reshaped `UpsertCalibrationPayload` and the Swift half of
+  `derivePlanCalibration` against the shared fixtures) — both in `deferred-capabilities.md`.
+- PDF backgrounds cannot be calibrated until PDF page rendering lands (P6-WORKER-02 deferral) —
+  no displayable image means no plan points to pick; the UI states this instead of failing.
+- Rotation adjustment in the panel is a degrees input (pivoted about the footprint center), not a
+  canvas rotate handle; dragging covers origin adjustment. A rotate handle is polish a later
+  pass can add over the same `manualAdjustmentBetween` path without any model change.
+- An `upsertCalibration` history entry, like split/join before it, has no single-command inverse
+  and therefore stops undo at that point (the editor's established posture for such commands);
+  recalibration is the correction path.
+
+### Corrections made during this stage's own review
+
+1. **Sync push conflict recovery for `upsertCalibration`** originally kept its P5-era `null`
+   current-record fetch ("no expectedRevision → no conflict possible") — no longer true once the
+   command became revision-guarded. Fixed in `route-garden-object-operation.ts`: a stale-revision
+   conflict now recovers with the background's current record like every other guarded command.
+2. **Quality-text duplication**: the honest ±-error phrasing was independently implemented in
+   four components; consolidated into `calibration-labels.ts` (`calibrationStateText`,
+   `formatErrorMetres`) so "prevents false precision" has exactly one wording to keep honest.
+
+Final counts after review fixes: geometry-contracts 113 tests; api 108 files / 723 tests; web 57
+files / 455 tests.
+
+### Correction found by the coordinator's own verification pass
+
+The stage's report claimed iOS parity was safely deferred because "nothing ever submitted the old
+payload shape" — true for runtime sync, but incomplete: the SHARED cross-platform command fixtures
+(`packages/test-fixtures/fixtures/geometry/command-inverse.json`), which this stage itself updated
+to the new `upsertCalibration` shape, are decoded by iOS's own `InverseCommandTests`, and the Swift
+decoder still expected the old `imagePixel` reference-point shape — `swift test` crashed with
+`DecodingError.keyNotFound: imagePixel`. Exactly the divergence the shared-fixture mechanism exists
+to catch. Fixed immediately (not deferred): `MapCommandPayloads.swift` now mirrors the TypeScript
+contract one-to-one (`PlanKnownDistance`, `CalibrationControlPoint` with `planPoint`,
+`ManualCalibrationAdjustment`, and the reworked revision-guarded `UpsertCalibrationPayload`), both
+Swift coding layers (`MapCommandCoding.swift`, `MapCommandWireCoding.swift`) encode/decode the new
+keys, and the one offline-path test constructing the payload was updated. `swift test` back to
+721 tests / 100 suites, all green. What remains genuinely deferred for iOS is unchanged: the
+calibration UI and a Swift `derivePlanCalibration` versus the shared math fixtures — the wire
+model itself is now in parity.

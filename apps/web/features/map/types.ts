@@ -46,13 +46,13 @@ export interface MapObjectRecord {
  * real, user-picked fence id — see `commands.ts#buildCreateGateObjectCommand`
  * and `use-map-editor-actions.ts`'s gate-creation flow.
  *
- * Two things remain out of this editor entirely, each deferred to its own
- * later phase rather than cut for this pass: calibrating an imported
- * background (`upsertCalibration` — P6-PLAN-02's own scope) and reviewing
- * generated proposals (`decideProposal` — needs a proposal, and assisted
- * capture is Phase 10 scope, itself gated behind an explicit research
- * decision the plan has not yet made). See `commands.ts`'s module doc
- * comment for the full reasoning.
+ * One thing remains out of this editor entirely, deferred to its own later
+ * phase rather than cut for this pass: reviewing generated proposals
+ * (`decideProposal` — needs a proposal, and assisted capture is Phase 10
+ * scope, itself gated behind an explicit research decision the plan has
+ * not yet made). Calibration (`upsertCalibration`) is P6-PLAN-02's own
+ * flow: `calibration-panel.tsx` + `calibration-session.ts`, never a
+ * drawing tool. See `commands.ts`'s module doc comment.
  */
 export const CREATABLE_CATEGORIES = [
   'lot',

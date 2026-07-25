@@ -26,6 +26,7 @@ import type { GardensMappingUnitOfWork } from './gardens-mapping-unit-of-work.js
 import { toGardenObjectResource, type MapCommandResultResource } from './map-object-view.js';
 import { requireMatchingCategoryDetails } from './validate-category-details.js';
 import { requireGateReferencesExistingFence } from './validate-gate-fence-reference.js';
+import { requireImportedBackgroundStateCreatable } from './validate-imported-background-state.js';
 import { requireImportedBackgroundPlanMedia } from './validate-imported-plan-reference.js';
 import { requireValidGeometryForCategory } from './validate-map-geometry.js';
 import { runIdempotentCommand } from './run-idempotent-command.js';
@@ -50,6 +51,7 @@ export class CreateMapObject {
 
     requireValidGeometryForCategory(payload.category, payload.geometry);
     requireMatchingCategoryDetails(payload.category, payload.categoryDetails);
+    requireImportedBackgroundStateCreatable(payload.categoryDetails);
 
     const input = {
       actorProfileId: profileId,

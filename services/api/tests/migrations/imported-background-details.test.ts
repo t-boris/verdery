@@ -172,12 +172,13 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     );
   });
 
-  it('rejects any calibration state other than uncalibrated — P6-PLAN-02 widens this CHECK', async () => {
+  it('accepts both calibration states and rejects anything else — the CHECK P6-PLAN-02 widened', async () => {
     await freshBackground();
 
-    await expect(insertDetails({ calibration_state: 'calibrated' })).rejects.toThrow(
+    await expect(insertDetails({ calibration_state: 'approximate' })).rejects.toThrow(
       /imported_background_details_calibration_state_check/,
     );
+    await insertDetails({ calibration_state: 'calibrated' });
   });
 
   it('rejects a plan media reference that does not exist', async () => {
@@ -218,7 +219,11 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     await client.end();
 
-    await migrate(databaseUrl, 'down', 1);
+    // `count: 2` undoes 1785500000000_background-calibration-transform.sql
+    // (the newest migration — nothing this file's own assertions below
+    // check) first, then this migration itself. Update again the next time
+    // a migration is added on top of that one.
+    await migrate(databaseUrl, 'down', 2);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

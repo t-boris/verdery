@@ -8,6 +8,10 @@ import type { GardensMappingUnitOfWork } from './gardens-mapping-unit-of-work.js
 import { toGardenObjectResource, type MapCommandResultResource } from './map-object-view.js';
 import { requireMatchingCategoryDetails } from './validate-category-details.js';
 import { requireGateReferencesExistingFence } from './validate-gate-fence-reference.js';
+import {
+  requireImportedBackgroundStatePreserved,
+  withServerOwnedCalibration,
+} from './validate-imported-background-state.js';
 import { requireImportedBackgroundPlanMedia } from './validate-imported-plan-reference.js';
 import { runIdempotentCommand } from './run-idempotent-command.js';
 
@@ -52,11 +56,16 @@ export class ChangeMapObjectProperties {
         payload.expectedRevision,
         (object) => {
           requireMatchingCategoryDetails(object.category, payload.categoryDetails);
+          requireImportedBackgroundStatePreserved(object, payload.categoryDetails);
           return {
             ...object,
             label: payload.label !== undefined ? payload.label : object.label,
             details:
-              payload.categoryDetails !== undefined ? payload.categoryDetails : object.details,
+              payload.categoryDetails !== undefined
+                ? // A details replacement can never strip the server-owned
+                  // calibration block — see validate-imported-background-state.ts.
+                  withServerOwnedCalibration(object.details, payload.categoryDetails)
+                : object.details,
             currentRevision: object.currentRevision + 1,
             updatedAt: now,
           };

@@ -18,7 +18,9 @@ import type { ChangeEvent } from 'react';
 import { useLocalization, type MessageKey } from '@/shared/localization/public';
 import { Button, Select, TextField } from '@/shared/ui/public';
 
+import { calibrationStateText } from './calibration-labels';
 import { parseOptionalNumber } from './category-detail-fields';
+import { writableImportedBackgroundDetails } from './commands';
 import type { MapObjectRecord } from './types';
 
 const ZONE_KINDS: readonly ZoneKind[] = [
@@ -297,12 +299,15 @@ export function AnnotationFields({
 }
 
 /**
- * Imported-background fields (P6-PLAN-01): the per-background persisted
- * visibility toggle ("independently hideable"), the PDF page selection, and
- * the read-only calibration state — always "not calibrated" this stage
- * (P6-PLAN-02 owns real calibration). `planMediaId` is deliberately not
- * editable: re-pointing a background at a different plan document is
- * remove-and-add through the imported-background panel, not a field edit.
+ * Imported-background fields (P6-PLAN-01/-02): the per-background
+ * persisted visibility toggle ("independently hideable"), the PDF page
+ * selection, and the read-only calibration state with its honest quality
+ * text — the calibration flow itself lives in `calibration-panel.tsx`.
+ * `planMediaId` is deliberately not editable: re-pointing a background at
+ * a different plan document is remove-and-add through the
+ * imported-background panel, not a field edit. Every change strips the
+ * server-owned `calibration` block (`writableImportedBackgroundDetails`)
+ * so a property save echoes only writable fields.
  */
 export function ImportedBackgroundFields({
   details,
@@ -312,6 +317,8 @@ export function ImportedBackgroundFields({
   readonly onChange: (details: GardenObjectDetails) => void;
 }) {
   const { t } = useLocalization();
+  const stateText = calibrationStateText(t, details.calibration);
+
   return (
     <>
       <Button
@@ -321,7 +328,10 @@ export function ImportedBackgroundFields({
         onClick={() =>
           onChange({
             category: 'importedBackground',
-            details: { ...details, isBackgroundVisible: !details.isBackgroundVisible },
+            details: {
+              ...writableImportedBackgroundDetails(details),
+              isBackgroundVisible: !details.isBackgroundVisible,
+            },
           })
         }
       >
@@ -334,7 +344,7 @@ export function ImportedBackgroundFields({
         step={1}
         value={details.sourcePageNumber ?? ''}
         onChange={(event: ChangeEvent<HTMLInputElement>) => {
-          const { sourcePageNumber: _drop, ...rest } = details;
+          const { sourcePageNumber: _drop, ...rest } = writableImportedBackgroundDetails(details);
           const value = parseOptionalNumber(event.target.value);
           onChange({
             category: 'importedBackground',
@@ -342,11 +352,7 @@ export function ImportedBackgroundFields({
           });
         }}
       />
-      <TextField
-        label={t('map.background.calibrationStateLabel')}
-        value={t('map.background.notCalibrated')}
-        readOnly
-      />
+      <TextField label={t('map.background.calibrationStateLabel')} value={stateText} readOnly />
     </>
   );
 }

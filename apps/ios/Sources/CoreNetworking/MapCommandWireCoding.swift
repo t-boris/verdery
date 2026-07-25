@@ -58,6 +58,9 @@ public enum MapCommandWireCoding {
         case targetObjectId
         case backgroundObjectId
         case referencePoints
+        case pageAspectRatio
+        case knownDistance
+        case manualAdjustment
         case proposalId
         case decision
         case editedGeometry
@@ -133,7 +136,11 @@ public enum MapCommandWireCoding {
 
         case let .upsertCalibration(command):
             try container.encode(command.backgroundObjectId, forKey: .backgroundObjectId)
+            try container.encode(command.expectedRevision, forKey: .expectedRevision)
+            try container.encode(command.pageAspectRatio, forKey: .pageAspectRatio)
+            try container.encode(command.knownDistance, forKey: .knownDistance)
             try container.encode(command.referencePoints, forKey: .referencePoints)
+            try container.encodeIfPresent(command.manualAdjustment, forKey: .manualAdjustment)
 
         case let .decideProposal(command):
             try container.encode(command.proposalId, forKey: .proposalId)

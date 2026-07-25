@@ -145,11 +145,16 @@ function toCalibrationSnapshot(calibration: {
   readonly backgroundObjectId: Uuid;
   readonly revision: number;
   readonly referencePoints: unknown;
+  readonly knownDistance: unknown;
+  readonly pageAspectRatio: number | null;
+  readonly manualAdjustment: unknown;
+  readonly transform: unknown;
+  readonly pointResidualsMetres: readonly number[] | null;
   readonly residualErrorMetres: number | null;
   readonly createdByProfileId: Uuid;
   readonly createdAt: Date;
 }): CalibrationContract {
-  return {
+  const snapshot: CalibrationContract = {
     id: calibration.id,
     backgroundObjectId: calibration.backgroundObjectId,
     revision: calibration.revision,
@@ -157,15 +162,41 @@ function toCalibrationSnapshot(calibration: {
     // api-contracts-generated one differ only in how strictly TypeScript
     // types `Position` (a loose `number[]` versus a strict
     // `readonly [number, number]` tuple) — both already serialize to
-    // byte-identical JSON. This parameter is typed `unknown` specifically so
-    // this one cast (not a double cast through `unknown` — already there) is
-    // enough, the same divergence `route-garden-object-operation.ts`'s own
-    // identical comment documents for `GardenObjectResource`/`GardenObject`.
+    // byte-identical JSON. This parameter's structured fields are typed
+    // `unknown` specifically so this one cast per field (not a double cast
+    // through `unknown` — already there) is enough, the same divergence
+    // `route-garden-object-operation.ts`'s own identical comment documents
+    // for `GardenObjectResource`/`GardenObject`.
     referencePoints: calibration.referencePoints as CalibrationContract['referencePoints'],
     residualErrorMetres: calibration.residualErrorMetres,
     createdByProfileId: calibration.createdByProfileId,
     createdAt: calibration.createdAt.toISOString(),
   };
+
+  // The P6-PLAN-02 input/derivation fields are optional on the contract
+  // only because a legacy P3-shaped row carries none of them — assigned
+  // rather than conditionally spread so `exactOptionalPropertyTypes` can
+  // see each key is only ever present with a real value.
+  if (calibration.knownDistance !== null) {
+    snapshot.knownDistance = calibration.knownDistance as NonNullable<
+      CalibrationContract['knownDistance']
+    >;
+  }
+  if (calibration.pageAspectRatio !== null) {
+    snapshot.pageAspectRatio = calibration.pageAspectRatio;
+  }
+  if (calibration.manualAdjustment !== null) {
+    snapshot.manualAdjustment = calibration.manualAdjustment as NonNullable<
+      CalibrationContract['manualAdjustment']
+    >;
+  }
+  if (calibration.transform !== null) {
+    snapshot.transform = calibration.transform as NonNullable<CalibrationContract['transform']>;
+  }
+  if (calibration.pointResidualsMetres !== null) {
+    snapshot.pointResidualsMetres = [...calibration.pointResidualsMetres];
+  }
+  return snapshot;
 }
 
 export class GetSyncChanges {

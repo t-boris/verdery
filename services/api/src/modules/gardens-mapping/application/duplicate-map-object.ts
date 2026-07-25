@@ -8,6 +8,7 @@ import type { GardenAuthorization } from './garden-authorization.js';
 import type { GardensMappingUnitOfWork } from './gardens-mapping-unit-of-work.js';
 import { mapObjectNotFoundError } from './map-object-errors.js';
 import { toGardenObjectResource, type MapCommandResultResource } from './map-object-view.js';
+import { uncalibratedDuplicateDetails } from './validate-imported-background-state.js';
 import { requireValidGeometryForCategory } from './validate-map-geometry.js';
 import { runIdempotentCommand } from './run-idempotent-command.js';
 
@@ -59,6 +60,11 @@ export class DuplicateMapObject {
         ...source,
         id: payload.newObjectId,
         geometry,
+        // Calibration revisions belong to the SOURCE background, so a
+        // duplicated background starts uncalibrated with its copied
+        // footprint as placeholder placement — see
+        // validate-imported-background-state.ts.
+        details: uncalibratedDuplicateDetails(source.details),
         lifecycleState: 'active',
         currentRevision: 1,
         createdByProfileId: profileId,

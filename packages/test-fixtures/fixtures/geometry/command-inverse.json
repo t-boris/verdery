@@ -341,7 +341,10 @@
       "command": {
         "type": "upsertCalibration",
         "backgroundObjectId": "bg-1",
-        "referencePoints": [{ "imagePixel": [0, 0], "localMetres": [0, 0] }]
+        "expectedRevision": 1,
+        "pageAspectRatio": 0.75,
+        "knownDistance": { "pointA": [0.1, 0.1], "pointB": [0.6, 0.1], "distanceMetres": 10 },
+        "referencePoints": [{ "planPoint": [0, 0], "localMetres": [0, 0] }]
       },
       "priorSnapshot": null,
       "revisionAfterCommand": 1,

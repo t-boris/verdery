@@ -7,6 +7,8 @@ import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
 import { Button, FailureAlert, StaleIndicator } from '@/shared/ui/public';
 
+import { calibrationStateText } from './calibration-labels';
+import { useMapEditorStore } from './editor-store';
 import styles from './imported-background-panel.module.css';
 import { useGardenPlanMediaList } from './media-queries';
 import type { MapObjectRecord } from './types';
@@ -50,11 +52,21 @@ function backgroundsOf(records: readonly MapObjectRecord[]): readonly MapObjectR
  */
 export function ImportedBackgroundPanel({ gardenId, actions }: ImportedBackgroundPanelProps) {
   const { t } = useLocalization();
+  const store = useMapEditorStore();
   const listQuery = useGardenPlanMediaList(gardenId);
   const [pageByMediaId, setPageByMediaId] = useState<Record<string, string>>({});
 
   const backgrounds = backgroundsOf(actions.records);
   const plans = (listQuery.data?.items ?? []).filter(isPlaceable);
+
+  /** Section 16's honest state/quality text — mirrors the canvas badge. */
+  const stateLabel = (record: MapObjectRecord): string =>
+    calibrationStateText(
+      t,
+      record.categoryDetails?.category === 'importedBackground'
+        ? record.categoryDetails.details.calibration
+        : undefined,
+    );
 
   const addBackground = (plan: Media) => {
     const rawPage = pageByMediaId[plan.id]?.trim() ?? '';
@@ -93,7 +105,7 @@ export function ImportedBackgroundPanel({ gardenId, actions }: ImportedBackgroun
                   <span className={styles['name']}>
                     {record.label ?? t('map.background.unnamed')}
                   </span>
-                  <span className={styles['badge']}>{t('map.background.notCalibrated')}</span>
+                  <span className={styles['badge']}>{stateLabel(record)}</span>
                 </div>
                 <div className={styles['actions']}>
                   <Button
@@ -116,6 +128,20 @@ export function ImportedBackgroundPanel({ gardenId, actions }: ImportedBackgroun
             );
           })}
         </ul>
+      )}
+
+      {backgrounds.length > 0 && (
+        <label className={styles['pageField']}>
+          {t('map.background.opacity')}
+          <input
+            type="range"
+            min={0.15}
+            max={1}
+            step={0.05}
+            value={store.state.backgroundOpacity}
+            onChange={(event) => store.setBackgroundOpacity(Number(event.target.value))}
+          />
+        </label>
       )}
 
       <h3 className={styles['sectionTitle']}>{t('map.background.plansTitle')}</h3>

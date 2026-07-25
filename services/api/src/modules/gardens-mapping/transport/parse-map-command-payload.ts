@@ -211,9 +211,11 @@ export function parseMapCommandPayload(value: unknown, pointer: string): MapComm
 
     case 'upsertCalibration': {
       const referencePointsRaw = record['referencePoints'];
-      if (!Array.isArray(referencePointsRaw) || referencePointsRaw.length === 0) {
+      // May be empty — a known distance plus manual placement is a
+      // legitimate calibration — but must still be present as an array.
+      if (!Array.isArray(referencePointsRaw)) {
         throw invalid(
-          `${pointer}/referencePoints must be a non-empty array.`,
+          `${pointer}/referencePoints must be an array.`,
           'request.invalid',
           `${pointer}/referencePoints`,
         );
@@ -222,17 +224,55 @@ export function parseMapCommandPayload(value: unknown, pointer: string): MapComm
         const itemPointer = `${pointer}/referencePoints/${String(index)}`;
         const itemRecord = requireRecord(item, itemPointer);
         return {
-          imagePixel: requirePosition(itemRecord['imagePixel'], `${itemPointer}/imagePixel`),
+          planPoint: requirePosition(itemRecord['planPoint'], `${itemPointer}/planPoint`),
           localMetres: requirePosition(itemRecord['localMetres'], `${itemPointer}/localMetres`),
         };
       });
+
+      const knownDistanceRecord = requireRecord(
+        record['knownDistance'],
+        `${pointer}/knownDistance`,
+      );
+      const knownDistance = {
+        pointA: requirePosition(knownDistanceRecord['pointA'], `${pointer}/knownDistance/pointA`),
+        pointB: requirePosition(knownDistanceRecord['pointB'], `${pointer}/knownDistance/pointB`),
+        distanceMetres: requireNumber(
+          knownDistanceRecord['distanceMetres'],
+          `${pointer}/knownDistance/distanceMetres`,
+        ),
+      };
+
+      const manualRaw = record['manualAdjustment'];
+      let manualAdjustment;
+      if (manualRaw !== undefined) {
+        const manualRecord = requireRecord(manualRaw, `${pointer}/manualAdjustment`);
+        manualAdjustment = {
+          rotationRadians: requireNumber(
+            manualRecord['rotationRadians'],
+            `${pointer}/manualAdjustment/rotationRadians`,
+          ),
+          translationMetres: requireOffset(
+            manualRecord['translationMetres'],
+            `${pointer}/manualAdjustment/translationMetres`,
+          ),
+        };
+      }
+
       return {
         type: 'upsertCalibration',
         backgroundObjectId: requireUuid(
           record['backgroundObjectId'],
           `${pointer}/backgroundObjectId`,
         ),
+        expectedRevision: requireInteger(
+          record['expectedRevision'],
+          `${pointer}/expectedRevision`,
+          1,
+        ),
+        pageAspectRatio: requireNumber(record['pageAspectRatio'], `${pointer}/pageAspectRatio`),
+        knownDistance,
         referencePoints,
+        ...(manualAdjustment === undefined ? {} : { manualAdjustment }),
       };
     }
 

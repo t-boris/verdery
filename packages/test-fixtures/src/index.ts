@@ -146,3 +146,52 @@ export interface MapDocumentFixture {
   readonly comparison: 'exact';
   readonly cases: readonly MapDocumentCase[];
 }
+
+/** Input to `derivePlanCalibration` — plan points are plan-fraction `[u, v]` pairs; see calibration.json's description. */
+export interface CalibrationCaseInput {
+  readonly pageAspectRatio: number;
+  readonly knownDistance: {
+    readonly pointA: readonly [number, number];
+    readonly pointB: readonly [number, number];
+    readonly distanceMetres: number;
+  };
+  readonly referencePoints: readonly {
+    readonly planPoint: readonly [number, number];
+    readonly localMetres: readonly [number, number];
+  }[];
+  readonly manualAdjustment?: {
+    readonly rotationRadians: number;
+    readonly translationMetres: { readonly dx: number; readonly dy: number };
+  };
+}
+
+export interface CalibrationCase {
+  readonly name: string;
+  readonly input: CalibrationCaseInput;
+  readonly expected: {
+    readonly transform: {
+      readonly metresPerPlanUnit: number;
+      readonly rotationRadians: number;
+      readonly translationMetres: { readonly x: number; readonly y: number };
+    };
+    readonly pointResidualsMetres: readonly number[];
+    readonly rmsErrorMetres: number | null;
+    /** The closed exterior ring `planPageFootprint` derives for this transform and aspect ratio. */
+    readonly footprint: readonly (readonly [number, number])[];
+  };
+}
+
+export interface RejectedCalibrationCase {
+  readonly name: string;
+  readonly input: CalibrationCaseInput;
+  readonly expectedCode: string;
+}
+
+export interface CalibrationFixture {
+  readonly schemaVersion: number;
+  readonly description: string;
+  readonly source: string;
+  readonly comparison: 'exact';
+  readonly cases: readonly CalibrationCase[];
+  readonly rejectedCases: readonly RejectedCalibrationCase[];
+}

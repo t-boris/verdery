@@ -13,9 +13,11 @@ import {
   buildMoveObjectCommand,
   buildReplaceGeometryCommand,
   buildSplitLineworkCommand,
+  buildUpsertCalibrationCommand,
   defaultCategoryDetails,
   generateMapId,
   placeholderBackgroundGeometry,
+  writableImportedBackgroundDetails,
 } from './commands';
 
 const UUID_V7_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
@@ -316,5 +318,67 @@ describe('buildCreateImportedBackgroundCommand (P6-PLAN-01)', () => {
       expect(ring).toHaveLength(5);
       expect(ring[0]).toEqual(ring[ring.length - 1]);
     }
+  });
+});
+
+describe('buildUpsertCalibrationCommand', () => {
+  const objectId = '01890000-0000-7000-8000-00000000000b';
+
+  it('carries the full derivation input set, revision-guarded', () => {
+    const command = buildUpsertCalibrationCommand(objectId, 4, {
+      pageAspectRatio: 0.75,
+      knownDistance: { pointA: [0.1, 0.1], pointB: [0.6, 0.1], distanceMetres: 10 },
+      referencePoints: [{ planPoint: [0, 0], localMetres: [2, 1] }],
+      manualAdjustment: { rotationRadians: 0.1, translationMetres: { dx: 1, dy: -1 } },
+    });
+
+    expect(command).toEqual({
+      type: 'upsertCalibration',
+      backgroundObjectId: objectId,
+      expectedRevision: 4,
+      pageAspectRatio: 0.75,
+      knownDistance: { pointA: [0.1, 0.1], pointB: [0.6, 0.1], distanceMetres: 10 },
+      referencePoints: [{ planPoint: [0, 0], localMetres: [2, 1] }],
+      manualAdjustment: { rotationRadians: 0.1, translationMetres: { dx: 1, dy: -1 } },
+    });
+  });
+
+  it('omits an absent manual adjustment instead of sending null', () => {
+    const command = buildUpsertCalibrationCommand(objectId, 1, {
+      pageAspectRatio: 1,
+      knownDistance: { pointA: [0, 0], pointB: [1, 0], distanceMetres: 8 },
+      referencePoints: [],
+    });
+    expect('manualAdjustment' in command).toBe(false);
+  });
+});
+
+describe('writableImportedBackgroundDetails', () => {
+  it('strips the server-owned calibration block and keeps every writable field', () => {
+    const details = {
+      planMediaId: '01890000-0000-7000-8000-00000000000c',
+      sourcePageNumber: 2,
+      isBackgroundVisible: false,
+      calibrationState: 'calibrated' as const,
+      calibration: {
+        transformRevision: 1,
+        pageAspectRatio: 1,
+        knownDistance: { pointA: [0, 0] as const, pointB: [1, 0] as const, distanceMetres: 8 },
+        referencePoints: [],
+        transform: {
+          metresPerPlanUnit: 8,
+          rotationRadians: 0,
+          translationMetres: { x: 0, y: 0 },
+        },
+        rmsErrorMetres: null,
+      },
+    };
+
+    expect(writableImportedBackgroundDetails(details)).toEqual({
+      planMediaId: '01890000-0000-7000-8000-00000000000c',
+      sourcePageNumber: 2,
+      isBackgroundVisible: false,
+      calibrationState: 'calibrated',
+    });
   });
 });

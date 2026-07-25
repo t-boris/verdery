@@ -35,7 +35,7 @@ export type { GardenRoutesDependencies } from './transport/garden-routes.js';
 export type {
   CalibrationRepository,
   Calibration,
-  CalibrationReferencePoint,
+  LegacyCalibrationReferencePoint,
 } from './application/calibration-repository.js';
 export type {
   CoordinateSpace,

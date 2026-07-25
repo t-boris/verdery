@@ -6,6 +6,7 @@ import { applyMapObjectRevisionGuardedUpdate } from './apply-map-object-revision
 import type { GardenAuthorization } from './garden-authorization.js';
 import type { GardensMappingUnitOfWork } from './gardens-mapping-unit-of-work.js';
 import { toGardenObjectResource, type MapCommandResultResource } from './map-object-view.js';
+import { requireBackgroundGeometryEditable } from './validate-imported-background-state.js';
 import { requireValidGeometryForCategory } from './validate-map-geometry.js';
 import { runIdempotentCommand } from './run-idempotent-command.js';
 
@@ -43,6 +44,7 @@ export class ReplaceMapObjectGeometry {
         payload.objectId,
         payload.expectedRevision,
         (object) => {
+          requireBackgroundGeometryEditable(object);
           requireValidGeometryForCategory(object.category, payload.geometry);
           return {
             ...object,

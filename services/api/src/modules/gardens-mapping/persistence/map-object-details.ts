@@ -17,7 +17,6 @@ import type {
   GardenObjectCategory,
   GardenObjectDetails,
   GateDetails,
-  ImportedBackgroundDetails,
   MeasurementAcquisitionMethod,
   MeasurementUnit,
   PlantPlacementDetails,
@@ -29,6 +28,7 @@ import type {
 import type { Kysely } from 'kysely';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
+import { fetchImportedBackgroundDetails } from './imported-background-details.js';
 import {
   geometryToGeoJsonInsertExpression,
   nullableGeometrySelectExpression,
@@ -258,25 +258,11 @@ export async function fetchDetailsForIds(
     }
 
     case 'importedBackground': {
-      const rows = await db
-        .selectFrom('gardens_mapping.imported_background_details')
-        .select([
-          'garden_object_id',
-          'plan_media_id',
-          'source_page_number',
-          'is_background_visible',
-          'calibration_state',
-        ])
-        .where('garden_object_id', 'in', objectIds)
-        .execute();
-      for (const row of rows) {
-        const details: ImportedBackgroundDetails = {
-          planMediaId: row.plan_media_id,
-          ...(row.source_page_number === null ? {} : { sourcePageNumber: row.source_page_number }),
-          isBackgroundVisible: row.is_background_visible,
-          calibrationState: row.calibration_state as ImportedBackgroundDetails['calibrationState'],
-        };
-        result.set(row.garden_object_id, { category: 'importedBackground', details });
+      // Split into its own module (with the latest-calibration join a
+      // calibrated background's details need) for the file-size limit.
+      const fetched = await fetchImportedBackgroundDetails(db, objectIds);
+      for (const [objectId, details] of fetched) {
+        result.set(objectId, details);
       }
       break;
     }

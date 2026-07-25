@@ -10,6 +10,7 @@ import { createContext, useContext, useMemo, useReducer, type ReactNode } from '
 
 import type { MessageArguments, MessageKey } from '@/shared/localization/public';
 
+import type { CalibrationDraft } from './calibration-session';
 import type { LayerId } from './map-layers';
 import type { MapCamera, ToolMode } from './types';
 import { defaultCamera } from './viewport';
@@ -72,6 +73,14 @@ export interface EditorState {
    */
   readonly hiddenLayers: readonly LayerId[];
   readonly lockedLayers: readonly LayerId[];
+  /** The in-progress calibration session (P6-PLAN-02), or `null`. Cleared by any selection or tool change — the session is bound to one selected background. */
+  readonly calibrationDraft: CalibrationDraft | null;
+  /**
+   * Plan-underlay opacity while tracing (0.15..1) — a client-local
+   * preference like layer visibility, applied to every background's
+   * imagery so traced linework stays legible over a dense plan.
+   */
+  readonly backgroundOpacity: number;
 }
 
 type Action =
@@ -89,7 +98,9 @@ type Action =
   | { readonly type: 'redoApplied'; readonly undoEntry: HistoryEntry }
   | { readonly type: 'setStatus'; readonly status: StatusMessage | null }
   | { readonly type: 'toggleLayerVisibility'; readonly layer: LayerId }
-  | { readonly type: 'toggleLayerLock'; readonly layer: LayerId };
+  | { readonly type: 'toggleLayerLock'; readonly layer: LayerId }
+  | { readonly type: 'setCalibrationDraft'; readonly draft: CalibrationDraft | null }
+  | { readonly type: 'setBackgroundOpacity'; readonly opacity: number };
 
 export const initialEditorState: EditorState = {
   selectedObjectId: null,
@@ -105,15 +116,23 @@ export const initialEditorState: EditorState = {
   status: null,
   hiddenLayers: [],
   lockedLayers: [],
+  calibrationDraft: null,
+  backgroundOpacity: 0.85,
 };
 
 /** Exported for `editor-store.test.ts` — the reducer is pure and needs no provider to test. */
 export function editorReducer(state: EditorState, action: Action): EditorState {
   switch (action.type) {
-    // Changing the selection always leaves any vertex-edit/transform mode —
-    // both handle sets are drawn for exactly one selected object.
+    // Changing the selection always leaves any vertex-edit/transform mode
+    // and abandons an in-progress calibration session — all are drawn for
+    // exactly one selected object.
     case 'select':
-      return { ...state, selectedObjectId: action.objectId, interactionMode: 'idle' };
+      return {
+        ...state,
+        selectedObjectId: action.objectId,
+        interactionMode: 'idle',
+        calibrationDraft: null,
+      };
     case 'toggleMultiSelect':
       return {
         ...state,
@@ -135,6 +154,7 @@ export function editorReducer(state: EditorState, action: Action): EditorState {
         draftPoints: [],
         pendingGateGeometry: null,
         interactionMode: 'idle',
+        calibrationDraft: null,
       };
     case 'setCamera':
       return { ...state, camera: action.camera };
@@ -177,6 +197,13 @@ export function editorReducer(state: EditorState, action: Action): EditorState {
           ? state.lockedLayers.filter((layer) => layer !== action.layer)
           : [...state.lockedLayers, action.layer],
       };
+    case 'setCalibrationDraft':
+      return { ...state, calibrationDraft: action.draft };
+    case 'setBackgroundOpacity':
+      // Clamped so the imagery can be dimmed for tracing but never made
+      // fully invisible through this control — hiding is the visibility
+      // toggle's job.
+      return { ...state, backgroundOpacity: Math.min(1, Math.max(0.15, action.opacity)) };
   }
 }
 
@@ -197,6 +224,8 @@ export interface MapEditorStore {
   readonly setStatus: (status: StatusMessage | null) => void;
   readonly toggleLayerVisibility: (layer: LayerId) => void;
   readonly toggleLayerLock: (layer: LayerId) => void;
+  readonly setCalibrationDraft: (draft: CalibrationDraft | null) => void;
+  readonly setBackgroundOpacity: (opacity: number) => void;
 }
 
 const MapEditorContext = createContext<MapEditorStore | null>(null);
@@ -222,6 +251,8 @@ export function MapEditorStoreProvider({ children }: { readonly children: ReactN
       setStatus: (status) => dispatch({ type: 'setStatus', status }),
       toggleLayerVisibility: (layer) => dispatch({ type: 'toggleLayerVisibility', layer }),
       toggleLayerLock: (layer) => dispatch({ type: 'toggleLayerLock', layer }),
+      setCalibrationDraft: (draft) => dispatch({ type: 'setCalibrationDraft', draft }),
+      setBackgroundOpacity: (opacity) => dispatch({ type: 'setBackgroundOpacity', opacity }),
     }),
     [state],
   );

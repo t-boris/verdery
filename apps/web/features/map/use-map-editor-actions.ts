@@ -125,11 +125,26 @@ export function useMapEditorActions(gardenId: string) {
     store.setPendingGateGeometry(null);
   }, [store]);
 
+  // Composed before `moveObject`, which delegates a calibrated
+  // background's drag to `adjustCalibratedBackground` below.
+  const importedBackgroundActions = useImportedBackgroundActions({ commit, findRecord, store });
+  const { adjustCalibratedBackground } = importedBackgroundActions;
+
   const moveObject = useCallback(
     async (objectId: string, dx: number, dy: number) => {
       const record = findRecord(objectId);
       if (record === null) {
         return null;
+      }
+      // A calibrated background's placement is its transform — the server
+      // rejects `moveObject` for it by design. A drag or nudge becomes a
+      // recalibration with the delta composed into the manual adjustment,
+      // so the gesture still works and stays honest.
+      if (
+        record.categoryDetails?.category === 'importedBackground' &&
+        record.categoryDetails.details.calibration !== undefined
+      ) {
+        return adjustCalibratedBackground(record, dx, dy);
       }
       const command = buildMoveObjectCommand(objectId, record.revision, dx, dy);
       const affected = await commit(command, null);
@@ -148,7 +163,7 @@ export function useMapEditorActions(gardenId: string) {
       }
       return affected;
     },
-    [commit, findRecord, store],
+    [adjustCalibratedBackground, commit, findRecord, store],
   );
 
   const changeProperties = useCallback(
@@ -352,7 +367,6 @@ export function useMapEditorActions(gardenId: string) {
   const geometryActions = useMapEditorGeometryActions({ commit, findRecord, store });
   const objectActions = useMapEditorObjectActions({ commit, findRecord, store });
   const lineworkActions = useMapEditorLineworkActions({ commit, findRecord, store });
-  const importedBackgroundActions = useImportedBackgroundActions({ commit, findRecord, store });
 
   return {
     records,

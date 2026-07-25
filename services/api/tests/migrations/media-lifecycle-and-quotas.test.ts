@@ -474,7 +474,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     await client.end();
 
-    // `count: 4` undoes 1785400000000_imported-background-details.sql,
+    // `count: 5` undoes 1785500000000_background-calibration-transform.sql,
     // 1785300000000_media-derivative-identity.sql, and
     // 1785200000000_media-processing-jobs.sql (the three newest migrations)
     // first, then this one — matching every earlier migration test's own
@@ -486,7 +486,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 4,
+      count: 5,
       log: () => {},
     });
 

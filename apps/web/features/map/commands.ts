@@ -1,26 +1,19 @@
 /**
  * Pure builders for every map editor command this feature constructs.
  *
- * Two command types remain deliberately unbuilt here, each deferred to a
- * later phase rather than cut for scope reasons:
- *
- * - `upsertCalibration` — P6-PLAN-02 owns real calibration (known-distance,
- *   control points, residual error, transform revisions). An
- *   `importedBackground` object now exists to calibrate against
- *   (P6-PLAN-01, `buildCreateImportedBackgroundCommand` below), but the
- *   calibration flow itself is that next package's scope.
- * - `decideProposal` needs a generated proposal (AI/ML-produced candidate
- *   geometry) to review, and nothing in this app produces proposals yet —
- *   assisted capture and plan recognition is Phase 10 scope, gated behind an
- *   explicit research decision the plan has not yet made.
+ * One command type remains deliberately unbuilt here: `decideProposal`
+ * needs a generated proposal (AI/ML-produced candidate geometry) to
+ * review, and nothing in this app produces proposals yet — assisted
+ * capture and plan recognition is Phase 10 scope, gated behind an explicit
+ * research decision the plan has not yet made.
  *
  * Every other command type — `createObject`, `moveObject`,
  * `replaceGeometry`, `editVertex`, `splitLinework`, `joinLinework`,
- * `changeProperties`, `assignPlant`, `deleteObject`, `duplicateObject` — is
- * built here and wired end to end through `use-map-editor-actions.ts` and
- * its sibling action hooks. `restoreObject` is the one exception a user
- * never builds directly; only `deriveInverseCommand` produces it, as the
- * inverse of `deleteObject`.
+ * `changeProperties`, `assignPlant`, `upsertCalibration` (P6-PLAN-02),
+ * `deleteObject`, `duplicateObject` — is built here and wired end to end
+ * through `use-map-editor-actions.ts` and its sibling action hooks.
+ * `restoreObject` is the one exception a user never builds directly; only
+ * `deriveInverseCommand` produces it, as the inverse of `deleteObject`.
  */
 
 import type {
@@ -36,8 +29,10 @@ import type {
   ImportedBackgroundDetails,
   JoinLineworkPayload,
   MoveObjectPayload,
+  PlanCalibrationInput,
   ReplaceGeometryPayload,
   SplitLineworkPayload,
+  UpsertCalibrationPayload,
   VertexOperation,
 } from '@verdery/geometry-contracts';
 import { v7 } from 'uuid';
@@ -244,6 +239,42 @@ export function buildEditVertexCommand(
     vertexIndex,
     ...(position === undefined ? {} : { position }),
   };
+}
+
+/**
+ * Builds an `upsertCalibration` command (P6-PLAN-02) from the full
+ * section-16 input set — the server re-derives the transform with the same
+ * shared math the editor used for its live preview. Revision-guarded: the
+ * command rewrites the background's details and footprint geometry.
+ */
+export function buildUpsertCalibrationCommand(
+  backgroundObjectId: string,
+  expectedRevision: number,
+  input: PlanCalibrationInput,
+): UpsertCalibrationPayload {
+  return {
+    type: 'upsertCalibration',
+    backgroundObjectId,
+    expectedRevision,
+    pageAspectRatio: input.pageAspectRatio,
+    knownDistance: input.knownDistance,
+    referencePoints: input.referencePoints,
+    ...(input.manualAdjustment === undefined ? {} : { manualAdjustment: input.manualAdjustment }),
+  };
+}
+
+/**
+ * The details shape a `changeProperties` command may carry for an imported
+ * background: everything EXCEPT the server-owned `calibration` block,
+ * which the server populates from the background's latest calibration
+ * revision and ignores on write. `calibrationState` stays — the server
+ * requires an honest echo of the current state.
+ */
+export function writableImportedBackgroundDetails(
+  details: ImportedBackgroundDetails,
+): ImportedBackgroundDetails {
+  const { calibration: _serverOwned, ...writable } = details;
+  return writable;
 }
 
 export function buildChangePropertiesCommand(

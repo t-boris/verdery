@@ -17,6 +17,12 @@
  * section "7. Garden Object Model".
  */
 
+import type {
+  CalibrationControlPoint,
+  ManualCalibrationAdjustment,
+  PlanKnownDistance,
+  PlanTransform,
+} from './calibration.js';
 import type { Geometry } from './geometry.js';
 import type { Measurement } from './measurement.js';
 
@@ -148,15 +154,49 @@ export interface AnnotationDetails {
 }
 
 /**
- * Only `'uncalibrated'` exists this stage (P6-PLAN-01): a freshly imported
- * background has no meaningful plan-to-map transform, and pretending a 1:1
- * transform is calibrated would be false precision (map-rendering-and-
- * editing.md section 16: "The interface displays calibration quality and
- * prevents false precision"). P6-PLAN-02 — known-distance calibration,
- * control points, residual error, transform revisions — widens this union
- * with the calibrated state(s) and attaches the real transform data.
+ * `'uncalibrated'` (P6-PLAN-01) or `'calibrated'` (P6-PLAN-02). There is
+ * deliberately no intermediate or quality-graded state: section 16 wants
+ * calibration QUALITY displayed, and the honest quality signal is the
+ * continuous residual error carried by {@link ImportedBackgroundCalibration}
+ * (including its absence below two control points), not a threshold bucket
+ * the architecture never defines. State changes only through the
+ * `upsertCalibration` command - `createObject`/`changeProperties` cannot
+ * flip it (server-validated).
  */
-export type ImportedBackgroundCalibrationState = 'uncalibrated';
+export type ImportedBackgroundCalibrationState = 'uncalibrated' | 'calibrated';
+
+/** A control point echoed back with the residual the stored transform leaves at it. */
+export interface CalibratedReferencePoint extends CalibrationControlPoint {
+  readonly residualMetres: number;
+}
+
+/**
+ * The server-owned calibration block a CALIBRATED background's details
+ * carry (P6-PLAN-02): the full inputs (so recalibration can re-derive and
+ * the UI can re-display them), the derived transform, and the honest error
+ * report. Never client-writable - `createObject`/`changeProperties` reject
+ * details that include it; only the `upsertCalibration` command produces a
+ * new revision.
+ */
+export interface ImportedBackgroundCalibration {
+  /**
+   * Monotonically increasing per background, bumped by every
+   * recalibration - "recalibration creates a new background transform
+   * revision" (section 16). Deliberately distinct from the object's own
+   * optimistic-concurrency revision, which bumps on EVERY edit: a consumer
+   * that cached traced geometry can tell "the background moved under me"
+   * (this revision changed) apart from ordinary edits (only the object
+   * revision changed).
+   */
+  readonly transformRevision: number;
+  readonly pageAspectRatio: number;
+  readonly knownDistance: PlanKnownDistance;
+  readonly referencePoints: readonly CalibratedReferencePoint[];
+  readonly manualAdjustment?: ManualCalibrationAdjustment;
+  readonly transform: PlanTransform;
+  /** `null` ("not expressed") below two control points - never a fabricated zero. */
+  readonly rmsErrorMetres: number | null;
+}
 
 /**
  * The non-authoritative background asset a plan import produces
@@ -179,6 +219,8 @@ export interface ImportedBackgroundDetails {
   /** Per-background persisted visibility — "independently hideable" (Phase 6 exit criterion), distinct from the client-local layer-2 toggle. */
   readonly isBackgroundVisible: boolean;
   readonly calibrationState: ImportedBackgroundCalibrationState;
+  /** Present exactly when `calibrationState` is `'calibrated'`. Server-owned - see {@link ImportedBackgroundCalibration}. */
+  readonly calibration?: ImportedBackgroundCalibration;
 }
 
 /** The category-specific detail payload for a category that has one. Categories without a row here (lot, path, water feature) carry no specialized fields beyond the common `garden_object` shape. */

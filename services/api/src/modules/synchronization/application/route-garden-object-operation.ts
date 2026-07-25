@@ -190,6 +190,10 @@ export async function routeGardenObjectOperation(
         fetchCurrentRecordFor(mapCommand.plantObjectId),
       );
     case 'upsertCalibration':
+      // P6-PLAN-02 made this command revision-guarded (it rewrites the
+      // background's details and geometry), so a stale-revision conflict is
+      // now possible and recovers with the background's current record like
+      // every other guarded command — no longer `null`.
       return executeAndMapOutcome(async () => {
         const result = await deps.upsertMapCalibration.execute(
           gardenId,
@@ -202,7 +206,7 @@ export async function routeGardenObjectOperation(
           mapCommand.backgroundObjectId,
           toRecordRevisions(result.affectedObjects),
         );
-      }, null);
+      }, fetchCurrentRecordFor(mapCommand.backgroundObjectId));
     case 'decideProposal':
       // `DecideMapProposal` always throws `notFound` this pass (see its own
       // doc comment) — never a stale-revision conflict, so `null` here.
