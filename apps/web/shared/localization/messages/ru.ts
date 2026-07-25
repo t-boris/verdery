@@ -9,11 +9,6 @@ export const russianMessages: MessageCatalogue = {
   'app.tagline': 'Живая карта настоящего сада.',
   'app.skipToContent': 'Перейти к содержимому',
 
-  'home.title': 'Веб-приложение Verdery',
-  'home.description':
-    'Это каркас приложения. Работа с картой сада и уходом появится на следующих этапах.',
-  'home.openStatus': 'Открыть состояние сервиса',
-
   'status.title': 'Состояние сервиса',
   'status.description': 'Текущие результаты проверок работоспособности API Verdery.',
   'status.refresh': 'Проверить снова',

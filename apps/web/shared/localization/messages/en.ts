@@ -16,11 +16,6 @@ export const englishMessages = {
   'app.tagline': 'A living map of a real garden.',
   'app.skipToContent': 'Skip to content',
 
-  'home.title': 'Verdery web application',
-  'home.description':
-    'This is the application shell. Garden mapping and care features arrive in later phases.',
-  'home.openStatus': 'Open service status',
-
   'status.title': 'Service status',
   'status.description': 'Live results from the Verdery API health endpoints.',
   'status.refresh': 'Check again',
