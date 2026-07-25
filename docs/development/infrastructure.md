@@ -39,6 +39,14 @@ exports}`), each with uniform bucket-level access and public access prevention e
   exists yet, so local development is the only origin listed —
   `infrastructure/gcloud/config/cors/user-media-cors.json` is the file to extend when one does.
 
+- The web client as its own Cloud Run service (`verdery-web-dev`,
+  https://verdery-web-dev-t6amsr5o6a-uc.a.run.app), running as a dedicated ZERO-permission service
+  account (`verdery-dev-web-runtime` — the Next.js server calls no Google API). Its stable origin
+  is wired live into the API's `HTTP_ALLOWED_ORIGINS` (contributed automatically by
+  `deploy-api.sh` whenever the service exists), the user-media bucket's CORS, and Firebase
+  Authentication's authorized domains — each applied and read back live. The deploy workflow
+  builds the web image after the API verifies healthy and verifies the web serves a real page.
+
 ## Deploying
 
 ```bash

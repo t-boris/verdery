@@ -5639,3 +5639,25 @@ stays honest; a staleness sweep is the flip); the worker's exports-bucket `objec
 drafted, not executed (standing infra boundary). New dependencies: `archiver` (workers runtime,
 justified against the ADR-0002/0009 posture in `zip-package-writer.ts`) and `yauzl` +
 `@types/archiver`/`@types/yauzl` (workers dev-only).
+
+## Stage 30 — Web deployment to verdery-dev, complete (owner-required)
+
+The web client is live: **https://verdery-web-dev-t6amsr5o6a-uc.a.run.app** — the owner's
+visible-product requirement's web half, delivered at the start of Phase 8 rather than its end.
+
+- `apps/web/Dockerfile` (Next.js `standalone` output; NEXT_PUBLIC_* baked at build from the
+  committed non-secret values + the live API origin), `deploy-web.sh`, and web build/deploy/verify
+  steps in the deploy workflow, ordered after the API's own health verification.
+- A REAL first-deploy failure found and fixed live: omitting `--service-account` defaulted to the
+  compute default SA, which the deployer deliberately cannot actAs. Fixed with a dedicated
+  zero-permission `verdery-dev-web-runtime` identity (created live, encoded in
+  `05-service-accounts.sh`) — least privilege and the fix in one. A second live gap: the first
+  create's `--allow-unauthenticated` silently failed to bind `allUsers` invoker (the deployer
+  cannot set IAM policy); bound explicitly by the owner-credentialed session and verified 200.
+- Wiring applied and read back live: API `HTTP_ALLOWED_ORIGINS` (auto-contributed by
+  `deploy-api.sh`, verified by a real CORS preflight returning the exact origin), user-media
+  bucket CORS (localhost + the web origin), Firebase authorized domains (via the Identity Toolkit
+  admin API — no console step needed).
+- End-to-end evidence: page serves 200; API preflight from the web origin returns 204 with the
+  matching `access-control-allow-origin`; the full deploy pipeline (API build → migrate → deploy →
+  verify → web build → deploy → verify) green as one run.
