@@ -231,35 +231,31 @@ jobs:
 
       # `swift build` above compiles the package for macOS only, which is why
       # it never noticed that the iOS app target did not compile at all: the
-      # `#if os(iOS)` half of CoreAuthentication had Swift 6 concurrency errors,
-      # and Verdery.xcodeproj had drifted four phases behind project.yml with a
-      # whole source file missing from it. Both were found the first time
-      # anything built for iphoneos, in Phase 8. This step is what keeps that
-      # from being possible again.
+      # `#if os(iOS)` half of CoreAuthentication had Swift 6 concurrency
+      # errors, and the Xcode project had drifted four phases behind
+      # project.yml with a whole source file missing from it. Both were found
+      # the first time anything built for iphoneos, in Phase 8. This step is
+      # what keeps that from being possible again.
       #
-      # Regenerating the project first is the point, not a convenience: the
-      # committed .xcodeproj is generated output, and comparing a fresh
-      # generation against it is what turns silent drift into a failed build.
+      # The project is GENERATED here rather than checked for staleness: it is
+      # XcodeGen's output, not source, and it is gitignored for that reason.
+      # A staleness gate was tried first and proved unworkable — XcodeGen's
+      # output varies by tool version, so CI and a developer machine disagree
+      # about a file neither of them authored. Generating removes the drift by
+      # construction instead of policing it.
       - name: Install XcodeGen
         run: brew install xcodegen
 
-      - name: Regenerate the Xcode project and check it is not stale
+      - name: Generate the Xcode project
         working-directory: apps/ios
-        run: |
-          xcodegen generate
-          git diff --exit-code -- Verdery.xcodeproj \
-            || { echo "::error::Verdery.xcodeproj is out of date. Run 'xcodegen generate' in apps/ios and commit the result."; exit 1; }
+        run: xcodegen generate
 
       # `-scheme` with a `generic/platform=iOS` destination, NOT `-target`
       # with an explicit `-sdk iphoneos`: the latter reads plausible but fails
-      # reproducibly here. Firebase's SPM checkouts build with explicit
-      # modules, and the `-target` path never generates their module maps, so
-      # every build dies on "module map file ... GoogleUtilities-NSData
-      # .modulemap not found" — verified locally against a cleaned
-      # DerivedData, which is why this gate does not ship the command that
-      # would have failed on every push. The scheme path builds every line of
-      # the shipped app for a real iOS device, which is the regression this
-      # gate exists to catch.
+      # reproducibly, because Firebase's SPM checkouts build with explicit
+      # modules whose module maps that path never generates. Verified locally
+      # against a cleaned DerivedData rather than shipping a command that
+      # would fail on every push.
       - name: Build the iOS app target
         working-directory: apps/ios
         run: |

@@ -31,6 +31,12 @@ app.
 xcodegen generate
 ```
 
+The generated project is **gitignored, not committed**. A committed copy silently drifted four
+phases behind `project.yml` — `AppDelegate.swift` was missing from it entirely, so the app would
+not have linked — and that went unnoticed because nothing ever built the iOS target. Generating it
+on demand removes that drift by construction; CI runs the same command before building. Run
+`xcodegen generate` once after cloning, and again whenever `project.yml` changes.
+
 It became necessary in Phase 2: Firebase Authentication needs entitlements (Sign in with Apple),
 a custom `Info.plist` (the Google Sign-In URL scheme, from `GoogleService-Info.plist`'s
 `REVERSED_CLIENT_ID`), and a bundled `GoogleService-Info.plist`, none of which a bare SPM executable
