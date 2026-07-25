@@ -33,12 +33,10 @@ exports}`), each with uniform bucket-level access and public access prevention e
   See `infrastructure/gcloud/scripts/09-media-storage.sh` for the per-bucket lifecycle policy and its
   reasoning.
 - A CORS policy on `verdery-dev-user-media` only (P6-WEB-01): `PUT`/`OPTIONS` from
-  `http://localhost:3000`, response headers limited to the resumable-upload protocol's own
-  (`Content-Type`, `Content-Range`, `Range`, `X-Goog-Resumable`). Required because browsers PUT
-  upload bytes directly to resumable session URLs, which is cross-origin; no deployed web origin
-  exists yet, so local development is the only origin listed —
-  `infrastructure/gcloud/config/cors/user-media-cors.json` is the file to extend when one does.
-
+  `http://localhost:3000` and the deployed web origin, response headers limited to the
+  resumable-upload protocol's own (`Content-Type`, `Content-Range`, `Range`, `X-Goog-Resumable`).
+  Required because browsers PUT upload bytes directly to resumable session URLs, which is
+  cross-origin — `infrastructure/gcloud/config/cors/user-media-cors.json` is the source of truth.
 - The web client as its own Cloud Run service (`verdery-web-dev`,
   https://verdery-web-dev-t6amsr5o6a-uc.a.run.app), running as a dedicated ZERO-permission service
   account (`verdery-dev-web-runtime` — the Next.js server calls no Google API). Its stable origin
