@@ -4,6 +4,7 @@ import {
   buildAssignPlantCommand,
   buildChangePropertiesCommand,
   buildCreateGateObjectCommand,
+  buildCreateImportedBackgroundCommand,
   buildCreateObjectCommand,
   buildDeleteObjectCommand,
   buildDuplicateObjectCommand,
@@ -14,6 +15,7 @@ import {
   buildSplitLineworkCommand,
   defaultCategoryDetails,
   generateMapId,
+  placeholderBackgroundGeometry,
 } from './commands';
 
 const UUID_V7_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
@@ -262,5 +264,57 @@ describe('command builders', () => {
       secondExpectedRevision: 5,
       resultObjectId: thirdObjectId,
     });
+  });
+});
+
+describe('buildCreateImportedBackgroundCommand (P6-PLAN-01)', () => {
+  const objectId = '018f3a00-0000-7000-8000-000000000001';
+  const planMediaId = '018f3a00-0000-7000-8000-000000000002';
+
+  it('builds an uncalibrated, visible background at the placeholder placement', () => {
+    const command = buildCreateImportedBackgroundCommand(objectId, planMediaId, 'plan.jpg');
+
+    expect(command).toEqual({
+      type: 'createObject',
+      objectId,
+      category: 'importedBackground',
+      geometry: placeholderBackgroundGeometry(),
+      label: 'plan.jpg',
+      categoryDetails: {
+        category: 'importedBackground',
+        details: {
+          planMediaId,
+          isBackgroundVisible: true,
+          calibrationState: 'uncalibrated',
+        },
+      },
+    });
+  });
+
+  it('carries an explicit page selection above 1, and normalizes page 1 to absent', () => {
+    const paged = buildCreateImportedBackgroundCommand(objectId, planMediaId, 'plan.pdf', 3);
+    expect(paged.categoryDetails).toMatchObject({
+      details: { sourcePageNumber: 3 },
+    });
+
+    const firstPage = buildCreateImportedBackgroundCommand(objectId, planMediaId, 'plan.pdf', 1);
+    expect(firstPage.categoryDetails).toEqual({
+      category: 'importedBackground',
+      details: {
+        planMediaId,
+        isBackgroundVisible: true,
+        calibrationState: 'uncalibrated',
+      },
+    });
+  });
+
+  it('uses a closed square Polygon as the placeholder', () => {
+    const geometry = placeholderBackgroundGeometry();
+    expect(geometry.type).toBe('Polygon');
+    if (geometry.type === 'Polygon') {
+      const ring = geometry.coordinates[0] ?? [];
+      expect(ring).toHaveLength(5);
+      expect(ring[0]).toEqual(ring[ring.length - 1]);
+    }
   });
 });

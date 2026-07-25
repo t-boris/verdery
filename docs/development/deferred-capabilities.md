@@ -171,6 +171,35 @@ already performs. Raster (non-PDF) plans are fully supported by this stage's rea
 tile pyramid included. A future stage builds PDF page rendering once a rasterizer dependency is
 evaluated and approved.
 
+**PDF plan display in the web client (P6-PLAN-01 scope boundary).** Downstream of the same gap: a
+PDF-classed `imported_plan` uploads, validates, and can be placed on the map as an
+`importedBackground`, but the web client shows an explicit "PDF pages cannot be previewed yet"
+notice and a placeholder outline instead of imagery — there is no derivative to display and no
+client-side PDF renderer (adding `pdf.js` client-side was rejected as half-building around the
+documented server deferral). Unblocks automatically once PDF page rendering (above) exists.
+
+**Plan tile consumption (P6-PLAN-01 scope boundary).** P6-WORKER-02's XYZ tile pyramid exists
+server-side for every raster plan, but no client consumes it yet: the web map editor displays a
+plan background through its single screen-preview derivative (`Media.derivatives` +
+`GetMediaAccess`), "contain"-fit inside the background object's placeholder polygon. A tile layer
+needs a URL-template story a signed-per-object download flow does not provide — MapLibre's raster
+source expects a stable `{z}/{x}/{y}` template it can fetch many tiles through, while
+`GetMediaAccess` signs one object per authorized call — and an uncalibrated background has no
+meaningful geographic placement for a tile layer anyway. A future stage (with or after P6-PLAN-02's
+calibration) picks the mechanism: a bounded tile-access endpoint issuing short-lived signed URLs
+per tile, or an authenticated tile proxy route.
+
+**Perspective correction of photographed plans (P6-PLAN-01 scope boundary).** "Perspective
+handling" beyond server-side EXIF orientation normalization (P6-WORKER-02 already applies
+orientation to derivative pixels) does not exist: keystone/perspective correction of a photographed
+plan has no server capability, and no client-side warping was half-built around that gap. A future
+capture-quality stage owns it if product need materializes.
+
+**iOS plan import (P6-PLAN-01 follow-up).** The contract now carries everything the flow needs
+(`ImportedBackgroundDetails`, `ListGardenMedia`, `Media.derivatives`); the iOS client has not been
+built against it yet — a dedicated follow-up work package implements document selection, upload,
+and background management on `apps/ios`.
+
 **Break-glass credential rotation procedure.** `07-iam-database-bootstrap.sh` rotates the Postgres
 superuser password on every run and stores it in Secret Manager, but there is no scheduled rotation
 or documented incident procedure for using it. `P8-REL-01` owns operational runbooks generally.

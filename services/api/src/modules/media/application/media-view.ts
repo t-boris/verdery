@@ -12,7 +12,12 @@
  * file uses instead.
  */
 
-import type { Media, MediaAccess, MediaUploadSession } from '@verdery/api-contracts';
+import type {
+  Media,
+  MediaAccess,
+  MediaDerivativeSummary,
+  MediaUploadSession,
+} from '@verdery/api-contracts';
 import type { MediaRecord } from '../domain/media-record.js';
 import type {
   MediaResumableUploadSession,
@@ -40,6 +45,30 @@ export function toMediaResource(record: MediaRecord): Media {
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
   };
+}
+
+/**
+ * `toMediaResource` plus the record's own available display derivatives —
+ * the shape the read operations a client displays media through
+ * (`GetMediaStatus`, `ListGardenMedia`) return since P6-PLAN-01. Write-path
+ * responses keep the plain `toMediaResource` shape; see `Media.derivatives`'
+ * own description in openapi.yaml.
+ *
+ * `derivativeRows` come from `MediaRepository.listDisplayDerivatives` —
+ * already `available`, non-tile, at most one per kind — so this only maps;
+ * the `as` narrowing on `derivativeKind` is safe because that query filters
+ * to exactly the three summary kinds.
+ */
+export function toMediaResourceWithDerivatives(
+  record: MediaRecord,
+  derivativeRows: readonly MediaRecord[],
+): Media {
+  const derivatives: MediaDerivativeSummary[] = derivativeRows.map((row) => ({
+    derivativeKind: row.derivativeKind as MediaDerivativeSummary['derivativeKind'],
+    mediaId: row.id,
+  }));
+
+  return { ...toMediaResource(record), derivatives };
 }
 
 export function toMediaUploadSessionResource(

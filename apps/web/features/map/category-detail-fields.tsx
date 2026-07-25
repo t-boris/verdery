@@ -19,6 +19,7 @@ import {
   AnnotationFields,
   BedFields,
   GateFields,
+  ImportedBackgroundFields,
   UtilityExclusionFields,
   ZoneFields,
 } from './category-detail-fields-secondary';
@@ -256,13 +257,14 @@ function PlantFields({
 /**
  * Category-specific property fields — implemented for the four categories
  * the toolbar can create with a details schema of their own (`structure`,
- * `fence`, `tree`, `plant`). `lot`, `path`, `waterFeature`, and
- * `importedBackground` have no details schema at all (nothing renders).
- * `gate`, `zone`, `bed`, `utilityExclusion`, and `annotation` each have a
- * form of their own too, defined in `category-detail-fields-secondary.tsx`
- * (split out to keep this file under this repository's 600-line limit).
- * Every category with a details schema (`object-category.ts`'s
- * `GardenObjectDetails` union) now has a field editor here.
+ * `fence`, `tree`, `plant`). `lot`, `path`, and `waterFeature` have no
+ * details schema at all (nothing renders). `gate`, `zone`, `bed`,
+ * `utilityExclusion`, `annotation`, and `importedBackground` (P6-PLAN-01)
+ * each have a form of their own too, defined in
+ * `category-detail-fields-secondary.tsx` (split out to keep this file under
+ * this repository's 600-line limit). Every category with a details schema
+ * (`object-category.ts`'s `GardenObjectDetails` union) now has a field
+ * editor here.
  */
 export function CategoryDetailFields({
   category,
@@ -274,8 +276,17 @@ export function CategoryDetailFields({
     case 'lot':
     case 'path':
     case 'waterFeature':
-    case 'importedBackground':
       return null;
+
+    case 'importedBackground':
+      // A real imported background always carries details — created only
+      // through the imported-background panel, which requires a real plan.
+      // The null fallback below only satisfies the type system for an
+      // object that has no details at all, which should not occur in
+      // practice (mirroring `gate`'s own note below).
+      return details?.category === 'importedBackground' ? (
+        <ImportedBackgroundFields details={details.details} onChange={onChange} />
+      ) : null;
 
     case 'structure':
       return (

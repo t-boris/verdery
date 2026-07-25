@@ -298,6 +298,29 @@ export const russianMessages: MessageCatalogue = {
   'map.layers.lockAriaLabel': 'Заблокировать слой «{layer}»',
   'map.layers.unlockAriaLabel': 'Разблокировать слой «{layer}»',
 
+  'map.background.title': 'Подложки плана',
+  'map.background.onMapTitle': 'На карте',
+  'map.background.noneOnMap': 'На карте пока нет подложек плана.',
+  'map.background.plansTitle': 'Загруженные планы',
+  'map.background.plansLoading': 'Загрузка списка планов.',
+  'map.background.noPlans':
+    'Готовых документов плана пока нет. Сначала загрузите план на странице сада.',
+  'map.background.addToMap': 'Добавить на карту',
+  'map.background.pageNumber': 'Страница',
+  'map.background.pdfNoPreview':
+    'Страницы PDF пока не отображаются — подложка будет показана как контур-заглушка.',
+  'map.background.notCalibrated': 'Не откалибровано',
+  'map.background.calibrationStateLabel': 'Калибровка',
+  'map.background.show': 'Показать подложку',
+  'map.background.hide': 'Скрыть подложку',
+  'map.background.remove': 'Убрать',
+  'map.background.removeConfirm':
+    'Убрать эту подложку плана с карты? Сам загруженный документ будет сохранён.',
+  'map.background.unnamed': 'Подложка плана',
+  'map.background.created': 'Подложка плана {label} добавлена на карту.',
+  'map.background.shown': 'Подложка плана показана.',
+  'map.background.hidden': 'Подложка плана скрыта.',
+
   'map.scale.noScale': 'Реальный масштаб не задан — измерения приблизительные.',
   'map.scale.georeferenced': 'Привязано к местности',
   'map.scale.georeferencedAccuracy': 'Привязано к местности · точность ±{accuracyMetres} м',
@@ -503,6 +526,19 @@ export const russianMessages: MessageCatalogue = {
     'Этот файл не удалось подтвердить — то, что фактически было получено, не совпало с заявленным при начале загрузки. Выберите файл заново и повторите попытку.',
   'media.processingFailedDescription':
     'Файл был загружен и подтверждён, но не удалось его обработать. Попробуйте загрузить его снова.',
+
+  'media.plan.title': 'План участка',
+  'media.plan.description':
+    'Загрузите план участка — скан, фотографию или PDF — чтобы использовать его как приватную подложку карты. До 50 МиБ.',
+  'media.plan.selectFile': 'Выбрать документ плана',
+  'media.plan.unsupportedType':
+    'Этот тип файла не поддерживается. Выберите изображение JPEG, PNG, WebP, HEIC/HEIF или PDF.',
+  'media.plan.pdfNoPreview':
+    'PDF загружен и прошёл проверку, но предпросмотр страниц PDF пока недоступен. Его всё равно можно разместить на карте как подложку-заглушку.',
+  'media.plan.previewUnavailable': 'Предпросмотр этого плана пока недоступен.',
+  'media.plan.previewAlt': 'Предпросмотр плана: {filename}',
+  'media.plan.readyForMap':
+    'План загружен и проверен. Добавьте его на карту через панель «Подложки плана» в редакторе карты.',
 
   'media.phase.idle': '',
   'media.phase.recoverable': 'Обнаружена прерванная загрузка.',

@@ -300,6 +300,29 @@ export const englishMessages = {
   'map.layers.lockAriaLabel': 'Lock {layer} layer',
   'map.layers.unlockAriaLabel': 'Unlock {layer} layer',
 
+  'map.background.title': 'Plan backgrounds',
+  'map.background.onMapTitle': 'On the map',
+  'map.background.noneOnMap': 'No plan backgrounds on the map yet.',
+  'map.background.plansTitle': 'Uploaded plans',
+  'map.background.plansLoading': 'Loading uploaded plans.',
+  'map.background.noPlans':
+    'No plan documents are ready yet. Upload one from the garden page first.',
+  'map.background.addToMap': 'Add to map',
+  'map.background.pageNumber': 'Page',
+  'map.background.pdfNoPreview':
+    'PDF pages cannot be displayed yet — this background will show as a placeholder outline.',
+  'map.background.notCalibrated': 'Not calibrated',
+  'map.background.calibrationStateLabel': 'Calibration',
+  'map.background.show': 'Show background',
+  'map.background.hide': 'Hide background',
+  'map.background.remove': 'Remove',
+  'map.background.removeConfirm':
+    'Remove this plan background from the map? The uploaded document itself is kept.',
+  'map.background.unnamed': 'Plan background',
+  'map.background.created': 'Plan background {label} added to the map.',
+  'map.background.shown': 'Plan background shown.',
+  'map.background.hidden': 'Plan background hidden.',
+
   'map.scale.noScale': 'No real-world scale set — measurements are approximate.',
   'map.scale.georeferenced': 'Georeferenced',
   'map.scale.georeferencedAccuracy': 'Georeferenced · ±{accuracyMetres} m accuracy',
@@ -504,6 +527,19 @@ export const englishMessages = {
     'This file could not be verified — what actually arrived did not match what was declared when the upload started. Choose the file again and retry.',
   'media.processingFailedDescription':
     'This file uploaded and was verified, but could not be processed. You can try uploading it again.',
+
+  'media.plan.title': 'Property plan',
+  'media.plan.description':
+    'Upload a plan of your property — a scan, a photo, or a PDF — to use as a private map background. Up to 50 MiB.',
+  'media.plan.selectFile': 'Choose a plan document',
+  'media.plan.unsupportedType':
+    'This file type is not supported. Choose a JPEG, PNG, WebP, HEIC/HEIF image, or a PDF.',
+  'media.plan.pdfNoPreview':
+    'This PDF uploaded and passed validation, but PDF pages cannot be previewed yet. It can still be placed on the map as a background placeholder.',
+  'media.plan.previewUnavailable': 'No preview is available for this plan yet.',
+  'media.plan.previewAlt': 'Plan preview: {filename}',
+  'media.plan.readyForMap':
+    'The plan is uploaded and validated. Add it to the map from the map editor’s “Plan backgrounds” panel.',
 
   'media.phase.idle': '',
   'media.phase.recoverable': 'An interrupted upload was found.',

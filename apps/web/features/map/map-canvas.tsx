@@ -10,6 +10,7 @@ import { useLocalization } from '@/shared/localization/public';
 import { useMapEditorStore } from './editor-store';
 import { categoryLabelKey } from './labels';
 import { isCategoryHidden, isCategoryLocked } from './map-layers';
+import { BackgroundImageShape } from './shapes/background-image-shape';
 import { DraftPreviewShape } from './shapes/draft-preview-shape';
 import { ObjectShape } from './shapes/object-shape';
 import { TransformHandles } from './shapes/transform-handles';
@@ -104,6 +105,18 @@ export function MapCanvas({ actions }: MapCanvasProps) {
     (record) =>
       isRecordInViewport(record, camera, size) &&
       !isCategoryHidden(record.category, store.state.hiddenLayers),
+  );
+
+  // Imported-background raster underlays (P6-PLAN-01), drawn under every
+  // object shape. Two independent visibility controls both apply: the
+  // client-local layer-2 toggle (already applied by `visibleRecords`) and
+  // the background's own PERSISTED `isBackgroundVisible` flag, which hides
+  // only the plan imagery — the object's polygon outline stays visible and
+  // selectable as the editing handle for the background object.
+  const visibleBackgrounds = visibleRecords.filter(
+    (record) =>
+      record.categoryDetails?.category === 'importedBackground' &&
+      record.categoryDetails.details.isBackgroundVisible,
   );
 
   // Vertex/edge proximity tolerance converted from a constant screen-pixel
@@ -304,6 +317,16 @@ export function MapCanvas({ actions }: MapCanvasProps) {
             onWheel={handleWheel}
           >
             <Layer>
+              {visibleBackgrounds.map((record) => (
+                <BackgroundImageShape
+                  key={`background-${record.id}`}
+                  record={record}
+                  gardenId={record.gardenId}
+                  camera={camera}
+                  size={size}
+                  notCalibratedLabel={t('map.background.notCalibrated')}
+                />
+              ))}
               {visibleRecords.map((record) => {
                 // Vertex-edit and transform handles fully own repositioning
                 // the selected object while active — whole-object drag would

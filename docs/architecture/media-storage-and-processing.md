@@ -278,6 +278,30 @@ Operational viewer role may access ordinary accepted photos according to garden 
 
 Client access is different from viewer access. A client may download only a safe derivative or entitled original explicitly attached to a published client version, while the engagement is active and the publication remains visible. Garden ownership or media association alone does not make media client-visible.
 
+### 12.1 Implemented listing and derivative-resolution profile (P6-PLAN-01)
+
+Two client-blocking read gaps are now closed:
+
+- **`ListGardenMedia`** (`GET /gardens/{gardenId}/media`): a garden's ORIGINAL media records, most
+  recently created first, optionally filtered to one media class, under the API's ordinary
+  cursor/limit pagination. Derivative rows are excluded by construction, never reachable through a
+  `derived_preview` filter — a raster plan's tile pyramid alone can run to thousands of rows.
+- **Derivative resolution**: the read operations a client displays media through (`GetMediaStatus`,
+  `ListGardenMedia`) embed each record's available display derivatives — kind plus the derivative's
+  OWN media id — as `Media.derivatives`. Only the non-tile kinds (thumbnail, screen preview,
+  high-resolution) are listed, at the latest transformation version per kind; tiles are unbounded
+  and their consumption is deferred (`docs/development/deferred-capabilities.md`). Embedding on the
+  resource, rather than a sub-resource endpoint, was chosen because every consumer that reads a
+  record's state also immediately needs its display derivative — one round trip instead of two,
+  with a hard, small bound (at most three entries).
+
+Step 3's "selects an appropriate original or derivative" is therefore CLIENT-side selection over an
+explicit list, not server-side guessing: `GetMediaAccess` signs exactly the record it is asked for.
+Its availability gate distinguishes the two shapes — an original requires `available` +
+`processed` (validated clean); a derivative row is servable at `available` alone, because it only
+ever exists as a worker's product from an already-validated source and its own `processingState` is
+`null` by design.
+
 ## 13. Processing Manifest
 
 Jobs receive a manifest containing:

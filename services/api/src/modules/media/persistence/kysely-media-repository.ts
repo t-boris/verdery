@@ -1,7 +1,14 @@
 import type { Kysely } from 'kysely';
+import { SharedErrorCode } from '@verdery/api-contracts';
+import { ValidationError } from '../../../platform/errors/application-error.js';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
-import type { FindDerivativeInput, MediaRepository } from '../application/media-repository.js';
+import type {
+  FindDerivativeInput,
+  ListForGardenInput,
+  MediaRecordPage,
+  MediaRepository,
+} from '../application/media-repository.js';
 import type { MediaProcessingState, MediaUploadState } from '../domain/media-lifecycle.js';
 import type {
   MediaClass,
@@ -37,6 +44,45 @@ interface MediaRecordRowLike {
   revision: number;
   created_at: Date;
   updated_at: Date;
+}
+
+/**
+ * Keyset cursor for `listForGarden`, `(created_at, id)` descending —
+ * the exact shape and base64url-JSON encoding
+ * `kysely-garden-repository.ts`'s own chronological cursor established.
+ */
+interface MediaListCursor {
+  readonly createdAt: string;
+  readonly id: string;
+}
+
+function invalidCursor(): ValidationError {
+  return new ValidationError(SharedErrorCode.RequestInvalid, 'The cursor is invalid.', {
+    details: [{ code: 'request.cursor.invalid', pointer: '/cursor' }],
+  });
+}
+
+function encodeCursor(createdAt: Date, id: string): string {
+  const payload: MediaListCursor = { createdAt: createdAt.toISOString(), id };
+  return Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+}
+
+function decodeCursor(cursor: string): MediaListCursor {
+  try {
+    const parsed: unknown = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      typeof (parsed as MediaListCursor).createdAt === 'string' &&
+      !Number.isNaN(Date.parse((parsed as MediaListCursor).createdAt)) &&
+      typeof (parsed as MediaListCursor).id === 'string'
+    ) {
+      return parsed as MediaListCursor;
+    }
+  } catch {
+    // Fall through to the shared invalid-cursor error below.
+  }
+  throw invalidCursor();
 }
 
 function toMediaRecord(row: MediaRecordRowLike): MediaRecord {
@@ -183,5 +229,58 @@ export class KyselyMediaRepository implements MediaRepository {
 
     const row = await query.executeTakeFirst();
     return row === undefined ? null : toMediaRecord(row);
+  }
+
+  /** Mirrors `KyselyGardenRepository.listChronological`'s exact keyset shape: `(created_at, id)` descending, `limit + 1` look-ahead. */
+  async listForGarden(input: ListForGardenInput): Promise<MediaRecordPage> {
+    const decoded = input.cursor === null ? null : decodeCursor(input.cursor);
+
+    let query = this.db
+      .selectFrom('media.media_record')
+      .selectAll()
+      .where('garden_id', '=', input.gardenId)
+      .where('derived_from_media_id', 'is', null)
+      .orderBy('created_at', 'desc')
+      .orderBy('id', 'desc')
+      .limit(input.limit + 1);
+
+    if (input.mediaClass !== null) {
+      query = query.where('media_class', '=', input.mediaClass);
+    }
+    if (decoded !== null) {
+      const cursorCreatedAt = new Date(decoded.createdAt);
+      query = query.where((eb) =>
+        eb.or([
+          eb('created_at', '<', cursorCreatedAt),
+          eb.and([eb('created_at', '=', cursorCreatedAt), eb('id', '<', decoded.id)]),
+        ]),
+      );
+    }
+
+    const rows = await query.execute();
+    const hasMore = rows.length > input.limit;
+    const pageRows = hasMore ? rows.slice(0, input.limit) : rows;
+    const last = pageRows[pageRows.length - 1];
+
+    return {
+      items: pageRows.map(toMediaRecord),
+      nextCursor: hasMore && last !== undefined ? encodeCursor(last.created_at, last.id) : null,
+    };
+  }
+
+  /** `DISTINCT ON (derivative_kind)` at the latest `transformation_version` — see the port's own doc comment. */
+  async listDisplayDerivatives(derivedFromMediaId: Uuid): Promise<readonly MediaRecord[]> {
+    const rows = await this.db
+      .selectFrom('media.media_record')
+      .selectAll()
+      .distinctOn('derivative_kind')
+      .where('derived_from_media_id', '=', derivedFromMediaId)
+      .where('derivative_kind', 'in', ['thumbnail', 'screen_preview', 'high_resolution'])
+      .where('upload_state', '=', 'available')
+      .orderBy('derivative_kind')
+      .orderBy('transformation_version', 'desc')
+      .execute();
+
+    return rows.map(toMediaRecord);
   }
 }

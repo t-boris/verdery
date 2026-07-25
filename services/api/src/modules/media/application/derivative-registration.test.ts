@@ -121,6 +121,12 @@ describe('registerDerivativeIfAbsent', () => {
     expect(record.derivedFromMediaId).toBe(SOURCE_ID);
     expect(record.transformationVersion).toBe(1);
     expect(record.derivativeKind).toBe('thumbnail');
+    // The source fixture is an imported_plan, whose class default is
+    // 'sensitive' — the derivative must inherit it, never reset to
+    // derived_preview's own 'standard' default (a real, latent
+    // authorization bug fixed after this stage's first review; see
+    // RegisterDerivativeMediaRecordInput's own field comment).
+    expect(record.sensitivityClassification).toBe('sensitive');
     expect(fakes.media.records.size).toBe(1);
   });
 

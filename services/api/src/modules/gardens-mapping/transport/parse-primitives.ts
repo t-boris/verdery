@@ -70,6 +70,13 @@ export function requireInteger(value: unknown, pointer: string, minimum?: number
   return candidate;
 }
 
+export function requireBoolean(value: unknown, pointer: string): boolean {
+  if (typeof value !== 'boolean') {
+    throw invalid(`${pointer} must be a boolean.`, 'request.invalid', pointer);
+  }
+  return value;
+}
+
 export function requireDateTime(value: unknown, pointer: string): string {
   const candidate = requireString(value, pointer);
   if (Number.isNaN(Date.parse(candidate))) {

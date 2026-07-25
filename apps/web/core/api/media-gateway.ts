@@ -1,6 +1,8 @@
 import type {
   Media,
   MediaAccess,
+  MediaClass,
+  MediaListResult,
   MediaUploadSession,
   RegisterMediaUploadRequest,
 } from '@verdery/api-contracts';
@@ -46,12 +48,18 @@ export interface MediaGateway {
     idempotencyKey: string,
     signal?: AbortSignal,
   ): Promise<ApiResult<Media>>;
-  /** `GetMediaAccess` — a short-lived signed download URL for an `available` + `processed` record. */
+  /** `GetMediaAccess` — a short-lived signed download URL. Originals require `available` + `processed`; a derivative id (from `Media.derivatives`) is servable at `available` alone. */
   getAccess(
     gardenId: string,
     mediaId: string,
     signal?: AbortSignal,
   ): Promise<ApiResult<MediaAccess>>;
+  /** `ListGardenMedia` (P6-PLAN-01) — a garden's original media records, most recent first, optionally one class. */
+  list(
+    gardenId: string,
+    options?: { mediaClass?: MediaClass; cursor?: string; limit?: number },
+    signal?: AbortSignal,
+  ): Promise<ApiResult<MediaListResult>>;
 }
 
 function revisionHeaders(expectedRevision: number, idempotencyKey: string): Record<string, string> {
@@ -95,6 +103,25 @@ export function createMediaGateway(client: ApiClient): MediaGateway {
       return client.request<MediaAccess>({
         method: 'GET',
         path: `/gardens/${gardenId}/media/${mediaId}/access`,
+        ...(signal === undefined ? {} : { signal }),
+      });
+    },
+
+    list(gardenId, options, signal) {
+      const query = new URLSearchParams();
+      if (options?.mediaClass !== undefined) {
+        query.set('mediaClass', options.mediaClass);
+      }
+      if (options?.cursor !== undefined) {
+        query.set('cursor', options.cursor);
+      }
+      if (options?.limit !== undefined) {
+        query.set('limit', String(options.limit));
+      }
+      const queryString = query.toString();
+      return client.request<MediaListResult>({
+        method: 'GET',
+        path: `/gardens/${gardenId}/media${queryString === '' ? '' : `?${queryString}`}`,
         ...(signal === undefined ? {} : { signal }),
       });
     },

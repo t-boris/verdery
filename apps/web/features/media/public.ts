@@ -4,6 +4,7 @@
  * Source: architecture/web-application-design.md, section "5. Application Structure".
  */
 export { GardenPhotoUpload, type GardenPhotoUploadProps } from './garden-photo-upload';
+export { GardenPlanUpload, type GardenPlanUploadProps } from './garden-plan-upload';
 export { MediaPreview, type MediaPreviewProps } from './media-preview';
 export {
   type MediaUploadFailureReason,

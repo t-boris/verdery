@@ -5,6 +5,7 @@ import { KyselyIdempotencyStore } from '../../../platform/idempotency/kysely-ide
 import { KyselyOutboxAppender } from '../../../platform/outbox/kysely-outbox-appender.js';
 import { KyselySyncChangeRecorder } from '../../../platform/sync/kysely-sync-change-recorder.js';
 import type { Clock } from '../../../shared/time/clock.js';
+import { KyselyMediaRepository } from '../../media/public.js';
 import type {
   GardensMappingTransactionContext,
   GardensMappingUnitOfWork,
@@ -35,6 +36,7 @@ export class KyselyGardensMappingUnitOfWork implements GardensMappingUnitOfWork 
         calibrations: new KyselyCalibrationRepository(trx),
         revisionJournal: new KyselyRevisionJournalWriter(trx),
         syncChanges: new KyselySyncChangeRecorder(trx),
+        media: new KyselyMediaRepository(trx),
       };
 
       return work(context);

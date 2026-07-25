@@ -134,6 +134,10 @@ export async function registerDerivativeIfAbsent(
       transformationVersion: output.transformationVersion,
       derivativeKind: output.derivativeKind,
       tile: output.tile,
+      // Inherited, never defaulted — see RegisterDerivativeMediaRecordInput's
+      // own field comment for why a sensitive plan's derivative must stay
+      // sensitive.
+      sensitivityClassification: source.sensitivityClassification,
     },
     now,
   );

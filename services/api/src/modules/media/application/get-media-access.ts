@@ -18,10 +18,17 @@
  * role model yet, so this is an unconditional denial for a viewer against
  * `restricted` media, not a configurable one.
  *
- * Section 12 step 3 ("Selects an appropriate original or derivative") has no
- * real choice to make yet: no processing worker exists to have produced a
- * derivative (P6-WORKER-02, later), so the original itself is always the
- * only, and therefore the appropriate, object to serve.
+ * Section 12 step 3 ("Selects an appropriate original or derivative") stays
+ * with the CLIENT since P6-PLAN-01, not this command: the caller asks for a
+ * specific media id — an original's, or a derivative's id resolved through
+ * the original's own `derivatives` array (`GetMediaStatus`/
+ * `ListGardenMedia`) — and this command signs exactly that record. The
+ * availability gate differs by which it is: an original requires
+ * `processingState === 'processed'` (its safety validation concluded
+ * clean); a derivative row is servable at `uploadState === 'available'`
+ * alone, because it only ever exists as the product of a worker processing
+ * an already-validated source, and its own `processingState` is `null` by
+ * design ("not applicable" — see `registerDerivativeMediaRecord`).
  *
  * Section 12 step 5 ("Records sensitive raw-access audit information where
  * policy requires it") is implemented for `restricted`-classified media
@@ -67,7 +74,14 @@ export class GetMediaAccess {
       'viewGarden',
     );
 
-    if (record.uploadState !== 'available' || record.processingState !== 'processed') {
+    // An original requires processed; a derivative row (processingState
+    // null by design) is servable at `available` alone — see this class's
+    // own doc comment on section 12 step 3.
+    const isDerivative = record.derivedFromMediaId !== null;
+    if (
+      record.uploadState !== 'available' ||
+      (!isDerivative && record.processingState !== 'processed')
+    ) {
       throw mediaNotAvailableError();
     }
 

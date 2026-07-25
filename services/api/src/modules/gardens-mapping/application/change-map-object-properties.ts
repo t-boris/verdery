@@ -8,6 +8,7 @@ import type { GardensMappingUnitOfWork } from './gardens-mapping-unit-of-work.js
 import { toGardenObjectResource, type MapCommandResultResource } from './map-object-view.js';
 import { requireMatchingCategoryDetails } from './validate-category-details.js';
 import { requireGateReferencesExistingFence } from './validate-gate-fence-reference.js';
+import { requireImportedBackgroundPlanMedia } from './validate-imported-plan-reference.js';
 import { runIdempotentCommand } from './run-idempotent-command.js';
 
 const OPERATION = 'map.changeProperties';
@@ -43,6 +44,7 @@ export class ChangeMapObjectProperties {
         gardenId,
         payload.categoryDetails,
       );
+      await requireImportedBackgroundPlanMedia(context.media, gardenId, payload.categoryDetails);
       const changed = await applyMapObjectRevisionGuardedUpdate(
         context.mapObjects,
         gardenId,

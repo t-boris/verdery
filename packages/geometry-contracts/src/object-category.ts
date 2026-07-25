@@ -147,7 +147,41 @@ export interface AnnotationDetails {
   readonly measurement?: Measurement;
 }
 
-/** The category-specific detail payload for a category that has one. Categories without a row here (lot, path, water feature, imported background) carry no specialized fields beyond the common `garden_object` shape. */
+/**
+ * Only `'uncalibrated'` exists this stage (P6-PLAN-01): a freshly imported
+ * background has no meaningful plan-to-map transform, and pretending a 1:1
+ * transform is calibrated would be false precision (map-rendering-and-
+ * editing.md section 16: "The interface displays calibration quality and
+ * prevents false precision"). P6-PLAN-02 — known-distance calibration,
+ * control points, residual error, transform revisions — widens this union
+ * with the calibrated state(s) and attaches the real transform data.
+ */
+export type ImportedBackgroundCalibrationState = 'uncalibrated';
+
+/**
+ * The non-authoritative background asset a plan import produces
+ * (map-rendering-and-editing.md section 16). The object's own Polygon
+ * geometry is its placeholder placement in garden-local space until
+ * P6-PLAN-02 adds real calibration — see
+ * {@link ImportedBackgroundCalibrationState}.
+ */
+export interface ImportedBackgroundDetails {
+  /** The `imported_plan` media record (the original document) this background displays. Must belong to the same garden. */
+  readonly planMediaId: string;
+  /**
+   * 1-based page of a multi-page (PDF) source. Absent — equivalent to 1 —
+   * for a raster plan, which has exactly one "page". Pages above 1 are only
+   * accepted for a PDF-classed source; PDF pages cannot render yet
+   * (P6-WORKER-02's documented deferral), so this field models the
+   * section-8 page-selection step honestly rather than driving rendering.
+   */
+  readonly sourcePageNumber?: number;
+  /** Per-background persisted visibility — "independently hideable" (Phase 6 exit criterion), distinct from the client-local layer-2 toggle. */
+  readonly isBackgroundVisible: boolean;
+  readonly calibrationState: ImportedBackgroundCalibrationState;
+}
+
+/** The category-specific detail payload for a category that has one. Categories without a row here (lot, path, water feature) carry no specialized fields beyond the common `garden_object` shape. */
 export type GardenObjectDetails =
   | { readonly category: 'structure'; readonly details: StructureDetails }
   | { readonly category: 'fence'; readonly details: FenceDetails }
@@ -157,4 +191,5 @@ export type GardenObjectDetails =
   | { readonly category: 'annotation'; readonly details: AnnotationDetails }
   | { readonly category: 'tree'; readonly details: TreeDetails }
   | { readonly category: 'plant'; readonly details: PlantPlacementDetails }
-  | { readonly category: 'utilityExclusion'; readonly details: UtilityExclusionDetails };
+  | { readonly category: 'utilityExclusion'; readonly details: UtilityExclusionDetails }
+  | { readonly category: 'importedBackground'; readonly details: ImportedBackgroundDetails };

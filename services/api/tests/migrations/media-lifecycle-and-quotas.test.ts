@@ -474,8 +474,9 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     await client.end();
 
-    // `count: 3` undoes 1785300000000_media-derivative-identity.sql and
-    // 1785200000000_media-processing-jobs.sql (the two newest migrations)
+    // `count: 4` undoes 1785400000000_imported-background-details.sql,
+    // 1785300000000_media-derivative-identity.sql, and
+    // 1785200000000_media-processing-jobs.sql (the three newest migrations)
     // first, then this one — matching every earlier migration test's own
     // convention of unwinding whatever landed on top since this file was
     // written. Update again the next time a migration is added on top of
@@ -485,7 +486,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 3,
+      count: 4,
       log: () => {},
     });
 

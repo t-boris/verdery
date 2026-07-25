@@ -143,6 +143,7 @@ function registerDerivativeFixture(overrides: Partial<RegisterDerivativeMediaRec
       transformationVersion: 1,
       derivativeKind: 'thumbnail',
       tile: null,
+      sensitivityClassification: 'standard',
       ...overrides,
     },
     NOW,
@@ -150,6 +151,11 @@ function registerDerivativeFixture(overrides: Partial<RegisterDerivativeMediaRec
 }
 
 describe('registerDerivativeMediaRecord', () => {
+  it('carries the sensitivity classification it is given — a sensitive plan derivative stays sensitive, never reset to the derived_preview class default', () => {
+    const record = registerDerivativeFixture({ sensitivityClassification: 'sensitive' });
+    expect(record.sensitivityClassification).toBe('sensitive');
+  });
+
   it('starts a non-tile derivative directly at available, with both content-type/byte-size columns already verified', () => {
     const record = registerDerivativeFixture();
 

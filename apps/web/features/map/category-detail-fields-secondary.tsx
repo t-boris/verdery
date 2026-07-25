@@ -6,6 +6,7 @@ import type {
   BedKind,
   GardenObjectDetails,
   GateDetails,
+  ImportedBackgroundDetails,
   MeasurementUnit,
   UtilityExclusionDetails,
   UtilityExclusionKind,
@@ -15,7 +16,7 @@ import type {
 import type { ChangeEvent } from 'react';
 
 import { useLocalization, type MessageKey } from '@/shared/localization/public';
-import { Select, TextField } from '@/shared/ui/public';
+import { Button, Select, TextField } from '@/shared/ui/public';
 
 import { parseOptionalNumber } from './category-detail-fields';
 import type { MapObjectRecord } from './types';
@@ -291,6 +292,61 @@ export function AnnotationFields({
           )}
         </>
       )}
+    </>
+  );
+}
+
+/**
+ * Imported-background fields (P6-PLAN-01): the per-background persisted
+ * visibility toggle ("independently hideable"), the PDF page selection, and
+ * the read-only calibration state — always "not calibrated" this stage
+ * (P6-PLAN-02 owns real calibration). `planMediaId` is deliberately not
+ * editable: re-pointing a background at a different plan document is
+ * remove-and-add through the imported-background panel, not a field edit.
+ */
+export function ImportedBackgroundFields({
+  details,
+  onChange,
+}: {
+  readonly details: ImportedBackgroundDetails;
+  readonly onChange: (details: GardenObjectDetails) => void;
+}) {
+  const { t } = useLocalization();
+  return (
+    <>
+      <Button
+        type="button"
+        variant="secondary"
+        aria-pressed={details.isBackgroundVisible}
+        onClick={() =>
+          onChange({
+            category: 'importedBackground',
+            details: { ...details, isBackgroundVisible: !details.isBackgroundVisible },
+          })
+        }
+      >
+        {details.isBackgroundVisible ? t('map.background.hide') : t('map.background.show')}
+      </Button>
+      <TextField
+        label={t('map.background.pageNumber')}
+        type="number"
+        min={1}
+        step={1}
+        value={details.sourcePageNumber ?? ''}
+        onChange={(event: ChangeEvent<HTMLInputElement>) => {
+          const { sourcePageNumber: _drop, ...rest } = details;
+          const value = parseOptionalNumber(event.target.value);
+          onChange({
+            category: 'importedBackground',
+            details: value === undefined ? rest : { ...rest, sourcePageNumber: value },
+          });
+        }}
+      />
+      <TextField
+        label={t('map.background.calibrationStateLabel')}
+        value={t('map.background.notCalibrated')}
+        readOnly
+      />
     </>
   );
 }

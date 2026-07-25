@@ -119,6 +119,8 @@ export { RegisterMediaUpload } from './application/register-media-upload.js';
 export { CompleteMediaUpload } from './application/complete-media-upload.js';
 export { GetMediaStatus } from './application/get-media-status.js';
 export { GetMediaAccess } from './application/get-media-access.js';
+// P6-PLAN-01: media listing (originals, by garden and class).
+export { ListGardenMedia } from './application/list-garden-media.js';
 export { KyselyMediaRepository } from './persistence/kysely-media-repository.js';
 export { KyselyQuotaReservationRepository } from './persistence/kysely-quota-reservation-repository.js';
 export { KyselyMediaUnitOfWork } from './persistence/kysely-media-unit-of-work.js';

@@ -28,6 +28,7 @@ import type {
   Garden as GardenResource,
   Media,
   MediaAccess,
+  MediaListResult,
   MediaUploadSession,
 } from '@verdery/api-contracts';
 import { FakeMediaStorageGateway } from '../../src/modules/media/application/media-test-doubles.js';
@@ -277,6 +278,53 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       method: 'POST',
       url: `/v1/gardens/${garden.id}/media/${registered.media.id}/complete`,
       headers: { ...bearer(token), 'idempotency-key': generateUuidV7() },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it('lists a garden`s media over real HTTP, filtered by class, most recent first (P6-PLAN-01)', async () => {
+    const { token, garden } = await createGardenAsOwner();
+    await registerUpload(token, garden.id);
+    const plan = asMediaUploadSession(
+      await registerUpload(token, garden.id, {
+        mediaClass: 'imported_plan',
+        displayFilename: 'plan.jpg',
+        declaredContentType: 'image/jpeg',
+        declaredByteSize: 123_456,
+      }),
+    );
+
+    const unfiltered = await app.inject({
+      method: 'GET',
+      url: `/v1/gardens/${garden.id}/media`,
+      headers: bearer(token),
+    });
+    expect(unfiltered.statusCode).toBe(200);
+    expect(unfiltered.json<MediaListResult>().items).toHaveLength(2);
+
+    const filtered = await app.inject({
+      method: 'GET',
+      url: `/v1/gardens/${garden.id}/media?mediaClass=imported_plan`,
+      headers: bearer(token),
+    });
+    expect(filtered.statusCode).toBe(200);
+    const filteredResult = filtered.json<MediaListResult>();
+    expect(filteredResult.items).toHaveLength(1);
+    expect(filteredResult.items[0]).toMatchObject({
+      id: plan.media.id,
+      mediaClass: 'imported_plan',
+      derivatives: [],
+    });
+  });
+
+  it('rejects listing with an unknown mediaClass filter with 400', async () => {
+    const { token, garden } = await createGardenAsOwner();
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/v1/gardens/${garden.id}/media?mediaClass=not_a_real_class`,
+      headers: bearer(token),
     });
 
     expect(response.statusCode).toBe(400);

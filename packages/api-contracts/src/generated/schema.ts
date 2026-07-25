@@ -931,7 +931,32 @@ export interface paths {
             };
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List a garden's media records
+         * @description Lists the garden's ORIGINAL media records — rows a derivative was
+         *     produced FROM, never the derivative rows themselves — most recently
+         *     created first, optionally filtered to one media class. P6-PLAN-01
+         *     added this: the plan-import flow needs to pick from a garden's
+         *     available `imported_plan` documents, and no endpoint could list
+         *     media by garden at all before (`GetMediaStatus` requires already
+         *     knowing the id).
+         *
+         *     Derivative (`derived_from_media_id`-bearing) rows are excluded by
+         *     construction rather than reachable through a `derived_preview`
+         *     class filter: a raster plan's tile pyramid alone can run to
+         *     thousands of rows, which would make an unfiltered listing unbounded
+         *     junk for every real caller. A derivative is reached through its
+         *     original's own `derivatives` array (see the `Media` schema), never
+         *     by listing.
+         *
+         *     Authorization matches `GetMediaStatus`: any garden role that can
+         *     view the garden (`viewGarden`) — this reads record state, not the
+         *     bytes themselves.
+         *
+         *     Source: implementation-plan.md work package P6-PLAN-01;
+         *     architecture/media-storage-and-processing.md, section "12. Download Flow".
+         */
+        get: operations["listGardenMedia"];
         put?: never;
         /**
          * Register a media upload and open its upload session
@@ -1058,6 +1083,14 @@ export interface paths {
          * @description Implements section 12's download flow: authenticates, authorizes
          *     garden role, and returns a short-lived signed download mechanism —
          *     never a permanent URL. Only `available` media can be accessed.
+         *
+         *     An ORIGINAL additionally requires `processingState: 'processed'`
+         *     (its safety validation concluded clean). A DERIVATIVE row — reached
+         *     via its original's `derivatives` array (P6-PLAN-01) — is servable
+         *     at `available` alone: a derivative row only ever exists because its
+         *     source already validated clean and a worker produced it, and its
+         *     own `processingState` is `null` by design ("not applicable" — a
+         *     derivative is never itself the subject of further processing).
          *
          *     Enforces section 12's own stricter line for the operational viewer
          *     role: a viewer may access ordinary accepted photos according to
@@ -1615,11 +1648,59 @@ export interface components {
             measurement?: components["schemas"]["Measurement"];
         };
         /**
-         * @description Present only for categories that have specialized fields. `lot`,
-         *     `path`, `waterFeature`, and `importedBackground` carry no
-         *     `details` member.
+         * @description The non-authoritative background asset a plan import produces
+         *     (architecture/map-rendering-and-editing.md, section "16. Plan Import
+         *     and Calibration"). Added by P6-PLAN-01: before it, this category
+         *     carried no `details` member at all. The object's own Polygon geometry
+         *     is its placeholder placement in garden-local space until calibration
+         *     exists (P6-PLAN-02).
          */
-        GardenObjectDetails: components["schemas"]["StructureDetails"] | components["schemas"]["FenceDetails"] | components["schemas"]["GateDetails"] | components["schemas"]["ZoneDetails"] | components["schemas"]["BedDetails"] | components["schemas"]["TreeDetails"] | components["schemas"]["PlantPlacementDetails"] | components["schemas"]["UtilityExclusionDetails"] | components["schemas"]["AnnotationDetails"];
+        ImportedBackgroundDetails: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            category: "importedBackground";
+            /**
+             * @description The `imported_plan` media record (the original document) this
+             *     background displays. Validated server-side to reference an
+             *     `available` + `processed` media record of class `imported_plan`
+             *     in the same garden.
+             */
+            planMediaId: components["schemas"]["Uuid"];
+            /**
+             * @description 1-based page of a multi-page (PDF) source. Absent — equivalent
+             *     to 1 — for a raster plan. A value above 1 is only accepted for a
+             *     PDF-classed source. PDF pages cannot render yet (P6-WORKER-02's
+             *     documented deferral), so this models the plan-import flow's
+             *     page-selection step honestly rather than driving rendering.
+             */
+            sourcePageNumber?: number;
+            /**
+             * @description Per-background persisted visibility — "Plan backgrounds are ...
+             *     independently hideable" (Phase 6 exit criterion). Distinct from
+             *     the client-local layer-visibility preference, which hides every
+             *     imported background at once and resets on reload.
+             */
+            isBackgroundVisible: boolean;
+            /**
+             * @description Only `uncalibrated` exists this stage: no plan-to-map transform
+             *     is stored, and the interface must say so rather than pretend a
+             *     1:1 transform is meaningful ("prevents false precision" —
+             *     section 16). P6-PLAN-02 (known-distance calibration, control
+             *     points, residual error, transform revisions) widens this enum
+             *     and attaches the real transform data.
+             * @enum {string}
+             */
+            calibrationState: "uncalibrated";
+        };
+        /**
+         * @description Present only for categories that have specialized fields. `lot`,
+         *     `path`, and `waterFeature` carry no `details` member.
+         *     `importedBackground` gained its `ImportedBackgroundDetails` member
+         *     in P6-PLAN-01.
+         */
+        GardenObjectDetails: components["schemas"]["StructureDetails"] | components["schemas"]["FenceDetails"] | components["schemas"]["GateDetails"] | components["schemas"]["ZoneDetails"] | components["schemas"]["BedDetails"] | components["schemas"]["TreeDetails"] | components["schemas"]["PlantPlacementDetails"] | components["schemas"]["UtilityExclusionDetails"] | components["schemas"]["AnnotationDetails"] | components["schemas"]["ImportedBackgroundDetails"];
         /** @enum {string} */
         GardenObjectLifecycleState: "active" | "deleted";
         GardenObject: {
@@ -2194,9 +2275,47 @@ export interface components {
             uploadState: components["schemas"]["MediaUploadState"];
             processingState: components["schemas"]["MediaProcessingState"] | null;
             sensitivityClassification: components["schemas"]["MediaSensitivityClassification"];
+            /**
+             * @description The record's own available display derivatives (P6-PLAN-01).
+             *     Populated by the read operations a client displays media
+             *     through — `GetMediaStatus` and `ListGardenMedia` — and absent
+             *     from write-path responses (`RegisterMediaUpload`,
+             *     `CompleteMediaUpload`), where no derivative can exist yet.
+             *     Tile derivatives are deliberately NOT listed here: a plan's
+             *     tile pyramid is unbounded (thousands of rows), and tile
+             *     CONSUMPTION is deferred — see `docs/development/
+             *     deferred-capabilities.md`. Empty (or absent) when processing
+             *     has not produced any, including for every PDF-classed
+             *     `imported_plan` (P6-WORKER-02's documented deferral).
+             */
+            derivatives?: components["schemas"]["MediaDerivativeSummary"][];
             revision: components["schemas"]["Revision"];
             createdAt: components["schemas"]["Timestamp"];
             updatedAt: components["schemas"]["Timestamp"];
+        };
+        /**
+         * @description The non-tile derivative kinds a `Media.derivatives` entry can name —
+         *     `MediaDerivativeKind` (services/api's domain vocabulary) minus
+         *     `tile`, which is never listed per `Media.derivatives`' own
+         *     description.
+         * @enum {string}
+         */
+        MediaDerivativeKindSummary: "thumbnail" | "screen_preview" | "high_resolution";
+        /**
+         * @description One available display derivative of an original media record: which
+         *     kind it is, and the derivative's OWN media id — the id a client
+         *     passes to `GetMediaAccess` to display it. Closes the P6-WORKER-02
+         *     gap where derivative rows existed server-side but no endpoint
+         *     exposed a derivative's id to a client holding only the original's.
+         */
+        MediaDerivativeSummary: {
+            derivativeKind: components["schemas"]["MediaDerivativeKindSummary"];
+            mediaId: components["schemas"]["Uuid"];
+        };
+        MediaListResult: {
+            items: components["schemas"]["Media"][];
+            /** @description Opaque continuation token. Absent when no further page exists. */
+            nextCursor?: string;
         };
         RegisterMediaUploadRequest: {
             mediaClass: components["schemas"]["MediaClass"];
@@ -4312,6 +4431,39 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    listGardenMedia: {
+        parameters: {
+            query?: {
+                /** @description Restrict to one media class — for example `imported_plan` for the plan-import picker. Omit to list every class (originals only). */
+                mediaClass?: components["schemas"]["MediaClass"];
+                /** @description Opaque continuation token from a previous page. Clients must not parse it. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum items to return. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The garden's media records, most recently created first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaListResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     registerMediaUpload: {

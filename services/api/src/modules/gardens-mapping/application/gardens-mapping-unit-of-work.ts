@@ -25,6 +25,7 @@ import type { AuditLogger } from '../../../platform/audit/audit-logger.js';
 import type { IdempotencyStore } from '../../../platform/idempotency/idempotency-store.js';
 import type { OutboxAppender } from '../../../platform/outbox/outbox-appender.js';
 import type { SyncChangeRecorder } from '../../../platform/sync/sync-change-recorder.js';
+import type { MediaRepository } from '../../media/public.js';
 import type { CalibrationRepository } from './calibration-repository.js';
 import type { CoordinateSpaceRepository } from './coordinate-space-repository.js';
 import type { GardenRepository } from './garden-repository.js';
@@ -43,6 +44,14 @@ export interface GardensMappingTransactionContext {
   readonly calibrations: CalibrationRepository;
   readonly revisionJournal: RevisionJournalWriter;
   readonly syncChanges: SyncChangeRecorder;
+  /**
+   * The media module's own repository port, bound to this transaction —
+   * P6-PLAN-01's imported-background commands validate their `planMediaId`
+   * reference through it (`validate-imported-plan-reference.ts`), the exact
+   * cross-module precedent `PlantsInventoryTransactionContext.media`
+   * already set for plant-photo references.
+   */
+  readonly media: MediaRepository;
 }
 
 export interface GardensMappingUnitOfWork {

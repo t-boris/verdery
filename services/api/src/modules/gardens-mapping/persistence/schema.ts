@@ -152,6 +152,20 @@ export interface AnnotationDetailsRow {
 }
 
 /**
+ * `calibration_state` is `Generated<string>` for the same reason
+ * `CoordinateSpaceRow.kind` is: the migration's CHECK pins it to its one
+ * current value (`'uncalibrated'`), and P6-PLAN-02 widens that by
+ * migration, not by a type change here.
+ */
+export interface ImportedBackgroundDetailsRow {
+  garden_object_id: string;
+  plan_media_id: string;
+  source_page_number: number | null;
+  is_background_visible: Generated<boolean>;
+  calibration_state: Generated<string>;
+}
+
+/**
  * Append-only journal: `sequence` is the physical insertion order, `revision`
  * is the object's own logical revision at the time this row was written.
  * `geometry` is nullable because not every command changes geometry (a label
@@ -194,6 +208,7 @@ export interface GardensMappingDatabaseSchema {
   'gardens_mapping.plant_placement_details': PlantPlacementDetailsRow;
   'gardens_mapping.utility_exclusion_details': UtilityExclusionDetailsRow;
   'gardens_mapping.annotation_details': AnnotationDetailsRow;
+  'gardens_mapping.imported_background_details': ImportedBackgroundDetailsRow;
   'gardens_mapping.garden_object_revision': GardenObjectRevisionRow;
   'gardens_mapping.calibration': CalibrationRow;
 }

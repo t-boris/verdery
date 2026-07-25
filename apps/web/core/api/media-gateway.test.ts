@@ -124,4 +124,29 @@ describe('createMediaGateway', () => {
     expect(recorded[0]?.init.method).toBe('GET');
     expect(result).toEqual(expect.objectContaining({ ok: true, data: access }));
   });
+
+  it('lists garden media with class, cursor, and limit query parameters', async () => {
+    const listResult = { items: [MEDIA] };
+    const { gateway, recorded } = gatewayRecording(jsonResponse(listResult, 200));
+
+    const result = await gateway.list(GARDEN_ID, {
+      mediaClass: 'imported_plan',
+      cursor: 'abc',
+      limit: 10,
+    });
+
+    expect(recorded[0]?.url).toBe(
+      `${ORIGIN}/v1/gardens/${GARDEN_ID}/media?mediaClass=imported_plan&cursor=abc&limit=10`,
+    );
+    expect(recorded[0]?.init.method).toBe('GET');
+    expect(result).toEqual(expect.objectContaining({ ok: true, data: listResult }));
+  });
+
+  it('lists garden media with no query string when no options are given', async () => {
+    const { gateway, recorded } = gatewayRecording(jsonResponse({ items: [] }, 200));
+
+    await gateway.list(GARDEN_ID);
+
+    expect(recorded[0]?.url).toBe(`${ORIGIN}/v1/gardens/${GARDEN_ID}/media`);
+  });
 });

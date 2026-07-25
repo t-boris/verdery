@@ -4,7 +4,7 @@
  * the detail tables for why this is an existence check rather than a
  * nullable-foreign-key join.
  *
- * Split out of `kysely-map-object-repository.ts` because nine categories'
+ * Split out of `kysely-map-object-repository.ts` because ten categories'
  * worth of column mapping does not fit comfortably alongside that
  * repository's own object-row and viewport-query logic within the file-size
  * limit.
@@ -17,6 +17,7 @@ import type {
   GardenObjectCategory,
   GardenObjectDetails,
   GateDetails,
+  ImportedBackgroundDetails,
   MeasurementAcquisitionMethod,
   MeasurementUnit,
   PlantPlacementDetails,
@@ -35,7 +36,7 @@ import {
 } from './postgis-geometry.js';
 import { translateCheckViolation } from './translate-check-violation.js';
 
-/** Categories with a specialized detail table. The rest (lot, path, waterFeature, importedBackground) carry no `details`. */
+/** Categories with a specialized detail table. The rest (lot, path, waterFeature) carry no `details`. */
 const DETAIL_CATEGORIES: ReadonlySet<GardenObjectCategory> = new Set([
   'structure',
   'fence',
@@ -46,6 +47,7 @@ const DETAIL_CATEGORIES: ReadonlySet<GardenObjectCategory> = new Set([
   'plant',
   'utilityExclusion',
   'annotation',
+  'importedBackground',
 ]);
 
 export function categoryHasDetails(category: GardenObjectCategory): boolean {
@@ -255,10 +257,33 @@ export async function fetchDetailsForIds(
       break;
     }
 
+    case 'importedBackground': {
+      const rows = await db
+        .selectFrom('gardens_mapping.imported_background_details')
+        .select([
+          'garden_object_id',
+          'plan_media_id',
+          'source_page_number',
+          'is_background_visible',
+          'calibration_state',
+        ])
+        .where('garden_object_id', 'in', objectIds)
+        .execute();
+      for (const row of rows) {
+        const details: ImportedBackgroundDetails = {
+          planMediaId: row.plan_media_id,
+          ...(row.source_page_number === null ? {} : { sourcePageNumber: row.source_page_number }),
+          isBackgroundVisible: row.is_background_visible,
+          calibrationState: row.calibration_state as ImportedBackgroundDetails['calibrationState'],
+        };
+        result.set(row.garden_object_id, { category: 'importedBackground', details });
+      }
+      break;
+    }
+
     case 'lot':
     case 'path':
     case 'waterFeature':
-    case 'importedBackground':
       // No detail table — nothing to fetch.
       break;
   }
@@ -420,6 +445,27 @@ export async function writeDetails(
             oc.column('garden_object_id').doUpdateSet({
               utility_exclusion_kind: details.details.utilityExclusionKind,
               notes: details.details.notes ?? null,
+            }),
+          )
+          .execute();
+        return;
+
+      case 'importedBackground':
+        await db
+          .insertInto('gardens_mapping.imported_background_details')
+          .values({
+            garden_object_id: objectId,
+            plan_media_id: details.details.planMediaId,
+            source_page_number: details.details.sourcePageNumber ?? null,
+            is_background_visible: details.details.isBackgroundVisible,
+            calibration_state: details.details.calibrationState,
+          })
+          .onConflict((oc) =>
+            oc.column('garden_object_id').doUpdateSet({
+              plan_media_id: details.details.planMediaId,
+              source_page_number: details.details.sourcePageNumber ?? null,
+              is_background_visible: details.details.isBackgroundVisible,
+              calibration_state: details.details.calibrationState,
             }),
           )
           .execute();

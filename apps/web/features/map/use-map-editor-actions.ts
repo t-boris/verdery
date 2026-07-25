@@ -23,6 +23,7 @@ import { useGardenMap, useSubmitMapCommand } from './queries';
 import { deriveSaveStatus } from './save-status';
 import { CREATABLE_GEOMETRY_KIND, creatableCategoryOfTool } from './types';
 import type { CreatableCategory, MapObjectRecord } from './types';
+import { useImportedBackgroundActions } from './use-imported-background-actions';
 import { useMapEditorGeometryActions } from './use-map-editor-geometry-actions';
 import { useMapEditorLineworkActions } from './use-map-editor-linework-actions';
 import { useMapEditorObjectActions } from './use-map-editor-object-actions';
@@ -351,6 +352,7 @@ export function useMapEditorActions(gardenId: string) {
   const geometryActions = useMapEditorGeometryActions({ commit, findRecord, store });
   const objectActions = useMapEditorObjectActions({ commit, findRecord, store });
   const lineworkActions = useMapEditorLineworkActions({ commit, findRecord, store });
+  const importedBackgroundActions = useImportedBackgroundActions({ commit, findRecord, store });
 
   return {
     records,
@@ -377,6 +379,7 @@ export function useMapEditorActions(gardenId: string) {
     ...geometryActions,
     ...objectActions,
     ...lineworkActions,
+    ...importedBackgroundActions,
   };
 }
 

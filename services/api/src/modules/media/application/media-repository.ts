@@ -1,5 +1,10 @@
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
-import type { MediaDerivativeKind, MediaRecord, TileCoordinates } from '../domain/media-record.js';
+import type {
+  MediaClass,
+  MediaDerivativeKind,
+  MediaRecord,
+  TileCoordinates,
+} from '../domain/media-record.js';
 
 /** The idempotency key `findDerivative` looks up by — see `derivative-registration.ts`'s own doc comment. */
 export interface FindDerivativeInput {
@@ -8,6 +13,21 @@ export interface FindDerivativeInput {
   readonly derivativeKind: MediaDerivativeKind;
   /** `null` for a non-tile derivative — every tile column is `NULL` on that row. */
   readonly tile: TileCoordinates | null;
+}
+
+/** `ListGardenMedia`'s repository input — originals only, optionally one class, cursor-paged (P6-PLAN-01). */
+export interface ListForGardenInput {
+  readonly gardenId: Uuid;
+  /** `null` lists every class (originals only either way). */
+  readonly mediaClass: MediaClass | null;
+  /** Opaque continuation token a previous page returned; `null` for the first page. */
+  readonly cursor: string | null;
+  readonly limit: number;
+}
+
+export interface MediaRecordPage {
+  readonly items: readonly MediaRecord[];
+  readonly nextCursor: string | null;
 }
 
 /**
@@ -38,4 +58,18 @@ export interface MediaRepository {
   update(record: MediaRecord, expectedRevision: number): Promise<boolean>;
   /** `null` when no derivative exists yet at this identity — see `FindDerivativeInput`'s own doc comment. */
   findDerivative(input: FindDerivativeInput): Promise<MediaRecord | null>;
+  /**
+   * A garden's ORIGINAL media rows (`derived_from_media_id IS NULL`), most
+   * recently created first — never derivative rows, per `ListGardenMedia`'s
+   * own contract description (P6-PLAN-01).
+   */
+  listForGarden(input: ListForGardenInput): Promise<MediaRecordPage>;
+  /**
+   * An original's `available` non-tile derivative rows (thumbnail, screen
+   * preview, high-resolution), at most one per kind — the latest
+   * `transformation_version` wins when regeneration produced several.
+   * Tiles are deliberately excluded: unbounded, and tile consumption is
+   * deferred (see `Media.derivatives`' contract description).
+   */
+  listDisplayDerivatives(derivedFromMediaId: Uuid): Promise<readonly MediaRecord[]>;
 }

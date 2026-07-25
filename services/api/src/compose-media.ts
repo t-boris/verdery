@@ -20,6 +20,7 @@ import {
   GetMediaStatus,
   KyselyMediaRepository,
   KyselyMediaUnitOfWork,
+  ListGardenMedia,
   RecordMediaProcessingResult,
   RegisterMediaUpload,
 } from './modules/media/public.js';
@@ -79,6 +80,7 @@ export function composeMedia(
       clock,
     ),
     getMediaStatus: new GetMediaStatus(mediaRepository, gardenAuthorization),
+    listGardenMedia: new ListGardenMedia(mediaRepository, gardenAuthorization),
     getMediaAccess: new GetMediaAccess(
       mediaRepository,
       gardenAuthorization,

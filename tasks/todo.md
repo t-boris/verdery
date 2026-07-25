@@ -2732,3 +2732,179 @@ always fits in exactly one tile) — `derivative-profile.test.ts`, `tile-pyramid
   suite implicitly accepted for that format) — `sharp`'s HEIF decode support is confirmed present in
   the installed binary (`sharp.versions.heif`) and exercised implicitly through the same code path
   JPEG/PNG fixtures already prove correct, but not through a literal HEIC byte fixture.
+
+## Stage 9 — P6-PLAN-01 (backend + web), implementation complete
+
+The plan-import flow is implemented through calibration's doorstep: a property-plan document can be
+selected, locally safety-validated, privately uploaded (`media_class: 'imported_plan'`), listed back,
+and placed on the garden map as a real `importedBackground` object with a page selection, a
+per-background persisted visibility flag, and an explicitly UNcalibrated state. Calibration itself
+(known-distance, control points, residual error, transform revisions) is P6-PLAN-02's scope and was
+not started; iOS's plan-import flow is a dedicated follow-up against the contract this stage landed.
+
+### Key decisions
+
+- **`importedBackground` details are a dedicated detail table
+  (`gardens_mapping.imported_background_details`), not a JSON blob or a widened `garden_object`.**
+  Every detail-bearing category in this codebase already models its specialized fields as a
+  one-row-per-object table whose primary key IS the object id (garden-map baseline migration's own
+  comment), surfaced through the `GardenObjectDetails` discriminated union in
+  `@verdery/geometry-contracts` and the flat `*Details` wire schemas in `openapi.yaml`. Following
+  that shape means the new category needed NO new command, transport, or client machinery — the
+  existing `createObject`/`changeProperties`/`deleteObject` commands (revision-guarded, idempotent,
+  undo-integrated) carry `ImportedBackgroundDetails` exactly the way they already carry
+  `GateDetails`. Columns: `plan_media_id` (real cross-schema FK to `media.media_record`, NO cascade
+  — media deletion is a governed workflow, P6-RET-01, and must fail loudly against a referencing
+  background), `source_page_number` (1-based, NULL = "the only page"), `is_background_visible`
+  (default true), `calibration_state` (CHECK-pinned to `'uncalibrated'`, the same
+  single-value-today posture `coordinate_space.kind` established; P6-PLAN-02 widens it by
+  migration). Deliberately NO transform columns: an uncalibrated background has no plan-to-map
+  transform, and a nullable column pretending otherwise would be exactly the false precision
+  section 16 forbids.
+- **Plan-media reference validation follows the gate→fence precedent**
+  (`validate-imported-plan-reference.ts`, shared by create and changeProperties): `planMediaId`
+  must name an `available` + `processed` `imported_plan` record in the same garden — the same
+  gate `GetMediaAccess` applies before serving an original's bytes. Cross-module media access
+  reuses the exact precedent `plants-inventory` set: `GardensMappingTransactionContext` gains
+  `media: MediaRepository` (bound to the same transaction by the Kysely unit of work), not a new
+  parallel port. A page above 1 is accepted only for a PDF-classed source; the page is NOT
+  validated against the PDF's real page count (no PDF parser exists in `services/api` — the same
+  native-dependency boundary P6-WORKER-02 documents), so an out-of-range page surfaces when PDF
+  rendering lands. A created background records `importedPlan` provenance — the provenance kind
+  the baseline migration named for exactly this case — instead of `CreateMapObject`'s default
+  `manualDrawing`.
+- **Two read-side contract gaps closed minimally** (both verified blocking any real UI):
+  `ListGardenMedia` (`GET /gardens/{gardenId}/media`, garden + optional media-class filter,
+  ordinary Cursor/Limit pagination, keyset cursor mirroring `ListGardens`) lists ORIGINALS only —
+  derivative rows are excluded by construction, never reachable via a `derived_preview` filter,
+  because one raster plan's tile pyramid alone can run to thousands of rows. Derivative resolution
+  is EMBEDDED on the `Media` resource (`derivatives: [{derivativeKind, mediaId}]`, populated by
+  `GetMediaStatus`/`ListGardenMedia`, absent from write-path responses): every consumer that reads
+  a record's state also immediately needs its display derivative, so one round trip beats a
+  sub-resource endpoint, and the payload is hard-bounded (non-tile kinds only, at most three
+  entries, latest transformation version per kind). `GetMediaAccess`'s availability gate was
+  extended: an original still requires `available` + `processed`; a derivative row is servable at
+  `available` alone (its `processingState` is `null` by design — it only exists as a worker's
+  product from an already-validated source). Without that change no derivative was servable at all.
+- **Background display: single screen-preview image, "contain"-fit — tile consumption deferred.**
+  The web map editor draws a background's screen-preview derivative (1,600 px — sufficient at
+  editor zoom; the 4,096 px high-resolution image exists for P6-PLAN-02's close-inspection
+  tracing) as a Konva underlay inside the object polygon's bounding box, aspect-preserved
+  (`background-fit.ts`), under all garden geometry, with an explicit "Not calibrated" badge.
+  MapLibre remains the geographic basemap only: garden-local rendering is Konva's job in this
+  editor (P3-WEB-02's split), and an uncalibrated background has no geographic placement a
+  MapLibre source could honestly use. The server-side XYZ tile pyramid is NOT consumed: a MapLibre
+  raster source needs a stable `{z}/{x}/{y}` URL template, while `GetMediaAccess` signs one object
+  per authorized call — a real impedance mismatch documented in
+  `docs/development/deferred-capabilities.md` rather than half-bridged.
+- **Uncalibrated state is explicit everywhere**: `calibrationState: 'uncalibrated'` (contract enum
+  with one value, domain literal type, DB CHECK), the object geometry documented as a placeholder
+  (20 m square at the local origin, `placeholderBackgroundGeometry`), a "Not calibrated" badge on
+  the canvas and in the background panel/property panel. P6-PLAN-02's seam is named at every layer.
+- **"Independently hideable" is a persisted per-background flag** (`isBackgroundVisible`), toggled
+  through the ordinary `changeProperties` command (undoable, revision-guarded). The pre-existing
+  layer-2 visibility toggle was checked first: it is a client-local, reset-on-reload preference
+  hiding EVERY imported background at once (`map-layers.ts`) — not the exit criterion's
+  per-background persisted control, so both now coexist and both apply. The flag hides the plan
+  imagery only; the object's outline stays selectable as the editing handle.
+- **Web upload**: `GardenPlanUpload` (garden page) reuses the P6-WEB-01 upload machinery unchanged
+  (`useMediaUpload` with `media_class: 'imported_plan'`), adding plan-specific local safety
+  validation before any byte uploads — explicit type check (the raster types + PDF) and the 50 MiB
+  cap, both mirroring `validation-policy.ts`'s own `imported_plan` policy for fast feedback while
+  the worker stays authoritative. A processed raster plan previews through its screen-preview
+  DERIVATIVE (plans are sensitive originals — section 11 — and the metadata-stripped derivative is
+  the display asset); a processed PDF gets an honest "PDF pages cannot be previewed yet" notice,
+  never a broken image. The map editor's `ImportedBackgroundPanel` (sidebar) lists placeable plans,
+  takes the PDF page selection, and manages existing backgrounds (toggle/remove). The map feature
+  reads media through its own `media-queries.ts` over core's `createMediaGateway` — "Features
+  import public Core and Shared interfaces only" (web-application-design.md section 20), so no
+  feature-to-feature import was introduced; query keys match `features/media`'s so overlapping
+  reads share one cache entry.
+- **Validation exemption verified, not assumed**: cross-object geometry validation (overlaps,
+  containment) is not implemented for ANY category yet — `GetGardenMap.validationSummary` is
+  honestly empty — so there is nothing an imported background needs a special exemption from
+  today; section 16.1's note records that its non-authoritative nature excludes it by design when
+  those rules land. Geometry-validity checks (valid closed Polygon) still apply, correctly.
+- **Orientation/perspective**: derivatives are already orientation-normalized server-side
+  (P6-WORKER-02 applies EXIF orientation to pixels). Keystone/perspective correction of a
+  photographed plan has no server capability and was documented as out of scope
+  (deferred-capabilities.md) rather than half-built client-side.
+
+### Implemented behavior
+
+- Contract: `ImportedBackgroundDetails` joined the `GardenObjectDetails` union (tenth branch);
+  `ListGardenMedia` operation; `Media.derivatives` + `MediaDerivativeSummary`/
+  `MediaDerivativeKindSummary`/`MediaListResult` schemas; `GetMediaAccess` description updated for
+  the derivative gate. Generated client regenerated and verified current (`generate:check`).
+- Migration `1785400000000_imported-background-details.sql` (+ its own Testcontainers migration
+  test, 8 tests, including rollback and the no-cascade FK behavior; every earlier migration test's
+  rollback count bumped for the new migration on top).
+- `services/api`: detail fetch/write for the new table (`map-object-details.ts`), the plan-media
+  validator wired into `CreateMapObject`/`ChangeMapObjectProperties`, `importedPlan` provenance,
+  `ListGardenMedia` query + route + wiring, `Media.derivatives` population in
+  `GetMediaStatus`/`ListGardenMedia`, `GetMediaAccess` derivative gate, `listForGarden`/
+  `listDisplayDerivatives` repository methods (Kysely + every fake), transport parsing for the new
+  details branch (`requireBoolean` added to parse-primitives).
+- `apps/web`: `GardenPlanUpload` (+ tests), media gateway `list` (+ tests), map feature
+  `media-queries.ts`, `ImportedBackgroundPanel` (+ tests), `use-imported-background-actions`
+  (create/toggle composed into `useMapEditorActions`), `BackgroundImageShape` +
+  `use-background-image` + `background-fit` (+ tests), `ImportedBackgroundFields` in the property
+  panel, canvas underlay rendering, en/ru message catalogues.
+
+### Verified evidence
+
+| Check                                                        | Result                                                                                                                                                       |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm --filter @verdery/api build && test`                   | 105 files / 699 tests pass (baseline before this stage: 101 files / 671 tests)                                                                               |
+| `pnpm --filter @verdery/web build && test`                   | 53 files / 420 tests pass (baseline before this stage: 50 files / 397 tests)                                                                                 |
+| `pnpm --filter @verdery/workers build && test`               | 16 files / 90 tests pass, unchanged — confirms the contract change broke nothing downstream                                                                  |
+| `pnpm --filter @verdery/api-contracts lint:contract`         | passes (redocly)                                                                                                                                             |
+| `pnpm --filter @verdery/api-contracts generate:check + test` | generated client matches the contract; 29 contract tests pass                                                                                                |
+| Root `pnpm typecheck` / `lint` / `check:file-size`           | all pass                                                                                                                                                     |
+| `pnpm format:check`                                          | passes for every file this stage touched (the same one pre-existing, unrelated unformatted file Stage 6 already noted, `docs/.claude/CLAUDE.md`, remains)    |
+| Migration tests (Testcontainers, real Postgres)              | new `imported-background-details.test.ts` (8 tests) plus every pre-existing migration test's rollback count updated — all pass                               |
+| Integration tests (Testcontainers, real Postgres)            | new `map-imported-background.test.ts` (4 tests: create + provenance + details round-trip, reference rejections, PDF/raster page rules, visibility + removal) |
+| HTTP tests (real Fastify + real Postgres)                    | `media-routes.test.ts` extended with the list route (filtered + unfiltered + 400) — all pass                                                                 |
+
+### Known limitations, deliberately deferred
+
+- Calibration is entirely P6-PLAN-02: no known-distance flow, control points, residual error,
+  transform revisions, trace tools, or plan-to-map transforms. The existing `upsertCalibration`
+  command and `gardens_mapping.calibration` table (P3-BE-02) are untouched; the details table's
+  `calibration_state` CHECK and the `ImportedBackgroundCalibrationState` union are the named seam.
+- PDF page rendering (P6-WORKER-02 deferral) and therefore PDF display in the web client; plan tile
+  consumption; perspective correction; iOS plan import — each recorded with reasoning in
+  `docs/development/deferred-capabilities.md`.
+- `ListGardenMedia` pagination is contract-complete (cursor/limit), but the web picker reads only
+  the first page (50 most recent plans) — a pagination UI waits for a real garden to outgrow that.
+- The placeholder placement is a fixed 20 m square at the local origin; a background is movable
+  like any object, but honest placement is calibration's job, not a smarter placeholder's.
+
+### Corrections made during this stage's own review
+
+Two real issues found on review of this stage's output, both fixed immediately (per the repository
+owner's "do not leave fixable issues to a later phase" directive) rather than recorded as deferrals:
+
+1. **Derivative sensitivity classification was reset to `'standard'` unconditionally** —
+   `registerDerivativeMediaRecord` classified every derivative by the `derived_preview` class
+   default, so a `sensitive` imported plan's thumbnail, 4096 px high-resolution review image, and
+   entire tile pyramid were all `'standard'`. A real, latent authorization bug: today's only
+   classification-based gate (viewer vs. `restricted`) happens not to distinguish `sensitive` from
+   `standard`, but architecture section 11 ("PDF and raster plans are treated as sensitive
+   documents") and the Phase 6 exit criterion ("Plan backgrounds are private") both say the content
+   is the same sensitivity at any size, and any later classification-based rule (Phase 8 hardening,
+   Phase 9 client entitlement) would have silently treated a sensitive plan's full-resolution
+   derivative as ordinary media. Fixed: `RegisterDerivativeMediaRecordInput` now requires
+   `sensitivityClassification`, `registerDerivativeIfAbsent` passes the SOURCE record's own
+   classification through, and tests at both layers pin the inheritance (a sensitive plan's
+   derivative is `sensitive`; the domain constructor never falls back to the class default).
+2. **`MediaPreview` (garden photo upload) still displayed the full-resolution original** even
+   though this stage's own `Media.derivatives` now exposes each derivative's media id — the exact
+   mechanism this component's own doc comment used to say did not exist. Fixed: it now prefers the
+   JPEG `screen_preview`, falls back to `thumbnail`, and serves the original only when no
+   derivative exists — which also closes the documented HEIC-in-Chrome/Firefox gap for any photo
+   that has derivatives (every derivative is JPEG by construction, section 9.1). Covered by a new
+   `media-preview.test.tsx` (3 tests: screen-preview preference, thumbnail fallback,
+   original fallback).
+
+Final counts after review fixes: api 105 files / 700 tests; web 54 files / 423 tests.

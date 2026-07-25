@@ -36,7 +36,7 @@ export interface MapObject {
   readonly confidence: number | null;
   readonly lifecycleState: MapObjectLifecycleState;
   readonly currentRevision: number;
-  /** Absent for categories with no specialized fields (lot, path, waterFeature, importedBackground). */
+  /** Absent for categories with no specialized fields (lot, path, waterFeature). */
   readonly details: GardenObjectDetails | undefined;
   readonly createdByProfileId: Uuid;
   readonly createdAt: Date;

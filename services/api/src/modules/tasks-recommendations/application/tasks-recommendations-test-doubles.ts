@@ -213,6 +213,14 @@ export class FakeMediaRepository implements MediaRepository {
   findDerivative(): Promise<MediaRecord | null> {
     throw new Error('not used by this test');
   }
+
+  listForGarden(): ReturnType<MediaRepository['listForGarden']> {
+    throw new Error('not used by this test');
+  }
+
+  listDisplayDerivatives(): Promise<readonly MediaRecord[]> {
+    throw new Error('not used by this test');
+  }
 }
 
 /** Only `get` is exercised — `GetObservation` (used to build a real instance below) never calls the others. */

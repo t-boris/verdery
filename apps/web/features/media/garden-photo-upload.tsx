@@ -217,6 +217,7 @@ export function GardenPhotoUpload({ gardenId }: GardenPhotoUploadProps) {
           mediaId={upload.mediaId}
           processingState={upload.media?.processingState ?? null}
           displayFilename={upload.displayFilename ?? ''}
+          derivatives={upload.media?.derivatives ?? []}
         />
       )}
     </Card>

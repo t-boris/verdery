@@ -530,7 +530,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving the garden-map-baseline schemas and tables otherwise intact', async () => {
     await client.end();
 
-    // `count: 6` undoes this migration and every migration applied after it
+    // `count: 7` undoes this migration and every migration applied after it
     // (currently search-indexes, which adds indexes on tables this one
     // creates; synchronization-baseline, which does not depend on anything
     // this one creates; media-lifecycle-and-quotas, which extends
@@ -544,7 +544,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 6,
+      count: 7,
       log: () => {},
     });
 

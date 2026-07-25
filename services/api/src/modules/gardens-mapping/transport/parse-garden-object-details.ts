@@ -1,5 +1,5 @@
 /**
- * Structural parsing for `GardenObjectDetails`'s nine category branches,
+ * Structural parsing for `GardenObjectDetails`'s ten category branches,
  * matching `packages/api-contracts/openapi.yaml`'s `*Details` schemas.
  *
  * Whether a given `categoryDetails` value is even applicable to the command's
@@ -17,6 +17,7 @@ import type {
 import { invalid } from './garden-routes.js';
 import { requireGeometry } from './parse-geometry.js';
 import {
+  requireBoolean,
   requireEnum,
   requireInteger,
   requireNumber,
@@ -40,6 +41,8 @@ const UTILITY_EXCLUSION_KINDS = [
   'other',
 ] as const;
 const MEASUREMENT_UNITS = ['metres', 'squareMetres', 'degrees'] as const;
+/** Only `uncalibrated` exists this stage — see `ImportedBackgroundCalibrationState`'s doc comment (P6-PLAN-02 widens this). */
+const IMPORTED_BACKGROUND_CALIBRATION_STATES = ['uncalibrated'] as const;
 const MEASUREMENT_ACQUISITION_METHODS = [
   'userEntered',
   'derivedFromGeometry',
@@ -199,9 +202,36 @@ export function parseGardenObjectDetails(value: unknown, pointer: string): Garde
       return { category: 'annotation', details: measurement === undefined ? {} : { measurement } };
     }
 
+    case 'importedBackground': {
+      const planMediaId = requireUuid(record['planMediaId'], `${pointer}/planMediaId`);
+      const rawPageNumber = record['sourcePageNumber'];
+      const sourcePageNumber =
+        rawPageNumber === undefined
+          ? undefined
+          : requireInteger(rawPageNumber, `${pointer}/sourcePageNumber`, 1);
+      const isBackgroundVisible = requireBoolean(
+        record['isBackgroundVisible'],
+        `${pointer}/isBackgroundVisible`,
+      );
+      const calibrationState = requireEnum(
+        record['calibrationState'],
+        IMPORTED_BACKGROUND_CALIBRATION_STATES,
+        `${pointer}/calibrationState`,
+      );
+      return {
+        category: 'importedBackground',
+        details: {
+          planMediaId,
+          ...(sourcePageNumber === undefined ? {} : { sourcePageNumber }),
+          isBackgroundVisible,
+          calibrationState,
+        },
+      };
+    }
+
     default:
       throw invalid(
-        `${pointer}/category must be one of: structure, fence, gate, zone, bed, tree, plant, utilityExclusion, annotation.`,
+        `${pointer}/category must be one of: structure, fence, gate, zone, bed, tree, plant, utilityExclusion, annotation, importedBackground.`,
         'request.category_details.category.invalid',
         `${pointer}/category`,
       );

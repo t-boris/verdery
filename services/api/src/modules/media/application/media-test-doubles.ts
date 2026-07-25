@@ -25,7 +25,11 @@ import type { Membership, MembershipRepository } from '../../gardens-mapping/pub
 import type { MediaRecord } from '../domain/media-record.js';
 import type { ProcessingJob } from '../domain/processing-job.js';
 import type { QuotaReservation } from '../domain/quota-reservation.js';
-import type { FindDerivativeInput } from './media-repository.js';
+import type {
+  FindDerivativeInput,
+  ListForGardenInput,
+  MediaRecordPage,
+} from './media-repository.js';
 import type { ProcessingJobRepository } from './processing-job-repository.js';
 import type {
   MediaObjectMetadata,
@@ -82,6 +86,50 @@ export class FakeMediaRepository implements MediaRepository {
         record.tileY === (input.tile?.y ?? null),
     );
     return Promise.resolve(match ?? null);
+  }
+
+  /** In-memory mirror of `KyselyMediaRepository.listForGarden`: originals only, `(createdAt, id)` descending, opaque index cursor. */
+  listForGarden(input: ListForGardenInput): Promise<MediaRecordPage> {
+    const ordered = [...this.records.values()]
+      .filter(
+        (record) =>
+          record.gardenId === input.gardenId &&
+          record.derivedFromMediaId === null &&
+          (input.mediaClass === null || record.mediaClass === input.mediaClass),
+      )
+      .sort(
+        (a, b) =>
+          b.createdAt.getTime() - a.createdAt.getTime() || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0),
+      );
+
+    const start = input.cursor === null ? 0 : Number(input.cursor);
+    const items = ordered.slice(start, start + input.limit);
+    const nextCursor = start + input.limit < ordered.length ? String(start + input.limit) : null;
+
+    return Promise.resolve({ items, nextCursor });
+  }
+
+  /** In-memory mirror of `KyselyMediaRepository.listDisplayDerivatives`: available non-tile derivatives, latest transformation version per kind. */
+  listDisplayDerivatives(derivedFromMediaId: Uuid): Promise<readonly MediaRecord[]> {
+    const byKind = new Map<string, MediaRecord>();
+    for (const record of this.records.values()) {
+      if (
+        record.derivedFromMediaId !== derivedFromMediaId ||
+        record.uploadState !== 'available' ||
+        record.derivativeKind === null ||
+        record.derivativeKind === 'tile'
+      ) {
+        continue;
+      }
+      const existing = byKind.get(record.derivativeKind);
+      if (
+        existing === undefined ||
+        (record.transformationVersion ?? 0) > (existing.transformationVersion ?? 0)
+      ) {
+        byKind.set(record.derivativeKind, record);
+      }
+    }
+    return Promise.resolve([...byKind.values()]);
   }
 }
 

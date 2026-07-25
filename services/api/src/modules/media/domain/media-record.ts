@@ -404,6 +404,22 @@ export interface RegisterDerivativeMediaRecordInput {
   readonly transformationVersion: number;
   readonly derivativeKind: MediaDerivativeKind;
   readonly tile: TileCoordinates | null;
+  /**
+   * Inherited from the source media row, never derived from the
+   * `derived_preview` class default: a derivative carries the same content
+   * as its source at a different size, so a `sensitive` imported plan's
+   * thumbnail, high-resolution review image, and tile pyramid are exactly
+   * as sensitive as the plan itself (architecture section 11: "PDF and
+   * raster plans are treated as sensitive documents"; Phase 6 exit
+   * criterion: "Plan backgrounds are private"). Classifying them
+   * `'standard'` was a real, latent authorization bug: today's
+   * viewer-versus-`restricted` gate happens not to distinguish
+   * `sensitive` from `standard`, but any later classification-based rule
+   * (Phase 8 hardening, Phase 9 client entitlement) would have silently
+   * treated a sensitive plan's full-resolution derivative as ordinary
+   * media.
+   */
+  readonly sensitivityClassification: MediaSensitivityClassification;
 }
 
 /**
@@ -446,7 +462,7 @@ export function registerDerivativeMediaRecord(
     // will [process]."
     processingState: null,
     captureSessionId: null,
-    sensitivityClassification: deriveDefaultSensitivityClassification('derived_preview'),
+    sensitivityClassification: input.sensitivityClassification,
     retentionDeadlineAt: null,
     derivedFromMediaId: input.derivedFromMediaId,
     transformationVersion: validateTransformationVersion(

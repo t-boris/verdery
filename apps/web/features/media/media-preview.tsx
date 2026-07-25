@@ -1,6 +1,6 @@
 'use client';
 
-import type { MediaProcessingState } from '@verdery/api-contracts';
+import type { MediaDerivativeSummary, MediaProcessingState } from '@verdery/api-contracts';
 
 import { useLocalization } from '@/shared/localization/public';
 import { FailureAlert } from '@/shared/ui/public';
@@ -13,45 +13,50 @@ export interface MediaPreviewProps {
   readonly mediaId: string;
   readonly processingState: MediaProcessingState | null;
   readonly displayFilename: string;
+  /** The original's `Media.derivatives` (GetMediaStatus/ListGardenMedia). Empty/omitted falls back to the original object itself. */
+  readonly derivatives?: readonly MediaDerivativeSummary[];
 }
 
 /**
- * Renders whatever object `GetMediaAccess` actually returns for `mediaId` —
- * nothing more. Section 12 step 3 ("Selects an appropriate original or
- * derivative") has no real implementation to call into yet:
- * `get-media-access.ts` always signs and returns the exact record it was
- * asked for; there is no server-side derivative-selection or thumbnail-
- * preference mechanism, and no endpoint exposes a derivative's own media id
- * to a client that only knows the original's — re-verified directly against
- * current code for this work package rather than trusted from an older
- * report. This component does not invent one: it shows the original, full-
- * resolution image, exactly as served.
+ * Section 12 step 3 ("Selects an appropriate original or derivative"),
+ * client-side — the same convention `features/map/use-background-image.ts`
+ * established in P6-PLAN-01: the server exposes each derivative's own media
+ * id through `Media.derivatives`, the client picks. This preview prefers
+ * the JPEG `screen_preview` (1600px, section 9.1), falls back to
+ * `thumbnail`, and only serves the original itself when no derivative
+ * exists yet (a record processed before P6-WORKER-02, or a class that gets
+ * none).
+ *
+ * Preferring the derivative also closes the HEIC/HEIF gap this component
+ * used to document as unavoidable: a `garden_photo` original may be HEIC,
+ * which Chrome/Firefox cannot decode natively, but every derivative is
+ * JPEG by construction (section 9.1), so any browser renders it. A
+ * HEIC-original photo with no derivatives yet still falls back to the
+ * original and hits that codec gap — that residual case disappears as soon
+ * as processing produces derivatives, which is also the only state this
+ * component renders in.
  *
  * Renders nothing before `processingState === 'processed'` — the caller
  * already shows its own "still processing" state for every phase before
  * that (`garden-photo-upload.tsx`).
  *
- * HEIC/HEIF rendering is a real, known, and deliberately out-of-scope gap:
- * `image_class: 'garden_photo'` accepts HEIC/HEIF (media-storage-and-
- * processing.md section 8.1), but a plain `<img>` cannot decode that codec
- * in most non-Safari browsers — Chrome and Firefox have no native HEIC
- * decoder. No client-side transcoding workaround is built here; a garden
- * photo derivative (already JPEG, per section 9.1) would sidestep this once
- * a processing worker is deployed and `GetMediaAccess` ever has more than
- * one object to choose from for the same media id (see this component's own
- * derivative-selection note above).
- *
- * Source: architecture/media-storage-and-processing.md, section "12.
- * Download Flow"; implementation-plan.md work package P6-WEB-01.
+ * Source: architecture/media-storage-and-processing.md, sections "9.1",
+ * "12. Download Flow"; implementation-plan.md work packages P6-WEB-01,
+ * P6-PLAN-01.
  */
 export function MediaPreview({
   gardenId,
   mediaId,
   processingState,
   displayFilename,
+  derivatives = [],
 }: MediaPreviewProps) {
   const { t } = useLocalization();
-  const query = useMediaAccess(gardenId, mediaId, processingState === 'processed');
+  const preferred =
+    derivatives.find((entry) => entry.derivativeKind === 'screen_preview') ??
+    derivatives.find((entry) => entry.derivativeKind === 'thumbnail');
+  const accessMediaId = preferred?.mediaId ?? mediaId;
+  const query = useMediaAccess(gardenId, accessMediaId, processingState === 'processed');
 
   if (processingState !== 'processed') {
     return null;

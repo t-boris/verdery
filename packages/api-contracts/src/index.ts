@@ -143,6 +143,10 @@ export type Media = Schemas['Media'];
 export type RegisterMediaUploadRequest = Schemas['RegisterMediaUploadRequest'];
 export type MediaUploadSession = Schemas['MediaUploadSession'];
 export type MediaAccess = Schemas['MediaAccess'];
+/** The media listing and derivative-resolution schemas (P6-PLAN-01). */
+export type MediaDerivativeKindSummary = Schemas['MediaDerivativeKindSummary'];
+export type MediaDerivativeSummary = Schemas['MediaDerivativeSummary'];
+export type MediaListResult = Schemas['MediaListResult'];
 
 /**
  * The synchronization schemas (P5-API-01).

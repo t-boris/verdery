@@ -141,6 +141,14 @@ class FakeMediaRepository implements MediaRepository {
     throw new Error('not used by this test');
   }
 
+  listForGarden(): ReturnType<MediaRepository['listForGarden']> {
+    throw new Error('not used by this test');
+  }
+
+  listDisplayDerivatives(): Promise<readonly MediaRecord[]> {
+    throw new Error('not used by this test');
+  }
+
   get(id: string): Promise<MediaRecord | null> {
     if (!this.existingIds.has(id)) {
       return Promise.resolve(null);

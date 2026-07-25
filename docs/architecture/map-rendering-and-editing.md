@@ -245,6 +245,42 @@ Calibration supports:
 
 The interface displays calibration quality and prevents false precision. Recalibration creates a new background transform revision.
 
+### 16.1 Implemented import profile (P6-PLAN-01)
+
+The `importedBackground` category now carries a real detail payload
+(`ImportedBackgroundDetails`, stored in `gardens_mapping.imported_background_details` — the same
+one-row-per-object detail-table shape every other detail-bearing category uses):
+
+- `planMediaId` — the `imported_plan` media record the background displays, validated at command
+  time to be an `available` + `processed` plan in the same garden (a real cross-schema foreign key
+  plus application-level class/garden/state checks, mirroring the gate → fence precedent).
+- `sourcePageNumber` — the section-8 page-selection step, modeled honestly: 1-based, only above 1
+  for a PDF source, and not yet driving rendering (PDF page rendering remains deferred,
+  P6-WORKER-02).
+- `isBackgroundVisible` — the per-background persisted visibility flag ("independently hideable").
+  Distinct from the web client's client-local layer-2 visibility preference, which hides every
+  imported background at once and resets on reload; the persisted flag hides one background's plan
+  imagery while its object outline stays selectable.
+- `calibrationState` — pinned to `'uncalibrated'` this stage (database CHECK included). No
+  transform is stored at all: an uncalibrated background has no plan-to-map transform, and the UI
+  shows an explicit "not calibrated" indication instead of pretending a 1:1 transform is
+  meaningful. P6-PLAN-02 (known-distance calibration, control points, residual error, transform
+  revisions — building on the existing `gardens_mapping.calibration` table) widens this state and
+  attaches the real transform.
+
+Creation, visibility toggling, and removal are the EXISTING map commands (`createObject`,
+`changeProperties`, `deleteObject`) — revision-guarded and idempotent like every other category,
+never a parallel command model. A created background records `importedPlan` provenance. Cross-object
+geometry validation (overlaps, containment) is not yet implemented for any category
+(`GetGardenMap.validationSummary` is honestly empty), so there is nothing an imported background
+needs a special exemption from yet; when those rules land, a background's non-authoritative nature
+(this section) excludes it by design.
+
+Web display renders the plan's screen-preview derivative "contain"-fit inside the background
+object's placeholder polygon, under all garden geometry. Tile CONSUMPTION is deferred even though
+the server-side pyramid exists (section 11.1 of the media design) — see
+`docs/development/deferred-capabilities.md`.
+
 ## 17. Generated Proposals
 
 Proposals exist in a separate review state and include:

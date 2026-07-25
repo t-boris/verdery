@@ -1,0 +1,66 @@
+.description {
+  margin: 0 0 var(--space-3);
+  color: var(--color-text-muted);
+}
+
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-block-end: var(--space-3);
+}
+
+.fileLabel {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.validationError {
+  color: var(--color-negative);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+.statusLine {
+  color: var(--color-text-muted);
+  margin: var(--space-2) 0;
+}
+
+.recoverable {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-sunken);
+  margin-block-end: var(--space-3);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.failure {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+.preview {
+  max-inline-size: 100%;
+  block-size: auto;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.pdfNotice {
+  margin: var(--space-2) 0;
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+}

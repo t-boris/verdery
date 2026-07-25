@@ -31,15 +31,14 @@ export interface MapObjectRecord {
 
 /**
  * Every category except `importedBackground` can be created from this
- * editor. `importedBackground` (a raster/PDF property-plan asset) is left
- * out because nothing in this app can produce one yet — plan import is
- * Phase 6 scope (`docs/implementation-plan.md`, Phase 6 "Media, Photos, and
- * Property-Plan Import"). It still renders, is listed, is selectable, is
- * movable, and is deletable like every other category — see
- * `map-canvas.tsx`, `map-object-list.tsx`, and `use-map-editor-actions.ts`,
- * none of which switch on this set — only *creation* and category-specific
- * *property editing* are scoped to it; see `category-detail-fields.tsx` for
- * the same set applied to the property panel.
+ * editor's drawing tools. `importedBackground` (a raster/PDF property-plan
+ * asset) is created from a real uploaded plan document through the
+ * imported-background panel instead (`imported-background-panel.tsx`,
+ * P6-PLAN-01) — never drawn: its geometry is a placeholder placement, not
+ * user linework. It renders, is listed, is selectable, is movable, and is
+ * deletable like every other category — see `map-canvas.tsx`,
+ * `map-object-list.tsx`, and `use-map-editor-actions.ts`, none of which
+ * switch on this set — only *drawing-tool creation* is scoped by it.
  *
  * `gate` is creatable but not through the generic create flow other
  * categories use: `GateDetails.fenceObjectId` is required (a gate is always
@@ -47,14 +46,13 @@ export interface MapObjectRecord {
  * real, user-picked fence id — see `commands.ts#buildCreateGateObjectCommand`
  * and `use-map-editor-actions.ts`'s gate-creation flow.
  *
- * Three things remain out of this editor entirely, each deferred to its own
- * later phase rather than cut for this pass: creating `importedBackground`
- * objects (above), calibrating one (`upsertCalibration` — needs an
- * `importedBackground` object to calibrate against), and reviewing generated
- * proposals (`decideProposal` — needs a proposal, and assisted capture is
- * Phase 10 scope, itself gated behind an explicit research decision the plan
- * has not yet made). See `commands.ts`'s module doc comment for the full
- * reasoning.
+ * Two things remain out of this editor entirely, each deferred to its own
+ * later phase rather than cut for this pass: calibrating an imported
+ * background (`upsertCalibration` — P6-PLAN-02's own scope) and reviewing
+ * generated proposals (`decideProposal` — needs a proposal, and assisted
+ * capture is Phase 10 scope, itself gated behind an explicit research
+ * decision the plan has not yet made). See `commands.ts`'s module doc
+ * comment for the full reasoning.
  */
 export const CREATABLE_CATEGORIES = [
   'lot',

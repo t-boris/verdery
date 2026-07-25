@@ -78,6 +78,8 @@ export type {
   GardenObjectCategory,
   GardenObjectDetails,
   GateDetails,
+  ImportedBackgroundCalibrationState,
+  ImportedBackgroundDetails,
   PlantPlacementDetails,
   StructureDetails,
   StructureKind,

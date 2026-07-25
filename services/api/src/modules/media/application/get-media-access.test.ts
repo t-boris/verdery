@@ -121,6 +121,24 @@ describe('GetMediaAccess', () => {
     expect(storage.createSignedUrlCalls).toHaveLength(0);
   });
 
+  it('serves an available derivative row despite its null processingState — a derivative only exists because its source already validated clean (P6-PLAN-01)', async () => {
+    const validated = availableRecord('imported_plan');
+    const derivative: MediaRecord = {
+      ...validated,
+      id: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a1d',
+      mediaClass: 'derived_preview',
+      sensitivityClassification: 'standard',
+      processingState: null,
+      derivedFromMediaId: validated.id,
+      transformationVersion: 1,
+      derivativeKind: 'screen_preview',
+    };
+    const { useCase, storage } = buildUseCase(derivative, 'owner');
+
+    await expect(useCase.execute(GARDEN_ID, derivative.id, PROFILE_ID)).resolves.toBeDefined();
+    expect(storage.createSignedUrlCalls).toHaveLength(1);
+  });
+
   it('allows a viewer to access ordinary standard-classified media', async () => {
     const { useCase } = buildUseCase(availableRecord('garden_photo'), 'viewer');
     await expect(useCase.execute(GARDEN_ID, MEDIA_ID, PROFILE_ID)).resolves.toBeDefined();

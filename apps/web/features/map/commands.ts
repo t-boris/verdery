@@ -1,20 +1,18 @@
 /**
  * Pure builders for every map editor command this feature constructs.
  *
- * Three command types remain deliberately unbuilt here, each deferred to a
- * later phase rather than cut for scope reasons within Phase 3:
+ * Two command types remain deliberately unbuilt here, each deferred to a
+ * later phase rather than cut for scope reasons:
  *
- * - `upsertCalibration` needs an existing `importedBackground` object (a
- *   raster/PDF property-plan asset) to calibrate against, and nothing in
- *   this app can create one yet — plan import is Phase 6 scope
- *   (`docs/implementation-plan.md`, Phase 6 "Media, Photos, and
- *   Property-Plan Import").
+ * - `upsertCalibration` — P6-PLAN-02 owns real calibration (known-distance,
+ *   control points, residual error, transform revisions). An
+ *   `importedBackground` object now exists to calibrate against
+ *   (P6-PLAN-01, `buildCreateImportedBackgroundCommand` below), but the
+ *   calibration flow itself is that next package's scope.
  * - `decideProposal` needs a generated proposal (AI/ML-produced candidate
  *   geometry) to review, and nothing in this app produces proposals yet —
  *   assisted capture and plan recognition is Phase 10 scope, gated behind an
  *   explicit research decision the plan has not yet made.
- * - Creating `importedBackground` objects themselves is the same Phase 6 gap
- *   as `upsertCalibration` above — there is no image/plan upload flow yet.
  *
  * Every other command type — `createObject`, `moveObject`,
  * `replaceGeometry`, `editVertex`, `splitLinework`, `joinLinework`,
@@ -35,6 +33,7 @@ import type {
   GardenObjectDetails,
   GateDetails,
   Geometry,
+  ImportedBackgroundDetails,
   JoinLineworkPayload,
   MoveObjectPayload,
   ReplaceGeometryPayload,
@@ -133,6 +132,63 @@ export function buildCreateGateObjectCommand(
     category: 'gate',
     geometry,
     categoryDetails: { category: 'gate', details },
+  };
+}
+
+/**
+ * Placeholder placement for a freshly imported background (P6-PLAN-01): a
+ * square at the local origin. Deliberately arbitrary and clearly so — an
+ * uncalibrated background has no meaningful plan-to-map transform
+ * (`calibrationState: 'uncalibrated'`), the canvas "contain"-fits the plan
+ * image inside this box preserving its own aspect ratio
+ * (`background-fit.ts`), and P6-PLAN-02's calibration replaces the
+ * placement entirely.
+ */
+const PLACEHOLDER_BACKGROUND_HALF_SIZE_METRES = 10;
+
+export function placeholderBackgroundGeometry(): Geometry {
+  const h = PLACEHOLDER_BACKGROUND_HALF_SIZE_METRES;
+  return {
+    type: 'Polygon',
+    coordinates: [
+      [
+        [-h, -h],
+        [h, -h],
+        [h, h],
+        [-h, h],
+        [-h, -h],
+      ],
+    ],
+  };
+}
+
+/**
+ * Builds a `createObject` command for an `importedBackground` (P6-PLAN-01)
+ * — like `gate`, never created through the generic path: its
+ * `planMediaId` must be a real, user-picked `imported_plan` media record,
+ * and its geometry is the placeholder placement above, not a drawn shape.
+ * `sourcePageNumber` is only meaningful for a PDF source (the server
+ * rejects pages above 1 for a raster plan).
+ */
+export function buildCreateImportedBackgroundCommand(
+  objectId: string,
+  planMediaId: string,
+  label: string,
+  sourcePageNumber?: number,
+): CreateObjectPayload {
+  const details: ImportedBackgroundDetails = {
+    planMediaId,
+    ...(sourcePageNumber === undefined || sourcePageNumber === 1 ? {} : { sourcePageNumber }),
+    isBackgroundVisible: true,
+    calibrationState: 'uncalibrated',
+  };
+  return {
+    type: 'createObject',
+    objectId,
+    category: 'importedBackground',
+    geometry: placeholderBackgroundGeometry(),
+    label,
+    categoryDetails: { category: 'importedBackground', details },
   };
 }
 

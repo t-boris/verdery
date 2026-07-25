@@ -11,7 +11,12 @@
  * implementation-plan.md work package P6-API-01.
  */
 
-import type { Media, MediaAccess, MediaUploadSession } from '@verdery/api-contracts';
+import type {
+  Media,
+  MediaAccess,
+  MediaListResult,
+  MediaUploadSession,
+} from '@verdery/api-contracts';
 import { IDEMPOTENCY_KEY_HEADER, IF_MATCH_HEADER, SharedErrorCode } from '@verdery/api-contracts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { ValidationError } from '../../../platform/errors/application-error.js';
@@ -19,6 +24,7 @@ import { UUID_PATTERN } from '../../gardens-mapping/transport/garden-routes.js';
 import type { CompleteMediaUpload } from '../application/complete-media-upload.js';
 import type { GetMediaAccess } from '../application/get-media-access.js';
 import type { GetMediaStatus } from '../application/get-media-status.js';
+import type { ListGardenMedia } from '../application/list-garden-media.js';
 import type { MediaClass } from '../domain/media-record.js';
 import type { RegisterMediaUpload } from '../application/register-media-upload.js';
 
@@ -27,6 +33,7 @@ export interface MediaRoutesDependencies {
   readonly completeMediaUpload: CompleteMediaUpload;
   readonly getMediaStatus: GetMediaStatus;
   readonly getMediaAccess: GetMediaAccess;
+  readonly listGardenMedia: ListGardenMedia;
 }
 
 const MEDIA_CLASSES: readonly MediaClass[] = [
@@ -39,6 +46,10 @@ const MEDIA_CLASSES: readonly MediaClass[] = [
 ];
 const MAX_DISPLAY_FILENAME_LENGTH = 255;
 const CHECKSUM_SHA256_PATTERN = /^[0-9a-f]{64}$/u;
+// The shared `Limit` parameter's own bounds and default (openapi.yaml),
+// matching `garden-routes.ts`'s list parsing exactly.
+const DEFAULT_LIMIT = 50;
+const MAX_LIMIT = 100;
 
 function invalid(message: string, code: string, pointer: string): ValidationError {
   return new ValidationError(SharedErrorCode.RequestInvalid, message, {
@@ -95,6 +106,47 @@ function requireExpectedRevision(request: FastifyRequest): number {
   }
 
   return revision;
+}
+
+interface ListGardenMediaQuery {
+  readonly mediaClass: MediaClass | null;
+  readonly cursor: string | null;
+  readonly limit: number;
+}
+
+function parseListQuery(request: FastifyRequest): ListGardenMediaQuery {
+  const query = request.query as { mediaClass?: unknown; cursor?: unknown; limit?: unknown };
+
+  let mediaClass: MediaClass | null = null;
+  if (query.mediaClass !== undefined) {
+    if (
+      typeof query.mediaClass !== 'string' ||
+      !MEDIA_CLASSES.includes(query.mediaClass as MediaClass)
+    ) {
+      throw invalid(
+        'mediaClass must be a known media class.',
+        'request.media_class.invalid',
+        '/mediaClass',
+      );
+    }
+    mediaClass = query.mediaClass as MediaClass;
+  }
+
+  const cursor = typeof query.cursor === 'string' && query.cursor.length > 0 ? query.cursor : null;
+
+  if (query.limit === undefined) {
+    return { mediaClass, cursor, limit: DEFAULT_LIMIT };
+  }
+  const limit = Number(query.limit);
+  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT) {
+    throw invalid(
+      `limit must be between 1 and ${String(MAX_LIMIT)}.`,
+      'request.limit.invalid',
+      '/limit',
+    );
+  }
+
+  return { mediaClass, cursor, limit };
 }
 
 interface RegisterMediaUploadBody {
@@ -169,6 +221,21 @@ export function registerMediaRoutes(
   app: FastifyInstance,
   dependencies: MediaRoutesDependencies,
 ): void {
+  app.get('/gardens/:gardenId/media', async (request, reply) => {
+    const gardenId = requireGardenId(request);
+    const { mediaClass, cursor, limit } = parseListQuery(request);
+
+    const result: MediaListResult = await dependencies.listGardenMedia.execute(
+      gardenId,
+      request.actorContext.profileId,
+      mediaClass,
+      cursor,
+      limit,
+    );
+
+    return reply.status(200).send(result);
+  });
+
   app.post('/gardens/:gardenId/media', async (request, reply) => {
     const gardenId = requireGardenId(request);
     const idempotencyKey = requireIdempotencyKey(request);

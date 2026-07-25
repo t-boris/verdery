@@ -14,6 +14,7 @@ import {
 } from '@/shared/ui/public';
 
 import { MapEditorStoreProvider, useMapEditorStore } from './editor-store';
+import { ImportedBackgroundPanel } from './imported-background-panel';
 import { MapDisclosureBanner } from './map-disclosure-banner';
 import styles from './map-editor.module.css';
 import { MapLayerPanel } from './map-layer-panel';
@@ -116,6 +117,7 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
         </div>
         <div className={styles['sidebar']}>
           <MapLayerPanel actions={actions} />
+          <ImportedBackgroundPanel gardenId={gardenId} actions={actions} />
           <MapObjectList
             actions={actions}
             selectedObjectId={store.state.selectedObjectId}

@@ -6,11 +6,14 @@
  * OpenAPI `CreateMapObjectCommand` and `packages/geometry-contracts`'s own
  * type) carries no `provenance` field at all, so the server must choose one,
  * and a human using the map editor to draw a new shape is definitionally
- * manual-drawing provenance — the other provenance kinds
- * (`importedPlan`, `arMeasurement`, `processor`, and so on) describe
- * ingestion pipelines outside this command's scope (assisted capture is
- * Phase 10). `confidence` is likewise absent from the command and defaults
- * to `null` ("not expressed").
+ * manual-drawing provenance. One exception since P6-PLAN-01: an
+ * `importedBackground` object exists only because a plan document was
+ * imported (its details carry the plan's own media id), so it records
+ * `'importedPlan'` — the provenance kind the baseline migration named for
+ * exactly this case. The other kinds (`arMeasurement`, `processor`, and so
+ * on) still describe ingestion pipelines outside this command's scope
+ * (assisted capture is Phase 10). `confidence` is absent from the command
+ * and defaults to `null` ("not expressed").
  */
 
 import type { CreateObjectPayload } from '@verdery/geometry-contracts';
@@ -23,6 +26,7 @@ import type { GardensMappingUnitOfWork } from './gardens-mapping-unit-of-work.js
 import { toGardenObjectResource, type MapCommandResultResource } from './map-object-view.js';
 import { requireMatchingCategoryDetails } from './validate-category-details.js';
 import { requireGateReferencesExistingFence } from './validate-gate-fence-reference.js';
+import { requireImportedBackgroundPlanMedia } from './validate-imported-plan-reference.js';
 import { requireValidGeometryForCategory } from './validate-map-geometry.js';
 import { runIdempotentCommand } from './run-idempotent-command.js';
 
@@ -61,6 +65,7 @@ export class CreateMapObject {
         gardenId,
         payload.categoryDetails,
       );
+      await requireImportedBackgroundPlanMedia(context.media, gardenId, payload.categoryDetails);
       const coordinateSpace = await context.coordinateSpaces.findOrCreateForGarden(gardenId, now);
 
       const object: MapObject = {
@@ -70,7 +75,7 @@ export class CreateMapObject {
         category: payload.category,
         geometry: payload.geometry,
         label: payload.label ?? null,
-        provenance: 'manualDrawing',
+        provenance: payload.category === 'importedBackground' ? 'importedPlan' : 'manualDrawing',
         confidence: null,
         lifecycleState: 'active',
         currentRevision: 1,
