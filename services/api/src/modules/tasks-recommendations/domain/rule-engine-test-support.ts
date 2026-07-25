@@ -58,6 +58,7 @@ export function buildPriorCandidateFact(
     target: { kind: 'garden', gardenAreaMapObjectId: null, plantId: null },
     windowEnd: null,
     createdAt: new Date('2026-07-24T09:00:00Z'),
+    postponedUntil: null,
     ...overrides,
   };
 }

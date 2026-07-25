@@ -128,7 +128,8 @@ describe('EvaluateGardenRecommendations', () => {
       target: { kind: 'plant', gardenAreaMapObjectId: null, plantId: PLANT_ID },
       urgency: 'high',
       priorityScore: 75,
-      supersededCandidateId: null,
+      supersedesCandidateId: null,
+      supersededLivePrior: false,
     });
     expect(created?.explanation).toBe(
       'Cherry tomato is marked ready to harvest. Check ripeness and harvest what is ready ' +
@@ -137,7 +138,17 @@ describe('EvaluateGardenRecommendations', () => {
 
     const candidateId = created?.candidateId ?? '';
     const stored = fakes.recommendationCandidates.candidates.get(candidateId);
-    expect(stored).toMatchObject({ state: 'generated', safetyTier: 'ordinary_care' });
+    // P7-BE-01: candidates persist already-`eligible` (the engine's own
+    // filters passed by planning time) with the rendered explanation
+    // stored — the Today surface reads exactly this shape.
+    expect(stored).toMatchObject({
+      state: 'eligible',
+      revision: 2,
+      safetyTier: 'ordinary_care',
+      explanation:
+        'Cherry tomato is marked ready to harvest. Check ripeness and harvest what is ready ' +
+        'before the window passes.',
+    });
     const evidence = fakes.recommendationCandidates.evidenceByCandidate.get(candidateId);
     expect(evidence).toHaveLength(1);
     expect(evidence?.[0]).toMatchObject({
@@ -283,7 +294,7 @@ describe('EvaluateGardenRecommendations', () => {
     const second = await evaluateV2.execute({ gardenId: GARDEN_ID });
 
     expect(second.createdCandidates).toHaveLength(1);
-    expect(second.createdCandidates[0]?.supersededCandidateId).toBe(priorId);
+    expect(second.createdCandidates[0]?.supersedesCandidateId).toBe(priorId);
     const prior = fakes.recommendationCandidates.candidates.get(priorId);
     expect(prior?.state).toBe('superseded');
     const successor = fakes.recommendationCandidates.candidates.get(

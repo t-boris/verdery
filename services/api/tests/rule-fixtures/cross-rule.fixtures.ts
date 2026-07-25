@@ -207,7 +207,8 @@ export const crossRuleFixtures: readonly RuleFixture[] = [
           explanation:
             'Recent weather at this garden was warm (27 °C) with almost no rain (0 mm). Basil ' +
             'pot is in its growing stage, so check whether it needs watering.',
-          supersedes: null,
+          supersedesCandidateId: null,
+          supersedesLiveCandidate: null,
         },
       ],
     },
@@ -301,7 +302,8 @@ export const crossRuleFixtures: readonly RuleFixture[] = [
           explanation:
             'Recent weather at this garden was warm (27 °C) with almost no rain (0 mm). ' +
             'Strawberry patch is in its flowering stage, so check whether it needs watering.',
-          supersedes: null,
+          supersedesCandidateId: null,
+          supersedesLiveCandidate: null,
         },
         {
           ruleKey: 'observation.routine-check-reminder',
@@ -340,7 +342,8 @@ export const crossRuleFixtures: readonly RuleFixture[] = [
           explanation:
             'Strawberry patch has not been observed for 20 days. Record a quick check of its ' +
             'condition.',
-          supersedes: null,
+          supersedesCandidateId: null,
+          supersedesLiveCandidate: null,
         },
         {
           ruleKey: 'weather.frost-watch',
@@ -398,7 +401,8 @@ export const crossRuleFixtures: readonly RuleFixture[] = [
             'The forecast for this garden shows -2 °C around 2026-07-26T03:00:00.000Z. ' +
             'Strawberry patch is in its flowering stage and may be frost-sensitive. Consider ' +
             'covering it overnight.',
-          supersedes: null,
+          supersedesCandidateId: null,
+          supersedesLiveCandidate: null,
         },
       ],
     },

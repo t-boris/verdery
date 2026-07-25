@@ -40,7 +40,18 @@
  *    `recurrenceIntervalMs` has elapsed since its creation, so a completed
  *    or rejected recommendation is not immediately re-nagged. Supersession
  *    of a stale live candidate is deliberately exempt: replacing is not
- *    repeating.
+ *    repeating. A POSTPONED prior (P7-BE-01) is the one special case:
+ *    postponement is the user saying "later", so the suppression boundary
+ *    is the user's own `postponedUntil` horizon when one was given (in
+ *    either direction — an explicit horizon beats the default spacing),
+ *    falling back to the recurrence interval when the postponement named
+ *    none (no horizon is invented). When the boundary passes and the rule
+ *    still fires, the NEW candidate carries `supersedesCandidateId`
+ *    pointing back at the postponed record — the re-surfacing linkage
+ *    P7-DATA-01's lifecycle header promises ("re-surfacing ... is a NEW
+ *    candidate that supersedes the postponed one — preserving the
+ *    original's evidence and feedback trail unmodified") — WITHOUT
+ *    transitioning the prior: `postponed` is terminal.
  * 5. PRIORITY (engine-owned scale, rule-owned inputs): the explainable
  *    integer score in [0, 100] — the sum of factor contributions, clamped
  *    — with every contributing factor persisted as `{ contribution,
@@ -67,6 +78,7 @@ import type {
 } from './garden-facts.js';
 import { sameRecommendationTarget } from './garden-facts.js';
 import type { RecommendationTarget, RecommendationUrgency } from './recommendation-candidate.js';
+import { aggregatePriorityContributions } from './recommendation-priority.js';
 import type {
   GeneratableSafetyTier,
   RuleDefinition,
@@ -89,9 +101,6 @@ import { renderRuleExplanation } from './rule-explanation.js';
  */
 export const TASK_OVERLAP_CONTRIBUTION = -15;
 
-const MIN_PRIORITY_SCORE = 0;
-const MAX_PRIORITY_SCORE = 100;
-
 export type SuppressionReason =
   | { readonly kind: 'openTaskExists'; readonly taskId: Uuid }
   | { readonly kind: 'liveCandidateExists'; readonly candidateId: Uuid }
@@ -99,6 +108,12 @@ export type SuppressionReason =
       readonly kind: 'withinRecurrenceInterval';
       readonly priorCandidateId: Uuid;
       readonly priorCreatedAt: Date;
+    }
+  | {
+      /** The latest prior is `postponed` and its re-surfacing boundary (the user's `postponedUntil`, or the recurrence fallback when none was named) has not passed — see this file's header, phase 4. */
+      readonly kind: 'postponedAwaitingResurface';
+      readonly priorCandidateId: Uuid;
+      readonly resurfaceAt: Date;
     };
 
 /** The full decision trace, one entry per rule (skips) or per rule-target pair — what fixtures assert and observability counts. */
@@ -147,8 +162,13 @@ export interface PlannedCandidate {
   readonly priorityScore: number;
   /** The rendered deterministic explanation — always present, the section-10 baseline. */
   readonly explanation: string;
-  /** The stale live candidate this one replaces, with the revision guard its `superseded` transition must be written under. */
-  readonly supersedes: { readonly candidateId: Uuid; readonly expectedRevision: number } | null;
+  /** The backward `supersedes_candidate_id` reference this candidate stores: a stale LIVE prior being replaced, or a postponed prior being re-surfaced (P7-BE-01). `null` for a fresh, unlinked candidate. */
+  readonly supersedesCandidateId: Uuid | null;
+  /** Present only when the prior is still LIVE and must transition to `superseded`, with the revision guard that write needs. A postponed prior is terminal and stays untouched, so a re-surfacing candidate carries only the reference above. */
+  readonly supersedesLiveCandidate: {
+    readonly candidateId: Uuid;
+    readonly expectedRevision: number;
+  } | null;
 }
 
 export interface GardenRuleEvaluationPlan {
@@ -316,20 +336,40 @@ export function evaluateGardenRules(
 
       // 3b/3c. Live candidate: current suppresses, stale is superseded.
       const liveCandidate = latestMatching(prior.liveCandidates, rule.ruleKey, target);
-      let supersedes: PlannedCandidate['supersedes'] = null;
+      let supersedesCandidateId: Uuid | null = null;
+      let supersedesLiveCandidate: PlannedCandidate['supersedesLiveCandidate'] = null;
       if (liveCandidate !== null) {
         if (isCurrent(liveCandidate, rule, facts.evaluatedAt)) {
           suppressed({ kind: 'liveCandidateExists', candidateId: liveCandidate.candidateId });
           continue;
         }
-        supersedes = {
+        supersedesCandidateId = liveCandidate.candidateId;
+        supersedesLiveCandidate = {
           candidateId: liveCandidate.candidateId,
           expectedRevision: liveCandidate.revision,
         };
       } else {
         // 4. Recurrence timing, only when nothing is being replaced.
         const latest = latestMatching(prior.latestPerRuleAndTarget, rule.ruleKey, target);
-        if (
+        if (latest !== null && latest.state === 'postponed') {
+          // The postponed-prior special case — see this file's header. The
+          // user's own horizon is the boundary when one was named; the
+          // recurrence interval is the fallback when none was.
+          const resurfaceAt =
+            latest.postponedUntil ??
+            new Date(latest.createdAt.getTime() + rule.timing.recurrenceIntervalMs);
+          if (facts.evaluatedAt.getTime() < resurfaceAt.getTime()) {
+            suppressed({
+              kind: 'postponedAwaitingResurface',
+              priorCandidateId: latest.candidateId,
+              resurfaceAt,
+            });
+            continue;
+          }
+          // Re-surfacing: reference the postponed record backward, no
+          // transition — `postponed` is terminal.
+          supersedesCandidateId = latest.candidateId;
+        } else if (
           latest !== null &&
           facts.evaluatedAt.getTime() - latest.createdAt.getTime() <
             rule.timing.recurrenceIntervalMs
@@ -355,12 +395,8 @@ export function evaluateGardenRules(
           basis: { openTaskIds: overlappingTasks.map((task) => task.taskId) },
         });
       }
-      const priorityScore = Math.min(
-        MAX_PRIORITY_SCORE,
-        Math.max(
-          MIN_PRIORITY_SCORE,
-          factors.reduce((sum, factor) => sum + factor.contribution, 0),
-        ),
+      const priorityScore = aggregatePriorityContributions(
+        factors.map((factor) => factor.contribution),
       );
 
       // 6. Timing window and the always-present deterministic explanation.
@@ -383,7 +419,7 @@ export function evaluateGardenRules(
         ruleVersion: rule.version,
         target,
         priorityScore,
-        supersedesCandidateId: supersedes?.candidateId ?? null,
+        supersedesCandidateId,
       });
       plannedCandidates.push({
         ruleKey: rule.ruleKey,
@@ -398,7 +434,8 @@ export function evaluateGardenRules(
         factors,
         priorityScore,
         explanation,
-        supersedes,
+        supersedesCandidateId,
+        supersedesLiveCandidate,
       });
     }
   }

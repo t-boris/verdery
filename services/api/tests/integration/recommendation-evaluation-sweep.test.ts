@@ -196,7 +196,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     const rows = await candidateRows();
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ garden_id: eligible, state: 'generated' });
+    expect(rows[0]).toMatchObject({ garden_id: eligible, state: 'eligible' });
     expect(
       rows.filter((row) => [archived, plantless, inactiveOnly].includes(row.garden_id)),
     ).toEqual([]);
@@ -298,7 +298,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       byGarden(gardenB)
         .map((row) => row.state)
         .sort(),
-    ).toEqual(['generated', 'superseded']);
+    ).toEqual(['eligible', 'superseded']);
 
     // Third run: nothing left to expire, nothing to regenerate for A, B's
     // successor is live — the sweep has converged.

@@ -134,7 +134,8 @@ export const weatherFrostWatchFixtures: readonly RuleFixture[] = [
             'The forecast for this garden shows -2 °C around 2026-07-26T03:00:00.000Z. ' +
             'Strawberry patch is in its flowering stage and may be frost-sensitive. Consider ' +
             'covering it overnight.',
-          supersedes: null,
+          supersedesCandidateId: null,
+          supersedesLiveCandidate: null,
         },
       ],
     },

@@ -215,8 +215,8 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving the platform-baseline schemas and roles otherwise intact', async () => {
     await client.end();
 
-    // `count: 12` undoes this migration and every migration applied after it
-    // (currently garden-map-baseline through integrations-weather-baseline,
+    // `count: 13` undoes this migration and every migration applied after it
+    // (currently garden-map-baseline through recommendation-explanation,
     // each of which depends, directly or transitively, on tables this one
     // creates and must come down first). The shared `migrate()` helper runs
     // with an unbounded count, which is correct for 'up' but would also
@@ -227,7 +227,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 12,
+      count: 13,
       log: () => {},
     });
 

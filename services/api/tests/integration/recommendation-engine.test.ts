@@ -201,9 +201,16 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       target_plant_id: plantId,
       care_category: 'harvest',
       safety_tier: 'ordinary_care',
-      state: 'generated',
+      // P7-BE-01: candidates land `eligible` (revision 2 — the recorded
+      // generated -> eligible transition) with the rendered explanation
+      // stored.
+      state: 'eligible',
+      revision: 2,
       urgency: 'high',
       supersedes_candidate_id: null,
+      explanation:
+        'Cherry tomato is marked ready to harvest. Check ripeness and harvest what is ready ' +
+        'before the window passes.',
     });
     expect(storedCandidate.window_end).toEqual(new Date(START.getTime() + 5 * DAY_MS));
 
@@ -286,7 +293,8 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     expect(second.createdCandidates).toHaveLength(1);
     const successorId = second.createdCandidates[0]?.candidateId ?? '';
-    expect(second.createdCandidates[0]?.supersededCandidateId).toBe(priorId);
+    expect(second.createdCandidates[0]?.supersedesCandidateId).toBe(priorId);
+    expect(second.createdCandidates[0]?.supersededLivePrior).toBe(true);
 
     const rows = await db
       .selectFrom('tasks_recommendations.recommendation_candidate')
@@ -296,7 +304,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       .execute();
     expect(rows).toEqual([
       { id: priorId, state: 'superseded', supersedes_candidate_id: null },
-      { id: successorId, state: 'generated', supersedes_candidate_id: priorId },
+      { id: successorId, state: 'eligible', supersedes_candidate_id: priorId },
     ]);
   });
 

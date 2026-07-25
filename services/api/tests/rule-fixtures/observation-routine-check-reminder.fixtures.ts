@@ -112,7 +112,8 @@ export const observationRoutineCheckReminderFixtures: readonly RuleFixture[] = [
           explanation:
             'Cherry tomato has not been observed for 16 days. Record a quick check of its ' +
             'condition.',
-          supersedes: null,
+          supersedesCandidateId: null,
+          supersedesLiveCandidate: null,
         },
       ],
     },
@@ -181,7 +182,8 @@ export const observationRoutineCheckReminderFixtures: readonly RuleFixture[] = [
           explanation:
             'Cherry tomato has not been observed for 20 days. Record a quick check of its ' +
             'condition.',
-          supersedes: null,
+          supersedesCandidateId: null,
+          supersedesLiveCandidate: null,
         },
       ],
     },

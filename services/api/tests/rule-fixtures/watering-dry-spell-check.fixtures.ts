@@ -81,7 +81,8 @@ function wateringCandidate(freshness: 'fresh' | 'stale'): PlannedCandidate {
     explanation:
       'Recent weather at this garden was warm (27 °C) with almost no rain (0 mm). Cherry ' +
       'tomato is in its growing stage, so check whether it needs watering.',
-    supersedes: null,
+    supersedesCandidateId: null,
+    supersedesLiveCandidate: null,
   };
 }
 

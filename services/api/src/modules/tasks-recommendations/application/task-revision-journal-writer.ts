@@ -3,9 +3,11 @@ import type { TaskStatus } from '../domain/task-lifecycle.js';
 
 /**
  * The task commands that write a `task_revision` row — every command that
- * changes `task` (all seven minus `AttachTaskFile`, which only touches
+ * changes `task` (minus `AttachTaskFile`, which only touches
  * `task_attachment` and never bumps `task.revision`, the same carve-out
  * `PlantCommandType`'s own doc comment documents for `AttachPlantPhoto`).
+ * `convertRecommendationToTask` (P7-BE-01) journals the converted task's
+ * creation the way `createManualTask` journals a manual one.
  */
 export type TaskCommandType =
   | 'createManualTask'
@@ -14,7 +16,8 @@ export type TaskCommandType =
   | 'completeTask'
   | 'dismissTask'
   | 'skipTask'
-  | 'deleteTask';
+  | 'deleteTask'
+  | 'convertRecommendationToTask';
 
 export interface TaskRevisionJournalEntry {
   readonly taskId: Uuid;

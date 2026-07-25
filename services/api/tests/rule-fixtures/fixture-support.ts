@@ -96,6 +96,7 @@ export function priorCandidate(
     target: plantTarget(PLANT_A_ID),
     windowEnd: null,
     createdAt: new Date(FIXTURE_NOW.getTime() - DAY_MS),
+    postponedUntil: null,
     ...overrides,
   };
 }

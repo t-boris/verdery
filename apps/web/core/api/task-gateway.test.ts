@@ -52,6 +52,7 @@ const TASK: Task = {
   urgency: 'normal',
   source: 'manual',
   originObservationId: null,
+  originRecommendationId: null,
   revision: 1,
   createdByProfileId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0e',
   createdAt: '2026-07-21T09:00:00Z',

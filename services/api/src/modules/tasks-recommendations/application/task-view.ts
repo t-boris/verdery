@@ -34,6 +34,8 @@ export interface TaskResource {
   readonly urgency: string;
   readonly source: string;
   readonly originObservationId: string | null;
+  /** The converted-from recommendation candidate (P7-BE-01) — the outcome-history linkage; `null` for manual tasks. */
+  readonly originRecommendationId: string | null;
   readonly revision: number;
   readonly createdByProfileId: string;
   readonly createdAt: string;
@@ -58,6 +60,7 @@ export function toTaskResource(task: Task): TaskResource {
     urgency: task.urgency,
     source: task.source,
     originObservationId: task.originObservationId,
+    originRecommendationId: task.originRecommendationId,
     revision: task.revision,
     createdByProfileId: task.createdByProfileId,
     createdAt: task.createdAt.toISOString(),

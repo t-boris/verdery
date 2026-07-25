@@ -76,12 +76,12 @@ export interface Task {
   /** Set only at creation, by `CreateManualTask` — never by `CompleteTask` or any other command. See the migration's own comment on `task.origin_observation_id`. */
   readonly originObservationId: Uuid | null;
   /**
-   * The recommendation candidate this task was converted from — always
-   * `null` for every task this module can create today: `createTask` below
-   * hardcodes it alongside `source: 'manual'`, and the migration's
-   * `task_origin_recommendation_consistency_check` requires exactly the
-   * `'suggested'` source to carry it. P7-BE-01's task-conversion command is
-   * the stage that will set both together. Column added by
+   * The recommendation candidate this task was converted from — set only
+   * by `createTaskFromRecommendation` below (P7-BE-01's conversion
+   * command), always together with `source: 'suggested'`: the migration's
+   * `task_origin_recommendation_consistency_check` requires exactly that
+   * pairing, in both directions. `createTask` hardcodes `null` alongside
+   * `source: 'manual'`. Column added by
    * migrations/1785600000000_recommendations-baseline.sql, completing the
    * FK the Phase 4 baseline migration explicitly deferred.
    */
@@ -229,6 +229,66 @@ export function createTask(input: CreateTaskInput): Task {
     source: 'manual',
     originObservationId: input.originObservationId,
     originRecommendationId: null,
+    revision: 1,
+    createdByProfileId: input.createdByProfileId,
+    createdAt: input.now,
+    updatedAt: input.now,
+    completedAt: null,
+  };
+}
+
+export interface CreateTaskFromRecommendationInput {
+  readonly id: Uuid;
+  readonly gardenId: Uuid;
+  readonly target: TaskTarget;
+  /** The rule version's own `actionTitle` — section 5's "Suggested action template" becoming the concrete task title. */
+  readonly rawTitle: string;
+  /** The candidate's stored deterministic explanation, carried onto the task so FR-24's "Reason" survives the conversion. */
+  readonly notes: string | null;
+  readonly timeWindowStart: Date | null;
+  readonly timeWindowEnd: Date | null;
+  readonly urgency: TaskUrgency;
+  readonly originRecommendationId: Uuid;
+  readonly createdByProfileId: Uuid;
+  readonly now: Date;
+}
+
+/**
+ * Constructs the task a recommendation candidate converts into (P7-BE-01,
+ * FR-25's "The application may suggest tasks from ... recommendations"):
+ * `source: 'suggested'` with `originRecommendationId` set together — the
+ * two halves the migration's `task_origin_recommendation_consistency_check`
+ * requires as one equivalence — and `status: 'planned'`, because the USER
+ * explicitly asked for the conversion: this is accepted, committed work,
+ * not a proposal awaiting acceptance (the `'suggested'` STATUS models the
+ * latter and nothing produces it yet). Target, urgency, and time window
+ * carry over from the candidate verbatim; `dueDate` stays `null` (the
+ * candidate's schedule is its window, and no calendar date is invented).
+ */
+export function createTaskFromRecommendation(input: CreateTaskFromRecommendationInput): Task {
+  const target = validateTaskTarget(input.target);
+  const timeWindow = validateTimeWindow({
+    start: input.timeWindowStart,
+    end: input.timeWindowEnd,
+  });
+
+  return {
+    id: input.id,
+    gardenId: input.gardenId,
+    targetKind: target.kind,
+    targetGardenAreaMapObjectId: target.gardenAreaMapObjectId,
+    targetPlantId: target.plantId,
+    title: validateTaskTitle(input.rawTitle),
+    notes: input.notes,
+    status: 'planned',
+    dueDate: null,
+    timeWindowStart: timeWindow.start,
+    timeWindowEnd: timeWindow.end,
+    recurrenceRule: null,
+    urgency: input.urgency,
+    source: 'suggested',
+    originObservationId: null,
+    originRecommendationId: input.originRecommendationId,
     revision: 1,
     createdByProfileId: input.createdByProfileId,
     createdAt: input.now,

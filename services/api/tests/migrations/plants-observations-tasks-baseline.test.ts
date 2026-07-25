@@ -530,8 +530,8 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving the garden-map-baseline schemas and tables otherwise intact', async () => {
     await client.end();
 
-    // `count: 10` undoes this migration and every migration applied after
-    // it (currently search-indexes through integrations-weather-baseline —
+    // `count: 11` undoes this migration and every migration applied after
+    // it (currently search-indexes through recommendation-explanation —
     // several of which extend or reference tables this one creates, e.g.
     // the media migrations grow `media.media_record`,
     // recommendations-baseline adds `task.origin_recommendation_id`, and
@@ -543,7 +543,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 10,
+      count: 11,
       log: () => {},
     });
 

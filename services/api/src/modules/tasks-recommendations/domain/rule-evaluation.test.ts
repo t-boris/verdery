@@ -139,7 +139,7 @@ describe('evaluateGardenRules — suppression and supersession', () => {
       latestPerRuleAndTarget: [],
     };
     const plan = run(rule, buildGardenFacts(), prior);
-    expect(plan.plannedCandidates[0]?.supersedes).toEqual({
+    expect(plan.plannedCandidates[0]?.supersedesLiveCandidate).toEqual({
       candidateId: CANDIDATE_ID,
       expectedRevision: 3,
     });
@@ -161,7 +161,7 @@ describe('evaluateGardenRules — suppression and supersession', () => {
       liveCandidates: [stale],
       latestPerRuleAndTarget: [stale],
     });
-    expect(plan.plannedCandidates[0]?.supersedes?.candidateId).toBe(CANDIDATE_ID);
+    expect(plan.plannedCandidates[0]?.supersedesLiveCandidate?.candidateId).toBe(CANDIDATE_ID);
   });
 
   it('suppresses within the recurrence interval of the latest (resolved) candidate', () => {
@@ -197,7 +197,7 @@ describe('evaluateGardenRules — suppression and supersession', () => {
       latestPerRuleAndTarget: [longAgo],
     });
     expect(plan.plannedCandidates).toHaveLength(1);
-    expect(plan.plannedCandidates[0]?.supersedes).toBeNull();
+    expect(plan.plannedCandidates[0]?.supersedesLiveCandidate).toBeNull();
   });
 });
 
@@ -345,5 +345,79 @@ describe('evaluateGardenRules — rule defects fail loudly', () => {
       }),
     });
     expect(() => run(rule, buildGardenFacts())).toThrowError(InternalError);
+  });
+});
+
+describe('evaluateGardenRules — postponed prior (P7-BE-01)', () => {
+  it('suppresses until the user’s own postponedUntil horizon, even past the recurrence interval', () => {
+    const rule = buildRuleDefinition();
+    const resurfaceAt = new Date(TEST_EVALUATED_AT.getTime() + 60_000);
+    const postponed = buildPriorCandidateFact({
+      candidateId: CANDIDATE_ID,
+      state: 'postponed',
+      // Created long enough ago that plain recurrence would have elapsed —
+      // proving the horizon, not the interval, is the boundary.
+      createdAt: new Date(TEST_EVALUATED_AT.getTime() - 2 * rule.timing.recurrenceIntervalMs),
+      postponedUntil: resurfaceAt,
+    });
+    const plan = run(rule, buildGardenFacts(), {
+      liveCandidates: [],
+      latestPerRuleAndTarget: [postponed],
+    });
+    expect(plan.plannedCandidates).toEqual([]);
+    expect(plan.decisions[0]).toMatchObject({
+      kind: 'targetSuppressed',
+      reason: {
+        kind: 'postponedAwaitingResurface',
+        priorCandidateId: CANDIDATE_ID,
+        resurfaceAt,
+      },
+    });
+  });
+
+  it('re-surfaces past the horizon as a NEW candidate referencing the postponed record WITHOUT transitioning it', () => {
+    const rule = buildRuleDefinition();
+    const postponed = buildPriorCandidateFact({
+      candidateId: CANDIDATE_ID,
+      state: 'postponed',
+      // Recent enough that plain recurrence WOULD still suppress — the
+      // user's elapsed horizon wins in this direction too.
+      createdAt: new Date(TEST_EVALUATED_AT.getTime() - 60_000),
+      postponedUntil: new Date(TEST_EVALUATED_AT.getTime() - 1),
+    });
+    const plan = run(rule, buildGardenFacts(), {
+      liveCandidates: [],
+      latestPerRuleAndTarget: [postponed],
+    });
+    expect(plan.plannedCandidates).toHaveLength(1);
+    expect(plan.plannedCandidates[0]?.supersedesCandidateId).toBe(CANDIDATE_ID);
+    // Reference only: the postponed prior is terminal, so no live-prior
+    // transition is planned.
+    expect(plan.plannedCandidates[0]?.supersedesLiveCandidate).toBeNull();
+  });
+
+  it('falls back to the recurrence interval for a horizon-less postponement — no horizon is invented', () => {
+    const rule = buildRuleDefinition();
+    const postponed = buildPriorCandidateFact({
+      candidateId: CANDIDATE_ID,
+      state: 'postponed',
+      createdAt: new Date(TEST_EVALUATED_AT.getTime() - 60_000),
+      postponedUntil: null,
+    });
+    const plan = run(rule, buildGardenFacts(), {
+      liveCandidates: [],
+      latestPerRuleAndTarget: [postponed],
+    });
+    expect(plan.plannedCandidates).toEqual([]);
+    expect(plan.decisions[0]).toMatchObject({
+      kind: 'targetSuppressed',
+      reason: {
+        kind: 'postponedAwaitingResurface',
+        priorCandidateId: CANDIDATE_ID,
+        resurfaceAt: new Date(
+          TEST_EVALUATED_AT.getTime() - 60_000 + rule.timing.recurrenceIntervalMs,
+        ),
+      },
+    });
   });
 });

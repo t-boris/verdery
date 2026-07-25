@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { ValidationError } from '../../../platform/errors/application-error.js';
 import { DomainRuleViolatedError } from '../../../platform/errors/application-error.js';
 import type { CreateTaskInput, TaskTarget } from './task.js';
-import { createTask, updateTaskDetails, validateTaskTarget } from './task.js';
+import {
+  createTask,
+  createTaskFromRecommendation,
+  updateTaskDetails,
+  validateTaskTarget,
+} from './task.js';
 
 const TASK_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0b';
 const GARDEN_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0c';
@@ -169,5 +174,76 @@ describe('updateTaskDetails', () => {
     expect(() => updateTaskDetails(completed, { title: 'Too late' }, LATER)).toThrow(
       DomainRuleViolatedError,
     );
+  });
+});
+
+describe('createTaskFromRecommendation', () => {
+  const RECOMMENDATION_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a10';
+
+  it("pairs source 'suggested' with the origin id, status 'planned', and carries the candidate's schedule verbatim", () => {
+    const windowStart = new Date('2026-07-21T09:00:00Z');
+    const windowEnd = new Date('2026-07-26T09:00:00Z');
+    const task = createTaskFromRecommendation({
+      id: TASK_ID,
+      gardenId: GARDEN_ID,
+      target: { kind: 'plant', gardenAreaMapObjectId: null, plantId: PLANT_ID },
+      rawTitle: 'Check ripeness and harvest what is ready',
+      notes: 'Stored deterministic explanation.',
+      timeWindowStart: windowStart,
+      timeWindowEnd: windowEnd,
+      urgency: 'high',
+      originRecommendationId: RECOMMENDATION_ID,
+      createdByProfileId: PROFILE_ID,
+      now: NOW,
+    });
+
+    expect(task).toMatchObject({
+      source: 'suggested',
+      originRecommendationId: RECOMMENDATION_ID,
+      originObservationId: null,
+      status: 'planned',
+      title: 'Check ripeness and harvest what is ready',
+      notes: 'Stored deterministic explanation.',
+      urgency: 'high',
+      dueDate: null,
+      recurrenceRule: null,
+      timeWindowStart: windowStart,
+      timeWindowEnd: windowEnd,
+      revision: 1,
+    });
+  });
+
+  it('validates target consistency and title like every task constructor', () => {
+    expect(() =>
+      createTaskFromRecommendation({
+        id: TASK_ID,
+        gardenId: GARDEN_ID,
+        target: { kind: 'plant', gardenAreaMapObjectId: GARDEN_AREA_ID, plantId: PLANT_ID },
+        rawTitle: 'Valid title',
+        notes: null,
+        timeWindowStart: null,
+        timeWindowEnd: null,
+        urgency: 'normal',
+        originRecommendationId: RECOMMENDATION_ID,
+        createdByProfileId: PROFILE_ID,
+        now: NOW,
+      }),
+    ).toThrow(ValidationError);
+
+    expect(() =>
+      createTaskFromRecommendation({
+        id: TASK_ID,
+        gardenId: GARDEN_ID,
+        target: GARDEN_TARGET,
+        rawTitle: '   ',
+        notes: null,
+        timeWindowStart: null,
+        timeWindowEnd: null,
+        urgency: 'normal',
+        originRecommendationId: RECOMMENDATION_ID,
+        createdByProfileId: PROFILE_ID,
+        now: NOW,
+      }),
+    ).toThrow(ValidationError);
   });
 });

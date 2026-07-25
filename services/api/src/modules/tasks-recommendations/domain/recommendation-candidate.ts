@@ -67,6 +67,16 @@ export interface RecommendationCandidate {
   readonly targetPlantId: Uuid | null;
   /** Required but not vocabulary-checked: P0-PROD-03's "initial care categories" is a still-undecided product selection — see the migration's own comment on this column. */
   readonly careCategory: string;
+  /**
+   * The deterministic explanation rendered at generation time — FR-24's
+   * "Reason", persisted because it is a generation-time fact the Today
+   * surface must replay unmodified (P7-BE-01). `null` ONLY on legacy rows
+   * created before migrations/1785800000000_recommendation-explanation.sql;
+   * every candidate this constructor produces carries one, and the
+   * migration's presentable-explanation CHECK makes a text-less presentable
+   * candidate physically impossible.
+   */
+  readonly explanation: string | null;
   readonly ruleVersionId: Uuid;
   /** Always the referenced rule version's own tier — the migration's composite FK makes a mismatched pair uninsertable — and never `'restricted'`, per `requireGeneratableSafetyTier`. */
   readonly safetyTier: RecommendationSafetyTier;
@@ -149,6 +159,24 @@ export function validateCareCategory(rawCareCategory: string): string {
   return careCategory;
 }
 
+/** Trims and validates the rendered deterministic explanation — non-blank like the migration's own `explanation_not_blank` CHECK: an empty reason explains nothing. */
+export function validateRecommendationExplanation(rawExplanation: string): string {
+  const explanation = rawExplanation.trim();
+
+  if (explanation.length === 0) {
+    throw new ValidationError(SharedErrorCode.RequestInvalid, 'explanation must not be blank.', {
+      details: [
+        {
+          code: 'tasks_recommendations.recommendation_candidate.explanation.blank',
+          pointer: '/explanation',
+        },
+      ],
+    });
+  }
+
+  return explanation;
+}
+
 /** Mirrors the migration's `recommendation_candidate_window_check`: a validity window that ends before it starts can never be satisfied. */
 export function validateRecommendationWindow(
   windowStart: Date | null,
@@ -193,6 +221,8 @@ export interface CreateRecommendationCandidateInput {
   readonly gardenId: Uuid;
   readonly target: RecommendationTarget;
   readonly rawCareCategory: string;
+  /** The rendered deterministic explanation — required on every new candidate (P7-BE-01); only legacy rows lack one. */
+  readonly rawExplanation: string;
   readonly ruleVersionId: Uuid;
   readonly ruleSafetyTier: RecommendationSafetyTier;
   readonly urgency: RecommendationUrgency;
@@ -269,6 +299,7 @@ export function createRecommendationCandidate(
       targetGardenAreaMapObjectId: target.gardenAreaMapObjectId,
       targetPlantId: target.plantId,
       careCategory: validateCareCategory(input.rawCareCategory),
+      explanation: validateRecommendationExplanation(input.rawExplanation),
       ruleVersionId: input.ruleVersionId,
       safetyTier: input.ruleSafetyTier,
       state: 'generated',

@@ -373,11 +373,12 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, dropping the integrations schema and the evidence FK while earlier tables survive', async () => {
     await client.end();
 
-    // `count: 1`: this file tests the newest migration, so only itself is
-    // undone — the position every newest-migration test starts from. When a
-    // later migration lands on top, bump this (and the counts in every
-    // earlier migration test) per the established ripple convention.
-    await migrate(databaseUrl, 'down', 1);
+    // `count: 2` undoes the one newer migration
+    // (1785800000000_recommendation-explanation.sql — an explanation column
+    // nothing this file's own assertions below check) first, then this
+    // migration itself. Update again the next time a migration is added on
+    // top of that one.
+    await migrate(databaseUrl, 'down', 2);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

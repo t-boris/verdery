@@ -3,8 +3,11 @@
  * how to review. Covers: firing on the user-declared readiness stage,
  * TIMING suppression (a recently resolved candidate blocks regeneration
  * for the recurrence interval), the refire after that interval fully
- * elapses, and SUPERSESSION of a live candidate whose validity window
- * passed while readiness persists.
+ * elapses, SUPERSESSION of a live candidate whose validity window passed
+ * while readiness persists, and the POSTPONED-prior behavior (P7-BE-01):
+ * the user's own `postponedUntil` horizon suppresses and then re-surfaces
+ * (a NEW candidate referencing the terminal postponed record), with the
+ * recurrence interval as the fallback when no horizon was named.
  */
 
 import type { PlannedCandidate } from '../../src/modules/tasks-recommendations/public.js';
@@ -38,7 +41,10 @@ const BOTH_WEATHER_RULES_SKIP = [
 
 const READY_PLANT = plantFact({ plantId: PLANT_A_ID, lifecycleStage: 'ready_to_harvest' });
 
-function harvestCandidate(supersedes: PlannedCandidate['supersedes'] = null): PlannedCandidate {
+function harvestCandidate(
+  supersedesLiveCandidate: PlannedCandidate['supersedesLiveCandidate'] = null,
+  resurfacesCandidateId: string | null = null,
+): PlannedCandidate {
   return {
     ruleKey: 'lifecycle.harvest-readiness-check',
     ruleVersion: 1,
@@ -80,7 +86,8 @@ function harvestCandidate(supersedes: PlannedCandidate['supersedes'] = null): Pl
     explanation:
       'Cherry tomato is marked ready to harvest. Check ripeness and harvest what is ready ' +
       'before the window passes.',
-    supersedes,
+    supersedesCandidateId: supersedesLiveCandidate?.candidateId ?? resurfacesCandidateId,
+    supersedesLiveCandidate,
   };
 }
 
@@ -198,6 +205,108 @@ export const lifecycleHarvestReadinessCheckFixtures: readonly RuleFixture[] = [
       plannedCandidates: [
         harvestCandidate({ candidateId: PRIOR_CANDIDATE_A_ID, expectedRevision: 3 }),
       ],
+    },
+  },
+  {
+    name: 'postponement with a horizon: the user’s own postponedUntil suppresses re-surfacing until it passes',
+    reviewNotes:
+      'The user postponed the previous harvest recommendation yesterday "until tomorrow" ' +
+      '(one day after the fixture instant). Even though the plant is still ready, the rule ' +
+      'stays quiet until the user’s own horizon — an explicit "later" beats the default ' +
+      'recurrence spacing in BOTH directions. Review: honoring the user’s stated horizon ' +
+      'exactly is the intended re-surfacing behavior (P7-BE-01).',
+    facts: gardenFacts({ plants: [READY_PLANT] }),
+    prior: {
+      liveCandidates: [],
+      latestPerRuleAndTarget: [
+        priorCandidate({
+          candidateId: PRIOR_CANDIDATE_A_ID,
+          ruleKey: 'lifecycle.harvest-readiness-check',
+          state: 'postponed',
+          revision: 4,
+          createdAt: new Date(FIXTURE_NOW.getTime() - DAY_MS),
+          postponedUntil: new Date(FIXTURE_NOW.getTime() + DAY_MS),
+        }),
+      ],
+    },
+    expected: {
+      decisions: [
+        BOTH_WEATHER_RULES_SKIP[0],
+        ...QUIET_OTHER_RULES,
+        suppressedDecision('lifecycle.harvest-readiness-check', PLANT_A_ID, {
+          kind: 'postponedAwaitingResurface',
+          priorCandidateId: PRIOR_CANDIDATE_A_ID,
+          resurfaceAt: new Date(FIXTURE_NOW.getTime() + DAY_MS),
+        }),
+        BOTH_WEATHER_RULES_SKIP[1],
+      ],
+      plannedCandidates: [],
+    },
+  },
+  {
+    name: 'postponement re-surfacing: past the user’s horizon a NEW candidate fires, referencing the postponed record without touching it',
+    reviewNotes:
+      'The user postponed three days ago "until yesterday"; the horizon has passed and the ' +
+      'plant is still ready, so a fresh recommendation fires even though the 7-day recurrence ' +
+      'interval has NOT elapsed — the user asked to be reminded. The new candidate references ' +
+      'the postponed record (supersedesCandidateId) for the history chain, but the postponed ' +
+      'record itself is terminal and stays untouched, its evidence and feedback preserved.',
+    facts: gardenFacts({ plants: [READY_PLANT] }),
+    prior: {
+      liveCandidates: [],
+      latestPerRuleAndTarget: [
+        priorCandidate({
+          candidateId: PRIOR_CANDIDATE_A_ID,
+          ruleKey: 'lifecycle.harvest-readiness-check',
+          state: 'postponed',
+          revision: 4,
+          createdAt: new Date(FIXTURE_NOW.getTime() - 3 * DAY_MS),
+          postponedUntil: new Date(FIXTURE_NOW.getTime() - DAY_MS),
+        }),
+      ],
+    },
+    expected: {
+      decisions: [
+        BOTH_WEATHER_RULES_SKIP[0],
+        ...QUIET_OTHER_RULES,
+        fireDecision('lifecycle.harvest-readiness-check', PLANT_A_ID, 75, PRIOR_CANDIDATE_A_ID),
+        BOTH_WEATHER_RULES_SKIP[1],
+      ],
+      plannedCandidates: [harvestCandidate(null, PRIOR_CANDIDATE_A_ID)],
+    },
+  },
+  {
+    name: 'postponement without a horizon: the rule’s recurrence interval is the fallback boundary',
+    reviewNotes:
+      'The user postponed two days ago without naming a date. No horizon is invented: the ' +
+      'rule’s own 7-day recurrence interval (measured from the postponed candidate’s creation) ' +
+      'is the fallback, so the rule stays quiet at day two. Review: is the recurrence interval ' +
+      'an acceptable default "later" for a horizon-less postponement?',
+    facts: gardenFacts({ plants: [READY_PLANT] }),
+    prior: {
+      liveCandidates: [],
+      latestPerRuleAndTarget: [
+        priorCandidate({
+          candidateId: PRIOR_CANDIDATE_A_ID,
+          ruleKey: 'lifecycle.harvest-readiness-check',
+          state: 'postponed',
+          revision: 4,
+          createdAt: new Date(FIXTURE_NOW.getTime() - 2 * DAY_MS),
+        }),
+      ],
+    },
+    expected: {
+      decisions: [
+        BOTH_WEATHER_RULES_SKIP[0],
+        ...QUIET_OTHER_RULES,
+        suppressedDecision('lifecycle.harvest-readiness-check', PLANT_A_ID, {
+          kind: 'postponedAwaitingResurface',
+          priorCandidateId: PRIOR_CANDIDATE_A_ID,
+          resurfaceAt: new Date(FIXTURE_NOW.getTime() + 5 * DAY_MS),
+        }),
+        BOTH_WEATHER_RULES_SKIP[1],
+      ],
+      plannedCandidates: [],
     },
   },
 ];

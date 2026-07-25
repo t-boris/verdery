@@ -19,12 +19,22 @@ import type {
   RecommendationCandidate,
   RecommendationCandidateAggregate,
 } from '../domain/recommendation-candidate.js';
+import type { RecommendationEvidence } from '../domain/recommendation-evidence.js';
+import type { RecommendationFeedback } from '../domain/recommendation-feedback.js';
 import type { RecommendationPriorityFactor } from '../domain/recommendation-priority.js';
 
 export interface StoredCandidateWithRule {
   readonly candidate: RecommendationCandidate;
   readonly ruleKey: string;
   readonly ruleVersion: number;
+  /**
+   * The horizon from the candidate's latest `postponed` feedback row —
+   * populated ONLY by `listLatestPerRuleAndTarget` (the engine's
+   * postponed-prior re-surfacing input, P7-BE-01); every other read
+   * returns `null` because no caller consults it there and the extra join
+   * would be dead weight.
+   */
+  readonly postponedUntil: Date | null;
 }
 
 export interface RecommendationCandidateRepository {
@@ -57,8 +67,33 @@ export interface RecommendationCandidateRepository {
   /** The most recently created candidate per (rule key, target) in the garden, regardless of state — the recurrence-interval baseline. */
   listLatestPerRuleAndTarget(gardenId: Uuid): Promise<readonly StoredCandidateWithRule[]>;
 
-  /** The named candidates with their rule identities — how open tasks' `origin_recommendation_id` values resolve to rule keys. Empty input returns empty. */
+  /** The named candidates with their rule identities — how open tasks' `origin_recommendation_id` values resolve to rule keys, and how the Today commands load their target candidate. Empty input returns empty. */
   findWithRuleByIds(candidateIds: readonly Uuid[]): Promise<readonly StoredCandidateWithRule[]>;
+
+  /**
+   * The Today query's raw set (P7-BE-01): every candidate of the garden in
+   * `eligible`/`presented` whose validity window covers `now` (a `null`
+   * bound is unbounded on that side). Ordering across candidates is the
+   * caller's — priority is re-derived in the application from the stored
+   * factor rows, deliberately not in SQL.
+   */
+  listPresentableForGarden(gardenId: Uuid, now: Date): Promise<readonly StoredCandidateWithRule[]>;
+
+  /** Every stored priority-factor row of the named candidates — the Today ordering's input. Empty input returns empty. */
+  listFactorsForCandidates(
+    candidateIds: readonly Uuid[],
+  ): Promise<readonly RecommendationPriorityFactor[]>;
+
+  /** Every stored evidence row of the named candidates — FR-24's "Evidence used", returned structured. Empty input returns empty. */
+  listEvidenceForCandidates(
+    candidateIds: readonly Uuid[],
+  ): Promise<readonly RecommendationEvidence[]>;
+
+  /** Appends one immutable feedback row — the append-only trail's single write path (P7-BE-01's commands). */
+  appendFeedback(feedback: RecommendationFeedback): Promise<void>;
+
+  /** The candidate's feedback trail, newest first — the outcome-history read. */
+  listFeedbackForCandidate(candidateId: Uuid): Promise<readonly RecommendationFeedback[]>;
 
   /**
    * Up to `limit` distinct garden ids (ascending, for determinism) that

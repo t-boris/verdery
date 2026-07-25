@@ -5,6 +5,7 @@
  * `*.test.ts` file; vitest never runs it as a suite.
  */
 
+import { generateUuidV7 } from '../../../shared/identifiers/uuid.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import { GetGardenWeather } from '../../integrations/public.js';
@@ -16,6 +17,7 @@ import type {
 } from '../../integrations/public.js';
 import type { RecommendationCandidate } from '../domain/recommendation-candidate.js';
 import type { RecommendationEvidence } from '../domain/recommendation-evidence.js';
+import type { RecommendationFeedback } from '../domain/recommendation-feedback.js';
 import { LIVE_RECOMMENDATION_CANDIDATE_STATES } from '../domain/recommendation-lifecycle.js';
 import type { RecommendationPriorityFactor } from '../domain/recommendation-priority.js';
 import type { RuleVersion } from '../domain/rule-version.js';
@@ -52,6 +54,7 @@ export class FakeRecommendationCandidateRepository implements RecommendationCand
   readonly candidates = new Map<Uuid, RecommendationCandidate>();
   readonly evidenceByCandidate = new Map<Uuid, readonly RecommendationEvidence[]>();
   readonly factorsByCandidate = new Map<Uuid, readonly RecommendationPriorityFactor[]>();
+  readonly feedback: RecommendationFeedback[] = [];
   lockedGardenIds: Uuid[] = [];
 
   constructor(private readonly ruleVersions: FakeRuleVersionRepository) {}
@@ -80,12 +83,28 @@ export class FakeRecommendationCandidateRepository implements RecommendationCand
     return Promise.resolve(true);
   }
 
-  private withRule(candidate: RecommendationCandidate): StoredCandidateWithRule {
+  private withRule(
+    candidate: RecommendationCandidate,
+    options: { readonly withPostponedUntil: boolean } = { withPostponedUntil: false },
+  ): StoredCandidateWithRule {
     const ruleVersion = this.ruleVersions.rows.get(candidate.ruleVersionId);
     if (ruleVersion === undefined) {
       throw new Error(`Fake candidate '${candidate.id}' references an unknown rule version.`);
     }
-    return { candidate, ruleKey: ruleVersion.ruleKey, ruleVersion: ruleVersion.version };
+    // The latest `postponed` feedback row's horizon — only the
+    // `listLatestPerRuleAndTarget` read resolves it, per the port's doc.
+    const postponedUntil = options.withPostponedUntil
+      ? ([...this.feedback]
+          .filter((row) => row.candidateId === candidate.id && row.kind === 'postponed')
+          .sort((a, b) => b.recordedAt.getTime() - a.recordedAt.getTime())[0]?.postponedUntil ??
+        null)
+      : null;
+    return {
+      candidate,
+      ruleKey: ruleVersion.ruleKey,
+      ruleVersion: ruleVersion.version,
+      postponedUntil,
+    };
   }
 
   listLiveForGarden(gardenId: Uuid): Promise<readonly StoredCandidateWithRule[]> {
@@ -105,7 +124,7 @@ export class FakeRecommendationCandidateRepository implements RecommendationCand
       if (candidate.gardenId !== gardenId) {
         continue;
       }
-      const stored = this.withRule(candidate);
+      const stored = this.withRule(candidate, { withPostponedUntil: true });
       const groupKey = [
         stored.ruleKey,
         candidate.targetKind,
@@ -147,6 +166,155 @@ export class FakeRecommendationCandidateRepository implements RecommendationCand
     }
     return Promise.resolve([...gardenIds].sort().slice(0, limit));
   }
+
+  listPresentableForGarden(gardenId: Uuid, now: Date): Promise<readonly StoredCandidateWithRule[]> {
+    const presentable = [...this.candidates.values()]
+      .filter(
+        (candidate) =>
+          candidate.gardenId === gardenId &&
+          (candidate.state === 'eligible' || candidate.state === 'presented') &&
+          (candidate.windowStart === null || candidate.windowStart.getTime() <= now.getTime()) &&
+          (candidate.windowEnd === null || candidate.windowEnd.getTime() >= now.getTime()),
+      )
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id));
+    return Promise.resolve(presentable.map((candidate) => this.withRule(candidate)));
+  }
+
+  listFactorsForCandidates(
+    candidateIds: readonly Uuid[],
+  ): Promise<readonly RecommendationPriorityFactor[]> {
+    const factors: RecommendationPriorityFactor[] = [];
+    for (const id of candidateIds) {
+      factors.push(...(this.factorsByCandidate.get(id) ?? []));
+    }
+    return Promise.resolve(factors);
+  }
+
+  listEvidenceForCandidates(
+    candidateIds: readonly Uuid[],
+  ): Promise<readonly RecommendationEvidence[]> {
+    const evidence: RecommendationEvidence[] = [];
+    for (const id of candidateIds) {
+      evidence.push(...(this.evidenceByCandidate.get(id) ?? []));
+    }
+    return Promise.resolve(evidence);
+  }
+
+  appendFeedback(feedback: RecommendationFeedback): Promise<void> {
+    this.feedback.push(feedback);
+    return Promise.resolve();
+  }
+
+  listFeedbackForCandidate(candidateId: Uuid): Promise<readonly RecommendationFeedback[]> {
+    const rows = this.feedback
+      .filter((row) => row.candidateId === candidateId)
+      .sort((a, b) => b.recordedAt.getTime() - a.recordedAt.getTime());
+    return Promise.resolve(rows);
+  }
+}
+
+export interface SeedRecommendationCandidateInput {
+  readonly id: Uuid;
+  readonly gardenId: Uuid;
+  readonly state?: RecommendationCandidate['state'];
+  readonly ruleKey?: string;
+  readonly ruleVersion?: number;
+  readonly urgency?: RecommendationCandidate['urgency'];
+  readonly targetPlantId?: Uuid | null;
+  readonly windowStart?: Date | null;
+  readonly windowEnd?: Date | null;
+  readonly explanation?: string | null;
+  readonly presentedAt?: Date | null;
+  readonly revision?: number;
+  readonly createdAt?: Date;
+  readonly factors?: readonly {
+    kind: RecommendationPriorityFactor['factorKind'];
+    contribution: number;
+  }[];
+}
+
+/**
+ * Seeds one stored candidate (with its rule version, one evidence row, and
+ * optional `{ contribution, basis }` factor rows) into the fake
+ * repositories — the P7-BE-01 command/query tests' shared fixture shape.
+ */
+export function seedRecommendationCandidate(
+  candidates: FakeRecommendationCandidateRepository,
+  ruleVersions: FakeRuleVersionRepository,
+  input: SeedRecommendationCandidateInput,
+): RecommendationCandidate {
+  const ruleKey = input.ruleKey ?? 'lifecycle.harvest-readiness-check';
+  const ruleVersion = input.ruleVersion ?? 1;
+  const existing = [...ruleVersions.rows.values()].find(
+    (row) => row.ruleKey === ruleKey && row.version === ruleVersion,
+  );
+  const versionRow = existing ?? {
+    id: generateUuidV7(),
+    ruleKey,
+    version: ruleVersion,
+    safetyTier: 'ordinary_care' as const,
+    createdAt: new Date('2026-07-01T00:00:00Z'),
+  };
+  if (existing === undefined) {
+    ruleVersions.rows.set(versionRow.id, versionRow);
+  }
+
+  const createdAt = input.createdAt ?? new Date('2026-07-24T09:00:00Z');
+  const evidenceId = generateUuidV7();
+  const targetPlantId = input.targetPlantId === undefined ? null : input.targetPlantId;
+  const candidate: RecommendationCandidate = {
+    id: input.id,
+    gardenId: input.gardenId,
+    targetKind: targetPlantId === null ? 'garden' : 'plant',
+    targetGardenAreaMapObjectId: null,
+    targetPlantId,
+    careCategory: 'harvest',
+    explanation:
+      input.explanation === undefined ? 'Stored deterministic explanation.' : input.explanation,
+    ruleVersionId: versionRow.id,
+    safetyTier: 'ordinary_care',
+    state: input.state ?? 'eligible',
+    urgency: input.urgency ?? 'high',
+    windowStart: input.windowStart === undefined ? createdAt : input.windowStart,
+    windowEnd:
+      input.windowEnd === undefined
+        ? new Date(createdAt.getTime() + 5 * 24 * 60 * 60 * 1000)
+        : input.windowEnd,
+    primaryEvidenceId: evidenceId,
+    supersedesCandidateId: null,
+    presentedAt: input.presentedAt ?? null,
+    revision: input.revision ?? 2,
+    createdAt,
+    updatedAt: createdAt,
+  };
+  candidates.candidates.set(candidate.id, candidate);
+  candidates.evidenceByCandidate.set(candidate.id, [
+    {
+      id: evidenceId,
+      candidateId: candidate.id,
+      kind: targetPlantId === null ? 'garden_context' : 'lifecycle_stage',
+      sourceObservationId: null,
+      sourceTaskId: null,
+      sourcePlantId: targetPlantId,
+      sourceWeatherRecordId: null,
+      factKey: 'seed.fact',
+      factValue: { seeded: true },
+      createdAt,
+    },
+  ]);
+  if (input.factors !== undefined) {
+    candidates.factorsByCandidate.set(
+      candidate.id,
+      input.factors.map((factor) => ({
+        id: generateUuidV7(),
+        candidateId: candidate.id,
+        factorKind: factor.kind,
+        factorValue: { contribution: factor.contribution, basis: { seeded: true } },
+        createdAt,
+      })),
+    );
+  }
+  return candidate;
 }
 
 /** In-memory `WeatherRecordRepository` serving `findLatest` by fetch order — enough to back a REAL `GetGardenWeather` (a concrete class, like `GardenAuthorization` in the sibling doubles file). */

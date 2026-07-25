@@ -4136,3 +4136,168 @@ duplicate-safe scheduled runs — is proven at every layer it has.
   table has carried arbitrary event types since Phase 2.
 - Root `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `node scripts/check-file-size.mjs`,
   and `bash -n` on `deploy-workers.sh` all clean.
+
+## Stage 19 — P7-BE-01, implementation complete
+
+The Today surface is real — the phase's first client-facing recommendation HTTP surface, under a
+new OpenAPI `Recommendations` tag: `GET /v1/gardens/{gardenId}/today` (the small prioritized set
+with reason, urgency, uncertainty, and controls — the phase exit criterion's own words), the four
+FR-24 feedback commands (complete / postpone / dismiss / mark-irrelevant), and the task conversion
+that closes the FR-25 loop through `task.origin_recommendation_id`. One migration
+(`1785800000000_recommendation-explanation.sql`) closes the one honest storage gap the surface
+could not exist without; everything else builds on P7-DATA-01's schema, P7-RULE-01's engine, and
+P7-ASYNC-01's sweeps exactly as those stages left them for this one.
+
+### Key decisions
+
+- **The deterministic explanation is now PERSISTED at generation time** (`explanation` on
+  `recommendation_candidate`). Today must show FR-24's "Reason", and the rendered text is a
+  per-candidate generation-time fact that cannot be reproduced later — the template's placeholders
+  resolve against evaluation-time facts (the plant's display name, the day count) that evidence
+  rows deliberately do not fully snapshot, and re-rendering against CURRENT facts would rewrite the
+  reason a user was shown ("Presentation does not overwrite generation evidence", applied to the
+  explanation). Deliberately NOT section 10's AI explanation record — prompt-template/model/config
+  versions and validation outcome stay P7-AI-01's shape to own; this column is that record's
+  guaranteed deterministic baseline. Nullable ONLY on legacy pre-P7-BE-01 rows (the calibration
+  columns' documented posture); a presentable-lineage state without the text is CHECK-impossible,
+  written as an implication whose antecedent names only the explanation-requiring states, so state
+  VOCABULARY stays the state CHECK's single concern — the first draft policed unknown states too
+  and was caught by P7-DATA-01's own migration suite, the exact lesson its timestamp CHECK records.
+  `actionTitle` needs no column: it is per-rule-version content, resolved from the catalog by the
+  stored `(ruleKey, version)` (the catalog keeps every shipped version forever — its own header's
+  promise), and a version the running build no longer ships fails loudly as the release defect it
+  is.
+- **The engine now RECORDS `generated → eligible` at persistence.** P7-DATA-01's lifecycle comment
+  named the engine as exactly this transition's decider ("this function only records an
+  already-decided outcome"); a planned candidate has passed the section-3 eligibility and safety
+  filters by construction, so `EvaluateGardenRecommendations` applies
+  `markRecommendationCandidateEligible` before insert and candidates land `eligible` (revision 2),
+  the state Today reads. `generated` remains the in-construction state — and the state legacy rows
+  rest in, invisible to Today (they predate any presentation surface, carry no explanation, and
+  drain naturally through the sweeps' supersession/expiry edges).
+- **The QUERY marks first presentation — read-triggers-write, documented in the contract.**
+  `eligible → presented` happens when a candidate is first INCLUDED in a returned Today response,
+  because inclusion IS section 6's presentation fact; a separate acknowledge command would leave
+  the lifecycle hostage to client cooperation, stranding candidates in `eligible` where the
+  feedback commands' `presented`-state precondition (pinned by the migration's `presented_at`
+  CHECK) would reject every action. The transition is naturally idempotent (only the first
+  inclusion writes; the GET stays safely retryable with no idempotency key), capped candidates
+  beyond `limit` are not marked, and the whole read-mark-return runs in ONE transaction under the
+  SAME per-garden advisory lock the evaluation and expiry sweeps take — presentation can never
+  interleave with a supersession or expiry of the same candidate, and a revision-guard loss is a
+  foreign-writer defect refused loudly. Authorization is `viewGarden` (the mark is server
+  bookkeeping riding a read, not a member content edit); the feedback commands use
+  `editGardenContent` like every task command.
+- **Priority is re-derived from the STORED factors, through one shared function.** The Today order
+  is `derivePriorityScoreFromStoredFactors`: parse each stored `{ contribution, basis }` value
+  (malformed = loud `InternalError` — only the engine writes these rows), sum, clamp to [0, 100] —
+  `aggregatePriorityContributions`, the SAME function the engine now uses at generation, so
+  write-side and read-side scores provably cannot drift ("the stored rows alone reproduce and
+  explain the rank", exactly as Stage 17 promised this stage). Ties break by sooner `windowEnd`
+  first (`null` last — no deadline pressure), then id. The response carries the factors themselves
+  (`{ kind, contribution, basis }`) and the structured evidence rows — "reason, urgency,
+  uncertainty, and controls", with uncertainty living in the `confidence` factor and any
+  stale-weather labels inside factor bases and evidence values. `limit` is a bounded cap
+  (default 10, max 25) on a prioritized selection, deliberately not cursor pagination — FR-3 asks
+  for a LIMITED set.
+- **Feedback commands: append + transition, one transaction each, exactly the documented
+  kind↔state pairing.** Complete → feedback `completed`, state `completed`; postpone → feedback
+  `postponed` (with the user's optional `postponedUntil` — nullable even then, no horizon
+  invented), state `postponed`; dismiss → feedback `dismissed`, state `rejected` (FR-24's verb,
+  section 6's state); mark-irrelevant → feedback ONLY, no transition and no revision bump, legal on
+  `presented` (still visible) or `rejected` ("accompanies or follows a dismissal" — the
+  migration's own words). All revision-guarded (`If-Match`) and idempotent (`Idempotency-Key`
+  through `runIdempotentCommand`); the commands deliberately do NOT take the advisory lock — they
+  touch only `presented` rows, and the one legitimate race (a user acting in a candidate's exact
+  expiry/supersession moment) resolves by revision guard, with the sweep counting its loss as
+  `lostRaces` (its "unreachable" comment updated honestly: these commands ARE now the anticipated
+  non-locking writers).
+- **Task conversion: acting on the candidate, closing the loop.** One transaction: `presented →
+completed` + a `completed` feedback row (FR-24's closed vocabulary has no conversion verb; the
+  task linkage carries the distinction — a conversion-completion has an origin-linked task, a
+  did-it-now completion does not) + `createTaskFromRecommendation`: `source: 'suggested'` and
+  `originRecommendationId` set together (the migration's equivalence CHECK finally exercised from
+  the task side), `status: 'planned'` (the USER asked — accepted work, not a proposal awaiting
+  acceptance), title from the rule version's `actionTitle` (section 5's "Suggested action
+  template"), the stored explanation as notes (the Reason survives onto the task), target, urgency,
+  and validity window verbatim, `dueDate` null (no calendar date invented). Journaled
+  (`convertRecommendationToTask` joins `TaskCommandType`) and sync-recorded exactly like
+  `CreateManualTask` — the converted task IS a synced record family and reaches offline clients
+  immediately. The engine then suppresses the rule for that target via the open task's provable
+  origin equivalence — proven end to end in the outcome-history suite.
+- **The postponed-prior gap Stage 17 left is now wired, honestly.** The engine treated a postponed
+  prior like any resolved candidate (recurrence from creation, no linkage). Now:
+  `listLatestPerRuleAndTarget` joins the latest `postponed` feedback's horizon,
+  `PriorCandidateFact` carries `postponedUntil`, and the engine's phase 4 makes the user's own
+  horizon the suppression boundary in BOTH directions (an explicit "later" beats the default
+  spacing; the recurrence interval is the fallback when none was named — nothing invented), with a
+  typed `postponedAwaitingResurface` suppression. On re-surfacing, the NEW candidate stores
+  `supersedesCandidateId` pointing at the postponed record WITHOUT transitioning it (`postponed` is
+  terminal; its evidence and feedback stay unmodified) — `PlannedCandidate` therefore now separates
+  the stored backward reference (`supersedesCandidateId`) from the live-prior transition
+  (`supersedesLiveCandidate`), and the sweep counts only real transitions as `candidatesSuperseded`.
+  Three new reviewable fixtures pin the behavior alongside three engine unit tests.
+- **Contract:** new `Recommendations` tag (candidates are engine-generated; these operations read
+  and act, never create), reusing `TaskUrgency`/`TaskTargetKind` (the columns share one P0-PROD-03
+  glossary by design — shared schemas, not translated twins). `Task` gains `originRecommendationId`
+  (additive, api-design §21's preferred evolution) so the outcome-history linkage is
+  client-readable on every task read, not only in the conversion response; the two web-app test
+  literals gained the field. `TodayRecommendation` is declared flat rather than via `allOf` —
+  composing over an `additionalProperties: false` base is semantically broken JSON Schema.
+- **Sync-protocol decision: NOT now, shaped for later.** Recommendations are not a synced record
+  family, so routing the new commands through `/v1/sync/push` today would be dead contract surface
+  no client consumes (the established dead-composition posture). The commands are SHAPED like the
+  task commands (idempotency key reusable as `operationId`, `expectedRevision` guards), so if
+  P7-IOS-01 decides Today actions must work offline, a `route-recommendation-operation.ts` on the
+  `route-task-operation.ts` pattern plus payload contracts is the whole gap — recorded in
+  deferred-capabilities.md for that stage to pick up deliberately.
+- **Composition:** the tasks-recommendations wiring moved whole into
+  `compose-tasks-recommendations.ts` (app.ts was at 573 of 600 lines — the exact split reason its
+  siblings document), with ONE `RuleCatalog` instance shared by evaluation and the Today surface so
+  resolved versions are the registered versions.
+
+### Fixed in place (not deferred)
+
+1. The presentable-explanation CHECK's first draft (`state IN ('generated','expired','superseded')
+OR explanation IS NOT NULL`) policed state vocabulary too — an unknown state tripped it
+   alongside the state CHECK, caught by P7-DATA-01's own migration suite exactly as its timestamp
+   CHECK's history warned. Rewritten as the implication above; the baseline suite's presentation-
+   timestamp rows now carry explanations so each rejection isolates one constraint.
+2. `RunRecommendationEvaluationSweep`'s expiry-phase comment claimed a revision-guard loss was
+   "unreachable"; with the non-locking feedback commands that stopped being true — updated to name
+   the legitimate race and its counted, retried resolution.
+3. The outcome-history suite's candidate-ordering assertion first assumed harvest-before-reminder;
+   creation order within one evaluation is catalog order (reminder first), so the UUIDv7 tie-break
+   at the shared `created_at` instant orders the reminder first — assertion corrected with the
+   reasoning inline.
+
+### Known limitations, deliberately deferred (recorded in `deferred-capabilities.md`)
+
+- Offline Today actions in the sync protocol — P7-IOS-01's decision (see the sync bullet above).
+- Garden-area `targetDisplayName` resolution — no launch rule produces an area target; the first
+  area-targeting rule brings the name resolution with it.
+- The AI explanation record (prompt/model/config versions, generated text, validation outcome) —
+  P7-AI-01 owns its shape; the stored deterministic text is its guaranteed fallback baseline.
+
+### Verification evidence
+
+- Full API suite: 148 files / 1009 tests before → **154 files / 1064 tests** after (+55): +6 files
+  — `get-today-view.test.ts`,
+  `recommendation-feedback-commands.test.ts`, `convert-recommendation-to-task.test.ts` (unit, with
+  the new `seedRecommendationCandidate` double), `recommendation-routes.test.ts` (HTTP: auth,
+  header requirements, 404 concealment, the full feedback loop and conversion over real HTTP),
+  `recommendation-today-outcomes.test.ts` (the acceptance evidence: one real-PostgreSQL care-loop —
+  engine generation → priority-ordered Today with first-presentation marking → conversion with
+  journal/sync-change/feedback/origin-task rows → open-task suppression → postponement with
+  horizon → typed awaiting-resurface suppression → re-surfacing with the backward reference and
+  the postponed record untouched → dismiss + irrelevant → the whole chain read back from rows
+  alone), and `recommendation-explanation.test.ts` (migration up/CHECKs/down) — plus new unit
+  coverage in the priority, task, rule-evaluation, and fixture suites; all green, real Docker.
+- Rollback-count ripple applied: all twelve earlier rollback-testing migration suites bumped +1
+  (2 through 13) with their range comments updated to name `recommendation-explanation` as the new
+  top.
+- `@verdery/api-contracts`: redocly lint clean, `generate:check` clean, 29 contract tests pass.
+- Workers suite: 20 files / 112 tests, untouched and green. Web suite: 57 files / 455 tests green
+  (two `Task` literals gained the additive field).
+- Root `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `node scripts/check-file-size.mjs` all
+  clean.

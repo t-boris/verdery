@@ -34,6 +34,7 @@ function candidate(overrides: Partial<RecommendationCandidate> = {}): Recommenda
     targetGardenAreaMapObjectId: null,
     targetPlantId: null,
     careCategory: 'watering',
+    explanation: 'Recent dry weather suggests a watering check.',
     ruleVersionId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9e03',
     safetyTier: 'ordinary_care',
     state: 'generated',

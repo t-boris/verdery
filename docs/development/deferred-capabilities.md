@@ -153,6 +153,25 @@ expiry. `EvaluateGardenRecommendations` additionally appends one `recommendation
 outbox event per created candidate in the same transaction — see the recommendation-notification
 entry below for why the consumer does not exist yet.
 
+Phase 7 now includes P7-BE-01: the Today surface — the first client-facing recommendation HTTP
+surface, under the OpenAPI `Recommendations` tag. `GET /v1/gardens/{gardenId}/today` returns the
+capped prioritized presentable set (candidates in `eligible`/`presented` whose validity window
+covers now, ordered by the score re-derived from the STORED priority factors — the clamped sum of
+`{ contribution, basis }` contributions, the same shared aggregation the engine writes with) and
+records first presentation as a read-triggered `eligible → presented` transition under the
+per-garden advisory lock. Five commands (each revision-guarded via `If-Match`, idempotent via
+`Idempotency-Key`, one transaction each) implement FR-24's controls: complete (feedback `completed`
+→ state `completed`), postpone (feedback `postponed` with the optional user horizon → state
+`postponed`; the ENGINE re-surfaces later — a NEW candidate referencing the postponed record via
+`supersedes_candidate_id`, the postponed record untouched), dismiss (feedback `dismissed` → state
+`rejected`), mark-irrelevant (feedback-only, no transition, legal on `presented`/`rejected`), and
+convert-to-task (candidate → `completed` + `completed` feedback + a `source: 'suggested'` task
+carrying `origin_recommendation_id`, the rule's action title, and the stored explanation as notes,
+journaled and sync-recorded like every task). The engine now persists each candidate's rendered
+deterministic explanation (migration `1785800000000_recommendation-explanation.sql` — nullable only
+on legacy pre-P7-BE-01 rows, which drain through supersession/expiry and are never presentable) and
+records the `generated → eligible` transition at persistence time.
+
 ## What remains deferred, and why
 
 **Staging and production.** Only `verdery-dev` exists. Creating `verdery-staging` and `verdery-prod`
@@ -396,6 +415,24 @@ correct backlog, not a leak — until P7-NOTIF-01's notification policy claims t
 that backlog late is safe by the flow's own design: the send worker rechecks recommendation
 freshness, preference, and expiration immediately before delivery (notifications.md section 9), so
 a stale candidate-created event closes without a notification.
+
+**Offline Today actions in the sync protocol — P7-IOS-01's decision.** The P7-BE-01 recommendation
+commands are deliberately NOT routed through `POST /v1/sync/push`: recommendations are not a synced
+record family (candidates are server-generated, and no client replicates them offline today), so
+adding `recommendation` operations to the sync contract now would be dead surface no client
+consumes — the same "wiring dependencies no caller reaches is dead composition" posture P7-DATA-01
+and P7-INT-01 applied to their own unwired halves. The commands are SHAPED for that future exactly
+like the task commands (idempotency key reusable as a sync `operationId`, `expectedRevision`
+guards, per-operation conflict semantics), so if the iOS stage decides Today actions must work
+offline, a `route-recommendation-operation.ts` following `route-task-operation.ts`'s pattern plus
+the sync payload contracts is the whole gap. The CONVERTED task, by contrast, is a task — its
+creation already writes the `sync_change` row offline clients pull.
+
+**Garden-area target display names in Today (P7-BE-01 scope boundary).** `targetDisplayName`
+resolves the plant's current display name for plant targets and `null` for garden targets (the
+client knows its garden). Garden-AREA targets also return `null` this pass, honestly: no launch
+rule produces an area-targeted candidate, and map-object display naming lives in category detail
+tables no current read path needs — the first area-targeting rule brings the resolution with it.
 
 **Bulk recommendation computation via Cloud Run Jobs (P7-ASYNC-01 scope boundary).** The
 recommendation sweep drains ALL eligible gardens per run in bounded keyset pages inside one

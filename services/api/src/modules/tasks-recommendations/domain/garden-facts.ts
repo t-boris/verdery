@@ -116,6 +116,14 @@ export interface PriorCandidateFact {
   readonly target: RecommendationTarget;
   readonly windowEnd: Date | null;
   readonly createdAt: Date;
+  /**
+   * The user's re-surfacing horizon from the latest `postponed` feedback
+   * row, when this candidate is `postponed` and the user named one; `null`
+   * otherwise (including a horizon-less postponement — the feedback row's
+   * own nullable posture). Drives the engine's postponed-prior re-surfacing
+   * rule (P7-BE-01) — see `rule-evaluation.ts`.
+   */
+  readonly postponedUntil: Date | null;
 }
 
 /**

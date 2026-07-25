@@ -57,6 +57,7 @@ function baseInput(
     gardenId: GARDEN_ID,
     target: GARDEN_TARGET,
     rawCareCategory: 'watering',
+    rawExplanation: 'Recent dry weather suggests a watering check.',
     ruleVersionId: RULE_VERSION_ID,
     ruleSafetyTier: 'ordinary_care',
     urgency: 'normal',

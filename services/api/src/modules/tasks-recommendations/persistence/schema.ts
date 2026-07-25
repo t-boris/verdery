@@ -76,6 +76,8 @@ export interface RecommendationCandidateRow {
   target_garden_area_id: string | null;
   target_plant_id: string | null;
   care_category: string;
+  /** The deterministic explanation rendered at generation time (P7-BE-01). `null` only on legacy rows predating 1785800000000_recommendation-explanation.sql — see that migration's header. */
+  explanation: string | null;
   rule_version_id: string;
   safety_tier: string;
   state: Generated<string>;

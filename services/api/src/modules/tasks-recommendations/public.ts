@@ -46,10 +46,21 @@
  * `recommendation.candidate_created` outbox event per created candidate for
  * P7-NOTIF-01's coming notification flow.
  *
+ * P7-BE-01 adds the Today surface — the first client-facing recommendation
+ * HTTP surface: `GetTodayView` (the prioritized presentable set, marking
+ * first presentation), the four FR-24 feedback commands
+ * (`CompleteRecommendation`/`PostponeRecommendation`/`DismissRecommendation`/
+ * `MarkRecommendationIrrelevant`), `ConvertRecommendationToTask`, and their
+ * routes under the `Recommendations` tag. The engine now persists each
+ * candidate's rendered deterministic explanation and records the
+ * `generated -> eligible` transition at creation; the postponed-prior
+ * re-surfacing rule joins the engine (`rule-evaluation.ts`, phase 4).
+ *
  * Source: architecture/backend-modular-monolith.md, section "5.5 Public Interface".
  */
 
 export type {
+  CreateTaskFromRecommendationInput,
   CreateTaskInput,
   Task,
   TaskDetailChanges,
@@ -59,6 +70,7 @@ export type {
   TaskTimeWindow,
   TaskUrgency,
 } from './domain/task.js';
+export { createTaskFromRecommendation } from './domain/task.js';
 export type { TaskStatus, TaskTerminalStatus } from './domain/task-lifecycle.js';
 export type { TaskAttachment } from './domain/task-attachment.js';
 
@@ -76,6 +88,7 @@ export {
   createRecommendationCandidate,
   requireGeneratableSafetyTier,
   validateCareCategory,
+  validateRecommendationExplanation,
   validateRecommendationTarget,
   validateRecommendationWindow,
 } from './domain/recommendation-candidate.js';
@@ -103,11 +116,17 @@ export {
   supersedeRecommendationCandidate,
 } from './domain/recommendation-lifecycle.js';
 export type { RecommendationCandidateState } from './domain/recommendation-lifecycle.js';
-export { createRecommendationPriorityFactors } from './domain/recommendation-priority.js';
+export {
+  aggregatePriorityContributions,
+  createRecommendationPriorityFactors,
+  derivePriorityScoreFromStoredFactors,
+  parseStoredPriorityFactorValue,
+} from './domain/recommendation-priority.js';
 export type {
   NewRecommendationPriorityFactor,
   RecommendationPriorityFactor,
   RecommendationPriorityFactorKind,
+  StoredPriorityFactorValue,
 } from './domain/recommendation-priority.js';
 export { createRecommendationFeedback } from './domain/recommendation-feedback.js';
 export type {
@@ -220,8 +239,32 @@ export { ListTasksForGarden } from './application/list-tasks-for-garden.js';
 export { AttachTaskFile } from './application/attach-task-file.js';
 export type { AttachTaskFileInput } from './application/attach-task-file.js';
 
+export {
+  GetTodayView,
+  TODAY_DEFAULT_LIMIT,
+  TODAY_MAX_LIMIT,
+} from './application/get-today-view.js';
+export {
+  CompleteRecommendation,
+  DismissRecommendation,
+  MarkRecommendationIrrelevant,
+  PostponeRecommendation,
+} from './application/recommendation-feedback-commands.js';
+export { ConvertRecommendationToTask } from './application/convert-recommendation-to-task.js';
+export type { ConvertRecommendationToTaskResult } from './application/convert-recommendation-to-task.js';
+export { RecommendationErrorCode } from './application/recommendation-errors.js';
+export type {
+  RecommendationEvidenceResource,
+  RecommendationPriorityFactorResource,
+  RecommendationResource,
+  TodayRecommendationResource,
+  TodayViewResource,
+} from './application/recommendation-view.js';
+
 export { registerTaskRoutes } from './transport/task-routes.js';
 export type { TaskRoutesDependencies } from './transport/task-routes.js';
+export { registerRecommendationRoutes } from './transport/recommendation-routes.js';
+export type { RecommendationRoutesDependencies } from './transport/recommendation-routes.js';
 export { registerRecommendationEvaluationSweepRoute } from './transport/recommendation-evaluation-sweep-route.js';
 export type { RecommendationEvaluationSweepRouteDependencies } from './transport/recommendation-evaluation-sweep-route.js';
 

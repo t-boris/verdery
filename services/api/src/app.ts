@@ -19,6 +19,7 @@ import { composeGardensMapping } from './compose-gardens-mapping.js';
 import { composeIntegrations } from './compose-integrations.js';
 import { composeMedia } from './compose-media.js';
 import { composeSynchronization } from './compose-synchronization.js';
+import { composeTasksRecommendations } from './compose-tasks-recommendations.js';
 import { registerWeatherRefreshSweepRoute } from './modules/integrations/public.js';
 import { registerGardenRoutes, registerMapRoutes } from './modules/gardens-mapping/public.js';
 import {
@@ -66,25 +67,10 @@ import {
   ServiceHealth,
 } from './modules/service-health/public.js';
 import {
-  AttachTaskFile,
-  CompleteTask,
-  createLaunchRuleCatalog,
-  CreateManualTask,
-  DeleteTask,
-  DismissTask,
-  EditTask,
-  EvaluateGardenRecommendations,
-  KyselyEvaluationGardenSource,
-  KyselyTaskRepository,
-  KyselyTasksRecommendationsUnitOfWork,
-  ListTasksForGarden,
   registerRecommendationEvaluationSweepRoute,
+  registerRecommendationRoutes,
   registerTaskRoutes,
-  RescheduleTask,
-  RunRecommendationEvaluationSweep,
-  SkipTask,
 } from './modules/tasks-recommendations/public.js';
-import type { RecommendationEvaluationSweepRouteDependencies } from './modules/tasks-recommendations/public.js';
 import { registerSyncRoutes } from './modules/synchronization/public.js';
 import { KyselyAuditLogger } from './platform/audit/kysely-audit-logger.js';
 import { registerAppCheck } from './platform/app-check/app-check-plugin.js';
@@ -369,86 +355,6 @@ export async function buildApplication(
     searchTaxonomyReferences,
   };
 
-  // tasks-recommendations: owns `task`, `task_attachment`, and `task_revision`.
-  // Reuses `gardenAuthorization` and `getObservation` (validates
-  // `CreateManualTask`'s `originObservationId`). HTTP transport
-  // (`registerTaskRoutes`, tag `Tasks`) wired below.
-  const taskRepository = new KyselyTaskRepository(database.queries);
-  const tasksRecommendationsIdempotency = new KyselyIdempotencyStore(database.queries, clock);
-  const tasksRecommendationsUnitOfWork = new KyselyTasksRecommendationsUnitOfWork(
-    database.queries,
-    clock,
-  );
-  const createManualTask = new CreateManualTask(
-    tasksRecommendationsIdempotency,
-    tasksRecommendationsUnitOfWork,
-    gardenAuthorization,
-    getObservation,
-    clock,
-  );
-  const editTask = new EditTask(
-    taskRepository,
-    tasksRecommendationsIdempotency,
-    tasksRecommendationsUnitOfWork,
-    gardenAuthorization,
-    clock,
-  );
-  const rescheduleTask = new RescheduleTask(
-    taskRepository,
-    tasksRecommendationsIdempotency,
-    tasksRecommendationsUnitOfWork,
-    gardenAuthorization,
-    clock,
-  );
-  const completeTask = new CompleteTask(
-    taskRepository,
-    tasksRecommendationsIdempotency,
-    tasksRecommendationsUnitOfWork,
-    gardenAuthorization,
-    clock,
-  );
-  const dismissTask = new DismissTask(
-    taskRepository,
-    tasksRecommendationsIdempotency,
-    tasksRecommendationsUnitOfWork,
-    gardenAuthorization,
-    clock,
-  );
-  const skipTask = new SkipTask(
-    taskRepository,
-    tasksRecommendationsIdempotency,
-    tasksRecommendationsUnitOfWork,
-    gardenAuthorization,
-    clock,
-  );
-  const deleteTask = new DeleteTask(
-    taskRepository,
-    tasksRecommendationsIdempotency,
-    tasksRecommendationsUnitOfWork,
-    gardenAuthorization,
-    clock,
-  );
-  const listTasksForGarden = new ListTasksForGarden(taskRepository, gardenAuthorization);
-  const attachTaskFile = new AttachTaskFile(
-    taskRepository,
-    tasksRecommendationsIdempotency,
-    tasksRecommendationsUnitOfWork,
-    gardenAuthorization,
-    clock,
-  );
-
-  const taskRoutesDependencies = {
-    createManualTask,
-    listTasksForGarden,
-    editTask,
-    rescheduleTask,
-    completeTask,
-    dismissTask,
-    skipTask,
-    deleteTask,
-    attachTaskFile,
-  };
-
   // integrations (P7-ASYNC-01): the weather registry (zero registrations —
   // P0-PROV-01 undecided), both weather use cases, and the scheduled
   // weather-refresh sweep + internal route. Split into
@@ -460,28 +366,26 @@ export async function buildApplication(
     cloudTasksInvocationVerifier,
   );
 
-  // The scheduled recommendation sweep (P7-ASYNC-01): full-drain rule
-  // evaluation over eligible gardens (active, holding at least one active
-  // plant) plus the candidate-expiry phase P7-RULE-01 deferred here. Reuses
-  // `tasksRecommendationsUnitOfWork` — its transaction context now carries
-  // the outbox appender `EvaluateGardenRecommendations` emits
-  // `recommendation.candidate_created` through.
-  const evaluateGardenRecommendations = new EvaluateGardenRecommendations(
-    tasksRecommendationsUnitOfWork,
-    createLaunchRuleCatalog(),
-    getGardenWeather,
+  // tasks-recommendations: task commands (tag `Tasks`), the scheduled
+  // recommendation-evaluation sweep (P7-ASYNC-01), and the Today surface —
+  // query, feedback commands, task conversion (P7-BE-01, tag
+  // `Recommendations`). Reuses `gardenAuthorization`, `getObservation`
+  // (validates `CreateManualTask`'s `originObservationId`), and
+  // integrations' `getGardenWeather`. Split into
+  // `compose-tasks-recommendations.ts` for the same 600-line reason as its
+  // siblings.
+  const {
+    taskRoutesDependencies,
+    recommendationRoutesDependencies,
+    recommendationEvaluationSweepRouteDependencies,
+  } = composeTasksRecommendations(
+    database,
     clock,
+    gardenAuthorization,
+    getObservation,
+    getGardenWeather,
+    cloudTasksInvocationVerifier,
   );
-  const recommendationEvaluationSweepRouteDependencies: RecommendationEvaluationSweepRouteDependencies =
-    {
-      runRecommendationEvaluationSweep: new RunRecommendationEvaluationSweep(
-        new KyselyEvaluationGardenSource(database.queries),
-        evaluateGardenRecommendations,
-        tasksRecommendationsUnitOfWork,
-        clock,
-      ),
-      cloudTasksInvocationVerifier,
-    };
 
   // synchronization (P5-BE-01, P5-API-01): the native offline outbox
   // protocol's client-registration, push, and acknowledge endpoints. Depends
@@ -562,6 +466,7 @@ export async function buildApplication(
       registerPlantRoutes(instance, plantRoutesDependencies);
       registerObservationRoutes(instance, observationRoutesDependencies);
       registerTaskRoutes(instance, taskRoutesDependencies);
+      registerRecommendationRoutes(instance, recommendationRoutesDependencies);
       registerMediaRoutes(instance, mediaRoutesDependencies);
       registerSyncRoutes(instance, syncRoutesDependencies);
       done();

@@ -134,6 +134,19 @@ export type CompleteTaskRequest = Schemas['CompleteTaskRequest'];
 export type DismissTaskRequest = Schemas['DismissTaskRequest'];
 export type AttachTaskFileRequest = Schemas['AttachTaskFileRequest'];
 
+/** The Today view and recommendation schemas (P7-BE-01). */
+export type RecommendationState = Schemas['RecommendationState'];
+export type RecommendationSafetyTier = Schemas['RecommendationSafetyTier'];
+export type RecommendationEvidenceKind = Schemas['RecommendationEvidenceKind'];
+export type RecommendationPriorityFactorKind = Schemas['RecommendationPriorityFactorKind'];
+export type RecommendationPriorityFactor = Schemas['RecommendationPriorityFactor'];
+export type RecommendationEvidence = Schemas['RecommendationEvidence'];
+export type Recommendation = Schemas['Recommendation'];
+export type TodayRecommendation = Schemas['TodayRecommendation'];
+export type TodayResult = Schemas['TodayResult'];
+export type PostponeRecommendationRequest = Schemas['PostponeRecommendationRequest'];
+export type ConvertRecommendationToTaskResult = Schemas['ConvertRecommendationToTaskResult'];
+
 /** The media schemas (P6-API-01). */
 export type MediaClass = Schemas['MediaClass'];
 export type MediaUploadState = Schemas['MediaUploadState'];

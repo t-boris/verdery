@@ -54,7 +54,8 @@ function evaluationResult(
       urgency: 'high',
       priorityScore: 75,
       explanation: 'explanation',
-      supersededCandidateId: item.supersededCandidateId,
+      supersedesCandidateId: item.supersededCandidateId,
+      supersededLivePrior: item.supersededCandidateId !== null,
     })),
   };
 }
@@ -99,6 +100,7 @@ function seedLiveCandidate(
     targetGardenAreaMapObjectId: null,
     targetPlantId: null,
     careCategory: 'harvest',
+    explanation: 'explanation',
     ruleVersionId,
     safetyTier: 'ordinary_care',
     state: 'generated',

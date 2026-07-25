@@ -68,7 +68,10 @@ import type {
   RecommendationUrgency,
 } from '../domain/recommendation-candidate.js';
 import { createRecommendationCandidate } from '../domain/recommendation-candidate.js';
-import { supersedeRecommendationCandidate } from '../domain/recommendation-lifecycle.js';
+import {
+  markRecommendationCandidateEligible,
+  supersedeRecommendationCandidate,
+} from '../domain/recommendation-lifecycle.js';
 import { createRecommendationPriorityFactors } from '../domain/recommendation-priority.js';
 import { createRuleVersion } from '../domain/rule-version.js';
 import type { RuleCatalog } from '../domain/rule-catalog.js';
@@ -98,7 +101,10 @@ export interface CreatedRecommendationSummary {
   readonly priorityScore: number;
   /** The deterministic explanation, rendered at generation time. */
   readonly explanation: string;
-  readonly supersededCandidateId: Uuid | null;
+  /** The stored backward reference: a replaced live prior, or a re-surfaced postponed prior (P7-BE-01). */
+  readonly supersedesCandidateId: Uuid | null;
+  /** `true` when the referenced prior was live and transitioned to `superseded` in this evaluation; `false` for a postponed re-surface (the prior is terminal and untouched) and for unlinked candidates. */
+  readonly supersededLivePrior: boolean;
 }
 
 export interface EvaluateGardenRecommendationsResult {
@@ -137,6 +143,7 @@ function toPriorCandidateFact(stored: StoredCandidateWithRule): PriorCandidateFa
     },
     windowEnd: stored.candidate.windowEnd,
     createdAt: stored.candidate.createdAt,
+    postponedUntil: stored.postponedUntil,
   };
 }
 
@@ -184,18 +191,18 @@ export class EvaluateGardenRecommendations {
 
       const createdCandidates: CreatedRecommendationSummary[] = [];
       for (const planned of plan.plannedCandidates) {
-        if (planned.supersedes !== null) {
-          const prior = liveById.get(planned.supersedes.candidateId);
+        if (planned.supersedesLiveCandidate !== null) {
+          const prior = liveById.get(planned.supersedesLiveCandidate.candidateId);
           if (prior === undefined) {
             throw new InternalError(
               'tasks_recommendations.evaluate_recommendations.superseded_not_loaded',
-              `Candidate '${planned.supersedes.candidateId}' was planned for supersession but is not among the loaded live candidates.`,
+              `Candidate '${planned.supersedesLiveCandidate.candidateId}' was planned for supersession but is not among the loaded live candidates.`,
             );
           }
           const transitioned = supersedeRecommendationCandidate(prior.candidate, evaluatedAt);
           const written = await context.recommendationCandidates.update(
             transitioned,
-            planned.supersedes.expectedRevision,
+            planned.supersedesLiveCandidate.expectedRevision,
           );
           if (!written) {
             // The advisory lock makes this unreachable from a concurrent
@@ -223,12 +230,13 @@ export class EvaluateGardenRecommendations {
           gardenId,
           target: planned.target,
           rawCareCategory: planned.careCategory,
+          rawExplanation: planned.explanation,
           ruleVersionId: versionId,
           ruleSafetyTier: planned.safetyTier,
           urgency: planned.urgency,
           windowStart: planned.windowStart,
           windowEnd: planned.windowEnd,
-          supersedesCandidateId: planned.supersedes?.candidateId ?? null,
+          supersedesCandidateId: planned.supersedesCandidateId,
           evidence: planned.evidence.map((spec) => ({
             id: generateUuidV7(),
             kind: spec.kind,
@@ -241,6 +249,13 @@ export class EvaluateGardenRecommendations {
           })),
           now: evaluatedAt,
         });
+        // The engine's own section-3 eligibility and safety filters passed
+        // by the moment this candidate was planned, so the persisted row
+        // records that already-decided outcome (P7-DATA-01's lifecycle
+        // comment names the engine as exactly this transition's decider):
+        // candidates land `eligible`, the state the Today surface
+        // (P7-BE-01) reads. `generated` remains the in-construction state.
+        const eligible = markRecommendationCandidateEligible(aggregate.candidate, evaluatedAt);
         const factors = createRecommendationPriorityFactors(
           candidateId,
           planned.factors.map((factor) => ({
@@ -250,7 +265,10 @@ export class EvaluateGardenRecommendations {
           })),
           evaluatedAt,
         );
-        await context.recommendationCandidates.insertAggregate(aggregate, factors);
+        await context.recommendationCandidates.insertAggregate(
+          { candidate: eligible, evidence: aggregate.evidence },
+          factors,
+        );
 
         // Same transaction as the candidate insert — see the header comment.
         const eventPayload: RecommendationCandidateCreatedEventPayload = {
@@ -265,7 +283,7 @@ export class EvaluateGardenRecommendations {
           priorityScore: planned.priorityScore,
           windowStart: planned.windowStart.toISOString(),
           windowEnd: planned.windowEnd.toISOString(),
-          supersedesCandidateId: planned.supersedes?.candidateId ?? null,
+          supersedesCandidateId: planned.supersedesCandidateId,
         };
         await context.outbox.append({
           eventType: RECOMMENDATION_CANDIDATE_CREATED_EVENT_TYPE,
@@ -282,7 +300,8 @@ export class EvaluateGardenRecommendations {
           urgency: planned.urgency,
           priorityScore: planned.priorityScore,
           explanation: planned.explanation,
-          supersededCandidateId: planned.supersedes?.candidateId ?? null,
+          supersedesCandidateId: planned.supersedesCandidateId,
+          supersededLivePrior: planned.supersedesLiveCandidate !== null,
         });
       }
 

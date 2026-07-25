@@ -344,18 +344,27 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('ties presented_at to the states that imply presentation', async () => {
     await freshFoundation();
 
+    // These rows carry an explanation so the presentable-explanation CHECK
+    // (1785800000000_recommendation-explanation.sql) stays satisfied and
+    // each rejection below isolates the timestamp CHECK alone.
+    const explanation = 'Watering check suggested by recent dry weather.';
+
     // Pre-presentation states must not carry the timestamp.
     await expect(
-      insertCandidateWithEvidence({ state: 'eligible', presented_at: new Date() }),
+      insertCandidateWithEvidence({ state: 'eligible', presented_at: new Date(), explanation }),
     ).rejects.toThrow(/recommendation_candidate_presentation_timestamp_check/);
     // Post-presentation user outcomes must.
-    await expect(insertCandidateWithEvidence({ state: 'completed' })).rejects.toThrow(
+    await expect(insertCandidateWithEvidence({ state: 'completed', explanation })).rejects.toThrow(
       /recommendation_candidate_presentation_timestamp_check/,
     );
     // expired/superseded are reachable from both sides, so both are legal.
     await insertCandidateWithEvidence({ state: 'expired' });
     await insertCandidateWithEvidence({ state: 'superseded', presented_at: new Date() });
-    await insertCandidateWithEvidence({ state: 'presented', presented_at: new Date() });
+    await insertCandidateWithEvidence({
+      state: 'presented',
+      presented_at: new Date(),
+      explanation,
+    });
   });
 
   it('enforces the evidence kind vocabulary, fact key, and per-kind reference consistency', async () => {
@@ -467,12 +476,14 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     await client.end();
 
-    // `count: 2` undoes 1785700000000_integrations-weather-baseline.sql
-    // (the newest migration — its weather table only feeds the FK exercised
-    // above, nothing this test's own assertions below check) first, then
-    // this migration itself. Update again the next time a migration is
-    // added on top of that one.
-    await migrate(databaseUrl, 'down', 2);
+    // `count: 3` undoes the two newer migrations
+    // (1785700000000_integrations-weather-baseline.sql and
+    // 1785800000000_recommendation-explanation.sql — the weather table only
+    // feeds the FK exercised above, and the explanation column adds nothing
+    // this test's own assertions below check) first, then this migration
+    // itself. Update again the next time a migration is added on top of
+    // that one.
+    await migrate(databaseUrl, 'down', 3);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

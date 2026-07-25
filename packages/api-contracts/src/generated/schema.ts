@@ -922,6 +922,201 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/gardens/{gardenId}/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get the Today recommendation set
+         * @description The garden's small prioritized set of actionable recommendations:
+         *     candidates in `eligible`/`presented` whose validity window covers
+         *     now, ordered by priority score descending — the score is re-derived
+         *     server-side from each candidate's STORED priority factors as the
+         *     clamped-to-[0,100] sum of their integer `contribution`s, so the
+         *     stored factors alone reproduce and explain the rank — with sooner
+         *     `windowEnd` first (nulls last) and candidate id as tie-breakers.
+         *
+         *     This query records FIRST PRESENTATION as a deliberate side effect:
+         *     an `eligible` candidate included in the response transitions to
+         *     `presented` (stamping `presentedAt` and bumping `revision`) in the
+         *     same transaction that read it, because inclusion in a returned
+         *     Today response IS the presentation fact. The transition happens
+         *     only on first inclusion, so repeating the request is safe — later
+         *     reads find `presented` and write nothing. Candidates beyond the
+         *     `limit` cap are not returned and not marked.
+         *
+         *     Source: implementation-plan.md work package P7-BE-01;
+         *     recommendations-and-ai.md section 6.
+         */
+        get: operations["getTodayRecommendations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/recommendations/{recommendationId}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                recommendationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete a recommendation
+         * @description Records `completed` feedback and transitions the candidate
+         *     `presented -> completed` in one transaction. Only legal while
+         *     `presented`.
+         *
+         *     Source: implementation-plan.md work package P7-BE-01.
+         */
+        post: operations["completeRecommendation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/recommendations/{recommendationId}/postpone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                recommendationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Postpone a recommendation
+         * @description Records `postponed` feedback (with the caller's optional
+         *     `postponedUntil` horizon) and transitions the candidate
+         *     `presented -> postponed` in one transaction. `postponed` is
+         *     TERMINAL: re-surfacing is the rule engine's job on a later
+         *     evaluation — after the horizon (or the rule's recurrence interval
+         *     when none was given) it may generate a NEW candidate referencing
+         *     this one via `supersedesCandidateId`, preserving this record's
+         *     evidence and feedback unmodified. Only legal while `presented`.
+         *
+         *     Source: implementation-plan.md work package P7-BE-01;
+         *     recommendations-and-ai.md section 6.
+         */
+        post: operations["postponeRecommendation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/recommendations/{recommendationId}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                recommendationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss a recommendation
+         * @description Records `dismissed` feedback and transitions the candidate
+         *     `presented -> rejected` in one transaction — the feedback verb is
+         *     FR-24's, the state is the lifecycle's own vocabulary. Only legal
+         *     while `presented`.
+         *
+         *     Source: implementation-plan.md work package P7-BE-01.
+         */
+        post: operations["dismissRecommendation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/recommendations/{recommendationId}/mark-irrelevant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                recommendationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Report a recommendation as not relevant
+         * @description Appends `irrelevant` feedback WITHOUT a lifecycle transition or
+         *     revision bump — the explicit quality signal that accompanies or
+         *     follows a dismissal. Legal on a still-visible `presented`
+         *     candidate or on an already-`rejected` one; the response echoes the
+         *     unchanged recommendation.
+         *
+         *     Source: implementation-plan.md work package P7-BE-01;
+         *     technical-specification.md FR-3.
+         */
+        post: operations["markRecommendationIrrelevant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/recommendations/{recommendationId}/convert-to-task": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                recommendationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Convert a recommendation into a task
+         * @description One transaction: the candidate transitions
+         *     `presented -> completed` (converting is acting on it — the work
+         *     now lives on the task list), a `completed` feedback row is
+         *     appended, and a task is created with `source: 'suggested'` and
+         *     `originRecommendationId` set together (the database enforces
+         *     exactly that pairing), `status: 'planned'`, the rule version's own
+         *     action title as the task title, the stored deterministic
+         *     explanation as the task notes, and the candidate's target,
+         *     urgency, and validity window carried over. The converted task's
+         *     `originRecommendationId` is what distinguishes a
+         *     conversion-completion from a did-it-now completion in the outcome
+         *     history. Only legal while `presented`.
+         *
+         *     Source: implementation-plan.md work package P7-BE-01;
+         *     technical-specification.md FR-25.
+         */
+        post: operations["convertRecommendationToTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/gardens/{gardenId}/media": {
         parameters: {
             query?: never;
@@ -2366,6 +2561,13 @@ export interface components {
             urgency: components["schemas"]["TaskUrgency"];
             source: components["schemas"]["TaskSource"];
             originObservationId: components["schemas"]["Uuid"] | null;
+            /**
+             * @description The recommendation candidate this task was converted from
+             *     (P7-BE-01) — set exactly when `source` is `'suggested'`, the
+             *     outcome-history linkage FR-24's explainability chain requires.
+             *     Always `null` for manual tasks.
+             */
+            originRecommendationId: components["schemas"]["Uuid"] | null;
             revision: components["schemas"]["Revision"];
             createdByProfileId: components["schemas"]["Uuid"];
             createdAt: components["schemas"]["Timestamp"];
@@ -2435,6 +2637,147 @@ export interface components {
         };
         AttachTaskFileRequest: {
             mediaId: components["schemas"]["Uuid"];
+        };
+        /**
+         * @description Section 6's candidate lifecycle. Responses here only ever carry
+         *     `presented` (Today items are marked presented on first inclusion)
+         *     or the state a command produced (`completed`, `postponed`,
+         *     `rejected`); the full vocabulary is declared so clients can render
+         *     any candidate a future surface exposes.
+         * @enum {string}
+         */
+        RecommendationState: "generated" | "eligible" | "presented" | "completed" | "postponed" | "rejected" | "expired" | "superseded";
+        /**
+         * @description Section 13's tiers, minus `restricted`: a restricted-tier candidate
+         *     is physically impossible (database CHECK + engine type), so the
+         *     contract does not pretend one could appear.
+         * @enum {string}
+         */
+        RecommendationSafetyTier: "ordinary_care" | "elevated_risk";
+        /**
+         * @description Section 4's structured-input list as the closed evidence vocabulary.
+         * @enum {string}
+         */
+        RecommendationEvidenceKind: "plant_identity" | "garden_context" | "weather" | "soil_moisture" | "observation" | "task" | "lifecycle_stage" | "geometry_exposure" | "user_preference";
+        /**
+         * @description Section 7's priority-input list as the closed factor vocabulary.
+         * @enum {string}
+         */
+        RecommendationPriorityFactorKind: "urgency_window" | "plant_impact" | "confidence" | "weather_opportunity_or_risk" | "user_effort_and_availability" | "task_overlap" | "safety_constraint" | "seasonal_constraint";
+        /**
+         * @description One stored, explainable priority input: the candidate's score is
+         *     the clamped-to-[0,100] sum of these integer contributions — the
+         *     factors alone reproduce the rank. `basis` names the facts the
+         *     contribution derives from (uncertainty signals such as low
+         *     confidence or a stale-weather label live here and in the evidence
+         *     values).
+         */
+        RecommendationPriorityFactor: {
+            kind: components["schemas"]["RecommendationPriorityFactorKind"];
+            contribution: number;
+            basis: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * @description One structured fact the recommendation rests on — FR-24's
+         *     "Evidence used". Reference kinds carry exactly their own source id;
+         *     context kinds carry none. `factValue` is the generation-time value
+         *     snapshot, `null` when the referenced row itself is the value.
+         */
+        RecommendationEvidence: {
+            id: components["schemas"]["Uuid"];
+            kind: components["schemas"]["RecommendationEvidenceKind"];
+            sourceObservationId: components["schemas"]["Uuid"] | null;
+            sourceTaskId: components["schemas"]["Uuid"] | null;
+            sourcePlantId: components["schemas"]["Uuid"] | null;
+            sourceWeatherRecordId: components["schemas"]["Uuid"] | null;
+            factKey: string;
+            factValue: unknown;
+        };
+        /**
+         * @description The command-response summary of one recommendation candidate.
+         *     `explanation` is the deterministic reason rendered and stored at
+         *     generation time — never re-rendered against current facts.
+         *     `revision` feeds the next command's `If-Match`.
+         */
+        Recommendation: {
+            id: components["schemas"]["Uuid"];
+            gardenId: components["schemas"]["Uuid"];
+            ruleKey: string;
+            ruleVersion: number;
+            careCategory: string;
+            safetyTier: components["schemas"]["RecommendationSafetyTier"];
+            state: components["schemas"]["RecommendationState"];
+            urgency: components["schemas"]["TaskUrgency"];
+            targetKind: components["schemas"]["TaskTargetKind"];
+            targetGardenAreaMapObjectId: components["schemas"]["Uuid"] | null;
+            targetPlantId: components["schemas"]["Uuid"] | null;
+            windowStart: components["schemas"]["Timestamp"] | null;
+            windowEnd: components["schemas"]["Timestamp"] | null;
+            explanation: string;
+            /** @description The prior candidate this one replaced or re-surfaced, when any — the walkable supersession/re-surfacing chain. */
+            supersedesCandidateId: components["schemas"]["Uuid"] | null;
+            presentedAt: components["schemas"]["Timestamp"] | null;
+            revision: components["schemas"]["Revision"];
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+        };
+        /**
+         * @description One Today item: every `Recommendation` field (declared flat, not
+         *     via `allOf`, because both schemas forbid additional properties)
+         *     plus everything the view alone renders — FR-24's proposed action,
+         *     the re-derived priority score with its stored factors, the
+         *     structured evidence, and the target's current display name.
+         */
+        TodayRecommendation: {
+            id: components["schemas"]["Uuid"];
+            gardenId: components["schemas"]["Uuid"];
+            ruleKey: string;
+            ruleVersion: number;
+            careCategory: string;
+            safetyTier: components["schemas"]["RecommendationSafetyTier"];
+            state: components["schemas"]["RecommendationState"];
+            urgency: components["schemas"]["TaskUrgency"];
+            targetKind: components["schemas"]["TaskTargetKind"];
+            targetGardenAreaMapObjectId: components["schemas"]["Uuid"] | null;
+            targetPlantId: components["schemas"]["Uuid"] | null;
+            windowStart: components["schemas"]["Timestamp"] | null;
+            windowEnd: components["schemas"]["Timestamp"] | null;
+            explanation: string;
+            supersedesCandidateId: components["schemas"]["Uuid"] | null;
+            presentedAt: components["schemas"]["Timestamp"] | null;
+            revision: components["schemas"]["Revision"];
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+            /** @description The rule version's suggested action — also the title a conversion gives the task. */
+            actionTitle: string;
+            priorityScore: number;
+            priorityFactors: components["schemas"]["RecommendationPriorityFactor"][];
+            evidence: components["schemas"]["RecommendationEvidence"][];
+            /**
+             * @description The plant's current display name for plant targets; `null`
+             *     for garden targets (the client knows its garden) and for
+             *     garden-area targets, which no launch rule produces.
+             */
+            targetDisplayName: string | null;
+        };
+        TodayResult: {
+            gardenId: components["schemas"]["Uuid"];
+            generatedAt: components["schemas"]["Timestamp"];
+            items: components["schemas"]["TodayRecommendation"][];
+        };
+        /**
+         * @description `postponedUntil` is the user's optional re-surfacing horizon. No
+         *     default is applied when absent or `null` — the engine falls back
+         *     to the rule's own recurrence interval.
+         */
+        PostponeRecommendationRequest: {
+            postponedUntil?: components["schemas"]["Timestamp"] | null;
+        };
+        ConvertRecommendationToTaskResult: {
+            recommendation: components["schemas"]["Recommendation"];
+            task: components["schemas"]["Task"];
         };
         /**
          * @description Matches section 3's class table exactly. No separate "purpose" field
@@ -4707,6 +5050,243 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    getTodayRecommendations: {
+        parameters: {
+            query?: {
+                /** @description Maximum items to return. Defaults to 10. */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The prioritized Today set. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodayResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    completeRecommendation: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                recommendationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The completed recommendation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Recommendation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    postponeRecommendation: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                recommendationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PostponeRecommendationRequest"];
+            };
+        };
+        responses: {
+            /** @description The postponed recommendation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Recommendation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    dismissRecommendation: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                recommendationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The dismissed (now `rejected`) recommendation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Recommendation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    markRecommendationIrrelevant: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                recommendationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The unchanged recommendation the feedback now annotates. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Recommendation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    convertRecommendationToTask: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                recommendationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The created task and the completed recommendation. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConvertRecommendationToTaskResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
         };
     };
     listGardenMedia: {

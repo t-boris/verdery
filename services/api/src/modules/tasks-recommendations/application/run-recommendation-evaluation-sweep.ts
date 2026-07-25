@@ -130,7 +130,7 @@ export class RunRecommendationEvaluationSweep {
           gardensEvaluated += 1;
           candidatesCreated += result.createdCandidates.length;
           candidatesSuperseded += result.createdCandidates.filter(
-            (candidate) => candidate.supersededCandidateId !== null,
+            (candidate) => candidate.supersededLivePrior,
           ).length;
         } catch (error) {
           if (error instanceof ConflictError) {
@@ -195,8 +195,11 @@ export class RunRecommendationEvaluationSweep {
           if (written) {
             gardenExpired += 1;
           } else {
-            // Unreachable under the advisory lock; counted, not hidden, if
-            // a non-locking writer ever appears.
+            // A non-locking writer won the row: the Today feedback commands
+            // (P7-BE-01) transition presented candidates revision-guarded
+            // WITHOUT taking this lock — a user completing a candidate in
+            // exactly its expiry moment is a legitimate race the user wins.
+            // Counted and retried next run, never poisoning the batch.
             gardenLostRaces += 1;
           }
         }
