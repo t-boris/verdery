@@ -530,18 +530,20 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving the garden-map-baseline schemas and tables otherwise intact', async () => {
     await client.end();
 
-    // `count: 9` undoes this migration and every migration applied after it
-    // (currently search-indexes through recommendations-baseline — several
-    // of which extend or reference tables this one creates, e.g. the media
-    // migrations grow `media.media_record` and recommendations-baseline
-    // adds `task.origin_recommendation_id` — so all must unwind first).
-    // Update this count when a later migration is added on top.
+    // `count: 10` undoes this migration and every migration applied after
+    // it (currently search-indexes through integrations-weather-baseline —
+    // several of which extend or reference tables this one creates, e.g.
+    // the media migrations grow `media.media_record`,
+    // recommendations-baseline adds `task.origin_recommendation_id`, and
+    // integrations-weather-baseline adds the weather-evidence FK — so all
+    // must unwind first). Update this count when a later migration is added
+    // on top.
     await runner({
       databaseUrl,
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 9,
+      count: 10,
       log: () => {},
     });
 

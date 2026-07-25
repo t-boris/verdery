@@ -30,6 +30,7 @@ Initial logical ownership is:
 | Tasks and Recommendations | Tasks, recommendations, evidence, outcomes                                                |
 | Media                     | Media records, variants, upload and retention state                                       |
 | Capture and Import        | Capture sessions, imports, proposals, processor results                                   |
+| Integrations              | Normalized external observations (weather records), provider quota usage                  |
 | Platform                  | Idempotency records, outbox, sync changes, operational metadata                           |
 
 ## 4. Identifier Strategy

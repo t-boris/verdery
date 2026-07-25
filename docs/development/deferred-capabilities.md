@@ -300,6 +300,32 @@ cannot produce candidates (a CHECK plus a composite FK onto `rule_version`'s own
 candidate physically cannot exist without evidence (a deferred composite FK checked at COMMIT) —
 both enforced in the schema itself, not convention.
 
+**Real weather provider (P7-INT-01 scope boundary).** The weather integration machinery is fully
+built and tested in `services/api/src/modules/integrations` — the provider registry with
+per-provider license/attribution/timeout/quota metadata, the normalized `integrations.weather_record`
+model (SI units with per-field source-unit conversion provenance enforced by CHECK, effective vs.
+fetch time, quality, license snapshot, per-garden anchoring at the georeference's WGS84 coordinates),
+read-time freshness classification, cache-not-refetch semantics, atomic hour/day quota accounting
+(`integrations.provider_quota_usage`), bounded fetch deadlines, and the
+`RefreshGardenWeather`/`GetGardenWeather` use cases — but NO real weather vendor exists anywhere in
+this repository, deliberately: provider selection is `P0-PROV-01`, an undecided implementation-time
+selection (technical-specification.md section 14.2), the exact blocker that deferred P6-PLANT-01's
+plant-content provider. The registry has zero production registrations, `activeProviderKey` is null
+in every environment, and the honest runtime outcome is the typed `noProviderConfigured`
+degradation — the `identifyPlantFromPhoto` posture applied to a whole integration; the only adapter
+implementations are the deterministic fakes the provider-contract and replacement tests run. When a
+vendor is selected, integrating it is one adapter class implementing `WeatherProviderAdapter`, one
+`WeatherProviderRegistration` with its real license/quota/timeout terms, and one configuration key —
+proven by the two-fake replacement tests in
+`tests/integration/integrations-weather.test.ts`. Also deliberately unnumbered: freshness windows
+and quota budgets are constructor-injected configuration with no invented defaults (section 14.2
+lists "Quotas, performance budgets" as undecided — the same numbers-are-not-mechanism posture the
+media quota-reservation entry documents), and nothing schedules refreshes yet (`P7-ASYNC-01` owns
+scheduling; the use case is built to be its callable target). Related, and NOT deferred:
+`tasks_recommendations.recommendation_evidence.source_weather_record_id` — P7-DATA-01's documented
+bare-uuid deferral — is now a real foreign key onto `integrations.weather_record`, closed by
+`1785700000000_integrations-weather-baseline.sql` at the first moment its target table existed.
+
 **Break-glass credential rotation procedure.** `07-iam-database-bootstrap.sh` rotates the Postgres
 superuser password on every run and stores it in Secret Manager, but there is no scheduled rotation
 or documented incident procedure for using it. `P8-REL-01` owns operational runbooks generally.

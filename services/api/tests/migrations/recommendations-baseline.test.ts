@@ -388,13 +388,30 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
         fact_key: 'observation.note',
       },
     );
-    // Weather evidence carries its FK-less normalized-record id (the table
-    // arrives with P7-INT-01 — see the migration's own comment).
+    // Weather evidence must reference a real normalized weather record:
+    // P7-INT-01's migration created the table and closed the FK deferral
+    // this test's earlier revision documented ("the table arrives with
+    // P7-INT-01"). The dangling-reference rejection itself is covered by
+    // `integrations-weather-baseline.test.ts`.
+    const weatherRecordId = randomUUID();
+    await insertRow('integrations.weather_record', {
+      id: weatherRecordId,
+      garden_id: gardenId,
+      provider_key: 'fake-provider-a',
+      record_kind: 'observation',
+      effective_at: new Date('2026-07-25T11:55:00Z'),
+      fetched_at: new Date('2026-07-25T12:00:00Z'),
+      latitude: 52.1,
+      longitude: 4.3,
+      precipitation_mm: 4.2,
+      source_units: JSON.stringify({ precipitation: 'millimetre' }),
+      license_note: 'test license: internal use only',
+    });
     await insertCandidateWithEvidence(
       {},
       {
         evidence_kind: 'weather',
-        source_weather_record_id: randomUUID(),
+        source_weather_record_id: weatherRecordId,
         fact_key: 'weather.rain',
       },
     );
@@ -450,11 +467,12 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     await client.end();
 
-    // `count: 1`: this file tests the newest migration, so only itself is
-    // undone — the position every newest-migration test starts from. When a
-    // later migration lands on top, bump this (and the counts in every
-    // earlier migration test) per the established ripple convention.
-    await migrate(databaseUrl, 'down', 1);
+    // `count: 2` undoes 1785700000000_integrations-weather-baseline.sql
+    // (the newest migration — its weather table only feeds the FK exercised
+    // above, nothing this test's own assertions below check) first, then
+    // this migration itself. Update again the next time a migration is
+    // added on top of that one.
+    await migrate(databaseUrl, 'down', 2);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

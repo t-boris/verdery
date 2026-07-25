@@ -3730,3 +3730,114 @@ superseded`, with exactly two deliberately-added undrawn edges, documented in th
   earlier migration tests bumped (+1 each, 2 through 11) per the Stage 6-documented mechanic.
 - Root `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `node scripts/check-file-size.mjs` all
   clean.
+
+## Stage 16 — P7-INT-01, implementation complete
+
+The weather integration machinery is real and provider-AGNOSTIC: a new `integrations` module
+(backend-modular-monolith.md's own module 6.9, first materialized here) carrying the provider
+registry, the normalized weather record model and storage, read-time freshness classification,
+cache/timeout/quota machinery, the `RefreshGardenWeather`/`GetGardenWeather` use cases, and the
+honest no-provider-configured state — everything the work package names EXCEPT a real vendor,
+because `P0-PROV-01` is undecided and no weather provider may be invented (the phase plan's own
+blocker assessment). The only adapter implementations are deterministic fakes; two of them are what
+proves the machinery through the package's acceptance evidence ("Provider contract and stale-data
+tests") and P7-INT-02's coming replacement evidence.
+
+### Key decisions
+
+- **New `integrations` module + new `integrations` schema.** Section 6.9 names this module for
+  exactly this content ("provider adapters, normalized external observations, quota policy,
+  licensing metadata"), and section 4's source-structure map already reserved `modules/integrations/`
+  — growing `tasks-recommendations` (weather is evidence, not a recommendation) or `platform`
+  (weather is domain data, not infrastructure) would both misplace ownership. The platform baseline
+  created only the schemas of then-existing modules, so this stage's migration
+  (`1785700000000_integrations-weather-baseline.sql`) creates the `integrations` schema itself with
+  the identical ownership/privilege posture — created as the CONNECTED migration identity, not under
+  `SET ROLE`, because `verdery_migration` owns schemas by AUTHORIZATION but never got CREATE on the
+  database (the platform baseline's own loop runs the same way; discovered by this stage's own
+  migration test failing under `SET ROLE`). `verdery_worker` gets nothing, asserted by the negative
+  privilege test; P7-ASYNC-01 names what its relay needs when it exists.
+- **The normalized record is section 5's field list, column for column** — provider key, kind +
+  effective time vs. fetch time, per-garden anchoring with the fetch's exact WGS84 coordinates
+  snapshotted (a later georeference change cannot re-attribute historical weather), four SI-
+  normalized measurements (°C, mm, m/s, %; `unit_system` CHECK-pinned to `'si'`), conversion
+  provenance as a `source_units` jsonb whose per-field pairing with the measurements is a physical
+  CHECK (a value without its provider unit label, or a label without its value, cannot be inserted),
+  optional confidence/quality-label, and a license/attribution snapshot from the registry entry that
+  produced the row. Measurements are individually nullable ("Missing facts remain missing") but at
+  least one must exist; an observation cannot claim a future effective time (you cannot observe the
+  future — no mirror check for forecasts, a just-elapsed forecast is still a forecast). Rows are
+  append-only, immutable fetch facts. "Approved derived values" got no columns: no approval process
+  exists, so there is nothing honest to model.
+- **Freshness is derived, never stored — and the freshness window IS the cache window.** A stored
+  classification would rot with wall-clock time, so `classifyWeatherFreshness` computes
+  `fresh`/`stale` at read time from `fetched_at` against a configured policy, and the SAME window
+  drives the cache rule: a repeat `RefreshGardenWeather` within it serves the stored record
+  (`freshCacheHit`, provider untouched — proven by adapter call counts), past it the record is a
+  typed `stale` state its consumer must see ("Cached stale data is labeled", section 11). The
+  numbers deliberately live nowhere: freshness windows and quota budgets are constructor-injected,
+  validated configuration with no invented defaults, because section 14.2 lists quotas and
+  thresholds as undecided implementation-time selections — the quota-reservation
+  numbers-are-not-mechanism posture.
+- **Quota is consumed atomically, before the call.** `integrations.provider_quota_usage` counts one
+  row per provider per UTC hour/day window; `consumeCall` advances both counters in one transaction
+  of guarded upserts (`ON CONFLICT ... DO UPDATE ... WHERE call_count < limit`), so a refusal in
+  either window rolls back the other's increment (tested directly), concurrent runs cannot overshoot
+  a budget, and a consumed-then-timed-out call stays consumed — the call was made. `null` limits
+  still count usage (section 14's observable "quota state"). Exhaustion is a typed
+  `quotaExhausted` degradation, never a silent skip.
+- **Every failure is a typed outcome, never null-as-success** — the `identifyPlantFromPhoto`
+  honesty discipline applied to a whole integration. `RefreshGardenWeather` returns a discriminated
+  union: `freshCacheHit` / `refreshed` / `staleServed` (latest stored record explicitly labeled,
+  with the reason) / `unavailable`, with reasons `noProviderConfigured` (today's reality for every
+  environment), `gardenNotGeoreferenced` (a garden without a georeference has no location — no
+  coordinate is ever guessed), `quotaExhausted`, `providerTimeout` (bounded per-provider deadline
+  through an aborting `withDeadline` racer), `providerFailed`, `providerReturnedNoData`, and
+  `providerReturnedInvalidData` (section 15's malformed response — rejected by the domain
+  constructor, never repaired into plausible data). A configured-but-unregistered active key throws
+  at CONSTRUCTION — a composition defect must not masquerade as a runtime degradation.
+- **The registry makes replacement one adapter + one entry + one config key.** Registrations pair a
+  `WeatherProviderAdapter` (provider-neutral port; SDK types never cross it) with validated metadata
+  (license note, attribution, fetch timeout, quota limits); WHICH key is active is environment
+  configuration (`activeProviderKey`, null today), per section 4. Proven by replacement tests at
+  both levels: two fakes through identical machinery, switch the key, both providers' records
+  coexist with their own license snapshots and the earlier provider's rows untouched — "Provider
+  selection ... does not change domain records silently."
+- **`recommendation_evidence.source_weather_record_id` FK closed.** Stage 15's documented bare-uuid
+  deferral ends at the first moment its target exists, exactly as promised: the migration adds the
+  FK plus the reverse-lookup partial index, with a trivially-safe validation scan (P7-DATA-01
+  shipped domain logic only — no code path writes evidence rows, so no dangling value can exist; a
+  disproving environment fails loudly). The dangling-reference rejection and the real-reference
+  acceptance are both migration-tested; `recommendations-baseline.test.ts`'s weather-evidence case
+  now inserts a real weather record.
+- **Internal only — no transport, no app.ts change, deliberately.** No document names a
+  client-facing weather surface this phase (the OpenAPI contract has no `Weather` tag; Today's
+  weather context arrives through recommendations, FR-22), so the weather data's only Phase 7
+  consumers are the rule engine (P7-RULE-01 — `GetGardenWeather`'s typed `available`+freshness /
+  `noRecord` outcomes are built as its section-4 input) and the scheduler (P7-ASYNC-01 —
+  `RefreshGardenWeather` is built as its callable, repeat-safe target). Wiring dependencies no
+  caller reaches would be dead composition; `public.ts` exports everything the wiring stage needs,
+  the P7-DATA-01 posture. No contract change, so no contract checks.
+
+### Fixed in place (not deferred)
+
+1. The migration's first draft created the `integrations` schema under `SET ROLE
+verdery_migration`, which fails with "permission denied for database" — caught by this stage's
+   own migration test, restructured to match the platform baseline's connected-identity schema
+   creation, and the reasoning recorded in the migration comment.
+2. `recommendations-baseline.test.ts`'s weather-evidence insert used a random uuid (valid while the
+   column was FK-less); updated to insert a real `integrations.weather_record` row first, with the
+   dangling-reference rejection now covered by the new migration suite.
+
+### Verification evidence
+
+- Full API suite: 128 files / 856 tests before → **136 files / 911 tests** after (+55: six unit
+  suites in the module with 39 tests, one Testcontainers migration suite with 10, one Testcontainers
+  integration suite with 6), all green, real Docker.
+- Migration proven up (all ten assertions: schema privileges, every weather CHECK including the
+  source-units consistency and cannot-observe-the-future rules, quota PK/CHECKs, both halves of the
+  evidence FK) and down (`count: 1` drops the schema, both tables, and the evidence FK; earlier
+  tables and rows survive) — plus the rollback-count ripple: all eleven earlier migration tests
+  bumped (+1 each, 2 through 12) per the established mechanic.
+- `pnpm --filter @verdery/api build`, root `pnpm typecheck`, `pnpm lint`, `pnpm format:check`,
+  `node scripts/check-file-size.mjs` all clean.

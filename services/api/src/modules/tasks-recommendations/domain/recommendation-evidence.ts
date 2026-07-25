@@ -52,7 +52,7 @@ export interface RecommendationEvidence {
   readonly sourceTaskId: Uuid | null;
   /** Set only for `kind: 'plant_identity' | 'lifecycle_stage'`. */
   readonly sourcePlantId: Uuid | null;
-  /** Set only for `kind: 'weather'`. Bare uuid, no FK target yet: normalized weather records are P7-INT-01's table — see the migration's own comment on this column. */
+  /** Set only for `kind: 'weather'`. References `integrations.weather_record` — the FK P7-DATA-01 deferred, closed by P7-INT-01's migration (1785700000000_integrations-weather-baseline.sql). */
   readonly sourceWeatherRecordId: Uuid | null;
   /** Section 10's "stable fact identifiers" — required on every row. */
   readonly factKey: string;
