@@ -8,7 +8,10 @@
  *
  * Source: architecture/web-application-design.md, section "15. Localization".
  */
+import { englishTodayMessages } from './en-today';
+
 export const englishMessages = {
+  ...englishTodayMessages,
   'app.name': 'Verdery',
   'app.tagline': 'A living map of a real garden.',
   'app.skipToContent': 'Skip to content',

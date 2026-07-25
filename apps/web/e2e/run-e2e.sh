@@ -144,15 +144,31 @@ wait_for_http "Auth emulator" "http://127.0.0.1:${AUTH_EMULATOR_PORT}/emulator/v
 log "Building the API"
 pnpm --filter @verdery/api build
 
+# The MEDIA_* variables became required service configuration with P6
+# (media storage); this suite never exercises real Cloud Storage, so the
+# bucket names are placeholders (nothing dereferences them without an
+# actual upload) and the processing-callback pair follows the deploy
+# scripts' own "unused-by-migration-job" placeholder posture — no local
+# process can mint the Google-signed OIDC token that callback verifies.
+E2E_MEDIA_ENV=(
+  MEDIA_USER_MEDIA_BUCKET=verdery-e2e-user-media
+  MEDIA_RAW_CAPTURE_BUCKET=verdery-e2e-raw-capture
+  MEDIA_DERIVED_BUCKET=verdery-e2e-derived
+  MEDIA_EXPORTS_BUCKET=verdery-e2e-exports
+  MEDIA_PROCESSING_CALLBACK_AUDIENCE=unused-by-e2e
+  MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL=unused-by-e2e@example.iam.gserviceaccount.com
+)
+
 log "Running database migrations"
-VERDERY_ENVIRONMENT=development \
+env VERDERY_ENVIRONMENT=development \
   FIREBASE_PROJECT_ID="${FIREBASE_PROJECT_ID}" \
   DATABASE_CONNECTION_MODE=url \
   DATABASE_URL="${DATABASE_URL}" \
+  "${E2E_MEDIA_ENV[@]}" \
   pnpm --filter @verdery/api migrate
 
 log "Starting the API on port ${API_PORT}"
-VERDERY_ENVIRONMENT=development \
+env VERDERY_ENVIRONMENT=development \
   SERVICE_VERSION=e2e \
   HTTP_HOST=0.0.0.0 \
   HTTP_PORT="${API_PORT}" \
@@ -163,6 +179,7 @@ VERDERY_ENVIRONMENT=development \
   DATABASE_CONNECTION_MODE=url \
   DATABASE_URL="${DATABASE_URL}" \
   TRACING_ENABLED=false \
+  "${E2E_MEDIA_ENV[@]}" \
   node --import "${REPO_ROOT}/services/api/dist/telemetry-bootstrap.js" "${REPO_ROOT}/services/api/dist/main.js" \
   >"${API_LOG}" 2>&1 &
 API_PID=$!

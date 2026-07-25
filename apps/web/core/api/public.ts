@@ -26,6 +26,7 @@ export { fromWireCategoryDetails } from './map-wire-types';
 export { createMediaGateway, type MediaGateway } from './media-gateway';
 export { createObservationGateway, type ObservationGateway } from './observation-gateway';
 export { createPlantGateway, type PlantGateway, type SearchPlantsParams } from './plant-gateway';
+export { createRecommendationGateway, type RecommendationGateway } from './recommendation-gateway';
 export { createTaskGateway, type TaskGateway } from './task-gateway';
 export type {
   WireCategoryDetails,

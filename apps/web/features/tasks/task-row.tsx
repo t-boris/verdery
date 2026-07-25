@@ -96,6 +96,10 @@ export function TaskRow({ gardenId, task }: TaskRowProps) {
       {task.notes !== null && <p className={styles['notes']}>{task.notes}</p>}
 
       <div className={styles['meta']}>
+        {/* The outcome-history linkage (P7-WEB-01): a `suggested` task carries
+            the recommendation candidate it was converted from, so the tasks
+            list is where a converted Today item's trail continues. */}
+        {task.originRecommendationId !== null && <span>{t('tasks.fromRecommendation')}</span>}
         {task.dueDate !== null && <span>{t('tasks.dueDateDisplay', { date: task.dueDate })}</span>}
         {task.completedAt !== null && (
           <span>

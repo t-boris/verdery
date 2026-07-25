@@ -4368,3 +4368,63 @@ speaking P7-BE-01's `Recommendations` tag exactly.
 - `swift build` zero warnings; `node scripts/check-file-size.mjs`, `pnpm lint`,
   `pnpm format:check` all clean. Localization catalogues gained 50 `today.*` keys in both
   languages, verified by the existing catalogue-parity suite.
+
+## Stage 21 — P7-WEB-01, implementation complete
+
+The web care loop is closed: a Today page (`/application/gardens/{gardenId}/today`, linked first in
+the garden's own navigation) renders the P7-BE-01 prioritized set exactly as the server ranks it —
+action title, stored Reason, urgency, care category, target display name, validity window, priority
+score, an elevated-risk pill + caution note where the tier says so — and all five controls
+(complete, postpone with an optional horizon, dismiss, mark-irrelevant, convert-to-task) through a
+new `recommendation-gateway.ts` with the established If-Match + Idempotency-Key + CSRF pairing,
+offline gates, and per-mutation failure surfaces.
+
+### Key decisions
+
+- **Uncertainty is the stored confidence factor, rendered honestly.** `explainers.ts` turns the
+  open-shaped factor bases into readable phrases (known launch-rule keys get real sentences —
+  including the mandatory stale-weather label; unknown keys fall back to `key: value`), headlines
+  the signed confidence contribution on the card, and states the absence of a confidence factor
+  outright. No invented bands, no raw JSON.
+- **Evidence resolves display names only from what the payload carries.** A plant reference equal
+  to the item's target renders `targetDisplayName`; every other reference renders its record id.
+  No per-evidence fetching.
+- **Conversion navigates to the tasks page**, whose rows now show "Created from a recommendation"
+  whenever `task.originRecommendationId` is set — the contract's only client-readable
+  outcome-history linkage, and the honest whole of the work package's "history" clause (no read
+  surface exposes terminal candidates; recorded in deferred-capabilities.md). "Administration" has
+  no Phase 7 backend surface at all (rule catalog is reviewed code, collaboration admin is P9);
+  the details layer's `Rule {key} v{version}` line is the one administrative fact shown.
+- **Message catalogues split by module.** `en.ts` sat at 597 of 600 lines, so the new `today.*`
+  keys live in `en-today.ts`/`ru-today.ts`, spread into the main catalogues; `ru-today` is typed
+  against `en-today` so a missing translation stays a compile error. `en.ts` is now exactly at the
+  cap — the next message domain brings its own module.
+- **The care-loop E2E seeds candidates by SQL, deliberately.** The evaluation sweep endpoint
+  verifies a Google-signed Cloud Tasks OIDC token no local harness can mint, so
+  `e2e/support/recommendation-seed.ts` pipes one transaction through `docker exec … psql`
+  (no new dependency): four eligible candidates shaped like the four launch rules' own output —
+  UUIDv7 ids (route validation pins the version nibble), a real `integrations.weather_record` row
+  for the P7-INT-01 FK, factor rows in the engine's `{ contribution, basis }` shape. Everything
+  downstream of generation is the real stack: first-presentation marking, the re-derived
+  75>65>40>25 order, every feedback command, and the conversion read back from the tasks page.
+
+### Fixed in place (not deferred)
+
+1. `apps/web/e2e/run-e2e.sh` failed before Playwright ever started: P6 made the `MEDIA_*` service
+   configuration required and the harness was never updated. It now exports placeholder
+   bucket/callback values (the deploy scripts' own "unused-by-migration-job" posture, documented
+   inline) for the migration and API steps.
+
+### Verification evidence
+
+- Web suite: 57 files / 455 tests before → **62 files / 518 tests** after (+5 files / +63 tests:
+  `recommendation-gateway.test.ts`, `labels.test.ts`, `explainers.test.ts`, `today-card.test.tsx`,
+  `today-list.test.tsx`); all green.
+- Browser E2E: **9/9 passed** — the new four-test `care-loop.spec.ts` (the acceptance evidence:
+  sign-in → garden → plant → seeded candidates → prioritized Today with reason, uncertainty
+  incl. stale-weather label, expanded evidence → complete/postpone/irrelevant/dismiss → conversion
+  with the origin-linked planned task → empty Today) plus the five pre-existing specs, against the
+  real Postgres + Auth emulator + API + web stack — independently re-run by the coordinator,
+  9/9 again.
+- `pnpm --filter @verdery/web build` clean (`/today` route present); root `pnpm typecheck`,
+  `pnpm lint`, `pnpm format:check`, `node scripts/check-file-size.mjs` all clean.

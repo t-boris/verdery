@@ -726,3 +726,14 @@ endpoints, the web application shell, the Swift package and its targets, formatt
 checking, the file-size rule, the secret scan, the `verdery-dev` cloud environment, keyless CI
 deployment, OpenTelemetry tracing to Cloud Trace, the Phase 2 identity/garden database and backend
 foundations, and the current web/native Phase 2 foundations.
+
+**Recommendation history read surface (P7-WEB-01 scope boundary).** The Today endpoint returns only
+presentable candidates (`eligible`/`presented` with a window covering now), and no Recommendations
+read exposes past or terminal candidates or the append-only feedback trail, although every row
+survives in `tasks_recommendations.recommendation_candidate` / `recommendation_feedback`. The web
+Today view therefore shows history only where the contract already carries it: an acted-on item
+leaves the set, and a converted task renders its `originRecommendationId` provenance on the tasks
+list. A "recommendation history" surface (terminal candidates, their feedback, and the
+supersession/re-surfacing chain `supersedesCandidateId` already stores) needs a new read operation
+under the `Recommendations` tag first — a backend/contract addition no current work package owns.
+Until then, clients must not fabricate history from cached Today responses.

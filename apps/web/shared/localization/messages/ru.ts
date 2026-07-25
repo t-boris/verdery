@@ -1,7 +1,10 @@
 import type { MessageCatalogue } from '../catalogue';
 
+import { russianTodayMessages } from './ru-today';
+
 /** Russian message catalogue. Typed against the English catalogue, so it cannot be incomplete. */
 export const russianMessages: MessageCatalogue = {
+  ...russianTodayMessages,
   'app.name': 'Verdery',
   'app.tagline': 'Живая карта настоящего сада.',
   'app.skipToContent': 'Перейти к содержимому',
