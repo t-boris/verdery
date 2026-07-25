@@ -15,6 +15,7 @@ import helmet from '@fastify/helmet';
 import underPressure from '@fastify/under-pressure';
 import { API_BASE_PATH } from '@verdery/api-contracts';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
+import { composeExports } from './compose-exports.js';
 import { composeGardensMapping } from './compose-gardens-mapping.js';
 import { composeIntegrations } from './compose-integrations.js';
 import { composeMedia } from './compose-media.js';
@@ -29,6 +30,7 @@ import {
   KyselyProfileRepository,
   ProvisionProfile,
 } from './modules/identity-access/public.js';
+import { registerExportInternalRoutes, registerExportRoutes } from './modules/exports/public.js';
 import {
   registerMediaProcessingCallbackRoute,
   registerMediaRetentionSweepRoute,
@@ -445,6 +447,22 @@ export async function buildApplication(
     configuration.environment,
   );
 
+  // exports (P8-EXPORT-01): the data-export request/status/download surface
+  // and the three internal endpoints the generation worker calls. Reuses
+  // `gardenAuthorization` (garden-scoped export capability), the shared
+  // storage gateway (signed package downloads), and the same worker-to-API
+  // invocation verifier as every internal endpoint. Split into
+  // `compose-exports.ts` for the same 600-line reason as its siblings.
+  const { exportRoutesDependencies, exportInternalRoutesDependencies } = composeExports(
+    database,
+    clock,
+    gardenAuthorization,
+    mediaStorageGateway,
+    configuration.media.buckets,
+    configuration.serviceVersion,
+    cloudTasksInvocationVerifier,
+  );
+
   // synchronization (P5-BE-01, P5-API-01): the native offline outbox
   // protocol's client-registration, push, and acknowledge endpoints. Depends
   // on every module wired above — it routes across all five record families
@@ -507,6 +525,9 @@ export async function buildApplication(
       // P7-NOTIF-02: the worker-triggered notification delivery sweep —
       // same identity check once more.
       registerNotificationDeliverySweepRoute(instance, notificationDeliverySweepRouteDependencies);
+      // P8-EXPORT-01: the export-generation worker's snapshot/checkpoint/
+      // completion endpoints — same identity check again.
+      registerExportInternalRoutes(instance, exportInternalRoutesDependencies);
       done();
     },
     { prefix: API_BASE_PATH },
@@ -534,6 +555,7 @@ export async function buildApplication(
       registerNotificationRoutes(instance, notificationRoutesDependencies);
       registerNotificationDeviceRoutes(instance, notificationDeviceRoutesDependencies);
       registerMediaRoutes(instance, mediaRoutesDependencies);
+      registerExportRoutes(instance, exportRoutesDependencies);
       registerSyncRoutes(instance, syncRoutesDependencies);
       done();
     },

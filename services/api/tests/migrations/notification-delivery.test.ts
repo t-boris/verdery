@@ -340,7 +340,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     // `count: 1` undoes only this migration — it is the newest one.
     // Update the count the next time a migration is added on top.
-    await migrate(databaseUrl, 'down', 1);
+    await migrate(databaseUrl, 'down', 2);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

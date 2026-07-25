@@ -44,9 +44,12 @@ export {
   normalizeChecksumSha256,
   normalizeDisplayFilename,
   registerMediaRecord,
+  registerExportPackageMediaRecord,
   validateDeclaredByteSize,
   validateDeclaredContentType,
 } from './domain/media-record.js';
+// P8-EXPORT-01: the export package's own registration input.
+export type { RegisterExportPackageMediaRecordInput } from './domain/media-record.js';
 export type { MediaProcessingState, MediaUploadState } from './domain/media-lifecycle.js';
 export {
   authorizeMediaUpload,

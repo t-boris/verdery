@@ -250,7 +250,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     // 1786200000000_notification-delivery.sql — nothing this
     // file's own assertions below check) first, then this migration itself.
     // Update again the next time a migration is added on top of that one.
-    await migrate(databaseUrl, 'down', 10);
+    await migrate(databaseUrl, 'down', 11);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

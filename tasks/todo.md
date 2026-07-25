@@ -5506,3 +5506,136 @@ service, HTTP_ALLOWED_ORIGINS + bucket CORS + Firebase authorized domains, CI st
 per-confirmation as always). 31. P8-DELETE-01. 32. P8-SEC-01. 33. P8-REL-01 (runbooks). Then the
 gated/live and human-dependent packages as their prerequisites resolve, each explicitly —
 including the iOS build/signing/TestFlight preparation half of P8-STORE-01.
+
+## Stage 29 — P8-EXPORT-01, implementation complete
+
+Account and garden data export, end to end: the authorized/rate-limited request command, a durable
+export-job record with its own state machine, a REPEATABLE READ consistency boundary, a
+checkpointed worker ZIP job riding the established queue/router, JSON/GeoJSON/CSV/media/checksums/
+README packaging, the live 7-day private expiry, requester-bound signed delivery, and the
+`export_ready` in-app notification through the P7 pipeline. Acceptance evidence — export privacy
+and consistency tests — delivered on real Postgres.
+
+### The design, in one paragraph per decision
+
+- **The API/worker privilege split.** `verdery_worker`'s grants still stop at
+  `platform.outbox_event` + `media.processing_job` — nothing widened. Every privileged DATABASE
+  read/write runs in `services/api` behind three new OIDC-verified internal endpoints
+  (`POST /internal/exports/:id/snapshot|checkpoints|complete` — the notification-events/sweeps
+  precedent); the worker moves every BYTE (staging, media streaming, ZIP assembly — the
+  "binary media bypasses the interactive API data path" posture, which is also why the ZIP is NOT
+  built in the API). The contract lives in `@verdery/api-contracts`' `export-processing.ts`.
+- **The durable job record.** `exports.export_request` IS the job (`requested → running →
+completed | failed`, attempt-counted), not a `media.processing_job` row — that table is keyed on
+  a media record that cannot exist until the package is written (the `export_package` media id and
+  its exports-bucket object key are pre-minted at REQUEST time so the key embeds the media UUID and
+  the established prefix-scoped deletion pipeline reaches the bytes). The relay gained two small
+  families: `export.requested` → one Cloud Tasks task named by event id (dedup = the crash-window
+  safety); `export.completed` → forwarded to the notification policy like candidate events.
+- **The consistency boundary.** One `REPEATABLE READ, READ ONLY` transaction per snapshot attempt
+  reads EVERYTHING structured (bounded 1000-row keyset pages inside it) — coherent cross-references
+  and post-boundary absence by MVCC construction, disclosed in `export.json`. CHECKPOINTING freezes
+  it: the worker stages all sections, records them in one atomic checkpoint call with the boundary,
+  and a retried attempt resumes from the staged objects (checksum-verified; corruption is a
+  terminal failure) — the snapshot is never re-read once checkpointed. A retry BEFORE checkpointing
+  re-reads whole under a fresh boundary: always one snapshot's set, never a mix.
+- **The package.** `export.json` (format version, generator, scope, boundary, per-garden
+  inclusion/exclusion, disclosures), `README.md` (structure/units/uncertainty/non-survey warning),
+  `account/profile.json` + `account/notification-preferences.json` (account scope),
+  `gardens/<id>/{garden.json, map-objects.geojson, plants|observations|tasks|recommendations
+.json+.csv, media-records.json}`, `media-manifest.json`, `media/<gardenId>/<file>`,
+  `missing-media.json` (assembly-time deletions listed, never silently omitted), `checksums.txt`.
+  GeoJSON carries per-feature `coordinateSpaceId`, category detail attributes, and the
+  georeference PARAMETERS as `verdery:*` members (WGS84 transform deferred, disclosed). The
+  worker-only `media-transfer.json` (internal bucket/object keys) never enters the ZIP.
+- **The ZIP library.** `archiver` (services/workers runtime) — the boring, maintained streaming
+  ZIP writer with zip64, the `sharp`/`file-type` selection precedent; `yauzl` as the test-only
+  INDEPENDENT reader (round-trip proof against an implementation the writer shares no code with).
+  `services/api` needed no ZIP dependency at all.
+- **Delivery + expiry.** `GET /exports/:id/download` = the existing signed-URL mechanism,
+  requester-only; the package media record is deliberately garden-less so no garden media route can
+  serve it to a collaborator (proved structurally against `GetMediaAccess`). Expiry = the existing
+  7-day registration-anchored `export_package` deadline + retention sweep + bucket lifecycle rule;
+  the request row carries the same instant and the download refuses past it or once the record
+  leaves `available`. Notification = new `export_ready` intent type (in-app only, dedup on the
+  request id, expiring with the package; `notification_intent.garden_id` widened nullable with a
+  care-recommendation linkage CHECK).
+- **Authorization + rate limit.** Account scope: recent authentication against the session's own
+  `auth_time` (30 minutes, reasoned + documented). Garden scope: new owner-only `exportGarden`
+  capability. One active export per requester via partial unique index (pre-checked for the
+  friendly 409, constraint-name-translated for the race); Idempotency-Key replays return the same
+  request.
+
+### What was built (files)
+
+Contract: `packages/api-contracts/src/export-processing.ts` (events, manifest family, snapshot/
+checkpoint/completion bodies), `openapi.yaml` `Exports` tag + 3 operations + schemas + nullable
+`Notification.gardenId` + `NotificationDeepLink` oneOf (no client consumes the deep link yet —
+verified), `ExportErrorCode`. Migration: `1786300000000_exports-baseline.sql` (schema `exports`,
+`export_request` + `export_section_checkpoint`, one-active index, intent garden nullability, clean
+down). API: the new `modules/exports` module (domain state machine; request/status/download
+commands; snapshot/checkpoints/complete internal services; section builders incl. CSV writer and
+GeoJSON document; Kysely repositories + the cross-module SELECT-only snapshot reader on ONE
+repeatable-read transaction; public + internal transports; `compose-exports.ts` + app wiring);
+media's `registerExportPackageMediaRecord`; gardens-mapping's `exportGarden`; notifications'
+`export_ready` policy branch + nullable-garden ripple. Workers: relay families, manifest union +
+zod union, router 4th executor, `exports/` (API client, GCS object store, ZIP writer, the
+checkpointed job), configuration + deploy script env, drafted exports-bucket IAM grant
+(written-not-executed, the standing boundary).
+
+### The acceptance evidence
+
+- **Privacy** (`tests/integration/exports-privacy.test.ts`, real Postgres, cross-account +
+  shared-garden fixtures across every module's tables): Alice's account export contains not one
+  byte of Bob's garden (ids, names, notes, tasks, map labels, rule keys, media — asserted against
+  the concatenated packaged content); a shared-garden export carries Bob's membership FACTS only
+  (exactly `profileId/role/state/createdAt`, no profile/email/firebase uid); an editor's account
+  export excludes the non-owned garden with a disclosed reason and never lists the owner's media;
+  editors cannot request garden exports and non-members cannot learn the garden exists;
+  `raw_capture` is absent entirely (files AND metadata); the completed package conceals from
+  everyone but the requester, and `GetMediaAccess` cannot serve it through ANY garden route — for
+  the co-member or the owner herself.
+- **Consistency** (`tests/integration/exports-consistency.test.ts`): concurrent inserts after the
+  checkpointed boundary never enter the export (redelivered snapshot serves frozen checkpoints,
+  same boundary, first-snapshot checksums); a pre-checkpoint retry re-reads whole under a new
+  boundary with the manifest agreeing (attempt count 2, honestly); the sections' internal
+  cross-references are closed (observations→plants, tasks→plants, evidence→candidates+plants,
+  features→coordinate spaces, plant photos→media records).
+- Plus: the full lifecycle suite (`exports.test.ts` — pipeline through the real notification
+  policy to the inbox row and the signed URL; rate limit incl. idempotent replay; recent-auth;
+  completion replay convergence: one media record, one event; download refusal before completion /
+  past expiry / after the record leaves `available`), the migration suite (constraints, one-active
+  index, checkpoint cascade, garden nullability + care linkage, grants, down/up ripple), worker
+  unit suites (stage→checkpoint→assemble→complete; resume without re-staging; missing media
+  listed; transfer manifest excluded from the ZIP; terminal vs retryable classification; ZIP
+  round-trip through `yauzl` with checksum/size exactness; relay families; router; HTTP manifest
+  union; configuration), and unit suites for the domain state machine, section builders (RFC-4180
+  escaping, storage keys only ever in the transfer section), export-package media registration,
+  and the `export_ready` policy branch.
+
+### Verification
+
+| Check                                           | Result                                                                                                |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `pnpm --filter @verdery/api test`               | **198 files / 1453 tests** (baseline 191/1406; +7 files/+47 tests), all green, 0 skips, real Docker   |
+| `pnpm --filter @verdery/workers test`           | **23 files / 132 tests** (baseline 20/118; +3 files/+14 tests), all green                             |
+| `pnpm --filter @verdery/web test`               | 62 files / 518 tests, unchanged and green (contract change verified non-breaking)                     |
+| `pnpm --filter @verdery/api-contracts test`     | 29 contract tests green; `generate:check` current; `redocly lint` valid                               |
+| `pnpm --filter @verdery/api build` / workers    | clean                                                                                                 |
+| Root `pnpm typecheck` / `lint` / `format:check` | all pass                                                                                              |
+| `node scripts/check-file-size.mjs`              | passes — every touched and new file at or below 600 lines                                             |
+| `bash -n` on touched scripts                    | `deploy-workers.sh`, `10-media-processing-queue.sh` both pass                                         |
+| Migration rollback ripple                       | every prior migration test's down-count advanced by one; full suite green incl. the new down/up cycle |
+
+### Known limitations (each recorded in deferred-capabilities.md)
+
+Client UI for requesting exports (contract ships, no caller); editor/viewer garden-export
+entitlement (owner-only capability + disclosed exclusion, pending a product decision); raw-capture
+inclusion (no sensitive-media permission mechanism exists); WGS84-transformed GeoJSON (parameters
+travel instead); email/push channels for the export-ready notice (in-app baseline per the doc);
+per-media-file resume inside one assembly pass (assembly restarts whole; structured checkpoints
+are the resume granularity); stale-`running` reclamation if Cloud Tasks exhausts retries (status
+stays honest; a staleness sweep is the flip); the worker's exports-bucket `objectCreator` grant is
+drafted, not executed (standing infra boundary). New dependencies: `archiver` (workers runtime,
+justified against the ADR-0002/0009 posture in `zip-package-writer.ts`) and `yauzl` +
+`@types/archiver`/`@types/yauzl` (workers dev-only).

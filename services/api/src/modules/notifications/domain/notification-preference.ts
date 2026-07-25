@@ -28,7 +28,21 @@ import type { QuietHours } from './quiet-hours.js';
  */
 export const CARE_RECOMMENDATION_INTENT_TYPE = 'care_recommendation';
 
-export const KNOWN_NOTIFICATION_TYPES: readonly string[] = [CARE_RECOMMENDATION_INTENT_TYPE];
+/**
+ * P8-EXPORT-01: the requester's own export package completed. In-app
+ * channel ONLY at this stage — data-export-and-deletion.md section 9's own
+ * words are "The requester receives an in-app notification; email may be
+ * added through the notification adapter", and no document grants exports
+ * a push channel, so the policy pins `channelPush` false rather than
+ * routing a security-adjacent "your data is packaged" event through a
+ * transport nothing specified.
+ */
+export const EXPORT_READY_INTENT_TYPE = 'export_ready';
+
+export const KNOWN_NOTIFICATION_TYPES: readonly string[] = [
+  CARE_RECOMMENDATION_INTENT_TYPE,
+  EXPORT_READY_INTENT_TYPE,
+];
 
 export function isKnownNotificationType(value: string): boolean {
   return KNOWN_NOTIFICATION_TYPES.includes(value);
@@ -71,15 +85,19 @@ export const UNWRITTEN_PREFERENCE_SETTINGS: NotificationPreferenceSettings = {
  * Resolves the effective channel preference for one type in one garden:
  * the garden-scoped entry when present, else the global entry, else the
  * default. Entries for other types or other gardens never apply.
+ * `gardenId: null` (an account-level intent, P8-EXPORT-01) resolves the
+ * global entry directly — a garden-scoped override can never apply to an
+ * intent that concerns no garden.
  */
 export function resolveChannelPreference(
   entries: readonly NotificationPreferenceEntry[],
   notificationType: string,
-  gardenId: Uuid,
+  gardenId: Uuid | null,
 ): ChannelPreference {
   const applicable = entries.filter((entry) => entry.notificationType === notificationType);
 
-  const gardenEntry = applicable.find((entry) => entry.gardenId === gardenId);
+  const gardenEntry =
+    gardenId === null ? undefined : applicable.find((entry) => entry.gardenId === gardenId);
   if (gardenEntry !== undefined) {
     return { inAppEnabled: gardenEntry.inAppEnabled, pushEnabled: gardenEntry.pushEnabled };
   }

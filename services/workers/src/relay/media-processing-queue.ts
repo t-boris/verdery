@@ -12,7 +12,16 @@
  * behavior is required.").
  */
 
-import type { MediaProcessingManifest } from '@verdery/api-contracts';
+import type { ExportGenerationManifest, MediaProcessingManifest } from '@verdery/api-contracts';
+
+/**
+ * Every manifest family this one queue carries: the three media-processing
+ * kinds' shared shape, and P8-EXPORT-01's export-generation manifest (a
+ * separate FAMILY, not optional fields — see the contract type's own doc
+ * comment). One queue, one task URL, one OIDC audience for all of them;
+ * the worker's job router branches on `jobKind`.
+ */
+export type WorkerJobManifest = MediaProcessingManifest | ExportGenerationManifest;
 
 export interface MediaProcessingQueueMessage {
   /**
@@ -23,7 +32,7 @@ export interface MediaProcessingQueueMessage {
    * `ALREADY_EXISTS` response as success, not a failure to surface.
    */
   readonly taskName: string;
-  readonly manifest: MediaProcessingManifest;
+  readonly manifest: WorkerJobManifest;
 }
 
 export interface MediaProcessingQueue {

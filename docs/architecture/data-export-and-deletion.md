@@ -57,6 +57,22 @@ An export request records:
 
 Recent authentication is required for account-wide export.
 
+### 5.1 Implemented request profile (P8-EXPORT-01)
+
+`exports.export_request` (1786300000000_exports-baseline.sql) records every field above, plus the
+pre-minted `export_package` media id and its exports-bucket object target (minted at REQUEST time
+so the object key embeds the media UUID and the established prefix-scoped deletion pipeline reaches
+the package bytes). Two scopes exist: `account` (the requester's personal data plus every garden
+they OWN; lesser-role gardens are named in the package manifest as excluded — widening per-role
+entitlement is a recorded deferred decision) and `garden` (owner-only, via the new `exportGarden`
+capability). "Recent authentication" is enforced against the session's own `auth_time`:
+**30 minutes** for account scope — no document names a figure, so this is a reasoned, documented
+default. The rate limit is **one active export per requester**, enforced by a partial unique index
+(`export_request_one_active_per_requester`), pre-checked for the friendly `409` and translated by
+constraint name for the race. `POST /exports`, `GET /exports/{id}`, and
+`GET /exports/{id}/download` are the contract surface (`openapi.yaml`, tag `Exports`); client UI
+for requesting exports is not built yet.
+
 ## 6. Generation Flow
 
 ```text
@@ -90,6 +106,40 @@ Export records a server revision or snapshot boundary. Changes after that bounda
 
 References remain internally consistent. Missing media caused by prior deletion is listed explicitly rather than silently omitted.
 
+### 7.1 Implemented generation and consistency profile (P8-EXPORT-01)
+
+The generation flow rides the established asynchronous machinery, split along the privilege wall
+(`verdery_worker` holds no module-table grants):
+
+1. `RequestExport` appends `export.requested` to the transactional outbox; the workers relay
+   enqueues ONE Cloud Tasks `export_generation` task (task name = event id, so redelivery
+   deduplicates; no `media.processing_job` row — the export request row IS the durable job, with
+   its own `requested → running → completed | failed` state machine and attempt counter).
+2. The worker job calls the API's OIDC-verified internal endpoints
+   (`POST /internal/exports/{id}/snapshot|checkpoints|complete`) for every database fact and moves
+   every byte itself: it stages the served sections into the exports bucket under
+   `staging/{exportRequestId}/`, records ALL of them in one checkpoint call, then streams staged
+   sections plus entitled media originals into the final ZIP (`archiver`), adding
+   `missing-media.json` and `checksums.txt` at assembly time.
+3. `CompleteExport` binds, in ONE transaction: the `export_package` media record (registered
+   `available`, garden-less, with the live 7-day registration-anchored retention deadline), the
+   request's `completed` transition (package checksum + the same expiry instant), and the
+   `export.completed` outbox event.
+
+**The consistency boundary is one `REPEATABLE READ, READ ONLY` transaction.** Every structured
+read of one snapshot attempt shares that transaction's MVCC snapshot (bounded 1000-row keyset
+pages inside it), so cross-references are coherent by construction and rows created after the
+boundary are absent; the boundary instant is stamped inside the transaction and disclosed in the
+package's `export.json`. Checkpointing freezes it: once the staged section set is recorded, a
+retried attempt never re-reads the snapshot — it resumes from the staged objects (verified
+against their recorded checksums; corruption fails terminally). A retry BEFORE checkpointing
+re-reads everything under a fresh snapshot — always one boundary's set, never a mix. Media BYTES
+are copied outside any transaction; media deleted between boundary and assembly is listed in
+`missing-media.json`, never silently omitted. Known limits, recorded in
+`docs/development/deferred-capabilities.md`: assembly restarts whole on a retry (per-media-file
+resume inside one assembly pass is deferred), and structured sections travel in one snapshot
+response (fine at metadata scale; response streaming is deferred).
+
 ## 8. Geospatial Export
 
 GeoJSON includes:
@@ -110,6 +160,24 @@ The README warns that boundaries and phone-derived measurements are not legal su
 - Export URLs and contents are never logged or sent through analytics.
 - The requester receives an in-app notification; email may be added through the notification adapter.
 - Repeated download requires reauthorization after URL expiration.
+
+### 9.1 Implemented delivery profile (P8-EXPORT-01)
+
+Delivery is the established signed-access mechanism: `GET /exports/{id}/download` mints a
+short-lived signed URL through the same `MediaStorageGateway` every media download uses. It is
+REQUESTER-BOUND twice over: the endpoint conceals any other caller's request id as not-found, and
+the package's media record is deliberately registered with `gardenId = null`, so no garden-scoped
+media route can ever serve it to a fellow collaborator — structurally, not by a check that could
+regress. Expiry is the existing 7-day `export_package` machinery (registration-anchored deadline +
+retention sweep + the live exports-bucket lifecycle rule); the download additionally refuses past
+`expiresAt` and once the package record leaves `available`. The package contains only entitled
+content: no internal bucket names or object keys (the worker-only `media-transfer.json` carries
+those and never enters the ZIP), no other collaborator's account data, no `raw_capture`. Export
+URLs and contents are never logged (the transport logs ids and outcomes only). The completion
+notification is a durable `export_ready` in-app intent through the P7 pipeline (relay-forwarded
+`export.completed` event → notification policy → deduplicated, package-expiry-bounded inbox
+entry; `notification_intent.garden_id` became nullable for account-wide exports); push and email
+channels are deliberately not enabled for it.
 
 ## 10. Garden Deletion
 

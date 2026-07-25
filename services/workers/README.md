@@ -17,22 +17,26 @@ imports the running API application. See
 [backend-modular-monolith.md](../../docs/architecture/backend-modular-monolith.md), section
 "19. Worker Boundary".
 
-## The transactional outbox relay (P6-ASYNC-01, extended by P6-WORKER-02)
+## The transactional outbox relay (P6-ASYNC-01, extended through P8-EXPORT-01)
 
-`src/relay/outbox-relay.ts` scans `platform.outbox_event` for unpublished rows of any of THREE
-recognized event types — `media.processing_requested` (appended by `@verdery/api`'s
-`CompleteMediaUpload` when a media record reaches `available`), `media.derivative_generation_requested`
-(appended by `@verdery/api`'s `RecordMediaProcessingResult` after a successful `media_validation`
-result for a raster-eligible media class, P6-WORKER-02), or `media.deletion_requested` (appended by
-the API's deletion workflow when a record is scheduled for deletion, P6-RET-01) — and for each one:
+`src/relay/outbox-relay.ts` scans `platform.outbox_event` for unpublished rows of the recognized
+event types, in three families:
 
-1. Creates a durable `media.processing_job` row, keyed by the triggering outbox event's own id, with
-   `job_kind` set from the event's own type (`media_validation`, `derivative_generation`, or
-   `media_deletion` — see `src/job-kind.ts`).
-2. Enqueues a Cloud Tasks task carrying that job's manifest (now itself carrying `jobKind`), targeting
-   this service at `POST /internal/media-validation-jobs/:jobId` — the SAME route for both job kinds,
-   see "Job-kind dispatch" below.
-3. Marks the outbox row published.
+- **Media-processing family** — `media.processing_requested` (appended by `@verdery/api`'s
+  `CompleteMediaUpload` when a media record reaches `available`),
+  `media.derivative_generation_requested` (P6-WORKER-02), and `media.deletion_requested`
+  (P6-RET-01). For each: (1) a durable `media.processing_job` row keyed by the event's own id, with
+  `job_kind` from the event type (see `src/job-kind.ts`); (2) a Cloud Tasks task carrying the job's
+  manifest, targeting `POST /internal/media-validation-jobs/:jobId`; (3) the outbox row marked
+  published.
+- **Forward family** — `recommendation.candidate_created` (P7-NOTIF-01) and `export.completed`
+  (P8-EXPORT-01) are forwarded whole to the API's internal notification-policy endpoint
+  (duplicate-safe per event), then marked published. No job row, no queue.
+- **Export-enqueue family** — `export.requested` (P8-EXPORT-01) becomes ONE Cloud Tasks
+  `export_generation` task (task name = event id, so redelivery deduplicates), then the row is
+  marked published. No `media.processing_job` row: the API's own `exports.export_request` row IS
+  the durable job record — see `@verdery/api-contracts`' `export-processing.ts` for the whole
+  contract.
 
 The relay is driven on a plain interval (`RELAY_POLL_INTERVAL_MS`) via `src/relay/poller.ts`.
 
@@ -143,6 +147,27 @@ existing `objectViewer` grants; the delete itself needs the custom `verderyMedia
 (`storage.objects.delete` only) `10-media-processing-queue.sh` creates and binds — written, not yet
 executed live.
 
+## Export generation (P8-EXPORT-01)
+
+`src/exports/process-export-generation-job.ts` executes the byte-moving half of the checkpointed
+data-export pipeline (architecture/data-export-and-deletion.md sections 6-7): it fetches the
+structured snapshot from the API's OIDC-verified internal endpoints
+(`POST /internal/exports/:id/snapshot`), stages every served section into the exports bucket under
+the request's staging prefix, records ALL staged sections in one checkpoint call (freezing the
+snapshot's boundary — a retried attempt resumes from the staged objects and never re-reads), then
+streams staged `package` sections plus entitled media originals into the final ZIP (`archiver`,
+via `src/exports/zip-package-writer.ts`, hashed and counted as written) at the pre-computed
+package target, adding `missing-media.json` (media deleted since the boundary, listed rather than
+silently omitted) and `checksums.txt`. Completion is its OWN hop-2 endpoint
+(`POST /internal/exports/:id/complete`), not the media result callback: the API registers the
+`export_package` media record, completes the request, and emits the notification event atomically.
+The worker-only `media-transfer.json` section (internal bucket/object keys) never enters the
+package. Every database fact lives behind the API — `verdery_worker`'s grants stay exactly as
+narrow as before. Terminal conditions (a staged section missing or corrupt) report
+`failed_terminal` with a stable code; everything else is a retryable throw for Cloud Tasks.
+`archiver` is this package's ZIP writer (the boring, maintained streaming choice — the
+`sharp`/`file-type` selection precedent); `yauzl` is its test-only independent reader.
+
 ## Scheduled sweep triggers (P6-RET-01, generalized by P7-ASYNC-01)
 
 `src/sweeps/interval-sweep-scheduler.ts` (the overlap-guarded interval loop — one in-flight run at
@@ -159,6 +184,9 @@ heartbeat on every round-trip (all-zero counts included):
 - **Recommendation evaluation** (`RECOMMENDATION_EVALUATION_SWEEP_URL`, six-hourly, P7-ASYNC-01):
   rule evaluation over eligible gardens plus candidate expiry.
   `recommendations.evaluation_sweep_completed`.
+- **Notification delivery** (`NOTIFICATION_DELIVERY_SWEEP_URL`, minutely, P7-NOTIF-02): pending
+  push-eligible intents through send-time rechecks and FCM attempts.
+  `notifications.delivery_sweep_completed`.
 
 Every sweep itself — every privileged read and write — runs entirely in `services/api`:
 `verdery_worker` has deliberately never been able to read `media.media_record`, any garden or plant
@@ -168,32 +196,36 @@ as it was. This process contributes only its interval loops and its already-veri
 
 ## Environment
 
-| Variable                                         | Required | Default             | Meaning                                                             |
-| ------------------------------------------------ | -------- | ------------------- | ------------------------------------------------------------------- |
-| `VERDERY_ENVIRONMENT`                            | yes      | —                   | `development`, `staging`, or `production`                           |
-| `SERVICE_VERSION`                                | no       | `0.0.0-development` | Build version reported in every log record                          |
-| `LOG_LEVEL`                                      | no       | `info`              | pino level                                                          |
-| `HTTP_PORT`                                      | no       | `8080`              | Health and Cloud Tasks HTTP listener                                |
-| `DATABASE_URL`                                   | yes      | —                   | The relay's own PostgreSQL connection string                        |
-| `DATABASE_POOL_MAX_CONNECTIONS`                  | no       | `5`                 | Pool size                                                           |
-| `DATABASE_CONNECTION_TIMEOUT_MS`                 | no       | `5000`              | Connection acquire timeout                                          |
-| `DATABASE_STATEMENT_TIMEOUT_MS`                  | no       | `10000`             | Server-side statement timeout                                       |
-| `RELAY_POLL_INTERVAL_MS`                         | no       | `5000`              | How often the relay scans for unpublished events                    |
-| `RELAY_BATCH_SIZE`                               | no       | `20`                | Max events claimed per tick                                         |
-| `MEDIA_PROCESSING_QUEUE_PROJECT_ID`              | yes      | —                   | Cloud Tasks queue project                                           |
-| `MEDIA_PROCESSING_QUEUE_LOCATION`                | yes      | —                   | Cloud Tasks queue region                                            |
-| `MEDIA_PROCESSING_QUEUE_NAME`                    | yes      | —                   | Cloud Tasks queue name                                              |
-| `MEDIA_PROCESSING_TASK_URL`                      | yes      | —                   | This worker's validation route base URL and OIDC audience           |
-| `MEDIA_PROCESSING_RESULT_CALLBACK_URL`           | yes      | —                   | The API's internal result callback base URL                         |
-| `MEDIA_PROCESSING_RESULT_CALLBACK_AUDIENCE`      | yes      | —                   | Audience used for the worker-to-API ID token                        |
-| `MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL` | yes      | —                   | The service account Cloud Tasks mints the callback's OIDC token for |
-| `MEDIA_DERIVED_BUCKET`                           | yes      | —                   | The derived bucket the derivative-generation job writes to directly |
-| `MEDIA_RETENTION_SWEEP_URL`                      | yes      | —                   | The API's internal retention-sweep endpoint this worker triggers    |
-| `MEDIA_RETENTION_SWEEP_INTERVAL_MS`              | no       | `3600000`           | How often the retention sweep is triggered                          |
-| `WEATHER_REFRESH_SWEEP_URL`                      | yes      | —                   | The API's internal weather-refresh sweep endpoint (P7-ASYNC-01)     |
-| `WEATHER_REFRESH_SWEEP_INTERVAL_MS`              | no       | `3600000`           | How often the weather-refresh sweep is triggered                    |
-| `RECOMMENDATION_EVALUATION_SWEEP_URL`            | yes      | —                   | The API's internal recommendation-evaluation sweep endpoint         |
-| `RECOMMENDATION_EVALUATION_SWEEP_INTERVAL_MS`    | no       | `21600000`          | How often the recommendation-evaluation sweep is triggered          |
+| Variable                                         | Required | Default             | Meaning                                                               |
+| ------------------------------------------------ | -------- | ------------------- | --------------------------------------------------------------------- |
+| `VERDERY_ENVIRONMENT`                            | yes      | —                   | `development`, `staging`, or `production`                             |
+| `SERVICE_VERSION`                                | no       | `0.0.0-development` | Build version reported in every log record                            |
+| `LOG_LEVEL`                                      | no       | `info`              | pino level                                                            |
+| `HTTP_PORT`                                      | no       | `8080`              | Health and Cloud Tasks HTTP listener                                  |
+| `DATABASE_URL`                                   | yes      | —                   | The relay's own PostgreSQL connection string                          |
+| `DATABASE_POOL_MAX_CONNECTIONS`                  | no       | `5`                 | Pool size                                                             |
+| `DATABASE_CONNECTION_TIMEOUT_MS`                 | no       | `5000`              | Connection acquire timeout                                            |
+| `DATABASE_STATEMENT_TIMEOUT_MS`                  | no       | `10000`             | Server-side statement timeout                                         |
+| `RELAY_POLL_INTERVAL_MS`                         | no       | `5000`              | How often the relay scans for unpublished events                      |
+| `RELAY_BATCH_SIZE`                               | no       | `20`                | Max events claimed per tick                                           |
+| `MEDIA_PROCESSING_QUEUE_PROJECT_ID`              | yes      | —                   | Cloud Tasks queue project                                             |
+| `MEDIA_PROCESSING_QUEUE_LOCATION`                | yes      | —                   | Cloud Tasks queue region                                              |
+| `MEDIA_PROCESSING_QUEUE_NAME`                    | yes      | —                   | Cloud Tasks queue name                                                |
+| `MEDIA_PROCESSING_TASK_URL`                      | yes      | —                   | This worker's validation route base URL and OIDC audience             |
+| `MEDIA_PROCESSING_RESULT_CALLBACK_URL`           | yes      | —                   | The API's internal result callback base URL                           |
+| `MEDIA_PROCESSING_RESULT_CALLBACK_AUDIENCE`      | yes      | —                   | Audience used for the worker-to-API ID token                          |
+| `MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL` | yes      | —                   | The service account Cloud Tasks mints the callback's OIDC token for   |
+| `MEDIA_DERIVED_BUCKET`                           | yes      | —                   | The derived bucket the derivative-generation job writes to directly   |
+| `MEDIA_RETENTION_SWEEP_URL`                      | yes      | —                   | The API's internal retention-sweep endpoint this worker triggers      |
+| `MEDIA_RETENTION_SWEEP_INTERVAL_MS`              | no       | `3600000`           | How often the retention sweep is triggered                            |
+| `WEATHER_REFRESH_SWEEP_URL`                      | yes      | —                   | The API's internal weather-refresh sweep endpoint (P7-ASYNC-01)       |
+| `WEATHER_REFRESH_SWEEP_INTERVAL_MS`              | no       | `3600000`           | How often the weather-refresh sweep is triggered                      |
+| `RECOMMENDATION_EVALUATION_SWEEP_URL`            | yes      | —                   | The API's internal recommendation-evaluation sweep endpoint           |
+| `RECOMMENDATION_EVALUATION_SWEEP_INTERVAL_MS`    | no       | `21600000`          | How often the recommendation-evaluation sweep is triggered            |
+| `NOTIFICATION_EVENTS_URL`                        | yes      | —                   | The API's internal notification-policy endpoint (P7-NOTIF-01)         |
+| `NOTIFICATION_DELIVERY_SWEEP_URL`                | yes      | —                   | The API's internal notification-delivery sweep endpoint (P7-NOTIF-02) |
+| `NOTIFICATION_DELIVERY_SWEEP_INTERVAL_MS`        | no       | `60000`             | How often the notification-delivery sweep is triggered                |
+| `EXPORT_PROCESSING_API_URL`                      | yes      | —                   | The API's internal export endpoints' base URL (P8-EXPORT-01)          |
 
 `DATABASE_URL` only — no Cloud SQL IAM connection mode yet, unlike the API. Real Cloud SQL IAM
 wiring for this package's own database connection is a documented follow-up; see

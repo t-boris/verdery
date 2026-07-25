@@ -34,4 +34,12 @@ export interface GardenRecipientSource {
    * error.
    */
   findActiveMember(gardenId: Uuid, profileId: Uuid): Promise<GardenRecipient | null>;
+
+  /**
+   * One profile's own account facts regardless of any garden, or `null`
+   * when no profile exists — the recipient read for ACCOUNT-LEVEL intents
+   * (P8-EXPORT-01: an `export_ready` intent's one recipient is the export
+   * requester, whether or not the export concerned a garden).
+   */
+  findProfileRecipient(profileId: Uuid): Promise<GardenRecipient | null>;
 }

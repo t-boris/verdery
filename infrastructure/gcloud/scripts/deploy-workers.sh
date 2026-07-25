@@ -110,6 +110,12 @@ env_vars+=",NOTIFICATION_EVENTS_URL=${api_service_url}/v1/internal/notifications
 # interval keeps its configuration default (one minute) unless overridden
 # here.
 env_vars+=",NOTIFICATION_DELIVERY_SWEEP_URL=${api_service_url}/v1/internal/notification-delivery/sweep"
+# P8-EXPORT-01: the base URL of the API's three internal export endpoints
+# (snapshot/checkpoints/complete under {base}/{exportRequestId}/...), same
+# derivation and same audience; services/workers' configuration load fails
+# loudly without it. No interval variable — the relay's poll cadence
+# schedules the enqueue, and Cloud Tasks delivers the job.
+env_vars+=",EXPORT_PROCESSING_API_URL=${api_service_url}/v1/internal/exports"
 
 # `MEDIA_PROCESSING_TASK_URL` is self-referential (this service's own
 # validation-job route) — the exact same "look up the already-existing

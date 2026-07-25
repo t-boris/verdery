@@ -66,6 +66,27 @@ export function buildCareRecommendationDeepLink(
   return { kind: 'gardenToday', gardenId, recommendationCandidateId: candidateId };
 }
 
+/** P8-EXPORT-01 — versioned with the intent type, the care-recommendation precedent. */
+export const EXPORT_READY_INTENT_VERSION = 1;
+
+/** P8-EXPORT-01 — stable rendering key; clients render "your export is ready until <expiry>" in their own locale. */
+export const EXPORT_READY_TEMPLATE_KEY = 'export_ready.completed.v1';
+
+/**
+ * P8-EXPORT-01: one export request completes exactly once, so the request
+ * id alone is the whole deduplication story — a redelivered
+ * `export.completed` event collapses per recipient exactly like a
+ * redelivered candidate event does.
+ */
+export function buildExportReadyDedupKey(exportRequestId: Uuid): string {
+  return `export_ready:request:${exportRequestId}`;
+}
+
+/** P8-EXPORT-01: the stable route reference to the recipient's own export request (section 11's identifiers-only rule — never the signed URL itself, which is minted per download). */
+export function buildExportReadyDeepLink(exportRequestId: Uuid): NotificationDeepLink {
+  return { kind: 'exportReady', exportRequestId };
+}
+
 /** The candidate's CURRENT lifecycle facts, read in the same transaction that persists intents — `null` when no row exists (purged). */
 export interface CandidateFreshnessFacts {
   readonly id: Uuid;

@@ -23,7 +23,8 @@ export interface NewNotificationIntent {
   readonly intentType: string;
   readonly intentVersion: number;
   readonly recipientProfileId: Uuid;
-  readonly gardenId: Uuid;
+  /** `null` for account-level intents (P8-EXPORT-01) — see `NotificationIntent.gardenId`. */
+  readonly gardenId: Uuid | null;
   readonly recommendationCandidateId: Uuid | null;
   readonly sourceEventId: Uuid;
   readonly traceId: string | null;

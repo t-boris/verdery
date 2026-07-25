@@ -148,13 +148,24 @@ export function decideSendTimeAction(facts: SendTimeFacts, now: Date): SendTimeD
  * authorization.
  */
 export function buildPushMessageData(intent: NotificationIntent): Readonly<Record<string, string>> {
+  const deepLinkFields =
+    intent.deepLink.kind === 'gardenToday'
+      ? {
+          gardenId: intent.deepLink.gardenId,
+          recommendationCandidateId: intent.deepLink.recommendationCandidateId,
+        }
+      : // `exportReady` (P8-EXPORT-01) — unreachable in practice while
+        // export intents pin `channelPush` false, but the payload builder
+        // stays total over the deep-link union rather than throwing on a
+        // kind it can perfectly well express.
+        { exportRequestId: intent.deepLink.exportRequestId };
+
   return {
     notificationId: intent.id,
     notificationType: intent.intentType,
     templateKey: intent.templateKey,
     deepLinkKind: intent.deepLink.kind,
-    gardenId: intent.deepLink.gardenId,
-    recommendationCandidateId: intent.deepLink.recommendationCandidateId,
+    ...deepLinkFields,
   };
 }
 

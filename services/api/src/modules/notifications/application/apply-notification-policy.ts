@@ -36,28 +36,36 @@
  */
 
 import type {
+  ExportCompletedEventPayload,
   NotificationDomainEventEnvelope,
   NotificationEventProcessingSummary,
   RecommendationCandidateCreatedEventPayload,
 } from '@verdery/api-contracts';
 import {
+  EXPORT_COMPLETED_EVENT_TYPE,
   RECOMMENDATION_CANDIDATE_CREATED_EVENT_TYPE,
   SharedErrorCode,
 } from '@verdery/api-contracts';
 import { InternalError, ValidationError } from '../../../platform/errors/application-error.js';
+import { isAccountUsable } from '../../identity-access/public.js';
 import { generateUuidV7, type Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import {
   assessCareRecommendationEvent,
   buildCareRecommendationDedupKey,
   buildCareRecommendationDeepLink,
+  buildExportReadyDedupKey,
+  buildExportReadyDeepLink,
   CARE_RECOMMENDATION_INTENT_VERSION,
   CARE_RECOMMENDATION_TEMPLATE_KEY,
   derivePriorityFromUrgency,
   evaluateRecipientPolicy,
+  EXPORT_READY_INTENT_VERSION,
+  EXPORT_READY_TEMPLATE_KEY,
 } from '../domain/notification-policy.js';
 import {
   CARE_RECOMMENDATION_INTENT_TYPE,
+  EXPORT_READY_INTENT_TYPE,
   resolveChannelPreference,
   UNWRITTEN_PREFERENCE_SETTINGS,
 } from '../domain/notification-preference.js';
@@ -120,6 +128,31 @@ function requireCandidateCreatedPayload(
   return record as RecommendationCandidateCreatedEventPayload;
 }
 
+/**
+ * Validates the forwarded `export.completed` payload's consumed fields —
+ * the same trusted-producer, reject-loudly posture as
+ * `requireCandidateCreatedPayload` (the producer is this codebase's own
+ * `CompleteExport`).
+ */
+function requireExportCompletedPayload(payload: unknown): ExportCompletedEventPayload {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw invalid('the event payload must be an object.', '/payload');
+  }
+  const record = payload as Partial<ExportCompletedEventPayload>;
+
+  requireUuid(record.exportRequestId, '/payload/exportRequestId');
+  requireUuid(record.requesterProfileId, '/payload/requesterProfileId');
+  optionalUuid(record.gardenId ?? null, '/payload/gardenId');
+  if (typeof record.scope !== 'string' || record.scope === '') {
+    throw invalid('scope is required.', '/payload/scope');
+  }
+  if (typeof record.expiresAt !== 'string' || Number.isNaN(Date.parse(record.expiresAt))) {
+    throw invalid('expiresAt must be an ISO-8601 instant.', '/payload/expiresAt');
+  }
+
+  return record as ExportCompletedEventPayload;
+}
+
 function countReason(counts: Record<string, number>, reason: string): void {
   counts[reason] = (counts[reason] ?? 0) + 1;
 }
@@ -133,6 +166,9 @@ export class ApplyNotificationPolicy {
   async execute(
     envelope: NotificationDomainEventEnvelope,
   ): Promise<NotificationEventProcessingSummary> {
+    if (envelope.eventType === EXPORT_COMPLETED_EVENT_TYPE) {
+      return this.applyExportCompleted(envelope);
+    }
     if (envelope.eventType !== RECOMMENDATION_CANDIDATE_CREATED_EVENT_TYPE) {
       // The relay only forwards types it recognizes; receiving another type
       // means the two sides' shared constants have drifted — a deploy
@@ -261,6 +297,103 @@ export class ApplyNotificationPolicy {
         intentsDeduplicated,
         suppressed,
         priorIntentsSuperseded,
+      };
+    });
+  }
+
+  /**
+   * P8-EXPORT-01: `export.completed` — exactly one recipient (the export
+   * requester), no supersession (each request completes once), no
+   * freshness recheck (a completed package IS the fact, downloadable
+   * until `expiresAt` — which also bounds the intent, so an entry never
+   * outlives the download it announces). In-app channel only; the
+   * per-type in-app preference is still honored (an explicit opt-out
+   * suppresses), and quiet hours never apply because nothing is pushed
+   * (`evaluateRecipientPolicy`'s own in-app-only rule).
+   */
+  private async applyExportCompleted(
+    envelope: NotificationDomainEventEnvelope,
+  ): Promise<NotificationEventProcessingSummary> {
+    const sourceEventId = requireUuid(envelope.id, '/id');
+    const payload = requireExportCompletedPayload(envelope.payload);
+    const now = this.clock.now();
+    const expiresAt = new Date(Date.parse(payload.expiresAt));
+
+    return this.unitOfWork.run(async (context) => {
+      const suppressed: Record<string, number> = {};
+
+      const recipient = await context.recipients.findProfileRecipient(payload.requesterProfileId);
+      if (recipient === null || !isAccountUsable(recipient.accountState)) {
+        countReason(suppressed, 'account_not_usable');
+        return {
+          eventType: envelope.eventType,
+          recipientsConsidered: recipient === null ? 0 : 1,
+          intentsCreated: 0,
+          intentsDeduplicated: 0,
+          suppressed,
+          priorIntentsSuperseded: 0,
+        };
+      }
+
+      const entriesByProfile = await context.preferences.listEntriesForProfiles(
+        [recipient.profileId],
+        EXPORT_READY_INTENT_TYPE,
+      );
+      const channels = resolveChannelPreference(
+        entriesByProfile.get(recipient.profileId) ?? [],
+        EXPORT_READY_INTENT_TYPE,
+        payload.gardenId,
+      );
+      if (!channels.inAppEnabled) {
+        countReason(suppressed, 'channels_disabled');
+        return {
+          eventType: envelope.eventType,
+          recipientsConsidered: 1,
+          intentsCreated: 0,
+          intentsDeduplicated: 0,
+          suppressed,
+          priorIntentsSuperseded: 0,
+        };
+      }
+
+      const created = await context.intents.insertIfAbsent(
+        {
+          id: generateUuidV7(),
+          intentType: EXPORT_READY_INTENT_TYPE,
+          intentVersion: EXPORT_READY_INTENT_VERSION,
+          recipientProfileId: recipient.profileId,
+          gardenId: payload.gardenId,
+          recommendationCandidateId: null,
+          sourceEventId,
+          traceId: envelope.traceId,
+          templateKey: EXPORT_READY_TEMPLATE_KEY,
+          // Structured facts only, never rendered text (section 8) — and
+          // never the signed URL, which is minted per authorized download.
+          templateParameters: {
+            exportRequestId: payload.exportRequestId,
+            scope: payload.scope,
+            gardenId: payload.gardenId,
+            expiresAt: payload.expiresAt,
+          },
+          priority: 'normal',
+          channelInApp: true,
+          // In-app only — see EXPORT_READY_INTENT_TYPE's own doc comment.
+          channelPush: false,
+          deepLink: buildExportReadyDeepLink(payload.exportRequestId),
+          dedupKey: buildExportReadyDedupKey(payload.exportRequestId),
+          earliestDeliveryAt: now,
+          expiresAt,
+        },
+        now,
+      );
+
+      return {
+        eventType: envelope.eventType,
+        recipientsConsidered: 1,
+        intentsCreated: created ? 1 : 0,
+        intentsDeduplicated: created ? 0 : 1,
+        suppressed,
+        priorIntentsSuperseded: 0,
       };
     });
   }

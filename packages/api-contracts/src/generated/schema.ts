@@ -1422,6 +1422,113 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request an asynchronous data export
+         * @description Records a durable export request and starts asynchronous package
+         *     generation (architecture/data-export-and-deletion.md, sections
+         *     3-6). The response is the request resource in its initial
+         *     `requested` state; the caller polls `getExportRequest` and receives
+         *     an `export_ready` in-app notification when the package completes.
+         *
+         *     Scope rules (section 4):
+         *
+         *     - `account` — the caller's own personal data (profile, consents,
+         *       notification preferences) plus the full content of every garden
+         *       the caller OWNS. Gardens where the caller is only an editor or
+         *       viewer are named in the package manifest as excluded — per-role
+         *       garden export entitlement beyond ownership is a deferred
+         *       capability. Requires RECENT authentication (section 5): a
+         *       session whose underlying sign-in is older than 30 minutes is
+         *       rejected with `403` and `error.code`
+         *       `export.recent_authentication_required`.
+         *     - `garden` — one garden's full content; requires the `owner` role
+         *       on `gardenId`.
+         *
+         *     `includeMedia` selects whether entitled original media files
+         *     (garden photos and imported plans) are packaged; media METADATA
+         *     and checksums are always included. Raw scan artifacts
+         *     (`raw_capture`) are never included — the separate sensitive-media
+         *     permission section 4 names does not exist yet.
+         *
+         *     One active export per requester: while a previous request is
+         *     `requested` or `running`, a new one is rejected with `409` and
+         *     `error.code` `export.active_export_exists` — an export is
+         *     expensive, and the durable request row is the rate-limit ledger.
+         */
+        post: operations["requestExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/exports/{exportRequestId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exportRequestId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get one export request's state
+         * @description The caller's own export request — state, boundary, expiry, and
+         *     package facts once completed. Another user's request id, or an
+         *     unknown id, is `404` (`export.not_found`): non-ownership is
+         *     concealed as not-found, the inbox-entry posture.
+         */
+        get: operations["getExportRequest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/exports/{exportRequestId}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exportRequestId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get a short-lived signed download URL for a completed export
+         * @description The established signed-access mechanism (`getMediaAccess`'s own
+         *     shape) applied to the export package: a short-lived signed URL,
+         *     never a permanent one, re-requestable until the package expires
+         *     (architecture/data-export-and-deletion.md, section 9: "Repeated
+         *     download requires reauthorization after URL expiration").
+         *
+         *     Only the requester can download — the package's media record is
+         *     deliberately NOT reachable through the garden-scoped media routes,
+         *     so garden collaborators can never fetch another member's export.
+         *     Before completion, after the 7-day expiry, or after the package's
+         *     automatic deletion the response is `409` with `error.code`
+         *     `export.not_downloadable`.
+         */
+        get: operations["getExportDownload"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sync/clients/{clientInstallationId}": {
         parameters: {
             query?: never;
@@ -3838,6 +3945,61 @@ export interface components {
             lastSeenAt: components["schemas"]["Timestamp"];
         };
         /**
+         * @description What one export request covers — see `requestExport`'s own scope rules.
+         * @enum {string}
+         */
+        ExportScope: "account" | "garden";
+        /**
+         * @description The export request's server-owned state machine
+         *     (architecture/data-export-and-deletion.md, section 5). `requested`
+         *     — recorded, generation not yet begun. `running` — the checkpointed
+         *     generation job has begun (a retried attempt resumes from recorded
+         *     checkpoints rather than restarting). `completed` — the package is
+         *     written, checksummed, and downloadable until `expiresAt`. `failed`
+         *     — generation concluded without a package; a failed export never
+         *     exposes a partial object (section 16).
+         * @enum {string}
+         */
+        ExportRequestState: "requested" | "running" | "completed" | "failed";
+        CreateExportRequest: {
+            scope: components["schemas"]["ExportScope"];
+            /** @description Required exactly when `scope` is `garden`; forbidden for `account`. */
+            gardenId?: components["schemas"]["Uuid"];
+            /**
+             * @description Whether entitled original media files are packaged. Media metadata and checksums are always included.
+             * @default true
+             */
+            includeMedia: boolean;
+        };
+        /**
+         * @description One durable export request. `boundaryAt` is the recorded
+         *     consistency boundary: every structured record in the package was
+         *     read in one repeatable-read snapshot taken at that instant, so
+         *     changes after it are excluded and disclosed in the package
+         *     manifest (architecture/data-export-and-deletion.md, section 7).
+         */
+        ExportRequest: {
+            id: components["schemas"]["Uuid"];
+            scope: components["schemas"]["ExportScope"];
+            /** @description The exported garden for `garden` scope; `null` for `account` scope. */
+            gardenId: components["schemas"]["Uuid"] | null;
+            includeMedia: boolean;
+            /** @description The package layout's schema version, stamped into the package's own `export.json`. */
+            formatVersion: string;
+            state: components["schemas"]["ExportRequestState"];
+            /** @description The consistency boundary, once the snapshot has been taken and checkpointed; `null` before that. */
+            boundaryAt: components["schemas"]["Timestamp"] | null;
+            /** @description The completed ZIP package's SHA-256; `null` until `completed`. */
+            outputChecksumSha256: string | null;
+            /** @description A stable machine reason once `failed`; `null` otherwise. */
+            failureCode: string | null;
+            /** @description When the package (and its download) expires — the 7-day `export_package` retention deadline, set at completion; `null` until `completed`. */
+            expiresAt: components["schemas"]["Timestamp"] | null;
+            completedAt: components["schemas"]["Timestamp"] | null;
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+        };
+        /**
          * @description The notification's server-owned type vocabulary, deliberately open
          *     (a plain string, not an enum) so a new type never breaks an
          *     already-shipped client — an unknown type must render through the
@@ -3846,6 +4008,9 @@ export interface components {
          *
          *     - `care_recommendation` — a new care recommendation candidate was
          *       generated for a garden the recipient is a member of.
+         *     - `export_ready` — the recipient's own requested data-export
+         *       package completed and is downloadable until it expires
+         *       (P8-EXPORT-01; in-app channel only).
          */
         NotificationType: string;
         /**
@@ -3860,20 +4025,29 @@ export interface components {
          *     never bearer access; the client authenticates and authorizes after
          *     opening, and opens a safe fallback when the target is unavailable
          *     rather than revealing prior existence. `kind` names the route
-         *     target; clients resolve it to their own navigation. One kind
-         *     exists today; new kinds arrive as new object variants and an
-         *     unknown kind must fall back to a safe default screen.
+         *     target; clients resolve it to their own navigation. New kinds
+         *     arrive as new object variants and an unknown kind must fall back
+         *     to a safe default screen.
          *
          *     Source: architecture/notifications.md, section "11. Deep Links".
          */
-        NotificationDeepLink: {
+        NotificationDeepLink: components["schemas"]["GardenTodayDeepLink"] | components["schemas"]["ExportReadyDeepLink"];
+        GardenTodayDeepLink: {
             /**
-             * @description The garden's Today surface, highlighting the referenced recommendation when it is still presentable.
+             * @description The garden's Today surface, highlighting the referenced recommendation when it is still presentable. (enum property replaced by openapi-typescript)
              * @enum {string}
              */
             kind: "gardenToday";
             gardenId: components["schemas"]["Uuid"];
             recommendationCandidateId: components["schemas"]["Uuid"];
+        };
+        ExportReadyDeepLink: {
+            /**
+             * @description The recipient's own export request — its state and, while unexpired, its download (P8-EXPORT-01). (enum property replaced by openapi-typescript)
+             * @enum {string}
+             */
+            kind: "exportReady";
+            exportRequestId: components["schemas"]["Uuid"];
         };
         /**
          * @description One durable inbox entry. Carries a stable template key plus
@@ -3886,7 +4060,8 @@ export interface components {
             id: components["schemas"]["Uuid"];
             notificationType: components["schemas"]["NotificationType"];
             priority: components["schemas"]["NotificationPriority"];
-            gardenId: components["schemas"]["Uuid"];
+            /** @description The garden this notification concerns; `null` for account-level entries (an `export_ready` entry for an account-wide export). */
+            gardenId: components["schemas"]["Uuid"] | null;
             /** @description The recommendation candidate this notification is about, for `care_recommendation` entries — the freshness linkage the delivery pipeline rechecks before any push attempt. */
             recommendationCandidateId: components["schemas"]["Uuid"] | null;
             /** @description Stable, versioned rendering key, e.g. `care_recommendation.created.v1`. */
@@ -5885,6 +6060,91 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    requestExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateExportRequest"];
+            };
+        };
+        responses: {
+            /** @description The export request was recorded and generation scheduled. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportRequest"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getExportRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exportRequestId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The export request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportRequest"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getExportDownload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exportRequestId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A short-lived signed download URL for the export package. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaAccess"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     registerSyncClient: {

@@ -9,6 +9,7 @@
  */
 
 import type { Kysely } from 'kysely';
+import type { ExportsDatabaseSchema } from '../../modules/exports/persistence/schema.js';
 import type { IdentityAccessDatabaseSchema } from '../../modules/identity-access/persistence/schema.js';
 import type { GardensMappingDatabaseSchema } from '../../modules/gardens-mapping/persistence/schema.js';
 import type { IntegrationsDatabaseSchema } from '../../modules/integrations/persistence/schema.js';
@@ -37,7 +38,8 @@ import type { PlatformDatabaseSchema } from './platform-schema.js';
  *
  * Source: architecture/data-and-geospatial-design.md, section "3. Schema Ownership".
  */
-export type DatabaseSchema = IdentityAccessDatabaseSchema &
+export type DatabaseSchema = ExportsDatabaseSchema &
+  IdentityAccessDatabaseSchema &
   GardensMappingDatabaseSchema &
   IntegrationsDatabaseSchema &
   MediaDatabaseSchema &

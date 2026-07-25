@@ -258,6 +258,12 @@ export type NotificationDevicePlatform = Schemas['NotificationDevicePlatform'];
 export type RegisterNotificationDeviceRequest = Schemas['RegisterNotificationDeviceRequest'];
 export type NotificationDevice = Schemas['NotificationDevice'];
 
+/** The data-export request schemas (P8-EXPORT-01). */
+export type ExportScope = Schemas['ExportScope'];
+export type ExportRequestState = Schemas['ExportRequestState'];
+export type CreateExportRequest = Schemas['CreateExportRequest'];
+export type ExportRequest = Schemas['ExportRequest'];
+
 /** The API base path. Breaking changes require a new major path. */
 export const API_BASE_PATH = '/v1';
 
@@ -422,6 +428,33 @@ export const NotificationErrorCode = {
 
 export type NotificationErrorCode =
   (typeof NotificationErrorCode)[keyof typeof NotificationErrorCode];
+
+/**
+ * The export-generation machine-to-machine contract (P8-EXPORT-01) lives
+ * in `./export-processing.js` — the same hand-written posture as
+ * `./media-processing.js`, re-exported here unchanged.
+ */
+export * from './export-processing.js';
+
+/**
+ * Error codes the exports module raises (P8-EXPORT-01).
+ *
+ * Non-ownership is concealed as not-found (a caller must not learn that
+ * someone else's export request id exists), the same posture
+ * `NotificationErrorCode.NotFound` documents for inbox entries.
+ */
+export const ExportErrorCode = {
+  /** No export request exists at this ID, or it does not belong to the caller. */
+  NotFound: 'export.not_found',
+  /** The caller already has an export in `requested` or `running` state — one active export per requester (data-export-and-deletion.md section 6's "expensive" posture, enforced by a partial unique index). */
+  ActiveExportExists: 'export.active_export_exists',
+  /** Account-wide export requires a recent sign-in (section 5: "Recent authentication is required for account-wide export"); the session's `auth_time` is too old. */
+  RecentAuthenticationRequired: 'export.recent_authentication_required',
+  /** `GetExportDownload` was called before the package completed, after it expired, or after its package left the `available` state. */
+  NotDownloadable: 'export.not_downloadable',
+} as const;
+
+export type ExportErrorCode = (typeof ExportErrorCode)[keyof typeof ExportErrorCode];
 
 /** Narrows an unknown response body to the shared error envelope. */
 export function isApiError(value: unknown): value is ApiError {

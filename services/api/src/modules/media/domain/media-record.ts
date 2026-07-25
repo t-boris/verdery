@@ -437,6 +437,82 @@ export interface RegisterDerivativeMediaRecordInput {
  * review image, tile) is one of those three things, never a
  * `processing_output` diagnostic artifact.
  */
+export interface RegisterExportPackageMediaRecordInput {
+  /** The requester the package belongs to — the ONLY identity the export download authorizes. */
+  readonly uploadedByProfileId: Uuid;
+  readonly displayFilename: string;
+  /** The package's own worker-verified content type and byte size — "declared" and "verified" at once, the derivative precedent: nothing else ever declares a package before the worker produces and checksums it in the same step. */
+  readonly contentType: string;
+  readonly byteSize: number;
+  readonly checksumSha256: string;
+  readonly bucketName: string;
+  readonly objectKey: string;
+}
+
+/**
+ * Registers a P8-EXPORT-01 export package directly at `available` — the
+ * `registerDerivativeMediaRecord` precedent (bytes durably written to the
+ * exports bucket by the worker before this row ever exists), for a row
+ * that is an ORIGINAL, not a derivative: it derives from a database
+ * snapshot plus many media sources, not from one source media row, so the
+ * derivative identity columns stay null.
+ *
+ * `gardenId` is ALWAYS null, even for a garden-scoped export — this is a
+ * privacy decision, not a modeling accident: the garden-scoped media
+ * routes authorize by garden membership, and a membership must never
+ * grant another collaborator access to the requester's export package
+ * (data-export-and-deletion.md section 9: "Download authorization is
+ * short lived" and requester-bound). With no garden id, `require-media-
+ * and-authorize.ts`'s `record.gardenId !== gardenId` check conceals the
+ * row from every garden route by construction; the export module's own
+ * requester-gated download is the single access path.
+ *
+ * `processingState` stays null ("not applicable"): the validation pipeline
+ * exists for CLIENT uploads; a server-produced, server-checksummed package
+ * has no untrusted bytes to validate.
+ *
+ * `retentionDeadlineAt` comes from the class's own registration-anchored
+ * rule (7 days, `media-retention.ts`) — the live retention sweep and the
+ * exports bucket's lifecycle rule both already enforce it.
+ */
+export function registerExportPackageMediaRecord(
+  id: Uuid,
+  input: RegisterExportPackageMediaRecordInput,
+  now: Date,
+): MediaRecord {
+  const contentType = validateDeclaredContentType(input.contentType);
+  const byteSize = validateDeclaredByteSize(input.byteSize);
+
+  return {
+    id,
+    gardenId: null,
+    uploadedByProfileId: input.uploadedByProfileId,
+    mediaClass: 'export_package',
+    displayFilename: normalizeDisplayFilename(input.displayFilename),
+    declaredContentType: contentType,
+    verifiedContentType: contentType,
+    declaredByteSize: byteSize,
+    verifiedByteSize: byteSize,
+    checksumSha256: normalizeChecksumSha256(input.checksumSha256),
+    bucketName: input.bucketName,
+    objectKey: input.objectKey,
+    uploadState: 'available',
+    processingState: null,
+    captureSessionId: null,
+    sensitivityClassification: deriveDefaultSensitivityClassification('export_package'),
+    retentionDeadlineAt: deriveDefaultRetentionDeadline('export_package', now),
+    derivedFromMediaId: null,
+    transformationVersion: null,
+    derivativeKind: null,
+    tileZoomLevel: null,
+    tileX: null,
+    tileY: null,
+    revision: 1,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
 export function registerDerivativeMediaRecord(
   id: Uuid,
   input: RegisterDerivativeMediaRecordInput,

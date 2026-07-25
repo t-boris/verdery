@@ -178,10 +178,15 @@ export class RunNotificationDeliverySweep {
     // One transaction for the recheck facts: the decision must run against
     // a consistent snapshot (the ApplyNotificationPolicy rule).
     const { facts, devices } = await this.unitOfWork.run(async (context) => {
-      const recipient = await context.recipients.findActiveMember(
-        intent.gardenId,
-        intent.recipientProfileId,
-      );
+      // An account-level intent (garden_id null, P8-EXPORT-01) has no
+      // membership to recheck — the recipient facts are the profile's own.
+      // Unreachable today (export intents pin `channelPush` false, and the
+      // claim reads only push-eligible rows), but the sweep stays total
+      // over the intent shape the schema now allows.
+      const recipient =
+        intent.gardenId === null
+          ? await context.recipients.findProfileRecipient(intent.recipientProfileId)
+          : await context.recipients.findActiveMember(intent.gardenId, intent.recipientProfileId);
       const candidate =
         intent.recommendationCandidateId === null
           ? null

@@ -14,7 +14,8 @@ export interface NotificationIntentRow {
   intent_type: string;
   intent_version: Generated<number>;
   recipient_profile_id: string;
-  garden_id: string;
+  /** Nullable since 1786300000000_exports-baseline.sql: account-level `export_ready` intents concern no garden. */
+  garden_id: string | null;
   recommendation_candidate_id: string | null;
   source_event_id: string;
   trace_id: string | null;

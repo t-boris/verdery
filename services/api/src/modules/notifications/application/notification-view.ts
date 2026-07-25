@@ -10,17 +10,27 @@ import type {
   NotificationPreferenceSettings,
 } from '../domain/notification-preference.js';
 
-export interface NotificationDeepLinkResource {
+export interface GardenTodayDeepLinkResource {
   readonly kind: 'gardenToday';
   readonly gardenId: string;
   readonly recommendationCandidateId: string;
 }
 
+/** P8-EXPORT-01 — mirrors `openapi.yaml`'s `ExportReadyDeepLink` variant. */
+export interface ExportReadyDeepLinkResource {
+  readonly kind: 'exportReady';
+  readonly exportRequestId: string;
+}
+
+export type NotificationDeepLinkResource =
+  GardenTodayDeepLinkResource | ExportReadyDeepLinkResource;
+
 export interface NotificationResource {
   readonly id: string;
   readonly notificationType: string;
   readonly priority: 'normal' | 'high';
-  readonly gardenId: string;
+  /** `null` for account-level entries (P8-EXPORT-01) — the contract's own nullable `gardenId`. */
+  readonly gardenId: string | null;
   readonly recommendationCandidateId: string | null;
   readonly templateKey: string;
   readonly parameters: Readonly<Record<string, unknown>>;
@@ -64,11 +74,17 @@ export function toNotificationResource(intent: NotificationIntent): Notification
     recommendationCandidateId: intent.recommendationCandidateId,
     templateKey: intent.templateKey,
     parameters: intent.templateParameters,
-    deepLink: {
-      kind: intent.deepLink.kind,
-      gardenId: intent.deepLink.gardenId,
-      recommendationCandidateId: intent.deepLink.recommendationCandidateId,
-    },
+    deepLink:
+      intent.deepLink.kind === 'gardenToday'
+        ? {
+            kind: 'gardenToday',
+            gardenId: intent.deepLink.gardenId,
+            recommendationCandidateId: intent.deepLink.recommendationCandidateId,
+          }
+        : {
+            kind: 'exportReady',
+            exportRequestId: intent.deepLink.exportRequestId,
+          },
     readAt: intent.readAt === null ? null : intent.readAt.toISOString(),
     dismissedAt: intent.dismissedAt === null ? null : intent.dismissedAt.toISOString(),
     expiresAt: intent.expiresAt.toISOString(),

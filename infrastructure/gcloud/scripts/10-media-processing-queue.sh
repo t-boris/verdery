@@ -181,6 +181,26 @@ for bucket_name in \
     --quiet >/dev/null
 done
 
+# P8-EXPORT-01's export-generation write grant. The export job stages the
+# API-served structured sections and streams the final ZIP package into the
+# exports bucket (services/workers/src/exports/gcs-export-object-store.ts).
+# `roles/storage.objectCreator` on the EXPORTS bucket only — combined with
+# the objectViewer loop above (reading staged sections and media originals
+# back) and the delete-only custom role this script already binds on the
+# exports bucket (P6-RET-01), which is what makes a retried attempt's
+# OVERWRITE of the same staging/package object key legal (GCS overwrite =
+# delete + create). No new role and no objectAdmin: the same
+# least-privilege pairing the derivative grant documents.
+#
+# SCOPE BOUNDARY: written and syntax-checked, NOT executed against any real
+# environment — the same boundary every other grant in this script holds to.
+log "Granting roles/storage.objectCreator on ${VERDERY_EXPORTS_BUCKET} to ${worker_email}"
+gcloud storage buckets add-iam-policy-binding "gs://${VERDERY_EXPORTS_BUCKET}" \
+  --project="${VERDERY_PROJECT_ID}" \
+  --member="serviceAccount:${worker_email}" \
+  --role="roles/storage.objectCreator" \
+  --quiet >/dev/null
+
 # --- Cloud Tasks queue -------------------------------------------------
 # Default retry/rate config: architecture/asynchronous-processing.md section
 # 5 requires "explicit target, service identity, retry policy, rate,

@@ -235,6 +235,8 @@ export class FakeNotificationPreferenceRepository implements NotificationPrefere
 
 export class FakeGardenRecipientSource implements GardenRecipientSource {
   readonly recipientsByGarden = new Map<Uuid, readonly GardenRecipient[]>();
+  /** Account-level recipients (P8-EXPORT-01) — profiles resolvable regardless of any garden. */
+  readonly profiles = new Map<Uuid, GardenRecipient>();
 
   listActiveMembers(gardenId: Uuid): Promise<readonly GardenRecipient[]> {
     return Promise.resolve(this.recipientsByGarden.get(gardenId) ?? []);
@@ -245,6 +247,10 @@ export class FakeGardenRecipientSource implements GardenRecipientSource {
       (recipient) => recipient.profileId === profileId,
     );
     return Promise.resolve(member ?? null);
+  }
+
+  findProfileRecipient(profileId: Uuid): Promise<GardenRecipient | null> {
+    return Promise.resolve(this.profiles.get(profileId) ?? null);
   }
 }
 

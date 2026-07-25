@@ -54,6 +54,8 @@ tags:
     description: The native offline outbox protocol — client installation registration, bounded batched push of client commands, resumable pull of the server change log, and cheap re-acknowledgement of already-submitted operations.
   - name: Notifications
     description: The per-user in-app notification inbox — the durable user-facing record of eligible notifications, with read state, dismissal, expiration, and stable deep links — plus the caller's own notification preferences (per-type and per-channel toggles with optional per-garden overrides, quiet hours, and time zone). Intents are created exclusively by the server-side notification policy from domain events; these operations read and annotate them, never create them.
+  - name: Exports
+    description: Portable data export — request an asynchronous account-wide or garden-scoped export package (ZIP with JSON, GeoJSON, CSV, entitled media, checksums, and a README), poll its state, and obtain a short-lived signed download URL while the package is within its 7-day expiry window. Generation is asynchronous and checkpointed; completion is announced through the in-app notification inbox.
 
 paths:
   /health/live:
@@ -2373,6 +2375,136 @@ paths:
                 $ref: '#/components/schemas/MediaRetentionPolicyResult'
         '401':
           $ref: '#/components/responses/Unauthorized'
+
+  /exports:
+    post:
+      operationId: requestExport
+      tags: [Exports]
+      summary: Request an asynchronous data export
+      description: |
+        Records a durable export request and starts asynchronous package
+        generation (architecture/data-export-and-deletion.md, sections
+        3-6). The response is the request resource in its initial
+        `requested` state; the caller polls `getExportRequest` and receives
+        an `export_ready` in-app notification when the package completes.
+
+        Scope rules (section 4):
+
+        - `account` — the caller's own personal data (profile, consents,
+          notification preferences) plus the full content of every garden
+          the caller OWNS. Gardens where the caller is only an editor or
+          viewer are named in the package manifest as excluded — per-role
+          garden export entitlement beyond ownership is a deferred
+          capability. Requires RECENT authentication (section 5): a
+          session whose underlying sign-in is older than 30 minutes is
+          rejected with `403` and `error.code`
+          `export.recent_authentication_required`.
+        - `garden` — one garden's full content; requires the `owner` role
+          on `gardenId`.
+
+        `includeMedia` selects whether entitled original media files
+        (garden photos and imported plans) are packaged; media METADATA
+        and checksums are always included. Raw scan artifacts
+        (`raw_capture`) are never included — the separate sensitive-media
+        permission section 4 names does not exist yet.
+
+        One active export per requester: while a previous request is
+        `requested` or `running`, a new one is rejected with `409` and
+        `error.code` `export.active_export_exists` — an export is
+        expensive, and the durable request row is the rate-limit ledger.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateExportRequest'
+      responses:
+        '201':
+          description: The export request was recorded and generation scheduled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportRequest'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /exports/{exportRequestId}:
+    parameters:
+      - name: exportRequestId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    get:
+      operationId: getExportRequest
+      tags: [Exports]
+      summary: Get one export request's state
+      description: |
+        The caller's own export request — state, boundary, expiry, and
+        package facts once completed. Another user's request id, or an
+        unknown id, is `404` (`export.not_found`): non-ownership is
+        concealed as not-found, the inbox-entry posture.
+      responses:
+        '200':
+          description: The export request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /exports/{exportRequestId}/download:
+    parameters:
+      - name: exportRequestId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    get:
+      operationId: getExportDownload
+      tags: [Exports]
+      summary: Get a short-lived signed download URL for a completed export
+      description: |
+        The established signed-access mechanism (`getMediaAccess`'s own
+        shape) applied to the export package: a short-lived signed URL,
+        never a permanent one, re-requestable until the package expires
+        (architecture/data-export-and-deletion.md, section 9: "Repeated
+        download requires reauthorization after URL expiration").
+
+        Only the requester can download — the package's media record is
+        deliberately NOT reachable through the garden-scoped media routes,
+        so garden collaborators can never fetch another member's export.
+        Before completion, after the 7-day expiry, or after the package's
+        automatic deletion the response is `409` with `error.code`
+        `export.not_downloadable`.
+      responses:
+        '200':
+          description: A short-lived signed download URL for the export package.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAccess'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
 
   /sync/clients/{clientInstallationId}:
     parameters:
@@ -6883,6 +7015,108 @@ components:
           $ref: '#/components/schemas/Timestamp'
           description: Set to the current time on every successful register-or-refresh call.
 
+    ExportScope:
+      type: string
+      enum: [account, garden]
+      description: What one export request covers — see `requestExport`'s own scope rules.
+
+    ExportRequestState:
+      type: string
+      enum: [requested, running, completed, failed]
+      description: |
+        The export request's server-owned state machine
+        (architecture/data-export-and-deletion.md, section 5). `requested`
+        — recorded, generation not yet begun. `running` — the checkpointed
+        generation job has begun (a retried attempt resumes from recorded
+        checkpoints rather than restarting). `completed` — the package is
+        written, checksummed, and downloadable until `expiresAt`. `failed`
+        — generation concluded without a package; a failed export never
+        exposes a partial object (section 16).
+
+    CreateExportRequest:
+      type: object
+      additionalProperties: false
+      required: [scope]
+      properties:
+        scope:
+          $ref: '#/components/schemas/ExportScope'
+        gardenId:
+          $ref: '#/components/schemas/Uuid'
+          description: Required exactly when `scope` is `garden`; forbidden for `account`.
+        includeMedia:
+          type: boolean
+          default: true
+          description: Whether entitled original media files are packaged. Media metadata and checksums are always included.
+
+    ExportRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          scope,
+          gardenId,
+          includeMedia,
+          formatVersion,
+          state,
+          boundaryAt,
+          outputChecksumSha256,
+          failureCode,
+          expiresAt,
+          completedAt,
+          createdAt,
+          updatedAt,
+        ]
+      description: |
+        One durable export request. `boundaryAt` is the recorded
+        consistency boundary: every structured record in the package was
+        read in one repeatable-read snapshot taken at that instant, so
+        changes after it are excluded and disclosed in the package
+        manifest (architecture/data-export-and-deletion.md, section 7).
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        scope:
+          $ref: '#/components/schemas/ExportScope'
+        gardenId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The exported garden for `garden` scope; `null` for `account` scope.
+        includeMedia:
+          type: boolean
+        formatVersion:
+          type: string
+          minLength: 1
+          description: The package layout's schema version, stamped into the package's own `export.json`.
+        state:
+          $ref: '#/components/schemas/ExportRequestState'
+        boundaryAt:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+          description: The consistency boundary, once the snapshot has been taken and checkpointed; `null` before that.
+        outputChecksumSha256:
+          type: [string, 'null']
+          pattern: '^[0-9a-f]{64}$'
+          description: The completed ZIP package's SHA-256; `null` until `completed`.
+        failureCode:
+          type: [string, 'null']
+          description: A stable machine reason once `failed`; `null` otherwise.
+        expiresAt:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+          description: When the package (and its download) expires — the 7-day `export_package` retention deadline, set at completion; `null` until `completed`.
+        completedAt:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+
     NotificationType:
       type: string
       minLength: 1
@@ -6896,6 +7130,9 @@ components:
 
         - `care_recommendation` — a new care recommendation candidate was
           generated for a garden the recipient is a member of.
+        - `export_ready` — the recipient's own requested data-export
+          package completed and is downloadable until it expires
+          (P8-EXPORT-01; in-app channel only).
 
     NotificationPriority:
       type: string
@@ -6906,19 +7143,29 @@ components:
         matching what push transports actually distinguish.
 
     NotificationDeepLink:
-      type: object
-      additionalProperties: false
-      required: [kind, gardenId, recommendationCandidateId]
+      oneOf:
+        - $ref: '#/components/schemas/GardenTodayDeepLink'
+        - $ref: '#/components/schemas/ExportReadyDeepLink'
+      discriminator:
+        propertyName: kind
+        mapping:
+          gardenToday: '#/components/schemas/GardenTodayDeepLink'
+          exportReady: '#/components/schemas/ExportReadyDeepLink'
       description: |
         A stable application route reference — resource identifiers only,
         never bearer access; the client authenticates and authorizes after
         opening, and opens a safe fallback when the target is unavailable
         rather than revealing prior existence. `kind` names the route
-        target; clients resolve it to their own navigation. One kind
-        exists today; new kinds arrive as new object variants and an
-        unknown kind must fall back to a safe default screen.
+        target; clients resolve it to their own navigation. New kinds
+        arrive as new object variants and an unknown kind must fall back
+        to a safe default screen.
 
         Source: architecture/notifications.md, section "11. Deep Links".
+
+    GardenTodayDeepLink:
+      type: object
+      additionalProperties: false
+      required: [kind, gardenId, recommendationCandidateId]
       properties:
         kind:
           type: string
@@ -6927,6 +7174,18 @@ components:
         gardenId:
           $ref: '#/components/schemas/Uuid'
         recommendationCandidateId:
+          $ref: '#/components/schemas/Uuid'
+
+    ExportReadyDeepLink:
+      type: object
+      additionalProperties: false
+      required: [kind, exportRequestId]
+      properties:
+        kind:
+          type: string
+          enum: [exportReady]
+          description: The recipient's own export request — its state and, while unexpired, its download (P8-EXPORT-01).
+        exportRequestId:
           $ref: '#/components/schemas/Uuid'
 
     Notification:
@@ -6961,7 +7220,10 @@ components:
         priority:
           $ref: '#/components/schemas/NotificationPriority'
         gardenId:
-          $ref: '#/components/schemas/Uuid'
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The garden this notification concerns; `null` for account-level entries (an `export_ready` entry for an account-wide export).
         recommendationCandidateId:
           oneOf:
             - $ref: '#/components/schemas/Uuid'

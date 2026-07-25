@@ -6,6 +6,7 @@ import {
   normalizeChecksumSha256,
   normalizeDisplayFilename,
   registerDerivativeMediaRecord,
+  registerExportPackageMediaRecord,
   registerMediaRecord,
   validateDeclaredByteSize,
   validateDeclaredContentType,
@@ -307,5 +308,48 @@ describe('deriveDefaultSensitivityClassification', () => {
 
   it('classifies raw_capture as restricted', () => {
     expect(deriveDefaultSensitivityClassification('raw_capture')).toBe('restricted');
+  });
+});
+
+describe('registerExportPackageMediaRecord (P8-EXPORT-01)', () => {
+  function registerPackage() {
+    return registerExportPackageMediaRecord(
+      MEDIA_ID,
+      {
+        uploadedByProfileId: PROFILE_ID,
+        displayFilename: 'verdery-export-req.zip',
+        contentType: 'application/zip',
+        byteSize: 123_456,
+        checksumSha256: VALID_CHECKSUM,
+        bucketName: 'test-exports',
+        objectKey: 'ab/media/object',
+      },
+      NOW,
+    );
+  }
+
+  it('starts directly at available with the worker-verified facts declared and verified at once', () => {
+    const record = registerPackage();
+
+    expect(record.mediaClass).toBe('export_package');
+    expect(record.uploadState).toBe('available');
+    expect(record.processingState).toBeNull();
+    expect(record.verifiedContentType).toBe('application/zip');
+    expect(record.verifiedByteSize).toBe(123_456);
+    expect(record.checksumSha256).toBe(VALID_CHECKSUM);
+    expect(record.bucketName).toBe('test-exports');
+    expect(record.derivedFromMediaId).toBeNull();
+    expect(record.derivativeKind).toBeNull();
+  });
+
+  it('is ALWAYS garden-less — the structural reason no garden media route can serve another member the package', () => {
+    expect(registerPackage().gardenId).toBeNull();
+  });
+
+  it('carries the registration-anchored 7-day retention deadline and the sensitive classification', () => {
+    const record = registerPackage();
+
+    expect(record.sensitivityClassification).toBe('sensitive');
+    expect(record.retentionDeadlineAt).toEqual(new Date(NOW.getTime() + 7 * 24 * 60 * 60 * 1000));
   });
 });

@@ -72,4 +72,20 @@ export class KyselyGardenRecipientSource implements GardenRecipientSource {
           timeZone: row.time_zone,
         };
   }
+
+  async findProfileRecipient(profileId: Uuid): Promise<GardenRecipient | null> {
+    const row = await this.db
+      .selectFrom('identity_access.profile')
+      .select(['id', 'account_state', 'time_zone'])
+      .where('id', '=', profileId)
+      .executeTakeFirst();
+
+    return row === undefined
+      ? null
+      : {
+          profileId: row.id,
+          accountState: row.account_state as AccountState,
+          timeZone: row.time_zone,
+        };
+  }
 }

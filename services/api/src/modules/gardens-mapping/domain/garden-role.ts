@@ -17,10 +17,20 @@ export type GardenCapability =
   /** Add and change garden content — media, observations, tasks, map. Owner and editor. */
   | 'editGardenContent'
   /** Rename, archive, and request deletion. Owner only. */
-  | 'manageGarden';
+  | 'manageGarden'
+  /**
+   * Export the full shared garden (P8-EXPORT-01). Owner only — architecture/
+   * data-export-and-deletion.md section 4: "Garden owner can export the full
+   * shared garden"; the same section's "Editor and viewer export rights are
+   * controlled by garden capability" names THIS capability as the control
+   * point, and no document grants those roles a default, so widening it is a
+   * matrix change here, not a parallel mechanism (deferred-capabilities.md
+   * records the open product decision).
+   */
+  | 'exportGarden';
 
 const ROLE_CAPABILITIES: Readonly<Record<GardenRole, ReadonlySet<GardenCapability>>> = {
-  owner: new Set(['viewGarden', 'editGardenContent', 'manageGarden']),
+  owner: new Set(['viewGarden', 'editGardenContent', 'manageGarden', 'exportGarden']),
   editor: new Set(['viewGarden', 'editGardenContent']),
   viewer: new Set(['viewGarden']),
 };

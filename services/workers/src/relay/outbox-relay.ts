@@ -81,9 +81,14 @@
  */
 
 import {
+  EXPORT_COMPLETED_EVENT_TYPE,
+  EXPORT_GENERATION_JOB_KIND,
+  EXPORT_REQUESTED_EVENT_TYPE,
   MEDIA_DELETION_REQUESTED_EVENT_TYPE,
   MEDIA_DERIVATIVE_GENERATION_REQUESTED_EVENT_TYPE,
   RECOMMENDATION_CANDIDATE_CREATED_EVENT_TYPE,
+  type ExportGenerationManifest,
+  type ExportRequestedEventPayload,
   type MediaDeletionRequestedEventPayload,
   type MediaProcessingManifest,
   type MediaProcessingRequestedEventPayload,
@@ -209,9 +214,19 @@ export class OutboxRelay {
 
     for (const event of events) {
       try {
-        if (event.eventType === RECOMMENDATION_CANDIDATE_CREATED_EVENT_TYPE) {
+        if (
+          event.eventType === RECOMMENDATION_CANDIDATE_CREATED_EVENT_TYPE ||
+          event.eventType === EXPORT_COMPLETED_EVENT_TYPE
+        ) {
+          // Both are FORWARD-family events: the API's notification-policy
+          // endpoint is duplicate-safe per event, so dispatch-then-record
+          // needs no durable job row — see this file's header (P7-NOTIF-01)
+          // and P8-EXPORT-01's own export_ready intent.
           await this.dispatchNotificationEvent(event);
           notificationsDispatched += 1;
+        } else if (event.eventType === EXPORT_REQUESTED_EVENT_TYPE) {
+          await this.enqueueExportGeneration(event);
+          enqueued += 1;
         } else {
           const wasEnqueued = await this.processOne(event);
           if (wasEnqueued) {
@@ -248,6 +263,30 @@ export class OutboxRelay {
    */
   private async dispatchNotificationEvent(event: OutboxEventRecord): Promise<void> {
     await this.deps.notificationEvents.dispatch(event);
+    await this.deps.outboxEvents.markPublished(event.id, this.deps.clock.now());
+  }
+
+  /**
+   * P8-EXPORT-01's enqueue family: an `export.requested` event becomes one
+   * Cloud Tasks `export_generation` task and nothing else — no
+   * `media.processing_job` row, because that table is keyed around a media
+   * record that does not exist until the package is written; the
+   * `exports.export_request` row (services/api) IS the durable job record.
+   * Crash-window safety is Cloud Tasks task-name deduplication alone (task
+   * name = event id), the same mechanism `processOne`'s step 2 already
+   * relies on; a crash between enqueue and `markPublished` re-enqueues
+   * into `ALREADY_EXISTS` next tick and then records publication.
+   */
+  private async enqueueExportGeneration(event: OutboxEventRecord): Promise<void> {
+    const payload = event.payload as ExportRequestedEventPayload;
+    const manifest: ExportGenerationManifest = {
+      jobId: event.id,
+      jobKind: EXPORT_GENERATION_JOB_KIND,
+      exportRequestId: payload.exportRequestId,
+      ...(event.traceId === null ? {} : { traceId: event.traceId }),
+    };
+
+    await this.deps.mediaProcessingQueue.enqueue({ taskName: event.id, manifest });
     await this.deps.outboxEvents.markPublished(event.id, this.deps.clock.now());
   }
 

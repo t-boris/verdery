@@ -1,4 +1,9 @@
-import type { MediaProcessingManifest, MediaProcessingResult } from '@verdery/api-contracts';
+import type {
+  ExportGenerationManifest,
+  MediaProcessingManifest,
+  MediaProcessingResult,
+} from '@verdery/api-contracts';
+import { EXPORT_GENERATION_JOB_KIND } from '@verdery/api-contracts';
 import { describe, expect, it } from 'vitest';
 import {
   MEDIA_DELETION_JOB_KIND,
@@ -6,7 +11,10 @@ import {
   MEDIA_VALIDATION_JOB_KIND,
 } from './job-kind.js';
 import { MediaProcessingJobRouter } from './media-processing-job-router.js';
-import type { MediaProcessingJobExecutor } from './media-processing-job-router.js';
+import type {
+  ExportGenerationJobExecutor,
+  MediaProcessingJobExecutor,
+} from './media-processing-job-router.js';
 
 function manifestWithJobKind(jobKind?: string): MediaProcessingManifest {
   return {
@@ -48,71 +56,87 @@ function fakeExecutor(label: string): { executor: MediaProcessingJobExecutor; ca
   };
 }
 
+function fakeExportExecutor(): { executor: ExportGenerationJobExecutor; calls: string[] } {
+  const calls: string[] = [];
+  return {
+    calls,
+    executor: {
+      execute(manifest) {
+        calls.push(manifest.exportRequestId);
+        return Promise.resolve();
+      },
+    },
+  };
+}
+
+function buildRouter() {
+  const validation = fakeExecutor('validator');
+  const derivative = fakeExecutor('generator');
+  const deletion = fakeExecutor('deleter');
+  const exportGeneration = fakeExportExecutor();
+  const router = new MediaProcessingJobRouter(
+    validation.executor,
+    derivative.executor,
+    deletion.executor,
+    exportGeneration.executor,
+  );
+  return { router, validation, derivative, deletion, exportGeneration };
+}
+
 describe('MediaProcessingJobRouter', () => {
   it('routes a media_validation manifest to the validation executor', async () => {
-    const validation = fakeExecutor('validator');
-    const derivative = fakeExecutor('generator');
-    const deletion = fakeExecutor('deleter');
-    const router = new MediaProcessingJobRouter(
-      validation.executor,
-      derivative.executor,
-      deletion.executor,
-    );
+    const { router, validation, derivative } = buildRouter();
 
     const result = await router.execute(manifestWithJobKind(MEDIA_VALIDATION_JOB_KIND));
 
-    expect(result.processorVersion).toBe('validator');
+    expect((result as MediaProcessingResult).processorVersion).toBe('validator');
     expect(validation.calls).toHaveLength(1);
     expect(derivative.calls).toHaveLength(0);
   });
 
   it('routes a derivative_generation manifest to the derivative-generation executor', async () => {
-    const validation = fakeExecutor('validator');
-    const derivative = fakeExecutor('generator');
-    const deletion = fakeExecutor('deleter');
-    const router = new MediaProcessingJobRouter(
-      validation.executor,
-      derivative.executor,
-      deletion.executor,
-    );
+    const { router, validation, derivative } = buildRouter();
 
     const result = await router.execute(manifestWithJobKind(MEDIA_DERIVATIVE_GENERATION_JOB_KIND));
 
-    expect(result.processorVersion).toBe('generator');
+    expect((result as MediaProcessingResult).processorVersion).toBe('generator');
     expect(derivative.calls).toHaveLength(1);
     expect(validation.calls).toHaveLength(0);
   });
 
   it('defaults an absent jobKind to validation — every P6-WORKER-01 manifest built before this field existed', async () => {
-    const validation = fakeExecutor('validator');
-    const derivative = fakeExecutor('generator');
-    const deletion = fakeExecutor('deleter');
-    const router = new MediaProcessingJobRouter(
-      validation.executor,
-      derivative.executor,
-      deletion.executor,
-    );
+    const { router } = buildRouter();
 
     const result = await router.execute(manifestWithJobKind(undefined));
 
-    expect(result.processorVersion).toBe('validator');
+    expect((result as MediaProcessingResult).processorVersion).toBe('validator');
   });
 
   it('routes a media_deletion manifest to the deletion executor (P6-RET-01)', async () => {
-    const validation = fakeExecutor('validator');
-    const derivative = fakeExecutor('generator');
-    const deletion = fakeExecutor('deleter');
-    const router = new MediaProcessingJobRouter(
-      validation.executor,
-      derivative.executor,
-      deletion.executor,
-    );
+    const { router, validation, derivative, deletion } = buildRouter();
 
     const result = await router.execute(manifestWithJobKind(MEDIA_DELETION_JOB_KIND));
 
-    expect(result.processorVersion).toBe('deleter');
+    expect((result as MediaProcessingResult).processorVersion).toBe('deleter');
     expect(deletion.calls).toHaveLength(1);
     expect(validation.calls).toHaveLength(0);
     expect(derivative.calls).toHaveLength(0);
+  });
+
+  it('routes an export_generation manifest to the export executor and never a media one (P8-EXPORT-01)', async () => {
+    const { router, validation, derivative, deletion, exportGeneration } = buildRouter();
+    const manifest: ExportGenerationManifest = {
+      jobId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c02',
+      jobKind: EXPORT_GENERATION_JOB_KIND,
+      exportRequestId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c03',
+    };
+
+    const result = await router.execute(manifest);
+
+    expect(result).toBeUndefined();
+    expect(exportGeneration.calls).toEqual(['019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c03']);
+    expect(validation.calls).toHaveLength(0);
+    expect(derivative.calls).toHaveLength(0);
+    expect(deletion.calls).toHaveLength(0);
   });
 });

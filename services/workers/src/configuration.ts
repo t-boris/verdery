@@ -133,6 +133,16 @@ export const environmentSchema = z.object({
   // intents) is a counted no-op.
   NOTIFICATION_DELIVERY_SWEEP_URL: z.string().url(),
   NOTIFICATION_DELIVERY_SWEEP_INTERVAL_MS: durationMilliseconds.default(60_000),
+
+  // P8-EXPORT-01: the base URL of the API's three internal export
+  // endpoints (`POST {base}/{exportRequestId}/snapshot|checkpoints|
+  // complete`), authenticated with an ID token for the SAME audience as
+  // the result callback and every sweep — one worker-to-API identity. No
+  // interval and no bucket of its own: the relay's poll cadence schedules
+  // the enqueue, and every storage target (package object, staging
+  // prefix) arrives in the snapshot response rather than being configured
+  // twice.
+  EXPORT_PROCESSING_API_URL: z.string().url(),
 });
 
 export type RawEnvironment = z.infer<typeof environmentSchema>;
@@ -181,6 +191,8 @@ export interface WorkerConfiguration {
   readonly notificationEventsUrl: string;
   /** P7-NOTIF-02 — see the schema's own comment on `NOTIFICATION_DELIVERY_SWEEP_URL`. */
   readonly notificationDeliverySweep: SweepScheduleConfiguration;
+  /** P8-EXPORT-01 — see the schema's own comment on `EXPORT_PROCESSING_API_URL`. */
+  readonly exportProcessingApiUrl: string;
 }
 
 /** Raised when the process environment cannot produce a valid configuration. */
@@ -237,6 +249,7 @@ function toWorkerConfiguration(raw: RawEnvironment): WorkerConfiguration {
       sweepUrl: raw.NOTIFICATION_DELIVERY_SWEEP_URL,
       intervalMs: raw.NOTIFICATION_DELIVERY_SWEEP_INTERVAL_MS,
     },
+    exportProcessingApiUrl: raw.EXPORT_PROCESSING_API_URL,
   };
 }
 

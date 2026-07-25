@@ -890,6 +890,43 @@ unverified: whether `services/api/src/main.ts`'s `firebase-admin` initialization
 Credentials provisioned at all, which a from-scratch CI runner may not have — this was only proven
 against this development machine's own `gcloud auth application-default login` session.
 
+**Data-export residuals (P8-EXPORT-01 scope boundaries).** The export request/generation/delivery
+pipeline is implemented and tested end to end (see `data-export-and-deletion.md` sections 5.1, 7.1,
+9.1); what the stage deliberately did NOT build, each with its flip condition:
+
+- **Client UI for requesting exports.** The contract ships (`openapi.yaml`, tag `Exports`); no web
+  or iOS surface calls it yet. Flips when a client work package picks it up — the endpoints are
+  ready.
+- **Editor/viewer garden-export entitlement.** The doc says "Editor and viewer export rights are
+  controlled by garden capability"; the capability (`exportGarden`) exists and is owner-only, and an
+  account export names non-owned gardens as excluded (`exclusionReason: 'not_owner'`) instead of
+  guessing a default no document grants. Flips on a product decision widening the capability matrix.
+- **Raw-capture inclusion.** Requires the "separate sensitive-media permission" section 4 names,
+  which has no mechanism anywhere yet (the same gap `GetMediaAccess`'s viewer rule documents).
+  Excluded entirely — files AND metadata — and disclosed in the package manifest.
+- **WGS84-transformed GeoJSON geometry.** The doc calls it "Optional … when a valid georeference
+  exists"; the package carries the georeference PARAMETERS (anchors, rotation, scale, accuracy)
+  instead of applying the transform server-side. Flips when a stage owns the transform math and its
+  accuracy labeling.
+- **Email delivery of the export-ready notice, and any push channel.** Section 9's own words are
+  in-app baseline, "email may be added through the notification adapter"; the `export_ready` intent
+  pins `channelPush` false. Flips with a notification-adapter work package.
+- **Per-media-file resume inside one ZIP assembly pass.** Checkpoints freeze the structured
+  snapshot; a retried ASSEMBLY restarts and overwrites the same package object. Honest at beta
+  media volumes; flips if real package sizes make a restarted assembly expensive (staging media
+  copies or composing partial uploads would be the shapes to evaluate). Related bounds, documented
+  in the job's own header: media files are buffered per file during assembly, structured sections
+  travel in one snapshot response, and packages above ~4 GiB rely on `archiver`'s zip64 support.
+- **Stale-running export reclamation.** If Cloud Tasks exhausts its retry budget, a request can
+  linger `running` past usefulness; the status endpoint reports it honestly and the one-active
+  index keeps it from blocking anyone but its own requester — who is unblocked the moment a new
+  attempt completes or an operator fails the request through the completion endpoint. A staleness
+  sweep (the retention-sweep shape) is the flip if beta telemetry ever shows this occurring.
+- **Worker exports-bucket IAM grant execution.** `10-media-processing-queue.sh` now drafts the
+  `roles/storage.objectCreator` grant on the exports bucket (overwrite legality comes from the
+  P6-RET-01 delete-only role already bound there); written and reviewed, NOT executed — the
+  standing infra boundary.
+
 ## What is _not_ deferred
 
 The pnpm workspace and its version pins, the OpenAPI contract and its generated client, shared

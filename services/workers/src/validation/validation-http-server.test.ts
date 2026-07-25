@@ -165,6 +165,27 @@ describe('ValidationHttpServer', () => {
     expect(processor.received[0]?.jobId).toBe(jobId);
   });
 
+  it('accepts an export_generation manifest — the second manifest family shares the one authenticated target (P8-EXPORT-01)', async () => {
+    await start();
+    const jobId = randomUUID();
+    const exportManifest = {
+      jobId,
+      jobKind: 'export_generation',
+      exportRequestId: randomUUID(),
+    };
+
+    const response = await post(
+      port,
+      `/internal/media-validation-jobs/${jobId}`,
+      exportManifest,
+      'Bearer valid-token',
+    );
+
+    expect(response.statusCode).toBe(204);
+    expect(processor.received).toHaveLength(1);
+    expect(processor.received[0]).toMatchObject(exportManifest);
+  });
+
   it('rejects a missing Authorization header with 401, before ever invoking the processor', async () => {
     await start();
     const jobId = randomUUID();

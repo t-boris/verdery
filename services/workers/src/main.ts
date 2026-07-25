@@ -19,6 +19,9 @@ import { GcsObjectDeleter } from './deletion/gcs-object-deleter.js';
 import { ProcessMediaDeletionJob } from './deletion/process-media-deletion-job.js';
 import { GcsDerivativeObjectSink } from './derivatives/gcs-derivative-object-sink.js';
 import { ProcessMediaDerivativeGenerationJob } from './derivatives/process-media-derivative-generation-job.js';
+import { GcsExportObjectStore } from './exports/gcs-export-object-store.js';
+import { GoogleApiExportApiClient } from './exports/google-api-export-api-client.js';
+import { ProcessExportGenerationJob } from './exports/process-export-generation-job.js';
 import { createLogger, SERVICE_NAME } from './logger.js';
 import { MediaProcessingJobRouter } from './media-processing-job-router.js';
 import { CloudTasksMediaProcessingQueue } from './relay/cloud-tasks-media-processing-queue.js';
@@ -107,6 +110,17 @@ async function main(): Promise<void> {
     ),
     // P6-RET-01: prefix-scoped object deletion with absence verification.
     new ProcessMediaDeletionJob(new GcsObjectDeleter(storage), resultRecorder),
+    // P8-EXPORT-01: checkpointed export-package generation — API snapshot
+    // endpoints for every database fact, direct GCS for every byte, its
+    // own hop-2 completion endpoints (not the media result callback).
+    new ProcessExportGenerationJob(
+      new GoogleApiExportApiClient(
+        configuration.exportProcessingApiUrl,
+        configuration.mediaProcessing.resultCallbackAudience,
+      ),
+      new GcsExportObjectStore(storage),
+      logger,
+    ),
   );
   const validationServer = new ValidationHttpServer(
     new GoogleOidcInvocationVerifier(

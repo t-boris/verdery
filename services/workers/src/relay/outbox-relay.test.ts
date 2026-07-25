@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  EXPORT_COMPLETED_EVENT_TYPE,
+  EXPORT_GENERATION_JOB_KIND,
+  EXPORT_REQUESTED_EVENT_TYPE,
   MEDIA_DELETION_REQUESTED_EVENT_TYPE,
   MEDIA_DERIVATIVE_GENERATION_REQUESTED_EVENT_TYPE,
   MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
   RECOMMENDATION_CANDIDATE_CREATED_EVENT_TYPE,
   type MediaDeletionRequestedEventPayload,
+  type MediaProcessingManifest,
   type MediaProcessingRequestedEventPayload,
 } from '@verdery/api-contracts';
 import {
@@ -345,7 +349,10 @@ describe('OutboxRelay.tick', () => {
       oldestClaimedEventAgeMs: 0,
     });
     expect(processingJobs.jobs.get(eventId)?.jobKind).toBe(MEDIA_DELETION_JOB_KIND);
-    const manifest = mediaProcessingQueue.enqueued[0]?.manifest;
+    // The queue carries the manifest union since P8-EXPORT-01; this event
+    // is a media-family one, so the media manifest shape applies.
+    const manifest = mediaProcessingQueue.enqueued[0]?.manifest as
+      MediaProcessingManifest | undefined;
     expect(manifest?.jobKind).toBe(MEDIA_DELETION_JOB_KIND);
     expect(manifest?.expectedChecksums).toEqual([]);
     expect(manifest?.deletion).toEqual({
@@ -461,5 +468,69 @@ describe('OutboxRelay.tick', () => {
     });
     expect(mediaProcessingQueue.enqueued).toHaveLength(1);
     expect(outboxEvents.markPublishedCalls).toEqual(['019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c80']);
+  });
+
+  const EXPORT_EVENT_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c90';
+  const EXPORT_REQUEST_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c91';
+
+  it('an export.requested event enqueues one export_generation task by event id — no processing_job row (P8-EXPORT-01)', async () => {
+    const { relay, outboxEvents, processingJobs, mediaProcessingQueue } = buildRelay();
+    outboxEvents.seed({
+      id: EXPORT_EVENT_ID,
+      aggregateId: EXPORT_REQUEST_ID,
+      eventType: EXPORT_REQUESTED_EVENT_TYPE,
+      payload: {
+        exportRequestId: EXPORT_REQUEST_ID,
+        requesterProfileId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c92',
+        scope: 'account',
+        gardenId: null,
+        includeMedia: true,
+      },
+      traceId: 'trace-e1',
+      occurredAt: NOW,
+    });
+
+    const result = await relay.tick();
+
+    expect(result).toMatchObject({ claimed: 1, enqueued: 1, failed: 0 });
+    expect(processingJobs.jobs.size).toBe(0);
+    expect(mediaProcessingQueue.enqueued).toHaveLength(1);
+    expect(mediaProcessingQueue.enqueued[0]).toEqual({
+      taskName: EXPORT_EVENT_ID,
+      manifest: {
+        jobId: EXPORT_EVENT_ID,
+        jobKind: EXPORT_GENERATION_JOB_KIND,
+        exportRequestId: EXPORT_REQUEST_ID,
+        traceId: 'trace-e1',
+      },
+    });
+    expect(outboxEvents.markPublishedCalls).toEqual([EXPORT_EVENT_ID]);
+
+    // A second tick after a crash-window replay converges: the queue's own
+    // task-name dedup absorbs the repeat.
+    outboxEvents.rows.get(EXPORT_EVENT_ID)!.publishedAt = null;
+    await relay.tick();
+    expect(mediaProcessingQueue.enqueued).toHaveLength(1);
+  });
+
+  it('an export.completed event is FORWARDED to the notification endpoint, never enqueued (P8-EXPORT-01)', async () => {
+    const { relay, outboxEvents, notificationEvents, mediaProcessingQueue, processingJobs } =
+      buildRelay();
+    outboxEvents.seed({
+      id: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c95',
+      aggregateId: EXPORT_REQUEST_ID,
+      eventType: EXPORT_COMPLETED_EVENT_TYPE,
+      payload: { exportRequestId: EXPORT_REQUEST_ID },
+      traceId: null,
+      occurredAt: NOW,
+    });
+
+    const result = await relay.tick();
+
+    expect(result).toMatchObject({ claimed: 1, notificationsDispatched: 1, enqueued: 0 });
+    expect(notificationEvents.dispatched).toHaveLength(1);
+    expect(notificationEvents.dispatched[0]?.eventType).toBe(EXPORT_COMPLETED_EVENT_TYPE);
+    expect(mediaProcessingQueue.enqueued).toHaveLength(0);
+    expect(processingJobs.jobs.size).toBe(0);
   });
 });

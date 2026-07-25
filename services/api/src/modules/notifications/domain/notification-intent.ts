@@ -44,21 +44,33 @@ export type NotificationIntentState =
 
 export type NotificationPriority = 'normal' | 'high';
 
-/** The one deep-link kind this stage produces — stable route reference plus resource ids, never bearer access (notifications.md section 11). */
+/** Stable route reference plus resource ids, never bearer access (notifications.md section 11). */
 export interface GardenTodayDeepLink {
   readonly kind: 'gardenToday';
   readonly gardenId: Uuid;
   readonly recommendationCandidateId: Uuid;
 }
 
-export type NotificationDeepLink = GardenTodayDeepLink;
+/** P8-EXPORT-01: the recipient's own completed export request — state and, while unexpired, its download. */
+export interface ExportReadyDeepLink {
+  readonly kind: 'exportReady';
+  readonly exportRequestId: Uuid;
+}
+
+export type NotificationDeepLink = GardenTodayDeepLink | ExportReadyDeepLink;
 
 export interface NotificationIntent {
   readonly id: Uuid;
   readonly intentType: string;
   readonly intentVersion: number;
   readonly recipientProfileId: Uuid;
-  readonly gardenId: Uuid;
+  /**
+   * The garden this intent concerns — `null` for account-level intents
+   * (P8-EXPORT-01: an `export_ready` entry for an account-wide export
+   * concerns no garden). `care_recommendation` intents always carry one,
+   * pinned by the migration's `notification_intent_garden_linkage_check`.
+   */
+  readonly gardenId: Uuid | null;
   /** The freshness linkage: which recommendation this intent is about, so send-time rechecks can classify it stale. `null` only for future non-recommendation types. */
   readonly recommendationCandidateId: Uuid | null;
   readonly sourceEventId: Uuid;

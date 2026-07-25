@@ -23,6 +23,7 @@ const VALID_ENVIRONMENT = {
   NOTIFICATION_EVENTS_URL: 'https://verdery-api-dev.example/v1/internal/notifications/events',
   NOTIFICATION_DELIVERY_SWEEP_URL:
     'https://verdery-api-dev.example/v1/internal/notification-delivery/sweep',
+  EXPORT_PROCESSING_API_URL: 'https://verdery-api-dev.example/v1/internal/exports',
 } as const;
 
 describe('loadConfiguration', () => {
@@ -69,7 +70,21 @@ describe('loadConfiguration', () => {
         sweepUrl: VALID_ENVIRONMENT.NOTIFICATION_DELIVERY_SWEEP_URL,
         intervalMs: 60_000,
       },
+      exportProcessingApiUrl: VALID_ENVIRONMENT.EXPORT_PROCESSING_API_URL,
     });
+  });
+
+  it('rejects a missing EXPORT_PROCESSING_API_URL — the export job cannot reach its snapshot endpoints without a target (P8-EXPORT-01)', () => {
+    const { EXPORT_PROCESSING_API_URL: _omit, ...withoutExportUrl } = VALID_ENVIRONMENT;
+    try {
+      loadConfiguration(withoutExportUrl);
+      expect.unreachable('A missing EXPORT_PROCESSING_API_URL must be rejected');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ConfigurationError);
+      expect((error as ConfigurationError).variables).toEqual(
+        expect.arrayContaining(['EXPORT_PROCESSING_API_URL']),
+      );
+    }
   });
 
   it('rejects a missing NOTIFICATION_DELIVERY_SWEEP_URL — the delivery sweep fails loudly at configuration load (P7-NOTIF-02)', () => {

@@ -1,8 +1,9 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import type { MediaProcessingManifest, MediaProcessingResult } from '@verdery/api-contracts';
+import { EXPORT_GENERATION_JOB_KIND } from '@verdery/api-contracts';
 import { z } from 'zod';
 import { MEDIA_VALIDATION_JOB_KIND } from '../job-kind.js';
 import type { Logger } from '../logger.js';
+import type { WorkerJobManifest } from '../relay/media-processing-queue.js';
 import {
   InvocationAuthenticationError,
   type InvocationVerifier,
@@ -12,29 +13,28 @@ import {
  * The one method this HTTP server needs from its processor — a narrow port,
  * not a concrete class, matching this codebase's own
  * port-plus-adapter-plus-fake convention (see `MediaProcessingResultRecorder`
- * for the identical shape). `ProcessMediaValidationJob` satisfies this
- * interface structurally without declaring `implements`; so does
- * `MediaProcessingJobRouter` (P6-WORKER-02, `../media-processing-job-
- * router.ts`) — `main.ts` wires the router here now, not a bare validator,
- * so this ONE server dispatches an inbound manifest to either the validator
- * or the derivative generator by its own `jobKind`. This class's own name
- * and route (`/internal/media-validation-jobs/:jobId`) are unchanged from
- * P6-WORKER-01 despite that: renaming both across `main.ts`, this file's own
- * test, `services/workers/README.md`, and every `MEDIA_PROCESSING_TASK_URL`
- * reference in `infrastructure/gcloud/scripts/deploy-workers.sh` was judged
- * more churn than the rename was worth for a route no client ever sees by
- * name — see this stage's own report for the full "generalize vs. add a
- * second entrypoint" reasoning.
+ * for the identical shape). `MediaProcessingJobRouter` satisfies it
+ * structurally — `main.ts` wires the router here, so this ONE server
+ * dispatches an inbound manifest to the validator, the derivative
+ * generator, the deletion job, or (P8-EXPORT-01) the export-generation job
+ * by its own `jobKind`; the return value is ignored (every job kind
+ * records its outcome through its own authenticated hop-2 callback). This
+ * class's own name and route (`/internal/media-validation-jobs/:jobId`)
+ * are unchanged from P6-WORKER-01 despite that: renaming both across
+ * `main.ts`, this file's own test, `services/workers/README.md`, and every
+ * `MEDIA_PROCESSING_TASK_URL` reference in
+ * `infrastructure/gcloud/scripts/deploy-workers.sh` was judged more churn
+ * than the rename was worth for a route no client ever sees by name.
  */
 export interface MediaValidationJobProcessor {
-  execute(manifest: MediaProcessingManifest): Promise<MediaProcessingResult>;
+  execute(manifest: WorkerJobManifest): Promise<unknown>;
 }
 
 const MAX_BODY_BYTES = 128 * 1024;
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
 const JOB_PATH = new RegExp(`^/internal/media-validation-jobs/(${UUID})$`, 'u');
 
-const manifestSchema = z.object({
+const mediaManifestSchema = z.object({
   jobId: z.string().regex(new RegExp(`^${UUID}$`, 'u')),
   mediaId: z.string().regex(new RegExp(`^${UUID}$`, 'u')),
   processorConfigVersion: z.string().min(1),
@@ -66,6 +66,16 @@ const manifestSchema = z.object({
     })
     .optional(),
 });
+
+/** P8-EXPORT-01's manifest family — a separate shape, not optional fields on the media manifest; see `ExportGenerationManifest`'s own contract doc comment. */
+const exportManifestSchema = z.object({
+  jobId: z.string().regex(new RegExp(`^${UUID}$`, 'u')),
+  jobKind: z.literal(EXPORT_GENERATION_JOB_KIND),
+  exportRequestId: z.string().regex(new RegExp(`^${UUID}$`, 'u')),
+  traceId: z.string().min(1).optional(),
+});
+
+const manifestSchema = z.union([exportManifestSchema, mediaManifestSchema]);
 
 async function readJson(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
@@ -134,12 +144,12 @@ export class ValidationHttpServer {
       return;
     }
 
-    let manifest: MediaProcessingManifest | undefined;
+    let manifest: WorkerJobManifest | undefined;
     try {
       const rawAuthorization: unknown = request.headers['authorization'];
       const authorization = typeof rawAuthorization === 'string' ? rawAuthorization : undefined;
       await this.verifier.verify(authorization);
-      manifest = manifestSchema.parse(await readJson(request)) as MediaProcessingManifest;
+      manifest = manifestSchema.parse(await readJson(request)) as WorkerJobManifest;
       if (manifest.jobId !== match[1]) {
         send(response, 400, { error: 'job_id_mismatch' });
         return;
