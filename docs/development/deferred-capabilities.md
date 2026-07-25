@@ -368,6 +368,42 @@ batch honestly) — with zero providers a typed, logged, observable no-op. Relat
 bare-uuid deferral — is now a real foreign key onto `integrations.weather_record`, closed by
 `1785700000000_integrations-weather-baseline.sql` at the first moment its target table existed.
 
+**Real plant-content provider (P7-INT-02 scope boundary).** The plant-content integration
+machinery is fully built and tested in `services/api/src/modules/integrations` — the
+provider-neutral port (`searchTaxa` + `fetchContent`), the `PlantContentProviderRegistry` with
+per-provider license/attribution/jurisdiction/presentation/timeout/quota metadata, the
+`integrations.plant_taxonomy_mapping` table anchoring provider taxonomies onto the application's
+own stable `plants_inventory.taxonomy_reference` catalog (immutable identity triple, explicit
+confidence, `unverified`/`verified`/`rejected` verification state, live-uniqueness partial index),
+the append-only `integrations.plant_content_record` table (provider record id/version, content
+language, licensed description and care-guidance sections, license/attribution/jurisdiction/
+presentation snapshot per row), and the `MapPlantTaxonomy`/`RefreshPlantContent`/`GetPlantContent`
+use cases with the shared quota/deadline machinery — but NO real plant-content vendor exists
+anywhere in this repository, deliberately: provider selection is `P0-PROV-01`, the same undecided
+implementation-time selection that bounds the weather integration. The registry has zero
+production registrations, the active key is null everywhere, every outcome is a typed
+`noProviderConfigured` degradation, and the only adapter implementations are the deterministic
+fakes the provider-replacement tests run
+(`tests/integration/integrations-plant-content.test.ts` — the work package's acceptance
+evidence: two fakes through identical machinery; the switch is one adapter class, one
+registration, one explicit `MapPlantTaxonomy` run, and one configuration key; both providers'
+mappings and content rows coexist with their own license snapshots and the earlier provider's
+rows untouched). Also deliberately bounded, each waiting on a named owner: (1) the use cases are
+UNWIRED — no composition-root caller exists because no document names a client-facing
+plant-content surface this phase and nothing schedules content refresh (weather's sweep exists
+because P7-ASYNC-01 named it; the stage that first consumes plant content wires and, if needed,
+schedules it); (2) mapping VERIFICATION is repository-and-domain machinery only
+(`updateVerificationState` guarded by `validateMappingStateTransition`) — verifying or rejecting
+an identity claim is a human judgment and no reviewer-facing surface exists, so every mapping is
+honestly `unverified` until a future stage builds that surface; (3) licensed IMAGES are not
+modeled — section 8 names them, but storing provider imagery needs the media pipeline
+(verification, retention, deletion), and a text-only slice that pretended otherwise would be an
+empty column; (4) the two content sections (`description`, `care_guidance`) are the whole
+normalized vocabulary until `P0-PROD-03` decides the care-category glossary — a per-category
+structure now would freeze a vocabulary no product decision has made; (5) content freshness is a
+refetch-window cache rule, not a stored or classified state — no document defines when plant-care
+content goes stale, so nothing pretends to know.
+
 **Horticultural review of the launch rule catalog (P7-RULE-01 scope boundary).** The
 deterministic rule engine and its four-rule launch catalog are fully built and tested in
 `services/api/src/modules/tasks-recommendations` (rule model, pure engine, idempotent

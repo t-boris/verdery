@@ -25,13 +25,8 @@
  */
 
 import { InternalError } from '../../../platform/errors/application-error.js';
+import type { ProviderQuotaLimits } from './provider-quota-repository.js';
 import type { WeatherProviderAdapter } from './weather-provider.js';
-
-/** Per-provider call budgets. `null` means unlimited for that window; usage is still counted either way (section 14's "quota state" telemetry). */
-export interface WeatherProviderQuotaLimits {
-  readonly maxCallsPerHour: number | null;
-  readonly maxCallsPerDay: number | null;
-}
 
 /** Section 3's adapter contract, the parts this stage enforces mechanically. */
 export interface WeatherProviderMetadata {
@@ -44,7 +39,8 @@ export interface WeatherProviderMetadata {
   readonly attributionText: string | null;
   /** Strict per-call deadline in milliseconds (section 11: "Interactive provider calls use strict deadlines"). */
   readonly fetchTimeoutMs: number;
-  readonly quotaLimits: WeatherProviderQuotaLimits;
+  /** Per-provider call budgets, enforced through the shared `ProviderQuotaRepository` (see its header for the shape's ownership). */
+  readonly quotaLimits: ProviderQuotaLimits;
 }
 
 export interface WeatherProviderRegistration {

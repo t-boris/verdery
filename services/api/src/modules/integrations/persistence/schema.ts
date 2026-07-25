@@ -6,7 +6,8 @@
  * repository validates its shape when mapping to the domain's
  * `WeatherSourceUnits`, never trusts a cast.
  *
- * Source: migrations/1785700000000_integrations-weather-baseline.sql.
+ * Source: migrations/1785700000000_integrations-weather-baseline.sql;
+ *         migrations/1785900000000_integrations-plant-content-baseline.sql.
  */
 
 import type { Generated } from 'kysely';
@@ -41,7 +42,39 @@ export interface ProviderQuotaUsageRow {
   updated_at: Generated<Date>;
 }
 
+export interface PlantTaxonomyMappingRow {
+  id: string;
+  taxonomy_reference_id: string;
+  provider_key: string;
+  provider_taxon_id: string;
+  provider_scientific_name: string | null;
+  confidence: number | null;
+  verification_state: Generated<string>;
+  state_note: string | null;
+  state_changed_at: Generated<Date>;
+  created_at: Generated<Date>;
+}
+
+export interface PlantContentRecordRow {
+  id: string;
+  provider_key: string;
+  provider_taxon_id: string;
+  provider_record_id: string | null;
+  provider_content_version: string | null;
+  content_language: string;
+  description: string | null;
+  care_guidance: string | null;
+  fetched_at: Date;
+  license_note: string;
+  attribution_text: string | null;
+  jurisdiction: string | null;
+  presentation_note: string;
+  created_at: Generated<Date>;
+}
+
 export interface IntegrationsDatabaseSchema {
   'integrations.weather_record': WeatherRecordRow;
   'integrations.provider_quota_usage': ProviderQuotaUsageRow;
+  'integrations.plant_taxonomy_mapping': PlantTaxonomyMappingRow;
+  'integrations.plant_content_record': PlantContentRecordRow;
 }

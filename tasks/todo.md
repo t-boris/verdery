@@ -4428,3 +4428,119 @@ offline gates, and per-mutation failure surfaces.
   9/9 again.
 - `pnpm --filter @verdery/web build` clean (`/today` route present); root `pnpm typecheck`,
   `pnpm lint`, `pnpm format:check`, `node scripts/check-file-size.mjs` all clean.
+
+## Stage 22 — P7-INT-02, implementation complete
+
+The plant-content integration machinery is real and provider-AGNOSTIC, the second capability in
+the `integrations` module: a normalized licensed-content model, the provider-taxonomy identity
+mapping anchored onto the application's own stable taxonomy, the plant-content provider
+port/registry, the `MapPlantTaxonomy` / `RefreshPlantContent` / `GetPlantContent` use cases on
+the Stage 16 quota/deadline machinery, and the honest no-provider state — everything the work
+package names EXCEPT a real vendor, because `P0-PROV-01` is undecided and no plant-content
+provider may be invented (the same blocker posture Stage 16 established for weather). The only
+adapter implementations are deterministic fakes; two of them prove the machinery through the
+package's acceptance evidence ("Provider replacement tests") at both the unit and the
+real-PostgreSQL level.
+
+### Key decisions
+
+- **The stable application taxonomy is P4's `plants_inventory.taxonomy_reference`, referenced,
+  never duplicated.** Section 8's separation is made physical in one direction: provider
+  taxonomies map INTO the application catalog through the new
+  `integrations.plant_taxonomy_mapping` table (FK onto `taxonomy_reference`), whose identity
+  triple (reference, provider key, provider taxon id) is IMMUTABLE after insert — correcting a
+  wrong mapping means rejecting the row and inserting a new one, the catalog's own
+  supersede-not-edit posture applied to the link itself. Each mapping carries the provider's own
+  match confidence (null when unreported — never invented), a snapshot of what the provider
+  CALLED the taxon (rename-drift detection), and a one-way verification lifecycle
+  `unverified → verified → rejected` in which every machine-created row starts `unverified`
+  (the launch-rule `awaiting_horticultural_review` honesty posture: no human was involved and
+  nothing pretends otherwise). A partial unique index allows at most one LIVE (non-rejected)
+  mapping per (provider, reference); rejected rows stay behind as auditable history.
+- **Content is anchored to the PROVIDER's taxon identity, deliberately not to the application's.**
+  `integrations.plant_content_record` carries (provider key, provider taxon id) and NO
+  application-taxonomy column: which reference a record speaks about is resolved at read time
+  through the live mapping. That single decision is what makes "a provider's reorganization must
+  never silently re-identify the app's plants" structural — rejecting a mapping stops content
+  resolving without touching a single content row, and re-identification is always an explicit,
+  durable pair of mapping rows (proven end to end by the reorganization test: reject → typed
+  `taxonomyNotMapped`, rows persist under the old taxon id → remap → new content under the new
+  taxon, rejected row still in history).
+- **The normalized record is the two docs' field lists, column for column:** provider and
+  provider record id, provider content version + fetch time (content has no observation moment;
+  the provider's version marker is its effective identity), content language (a normalization
+  essential in a bilingual application), and exactly two licensed sections — `description` and
+  `care_guidance`, nullable individually, at least one present. NOT a per-care-category
+  structure: that would freeze the care-category glossary `P0-PROD-03` has not decided (the same
+  reason `recommendation_candidate.care_category` carries no enum CHECK). No raw-payload column:
+  no provider terms exist to permit retention. No image columns: licensed imagery needs the media
+  pipeline — a documented deferral, not an empty column. Rows are append-only fetch facts (every
+  successful fetch appends; consecutive rows may repeat a version — the latest row is current
+  content, earlier rows are the version history section 8's "version/fetch time" implies), and
+  every row snapshots the registry entry's license note, attribution, jurisdiction, and allowed
+  presentation behavior — section 8's two content-specific obligations, mandatory in metadata
+  (`presentationNote` non-blank or the registration cannot exist) and CHECK-pinned per row.
+- **User-fact separation is structural, not conventional.** No integrations table references
+  `plants_inventory.plant` or any garden-scoped row; the module's single link into application
+  data is the mapping FK onto the shared identity catalog; the one cross-schema read
+  (`KyselyTaxonomyIdentitySource`, the narrow-read-port precedent) is SELECT-only; and no code
+  path in the module writes outside the `integrations` schema. No existing read joins external
+  content with user facts (verified — the consumer is a future guide/content surface), and the
+  read that will feed it, `GetPlantContent`, labels provenance in its result STRUCTURE: an
+  `available` outcome carries the full mapping (confidence + verification state — an unverified
+  identity claim says so) and the full record (provider key, license, attribution, jurisdiction,
+  presentation terms, fetch time).
+- **Shared machinery where honest, parallel where not.** Quota accounting is genuinely
+  capability-neutral, so `WeatherProviderQuotaLimits` moved to the quota port as
+  `ProviderQuotaLimits` (the one Stage 16 surface renamed; no external consumer existed) and both
+  capabilities consume the same `provider_quota_usage` table and `withDeadline` racer — proven by
+  the integration test in which one hour budget spans a mapping search and refuses the content
+  fetch. The REGISTRY is deliberately a parallel class, not a premature generic: two capabilities
+  with different metadata shapes is the codebase's own tolerate-at-two/generalize-at-the-third
+  judgment (the worker-sweep precedent), recorded in the registry header.
+- **Two use cases because the capability has two halves, both repeat-safe for a future caller.**
+  `MapPlantTaxonomy` resolves the provider's identity for a reference (deterministic best-candidate
+  choice: highest provider confidence, ties to provider order; races settle through
+  `ON CONFLICT DO NOTHING` against the live-uniqueness index and return the winner) and
+  `RefreshPlantContent` fetches content through the live mapping with a refetch-window cache rule
+  (a repeat within the window is `contentCurrent`, zero provider calls — adapter call counts
+  prove it). The window is a CACHE rule, deliberately not a domain freshness classification: no
+  document defines when plant-care content goes stale, so nothing pretends to know; the number is
+  constructor-injected validated configuration with no invented default. Every failure is the
+  typed-outcome union (`noProviderConfigured` — today's reality, `taxonomyReferenceNotFound` /
+  `taxonomyNotMapped` / `providerReturnedNoMatch`, `quotaExhausted`, `providerTimeout`,
+  `providerFailed`, `providerReturnedNoData`, `providerReturnedInvalidData` — malformed payloads
+  rejected by the domain constructors, never repaired), degradations with stored content serve it
+  explicitly labeled with the reason (`storedServed`), and a configured-but-unregistered active
+  key throws at construction.
+- **Deliberately unwired — and this time the reason is the absence of ANY caller.** No document
+  names a client-facing plant-content surface this phase, nothing schedules content refresh (no
+  P7 work package sweeps it, unlike weather's P7-ASYNC-01), and the rule engine's content-aware
+  rules are future work — so `compose-*.ts` and `app.ts` are untouched, `public.ts` exports
+  everything the first consuming stage will need (the P7-INT-01-before-P7-ASYNC-01 posture), and
+  the boundary is recorded in deferred-capabilities.md alongside the other honest gaps: no
+  verification use case (a human judgment with no reviewer surface — the repository operation and
+  domain transition rules exist and are tested), no images, no care-category structure.
+
+### Verification evidence
+
+- Full API suite: 154 files / 1064 tests before → **162 files / 1128 tests** after (+8 files /
+  +64 tests: six unit suites in the module with 50 tests, one Testcontainers migration suite
+  with 9, one Testcontainers integration suite with 5, and the 13 bumped rollback tests
+  re-proven), all green, real Docker.
+- Migration proven up (all nine assertions: mapping defaults and every CHECK, the
+  stable-taxonomy FK, the live-uniqueness index with the reject-then-replace flow, content
+  defaults and every CHECK including at-least-one-section and the license/presentation
+  snapshot rules, schema-default privileges for `verdery_application` and nothing for
+  `verdery_worker`) and down (`count: 1` drops exactly the two new tables; the weather tables,
+  the `integrations` schema, and the anchored catalog row survive) — plus the rollback-count
+  ripple: all thirteen earlier migration tests bumped (+1 each, 2 through 14) per the
+  established mechanic.
+- Provider replacement proven at both levels (the acceptance evidence): unit
+  (`refresh-plant-content.test.ts` — same registry/stores, key switch, typed `taxonomyNotMapped`
+  before B's explicit mapping, both providers' records with their own license snapshots, A's
+  mapping untouched) and real PostgreSQL (`integrations-plant-content.test.ts` — the same flow
+  through the Kysely adapters, plus reading each provider's own content after the switch and
+  back).
+- `pnpm --filter @verdery/api build`, root `pnpm typecheck`, `pnpm lint`, `pnpm format:check`,
+  `node scripts/check-file-size.mjs` all clean.

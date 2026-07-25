@@ -21,9 +21,20 @@
  * Quota"; migrations/1785700000000_integrations-weather-baseline.sql.
  */
 
-import type { WeatherProviderQuotaLimits } from './weather-provider-registry.js';
-
 export type ProviderQuotaWindowKind = 'hour' | 'day';
+
+/**
+ * Per-provider call budgets. `null` means unlimited for that window; usage
+ * is still counted either way (section 14's "quota state" telemetry).
+ * Capability-neutral by design: `provider_quota_usage` counts calls per
+ * provider key regardless of WHAT the provider serves, so the weather and
+ * plant-content registries carry the same shape — the shared quota
+ * machinery, owned by the port it budgets.
+ */
+export interface ProviderQuotaLimits {
+  readonly maxCallsPerHour: number | null;
+  readonly maxCallsPerDay: number | null;
+}
 
 export type ProviderQuotaConsumeResult =
   | { readonly consumed: true }
@@ -32,7 +43,7 @@ export type ProviderQuotaConsumeResult =
 export interface ProviderQuotaRepository {
   consumeCall(
     providerKey: string,
-    limits: WeatherProviderQuotaLimits,
+    limits: ProviderQuotaLimits,
     now: Date,
   ): Promise<ProviderQuotaConsumeResult>;
 }

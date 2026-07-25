@@ -20,11 +20,11 @@ import { sql, type Kysely, type Transaction } from 'kysely';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
 import type {
   ProviderQuotaConsumeResult,
+  ProviderQuotaLimits,
   ProviderQuotaRepository,
   ProviderQuotaWindowKind,
 } from '../application/provider-quota-repository.js';
 import { quotaWindowStart } from '../application/provider-quota-repository.js';
-import type { WeatherProviderQuotaLimits } from '../application/weather-provider-registry.js';
 
 /** Internal control-flow signal: thrown inside the transaction to roll it back, always caught by `consumeCall` itself. */
 class QuotaWindowExhausted extends Error {
@@ -38,7 +38,7 @@ export class KyselyProviderQuotaRepository implements ProviderQuotaRepository {
 
   async consumeCall(
     providerKey: string,
-    limits: WeatherProviderQuotaLimits,
+    limits: ProviderQuotaLimits,
     now: Date,
   ): Promise<ProviderQuotaConsumeResult> {
     const windows: readonly { kind: ProviderQuotaWindowKind; limit: number | null }[] = [

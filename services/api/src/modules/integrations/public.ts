@@ -21,6 +21,17 @@
  * `noProviderConfigured` degradation — see
  * `application/refresh-garden-weather.ts`.
  *
+ * P7-INT-02 lands the module's plant-content half under the same blocker
+ * posture: the taxonomy-mapping and content domain models, the
+ * plant-content provider port/registry, the `MapPlantTaxonomy` /
+ * `RefreshPlantContent` / `GetPlantContent` use cases, and their Kysely
+ * adapters. DELIBERATELY UNWIRED: no composition-root caller exists yet —
+ * no document names a client-facing plant-content surface this phase, and
+ * no scheduler consumes it (unlike weather, which P7-ASYNC-01 sweeps) — so
+ * the exports below wait for the first consuming stage, the exact
+ * P7-INT-01-before-P7-ASYNC-01 posture. See
+ * `docs/development/deferred-capabilities.md`.
+ *
  * Source: architecture/backend-modular-monolith.md, sections "5.5 Public
  * Interface" and "6.9 Integrations".
  */
@@ -48,13 +59,13 @@ export type {
 export { WeatherProviderRegistry } from './application/weather-provider-registry.js';
 export type {
   WeatherProviderMetadata,
-  WeatherProviderQuotaLimits,
   WeatherProviderRegistration,
 } from './application/weather-provider-registry.js';
 export type { WeatherRecordRepository } from './application/weather-record-repository.js';
 export { quotaWindowStart } from './application/provider-quota-repository.js';
 export type {
   ProviderQuotaConsumeResult,
+  ProviderQuotaLimits,
   ProviderQuotaRepository,
   ProviderQuotaWindowKind,
 } from './application/provider-quota-repository.js';
@@ -85,7 +96,75 @@ export type { WeatherRefreshCandidateSource } from './application/weather-refres
 export { registerWeatherRefreshSweepRoute } from './transport/weather-refresh-sweep-route.js';
 export type { WeatherRefreshSweepRouteDependencies } from './transport/weather-refresh-sweep-route.js';
 
+// P7-INT-02: the plant-content half — domain model, provider port/registry,
+// use cases, and adapters. Unwired until the first consuming stage (see the
+// header comment).
+export {
+  createPlantContentRecord,
+  validatePlantContentSections,
+  validatePlantContentSource,
+} from './domain/plant-content-record.js';
+export type {
+  CreatePlantContentRecordInput,
+  PlantContentRecord,
+  PlantContentSections,
+  PlantContentSource,
+} from './domain/plant-content-record.js';
+export {
+  createPlantTaxonomyMapping,
+  validateMappingConfidence,
+  validateMappingStateTransition,
+} from './domain/plant-taxonomy-mapping.js';
+export type {
+  CreatePlantTaxonomyMappingInput,
+  PlantTaxonomyMapping,
+  TaxonomyMappingVerificationState,
+} from './domain/plant-taxonomy-mapping.js';
+
+export type {
+  NormalizedPlantContent,
+  PlantContentProviderAdapter,
+  ProviderTaxonCandidate,
+  TaxonomyIdentityQuery,
+} from './application/plant-content-provider.js';
+export { PlantContentProviderRegistry } from './application/plant-content-provider-registry.js';
+export type {
+  PlantContentProviderMetadata,
+  PlantContentProviderRegistration,
+} from './application/plant-content-provider-registry.js';
+export type { PlantContentRecordRepository } from './application/plant-content-record-repository.js';
+export type { PlantTaxonomyMappingRepository } from './application/plant-taxonomy-mapping-repository.js';
+export type { TaxonomyIdentitySource } from './application/taxonomy-identity-source.js';
+
+export { MapPlantTaxonomy } from './application/map-plant-taxonomy.js';
+export type {
+  MapPlantTaxonomyConfiguration,
+  MapPlantTaxonomyInput,
+  MapPlantTaxonomyResult,
+  MapPlantTaxonomyUnavailableReason,
+} from './application/map-plant-taxonomy.js';
+export {
+  RefreshPlantContent,
+  validatePlantContentRefetchPolicy,
+} from './application/refresh-plant-content.js';
+export type {
+  PlantContentRefetchPolicy,
+  PlantContentUnavailableReason,
+  RefreshPlantContentConfiguration,
+  RefreshPlantContentInput,
+  RefreshPlantContentResult,
+} from './application/refresh-plant-content.js';
+export { GetPlantContent } from './application/get-plant-content.js';
+export type {
+  GetPlantContentInput,
+  GetPlantContentResult,
+  PlantContentAbsenceReason,
+} from './application/get-plant-content.js';
+
 export { KyselyWeatherRecordRepository } from './persistence/kysely-weather-record-repository.js';
 export { KyselyProviderQuotaRepository } from './persistence/kysely-provider-quota-repository.js';
 export { KyselyWeatherRefreshCandidateSource } from './persistence/kysely-weather-refresh-candidate-source.js';
+export { KyselyPlantTaxonomyMappingRepository } from './persistence/kysely-plant-taxonomy-mapping-repository.js';
+export { KyselyPlantContentRecordRepository } from './persistence/kysely-plant-content-record-repository.js';
+export { KyselyTaxonomyIdentitySource } from './persistence/kysely-taxonomy-identity-source.js';
 export type { IntegrationsDatabaseSchema } from './persistence/schema.js';

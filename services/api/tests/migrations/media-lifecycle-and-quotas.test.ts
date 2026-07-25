@@ -474,18 +474,18 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     await client.end();
 
-    // `count: 8` undoes the seven newer migrations
+    // `count: 9` undoes the eight newer migrations
     // (1785200000000_media-processing-jobs.sql through
-    // 1785800000000_recommendation-explanation.sql) first, then this one —
-    // matching every earlier migration test's own convention of unwinding
-    // whatever landed on top since this file was written. Update again the
-    // next time a migration is added on top of that one.
+    // 1785900000000_integrations-plant-content-baseline.sql) first, then
+    // this one — matching every earlier migration test's own convention of
+    // unwinding whatever landed on top since this file was written. Update
+    // again the next time a migration is added on top of that one.
     await runner({
       databaseUrl,
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 8,
+      count: 9,
       log: () => {},
     });
 

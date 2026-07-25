@@ -224,17 +224,17 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving the plants-observations-tasks-baseline schemas and tables otherwise intact', async () => {
     await client.end();
 
-    // `count: 10` undoes this migration and every migration applied after it
+    // `count: 11` undoes this migration and every migration applied after it
     // (currently synchronization-baseline through
-    // recommendation-explanation, none of which depend on anything this
-    // one creates but all of which were applied later and must unwind
+    // integrations-plant-content-baseline, none of which depend on anything
+    // this one creates but all of which were applied later and must unwind
     // first). Update this count when a later migration is added on top.
     await runner({
       databaseUrl,
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 10,
+      count: 11,
       log: () => {},
     });
 
