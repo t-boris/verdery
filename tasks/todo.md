@@ -5465,3 +5465,33 @@ Stages 15-28 — each implemented, independently verified, committed, pushed, an
 - **G7 (controlled US private beta)** — a repository-owner decision; the named human gates
   (horticultural sign-off, AI human evaluation, live Vertex/FCM enablement, P0-PROV-01/P0-SEC-01
   product decisions) are consolidated in the safety catalog and deferred-capabilities.md.
+
+# Phase 8 — Foundation Beta, Hardening, and United States GA, planning
+
+Scope: all sixteen P8 work packages (implementation-plan.md section 17). Turn the complete care
+loop into an operable, supportable, private, accessible, recoverable, cost-controlled US
+production product.
+
+Blocker assessment before any implementation — this phase has the heaviest live-infrastructure
+and human-decision content of any so far; the honest split:
+
+- **Buildable now, code-first**: P8-EXPORT-01 (export request/job/ZIP — rides P6 media + P7 async
+  machinery), P8-DELETE-01 (garden/account deletion — P2 identity + P5 sync + P6 media all
+  exist), P8-SEC-01 (the threat-model document + mitigation register; the SIGN-OFF is human),
+  P8-REL-01's runbook-writing half, P8-LOAD-01's harness-writing half, P8-SLO-01's draft half.
+- **Live-infrastructure gated (per-action owner confirmation, the session's standing rule)**:
+  P8-NET-01 and P8-DB-01 provision REAL production infrastructure (a production project does not
+  exist); scripts are written and reviewed first, execution is separately approved. P8-SEC-02's
+  enforcement flips act on live services and additionally want beta telemetry that does not exist
+  yet.
+- **Human/owner gates, not agent work**: P8-PRIV-01 (legal/privacy approval; drafting depends on
+  provider contracts that are themselves blocked on P0-PROV-01), P8-SAFE-01 (beta feedback),
+  P8-STORE-01 (App Store submission; depends on P8 approvals), P8-SUPPORT-01's establishment
+  half, P8-SLO-01's approval, P8-GA-01's signed checklist. Each gets its buildable artifact
+  drafted where one exists, with the human gate named.
+- **P8-UX-01** needs real-device/simulator acceptance passes this environment cannot run; the
+  audit-and-fix halves that are code-verifiable (keyboard navigation, reduced-motion, en/ru
+  parity, unit/date/zone display) are buildable.
+
+Stage order (continuing global numbering): 29. P8-EXPORT-01. 30. P8-DELETE-01. 31. P8-SEC-01. 32. P8-REL-01 (runbooks). Then the gated/live and human-dependent packages as their prerequisites
+resolve, each explicitly.
