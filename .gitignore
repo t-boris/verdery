@@ -31,3 +31,8 @@ xcuserdata/
 .env
 .env.local
 .env.*.local
+
+# Editor/tool-generated local artifacts — never commit
+.claude/
+docs/.claude/
+docs/graph-architecture.md
