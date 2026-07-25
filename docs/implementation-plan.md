@@ -507,9 +507,24 @@ resumable-upload client and background-capable `URLSession` transport, registrat
 status-poll coordination (`MediaUploadCoordinator`), retry-category gating reused directly from
 `CoreSynchronization`, and relaunch recovery — wired into `FeaturePlants`' plant-photo attachment and
 `FeatureObservations`' observation-photo attachment. See `docs/development/deferred-capabilities.md`'s
-own current account for exactly what this stage covers and its explicitly scoped-out gaps. P6-PLAN-01,
-P6-PLAN-02, P6-PLANT-01, P6-RET-01, P6-OBS-01, and P6-QA-01 have not started; P6-WEB-01 is tracked by
-its own concurrent work.
+own current account for exactly what this stage covers and its explicitly scoped-out gaps.
+P6-PLAN-01 and P6-PLAN-02 are implemented across backend, contract, web, and (as a dedicated parity
+stage) iOS: private plan upload and background placement, then real known-distance calibration with
+control points, honest residual/RMS display, transform revisions, and manual adjustment as
+re-derivable input — all driven through the shared `geometry/calibration.json` fixtures on every
+platform. P6-RET-01 is implemented (deletion workflow with prefix-scoped byte cleanup and absence
+verification, retention sweep, user-visible retention policy, attach-versus-delete race guards),
+as is P6-OBS-01 (structured log events plus the documented dashboard/alert/runbook writeup in
+observability-and-analytics.md, at the established "-01 observability" bar). P6-QA-01 is complete:
+a coverage audit of the package's six named surfaces against the eleven prior stages' suites, with
+the genuine gaps closed by targeted tests (per-endpoint cross-garden HTTP concealment, cross-garden
+and non-available attach denials across all four attach commands, the viewer/sensitivity matrix,
+HTTP-level malformed-input rejections, the PDF page/object-cardinality and image megapixel/axis
+parser ceilings, real signed-URL expiry plumbing, and null-RMS accuracy labels through the real
+command path on both clients) — see `tasks/todo.md`'s "Stage 14 — P6-QA-01" audit table, this
+package's G6 release evidence. P6-PLANT-01 remains blocked on the unresolved `P0-PROV-01`
+provider decision and is deferred with reason rather than built against an invented vendor;
+P6-WEB-01 is tracked by its own concurrent work.
 
 ### 15.3 Exit Criteria
 

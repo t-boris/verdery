@@ -147,7 +147,7 @@ struct MediaUploadCoordinatorTests {
         await gateway.setRegisterHandler { _ in .success(.fixture(mediaId: "media-1")) }
         await gateway.setCompleteHandler { _ in .success(.fixture(id: "media-1", uploadState: .rejected)) }
 
-        _ = try await coordinator.enqueue(
+        let transfer = try await coordinator.enqueue(
             data: Data(repeating: 1, count: 10),
             gardenId: "garden-1",
             profileId: profileId,
@@ -163,6 +163,14 @@ struct MediaUploadCoordinatorTests {
         let final = try #require(try await store.fetch(id: "local-1"))
         #expect(PhotoAttachmentStatus.from(final) == .rejected(reasonCode: "media.upload.rejected"))
         #expect(!PhotoAttachmentStatus.from(final).isRetryable)
+
+        // P6-QA-01, the phase's own completion criterion made literal: "The
+        // only local copy is not removed before verified durability" — a
+        // TERMINAL failure must still leave the captured bytes on disk;
+        // only `.retained` (server-confirmed durable) or a deliberate
+        // `discard` may ever remove them.
+        let fileURL = try #require(URL(string: transfer.localFileUrl))
+        #expect(FileManager.default.fileExists(atPath: fileURL.path))
     }
 
     // MARK: - Retry-category gating

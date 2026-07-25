@@ -478,4 +478,98 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const fetched = await handlers.getMapObject.execute(gardenId, newObjectId, ownerId);
     expect(fetched.details).toMatchObject({ calibrationState: 'uncalibrated' });
   });
+
+  it('reports rmsErrorMetres as an honest null below two control points, through the real command path and the stored row (P6-QA-01)', async () => {
+    // The geometry package pins null-below-2-points at the math level; this
+    // drives the SAME shared fixture case through the API command so the
+    // resource a client renders labels from — and the persisted
+    // `residual_error_metres` column — carry the null, not a fabricated 0.
+    const onePointCase = fixture.cases.find(
+      (candidate) =>
+        candidate.name === 'one control point pins translation and reports no aggregate error',
+    );
+    expect(onePointCase).toBeDefined();
+    if (onePointCase === undefined) {
+      return;
+    }
+
+    const { ownerId, gardenId } = await createGardenWithOwner();
+    const handlers = buildHandlers(fixedClock(NOW));
+    const { objectId } = await createBackground(handlers, gardenId, ownerId);
+
+    const result = await handlers.upsertCalibration.execute(
+      gardenId,
+      ownerId,
+      {
+        type: 'upsertCalibration',
+        backgroundObjectId: objectId,
+        expectedRevision: 1,
+        pageAspectRatio: onePointCase.input.pageAspectRatio,
+        knownDistance: onePointCase.input.knownDistance,
+        referencePoints: onePointCase.input.referencePoints,
+      },
+      generateUuidV7(),
+    );
+
+    expect(result.affectedObjects[0]?.details).toMatchObject({
+      calibrationState: 'calibrated',
+      calibration: {
+        transform: onePointCase.expected.transform,
+        rmsErrorMetres: null,
+      },
+    });
+
+    const row = await db
+      .selectFrom('gardens_mapping.calibration')
+      .select(['residual_error_metres', 'point_residuals_metres'])
+      .where('background_object_id', '=', objectId)
+      .executeTakeFirstOrThrow();
+    expect(row.residual_error_metres).toBeNull();
+    expect(row.point_residuals_metres).toEqual(onePointCase.expected.pointResidualsMetres);
+  });
+
+  it('authorization: a viewer cannot calibrate, and a member of another garden only is concealed as notFound (P6-QA-01)', async () => {
+    const { ownerId, gardenId } = await createGardenWithOwner();
+    const handlers = buildHandlers(fixedClock(NOW));
+    const { objectId } = await createBackground(handlers, gardenId, ownerId);
+
+    const viewerId = generateUuidV7();
+    await db
+      .insertInto('identity_access.profile')
+      .values({ id: viewerId, firebase_uid: `firebase-${viewerId}`, account_state: 'active' })
+      .execute();
+    await db
+      .insertInto('collaboration.membership')
+      .values({
+        id: generateUuidV7(),
+        garden_id: gardenId,
+        profile_id: viewerId,
+        role: 'viewer',
+        state: 'active',
+      })
+      .execute();
+
+    await expect(
+      handlers.upsertCalibration.execute(
+        gardenId,
+        viewerId,
+        calibrationPayload(objectId, 1),
+        generateUuidV7(),
+      ),
+    ).rejects.toMatchObject({ category: 'forbidden' });
+
+    const { ownerId: strangerId } = await createGardenWithOwner();
+    await expect(
+      handlers.upsertCalibration.execute(
+        gardenId,
+        strangerId,
+        calibrationPayload(objectId, 1),
+        generateUuidV7(),
+      ),
+    ).rejects.toMatchObject({ category: 'notFound' });
+
+    // Neither attempt calibrated anything.
+    const fetched = await handlers.getMapObject.execute(gardenId, objectId, ownerId);
+    expect(fetched.details).toMatchObject({ calibrationState: 'uncalibrated' });
+  });
 });

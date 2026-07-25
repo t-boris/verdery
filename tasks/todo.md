@@ -3437,3 +3437,95 @@ math and rejects geometry commands on calibrated backgrounds, mirroring the real
 3. One shared-fixture observation for a later pass: `geometry/map-documents.json`'s P3-era
    `importedBackground` object carries no `details` member, so no platform gets fixture-driven
    coverage of the new details branch from it; Swift covers the shape with its own coding tests.
+
+## Stage 14 — P6-QA-01, implementation complete
+
+The Phase 6 gap-closing QA package: an audit of the six named test surfaces (plus section 20's full
+testing list and section 21's completion criteria) against the REAL coverage the eleven prior stages
+built, then ONLY the genuine holes closed with targeted tests — matching P5-QA-01's
+assess-the-matrix-first shape, not test-count inflation. No new capability was built; one test-title
+inaccuracy was fixed by making the title true (see the audit table); no runtime defect was found.
+
+### Audit table (surface → existing evidence → genuine gap → what was added)
+
+| Surface                             | Existing evidence (verified by reading the suites, not the stage reports)                                                                                                                                                                                                                                                                                                                                                         | Genuine gap                                                                                                                                                                                                                                                                                                                                                                                                                                  | Added                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Unauthorized cross-garden access | Unit deny paths per media command (register/complete/status/list/delete conceal non-member or cross-garden as notFound; delete also viewer-forbidden); integration concealment for status+access (`media-upload-flow.test.ts`); HTTP concealment for status only; imported-background cross-garden plan reference (`map-imported-background.test.ts`); Stage 11's delete-first race proving ONE attach availability gate (plants) | (a) The integration test titled "status, completion, and access" never called completion; (b) no HTTP-level deny for list/complete/access/delete by a member of another garden; (c) the cross-garden half of ALL FOUR attach guards (`AttachPlantPhoto`, `AddPlantFromPhoto`, `RecordObservation` photos, `AttachTaskFile`) untested, and the availability half untested for three of four; (d) `upsertCalibration` had no cross-garden test | (a) completion added to the integration test (+ record-untouched assert); (b) `tests/http/media-routes-security.test.ts` — member-of-garden-B-only gets per-endpoint 404 `garden.not_found` concealment over real HTTP + real Postgres; (c) `tests/integration/media-attachment-authorization.test.ts` (3 tests, real Postgres): cross-garden AND non-available denials for all four attach commands, with nothing-inserted/rollback asserts; (d) see surface 2                       |
+| 2. Viewer restrictions              | Viewer allow standard / deny `restricted` / editor allow `restricted` + restricted-access audit (unit); viewer allow status+access, deny raw_capture (integration); viewer deny register/complete/delete (unit); viewer deny `createMapObject` (integration, capability check shared by every map command)                                                                                                                        | Viewer vs. `sensitive` plan originals/derivatives never pinned (the allow is a documented decision, not an accident); the derivative gate never proven to read the derivative row's OWN inherited classification; `upsertCalibration` (its own command class with its own capability call) had no viewer/stranger test                                                                                                                       | `get-media-access.test.ts` +2: viewer ALLOWED a sensitive plan original (posture pinned with reasoning); viewer allowed a sensitive-classified derivative but forbidden a restricted-classified one (the Stage 9 inheritance fix's future-rule surface); `map-calibration.test.ts` +1: viewer → forbidden, member-of-another-garden-only → notFound concealment, target stays uncalibrated                                                                                            |
+| 3. Malformed inputs                 | HTTP 400s existed for: missing Idempotency-Key, unknown mediaClass (body and filter), missing If-Match; domain-level calibration input rejection (`CalibrationInputError` → `ValidationError`) proven by integration + fixture rejected cases                                                                                                                                                                                     | No HTTP test for negative/fractional byte size, bad checksum format, oversized filename, non-UUID mediaId, out-of-range/non-numeric limit, malformed (non-integer) If-Match; the hand-written `upsertCalibration` transport parsing branch had zero tests on any input                                                                                                                                                                       | `media-routes-security.test.ts` +2 (400-not-500 across all the above families, with per-family error detail codes); `parse-map-command-payload.test.ts` (new, 6 tests): valid round-trips incl. empty referencePoints and manualAdjustment, plus pointer-precise rejections (non-array referencePoints, missing position halves, missing/malformed knownDistance, non-UUID backgroundObjectId, non-numeric pageAspectRatio, sub-1 revision, malformed manualAdjustment, unknown type) |
+| 4. Parser limits                    | Stage 5's malicious-fixture suite: MIME spoof, truncation, checksum/byte-size/extension mismatch, byte cap (at/over/mid-stream), dimension bomb (50,000×50,000 — violates BOTH image ceilings at once), `/OpenAction` active content, malware detect, scanner-unavailable→retryable, raw_capture never-touches-bytes                                                                                                              | The PDF page-count ceiling, PDF object-cardinality ceiling, `/Encrypt` branch (a separate regex, not the marker loop), and envelope rejections (missing %%EOF, no cross-reference) had NO test; the image 40 MP pixel ceiling and 16,384 px axis cap were never tested independently — either comparison could vanish silently                                                                                                               | `pdf-metadata-parser.test.ts` (new, 6 tests — synthetic bytes only); `image-metadata-parser.test.ts` (new, 3 tests): a pixel-count-only violation (8,000×6,000 = 48 MP, axes legal) and an axis-only violation (17,000×2,000 = 34 MP, pixels legal), plus the under-both control                                                                                                                                                                                                      |
+| 5. Signed-access expiry             | `MediaAccess.expiresAt` in the contract and pinned through the FAKE gateway (unit); `main.ts` wires `configuration.media.uploadSessionTtlMs`/`signedDownloadTtlMs` (defaults 1h/15min, `configuration-schema.ts`) into the real adapter — read-verified                                                                                                                                                                           | The REAL `GcsMediaStorageGateway` had no test at all: nothing proved the configured TTL is what reaches Cloud Storage's `getSignedUrl` `expires` parameter (the value that actually bounds the URL) or that the identical instant returns as `expiresAt`                                                                                                                                                                                     | `gcs-media-storage-gateway.test.ts` (new, 4 tests, `@google-cloud/storage` stubbed): signed-download expiry = now + configured TTL both INTO `getSignedUrl` (v4, read) and OUT as `expiresAt`; upload-session expiry + declared content type; metadata mapping incl. 404→null; provider-failure translation on every method                                                                                                                                                           |
+| 6. Plan accuracy labels             | Math (RMS null below 2 control points, residuals vs. the rounded stored transform) pinned by shared fixtures on TS AND Swift; web `formatErrorMetres` + all three `calibrationStateText` branches tested (`calibration-panel.test.tsx`); API integration pins `rmsErrorMetres` as a NUMBER through the real command path (2-point fixture case)                                                                                   | The API never drove a below-2-points calibration through the real command path (null could have been fabricated into 0 at the resource/DB layer unnoticed); iOS `MapCalibrationLabels` had ZERO tests; neither client tested the exact-1-metre formatting boundary                                                                                                                                                                           | `map-calibration.test.ts` +1: the shared 1-point fixture case through `upsertCalibration` → `rmsErrorMetres: null` on the resource AND `residual_error_metres` NULL in the row, residuals intact; iOS `MapCalibrationLabelsTests.swift` (new suite, 4 tests) with byte-identical web-parity values; web boundary asserts (1 → "1.00 m", 0.999 → "99.9 cm") added to the existing test                                                                                                 |
+
+### Section 20/21 items verified or honestly out of scope
+
+- Verified already-covered (no addition): resumable interruption/continuation (iOS coordinator
+  suite), duplicate completion notification (integration + unit), declared-vs-actual mismatch,
+  derivative idempotency (DB-backed no-op), lifecycle/deletion races + orphan reconciliation
+  (Stage 11's suites), checksum mismatch, malware outcomes.
+- **"The only local copy is not removed before verified durability"** (section 15.3 exit
+  criterion): verified real — `LocalMediaFileStore.delete` on the captured file has exactly one
+  caller, `discard`; enqueue-writes-before-network and discard-removes were already tested. Added
+  one assertion to the terminal-rejection coordinator test: the local file still exists after a
+  server rejection — the criterion's teeth at the failure boundary.
+- Malformed VIDEO fixtures (section 20): still honestly untestable — no video parser exists
+  anywhere by Stage 5's own pre-approved scope (`ffprobe` deferral); the structural short-circuit
+  (raw_capture never touches bytes) is already pinned by `NeverCalledObjectSource`.
+- Client publication-media entitlement, engagement revocation, and internal-media denial (section 20) and the "Client media access requires publication entitlement + engagement" completion
+  criterion: organization/engagement/publication concepts still do not exist anywhere in this
+  codebase (Phase 9, unchanged since P5-QA-01 recorded the identical deferral).
+- Account deletion across all buckets (section 20): no account-deletion workflow exists
+  (data-export-and-deletion.md, later phase); the deletion MECHANISM it will reuse is the
+  Stage 11-tested prefix-scoped workflow.
+- "Raw scan retention is enforced and user-visible" (section 21): user-visible yes
+  (retention-policy endpoint, HTTP-tested); enforcement honestly `enforced: false` until Phase 10
+  produces the extraction anchor — Stage 11's documented posture, unchanged.
+- Media-bytes-never-through-API (section 21): architectural (the gateway only mints sessions/URLs
+  and reads metadata — re-verified by reading the adapter); no new test can prove a negative
+  beyond the existing boundary design.
+
+### Spot-verified against a broken implementation (P5-QA-01's bar)
+
+1. Image pixel-count ceiling: removed the `width * height > maxPixels` clause → the
+   pixel-ceiling-only test failed while the axis-cap test still passed (proves independence).
+2. PDF object-cardinality ceiling: inflated the limit ×1000 → its test failed alone.
+3. Signed-download expiry: hardcoded 24h in the real gateway → the expiry test failed alone.
+4. Cross-garden completion: dropped `record.gardenId !== gardenId` from `CompleteMediaUpload` →
+   the extended integration test failed.
+5. Cross-garden attach: dropped `media.gardenId !== task.gardenId` from `AttachTaskFile` → the new
+   attach-authorization test failed.
+   All five restored and re-run green.
+
+### Defects found
+
+- **No runtime defect.** One test-suite defect: `media-upload-flow.test.ts`'s cross-garden test
+  claimed "status, completion, and access" in its title while never exercising completion — fixed
+  by adding the real call (which passes: the guard existed and was unit-tested; the integration
+  title was simply overstating its own coverage).
+- One stale doc: implementation-plan.md section 15.2's status paragraph still said P6-PLAN-01
+  through P6-QA-01 "have not started" — corrected to the real per-package state as part of this
+  stage (the same staleness-correction precedent Phase 5's review set).
+
+### Verified evidence
+
+| Check                                                       | Result                                                                                                                 |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `pnpm --filter @verdery/api test`                           | 120 files / 794 tests pass (baseline 116 / 774), real Postgres via Testcontainers                                      |
+| `pnpm --filter @verdery/workers test`                       | 20 files / 111 tests pass (baseline 18 / 102)                                                                          |
+| `pnpm --filter @verdery/web test`                           | 57 files / 455 tests pass (baseline 57 / 455 — boundary asserts extended existing tests)                               |
+| `swift test` (apps/ios, full)                               | 782 tests / 109 suites pass (baseline 778 / 108)                                                                       |
+| `pnpm --filter @verdery/geometry-contracts test`            | 113 tests pass, unchanged                                                                                              |
+| `pnpm --filter @verdery/api-contracts lint:contract + test` | redocly clean; 29 contract tests pass (no contract change this stage)                                                  |
+| Root `pnpm typecheck` / `lint` / `format:check`             | all pass                                                                                                               |
+| `node scripts/check-file-size.mjs`                          | passes — `media-routes.test.ts` split (`media-routes-security.test.ts`) when the new HTTP tests pushed it to 606 lines |
+
+### Known limitations
+
+- The map-command HTTP route (`POST /gardens/:gardenId/map/commands`) still has no HTTP-level test
+  suite for ANY command type — a pre-existing, Phase 3-era gap far wider than this package's
+  calibration scope. The calibration branch's parsing (this package's named surface) is now unit-
+  tested at the transport layer, and the generic ValidationError→400 mapping is proven by the
+  media routes' own HTTP 400 tests through the same pipeline; a full map HTTP suite remains future
+  work, recorded here rather than silently skipped.
+- `deferred-capabilities.md` needed no update: the audit closed test gaps, not capability
+  deferrals, and changed no deferral's status.

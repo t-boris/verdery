@@ -315,6 +315,28 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       getMediaStatus.execute(otherGardenId, session.media.id, otherOwnerId),
     ).rejects.toMatchObject({ category: 'notFound' });
 
+    // Completion too: this test's own title always claimed it, but until
+    // P6-QA-01 the call was missing — a member of another garden must not
+    // be able to drive someone else's upload through verification.
+    const completeMediaUpload = new CompleteMediaUpload(
+      new KyselyIdempotencyStore(db, clock),
+      new KyselyMediaUnitOfWork(db, clock),
+      authorization,
+      new FakeMediaStorageGateway({
+        objectMetadata: { contentType: 'image/jpeg', sizeBytes: 123_456 },
+      }),
+      clock,
+    );
+    await expect(
+      completeMediaUpload.execute(
+        otherGardenId,
+        session.media.id,
+        otherOwnerId,
+        session.media.revision,
+        randomUUID(),
+      ),
+    ).rejects.toMatchObject({ category: 'notFound' });
+
     const getMediaAccess = new GetMediaAccess(
       new KyselyMediaRepository(db),
       authorization,
@@ -325,6 +347,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     await expect(
       getMediaAccess.execute(otherGardenId, session.media.id, otherOwnerId),
     ).rejects.toMatchObject({ category: 'notFound' });
+
+    // The foreign attempts left the record untouched in its own garden.
+    const status = await getMediaStatus.execute(gardenId, session.media.id, ownerId);
+    expect(status.uploadState).toBe('authorized');
   });
 
   it('allows a viewer to read status and access ordinary photos, but denies access to raw_capture', async () => {

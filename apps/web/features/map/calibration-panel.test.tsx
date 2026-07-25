@@ -91,6 +91,10 @@ describe('formatErrorMetres', () => {
   it('shows centimetres below a metre and metres above — never fake extra digits', () => {
     expect(formatErrorMetres(0.12)).toBe('12.0 cm');
     expect(formatErrorMetres(1.246)).toBe('1.25 m');
+    // The unit boundary itself (P6-QA-01): exactly one metre is metres, a
+    // hair under stays centimetres.
+    expect(formatErrorMetres(1)).toBe('1.00 m');
+    expect(formatErrorMetres(0.999)).toBe('99.9 cm');
   });
 });
 

@@ -158,6 +158,50 @@ describe('GetMediaAccess', () => {
     await expect(useCase.execute(GARDEN_ID, MEDIA_ID, PROFILE_ID)).resolves.toBeDefined();
   });
 
+  it('allows a viewer to access a sensitive-classified plan original — the documented posture: only restricted is denied to viewers (P6-QA-01)', async () => {
+    // Section 12's stricter viewer line names raw scan artifacts
+    // (`restricted`) only; an `imported_plan` is `sensitive`, which today's
+    // rule deliberately does not distinguish from `standard` for a garden
+    // member (see this command's own doc comment and the Stage 9
+    // sensitivity-inheritance correction's reasoning). This pins that the
+    // allow is a decision, not an accident.
+    const plan = availableRecord('imported_plan');
+    expect(plan.sensitivityClassification).toBe('sensitive');
+
+    const { useCase } = buildUseCase(plan, 'viewer');
+    await expect(useCase.execute(GARDEN_ID, MEDIA_ID, PROFILE_ID)).resolves.toBeDefined();
+  });
+
+  it('gates a derivative by its OWN inherited classification: a viewer gets a sensitive plan derivative but never a restricted-classified one (P6-QA-01)', async () => {
+    const source = availableRecord('imported_plan');
+    const derivative = (classification: 'sensitive' | 'restricted') =>
+      ({
+        ...source,
+        id: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a1e',
+        mediaClass: 'derived_preview',
+        sensitivityClassification: classification,
+        processingState: null,
+        derivedFromMediaId: source.id,
+        transformationVersion: 1,
+        derivativeKind: 'screen_preview',
+      }) as MediaRecord;
+
+    const sensitive = buildUseCase(derivative('sensitive'), 'viewer');
+    await expect(
+      sensitive.useCase.execute(GARDEN_ID, derivative('sensitive').id, PROFILE_ID),
+    ).resolves.toBeDefined();
+
+    // No worker produces a restricted derivative today (raw_capture is not
+    // derivative-eligible), but the gate must read the derivative row's own
+    // inherited classification — the exact future-rule surface the Stage 9
+    // inheritance fix exists for.
+    const restricted = buildUseCase(derivative('restricted'), 'viewer');
+    await expect(
+      restricted.useCase.execute(GARDEN_ID, derivative('restricted').id, PROFILE_ID),
+    ).rejects.toMatchObject({ category: 'forbidden' });
+    expect(restricted.storage.createSignedUrlCalls).toHaveLength(0);
+  });
+
   it('records a sensitive-access audit event only for restricted-classified media', async () => {
     const { useCase: standardUseCase, auditLogger: standardAuditLogger } = buildUseCase(
       availableRecord('garden_photo'),
