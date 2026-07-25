@@ -16,6 +16,10 @@ Documentation for working _in_ this repository. Product meaning lives in
 | [deferred-capabilities.md](deferred-capabilities.md)                 | What is deliberately not built yet, and why?                                                   |
 | [recommendation-safety-catalog.md](recommendation-safety-catalog.md) | What may the recommendation pipeline generate, and how does a horticultural reviewer sign off? |
 | [threat-model.md](threat-model.md)                                   | What can attack this system, what stops it today, and what does the owner sign off on?         |
+| [service-levels.md](service-levels.md)                               | What numbers is this service held to, and what do they cost to meet?                           |
+| [load-testing.md](load-testing.md)                                   | How is capacity measured, and why can it not be measured yet?                                  |
+| [support-operations.md](support-operations.md)                       | Someone reported a problem — how is it classified, diagnosed, and escalated?                   |
+| [ga-checklist.md](ga-checklist.md)                                   | What must pass before a release, and which gates are impossible today?                         |
 
 The repository rules in [../../AGENTS.md](../../AGENTS.md) apply to every change and are not
 repeated in these documents.
