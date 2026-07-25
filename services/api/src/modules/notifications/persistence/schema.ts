@@ -2,7 +2,8 @@ import type { Generated } from 'kysely';
 
 /**
  * Row types for the `notifications` schema
- * (1786000000000_notifications-baseline.sql). `revision` columns are plain
+ * (1786000000000_notifications-baseline.sql, extended by
+ * 1786200000000_notification-delivery.sql). `revision` columns are plain
  * `integer`, read back as JS numbers with no custom type parser — the
  * `plants_inventory.plant.revision` note. `template_parameters` and
  * `deep_link` are `jsonb`, typed `unknown` and narrowed by the repository
@@ -27,11 +28,41 @@ export interface NotificationIntentRow {
   earliest_delivery_at: Date;
   expires_at: Date;
   state: Generated<string>;
+  close_reason: Generated<string | null>;
+  next_delivery_attempt_at: Generated<Date | null>;
+  delivery_attempt_count: Generated<number>;
   read_at: Date | null;
   dismissed_at: Date | null;
   revision: Generated<number>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
+}
+
+/** P7-NOTIF-02: one revocable device-channel record per (profile, installation) — the token column is a secret, never logged or echoed. */
+export interface NotificationDeviceRow {
+  id: string;
+  profile_id: string;
+  installation_id: string;
+  platform: string;
+  provider: string;
+  fcm_token: string;
+  environment: string;
+  status: Generated<string>;
+  disabled_reason: Generated<string | null>;
+  last_seen_at: Date;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+/** P7-NOTIF-02: append-only FCM send-attempt records — insert-only, no updates ever. */
+export interface NotificationDeliveryAttemptRow {
+  id: string;
+  intent_id: string;
+  device_id: string;
+  outcome: string;
+  error_code: string | null;
+  attempted_at: Date;
+  created_at: Generated<Date>;
 }
 
 export interface NotificationPreferenceRow {
@@ -59,4 +90,6 @@ export interface NotificationsDatabaseSchema {
   'notifications.notification_intent': NotificationIntentRow;
   'notifications.notification_preference': NotificationPreferenceRow;
   'notifications.notification_preference_document': NotificationPreferenceDocumentRow;
+  'notifications.notification_device': NotificationDeviceRow;
+  'notifications.notification_delivery_attempt': NotificationDeliveryAttemptRow;
 }

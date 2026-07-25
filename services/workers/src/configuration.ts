@@ -122,6 +122,17 @@ export const environmentSchema = z.object({
   // one worker-to-API identity. No interval of its own: the relay's
   // existing poll cadence is the schedule.
   NOTIFICATION_EVENTS_URL: z.string().url(),
+
+  // P7-NOTIF-02: the API's internal notification-delivery sweep endpoint,
+  // same shape and same audience as the three sweeps above. One minute is
+  // a reasoned default in the same documented posture: the delivery
+  // moment's precision is `earliest_delivery_at`, which is minute-granular
+  // (quiet-hours ends), so a minute-order tick delivers within the same
+  // precision per-intent scheduling would; each tick is one cheap
+  // authenticated POST whose claim is bounded, and an idle tick (no due
+  // intents) is a counted no-op.
+  NOTIFICATION_DELIVERY_SWEEP_URL: z.string().url(),
+  NOTIFICATION_DELIVERY_SWEEP_INTERVAL_MS: durationMilliseconds.default(60_000),
 });
 
 export type RawEnvironment = z.infer<typeof environmentSchema>;
@@ -168,6 +179,8 @@ export interface WorkerConfiguration {
   readonly recommendationEvaluationSweep: SweepScheduleConfiguration;
   /** P7-NOTIF-01 — see the schema's own comment on `NOTIFICATION_EVENTS_URL`. */
   readonly notificationEventsUrl: string;
+  /** P7-NOTIF-02 — see the schema's own comment on `NOTIFICATION_DELIVERY_SWEEP_URL`. */
+  readonly notificationDeliverySweep: SweepScheduleConfiguration;
 }
 
 /** Raised when the process environment cannot produce a valid configuration. */
@@ -220,6 +233,10 @@ function toWorkerConfiguration(raw: RawEnvironment): WorkerConfiguration {
       intervalMs: raw.RECOMMENDATION_EVALUATION_SWEEP_INTERVAL_MS,
     },
     notificationEventsUrl: raw.NOTIFICATION_EVENTS_URL,
+    notificationDeliverySweep: {
+      sweepUrl: raw.NOTIFICATION_DELIVERY_SWEEP_URL,
+      intervalMs: raw.NOTIFICATION_DELIVERY_SWEEP_INTERVAL_MS,
+    },
   };
 }
 

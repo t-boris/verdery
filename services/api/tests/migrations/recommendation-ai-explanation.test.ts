@@ -244,9 +244,12 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, dropping the table while the candidate and its explanation survive', async () => {
     await client.end();
 
-    // `count: 1`: this file tests the newest migration, so only itself is
-    // undone. Update when a later migration is added on top.
-    await migrate(databaseUrl, 'down', 1);
+    // `count: 2` undoes the one newer migration
+    // (1786200000000_notification-delivery.sql — notification-delivery
+    // tables and intent alterations nothing this file's own assertions
+    // check) first, then this migration itself. Update again the next
+    // time a migration is added on top of that one.
+    await migrate(databaseUrl, 'down', 2);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

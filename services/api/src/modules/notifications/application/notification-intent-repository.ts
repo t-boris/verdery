@@ -64,14 +64,19 @@ export interface NotificationIntentRepository {
   expirePendingForRecipient(recipientProfileId: Uuid, now: Date): Promise<number>;
 
   /**
-   * One page of the recipient's live inbox entries — pending, in-app
-   * eligible, not dismissed — newest first by id (UUIDv7 time ordering),
-   * strictly before `beforeId` when given.
+   * One page of the recipient's live inbox entries — inbox-visible state
+   * (`INBOX_VISIBLE_STATES`: pending plus the delivery outcomes), in-app
+   * eligible, not dismissed, not past expiration — newest first by id
+   * (UUIDv7 time ordering), strictly before `beforeId` when given. The
+   * expiry filter is explicit here since P7-NOTIF-02: a `sent` entry keeps
+   * its delivery truth forever, so lapsing out of the inbox is a
+   * view-time fact of `expiresAt`, not a state transition.
    */
   listInboxPage(
     recipientProfileId: Uuid,
     beforeId: Uuid | null,
     limit: number,
+    now: Date,
   ): Promise<readonly NotificationIntent[]>;
 
   /** The recipient's own intent, or `null` — never another recipient's (the not-found concealment boundary). */

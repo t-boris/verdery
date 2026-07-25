@@ -1,8 +1,8 @@
 # Notification Design
 
-> Status: Draft 0.2
+> Status: Draft 0.3
 > Decision status: Approved baseline  
-> Last updated: July 22, 2026
+> Last updated: July 25, 2026
 
 ## 1. Purpose
 
@@ -62,10 +62,10 @@ notification policy
 persist in-app intent
     │
     ▼
-Cloud Task at eligible time
+delivery sweep claims due intents at the eligible time
     │
     ▼
-preference and freshness recheck
+access, preference, and freshness recheck
     │
     ▼
 FCM delivery attempt
@@ -102,7 +102,7 @@ Push payloads remain concise and avoid private garden details on lock screens un
 
 ## 9. Scheduling
 
-Garden-care timing uses the garden or user time zone inside application logic. Cloud Tasks schedules the resolved UTC delivery time.
+Garden-care timing uses the garden or user time zone inside application logic. The intent stores the resolved UTC earliest-delivery instant; a scheduled delivery sweep (the established worker-triggered internal-endpoint pattern) claims intents whose instant has arrived. The claim leases each intent so concurrent sweep runs cannot double-send, and delivery is at-least-once across crashes. Per-intent Cloud Task scheduling remains available as a later refinement if delivery precision ever needs to be finer than the sweep interval.
 
 Before delivery, the worker rechecks:
 

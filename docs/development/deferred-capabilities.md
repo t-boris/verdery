@@ -186,8 +186,12 @@ concurrent delivery collapse, expiry tied to the candidate's own validity window
 rendering. A superseding candidate's event closes the prior candidate's pending intents. The
 in-app inbox is the intent itself (`GET /notifications` with keyset pagination and durable
 read-triggered expiry; idempotent-by-design read/dismiss stamps;
-`GET`/`PUT /notification-preferences` guarded by a document revision starting at 0). Push delivery
-is deliberately absent — see the P7-NOTIF-02 entry below.
+`GET`/`PUT /notification-preferences` guarded by a document revision starting at 0). P7-NOTIF-02
+then completed the delivery half: FCM device records with register/refresh/remove contract
+operations, the `sent`/`failed`/`skipped` intent vocabulary with append-only delivery-attempt
+records, and the scheduled delivery sweep that re-runs the access/preference/freshness rechecks
+at send time before each Admin-SDK FCM send — see the P7-NOTIF-02 entry below for what remains
+open (client FCM wiring; live-send verification).
 
 Phase 7 now includes P7-AI-01: the bounded Vertex AI explanation embellishment, shipped whole and
 switched OFF everywhere. The integrations module gains its third capability — the provider-neutral
@@ -262,7 +266,9 @@ configuration load without it). P7-ASYNC-01 extends that same env list with
 API URL by `deploy-workers.sh` itself, both required at configuration load), in the same
 written-not-executed state. P7-NOTIF-01 adds `NOTIFICATION_EVENTS_URL` (same derivation, same
 required-at-load posture) to that list, likewise written and syntax-checked but not run against
-any real project.
+any real project. P7-NOTIF-02 adds `NOTIFICATION_DELIVERY_SWEEP_URL` (same derivation, same
+required-at-load posture; the minute-order interval keeps its configuration default), in the same
+state.
 
 **Raw-capture retention enforcement (P6-RET-01 scope boundary).** The 30-days-after-successful-
 extraction rule (architecture/media-storage-and-processing.md section 15; garden-capture-and-scan.md
@@ -517,26 +523,33 @@ at intent creation, so the accumulated pre-consumer backlog drains as typed supp
 (`candidate_not_live` / `candidate_window_passed` / `candidate_missing`), never as stale
 notifications. What this stage deliberately does NOT build is push DELIVERY — see the next entry.
 
-**Push delivery, device tokens, and send-time recheck execution (P7-NOTIF-02 scope boundary).**
-P7-NOTIF-01 ends at durable, policy-evaluated, inbox-visible intents: each `pending` intent
-already carries everything a delivery worker needs — per-channel eligibility, the quiet-hours
-resolved `earliest_delivery_at`, `expires_at`, the `recommendation_candidate_id` freshness
-linkage, priority, and a revision counter for guarded terminal transitions — but no FCM adapter,
-no device-token records (notifications.md section 6), no Cloud Task scheduling at the eligible
-time, and no send-time recheck EXECUTION exist yet; the recheck's classification logic itself
-(`assessCareRecommendationEvent`, `evaluateRecipientPolicy`) ships now and is what the send worker
-re-runs before any push. Related honest boundaries inside P7-NOTIF-01 itself: (1) `pending ->
-expired` closes durably today only through the recipient's own inbox read (the `GetTodayView`
-read-triggers-write precedent) — intents of recipients who never open their inbox stay honestly
-`pending` until P7-NOTIF-02's send worker closes them at send time, the doc's own place for that
-close ("Expired or stale intents close without delivery"); (2) the notification-type vocabulary is
-one type (`care_recommendation`) — client-publication and invitation notifications arrive with
-collaboration (P9), which also brings the transactional-email channel and its different opt-out
-classification (section 7); (3) "immediate versus digest behavior where offered" is not offered —
-per-candidate intents only, a product decision away; (4) no client renders the inbox yet — the
-contract surface (`Notifications` tag: list, read, dismiss, preferences) ships now for the client
-stage that picks it up, with `templateKey` + structured parameters ready for client-side
-locale-late rendering (section 8).
+**~~Push delivery, device tokens, and send-time recheck execution~~ — closed by P7-NOTIF-02.**
+The delivery half is real: revocable FCM device-channel records with register/refresh/remove
+contract operations (`PUT`/`DELETE /notification-devices/{deviceInstallationId}`), the completed
+intent state machine (`sent`/`failed`/`skipped` with typed `close_reason`, append-only
+`notification_delivery_attempt` records), and the scheduled delivery sweep
+(`POST /v1/internal/notification-delivery/sweep`, the established interval-tick → OIDC-verified
+internal-endpoint pattern) that claims due intents under a `FOR UPDATE SKIP LOCKED` lease and
+re-runs the send-time rechecks — access, current preference/quiet-hours (deferral when the window
+moved), and the Stage 23 freshness classification — before any FCM send through the Admin SDK's
+messaging surface. Invalid/unregistered token verdicts disable the device record idempotently;
+transients retry under a bounded backoff budget; the P7-NOTIF-01 at-scale `pending -> expired`
+close now runs in this sweep. What remains open, honestly:
+(1) **Client-side FCM wiring** — no client obtains or registers a token yet: the iOS app needs
+APNs entitlements, Firebase Messaging SDK integration, token registration against the new contract
+ops, and foreground/background presentation of the data-only payload (the server sends
+`content-available` data messages; visible-notification presentation is the client's rendering
+decision, locale-late); the web app needs a service worker plus the same registration calls.
+(2) **Live FCM send verification** — deliberately unverifiable today: no real device token exists
+anywhere (no app installs), so the FCM edge is proven at the port boundary
+(`FakePushMessageSender` + the adapter's classification tests over constructed SDK error shapes);
+the first client stage that registers a real token is where a live push is first observable.
+(3) **Per-intent Cloud Task scheduling** — the minute-order sweep delivers within
+`earliest_delivery_at`'s own minute granularity; a per-intent Cloud Task is a recorded refinement
+if delivery precision ever needs to be finer (notifications.md section 9).
+Still open from P7-NOTIF-01's own list: the one-type vocabulary (`care_recommendation`; P9 brings
+publication/invitation types, email, and opt-out classification), digest behavior (not offered),
+and the client inbox UI.
 
 **Offline Today actions in the sync protocol — decided by P7-IOS-01: not built.** The P7-BE-01
 recommendation commands are deliberately NOT routed through `POST /v1/sync/push`: recommendations

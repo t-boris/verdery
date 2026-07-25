@@ -4899,3 +4899,170 @@ confirmation gate — no Vertex API is enabled on verdery-dev and no environment
   Today literals gained the two additive fields).
 - `pnpm --filter @verdery/api build`, root `pnpm typecheck`, `pnpm lint`, `pnpm format:check`,
   `node scripts/check-file-size.mjs` all clean.
+
+## Stage 25 — P7-NOTIF-02, implementation complete
+
+Push delivery is real from durable pending intent to FCM send attempt — device-token records with
+their contract operations, the completed intent state machine (`sent`/`failed`/`skipped` with
+typed close reasons and append-only delivery-attempt records), and the scheduled delivery sweep
+that re-runs the ACCESS, PREFERENCE, and FRESHNESS rechecks at send time (the work package's own
+named requirement) before any push. The acceptance evidence ("Invalid-token and stale-intent
+tests") exists at three layers: the pure send-time decision matrix, the sweep over fakes, and
+real PostgreSQL end to end (device disabled durably with its typed reason; a superseded
+candidate's intent skipping as `candidate_not_live` with no send). Live FCM send is deliberately
+UNVERIFIABLE this stage — no real device token exists anywhere because no client integrates FCM
+yet — so the provider edge is proven at the port boundary and the limit is stated honestly in
+deferred-capabilities.md.
+
+### Key decisions
+
+- **Delivery runs as the FOURTH scheduled sweep, not per-intent Cloud Tasks — the established
+  two-hop pattern, chosen for the privilege boundary again.** The send-time rechecks read
+  membership, preferences, candidates, and device tokens — all data `verdery_worker` deliberately
+  cannot touch (tokens are secrets; the migration grants the worker NOTHING on the new tables) —
+  so the sweep body runs in services/api behind OIDC-verified
+  `POST /internal/notification-delivery/sweep`, and the workers process contributes only a
+  minute-order interval tick (`NOTIFICATION_DELIVERY_SWEEP_URL` +
+  `NOTIFICATION_DELIVERY_SWEEP_INTERVAL_MS`, default 60s: `earliest_delivery_at` is
+  minute-granular quiet-hours output, so a minute-order tick delivers within the same precision a
+  per-intent task would, without a second scheduling system to keep consistent).
+  notifications.md's flow/scheduling sections were updated to match; per-intent Cloud Tasks is a
+  recorded refinement, not a silent divergence.
+- **The claim is a lease: one atomic `UPDATE ... WHERE id IN (SELECT ... FOR UPDATE SKIP LOCKED)`
+  that advances `next_delivery_attempt_at` to now+5min.** Concurrent sweep runs partition the due
+  set instead of double-claiming (proven under `Promise.all` against real PostgreSQL: two
+  simultaneous sweeps, exactly one send), and a run that crashes mid-batch loses nothing durably —
+  its claims resurface when the lease lapses, making push delivery at-least-once across crashes
+  (the outbox relay's own publish/record posture). `next_delivery_attempt_at` is the worker's OWN
+  scheduling column — the claim lease, a quiet-hours re-deferral, or a transient backoff all park
+  it — while `earliest_delivery_at` stays the policy's immutable creation-time fact. Terminal
+  writes are state-conditional (`WHERE state = 'pending'`), so a supersession racing a send is a
+  counted lost race, never an overwrite, and no revision guard is needed (inbox read/dismiss
+  stamps bump revisions concurrently and legitimately).
+- **The send-time recheck is ONE pure function (`decideSendTimeAction`) composing Stage 23's own
+  shipped pieces** — `assessCareRecommendationEvent` re-run against the candidate's CURRENT row
+  (missing/not-live/window-passed skip with the SAME typed reasons creation-time suppression
+  uses), `resolveChannelPreference` over the CURRENT entries (push disabled since creation skips),
+  `isWithinQuietHours`/`resolveEarliestDeliveryAt` over the CURRENT document (a window that moved
+  over now DEFERS to its end — scheduling, never suppression), plus the access recheck
+  (`findActiveMember`, the one new narrow-read-port method: membership gone or account unusable
+  skips) and expiry. Order is deliberate: terminal classifications before the quiet-hours
+  deferral, so a doomed intent closes now instead of surviving to fail after the window. A skip
+  is `pending → skipped` with the reason durable in the new `close_reason` column — section 15's
+  "suppression reason" on the row it closed. No-active-device is a TERMINAL skip, not a retry:
+  most accounts have no push installation, and re-claiming their intents every minute until
+  expiry would be permanent busywork; a later registration is served by the next intent.
+- **Device records are last-writer-wins upserts with structural token uniqueness.**
+  `notifications.notification_device` is section 6's field list (profile, client-minted
+  installation id, platform, provider, token, server-stamped environment, status +
+  disabled_reason, last_seen): `PUT /notification-devices/{deviceInstallationId}` upserts by
+  `UNIQUE (profile_id, installation_id)`, always reactivating (a fresh token proves the channel
+  works), and DELETES any other holder of the same token in the same transaction — an account
+  switch on one physical device displaces the old profile's record, made structural by
+  `UNIQUE (fcm_token)`. Registration and removal are idempotent BY DESIGN and take no
+  Idempotency-Key (the inbox read/dismiss reasoning: last-writer-wins on a single-owner row
+  converges; unlike `registerSyncClient` there is deliberately no 200-vs-201 distinction to
+  preserve). The token is a SECRET at every layer: never in a response (the contract's
+  `NotificationDevice` omits it), never in a log line (routes log installation id + platform
+  only), never readable by `verdery_worker`. `environment` is stamped from the API's own
+  configuration — clients cannot claim another environment's channel.
+- **Invalid-token handling is the doc's own rule, executed in the outcome transaction.** The FCM
+  boundary (`PushMessageSender`) CLASSIFIES instead of throwing: `token_invalid`
+  (`registration-token-not-registered`/`invalid-registration-token`) disables the device
+  idempotently (`WHERE status = 'active'`, reason `token_invalid`) while other devices still
+  receive their sends; `transient_failure` (`internal-error`/`server-unavailable`/
+  `quota-exceeded`, plus every UNRECOGNIZED error — codeless network failures must not kill
+  devices or intents on first sight) schedules a bounded doubling backoff (5/10/20/40 min,
+  `MAX_DELIVERY_ATTEMPTS` 5, then `failed`/`retry_budget_exhausted` — section 13's "retry within
+  intent expiration" bounded in attempts too, with expiry bounding the calendar);
+  `permanent_failure` (every other Firebase-coded error, `invalid-argument` INCLUDED because it
+  may be OUR payload bug and must never execute a device record) closes `failed` without
+  poisoning the batch. Attempt records, device disables, and the intent's outcome commit in ONE
+  transaction: a crash leaves either the pre-attempt world (the lease re-delivers) or the
+  complete one.
+- **The intent state machine completes without conflating delivery with content.**
+  `sent`/`failed`/`skipped` are terminal DELIVERY outcomes and stay INBOX-VISIBLE until
+  expiration ("Push delivery success does not determine inbox state"; "In-app inbox remains
+  correct when FCM fails") — only the CONTENT closes (`superseded`/`expired`) leave the list, so
+  `isInboxVisible`/`listInboxPage` now test membership in `INBOX_VISIBLE_STATES` plus an explicit
+  `expires_at > now` filter (a `sent` row keeps its delivery truth forever; lapsing out of the
+  inbox is a view-time fact, not a transition — the rebuilt partial inbox index matches).
+  Supersession still closes only PENDING intents (Stage 23's rule): a delivered entry is history
+  the newer entry sits beside. The at-scale `pending → expired` close Stage 23 deferred here runs
+  as the sweep's first phase (bounded 500/run, any channel — the recipients-who-never-open-their-
+  inbox close, its deferred-capabilities entry now closed). The down migration coerces
+  delivery-outcome rows back to `pending` — the only honest pre-delivery state — before restoring
+  the narrower CHECK.
+- **The FCM adapter rides the EXISTING Admin SDK app** (`getMessaging(firebaseApp)` in main.ts,
+  beside the token and App Check verifiers — ADR-0002, no new dependency class, no new
+  credential), arrives through app.ts as an already-constructed port like `mediaStorageGateway`,
+  and sends DATA-ONLY messages: `buildPushMessageData` carries identifiers and the template key,
+  never template parameters or rendered text (section 8's lock-screen privacy; nothing in a
+  payload acts as authorization), with priority mapped to both transports' native knobs and APNs
+  `content-available` so a data message can wake the iOS app — visible-notification presentation
+  is the deferred client stage's rendering decision.
+- **Contract**: `PUT`/`DELETE /notification-devices/{deviceInstallationId}` under the
+  `Notifications` tag (`registerNotificationDevice`/`removeNotificationDevice`), request carrying
+  `platform` + `fcmToken` (≤4096), response deliberately token-free; the internal sweep endpoint
+  stays outside public OpenAPI like every sweep. `NotificationDevicePlatform` repeats the
+  `SyncClientPlatform` vocabulary because a device channel and a sync installation are separate
+  registrations with separate lifecycles.
+- **Composition/config**: `compose-notifications.ts` wires the two new surfaces (device routes in
+  the authenticated block, the sweep beside its sibling internal endpoints under the same
+  verifier); no new API env vars (the environment stamp reuses `configuration.environment`);
+  workers config + `deploy-workers.sh` gain the one derived sweep URL (`bash -n` clean).
+
+### Fixed in place (not deferred)
+
+1. The migration test's first probe of the attempt-outcome CHECK used a bogus outcome with a NULL
+   error code, which trips the error-scope CHECK first (a non-accepted outcome requires a code) —
+   the probe now supplies a code so the VOCABULARY constraint is provably the one that fires.
+2. The sweep suite's first permanent-failure test seeded both intents against one profile, so the
+   healthy device also received the broken intent's send and `anyAccepted` masked the failure
+   path; the seeding helper gained per-profile isolation and the test now proves batch isolation
+   against genuinely separate device sets.
+
+### Known limitations, deliberately deferred (recorded in `deferred-capabilities.md`)
+
+- Client-side FCM wiring — no client obtains or registers a token yet: iOS needs APNs
+  entitlements, Firebase Messaging SDK integration, registration against the new contract ops,
+  and presentation of the data-only payload; web needs a service worker plus the same calls. The
+  contract surface ships now.
+- Live FCM send verification — unverifiable until a real device token exists (no app installs);
+  the provider edge is proven at the port boundary (`FakePushMessageSender` + adapter
+  classification tests over constructed SDK error shapes).
+- Per-intent Cloud Task scheduling — a recorded refinement if delivery precision ever needs to be
+  finer than the minute-order sweep.
+- Everything still open from Stage 23's own list: the one-type vocabulary, email/digest (P9), the
+  client inbox UI.
+
+### Verification evidence
+
+- Full API suite: 181 files / 1319 tests before → **188 files / 1383 tests** after (+7 files /
+  +64 tests): `notification-delivery.test.ts` domain suite (17 — the full send-time decision
+  matrix incl. every stale classification, the identifier-only payload shape, the bounded
+  backoff), the extended intent state-machine suite (+2 — new legal edges, terminality,
+  delivery-outcome inbox visibility), `notification-device-commands.test.ts` (6 — convergent
+  refresh, reactivation, token displacement, scoped removal),
+  `run-notification-delivery-sweep.test.ts` (12 — claim predicate, INVALID TOKEN disable with
+  surviving-device send, all-tokens-invalid failure, STALE-INTENT skip, access/preference
+  rechecks, quiet-hours re-deferral, bounded transient retry and budget exhaustion, permanent
+  failure isolation, lease exclusivity), `fcm-push-message-sender.test.ts` (5 — request shaping
+  and the classification taxonomy), the migration suite (10 — every CHECK, both uniquenesses,
+  cascades, worker-gets-nothing, the pending-coercion down),
+  `notification-device-routes.test.ts` (5 HTTP — incl. the full event → device → sweep → FCM →
+  invalid-token-disable flow), and `notification-delivery.test.ts` integration (7 real
+  PostgreSQL — incl. the `Promise.all` claim race and the durable invalid-token and stale-intent
+  paths), all green, real Docker. (A repeat full run hit the Stage 24-documented Testcontainers
+  container-startup flake in the untouched `plants-inventory-search.test.ts` — "waiting for
+  container ports to be bound" under ~190 parallel Docker suites; the file re-ran green in
+  isolation, and the first full run had passed it among 188/1383 with zero failures.)
+- Rollback-count ripple applied: all sixteen earlier rollback-testing migration suites bumped +1
+  (2 through 17) with their range comments naming `notification-delivery` as the new top;
+  notifications-baseline's own state-CHECK probe updated (`sent` is legal at the stack top now).
+- `@verdery/api-contracts`: redocly lint clean, generate clean, 29 contract tests pass.
+- Workers suite: 20 files / 117 tests before → **20 files / 118 tests** after (+1: the missing-
+  `NOTIFICATION_DELIVERY_SWEEP_URL` configuration rejection; the valid-fixture deep-equality
+  gained the new sweep block); build clean. Web suite: 62 files / 518 tests, untouched and green.
+- Root `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `node scripts/check-file-size.mjs`,
+  and `bash -n deploy-workers.sh` all clean.

@@ -254,6 +254,9 @@ export type NotificationQuietHours = Schemas['NotificationQuietHours'];
 export type NotificationPreferenceEntry = Schemas['NotificationPreferenceEntry'];
 export type NotificationPreferencesDocument = Schemas['NotificationPreferencesDocument'];
 export type UpdateNotificationPreferencesRequest = Schemas['UpdateNotificationPreferencesRequest'];
+export type NotificationDevicePlatform = Schemas['NotificationDevicePlatform'];
+export type RegisterNotificationDeviceRequest = Schemas['RegisterNotificationDeviceRequest'];
+export type NotificationDevice = Schemas['NotificationDevice'];
 
 /** The API base path. Breaking changes require a new major path. */
 export const API_BASE_PATH = '/v1';

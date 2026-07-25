@@ -18,7 +18,9 @@ import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import { GardenAuthorization } from '../../gardens-mapping/public.js';
 import type { GardenRole, MembershipRepository } from '../../gardens-mapping/public.js';
+import type { NotificationDevice } from '../domain/notification-device.js';
 import type { NotificationIntent } from '../domain/notification-intent.js';
+import { INBOX_VISIBLE_STATES } from '../domain/notification-intent.js';
 import type {
   NotificationPreferenceEntry,
   NotificationPreferenceSettings,
@@ -27,6 +29,14 @@ import { UNWRITTEN_PREFERENCE_SETTINGS } from '../domain/notification-preference
 import type { CandidateFreshnessFacts } from '../domain/notification-policy.js';
 import type { GardenRecipient, GardenRecipientSource } from './garden-recipient-source.js';
 import type {
+  NewDeliveryAttempt,
+  NotificationDeliveryRepository,
+} from './notification-delivery-repository.js';
+import type {
+  NotificationDeviceRegistration,
+  NotificationDeviceRepository,
+} from './notification-device-repository.js';
+import type {
   NewNotificationIntent,
   NotificationIntentRepository,
 } from './notification-intent-repository.js';
@@ -34,6 +44,7 @@ import type {
   NotificationPreferenceRepository,
   PreferenceDocumentReplacement,
 } from './notification-preference-repository.js';
+import type { PushMessage, PushMessageSender, PushSendOutcome } from './push-message-sender.js';
 import type { RecommendationFreshnessSource } from './recommendation-freshness-source.js';
 import type {
   NotificationsTransactionContext,
@@ -60,6 +71,9 @@ export class FakeNotificationIntentRepository implements NotificationIntentRepos
     this.rows.set(intent.id, {
       ...intent,
       state: 'pending',
+      closeReason: null,
+      nextDeliveryAttemptAt: null,
+      deliveryAttemptCount: 0,
       readAt: null,
       dismissedAt: null,
       revision: 1,
@@ -104,14 +118,16 @@ export class FakeNotificationIntentRepository implements NotificationIntentRepos
     recipientProfileId: Uuid,
     beforeId: Uuid | null,
     limit: number,
+    now: Date,
   ): Promise<readonly NotificationIntent[]> {
     const rows = [...this.rows.values()]
       .filter(
         (row) =>
           row.recipientProfileId === recipientProfileId &&
-          row.state === 'pending' &&
+          INBOX_VISIBLE_STATES.includes(row.state) &&
           row.channelInApp &&
           row.dismissedAt === null &&
+          row.expiresAt.getTime() > now.getTime() &&
           (beforeId === null || row.id < beforeId),
       )
       .sort((a, b) => b.id.localeCompare(a.id))
@@ -223,6 +239,13 @@ export class FakeGardenRecipientSource implements GardenRecipientSource {
   listActiveMembers(gardenId: Uuid): Promise<readonly GardenRecipient[]> {
     return Promise.resolve(this.recipientsByGarden.get(gardenId) ?? []);
   }
+
+  findActiveMember(gardenId: Uuid, profileId: Uuid): Promise<GardenRecipient | null> {
+    const member = (this.recipientsByGarden.get(gardenId) ?? []).find(
+      (recipient) => recipient.profileId === profileId,
+    );
+    return Promise.resolve(member ?? null);
+  }
 }
 
 export class FakeRecommendationFreshnessSource implements RecommendationFreshnessSource {
@@ -230,6 +253,205 @@ export class FakeRecommendationFreshnessSource implements RecommendationFreshnes
 
   findCandidate(candidateId: Uuid): Promise<CandidateFreshnessFacts | null> {
     return Promise.resolve(this.candidates.get(candidateId) ?? null);
+  }
+}
+
+/** In-memory mirror of `KyselyNotificationDeviceRepository`'s semantics — token displacement, reactivating upsert, idempotent disable. */
+export class FakeNotificationDeviceRepository implements NotificationDeviceRepository {
+  readonly rows = new Map<Uuid, NotificationDevice>();
+
+  registerOrRefresh(
+    registration: NotificationDeviceRegistration,
+    now: Date,
+  ): Promise<NotificationDevice> {
+    for (const [id, row] of this.rows) {
+      if (
+        row.fcmToken === registration.fcmToken &&
+        (row.profileId !== registration.profileId ||
+          row.installationId !== registration.installationId)
+      ) {
+        this.rows.delete(id);
+      }
+    }
+
+    const existing = [...this.rows.values()].find(
+      (row) =>
+        row.profileId === registration.profileId &&
+        row.installationId === registration.installationId,
+    );
+
+    const device: NotificationDevice = {
+      id: existing?.id ?? registration.id,
+      profileId: registration.profileId,
+      installationId: registration.installationId,
+      platform: registration.platform,
+      provider: registration.provider,
+      fcmToken: registration.fcmToken,
+      environment: registration.environment,
+      status: 'active',
+      disabledReason: null,
+      lastSeenAt: now,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
+    this.rows.set(device.id, device);
+    return Promise.resolve(device);
+  }
+
+  remove(profileId: Uuid, installationId: Uuid): Promise<boolean> {
+    for (const [id, row] of this.rows) {
+      if (row.profileId === profileId && row.installationId === installationId) {
+        this.rows.delete(id);
+        return Promise.resolve(true);
+      }
+    }
+    return Promise.resolve(false);
+  }
+
+  listActiveForProfile(profileId: Uuid): Promise<readonly NotificationDevice[]> {
+    const rows = [...this.rows.values()]
+      .filter((row) => row.profileId === profileId && row.status === 'active')
+      .sort((a, b) => a.id.localeCompare(b.id));
+    return Promise.resolve(rows);
+  }
+
+  disable(deviceId: Uuid, reason: string, now: Date): Promise<boolean> {
+    const row = this.rows.get(deviceId);
+    if (row === undefined || row.status !== 'active') {
+      return Promise.resolve(false);
+    }
+    this.rows.set(deviceId, { ...row, status: 'disabled', disabledReason: reason, updatedAt: now });
+    return Promise.resolve(true);
+  }
+}
+
+/**
+ * In-memory mirror of `KyselyNotificationDeliveryRepository` over the SAME
+ * rows as the intent fake (constructed with it), so a sweep test observes
+ * one consistent store.
+ */
+export class FakeNotificationDeliveryRepository implements NotificationDeliveryRepository {
+  readonly attempts: NewDeliveryAttempt[] = [];
+
+  constructor(private readonly intents: FakeNotificationIntentRepository) {}
+
+  claimDueForDelivery(
+    now: Date,
+    leaseUntil: Date,
+    limit: number,
+  ): Promise<readonly NotificationIntent[]> {
+    const due = [...this.intents.rows.values()]
+      .filter(
+        (row) =>
+          row.state === 'pending' &&
+          row.channelPush &&
+          row.earliestDeliveryAt.getTime() <= now.getTime() &&
+          (row.nextDeliveryAttemptAt === null ||
+            row.nextDeliveryAttemptAt.getTime() <= now.getTime()) &&
+          row.expiresAt.getTime() > now.getTime(),
+      )
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .slice(0, limit);
+
+    const claimed = due.map((row) => ({
+      ...row,
+      nextDeliveryAttemptAt: leaseUntil,
+      revision: row.revision + 1,
+      updatedAt: now,
+    }));
+    for (const row of claimed) {
+      this.intents.rows.set(row.id, row);
+    }
+    return Promise.resolve(claimed);
+  }
+
+  expireDuePending(now: Date, limit: number): Promise<number> {
+    const due = [...this.intents.rows.values()]
+      .filter((row) => row.state === 'pending' && row.expiresAt.getTime() <= now.getTime())
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .slice(0, limit);
+    for (const row of due) {
+      this.intents.rows.set(row.id, {
+        ...row,
+        state: 'expired',
+        revision: row.revision + 1,
+        updatedAt: now,
+      });
+    }
+    return Promise.resolve(due.length);
+  }
+
+  markSent(id: Uuid, attemptCount: number, now: Date): Promise<boolean> {
+    return this.updatePending(id, (row) => ({
+      ...row,
+      state: 'sent',
+      deliveryAttemptCount: attemptCount,
+      revision: row.revision + 1,
+      updatedAt: now,
+    }));
+  }
+
+  closeDelivery(
+    id: Uuid,
+    state: 'failed' | 'skipped' | 'expired',
+    reason: string | null,
+    now: Date,
+  ): Promise<boolean> {
+    return this.updatePending(id, (row) => ({
+      ...row,
+      state,
+      closeReason: reason,
+      revision: row.revision + 1,
+      updatedAt: now,
+    }));
+  }
+
+  scheduleRetry(id: Uuid, nextAttemptAt: Date, attemptCount: number, now: Date): Promise<boolean> {
+    return this.updatePending(id, (row) => ({
+      ...row,
+      nextDeliveryAttemptAt: nextAttemptAt,
+      deliveryAttemptCount: attemptCount,
+      revision: row.revision + 1,
+      updatedAt: now,
+    }));
+  }
+
+  recordAttempts(attempts: readonly NewDeliveryAttempt[]): Promise<void> {
+    this.attempts.push(...attempts);
+    return Promise.resolve();
+  }
+
+  private updatePending(
+    id: Uuid,
+    update: (row: NotificationIntent) => NotificationIntent,
+  ): Promise<boolean> {
+    const row = this.intents.rows.get(id);
+    if (row === undefined || row.state !== 'pending') {
+      return Promise.resolve(false);
+    }
+    this.intents.rows.set(id, update(row));
+    return Promise.resolve(true);
+  }
+}
+
+/** Scripted FCM fake: outcomes are queued per token; unscripted tokens accept. Records every message so tests assert payloads without a live provider. */
+export class FakePushMessageSender implements PushMessageSender {
+  readonly sent: PushMessage[] = [];
+  private readonly scripted = new Map<string, PushSendOutcome[]>();
+
+  scriptOutcome(token: string, outcome: PushSendOutcome): void {
+    const queue = this.scripted.get(token) ?? [];
+    queue.push(outcome);
+    this.scripted.set(token, queue);
+  }
+
+  send(message: PushMessage): Promise<PushSendOutcome> {
+    this.sent.push(message);
+    const queue = this.scripted.get(message.token);
+    const outcome = queue?.shift();
+    return Promise.resolve(
+      outcome ?? { kind: 'accepted', providerMessageId: `fake-${String(this.sent.length)}` },
+    );
   }
 }
 
@@ -338,15 +560,20 @@ export interface NotificationsFakes {
   readonly recipients: FakeGardenRecipientSource;
   readonly recommendationFreshness: FakeRecommendationFreshnessSource;
   readonly idempotency: FakeIdempotencyStore;
+  readonly devices: FakeNotificationDeviceRepository;
+  readonly delivery: FakeNotificationDeliveryRepository;
 }
 
 export function createNotificationsFakes(): NotificationsFakes {
+  const intents = new FakeNotificationIntentRepository();
   return {
-    intents: new FakeNotificationIntentRepository(),
+    intents,
     preferences: new FakeNotificationPreferenceRepository(),
     recipients: new FakeGardenRecipientSource(),
     recommendationFreshness: new FakeRecommendationFreshnessSource(),
     idempotency: new FakeIdempotencyStore(),
+    devices: new FakeNotificationDeviceRepository(),
+    delivery: new FakeNotificationDeliveryRepository(intents),
   };
 }
 

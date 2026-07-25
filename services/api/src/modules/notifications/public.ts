@@ -13,7 +13,31 @@ export type {
   NotificationIntentState,
   NotificationPriority,
 } from './domain/notification-intent.js';
-export { isInboxVisible, validateIntentStateTransition } from './domain/notification-intent.js';
+export {
+  INBOX_VISIBLE_STATES,
+  isInboxVisible,
+  validateIntentStateTransition,
+} from './domain/notification-intent.js';
+export type {
+  NotificationDevice,
+  NotificationDevicePlatform,
+  NotificationDeviceStatus,
+} from './domain/notification-device.js';
+export {
+  DEVICE_DISABLED_REASON_TOKEN_INVALID,
+  isNotificationDevicePlatform,
+} from './domain/notification-device.js';
+export type {
+  SendTimeDecision,
+  SendTimeFacts,
+  SendTimeSkipReason,
+} from './domain/notification-delivery.js';
+export {
+  buildPushMessageData,
+  decideSendTimeAction,
+  MAX_DELIVERY_ATTEMPTS,
+  resolveTransientRetryAt,
+} from './domain/notification-delivery.js';
 export type {
   ChannelPreference,
   NotificationPreferenceEntry,
@@ -52,14 +76,34 @@ export {
   GetNotificationPreferences,
   UpdateNotificationPreferences,
 } from './application/notification-preference-commands.js';
+export {
+  RegisterNotificationDevice,
+  RemoveNotificationDevice,
+} from './application/notification-device-commands.js';
+export type { NotificationDeviceResource } from './application/notification-device-commands.js';
+export { RunNotificationDeliverySweep } from './application/run-notification-delivery-sweep.js';
+export type { NotificationDeliverySweepResult } from './application/run-notification-delivery-sweep.js';
+export type {
+  PushMessage,
+  PushMessageSender,
+  PushSendOutcome,
+} from './application/push-message-sender.js';
 export type { NotificationsUnitOfWork } from './application/notifications-unit-of-work.js';
 export type { NotificationIntentRepository } from './application/notification-intent-repository.js';
 export type { NotificationPreferenceRepository } from './application/notification-preference-repository.js';
+export type { NotificationDeviceRepository } from './application/notification-device-repository.js';
+export type { NotificationDeliveryRepository } from './application/notification-delivery-repository.js';
 export { KyselyNotificationIntentRepository } from './persistence/kysely-notification-intent-repository.js';
 export { KyselyNotificationPreferenceRepository } from './persistence/kysely-notification-preference-repository.js';
+export { KyselyNotificationDeviceRepository } from './persistence/kysely-notification-device-repository.js';
 export { KyselyNotificationsUnitOfWork } from './persistence/kysely-notifications-unit-of-work.js';
+export { FcmPushMessageSender } from './persistence/fcm-push-message-sender.js';
 export type { NotificationsDatabaseSchema } from './persistence/schema.js';
 export { registerNotificationRoutes } from './transport/notification-routes.js';
 export type { NotificationRoutesDependencies } from './transport/notification-routes.js';
+export { registerNotificationDeviceRoutes } from './transport/notification-device-routes.js';
+export type { NotificationDeviceRoutesDependencies } from './transport/notification-device-routes.js';
 export { registerNotificationEventsRoute } from './transport/notification-events-route.js';
 export type { NotificationEventsRouteDependencies } from './transport/notification-events-route.js';
+export { registerNotificationDeliverySweepRoute } from './transport/notification-delivery-sweep-route.js';
+export type { NotificationDeliverySweepRouteDependencies } from './transport/notification-delivery-sweep-route.js';

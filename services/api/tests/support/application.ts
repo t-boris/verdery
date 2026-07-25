@@ -12,6 +12,8 @@ import type { FastifyInstance } from 'fastify';
 import { buildApplication } from '../../src/app.js';
 import { FakeMediaStorageGateway } from '../../src/modules/media/application/media-test-doubles.js';
 import type { MediaStorageGateway } from '../../src/modules/media/public.js';
+import { FakePushMessageSender } from '../../src/modules/notifications/application/notification-test-doubles.js';
+import type { PushMessageSender } from '../../src/modules/notifications/public.js';
 import type { AppCheckVerifier } from '../../src/platform/app-check/app-check-verifier.js';
 import type { TokenVerifier } from '../../src/platform/authentication/token-verifier.js';
 import type { ApplicationConfiguration } from '../../src/platform/configuration/configuration-schema.js';
@@ -123,6 +125,11 @@ export function stubCloudTasksInvocationVerifier(): CloudTasksInvocationVerifier
   };
 }
 
+/** Never touches FCM (P7-NOTIF-02). Suites that don't exercise the delivery sweep need nothing more specific than this accepting fake. */
+export function stubPushMessageSender(): PushMessageSender {
+  return new FakePushMessageSender();
+}
+
 export interface TestApplicationOptions {
   readonly ping?: () => Promise<void>;
   /** Captures log records so tests can assert on structured output. */
@@ -132,6 +139,7 @@ export interface TestApplicationOptions {
   readonly appCheckVerifier?: AppCheckVerifier;
   readonly mediaStorageGateway?: MediaStorageGateway;
   readonly cloudTasksInvocationVerifier?: CloudTasksInvocationVerifier;
+  readonly pushMessageSender?: PushMessageSender;
 }
 
 export async function buildTestApplication(
@@ -153,5 +161,6 @@ export async function buildTestApplication(
       options.cloudTasksInvocationVerifier ?? stubCloudTasksInvocationVerifier(),
     // P7-AI-01: `null` exactly as main.ts passes with the kill-switch off.
     aiExplanationAdapter: null,
+    pushMessageSender: options.pushMessageSender ?? stubPushMessageSender(),
   });
 }

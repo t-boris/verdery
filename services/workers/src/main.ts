@@ -31,6 +31,7 @@ import { createRelayDatabase } from './relay/relay-database.js';
 import { GoogleApiSweepTrigger } from './sweeps/google-api-sweep-trigger.js';
 import { createIntervalSweepScheduler } from './sweeps/interval-sweep-scheduler.js';
 import type {
+  NotificationDeliverySweepSummary,
   RecommendationEvaluationSweepSummary,
   RetentionSweepSummary,
   WeatherRefreshSweepSummary,
@@ -203,6 +204,30 @@ async function main(): Promise<void> {
   );
   recommendationEvaluationSweepScheduler.start();
 
+  // P7-NOTIF-02: the notification delivery sweep — the fourth scheduled
+  // sweep, same shape and same audience. The sweep itself (send-time
+  // rechecks, device-token reads, FCM sends) runs in services/api; this
+  // process contributes only the minute-order tick.
+  const notificationDeliverySweepScheduler = createIntervalSweepScheduler(
+    new GoogleApiSweepTrigger<NotificationDeliverySweepSummary>(
+      configuration.notificationDeliverySweep.sweepUrl,
+      sweepAudience,
+      {
+        completedEvent: 'notifications.delivery_sweep_completed',
+        completedMessage: 'Notification delivery sweep completed',
+      },
+      logger,
+    ),
+    configuration.notificationDeliverySweep.intervalMs,
+    {
+      failedEvent: 'notifications.delivery_sweep_failed',
+      failedMessage:
+        'Notification delivery sweep trigger failed; it will be retried on the next interval',
+    },
+    logger,
+  );
+  notificationDeliverySweepScheduler.start();
+
   logger.info(
     {
       event: 'service.started',
@@ -212,6 +237,7 @@ async function main(): Promise<void> {
       weatherRefreshSweepIntervalMs: configuration.weatherRefreshSweep.intervalMs,
       recommendationEvaluationSweepIntervalMs:
         configuration.recommendationEvaluationSweep.intervalMs,
+      notificationDeliverySweepIntervalMs: configuration.notificationDeliverySweep.intervalMs,
       httpPort: configuration.httpPort,
     },
     'Worker started',
@@ -223,6 +249,7 @@ async function main(): Promise<void> {
       await retentionSweepScheduler.stop();
       await weatherRefreshSweepScheduler.stop();
       await recommendationEvaluationSweepScheduler.stop();
+      await notificationDeliverySweepScheduler.stop();
       await validationServer.close();
       await relayDatabase.close();
       await cloudTasksClient.close();

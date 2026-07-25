@@ -25,4 +25,13 @@ export interface GardenRecipient {
 export interface GardenRecipientSource {
   /** Every ACTIVE membership's profile, any role: care notifications are relevant to anyone who can view the garden. */
   listActiveMembers(gardenId: Uuid): Promise<readonly GardenRecipient[]>;
+
+  /**
+   * One profile's ACTIVE membership on one garden, or `null` — the
+   * delivery worker's per-intent access recheck (P7-NOTIF-02;
+   * notifications.md section 14: "Shared-garden role changes are rechecked
+   * at send time"). `null` is a legitimate answer meaning "skip", never an
+   * error.
+   */
+  findActiveMember(gardenId: Uuid, profileId: Uuid): Promise<GardenRecipient | null>;
 }

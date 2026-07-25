@@ -36,9 +36,12 @@ import {
 } from './modules/media/public.js';
 import type { MediaStorageGateway } from './modules/media/public.js';
 import {
+  registerNotificationDeliverySweepRoute,
+  registerNotificationDeviceRoutes,
   registerNotificationEventsRoute,
   registerNotificationRoutes,
 } from './modules/notifications/public.js';
+import type { PushMessageSender } from './modules/notifications/public.js';
 import {
   CorrectObservation,
   GetObservation,
@@ -129,6 +132,13 @@ export interface ApplicationDependencies {
    * Vertex at all — the strongest form of the rollback guarantee.
    */
   readonly aiExplanationAdapter: AiExplanationProviderAdapter | null;
+  /**
+   * P7-NOTIF-02: the FCM boundary — `main.ts` builds the real
+   * `FcmPushMessageSender` over the same `firebase-admin` app the token
+   * verifier uses; tests substitute a fake. Same "port arrives already
+   * constructed" shape as `mediaStorageGateway`.
+   */
+  readonly pushMessageSender: PushMessageSender;
 }
 
 /**
@@ -152,6 +162,7 @@ export async function buildApplication(
     mediaStorageGateway,
     cloudTasksInvocationVerifier,
     aiExplanationAdapter,
+    pushMessageSender,
   } = dependencies;
 
   const app = Fastify({
@@ -412,15 +423,27 @@ export async function buildApplication(
     cloudTasksInvocationVerifier,
   );
 
-  // notifications (P7-NOTIF-01): the in-app inbox, preferences, and the
-  // internal event endpoint the workers outbox relay posts
-  // `recommendation.candidate_created` events to. Reuses
-  // `gardenAuthorization` (garden-scoped preference entries) and the same
-  // worker-to-API invocation verifier as every sweep. Split into
-  // `compose-notifications.ts` for the same 600-line reason as its
-  // siblings.
-  const { notificationRoutesDependencies, notificationEventsRouteDependencies } =
-    composeNotifications(database, clock, gardenAuthorization, cloudTasksInvocationVerifier);
+  // notifications (P7-NOTIF-01, P7-NOTIF-02): the in-app inbox,
+  // preferences, device registration, the internal event endpoint the
+  // workers outbox relay posts `recommendation.candidate_created` events
+  // to, and the internal delivery sweep that turns pending intents into
+  // FCM attempts. Reuses `gardenAuthorization` (garden-scoped preference
+  // entries) and the same worker-to-API invocation verifier as every
+  // sweep. Split into `compose-notifications.ts` for the same 600-line
+  // reason as its siblings.
+  const {
+    notificationRoutesDependencies,
+    notificationDeviceRoutesDependencies,
+    notificationEventsRouteDependencies,
+    notificationDeliverySweepRouteDependencies,
+  } = composeNotifications(
+    database,
+    clock,
+    gardenAuthorization,
+    cloudTasksInvocationVerifier,
+    pushMessageSender,
+    configuration.environment,
+  );
 
   // synchronization (P5-BE-01, P5-API-01): the native offline outbox
   // protocol's client-registration, push, and acknowledge endpoints. Depends
@@ -481,6 +504,9 @@ export async function buildApplication(
       // P7-NOTIF-01: the workers outbox relay's notification-event
       // endpoint — same identity check yet again.
       registerNotificationEventsRoute(instance, notificationEventsRouteDependencies);
+      // P7-NOTIF-02: the worker-triggered notification delivery sweep —
+      // same identity check once more.
+      registerNotificationDeliverySweepRoute(instance, notificationDeliverySweepRouteDependencies);
       done();
     },
     { prefix: API_BASE_PATH },
@@ -506,6 +532,7 @@ export async function buildApplication(
       registerTaskRoutes(instance, taskRoutesDependencies);
       registerRecommendationRoutes(instance, recommendationRoutesDependencies);
       registerNotificationRoutes(instance, notificationRoutesDependencies);
+      registerNotificationDeviceRoutes(instance, notificationDeviceRoutesDependencies);
       registerMediaRoutes(instance, mediaRoutesDependencies);
       registerSyncRoutes(instance, syncRoutesDependencies);
       done();

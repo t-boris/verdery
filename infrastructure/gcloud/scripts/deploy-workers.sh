@@ -104,6 +104,12 @@ env_vars+=",RECOMMENDATION_EVALUATION_SWEEP_URL=${api_service_url}/v1/internal/r
 # fails loudly without it. No interval variable of its own — the relay's
 # existing poll cadence is the schedule.
 env_vars+=",NOTIFICATION_EVENTS_URL=${api_service_url}/v1/internal/notifications/events"
+# P7-NOTIF-02: the API's internal notification-delivery sweep endpoint —
+# the fourth scheduled sweep, same derivation and same audience;
+# services/workers' configuration load fails loudly without it. The
+# interval keeps its configuration default (one minute) unless overridden
+# here.
+env_vars+=",NOTIFICATION_DELIVERY_SWEEP_URL=${api_service_url}/v1/internal/notification-delivery/sweep"
 
 # `MEDIA_PROCESSING_TASK_URL` is self-referential (this service's own
 # validation-job route) — the exact same "look up the already-existing

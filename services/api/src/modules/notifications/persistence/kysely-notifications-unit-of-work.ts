@@ -7,6 +7,8 @@ import type {
   NotificationsUnitOfWork,
 } from '../application/notifications-unit-of-work.js';
 import { KyselyGardenRecipientSource } from './kysely-garden-recipient-source.js';
+import { KyselyNotificationDeliveryRepository } from './kysely-notification-delivery-repository.js';
+import { KyselyNotificationDeviceRepository } from './kysely-notification-device-repository.js';
 import { KyselyNotificationIntentRepository } from './kysely-notification-intent-repository.js';
 import { KyselyNotificationPreferenceRepository } from './kysely-notification-preference-repository.js';
 import { KyselyRecommendationFreshnessSource } from './kysely-recommendation-freshness-source.js';
@@ -25,6 +27,8 @@ export class KyselyNotificationsUnitOfWork implements NotificationsUnitOfWork {
         recipients: new KyselyGardenRecipientSource(trx),
         recommendationFreshness: new KyselyRecommendationFreshnessSource(trx),
         idempotency: new KyselyIdempotencyStore(trx, this.clock),
+        devices: new KyselyNotificationDeviceRepository(trx),
+        delivery: new KyselyNotificationDeliveryRepository(trx),
       };
 
       return work(context);

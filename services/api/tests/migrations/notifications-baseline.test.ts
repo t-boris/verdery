@@ -190,7 +190,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     await expect(insertIntent({ priority: 'urgent' })).rejects.toThrow(
       /notification_intent_priority_check/,
     );
-    await expect(insertIntent({ state: 'sent' })).rejects.toThrow(
+    // `sent` became legal with 1786200000000_notification-delivery.sql
+    // (this suite runs at the full migration stack's top), so a state
+    // outside BOTH stages' vocabularies probes the CHECK here.
+    await expect(insertIntent({ state: 'vanished' })).rejects.toThrow(
       /notification_intent_state_check/,
     );
   });
@@ -339,12 +342,14 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, dropping the notifications schema whole while every earlier table survives', async () => {
     await client.end();
 
-    // `count: 2` undoes the one newer migration
-    // (1786100000000_recommendation-ai-explanation.sql — a
-    // tasks_recommendations table nothing this file's own assertions
+    // `count: 3` undoes the two newer migrations
+    // (1786200000000_notification-delivery.sql — this schema's OWN
+    // delivery tables and intent alterations, which must leave before the
+    // baseline can — and 1786100000000_recommendation-ai-explanation.sql,
+    // a tasks_recommendations table nothing this file's own assertions
     // check) first, then this migration itself. Update again the next
-    // time a migration is added on top of that one.
-    await migrate(databaseUrl, 'down', 2);
+    // time a migration is added on top of those.
+    await migrate(databaseUrl, 'down', 3);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

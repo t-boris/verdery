@@ -45,4 +45,31 @@ export class KyselyGardenRecipientSource implements GardenRecipientSource {
       timeZone: row.time_zone,
     }));
   }
+
+  async findActiveMember(gardenId: Uuid, profileId: Uuid): Promise<GardenRecipient | null> {
+    const row = await this.db
+      .selectFrom('collaboration.membership')
+      .innerJoin(
+        'identity_access.profile',
+        'identity_access.profile.id',
+        'collaboration.membership.profile_id',
+      )
+      .select([
+        'collaboration.membership.profile_id as profile_id',
+        'identity_access.profile.account_state as account_state',
+        'identity_access.profile.time_zone as time_zone',
+      ])
+      .where('collaboration.membership.garden_id', '=', gardenId)
+      .where('collaboration.membership.profile_id', '=', profileId)
+      .where('collaboration.membership.state', '=', 'active')
+      .executeTakeFirst();
+
+    return row === undefined
+      ? null
+      : {
+          profileId: row.profile_id,
+          accountState: row.account_state as AccountState,
+          timeZone: row.time_zone,
+        };
+  }
 }

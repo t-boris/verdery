@@ -65,3 +65,17 @@ export interface RecommendationEvaluationSweepSummary {
   /** `null` whenever the API's `RECOMMENDATION_AI_EXPLANATION_ENABLED` kill-switch keeps the phase from existing (every environment today). */
   readonly embellishment: RecommendationEmbellishmentSummary | null;
 }
+
+/** Mirrors `services/api`'s `NotificationDeliverySweepResult` (P7-NOTIF-02). */
+export interface NotificationDeliverySweepSummary {
+  readonly intentsExpired: number;
+  readonly intentsClaimed: number;
+  readonly intentsSent: number;
+  readonly intentsSkipped: Readonly<Record<string, number>>;
+  readonly intentsFailed: Readonly<Record<string, number>>;
+  readonly intentsDeferred: number;
+  readonly retriesScheduled: number;
+  readonly attemptOutcomes: Readonly<Record<string, number>>;
+  readonly devicesDisabled: number;
+  readonly lostRaces: number;
+}

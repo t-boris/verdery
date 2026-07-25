@@ -29,6 +29,9 @@ function buildIntent(overrides: Partial<NotificationIntent> = {}): NotificationI
     earliestDeliveryAt: NOW,
     expiresAt: new Date('2026-07-27T12:00:00Z'),
     state: 'pending',
+    closeReason: null,
+    nextDeliveryAttemptAt: null,
+    deliveryAttemptCount: 0,
     readAt: null,
     dismissedAt: null,
     revision: 1,
@@ -44,6 +47,12 @@ describe('validateIntentStateTransition', () => {
     expect(() => validateIntentStateTransition('pending', 'expired')).not.toThrow();
   });
 
+  it('allows pending to reach every delivery outcome (P7-NOTIF-02)', () => {
+    expect(() => validateIntentStateTransition('pending', 'sent')).not.toThrow();
+    expect(() => validateIntentStateTransition('pending', 'failed')).not.toThrow();
+    expect(() => validateIntentStateTransition('pending', 'skipped')).not.toThrow();
+  });
+
   it('refuses every edge out of a terminal state', () => {
     expect(() => validateIntentStateTransition('superseded', 'pending')).toThrow(
       DomainRuleViolatedError,
@@ -52,6 +61,17 @@ describe('validateIntentStateTransition', () => {
       DomainRuleViolatedError,
     );
     expect(() => validateIntentStateTransition('superseded', 'expired')).toThrow(
+      DomainRuleViolatedError,
+    );
+    // The delivery outcomes are terminal too: a sent intent is never
+    // re-sent, a failed one never resurrects (the next candidate mints a
+    // NEW intent).
+    expect(() => validateIntentStateTransition('sent', 'pending')).toThrow(DomainRuleViolatedError);
+    expect(() => validateIntentStateTransition('sent', 'superseded')).toThrow(
+      DomainRuleViolatedError,
+    );
+    expect(() => validateIntentStateTransition('failed', 'sent')).toThrow(DomainRuleViolatedError);
+    expect(() => validateIntentStateTransition('skipped', 'expired')).toThrow(
       DomainRuleViolatedError,
     );
   });
@@ -65,11 +85,24 @@ describe('isInboxVisible', () => {
     expect(isInboxVisible(buildIntent({ readAt: NOW }), NOW)).toBe(true);
   });
 
+  it('keeps delivery outcomes listed — push success or failure never determines inbox state (section 12)', () => {
+    expect(isInboxVisible(buildIntent({ state: 'sent' }), NOW)).toBe(true);
+    expect(
+      isInboxVisible(buildIntent({ state: 'failed', closeReason: 'all_tokens_invalid' }), NOW),
+    ).toBe(true);
+    expect(
+      isInboxVisible(buildIntent({ state: 'skipped', closeReason: 'push_channel_disabled' }), NOW),
+    ).toBe(true);
+  });
+
   it('hides dismissed, closed, push-only, and expired entries', () => {
     expect(isInboxVisible(buildIntent({ dismissedAt: NOW }), NOW)).toBe(false);
     expect(isInboxVisible(buildIntent({ state: 'superseded' }), NOW)).toBe(false);
     expect(isInboxVisible(buildIntent({ state: 'expired' }), NOW)).toBe(false);
     expect(isInboxVisible(buildIntent({ channelInApp: false }), NOW)).toBe(false);
     expect(isInboxVisible(buildIntent({ expiresAt: NOW }), NOW)).toBe(false);
+    // A sent entry past its expiration lapses out of the list too — the
+    // view-time comparison, not a state transition.
+    expect(isInboxVisible(buildIntent({ state: 'sent', expiresAt: NOW }), NOW)).toBe(false);
   });
 });

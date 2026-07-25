@@ -17,6 +17,8 @@
 
 import type { IdempotencyStore } from '../../../platform/idempotency/idempotency-store.js';
 import type { GardenRecipientSource } from './garden-recipient-source.js';
+import type { NotificationDeliveryRepository } from './notification-delivery-repository.js';
+import type { NotificationDeviceRepository } from './notification-device-repository.js';
 import type { NotificationIntentRepository } from './notification-intent-repository.js';
 import type { NotificationPreferenceRepository } from './notification-preference-repository.js';
 import type { RecommendationFreshnessSource } from './recommendation-freshness-source.js';
@@ -27,6 +29,9 @@ export interface NotificationsTransactionContext {
   readonly recipients: GardenRecipientSource;
   readonly recommendationFreshness: RecommendationFreshnessSource;
   readonly idempotency: IdempotencyStore;
+  /** P7-NOTIF-02: device registration binds token displacement + upsert to one transaction; the sweep binds attempt records, device disables, and the intent outcome the same way. */
+  readonly devices: NotificationDeviceRepository;
+  readonly delivery: NotificationDeliveryRepository;
 }
 
 export interface NotificationsUnitOfWork {

@@ -1774,6 +1774,69 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/notification-devices/{deviceInstallationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Client-generated UUIDv7, stable for the lifetime of one app installation on one device — the same convention `registerSyncClient` documents for its own installation id. */
+                deviceInstallationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Register or refresh this installation's push channel
+         * @description Registers this app installation's FCM registration token for the
+         *     caller, or refreshes an already-registered one under the same
+         *     `deviceInstallationId` — the client calls this after obtaining or
+         *     rotating a token. `PUT` at a client-known id because the id is
+         *     minted by the client before the first call (the `registerSyncClient`
+         *     posture).
+         *
+         *     Idempotent BY DESIGN, so this operation deliberately takes no
+         *     `Idempotency-Key`: registration is a last-writer-wins replacement
+         *     of a single-owner record — a retry or concurrent duplicate
+         *     converges on identical stored state and an identical `200`
+         *     response, with no created-versus-refreshed distinction to
+         *     preserve. A registration always reactivates a previously disabled
+         *     record: a fresh token proves the channel works again.
+         *
+         *     A token belongs to exactly one installation at the provider, so
+         *     registering a token held by another record (an account switch on
+         *     the same physical device) displaces that record in the same
+         *     transaction.
+         *
+         *     The token is a secret: it is stored server-side for delivery only
+         *     and never appears in any response, log, or analytics stream —
+         *     `NotificationDevice` deliberately omits it. The stored record is
+         *     scoped to the environment of the API that accepted it; the server
+         *     stamps that itself.
+         *
+         *     Source: architecture/notifications.md, section "6. Device Tokens";
+         *     implementation-plan.md work package P7-NOTIF-02.
+         */
+        put: operations["registerNotificationDevice"];
+        post?: never;
+        /**
+         * Remove this installation's push channel
+         * @description Deletes the caller's own device record for this installation —
+         *     called on sign-out or when the user disables push for this device
+         *     at the OS level. Idempotent by design and precondition-free:
+         *     removing an absent record is the same end state as removing a
+         *     present one, so the response is `204` either way and no
+         *     `Idempotency-Key` is taken. Removal is per-installation; other
+         *     devices and all notification preferences are untouched.
+         *
+         *     Source: architecture/notifications.md, section "6. Device Tokens"
+         *     ("revocable device-channel records").
+         */
+        delete: operations["removeNotificationDevice"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3887,6 +3950,34 @@ export interface components {
         UpdateNotificationPreferencesRequest: {
             quietHours: components["schemas"]["NotificationQuietHours"] | null;
             entries: components["schemas"]["NotificationPreferenceEntry"][];
+        };
+        /**
+         * @description The two application platforms this API serves — the `SyncClientPlatform` vocabulary, repeated here because a device channel and a sync installation are separate registrations with separate lifecycles.
+         * @enum {string}
+         */
+        NotificationDevicePlatform: "ios" | "web";
+        RegisterNotificationDeviceRequest: {
+            platform: components["schemas"]["NotificationDevicePlatform"];
+            /** @description The installation's current FCM registration token. A secret — stored for delivery only, never echoed back, never logged. */
+            fcmToken: string;
+        };
+        /**
+         * @description One registered push channel — the caller's own device record,
+         *     keyed by the client-minted installation id. Deliberately excludes
+         *     the token: tokens are secrets (architecture/notifications.md,
+         *     section "6. Device Tokens").
+         */
+        NotificationDevice: {
+            installationId: components["schemas"]["Uuid"];
+            platform: components["schemas"]["NotificationDevicePlatform"];
+            /**
+             * @description Always `active` in a registration response (registering reactivates); `disabled` records a provider invalid-token verdict until the next refresh.
+             * @enum {string}
+             */
+            status: "active" | "disabled";
+            /** @description Set to the current time on every successful register-or-refresh call. */
+            lastSeenAt: components["schemas"]["Timestamp"];
+            registeredAt: components["schemas"]["Timestamp"];
         };
     };
     responses: {
@@ -6119,6 +6210,58 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    registerNotificationDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Client-generated UUIDv7, stable for the lifetime of one app installation on one device — the same convention `registerSyncClient` documents for its own installation id. */
+                deviceInstallationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterNotificationDeviceRequest"];
+            };
+        };
+        responses: {
+            /** @description The registered or refreshed device record (token omitted — it is a secret). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationDevice"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    removeNotificationDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Client-generated UUIDv7, stable for the lifetime of one app installation on one device — the same convention `registerSyncClient` documents for its own installation id. */
+                deviceInstallationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The device record is gone (whether or not it existed). */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
         };
     };
 }

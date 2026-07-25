@@ -21,6 +21,8 @@ const VALID_ENVIRONMENT = {
   RECOMMENDATION_EVALUATION_SWEEP_URL:
     'https://verdery-api-dev.example/v1/internal/recommendation-evaluation/sweep',
   NOTIFICATION_EVENTS_URL: 'https://verdery-api-dev.example/v1/internal/notifications/events',
+  NOTIFICATION_DELIVERY_SWEEP_URL:
+    'https://verdery-api-dev.example/v1/internal/notification-delivery/sweep',
 } as const;
 
 describe('loadConfiguration', () => {
@@ -63,7 +65,25 @@ describe('loadConfiguration', () => {
         intervalMs: 21_600_000,
       },
       notificationEventsUrl: VALID_ENVIRONMENT.NOTIFICATION_EVENTS_URL,
+      notificationDeliverySweep: {
+        sweepUrl: VALID_ENVIRONMENT.NOTIFICATION_DELIVERY_SWEEP_URL,
+        intervalMs: 60_000,
+      },
     });
+  });
+
+  it('rejects a missing NOTIFICATION_DELIVERY_SWEEP_URL — the delivery sweep fails loudly at configuration load (P7-NOTIF-02)', () => {
+    const { NOTIFICATION_DELIVERY_SWEEP_URL: _omit, ...withoutDeliverySweepUrl } =
+      VALID_ENVIRONMENT;
+    try {
+      loadConfiguration(withoutDeliverySweepUrl);
+      expect.unreachable('A missing NOTIFICATION_DELIVERY_SWEEP_URL must be rejected');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ConfigurationError);
+      expect((error as ConfigurationError).variables).toEqual(
+        expect.arrayContaining(['NOTIFICATION_DELIVERY_SWEEP_URL']),
+      );
+    }
   });
 
   it('rejects a missing NOTIFICATION_EVENTS_URL — the relay cannot forward notification events without a target (P7-NOTIF-01)', () => {

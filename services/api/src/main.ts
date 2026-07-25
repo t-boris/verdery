@@ -10,11 +10,13 @@
 import { Storage } from '@google-cloud/storage';
 import { GoogleGenAI } from '@google/genai';
 import { applicationDefault, initializeApp } from 'firebase-admin/app';
+import { getMessaging } from 'firebase-admin/messaging';
 import { buildApplication } from './app.js';
 import { registerGracefulShutdown } from './bootstrap/graceful-shutdown.js';
 import { VertexAiExplanationAdapter } from './modules/integrations/public.js';
 import type { AiExplanationProviderAdapter } from './modules/integrations/public.js';
 import { GcsMediaStorageGateway } from './modules/media/public.js';
+import { FcmPushMessageSender } from './modules/notifications/public.js';
 import { FirebaseAppCheckVerifier } from './platform/app-check/firebase-app-check-verifier.js';
 import { FirebaseTokenVerifier } from './platform/authentication/firebase-token-verifier.js';
 import { GoogleOidcInvocationVerifier } from './platform/tasks/google-oidc-invocation-verifier.js';
@@ -74,6 +76,10 @@ async function main(): Promise<void> {
   });
   const tokenVerifier = new FirebaseTokenVerifier(firebaseApp);
   const appCheckVerifier = new FirebaseAppCheckVerifier(firebaseApp);
+  // P7-NOTIF-02: FCM messaging rides the SAME Admin SDK app as the token
+  // and App Check verifiers (ADR-0002) — no new dependency class, no new
+  // credential.
+  const pushMessageSender = new FcmPushMessageSender(getMessaging(firebaseApp));
   const clock = new SystemClock();
   // Application Default Credentials again — no downloaded service account
   // key, the same posture every other Google Cloud client here takes.
@@ -124,6 +130,7 @@ async function main(): Promise<void> {
     mediaStorageGateway,
     cloudTasksInvocationVerifier,
     aiExplanationAdapter,
+    pushMessageSender,
   });
 
   registerGracefulShutdown({

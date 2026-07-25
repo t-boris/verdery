@@ -88,7 +88,7 @@ export class ListNotifications {
 
       // One extra row decides `nextCursor` without a count query — the
       // established list-pagination mechanic.
-      const rows = await context.intents.listInboxPage(profileId, beforeId, limit + 1);
+      const rows = await context.intents.listInboxPage(profileId, beforeId, limit + 1, now);
       const page = rows.slice(0, limit);
       const hasMore = rows.length > limit;
       const lastRow = page[page.length - 1];

@@ -9,50 +9,15 @@
  * notifications.md section 10 in one clause.
  */
 
-import { sql, type Kysely, type Selectable } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
-import type {
-  NotificationDeepLink,
-  NotificationIntent,
-  NotificationIntentState,
-  NotificationPriority,
-} from '../domain/notification-intent.js';
+import type { NotificationIntent } from '../domain/notification-intent.js';
 import type {
   NewNotificationIntent,
   NotificationIntentRepository,
 } from '../application/notification-intent-repository.js';
-import type { NotificationIntentRow } from './schema.js';
-
-function toIntent(row: Selectable<NotificationIntentRow>): NotificationIntent {
-  return {
-    id: row.id,
-    intentType: row.intent_type,
-    intentVersion: row.intent_version,
-    recipientProfileId: row.recipient_profile_id,
-    gardenId: row.garden_id,
-    recommendationCandidateId: row.recommendation_candidate_id,
-    sourceEventId: row.source_event_id,
-    traceId: row.trace_id,
-    templateKey: row.template_key,
-    // Written exclusively by this module's own policy; jsonb round-trips
-    // already parsed.
-    templateParameters: row.template_parameters as Readonly<Record<string, unknown>>,
-    priority: row.priority as NotificationPriority,
-    channelInApp: row.channel_in_app,
-    channelPush: row.channel_push,
-    deepLink: row.deep_link as NotificationDeepLink,
-    dedupKey: row.dedup_key,
-    earliestDeliveryAt: row.earliest_delivery_at,
-    expiresAt: row.expires_at,
-    state: row.state as NotificationIntentState,
-    readAt: row.read_at,
-    dismissedAt: row.dismissed_at,
-    revision: row.revision,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
+import { toIntent } from './intent-row-mapping.js';
 
 export class KyselyNotificationIntentRepository implements NotificationIntentRepository {
   constructor(private readonly db: Kysely<DatabaseSchema>) {}
@@ -122,14 +87,21 @@ export class KyselyNotificationIntentRepository implements NotificationIntentRep
     recipientProfileId: Uuid,
     beforeId: Uuid | null,
     limit: number,
+    now: Date,
   ): Promise<readonly NotificationIntent[]> {
     let query = this.db
       .selectFrom('notifications.notification_intent')
       .selectAll()
       .where('recipient_profile_id', '=', recipientProfileId)
-      .where('state', '=', 'pending')
+      // Delivery outcomes stay listed; content closes leave — the domain's
+      // INBOX_VISIBLE_STATES, inlined so the partial inbox index applies.
+      .where('state', 'in', ['pending', 'sent', 'failed', 'skipped'])
       .where('channel_in_app', '=', true)
-      .where('dismissed_at', 'is', null);
+      .where('dismissed_at', 'is', null)
+      // Explicit since P7-NOTIF-02: non-pending entries keep their state
+      // past expiry (a `sent` row stays truthfully sent), so lapsing out
+      // of the inbox is a view-time comparison, not a transition.
+      .where('expires_at', '>', now);
 
     if (beforeId !== null) {
       query = query.where('id', '<', beforeId);
