@@ -1,0 +1,32 @@
+{
+  "displayName": "Load balancer 5xx rate elevated",
+  "documentation": {
+    "mimeType": "text/markdown",
+    "content": "`__URL_MAP__` has returned more than one 5xx response per second for five minutes.\n\nThis is the product's first real outage signal. Until the load balancer existed, detection was a person running a query (runbooks.md section 1.5: zero alert policies exist).\n\nA 5xx here can come from three places, and the request log distinguishes them:\n\n1. The backend returned it — an application error or a failed database dependency. Check `/v1/health/ready` and the Cloud SQL alerts.\n2. The load balancer produced it without reaching a backend (`statusDetails: failed_to_pick_backend`, `backend_connection_closed_before_data_sent_to_client`) — usually a Cloud Run cold start exceeding the timeout, or max-instances saturation.\n3. A deploy is in flight. Correlate with `gcloud run revisions list`.\n\nRollback is RB-01 in runbooks.md and takes about a minute.\n\nSource: networking.md section 20 (\"Load balancer request and error rates\")."
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "5xx responses above 1/s for 5 minutes",
+      "conditionThreshold": {
+        "filter": "resource.type = \"https_lb_rule\" AND resource.label.\"url_map_name\" = \"__URL_MAP__\" AND metric.type = \"loadbalancing.googleapis.com/https/request_count\" AND metric.label.\"response_code_class\" = \"500\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "60s",
+            "perSeriesAligner": "ALIGN_RATE",
+            "crossSeriesReducer": "REDUCE_SUM"
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 1,
+        "duration": "300s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "604800s"
+  }
+}

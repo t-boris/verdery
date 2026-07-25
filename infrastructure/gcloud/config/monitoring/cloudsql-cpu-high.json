@@ -1,0 +1,31 @@
+{
+  "displayName": "Cloud SQL CPU above 80%",
+  "documentation": {
+    "mimeType": "text/markdown",
+    "content": "`__SQL_INSTANCE_ID__` has held CPU above 80% for ten minutes.\n\nCapacity signal, not an outage: the instance is still serving. Sustained CPU at this level on a 1 vCPU tier means query load has outgrown the tier or a query has regressed.\n\n1. Query Insights (enabled by `14-cloud-sql-hardening.sh`) ranks statements by execution time — start there, not with a tier change.\n2. Check whether Cloud Run instance count rose at the same moment; if it did, this is load, not a regression.\n3. A tier change restarts the instance. Schedule it; do not apply it during the incident unless the API is failing.\n\nSource: reliability-and-disaster-recovery.md section 17 (\"Capacity alerts fire before hard exhaustion\")."
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "CPU utilization > 80% for 10 minutes",
+      "conditionThreshold": {
+        "filter": "resource.type = \"cloudsql_database\" AND resource.label.\"database_id\" = \"__PROJECT_ID__:__SQL_INSTANCE_ID__\" AND metric.type = \"cloudsql.googleapis.com/database/cpu/utilization\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_MEAN"
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 0.8,
+        "duration": "600s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "604800s"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "displayName": "Cloud SQL instance not RUNNING",
+  "documentation": {
+    "mimeType": "text/markdown",
+    "content": "`__SQL_INSTANCE_ID__` has not reported the `RUNNING` state for five minutes.\n\nThis fires for a maintenance restart, a failover, and a real outage alike — the metric cannot tell them apart, and neither can the responder without looking.\n\n1. `gcloud sql operations list --instance=__SQL_INSTANCE_ID__ --limit=5` distinguishes a planned operation from an unplanned one within seconds.\n2. With regional HA the standby takes over automatically; the API's pool sees connection errors and its retry path covers them. If the API is also failing, the failover did not complete — see RB-02 in runbooks.md.\n3. If this instance is still ZONAL, there is no standby and this alert is the outage.\n\nSource: reliability-and-disaster-recovery.md sections 4 and 6; runbooks.md RB-02."
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "RUNNING state absent or false for 5 minutes",
+      "conditionThreshold": {
+        "filter": "resource.type = \"cloudsql_database\" AND resource.label.\"database_id\" = \"__PROJECT_ID__:__SQL_INSTANCE_ID__\" AND metric.type = \"cloudsql.googleapis.com/database/instance_state\" AND metric.label.\"state\" = \"RUNNING\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "60s",
+            "perSeriesAligner": "ALIGN_MAX"
+          }
+        ],
+        "comparison": "COMPARISON_LT",
+        "thresholdValue": 1,
+        "duration": "300s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "604800s"
+  }
+}

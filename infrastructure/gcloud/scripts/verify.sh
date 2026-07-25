@@ -87,6 +87,74 @@ check "worker service account exists" gcloud iam service-accounts describe \
 check "media-processing Cloud Tasks queue exists" gcloud tasks queues describe \
   "${VERDERY_MEDIA_PROCESSING_QUEUE_NAME}" --project="${VERDERY_PROJECT_ID}" --location="${VERDERY_REGION}"
 
+# P8-DB-01: the database posture reliability-and-disaster-recovery.md section 6
+# requires. These run in EVERY environment, including development, because the
+# point of this file is to report what is actually true rather than what the
+# environment is entitled to. Development is expected to FAIL the first two —
+# it is a zonal db-f1-micro instance with deletion protection off — and that
+# visible failure is more useful than a check that quietly skips itself.
+check "Cloud SQL availability type is ${VERDERY_SQL_AVAILABILITY_TYPE:-ZONAL}" bash -c \
+  "[[ \$(gcloud sql instances describe '${VERDERY_SQL_INSTANCE_NAME}' --project='${VERDERY_PROJECT_ID}' --format='value(settings.availabilityType)') == '${VERDERY_SQL_AVAILABILITY_TYPE:-ZONAL}' ]]"
+
+check "Cloud SQL deletion protection is on" bash -c \
+  "[[ \$(gcloud sql instances describe '${VERDERY_SQL_INSTANCE_NAME}' --project='${VERDERY_PROJECT_ID}' --format='value(settings.deletionProtectionEnabled)') == True ]]"
+
+check "Cloud SQL automated backups are enabled" bash -c \
+  "[[ \$(gcloud sql instances describe '${VERDERY_SQL_INSTANCE_NAME}' --project='${VERDERY_PROJECT_ID}' --format='value(settings.backupConfiguration.enabled)') == True ]]"
+
+check "Cloud SQL point-in-time recovery is enabled" bash -c \
+  "[[ \$(gcloud sql instances describe '${VERDERY_SQL_INSTANCE_NAME}' --project='${VERDERY_PROJECT_ID}' --format='value(settings.backupConfiguration.pointInTimeRecoveryEnabled)') == True ]]"
+
+# `storageAutoResizeLimit: 0` means UNCAPPED, which is the one value
+# reliability-and-disaster-recovery.md section 6 ("maximum-cost review") rules
+# out. A non-zero value is the whole assertion.
+check "Cloud SQL storage auto-increase has a ceiling" bash -c \
+  "[[ \$(gcloud sql instances describe '${VERDERY_SQL_INSTANCE_NAME}' --project='${VERDERY_PROJECT_ID}' --format='value(settings.storageAutoResizeLimit)') != 0 ]]"
+
+# P8-NET-01: the edge. Each check is skipped, loudly, in an environment that
+# has not chosen a domain — dev has no load balancer to verify and reporting
+# eight FAILs there would train the reader to ignore this file.
+if [[ -n "${VERDERY_WEB_DOMAIN:-}" ]]; then
+  echo
+  echo "Edge (P8-NET-01):"
+
+  check "managed certificate is ACTIVE" bash -c \
+    "[[ \$(gcloud compute ssl-certificates describe '${VERDERY_LB_CERTIFICATE_NAME}' --project='${VERDERY_PROJECT_ID}' --global --format='value(managed.status)') == ACTIVE ]]"
+
+  check "URL map exists" gcloud compute url-maps describe "${VERDERY_LB_URL_MAP_NAME}" \
+    --project="${VERDERY_PROJECT_ID}" --global
+
+  check "Cloud Armor policy exists" gcloud compute security-policies describe \
+    "${VERDERY_ARMOR_POLICY_NAME}" --project="${VERDERY_PROJECT_ID}"
+
+  check "Cloud Armor is attached to the API backend" bash -c \
+    "gcloud compute backend-services describe '${VERDERY_LB_API_BACKEND_NAME}' --project='${VERDERY_PROJECT_ID}' --global --format='value(securityPolicy)' | grep -q '${VERDERY_ARMOR_POLICY_NAME}'"
+
+  check "Cloud Armor is attached to the web backend" bash -c \
+    "gcloud compute backend-services describe '${VERDERY_LB_WEB_BACKEND_NAME}' --project='${VERDERY_PROJECT_ID}' --global --format='value(securityPolicy)' | grep -q '${VERDERY_ARMOR_POLICY_NAME}'"
+
+  for service in "${VERDERY_CLOUD_RUN_SERVICE_NAME}" "${VERDERY_WEB_SERVICE_NAME}"; do
+    check "Cloud Run ingress is restricted: ${service}" bash -c \
+      "[[ \$(gcloud run services describe '${service}' --project='${VERDERY_PROJECT_ID}' --region='${VERDERY_REGION}' --format='value(metadata.annotations[\"run.googleapis.com/ingress\"])') == '${VERDERY_CLOUD_RUN_INGRESS}' ]]"
+  done
+
+  # networking.md section 21 lists "Production ingress bypass attempts" and
+  # "Direct Cloud Run URL restrictions" as things to TEST, not merely to
+  # configure. Any answer other than 200 means the bypass is closed.
+  check "direct *.run.app URL is not publicly reachable" bash -c \
+    "[[ \$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 \"\$(gcloud run services describe '${VERDERY_CLOUD_RUN_SERVICE_NAME}' --project='${VERDERY_PROJECT_ID}' --region='${VERDERY_REGION}' --format='value(status.url)')/\") != 200 ]]"
+
+  # `/v1/internal/*` must be refused at the edge on BOTH hostnames. A 404 from
+  # rule 1000 is indistinguishable from a missing route, which is the point.
+  for host in "${VERDERY_API_DOMAIN}" "${VERDERY_WEB_DOMAIN}"; do
+    check "/v1/internal/* is refused at ${host}" bash -c \
+      "[[ \$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 -X POST 'https://${host}/v1/internal/deletion/sweep') != 200 ]]"
+  done
+else
+  echo
+  echo "  SKIP  edge checks (VERDERY_WEB_DOMAIN is unset: this environment has no load balancer)"
+fi
+
 echo
 if [[ "${FAILURES}" -eq 0 ]]; then
   echo "All checks passed."

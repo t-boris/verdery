@@ -1,0 +1,32 @@
+{
+  "displayName": "Cloud Armor blocking traffic at an elevated rate",
+  "documentation": {
+    "mimeType": "text/markdown",
+    "content": "Cloud Armor has blocked more than five requests per second for five minutes.\n\nThis alert is deliberately ambiguous and both readings need acting on:\n\n1. **An attack is being absorbed.** The rules are working. Read the request log to see which rule matched and from where, and decide whether the rate limits need tightening or the source needs an explicit deny.\n2. **A rule is wrong and real users are being blocked.** Far more likely on the first day after a WAF rule is promoted out of preview. Check the timing against the last `security-policies rules update --no-preview`.\n\n```\ngcloud logging read 'resource.type=\"http_load_balancer\" AND jsonPayload.enforcedSecurityPolicy.outcome=\"DENY\"' \\\n  --project=__PROJECT_ID__ --limit=50 --freshness=1h\n```\n\n`jsonPayload.enforcedSecurityPolicy.priority` names the rule. Rule 1000 blocking `/v1/internal/*` is expected background noise from scanners and is not an incident.\n\nSource: networking.md section 20 (\"Cloud Armor matches and throttles\"); threat-model.md section 13."
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "Blocked request rate above 5/s for 5 minutes",
+      "conditionThreshold": {
+        "filter": "resource.type = \"network_security_policy\" AND metric.type = \"networksecurity.googleapis.com/https/request_count\" AND metric.label.\"blocked\" = \"true\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "60s",
+            "perSeriesAligner": "ALIGN_RATE",
+            "crossSeriesReducer": "REDUCE_SUM"
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 5,
+        "duration": "300s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "604800s"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "displayName": "Cloud SQL standby not available for failover",
+  "documentation": {
+    "mimeType": "text/markdown",
+    "content": "`__SQL_INSTANCE_ID__` has reported its standby unavailable for failover for fifteen minutes.\n\nThis is the alert that keeps regional high availability honest. HA is paid for monthly and used approximately never, so the only way to know it still works on the day it is needed is to watch this signal on every other day. An instance with an unavailable standby is a zonal instance that costs twice as much.\n\n1. `gcloud sql instances describe __SQL_INSTANCE_ID__ --format='value(settings.availabilityType,gceZone,secondaryGceZone)'` — confirm the configuration was not changed.\n2. Replication lag or a stuck operation is the usual cause; `gcloud sql operations list` shows an operation still in flight.\n3. If this persists, the documented RTO of one hour (reliability-and-disaster-recovery.md section 3) is not being met by anything and the recovery path is a restore.\n\nSource: reliability-and-disaster-recovery.md sections 3 and 6; implementation-plan.md P8-DB-01 (\"Failover and restore report\")."
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "available_for_failover false for 15 minutes",
+      "conditionThreshold": {
+        "filter": "resource.type = \"cloudsql_database\" AND resource.label.\"database_id\" = \"__PROJECT_ID__:__SQL_INSTANCE_ID__\" AND metric.type = \"cloudsql.googleapis.com/database/available_for_failover\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_MAX"
+          }
+        ],
+        "comparison": "COMPARISON_LT",
+        "thresholdValue": 1,
+        "duration": "900s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "604800s"
+  }
+}

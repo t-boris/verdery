@@ -1,0 +1,31 @@
+{
+  "displayName": "Cloud SQL disk above 80%",
+  "documentation": {
+    "mimeType": "text/markdown",
+    "content": "`__SQL_INSTANCE_ID__` has held disk utilization above 80% for fifteen minutes.\n\nStorage auto-increase is on, so this is a COST alert before it is an availability alert — until the auto-increase limit set by `14-cloud-sql-hardening.sh` is reached, at which point it becomes an outage with no warning left.\n\n1. Confirm the growth is data and not WAL or a runaway table.\n2. `reliability-and-disaster-recovery.md` section 6 asks for \"maximum-cost review\" alongside auto-growth — raising the limit is a spend decision, not a shrug.\n3. Cloud SQL storage cannot be shrunk. Growing it is permanent.\n\nSource: reliability-and-disaster-recovery.md sections 6 and 17; runbooks.md gap list item 6."
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "Disk utilization > 80% for 15 minutes",
+      "conditionThreshold": {
+        "filter": "resource.type = \"cloudsql_database\" AND resource.label.\"database_id\" = \"__PROJECT_ID__:__SQL_INSTANCE_ID__\" AND metric.type = \"cloudsql.googleapis.com/database/disk/utilization\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_MEAN"
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 0.8,
+        "duration": "900s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "604800s"
+  }
+}

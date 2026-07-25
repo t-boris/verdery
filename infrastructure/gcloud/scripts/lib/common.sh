@@ -71,3 +71,44 @@ resource_exists() {
   # Returns success if the command exits 0, i.e. the resource was found.
   "$@" >/dev/null 2>&1
 }
+
+# Fails, naming the variable, unless every argument is a set and non-empty
+# variable name.
+#
+# config/prod.env deliberately leaves owner-decision values (domain names, the
+# alert address, the budget amount) EMPTY rather than filling in a plausible
+# placeholder, because a script cannot tell a placeholder from a real value and
+# would happily request a managed certificate for it. This helper is the other
+# half of that decision: the script stops before it acts.
+#
+# Source: P8-NET-01 / P8-DB-01.
+require_config() {
+  local name
+  for name in "$@"; do
+    [[ -n "${!name:-}" ]] || fail \
+      "${name} is empty. Set it in infrastructure/gcloud/config/<environment>.env (see its OWNER DECISION markers)."
+  done
+}
+
+# Guard for the scripts that create billable, owner-gated production
+# infrastructure: the load balancer, the Cloud Armor policy, regional Cloud SQL
+# (which restarts the instance), the alert policies, and the budget.
+#
+# The numbered 00-10 scripts are safe to run casually — they create free or
+# near-free resources in a development project. These are not: they start a
+# monthly bill, or take a production database down for the length of a restart.
+# Requiring an explicit VERDERY_APPLY=yes means no such script can run because
+# a command was pasted into the wrong terminal or because provision.sh grew a
+# line, and it keeps the cost statement in front of the operator at the moment
+# they decide.
+#
+# Source: P8-NET-01 / P8-DB-01; environments-and-delivery.md section 5
+# ("Destructive changes require a dedicated reviewed command").
+require_explicit_apply() {
+  local what="${1:?usage: require_explicit_apply <what this script does>}"
+
+  log "This script ${what}"
+  if [[ "${VERDERY_APPLY:-}" != "yes" ]]; then
+    fail "Refusing to run without an explicit opt-in. Re-run as: VERDERY_APPLY=yes bash <script> <environment>"
+  fi
+}

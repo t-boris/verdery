@@ -1,0 +1,31 @@
+{
+  "displayName": "Cloud SQL memory above 85%",
+  "documentation": {
+    "mimeType": "text/markdown",
+    "content": "`__SQL_INSTANCE_ID__` has held memory above 85% for ten minutes.\n\nOn PostgreSQL this is the alert that precedes the OOM killer, and the usual cause is connection count rather than data volume: every backend costs several megabytes of private memory before any `work_mem`. Check the connection alert first — if both are firing, the pools are the problem, not the tier.\n\n85% rather than 80%: PostgreSQL deliberately uses free memory for its shared buffer cache, so a healthy instance sits high. The threshold is set where it stops being cache and starts being pressure.\n\nSource: reliability-and-disaster-recovery.md section 17; networking.md section 11."
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "Memory utilization > 85% for 10 minutes",
+      "conditionThreshold": {
+        "filter": "resource.type = \"cloudsql_database\" AND resource.label.\"database_id\" = \"__PROJECT_ID__:__SQL_INSTANCE_ID__\" AND metric.type = \"cloudsql.googleapis.com/database/memory/utilization\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_MEAN"
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 0.85,
+        "duration": "600s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "604800s"
+  }
+}

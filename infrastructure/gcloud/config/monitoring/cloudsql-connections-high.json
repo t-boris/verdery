@@ -1,0 +1,32 @@
+{
+  "displayName": "Cloud SQL connections above 80% of max_connections",
+  "documentation": {
+    "mimeType": "text/markdown",
+    "content": "`__SQL_INSTANCE_ID__` is holding more than `__CONNECTION_THRESHOLD__` backends — 80% of the `max_connections` ceiling `14-cloud-sql-hardening.sh` set.\n\nThis is the alert the whole connection budget exists for. At 100% new connections are refused, and because the API opens its pool at startup, a refused connection means a Cloud Run revision that fails its readiness probe and never serves — an outage that looks like a deploy failure.\n\n1. Check Cloud Run instance count. The budget assumes at most 8 API + 2 worker instances; scaling past that is the usual cause and the instance-count alert should have fired first.\n2. Check for a revision overlap: a deploy briefly runs old and new revisions together, each with a full pool.\n3. Check for leaked connections — `num_backends_by_state` separates idle from active.\n\nThe fix is never \"raise max_connections\" on its own: the ceiling is sized to the tier's memory. Lower `DATABASE_POOL_MAX_CONNECTIONS` or `--max-instances` first.\n\nSource: networking.md section 11; reliability-and-disaster-recovery.md section 17; the arithmetic in config/<environment>.env."
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "num_backends above 80% of the ceiling for 5 minutes",
+      "conditionThreshold": {
+        "filter": "resource.type = \"cloudsql_database\" AND resource.label.\"database_id\" = \"__PROJECT_ID__:__SQL_INSTANCE_ID__\" AND metric.type = \"cloudsql.googleapis.com/database/postgresql/num_backends\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "60s",
+            "perSeriesAligner": "ALIGN_MAX",
+            "crossSeriesReducer": "REDUCE_SUM"
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": "__CONNECTION_THRESHOLD__",
+        "duration": "300s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "604800s"
+  }
+}

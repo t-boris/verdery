@@ -148,6 +148,38 @@ apply_cors_file() {
     >/dev/null
 }
 
+# P8-NET-01: an environment with a custom domain renders its own CORS document
+# from VERDERY_WEB_DOMAIN instead of using the committed file.
+#
+# The committed file names concrete origins (localhost and the generated
+# `*.run.app` web URL), which is right for development and impossible for
+# production: the domain is an owner decision, and a placeholder domain sitting
+# in a file this script APPLIES would be applied for real. Rendering from
+# configuration keeps the exact-origin requirement (networking.md section 15,
+# "The API allowlists exact deployed web origins. Wildcard credentialed CORS is
+# prohibited") without committing a value nobody has chosen yet.
+#
+# Everything except the origin list is identical to the committed file, and for
+# the same reasons its own comment gives: PUT is the resumable protocol's only
+# data verb, OPTIONS is the preflight, and the response headers cover the
+# resumable protocol's Content-Range/Range offset negotiation.
+render_user_media_cors() {
+  local origin="${1}" rendered_file
+
+  rendered_file="$(mktemp)"
+  cat >"${rendered_file}" <<JSON
+[
+  {
+    "origin": ["${origin}"],
+    "method": ["PUT", "OPTIONS"],
+    "responseHeader": ["Content-Type", "Content-Range", "Range", "X-Goog-Resumable"],
+    "maxAgeSeconds": 3600
+  }
+]
+JSON
+  printf '%s' "${rendered_file}"
+}
+
 # --- user-media -------------------------------------------------------
 # Garden photos and imported plan documents (section 3). Section 15: these
 # "remain until deleted by user, garden, or account policy" — a decision the
@@ -156,7 +188,13 @@ apply_cors_file() {
 # lifecycle rule is applied.
 create_bucket_if_needed "${VERDERY_USER_MEDIA_BUCKET}"
 grant_runtime_object_admin "${VERDERY_USER_MEDIA_BUCKET}"
-apply_cors_file "${VERDERY_USER_MEDIA_BUCKET}" "${GCLOUD_ROOT}/config/cors/user-media-cors.json"
+if [[ -n "${VERDERY_WEB_DOMAIN:-}" ]]; then
+  user_media_cors_file="$(render_user_media_cors "https://${VERDERY_WEB_DOMAIN}")"
+  apply_cors_file "${VERDERY_USER_MEDIA_BUCKET}" "${user_media_cors_file}"
+  rm -f "${user_media_cors_file}"
+else
+  apply_cors_file "${VERDERY_USER_MEDIA_BUCKET}" "${GCLOUD_ROOT}/config/cors/user-media-cors.json"
+fi
 
 # --- raw-capture --------------------------------------------------------
 # Garden Scan video, AR artifacts, depth data (section 3). Section 15 states

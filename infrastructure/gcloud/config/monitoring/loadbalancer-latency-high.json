@@ -1,0 +1,32 @@
+{
+  "displayName": "Load balancer p95 latency above 2 seconds",
+  "documentation": {
+    "mimeType": "text/markdown",
+    "content": "`__URL_MAP__` has held a 95th-percentile total latency above 2,000 ms for ten minutes.\n\nTotal latency includes the client's own network time, which is why the threshold is 2 s and not 500 ms: a mobile client on a weak connection legitimately contributes hundreds of milliseconds, and a threshold tuned to backend time alone would page on ordinary weather.\n\n1. Compare `https/backend_latencies` against `https/total_latencies`. If backend latency is flat, the problem is not ours.\n2. If backend latency moved, check the Cloud SQL CPU and connection alerts — connection-pool starvation shows up here first, as queuing, before it shows up as an error.\n3. Cold starts inflate p95 at low traffic. `--min-instances=0` is the current setting and reliability-and-disaster-recovery.md section 5 says a minimum of one is enabled \"when measured cold-start latency violates product objectives\". This alert is that measurement.\n\nSource: networking.md section 20; reliability-and-disaster-recovery.md section 5."
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "p95 total latency > 2000 ms for 10 minutes",
+      "conditionThreshold": {
+        "filter": "resource.type = \"https_lb_rule\" AND resource.label.\"url_map_name\" = \"__URL_MAP__\" AND metric.type = \"loadbalancing.googleapis.com/https/total_latencies\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_PERCENTILE_95",
+            "crossSeriesReducer": "REDUCE_MEAN"
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 2000,
+        "duration": "600s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "604800s"
+  }
+}

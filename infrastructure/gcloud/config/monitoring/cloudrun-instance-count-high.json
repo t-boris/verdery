@@ -1,0 +1,32 @@
+{
+  "displayName": "Cloud Run instances above the connection budget",
+  "documentation": {
+    "mimeType": "text/markdown",
+    "content": "Total active Cloud Run instances in this project have exceeded `__INSTANCE_COUNT_THRESHOLD__` for five minutes.\n\nThe threshold is derived, not chosen: `(max_connections - Cloud SQL's reserved connections) / pooled connections per instance`. At this instance count the database connection budget is exactly spent if every pool fills, so this is the last moment the alert is still ahead of the failure it predicts.\n\nIt is also the project's Direct VPC egress capacity signal. networking.md section 20 asks to monitor \"Direct VPC IP utilization\", and Cloud Monitoring exposes no subnet-address metric — but Direct VPC egress consumes roughly one subnet address per running instance, so instance count is the observable proxy. The subnet is a /20 (4,094 addresses) against a planned peak of 11 instances, so the database ceiling binds thousands of times sooner. Google's own Network Analyzer raises a subnet-exhaustion insight independently and needs no configuration.\n\n1. Is this real traffic or a retry storm? Check the load balancer request rate and the Cloud Armor 429 rate.\n2. Did `--max-instances` get raised without the connection budget being recomputed? That is the failure mode this alert exists for.\n\nSource: networking.md sections 9, 11, and 20; reliability-and-disaster-recovery.md section 17."
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "Sum of active instances above the budget for 5 minutes",
+      "conditionThreshold": {
+        "filter": "resource.type = \"cloud_run_revision\" AND metric.type = \"run.googleapis.com/container/instance_count\" AND metric.label.\"state\" = \"active\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "60s",
+            "perSeriesAligner": "ALIGN_MAX",
+            "crossSeriesReducer": "REDUCE_SUM"
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": "__INSTANCE_COUNT_THRESHOLD__",
+        "duration": "300s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "604800s"
+  }
+}

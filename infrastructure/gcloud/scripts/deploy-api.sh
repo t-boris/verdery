@@ -36,6 +36,15 @@ env_vars+=",TRACING_ENABLED=${VERDERY_TRACING_ENABLED:-false}"
 # it ever served a request. 15 seconds is generous for that handshake without
 # meaningfully delaying a real failure's detection.
 env_vars+=",DATABASE_CONNECTION_TIMEOUT_MS=15000"
+# P8-DB-01: the per-instance pool size, which is one half of the connection
+# budget `max_connections` is set from (14-cloud-sql-hardening.sh). It is
+# configuration rather than a literal so the deployed service and the database
+# ceiling cannot drift apart — a pool raised here without raising the ceiling
+# is a readiness-probe failure on the next scale-out, not a slow degradation.
+# The default matches configuration-schema.ts's own default, so an environment
+# that does not set it (dev) deploys exactly as before.
+# Source: architecture/networking.md section 11 ("Connection Pooling").
+env_vars+=",DATABASE_POOL_MAX_CONNECTIONS=${VERDERY_DATABASE_POOL_MAX_CONNECTIONS:-10}"
 # Required since Phase 2: the service verifies Firebase ID tokens and session
 # cookies against this exact project. Missing this fails startup
 # configuration validation immediately (loadConfiguration()), the same
@@ -58,13 +67,29 @@ env_vars+=",MEDIA_EXPORTS_BUCKET=${VERDERY_EXPORTS_BUCKET}"
 env_vars+=",MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL=${VERDERY_WORKER_SERVICE_ACCOUNT_ID}@${VERDERY_PROJECT_ID}.iam.gserviceaccount.com"
 
 # Browser CORS for the deployed web client (Phase 8 web deployment stage).
-# The web service URL is stable across revisions, so an already-existing web
-# service contributes its origin here on every API deploy — the same
-# lookup-when-it-exists shape MEDIA_PROCESSING_CALLBACK_AUDIENCE below uses.
-# Before the web service's own first deployment this stays empty, which the
-# API treats as "no cross-origin browser client is allowed" — the safe,
-# pre-existing default.
-if resource_exists gcloud run services describe "${VERDERY_WEB_SERVICE_NAME}" \
+#
+# P8-NET-01: an environment with a custom domain states its browser origin
+# exactly, in configuration, rather than deriving it from a generated
+# `*.run.app` URL that will not be reachable at all once
+# 13-cloud-run-ingress.sh has run. networking.md section 15 requires the API to
+# "allowlist exact deployed web origins" and prohibits wildcard credentialed
+# CORS; one hostname, spelled out in <environment>.env, is the most exact form
+# that requirement can take.
+#
+# Note what this is NOT for: behind the load balancer the browser reaches
+# `app.<domain>/v1/*` on its own origin (11-load-balancer.sh's path matcher),
+# so ordinary browser traffic is same-origin and never triggers CORS at all.
+# This allowlist is the defensive statement of who WOULD be allowed if a
+# cross-origin request ever occurred, and it is exactly one host.
+#
+# Without VERDERY_WEB_DOMAIN (dev), the pre-existing behavior is unchanged: the
+# web service URL is stable across revisions, so an already-existing web
+# service contributes its origin here on every API deploy. Before the web
+# service's own first deployment this stays empty, which the API treats as "no
+# cross-origin browser client is allowed" — the safe, pre-existing default.
+if [[ -n "${VERDERY_WEB_DOMAIN:-}" ]]; then
+  env_vars+=",HTTP_ALLOWED_ORIGINS=https://${VERDERY_WEB_DOMAIN}"
+elif resource_exists gcloud run services describe "${VERDERY_WEB_SERVICE_NAME}" \
   --project="${VERDERY_PROJECT_ID}" --region="${VERDERY_REGION}"; then
   web_origin="$(gcloud run services describe "${VERDERY_WEB_SERVICE_NAME}" \
     --project="${VERDERY_PROJECT_ID}" --region="${VERDERY_REGION}" --format="value(status.url)")"
@@ -103,6 +128,27 @@ else
 fi
 
 log "Deploying ${IMAGE} to ${VERDERY_CLOUD_RUN_SERVICE_NAME}"
+# P8-NET-01 / P8-DB-01 made three of the flags below configuration:
+#
+#   --max-instances / --concurrency / DATABASE_POOL_MAX_CONNECTIONS
+#     networking.md section 11 names exactly these as the levers that keep
+#     Cloud Run scaling inside database connection capacity. Their defaults
+#     here reproduce the current dev deployment (2 instances, Cloud Run's own
+#     concurrency default of 80, the schema's pool default of 10) byte for
+#     byte, so dev.env needs no change.
+#
+#   --ingress
+#     Defaults to `all`, which is what both services run today. Production sets
+#     `internal-and-cloud-load-balancing` in prod.env; the cutover itself is
+#     13-cloud-run-ingress.sh, which will not run until the load balancer path
+#     is verified working. Passing it on every deploy matters because a deploy
+#     that omitted it would be an unnoticed reopening of the public path.
+#
+# `--allow-unauthenticated` stays unconditional, and that is deliberate: a
+# serverless NEG forwards requests to Cloud Run WITHOUT an identity token, so
+# removing the `allUsers` invoker binding returns 403 for every request through
+# the load balancer. Reachability is controlled by --ingress, not by IAM — the
+# reasoning is in 13-cloud-run-ingress.sh's header.
 gcloud run deploy "${VERDERY_CLOUD_RUN_SERVICE_NAME}" \
   --project="${VERDERY_PROJECT_ID}" \
   --region="${VERDERY_REGION}" \
@@ -113,11 +159,13 @@ gcloud run deploy "${VERDERY_CLOUD_RUN_SERVICE_NAME}" \
   --service-account="${VERDERY_RUNTIME_SERVICE_ACCOUNT_ID}@${VERDERY_PROJECT_ID}.iam.gserviceaccount.com" \
   --set-env-vars="${env_vars}" \
   --min-instances=0 \
-  --max-instances=2 \
+  --max-instances="${VERDERY_API_MAX_INSTANCES:-2}" \
+  --concurrency="${VERDERY_API_CONCURRENCY:-80}" \
   --cpu=1 \
   --memory=512Mi \
   --port=8080 \
   --allow-unauthenticated \
+  --ingress="${VERDERY_CLOUD_RUN_INGRESS:-all}" \
   --quiet
 
 service_url="$(gcloud run services describe "${VERDERY_CLOUD_RUN_SERVICE_NAME}" \
@@ -138,7 +186,19 @@ gcloud run services update "${VERDERY_CLOUD_RUN_SERVICE_NAME}" \
 
 log "Deployed. Service URL: ${service_url}"
 log ""
-log "NOTE: --allow-unauthenticated is a deliberate development-only choice —"
-log "this service currently exposes nothing but health checks. Revisit before"
-log "any endpoint carries real data (P8-SEC-02, moving App Check and access"
-log "control from observe to enforce)."
+log "Ingress: ${VERDERY_CLOUD_RUN_INGRESS:-all}"
+if [[ "${VERDERY_CLOUD_RUN_INGRESS:-all}" == "all" ]]; then
+  # Corrected in P8-NET-01. The previous version of this note claimed the
+  # service "currently exposes nothing but health checks", which stopped being
+  # true several phases ago and was flagged as misleading by runbooks.md's gap
+  # list (item 4). The accurate statement is below.
+  log ""
+  log "NOTE: this service answers the whole internet on the URL above, and it"
+  log "serves the full domain API. The controls that exist today are"
+  log "authentication and authorization in the application itself; there is no"
+  log "edge, no rate limit, and no ingress restriction. The threat model"
+  log "registers the consequences as T-COST-01, T-COST-02, and T-SSRF-06."
+  log "P8-NET-01 closes them: 11-load-balancer.sh, 12-cloud-armor.sh, and"
+  log "13-cloud-run-ingress.sh, in that order. Until then this is an"
+  log "unadvertised development environment and should stay one."
+fi
