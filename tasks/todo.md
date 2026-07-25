@@ -5493,5 +5493,16 @@ and human-decision content of any so far; the honest split:
   audit-and-fix halves that are code-verifiable (keyboard navigation, reduced-motion, en/ru
   parity, unit/date/zone display) are buildable.
 
-Stage order (continuing global numbering): 29. P8-EXPORT-01. 30. P8-DELETE-01. 31. P8-SEC-01. 32. P8-REL-01 (runbooks). Then the gated/live and human-dependent packages as their prerequisites
-resolve, each explicitly.
+**Owner requirement (stated 2026-07-25, binding for this phase's completion):** Phase 8 must end
+with a VISIBLE product — a real deployed web URL (dev at minimum) and an accessible iOS build.
+The web client has only ever run locally (hosting was sequenced into this phase by the plan
+itself); the owner explicitly wants to click a link. iOS distribution (TestFlight/App Store)
+additionally requires owner-side Apple Developer account actions, which get named precisely; the
+phase does not close with the iOS half blocked on anything OTHER than those named owner actions.
+
+Stage order (continuing global numbering): 29. P8-EXPORT-01. 30. **Web deployment to verdery-dev**
+(pulled forward per the owner requirement: Dockerfile, deploy-web.sh, verdery-web-dev Cloud Run
+service, HTTP_ALLOWED_ORIGINS + bucket CORS + Firebase authorized domains, CI step — live actions
+per-confirmation as always). 31. P8-DELETE-01. 32. P8-SEC-01. 33. P8-REL-01 (runbooks). Then the
+gated/live and human-dependent packages as their prerequisites resolve, each explicitly —
+including the iOS build/signing/TestFlight preparation half of P8-STORE-01.
