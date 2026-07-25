@@ -160,6 +160,9 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       new KyselyEvaluationGardenSource(db),
       evaluate,
       unitOfWork,
+      // The kill-switch-off reality of every environment; the AI phase
+      // has its own integration suite (recommendation-ai-explanation).
+      null,
       clock,
     );
   }
@@ -192,6 +195,8 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       candidatesSuperseded: 0,
       candidatesExpired: 0,
       lostRaces: 0,
+      // P7-AI-01: null embellisher — the kill-switch-off reality.
+      embellishment: null,
     });
 
     const rows = await candidateRows();
@@ -231,6 +236,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       candidatesSuperseded: 0,
       candidatesExpired: 0,
       lostRaces: 0,
+      embellishment: null,
     });
     expect(await candidateRows()).toHaveLength(1);
     const eventCount = await db

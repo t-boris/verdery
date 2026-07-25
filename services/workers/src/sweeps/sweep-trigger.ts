@@ -44,6 +44,17 @@ export interface WeatherRefreshSweepSummary {
   readonly stoppedOnQuotaExhaustion: boolean;
 }
 
+/** Mirrors `services/api`'s `EmbellishmentRunResult` (P7-AI-01) — the sweep's AI-embellishment phase summary. */
+export interface RecommendationEmbellishmentSummary {
+  readonly candidatesConsidered: number;
+  readonly accepted: number;
+  readonly rejected: number;
+  readonly rejectionOutcomes: Readonly<Record<string, number>>;
+  readonly transientFailures: number;
+  readonly lostRaces: number;
+  readonly stoppedOnQuotaExhaustion: boolean;
+}
+
 /** Mirrors `services/api`'s `RecommendationEvaluationSweepResult`. */
 export interface RecommendationEvaluationSweepSummary {
   readonly gardensEvaluated: number;
@@ -51,4 +62,6 @@ export interface RecommendationEvaluationSweepSummary {
   readonly candidatesSuperseded: number;
   readonly candidatesExpired: number;
   readonly lostRaces: number;
+  /** `null` whenever the API's `RECOMMENDATION_AI_EXPLANATION_ENABLED` kill-switch keeps the phase from existing (every environment today). */
+  readonly embellishment: RecommendationEmbellishmentSummary | null;
 }

@@ -67,6 +67,18 @@ export interface RecommendationPriorityFactorResource {
 export interface TodayRecommendationResource extends RecommendationResource {
   /** The rule version's `actionTitle` — FR-24's "Proposed action", resolved from the catalog by the stored (ruleKey, ruleVersion). */
   readonly actionTitle: string;
+  /**
+   * The explanation-source flag (P7-AI-01): `'ai_embellished'` exactly
+   * when `embellishedExplanation` is served, `'deterministic'` otherwise
+   * — including whenever the kill-switch is off, which restores the
+   * baseline response wholesale. `explanation` is ALWAYS the stored
+   * deterministic text regardless of this flag; the embellishment is an
+   * additional rendering, never a replacement (section 10's fallback
+   * guarantee, visible in the contract itself).
+   */
+  readonly explanationSource: 'deterministic' | 'ai_embellished';
+  /** The accepted AI embellishment for this candidate, when one exists AND serving is enabled; `null` otherwise. */
+  readonly embellishedExplanation: string | null;
   /** Re-derived from the stored factor rows via the shared aggregation — see `derivePriorityScoreFromStoredFactors`. */
   readonly priorityScore: number;
   readonly priorityFactors: readonly RecommendationPriorityFactorResource[];

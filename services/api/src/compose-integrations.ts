@@ -18,6 +18,7 @@
  */
 
 import {
+  GenerateAiExplanation,
   GetGardenWeather,
   KyselyProviderQuotaRepository,
   KyselyWeatherRecordRepository,
@@ -26,16 +27,31 @@ import {
   RunWeatherRefreshSweep,
   WeatherProviderRegistry,
 } from './modules/integrations/public.js';
-import type { WeatherRefreshSweepRouteDependencies } from './modules/integrations/public.js';
+import type {
+  AiExplanationProviderAdapter,
+  WeatherRefreshSweepRouteDependencies,
+} from './modules/integrations/public.js';
 import { KyselyGeoreferenceRepository } from './modules/gardens-mapping/public.js';
-import type { WeatherConfiguration } from './platform/configuration/configuration-schema.js';
+import type {
+  AiExplanationConfiguration,
+  WeatherConfiguration,
+} from './platform/configuration/configuration-schema.js';
 import type { DatabaseGateway } from './platform/database/database-gateway.js';
 import type { CloudTasksInvocationVerifier } from './platform/tasks/cloud-tasks-invocation-verifier.js';
 import type { Clock } from './shared/time/clock.js';
 
+/**
+ * The AI-explanation adapter's stable name (P7-AI-01) — its quota-
+ * accounting key in the shared `provider_quota_usage` table and the
+ * `provider_key` provenance on every stored AI-explanation record.
+ */
+export const AI_EXPLANATION_PROVIDER_KEY = 'vertex-ai-explanation';
+
 export interface IntegrationsComposition {
   /** Consumed by tasks-recommendations' `EvaluateGardenRecommendations` — the cross-module use-case injection precedent. */
   readonly getGardenWeather: GetGardenWeather;
+  /** Consumed by tasks-recommendations' `EmbellishRecommendationExplanations` (P7-AI-01) — same precedent. Typed `noProviderConfigured` whenever the adapter is null. */
+  readonly generateAiExplanation: GenerateAiExplanation;
   readonly weatherRefreshSweepRouteDependencies: WeatherRefreshSweepRouteDependencies;
 }
 
@@ -43,10 +59,13 @@ export function composeIntegrations(
   database: DatabaseGateway,
   clock: Clock,
   weather: WeatherConfiguration,
+  aiExplanation: AiExplanationConfiguration,
+  aiExplanationAdapter: AiExplanationProviderAdapter | null,
   cloudTasksInvocationVerifier: CloudTasksInvocationVerifier,
 ): IntegrationsComposition {
   const registry = new WeatherProviderRegistry([]);
   const weatherRecords = new KyselyWeatherRecordRepository(database.queries);
+  const providerQuotas = new KyselyProviderQuotaRepository(database.queries);
   const freshnessPolicy = {
     observationFreshForMs: weather.observationFreshForMs,
     forecastFreshForMs: weather.forecastFreshForMs,
@@ -56,8 +75,26 @@ export function composeIntegrations(
     registry,
     { activeProviderKey: weather.activeProviderKey, freshnessPolicy },
     weatherRecords,
-    new KyselyProviderQuotaRepository(database.queries),
+    providerQuotas,
     new KyselyGeoreferenceRepository(database.queries),
+    clock,
+  );
+
+  // P7-AI-01: the bounded call machinery exists regardless of the switch
+  // — with a null adapter (the switch off, every environment today) it
+  // answers `noProviderConfigured`, and its one caller (the sweep's
+  // embellishment phase) is itself only composed when the switch is on.
+  const generateAiExplanation = new GenerateAiExplanation(
+    aiExplanationAdapter,
+    {
+      providerKey: AI_EXPLANATION_PROVIDER_KEY,
+      callTimeoutMs: aiExplanation.callTimeoutMs,
+      quotaLimits: {
+        maxCallsPerHour: aiExplanation.maxCallsPerHour,
+        maxCallsPerDay: aiExplanation.maxCallsPerDay,
+      },
+    },
+    providerQuotas,
     clock,
   );
 
@@ -71,5 +108,5 @@ export function composeIntegrations(
     cloudTasksInvocationVerifier,
   };
 
-  return { getGardenWeather, weatherRefreshSweepRouteDependencies };
+  return { getGardenWeather, generateAiExplanation, weatherRefreshSweepRouteDependencies };
 }

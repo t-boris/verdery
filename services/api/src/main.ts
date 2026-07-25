@@ -8,9 +8,12 @@
  */
 
 import { Storage } from '@google-cloud/storage';
+import { GoogleGenAI } from '@google/genai';
 import { applicationDefault, initializeApp } from 'firebase-admin/app';
 import { buildApplication } from './app.js';
 import { registerGracefulShutdown } from './bootstrap/graceful-shutdown.js';
+import { VertexAiExplanationAdapter } from './modules/integrations/public.js';
+import type { AiExplanationProviderAdapter } from './modules/integrations/public.js';
 import { GcsMediaStorageGateway } from './modules/media/public.js';
 import { FirebaseAppCheckVerifier } from './platform/app-check/firebase-app-check-verifier.js';
 import { FirebaseTokenVerifier } from './platform/authentication/firebase-token-verifier.js';
@@ -84,6 +87,33 @@ async function main(): Promise<void> {
     configuration.media.processingCallback.invokerServiceAccountEmail,
   );
 
+  // P7-AI-01: the Vertex AI explanation adapter exists ONLY when the
+  // kill-switch is on — off (every environment today), no GenAI client is
+  // constructed and no code path can reach Vertex. When on, the
+  // configuration loader has already required the project id and model,
+  // and the client authenticates through Application Default Credentials
+  // like every other Google Cloud client here.
+  // The loader's cross-field check guarantees project id and model
+  // whenever the switch is on; the narrowing here is what lets the types
+  // say so.
+  const aiConfiguration = configuration.aiExplanation;
+  const aiExplanationAdapter: AiExplanationProviderAdapter | null =
+    aiConfiguration.enabled &&
+    aiConfiguration.vertexProjectId !== null &&
+    aiConfiguration.model !== null
+      ? new VertexAiExplanationAdapter(
+          new GoogleGenAI({
+            vertexai: true,
+            project: aiConfiguration.vertexProjectId,
+            location: aiConfiguration.vertexLocation,
+          }),
+          {
+            model: aiConfiguration.model,
+            maxOutputTokens: aiConfiguration.maxOutputTokens,
+          },
+        )
+      : null;
+
   const app = await buildApplication({
     configuration,
     logger,
@@ -93,6 +123,7 @@ async function main(): Promise<void> {
     clock,
     mediaStorageGateway,
     cloudTasksInvocationVerifier,
+    aiExplanationAdapter,
   });
 
   registerGracefulShutdown({

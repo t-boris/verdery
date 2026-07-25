@@ -4,6 +4,10 @@ import { ConflictError } from '../../../platform/errors/application-error.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { RecommendationCandidate } from '../domain/recommendation-candidate.js';
 import type { EvaluateGardenRecommendationsResult } from './evaluate-garden-recommendations.js';
+import type {
+  EmbellishmentRunResult,
+  RecommendationExplanationEmbellisher,
+} from './embellish-recommendation-explanations.js';
 import type { EvaluationGardenSource } from './evaluation-garden-source.js';
 import type { GardenRecommendationEvaluator } from './run-recommendation-evaluation-sweep.js';
 import {
@@ -122,11 +126,13 @@ function buildSweep(
   source: EvaluationGardenSource,
   evaluate: GardenRecommendationEvaluator,
   fakes: TasksRecommendationsFakes,
+  embellisher: RecommendationExplanationEmbellisher | null = null,
 ): RunRecommendationEvaluationSweep {
   return new RunRecommendationEvaluationSweep(
     source,
     evaluate,
     new FakeTasksRecommendationsUnitOfWork(fakes),
+    embellisher,
     fixedClock(NOW),
   );
 }
@@ -152,6 +158,7 @@ describe('RunRecommendationEvaluationSweep', () => {
       candidatesSuperseded: 1,
       candidatesExpired: 0,
       lostRaces: 0,
+      embellishment: null,
     });
   });
 
@@ -218,6 +225,48 @@ describe('RunRecommendationEvaluationSweep', () => {
       candidatesSuperseded: 0,
       candidatesExpired: 0,
       lostRaces: 0,
+      embellishment: null,
     });
+  });
+
+  it('runs the embellishment phase LAST when one is composed, and reports its summary', async () => {
+    const fakes = createTasksRecommendationsFakes();
+    // A passed-window candidate: expiry must have closed it BEFORE the
+    // embellishment phase observes the world.
+    seedLiveCandidate(fakes, GARDEN_A, new Date(NOW.getTime() - DAY_MS));
+    const summary: EmbellishmentRunResult = {
+      candidatesConsidered: 1,
+      accepted: 1,
+      rejected: 0,
+      rejectionOutcomes: {},
+      transientFailures: 0,
+      lostRaces: 0,
+      stoppedOnQuotaExhaustion: false,
+    };
+    let expiredWhenEmbellishing: string | undefined;
+    const embellisher: RecommendationExplanationEmbellisher = {
+      execute: () => {
+        expiredWhenEmbellishing = [...fakes.recommendationCandidates.candidates.values()].find(
+          (candidate) => candidate.gardenId === GARDEN_A,
+        )?.state;
+        return Promise.resolve(summary);
+      },
+    };
+
+    const result = await buildSweep(pagedSource([]), evaluator({}), fakes, embellisher).execute();
+
+    expect(result.embellishment).toEqual(summary);
+    expect(expiredWhenEmbellishing).toBe('expired');
+  });
+
+  it('kill-switch off (null embellisher): the phase does not run at all', async () => {
+    const result = await buildSweep(
+      pagedSource([]),
+      evaluator({}),
+      createTasksRecommendationsFakes(),
+      null,
+    ).execute();
+
+    expect(result.embellishment).toBeNull();
   });
 });

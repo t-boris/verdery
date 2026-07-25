@@ -46,6 +46,14 @@
  * is what spares P7-NOTIF-01 from reopening this transaction path. No
  * `auditLogger` still: this module carries no audit trail of its own.
  *
+ * `aiExplanations` (P7-AI-01): the AI-explanation verdict rows. Bound here
+ * rather than read through a second pooled connection because
+ * `GetTodayView` reads accepted records INSIDE its advisory-lock
+ * transaction — acquiring a second pool connection while holding one is
+ * the pool-exhaustion deadlock shape this module's context exists to
+ * prevent. Provider CALLS never happen inside a transaction; only the
+ * selection reads and the single-row verdict writes do.
+ *
  * Source: architecture/backend-modular-monolith.md, section "12. Transactions".
  */
 
@@ -56,6 +64,7 @@ import type { PlantRepository } from '../../plants-inventory/public.js';
 import type { IdempotencyStore } from '../../../platform/idempotency/idempotency-store.js';
 import type { OutboxAppender } from '../../../platform/outbox/outbox-appender.js';
 import type { SyncChangeRecorder } from '../../../platform/sync/sync-change-recorder.js';
+import type { AiExplanationRecordRepository } from './ai-explanation-record-repository.js';
 import type { RecommendationCandidateRepository } from './recommendation-candidate-repository.js';
 import type { RuleVersionRepository } from './rule-version-repository.js';
 import type { TaskAttachmentRepository } from './task-attachment-repository.js';
@@ -75,6 +84,7 @@ export interface TasksRecommendationsTransactionContext {
   readonly ruleVersions: RuleVersionRepository;
   readonly recommendationCandidates: RecommendationCandidateRepository;
   readonly outbox: OutboxAppender;
+  readonly aiExplanations: AiExplanationRecordRepository;
 }
 
 export interface TasksRecommendationsUnitOfWork {

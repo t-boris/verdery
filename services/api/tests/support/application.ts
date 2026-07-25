@@ -64,6 +64,19 @@ export const testConfiguration: ApplicationConfiguration = {
     observationFreshForMs: 3_600_000,
     forecastFreshForMs: 21_600_000,
   },
+  // P7-AI-01: the kill-switch off — every test-built application runs the
+  // pure deterministic explanation path, like every real environment
+  // today; the numbers are the schema's own documented defaults.
+  aiExplanation: {
+    enabled: false,
+    vertexProjectId: null,
+    vertexLocation: 'us-central1',
+    model: null,
+    callTimeoutMs: 10_000,
+    maxOutputTokens: 512,
+    maxCallsPerHour: 50,
+    maxCallsPerDay: 500,
+  },
 };
 
 /** A database that answers health checks according to the supplied behavior. */
@@ -138,5 +151,7 @@ export async function buildTestApplication(
     mediaStorageGateway: options.mediaStorageGateway ?? stubMediaStorageGateway(),
     cloudTasksInvocationVerifier:
       options.cloudTasksInvocationVerifier ?? stubCloudTasksInvocationVerifier(),
+    // P7-AI-01: `null` exactly as main.ts passes with the kill-switch off.
+    aiExplanationAdapter: null,
   });
 }

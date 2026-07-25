@@ -23,6 +23,12 @@ import type {
 } from '../domain/plant-taxonomy-mapping.js';
 import type { WeatherRecord, WeatherRecordKind } from '../domain/weather-record.js';
 import type {
+  AiExplanationAdapterOutcome,
+  AiExplanationModelIdentity,
+  AiExplanationProviderAdapter,
+  AiExplanationRequest,
+} from './ai-explanation-provider.js';
+import type {
   NormalizedPlantContent,
   PlantContentProviderAdapter,
   ProviderTaxonCandidate,
@@ -462,4 +468,65 @@ export function testPlantContentProviderMetadata(
     quotaLimits: { maxCallsPerHour: null, maxCallsPerDay: null },
     ...overrides,
   };
+}
+
+export type FakeAiExplanationBehavior =
+  | { readonly kind: 'outcome'; readonly outcome: AiExplanationAdapterOutcome }
+  | { readonly kind: 'fail'; readonly error?: unknown }
+  /** Never settles until the deadline's abort — the timeout scenario. */
+  | { readonly kind: 'hang' };
+
+/**
+ * A scriptable AI-explanation adapter (P7-AI-01) — the
+ * `FakeWeatherProviderAdapter` shape: `callCount` is the load-bearing
+ * assertion surface for the kill-switch and budget tests ("zero Vertex
+ * calls" is provable only by counting), and `requests` records every
+ * packet so tests can assert exactly what would have been sent.
+ */
+export class FakeAiExplanationProviderAdapter implements AiExplanationProviderAdapter {
+  callCount = 0;
+  lastSignalAborted: boolean | null = null;
+  readonly requests: AiExplanationRequest[] = [];
+
+  readonly identity: AiExplanationModelIdentity;
+
+  constructor(
+    private behavior: FakeAiExplanationBehavior,
+    identity: Partial<AiExplanationModelIdentity> = {},
+  ) {
+    this.identity = {
+      model: identity.model ?? 'fake-explanation-model',
+      promptTemplateVersion: identity.promptTemplateVersion ?? 1,
+    };
+  }
+
+  setBehavior(behavior: FakeAiExplanationBehavior): void {
+    this.behavior = behavior;
+  }
+
+  generateExplanation(
+    request: AiExplanationRequest,
+    signal: AbortSignal,
+  ): Promise<AiExplanationAdapterOutcome> {
+    this.callCount += 1;
+    this.requests.push(request);
+    const behavior = this.behavior;
+    switch (behavior.kind) {
+      case 'outcome':
+        return Promise.resolve(behavior.outcome);
+      case 'fail':
+        return Promise.reject(
+          behavior.error instanceof Error
+            ? behavior.error
+            : new Error('fake AI provider failure', { cause: behavior.error }),
+        );
+      case 'hang':
+        return new Promise((_resolve, reject) => {
+          signal.addEventListener('abort', () => {
+            this.lastSignalAborted = true;
+            reject(new Error('aborted by deadline'));
+          });
+        });
+    }
+  }
 }

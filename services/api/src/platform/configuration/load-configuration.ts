@@ -12,6 +12,7 @@ import type { z } from 'zod';
 import type { ApplicationConfiguration, ConfigurationIssue } from './configuration-schema.js';
 import {
   environmentSchema,
+  findAiExplanationIssues,
   findDatabaseModeIssues,
   SECRET_VARIABLES,
   toApplicationConfiguration,
@@ -55,11 +56,12 @@ function describeConfigurationIssue(issue: ConfigurationIssue): string {
 /**
  * Validates the process environment and returns typed configuration.
  *
- * Combines zod's per-field validation with {@link findDatabaseModeIssues},
- * which checks a cross-field rule zod cannot express as a per-field schema.
- * Both run unconditionally and their results are merged, so a deployment with
- * several unrelated problems is told about all of them at once rather than
- * one at a time across repeated restarts.
+ * Combines zod's per-field validation with {@link findDatabaseModeIssues}
+ * and {@link findAiExplanationIssues}, which check cross-field rules zod
+ * cannot express as per-field schemas. All run unconditionally and their
+ * results are merged, so a deployment with several unrelated problems is
+ * told about all of them at once rather than one at a time across repeated
+ * restarts.
  *
  * @throws ConfigurationError when any required variable is missing or invalid.
  */
@@ -67,7 +69,7 @@ export function loadConfiguration(
   source: Readonly<Record<string, string | undefined>> = process.env,
 ): ApplicationConfiguration {
   const result = environmentSchema.safeParse(source);
-  const modeIssues = findDatabaseModeIssues(source);
+  const modeIssues = [...findDatabaseModeIssues(source), ...findAiExplanationIssues(source)];
 
   if (!result.success || modeIssues.length > 0) {
     const zodVariables = result.success

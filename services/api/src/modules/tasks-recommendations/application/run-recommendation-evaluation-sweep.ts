@@ -54,12 +54,28 @@
  * poison the rest of the batch (asynchronous-processing.md section 12).
  * Unexpected errors still propagate and fail the run loudly — the retention
  * sweep's own posture.
+ *
+ * THIRD PHASE (P7-AI-01), LAST, OPTIONAL: the bounded AI-explanation
+ * embellishment over candidates the earlier phases left presentable —
+ * section 3's "optional Vertex AI bounded explanation", async by design
+ * (never in the Today request path) and outside every evaluation
+ * transaction (provider calls happen outside transactions). It runs
+ * after expiry so just-expired candidates are not selected, and it is
+ * `null` — the phase does not exist, zero provider calls — whenever the
+ * `RECOMMENDATION_AI_EXPLANATION_ENABLED` kill-switch is off, which is
+ * every environment today. Its failure modes never fail the sweep run:
+ * every degradation is a typed count in its own summary, and the
+ * deterministic explanations keep serving regardless (section 14).
  */
 
 import { ConflictError } from '../../../platform/errors/application-error.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import { expireRecommendationCandidate } from '../domain/recommendation-lifecycle.js';
+import type {
+  EmbellishmentRunResult,
+  RecommendationExplanationEmbellisher,
+} from './embellish-recommendation-explanations.js';
 import type {
   EvaluateGardenRecommendationsInput,
   EvaluateGardenRecommendationsResult,
@@ -98,6 +114,8 @@ export interface RecommendationEvaluationSweepResult {
   readonly candidatesExpired: number;
   /** Gardens skipped after a concurrent-writer revision conflict — retried next run. */
   readonly lostRaces: number;
+  /** The AI-embellishment phase's own summary (P7-AI-01); `null` whenever the kill-switch keeps the phase from existing at all. */
+  readonly embellishment: EmbellishmentRunResult | null;
 }
 
 export class RunRecommendationEvaluationSweep {
@@ -105,6 +123,8 @@ export class RunRecommendationEvaluationSweep {
     private readonly gardens: EvaluationGardenSource,
     private readonly evaluateGardenRecommendations: GardenRecommendationEvaluator,
     private readonly unitOfWork: TasksRecommendationsUnitOfWork,
+    /** `null` = AI explanation switched off: the phase is skipped structurally, zero provider calls (the P7-AI-01 kill-switch). */
+    private readonly embellisher: RecommendationExplanationEmbellisher | null,
     private readonly clock: Clock,
   ) {}
 
@@ -149,12 +169,17 @@ export class RunRecommendationEvaluationSweep {
 
     const expiry = await this.expirePassedWindowCandidates();
 
+    // After expiry, so just-expired candidates are not selected — see the
+    // header's third-phase comment.
+    const embellishment = this.embellisher === null ? null : await this.embellisher.execute();
+
     return {
       gardensEvaluated,
       candidatesCreated,
       candidatesSuperseded,
       candidatesExpired: expiry.expired,
       lostRaces: lostRaces + expiry.lostRaces,
+      embellishment,
     };
   }
 

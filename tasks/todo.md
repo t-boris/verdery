@@ -4730,3 +4730,172 @@ layers: pure domain decisions, the use case over fakes, and real PostgreSQL end 
 - Web suite: 62 files / 518 tests, untouched and green.
 - Root `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `node scripts/check-file-size.mjs`,
   and `bash -n` on `deploy-workers.sh` all clean.
+
+## Stage 24 — P7-AI-01, implementation complete
+
+The bounded Vertex AI explanation embellishment is real and switched OFF everywhere — section 3's
+"optional Vertex AI bounded explanation" step, shipped whole behind the
+`RECOMMENDATION_AI_EXPLANATION_ENABLED` kill-switch: the provider port and REAL `@google/genai`
+adapter in `integrations` (the module that owns provider adapters), the section-10 AI-explanation
+record and the bilingual bounded validation in `tasks-recommendations` (the module that owns
+explanations), the sweep's asynchronous embellishment phase, Today serving of accepted
+embellishments with the explanation-source flag, and the two acceptance artifacts the work package
+names: the bilingual evaluation harness (`tests/ai-explanation-fixtures/`) and the rollback
+evidence (kill-switch off restores the exact baseline response with provably zero provider
+calls). Live Vertex enablement is deliberately NOT this stage's (the coordinator's standing
+confirmation gate — no Vertex API is enabled on verdery-dev and no environment sets the switch).
+
+### Key decisions
+
+- **SDK: `@google/genai`, because the obvious one is deprecated.** Google's own README for
+  `@google-cloud/vertexai` declares it deprecated with removal dated June 24, 2026 — already past —
+  naming the Google Gen AI SDK as successor, so `@google/genai` (Vertex mode:
+  `vertexai: true` + project + location, Application Default Credentials, no long-lived keys) is
+  the boring supported choice, the way `@google-cloud/storage`/`@google-cloud/tasks` were for
+  ADR-0002/ADR-0006; ADR-0008 is the platform commitment this dependency implements. And because
+  ADR-0008 DECIDES the provider, there is deliberately no provider registry (unlike weather and
+  plant-content, whose vendors are undecided P0-PROV-01 evaluations): one port, one real adapter,
+  fakes for everything else — a registry of alternative AI vendors would be dead machinery.
+- **The module split follows ownership, not convenience.** backend-modular-monolith 6.9 gives
+  `integrations` "provider adapters" — so the port (`ai-explanation-provider.ts`), the bounded call
+  machinery (`GenerateAiExplanation`: budget consumed BEFORE every call through the Stage 22
+  capability-neutral `provider_quota_usage` accounting, `withDeadline` timeout, typed
+  `noProviderConfigured`/`quotaExhausted`/`providerTimeout`/`providerFailed` degradations — the
+  `RefreshGardenWeather` posture exactly), and the Vertex adapter live there, with
+  `GenerateAiExplanation` exported cross-module on the `GetGardenWeather` injection precedent.
+  6.5 gives `tasks-recommendations` "explanations" — so the semantic validation, the verdict
+  record, the embellishment use case, and serving live there. The adapter owns transport and the
+  output SCHEMA (constrained generation via `responseSchema` + a strict zod parse of what actually
+  returned — the model is constrained AND never trusted); the consumer owns MEANING.
+- **The rejection rules are structural and bilingual — the phase exit criterion made mechanical.**
+  `validateAiExplanationDraft` implements section 9's list as pure functions of the draft and the
+  candidate's own stored content, in first-failure order: hard length bound (section 8's
+  "concise"); the draft's claimed evidence keys must be a non-empty subset of the packet actually
+  sent (`unknown_evidence_reference`); the bilingual PROHIBITED lexicon (section 13's excluded
+  categories as en+ru word stems and exact forms — chemical, dosing, medical, emergency, disease,
+  pest, structural, electrical, legal) rejects regardless of any baseline; the ACTION-CONCEPT
+  lexicon (watering, checking, harvesting, covering, pruning, fertilizing, spraying, transplanting,
+  removal, moving — each with en+ru stems) permits a concept ONLY when the candidate's OWN
+  deterministic baseline (stored explanation + action title) names it, which is what makes "the
+  baseline is the action vocabulary" literal — a Russian «полив» is permitted against an English
+  "watering" baseline through the shared concept, and the same word is rejected on the observation
+  rule whose baseline has no watering; and every numeric token (decimal comma normalized) must
+  appear in the baseline or the packet's fact values (`unsupported_fact` — invented quantities,
+  schedules, and thresholds all die here). The documented bias is over-rejection: every ambiguity
+  ("полей" the imperative vs. the genitive of «поле») resolves toward rejecting, because rejection
+  falls back to the always-correct deterministic text while the opposite error violates the exit
+  criterion. What lexicons cannot catch (spelled-out numerals, unlisted action phrasings) is named
+  honestly in the harness README as the human evaluation's residual.
+- **The verdict record is section 10's field list, append-only, one per (candidate, locale).**
+  `tasks_recommendations.recommendation_ai_explanation`
+  (migration `1786100000000_recommendation-ai-explanation.sql`): provider key, model, prompt
+  template version (the versioned identity evaluation replays by — section 18), the packet's fact
+  keys (the "evidence references" actually SENT), the generated text (accepted embellishment, or
+  the rejected draft kept for evaluation), and a closed-CHECK validation outcome (`accepted`,
+  `schema_invalid`, `provider_safety_blocked`, and the five semantic rejections). The FALLBACK
+  deterministic text is deliberately NOT duplicated — it is the candidate row's own `explanation`,
+  one authoritative copy. TRANSIENT failures write NO row (section 14's "retry only for safe
+  transient outcomes" — absence doubles as the retry marker), durable verdicts never retry, and
+  the UNIQUE (candidate, locale) index with `ON CONFLICT DO NOTHING` converges concurrent runs.
+  `verdery_worker` gets nothing; content lives in this retained table, never in logs (section 15).
+- **Embellishment runs ASYNC as the sweep's third phase, never in the Today request path.** A user
+  read must not wait on or spend budget for a generative call (section 16's latency budget), and
+  provider calls stay outside database transactions — so `EmbellishRecommendationExplanations`
+  runs after evaluation and expiry in `RunRecommendationEvaluationSweep` (expiry first, so
+  just-expired candidates are not selected): one bounded selection (presentable candidates with a
+  stored explanation and no verdict for the locale — self-draining, self-retrying for transients),
+  the minimal packet built from the candidate's OWN stored content (rule identity, stored
+  explanation, catalog action title, stored evidence facts — nothing else about the garden CAN be
+  sent, section 15), one budgeted+deadlined call each, quota exhaustion stopping the batch (the
+  weather sweep's posture), and one small verdict-write transaction per candidate. Today serving is
+  then a pure read of already-validated stored text. The sweep summary gains an `embellishment`
+  block (attempted/accepted/rejected-by-outcome/transients/lostRaces/stoppedOnQuotaExhaustion —
+  section 17's counters at their source, counts and versions only), `null` while the switch is off.
+- **The kill-switch is structural at three layers, and the version flag lives where each reader
+  needs it.** Off (default, every environment): `main.ts` constructs NO GenAI client (nothing can
+  reach Vertex), composition passes a `null` embellisher (the sweep phase does not exist), and
+  `GetTodayView` never touches the verdict table (the disabled read path IS the baseline read
+  path). On: config validation requires the Vertex project and an explicitly chosen model —
+  `RECOMMENDATION_AI_MODEL` has no code default because a model identifier is a section-16
+  evaluated release decision (`findAiExplanationIssues`, the `findDatabaseModeIssues` shape).
+  The STORED version flag is the verdict row (provider/model/prompt-template versions + outcome);
+  the SERVED flag is the contract's new `explanationSource` (`deterministic`/`ai_embellished`) +
+  nullable `embellishedExplanation` on `TodayRecommendation` — additive, `explanation` remains the
+  deterministic text ALWAYS, so shipped clients keep working unchanged (three web test literals
+  gained the two fields, the Stage 19 `originRecommendationId` mechanic; iOS tolerates additive
+  members, proven in Stage 20). Runtime locale is a documented `'en'` constant — the baseline the
+  embellishment rephrases is English rule content and no surface negotiates a locale yet; Russian
+  runtime generation is recorded in deferred-capabilities.md as a serving-surface decision, while
+  the validation machinery is bilingual TODAY.
+- **The bilingual evaluation harness is the acceptance artifact, built like the rule-fixture
+  suite.** `tests/ai-explanation-fixtures/`: 25 fixtures across the four launch rules, each
+  driving one constructed model draft through the REAL `validateAiExplanationDraft` against the
+  rule's REAL rendered baseline, verdict pinned with deep equality — per rule, accepted AND
+  rejected cases in BOTH languages (a meta-test enforces exactly that), adversarial cases for
+  injected extra actions (including plausible folklore like watering-before-frost), chemical and
+  dosage suggestions, disease/medical/electrical content, invented quantities, hallucinated
+  evidence references, prompt-injection-shaped drafts, and runaway length. The README maps every
+  section-16 requirement to its location and defines what the HUMAN evaluation pass adds — the
+  same "the harness ships, the human review is flagged" posture as the rule catalog.
+- **Rollback evidence, end to end.** The integration suite proves: baseline Today captured with
+  the switch off → sweep with the switch on embellishes (verdict row with full provenance, served
+  item carries `ai_embellished` + the text, deterministic `explanation` untouched) → re-run
+  selects nothing and calls nothing (duplicate safety) → switch off again returns a response
+  `toEqual` the pre-AI baseline with the adapter's call count unmoved — plus the budget test
+  (typed exhaustion stops the batch, the same window stays exhausted, the next hour window drains
+  the remainder) and the rejection test (prohibited draft recorded, deterministic text keeps
+  serving, no re-attempt). Unit level: zero verdict-table reads with serving off, a null
+  embellisher in the sweep, and no budget consumption without an adapter.
+
+### Fixed in place (not deferred)
+
+1. The prohibited lexicon's first draft used bare prefix stems where Russian and English
+   short words over-match («яд» would match «ядро», `law` would match "lawn", «доз» would match
+   «дозревание» — a harvest word): the term-set model gained exact-word entries alongside prefix
+   stems, the risky short terms moved there, and the mechanics are pinned by dedicated
+   lexicon-matching tests.
+2. `main.ts`'s first adapter construction passed `project: string | undefined` into the SDK's
+   exact-optional-typed options; rewritten as explicit narrowing on the config fields the loader
+   already guarantees when enabled, so the types state the invariant instead of casting past it.
+3. The first full-suite run failed two PRE-EXISTING tests that pin the sweep summary with deep
+   equality (`media-processing-callback-route.test.ts`'s all-zero summary and
+   `recommendation-evaluation-sweep.test.ts`'s duplicate-trigger pair) — the new `embellishment`
+   field is exactly what deep-equality pinning exists to catch. Both assertions gained
+   `embellishment: null` with the kill-switch-off reasoning inline; re-run green.
+
+### Known limitations, deliberately deferred (recorded in `deferred-capabilities.md`)
+
+- Live Vertex enablement: API/IAM enablement on verdery-dev, the model choice, and the
+  section-16 HUMAN evaluation pass over real model outputs (bilingual, per rule) — the
+  coordinator's explicit gate; the harness README defines what that pass adds.
+- Russian RUNTIME generation — a locale-negotiated serving surface (or localized rule content) is
+  the stage that flips the documented `'en'` constant; validation is bilingual already.
+- Section 8's other approved AI use cases (observation classification, content extraction, the
+  conversational assistant) — no current work package builds them.
+
+### Verification evidence
+
+- Full API suite: 173 files / 1228 tests before → **181 files / 1319 tests** after (+8 files /
+  +91 tests): `generate-ai-explanation.test.ts` (7 — budget-before-call, timeout abort,
+  kill-switch zero-consumption), `vertex-ai-explanation-adapter.test.ts` (16 — request shaping
+  incl. the minimal packet and explicit safety settings, response validation over constructed SDK
+  response shapes incl. six schema violations and three safety-block paths),
+  `ai-explanation.test.ts` (4), `ai-explanation-validation.test.ts` (16 — the bilingual rejection
+  matrix plus lexicon mechanics), `embellish-recommendation-explanations.test.ts` (7),
+  the 26-test bilingual fixture harness, the migration suite (5 — every CHECK, the uniqueness
+  race, grants, down), and the real-PostgreSQL integration suite (3 — the end-to-end
+  accepted/rollback flow, rejection fallback, budget exhaustion and drainage), plus the extended
+  Today/sweep/config suites (+7 across `get-today-view`, `run-recommendation-evaluation-sweep`,
+  and `load-configuration`); all green, real Docker. (The final full run hit one Testcontainers
+  container-startup flake in the untouched `integrations-weather.test.ts` — ports never exposed
+  under ~180 parallel Docker suites; the file re-ran green in isolation alongside the two
+  fixed-in-place suites.)
+- Rollback-count ripple applied: all fifteen earlier rollback-testing migration suites bumped +1
+  (2 through 16) with their range comments naming `recommendation-ai-explanation` as the new top.
+- `@verdery/api-contracts`: redocly lint clean, `generate:check` clean, 29 contract tests pass
+  (`TodayRecommendation` gains required `explanationSource` + nullable `embellishedExplanation`).
+- Workers suite: 20 files / 117 tests, green (the sweep-summary mirror gained the additive
+  `embellishment` field; no behavior change). Web suite: 62 files / 518 tests, green (three
+  Today literals gained the two additive fields).
+- `pnpm --filter @verdery/api build`, root `pnpm typecheck`, `pnpm lint`, `pnpm format:check`,
+  `node scripts/check-file-size.mjs` all clean.

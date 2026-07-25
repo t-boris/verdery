@@ -56,6 +56,19 @@
  * `generated -> eligible` transition at creation; the postponed-prior
  * re-surfacing rule joins the engine (`rule-evaluation.ts`, phase 4).
  *
+ * P7-AI-01 adds the bounded AI-explanation half of section 10: the
+ * AI-explanation record (per-candidate/locale verdict rows carrying
+ * provenance versions, evidence references, generated text, validation
+ * outcome), the bilingual deterministic validation
+ * (`validateAiExplanationDraft` over the action-concept and
+ * prohibited-content lexicons), the sweep-driven
+ * `EmbellishRecommendationExplanations` phase, and the Today serving of
+ * accepted embellishments behind the `RECOMMENDATION_AI_EXPLANATION_ENABLED`
+ * kill-switch (off everywhere today — pure deterministic behavior, zero
+ * Vertex calls). The provider machinery itself lives in `integrations`
+ * (`GenerateAiExplanation`, the Vertex adapter), the module that owns
+ * provider adapters.
+ *
  * Source: architecture/backend-modular-monolith.md, section "5.5 Public Interface".
  */
 
@@ -177,6 +190,34 @@ export type {
 } from './domain/rule-evaluation.js';
 export { createLaunchRuleCatalog } from './domain/rules/launch-rule-catalog.js';
 
+// P7-AI-01: the AI-explanation record, its bilingual bounded validation,
+// and the lexicons behind it.
+export {
+  AI_EXPLANATION_LOCALES,
+  AI_EXPLANATION_VALIDATION_OUTCOMES,
+  createAiExplanationRecord,
+} from './domain/ai-explanation.js';
+export type {
+  AiExplanationRecord,
+  AiExplanationRejectionOutcome,
+  AiExplanationValidationOutcome,
+  CreateAiExplanationRecordInput,
+} from './domain/ai-explanation.js';
+export {
+  MAX_EMBELLISHED_EXPLANATION_LENGTH,
+  validateAiExplanationDraft,
+} from './domain/ai-explanation-validation.js';
+export type {
+  AiExplanationValidationInput,
+  AiExplanationValidationVerdict,
+} from './domain/ai-explanation-validation.js';
+export {
+  ACTION_CONCEPTS,
+  PROHIBITED_CATEGORIES,
+  findProhibitedCategory,
+  scanActionConcepts,
+} from './domain/ai-explanation-lexicon.js';
+
 export type { TaskRepository } from './application/task-repository.js';
 export type { TaskAttachmentRepository } from './application/task-attachment-repository.js';
 export type {
@@ -244,6 +285,17 @@ export {
   TODAY_DEFAULT_LIMIT,
   TODAY_MAX_LIMIT,
 } from './application/get-today-view.js';
+export type { AiExplanationServingPolicy } from './application/get-today-view.js';
+export type { AiExplanationRecordRepository } from './application/ai-explanation-record-repository.js';
+export {
+  EMBELLISHMENT_BATCH_LIMIT,
+  EmbellishRecommendationExplanations,
+} from './application/embellish-recommendation-explanations.js';
+export type {
+  AiExplanationGenerator,
+  EmbellishmentRunResult,
+  RecommendationExplanationEmbellisher,
+} from './application/embellish-recommendation-explanations.js';
 export {
   CompleteRecommendation,
   DismissRecommendation,
@@ -275,4 +327,5 @@ export { KyselyTasksRecommendationsUnitOfWork } from './persistence/kysely-tasks
 export { KyselyRuleVersionRepository } from './persistence/kysely-rule-version-repository.js';
 export { KyselyRecommendationCandidateRepository } from './persistence/kysely-recommendation-candidate-repository.js';
 export { KyselyEvaluationGardenSource } from './persistence/kysely-evaluation-garden-source.js';
+export { KyselyAiExplanationRecordRepository } from './persistence/kysely-ai-explanation-record-repository.js';
 export type { TasksRecommendationsDatabaseSchema } from './persistence/schema.js';

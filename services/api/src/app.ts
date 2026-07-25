@@ -22,6 +22,7 @@ import { composeNotifications } from './compose-notifications.js';
 import { composeSynchronization } from './compose-synchronization.js';
 import { composeTasksRecommendations } from './compose-tasks-recommendations.js';
 import { registerWeatherRefreshSweepRoute } from './modules/integrations/public.js';
+import type { AiExplanationProviderAdapter } from './modules/integrations/public.js';
 import { registerGardenRoutes, registerMapRoutes } from './modules/gardens-mapping/public.js';
 import {
   KyselyIdentityProviderLinkRepository,
@@ -120,6 +121,14 @@ export interface ApplicationDependencies {
    * tests substitute a fake.
    */
   readonly cloudTasksInvocationVerifier: CloudTasksInvocationVerifier;
+  /**
+   * P7-AI-01: the Vertex AI explanation adapter, or `null` whenever the
+   * `RECOMMENDATION_AI_EXPLANATION_ENABLED` kill-switch is off (every
+   * environment today). Same "port arrives already constructed" shape as
+   * `mediaStorageGateway`; `null` here means no code path can reach
+   * Vertex at all — the strongest form of the rollback guarantee.
+   */
+  readonly aiExplanationAdapter: AiExplanationProviderAdapter | null;
 }
 
 /**
@@ -142,6 +151,7 @@ export async function buildApplication(
     clock,
     mediaStorageGateway,
     cloudTasksInvocationVerifier,
+    aiExplanationAdapter,
   } = dependencies;
 
   const app = Fastify({
@@ -363,16 +373,21 @@ export async function buildApplication(
     searchTaxonomyReferences,
   };
 
-  // integrations (P7-ASYNC-01): the weather registry (zero registrations —
-  // P0-PROV-01 undecided), both weather use cases, and the scheduled
-  // weather-refresh sweep + internal route. Split into
-  // `compose-integrations.ts` for the same 600-line reason as its siblings.
-  const { getGardenWeather, weatherRefreshSweepRouteDependencies } = composeIntegrations(
-    database,
-    clock,
-    configuration.weather,
-    cloudTasksInvocationVerifier,
-  );
+  // integrations (P7-ASYNC-01, P7-AI-01): the weather registry (zero
+  // registrations — P0-PROV-01 undecided), both weather use cases, the
+  // scheduled weather-refresh sweep + internal route, and the bounded
+  // AI-explanation call machinery around the (usually null) Vertex
+  // adapter. Split into `compose-integrations.ts` for the same 600-line
+  // reason as its siblings.
+  const { getGardenWeather, generateAiExplanation, weatherRefreshSweepRouteDependencies } =
+    composeIntegrations(
+      database,
+      clock,
+      configuration.weather,
+      configuration.aiExplanation,
+      aiExplanationAdapter,
+      cloudTasksInvocationVerifier,
+    );
 
   // tasks-recommendations: task commands (tag `Tasks`), the scheduled
   // recommendation-evaluation sweep (P7-ASYNC-01), and the Today surface —
@@ -392,6 +407,8 @@ export async function buildApplication(
     gardenAuthorization,
     getObservation,
     getGardenWeather,
+    generateAiExplanation,
+    configuration.aiExplanation.enabled,
     cloudTasksInvocationVerifier,
   );
 

@@ -32,6 +32,16 @@
  * P7-INT-01-before-P7-ASYNC-01 posture. See
  * `docs/development/deferred-capabilities.md`.
  *
+ * P7-AI-01 lands the module's third capability: the AI-explanation
+ * provider port, the `GenerateAiExplanation` bounded-call machinery
+ * (budget, deadline, typed degradations), and the REAL Vertex adapter
+ * over `@google/genai` — the first capability here whose vendor is
+ * decided (ADR-0008 commits to Vertex AI), so it ships an adapter and no
+ * registry. Runtime state everywhere today: the
+ * `RECOMMENDATION_AI_EXPLANATION_ENABLED` kill-switch is off, no client
+ * is constructed, and every call path answers with the typed
+ * `noProviderConfigured` degradation.
+ *
  * Source: architecture/backend-modular-monolith.md, sections "5.5 Public
  * Interface" and "6.9 Integrations".
  */
@@ -160,6 +170,39 @@ export type {
   GetPlantContentResult,
   PlantContentAbsenceReason,
 } from './application/get-plant-content.js';
+
+// P7-AI-01: the AI-explanation capability — the provider-neutral port,
+// the bounded call machinery (budget + deadline + typed degradations),
+// and the real Vertex adapter. `GenerateAiExplanation` is consumed by
+// tasks-recommendations' embellishment use case (the `GetGardenWeather`
+// cross-module use-case injection precedent); the adapter itself is
+// constructed only by `main.ts`, and ONLY when the
+// `RECOMMENDATION_AI_EXPLANATION_ENABLED` kill-switch is on — off (every
+// environment today) means no client, no adapter, zero Vertex calls.
+export type {
+  AiExplanationAdapterOutcome,
+  AiExplanationDraft,
+  AiExplanationEvidenceFact,
+  AiExplanationLocale,
+  AiExplanationModelIdentity,
+  AiExplanationProviderAdapter,
+  AiExplanationRequest,
+} from './application/ai-explanation-provider.js';
+export { GenerateAiExplanation } from './application/generate-ai-explanation.js';
+export type {
+  AiExplanationCallPolicy,
+  AiExplanationProvenance,
+  AiExplanationUnavailableReason,
+  GenerateAiExplanationResult,
+} from './application/generate-ai-explanation.js';
+export {
+  VERTEX_EXPLANATION_PROMPT_TEMPLATE_VERSION,
+  VertexAiExplanationAdapter,
+} from './persistence/vertex-ai-explanation-adapter.js';
+export type {
+  VertexAiExplanationAdapterConfiguration,
+  VertexGenerativeClient,
+} from './persistence/vertex-ai-explanation-adapter.js';
 
 export { KyselyWeatherRecordRepository } from './persistence/kysely-weather-record-repository.js';
 export { KyselyProviderQuotaRepository } from './persistence/kysely-provider-quota-repository.js';

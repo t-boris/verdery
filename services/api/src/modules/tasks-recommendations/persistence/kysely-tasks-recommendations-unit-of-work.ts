@@ -12,6 +12,7 @@ import type {
   TasksRecommendationsTransactionContext,
   TasksRecommendationsUnitOfWork,
 } from '../application/tasks-recommendations-unit-of-work.js';
+import { KyselyAiExplanationRecordRepository } from './kysely-ai-explanation-record-repository.js';
 import { KyselyRecommendationCandidateRepository } from './kysely-recommendation-candidate-repository.js';
 import { KyselyRuleVersionRepository } from './kysely-rule-version-repository.js';
 import { KyselyTaskAttachmentRepository } from './kysely-task-attachment-repository.js';
@@ -39,6 +40,7 @@ export class KyselyTasksRecommendationsUnitOfWork implements TasksRecommendation
         ruleVersions: new KyselyRuleVersionRepository(trx),
         recommendationCandidates: new KyselyRecommendationCandidateRepository(trx),
         outbox: new KyselyOutboxAppender(trx, this.clock),
+        aiExplanations: new KyselyAiExplanationRecordRepository(trx),
       };
 
       return work(context);

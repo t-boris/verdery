@@ -10,11 +10,14 @@ import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import { GetGardenWeather } from '../../integrations/public.js';
 import type {
+  AiExplanationLocale,
   WeatherFreshnessPolicy,
   WeatherRecord,
   WeatherRecordKind,
   WeatherRecordRepository,
 } from '../../integrations/public.js';
+import type { AiExplanationRecord } from '../domain/ai-explanation.js';
+import type { AiExplanationRecordRepository } from './ai-explanation-record-repository.js';
 import type { RecommendationCandidate } from '../domain/recommendation-candidate.js';
 import type { RecommendationEvidence } from '../domain/recommendation-evidence.js';
 import type { RecommendationFeedback } from '../domain/recommendation-feedback.js';
@@ -315,6 +318,68 @@ export function seedRecommendationCandidate(
     );
   }
   return candidate;
+}
+
+/**
+ * In-memory `AiExplanationRecordRepository` (P7-AI-01) joined against the
+ * candidate fake for the selection read. `readCalls` counts EVERY read —
+ * the kill-switch tests prove "the verdict table is not even read" by it
+ * staying at zero.
+ */
+export class FakeAiExplanationRecordRepository implements AiExplanationRecordRepository {
+  readonly records: AiExplanationRecord[] = [];
+  readCalls = 0;
+
+  constructor(private readonly candidates: FakeRecommendationCandidateRepository) {}
+
+  insertIfAbsent(record: AiExplanationRecord): Promise<boolean> {
+    const exists = this.records.some(
+      (row) => row.candidateId === record.candidateId && row.locale === record.locale,
+    );
+    if (exists) {
+      return Promise.resolve(false);
+    }
+    this.records.push(record);
+    return Promise.resolve(true);
+  }
+
+  listAcceptedForCandidates(
+    candidateIds: readonly Uuid[],
+    locale: AiExplanationLocale,
+  ): Promise<readonly AiExplanationRecord[]> {
+    this.readCalls += 1;
+    const ids = new Set(candidateIds);
+    return Promise.resolve(
+      this.records.filter(
+        (row) =>
+          ids.has(row.candidateId) && row.locale === locale && row.validationOutcome === 'accepted',
+      ),
+    );
+  }
+
+  listEmbellishableCandidateIds(
+    locale: AiExplanationLocale,
+    now: Date,
+    limit: number,
+  ): Promise<readonly Uuid[]> {
+    this.readCalls += 1;
+    const recorded = new Set(
+      this.records.filter((row) => row.locale === locale).map((row) => row.candidateId),
+    );
+    const ids = [...this.candidates.candidates.values()]
+      .filter(
+        (candidate) =>
+          (candidate.state === 'eligible' || candidate.state === 'presented') &&
+          candidate.explanation !== null &&
+          (candidate.windowStart === null || candidate.windowStart.getTime() <= now.getTime()) &&
+          (candidate.windowEnd === null || candidate.windowEnd.getTime() >= now.getTime()) &&
+          !recorded.has(candidate.id),
+      )
+      .map((candidate) => candidate.id)
+      .sort()
+      .slice(0, limit);
+    return Promise.resolve(ids);
+  }
 }
 
 /** In-memory `WeatherRecordRepository` serving `findLatest` by fetch order — enough to back a REAL `GetGardenWeather` (a concrete class, like `GardenAuthorization` in the sibling doubles file). */

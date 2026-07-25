@@ -2874,7 +2874,8 @@ export interface components {
          * @description One Today item: every `Recommendation` field (declared flat, not
          *     via `allOf`, because both schemas forbid additional properties)
          *     plus everything the view alone renders — FR-24's proposed action,
-         *     the re-derived priority score with its stored factors, the
+         *     the explanation source with any served AI embellishment, the
+         *     re-derived priority score with its stored factors, the
          *     structured evidence, and the target's current display name.
          */
         TodayRecommendation: {
@@ -2899,6 +2900,26 @@ export interface components {
             updatedAt: components["schemas"]["Timestamp"];
             /** @description The rule version's suggested action — also the title a conversion gives the task. */
             actionTitle: string;
+            /**
+             * @description Which text explains this item: `ai_embellished` exactly when
+             *     `embellishedExplanation` is present, `deterministic`
+             *     otherwise — including whenever the server-side AI explanation
+             *     switch is off, which restores the pure deterministic response
+             *     wholesale. `explanation` is ALWAYS the deterministic reason
+             *     regardless of this flag; a served embellishment is an
+             *     additional rendering that only rephrases it against the same
+             *     stored evidence, never a replacement and never new advice.
+             * @enum {string}
+             */
+            explanationSource: "deterministic" | "ai_embellished";
+            /**
+             * @description The validated AI rephrasing of `explanation`, when one exists
+             *     and serving is enabled; `null` otherwise. Clients may show it
+             *     in place of `explanation` for readability but must keep the
+             *     deterministic text available — it is the authoritative
+             *     reason.
+             */
+            embellishedExplanation: string | null;
             priorityScore: number;
             priorityFactors: components["schemas"]["RecommendationPriorityFactor"][];
             evidence: components["schemas"]["RecommendationEvidence"][];

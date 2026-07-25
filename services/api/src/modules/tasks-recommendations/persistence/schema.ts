@@ -124,6 +124,25 @@ export interface RecommendationFeedbackRow {
   recorded_at: Generated<Date>;
 }
 
+/**
+ * Append-only per-(candidate, locale) AI-explanation verdicts (P7-AI-01) —
+ * section 10's record: provenance versions, the packet's evidence
+ * references, the generated text, and the validation outcome. See
+ * migrations/1786100000000_recommendation-ai-explanation.sql.
+ */
+export interface RecommendationAiExplanationRow {
+  id: string;
+  candidate_id: string;
+  locale: string;
+  provider_key: string;
+  model: string;
+  prompt_template_version: number;
+  packet_fact_keys: unknown;
+  generated_text: string | null;
+  validation_outcome: string;
+  created_at: Generated<Date>;
+}
+
 export interface TasksRecommendationsDatabaseSchema {
   'tasks_recommendations.task': TaskRow;
   'tasks_recommendations.task_attachment': TaskAttachmentRow;
@@ -133,4 +152,5 @@ export interface TasksRecommendationsDatabaseSchema {
   'tasks_recommendations.recommendation_evidence': RecommendationEvidenceRow;
   'tasks_recommendations.recommendation_priority_factor': RecommendationPriorityFactorRow;
   'tasks_recommendations.recommendation_feedback': RecommendationFeedbackRow;
+  'tasks_recommendations.recommendation_ai_explanation': RecommendationAiExplanationRow;
 }

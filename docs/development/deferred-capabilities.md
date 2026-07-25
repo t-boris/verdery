@@ -189,6 +189,33 @@ read-triggered expiry; idempotent-by-design read/dismiss stamps;
 `GET`/`PUT /notification-preferences` guarded by a document revision starting at 0). Push delivery
 is deliberately absent — see the P7-NOTIF-02 entry below.
 
+Phase 7 now includes P7-AI-01: the bounded Vertex AI explanation embellishment, shipped whole and
+switched OFF everywhere. The integrations module gains its third capability — the provider-neutral
+AI-explanation port, the `GenerateAiExplanation` call machinery (budget consumed before every call
+through the shared `provider_quota_usage` accounting, strict per-call deadline, typed transient
+degradations), and the REAL Vertex adapter over `@google/genai` (the current Google Gen AI SDK;
+the older `@google-cloud/vertexai` is deprecated by Google) using Application Default Credentials,
+a strict JSON response schema, explicit safety settings, and a versioned prompt template.
+tasks-recommendations gains the section-10 AI-explanation record
+(`tasks_recommendations.recommendation_ai_explanation`, migration
+`1786100000000_recommendation-ai-explanation.sql`: one append-only verdict per candidate+locale
+carrying provider/model/prompt-template provenance, the packet's evidence fact keys, the generated
+text, and the validation outcome), the bilingual bounded validation
+(`validateAiExplanationDraft` over en+ru action-concept and prohibited-content lexicons: evidence
+references restricted to the packet, action vocabulary restricted to the candidate's OWN
+deterministic baseline, numeric fact invention rejected, excluded-category vocabulary always
+rejected, hard length bound), the sweep's third phase (`EmbellishRecommendationExplanations` —
+async post-generation, never in the Today request path, quota exhaustion stops the batch,
+transient failures retry next run, verdicts never retry), and Today serving of accepted
+embellishments (`embellishedExplanation` + `explanationSource` on `TodayRecommendation`;
+`explanation` stays the deterministic text always). Everything sits behind the
+`RECOMMENDATION_AI_EXPLANATION_ENABLED` kill-switch, off by default: no GenAI client is
+constructed, the sweep phase does not exist, the Today read path never touches the verdict table,
+and the response is the exact pre-P7-AI-01 baseline — proven end to end by the rollback test in
+`tests/integration/recommendation-ai-explanation.test.ts`. The bilingual evaluation harness lives
+in `tests/ai-explanation-fixtures/` (the section-16 dataset as runnable fixtures); live enablement
+and the human evaluation pass are deliberately deferred — see the P7-AI-01 entry below.
+
 ## What remains deferred, and why
 
 **Staging and production.** Only `verdery-dev` exists. Creating `verdery-staging` and `verdery-prod`
@@ -459,6 +486,26 @@ migration is deliberately cheap by construction: each sweep endpoint is already 
 Cloud Scheduler HTTP job invokes — an OIDC-verified POST returning a structured summary, duplicate-
 and overlap-safe on the API side regardless of what schedules it — so the move is scheduling
 infrastructure plus log-heartbeat relocation only, no API or domain change.
+
+**Live Vertex AI enablement and the human evaluation pass (P7-AI-01 scope boundary).** The whole
+bounded-explanation path ships dark: `RECOMMENDATION_AI_EXPLANATION_ENABLED` defaults to `false`,
+no environment sets it, no Vertex AI API is enabled on `verdery-dev`, and no gcloud script grants
+the runtime service account any Vertex role — live enablement follows the session's standing
+confirmation gate (the FCM posture). Turning it on is deliberately small and explicitly gated on
+TWO things beyond infrastructure: (1) choosing a model — `RECOMMENDATION_AI_MODEL` has no code
+default because a model identifier is a section-16 evaluated release decision; (2) the HUMAN
+evaluation pass recommendations-and-ai.md section 16 requires — a bilingual review of REAL model
+outputs for every launch rule through the shipped validation pipeline, which no agent can
+self-satisfy (the launch-rule catalog's own `awaiting_horticultural_review` honesty posture; the
+machine-checkable half already exists as `services/api/tests/ai-explanation-fixtures/`, whose
+README defines what the human pass adds). Also deliberately not built: Russian RUNTIME generation —
+the validation machinery is bilingual and harness-proven, but the stored deterministic baseline is
+English rule content and no serving surface negotiates a locale yet, so the runtime locale is a
+documented `'en'` constant (`compose-tasks-recommendations.ts`); a locale-negotiated Today (or
+localized rule content) is the stage that flips it. Vertex data-retention/abuse-monitoring settings
+are project-level configuration reviewed at enablement time, alongside section 8's other approved
+AI use cases (observation classification, content extraction, the conversational assistant), none
+of which any current work package builds.
 
 **~~Recommendation notification consumer (`recommendation.candidate_created`)~~ — closed by
 P7-NOTIF-01.** The workers relay now claims the type as its fourth recognized event and forwards

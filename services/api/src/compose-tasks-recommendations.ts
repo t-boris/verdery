@@ -7,16 +7,23 @@
  * Wires three surfaces of one module:
  * - the task commands and routes (P4-BE-03 / P4-CONTRACT-01), unchanged;
  * - the scheduled recommendation-evaluation sweep and its internal
- *   machine-to-machine route (P7-ASYNC-01);
+ *   machine-to-machine route (P7-ASYNC-01), now carrying the optional
+ *   AI-embellishment phase (P7-AI-01) — composed ONLY when the
+ *   `RECOMMENDATION_AI_EXPLANATION_ENABLED` kill-switch is on;
  * - the Today query, the four feedback commands, and the task conversion
  *   (P7-BE-01) — the first client-facing recommendation surface, sharing
  *   the module's one unit of work, idempotency store, and the SAME
  *   `RuleCatalog` instance the evaluation uses, so the versions Today
- *   resolves are exactly the versions evaluation registers.
+ *   resolves are exactly the versions evaluation registers. The Today
+ *   query serves stored AI embellishments behind the same switch.
  */
 
 import type { GardenAuthorization } from './modules/gardens-mapping/public.js';
-import type { GetGardenWeather } from './modules/integrations/public.js';
+import type {
+  AiExplanationLocale,
+  GenerateAiExplanation,
+  GetGardenWeather,
+} from './modules/integrations/public.js';
 import type { GetObservation } from './modules/observations-history/public.js';
 import {
   AttachTaskFile,
@@ -29,6 +36,7 @@ import {
   DismissRecommendation,
   DismissTask,
   EditTask,
+  EmbellishRecommendationExplanations,
   EvaluateGardenRecommendations,
   GetTodayView,
   KyselyEvaluationGardenSource,
@@ -52,6 +60,17 @@ import { KyselyIdempotencyStore } from './platform/idempotency/kysely-idempotenc
 import type { CloudTasksInvocationVerifier } from './platform/tasks/cloud-tasks-invocation-verifier.js';
 import type { Clock } from './shared/time/clock.js';
 
+/**
+ * The one runtime embellishment/serving locale (P7-AI-01): the stored
+ * deterministic baseline is English rule content and no serving surface
+ * negotiates a locale yet, so runtime generation targets the language of
+ * the text it rephrases. The validation machinery is already bilingual
+ * (the `tests/ai-explanation-fixtures/` harness proves both languages);
+ * Russian runtime generation is a serving-surface decision recorded in
+ * deferred-capabilities.md.
+ */
+const RUNTIME_EMBELLISHMENT_LOCALE: AiExplanationLocale = 'en';
+
 export interface TasksRecommendationsComposition {
   readonly taskRoutesDependencies: TaskRoutesDependencies;
   readonly recommendationRoutesDependencies: RecommendationRoutesDependencies;
@@ -64,6 +83,8 @@ export function composeTasksRecommendations(
   gardenAuthorization: GardenAuthorization,
   getObservation: GetObservation,
   getGardenWeather: GetGardenWeather,
+  generateAiExplanation: GenerateAiExplanation,
+  aiExplanationEnabled: boolean,
   cloudTasksInvocationVerifier: CloudTasksInvocationVerifier,
 ): TasksRecommendationsComposition {
   const taskRepository = new KyselyTaskRepository(database.queries);
@@ -122,12 +143,26 @@ export function composeTasksRecommendations(
     getGardenWeather,
     clock,
   );
+  // P7-AI-01: the embellishment phase exists ONLY when the kill-switch is
+  // on — a `null` embellisher means the sweep's third phase is skipped
+  // structurally and zero provider calls can happen (the rollback
+  // guarantee at the composition level, on top of main.ts's null adapter).
+  const embellisher = aiExplanationEnabled
+    ? new EmbellishRecommendationExplanations(
+        unitOfWork,
+        catalog,
+        generateAiExplanation,
+        RUNTIME_EMBELLISHMENT_LOCALE,
+        clock,
+      )
+    : null;
   const recommendationEvaluationSweepRouteDependencies: RecommendationEvaluationSweepRouteDependencies =
     {
       runRecommendationEvaluationSweep: new RunRecommendationEvaluationSweep(
         new KyselyEvaluationGardenSource(database.queries),
         evaluateGardenRecommendations,
         unitOfWork,
+        embellisher,
         clock,
       ),
       cloudTasksInvocationVerifier,
@@ -145,7 +180,13 @@ export function composeTasksRecommendations(
     clock,
   };
   const recommendationRoutesDependencies: RecommendationRoutesDependencies = {
-    getTodayView: new GetTodayView(unitOfWork, gardenAuthorization, catalog, clock),
+    getTodayView: new GetTodayView(
+      unitOfWork,
+      gardenAuthorization,
+      catalog,
+      { enabled: aiExplanationEnabled, locale: RUNTIME_EMBELLISHMENT_LOCALE },
+      clock,
+    ),
     completeRecommendation: new CompleteRecommendation(feedbackCommandDependencies),
     postponeRecommendation: new PostponeRecommendation(feedbackCommandDependencies),
     dismissRecommendation: new DismissRecommendation(feedbackCommandDependencies),

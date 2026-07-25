@@ -156,4 +156,55 @@ describe('loadConfiguration', () => {
       loadConfiguration({ VERDERY_ENVIRONMENT: 'development', DATABASE_CONNECTION_MODE: 'url' }),
     ).toThrowError(ConfigurationError);
   });
+
+  it('defaults the AI-explanation block OFF — the P7-AI-01 kill-switch, the state of every environment', () => {
+    const configuration = loadConfiguration(VALID_ENVIRONMENT);
+
+    expect(configuration.aiExplanation).toEqual({
+      enabled: false,
+      vertexProjectId: null,
+      vertexLocation: 'us-central1',
+      model: null,
+      callTimeoutMs: 10_000,
+      maxOutputTokens: 512,
+      maxCallsPerHour: 50,
+      maxCallsPerDay: 500,
+    });
+  });
+
+  it('parses an enabled AI-explanation block with its required project and model', () => {
+    const configuration = loadConfiguration({
+      ...VALID_ENVIRONMENT,
+      RECOMMENDATION_AI_EXPLANATION_ENABLED: 'true',
+      RECOMMENDATION_AI_VERTEX_PROJECT_ID: 'verdery-dev',
+      RECOMMENDATION_AI_MODEL: 'gemini-2.5-flash',
+      RECOMMENDATION_AI_CALL_TIMEOUT_MS: '5000',
+      RECOMMENDATION_AI_MAX_CALLS_PER_HOUR: '10',
+    });
+
+    expect(configuration.aiExplanation).toEqual({
+      enabled: true,
+      vertexProjectId: 'verdery-dev',
+      vertexLocation: 'us-central1',
+      model: 'gemini-2.5-flash',
+      callTimeoutMs: 5_000,
+      maxOutputTokens: 512,
+      maxCallsPerHour: 10,
+      maxCallsPerDay: 500,
+    });
+  });
+
+  it('rejects enabling AI explanation without a project id and an explicitly chosen model', () => {
+    try {
+      loadConfiguration({
+        ...VALID_ENVIRONMENT,
+        RECOMMENDATION_AI_EXPLANATION_ENABLED: 'true',
+      });
+      expect.unreachable('Enabling without project and model must be rejected');
+    } catch (error) {
+      expect((error as ConfigurationError).variables).toEqual(
+        expect.arrayContaining(['RECOMMENDATION_AI_VERTEX_PROJECT_ID', 'RECOMMENDATION_AI_MODEL']),
+      );
+    }
+  });
 });

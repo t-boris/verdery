@@ -50,7 +50,7 @@ function plant(overrides: Partial<Plant> = {}): Plant {
 
 function makeQuery(
   fakes: ReturnType<typeof createTasksRecommendationsFakes>,
-  options: { authorized?: boolean; catalog?: RuleCatalog } = {},
+  options: { authorized?: boolean; catalog?: RuleCatalog; aiServingEnabled?: boolean } = {},
 ): GetTodayView {
   return new GetTodayView(
     new FakeTasksRecommendationsUnitOfWork(fakes),
@@ -63,8 +63,29 @@ function makeQuery(
           role: 'viewer',
         }),
     options.catalog ?? createLaunchRuleCatalog(),
+    { enabled: options.aiServingEnabled ?? false, locale: 'en' },
     fixedClock(NOW),
   );
+}
+
+/** One accepted verdict row for `candidateId` — what the sweep's embellishment phase stores. */
+function seedAcceptedEmbellishment(
+  fakes: ReturnType<typeof createTasksRecommendationsFakes>,
+  candidateId: string,
+  text: string,
+): void {
+  fakes.aiExplanations.records.push({
+    id: `${candidateId.slice(0, -1)}f`,
+    candidateId,
+    locale: 'en',
+    providerKey: 'vertex-ai-explanation',
+    model: 'fake-explanation-model',
+    promptTemplateVersion: 1,
+    packetFactKeys: ['seed.fact'],
+    generatedText: text,
+    validationOutcome: 'accepted',
+    createdAt: NOW,
+  });
 }
 
 describe('GetTodayView', () => {
@@ -214,5 +235,62 @@ describe('GetTodayView', () => {
     await expect(
       makeQuery(fakes, { authorized: false }).execute(GARDEN_ID, PROFILE_ID, 10),
     ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('serves an accepted embellishment with its source flag when AI serving is enabled — explanation stays the deterministic text', async () => {
+    const fakes = createTasksRecommendationsFakes();
+    seedRecommendationCandidate(fakes.recommendationCandidates, fakes.ruleVersions, {
+      id: CANDIDATE_A,
+      gardenId: GARDEN_ID,
+    });
+    seedRecommendationCandidate(fakes.recommendationCandidates, fakes.ruleVersions, {
+      id: CANDIDATE_B,
+      gardenId: GARDEN_ID,
+    });
+    seedAcceptedEmbellishment(fakes, CANDIDATE_A, 'A friendlier rendering of the stored reason.');
+
+    const today = await makeQuery(fakes, { aiServingEnabled: true }).execute(
+      GARDEN_ID,
+      PROFILE_ID,
+      10,
+    );
+
+    const withRecord = today.items.find((item) => item.id === CANDIDATE_A);
+    expect(withRecord).toMatchObject({
+      explanation: 'Stored deterministic explanation.',
+      explanationSource: 'ai_embellished',
+      embellishedExplanation: 'A friendlier rendering of the stored reason.',
+    });
+    // A candidate without an accepted record stays deterministic even
+    // with serving enabled — fallback is per candidate.
+    const withoutRecord = today.items.find((item) => item.id === CANDIDATE_B);
+    expect(withoutRecord).toMatchObject({
+      explanationSource: 'deterministic',
+      embellishedExplanation: null,
+    });
+  });
+
+  it('kill-switch off: never reads the verdict table and serves every item deterministic — the rollback behavior', async () => {
+    const fakes = createTasksRecommendationsFakes();
+    seedRecommendationCandidate(fakes.recommendationCandidates, fakes.ruleVersions, {
+      id: CANDIDATE_A,
+      gardenId: GARDEN_ID,
+    });
+    // An accepted record EXISTS — and must not be served while the
+    // switch is off.
+    seedAcceptedEmbellishment(fakes, CANDIDATE_A, 'Must not be served.');
+
+    const today = await makeQuery(fakes, { aiServingEnabled: false }).execute(
+      GARDEN_ID,
+      PROFILE_ID,
+      10,
+    );
+
+    expect(today.items[0]).toMatchObject({
+      explanation: 'Stored deterministic explanation.',
+      explanationSource: 'deterministic',
+      embellishedExplanation: null,
+    });
+    expect(fakes.aiExplanations.readCalls).toBe(0);
   });
 });

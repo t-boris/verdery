@@ -44,6 +44,19 @@
  * AUTHORIZATION: `viewGarden`, like every garden read — the presented mark
  * is server bookkeeping riding the read, not a member content edit.
  *
+ * AI EMBELLISHMENT SERVING (P7-AI-01): when — and only when — the
+ * kill-switch is on, the returned items additionally carry any ACCEPTED
+ * stored embellishment (`embellishedExplanation` +
+ * `explanationSource: 'ai_embellished'`), read from the verdict rows the
+ * sweep's embellishment phase wrote. This query NEVER calls the
+ * provider: serving is a read of already-validated stored text, so Today
+ * latency is untouched by Vertex (section 16's latency budget). With
+ * the switch off the verdict table is not even read and every item is
+ * `explanationSource: 'deterministic'` — flipping the switch back off
+ * restores baseline behavior exactly, reads included (the work
+ * package's rollback evidence). `explanation` itself is ALWAYS the
+ * stored deterministic text.
+ *
  * A candidate whose stored (ruleKey, ruleVersion) the catalog no longer
  * ships cannot resolve its `actionTitle` and fails loudly: the catalog's
  * own contract keeps every shipped version forever, so absence is a
@@ -59,6 +72,7 @@ import { InternalError, ConflictError } from '../../../platform/errors/applicati
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import type { GardenAuthorization } from '../../gardens-mapping/public.js';
+import type { AiExplanationLocale } from '../../integrations/public.js';
 import { presentRecommendationCandidate } from '../domain/recommendation-lifecycle.js';
 import type { RecommendationPriorityFactor } from '../domain/recommendation-priority.js';
 import { derivePriorityScoreFromStoredFactors } from '../domain/recommendation-priority.js';
@@ -105,11 +119,18 @@ function compareRanked(a: RankedCandidate, b: RankedCandidate): number {
   return a.stored.candidate.id.localeCompare(b.stored.candidate.id);
 }
 
+/** How the Today view serves AI embellishments — `enabled: false` (the kill-switch off) means the verdict table is never read. */
+export interface AiExplanationServingPolicy {
+  readonly enabled: boolean;
+  readonly locale: AiExplanationLocale;
+}
+
 export class GetTodayView {
   constructor(
     private readonly unitOfWork: TasksRecommendationsUnitOfWork,
     private readonly authorization: GardenAuthorization,
     private readonly catalog: RuleCatalog,
+    private readonly aiServing: AiExplanationServingPolicy,
     private readonly clock: Clock,
   ) {}
 
@@ -150,6 +171,22 @@ export class GetTodayView {
         ranked.map((entry) => entry.stored.candidate.id),
       );
 
+      // Kill-switch off = the verdict table is not read at all — see the
+      // header's serving comment; the disabled read path is the baseline
+      // read path, exactly.
+      const embellishmentByCandidate = new Map<Uuid, string>();
+      if (this.aiServing.enabled) {
+        const acceptedRecords = await context.aiExplanations.listAcceptedForCandidates(
+          ranked.map((entry) => entry.stored.candidate.id),
+          this.aiServing.locale,
+        );
+        for (const record of acceptedRecords) {
+          if (record.generatedText !== null) {
+            embellishmentByCandidate.set(record.candidateId, record.generatedText);
+          }
+        }
+      }
+
       const items: TodayRecommendationResource[] = [];
       for (const entry of ranked) {
         let { candidate } = entry.stored;
@@ -180,9 +217,12 @@ export class GetTodayView {
           );
         }
 
+        const embellishedExplanation = embellishmentByCandidate.get(candidate.id) ?? null;
         items.push({
           ...toRecommendationResource(candidate, entry.stored.ruleKey, entry.stored.ruleVersion),
           actionTitle: definition.actionTitle,
+          explanationSource: embellishedExplanation === null ? 'deterministic' : 'ai_embellished',
+          embellishedExplanation,
           priorityScore: entry.priorityScore,
           priorityFactors: entry.factors.map(toPriorityFactorResource),
           evidence: evidenceRows

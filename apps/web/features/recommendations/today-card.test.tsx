@@ -58,6 +58,8 @@ const ITEM: TodayRecommendation = {
   createdAt: '2026-07-21T09:00:00Z',
   updatedAt: '2026-07-21T09:00:00Z',
   actionTitle: 'Check whether this plant needs watering',
+  explanationSource: 'deterministic',
+  embellishedExplanation: null,
   priorityScore: 45,
   priorityFactors: [
     { kind: 'urgency_window', contribution: 25, basis: { validityWindowDays: 3 } },

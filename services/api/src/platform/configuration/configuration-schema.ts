@@ -151,6 +151,40 @@ export const environmentSchema = z.object({
   WEATHER_ACTIVE_PROVIDER_KEY: z.string().min(1).optional(),
   WEATHER_OBSERVATION_FRESH_FOR_MS: positiveInteger.default(3_600_000),
   WEATHER_FORECAST_FRESH_FOR_MS: positiveInteger.default(21_600_000),
+
+  // P7-AI-01: the bounded Vertex AI explanation embellishment.
+  //
+  // `RECOMMENDATION_AI_EXPLANATION_ENABLED` is the KILL-SWITCH — section
+  // 16's "versioned feature flag" made operational. Off (the default, and
+  // the state of every environment today — no Vertex access is enabled on
+  // verdery-dev): no GenAI client is constructed, the sweep's
+  // embellishment phase does not exist, the Today read path never touches
+  // the verdict table, and behavior is exactly the pre-P7-AI-01 baseline.
+  // Flipping it off IS the rollback; the model/prompt versions stored on
+  // every record are what evaluation compares across flips.
+  //
+  // When enabled, the project id and MODEL are required (checked by
+  // `findAiExplanationIssues` — a model identifier is a section-16
+  // evaluated release decision, so code never invents a default one).
+  // The location defaults to the ADR-0007 regional baseline. Timeout,
+  // token budget, and the two call-budget windows are reasoned defaults
+  // in the established "no number decided yet, pick one and say so"
+  // posture: 10 s bounds a sweep-phase call without hanging the run;
+  // 512 tokens is ample for a "concise" explanation (section 8's token
+  // budget) and, with the call caps, bounds spend per window (calls x
+  // bounded tokens = the cost ceiling, external-integrations.md
+  // section 14).
+  RECOMMENDATION_AI_EXPLANATION_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  RECOMMENDATION_AI_VERTEX_PROJECT_ID: z.string().min(1).optional(),
+  RECOMMENDATION_AI_VERTEX_LOCATION: z.string().min(1).default('us-central1'),
+  RECOMMENDATION_AI_MODEL: z.string().min(1).optional(),
+  RECOMMENDATION_AI_CALL_TIMEOUT_MS: positiveInteger.default(10_000),
+  RECOMMENDATION_AI_MAX_OUTPUT_TOKENS: positiveInteger.default(512),
+  RECOMMENDATION_AI_MAX_CALLS_PER_HOUR: positiveInteger.default(50),
+  RECOMMENDATION_AI_MAX_CALLS_PER_DAY: positiveInteger.default(500),
 });
 
 export type RawEnvironment = z.infer<typeof environmentSchema>;
@@ -187,6 +221,27 @@ export function findDatabaseModeIssues(
     .map((field) => ({
       variable: field,
       message: `Required when DATABASE_CONNECTION_MODE is "${mode}"`,
+    }));
+}
+
+/**
+ * Cross-field rule for the AI-explanation switch, the
+ * `findDatabaseModeIssues` shape (and its same raw-source reasoning):
+ * enabling the capability requires the Vertex project and an explicitly
+ * chosen model — neither has a value code may invent.
+ */
+export function findAiExplanationIssues(
+  source: Readonly<Record<string, string | undefined>>,
+): ConfigurationIssue[] {
+  if (source['RECOMMENDATION_AI_EXPLANATION_ENABLED'] !== 'true') {
+    return [];
+  }
+
+  return (['RECOMMENDATION_AI_VERTEX_PROJECT_ID', 'RECOMMENDATION_AI_MODEL'] as const)
+    .filter((field) => source[field] === undefined)
+    .map((field) => ({
+      variable: field,
+      message: 'Required when RECOMMENDATION_AI_EXPLANATION_ENABLED is "true"',
     }));
 }
 
@@ -251,6 +306,21 @@ export interface WeatherConfiguration {
   readonly forecastFreshForMs: number;
 }
 
+/** P7-AI-01 — see the schema's own comment on the `RECOMMENDATION_AI_*` variables. */
+export interface AiExplanationConfiguration {
+  /** The kill-switch. `false` everywhere today: pure deterministic explanations, zero Vertex calls. */
+  readonly enabled: boolean;
+  /** Present whenever `enabled` (the cross-field check); `null` while disabled. */
+  readonly vertexProjectId: string | null;
+  readonly vertexLocation: string;
+  /** Present whenever `enabled`; `null` while disabled — an explicitly evaluated choice, never a code default. */
+  readonly model: string | null;
+  readonly callTimeoutMs: number;
+  readonly maxOutputTokens: number;
+  readonly maxCallsPerHour: number;
+  readonly maxCallsPerDay: number;
+}
+
 export interface ApplicationConfiguration {
   readonly environment: DeploymentEnvironment;
   readonly serviceVersion: string;
@@ -261,6 +331,7 @@ export interface ApplicationConfiguration {
   readonly firebaseProjectId: string;
   readonly media: MediaConfiguration;
   readonly weather: WeatherConfiguration;
+  readonly aiExplanation: AiExplanationConfiguration;
 }
 
 function toDatabaseConfiguration(raw: RawEnvironment): DatabaseConfiguration {
@@ -319,6 +390,16 @@ export function toApplicationConfiguration(raw: RawEnvironment): ApplicationConf
       activeProviderKey: raw.WEATHER_ACTIVE_PROVIDER_KEY ?? null,
       observationFreshForMs: raw.WEATHER_OBSERVATION_FRESH_FOR_MS,
       forecastFreshForMs: raw.WEATHER_FORECAST_FRESH_FOR_MS,
+    },
+    aiExplanation: {
+      enabled: raw.RECOMMENDATION_AI_EXPLANATION_ENABLED,
+      vertexProjectId: raw.RECOMMENDATION_AI_VERTEX_PROJECT_ID ?? null,
+      vertexLocation: raw.RECOMMENDATION_AI_VERTEX_LOCATION,
+      model: raw.RECOMMENDATION_AI_MODEL ?? null,
+      callTimeoutMs: raw.RECOMMENDATION_AI_CALL_TIMEOUT_MS,
+      maxOutputTokens: raw.RECOMMENDATION_AI_MAX_OUTPUT_TOKENS,
+      maxCallsPerHour: raw.RECOMMENDATION_AI_MAX_CALLS_PER_HOUR,
+      maxCallsPerDay: raw.RECOMMENDATION_AI_MAX_CALLS_PER_DAY,
     },
   };
 }

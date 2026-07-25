@@ -476,14 +476,15 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     await client.end();
 
-    // `count: 5` undoes the four newer migrations
+    // `count: 6` undoes the five newer migrations
     // (1785700000000_integrations-weather-baseline.sql through
-    // 1786000000000_notifications-baseline.sql — the weather
+    // 1786100000000_recommendation-ai-explanation.sql — the weather
     // table only feeds the FK exercised above, and the explanation column
-    // and plant-content/notification tables add nothing this test's own
-    // assertions below check) first, then this migration itself. Update
-    // again the next time a migration is added on top of that one.
-    await migrate(databaseUrl, 'down', 5);
+    // and plant-content/notification/AI-explanation tables add nothing
+    // this test's own assertions below check) first, then this migration
+    // itself. Update again the next time a migration is added on top of
+    // that one.
+    await migrate(databaseUrl, 'down', 6);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

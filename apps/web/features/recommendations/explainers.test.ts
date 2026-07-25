@@ -49,6 +49,8 @@ function todayItem(overrides: Partial<TodayRecommendation>): TodayRecommendation
     createdAt: '2026-07-21T09:00:00Z',
     updatedAt: '2026-07-21T09:00:00Z',
     actionTitle: 'Record a quick condition check for this plant',
+    explanationSource: 'deterministic',
+    embellishedExplanation: null,
     priorityScore: 40,
     priorityFactors: [],
     evidence: [evidence({ sourcePlantId: PLANT_ID })],

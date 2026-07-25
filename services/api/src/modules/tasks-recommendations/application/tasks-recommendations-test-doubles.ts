@@ -45,6 +45,7 @@ import type { Task } from '../domain/task.js';
 import type { TaskStatus } from '../domain/task-lifecycle.js';
 import type { TaskAttachment } from '../domain/task-attachment.js';
 import {
+  FakeAiExplanationRecordRepository,
   FakeRecommendationCandidateRepository,
   FakeRuleVersionRepository,
 } from './recommendation-test-doubles.js';
@@ -428,6 +429,7 @@ export interface TasksRecommendationsFakes {
   readonly ruleVersions: FakeRuleVersionRepository;
   readonly recommendationCandidates: FakeRecommendationCandidateRepository;
   readonly outbox: FakeOutboxAppender;
+  readonly aiExplanations: FakeAiExplanationRecordRepository;
 }
 
 export function createTasksRecommendationsFakes(options?: {
@@ -436,6 +438,7 @@ export function createTasksRecommendationsFakes(options?: {
   observations?: Map<Uuid, Observation>;
 }): TasksRecommendationsFakes {
   const ruleVersions = new FakeRuleVersionRepository();
+  const recommendationCandidates = new FakeRecommendationCandidateRepository(ruleVersions);
   return {
     tasks: new FakeTaskRepository(),
     taskAttachments: new FakeTaskAttachmentRepository(),
@@ -447,8 +450,9 @@ export function createTasksRecommendationsFakes(options?: {
     observations: new FakeObservationRepository(options?.observations),
     syncChanges: new FakeSyncChangeRecorder(),
     ruleVersions,
-    recommendationCandidates: new FakeRecommendationCandidateRepository(ruleVersions),
+    recommendationCandidates,
     outbox: new FakeOutboxAppender(),
+    aiExplanations: new FakeAiExplanationRecordRepository(recommendationCandidates),
   };
 }
 
