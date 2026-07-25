@@ -287,6 +287,19 @@ georeferenced, plan→geographic placement already composes for free — plan→
 calibration transform and local→WGS84 is the georeference — so the missing piece is the
 georeference-authoring capability, its own future work package, not more calibration modeling.
 
+**Care-category vocabulary (P7-DATA-01 scope boundary).** The recommendation data model
+(`1785600000000_recommendations-baseline.sql`) carries a required `care_category` on every
+recommendation candidate, but the column is guarded only by a non-blank CHECK, not a CHECK-enumerated
+vocabulary: `P0-PROD-03`'s "initial care categories" is a still-undecided product selection, and no
+care-category list exists anywhere in this repository's docs or code today — unlike lifecycle stages,
+task states, and urgency levels, which have been live since Phase 4 and are reused verbatim.
+Freezing the glossary is that product decision's job; when it lands, a follow-up migration adds the
+enum CHECK (the same posture `media.processing_job.job_kind` documents for its own not-yet-closed
+vocabulary). Related, and deliberately NOT deferred: restricted-safety-tier rules structurally
+cannot produce candidates (a CHECK plus a composite FK onto `rule_version`'s own tier), and a
+candidate physically cannot exist without evidence (a deferred composite FK checked at COMMIT) —
+both enforced in the schema itself, not convention.
+
 **Break-glass credential rotation procedure.** `07-iam-database-bootstrap.sh` rotates the Postgres
 superuser password on every run and stores it in Secret Manager, but there is no scheduled rotation
 or documented incident procedure for using it. `P8-REL-01` owns operational runbooks generally.

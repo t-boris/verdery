@@ -530,21 +530,18 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving the garden-map-baseline schemas and tables otherwise intact', async () => {
     await client.end();
 
-    // `count: 8` undoes this migration and every migration applied after it
-    // (currently search-indexes, which adds indexes on tables this one
-    // creates; synchronization-baseline, which does not depend on anything
-    // this one creates; media-lifecycle-and-quotas, which extends
-    // `media.media_record` this migration creates and must come down
-    // before it; media-processing-jobs, which references
-    // `media.media_record` too; and media-derivative-identity, which
-    // extends `media.media_record` again). Update this count when a later
-    // migration is added on top.
+    // `count: 9` undoes this migration and every migration applied after it
+    // (currently search-indexes through recommendations-baseline — several
+    // of which extend or reference tables this one creates, e.g. the media
+    // migrations grow `media.media_record` and recommendations-baseline
+    // adds `task.origin_recommendation_id` — so all must unwind first).
+    // Update this count when a later migration is added on top.
     await runner({
       databaseUrl,
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 8,
+      count: 9,
       log: () => {},
     });
 

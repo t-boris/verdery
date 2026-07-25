@@ -248,7 +248,11 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     await client.end();
 
-    await migrate(databaseUrl, 'down', 1);
+    // `count: 2` undoes 1785600000000_recommendations-baseline.sql (the
+    // newest migration — nothing this file's own assertions below check)
+    // first, then this migration itself. Update again the next time a
+    // migration is added on top of that one.
+    await migrate(databaseUrl, 'down', 2);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

@@ -3619,3 +3619,114 @@ refresh/generation via the P6 outbox/Tasks machinery). 5. P7-BE-01 (Today comman
 
 Each stage: implemented, independently verified, committed, pushed, CI-confirmed green — the
 established per-stage discipline.
+
+## Stage 15 — P7-DATA-01, implementation complete
+
+The recommendation data model is real: versioned rule identities, recommendation candidates with
+the section-6 presentation lifecycle, structured evidence a candidate physically cannot exist
+without, priority factors, an append-only feedback trail, supersession history, and the completed
+`task.origin_recommendation_id` deferral — pure PostgreSQL + domain logic, exactly the role
+P6-DATA-01 played for Phase 6. No HTTP route, no engine, no scheduler, nothing wired into
+`app.ts`; the rule engine (P7-RULE-01), scheduled generation (P7-ASYNC-01), and Today commands
+(P7-BE-01) are the stages that will consume this surface.
+
+### Key decisions
+
+- **Grew `tasks-recommendations`, no parallel module.** The Phase 4 baseline migration's own
+  comment on `task` settled this before the stage began: "`origin_recommendation_id`: the
+  Recommendation entity does not exist yet — Phase 4 populates only the task side of
+  `tasks_recommendations`." The schema is named for both halves; this stage populates the
+  recommendation half of the SAME schema and module (five new tables in
+  `migrations/1785600000000_recommendations-baseline.sql`, six new domain files, row types in the
+  module's own `persistence/schema.ts`) — and completes that deferred column at the first moment
+  its FK target exists, with a full equivalence CHECK
+  (`(source = 'suggested') = (origin_recommendation_id IS NOT NULL)`) proven safe by three
+  independent facts recorded in the migration (only `CreateManualTask` inserts tasks and hardcodes
+  `'manual'`; no update path can change `source`; sync routes through the same command).
+- **Evidence is physically required, not conventionally.** The exit criterion "Every
+  recommendation references structured evidence and a rule version" is enforced in the schema
+  itself: `recommendation_candidate.primary_evidence_id` is NOT NULL and closes into a DEFERRABLE
+  INITIALLY DEFERRED composite FK `(id, primary_evidence_id) → recommendation_evidence
+(candidate_id, id)` after both tables exist (the `plant`/`plant_identification` two-step, plus
+  deferral). A candidate committed without at least one evidence row of its OWN fails at COMMIT —
+  the migration test proves both the bare-insert rejection and the explicit-transaction
+  COMMIT-time rejection, and that a candidate cannot designate another candidate's evidence as its
+  primary. The rule-version half is a plain NOT NULL composite FK. The domain mirrors both:
+  `createRecommendationCandidate` takes a non-empty evidence list and returns candidate + evidence
+  as one aggregate.
+- **Restricted-tier exclusion is structural, from day one.** Section 13's "Restricted ...
+  require dedicated policy and may be excluded from generated recommendations" plus this phase's
+  own planning note ("safety-tier exclusions enforced structurally regardless") became:
+  `rule_version.safety_tier` (the one piece of rule metadata this data model itself needs — all
+  catalog content stays P7-RULE-01's), a candidate-side `safety_tier` pinned to the rule's own
+  tier by composite FK `(rule_version_id, safety_tier) → rule_version (id, safety_tier)` (a
+  candidate cannot lie about its tier — tested), and a CHECK admitting only
+  `ordinary_care`/`elevated_risk`. A future dedicated policy relaxes the CHECK by migration;
+  unsafe rows never exist meanwhile.
+- **Presentation state machine** (`domain/recommendation-lifecycle.ts`, media-lifecycle's gated
+  shape): `generated → eligible → presented → completed | postponed | rejected | expired |
+superseded`, with exactly two deliberately-added undrawn edges, documented in the file header
+  with textual grounds (the `scheduleStaleMediaUploadDeletion` precedent): `generated`/`eligible`
+  → `expired` (a never-presented candidate whose window passed must be closable — section 17
+  freshness) and `generated`/`eligible` → `superseded` (regeneration replaces stale candidates
+  whether or not shown — section 17 duplication; section 6 places no presented-first condition on
+  the prior record). `postponed` is terminal HERE: the diagram draws no out-edge, and re-surfacing
+  is modeled as a NEW superseding candidate, preserving the original's evidence and feedback
+  unmodified. `presented_at` is pinned by a two-implication CHECK (pre-presentation states forbid
+  it, post-presentation user outcomes require it, `expired`/`superseded` admit both) — written as
+  implications, not a state whitelist, so state VOCABULARY stays the state CHECK's single concern.
+- **Supersession is the `derived_from_media_id`/`corrects_observation_id` direction**: the NEWER
+  candidate carries `supersedes_candidate_id` pointing backward ("A superseding recommendation
+  references the prior record", literally), the prior row's state becomes `superseded`. The
+  composite FK through `(garden_id, ...)` makes cross-garden supersession physically impossible,
+  a partial UNIQUE index caps history at one successor per prior record (a walkable chain, not a
+  tree), and self-supersession is CHECK-rejected.
+- **Vocabularies map the doc's own bullets one-to-one.** Evidence kinds are section 4's input
+  list (nine kinds; the paired "Recent observations and tasks" bullet splits in two; the
+  "rule and content versions" bullet is deliberately NOT an evidence kind — the candidate already
+  pins it as `rule_version_id`). Priority-factor kinds are section 7's list (eight; "Safety and
+  seasonal constraints" splits the same way), one row per kind per candidate (UNIQUE), value
+  jsonb-open because section 7 leaves "score OR ordered category" to the engine. Feedback kinds
+  are FR-24's four controls (`completed`/`postponed`/`dismissed`/`irrelevant` — P7-BE-01's own
+  command list), with the `dismissed`-feedback ↔ `rejected`-state pairing documented, not fused.
+  Urgency reuses the task table's four live levels verbatim. Safety tiers are section 13's three
+  headings.
+- **`care_category` is required but not enum-CHECKed** — the one honest gap: P0-PROD-03's
+  "initial care categories" is an undecided product selection and NO care-category vocabulary
+  exists anywhere in this repository, unlike every vocabulary above. Non-blank CHECK now
+  (`processing_job.job_kind`'s documented posture), enum CHECK when the glossary freezes.
+  Recorded in `deferred-capabilities.md`.
+- **Weather evidence is a bare `source_weather_record_id` uuid** — normalized weather records are
+  P7-INT-01's table; the column exists now so the row shape needs no second migration (the
+  `capture_session_id` precedent, cited in the migration); the FK arrives with that stage.
+- **No repository, no `app.ts` change** — the quota-reservation precedent exactly: domain types,
+  pure functions, row types, public.ts exports, and nothing else until a stage has a command to
+  wire. `verdery_worker` gets NO grants (no worker touches recommendations; P7-ASYNC-01 names
+  what its relay needs when it exists) — asserted by a real negative privilege test.
+
+### Fixed in place (not deferred)
+
+1. The new migration test grew past the 600-line limit — split into
+   `recommendations-baseline.test.ts` (core: rule versions, evidence enforcement, candidate
+   CHECKs, supersession, rollback) and `recommendations-baseline-outcomes.test.ts` (priority,
+   feedback, task conversion, privileges), each self-containing its fixtures like every sibling.
+2. `media-lifecycle-and-quotas.test.ts`'s rollback comment listed only three of the four
+   migrations its `count: 5` actually unwound (missing `imported-background-details`) — corrected
+   while performing this stage's bump to 6; the stale lists in
+   `plants-observations-tasks-baseline`/`garden-map-baseline`/`identity-and-gardens-baseline` were
+   rewritten as ranges so they cannot silently rot again.
+3. The `presented_at` CHECK's first draft was a three-branch whitelist that also policed state
+   vocabulary, so an unknown state tripped the wrong constraint (caught by this stage's own
+   migration test) — rewritten as two implications with the reasoning in the migration comment.
+
+### Verification evidence
+
+- Full API suite: 120 files / 794 tests before → **128 files / 856 tests** after (+62: six domain
+  test files and two Testcontainers migration suites), all green, real Docker.
+- Migration proven up (all 14 recommendation assertions), constraint-by-constraint (every CHECK,
+  both composite FKs, the deferred-FK COMMIT rejection, the cross-garden and double-successor
+  rejections, both halves of the task-origin equivalence), and down (`count: 1` rollback drops the
+  five tables and the task column; earlier rows survive) — plus the rollback-count ripple: all ten
+  earlier migration tests bumped (+1 each, 2 through 11) per the Stage 6-documented mechanic.
+- Root `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `node scripts/check-file-size.mjs` all
+  clean.

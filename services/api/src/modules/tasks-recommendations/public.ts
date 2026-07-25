@@ -25,6 +25,14 @@
  * command was needed — every route maps onto a command or query this module
  * already had.
  *
+ * P7-DATA-01 adds the recommendation data model's domain surface (rule
+ * versions, candidates, evidence, lifecycle transitions, priority factors,
+ * feedback) — pure types and functions only. No application command,
+ * repository, or route touches these tables yet: the rule engine
+ * (P7-RULE-01), scheduled generation (P7-ASYNC-01), and Today commands
+ * (P7-BE-01) are the stages that will, mirroring how `media`'s
+ * quota-reservation domain shipped mechanism-only in P6-DATA-01.
+ *
  * Source: architecture/backend-modular-monolith.md, section "5.5 Public Interface".
  */
 
@@ -40,6 +48,60 @@ export type {
 } from './domain/task.js';
 export type { TaskStatus, TaskTerminalStatus } from './domain/task-lifecycle.js';
 export type { TaskAttachment } from './domain/task-attachment.js';
+
+export {
+  createRuleVersion,
+  validateRuleKey,
+  validateRuleVersionNumber,
+} from './domain/rule-version.js';
+export type {
+  CreateRuleVersionInput,
+  RecommendationSafetyTier,
+  RuleVersion,
+} from './domain/rule-version.js';
+export {
+  createRecommendationCandidate,
+  requireGeneratableSafetyTier,
+  validateCareCategory,
+  validateRecommendationTarget,
+  validateRecommendationWindow,
+} from './domain/recommendation-candidate.js';
+export type {
+  CreateRecommendationCandidateInput,
+  RecommendationCandidate,
+  RecommendationCandidateAggregate,
+  RecommendationTarget,
+  RecommendationTargetKind,
+  RecommendationUrgency,
+} from './domain/recommendation-candidate.js';
+export type {
+  NewRecommendationEvidence,
+  RecommendationEvidence,
+  RecommendationEvidenceKind,
+} from './domain/recommendation-evidence.js';
+export {
+  LIVE_RECOMMENDATION_CANDIDATE_STATES,
+  completeRecommendationCandidate,
+  expireRecommendationCandidate,
+  markRecommendationCandidateEligible,
+  postponeRecommendationCandidate,
+  presentRecommendationCandidate,
+  rejectRecommendationCandidate,
+  supersedeRecommendationCandidate,
+} from './domain/recommendation-lifecycle.js';
+export type { RecommendationCandidateState } from './domain/recommendation-lifecycle.js';
+export { createRecommendationPriorityFactors } from './domain/recommendation-priority.js';
+export type {
+  NewRecommendationPriorityFactor,
+  RecommendationPriorityFactor,
+  RecommendationPriorityFactorKind,
+} from './domain/recommendation-priority.js';
+export { createRecommendationFeedback } from './domain/recommendation-feedback.js';
+export type {
+  CreateRecommendationFeedbackInput,
+  RecommendationFeedback,
+  RecommendationFeedbackKind,
+} from './domain/recommendation-feedback.js';
 
 export type { TaskRepository } from './application/task-repository.js';
 export type { TaskAttachmentRepository } from './application/task-attachment-repository.js';

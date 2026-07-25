@@ -23,6 +23,7 @@ interface TaskRowLike {
   urgency: string;
   source: string;
   origin_observation_id: string | null;
+  origin_recommendation_id: string | null;
   revision: number;
   created_by_profile_id: string;
   created_at: Date;
@@ -47,6 +48,7 @@ function toTask(row: TaskRowLike): Task {
     urgency: row.urgency as TaskUrgency,
     source: row.source as TaskSource,
     originObservationId: row.origin_observation_id,
+    originRecommendationId: row.origin_recommendation_id,
     revision: row.revision,
     createdByProfileId: row.created_by_profile_id,
     createdAt: row.created_at,
@@ -88,6 +90,7 @@ export class KyselyTaskRepository implements TaskRepository {
           urgency: task.urgency,
           source: task.source,
           origin_observation_id: task.originObservationId,
+          origin_recommendation_id: task.originRecommendationId,
           revision: task.revision,
           created_by_profile_id: task.createdByProfileId,
           created_at: task.createdAt,

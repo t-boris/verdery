@@ -75,6 +75,17 @@ export interface Task {
   readonly source: TaskSource;
   /** Set only at creation, by `CreateManualTask` — never by `CompleteTask` or any other command. See the migration's own comment on `task.origin_observation_id`. */
   readonly originObservationId: Uuid | null;
+  /**
+   * The recommendation candidate this task was converted from — always
+   * `null` for every task this module can create today: `createTask` below
+   * hardcodes it alongside `source: 'manual'`, and the migration's
+   * `task_origin_recommendation_consistency_check` requires exactly the
+   * `'suggested'` source to carry it. P7-BE-01's task-conversion command is
+   * the stage that will set both together. Column added by
+   * migrations/1785600000000_recommendations-baseline.sql, completing the
+   * FK the Phase 4 baseline migration explicitly deferred.
+   */
+  readonly originRecommendationId: Uuid | null;
   readonly revision: number;
   readonly createdByProfileId: Uuid;
   readonly createdAt: Date;
@@ -217,6 +228,7 @@ export function createTask(input: CreateTaskInput): Task {
     urgency: input.urgency,
     source: 'manual',
     originObservationId: input.originObservationId,
+    originRecommendationId: null,
     revision: 1,
     createdByProfileId: input.createdByProfileId,
     createdAt: input.now,

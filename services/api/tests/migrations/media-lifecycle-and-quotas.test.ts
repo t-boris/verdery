@@ -474,9 +474,11 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     await client.end();
 
-    // `count: 5` undoes 1785500000000_background-calibration-transform.sql,
+    // `count: 6` undoes 1785600000000_recommendations-baseline.sql,
+    // 1785500000000_background-calibration-transform.sql,
+    // 1785400000000_imported-background-details.sql,
     // 1785300000000_media-derivative-identity.sql, and
-    // 1785200000000_media-processing-jobs.sql (the three newest migrations)
+    // 1785200000000_media-processing-jobs.sql (the five newest migrations)
     // first, then this one — matching every earlier migration test's own
     // convention of unwinding whatever landed on top since this file was
     // written. Update again the next time a migration is added on top of
@@ -486,7 +488,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 5,
+      count: 6,
       log: () => {},
     });
 

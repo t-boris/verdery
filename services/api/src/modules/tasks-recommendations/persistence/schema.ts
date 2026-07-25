@@ -26,6 +26,7 @@ export interface TaskRow {
   urgency: Generated<string>;
   source: Generated<string>;
   origin_observation_id: string | null;
+  origin_recommendation_id: string | null;
   revision: Generated<number>;
   created_by_profile_id: string;
   created_at: Generated<Date>;
@@ -59,8 +60,75 @@ export interface TaskRevisionRow {
   recorded_at: Generated<Date>;
 }
 
+/** Immutable versioned rule identity — see migrations/1785600000000_recommendations-baseline.sql for why this carries identity and safety tier only (rule catalog content is P7-RULE-01's). */
+export interface RuleVersionRow {
+  id: string;
+  rule_key: string;
+  version: number;
+  safety_tier: string;
+  created_at: Generated<Date>;
+}
+
+export interface RecommendationCandidateRow {
+  id: string;
+  garden_id: string;
+  target_kind: string;
+  target_garden_area_id: string | null;
+  target_plant_id: string | null;
+  care_category: string;
+  rule_version_id: string;
+  safety_tier: string;
+  state: Generated<string>;
+  urgency: Generated<string>;
+  window_start: Date | null;
+  window_end: Date | null;
+  primary_evidence_id: string;
+  supersedes_candidate_id: string | null;
+  presented_at: Date | null;
+  revision: Generated<number>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+/** Append-only — "Presentation does not overwrite generation evidence"; no UPDATE path exists, like `observation`'s own rows. */
+export interface RecommendationEvidenceRow {
+  id: string;
+  candidate_id: string;
+  evidence_kind: string;
+  source_observation_id: string | null;
+  source_task_id: string | null;
+  source_plant_id: string | null;
+  source_weather_record_id: string | null;
+  fact_key: string;
+  fact_value: unknown;
+  created_at: Generated<Date>;
+}
+
+export interface RecommendationPriorityFactorRow {
+  id: string;
+  candidate_id: string;
+  factor_kind: string;
+  factor_value: unknown;
+  created_at: Generated<Date>;
+}
+
+/** Append-only user-feedback trail — see `recommendation-feedback.ts` for the FR-24 kind vocabulary and its pairing with the section-6 state vocabulary. */
+export interface RecommendationFeedbackRow {
+  id: string;
+  candidate_id: string;
+  feedback_kind: string;
+  actor_profile_id: string;
+  postponed_until: Date | null;
+  recorded_at: Generated<Date>;
+}
+
 export interface TasksRecommendationsDatabaseSchema {
   'tasks_recommendations.task': TaskRow;
   'tasks_recommendations.task_attachment': TaskAttachmentRow;
   'tasks_recommendations.task_revision': TaskRevisionRow;
+  'tasks_recommendations.rule_version': RuleVersionRow;
+  'tasks_recommendations.recommendation_candidate': RecommendationCandidateRow;
+  'tasks_recommendations.recommendation_evidence': RecommendationEvidenceRow;
+  'tasks_recommendations.recommendation_priority_factor': RecommendationPriorityFactorRow;
+  'tasks_recommendations.recommendation_feedback': RecommendationFeedbackRow;
 }

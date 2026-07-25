@@ -247,12 +247,13 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     await client.end();
 
-    // `count: 3` undoes 1785500000000_background-calibration-transform.sql
-    // and 1785400000000_imported-background-details.sql (the two newest
+    // `count: 4` undoes 1785600000000_recommendations-baseline.sql,
+    // 1785500000000_background-calibration-transform.sql, and
+    // 1785400000000_imported-background-details.sql (the three newest
     // migrations — nothing this file's own assertions below check) first,
     // then this migration itself. Update again the next time a migration
     // is added on top of that one.
-    await migrate(databaseUrl, 'down', 3);
+    await migrate(databaseUrl, 'down', 4);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();
