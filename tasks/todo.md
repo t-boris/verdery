@@ -3576,3 +3576,46 @@ deployed: the named prerequisites are the `verdery_worker` Cloud SQL IAM members
 (`10-media-processing-queue.sh`, includes the custom deleter role and worker IAM), and CI/CD
 wiring for the workers image — all deliberately reserved for an explicit repository-owner
 decision, recorded in `deferred-capabilities.md`.
+
+# Phase 7 — Weather, Recommendations, Today, and Notifications, planning
+
+Scope: all fourteen P7 work packages (implementation-plan.md section 16). Structured garden facts,
+weather, care history, and reviewed rules produce prioritized, explainable actions; users act
+through Today; durable in-app/FCM notifications respect preference, freshness, quiet hours,
+authorization, and deduplication.
+
+Source: architecture/recommendations-and-ai.md (primary — pipeline, rule engine, Vertex AI
+boundary, safety tiers, evaluation), architecture/external-integrations.md (weather
+normalization), architecture/notifications.md (ownership, flow, scheduling), ADR-0008
+(rules-first recommendations and Vertex AI).
+
+Known blockers, assessed before any implementation:
+
+- **P7-INT-01/P7-INT-02 depend on `P0-PROV-01` (undecided provider evaluations)** — the same
+  blocker that deferred P6-PLANT-01. The packages' own substance (provider REGISTRY, normalized
+  adapter contracts, freshness/units/license metadata, timeout/cache/quota machinery) is
+  provider-agnostic and buildable behind the established port-plus-adapter-plus-fake pattern;
+  only the concrete vendor adapter is blocked. Build the machinery with an honest
+  no-provider-configured state (the `identifyPlantFromPhoto` posture), never a fabricated vendor.
+- **P7-RULE-01 depends on P0-PROD-03..04**: the P0-PROD-03 vocabulary this phase needs (lifecycle
+  stages, task states, urgency levels, care categories) has been live in the codebase since
+  Phase 4 — treated as decided by usage. P0-PROD-04's "minimum information for the first useful
+  recommendation" is expressed concretely by recommendations-and-ai.md's own rule-input sections —
+  the engine builds against the documented contract; the launch RULE CATALOG itself carries
+  P7-SAFE-01's "horticulture-reviewed" requirement, which no agent can self-satisfy — rules ship
+  clearly marked as awaiting that review, with the safety-tier exclusions (chemical, toxicity,
+  pest-treatment, structural, medical, legal) enforced structurally regardless.
+- **P7-ANALYTICS-01 depends on consent (`P0-SEC-01`, undecided)** — the exact P4-OBS-01 blocker,
+  expected to defer the consented-analytics half; the quality-dashboard half rides the
+  established observability pattern.
+- **FCM (P7-NOTIF-02) and Vertex AI (P7-AI-01) touch real GCP services** — live
+  enablement/configuration follows the session's standing confirmation gate; code and scripts
+  first, live actions only with explicit approval.
+
+Planned stages (dependency-ordered): 1. P7-DATA-01 (recommendation data model — unblocked,
+pure PostgreSQL+domain). 2. P7-INT-01 (weather registry/normalization behind a fake +
+no-provider state). 3. P7-RULE-01 (deterministic versioned engine). 4. P7-ASYNC-01 (scheduled
+refresh/generation via the P6 outbox/Tasks machinery). 5. P7-BE-01 (Today commands). 6. P7-INT-02 (plant-content adapter machinery). 7. P7-AI-01 (bounded Vertex explanation adapter). 8. P7-IOS-01 / P7-WEB-01 (Today clients). 9. P7-NOTIF-01/02 (notifications, FCM). 10. P7-SAFE-01 (safety catalog drafting + structural exclusions; human review flagged). 11. P7-ANALYTICS-01 (what consent allows). 12. P7-QA-01 (the phase matrix).
+
+Each stage: implemented, independently verified, committed, pushed, CI-confirmed green — the
+established per-stage discipline.
