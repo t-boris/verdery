@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Apple's privacy manifest for THIS app's own code. Every third-party SDK
+  (FirebaseAuth, FirebaseAppCheck, FirebaseCore, GRDB) ships its own manifest,
+  which Xcode aggregates into the privacy report at archive time; nothing here
+  restates them.
+
+  Every entry below was derived by auditing Sources/, not by copying a
+  template. The matching human-readable rationale — including what is
+  deliberately NOT collected — lives in
+  docs/operations/app-store-submission.md, section "App Privacy".
+-->
+<plist version="1.0">
+<dict>
+	<!-- No tracking SDK is linked, no IDFA is read, and no data is shared with
+	     data brokers or used for cross-app advertising. Verified: Sources/
+	     contains no AppTrackingTransparency, no advertisingIdentifier, no
+	     analytics SDK of any kind. -->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array>
+		<!-- Firebase Auth email/password-less sign-in. Also cached locally in
+		     UserDefaults between sending and completing a magic link. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeEmailAddress</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!-- The Firebase UID. Stamped onto every synchronized record as
+		     profileId, so all content below is account-linked. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeUserID</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!-- Garden, plant, and observation photos plus imported garden plans,
+		     uploaded to Cloud Storage via CoreMediaTransfer. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypePhotosorVideos</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!-- Free text throughout: garden and plant names, observation notes,
+		     condition summaries, map object labels and soil notes. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeOtherUserContent</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!-- Declared deliberately, though the app never reads the device's
+		     location sensor and requests no location authorization: a garden's
+		     georeference anchor is a precise real-world coordinate of the
+		     user's property, and photo bytes are uploaded unmodified, so any
+		     EXIF GPS the camera wrote is transmitted too. Under-declaring
+		     because the data arrived as content rather than from CoreLocation
+		     would be the dishonest reading. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypePreciseLocation</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+	</array>
+
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<!-- The only required-reason API this app's own code touches:
+		     CoreAuthentication/FirebaseAuthenticationGateway.swift stores the
+		     pending magic-link email address so sign-in can complete after the
+		     app is relaunched by tapping the link. CA92.1 — access to
+		     information stored by this app only. -->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

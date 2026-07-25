@@ -8,13 +8,21 @@
 
 /* Begin PBXBuildFile section */
 		061DBD5B697B70FC351A6105 /* AppComposition in Frameworks */ = {isa = PBXBuildFile; productRef = 7A80DE25E8B0DB78D1CA3B27 /* AppComposition */; };
+		2EA241E653CA244FC6AC3CB5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D00DCA7CD847BAD6276AE8AE /* Assets.xcassets */; };
+		4BCA6BB437708EF05B763F54 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 2F7C1C95367A10BE9E93FF84 /* PrivacyInfo.xcprivacy */; };
+		6970EA283EBD63A650DFD681 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79320F652D42EF56D01FCE2C /* AppDelegate.swift */; };
+		8990B49D24460E577BF4C2AD /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 47B7885B8FC2B5A9C4777570 /* GoogleService-Info.plist */; };
 		9C77DE0C244919DB17DF5743 /* VerderyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5566839B516935BE319A0530 /* VerderyApp.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		2F7C1C95367A10BE9E93FF84 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		47B7885B8FC2B5A9C4777570 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		5566839B516935BE319A0530 /* VerderyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerderyApp.swift; sourceTree = "<group>"; };
 		7092B11D970FC09CF15B6269 /* Verdery.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Verdery.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		79320F652D42EF56D01FCE2C /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		84BD671A305C6A58DBE467A5 /* ios */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ios; path = .; sourceTree = SOURCE_ROOT; };
+		D00DCA7CD847BAD6276AE8AE /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -32,6 +40,7 @@
 		1AB4E613721EED88194748D7 /* VerderyApp */ = {
 			isa = PBXGroup;
 			children = (
+				79320F652D42EF56D01FCE2C /* AppDelegate.swift */,
 				5566839B516935BE319A0530 /* VerderyApp.swift */,
 			);
 			path = VerderyApp;
@@ -45,10 +54,21 @@
 			path = Sources;
 			sourceTree = "<group>";
 		};
+		B1216112BC164A3369728ED8 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				D00DCA7CD847BAD6276AE8AE /* Assets.xcassets */,
+				2F7C1C95367A10BE9E93FF84 /* PrivacyInfo.xcprivacy */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
 		B2DC407868EEBE023E34A53E = {
 			isa = PBXGroup;
 			children = (
+				47B7885B8FC2B5A9C4777570 /* GoogleService-Info.plist */,
 				BE6BB881EFA8295816192564 /* Packages */,
+				B1216112BC164A3369728ED8 /* Resources */,
 				46C23675A1FE8669B8E14639 /* Sources */,
 				EFA7CF4FE7FC0A5444FD0441 /* Products */,
 			);
@@ -78,6 +98,7 @@
 			buildConfigurationList = D8E894B02EE9BCF8D6B99FC8 /* Build configuration list for PBXNativeTarget "Verdery" */;
 			buildPhases = (
 				7AAD6ADC9EF9A4632E3122C6 /* Sources */,
+				F5D42710E57356D46278B2AA /* Resources */,
 				287E5C0152294A6B1D93672D /* Frameworks */,
 			);
 			buildRules = (
@@ -128,11 +149,25 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		F5D42710E57356D46278B2AA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2EA241E653CA244FC6AC3CB5 /* Assets.xcassets in Resources */,
+				8990B49D24460E577BF4C2AD /* GoogleService-Info.plist in Resources */,
+				4BCA6BB437708EF05B763F54 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		7AAD6ADC9EF9A4632E3122C6 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6970EA283EBD63A650DFD681 /* AppDelegate.swift in Sources */,
 				9C77DE0C244919DB17DF5743 /* VerderyApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

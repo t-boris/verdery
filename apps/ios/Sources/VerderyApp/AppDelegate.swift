@@ -26,19 +26,30 @@ import UIKit
 final class AppDelegate: NSObject, UIApplicationDelegate {
     var composition: AppCompositionRoot?
 
+    /// `completionHandler` is declared `@Sendable` here even though
+    /// `UIApplicationDelegate` does not require it: the handler is ultimately
+    /// handed to an `actor`
+    /// (`CoreMediaTransfer.URLSessionBackgroundUploadTransport`) by
+    /// `AppCompositionRoot.handleBackgroundURLSessionEvents`, so it genuinely
+    /// crosses an isolation boundary and Swift 6 will not let a non-`Sendable`
+    /// closure make that trip. Narrowing a witness's parameter this way is
+    /// sound — every caller is UIKit itself, which invokes this on the main
+    /// actor with a closure it makes no other use of.
     func application(
         _: UIApplication,
         handleEventsForBackgroundURLSession identifier: String,
-        completionHandler: @escaping () -> Void
+        completionHandler: @escaping @Sendable () -> Void
     ) {
         guard let composition else {
             completionHandler()
             return
         }
 
-        Task { @MainActor in
-            composition.handleBackgroundURLSessionEvents(identifier: identifier, completionHandler: completionHandler)
-        }
+        // `UIApplicationDelegate` is `@MainActor`-isolated, so this already
+        // runs on the main actor — no `Task` hop is needed, and adding one
+        // would only delay a handoff the OS expects promptly.
+        composition.handleBackgroundURLSessionEvents(
+            identifier: identifier, completionHandler: completionHandler)
     }
 }
 #endif

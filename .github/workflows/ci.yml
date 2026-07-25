@@ -229,6 +229,44 @@ jobs:
         working-directory: apps/ios
         run: swift test
 
+      # `swift build` above compiles the package for macOS only, which is why
+      # it never noticed that the iOS app target did not compile at all: the
+      # `#if os(iOS)` half of CoreAuthentication had Swift 6 concurrency errors,
+      # and Verdery.xcodeproj had drifted four phases behind project.yml with a
+      # whole source file missing from it. Both were found the first time
+      # anything built for iphoneos, in Phase 8. This step is what keeps that
+      # from being possible again.
+      #
+      # Regenerating the project first is the point, not a convenience: the
+      # committed .xcodeproj is generated output, and comparing a fresh
+      # generation against it is what turns silent drift into a failed build.
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Regenerate the Xcode project and check it is not stale
+        working-directory: apps/ios
+        run: |
+          xcodegen generate
+          git diff --exit-code -- Verdery.xcodeproj \
+            || { echo "::error::Verdery.xcodeproj is out of date. Run 'xcodegen generate' in apps/ios and commit the result."; exit 1; }
+
+      # `-scheme` with a `generic/platform=iOS` destination, NOT `-target`
+      # with an explicit `-sdk iphoneos`: the latter reads plausible but fails
+      # reproducibly here. Firebase's SPM checkouts build with explicit
+      # modules, and the `-target` path never generates their module maps, so
+      # every build dies on "module map file ... GoogleUtilities-NSData
+      # .modulemap not found" — verified locally against a cleaned
+      # DerivedData, which is why this gate does not ship the command that
+      # would have failed on every push. The scheme path builds every line of
+      # the shipped app for a real iOS device, which is the regression this
+      # gate exists to catch.
+      - name: Build the iOS app target
+        working-directory: apps/ios
+        run: |
+          xcodebuild -project Verdery.xcodeproj -scheme Verdery \
+            -configuration Release -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
+
   gates:
     name: All gates
     # Runs even when a gate fails, so that branch protection can require exactly

@@ -43,34 +43,52 @@ identifiers Firebase documents as safe to ship in a client bundle — protected 
 Rules and App Check, not by being hidden — the same reasoning
 `apps/web/core/auth/firebase-app.ts` documents for the web `apiKey`.
 
+### Building the app for iOS
+
+`swift build` compiles the package **for macOS**. It is not evidence that the shipped app compiles:
+everything behind `#if os(iOS)` is invisible to it. To build what actually ships:
+
+```sh
+xcodegen generate
+xcodebuild -project Verdery.xcodeproj -target Verdery \
+  -configuration Release -sdk iphoneos -arch arm64 \
+  CODE_SIGNING_ALLOWED=NO build
+```
+
+`-target` with an explicit `-sdk`, rather than `-scheme` with `-destination 'generic/platform=iOS'`,
+because the latter needs the downloadable iOS *device platform* component and fails during
+destination resolution without it (`xcodebuild -downloadPlatform iOS` installs it). The iPhoneOS SDK
+itself ships inside Xcode, so the `-sdk` form compiles fine without that download.
+
+This was first done in Phase 8, and it immediately found two defects that had been latent for four
+phases — Swift 6 concurrency errors in the `#if os(iOS)` branch of
+`CoreAuthentication/FirebaseAuthenticationGateway.swift`, and a `Verdery.xcodeproj` that had drifted
+behind `project.yml` with `Sources/VerderyApp/AppDelegate.swift` missing from it entirely. CI now
+runs this exact command on every `apps/ios/**` change, and also fails if a fresh `xcodegen generate`
+would change the committed project.
+
 ### Known environment gap
 
-This development machine's CoreSimulator framework is version-mismatched with its installed Xcode
-(`xcodebuild`/`xcrun simctl` fail or hang), and the iOS 26.5 platform component is not installed. Every
-change in this package was verified with `swift build` / `swift test` (which do not need the
-simulator) and `xcodebuild -list -project Verdery.xcodeproj` (which resolves the project and package
-graph without invoking the simulator). Building and running on a simulator or device needs those
-platform components installed first — a system-level fix, not a project one.
+The iOS **device platform** component is not installed on this development machine, so
+`-destination 'generic/platform=iOS'` and therefore `xcodebuild archive` cannot run here; the
+`-sdk iphoneos` build above can, and does. Separately, `actool` refuses to compile the app icon
+unless an iOS *simulator runtime* matching the active `iphonesimulator` SDK is installed, which is
+why an icon-bearing build additionally needs that download. Both are
+`xcodebuild -downloadPlatform iOS`, not project problems.
 
-**A full, unfiltered `swift test` run on this development machine crashes nondeterministically**
-(SIGBUS, "exited with unexpected signal code 10") since the Phase 4 client work
-(`FeaturePlants`/`FeatureObservations`/`FeatureTasks`) roughly doubled this package's total test
-count. Characterized directly, not guessed at: `swift test --filter FeaturePlantsTests` and
-`swift test --skip FeatureMapTests` both pass reliably (5/5 and 3/3 consecutive runs respectively);
-only the *full* suite — every target running together — reproduces the crash locally, always before
-any single test completes, never at the same point twice. This machine has 24 cores and 128 GB of
-RAM, ruling out simple resource exhaustion.
+Earlier revisions of this file reported that `xcrun simctl` failed or hung and that a full,
+unfiltered `swift test` crashed nondeterministically with SIGBUS. **Neither reproduces as of Phase
+8**: `simctl` responds normally, and the complete suite — 808 tests in 114 suites, every target
+together — passes locally in one run. The historical note is preserved in the Phase 4/5 stage
+records rather than here; if either symptom returns, characterize it again rather than assuming this
+paragraph is still accurate.
 
-**Confirmed local-machine-only, not a real defect**: CI's `swift` job (a different, ADR-0009-pinned
-Xcode/Swift toolchain) ran the exact same full, unfiltered suite — 341 tests, 49 suites, including
-`FeatureMapTests` and every Phase 4 target together, the precise combination that crashes here — and
-passed cleanly (run `29982376557`, `Swift package` job, 3m37s). This machine's own Swift 6.3.3
-installation (`arm64-apple-macosx26.0`) has some Testing-library or Concurrency-runtime
-characteristic CI's pinned toolchain does not share. `LocalizedStrings`'s bundle resolution was
-hardened against one real, independently-justified concurrent-construction race found while
-investigating (`CoreLocalization/LocalizedStrings.swift`) — worth keeping regardless, but it did not
-turn out to be the cause. If this repros again after a local toolchain update, re-run the
-`--filter`/`--skip` checks above before assuming it is a real regression.
+### Distribution
+
+Archiving, signing, TestFlight upload, store metadata, the App Privacy declarations, and the list of
+actions only the repository owner's Apple account can perform are all in
+[docs/development/ios-distribution.md](../../docs/development/ios-distribution.md). The runnable
+halves are `scripts/archive-and-upload.sh` and `scripts/capture-screenshots.sh`.
 
 ## Modules
 
