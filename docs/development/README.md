@@ -11,6 +11,7 @@ Documentation for working _in_ this repository. Product meaning lives in
 | [api-contract.md](api-contract.md)                                   | How do I change the API contract and regenerate clients?                                       |
 | [ci-gates.md](ci-gates.md)                                           | What does CI check, and how do I reproduce a failure locally?                                  |
 | [infrastructure.md](infrastructure.md)                               | How is `verdery-dev` provisioned, and how do I deploy to it?                                   |
+| [runbooks.md](runbooks.md)                                           | What do I do when something breaks, and what has actually been exercised?                      |
 | [ios-distribution.md](ios-distribution.md)                           | How does an iOS build reach TestFlight and the App Store, and what only the owner can do?      |
 | [deferred-capabilities.md](deferred-capabilities.md)                 | What is deliberately not built yet, and why?                                                   |
 | [recommendation-safety-catalog.md](recommendation-safety-catalog.md) | What may the recommendation pipeline generate, and how does a horticultural reviewer sign off? |
