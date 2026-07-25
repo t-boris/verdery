@@ -43,6 +43,10 @@ import type { Plant, PlantRepository } from '../../plants-inventory/public.js';
 import type { Task } from '../domain/task.js';
 import type { TaskStatus } from '../domain/task-lifecycle.js';
 import type { TaskAttachment } from '../domain/task-attachment.js';
+import {
+  FakeRecommendationCandidateRepository,
+  FakeRuleVersionRepository,
+} from './recommendation-test-doubles.js';
 import type { TaskAttachmentRepository } from './task-attachment-repository.js';
 import type { TaskRepository } from './task-repository.js';
 import type {
@@ -174,7 +178,7 @@ export class FakeMapObjectRepository implements MapObjectRepository {
   }
 }
 
-/** Every method a `plantId`-scoped lookup could need; only `findById` is exercised by this module's own commands. */
+/** `findById` serves the task commands; `search` serves `EvaluateGardenRecommendations`' fact gathering (unfiltered scan with a numeric-offset cursor — enough paging to be honest with the port's contract). */
 export class FakePlantRepository implements PlantRepository {
   constructor(private readonly plants: Map<Uuid, Plant> = new Map()) {}
 
@@ -190,8 +194,27 @@ export class FakePlantRepository implements PlantRepository {
     throw new Error('not used by this test');
   }
 
-  search(): ReturnType<PlantRepository['search']> {
-    throw new Error('not used by this test');
+  search(
+    gardenId: Uuid,
+    filters: Parameters<PlantRepository['search']>[1],
+    cursor: string | null,
+    limit: number,
+  ): ReturnType<PlantRepository['search']> {
+    const matching = [...this.plants.values()].filter(
+      (plant) =>
+        plant.gardenId === gardenId &&
+        (filters.lifecycleStage === null ||
+          filters.lifecycleStage.includes(plant.lifecycleStage)) &&
+        (filters.status === null || filters.status.includes(plant.status)) &&
+        (filters.groupingKind === null || filters.groupingKind.includes(plant.groupingKind)),
+    );
+    const offset = cursor === null ? 0 : Number(cursor);
+    const items = matching.slice(offset, offset + limit);
+    const nextOffset = offset + items.length;
+    return Promise.resolve({
+      items,
+      nextCursor: nextOffset < matching.length ? String(nextOffset) : null,
+    });
   }
 }
 
@@ -245,7 +268,7 @@ export class FakeMediaRepository implements MediaRepository {
   }
 }
 
-/** Only `get` is exercised — `GetObservation` (used to build a real instance below) never calls the others. */
+/** `get` serves `GetObservation` (built into a real instance below); `listForGarden` serves `EvaluateGardenRecommendations`' fact gathering, photo-less like an observation without attachments. */
 export class FakeObservationRepository implements ObservationRepository {
   constructor(private readonly observations: Map<Uuid, Observation> = new Map()) {}
 
@@ -257,8 +280,17 @@ export class FakeObservationRepository implements ObservationRepository {
     return Promise.resolve(this.observations.get(id) ?? null);
   }
 
-  listForGarden(): Promise<ObservationHistoryEntry[]> {
-    throw new Error('not used by this test');
+  listForGarden(gardenId: Uuid): Promise<ObservationHistoryEntry[]> {
+    const all = [...this.observations.values()];
+    const entries = all
+      .filter((observation) => observation.gardenId === gardenId)
+      .sort((a, b) => b.observedAt.getTime() - a.observedAt.getTime())
+      .map((observation) => ({
+        observation,
+        isCorrected: all.some((later) => later.correctsObservationId === observation.id),
+        photos: [],
+      }));
+    return Promise.resolve(entries);
   }
 
   listForPlant(): Promise<ObservationHistoryEntry[]> {
@@ -380,13 +412,18 @@ export interface TasksRecommendationsFakes {
   readonly mapObjects: FakeMapObjectRepository;
   readonly plants: FakePlantRepository;
   readonly media: FakeMediaRepository;
+  readonly observations: FakeObservationRepository;
   readonly syncChanges: FakeSyncChangeRecorder;
+  readonly ruleVersions: FakeRuleVersionRepository;
+  readonly recommendationCandidates: FakeRecommendationCandidateRepository;
 }
 
 export function createTasksRecommendationsFakes(options?: {
   mapObjectSummaries?: Map<Uuid, MapObjectSummary>;
   plants?: Map<Uuid, Plant>;
+  observations?: Map<Uuid, Observation>;
 }): TasksRecommendationsFakes {
+  const ruleVersions = new FakeRuleVersionRepository();
   return {
     tasks: new FakeTaskRepository(),
     taskAttachments: new FakeTaskAttachmentRepository(),
@@ -395,7 +432,10 @@ export function createTasksRecommendationsFakes(options?: {
     mapObjects: new FakeMapObjectRepository(options?.mapObjectSummaries),
     plants: new FakePlantRepository(options?.plants),
     media: new FakeMediaRepository(),
+    observations: new FakeObservationRepository(options?.observations),
     syncChanges: new FakeSyncChangeRecorder(),
+    ruleVersions,
+    recommendationCandidates: new FakeRecommendationCandidateRepository(ruleVersions),
   };
 }
 

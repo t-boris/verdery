@@ -33,6 +33,15 @@
  * (P7-BE-01) are the stages that will, mirroring how `media`'s
  * quota-reservation domain shipped mechanism-only in P6-DATA-01.
  *
+ * P7-RULE-01 adds the deterministic rule engine: the versioned rule model
+ * and launch catalog (every launch rule awaiting horticultural review —
+ * P7-SAFE-01), the pure `evaluateGardenRules` engine, the
+ * `EvaluateGardenRecommendations` use case, and the recommendation
+ * persistence surface. Exported for the stages that will call and wire
+ * them (P7-ASYNC-01's scheduler, P7-BE-01's Today commands); nothing is
+ * wired into `app.ts` yet because no caller exists — the P7-DATA-01 and
+ * P7-INT-01 posture.
+ *
  * Source: architecture/backend-modular-monolith.md, section "5.5 Public Interface".
  */
 
@@ -103,8 +112,65 @@ export type {
   RecommendationFeedbackKind,
 } from './domain/recommendation-feedback.js';
 
+export type {
+  GardenFacts,
+  ObservationFact,
+  OpenTaskFact,
+  PlantFact,
+  PriorCandidateFact,
+  PriorRecommendationState,
+  WeatherFact,
+  WeatherMeasurementFacts,
+} from './domain/garden-facts.js';
+export { latestObservationForPlant, sameRecommendationTarget } from './domain/garden-facts.js';
+export {
+  EXCLUDED_RULE_CONTENT_CATEGORIES,
+  normalizeContentCategory,
+  requireAllowedContentCategory,
+  validateFactorContribution,
+  validateRuleDefinition,
+} from './domain/rule-definition.js';
+export type {
+  GeneratableSafetyTier,
+  RuleDefinition,
+  RuleEvaluation,
+  RuleEvaluator,
+  RuleEvidenceSpec,
+  RuleFactorContribution,
+  RuleReviewMetadata,
+  RuleSkipReason,
+  RuleTargetEvaluation,
+  RuleTimingSpec,
+  RuleWeatherPolicy,
+} from './domain/rule-definition.js';
+export { RuleCatalog } from './domain/rule-catalog.js';
+export { listExplanationPlaceholders, renderRuleExplanation } from './domain/rule-explanation.js';
+export { TASK_OVERLAP_CONTRIBUTION, evaluateGardenRules } from './domain/rule-evaluation.js';
+export type {
+  GardenRuleEvaluationPlan,
+  PlannedCandidate,
+  RuleDecision,
+  SuppressionReason,
+} from './domain/rule-evaluation.js';
+export { createLaunchRuleCatalog } from './domain/rules/launch-rule-catalog.js';
+
 export type { TaskRepository } from './application/task-repository.js';
 export type { TaskAttachmentRepository } from './application/task-attachment-repository.js';
+export type {
+  RuleVersionRepository,
+  RuleVersionIdMap,
+} from './application/rule-version-repository.js';
+export { ruleVersionIdentity } from './application/rule-version-repository.js';
+export type {
+  RecommendationCandidateRepository,
+  StoredCandidateWithRule,
+} from './application/recommendation-candidate-repository.js';
+export { EvaluateGardenRecommendations } from './application/evaluate-garden-recommendations.js';
+export type {
+  CreatedRecommendationSummary,
+  EvaluateGardenRecommendationsInput,
+  EvaluateGardenRecommendationsResult,
+} from './application/evaluate-garden-recommendations.js';
 export type {
   TaskCommandType,
   TaskRevisionJournalEntry,
@@ -147,4 +213,6 @@ export { KyselyTaskRepository } from './persistence/kysely-task-repository.js';
 export { KyselyTaskAttachmentRepository } from './persistence/kysely-task-attachment-repository.js';
 export { KyselyTaskRevisionJournalWriter } from './persistence/kysely-task-revision-journal-writer.js';
 export { KyselyTasksRecommendationsUnitOfWork } from './persistence/kysely-tasks-recommendations-unit-of-work.js';
+export { KyselyRuleVersionRepository } from './persistence/kysely-rule-version-repository.js';
+export { KyselyRecommendationCandidateRepository } from './persistence/kysely-recommendation-candidate-repository.js';
 export type { TasksRecommendationsDatabaseSchema } from './persistence/schema.js';

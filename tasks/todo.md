@@ -3841,3 +3841,152 @@ verdery_migration`, which fails with "permission denied for database" — caught
   bumped (+1 each, 2 through 12) per the established mechanic.
 - `pnpm --filter @verdery/api build`, root `pnpm typecheck`, `pnpm lint`, `pnpm format:check`,
   `node scripts/check-file-size.mjs` all clean.
+
+## Stage 17 — P7-RULE-01, implementation complete
+
+The deterministic versioned rule engine is real: a typed rule model carrying section 5's own
+content list, a four-rule launch catalog (every rule explicitly awaiting P7-SAFE-01's
+horticultural review), the pure `evaluateGardenRules` engine (eligibility → timing → duplicate
+suppression → priority → deterministic explanation), idempotent `rule_version` registration, the
+transactional `EvaluateGardenRecommendations` use case producing candidates exclusively through
+P7-DATA-01's domain constructors, and the reviewable fixture suite
+(`services/api/tests/rule-fixtures/`) that is the work package's acceptance artifact. No
+migration was needed — P7-DATA-01's schema carries everything. No scheduler (P7-ASYNC-01), no
+HTTP surface (P7-BE-01), nothing wired into `app.ts` — both future callers get everything
+through `public.ts`, the P7-DATA-01/P7-INT-01 posture.
+
+### Key decisions
+
+- **The honest caveat, exactly as the phase plan decided it:** no agent can self-satisfy a
+  horticultural review, so all four launch rules ship with
+  `review: { reviewStatus: 'awaiting_horticultural_review', awaitingReviewBy: 'P7-SAFE-01' }` in
+  their own metadata, `launch-rule-catalog.test.ts` asserts that marking stays until a named
+  reviewer replaces it, and `tests/rule-fixtures/README.md` tells the reviewer exactly how to
+  read and sign off. What is enforced structurally REGARDLESS of review: a rule definition's
+  `safetyTier` is typed `GeneratableSafetyTier` (cannot spell `'restricted'`),
+  `EXCLUDED_RULE_CONTENT_CATEGORIES` (section 13's Restricted list — chemical application,
+  emergency, legal-boundary, structural, electrical, medical — plus the launch-excluded
+  elevated-risk subjects: toxicity, pest treatment, disease diagnosis, fertilizer concentration)
+  is rejected by `validateRuleDefinition` in any spelling, and the P7-DATA-01 CHECKs/composite
+  FK reject a restricted candidate again at insert.
+- **The rule model is section 5's list, field for field** (`domain/rule-definition.ts`):
+  eligibility conditions are the versioned `evaluate` function (pure, deterministic, reading
+  every tunable from the definition's own `parameters` block so reviewable data and executed
+  logic cannot drift); required/optional evidence is `requiredEvidenceKinds` (engine-enforced on
+  every fired target) plus whatever else the evaluator emits; time window and recurrence are
+  `timing` (validity window + recurrence interval, with a fact-derived `windowEnd` override —
+  the frost rule's window ends AT the forecast moment); priority inputs are typed factor
+  contributions; exclusion/safety conditions are the tier + category machinery above; the
+  suggested action template is `actionTitle`; explanation facts are the eligible outcome's
+  scalar fact map the `explanationTemplate` renders from; applicability is the evaluator's own
+  status/stage conditions; content and reviewer metadata are `description` + `review`.
+- **Launch catalog: four defensible ordinary-care-shaped rules, one per file under
+  `domain/rules/`.** `watering.dry-spell-check` v1 (ordinary_care, watering-interval-shaped:
+  fresh-or-stale warm dry observation → check watering for active-growth plants);
+  `observation.routine-check-reminder` v1 (ordinary_care, observation-follow-up-shaped: 14 days
+  unobserved — measured from the latest observation, or creation when none exists — → record a
+  check); `lifecycle.harvest-readiness-check` v1 (ordinary_care, lifecycle-stage-care-shaped:
+  user-declared `ready_to_harvest` → timely harvest check); `weather.frost-watch` v1 (the one
+  ELEVATED_RISK rule: fresh upcoming freezing forecast → protective cover for
+  seedling/transplanted/flowering plants, confidence factor deliberately low and "may be
+  frost-sensitive" in the template — section 13's "clear uncertainty" in the content itself).
+- **Duplicate-suppression equivalence, defined honestly:** (a) an open task suppresses ONLY when
+  provably equivalent — `origin_recommendation_id` resolving to the same rule key and target;
+  manual-task equivalence is undecidable (free-text titles, no care-category vocabulary —
+  P0-PROD-03 undecided), so manual overlap contributes the engine-owned `task_overlap` penalty
+  (−15, task ids in the basis) instead of suppressing, which is exactly where section 7 places
+  "Existing task overlap"; (b) a live candidate for the same (rule key, target) that is still
+  current (same version, window not passed) suppresses — what makes re-evaluation idempotent;
+  (c) a live-but-stale candidate (older version or passed window) is SUPERSEDED, the new
+  candidate referencing it backward per section 6, exempt from recurrence because replacing is
+  not repeating; (d) with no live candidate, the most recent candidate (typically resolved)
+  suppresses until the rule's recurrence interval elapses — completed work is not re-nagged.
+- **Missing facts stay missing, at every level:** no weather record → typed `weatherMissing`
+  rule skip (today's reality with zero providers configured); a present record lacking a needed
+  measurement → typed `factMissing` skip; a never-observed plant's reminder carries NO invented
+  observation reference (`lastObservedAt: null`, baseline `plant_created_at`); section-4 inputs
+  with no backing data anywhere (soil/moisture, user preferences, geometry exposure) have no
+  fact field at all, and the `user_effort_and_availability` factor is never emitted.
+- **Weather degradation is the per-rule product decision the docs make it:**
+  external-integrations.md section 11's "used only when product rules permit it" became
+  `weatherPolicy.whenStale` in versioned rule content — the watering rule declares
+  `useLabeledStale` (fires with confidence 20→8 and the `stale` label in BOTH the evidence
+  snapshot and the factor basis), the elevated-risk frost rule declares `skip` (section 13's
+  higher-confidence requirement read conservatively). Both postures are fixture-pinned.
+- **Priority is the engine's documented answer to section 7's open choice:** an explainable
+  integer score in [0,100], the clamped sum of per-factor contributions, each persisted as
+  `{ contribution, basis }` jsonb — the stored rows alone reproduce and explain the rank
+  (P7-BE-01's Today ordering re-derives from them). Cross-rule ordering (frost 95 > watering 80
+  > harvest 75 > observation 40) is a reviewed fixture.
+- **Determinism is structural:** the engine is a pure function of (catalog, facts, prior state)
+  — the clock is injected and read once per evaluation, ids are assigned only at persistence
+  (decisions never depend on them), plants are sorted by id at fact-gathering, catalog order is
+  evaluation order, and there is no randomness anywhere. Every fixture runs twice and asserts
+  deep equality; concurrent evaluations of one garden serialize on a transaction-scoped
+  advisory lock (`pg_advisory_xact_lock` keyed by garden — proven by a real two-transaction race
+  in the integration suite), so the read-decide-write cycle cannot interleave and duplicate.
+- **Rule-version persistence is explicit-version discipline with two mechanical guards:**
+  `ensure` registers each catalog `(ruleKey, version)` idempotently (`ON CONFLICT DO NOTHING`
+  then read back — the stored row always wins), `launch-rule-catalog.test.ts` pins a sha256
+  content hash per shipped version over every declarative field (a content edit without a
+  version bump fails CI; `review` metadata and the evaluator body are deliberately outside the
+  hash — approval blesses content as it stands, and behavior is pinned per version by the
+  fixture suite), and the registrar refuses at runtime a stored row whose safety tier disagrees
+  with the definition (the one content field the database also stores).
+- **The fixture suite is the acceptance artifact, built to be read by a non-engineer:** 19
+  fixtures in `tests/rule-fixtures/` (five files by rule plus cross-rule), each a constructed
+  garden + prior state + the COMPLETE expected engine output asserted with deep equality (every
+  decision with its typed reason, every candidate with evidence references, factor
+  contributions, windows, and the exact rendered explanation text), each with `reviewNotes`
+  naming the horticultural judgment it embodies; the README maps the coverage (eligibility
+  misses, timing suppression, duplicate suppression against tasks AND candidates, supersession,
+  missing-fact non-invention, both weather degradations, priority ordering) and defines the
+  sign-off procedure. The persistence half runs end-to-end against real PostgreSQL in
+  `tests/integration/recommendation-engine.test.ts` (candidates land whole under the COMMIT-time
+  evidence FK, idempotent re-run, supersession chain in rows, origin-task suppression, the
+  concurrency race).
+- **Module seams follow the established shapes:** the engine lives in `tasks-recommendations`
+  (backend-modular-monolith 6.5 names "recommendation candidates, explanations, evidence" as its
+  ownership); the transaction context grew `observations` (in-transaction because the engine's
+  reads feed writes that quote them — the documented inverse of the `GetObservation` exception),
+  `ruleVersions`, and `recommendationCandidates`; weather arrives through integrations' own
+  exported `GetGardenWeather` (the cross-module use-case injection precedent), read just before
+  the transaction because weather rows are append-only fetch facts and the evidence row pins the
+  exact record id either way.
+
+### Fixed in place (not deferred)
+
+1. The integration suite's origin-task suppression test first asserted "no candidates at all"
+   after the 10-day clock advance — wrong, because the observation reminder legitimately fires
+   for a by-then-15-days-unobserved plant (with the open task's overlap penalty applied, 40→25).
+   The assertion now separates the two: the harvest rule regenerates nothing; the reminder's
+   firing is correct behavior, not a duplicate.
+2. `tasks-recommendations-test-doubles.ts`'s `FakePlantRepository.search` and
+   `FakeObservationRepository.listForGarden` threw "not used by this test" — both implemented
+   (offset-cursor paging honoring the port's filter contract; photo-less history entries with
+   computed corrected status), because the engine's fact gathering now exercises them; the new
+   engine-side fakes went into their own `recommendation-test-doubles.ts` to respect the
+   600-line budget.
+
+### Known limitations, deliberately deferred (recorded in `deferred-capabilities.md`)
+
+- The horticultural review itself (P7-SAFE-01) — flagged everywhere, structurally excluded
+  categories enforced regardless.
+- Seasonal applicability gating (rule-level active-months): no launch rule declares one, a
+  season needs the garden's hemisphere (georeference), and dead mechanism is not shipped; the
+  `seasonal_constraint` factor kind exists in the P7-DATA-01 vocabulary for the first rule that
+  needs it.
+- Expiry sweeps for never-acted-on candidates whose window passed without a re-evaluation:
+  P7-ASYNC-01's scheduled job, using the `expireRecommendationCandidate` transition P7-DATA-01
+  already ships.
+
+### Verification evidence
+
+- Full API suite: 136 files / 911 tests before → **144 files / 988 tests** after (+77: six unit
+  suites in the module with 54 tests, the 19-fixture reviewable suite, one Testcontainers
+  integration suite with 4), all green, real Docker; zero pre-existing tests changed behavior
+  (the two touched test-double methods only gained implementations).
+- No migration added, so no rollback ripple: the whole stage builds on P7-DATA-01's schema and
+  P7-INT-01's weather tables as designed.
+- `pnpm --filter @verdery/api build`, root `pnpm typecheck`, `pnpm lint`, `pnpm format:check`,
+  `node scripts/check-file-size.mjs` all clean.

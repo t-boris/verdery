@@ -1,6 +1,7 @@
 import type { Kysely } from 'kysely';
 import { KyselyMapObjectRepository } from '../../gardens-mapping/public.js';
 import { KyselyMediaRepository } from '../../media/public.js';
+import { KyselyObservationRepository } from '../../observations-history/public.js';
 import { KyselyPlantRepository } from '../../plants-inventory/public.js';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
 import { KyselyIdempotencyStore } from '../../../platform/idempotency/kysely-idempotency-store.js';
@@ -10,6 +11,8 @@ import type {
   TasksRecommendationsTransactionContext,
   TasksRecommendationsUnitOfWork,
 } from '../application/tasks-recommendations-unit-of-work.js';
+import { KyselyRecommendationCandidateRepository } from './kysely-recommendation-candidate-repository.js';
+import { KyselyRuleVersionRepository } from './kysely-rule-version-repository.js';
 import { KyselyTaskAttachmentRepository } from './kysely-task-attachment-repository.js';
 import { KyselyTaskRepository } from './kysely-task-repository.js';
 import { KyselyTaskRevisionJournalWriter } from './kysely-task-revision-journal-writer.js';
@@ -30,7 +33,10 @@ export class KyselyTasksRecommendationsUnitOfWork implements TasksRecommendation
         mapObjects: new KyselyMapObjectRepository(trx),
         plants: new KyselyPlantRepository(trx),
         media: new KyselyMediaRepository(trx),
+        observations: new KyselyObservationRepository(trx),
         syncChanges: new KyselySyncChangeRecorder(trx),
+        ruleVersions: new KyselyRuleVersionRepository(trx),
+        recommendationCandidates: new KyselyRecommendationCandidateRepository(trx),
       };
 
       return work(context);

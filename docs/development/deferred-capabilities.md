@@ -326,6 +326,29 @@ scheduling; the use case is built to be its callable target). Related, and NOT d
 bare-uuid deferral — is now a real foreign key onto `integrations.weather_record`, closed by
 `1785700000000_integrations-weather-baseline.sql` at the first moment its target table existed.
 
+**Horticultural review of the launch rule catalog (P7-RULE-01 scope boundary).** The
+deterministic rule engine and its four-rule launch catalog are fully built and tested in
+`services/api/src/modules/tasks-recommendations` (rule model, pure engine, idempotent
+`rule_version` registration, `EvaluateGardenRecommendations`, and the reviewable fixture suite in
+`services/api/tests/rule-fixtures/` — that directory's README is the reviewer's entry point), but
+the rules' horticultural CONTENT — thresholds, stage lists, cadences, stale-weather postures —
+is deliberately unreviewed: "Horticulture-reviewed fixture suite" names a HUMAN review no agent
+can self-satisfy, and that review is `P7-SAFE-01`'s deliverable. Until it lands, every launch
+rule carries `reviewStatus: 'awaiting_horticultural_review'` in its own metadata and
+`launch-rule-catalog.test.ts` fails if that marking is dropped without a named reviewer. NOT
+deferred, enforced structurally regardless of review: no rule definition can carry the
+`restricted` safety tier (the type cannot express it), no rule can declare an excluded content
+category (chemical application, toxicity, pest treatment, disease diagnosis, fertilizer
+concentration, structural, electrical, medical, legal-boundary, emergency — rejected by
+`validateRuleDefinition` in any spelling), and the P7-DATA-01 schema rejects a restricted-tier
+candidate again at insert. Also deliberately absent, with reasons: seasonal applicability gating
+(no launch rule declares one, and a season honestly needs the garden's hemisphere via its
+georeference — the mechanism arrives with the first rule that needs it, not as dead code);
+expiry of never-acted-on candidates whose window passed between evaluations (`P7-ASYNC-01`'s
+scheduled sweep, using the already-shipped `expireRecommendationCandidate` transition); and any
+scheduler or HTTP surface for the engine (`P7-ASYNC-01`/`P7-BE-01` — the use case is exported
+through `public.ts` as their callable, nothing is wired into `app.ts`).
+
 **Break-glass credential rotation procedure.** `07-iam-database-bootstrap.sh` rotates the Postgres
 superuser password on every run and stores it in Secret Manager, but there is no scheduled rotation
 or documented incident procedure for using it. `P8-REL-01` owns operational runbooks generally.

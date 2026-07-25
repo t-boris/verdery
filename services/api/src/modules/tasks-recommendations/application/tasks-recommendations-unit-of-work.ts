@@ -29,6 +29,14 @@
  * transaction would add complexity without a corresponding correctness
  * benefit.
  *
+ * `observations` IS transaction-bound, by the same reasoning read the other
+ * way: `EvaluateGardenRecommendations` (P7-RULE-01) reads the garden's whole
+ * observation history as engine input whose values its own writes then quote
+ * as evidence rows, so that read must be snapshot-consistent with those
+ * writes. `ruleVersions` and `recommendationCandidates` are this module's
+ * own new recommendation tables (P7-DATA-01's schema, first written by the
+ * same engine stage).
+ *
  * No `outbox`/`auditLogger` here: this module carries no eventing or audit
  * trail of its own this pass, the same deliberate omission `media`'s own
  * `MediaUnitOfWork` and `PlantsInventoryUnitOfWork` document for the
@@ -39,9 +47,12 @@
 
 import type { MapObjectRepository } from '../../gardens-mapping/public.js';
 import type { MediaRepository } from '../../media/public.js';
+import type { ObservationRepository } from '../../observations-history/public.js';
 import type { PlantRepository } from '../../plants-inventory/public.js';
 import type { IdempotencyStore } from '../../../platform/idempotency/idempotency-store.js';
 import type { SyncChangeRecorder } from '../../../platform/sync/sync-change-recorder.js';
+import type { RecommendationCandidateRepository } from './recommendation-candidate-repository.js';
+import type { RuleVersionRepository } from './rule-version-repository.js';
 import type { TaskAttachmentRepository } from './task-attachment-repository.js';
 import type { TaskRepository } from './task-repository.js';
 import type { TaskRevisionJournalWriter } from './task-revision-journal-writer.js';
@@ -54,7 +65,10 @@ export interface TasksRecommendationsTransactionContext {
   readonly mapObjects: MapObjectRepository;
   readonly plants: PlantRepository;
   readonly media: MediaRepository;
+  readonly observations: ObservationRepository;
   readonly syncChanges: SyncChangeRecorder;
+  readonly ruleVersions: RuleVersionRepository;
+  readonly recommendationCandidates: RecommendationCandidateRepository;
 }
 
 export interface TasksRecommendationsUnitOfWork {
