@@ -153,7 +153,7 @@ describe('RecordMediaProcessingResult under the deletion workflow (P6-RET-01)', 
     fakes.media.records.set(MEDIA_ID, scheduled);
     await fakes.processingJobs.insert(queuedJob());
 
-    await useCase.execute(JOB_ID, SUCCESS_RESULT);
+    const summary = await useCase.execute(JOB_ID, SUCCESS_RESULT);
 
     const media = await fakes.media.get(MEDIA_ID);
     expect(media?.uploadState).toBe('deletion_scheduled');
@@ -161,6 +161,11 @@ describe('RecordMediaProcessingResult under the deletion workflow (P6-RET-01)', 
     expect(media?.revision).toBe(scheduled.revision);
     expect(fakes.processingJobs.jobs.get(JOB_ID)).toMatchObject({
       state: 'cancelled',
+      outcomeCode: 'media_not_available',
+    });
+    // P6-OBS-01: the race guard names itself in the logged summary.
+    expect(summary).toMatchObject({
+      disposition: 'cancelled_source_unavailable',
       outcomeCode: 'media_not_available',
     });
   });
@@ -246,7 +251,7 @@ describe('RecordMediaProcessingResult under the deletion workflow (P6-RET-01)', 
       );
       await fakes.processingJobs.insert(queuedDeletionJob());
 
-      await useCase.execute(JOB_ID, DELETION_SUCCESS);
+      const summary = await useCase.execute(JOB_ID, DELETION_SUCCESS);
 
       expect((await fakes.media.get(MEDIA_ID))?.uploadState).toBe('deleted');
       expect(
@@ -257,6 +262,17 @@ describe('RecordMediaProcessingResult under the deletion workflow (P6-RET-01)', 
         expect.objectContaining({ eventType: 'media.deleted', actorType: 'system' }),
       ]);
       expect(fakes.processingJobs.jobs.get(JOB_ID)?.state).toBe('succeeded');
+      // P6-OBS-01: section 19's "deletion lag" — the record was scheduled
+      // at NOW (its `updatedAt`) and confirmed absent at LATER, 5 minutes
+      // later; the summary carries exactly that difference for the
+      // `media.processing.result_recorded` log line.
+      expect(summary).toMatchObject({
+        disposition: 'recorded',
+        jobKind: MEDIA_DELETION_JOB_KIND,
+        outcome: 'succeeded',
+        deletionLagMs: 300_000,
+        requestedToCompletedMs: 300_000,
+      });
     });
 
     it('a non-success outcome records only the job — the record stays deletion_scheduled and user-visible deletion remains pending', async () => {

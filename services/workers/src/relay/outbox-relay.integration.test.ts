@@ -140,7 +140,16 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     const result = await relay.tick();
 
-    expect(result).toEqual({ claimed: 1, enqueued: 1, alreadyQueued: 0, failed: 0 });
+    // The age clamps to 0 deterministically here: the row's `occurred_at`
+    // is the database's real `now()`, always later than this suite's fixed
+    // test clock (`NOW`), and the relay never reports a negative lag.
+    expect(result).toEqual({
+      claimed: 1,
+      enqueued: 1,
+      alreadyQueued: 0,
+      failed: 0,
+      oldestClaimedEventAgeMs: 0,
+    });
     expect(mediaProcessingQueue.enqueued).toHaveLength(1);
     expect(mediaProcessingQueue.enqueued[0]?.taskName).toBe(eventId);
 
@@ -200,7 +209,13 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     const result = await relay.tick();
 
-    expect(result).toEqual({ claimed: 1, enqueued: 0, alreadyQueued: 1, failed: 0 });
+    expect(result).toEqual({
+      claimed: 1,
+      enqueued: 0,
+      alreadyQueued: 1,
+      failed: 0,
+      oldestClaimedEventAgeMs: 0,
+    });
     expect(mediaProcessingQueue.enqueued).toHaveLength(0);
 
     const outboxRow = await pool.query<{ published_at: Date | null }>(
@@ -269,7 +284,13 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     const result = await relay.tick();
 
-    expect(result).toEqual({ claimed: 1, enqueued: 1, alreadyQueued: 0, failed: 0 });
+    expect(result).toEqual({
+      claimed: 1,
+      enqueued: 1,
+      alreadyQueued: 0,
+      failed: 0,
+      oldestClaimedEventAgeMs: 0,
+    });
     expect(mediaProcessingQueue.enqueued[0]?.manifest.jobKind).toBe('derivative_generation');
 
     const jobRow = await pool.query<{ job_kind: string; state: string }>(

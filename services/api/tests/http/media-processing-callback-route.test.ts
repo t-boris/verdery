@@ -78,6 +78,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   let pool: pg.Pool;
   let db: Kysely<DatabaseSchema>;
   let app: FastifyInstance;
+  let logRecords: string[];
 
   beforeAll(async () => {
     container = await new PostgreSqlContainer(POSTGIS_IMAGE).withPlatform(POSTGIS_PLATFORM).start();
@@ -101,9 +102,11 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       close: () => db.destroy(),
     };
 
+    logRecords = [];
     app = await buildTestApplication({
       database,
       cloudTasksInvocationVerifier: new FakeCloudTasksInvocationVerifier(),
+      onLogRecord: (record) => logRecords.push(record),
     });
   });
 
@@ -185,6 +188,24 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     const media = await new KyselyMediaRepository(db).get(mediaId);
     expect(media?.processingState).toBe('processed');
+
+    // P6-OBS-01: one structured line per delivery, from the application
+    // layer's own returned summary — the queryable processing-outcome
+    // signal (observability-and-analytics.md section 13).
+    const logged = logRecords
+      .map((record) => JSON.parse(record) as Record<string, unknown>)
+      .filter((record) => record['event'] === 'media.processing.result_recorded');
+    expect(logged[logged.length - 1]).toMatchObject({
+      jobId,
+      disposition: 'recorded',
+      jobKind: 'media_validation',
+      mediaId,
+      mediaClass: 'garden_photo',
+      outcome: 'succeeded',
+      attempt: 1,
+      workerDurationMs: 25,
+    });
+    expect(typeof logged[logged.length - 1]?.['requestedToCompletedMs']).toBe('number');
   });
 
   it('rejects a missing Authorization header with 401, before ever touching the database', async () => {

@@ -288,6 +288,312 @@ metric. The concrete next step, once such a dependency is deliberately added und
 promoting this same computed value into a Crashlytics custom key or a Performance trace attribute; no
 new computation would be needed, only a new sink.
 
+### Media dashboard, alert candidates, and runbook (P6-OBS-01)
+
+The signals below are real, structured log lines emitted by `services/api` (`service:
+"verdery-api"`) and `services/workers` (`service: "verdery-workers"`), verified by the same
+real-HTTP/real-Postgres test suites that verify the behavior they instrument
+(`tests/http/media-routes.test.ts`, `tests/http/media-processing-callback-route.test.ts`,
+`record-media-processing-result*.test.ts`, `outbox-relay.test.ts`,
+`validation-http-server.test.ts`) — not a deployed dashboard or alert policy. This section records
+what the "Media upload and processing" and "Deletion and retention compliance" dashboards (both
+already named in this document's own required list above) and their alerts would concretely be
+built from, matching the P5-OBS-01 subsection's own delivery bar exactly: real signals, verified
+once, plus a documented account of the dashboard/alerts they support. See
+[deferred-capabilities.md](../development/deferred-capabilities.md) for why a deployed Cloud
+Monitoring dashboard/alert policy is not this work package's own deliverable either.
+
+**What is logged, per request/delivery/tick — media id and class only, never filenames, signed
+URLs, object keys, or content** (media-storage-and-processing.md section 19):
+
+| Event                                   | Service           | Fields                                                                                                                                                                                                                                          | Emitted by                                                                                                                                                                                                                                                   |
+| --------------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `media.upload.registered`               | `verdery-api`     | `mediaId`, `mediaClass`, `declaredByteSize`                                                                                                                                                                                                     | Every successful `POST /gardens/{gardenId}/media` (`media-routes.ts`).                                                                                                                                                                                       |
+| `media.upload.completed`                | `verdery-api`     | `mediaId`, `mediaClass`, `outcome` (`available`/`rejected`), `registrationToCompletionMs`, `verifiedByteSize` (absent when rejected)                                                                                                            | Every successful `POST .../media/{mediaId}/complete` — the synchronous declared-versus-actual verification. `rejected` here IS the checksum/type/size-mismatch signal for the synchronous stage.                                                             |
+| `media.deletion.scheduled`              | `verdery-api`     | `mediaId`, `mediaClass`, `uploadState` (`deletion_scheduled`, or `deleted` on a replay)                                                                                                                                                         | Every successful `POST .../media/{mediaId}/delete` — the USER-initiated half of deletion scheduling; sweep-initiated scheduling is counted by `retention.sweep_completed`.                                                                                   |
+| `media.processing.result_recorded`      | `verdery-api`     | `jobId`, `disposition` (`recorded`/`duplicate`/`cancelled_source_unavailable`/`lost_revision_race`), `jobKind`, `mediaId`, `outcome`, `outcomeCode`, `attempt`, `mediaClass`?, `workerDurationMs`?, `requestedToCompletedMs`?, `deletionLagMs`? | Every authenticated worker result callback (`media-processing-callback-route.ts`), from the summary `RecordMediaProcessingResult.execute` returns — ONE event covers validation outcomes, derivative outcomes, AND deletion completions, split by `jobKind`. |
+| `relay.tick_completed`                  | `verdery-workers` | `claimed`, `enqueued`, `alreadyQueued`, `failed`, `oldestClaimedEventAgeMs`                                                                                                                                                                     | Every relay tick that claimed at least one outbox event (`poller.ts`); an idle relay deliberately logs nothing per tick — see the liveness note below.                                                                                                       |
+| `relay.event_failed`                    | `verdery-workers` | `outboxEventId`, `err`                                                                                                                                                                                                                          | Each outbox event whose job-create/enqueue/publish failed; the event stays unpublished and retries next tick.                                                                                                                                                |
+| `media_processing.job_failed_retryable` | `verdery-workers` | `jobId`, `jobKind`, `err`                                                                                                                                                                                                                       | The worker HTTP target's 503 path (`validation-http-server.ts`) — each Cloud Tasks delivery that failed retryably, for ANY of the three job kinds.                                                                                                           |
+| `retention.sweep_completed`             | `verdery-workers` | `retentionScheduled`, `retentionSkippedReferenced`, `staleScheduled`, `lostRaces`                                                                                                                                                               | Every successful hourly sweep round-trip, all-zero counts included (`retention-sweep-trigger.ts`) — the sweep's own liveness heartbeat.                                                                                                                      |
+| `retention.sweep_failed`                | `verdery-workers` | `err`                                                                                                                                                                                                                                           | A sweep round-trip that failed; retried on the next interval.                                                                                                                                                                                                |
+
+Three latency figures and their exact meanings, each computable from data the emitting layer
+already holds (the `pullLagMilliseconds` precedent — no second query anywhere):
+
+- `registrationToCompletionMs` — the record's own server-stamped `createdAt` → `updatedAt` at
+  completion. Exact on the request that performed the transition; a rare idempotent replay re-logs
+  the record's current timestamps instead (documented, not hidden).
+- `requestedToCompletedMs` — job-row creation (relay `ensureRequested`) → terminal recording: the
+  full pipeline latency including Cloud Tasks queueing and every retry. Absent when the delivery
+  completed nothing (`duplicate`/`lost_revision_race`).
+- `deletionLagMs` — `deletion_scheduled` → confirmed `deleted`, present only on a succeeded
+  `media_deletion` result. Computable from the media row's `updatedAt` because nothing updates the
+  ORIGINAL row between the scheduling transaction and completion (every other write path gates on
+  `uploadState = 'available'`; derivative bulk transitions touch derivative rows only) — see
+  `MediaProcessingResultRecordedSummary`'s own doc comment.
+
+**Worker liveness, honestly**: an idle relay emits no per-tick log line by design (17k+ lines/day
+of `claimed: 0` would drown the signal). The worker process's liveness signals are `service.started`
+on boot and the hourly `retention.sweep_completed` from the SAME process — absence of the latter for
+a few hours means the whole worker is down or the sweep path specifically is broken, either of which
+warrants the same first steps (runbook below). Cloud Run's built-in instance/request metrics cover
+the platform-level half once deployed.
+
+**Section 19 signals that are database queries, not log lines — a documented judgment call, not a
+gap.** Three of section 19's signals describe CURRENT STOCK, which no log event can carry; the
+honest source is SQL over `media.media_record`/`media.processing_job` (operator queries today; a
+metrics exporter, if ever wanted, is its own future decision):
+
+```sql
+-- Registered-but-never-started / stale pre-available uploads (orphan stock;
+-- the sweep's own candidate query, age-bucketed for inspection):
+SELECT media_class, count(*), min(updated_at) AS oldest
+FROM media.media_record
+WHERE upload_state IN ('registered', 'authorized', 'uploading', 'verifying')
+GROUP BY media_class;
+
+-- Stored bytes by class and state (database-side accounting):
+SELECT media_class, upload_state,
+       count(*) AS records,
+       sum(coalesce(verified_byte_size, declared_byte_size)) AS bytes
+FROM media.media_record
+WHERE upload_state NOT IN ('deleted')
+GROUP BY media_class, upload_state;
+
+-- Raw media approaching its retention deadline (honest today: only
+-- export_package rows carry deadlines; raw_capture is declared but has no
+-- producer for its anchoring event until Garden Scan — enforced: false):
+SELECT media_class, count(*)
+FROM media.media_record
+WHERE retention_deadline_at IS NOT NULL
+  AND retention_deadline_at < now() + interval '7 days'
+  AND upload_state = 'available'
+GROUP BY media_class;
+
+-- Deletion-pending stock and age (records whose deletion job has not yet
+-- confirmed absence — the "user-visible deletion remains pending" set):
+SELECT count(*), min(updated_at) AS oldest_scheduled
+FROM media.media_record
+WHERE upload_state = 'deletion_scheduled'
+  AND derived_from_media_id IS NULL;
+
+-- Processing queue age (jobs the relay recorded that have not completed):
+SELECT job_kind, state, count(*), min(created_at) AS oldest
+FROM media.processing_job
+WHERE state IN ('requested', 'queued', 'running')
+GROUP BY job_kind, state;
+```
+
+**Stored bytes: what is real versus what would be invented.** Cloud Monitoring already ships
+per-bucket metrics for every GCS bucket with no instrumentation at all:
+`storage.googleapis.com/storage/total_bytes` and `storage.googleapis.com/storage/object_count`
+(point-in-time gauges, sampled daily) — and the four media buckets map onto storage classes by
+construction (`user-media` ≈ garden photos + imported plans, `raw-capture`, `derived` ≈ derivative
+previews, `exports`). "Stored bytes by class and environment" is therefore: the built-in bucket
+metrics for physical truth per environment, the SQL above for per-media-class application truth,
+and a log-based INGEST-RATE proxy (`sum(verifiedByteSize)` over `media.upload.completed`,
+`outcome="available"`) for trend lines between daily samples. Building a custom stored-bytes
+exporter or internal endpoint was rejected as reinventing the built-in metric.
+
+**Log-based metrics these fields support** (Cloud Monitoring, filtered by `jsonPayload.event`; API
+events additionally `resource.labels.service_name="verdery-api-dev"` and worker events
+`"verdery-workers-dev"` once deployed):
+
+- `media_upload_registered` — counter, filter `jsonPayload.event="media.upload.registered"`, label
+  extractor on `jsonPayload.mediaClass`.
+- `media_upload_completed` — counter, filter `jsonPayload.event="media.upload.completed"`, label
+  extractors on `jsonPayload.outcome` and `jsonPayload.mediaClass`.
+- `media_upload_completion_ms` — DISTRIBUTION, value extractor
+  `jsonPayload.registrationToCompletionMs`, same filter.
+- `media_uploaded_bytes` — DISTRIBUTION, value extractor `jsonPayload.verifiedByteSize`, filter
+  `jsonPayload.event="media.upload.completed" AND jsonPayload.outcome="available"`, label extractor
+  on `jsonPayload.mediaClass` (the ingest-rate proxy above).
+- `media_processing_results` — counter, filter
+  `jsonPayload.event="media.processing.result_recorded"`, label extractors on
+  `jsonPayload.jobKind`, `jsonPayload.outcome`, and `jsonPayload.disposition` — one metric answers
+  validation outcomes, derivative failures, deletion completions, and race-guard cancellations.
+- `media_processing_pipeline_ms` — DISTRIBUTION, value extractor
+  `jsonPayload.requestedToCompletedMs`, same filter, label extractor on `jsonPayload.jobKind`.
+- `media_worker_duration_ms` — DISTRIBUTION, value extractor `jsonPayload.workerDurationMs`, same
+  filter, label extractor on `jsonPayload.jobKind`.
+- `media_deletion_lag_ms` — DISTRIBUTION, value extractor `jsonPayload.deletionLagMs`, filter
+  `jsonPayload.event="media.processing.result_recorded" AND jsonPayload.jobKind="media_deletion"
+AND jsonPayload.outcome="succeeded"`.
+- `media_deletion_scheduled` — counter, filter `jsonPayload.event="media.deletion.scheduled"`.
+- `media_processing_retryable_failures` — counter, filter
+  `jsonPayload.event="media_processing.job_failed_retryable"`, label extractor on
+  `jsonPayload.jobKind`.
+- `relay_oldest_claimed_event_age_ms` — DISTRIBUTION, value extractor
+  `jsonPayload.oldestClaimedEventAgeMs`, filter `jsonPayload.event="relay.tick_completed"` — the
+  outbox-publication-lag signal.
+- `relay_event_failures` — counter, filter `jsonPayload.event="relay.event_failed"`.
+- `retention_sweep_runs` — counter, filter `jsonPayload.event="retention.sweep_completed"` (the
+  absence-alert target), plus `retention_sweep_stale_scheduled` /
+  `retention_sweep_retention_scheduled` — DISTRIBUTIONs on `jsonPayload.staleScheduled` /
+  `jsonPayload.retentionScheduled`, same filter.
+- Cloud Tasks built-ins (no definition needed once the queue exists):
+  `cloudtasks.googleapis.com/queue/depth` and `api/request_count` grouped by response code.
+- GCS built-ins (already exist per bucket): `storage.googleapis.com/storage/total_bytes`,
+  `storage/object_count`.
+
+**Dashboard widget compositions:**
+
+_Media upload and processing_ dashboard:
+
+- **Upload funnel** — stacked lines: `media_upload_registered` rate and `media_upload_completed`
+  rate split by `outcome` (`ALIGN_RATE`, 5-minute buckets). The persistent gap between registered
+  and completed IS the abandonment trend (the 7-day sweep is its trailing enforcement); a growing
+  `rejected` band is the synchronous mismatch signal.
+- **Upload completion time** — `media_upload_completion_ms` p50/p95.
+- **Verification outcomes** — `media_processing_results` filtered `jobKind="media_validation"`,
+  grouped by `outcome`, stacked. `failed_terminal` here is the deep byte-level rejection rate
+  (spoofed MIME, dimension bombs, checksum mismatch, active PDF content).
+- **Derivative outcomes** — the same metric filtered `jobKind="derivative_generation"`, grouped by
+  `outcome` — section 19's "derivative failures", directly.
+- **Pipeline latency** — `media_processing_pipeline_ms` p50/p95 grouped by `jobKind`, beside
+  `media_worker_duration_ms` p95: the first includes queueing and retries, the second is pure
+  worker execution — divergence between them means queue/retry trouble, not slow processing.
+- **Retryable failure rate** — `media_processing_retryable_failures` grouped by `jobKind`, with
+  Cloud Tasks `queue/depth` on a second axis. (Known steady-state signal until a malware provider
+  is selected: EVERY PDF `imported_plan` validation fails retryably by design —
+  media-storage-and-processing.md section 8.1 — so a nonzero `media_validation` baseline here is
+  expected exactly in proportion to PDF plan uploads.)
+- **Outbox publication lag** — `relay_oldest_claimed_event_age_ms` p50/p99 and
+  `relay_event_failures` rate.
+
+_Deletion and retention compliance_ dashboard:
+
+- **Deletion flow** — `media_deletion_scheduled` rate (user-initiated) and
+  `retention_sweep_retention_scheduled`/`retention_sweep_stale_scheduled` (sweep-initiated)
+  stacked, against `media_processing_results{jobKind="media_deletion"}` grouped by `outcome`:
+  scheduling in versus confirmed-deleted out, per window.
+- **Deletion lag** — `media_deletion_lag_ms` p50/p95 — section 19's "deletion lag", directly.
+- **Sweep health** — `retention_sweep_runs` count per 3-hour window (expected: 3) and the two
+  sweep-count DISTRIBUTIONs; `staleScheduled` pinned at the 25-per-run batch cap
+  (`RETENTION_SWEEP_BATCH_LIMIT`) across consecutive runs means the backlog is growing faster than
+  the drain rate.
+- **Stored bytes** — GCS `storage/total_bytes` per bucket (the physical truth) with
+  `media_uploaded_bytes` rate by `mediaClass` (the ingest trend between daily samples).
+
+**Alert candidates, with reasoned starting thresholds** (per section 14, exact targets still need
+approval before production; each threshold is derived from this system's own documented timings —
+the 5s relay poll, the hourly sweep, and the Cloud Tasks retry policy of max 10 attempts / 10s-300s
+backoff / 1h max retry duration from `10-media-processing-queue.sh`):
+
+1. **Outbox publication lag**: `relay_oldest_claimed_event_age_ms` p99 > 60s sustained 10 minutes.
+   Healthy steady state is within one or two 5s poll intervals; 60s means ~12 consecutive intervals
+   failed to drain (repeated `relay.event_failed`, a starved/crashed process, or a Cloud Tasks
+   outage). Pair with `relay_event_failures` > 0 sustained 15 minutes — a single event failing
+   every tick forever is a poisoned event even when overall lag stays low.
+2. **Validation failure ratio**: `media_processing_results{jobKind="media_validation",
+outcome="failed_terminal"}` / all validation results > 5% over a trailing 1-hour window — the same
+   5% shape as the sync push-rejection candidate. Occasional malformed uploads are routine; a
+   sustained spike means a client regression (uploading something the validator now rejects) or
+   abuse.
+3. **Processing pipeline stall**: `media_processing_pipeline_ms` p95 > 10 minutes sustained 1 hour.
+   The healthy path completes in seconds (5s poll + dispatch + worker duration); Cloud Tasks'
+   backoff means a job seeing multiple retries takes minutes, and 10 minutes at p95 means MOST jobs
+   are retrying repeatedly — a systemic dependency failure (GCS, the worker service, the callback),
+   not one bad file. Full retry exhaustion takes at most 1h (`--max-retry-duration=3600s`), which
+   bounds how long this alert can lag the root cause.
+4. **Deletion not completing**: two complementary candidates. (a) `media_deletion_lag_ms` p95 > 2
+   hours over a trailing 6-hour window: a deletion's whole retry budget is 1 hour, so a completed
+   deletion can never honestly take much longer — values beyond 2h mean re-emitted cleanup events
+   are doing the completing, not the primary path. (b) `media_processing_results
+{jobKind="media_deletion"}` with `outcome != "succeeded"` > 0 over 1 hour: deletion jobs have
+   exactly one legitimate terminal outcome; anything else is malformed-manifest or a verification
+   failure and stalls a user-visible deletion. The STOCK side (a `deletion_scheduled` record whose
+   job exhausted Cloud Tasks retries has NO automatic re-drive today — see deferred-capabilities.md)
+   is an operator SQL check in the runbook below, not a log-based alert, until an exporter or
+   re-drive exists.
+5. **Retention sweep absent**: `retention_sweep_runs` absent for 3 hours (metric-absence
+   condition). The interval is hourly; three consecutive misses is a stopped worker process, a
+   broken `MEDIA_RETENTION_SWEEP_URL`/OIDC configuration, or a failing sweep endpoint — and because
+   this line doubles as the worker's heartbeat, it also catches a dead relay whose own idle
+   silence is otherwise expected.
+6. **Sweep backlog saturation**: `retention_sweep_stale_scheduled` at its 25 batch cap for 6
+   consecutive runs — stale uploads are being produced faster than 25/hour drains, meaning a client
+   is abandoning sessions at scale or a completion-path regression is stranding uploads.
+
+Deliberately NOT proposed as alerts: upload **abandonment ratio** (a user closing the app
+mid-upload is legitimate behavior; the sweep guarantees cleanup — dashboard trend, not a page) and
+the synchronous completion **rejected rate** on its own (already visible in the funnel widget; the
+actionable form is the validation-failure ratio above, which catches the same class of regression
+with deep-validation confirmation).
+
+**Runbook entries** (section 18's shape, applied to each candidate above):
+
+- **Outbox publication lag / relay event failures.** Meaning: uploads complete but validation
+  never starts; users see records stuck `verifying`-then-`available` with no `processed` state.
+  First: `jsonPayload.event="relay.event_failed"` in Cloud Logging and read `err` — a single
+  repeated `outboxEventId` is a poisoned event; broad failures are Cloud Tasks/DB connectivity.
+  Check the worker service is serving (`service.started` after unexpected restarts; Cloud Run
+  instance count; the always-allocated-CPU requirement in `deploy-workers.sh` — a CPU-throttled
+  relay is the documented deployment-order failure mode). Safe remediations: restart/redeploy the
+  worker; for a poisoned event, inspect the row (`SELECT * FROM platform.outbox_event WHERE id =
+...`) — its payload is producer-written and trusted, so a malformed one indicates an API bug to
+  fix, not a row to hand-edit. The relay retries automatically every tick; nothing is lost while
+  it is down, only delayed.
+- **Validation failure ratio.** Meaning: uploads are being terminally rejected after byte
+  inspection. First: group `media.processing.result_recorded{jobKind="media_validation",
+outcome="failed_terminal"}` by `outcomeCode` — `mime_signature_mismatch`-class codes trending
+  after a client release means a client regression; a burst from one garden suggests abuse (the
+  `mediaId`s join to `media.media_record` for ownership). Safe remediation: none server-side —
+  rejection is the system working; fix the client or act on the abuser. Never relax
+  `validation-policy.ts` ceilings as a firefight.
+- **Processing pipeline stall / retryable failures.** Meaning: Cloud Tasks deliveries are failing
+  and retrying; user-visible processing is delayed but not lost. First: read
+  `media_processing.job_failed_retryable`'s `err` grouped by `jobKind`. Known cause with a
+  standing explanation: PDF `imported_plan` validation fails retryably BY DESIGN until a malware
+  provider is selected (`UnavailableMalwareScanner` → 503) — check whether the volume is just PDF
+  uploads before treating it as an outage. Otherwise: GCS availability, the worker's storage IAM
+  bindings, or the API callback rejecting (401s in `verdery-api` logs mean OIDC
+  audience/service-account misconfiguration — compare `MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_
+EMAIL`/`MEDIA_PROCESSING_CALLBACK_AUDIENCE` against `deploy-workers.sh`). Safe remediation: fix
+  the dependency and let Cloud Tasks' remaining retries drain; after retry exhaustion (1h), see
+  the stuck-deletion/stuck-job re-drive below.
+- **Deletion lag / deletion not completing.** Meaning: a user was told deletion is pending and the
+  bytes are still in Cloud Storage — a compliance-relevant condition (section 15's alert list
+  names "Raw media deletion lag" explicitly). First: the deletion-pending stock SQL above; then
+  the record's job rows (`SELECT * FROM media.processing_job WHERE media_id = ... ORDER BY
+created_at`) — `failed_terminal` with `deletion_manifest_missing` is a malformed event (a bug to
+  fix), repeated retryable failures are provider trouble. Safe remediation for a record stuck
+  `deletion_scheduled` after retry exhaustion: re-emit the standard `media.deletion_requested`
+  outbox event — the P6-RET-01 cleanup path that is idempotent END TO END by design (same
+  prefixes, fresh event id, convergent completion; `record-media-processing-result.ts` re-emits it
+  for late derivative bytes the same way): insert one `platform.outbox_event` row with `event_type
+= 'media.deletion_requested'`, a fresh UUID id, `aggregate_type = 'media_record'`, the media id as
+  `aggregate_id`, and the payload rebuilt from the media row exactly as
+  `appendMediaDeletionRequestedEvent` (`media-deletion-workflow.ts`) builds it — the relay picks it
+  up within one poll interval. NEVER flip `upload_state` to `deleted` by hand: that records an
+  absence verification that never happened. Evidence to preserve: the job rows and the audit
+  events (`media.deletion_requested`/`media.deleted` in `platform.audit_event`).
+- **Retention sweep absent.** Meaning: retention deadlines and stale-upload reconciliation are not
+  being enforced; also possibly the whole worker is down (this line is its heartbeat). First:
+  `retention.sweep_failed`'s `err` — 401/403 means the OIDC audience or
+  `MEDIA_RETENTION_SWEEP_URL` drifted from `deploy-workers.sh`'s values; connection errors mean
+  the API is down (check its own alerts); no `sweep_failed` either means the worker process is
+  gone (Cloud Run instance count, `service.shutdown_*`/crash logs). Safe remediation: restart the
+  worker or fix configuration; candidates are durable rows, so missed runs delay enforcement but
+  lose nothing — the next successful run drains up to 25 per category and hourly runs catch up.
+- **Sweep backlog saturation.** Meaning: abandoned uploads accumulating faster than 25/hour. First:
+  the stale-upload stock SQL above grouped by `media_class`, and the upload funnel widget — a
+  registration spike with flat completions localizes which client/class. Safe remediation: fix the
+  abandoning client; the backlog drains automatically once production slows. Raising
+  `RETENTION_SWEEP_BATCH_LIMIT` is a code change with documented reasoning, not a live-tuning knob.
+
+**What this section deliberately does not claim.** No live dashboard, log-based metric, or alert
+policy has been created against any environment (the P5-OBS-01/App-Check precedent; live
+infrastructure actions need their own approval). The bucket-side orphan direction (objects with no
+row) still has no producer of a signal — its listing reconciler itself is the deferred capability,
+so there is honestly nothing to chart yet. Raw-capture deadline enforcement is declared
+`enforced: false` and its "approaching deadline" query returns only `export_package` rows until
+Garden Scan (Phase 10) stamps real deadlines. And `media.processing_job` rows that exhaust Cloud
+Tasks retries have no automatic re-drive — the runbook's manual re-emit is the documented
+remediation, and an automated re-drive is recorded in deferred-capabilities.md as a future
+decision, not silently promised here.
+
 ## 14. SLOs
 
 Initial SLO candidates include:

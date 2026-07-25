@@ -72,11 +72,18 @@ describe('OutboxRelay.tick', () => {
       eventType: MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
       payload: payload(),
       traceId: 'trace-1',
+      occurredAt: NOW,
     });
 
     const result = await relay.tick();
 
-    expect(result).toEqual({ claimed: 1, enqueued: 1, alreadyQueued: 0, failed: 0 });
+    expect(result).toEqual({
+      claimed: 1,
+      enqueued: 1,
+      alreadyQueued: 0,
+      failed: 0,
+      oldestClaimedEventAgeMs: 0,
+    });
     expect(mediaProcessingQueue.enqueued).toHaveLength(1);
     expect(mediaProcessingQueue.enqueued[0]).toMatchObject({
       taskName: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c00',
@@ -110,6 +117,7 @@ describe('OutboxRelay.tick', () => {
       eventType: MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
       payload: payload(),
       traceId: null,
+      occurredAt: NOW,
     });
     const { relay } = buildRelay({ outboxEvents });
 
@@ -117,7 +125,13 @@ describe('OutboxRelay.tick', () => {
     const second = await relay.tick();
 
     expect(first.enqueued).toBe(1);
-    expect(second).toEqual({ claimed: 0, enqueued: 0, alreadyQueued: 0, failed: 0 });
+    expect(second).toEqual({
+      claimed: 0,
+      enqueued: 0,
+      alreadyQueued: 0,
+      failed: 0,
+      oldestClaimedEventAgeMs: null,
+    });
   });
 
   it('crash recovery: a job already queued from a previous tick is not re-enqueued, only the outbox row is published', async () => {
@@ -129,6 +143,7 @@ describe('OutboxRelay.tick', () => {
       eventType: MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
       payload: payload(),
       traceId: null,
+      occurredAt: NOW,
     });
     const processingJobs = new FakeProcessingJobStore();
     // Simulates: a previous tick already created the job and successfully
@@ -145,7 +160,13 @@ describe('OutboxRelay.tick', () => {
 
     const result = await relay.tick();
 
-    expect(result).toEqual({ claimed: 1, enqueued: 0, alreadyQueued: 1, failed: 0 });
+    expect(result).toEqual({
+      claimed: 1,
+      enqueued: 0,
+      alreadyQueued: 1,
+      failed: 0,
+      oldestClaimedEventAgeMs: 0,
+    });
     expect(mediaProcessingQueue.enqueued).toHaveLength(0);
     expect(outboxEvents.markPublishedCalls).toEqual([eventId]);
   });
@@ -159,13 +180,20 @@ describe('OutboxRelay.tick', () => {
         eventType: MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
         payload: payload({ mediaId: `019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c2${index}` }),
         traceId: null,
+        occurredAt: NOW,
       });
     }
     const { relay, mediaProcessingQueue } = buildRelay({ outboxEvents });
 
     const result = await relay.tick();
 
-    expect(result).toEqual({ claimed: 5, enqueued: 5, alreadyQueued: 0, failed: 0 });
+    expect(result).toEqual({
+      claimed: 5,
+      enqueued: 5,
+      alreadyQueued: 0,
+      failed: 0,
+      oldestClaimedEventAgeMs: 0,
+    });
     expect(mediaProcessingQueue.enqueued).toHaveLength(5);
   });
 
@@ -178,6 +206,7 @@ describe('OutboxRelay.tick', () => {
         eventType: MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
         payload: payload({ mediaId: `019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c2${index}` }),
         traceId: null,
+        occurredAt: NOW,
       });
     }
     const { relay } = buildRelay({ outboxEvents, batchSize: 2 });
@@ -195,6 +224,7 @@ describe('OutboxRelay.tick', () => {
       eventType: MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
       payload: payload({ mediaId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c20' }),
       traceId: null,
+      occurredAt: NOW,
     });
     outboxEvents.seed({
       id: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c11',
@@ -202,6 +232,7 @@ describe('OutboxRelay.tick', () => {
       eventType: MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
       payload: payload({ mediaId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c21' }),
       traceId: null,
+      occurredAt: NOW,
     });
     const mediaProcessingQueue = new FakeMediaProcessingQueue();
     mediaProcessingQueue.rejectNextWith = new Error('Cloud Tasks temporarily unavailable');
@@ -209,7 +240,13 @@ describe('OutboxRelay.tick', () => {
 
     const result = await relay.tick();
 
-    expect(result).toEqual({ claimed: 2, enqueued: 1, alreadyQueued: 0, failed: 1 });
+    expect(result).toEqual({
+      claimed: 2,
+      enqueued: 1,
+      alreadyQueued: 0,
+      failed: 1,
+      oldestClaimedEventAgeMs: 0,
+    });
     // Exactly one of the two jobs reached queued; the other stayed requested
     // and its outbox row stays unpublished, ready to retry next tick.
     const queuedCount = [...processingJobs.jobs.values()].filter(
@@ -228,12 +265,19 @@ describe('OutboxRelay.tick', () => {
       eventType: MEDIA_DERIVATIVE_GENERATION_REQUESTED_EVENT_TYPE,
       payload: payload({ mediaId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c31' }),
       traceId: null,
+      occurredAt: NOW,
     });
     const { relay, processingJobs, mediaProcessingQueue } = buildRelay({ outboxEvents });
 
     const result = await relay.tick();
 
-    expect(result).toEqual({ claimed: 1, enqueued: 1, alreadyQueued: 0, failed: 0 });
+    expect(result).toEqual({
+      claimed: 1,
+      enqueued: 1,
+      alreadyQueued: 0,
+      failed: 0,
+      oldestClaimedEventAgeMs: 0,
+    });
     expect(processingJobs.jobs.get(eventId)?.jobKind).toBe(MEDIA_DERIVATIVE_GENERATION_JOB_KIND);
     expect(mediaProcessingQueue.enqueued[0]?.manifest.jobKind).toBe(
       MEDIA_DERIVATIVE_GENERATION_JOB_KIND,
@@ -249,6 +293,7 @@ describe('OutboxRelay.tick', () => {
       eventType: MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
       payload: payload({ mediaId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c41' }),
       traceId: null,
+      occurredAt: NOW,
     });
     const { relay, processingJobs, mediaProcessingQueue } = buildRelay({ outboxEvents });
 
@@ -274,12 +319,19 @@ describe('OutboxRelay.tick', () => {
       eventType: MEDIA_DELETION_REQUESTED_EVENT_TYPE,
       payload: deletionPayload,
       traceId: null,
+      occurredAt: NOW,
     });
     const { relay, processingJobs, mediaProcessingQueue } = buildRelay({ outboxEvents });
 
     const result = await relay.tick();
 
-    expect(result).toEqual({ claimed: 1, enqueued: 1, alreadyQueued: 0, failed: 0 });
+    expect(result).toEqual({
+      claimed: 1,
+      enqueued: 1,
+      alreadyQueued: 0,
+      failed: 0,
+      oldestClaimedEventAgeMs: 0,
+    });
     expect(processingJobs.jobs.get(eventId)?.jobKind).toBe(MEDIA_DELETION_JOB_KIND);
     const manifest = mediaProcessingQueue.enqueued[0]?.manifest;
     expect(manifest?.jobKind).toBe(MEDIA_DELETION_JOB_KIND);
@@ -287,5 +339,32 @@ describe('OutboxRelay.tick', () => {
     expect(manifest?.deletion).toEqual({
       objectPrefixes: deletionPayload.objectPrefixes,
     });
+  });
+
+  it('reports the oldest claimed event`s age as the outbox-publication-lag signal (P6-OBS-01)', async () => {
+    const outboxEvents = new FakeOutboxEventStore();
+    // Deliberately seeded newest-first: the relay must find the oldest
+    // event's age regardless of the store's returned order.
+    outboxEvents.seed({
+      id: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c60',
+      aggregateId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c61',
+      eventType: MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
+      payload: payload({ mediaId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c61' }),
+      traceId: null,
+      occurredAt: new Date(NOW.getTime() - 2_000),
+    });
+    outboxEvents.seed({
+      id: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c62',
+      aggregateId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c63',
+      eventType: MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
+      payload: payload({ mediaId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c63' }),
+      traceId: null,
+      occurredAt: new Date(NOW.getTime() - 12_000),
+    });
+    const { relay } = buildRelay({ outboxEvents });
+
+    const result = await relay.tick();
+
+    expect(result.oldestClaimedEventAgeMs).toBe(12_000);
   });
 });

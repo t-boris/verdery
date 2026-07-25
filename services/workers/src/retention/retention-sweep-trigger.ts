@@ -52,19 +52,17 @@ export class GoogleApiRetentionSweepTrigger implements RetentionSweepTrigger {
     });
 
     const summary = response.data;
-    if (
-      summary.retentionScheduled > 0 ||
-      summary.retentionSkippedReferenced > 0 ||
-      summary.staleScheduled > 0 ||
-      summary.lostRaces > 0
-    ) {
-      // Counts only — never media ids, filenames, or URLs (architecture
-      // section 19's logging posture).
-      this.logger.info(
-        { event: 'retention.sweep_completed', ...summary },
-        'Retention sweep scheduled work',
-      );
-    }
+    // Logged on EVERY successful round-trip, all-zero counts included
+    // (P6-OBS-01): the hourly cadence of this one line is the sweep's own
+    // liveness signal — an absence-based alert ("no sweep completed for
+    // N hours") is only writable if the nothing-to-do case still emits,
+    // and at one line per hour the volume cost is nil. Counts only —
+    // never media ids, filenames, or URLs (architecture section 19's
+    // logging posture).
+    this.logger.info(
+      { event: 'retention.sweep_completed', ...summary },
+      'Retention sweep completed',
+    );
     return summary;
   }
 }

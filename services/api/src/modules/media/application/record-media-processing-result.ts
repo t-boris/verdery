@@ -45,6 +45,10 @@
  *   DERIVATIVE result's already-written bytes are re-covered by re-emitting
  *   the standard deletion event (idempotent by design — the same prefixes,
  *   a fresh event id, and completion that converges on `deleted`).
+ *
+ * P6-OBS-01: `execute` returns a `MediaProcessingResultRecordedSummary` so
+ * the callback route can log one structured line per delivery — see that
+ * type's own doc comment.
  */
 
 import {
@@ -60,7 +64,7 @@ import {
   markMediaProcessed,
   markMediaProcessingFailed,
 } from '../domain/media-lifecycle.js';
-import type { MediaRecord } from '../domain/media-record.js';
+import type { MediaClass, MediaRecord } from '../domain/media-record.js';
 import {
   MEDIA_DELETION_JOB_KIND,
   MEDIA_DERIVATIVE_GENERATION_JOB_KIND,
@@ -81,6 +85,56 @@ import type { MediaTransactionContext, MediaUnitOfWork } from './media-unit-of-w
 
 /** The `outcomeCode` a processing job completed against an already-deletion-scheduled source carries. */
 export const SOURCE_NOT_AVAILABLE_OUTCOME_CODE = 'media_not_available';
+
+/**
+ * What one callback delivery actually did (P6-OBS-01) — returned to the
+ * transport layer so `media-processing-callback-route.ts` can emit one
+ * structured `media.processing.result_recorded` log line per delivery, the
+ * same "the application returns the data, the transport logs it" split
+ * `sync-routes.ts`'s own header comment established for P5-OBS-01 (compare
+ * `countSyncPushOutcomes`), rather than threading a `Logger` into this
+ * class.
+ */
+export type MediaProcessingResultDisposition =
+  /** This delivery drove the job (and, per kind, the media record) to its terminal state. */
+  | 'recorded'
+  /** The job was already terminal — a duplicate/late delivery, a no-op beyond late-derivative byte cleanup. */
+  | 'duplicate'
+  /** The source left `available` while the job was in flight; the job completed as `cancelled` (P6-RET-01 race guard). */
+  | 'cancelled_source_unavailable'
+  /** The media row moved concurrently; the job was left as-is for a later delivery or operator replay. */
+  | 'lost_revision_race';
+
+export interface MediaProcessingResultRecordedSummary {
+  readonly disposition: MediaProcessingResultDisposition;
+  readonly jobKind: string;
+  readonly mediaId: Uuid;
+  /** `null` on the duplicate path, which never fetches the media row. */
+  readonly mediaClass: MediaClass | null;
+  /** The worker-reported outcome of this delivery (not necessarily the job's recorded state — see `disposition`). */
+  readonly outcome: MediaProcessingResult['outcome'];
+  readonly outcomeCode: string | null;
+  readonly attempt: number;
+  /** The worker's own reported execution time, when it sent one. */
+  readonly workerDurationMs: number | null;
+  /**
+   * Job creation (`requested`) to this terminal recording — the full
+   * pipeline latency including relay pickup, Cloud Tasks queueing, and any
+   * retries. `null` when this delivery did not complete the job
+   * (`duplicate`/`lost_revision_race`).
+   */
+  readonly requestedToCompletedMs: number | null;
+  /**
+   * `media_deletion` succeeded only: `deletion_scheduled` -> `deleted`
+   * (architecture/media-storage-and-processing.md section 19's "deletion
+   * lag"). Computable from `media.updatedAt` because nothing updates the
+   * ORIGINAL row between the scheduling transaction and this completion:
+   * every other write path gates on `uploadState === 'available'`, replays
+   * short-circuit, and derivative bulk transitions touch derivative rows
+   * only.
+   */
+  readonly deletionLagMs: number | null;
+}
 
 function toDomainResult(result: MediaProcessingResult): ProcessingJobResultInput {
   return {
@@ -129,8 +183,11 @@ export class RecordMediaProcessingResult {
     private readonly derivedBucketName: string,
   ) {}
 
-  async execute(jobId: Uuid, result: MediaProcessingResult): Promise<void> {
-    await this.unitOfWork.run(async (context) => {
+  async execute(
+    jobId: Uuid,
+    result: MediaProcessingResult,
+  ): Promise<MediaProcessingResultRecordedSummary> {
+    return this.unitOfWork.run(async (context) => {
       const job = await context.processingJobs.get(jobId);
       if (job === null) {
         throw processingJobNotFoundError();
@@ -142,7 +199,7 @@ export class RecordMediaProcessingResult {
         // not be recalled. A cancelled DERIVATIVE job may still have
         // written real bytes before this callback arrived; re-cover them.
         await this.cleanUpLateDerivativeBytes(context, job, result);
-        return;
+        return this.summarize('duplicate', job, null, result, null, null);
       }
       requireSuccessfulInputChecksums(job, result);
 
@@ -157,8 +214,7 @@ export class RecordMediaProcessingResult {
       const now = this.clock.now();
 
       if (job.jobKind === MEDIA_DELETION_JOB_KIND) {
-        await this.recordDeletionResult(context, job, media, result, now);
-        return;
+        return this.recordDeletionResult(context, job, media, result, now);
       }
 
       // P6-RET-01 race guard, both processing kinds: the source moved out
@@ -167,17 +223,42 @@ export class RecordMediaProcessingResult {
       // 3's cancellation, applied at the last possible moment — and never
       // touch the media row the deletion workflow now owns.
       if (media.uploadState !== 'available') {
-        await this.cancelAgainstUnavailableSource(context, job, media, result, now);
-        return;
+        return this.cancelAgainstUnavailableSource(context, job, media, result, now);
       }
 
       if (job.jobKind === MEDIA_DERIVATIVE_GENERATION_JOB_KIND) {
-        await this.recordDerivativeGenerationResult(context, job, media, result, now);
-        return;
+        return this.recordDerivativeGenerationResult(context, job, media, result, now);
       }
 
-      await this.recordValidationResult(context, job, media, result, now);
+      return this.recordValidationResult(context, job, media, result, now);
     });
+  }
+
+  /** Builds the summary the transport logs — one place, so every path reports the same shape. */
+  private summarize(
+    disposition: MediaProcessingResultDisposition,
+    job: ProcessingJob,
+    media: MediaRecord | null,
+    result: MediaProcessingResult,
+    completedAt: Date | null,
+    deletionLagMs: number | null,
+  ): MediaProcessingResultRecordedSummary {
+    return {
+      disposition,
+      jobKind: job.jobKind,
+      mediaId: job.mediaId,
+      mediaClass: media?.mediaClass ?? null,
+      outcome: result.outcome,
+      outcomeCode:
+        disposition === 'cancelled_source_unavailable'
+          ? SOURCE_NOT_AVAILABLE_OUTCOME_CODE
+          : toDomainResult(result).outcomeCode,
+      attempt: job.attempt,
+      workerDurationMs: result.resourceMetrics?.durationMs ?? null,
+      requestedToCompletedMs:
+        completedAt === null ? null : Math.max(0, completedAt.getTime() - job.createdAt.getTime()),
+      deletionLagMs,
+    };
   }
 
   /** `MEDIA_VALIDATION_JOB_KIND` path — see this file's own header comment. */
@@ -187,7 +268,7 @@ export class RecordMediaProcessingResult {
     media: MediaRecord,
     result: MediaProcessingResult,
     now: Date,
-  ): Promise<void> {
+  ): Promise<MediaProcessingResultRecordedSummary> {
     const processing = beginMediaProcessing(media, now);
     const processed =
       result.outcome === 'succeeded'
@@ -199,7 +280,7 @@ export class RecordMediaProcessingResult {
       // Lost a concurrency race (or the media record moved under this job
       // some other way). Leave the job as-is; a later delivery or an
       // operator replay resolves it.
-      return;
+      return this.summarize('lost_revision_race', job, media, result, null, null);
     }
 
     if (result.outcome === 'succeeded') {
@@ -207,6 +288,7 @@ export class RecordMediaProcessingResult {
     }
 
     await context.processingJobs.updateState(completeJob(job, result, now), job.revision);
+    return this.summarize('recorded', job, media, result, now, null);
   }
 
   /**
@@ -263,7 +345,7 @@ export class RecordMediaProcessingResult {
     media: MediaRecord,
     result: MediaProcessingResult,
     now: Date,
-  ): Promise<void> {
+  ): Promise<MediaProcessingResultRecordedSummary> {
     if (result.outcome === 'succeeded' || result.outcome === 'partial') {
       for (const output of result.outputObjects) {
         const parsed = parseDerivativeOutput(output);
@@ -278,6 +360,7 @@ export class RecordMediaProcessingResult {
     }
 
     await context.processingJobs.updateState(completeJob(job, result, now), job.revision);
+    return this.summarize('recorded', job, media, result, now, null);
   }
 
   /** `MEDIA_DELETION_JOB_KIND` path — see this file's own header comment. */
@@ -287,7 +370,15 @@ export class RecordMediaProcessingResult {
     media: MediaRecord,
     result: MediaProcessingResult,
     now: Date,
-  ): Promise<void> {
+  ): Promise<MediaProcessingResultRecordedSummary> {
+    // Section 19's "deletion lag", measured at the only moment both ends
+    // are known — see `MediaProcessingResultRecordedSummary.deletionLagMs`'s
+    // own doc comment for why `media.updatedAt` IS the scheduling instant.
+    const deletionLagMs =
+      result.outcome === 'succeeded' && media.uploadState === 'deletion_scheduled'
+        ? Math.max(0, now.getTime() - media.updatedAt.getTime())
+        : null;
+
     if (result.outcome === 'succeeded') {
       await completeMediaDeletion(context, media, now);
     }
@@ -295,6 +386,7 @@ export class RecordMediaProcessingResult {
     // "record provider retry state" — the record stays
     // `deletion_scheduled` and user-visible deletion remains pending.
     await context.processingJobs.updateState(completeJob(job, result, now), job.revision);
+    return this.summarize('recorded', job, media, result, now, deletionLagMs);
   }
 
   /** The in-flight half of the deletion race guard — see this file's own header comment. */
@@ -304,7 +396,7 @@ export class RecordMediaProcessingResult {
     media: MediaRecord,
     result: MediaProcessingResult,
     now: Date,
-  ): Promise<void> {
+  ): Promise<MediaProcessingResultRecordedSummary> {
     const cancelled = markProcessingJobCancelled(
       job,
       {
@@ -319,6 +411,7 @@ export class RecordMediaProcessingResult {
     if (this.hasDerivativeBytesToCleanUp(job, media, result)) {
       await appendMediaDeletionRequestedEvent(context, media, this.derivedBucketName);
     }
+    return this.summarize('cancelled_source_unavailable', job, media, result, now, null);
   }
 
   /** The already-terminal half of the same guard (a cancelled job's undeliverable-to-recall Cloud Tasks dispatch still ran) — see `execute`. */

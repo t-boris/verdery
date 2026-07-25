@@ -79,7 +79,36 @@ export function registerMediaProcessingCallbackRoute(
       );
     }
 
-    await dependencies.recordMediaProcessingResult.execute(jobId, result);
+    const summary = await dependencies.recordMediaProcessingResult.execute(jobId, result);
+
+    // One structured line per delivery — job kind, disposition, outcome, and
+    // latency figures only, never object keys, filenames, or URLs
+    // (architecture/media-storage-and-processing.md section 19; P6-OBS-01).
+    // Logged here at the transport layer from the application layer's own
+    // returned summary, the same split `sync-routes.ts` established for
+    // P5-OBS-01. Null-valued duration fields are omitted, matching
+    // `pullLagMilliseconds`' own absent-when-uncomputable precedent.
+    request.log.info(
+      {
+        event: 'media.processing.result_recorded',
+        jobId,
+        disposition: summary.disposition,
+        jobKind: summary.jobKind,
+        mediaId: summary.mediaId,
+        outcome: summary.outcome,
+        outcomeCode: summary.outcomeCode,
+        attempt: summary.attempt,
+        ...(summary.mediaClass === null ? {} : { mediaClass: summary.mediaClass }),
+        ...(summary.workerDurationMs === null
+          ? {}
+          : { workerDurationMs: summary.workerDurationMs }),
+        ...(summary.requestedToCompletedMs === null
+          ? {}
+          : { requestedToCompletedMs: summary.requestedToCompletedMs }),
+        ...(summary.deletionLagMs === null ? {} : { deletionLagMs: summary.deletionLagMs }),
+      },
+      'Media processing result recorded',
+    );
 
     return reply.status(204).send();
   });

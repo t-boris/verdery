@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { MediaProcessingManifest, MediaProcessingResult } from '@verdery/api-contracts';
 import { z } from 'zod';
+import { MEDIA_VALIDATION_JOB_KIND } from '../job-kind.js';
 import type { Logger } from '../logger.js';
 import {
   InvocationAuthenticationError,
@@ -133,11 +134,12 @@ export class ValidationHttpServer {
       return;
     }
 
+    let manifest: MediaProcessingManifest | undefined;
     try {
       const rawAuthorization: unknown = request.headers['authorization'];
       const authorization = typeof rawAuthorization === 'string' ? rawAuthorization : undefined;
       await this.verifier.verify(authorization);
-      const manifest = manifestSchema.parse(await readJson(request)) as MediaProcessingManifest;
+      manifest = manifestSchema.parse(await readJson(request)) as MediaProcessingManifest;
       if (manifest.jobId !== match[1]) {
         send(response, 400, { error: 'job_id_mismatch' });
         return;
@@ -154,11 +156,24 @@ export class ValidationHttpServer {
         send(response, 400, { error: 'invalid_manifest' });
         return;
       }
+      // Named for what this server now IS (the one target ALL THREE job
+      // kinds dispatch through — this class's own header comment), not for
+      // its P6-WORKER-01-era validation-only role: the pre-P6-OBS-01 event
+      // name `media_validation.failed` would have hidden a deletion or
+      // derivative job's retry storm inside a validation-named series.
+      // `jobKind` absent on the manifest means `media_validation` by
+      // contract (`MediaProcessingManifest.jobKind`); a body that failed
+      // before parsing has no kind to report and logs `null`.
       this.logger.error(
-        { err: error, event: 'media_validation.failed', jobId: match[1] },
-        'Media validation failed retryably',
+        {
+          err: error,
+          event: 'media_processing.job_failed_retryable',
+          jobId: match[1],
+          jobKind: manifest === undefined ? null : (manifest.jobKind ?? MEDIA_VALIDATION_JOB_KIND),
+        },
+        'Media processing job failed retryably; Cloud Tasks will retry',
       );
-      send(response, 503, { error: 'validation_unavailable' });
+      send(response, 503, { error: 'processing_unavailable' });
     }
   }
 }

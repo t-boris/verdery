@@ -111,6 +111,20 @@ attach-versus-delete race guards across every attachment command. See
 architecture/media-storage-and-processing.md sections 15.1/16.1 for the implemented profile and the
 entries below for what this stage deliberately leaves open.
 
+Phase 6 also now includes P6-OBS-01: structured, queryable log events across the whole media
+pipeline — `media.upload.registered`/`media.upload.completed`/`media.deletion.scheduled` at the
+API's media transport, one `media.processing.result_recorded` event per worker result callback
+(validation, derivative, and deletion outcomes split by `jobKind`, with worker duration, full
+requested-to-completed pipeline latency, and the computed `deletion_scheduled -> deleted` lag on a
+confirmed deletion), the relay's `oldestClaimedEventAgeMs` outbox-publication-lag figure, the
+worker HTTP target's retryable-failure event corrected to cover all three job kinds
+(`media_processing.job_failed_retryable`, with `jobKind`), and the hourly
+`retention.sweep_completed` heartbeat now emitted on every run — plus the documented dashboard/
+alert/runbook writeup in
+[observability-and-analytics.md](../architecture/observability-and-analytics.md)'s "Media
+dashboard, alert candidates, and runbook" subsection. See the media-dashboard entry below for what
+deliberately remains undeployed.
+
 Phase 6 also now includes real P6-WORKER-02 derivative generation in `services/workers/src/derivatives`:
 `sharp`-based thumbnail/screen-preview/high-resolution/tile production for garden photos and raster
 (non-PDF) imported plans, unconditional EXIF stripping (GPS location included) with orientation
@@ -302,6 +316,29 @@ repository's third-party-dependency rule. The outbox-age metric itself is real a
 read it yet. `platform.sync_client_installation.revoked_at` has no telemetry either, for a third,
 distinct reason: no command anywhere in this codebase writes it at all (see the `P5-SEC-01` entry
 below), so there is no event to log a metric about, not merely an unbuilt dashboard.
+
+**Media dashboards, log-based metrics, and alert policies (P6-OBS-01).** The same shape as the
+sync-dashboard entry above, applied to media: every media-pipeline signal named by
+architecture/media-storage-and-processing.md section 19 is now a real, test-verified structured
+log event or a documented database/built-in-metric query, and observability-and-analytics.md's
+media subsection specifies the exact log-based metric definitions, dashboard widget compositions,
+alert thresholds, and runbook entries they support — but no Cloud Monitoring dashboard, log-based
+metric, or alert policy has been CREATED against any environment. That is a live-infrastructure
+action gated on its own approval (and on the worker service actually being deployed, which the
+malware-provider/worker-rollout entry above still tracks), matching the P1-OBS-01/P5-OBS-01
+delivery bar for a "-01" observability work package.
+
+**Stuck-deletion automatic re-drive (P6-OBS-01 audit finding, deliberately not built).** A
+`deletion_scheduled` record whose `media_deletion` job exhausts Cloud Tasks' bounded retries
+(10 attempts / 1 hour) has no automatic re-drive: the outbox event is already published, the
+retention sweep deliberately skips records already in the deletion pipeline, and nothing re-emits
+the event on its own. The record stays honestly `deletion_scheduled` (user-visible deletion
+remains pending — the designed conservative posture), and the documented operator remediation is
+re-emitting the standard idempotent `media.deletion_requested` event (see the deletion runbook
+entry in observability-and-analytics.md — the same re-emit `RecordMediaProcessingResult` already
+performs for late derivative bytes). An AUTOMATIC re-drive (for example, the sweep re-emitting for
+stale `deletion_scheduled` rows) would change retention semantics and needs its own approved
+change; recorded here rather than built inside an observability work package.
 
 **Photo and file attachment in the Phase 4 web client — partially fixed by `P6-WEB-01`.**
 `AddPlantFromPhoto`, `AttachPlantPhoto`, `SetPrimaryPlantPhoto`, `ConfirmPlantIdentification`, and

@@ -123,6 +123,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   let tokenVerifier: FakeTokenVerifier;
   let mediaStorageGateway: FakeMediaStorageGateway;
   let app: FastifyInstance;
+  let logRecords: string[];
 
   beforeAll(async () => {
     container = await new PostgreSqlContainer(POSTGIS_IMAGE).withPlatform(POSTGIS_PLATFORM).start();
@@ -150,7 +151,13 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     mediaStorageGateway = new FakeMediaStorageGateway({
       objectMetadata: { contentType: 'image/jpeg', sizeBytes: 123_456 },
     });
-    app = await buildTestApplication({ database, tokenVerifier, mediaStorageGateway });
+    logRecords = [];
+    app = await buildTestApplication({
+      database,
+      tokenVerifier,
+      mediaStorageGateway,
+      onLogRecord: (record) => logRecords.push(record),
+    });
   });
 
   afterAll(async () => {
@@ -161,6 +168,14 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
   function bearer(token: string): { authorization: string } {
     return { authorization: `Bearer ${token}` };
+  }
+
+  /** The most recent structured log line carrying the given `event` field — `sync-routes.test.ts`'s own P5-OBS-01 helper, reused for P6-OBS-01. */
+  function lastLogEvent(event: string): Record<string, unknown> | undefined {
+    const parsed = logRecords
+      .map((record) => JSON.parse(record) as Record<string, unknown>)
+      .filter((record) => record['event'] === event);
+    return parsed[parsed.length - 1];
   }
 
   async function createGardenAsOwner(): Promise<{ token: string; garden: GardenResource }> {
@@ -227,6 +242,16 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       uploadState: 'authorized',
     });
     expect(session.uploadUrl).toContain('http');
+
+    // P6-OBS-01: one structured registration line — media id, class, and
+    // declared bytes only, never the filename (architecture section 19).
+    const logged = lastLogEvent('media.upload.registered');
+    expect(logged).toMatchObject({
+      mediaId: session.media.id,
+      mediaClass: 'garden_photo',
+      declaredByteSize: 123_456,
+    });
+    expect(logged).not.toHaveProperty('displayFilename');
   });
 
   it('completes an upload over real HTTP with If-Match, and reads it back through status and access', async () => {
@@ -244,6 +269,17 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     });
     expect(completed.statusCode).toBe(200);
     expect(asMedia(completed).uploadState).toBe('available');
+
+    // P6-OBS-01: one structured completion line with the verified outcome
+    // and the registration-to-completion duration.
+    const loggedCompletion = lastLogEvent('media.upload.completed');
+    expect(loggedCompletion).toMatchObject({
+      mediaId: registered.media.id,
+      mediaClass: 'garden_photo',
+      outcome: 'available',
+      verifiedByteSize: 123_456,
+    });
+    expect(typeof loggedCompletion?.['registrationToCompletionMs']).toBe('number');
 
     const status = await app.inject({
       method: 'GET',
@@ -384,6 +420,15 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     expect(response.statusCode).toBe(200);
     expect(asMedia(response).uploadState).toBe('deletion_scheduled');
+
+    // P6-OBS-01: the user-initiated deletion-scheduling line — the
+    // Cloud-Logging-queryable start of the deletion-lag pair (the end is
+    // `media.processing.result_recorded`'s own `deletionLagMs`).
+    expect(lastLogEvent('media.deletion.scheduled')).toMatchObject({
+      mediaId: registered.media.id,
+      mediaClass: 'garden_photo',
+      uploadState: 'deletion_scheduled',
+    });
   });
 
   it('rejects deletion missing the If-Match header with 400', async () => {

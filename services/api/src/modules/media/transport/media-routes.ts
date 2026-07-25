@@ -7,8 +7,18 @@
  * codebase (see `gardens-mapping/transport/garden-routes.ts`'s own header
  * comment for the full rationale).
  *
+ * P6-OBS-01: the three lifecycle-transition routes (register, complete,
+ * delete) each emit one structured log line per request — media id, class,
+ * outcome, and byte/duration figures only, never filenames, URLs, or
+ * content (architecture/media-storage-and-processing.md section 19) —
+ * following `sync-routes.ts`'s own P5-OBS-01 transport-layer precedent:
+ * every field needed already crosses this boundary in the returned
+ * resource, and `request.log` already carries `correlationId`. Reads
+ * (status, access, list) deliberately log nothing here: they are ordinary
+ * request-rate signals the platform's own HTTP telemetry already covers.
+ *
  * Source: packages/api-contracts/openapi.yaml, tag `Media`;
- * implementation-plan.md work package P6-API-01.
+ * implementation-plan.md work packages P6-API-01, P6-OBS-01.
  */
 
 import type {
@@ -253,6 +263,16 @@ export function registerMediaRoutes(
       idempotencyKey,
     );
 
+    request.log.info(
+      {
+        event: 'media.upload.registered',
+        mediaId: session.media.id,
+        mediaClass: session.media.mediaClass,
+        declaredByteSize: session.media.declaredByteSize,
+      },
+      'Media upload registered',
+    );
+
     return reply.status(201).send(session);
   });
 
@@ -281,6 +301,28 @@ export function registerMediaRoutes(
       request.actorContext.profileId,
       expectedRevision,
       idempotencyKey,
+    );
+
+    // `outcome` is `available` or `rejected` — the only two states this
+    // command returns (any other state throws before reaching here).
+    // `registrationToCompletionMs` uses the server-stamped transition times
+    // on the resource itself, so it is exact on the request that performed
+    // the transition; a rare idempotent replay re-logs the record's current
+    // timestamps instead (documented in observability-and-analytics.md
+    // section 13's media subsection).
+    request.log.info(
+      {
+        event: 'media.upload.completed',
+        mediaId: media.id,
+        mediaClass: media.mediaClass,
+        outcome: media.uploadState,
+        registrationToCompletionMs: Math.max(
+          0,
+          Date.parse(media.updatedAt) - Date.parse(media.createdAt),
+        ),
+        ...(media.verifiedByteSize === null ? {} : { verifiedByteSize: media.verifiedByteSize }),
+      },
+      'Media upload completion verified',
     );
 
     return reply.status(200).send(media);
@@ -314,6 +356,22 @@ export function registerMediaRoutes(
       request.actorContext.profileId,
       expectedRevision,
       idempotencyKey,
+    );
+
+    // The USER-initiated half of deletion scheduling; sweep-initiated
+    // scheduling is counted by `retention.sweep_completed` (workers). The
+    // completion side (`deletion_scheduled -> deleted`, with the computed
+    // lag) is `media.processing.result_recorded`'s `deletionLagMs`.
+    // `uploadState` is `deletion_scheduled` on the scheduling request
+    // itself, or `deleted` on an idempotent replay after completion.
+    request.log.info(
+      {
+        event: 'media.deletion.scheduled',
+        mediaId: media.id,
+        mediaClass: media.mediaClass,
+        uploadState: media.uploadState,
+      },
+      'Media deletion scheduled',
     );
 
     return reply.status(200).send(media);

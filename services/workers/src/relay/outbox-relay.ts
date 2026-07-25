@@ -116,6 +116,17 @@ export interface RelayTickResult {
   readonly enqueued: number;
   readonly alreadyQueued: number;
   readonly failed: number;
+  /**
+   * Age of the OLDEST event this tick claimed, measured `occurred_at` -> now
+   * at claim time — the relay-side outbox-publication-lag signal
+   * (architecture/asynchronous-processing.md section "18. Observability";
+   * P6-OBS-01). Healthy steady state stays within one or two poll intervals
+   * (`RELAY_POLL_INTERVAL_MS`, 5s default); a growing value means the relay
+   * is falling behind (repeated per-event failures, a starved process, or a
+   * Cloud Tasks outage). `null` when the tick claimed nothing — an idle
+   * relay has no lag to report, and `poller.ts` does not log idle ticks.
+   */
+  readonly oldestClaimedEventAgeMs: number | null;
 }
 
 function buildManifest(
@@ -158,6 +169,20 @@ export class OutboxRelay {
   async tick(): Promise<RelayTickResult> {
     const events = await this.deps.outboxEvents.claimUnpublished(this.deps.batchSize);
 
+    // Computed over the whole claimed batch rather than trusting the
+    // store's oldest-first ordering — one `Math.min` keeps the figure
+    // correct even against a store that returns rows unordered. Clamped at
+    // zero: a fixed test clock earlier than a row's `occurred_at` must not
+    // report a negative lag.
+    const oldestClaimedEventAgeMs =
+      events.length === 0
+        ? null
+        : Math.max(
+            0,
+            this.deps.clock.now().getTime() -
+              Math.min(...events.map((event) => event.occurredAt.getTime())),
+          );
+
     let enqueued = 0;
     let alreadyQueued = 0;
     let failed = 0;
@@ -179,7 +204,7 @@ export class OutboxRelay {
       }
     }
 
-    return { claimed: events.length, enqueued, alreadyQueued, failed };
+    return { claimed: events.length, enqueued, alreadyQueued, failed, oldestClaimedEventAgeMs };
   }
 
   /** Returns `true` when this call actually enqueued a Cloud Tasks task, `false` when the job was already past `requested` (crash-recovery replay). */

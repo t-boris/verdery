@@ -512,6 +512,34 @@ Measure:
 
 Logs use media ID and classification, not signed URLs, user filenames, addresses, or content.
 
+### 19.1 Implemented observability profile (P6-OBS-01)
+
+Every signal above is now either a structured log event or a documented database/built-in-metric
+query — see [observability-and-analytics.md](observability-and-analytics.md) section 13's "Media
+dashboard, alert candidates, and runbook (P6-OBS-01)" subsection for the complete event table,
+Cloud Logging queries, log-based metric definitions, dashboard widget compositions, alert
+candidates with reasoned thresholds, and per-alert runbook entries. In brief:
+
+- **Log events** (`verdery-api`): `media.upload.registered`, `media.upload.completed` (outcome +
+  registration-to-completion time), `media.deletion.scheduled`, and
+  `media.processing.result_recorded` — one event for validation, derivative, and deletion results
+  alike, split by `jobKind`, carrying worker duration, full requested-to-completed pipeline
+  latency, and (for a confirmed deletion) the computed `deletionLagMs`.
+- **Log events** (`verdery-workers`): `relay.tick_completed` (now including
+  `oldestClaimedEventAgeMs`, the outbox-publication-lag signal), `relay.event_failed`,
+  `media_processing.job_failed_retryable` (renamed from its validation-only P6-WORKER-01 name,
+  with `jobKind`), and `retention.sweep_completed` — emitted on every hourly run, zero counts
+  included, so it doubles as the worker's liveness heartbeat.
+- **Stock signals** (never started uploads, stored bytes by class, retention-deadline proximity,
+  deletion-pending age, queue age) are documented SQL over `media.media_record`/
+  `media.processing_job`, plus Cloud Monitoring's built-in per-bucket
+  `storage.googleapis.com/storage/total_bytes`/`object_count` for physical stored bytes —
+  deliberately not a hand-built exporter.
+
+No live dashboard, metric, or alert policy is deployed by this work package — the documented,
+copy-pasteable definitions above are the deliverable, matching the repository's established "-01
+observability" bar.
+
 ## 20. Testing
 
 - Resumable interruption and continuation.
@@ -570,6 +598,12 @@ user-visible retention policy (`GetMediaRetentionPolicy`); deletion-versus-proce
 attach-versus-delete race guards, proven by Testcontainers race tests
 (`tests/integration/media-deletion.test.ts`, `media-deletion-references.test.ts`,
 `media-retention-sweep.test.ts`).
+
+P6-OBS-01 is implemented across both services as structured logging plus documentation — see
+section 19.1 above and observability-and-analytics.md's media subsection. It changes no pipeline
+behavior: the API's media transport routes and the processing-result recording gained log
+emissions (the latter by returning a per-delivery summary the callback route logs), and the worker
+relay/sweep/HTTP-target log lines were extended or corrected in place.
 
 Neither worker image has been deployed to `verdery-dev`. The existing Phase 6 platform follow-ups
 still apply: worker Cloud SQL IAM connectivity, queue/service rollout, always-allocated CPU for the

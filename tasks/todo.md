@@ -3228,3 +3228,99 @@ nothing).
   component is placed to run; the prefix design prevents the known ways such objects arise).
 - iOS/web deletion UI (backend + contract only this stage, per scope).
 - Live infrastructure actions (custom role, sweep env var — written, not executed).
+
+## Stage 12 — P6-OBS-01, implementation complete
+
+Upload, verification, processing, stored-byte, orphan, retention, and deletion dashboards —
+delivered at exactly the repository's established "-01 observability" bar (P1-OBS-01/P5-OBS-01):
+structured, test-verified log events at every gap the coverage audit found, plus a complete,
+copy-pasteable dashboard/alert/runbook writeup in `docs/architecture/observability-and-analytics.md`
+(section 13's new "Media dashboard, alert candidates, and runbook (P6-OBS-01)" subsection — the
+same home P5-OBS-01's sync subsection established). NO live Cloud Monitoring dashboard, log-based
+metric, or alert policy was created — documented, not deployed, per the same precedent.
+
+### Coverage audit (section 19's signal list, before → after)
+
+| Signal                              | Before this stage                                                                                          | After                                                                                                                                                               |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Registered / never-started uploads  | DB state only; sweep counts logged only when nonzero                                                       | `media.upload.registered` (rate denominator) + every-run sweep counts + documented stock SQL                                                                        |
+| Upload completion/verification time | Nothing logged anywhere                                                                                    | `media.upload.completed` (`outcome`, `registrationToCompletionMs`, `verifiedByteSize`)                                                                              |
+| Checksum/type mismatch              | Synchronous mismatch invisible; deep validation outcome invisible (DB rows only)                           | `media.upload.completed{outcome=rejected}` + `media.processing.result_recorded{jobKind=media_validation}` with `outcomeCode`                                        |
+| Processing queue age and duration   | No latency signal at all; relay tick counts only                                                           | `requestedToCompletedMs`/`workerDurationMs` on the result event; `oldestClaimedEventAgeMs` on `relay.tick_completed`; Cloud Tasks built-in `queue/depth` documented |
+| Derivative failures                 | Invisible (job rows only); worker 5xx logged under a VALIDATION-named event for all kinds                  | Result event grouped by `jobKind`/`outcome`; retryable event renamed `media_processing.job_failed_retryable` + `jobKind` (fixed in place)                           |
+| Stored bytes by class/environment   | Nothing                                                                                                    | Judgment call documented: GCS built-in `storage/total_bytes`/`object_count` per bucket (real, not reinvented) + per-class SQL + `verifiedByteSize` ingest proxy     |
+| Raw media approaching deadline      | Nothing (and honestly nothing to alert on — raw-capture deadlines have no producer until Phase 10)         | Documented SQL + explicit honesty note; only `export_package` rows carry deadlines today                                                                            |
+| Deletion lag and orphan count       | Audit rows in `platform.audit_event` (DB-only, NOT Cloud-Logging-queryable) — a lag query was NOT writable | `media.deletion.scheduled` + `deletionLagMs` computed at confirmed completion (the `pullLagMilliseconds` computable-from-data-already-held precedent) + stock SQL   |
+
+### Key decisions
+
+- **Transport logs, application computes** — `RecordMediaProcessingResult.execute` now RETURNS a
+  `MediaProcessingResultRecordedSummary` (disposition, jobKind, outcome/outcomeCode, attempt,
+  worker duration, requested-to-completed latency, deletion lag) and the callback route logs it,
+  keeping the exact P5-OBS-01 split (`sync-routes.ts` logging from `countSyncPushOutcomes`'s
+  returned data) instead of threading a Logger into the application layer. One event
+  (`media.processing.result_recorded`) covers validation outcomes, derivative failures, deletion
+  completions, AND both race-guard paths, split by `jobKind`/`disposition` labels — not four
+  parallel event names.
+- **`deletionLagMs` is computed, not schema'd**: `deletion_scheduled -> deleted` lag comes from the
+  media row's own `updatedAt` at completion — valid because nothing updates the ORIGINAL row
+  between the scheduling transaction and completion (every other write gates on `available`;
+  derivative bulk transitions touch derivative rows) — rather than adding a
+  `deletion_scheduled_at` column for a derivable value. Invariant documented on the summary type.
+- **Stored bytes: document the real sources, don't build an exporter.** Cloud Monitoring's
+  built-in per-bucket `storage.googleapis.com/storage/total_bytes`/`object_count` already exist
+  for physical truth; per-media-class truth is a documented SQL query; the log-based
+  `verifiedByteSize` distribution is an ingest-rate proxy between daily samples. A custom
+  stored-bytes endpoint/exporter was rejected as reinventing a built-in.
+- **Stock signals stay SQL, honestly**: never-started uploads, deletion-pending age,
+  retention-deadline proximity, and queue age are CURRENT-STATE questions no log line can answer;
+  the doc carries the operator queries rather than pretending a log-based metric covers them.
+- **Alert thresholds derived from the system's own numbers**: 60s outbox lag ≈ 12 missed 5s poll
+  intervals; 10-minute pipeline p95 against Cloud Tasks' 10s-300s backoff and 1h retry ceiling;
+  2h deletion lag against the 1h total retry budget; 3h sweep absence = 3 missed hourly runs;
+  6 consecutive sweeps at the 25 batch cap = production outpacing drain. Deliberately NOT alerts:
+  abandonment ratio and synchronous rejected-rate alone (dashboard trends — reasoning recorded,
+  mirroring P5's "push conflict is not a page" honesty).
+- **Runbooks are grounded in real code paths**: the stuck-deletion remediation is re-emitting the
+  standard idempotent `media.deletion_requested` event (the exact re-emit
+  `record-media-processing-result.ts` already performs for late derivative bytes), never
+  hand-flipping `upload_state`; the PDF-validation retryable baseline is named as the designed
+  malware-scanner-unavailable behavior, not an incident; the relay's always-allocated-CPU
+  deployment requirement is named as a known failure mode.
+
+### Fixed in place (not deferred)
+
+1. **`media_validation.failed` misnamed since P6-RET-01**: the worker's one HTTP target now serves
+   all THREE job kinds, so a deletion or derivative retry storm would have logged under a
+   validation-named event — renamed `media_processing.job_failed_retryable` with a `jobKind` field
+   (absent-means-validation resolved explicitly), pinned by test.
+2. **`retention.sweep_completed` only logged when counts were nonzero** — indistinguishable from a
+   dead sweep. Now logs every successful run (24 lines/day), making the absence-based liveness
+   alert writable; doubles as the worker process's heartbeat since the idle relay is deliberately
+   silent.
+3. **Outbox publication lag had no signal**: `relay.tick_completed` gained
+   `oldestClaimedEventAgeMs` (claimed-batch oldest `occurred_at` → now, clamped at zero), computed
+   from a column the relay's narrow schema already carried.
+
+### Deferred with reason (recorded in `deferred-capabilities.md`)
+
+- **Live dashboard/metric/alert creation** — live infrastructure action, own approval gate, and
+  the worker service itself is not yet deployed (the standing rollout entry).
+- **Stuck-deletion automatic re-drive** — a real gap this audit FOUND (a `deletion_scheduled`
+  record whose job exhausts Cloud Tasks retries is never re-driven automatically): changing
+  retention semantics is not an observability package's call; the operator re-emit path is
+  documented in the runbook, the auto-re-drive is recorded as its own future decision.
+- **Bucket-side orphan metrics** — still no listing reconciler exists to produce a signal
+  (P6-RET-01's own standing deferral); honestly nothing to chart.
+- **Raw-capture deadline signals** — `enforced: false` until Garden Scan (Phase 10) produces the
+  anchoring event; the documented query returns `export_package` rows only, stated as such.
+
+### Verified evidence
+
+| Check                                           | Result                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm --filter @verdery/api build && test`      | 116 files / 774 tests pass (baseline 116 / 774 — log assertions extended existing HTTP/unit cases rather than adding suites)                                                                                                                                                                                                                                                                                            |
+| `pnpm --filter @verdery/workers build && test`  | 18 files / 102 tests pass (baseline 18 / 101 — one new publication-lag test)                                                                                                                                                                                                                                                                                                                                            |
+| Root `pnpm typecheck` / `lint` / `format:check` | all pass                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `node scripts/check-file-size.mjs`              | passes                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Log events pinned by tests, not just emitted    | register/complete/delete lines in `media-routes.test.ts`; the result summary at HTTP level in `media-processing-callback-route.test.ts` and at unit level (including `deletionLagMs: 300000` and both race-guard dispositions); the renamed worker event + `jobKind` in `validation-http-server.test.ts`; the lag figure in `outbox-relay.test.ts` (unordered-batch case) and both relay test tiers' updated `toEqual`s |

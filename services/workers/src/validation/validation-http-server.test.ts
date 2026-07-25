@@ -132,9 +132,16 @@ describe('ValidationHttpServer', () => {
   let processor: RecordingProcessor;
   let port: number;
 
-  async function start(): Promise<void> {
+  async function start(loggedErrors?: Record<string, unknown>[]): Promise<void> {
     processor = new RecordingProcessor();
-    server = new ValidationHttpServer(new FakeInvocationVerifier(), processor, silentLogger());
+    const logger =
+      loggedErrors === undefined
+        ? silentLogger()
+        : ({
+            ...(silentLogger() as unknown as Record<string, unknown>),
+            error: (fields: Record<string, unknown>) => loggedErrors.push(fields),
+          } as unknown as Logger);
+    server = new ValidationHttpServer(new FakeInvocationVerifier(), processor, logger);
     port = await server.listen(0);
   }
 
@@ -241,7 +248,13 @@ describe('ValidationHttpServer', () => {
   });
 
   it('returns 503, not 500, when the processor throws a transient error — a retryable signal to Cloud Tasks', async () => {
-    await start();
+    // P6-OBS-01: the retryable path is the ONE structured error line this
+    // server emits; its event name and jobKind field are what the
+    // documented `media_processing_retryable_failures` log-based metric
+    // filters on (observability-and-analytics.md section 13), so both are
+    // pinned here, not just the status code.
+    const loggedErrors: Record<string, unknown>[] = [];
+    await start(loggedErrors);
     const jobId = randomUUID();
     processor.rejectNextWith = new Error('object storage temporarily unavailable');
 
@@ -253,5 +266,14 @@ describe('ValidationHttpServer', () => {
     );
 
     expect(response.statusCode).toBe(503);
+    expect(loggedErrors).toHaveLength(1);
+    expect(loggedErrors[0]).toMatchObject({
+      event: 'media_processing.job_failed_retryable',
+      jobId,
+      // `manifestFor` carries no explicit jobKind — absent means
+      // `media_validation` by contract, and the log line must say so
+      // explicitly rather than reporting an empty field.
+      jobKind: 'media_validation',
+    });
   });
 });

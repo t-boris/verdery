@@ -20,7 +20,7 @@ export class KyselyOutboxEventStore implements OutboxEventStore {
   async claimUnpublished(limit: number): Promise<readonly OutboxEventRecord[]> {
     const rows = await this.db
       .selectFrom('platform.outbox_event')
-      .select(['id', 'aggregate_id', 'event_type', 'payload', 'trace_id'])
+      .select(['id', 'aggregate_id', 'event_type', 'payload', 'trace_id', 'occurred_at'])
       .where('published_at', 'is', null)
       .where('event_type', 'in', RECOGNIZED_EVENT_TYPES)
       .orderBy('occurred_at', 'asc')
@@ -33,6 +33,7 @@ export class KyselyOutboxEventStore implements OutboxEventStore {
       eventType: row.event_type,
       payload: row.payload,
       traceId: row.trace_id,
+      occurredAt: row.occurred_at,
     }));
   }
 

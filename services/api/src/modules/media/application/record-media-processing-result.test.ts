@@ -87,7 +87,7 @@ describe('RecordMediaProcessingResult', () => {
     fakes.media.records.set(MEDIA_ID, availableMedia());
     await fakes.processingJobs.insert(queuedJob());
 
-    await useCase.execute(JOB_ID, SUCCESS_RESULT);
+    const summary = await useCase.execute(JOB_ID, SUCCESS_RESULT);
 
     const media = await fakes.media.get(MEDIA_ID);
     expect(media?.processingState).toBe('processed');
@@ -100,6 +100,21 @@ describe('RecordMediaProcessingResult', () => {
     expect(job?.outcomeCode).toBe('succeeded');
     expect(job?.resultSummary).toMatchObject({ accepted: true });
     expect(job?.completedAt).toEqual(LATER);
+
+    // P6-OBS-01: the summary the callback route logs from — including the
+    // full requested-to-completed pipeline latency (NOW -> LATER, 5 min).
+    expect(summary).toEqual({
+      disposition: 'recorded',
+      jobKind: 'media_validation',
+      mediaId: MEDIA_ID,
+      mediaClass: 'garden_photo',
+      outcome: 'succeeded',
+      outcomeCode: 'succeeded',
+      attempt: 1,
+      workerDurationMs: 25,
+      requestedToCompletedMs: 300_000,
+      deletionLagMs: null,
+    });
   });
 
   it('throws when no job exists at the given id', async () => {
@@ -151,10 +166,17 @@ describe('RecordMediaProcessingResult', () => {
     await useCase.execute(JOB_ID, SUCCESS_RESULT);
     const jobAfterFirst = await fakes.processingJobs.get(JOB_ID);
 
-    await useCase.execute(JOB_ID, SUCCESS_RESULT);
+    const summary = await useCase.execute(JOB_ID, SUCCESS_RESULT);
     const jobAfterSecond = await fakes.processingJobs.get(JOB_ID);
 
     expect(jobAfterSecond).toEqual(jobAfterFirst);
+    // P6-OBS-01: a duplicate delivery reports itself as one — no latency
+    // figures, since this delivery completed nothing.
+    expect(summary).toMatchObject({
+      disposition: 'duplicate',
+      jobKind: 'media_validation',
+      requestedToCompletedMs: null,
+    });
   });
 
   // A genuine "two concurrent deliveries race for the same job" scenario

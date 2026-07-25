@@ -27,6 +27,14 @@ export interface OutboxEventRecord {
   /** Already the parsed JSON value — never a string needing a second `JSON.parse`. */
   readonly payload: unknown;
   readonly traceId: string | null;
+  /**
+   * When the producing transaction appended this event
+   * (`platform.outbox_event.occurred_at`) — read so the relay can report
+   * how far behind the oldest event it claims is running (outbox
+   * publication lag, architecture/asynchronous-processing.md section
+   * "18. Observability"; P6-OBS-01).
+   */
+  readonly occurredAt: Date;
 }
 
 export interface OutboxEventStore {
