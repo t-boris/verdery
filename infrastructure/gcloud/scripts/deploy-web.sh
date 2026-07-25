@@ -21,15 +21,16 @@ load_environment_config "${ENVIRONMENT}"
 require_active_project
 
 log "Deploying ${IMAGE} to ${VERDERY_WEB_SERVICE_NAME}"
-# No service account override: the web server holds no credentials and calls
-# no Google API — the default compute identity's implicit permissions are
-# already more than it uses, and a dedicated no-permission identity is a
-# later hardening step (P8-SEC-02's IAM review) rather than a blocker for
-# the first deployment.
+# A dedicated ZERO-permission identity (05-service-accounts.sh): omitting
+# --service-account made Cloud Run default to the compute default SA, which
+# the deployer deliberately cannot actAs — the first deploy failed on exactly
+# that, live. The web server calls no Google API, so an empty identity is
+# both the fix and the least-privilege answer in one.
 gcloud run deploy "${VERDERY_WEB_SERVICE_NAME}" \
   --project="${VERDERY_PROJECT_ID}" \
   --region="${VERDERY_REGION}" \
   --image="${IMAGE}" \
+  --service-account="${VERDERY_WEB_RUNTIME_SERVICE_ACCOUNT_ID}@${VERDERY_PROJECT_ID}.iam.gserviceaccount.com" \
   --min-instances=0 \
   --max-instances=2 \
   --cpu=1 \

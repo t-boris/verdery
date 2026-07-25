@@ -106,5 +106,26 @@ grant_project_role "serviceAccount:${runtime_email}" "roles/firebaseauth.admin"
 # Secret access is granted per-secret in 07-iam-database-bootstrap.sh, not at project scope,
 # so the runtime SA reads exactly the secrets it is given and no others.
 
+# --- web runtime ---------------------------------------------------------
+# The web client's Cloud Run service identity (Phase 8 web deployment stage).
+# Deliberately holds ZERO project roles: the Next.js server calls no Google
+# API — it serves a browser bundle whose own requests go straight to the API
+# service and Firebase. A dedicated empty identity (rather than reusing the
+# API runtime SA) keeps an RCE in the web container worth nothing, and
+# (rather than the compute default SA) keeps the deployer's actAs surface
+# explicit — the exact permission failure that motivated this block: the
+# deployer deliberately cannot actAs the compute default identity.
+web_runtime_email="${VERDERY_WEB_RUNTIME_SERVICE_ACCOUNT_ID}@${VERDERY_PROJECT_ID}.iam.gserviceaccount.com"
+
+if resource_exists gcloud iam service-accounts describe "${web_runtime_email}"   --project="${VERDERY_PROJECT_ID}"; then
+  log "Service account already exists: ${VERDERY_WEB_RUNTIME_SERVICE_ACCOUNT_ID}"
+else
+  log "Creating service account: ${VERDERY_WEB_RUNTIME_SERVICE_ACCOUNT_ID}"
+  gcloud iam service-accounts create "${VERDERY_WEB_RUNTIME_SERVICE_ACCOUNT_ID}"     --project="${VERDERY_PROJECT_ID}"     --display-name="Verdery web runtime (no permissions)"
+fi
+
+gcloud iam service-accounts add-iam-policy-binding "${web_runtime_email}"   --project="${VERDERY_PROJECT_ID}"   --member="serviceAccount:${deploy_email}"   --role="roles/iam.serviceAccountUser"   >/dev/null
+
 log "Deploy service account: ${deploy_email}"
 log "Runtime service account: ${runtime_email}"
+log "Web runtime service account: ${web_runtime_email}"
