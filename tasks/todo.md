@@ -5421,3 +5421,47 @@ wall time. Zero skipped suites in all three runs (the probe fix's own measure).
 - The `57P01` teardown class was not reproduced under the fixed harness (six full runs); it is
   attributed to the same daemon saturation and will be re-diagnosed from fresh evidence if it
   ever recurs.
+
+# Phase 7 — Weather, Recommendations, Today, and Notifications, review
+
+All fourteen work packages are delivered or explicitly deferred with a named blocker, across
+Stages 15-28 — each implemented, independently verified, committed, pushed, and CI-confirmed green:
+
+| Work package    | Outcome                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------- |
+| P7-DATA-01      | Delivered (Stage 15) — evidence physically enforced, restricted tier structurally excluded  |
+| P7-INT-01       | Delivered (Stage 16) — provider-agnostic weather layer; real vendor blocked on P0-PROV-01   |
+| P7-RULE-01      | Delivered (Stage 17) — deterministic engine, 4 rules awaiting horticultural review          |
+| P7-ASYNC-01     | Delivered (Stage 18) — three sweeps, duplicate safety proven end to end                     |
+| P7-BE-01        | Delivered (Stage 19) — Today, feedback commands, task conversion, outcome history           |
+| P7-IOS-01       | Delivered (Stage 20) — FeatureRecommendations, online with honest degradation               |
+| P7-WEB-01       | Delivered (Stage 21) — web Today + 9/9 browser care-loop E2E, harness fixed                 |
+| P7-INT-02       | Delivered (Stage 22) — plant-content layer; provider reorg cannot re-identify plants        |
+| P7-NOTIF-01     | Delivered (Stage 23) — durable intents, DST-proven quiet hours, dedup, inbox                |
+| P7-AI-01        | Delivered (Stage 24) — bounded Vertex adapter, kill-switch off, rollback proven             |
+| P7-NOTIF-02     | Delivered (Stage 25) — FCM devices + delivery worker, send-time rechecks                    |
+| P7-SAFE-01      | Delivered (Stage 26) — safety catalog consolidated; human sign-off open                     |
+| P7-ANALYTICS-01 | Delivered (Stage 27) — server-side half; client half blocked on P0-SEC-01                   |
+| P7-QA-01        | Delivered (Stage 28) — nine-surface matrix + the Testcontainers flake root-caused and fixed |
+
+## Exit criteria, checked against evidence
+
+- **Every recommendation references structured evidence and a versioned rule** — physically
+  enforced (Stage 15's deferred composite FK; a candidate cannot commit without its own evidence
+  row); every candidate pins `(ruleKey, version)` via FK.
+- **Missing facts remain missing; no system fills them by invention** — Stage 17's typed skips,
+  pinned again by Stage 28's contradictory-facts fixtures.
+- **The system functions when weather, FCM, or Vertex AI is degraded per documented fallbacks** —
+  typed degradations at every layer (Stages 16/24/25), proven through the real sweeps (Stage 28).
+- **Generated text cannot add unsupported actions or bypass safety filters** — structural
+  validation biased only toward rejection, adversarial fixtures incl. prompt injection through the
+  one real user-controlled channel (Stages 24/28); the kill-switch rollback is proven, not asserted.
+- **Today presents a small prioritized set with reason, urgency, uncertainty, and controls** —
+  both clients render the stored factors honestly (Stages 19-21).
+- **Action outcome reaches task/recommendation history and product-quality measurement** — the
+  outcome-history chain on real Postgres (Stage 19) + the per-rule-version funnel (Stage 27).
+- **In-app intent remains correct even when push delivery fails** — delivery outcomes never
+  determine inbox state, structurally (Stages 23/25).
+- **G7 (controlled US private beta)** — a repository-owner decision; the named human gates
+  (horticultural sign-off, AI human evaluation, live Vertex/FCM enablement, P0-PROV-01/P0-SEC-01
+  product decisions) are consolidated in the safety catalog and deferred-capabilities.md.
