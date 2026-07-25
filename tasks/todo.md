@@ -3529,3 +3529,50 @@ inaccuracy was fixed by making the title true (see the audit table); no runtime 
   work, recorded here rather than silently skipped.
 - `deferred-capabilities.md` needed no update: the audit closed test gaps, not capability
   deferrals, and changed no deferral's status.
+
+# Phase 6 — Media, Photos, and Property-Plan Import, review
+
+All fourteen stages are implemented, independently verified, committed, pushed, and CI-confirmed
+green. Every work package is either delivered or explicitly deferred with a named blocker:
+
+| Work package       | Outcome                                                                                                                                                                         |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P6-DATA-01         | Delivered (Stage 1) — media model, state machines, quotas                                                                                                                       |
+| P6-PLAT-01         | Delivered (Stage 2) — four live buckets, verified controls, later CORS                                                                                                          |
+| P6-API-01          | Delivered (Stage 3) — upload API against real GCS                                                                                                                               |
+| P6-ASYNC-01        | Delivered (Stage 4, + deploy-incident fixes) — outbox relay, Cloud Tasks                                                                                                        |
+| P6-WORKER-01       | Delivered (Stage 5) — real validation, two-hop worker pipeline                                                                                                                  |
+| P6-WORKER-02       | Delivered (Stage 6) — derivatives and tile pyramids                                                                                                                             |
+| P6-IOS-01          | Delivered (Stage 7) — background-capable iOS upload                                                                                                                             |
+| P6-WEB-01          | Delivered (Stage 8, + CORS) — resumable web upload with reload recovery                                                                                                         |
+| P6-PLAN-01         | Delivered (Stage 9, + two review fixes) — import and background management                                                                                                      |
+| P6-PLAN-02         | Delivered (Stage 10, + Swift parity fix) — calibration                                                                                                                          |
+| P6-PLAN iOS parity | Delivered (Stage 13) — full iOS import/calibration                                                                                                                              |
+| P6-RET-01          | Delivered (Stage 11) — retention, deletion, orphan reconciliation                                                                                                               |
+| P6-OBS-01          | Delivered (Stage 12) — pipeline observability, dashboards, runbooks                                                                                                             |
+| P6-QA-01           | Delivered (Stage 14) — audited testing matrix, G6 evidence                                                                                                                      |
+| P6-PLANT-01        | **Deferred with reason** — blocked on `P0-PROV-01`'s undecided photo-identification provider; the Phase 4 honest-placeholder posture stands until a real vendor decision exists |
+
+## Exit criteria, checked against evidence
+
+- **Media bytes bypass the interactive API** — both clients PUT directly to GCS resumable session
+  URLs; `MediaStorageGateway` stays bytes-blind; workers download with their own identity
+  (Stages 3/5/7/8's tests and the live-bucket verification).
+- **Unverified uploads remain isolated** — every read path gates on `available` (+`processed` for
+  originals since Stage 5); Stage 14's HTTP deny-path suite pins the whole matrix.
+- **The only local copy is not removed before verified durability** — iOS writes the file and its
+  durable GRDB row before any network call; the sole `delete` call sits in explicit `discard`,
+  asserted by the terminal-failure test (Stage 7, re-verified Stage 14).
+- **Plan backgrounds are private, calibrated with explicit uncertainty, and independently
+  hideable** — sensitivity inheritance (Stage 9 review fix), ±N cm/null-RMS honesty on both
+  platforms (Stages 10/13/14), per-background visibility flag (Stage 9), viewer/sensitivity matrix
+  pinned (Stage 14).
+
+## What still stands between this code and a live end-to-end media pipeline
+
+`services/workers` is complete as code, tests, Dockerfile, and deploy script, but has never been
+deployed: the named prerequisites are the `verdery_worker` Cloud SQL IAM membership, a real
+`DATABASE_URL` Secret Manager secret, the queue provisioning script's live run
+(`10-media-processing-queue.sh`, includes the custom deleter role and worker IAM), and CI/CD
+wiring for the workers image — all deliberately reserved for an explicit repository-owner
+decision, recorded in `deferred-capabilities.md`.
