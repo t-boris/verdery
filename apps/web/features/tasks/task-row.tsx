@@ -131,7 +131,7 @@ export function TaskRow({ gardenId, task }: TaskRowProps) {
             {t('tasks.skip')}
           </Button>
           <Button
-            variant="secondary"
+            variant="destructive"
             busy={deleteMutation.isPending}
             disabled={!isOnline}
             onClick={onDelete}

@@ -14,17 +14,17 @@ export default async function GardensPage() {
 
   return (
     <div className={styles['page']}>
-      <div>
+      <div className={styles['header']}>
         <h1 className={styles['title']}>{t('gardens.title')}</h1>
         <p className={styles['description']}>{t('gardens.description')}</p>
       </div>
 
       <GardenList />
 
-      <div>
-        <h2 className={styles['title']}>{t('gardens.createTitle')}</h2>
+      <section className={styles['createPanel']}>
+        <h2 className={styles['sectionTitle']}>{t('gardens.createTitle')}</h2>
         <CreateGardenForm />
-      </div>
+      </section>
     </div>
   );
 }

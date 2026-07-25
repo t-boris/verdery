@@ -1,14 +1,27 @@
 .panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  max-width: 24rem;
+  gap: var(--space-3);
 }
 
 .divider {
-  border: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-block: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
   border-top: var(--border-width) solid var(--color-border);
-  margin: var(--space-2) 0;
+}
+
+.dividerLabel {
+  flex: none;
 }
 
 .emailForm {

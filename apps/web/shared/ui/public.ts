@@ -10,6 +10,17 @@ export { Alert, type AlertProps, type AlertTone } from './alert';
 export { Button, type ButtonProps, type ButtonVariant } from './button';
 export { Card, type CardProps } from './card';
 export { FailureAlert } from './failure-alert';
+export {
+  CheckCircleIcon,
+  EyeIcon,
+  HomeIcon,
+  LeafIcon,
+  MapIcon,
+  SignOutIcon,
+  SproutIcon,
+  SunIcon,
+  type IconProps,
+} from './icons';
 export { ProgressBar, type ProgressBarProps } from './progress-bar';
 export { RecoveredDraftNotice, type RecoveredDraftNoticeProps } from './recovered-draft-notice';
 export { Select, type SelectOption, type SelectProps } from './select';

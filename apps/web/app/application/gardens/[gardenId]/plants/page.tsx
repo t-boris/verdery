@@ -1,5 +1,3 @@
-import Link from 'next/link';
-
 import { AddPlantForm, OpenPlantByIdForm, PlantList } from '@/features/plants/public';
 import { getRequestTranslator } from '@/shared/localization/server';
 
@@ -30,27 +28,26 @@ export default async function PlantsPage({
 
   return (
     <div className={styles['page']}>
-      <Link className={styles['back']} href={`/application/gardens/${gardenId}`}>
-        {t('map.page.backToSettings')}
-      </Link>
-      <div>
+      <div className={styles['header']}>
         <h1 className={styles['title']}>{t('plants.pageTitle')}</h1>
         <p className={styles['description']}>{t('plants.pageDescription')}</p>
       </div>
 
-      <div>
+      <div className={styles['section']}>
         <h2 className={styles['sectionTitle']}>{t('plants.inventoryTitle')}</h2>
         <PlantList gardenId={gardenId} />
       </div>
 
-      <div>
-        <h2 className={styles['sectionTitle']}>{t('plants.openByIdTitle')}</h2>
-        <OpenPlantByIdForm gardenId={gardenId} />
-      </div>
+      <div className={styles['panelGrid']}>
+        <section className={styles['panel']}>
+          <h2 className={styles['sectionTitle']}>{t('plants.addTitle')}</h2>
+          <AddPlantForm gardenId={gardenId} />
+        </section>
 
-      <div>
-        <h2 className={styles['sectionTitle']}>{t('plants.addTitle')}</h2>
-        <AddPlantForm gardenId={gardenId} />
+        <section className={styles['panel']}>
+          <h2 className={styles['sectionTitle']}>{t('plants.openByIdTitle')}</h2>
+          <OpenPlantByIdForm gardenId={gardenId} />
+        </section>
       </div>
     </div>
   );

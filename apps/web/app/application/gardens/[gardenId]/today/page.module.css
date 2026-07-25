@@ -4,16 +4,17 @@
   gap: var(--space-5);
 }
 
-.back {
-  color: var(--color-text-muted);
-  align-self: flex-start;
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 44rem;
 }
 
 .title {
-  margin: 0 0 var(--space-2);
+  font-size: clamp(1.75rem, 1.45rem + 1vw, 2.25rem);
 }
 
 .description {
-  margin: 0;
   color: var(--color-text-muted);
 }

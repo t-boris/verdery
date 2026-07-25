@@ -1,5 +1,3 @@
-import Link from 'next/link';
-
 import { CreateManualTaskForm, TaskList } from '@/features/tasks/public';
 import { getRequestTranslator } from '@/shared/localization/server';
 
@@ -22,23 +20,20 @@ export default async function TasksPage({
 
   return (
     <div className={styles['page']}>
-      <Link className={styles['back']} href={`/application/gardens/${gardenId}`}>
-        {t('map.page.backToSettings')}
-      </Link>
-      <div>
+      <div className={styles['header']}>
         <h1 className={styles['title']}>{t('tasks.pageTitle')}</h1>
         <p className={styles['description']}>{t('tasks.pageDescription')}</p>
       </div>
 
-      <div>
-        <h2 className={styles['sectionTitle']}>{t('tasks.createTitle')}</h2>
-        <CreateManualTaskForm gardenId={gardenId} />
-      </div>
-
-      <div>
+      <div className={styles['section']}>
         <h2 className={styles['sectionTitle']}>{t('tasks.listTitle')}</h2>
         <TaskList gardenId={gardenId} />
       </div>
+
+      <section className={styles['panel']}>
+        <h2 className={styles['sectionTitle']}>{t('tasks.createTitle')}</h2>
+        <CreateManualTaskForm gardenId={gardenId} />
+      </section>
     </div>
   );
 }

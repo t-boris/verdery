@@ -12,6 +12,7 @@
   margin: 0;
   padding: var(--space-2) var(--space-3);
   background-color: var(--color-accent-quiet);
+  border: var(--border-width) solid var(--color-accent-quiet-border);
   color: var(--color-text);
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
@@ -22,7 +23,7 @@
   flex: 1;
   min-height: 320px;
   border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background-color: var(--color-surface);
   overflow: hidden;
 }

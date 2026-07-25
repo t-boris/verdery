@@ -7,17 +7,30 @@
   border-left-width: var(--space-1);
   border-radius: var(--radius-md);
   background-color: var(--color-surface);
+  box-shadow: var(--shadow-xs);
 }
 
+/*
+ * The tone colours the frame and the title; body copy stays in the ordinary
+ * ink so multi-line explanations remain comfortable to read.
+ */
 .danger {
+  border-color: var(--color-negative-quiet-border);
   border-left-color: var(--color-negative);
   background-color: var(--color-negative-quiet);
+}
+
+.danger .title {
   color: var(--color-negative);
 }
 
 .info {
+  border-color: var(--color-accent-quiet-border);
   border-left-color: var(--color-accent);
   background-color: var(--color-accent-quiet);
+}
+
+.info .title {
   color: var(--color-text);
 }
 
@@ -28,5 +41,6 @@
 
 .reference {
   font-family: var(--font-family-mono);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
 }

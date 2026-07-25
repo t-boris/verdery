@@ -5,20 +5,49 @@
 }
 
 .header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-2) var(--space-4);
-  padding: var(--space-4) var(--space-5);
+  position: sticky;
+  top: 0;
+  z-index: 20;
   border-bottom: var(--border-width) solid var(--color-border);
   background-color: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.headerInner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  width: min(68rem, 100%);
+  margin: 0 auto;
+  padding: var(--space-3) var(--space-5);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.brandMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 2rem;
+  block-size: 2rem;
+  border-radius: var(--radius-md);
+  background-color: var(--color-accent);
+  color: var(--color-accent-text);
+  box-shadow: var(--shadow-xs);
 }
 
 .productName {
+  font-family: var(--font-family-display);
   font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text);
-  text-decoration: none;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-tight);
 }
 
 .tagline {
@@ -26,20 +55,34 @@
   font-size: var(--font-size-sm);
 }
 
+@media (max-width: 30rem) {
+  .tagline {
+    display: none;
+  }
+}
+
 .main {
   flex: 1;
-  width: min(64rem, 100%);
+  width: min(68rem, 100%);
   margin: 0 auto;
-  padding: var(--space-6) var(--space-5) var(--space-7);
+  padding: var(--space-5) var(--space-5) var(--space-8);
+}
+
+@media (max-width: 40rem) {
+  .main {
+    padding: var(--space-4) var(--space-4) var(--space-7);
+  }
 }
 
 .skipLink {
   position: absolute;
   left: var(--space-4);
   top: var(--space-4);
+  z-index: 30;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
   background-color: var(--color-surface);
+  box-shadow: var(--shadow-md);
   color: var(--color-text);
   transform: translateY(-200%);
 }

@@ -76,6 +76,8 @@ apps/web/
 
 Feature folders own their route-level orchestration, queries, commands, forms, presentation components, and tests. Shared UI must remain domain-neutral.
 
+Visual styling uses CSS modules over a single design-token stylesheet (`shared/ui/tokens.css`): the palette (light and dark, WCAG AA-clearing pairs), typography scale (a locally resolved serif display stack for headings, system sans for body), spacing, radii, shadows, focus, and motion tokens. Components never hard-code visual values. Icons are a small set of hand-authored inline SVGs in `shared/ui/icons.tsx`. No UI framework, icon font, or externally hosted font is used; every visual asset resolves locally, consistent with the Content Security Policy posture.
+
 ## 6. State Ownership
 
 | State                                             | Owner                                                   |

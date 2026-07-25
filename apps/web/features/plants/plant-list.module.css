@@ -15,6 +15,7 @@
 
 .item {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
@@ -22,23 +23,42 @@
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-md);
   background-color: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.item:hover {
+  border-color: var(--color-accent-quiet-border);
+  box-shadow: var(--shadow-sm);
 }
 
 .link {
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text);
+  text-decoration: none;
+}
+
+.link:hover {
+  color: var(--color-accent);
 }
 
 .meta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
   color: var(--color-text-muted);
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
 }
 
 .empty {
+  padding: var(--space-5);
+  border: var(--border-width) dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
   color: var(--color-text-muted);
+  text-align: center;
 }
 
 .errorState {

@@ -12,6 +12,10 @@ import styles from './page.module.css';
  * combining two features (see `features/observations/observation-timeline.tsx`'s
  * doc comment for why neither feature imports the other directly).
  *
+ * The back link stays even though the shell's Plants tab also leads to the
+ * list: this page is a drill-down inside the section, and the explicit link
+ * is the clearer way out of it.
+ *
  * Source: implementation-plan.md work package P4-WEB-01.
  */
 export default async function PlantDetailPage({
@@ -30,12 +34,12 @@ export default async function PlantDetailPage({
 
       <PlantDetail gardenId={gardenId} plantId={plantId} />
 
-      <div>
+      <section className={styles['panel']}>
         <h2 className={styles['sectionTitle']}>{t('observations.recordTitle')}</h2>
         <RecordObservationForm gardenId={gardenId} fixedPlantId={plantId} />
-      </div>
+      </section>
 
-      <div>
+      <div className={styles['section']}>
         <h2 className={styles['sectionTitle']}>{t('observations.historyTitle')}</h2>
         <ObservationTimeline gardenId={gardenId} plantId={plantId} />
       </div>

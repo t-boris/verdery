@@ -1,34 +1,109 @@
 .button {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
+  min-height: 2.5rem;
   padding: var(--space-2) var(--space-4);
   border: var(--border-width) solid transparent;
   border-radius: var(--radius-md);
   font: inherit;
-  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.01em;
   cursor: pointer;
-  transition: background-color var(--duration-fast) ease-out;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+
+.button:active {
+  transform: translateY(1px);
 }
 
 .primary {
   background-color: var(--color-accent);
   color: var(--color-accent-text);
+  box-shadow: var(--shadow-xs);
+}
+
+.primary:hover {
+  background-color: var(--color-accent-hover);
+}
+
+.primary:active {
+  background-color: var(--color-accent-active);
 }
 
 .secondary {
   background-color: var(--color-surface);
   border-color: var(--color-border);
   color: var(--color-text);
+  box-shadow: var(--shadow-xs);
+}
+
+.secondary:hover {
+  background-color: var(--color-accent-quiet);
+  border-color: var(--color-accent-quiet-border);
+}
+
+.secondary:active {
+  background-color: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+}
+
+.destructive {
+  background-color: var(--color-surface);
+  border-color: var(--color-negative-quiet-border);
+  color: var(--color-negative);
+  box-shadow: var(--shadow-xs);
+}
+
+.destructive:hover {
+  background-color: var(--color-negative-quiet);
+  border-color: var(--color-negative);
+}
+
+.destructive:active {
+  background-color: color-mix(in srgb, var(--color-negative) 14%, var(--color-surface));
 }
 
 .button[aria-disabled='true'] {
   cursor: progress;
-  opacity: 0.7;
+  opacity: 0.75;
 }
 
 .button:disabled {
   cursor: not-allowed;
-  opacity: 0.6;
+  opacity: 0.55;
+  box-shadow: none;
+}
+
+.button:disabled:active,
+.button[aria-disabled='true']:active {
+  transform: none;
+}
+
+/*
+ * The running-state spinner. The accessible state is `aria-busy`, set by the
+ * component; the ring is purely visual reinforcement of it.
+ */
+.button[aria-busy='true']::after {
+  content: '';
+  inline-size: 0.875rem;
+  block-size: 0.875rem;
+  flex: none;
+  border-radius: var(--radius-pill);
+  border: 2px solid currentcolor;
+  border-inline-start-color: transparent;
+  opacity: 0.8;
+  animation: button-spin 720ms linear infinite;
+}
+
+@keyframes button-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }

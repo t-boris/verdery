@@ -147,7 +147,7 @@ export function GardenSettings({ gardenId }: { readonly gardenId: string }) {
               {t('gardens.archive')}
             </Button>
             <Button
-              variant="secondary"
+              variant="destructive"
               busy={deletionMutation.isPending}
               onClick={onRequestDeletion}
             >
@@ -163,7 +163,7 @@ export function GardenSettings({ gardenId }: { readonly gardenId: string }) {
         <Card title={t('gardens.manageTitle')}>
           <div className={styles['actions']}>
             <Button
-              variant="secondary"
+              variant="destructive"
               busy={deletionMutation.isPending}
               onClick={onRequestDeletion}
             >

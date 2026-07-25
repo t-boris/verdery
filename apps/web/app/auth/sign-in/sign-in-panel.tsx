@@ -106,7 +106,9 @@ export function SignInPanel() {
         </Alert>
       )}
 
-      <div className={styles['divider']} role="separator" aria-orientation="horizontal" />
+      <div className={styles['divider']} role="separator" aria-orientation="horizontal">
+        <span className={styles['dividerLabel']}>{t('auth.orSeparator')}</span>
+      </div>
 
       {linkSent ? (
         <Alert tone="info" title={t('auth.emailLinkSent')}>

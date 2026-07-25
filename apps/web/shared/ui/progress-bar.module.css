@@ -1,11 +1,12 @@
 .wrapper {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 
 .label {
-  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text);
 }
 
@@ -17,24 +18,28 @@
 
 .bar {
   flex: 1;
-  block-size: var(--space-3);
+  block-size: var(--space-2);
   appearance: none;
-  border: var(--border-width) solid var(--color-border);
+  border: none;
   border-radius: var(--radius-pill);
+  background-color: var(--color-surface-sunken);
   overflow: hidden;
 }
 
 .bar::-webkit-progress-bar {
   background-color: var(--color-surface-sunken);
+  border-radius: var(--radius-pill);
 }
 
 .bar::-webkit-progress-value {
   background-color: var(--color-accent);
-  transition: inline-size var(--duration-fast) ease-out;
+  border-radius: var(--radius-pill);
+  transition: inline-size var(--duration-medium) var(--ease-out);
 }
 
 .bar::-moz-progress-bar {
   background-color: var(--color-accent);
+  border-radius: var(--radius-pill);
 }
 
 .percent {
@@ -42,4 +47,5 @@
   text-align: end;
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
 }

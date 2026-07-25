@@ -1,6 +1,33 @@
 .page {
   display: flex;
+  justify-content: center;
+  padding-block: var(--space-6) var(--space-7);
+}
+
+.card {
+  display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  max-width: 28rem;
+  width: min(26.5rem, 100%);
+  padding: var(--space-6);
+  background-color: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+}
+
+.mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-accent);
+  color: var(--color-accent-text);
+  box-shadow: var(--shadow-sm);
+}
+
+.title {
+  margin-bottom: var(--space-4);
 }

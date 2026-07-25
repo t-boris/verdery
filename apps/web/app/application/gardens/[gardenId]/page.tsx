@@ -1,5 +1,3 @@
-import Link from 'next/link';
-
 import { getRequestTranslator } from '@/shared/localization/server';
 
 import { GardenSettings } from '@/features/gardens/public';
@@ -7,6 +5,10 @@ import { GardenPhotoUpload, GardenPlanUpload } from '@/features/media/public';
 
 import styles from './page.module.css';
 
+/**
+ * The garden's overview and settings. Cross-section navigation lives in the
+ * application shell's garden tabs, so this page carries only its own content.
+ */
 export default async function GardenSettingsPage({
   params,
 }: {
@@ -17,31 +19,8 @@ export default async function GardenSettingsPage({
 
   return (
     <div className={styles['page']}>
-      <Link className={styles['back']} href="/application/gardens">
-        {t('gardens.backToList')}
-      </Link>
-      <div className={styles['titleRow']}>
+      <div className={styles['header']}>
         <h1 className={styles['title']}>{t('gardens.settingsTitle')}</h1>
-        <nav className={styles['navLinks']}>
-          <Link className={styles['navLink']} href={`/application/gardens/${gardenId}/today`}>
-            {t('today.pageTitle')}
-          </Link>
-          <Link className={styles['navLink']} href={`/application/gardens/${gardenId}/map`}>
-            {t('map.page.openMap')}
-          </Link>
-          <Link className={styles['navLink']} href={`/application/gardens/${gardenId}/plants`}>
-            {t('plants.pageTitle')}
-          </Link>
-          <Link
-            className={styles['navLink']}
-            href={`/application/gardens/${gardenId}/observations`}
-          >
-            {t('observations.pageTitle')}
-          </Link>
-          <Link className={styles['navLink']} href={`/application/gardens/${gardenId}/tasks`}>
-            {t('tasks.pageTitle')}
-          </Link>
-        </nav>
       </div>
       <GardenSettings gardenId={gardenId} />
       <GardenPhotoUpload gardenId={gardenId} />

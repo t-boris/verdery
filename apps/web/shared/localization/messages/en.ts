@@ -77,7 +77,12 @@ export const englishMessages = {
   'drafts.discard': 'Discard recovered draft',
 
   'shell.signOut': 'Sign out',
+  'shell.primaryNavLabel': 'Application',
+  'shell.gardenNavLabel': 'Garden sections',
+  'shell.overviewTab': 'Overview',
+  'shell.mapTab': 'Map',
 
+  'auth.orSeparator': 'or',
   'auth.signInTitle': 'Sign in to Verdery',
   'auth.signInDescription': 'Sign in to see and manage your gardens.',
   'auth.signInWithGoogle': 'Continue with Google',

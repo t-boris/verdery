@@ -5,6 +5,8 @@
  * hard-code a colour or a spacing step, so a theme change is a change here and
  * nowhere else.
  *
+ * The design language is a "botanical ledger": a warm paper canvas, deep fir
+ * greens, a serif display face for headings, and soft green-tinted elevation.
  * Light and dark palettes are chosen so that body text, muted text, and text on
  * a filled control all clear the WCAG AA contrast ratio, and so that state is
  * never carried by colour alone.
@@ -13,20 +15,38 @@
  */
 
 :root {
-  --color-canvas: #f6f9f5;
-  --color-surface: #ffffff;
-  --color-surface-sunken: #eef3ec;
-  --color-border: #ccd8cd;
-  --color-text: #14231a;
-  --color-text-muted: #4c5c52;
-  --color-accent: #14532d;
-  --color-accent-text: #ffffff;
-  --color-accent-quiet: #dcefe2;
-  --color-positive: #14532d;
-  --color-negative: #8f1d24;
-  --color-negative-quiet: #fbe9ea;
-  --color-focus: #14532d;
+  /* Surfaces. */
+  --color-canvas: #f2f1e8;
+  --color-surface: #fcfcf7;
+  --color-surface-sunken: #ecebdf;
+  --color-border: #d6d4c2;
+  --color-border-strong: #b5b3a0;
 
+  /* Ink. */
+  --color-text: #1c2a21;
+  --color-text-muted: #56635a;
+
+  /* Brand green. */
+  --color-accent: #2f6b3f;
+  --color-accent-hover: #275c35;
+  --color-accent-active: #204d2c;
+  --color-accent-text: #ffffff;
+  --color-accent-quiet: #e1ecdc;
+  --color-accent-quiet-border: #c2d6bd;
+
+  /* Tones. */
+  --color-positive: #2f6b3f;
+  --color-negative: #96322c;
+  --color-negative-hover: #822b26;
+  --color-negative-quiet: #f7e9e5;
+  --color-negative-quiet-border: #e5c8c1;
+  --color-warning: #7a5210;
+  --color-warning-quiet: #f5ecd7;
+  --color-warning-quiet-border: #e2d3ab;
+
+  --color-focus: #2f6b3f;
+
+  /* Spacing scale. */
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -34,70 +54,126 @@
   --space-5: 1.5rem;
   --space-6: 2rem;
   --space-7: 3rem;
+  --space-8: 4rem;
 
-  --radius-sm: 0.25rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
+  /* Radii. */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1.25rem;
   --radius-pill: 999px;
 
+  /*
+   * Type. The display face is a warm old-style serif for headings and the
+   * wordmark; body copy stays on the system sans stack. Both stacks resolve
+   * locally — no font is fetched from any origin, per the CSP posture.
+   */
   --font-family-sans:
     ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-family-display:
+    'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, 'Times New Roman',
+    serif;
   --font-family-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
+  --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
   --font-size-md: 1rem;
   --font-size-lg: 1.25rem;
   --font-size-xl: 1.75rem;
+  --font-size-2xl: 2.25rem;
 
   --font-weight-regular: 400;
   --font-weight-medium: 500;
+  --font-weight-semibold: 600;
   --font-weight-bold: 700;
 
   --line-height-tight: 1.25;
   --line-height-normal: 1.6;
+
+  --letter-spacing-tight: -0.015em;
+  --letter-spacing-caps: 0.08em;
+
+  /* Elevation: green-tinted, soft, and shallow — paper, not glass. */
+  --shadow-xs: 0 1px 2px rgb(28 42 33 / 0.06);
+  --shadow-sm: 0 1px 2px rgb(28 42 33 / 0.05), 0 2px 8px -2px rgb(28 42 33 / 0.09);
+  --shadow-md: 0 2px 4px rgb(28 42 33 / 0.05), 0 12px 28px -12px rgb(28 42 33 / 0.22);
+  --shadow-lg: 0 4px 8px rgb(28 42 33 / 0.06), 0 24px 48px -16px rgb(28 42 33 / 0.28);
 
   --border-width: 1px;
   --focus-ring-width: 3px;
   --focus-ring-offset: 2px;
 
   --duration-fast: 120ms;
+  --duration-medium: 220ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Chevron for styled <select> controls; swapped per palette below. */
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%2356635a' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
 /*
  * The dark palette follows the operating-system preference by default. The
- * explicit `data-theme` attributes let a future preference control override that
- * in both directions without a second stylesheet.
+ * explicit `data-theme` attributes let a future preference control override
+ * that in both directions without a second stylesheet.
  */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --color-canvas: #0f1613;
-    --color-surface: #18211c;
-    --color-surface-sunken: #131c17;
-    --color-border: #35443b;
-    --color-text: #e8f0ea;
-    --color-text-muted: #b3c4b8;
-    --color-accent: #6ee7a0;
-    --color-accent-text: #0f1613;
-    --color-accent-quiet: #1e3327;
-    --color-positive: #6ee7a0;
-    --color-negative: #ff9b9b;
-    --color-negative-quiet: #3a1f21;
-    --color-focus: #6ee7a0;
+    --color-canvas: #10160f;
+    --color-surface: #1a211a;
+    --color-surface-sunken: #141b14;
+    --color-border: #37413a;
+    --color-border-strong: #4d584f;
+    --color-text: #e9efe7;
+    --color-text-muted: #a9b8ab;
+    --color-accent: #7fd0a0;
+    --color-accent-hover: #93dbaf;
+    --color-accent-active: #a8e3bf;
+    --color-accent-text: #0e1710;
+    --color-accent-quiet: #21331f;
+    --color-accent-quiet-border: #35492f;
+    --color-positive: #7fd0a0;
+    --color-negative: #f2a99f;
+    --color-negative-hover: #f6bcb4;
+    --color-negative-quiet: #3a221f;
+    --color-negative-quiet-border: #57332e;
+    --color-warning: #e3bd77;
+    --color-warning-quiet: #35290f;
+    --color-warning-quiet-border: #514021;
+    --color-focus: #7fd0a0;
+    --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.35);
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 8px -2px rgb(0 0 0 / 0.4);
+    --shadow-md: 0 2px 4px rgb(0 0 0 / 0.3), 0 12px 28px -12px rgb(0 0 0 / 0.55);
+    --shadow-lg: 0 4px 8px rgb(0 0 0 / 0.35), 0 24px 48px -16px rgb(0 0 0 / 0.6);
+    --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%23a9b8ab' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   }
 }
 
 :root[data-theme='dark'] {
-  --color-canvas: #0f1613;
-  --color-surface: #18211c;
-  --color-surface-sunken: #131c17;
-  --color-border: #35443b;
-  --color-text: #e8f0ea;
-  --color-text-muted: #b3c4b8;
-  --color-accent: #6ee7a0;
-  --color-accent-text: #0f1613;
-  --color-accent-quiet: #1e3327;
-  --color-positive: #6ee7a0;
-  --color-negative: #ff9b9b;
-  --color-negative-quiet: #3a1f21;
-  --color-focus: #6ee7a0;
+  --color-canvas: #10160f;
+  --color-surface: #1a211a;
+  --color-surface-sunken: #141b14;
+  --color-border: #37413a;
+  --color-border-strong: #4d584f;
+  --color-text: #e9efe7;
+  --color-text-muted: #a9b8ab;
+  --color-accent: #7fd0a0;
+  --color-accent-hover: #93dbaf;
+  --color-accent-active: #a8e3bf;
+  --color-accent-text: #0e1710;
+  --color-accent-quiet: #21331f;
+  --color-accent-quiet-border: #35492f;
+  --color-positive: #7fd0a0;
+  --color-negative: #f2a99f;
+  --color-negative-hover: #f6bcb4;
+  --color-negative-quiet: #3a221f;
+  --color-negative-quiet-border: #57332e;
+  --color-warning: #e3bd77;
+  --color-warning-quiet: #35290f;
+  --color-warning-quiet-border: #514021;
+  --color-focus: #7fd0a0;
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 8px -2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 2px 4px rgb(0 0 0 / 0.3), 0 12px 28px -12px rgb(0 0 0 / 0.55);
+  --shadow-lg: 0 4px 8px rgb(0 0 0 / 0.35), 0 24px 48px -16px rgb(0 0 0 / 0.6);
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%23a9b8ab' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }

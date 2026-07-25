@@ -5661,3 +5661,85 @@ visible-product requirement's web half, delivered at the start of Phase 8 rather
 - End-to-end evidence: page serves 200; API preflight from the web origin returns 204 with the
   matching `access-control-allow-origin`; the full deploy pipeline (API build → migrate → deploy →
   verify → web build → deploy → verify) green as one run.
+
+## Stage 31 — Web visual design pass, implementation complete
+
+The first deliberate design pass over the whole web surface, replacing seven phases of
+bare-bones styling with a coherent design language — "botanical ledger": warm paper canvas,
+deep fir greens, an old-style serif display face for headings, soft green-tinted elevation.
+CSS modules + custom-property tokens only; no new runtime dependency, no external origin
+(fonts and icons are local — system font stacks and hand-authored inline SVG).
+
+### Design system (`apps/web/shared/ui/tokens.css`)
+
+- **Palette (light-first, full dark palette maintained)**: canvas `#f2f1e8` / surface
+  `#fcfcf7` / sunken `#ecebdf`; ink `#1c2a21`, muted `#56635a`; accent green `#2f6b3f` with
+  hover/active steps and a quiet tint pair; negative `#96322c` and warning `#7a5210` each with
+  quiet background + border pairs. All text/background pairs clear WCAG AA (4.5:1).
+- **Type**: display stack `'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Palatino,
+Georgia, serif` for headings/wordmark; system sans for body; size scale xs–2xl; weight scale
+  incl. new `semibold`; caps letter-spacing token for overline panel titles.
+- **Depth**: four green-tinted shadows (xs/sm/md/lg), black-tinted in dark theme.
+- **Geometry & motion**: radii sm/md/lg/xl/pill; `--duration-fast`/`--duration-medium` +
+  `--ease-out`; `prefers-reduced-motion` kills all animation globally (pre-existing rule kept).
+- **Details**: theme-aware data-URI select chevron; focus ring tokens unchanged in name.
+- `global.css`: serif heading defaults, subtle canvas top wash, `::selection`, and one global
+  loading treatment — every `p[role='status']` placeholder gets a pulsing accent dot, no
+  feature markup touched.
+
+### Shared components (`apps/web/shared/ui/`)
+
+- **Button**: new `destructive` variant (garden deletion request, task delete now use it);
+  hover/active/disabled states, busy spinner via `[aria-busy]` pseudo-element — accessible
+  contract (focusable-while-busy) unchanged, `button.test.tsx` untouched and green.
+- **TextField/Select**: 2.75rem control height, semibold sm labels, hover border, accent focus
+  ring (halo via `color-mix`), invalid + disabled states; custom select chevron.
+- **Card**: shadow, hairline under the serif title. **StatusPill**: tinted background + matching
+  border per tone, xs semibold. **Alert**: tone colours the frame and title only; body stays
+  ink. **ProgressBar**: slim rounded rail. Empty states everywhere: dashed border, centered.
+- **New `icons.tsx`**: 8 hand-authored 20×20 stroke icons (leaf, home, sun, map, sprout, eye,
+  check-circle, sign-out), always `aria-hidden` next to a visible label; exported via `public.ts`.
+
+### Chrome
+
+- Root layout: sticky brand header — green leaf mark tile + serif "Verdery" wordmark, tagline
+  (hidden ≤480px); content column widened 64→68rem; skip-link elevated.
+- `ApplicationShell`: real section navigation. "Gardens" root link + sign-out (icon button) in
+  a bar; when the route carries `gardenId` (read via `useParams` — no data fetching added), a
+  tab row: Overview / Today / Map / Plants / Observations / Tasks, each icon + label, active
+  tab from `usePathname` with `aria-current="page"`. Tabs are plain anchors in a labeled
+  `<nav>` — deliberately not a list, so E2E `listitem` counts stay content-only. Horizontal
+  scroll at narrow widths; usable at 360px.
+- New message keys (en+ru): `shell.primaryNavLabel`, `shell.gardenNavLabel`,
+  `shell.overviewTab`, `shell.mapTab`, `auth.orSeparator`.
+
+### Pages
+
+- **Auth**: sign-in and email-link pages are centered cards (leaf mark, serif title, provider
+  buttons, "or" divider before the email form). All E2E-pinned copy unchanged.
+- **Feature pages**: one consistent header pattern (fluid serif h1 + muted description); the
+  per-page "back"/nav link rows are superseded by the shell tabs and removed (the plant detail
+  page keeps its drill-down back link). Create/record forms sit in surface panels; the plants
+  page pairs "Add plant" and "Open by id" in a responsive two-column grid; tasks page leads
+  with the list.
+- **Today cards**: urgency now visually meaningful — left-edge colour by urgency, tinted
+  urgency pill (label still carries the state), priority score as a chip beside the serif
+  action title; elevated-risk cards get a red edge + warm tinted surface plus the existing
+  pill and caution note. Evidence panel titles as overlines, rule identity in mono.
+- **Map editor**: toolbar is a real surface bar with group dividers; all six sidebar panels
+  share one panel treatment with uppercase overline titles; warnings are amber-tinted with a
+  warning edge; canvas framed with radius + shadow; scale badge floats with a shadow.
+
+### Verification
+
+| Check                                           | Result                                     |
+| ----------------------------------------------- | ------------------------------------------ |
+| `pnpm --filter @verdery/web test`               | 62 files / 518 tests before AND after      |
+| `pnpm --filter @verdery/web build`              | clean                                      |
+| Root `pnpm typecheck` / `lint` / `format:check` | all pass                                   |
+| `node scripts/check-file-size.mjs`              | passes                                     |
+| `apps/web/e2e/run-e2e.sh`                       | 9 specs against the full live stack, green |
+
+Markup changes were confined to layout structure (shell nav, page headers, auth cards, Today
+card header); no gateway, query, store, routing, or validation logic changed, and no test
+assertion needed updating — the suite's role/label/text selectors survived the restyle intact.

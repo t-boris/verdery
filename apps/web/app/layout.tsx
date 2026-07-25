@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 
 import { LocalizationProvider, createTranslator } from '@/shared/localization/public';
 import { getRequestLocale } from '@/shared/localization/server';
+import { LeafIcon } from '@/shared/ui/public';
 import '@/shared/ui/tokens.css';
 import '@/shared/ui/global.css';
 
@@ -37,10 +38,15 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               {t('app.skipToContent')}
             </a>
             <header className={styles['header']}>
-              <Link className={styles['productName']} href="/">
-                {t('app.name')}
-              </Link>
-              <span className={styles['tagline']}>{t('app.tagline')}</span>
+              <div className={styles['headerInner']}>
+                <Link className={styles['brand']} href="/">
+                  <span className={styles['brandMark']}>
+                    <LeafIcon size={18} />
+                  </span>
+                  <span className={styles['productName']}>{t('app.name')}</span>
+                </Link>
+                <span className={styles['tagline']}>{t('app.tagline')}</span>
+              </div>
             </header>
             <main id="main" className={styles['main']}>
               {children}

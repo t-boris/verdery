@@ -1,5 +1,3 @@
-import Link from 'next/link';
-
 import { MapEditor } from '@/features/map/public';
 import { getRequestTranslator } from '@/shared/localization/server';
 
@@ -15,12 +13,7 @@ export default async function GardenMapPage({
 
   return (
     <div className={styles['page']}>
-      <div className={styles['header']}>
-        <Link className={styles['back']} href={`/application/gardens/${gardenId}`}>
-          {t('map.page.backToSettings')}
-        </Link>
-        <h1 className={styles['title']}>{t('map.page.title')}</h1>
-      </div>
+      <h1 className={styles['title']}>{t('map.page.title')}</h1>
       <MapEditor gardenId={gardenId} />
     </div>
   );

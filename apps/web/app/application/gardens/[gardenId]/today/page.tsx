@@ -1,5 +1,3 @@
-import Link from 'next/link';
-
 import { TodayList } from '@/features/recommendations/public';
 import { getRequestTranslator } from '@/shared/localization/server';
 
@@ -23,10 +21,7 @@ export default async function TodayPage({
 
   return (
     <div className={styles['page']}>
-      <Link className={styles['back']} href={`/application/gardens/${gardenId}`}>
-        {t('map.page.backToSettings')}
-      </Link>
-      <div>
+      <div className={styles['header']}>
         <h1 className={styles['title']}>{t('today.pageTitle')}</h1>
         <p className={styles['description']}>{t('today.pageDescription')}</p>
       </div>

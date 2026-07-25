@@ -1,5 +1,3 @@
-import Link from 'next/link';
-
 import { ObservationTimeline, RecordObservationForm } from '@/features/observations/public';
 import { getRequestTranslator } from '@/shared/localization/server';
 
@@ -22,20 +20,17 @@ export default async function ObservationsPage({
 
   return (
     <div className={styles['page']}>
-      <Link className={styles['back']} href={`/application/gardens/${gardenId}`}>
-        {t('map.page.backToSettings')}
-      </Link>
-      <div>
+      <div className={styles['header']}>
         <h1 className={styles['title']}>{t('observations.pageTitle')}</h1>
         <p className={styles['description']}>{t('observations.pageDescription')}</p>
       </div>
 
-      <div>
+      <section className={styles['panel']}>
         <h2 className={styles['sectionTitle']}>{t('observations.recordTitle')}</h2>
         <RecordObservationForm gardenId={gardenId} />
-      </div>
+      </section>
 
-      <div>
+      <div className={styles['section']}>
         <h2 className={styles['sectionTitle']}>{t('observations.historyTitle')}</h2>
         <ObservationTimeline gardenId={gardenId} />
       </div>

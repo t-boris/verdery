@@ -69,7 +69,12 @@ export const russianMessages: MessageCatalogue = {
   'drafts.discard': 'Удалить восстановленный черновик',
 
   'shell.signOut': 'Выйти',
+  'shell.primaryNavLabel': 'Приложение',
+  'shell.gardenNavLabel': 'Разделы сада',
+  'shell.overviewTab': 'Обзор',
+  'shell.mapTab': 'Карта',
 
+  'auth.orSeparator': 'или',
   'auth.signInTitle': 'Вход в Verdery',
   'auth.signInDescription': 'Войдите, чтобы видеть свои сады и управлять ими.',
   'auth.signInWithGoogle': 'Продолжить с Google',

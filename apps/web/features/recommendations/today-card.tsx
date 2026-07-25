@@ -89,17 +89,30 @@ export function TodayCard({ gardenId, item }: TodayCardProps) {
   };
 
   return (
-    <li className={styles['card']}>
+    <li
+      className={styles['card']}
+      data-urgency={item.urgency}
+      data-elevated={item.safetyTier === 'elevated_risk' ? 'true' : undefined}
+    >
       <div className={styles['header']}>
-        <span className={styles['title']}>{item.actionTitle}</span>
-        {item.safetyTier === 'elevated_risk' && (
-          <StatusPill tone="negative" label={t('today.safetyElevatedRisk')} />
-        )}
-        <span className={styles['meta']}>{t(urgencyLabel(item.urgency))}</span>
-        <span className={styles['meta']}>
-          {item.targetDisplayName ?? t(targetKindLabel(item.targetKind))}
-        </span>
-        <span className={styles['meta']}>{item.careCategory}</span>
+        <div className={styles['headline']}>
+          <span className={styles['title']}>{item.actionTitle}</span>
+          <span className={styles['priority']}>
+            {t('today.priorityDisplay', { score: item.priorityScore })}
+          </span>
+        </div>
+        <div className={styles['badges']}>
+          {item.safetyTier === 'elevated_risk' && (
+            <StatusPill tone="negative" label={t('today.safetyElevatedRisk')} />
+          )}
+          <span className={styles['urgency']} data-urgency={item.urgency}>
+            {t(urgencyLabel(item.urgency))}
+          </span>
+          <span className={styles['metaItem']}>
+            {item.targetDisplayName ?? t(targetKindLabel(item.targetKind))}
+          </span>
+          <span className={styles['metaItem']}>{item.careCategory}</span>
+        </div>
       </div>
 
       <p className={styles['reason']}>
@@ -115,10 +128,7 @@ export function TodayCard({ gardenId, item }: TodayCardProps) {
         {uncertaintyBasis === '' ? '' : ` — ${uncertaintyBasis}`}
       </p>
 
-      <div className={styles['meta']}>
-        <span>{t('today.priorityDisplay', { score: item.priorityScore })}</span>
-        {window !== null && <span>{window}</span>}
-      </div>
+      {window !== null && <p className={styles['window']}>{window}</p>}
 
       <div className={styles['actions']}>
         <Button
