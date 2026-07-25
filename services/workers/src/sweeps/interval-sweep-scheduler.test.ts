@@ -1,17 +1,25 @@
+/**
+ * The four scheduler behaviors P6-RET-01's retention scheduler proved,
+ * carried over unchanged to the generalized implementation all three sweeps
+ * now share — including the overlap guard that is one layer of the
+ * P7-ASYNC-01 duplicate-safety evidence (overlapping firings never start a
+ * second concurrent run).
+ */
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Logger } from '../logger.js';
 import { silentLogger } from '../relay/relay-test-doubles.js';
-import { createRetentionSweepScheduler } from './retention-sweep-scheduler.js';
-import type { RetentionSweepSummary, RetentionSweepTrigger } from './retention-sweep-trigger.js';
+import { createIntervalSweepScheduler } from './interval-sweep-scheduler.js';
+import type { SweepTrigger } from './sweep-trigger.js';
 
-const EMPTY_SUMMARY: RetentionSweepSummary = {
-  retentionScheduled: 0,
-  retentionSkippedReferenced: 0,
-  staleScheduled: 0,
-  lostRaces: 0,
+const EVENTS = {
+  failedEvent: 'test.sweep_failed',
+  failedMessage: 'Test sweep trigger failed; it will be retried on the next interval',
 };
 
-describe('createRetentionSweepScheduler', () => {
+const EMPTY_SUMMARY = { processed: 0 };
+
+describe('createIntervalSweepScheduler', () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -22,13 +30,13 @@ describe('createRetentionSweepScheduler', () => {
 
   it('runs the trigger once per interval', async () => {
     let calls = 0;
-    const trigger: RetentionSweepTrigger = {
+    const trigger: SweepTrigger<object> = {
       trigger: () => {
         calls += 1;
         return Promise.resolve(EMPTY_SUMMARY);
       },
     };
-    const scheduler = createRetentionSweepScheduler(trigger, 1_000, silentLogger());
+    const scheduler = createIntervalSweepScheduler(trigger, 1_000, EVENTS, silentLogger());
 
     scheduler.start();
     await vi.advanceTimersByTimeAsync(3_000);
@@ -40,7 +48,7 @@ describe('createRetentionSweepScheduler', () => {
   it('skips a firing while a previous run is still in flight, rather than overlapping', async () => {
     let calls = 0;
     let release: (() => void) | undefined;
-    const trigger: RetentionSweepTrigger = {
+    const trigger: SweepTrigger<object> = {
       trigger: () => {
         calls += 1;
         return new Promise((resolve) => {
@@ -48,7 +56,7 @@ describe('createRetentionSweepScheduler', () => {
         });
       },
     };
-    const scheduler = createRetentionSweepScheduler(trigger, 1_000, silentLogger());
+    const scheduler = createIntervalSweepScheduler(trigger, 1_000, EVENTS, silentLogger());
 
     scheduler.start();
     // Three intervals elapse while the first run never resolves.
@@ -63,10 +71,10 @@ describe('createRetentionSweepScheduler', () => {
     await scheduler.stop();
   });
 
-  it('a failed run is logged and the next interval retries — one failure never stops the schedule', async () => {
+  it('a failed run is logged with the configured event and the next interval retries', async () => {
     let calls = 0;
     const errors: unknown[] = [];
-    const trigger: RetentionSweepTrigger = {
+    const trigger: SweepTrigger<object> = {
       trigger: () => {
         calls += 1;
         return calls === 1
@@ -80,7 +88,7 @@ describe('createRetentionSweepScheduler', () => {
         errors.push(context);
       },
     } as unknown as Logger;
-    const scheduler = createRetentionSweepScheduler(trigger, 1_000, logger);
+    const scheduler = createIntervalSweepScheduler(trigger, 1_000, EVENTS, logger);
 
     scheduler.start();
     await vi.advanceTimersByTimeAsync(2_000);
@@ -88,17 +96,18 @@ describe('createRetentionSweepScheduler', () => {
 
     expect(calls).toBe(2);
     expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({ event: 'test.sweep_failed' });
   });
 
   it('stop() prevents further runs and resolves after any in-flight run finishes', async () => {
     let calls = 0;
-    const trigger: RetentionSweepTrigger = {
+    const trigger: SweepTrigger<object> = {
       trigger: () => {
         calls += 1;
         return Promise.resolve(EMPTY_SUMMARY);
       },
     };
-    const scheduler = createRetentionSweepScheduler(trigger, 1_000, silentLogger());
+    const scheduler = createIntervalSweepScheduler(trigger, 1_000, EVENTS, silentLogger());
 
     scheduler.start();
     await vi.advanceTimersByTimeAsync(1_000);

@@ -59,4 +59,15 @@ export interface RecommendationCandidateRepository {
 
   /** The named candidates with their rule identities — how open tasks' `origin_recommendation_id` values resolve to rule keys. Empty input returns empty. */
   findWithRuleByIds(candidateIds: readonly Uuid[]): Promise<readonly StoredCandidateWithRule[]>;
+
+  /**
+   * Up to `limit` distinct garden ids (ascending, for determinism) that
+   * still hold a live candidate whose `window_end` is at or before `now` —
+   * the expiry sweep's candidate selection (P7-ASYNC-01). Expiring drains
+   * the set, so successive bounded runs always make progress. Deliberately
+   * NOT filtered by garden lifecycle or plant inventory: a stale live
+   * candidate must be closable wherever it lingers (section 17 freshness),
+   * archived gardens included.
+   */
+  listGardenIdsWithExpirableCandidates(now: Date, limit: number): Promise<readonly Uuid[]>;
 }

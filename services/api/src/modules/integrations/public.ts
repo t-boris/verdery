@@ -5,21 +5,15 @@
  * P7-INT-01 with its weather half.
  *
  * Other modules and the composition root may import only from this file.
- * Two audiences, named per this codebase's convention even when one is
- * still empty:
+ * Two audiences, named per this codebase's convention:
  *
- * - Other modules: none yet. P7-RULE-01's rule engine is the intended first
- *   consumer (`GetGardenWeather` and its typed freshness/absence outcomes
- *   are built for it); P7-ASYNC-01's scheduler is the intended caller of
- *   `RefreshGardenWeather`. Neither exists yet.
- * - The composition root: nothing is wired into `app.ts` this stage,
- *   deliberately — no HTTP route exposes weather (the OpenAPI contract has
- *   no `Weather` tag), no scheduler calls the refresh yet, and wiring
- *   dependencies no caller reaches would be dead composition. The concrete
- *   classes are exported so the stage that first needs them (P7-ASYNC-01 or
- *   P7-RULE-01) wires them without touching this module, mirroring
- *   P7-DATA-01's own "no app.ts change until a stage has a command to wire"
- *   posture.
+ * - Other modules: tasks-recommendations' `EvaluateGardenRecommendations`
+ *   consumes `GetGardenWeather` (the cross-module use-case injection
+ *   precedent, P7-RULE-01).
+ * - The composition root: `compose-integrations.ts` (P7-ASYNC-01) wires the
+ *   registry, both use cases, the Kysely adapters, and the weather-refresh
+ *   sweep + its internal route — the first callers P7-INT-01 built this
+ *   module's exports for.
  *
  * No real weather provider exists (P0-PROV-01 undecided): the registry has
  * zero production registrations, `activeProviderKey` is null in every
@@ -78,6 +72,20 @@ export type {
   GetGardenWeatherResult,
 } from './application/get-garden-weather.js';
 
+// P7-ASYNC-01: the scheduled weather-refresh sweep and its internal route.
+export {
+  RunWeatherRefreshSweep,
+  WEATHER_REFRESH_SWEEP_BATCH_LIMIT,
+} from './application/run-weather-refresh-sweep.js';
+export type {
+  GardenWeatherRefresher,
+  WeatherRefreshSweepResult,
+} from './application/run-weather-refresh-sweep.js';
+export type { WeatherRefreshCandidateSource } from './application/weather-refresh-candidate-source.js';
+export { registerWeatherRefreshSweepRoute } from './transport/weather-refresh-sweep-route.js';
+export type { WeatherRefreshSweepRouteDependencies } from './transport/weather-refresh-sweep-route.js';
+
 export { KyselyWeatherRecordRepository } from './persistence/kysely-weather-record-repository.js';
 export { KyselyProviderQuotaRepository } from './persistence/kysely-provider-quota-repository.js';
+export { KyselyWeatherRefreshCandidateSource } from './persistence/kysely-weather-refresh-candidate-source.js';
 export type { IntegrationsDatabaseSchema } from './persistence/schema.js';

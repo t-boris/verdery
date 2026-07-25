@@ -5,6 +5,7 @@ import { KyselyObservationRepository } from '../../observations-history/public.j
 import { KyselyPlantRepository } from '../../plants-inventory/public.js';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
 import { KyselyIdempotencyStore } from '../../../platform/idempotency/kysely-idempotency-store.js';
+import { KyselyOutboxAppender } from '../../../platform/outbox/kysely-outbox-appender.js';
 import { KyselySyncChangeRecorder } from '../../../platform/sync/kysely-sync-change-recorder.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import type {
@@ -37,6 +38,7 @@ export class KyselyTasksRecommendationsUnitOfWork implements TasksRecommendation
         syncChanges: new KyselySyncChangeRecorder(trx),
         ruleVersions: new KyselyRuleVersionRepository(trx),
         recommendationCandidates: new KyselyRecommendationCandidateRepository(trx),
+        outbox: new KyselyOutboxAppender(trx, this.clock),
       };
 
       return work(context);

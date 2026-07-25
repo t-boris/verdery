@@ -55,6 +55,15 @@ export const testConfiguration: ApplicationConfiguration = {
       invokerServiceAccountEmail: 'verdery-worker-test@verdery-test.iam.gserviceaccount.com',
     },
   },
+  // P7-ASYNC-01: no provider registered (the composition root registers
+  // zero), so every test-built application runs with the honest
+  // `noProviderConfigured` reality; the windows are the schema's own
+  // documented defaults.
+  weather: {
+    activeProviderKey: null,
+    observationFreshForMs: 3_600_000,
+    forecastFreshForMs: 21_600_000,
+  },
 };
 
 /** A database that answers health checks according to the supplied behavior. */

@@ -300,4 +300,63 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     expect(response.statusCode).toBe(401);
     expect(asError(response).error.code).toBe('auth.unauthenticated');
   });
+
+  // The P7-ASYNC-01 sweep triggers share this suite for the same reason the
+  // retention sweep does: same app build, same fake verifier, same
+  // machine-to-machine posture.
+  it('runs the weather-refresh sweep with a valid OIDC token — with no gardens and no provider, an all-zero summary', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/internal/weather-refresh/sweep',
+      headers: { authorization: `Bearer ${VALID_TOKEN}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json<Record<string, unknown>>()).toEqual({
+      gardensConsidered: 0,
+      refreshed: 0,
+      freshCacheHits: 0,
+      staleServed: 0,
+      unavailable: 0,
+      degradationReasons: {},
+      stoppedOnQuotaExhaustion: false,
+    });
+  });
+
+  it('rejects an unauthenticated weather-refresh sweep trigger with 401', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/internal/weather-refresh/sweep',
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(asError(response).error.code).toBe('auth.unauthenticated');
+  });
+
+  it('runs the recommendation-evaluation sweep with a valid OIDC token — with no eligible gardens, an all-zero summary', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/internal/recommendation-evaluation/sweep',
+      headers: { authorization: `Bearer ${VALID_TOKEN}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json<Record<string, number>>()).toEqual({
+      gardensEvaluated: 0,
+      candidatesCreated: 0,
+      candidatesSuperseded: 0,
+      candidatesExpired: 0,
+      lostRaces: 0,
+    });
+  });
+
+  it('rejects an unauthenticated recommendation-evaluation sweep trigger with 401', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/internal/recommendation-evaluation/sweep',
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(asError(response).error.code).toBe('auth.unauthenticated');
+  });
 });

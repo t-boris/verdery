@@ -5,9 +5,10 @@
  * replace — the transactional shell around the pure
  * `evaluateGardenRules` engine.
  *
- * Built for two future callers, neither wired yet: the scheduler
- * (P7-ASYNC-01) calls it per garden on refresh, and the Today surface
- * (P7-BE-01) may call it on demand. It is IDEMPOTENT per evaluation
+ * Called by the scheduled recommendation sweep (P7-ASYNC-01,
+ * `run-recommendation-evaluation-sweep.ts`) per eligible garden; the Today
+ * surface (P7-BE-01) may additionally call it on demand. It is IDEMPOTENT
+ * per evaluation
  * window by construction, not by idempotency key: re-running over
  * unchanged facts finds every would-be candidate already live and
  * suppresses it (`liveCandidateExists`), writing nothing — proven by the
@@ -33,11 +34,24 @@
  * documents. The stage that first exposes evaluation to an actor adds
  * the authorization its surface needs.
  *
+ * Outbox emission (P7-ASYNC-01): one `recommendation.candidate_created`
+ * event per created candidate, appended in the SAME transaction as the
+ * candidate insert — notifications.md section 5's flow begins at "domain
+ * event", and the outbox is how the commit "cannot silently lose its
+ * publication intent". No consumer claims the type yet (P7-NOTIF-01 owns
+ * that); see the contract's own header
+ * (`@verdery/api-contracts`' `recommendation-events.ts`) for why emitting
+ * now, unclaimed, is the honest ordering.
+ *
  * Source: architecture/recommendations-and-ai.md, sections "3.
  * Recommendation Pipeline", "5. Rule Engine", "19. Completion Criteria";
  * implementation-plan.md work package P7-RULE-01.
  */
 
+import {
+  RECOMMENDATION_CANDIDATE_CREATED_EVENT_TYPE,
+  type RecommendationCandidateCreatedEventPayload,
+} from '@verdery/api-contracts';
 import { ConflictError, InternalError } from '../../../platform/errors/application-error.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import { generateUuidV7 } from '../../../shared/identifiers/uuid.js';
@@ -237,6 +251,28 @@ export class EvaluateGardenRecommendations {
           evaluatedAt,
         );
         await context.recommendationCandidates.insertAggregate(aggregate, factors);
+
+        // Same transaction as the candidate insert — see the header comment.
+        const eventPayload: RecommendationCandidateCreatedEventPayload = {
+          candidateId,
+          gardenId,
+          ruleKey: planned.ruleKey,
+          ruleVersion: planned.ruleVersion,
+          targetKind: planned.target.kind,
+          targetPlantId: planned.target.plantId,
+          targetGardenAreaMapObjectId: planned.target.gardenAreaMapObjectId,
+          urgency: planned.urgency,
+          priorityScore: planned.priorityScore,
+          windowStart: planned.windowStart.toISOString(),
+          windowEnd: planned.windowEnd.toISOString(),
+          supersedesCandidateId: planned.supersedes?.candidateId ?? null,
+        };
+        await context.outbox.append({
+          eventType: RECOMMENDATION_CANDIDATE_CREATED_EVENT_TYPE,
+          aggregateType: 'recommendation_candidate',
+          aggregateId: candidateId,
+          payload: eventPayload,
+        });
 
         createdCandidates.push({
           candidateId,

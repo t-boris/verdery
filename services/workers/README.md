@@ -7,7 +7,9 @@ validation target and real byte-validation pipeline. P6-WORKER-02 adds real deri
 (thumbnails, screen previews, high-resolution plan images, and XYZ tile pyramids), sharing this same
 target and relay via job-kind dispatch — see below. P6-RET-01 adds the media-deletion job (the one
 component in the whole system that deletes Cloud Storage objects) and the hourly retention-sweep
-trigger.
+trigger. P7-ASYNC-01 adds two more scheduled sweep triggers (weather refresh, recommendation
+evaluation) and generalizes the sweep scheduler/trigger machinery all three now share
+(`src/sweeps/`).
 
 A worker has its own composition root, service identity, configuration, health behavior, and
 deployment. It shares versioned contract packages (`@verdery/api-contracts`) with the API but never
@@ -141,16 +143,28 @@ existing `objectViewer` grants; the delete itself needs the custom `verderyMedia
 (`storage.objects.delete` only) `10-media-processing-queue.sh` creates and binds — written, not yet
 executed live.
 
-## Retention-sweep trigger (P6-RET-01)
+## Scheduled sweep triggers (P6-RET-01, generalized by P7-ASYNC-01)
 
-`src/retention/retention-sweep-scheduler.ts` POSTs to the API's authenticated internal sweep
-endpoint (`MEDIA_RETENTION_SWEEP_URL`) hourly, with an ID token minted for the same audience as the
-result callback (`src/retention/retention-sweep-trigger.ts`). The sweep itself — scanning
-`media.media_record` for passed retention deadlines and stale never-completed uploads, and every
-privileged transition that follows — runs entirely in `services/api`: `verdery_worker` has
-deliberately never been able to read `media.media_record`, and this stage keeps that boundary
-exactly as narrow as it was. This process contributes only its interval loop and its
-already-verified identity.
+`src/sweeps/interval-sweep-scheduler.ts` (the overlap-guarded interval loop — one in-flight run at
+a time, an overlapping firing is skipped) drives `src/sweeps/google-api-sweep-trigger.ts`, which
+POSTs to an authenticated internal API endpoint with an ID token minted for the same audience as
+the result callback. Three sweeps share this machinery, each logging a structured completion
+heartbeat on every round-trip (all-zero counts included):
+
+- **Media retention** (`MEDIA_RETENTION_SWEEP_URL`, hourly): passed retention deadlines and stale
+  never-completed uploads → the deletion workflow. `retention.sweep_completed`.
+- **Weather refresh** (`WEATHER_REFRESH_SWEEP_URL`, hourly, P7-ASYNC-01): active georeferenced
+  gardens through `RefreshGardenWeather` — cache-window aware, quota-honest, and with zero
+  configured providers a typed no-op. `weather.refresh_sweep_completed`.
+- **Recommendation evaluation** (`RECOMMENDATION_EVALUATION_SWEEP_URL`, six-hourly, P7-ASYNC-01):
+  rule evaluation over eligible gardens plus candidate expiry.
+  `recommendations.evaluation_sweep_completed`.
+
+Every sweep itself — every privileged read and write — runs entirely in `services/api`:
+`verdery_worker` has deliberately never been able to read `media.media_record`, any garden or plant
+table, or the weather/recommendation tables, and these stages keep that boundary exactly as narrow
+as it was. This process contributes only its interval loops and its already-verified identity. See
+`src/sweeps/sweep-trigger.ts`'s own header comment.
 
 ## Environment
 
@@ -176,6 +190,10 @@ already-verified identity.
 | `MEDIA_DERIVED_BUCKET`                           | yes      | —                   | The derived bucket the derivative-generation job writes to directly |
 | `MEDIA_RETENTION_SWEEP_URL`                      | yes      | —                   | The API's internal retention-sweep endpoint this worker triggers    |
 | `MEDIA_RETENTION_SWEEP_INTERVAL_MS`              | no       | `3600000`           | How often the retention sweep is triggered                          |
+| `WEATHER_REFRESH_SWEEP_URL`                      | yes      | —                   | The API's internal weather-refresh sweep endpoint (P7-ASYNC-01)     |
+| `WEATHER_REFRESH_SWEEP_INTERVAL_MS`              | no       | `3600000`           | How often the weather-refresh sweep is triggered                    |
+| `RECOMMENDATION_EVALUATION_SWEEP_URL`            | yes      | —                   | The API's internal recommendation-evaluation sweep endpoint         |
+| `RECOMMENDATION_EVALUATION_SWEEP_INTERVAL_MS`    | no       | `21600000`          | How often the recommendation-evaluation sweep is triggered          |
 
 `DATABASE_URL` only — no Cloud SQL IAM connection mode yet, unlike the API. Real Cloud SQL IAM
 wiring for this package's own database connection is a documented follow-up; see

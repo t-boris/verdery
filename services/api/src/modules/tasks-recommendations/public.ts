@@ -37,10 +37,14 @@
  * and launch catalog (every launch rule awaiting horticultural review —
  * P7-SAFE-01), the pure `evaluateGardenRules` engine, the
  * `EvaluateGardenRecommendations` use case, and the recommendation
- * persistence surface. Exported for the stages that will call and wire
- * them (P7-ASYNC-01's scheduler, P7-BE-01's Today commands); nothing is
- * wired into `app.ts` yet because no caller exists — the P7-DATA-01 and
- * P7-INT-01 posture.
+ * persistence surface.
+ *
+ * P7-ASYNC-01 wires the first caller: the scheduled recommendation sweep
+ * (`RunRecommendationEvaluationSweep` — full-drain evaluation plus the
+ * deferred candidate-expiry phase) and its internal route, both composed in
+ * `app.ts`; `EvaluateGardenRecommendations` now also appends one
+ * `recommendation.candidate_created` outbox event per created candidate for
+ * P7-NOTIF-01's coming notification flow.
  *
  * Source: architecture/backend-modular-monolith.md, section "5.5 Public Interface".
  */
@@ -171,6 +175,16 @@ export type {
   EvaluateGardenRecommendationsInput,
   EvaluateGardenRecommendationsResult,
 } from './application/evaluate-garden-recommendations.js';
+export type { EvaluationGardenSource } from './application/evaluation-garden-source.js';
+export {
+  EVALUATION_SWEEP_PAGE_SIZE,
+  EXPIRY_SWEEP_GARDEN_LIMIT,
+  RunRecommendationEvaluationSweep,
+} from './application/run-recommendation-evaluation-sweep.js';
+export type {
+  GardenRecommendationEvaluator,
+  RecommendationEvaluationSweepResult,
+} from './application/run-recommendation-evaluation-sweep.js';
 export type {
   TaskCommandType,
   TaskRevisionJournalEntry,
@@ -208,6 +222,8 @@ export type { AttachTaskFileInput } from './application/attach-task-file.js';
 
 export { registerTaskRoutes } from './transport/task-routes.js';
 export type { TaskRoutesDependencies } from './transport/task-routes.js';
+export { registerRecommendationEvaluationSweepRoute } from './transport/recommendation-evaluation-sweep-route.js';
+export type { RecommendationEvaluationSweepRouteDependencies } from './transport/recommendation-evaluation-sweep-route.js';
 
 export { KyselyTaskRepository } from './persistence/kysely-task-repository.js';
 export { KyselyTaskAttachmentRepository } from './persistence/kysely-task-attachment-repository.js';
@@ -215,4 +231,5 @@ export { KyselyTaskRevisionJournalWriter } from './persistence/kysely-task-revis
 export { KyselyTasksRecommendationsUnitOfWork } from './persistence/kysely-tasks-recommendations-unit-of-work.js';
 export { KyselyRuleVersionRepository } from './persistence/kysely-rule-version-repository.js';
 export { KyselyRecommendationCandidateRepository } from './persistence/kysely-recommendation-candidate-repository.js';
+export { KyselyEvaluationGardenSource } from './persistence/kysely-evaluation-garden-source.js';
 export type { TasksRecommendationsDatabaseSchema } from './persistence/schema.js';

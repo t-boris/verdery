@@ -77,6 +77,31 @@ describe('loadConfiguration', () => {
     }
   });
 
+  it('defaults the weather block: no active provider, documented freshness windows (P7-ASYNC-01)', () => {
+    const configuration = loadConfiguration(VALID_ENVIRONMENT);
+
+    expect(configuration.weather).toEqual({
+      activeProviderKey: null,
+      observationFreshForMs: 3_600_000,
+      forecastFreshForMs: 21_600_000,
+    });
+  });
+
+  it('parses an explicit weather provider key and freshness overrides', () => {
+    const configuration = loadConfiguration({
+      ...VALID_ENVIRONMENT,
+      WEATHER_ACTIVE_PROVIDER_KEY: 'some-provider',
+      WEATHER_OBSERVATION_FRESH_FOR_MS: '600000',
+      WEATHER_FORECAST_FRESH_FOR_MS: '7200000',
+    });
+
+    expect(configuration.weather).toEqual({
+      activeProviderKey: 'some-provider',
+      observationFreshForMs: 600_000,
+      forecastFreshForMs: 7_200_000,
+    });
+  });
+
   it('defaults to the "url" connection mode', () => {
     const configuration = loadConfiguration(VALID_ENVIRONMENT);
     expect(configuration.database.mode).toBe('url');

@@ -91,6 +91,13 @@ env_vars+=",MEDIA_PROCESSING_RESULT_CALLBACK_AUDIENCE=${result_callback_base}"
 # result callback (one worker-to-API identity). The interval itself keeps
 # its configuration default (hourly) unless overridden here.
 env_vars+=",MEDIA_RETENTION_SWEEP_URL=${api_service_url}/v1/internal/media-retention/sweep"
+# P7-ASYNC-01: the two new internal sweep endpoints (weather refresh,
+# recommendation evaluation), same shape and same audience as the retention
+# sweep above; services/workers' configuration load fails loudly without
+# them. Both intervals keep their configuration defaults (hourly / six
+# hours) unless overridden here.
+env_vars+=",WEATHER_REFRESH_SWEEP_URL=${api_service_url}/v1/internal/weather-refresh/sweep"
+env_vars+=",RECOMMENDATION_EVALUATION_SWEEP_URL=${api_service_url}/v1/internal/recommendation-evaluation/sweep"
 
 # `MEDIA_PROCESSING_TASK_URL` is self-referential (this service's own
 # validation-job route) — the exact same "look up the already-existing

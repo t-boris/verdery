@@ -233,6 +233,20 @@ export class KyselyRecommendationCandidateRepository implements RecommendationCa
     return rows.map(toStored);
   }
 
+  async listGardenIdsWithExpirableCandidates(now: Date, limit: number): Promise<readonly Uuid[]> {
+    const rows = await this.db
+      .selectFrom('tasks_recommendations.recommendation_candidate')
+      .select('garden_id')
+      .distinct()
+      .where('state', 'in', [...LIVE_RECOMMENDATION_CANDIDATE_STATES])
+      .where('window_end', 'is not', null)
+      .where('window_end', '<=', now)
+      .orderBy('garden_id', 'asc')
+      .limit(limit)
+      .execute();
+    return rows.map((row) => row.garden_id);
+  }
+
   async findWithRuleByIds(
     candidateIds: readonly Uuid[],
   ): Promise<readonly StoredCandidateWithRule[]> {

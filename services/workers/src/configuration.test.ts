@@ -17,6 +17,9 @@ const VALID_ENVIRONMENT = {
     'verdery-dev-worker@verdery-dev.iam.gserviceaccount.com',
   MEDIA_DERIVED_BUCKET: 'verdery-dev-derived',
   MEDIA_RETENTION_SWEEP_URL: 'https://verdery-api-dev.example/v1/internal/media-retention/sweep',
+  WEATHER_REFRESH_SWEEP_URL: 'https://verdery-api-dev.example/v1/internal/weather-refresh/sweep',
+  RECOMMENDATION_EVALUATION_SWEEP_URL:
+    'https://verdery-api-dev.example/v1/internal/recommendation-evaluation/sweep',
 } as const;
 
 describe('loadConfiguration', () => {
@@ -50,7 +53,28 @@ describe('loadConfiguration', () => {
         sweepUrl: VALID_ENVIRONMENT.MEDIA_RETENTION_SWEEP_URL,
         intervalMs: 3_600_000,
       },
+      weatherRefreshSweep: {
+        sweepUrl: VALID_ENVIRONMENT.WEATHER_REFRESH_SWEEP_URL,
+        intervalMs: 3_600_000,
+      },
+      recommendationEvaluationSweep: {
+        sweepUrl: VALID_ENVIRONMENT.RECOMMENDATION_EVALUATION_SWEEP_URL,
+        intervalMs: 21_600_000,
+      },
     });
+  });
+
+  it('rejects a missing sweep URL — every scheduled sweep fails loudly at configuration load (P7-ASYNC-01)', () => {
+    const { WEATHER_REFRESH_SWEEP_URL: _omit, ...withoutWeatherSweepUrl } = VALID_ENVIRONMENT;
+    try {
+      loadConfiguration(withoutWeatherSweepUrl);
+      expect.unreachable('A missing WEATHER_REFRESH_SWEEP_URL must be rejected');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ConfigurationError);
+      expect((error as ConfigurationError).variables).toEqual(
+        expect.arrayContaining(['WEATHER_REFRESH_SWEEP_URL']),
+      );
+    }
   });
 
   it('parses numeric relay tuning variables into their typed shape', () => {

@@ -365,6 +365,13 @@ export type MediaErrorCode = (typeof MediaErrorCode)[keyof typeof MediaErrorCode
  */
 export * from './media-processing.js';
 
+/**
+ * The recommendation-candidate outbox event contract (P7-ASYNC-01) lives in
+ * `./recommendation-events.js` — the same hand-written machine-to-machine
+ * posture as `./media-processing.js`, re-exported here unchanged.
+ */
+export * from './recommendation-events.js';
+
 /** Narrows an unknown response body to the shared error envelope. */
 export function isApiError(value: unknown): value is ApiError {
   if (typeof value !== 'object' || value === null || !('error' in value)) {

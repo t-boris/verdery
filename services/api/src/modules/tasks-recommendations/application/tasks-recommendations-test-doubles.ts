@@ -17,6 +17,7 @@ import type {
   IdempotencyRecordInput,
   IdempotencyStore,
 } from '../../../platform/idempotency/idempotency-store.js';
+import type { OutboxAppender, OutboxEventInput } from '../../../platform/outbox/outbox-appender.js';
 import type {
   SyncChangeInput,
   SyncChangeRecorder,
@@ -404,6 +405,16 @@ export class FakeIdempotencyStore implements IdempotencyStore {
   }
 }
 
+/** Records every appended event; never publishes anywhere — the same shape `media-test-doubles.ts`'s own `FakeOutboxAppender` uses, duplicated locally because module test doubles are not part of any `public.ts` surface. */
+export class FakeOutboxAppender implements OutboxAppender {
+  readonly events: OutboxEventInput[] = [];
+
+  append(input: OutboxEventInput): Promise<void> {
+    this.events.push(input);
+    return Promise.resolve();
+  }
+}
+
 export interface TasksRecommendationsFakes {
   readonly tasks: FakeTaskRepository;
   readonly taskAttachments: FakeTaskAttachmentRepository;
@@ -416,6 +427,7 @@ export interface TasksRecommendationsFakes {
   readonly syncChanges: FakeSyncChangeRecorder;
   readonly ruleVersions: FakeRuleVersionRepository;
   readonly recommendationCandidates: FakeRecommendationCandidateRepository;
+  readonly outbox: FakeOutboxAppender;
 }
 
 export function createTasksRecommendationsFakes(options?: {
@@ -436,6 +448,7 @@ export function createTasksRecommendationsFakes(options?: {
     syncChanges: new FakeSyncChangeRecorder(),
     ruleVersions,
     recommendationCandidates: new FakeRecommendationCandidateRepository(ruleVersions),
+    outbox: new FakeOutboxAppender(),
   };
 }
 

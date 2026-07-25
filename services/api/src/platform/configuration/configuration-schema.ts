@@ -125,6 +125,32 @@ export const environmentSchema = z.object({
   // (drafted, not yet run against any real environment).
   MEDIA_PROCESSING_CALLBACK_AUDIENCE: z.string().min(1),
   MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL: z.string().min(1),
+
+  // P7-ASYNC-01: the weather integration's environment configuration, needed
+  // the moment the composition root first wires `RefreshGardenWeather`/
+  // `GetGardenWeather` (P7-INT-01 built both constructor-injected and
+  // deliberately unnumbered; this is the implementation-time selection its
+  // own comments deferred to).
+  //
+  // `WEATHER_ACTIVE_PROVIDER_KEY` is absent in every environment today — no
+  // weather vendor exists (P0-PROV-01 undecided), and the honest runtime
+  // outcome is the typed `noProviderConfigured` degradation. Setting it to a
+  // key with no registration fails at startup construction, by design.
+  //
+  // The freshness windows double as the cache windows (weather-freshness.ts:
+  // "the freshness window IS the cache window"). No document names either
+  // number, so both are reasoned defaults, documented here — the same "no
+  // number decided yet, pick one and say so" posture
+  // `MEDIA_UPLOAD_SESSION_TTL_MS` already sets. One hour for observations:
+  // providers typically publish hourly readings, so refetching sooner buys
+  // nothing and spends quota. Six hours for forecasts: forecast models
+  // typically refresh a few times per day, and the frost-watch rule (the one
+  // forecast consumer) declares `skip` on stale data — six hours keeps it
+  // usable across a worker sweep cycle without pretending forecasts change
+  // by the hour.
+  WEATHER_ACTIVE_PROVIDER_KEY: z.string().min(1).optional(),
+  WEATHER_OBSERVATION_FRESH_FOR_MS: positiveInteger.default(3_600_000),
+  WEATHER_FORECAST_FRESH_FOR_MS: positiveInteger.default(21_600_000),
 });
 
 export type RawEnvironment = z.infer<typeof environmentSchema>;
@@ -217,6 +243,14 @@ export interface MediaConfiguration {
   };
 }
 
+/** P7-ASYNC-01 — see the schema's own comment on the three `WEATHER_*` variables. */
+export interface WeatherConfiguration {
+  /** `null` until a real provider is selected (P0-PROV-01). */
+  readonly activeProviderKey: string | null;
+  readonly observationFreshForMs: number;
+  readonly forecastFreshForMs: number;
+}
+
 export interface ApplicationConfiguration {
   readonly environment: DeploymentEnvironment;
   readonly serviceVersion: string;
@@ -226,6 +260,7 @@ export interface ApplicationConfiguration {
   readonly shutdownGracePeriodMs: number;
   readonly firebaseProjectId: string;
   readonly media: MediaConfiguration;
+  readonly weather: WeatherConfiguration;
 }
 
 function toDatabaseConfiguration(raw: RawEnvironment): DatabaseConfiguration {
@@ -279,6 +314,11 @@ export function toApplicationConfiguration(raw: RawEnvironment): ApplicationConf
         audience: raw.MEDIA_PROCESSING_CALLBACK_AUDIENCE,
         invokerServiceAccountEmail: raw.MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL,
       },
+    },
+    weather: {
+      activeProviderKey: raw.WEATHER_ACTIVE_PROVIDER_KEY ?? null,
+      observationFreshForMs: raw.WEATHER_OBSERVATION_FRESH_FOR_MS,
+      forecastFreshForMs: raw.WEATHER_FORECAST_FRESH_FOR_MS,
     },
   };
 }

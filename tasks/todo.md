@@ -3990,3 +3990,149 @@ through `public.ts`, the P7-DATA-01/P7-INT-01 posture.
   P7-INT-01's weather tables as designed.
 - `pnpm --filter @verdery/api build`, root `pnpm typecheck`, `pnpm lint`, `pnpm format:check`,
   `node scripts/check-file-size.mjs` all clean.
+
+## Stage 18 — P7-ASYNC-01, implementation complete
+
+Scheduled weather refresh and recommendation generation are real, end to end through the
+established P6 worker machinery: the worker's overlap-guarded interval scheduler (the
+retention-sweep precedent, now generalized because THREE sweeps share it) POSTs to two new
+OIDC-verified internal API endpoints, `/internal/weather-refresh/sweep` iterates active
+georeferenced gardens through `RefreshGardenWeather`, and `/internal/recommendation-evaluation/
+sweep` runs `EvaluateGardenRecommendations` over eligible gardens plus the candidate-expiry phase
+Stage 17 deferred here. `EvaluateGardenRecommendations` now also appends one
+`recommendation.candidate_created` outbox event per created candidate in the same transaction —
+the P7-NOTIF-01 linkage decided now, not retrofitted later. The acceptance evidence —
+duplicate-safe scheduled runs — is proven at every layer it has.
+
+### Key decisions
+
+- **The retention-sweep shape, extended, not reinvented.** Both sweeps run in `services/api`
+  behind `POST /internal/...` routes verified by the SAME `CloudTasksInvocationVerifier` and
+  audience as the processing callback (one worker-to-API identity), triggered by the worker's
+  interval loop — because `verdery_worker` has no access to any garden, plant, weather, or
+  recommendation table (P7-INT-01/P7-DATA-01's own negative privilege tests), and the worker
+  contributes exactly what it uniquely has: an already-awake interval process and a verified OIDC
+  identity. The P6-RET-01 reasoning, applied twice more.
+- **Worker sweep machinery generalized at the third caller.** P6-RET-01's scheduler header
+  deliberately tolerated ~30 duplicated lines for TWO loops and said so; at four loops that
+  judgment flips, so `services/workers/src/sweeps/` now carries one overlap-guarded
+  `createIntervalSweepScheduler` (parameterized failure log event) and one generic
+  `GoogleApiSweepTrigger<TSummary>` (parameterized URL + completion event), and `retention/` is
+  deleted — behavior and log events (`retention.sweep_completed`/`_failed`) unchanged, proven by
+  the ported scheduler tests. `relay/poller.ts` stays its own file: it logs per-tick results and
+  skips idle ticks, behavior no sweep wants.
+- **Weather sweep: cache window as the idempotency boundary, quota exhaustion as an honest stop.**
+  `RunWeatherRefreshSweep` considers up to 25 gardens per run (the `RETENTION_SWEEP_BATCH_LIMIT`
+  posture) selected by a new `WeatherRefreshCandidateSource` — active gardens with a CURRENT
+  georeference, least-recently-fetched observation first (`NULL` first), the ordering that makes
+  the bounded batch FAIR: a refresh moves the garden to the back, so runs rotate the whole set
+  instead of starving gardens beyond the cap. A repeat run within the freshness window is a
+  `freshCacheHit` per garden — one read, zero provider calls (proven by adapter call counts
+  through the sweep path). A typed `quotaExhausted` outcome stops the batch and says so in the
+  summary (`stoppedOnQuotaExhaustion`) — every later candidate would consume-and-refuse against
+  the same budget. With zero providers (today's reality) every run is a typed, logged, observable
+  no-op: `unavailable` counts with `degradationReasons.noProviderConfigured` in the hourly
+  heartbeat, never a crash, never a silent skip. Eligibility deliberately ignores plant inventory:
+  weather is garden-level data, and cache window + quota already bound its cost.
+- **Recommendation sweep: eligibility from what the catalog can actually do.** A garden is
+  eligible when `active` AND holding at least one `status = 'active'` plant — every launch rule
+  targets plants and all four skip non-active plants (`plant.status_not_active`), so anything less
+  is provably decision-free work; a garden gaining its first active plant enters the set next
+  sweep with no bookkeeping. Georeference/weather is NOT a condition (three of four rules run
+  without weather; `weatherMissing` is the documented degradation). Cross-schema selection via
+  `KyselyEvaluationGardenSource`, the `MediaReferenceFinder` narrow-read-port precedent.
+- **Full drain in bounded pages, not a per-run cap — the honest bounding call, documented.** One
+  garden's evaluation is a bounded handful of reads (nothing like retention's deletion fan-out),
+  and evaluation leaves NO durable ordering key when it suppresses everything — a capped run over
+  stable ordering would starve every garden beyond the cap forever, and inventing a
+  last-evaluated marker table just for rotation is more machinery than any current scale
+  justifies. So the sweep drains ALL eligible gardens per run in id-ordered keyset pages of 25
+  (proven by a 28-garden two-page test); when the set outgrows one in-request pass,
+  asynchronous-processing.md section 7 already assigns "Bulk recommendation computation" to Cloud
+  Run Jobs — recorded in deferred-capabilities.md as the growth path.
+- **Cadences, in the established "no number decided yet, pick one and say so" posture** (validated
+  env config with documented defaults): weather sweep hourly (`WEATHER_REFRESH_SWEEP_INTERVAL_MS`
+  — the per-garden cache window is what bounds provider calls, so the tick need only match it);
+  recommendation sweep six-hourly (`RECOMMENDATION_EVALUATION_SWEEP_INTERVAL_MS` — launch rules
+  are day-granular except the forecast-driven frost watch, whose input goes stale on the
+  forecast-freshness window). The API side gains the weather configuration P7-INT-01 deliberately
+  left unnumbered, at exactly the implementation-time moment its comments deferred to:
+  `WEATHER_OBSERVATION_FRESH_FOR_MS` (1h — providers publish hourly readings),
+  `WEATHER_FORECAST_FRESH_FOR_MS` (6h — forecast models refresh a few times a day), and optional
+  `WEATHER_ACTIVE_PROVIDER_KEY` (absent everywhere; a key with no registration still fails at
+  construction). All defaults documented in `configuration-schema.ts`; deploy scripts need no new
+  API vars because of them — `deploy-workers.sh` gains the two sweep URLs (derived from the live
+  API URL, like `MEDIA_RETENTION_SWEEP_URL`), and the migration job needs nothing (all new
+  variables default or are optional, so its shared `loadConfiguration()` keeps passing — the P6
+  deploy-incident class checked against every script that runs each service).
+- **The deferred candidate expiry is the sweep's second phase, AFTER evaluation, under the same
+  lock.** Order matters and is documented in the use case's header: supersession is the preferred
+  close for a stale candidate whose rule still fires (links history, recurrence-exempt), so
+  evaluation runs first and expiry mops up only what stayed live with a passed window — expiring
+  first would turn would-be supersessions into recurrence-suppressed re-fires, a behavior change.
+  Selection is its own bounded batch (up to 25 gardens holding live past-window candidates,
+  drainage guaranteed because expired candidates leave the set) deliberately NOT filtered by
+  eligibility — a stale candidate must be closable wherever it lingers, archived gardens included.
+  Each garden's expiry transaction takes the SAME `lockGardenForEvaluation` advisory lock
+  evaluation takes, so expiry can never interleave with an in-flight evaluation superseding the
+  same candidate (the engine treats a mid-transaction revision change as a defect; the shared lock
+  is what keeps that reasoning true). Transitions go through P7-DATA-01's
+  `expireRecommendationCandidate`, revision-guarded.
+- **Outbox linkage: emit now, consume in P7-NOTIF-01 — the call that avoids rework.**
+  notifications.md section 5's flow begins at "domain event" and its deduplication example is
+  "recommendation ID plus reminder window"; the transaction that creates candidates is THIS
+  stage's, and the outbox exists so "domain commit cannot silently lose its publication intent" —
+  so `EvaluateGardenRecommendations` appends `recommendation.candidate_created` (shared constant +
+  payload in `@verdery/api-contracts`' new `recommendation-events.ts`, the `media-processing.ts`
+  machine-to-machine posture) with candidate/rule/target/urgency/priority/window facts only, never
+  evidence content. The tasks-recommendations unit of work gains the `outbox` binding (its header
+  documented the omission; the omission ends at the first event). The workers relay is untouched:
+  it claims only its recognized media types, so these rows sit unpublished — a durable backlog,
+  drained safely later because the notification flow rechecks freshness at send time
+  (notifications.md section 9). Both halves recorded in deferred-capabilities.md.
+- **Duplicate safety, layer by layer (the acceptance evidence):** (1) overlapping ticks cannot
+  double-run — the shared scheduler's overlap guard, tested with a never-resolving in-flight run;
+  (2) a duplicated/retried trigger is a domain no-op — weather re-runs are cache hits (adapter
+  call count flat through the sweep), recommendation re-runs suppress on live candidates and write
+  nothing (zero new rows, zero new outbox events, proven end to end against real PostgreSQL);
+  (3) concurrent endpoint invocations cannot double-generate — two whole sweeps raced under
+  `Promise.all` produce exactly one candidate and one event (Stage 17's advisory lock proven
+  through THIS path, not just the use case); (4) expiry cannot race evaluation — same advisory
+  lock, and a supersession revision conflict from any non-evaluation writer is counted as a
+  `lostRace` and retried next run instead of poisoning the batch (the one expected-conflict catch;
+  unexpected errors still fail the run loudly, the retention posture).
+- **Observability:** each sweep logs a structured completion heartbeat on EVERY round-trip,
+  all-zero counts included (`weather.refresh_sweep_completed` with per-reason degradation counts —
+  the no-provider no-op made visible; `recommendations.evaluation_sweep_completed` with
+  created/superseded/expired/lostRaces — section 17's freshness and duplication counters at their
+  source), plus `_failed` events retried next interval. observability-and-analytics.md's worker
+  log-event table and liveness note updated in the same task.
+
+### Fixed in place (not deferred)
+
+1. The new recommendation-sweep integration suite's cleanup helper first deleted evidence rows in
+   their own implicit transaction — which trips the P7-DATA-01 COMMIT-time deferred candidate ↔
+   evidence FK while candidates still reference them (the constraint working exactly as designed,
+   against its own test suite). Rewritten as one transaction whose commit sees both sides gone,
+   with the reasoning in the helper's comment.
+2. `media-test-doubles.ts`'s `FakeOutboxAppender` could not be reused across the module boundary
+   (test doubles are deliberately not part of any `public.ts` surface), so
+   `tasks-recommendations-test-doubles.ts` gained its own — documented as the deliberate small
+   duplication it is, not an accidental fork.
+
+### Verification evidence
+
+- Full API suite: 144 files / 988 tests before → **148 files / 1009 tests** after (+21: two sweep
+  unit suites, two real-PostgreSQL integration suites — cache-hit repeat runs, quota-exhaustion
+  stop, eligibility exclusions, duplicate-trigger no-ops, the two-sweep race, supersession-vs-
+  expiry in one run, committed outbox events — plus the four internal-route HTTP tests and two
+  configuration tests), all green, real Docker.
+- Workers suite: 20 files / 111 tests before → **20 files / 112 tests** after (the four scheduler
+  behaviors ported to the generalized `interval-sweep-scheduler`, plus the missing-sweep-URL
+  configuration rejection); build clean.
+- `@verdery/api-contracts`: redocly lint, generate:check, 29 contract tests all pass (the new
+  event contract is hand-written machine-to-machine, no OpenAPI change).
+- No migration added, so no rollback ripple — the sweeps read existing tables and the outbox
+  table has carried arbitrary event types since Phase 2.
+- Root `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `node scripts/check-file-size.mjs`,
+  and `bash -n` on `deploy-workers.sh` all clean.

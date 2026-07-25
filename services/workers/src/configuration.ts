@@ -78,12 +78,12 @@ export const environmentSchema = z.object({
   MEDIA_DERIVED_BUCKET: z.string().min(1),
 
   // P6-RET-01: the API's internal retention-sweep endpoint this worker's
-  // interval scheduler POSTs to (`retention/`), authenticated with an ID
+  // interval scheduler POSTs to (`sweeps/`), authenticated with an ID
   // token minted for the SAME audience as the result callback — one
   // worker-to-API identity, not a second audience that could drift. The
   // sweep itself runs in `services/api` (privileged media reads/writes stay
   // there); this worker contributes only the schedule — see
-  // `retention/retention-sweep-scheduler.ts`'s own header comment. One hour
+  // `sweeps/sweep-trigger.ts`'s own header comment. One hour
   // is a reasoned default (the same "no number decided yet, pick one and
   // say so" posture the relay's own interval documents above): retention
   // deadlines and the 7-day staleness window are day-granular, so hourly is
@@ -91,6 +91,29 @@ export const environmentSchema = z.object({
   // passed deadline lingers a business day.
   MEDIA_RETENTION_SWEEP_URL: z.string().url(),
   MEDIA_RETENTION_SWEEP_INTERVAL_MS: durationMilliseconds.default(3_600_000),
+
+  // P7-ASYNC-01: the API's two new internal sweep endpoints, same shape and
+  // same audience as the retention sweep above. Both intervals are reasoned
+  // defaults in the same documented posture:
+  //
+  // - Weather refresh, hourly: the per-garden cache window
+  //   (`services/api`'s WEATHER_OBSERVATION_FRESH_FOR_MS, default one hour)
+  //   is what actually bounds provider calls — a garden refreshed within it
+  //   is a cheap cache-hit no-op — so the tick only needs to be as fine as
+  //   that window; hourly means a garden goes at most ~2x the window
+  //   between refreshes without polling aggressively. With zero providers
+  //   configured (today's reality) every tick is a typed, logged no-op.
+  // - Recommendation evaluation, every six hours: the launch rules are
+  //   day-granular (14-day observation reminder, multi-day validity
+  //   windows) except the forecast-driven frost watch, whose input goes
+  //   stale on the forecast freshness window (default six hours) — so six
+  //   hours keeps the one weather-urgent rule current while re-scanning
+  //   every eligible garden four times a day, and evaluation is idempotent
+  //   per window, so a finer cadence would only re-suppress.
+  WEATHER_REFRESH_SWEEP_URL: z.string().url(),
+  WEATHER_REFRESH_SWEEP_INTERVAL_MS: durationMilliseconds.default(3_600_000),
+  RECOMMENDATION_EVALUATION_SWEEP_URL: z.string().url(),
+  RECOMMENDATION_EVALUATION_SWEEP_INTERVAL_MS: durationMilliseconds.default(21_600_000),
 });
 
 export type RawEnvironment = z.infer<typeof environmentSchema>;
@@ -117,8 +140,8 @@ export interface MediaProcessingQueueConfiguration {
   readonly invokerServiceAccountEmail: string;
 }
 
-/** P6-RET-01 — see the schema's own comment on these two variables. */
-export interface RetentionSweepConfiguration {
+/** One scheduled worker-to-API sweep target (P6-RET-01 shape, shared by all three sweeps since P7-ASYNC-01) — see the schema's own comments on the paired `*_SWEEP_URL`/`*_SWEEP_INTERVAL_MS` variables. */
+export interface SweepScheduleConfiguration {
   readonly sweepUrl: string;
   readonly intervalMs: number;
 }
@@ -132,7 +155,9 @@ export interface WorkerConfiguration {
   readonly relay: RelayConfiguration;
   readonly mediaProcessing: MediaProcessingQueueConfiguration;
   readonly mediaDerivedBucket: string;
-  readonly retentionSweep: RetentionSweepConfiguration;
+  readonly retentionSweep: SweepScheduleConfiguration;
+  readonly weatherRefreshSweep: SweepScheduleConfiguration;
+  readonly recommendationEvaluationSweep: SweepScheduleConfiguration;
 }
 
 /** Raised when the process environment cannot produce a valid configuration. */
@@ -175,6 +200,14 @@ function toWorkerConfiguration(raw: RawEnvironment): WorkerConfiguration {
     retentionSweep: {
       sweepUrl: raw.MEDIA_RETENTION_SWEEP_URL,
       intervalMs: raw.MEDIA_RETENTION_SWEEP_INTERVAL_MS,
+    },
+    weatherRefreshSweep: {
+      sweepUrl: raw.WEATHER_REFRESH_SWEEP_URL,
+      intervalMs: raw.WEATHER_REFRESH_SWEEP_INTERVAL_MS,
+    },
+    recommendationEvaluationSweep: {
+      sweepUrl: raw.RECOMMENDATION_EVALUATION_SWEEP_URL,
+      intervalMs: raw.RECOMMENDATION_EVALUATION_SWEEP_INTERVAL_MS,
     },
   };
 }

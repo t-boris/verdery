@@ -16,8 +16,10 @@ import underPressure from '@fastify/under-pressure';
 import { API_BASE_PATH } from '@verdery/api-contracts';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import { composeGardensMapping } from './compose-gardens-mapping.js';
+import { composeIntegrations } from './compose-integrations.js';
 import { composeMedia } from './compose-media.js';
 import { composeSynchronization } from './compose-synchronization.js';
+import { registerWeatherRefreshSweepRoute } from './modules/integrations/public.js';
 import { registerGardenRoutes, registerMapRoutes } from './modules/gardens-mapping/public.js';
 import {
   KyselyIdentityProviderLinkRepository,
@@ -66,17 +68,23 @@ import {
 import {
   AttachTaskFile,
   CompleteTask,
+  createLaunchRuleCatalog,
   CreateManualTask,
   DeleteTask,
   DismissTask,
   EditTask,
+  EvaluateGardenRecommendations,
+  KyselyEvaluationGardenSource,
   KyselyTaskRepository,
   KyselyTasksRecommendationsUnitOfWork,
   ListTasksForGarden,
+  registerRecommendationEvaluationSweepRoute,
   registerTaskRoutes,
   RescheduleTask,
+  RunRecommendationEvaluationSweep,
   SkipTask,
 } from './modules/tasks-recommendations/public.js';
+import type { RecommendationEvaluationSweepRouteDependencies } from './modules/tasks-recommendations/public.js';
 import { registerSyncRoutes } from './modules/synchronization/public.js';
 import { KyselyAuditLogger } from './platform/audit/kysely-audit-logger.js';
 import { registerAppCheck } from './platform/app-check/app-check-plugin.js';
@@ -441,6 +449,40 @@ export async function buildApplication(
     attachTaskFile,
   };
 
+  // integrations (P7-ASYNC-01): the weather registry (zero registrations —
+  // P0-PROV-01 undecided), both weather use cases, and the scheduled
+  // weather-refresh sweep + internal route. Split into
+  // `compose-integrations.ts` for the same 600-line reason as its siblings.
+  const { getGardenWeather, weatherRefreshSweepRouteDependencies } = composeIntegrations(
+    database,
+    clock,
+    configuration.weather,
+    cloudTasksInvocationVerifier,
+  );
+
+  // The scheduled recommendation sweep (P7-ASYNC-01): full-drain rule
+  // evaluation over eligible gardens (active, holding at least one active
+  // plant) plus the candidate-expiry phase P7-RULE-01 deferred here. Reuses
+  // `tasksRecommendationsUnitOfWork` — its transaction context now carries
+  // the outbox appender `EvaluateGardenRecommendations` emits
+  // `recommendation.candidate_created` through.
+  const evaluateGardenRecommendations = new EvaluateGardenRecommendations(
+    tasksRecommendationsUnitOfWork,
+    createLaunchRuleCatalog(),
+    getGardenWeather,
+    clock,
+  );
+  const recommendationEvaluationSweepRouteDependencies: RecommendationEvaluationSweepRouteDependencies =
+    {
+      runRecommendationEvaluationSweep: new RunRecommendationEvaluationSweep(
+        new KyselyEvaluationGardenSource(database.queries),
+        evaluateGardenRecommendations,
+        tasksRecommendationsUnitOfWork,
+        clock,
+      ),
+      cloudTasksInvocationVerifier,
+    };
+
   // synchronization (P5-BE-01, P5-API-01): the native offline outbox
   // protocol's client-registration, push, and acknowledge endpoints. Depends
   // on every module wired above — it routes across all five record families
@@ -490,6 +532,13 @@ export async function buildApplication(
       // P6-RET-01: the worker-triggered retention sweep, same
       // machine-to-machine identity check as the callback above.
       registerMediaRetentionSweepRoute(instance, mediaRetentionSweepRouteDependencies);
+      // P7-ASYNC-01: the worker-triggered weather-refresh and
+      // recommendation-evaluation sweeps — same identity check again.
+      registerWeatherRefreshSweepRoute(instance, weatherRefreshSweepRouteDependencies);
+      registerRecommendationEvaluationSweepRoute(
+        instance,
+        recommendationEvaluationSweepRouteDependencies,
+      );
       done();
     },
     { prefix: API_BASE_PATH },

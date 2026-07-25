@@ -138,6 +138,21 @@ now a real production dependency of `services/workers` (moved out of `devDepende
 P6-WORKER-01 deliberately confined it) — see the PDF-page-preview entry below for what this stage still
 does not build.
 
+Phase 7 now includes P7-ASYNC-01: scheduled weather refresh and recommendation generation through
+the established worker-interval → authenticated-internal-endpoint machinery (the P6-RET-01
+retention-sweep shape, generalized in `services/workers/src/sweeps/` now that three sweeps share
+it). The worker's hourly tick triggers `/internal/weather-refresh/sweep` (active georeferenced
+gardens through `RefreshGardenWeather`, least-recently-fetched first, batch-capped, typed quota
+exhaustion stops the batch, and the zero-provider reality is a logged no-op); its six-hourly tick
+triggers `/internal/recommendation-evaluation/sweep` (`RunRecommendationEvaluationSweep`:
+full-drain `EvaluateGardenRecommendations` over eligible gardens — active, with at least one
+active-status plant — plus the candidate-expiry phase closing P7-RULE-01's deferred gap).
+Duplicate safety is proven at every layer: the overlap-guarded scheduler, the cache-window and
+idempotent-per-window sweep re-runs, and the per-garden advisory lock shared by evaluation and
+expiry. `EvaluateGardenRecommendations` additionally appends one `recommendation.candidate_created`
+outbox event per created candidate in the same transaction — see the recommendation-notification
+entry below for why the consumer does not exist yet.
+
 ## What remains deferred, and why
 
 **Staging and production.** Only `verdery-dev` exists. Creating `verdery-staging` and `verdery-prod`
@@ -179,7 +194,10 @@ written-not-executed state: the custom `verderyMediaObjectDeleter` role (`storag
 only — no predefined role grants delete without also granting create/overwrite) created and bound
 per bucket by `10-media-processing-queue.sh`, and `deploy-workers.sh`'s new
 `MEDIA_RETENTION_SWEEP_URL` environment variable (the worker's hourly sweep trigger fails loudly at
-configuration load without it).
+configuration load without it). P7-ASYNC-01 extends that same env list with
+`WEATHER_REFRESH_SWEEP_URL` and `RECOMMENDATION_EVALUATION_SWEEP_URL` (both derived from the live
+API URL by `deploy-workers.sh` itself, both required at configuration load), in the same
+written-not-executed state.
 
 **Raw-capture retention enforcement (P6-RET-01 scope boundary).** The 30-days-after-successful-
 extraction rule (architecture/media-storage-and-processing.md section 15; garden-capture-and-scan.md
@@ -317,11 +335,16 @@ implementations are the deterministic fakes the provider-contract and replacemen
 vendor is selected, integrating it is one adapter class implementing `WeatherProviderAdapter`, one
 `WeatherProviderRegistration` with its real license/quota/timeout terms, and one configuration key —
 proven by the two-fake replacement tests in
-`tests/integration/integrations-weather.test.ts`. Also deliberately unnumbered: freshness windows
-and quota budgets are constructor-injected configuration with no invented defaults (section 14.2
-lists "Quotas, performance budgets" as undecided — the same numbers-are-not-mechanism posture the
-media quota-reservation entry documents), and nothing schedules refreshes yet (`P7-ASYNC-01` owns
-scheduling; the use case is built to be its callable target). Related, and NOT deferred:
+`tests/integration/integrations-weather.test.ts`. The freshness windows are no longer unnumbered:
+`P7-ASYNC-01` — the implementation-time selection P7-INT-01's own comments deferred to — wires the
+use cases into the composition root, so `WEATHER_OBSERVATION_FRESH_FOR_MS` /
+`WEATHER_FORECAST_FRESH_FOR_MS` now carry documented reasoned defaults (one hour / six hours,
+`configuration-schema.ts`'s own comment) and `WEATHER_ACTIVE_PROVIDER_KEY` is optional environment
+configuration, absent everywhere. Quota budgets remain per-provider registration metadata with no
+registrations to carry them. Scheduling is closed: the worker's hourly interval scheduler triggers
+`/internal/weather-refresh/sweep`, which iterates active georeferenced gardens through
+`RefreshGardenWeather` (least-recently-fetched first, batch-capped, quota-exhaustion stops the
+batch honestly) — with zero providers a typed, logged, observable no-op. Related, and NOT deferred:
 `tasks_recommendations.recommendation_evidence.source_weather_record_id` — P7-DATA-01's documented
 bare-uuid deferral — is now a real foreign key onto `integrations.weather_record`, closed by
 `1785700000000_integrations-weather-baseline.sql` at the first moment its target table existed.
@@ -341,13 +364,48 @@ deferred, enforced structurally regardless of review: no rule definition can car
 category (chemical application, toxicity, pest treatment, disease diagnosis, fertilizer
 concentration, structural, electrical, medical, legal-boundary, emergency — rejected by
 `validateRuleDefinition` in any spelling), and the P7-DATA-01 schema rejects a restricted-tier
-candidate again at insert. Also deliberately absent, with reasons: seasonal applicability gating
+candidate again at insert. Also deliberately absent, with a reason: seasonal applicability gating
 (no launch rule declares one, and a season honestly needs the garden's hemisphere via its
-georeference — the mechanism arrives with the first rule that needs it, not as dead code);
-expiry of never-acted-on candidates whose window passed between evaluations (`P7-ASYNC-01`'s
-scheduled sweep, using the already-shipped `expireRecommendationCandidate` transition); and any
-scheduler or HTTP surface for the engine (`P7-ASYNC-01`/`P7-BE-01` — the use case is exported
-through `public.ts` as their callable, nothing is wired into `app.ts`).
+georeference — the mechanism arrives with the first rule that needs it, not as dead code).
+Two deferrals this entry used to carry are now CLOSED by `P7-ASYNC-01`: expiry of never-acted-on
+candidates whose window passed between evaluations (the scheduled sweep's expiry phase, using the
+already-shipped `expireRecommendationCandidate` transition), and the engine's scheduler
+(`RunRecommendationEvaluationSweep` + the internal `/internal/recommendation-evaluation/sweep`
+route, wired into `app.ts`); the user-facing HTTP surface remains `P7-BE-01`'s.
+
+**Real Cloud Scheduler for the scheduled sweeps (P7-ASYNC-01 scope boundary).**
+architecture/asynchronous-processing.md section 16 names Cloud Scheduler for periodic initiation;
+this codebase's established periodic mechanism is the worker's own overlap-guarded interval
+scheduler (`services/workers/src/sweeps/interval-sweep-scheduler.ts` — the relay-poller precedent
+P6-RET-01 extended and P7-ASYNC-01 generalized), which is what schedules all three sweeps today.
+Migrating to real Cloud Scheduler resources is a later operational decision, tied to the same
+worker-rollout question already tracked above (the interval model needs the worker's
+always-allocated CPU; a Cloud Scheduler → endpoint model would remove that requirement). The
+migration is deliberately cheap by construction: each sweep endpoint is already exactly the shape a
+Cloud Scheduler HTTP job invokes — an OIDC-verified POST returning a structured summary, duplicate-
+and overlap-safe on the API side regardless of what schedules it — so the move is scheduling
+infrastructure plus log-heartbeat relocation only, no API or domain change.
+
+**Recommendation notification consumer (`recommendation.candidate_created`) — P7-NOTIF-01.**
+`EvaluateGardenRecommendations` now appends one `recommendation.candidate_created` outbox event per
+created candidate, in the same transaction as the candidate insert (notifications.md section 5's
+flow starts at "domain event"; emitting from the creating transaction is what spares P7-NOTIF-01
+from reopening this transaction path). NO consumer exists yet, deliberately: the workers relay
+claims only its three recognized media event types, so these rows sit unpublished — a durable,
+correct backlog, not a leak — until P7-NOTIF-01's notification policy claims the type. Draining
+that backlog late is safe by the flow's own design: the send worker rechecks recommendation
+freshness, preference, and expiration immediately before delivery (notifications.md section 9), so
+a stale candidate-created event closes without a notification.
+
+**Bulk recommendation computation via Cloud Run Jobs (P7-ASYNC-01 scope boundary).** The
+recommendation sweep drains ALL eligible gardens per run in bounded keyset pages inside one
+HTTP-triggered request — correct and fast at any plausible current garden count, and the honest
+alternative to a per-run cap that would starve gardens beyond it (evaluation leaves no durable
+ordering key behind when it suppresses everything, so capped rotation has nothing fair to rotate
+on). When the eligible-garden count outgrows a single in-request pass,
+architecture/asynchronous-processing.md section 7 already assigns "Bulk recommendation computation"
+to Cloud Run Jobs with checkpointed progress — that, not a bigger request timeout, is the recorded
+growth path.
 
 **Break-glass credential rotation procedure.** `07-iam-database-bootstrap.sh` rotates the Postgres
 superuser password on every run and stores it in Secret Manager, but there is no scheduled rotation

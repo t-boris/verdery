@@ -27,8 +27,13 @@ import { KyselyProcessingJobStore } from './relay/kysely-processing-job-store.js
 import { OutboxRelay } from './relay/outbox-relay.js';
 import { createRelayPoller } from './relay/poller.js';
 import { createRelayDatabase } from './relay/relay-database.js';
-import { createRetentionSweepScheduler } from './retention/retention-sweep-scheduler.js';
-import { GoogleApiRetentionSweepTrigger } from './retention/retention-sweep-trigger.js';
+import { GoogleApiSweepTrigger } from './sweeps/google-api-sweep-trigger.js';
+import { createIntervalSweepScheduler } from './sweeps/interval-sweep-scheduler.js';
+import type {
+  RecommendationEvaluationSweepSummary,
+  RetentionSweepSummary,
+  WeatherRefreshSweepSummary,
+} from './sweeps/sweep-trigger.js';
 import { GcsMediaObjectSource } from './validation/gcs-media-object-source.js';
 import { GoogleApiResultRecorder } from './validation/google-api-result-recorder.js';
 import { MediaValidator } from './validation/media-validator.js';
@@ -123,20 +128,72 @@ async function main(): Promise<void> {
   const poller = createRelayPoller(relay, configuration.relay.pollIntervalMs, logger);
   poller.start();
 
-  // P6-RET-01: the retention-sweep interval. The sweep itself runs in
+  // The three scheduled sweeps (P6-RET-01 retention; P7-ASYNC-01 weather
+  // refresh and recommendation evaluation). Each sweep itself runs in
   // services/api; this process only supplies the schedule and its
-  // authenticated trigger — see retention/retention-sweep-trigger.ts's own
-  // header comment for the privilege-boundary reasoning.
-  const retentionSweepScheduler = createRetentionSweepScheduler(
-    new GoogleApiRetentionSweepTrigger(
+  // authenticated trigger — see sweeps/sweep-trigger.ts's own header
+  // comment for the privilege-boundary reasoning. All three authenticate
+  // for the SAME audience as the result callback: one worker-to-API
+  // identity.
+  const sweepAudience = configuration.mediaProcessing.resultCallbackAudience;
+  const retentionSweepScheduler = createIntervalSweepScheduler(
+    new GoogleApiSweepTrigger<RetentionSweepSummary>(
       configuration.retentionSweep.sweepUrl,
-      configuration.mediaProcessing.resultCallbackAudience,
+      sweepAudience,
+      {
+        completedEvent: 'retention.sweep_completed',
+        completedMessage: 'Retention sweep completed',
+      },
       logger,
     ),
     configuration.retentionSweep.intervalMs,
+    {
+      failedEvent: 'retention.sweep_failed',
+      failedMessage: 'Retention sweep trigger failed; it will be retried on the next interval',
+    },
     logger,
   );
   retentionSweepScheduler.start();
+
+  const weatherRefreshSweepScheduler = createIntervalSweepScheduler(
+    new GoogleApiSweepTrigger<WeatherRefreshSweepSummary>(
+      configuration.weatherRefreshSweep.sweepUrl,
+      sweepAudience,
+      {
+        completedEvent: 'weather.refresh_sweep_completed',
+        completedMessage: 'Weather refresh sweep completed',
+      },
+      logger,
+    ),
+    configuration.weatherRefreshSweep.intervalMs,
+    {
+      failedEvent: 'weather.refresh_sweep_failed',
+      failedMessage:
+        'Weather refresh sweep trigger failed; it will be retried on the next interval',
+    },
+    logger,
+  );
+  weatherRefreshSweepScheduler.start();
+
+  const recommendationEvaluationSweepScheduler = createIntervalSweepScheduler(
+    new GoogleApiSweepTrigger<RecommendationEvaluationSweepSummary>(
+      configuration.recommendationEvaluationSweep.sweepUrl,
+      sweepAudience,
+      {
+        completedEvent: 'recommendations.evaluation_sweep_completed',
+        completedMessage: 'Recommendation evaluation sweep completed',
+      },
+      logger,
+    ),
+    configuration.recommendationEvaluationSweep.intervalMs,
+    {
+      failedEvent: 'recommendations.evaluation_sweep_failed',
+      failedMessage:
+        'Recommendation evaluation sweep trigger failed; it will be retried on the next interval',
+    },
+    logger,
+  );
+  recommendationEvaluationSweepScheduler.start();
 
   logger.info(
     {
@@ -144,6 +201,9 @@ async function main(): Promise<void> {
       service: SERVICE_NAME,
       pollIntervalMs: configuration.relay.pollIntervalMs,
       retentionSweepIntervalMs: configuration.retentionSweep.intervalMs,
+      weatherRefreshSweepIntervalMs: configuration.weatherRefreshSweep.intervalMs,
+      recommendationEvaluationSweepIntervalMs:
+        configuration.recommendationEvaluationSweep.intervalMs,
       httpPort: configuration.httpPort,
     },
     'Worker started',
@@ -153,6 +213,8 @@ async function main(): Promise<void> {
     drain: async () => {
       await poller.stop();
       await retentionSweepScheduler.stop();
+      await weatherRefreshSweepScheduler.stop();
+      await recommendationEvaluationSweepScheduler.stop();
       await validationServer.close();
       await relayDatabase.close();
       await cloudTasksClient.close();

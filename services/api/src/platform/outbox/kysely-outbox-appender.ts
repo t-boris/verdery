@@ -7,11 +7,12 @@ import type { OutboxAppender, OutboxEventInput } from './outbox-appender.js';
 /**
  * `services/workers`' own transactional-outbox relay (P6-ASYNC-01,
  * `src/relay/outbox-relay.ts` there) is the first, and so far only, reader
- * of this table — scoped to the `media.processing_requested` event type
- * this module's own `CompleteMediaUpload` appends. Every other event type
- * any module appends here (e.g. `garden.created`) still has no relay or
- * subscriber; this appender itself does not know or care which event types
- * are consumed downstream.
+ * of this table — scoped to its recognized media event types. Every other
+ * event type any module appends here (e.g. `garden.created`, or
+ * P7-ASYNC-01's `recommendation.candidate_created` awaiting its
+ * P7-NOTIF-01 consumer) stays unpublished until a consumer claims it; this
+ * appender itself does not know or care which event types are consumed
+ * downstream.
  */
 export class KyselyOutboxAppender implements OutboxAppender {
   constructor(

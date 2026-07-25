@@ -154,6 +154,26 @@ describe('EvaluateGardenRecommendations', () => {
       'urgency_window',
     ]);
 
+    // P7-ASYNC-01: one `recommendation.candidate_created` outbox event,
+    // appended in the same transaction as the candidate insert.
+    expect(fakes.outbox.events).toHaveLength(1);
+    expect(fakes.outbox.events[0]).toMatchObject({
+      eventType: 'recommendation.candidate_created',
+      aggregateType: 'recommendation_candidate',
+      aggregateId: candidateId,
+      payload: expect.objectContaining({
+        candidateId,
+        gardenId: GARDEN_ID,
+        ruleKey: 'lifecycle.harvest-readiness-check',
+        ruleVersion: 1,
+        targetKind: 'plant',
+        targetPlantId: PLANT_ID,
+        urgency: 'high',
+        priorityScore: 75,
+        supersedesCandidateId: null,
+      }) as unknown,
+    });
+
     const weatherSkips = result.decisions.filter((decision) => decision.kind === 'ruleSkipped');
     expect(weatherSkips).toEqual([
       expect.objectContaining({
@@ -179,6 +199,8 @@ describe('EvaluateGardenRecommendations', () => {
     expect(first.createdCandidates).toHaveLength(1);
     expect(second.createdCandidates).toEqual([]);
     expect(fakes.recommendationCandidates.candidates.size).toBe(1);
+    // The suppressed re-run appended no second outbox event either.
+    expect(fakes.outbox.events).toHaveLength(1);
     expect(second.decisions).toContainEqual(
       expect.objectContaining({
         kind: 'targetSuppressed',

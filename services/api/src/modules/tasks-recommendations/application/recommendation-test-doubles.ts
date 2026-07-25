@@ -133,6 +133,20 @@ export class FakeRecommendationCandidateRepository implements RecommendationCand
     }
     return Promise.resolve(found);
   }
+
+  listGardenIdsWithExpirableCandidates(now: Date, limit: number): Promise<readonly Uuid[]> {
+    const gardenIds = new Set<Uuid>();
+    for (const candidate of this.candidates.values()) {
+      if (
+        LIVE_RECOMMENDATION_CANDIDATE_STATES.includes(candidate.state) &&
+        candidate.windowEnd !== null &&
+        candidate.windowEnd.getTime() <= now.getTime()
+      ) {
+        gardenIds.add(candidate.gardenId);
+      }
+    }
+    return Promise.resolve([...gardenIds].sort().slice(0, limit));
+  }
 }
 
 /** In-memory `WeatherRecordRepository` serving `findLatest` by fetch order — enough to back a REAL `GetGardenWeather` (a concrete class, like `GardenAuthorization` in the sibling doubles file). */

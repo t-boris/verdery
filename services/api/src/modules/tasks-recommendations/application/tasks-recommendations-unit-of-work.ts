@@ -37,10 +37,14 @@
  * own new recommendation tables (P7-DATA-01's schema, first written by the
  * same engine stage).
  *
- * No `outbox`/`auditLogger` here: this module carries no eventing or audit
- * trail of its own this pass, the same deliberate omission `media`'s own
- * `MediaUnitOfWork` and `PlantsInventoryUnitOfWork` document for the
- * identical reason.
+ * `outbox` (P7-ASYNC-01): `EvaluateGardenRecommendations` appends one
+ * `recommendation.candidate_created` event per created candidate in the
+ * SAME transaction as the candidate/evidence/factor inserts — the ordinary
+ * "domain state and its outbox events commit atomically" rule `media`'s own
+ * `MediaUnitOfWork` documents for `media.processing_requested`.
+ * notifications.md section 5's flow starts at "domain event"; emitting here
+ * is what spares P7-NOTIF-01 from reopening this transaction path. No
+ * `auditLogger` still: this module carries no audit trail of its own.
  *
  * Source: architecture/backend-modular-monolith.md, section "12. Transactions".
  */
@@ -50,6 +54,7 @@ import type { MediaRepository } from '../../media/public.js';
 import type { ObservationRepository } from '../../observations-history/public.js';
 import type { PlantRepository } from '../../plants-inventory/public.js';
 import type { IdempotencyStore } from '../../../platform/idempotency/idempotency-store.js';
+import type { OutboxAppender } from '../../../platform/outbox/outbox-appender.js';
 import type { SyncChangeRecorder } from '../../../platform/sync/sync-change-recorder.js';
 import type { RecommendationCandidateRepository } from './recommendation-candidate-repository.js';
 import type { RuleVersionRepository } from './rule-version-repository.js';
@@ -69,6 +74,7 @@ export interface TasksRecommendationsTransactionContext {
   readonly syncChanges: SyncChangeRecorder;
   readonly ruleVersions: RuleVersionRepository;
   readonly recommendationCandidates: RecommendationCandidateRepository;
+  readonly outbox: OutboxAppender;
 }
 
 export interface TasksRecommendationsUnitOfWork {
