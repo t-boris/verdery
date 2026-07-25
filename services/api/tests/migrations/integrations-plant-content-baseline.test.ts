@@ -289,11 +289,12 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, dropping both plant-content tables while the weather tables and the schema survive', async () => {
     await client.end();
 
-    // `count: 1`: this file tests the newest migration, so only itself is
-    // undone — the position every newest-migration test starts from. When a
-    // later migration lands on top, bump this (and the counts in every
-    // earlier migration test) per the established ripple convention.
-    await migrate(databaseUrl, 'down', 1);
+    // `count: 2` undoes the one newer migration
+    // (1786000000000_notifications-baseline.sql — notification tables
+    // nothing this file's own assertions below check) first, then this
+    // migration itself. Update again the next time a migration is added on
+    // top of that one.
+    await migrate(databaseUrl, 'down', 2);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

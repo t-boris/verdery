@@ -52,6 +52,8 @@ tags:
     description: Garden-scoped media upload registration, backend-authorized resumable upload sessions, client-triggered completion verification, status, and short-lived authorized download access.
   - name: Synchronization
     description: The native offline outbox protocol — client installation registration, bounded batched push of client commands, resumable pull of the server change log, and cheap re-acknowledgement of already-submitted operations.
+  - name: Notifications
+    description: The per-user in-app notification inbox — the durable user-facing record of eligible notifications, with read state, dismissal, expiration, and stable deep links — plus the caller's own notification preferences (per-type and per-channel toggles with optional per-garden overrides, quiet hours, and time zone). Intents are created exclusively by the server-side notification policy from domain events; these operations read and annotate them, never create them.
 
 paths:
   /health/live:
@@ -2654,6 +2656,193 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [Notifications]
+      summary: List the caller's notification inbox
+      description: |
+        The caller's durable in-app notification inbox, newest first,
+        cursor-paginated the same way `ListGardens` paginates. Returns only
+        LIVE entries: intents that are still pending, in-app eligible, not
+        dismissed, and not past their expiration. Read entries stay listed
+        (with `readAt` set) until they expire or are dismissed.
+
+        The inbox is the durable user-facing record for eligible
+        notifications and is written when the intent is created, before —
+        and independent of — any push delivery attempt, so it remains
+        correct even when push delivery fails or never happens.
+
+        Expiration is enforced durably by this read: the caller's own
+        pending intents whose expiration has passed are closed (state
+        `expired`) in the same transaction that lists the rest — the same
+        read-triggers-write posture `GetTodayRecommendations` documents for
+        first presentation. Repeating the request is safe: an already
+        `expired` intent is simply no longer listed.
+
+        Source: architecture/notifications.md, section "12. In-App Inbox";
+        implementation-plan.md work package P7-NOTIF-01.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: The caller's live inbox entries, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationListResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /notifications/{notificationId}/read:
+    parameters:
+      - name: notificationId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: markNotificationRead
+      tags: [Notifications]
+      summary: Mark a notification as read
+      description: |
+        Stamps the caller's own notification with a read time. Naturally
+        idempotent and monotonic: the first call sets `readAt`, every later
+        call is a no-op returning the same stamped entry — so this
+        operation deliberately takes neither `Idempotency-Key` nor
+        `If-Match`. A repeated or concurrent call cannot produce a
+        different outcome, and a revision precondition would force clients
+        to serialize inherently commutative writes (two devices marking
+        the same entry read). Legal in any state: reading an entry that
+        has since expired or been superseded records the read time without
+        resurrecting it.
+
+        Source: architecture/notifications.md, section "12. In-App Inbox"
+        ("It supports read state ...").
+      responses:
+        '200':
+          description: The notification with its read time set.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /notifications/{notificationId}/dismiss:
+    parameters:
+      - name: notificationId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: dismissNotification
+      tags: [Notifications]
+      summary: Dismiss a notification from the inbox
+      description: |
+        Stamps the caller's own notification with a dismissal time,
+        removing it from the inbox list without deleting the durable
+        record. Same idempotent, monotonic, precondition-free posture as
+        `markNotificationRead`, and for the same reasons. Dismissal is an
+        inbox-view fact only: it does not transition the intent's delivery
+        state.
+      responses:
+        '200':
+          description: The notification with its dismissal time set.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /notification-preferences:
+    get:
+      operationId: getNotificationPreferences
+      tags: [Notifications]
+      summary: Get the caller's notification preferences
+      description: |
+        The caller's whole notification-preference document: quiet hours
+        (or `null` when none are set) and the explicit per-type entries.
+        A type/garden combination with no entry uses the documented
+        default — every channel enabled. `revision` is `0` for a caller
+        who has never written preferences; feed it to the update's
+        `If-Match` either way.
+
+        Source: architecture/notifications.md, section "7. Preferences".
+      responses:
+        '200':
+          description: The caller's current preference document.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferencesDocument'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    put:
+      operationId: updateNotificationPreferences
+      tags: [Notifications]
+      summary: Replace the caller's notification preferences
+      description: |
+        Replaces the caller's whole preference document — quiet hours and
+        every explicit entry — in one transaction. `If-Match` carries the
+        document revision from the last read; a document never written
+        before has revision `0`, so a first write sends `"0"` (this is the
+        one revision-guarded resource whose expected revision may be zero).
+
+        Quiet hours defer PUSH delivery until the window ends, evaluated
+        in the named IANA time zone (or the profile's own time zone when
+        `timeZone` is `null`); they never delay the in-app inbox entry.
+        An entry naming a garden requires current membership on that
+        garden and is rejected as not-found otherwise, without revealing
+        whether the garden exists. Unknown `notificationType` values are
+        rejected: the accepted vocabulary is server-owned and grows with
+        the product.
+
+        Source: architecture/notifications.md, sections "7. Preferences",
+        "9. Scheduling".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateNotificationPreferencesRequest'
+      responses:
+        '200':
+          description: The stored preference document with its new revision.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferencesDocument'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
 
 components:
   securitySchemes:
@@ -6587,6 +6776,216 @@ components:
         lastSeenAt:
           $ref: '#/components/schemas/Timestamp'
           description: Set to the current time on every successful register-or-refresh call.
+
+    NotificationType:
+      type: string
+      minLength: 1
+      maxLength: 100
+      description: |
+        The notification's server-owned type vocabulary, deliberately open
+        (a plain string, not an enum) so a new type never breaks an
+        already-shipped client — an unknown type must render through the
+        client's generic fallback (architecture/notifications.md, section
+        "16. Testing", "Locale fallback"). Current vocabulary:
+
+        - `care_recommendation` — a new care recommendation candidate was
+          generated for a garden the recipient is a member of.
+
+    NotificationPriority:
+      type: string
+      enum: [normal, high]
+      description: |
+        Delivery priority derived by the notification policy from the
+        source's own urgency (`urgent`/`high` map to `high`). Two values,
+        matching what push transports actually distinguish.
+
+    NotificationDeepLink:
+      type: object
+      additionalProperties: false
+      required: [kind, gardenId, recommendationCandidateId]
+      description: |
+        A stable application route reference — resource identifiers only,
+        never bearer access; the client authenticates and authorizes after
+        opening, and opens a safe fallback when the target is unavailable
+        rather than revealing prior existence. `kind` names the route
+        target; clients resolve it to their own navigation. One kind
+        exists today; new kinds arrive as new object variants and an
+        unknown kind must fall back to a safe default screen.
+
+        Source: architecture/notifications.md, section "11. Deep Links".
+      properties:
+        kind:
+          type: string
+          enum: [gardenToday]
+          description: The garden's Today surface, highlighting the referenced recommendation when it is still presentable.
+        gardenId:
+          $ref: '#/components/schemas/Uuid'
+        recommendationCandidateId:
+          $ref: '#/components/schemas/Uuid'
+
+    Notification:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          notificationType,
+          priority,
+          gardenId,
+          recommendationCandidateId,
+          templateKey,
+          parameters,
+          deepLink,
+          readAt,
+          dismissedAt,
+          expiresAt,
+          createdAt,
+        ]
+      description: |
+        One durable inbox entry. Carries a stable template key plus
+        structured parameters, never rendered text — the client renders in
+        the recipient's locale as late as practical
+        (architecture/notifications.md, section "8. Localization"), falling
+        back generically for an unknown `templateKey`.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        notificationType:
+          $ref: '#/components/schemas/NotificationType'
+        priority:
+          $ref: '#/components/schemas/NotificationPriority'
+        gardenId:
+          $ref: '#/components/schemas/Uuid'
+        recommendationCandidateId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The recommendation candidate this notification is about, for `care_recommendation` entries — the freshness linkage the delivery pipeline rechecks before any push attempt.
+        templateKey:
+          type: string
+          minLength: 1
+          description: Stable, versioned rendering key, e.g. `care_recommendation.created.v1`.
+        parameters:
+          type: object
+          description: Structured template parameters — identifiers and small facts only, never rendered text, secrets, or signed URLs.
+        deepLink:
+          $ref: '#/components/schemas/NotificationDeepLink'
+        readAt:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        dismissedAt:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        expiresAt:
+          $ref: '#/components/schemas/Timestamp'
+          description: When this entry stops being actionable — the source recommendation's own validity-window end where it has one.
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+
+    NotificationListResult:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notification'
+        nextCursor:
+          type: string
+          description: Present only when another page may exist.
+
+    NotificationQuietHours:
+      type: object
+      additionalProperties: false
+      required: [startMinute, endMinute, timeZone]
+      description: |
+        A daily do-not-push window in the recipient's own local time,
+        expressed as minutes after local midnight. The window may wrap
+        midnight (`startMinute` greater than `endMinute`, e.g. 1320 to 420
+        for 22:00-07:00); `startMinute` equal to `endMinute` is rejected —
+        an always-quiet day is expressed by disabling the push channel,
+        not by a degenerate window. Evaluated with real time-zone rules,
+        daylight-saving transitions included.
+      properties:
+        startMinute:
+          type: integer
+          minimum: 0
+          maximum: 1439
+        endMinute:
+          type: integer
+          minimum: 0
+          maximum: 1439
+        timeZone:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 100
+              description: An IANA time-zone identifier, e.g. `Europe/Berlin`.
+            - type: 'null'
+          description: "`null` means the profile's own time zone applies."
+
+    NotificationPreferenceEntry:
+      type: object
+      additionalProperties: false
+      required: [notificationType, gardenId, inAppEnabled, pushEnabled]
+      description: |
+        One explicit per-type toggle row. `gardenId: null` is the caller's
+        global setting for the type; a non-null `gardenId` overrides the
+        global setting for that one garden. A type/garden combination with
+        no entry defaults to every channel enabled.
+      properties:
+        notificationType:
+          $ref: '#/components/schemas/NotificationType'
+        gardenId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        inAppEnabled:
+          type: boolean
+        pushEnabled:
+          type: boolean
+
+    NotificationPreferencesDocument:
+      type: object
+      additionalProperties: false
+      required: [revision, quietHours, entries]
+      properties:
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+          description: "`0` for a caller who has never written preferences. Feeds `updateNotificationPreferences's` `If-Match`."
+        quietHours:
+          oneOf:
+            - $ref: '#/components/schemas/NotificationQuietHours'
+            - type: 'null'
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationPreferenceEntry'
+
+    UpdateNotificationPreferencesRequest:
+      type: object
+      additionalProperties: false
+      required: [quietHours, entries]
+      description: |
+        The whole replacement document, stated explicitly: `quietHours:
+        null` clears quiet hours, and an entry absent from `entries` is
+        removed (reverting that type/garden combination to the default).
+        At most one entry per type/garden combination.
+      properties:
+        quietHours:
+          oneOf:
+            - $ref: '#/components/schemas/NotificationQuietHours'
+            - type: 'null'
+        entries:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/NotificationPreferenceEntry'
 
   responses:
     BadRequest:

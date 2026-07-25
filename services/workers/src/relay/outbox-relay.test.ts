@@ -3,6 +3,7 @@ import {
   MEDIA_DELETION_REQUESTED_EVENT_TYPE,
   MEDIA_DERIVATIVE_GENERATION_REQUESTED_EVENT_TYPE,
   MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
+  RECOMMENDATION_CANDIDATE_CREATED_EVENT_TYPE,
   type MediaDeletionRequestedEventPayload,
   type MediaProcessingRequestedEventPayload,
 } from '@verdery/api-contracts';
@@ -14,6 +15,7 @@ import {
 import { OutboxRelay } from './outbox-relay.js';
 import {
   FakeMediaProcessingQueue,
+  FakeNotificationEventDispatcher,
   FakeOutboxEventStore,
   FakeProcessingJobStore,
   fixedClock,
@@ -44,23 +46,26 @@ function buildRelay(
     outboxEvents?: FakeOutboxEventStore;
     processingJobs?: FakeProcessingJobStore;
     mediaProcessingQueue?: FakeMediaProcessingQueue;
+    notificationEvents?: FakeNotificationEventDispatcher;
     batchSize?: number;
   } = {},
 ) {
   const outboxEvents = options.outboxEvents ?? new FakeOutboxEventStore();
   const processingJobs = options.processingJobs ?? new FakeProcessingJobStore();
   const mediaProcessingQueue = options.mediaProcessingQueue ?? new FakeMediaProcessingQueue();
+  const notificationEvents = options.notificationEvents ?? new FakeNotificationEventDispatcher();
 
   const relay = new OutboxRelay({
     outboxEvents,
     processingJobs,
     mediaProcessingQueue,
+    notificationEvents,
     clock: fixedClock(NOW),
     logger: silentLogger(),
     batchSize: options.batchSize ?? 20,
   });
 
-  return { relay, outboxEvents, processingJobs, mediaProcessingQueue };
+  return { relay, outboxEvents, processingJobs, mediaProcessingQueue, notificationEvents };
 }
 
 describe('OutboxRelay.tick', () => {
@@ -81,6 +86,7 @@ describe('OutboxRelay.tick', () => {
       claimed: 1,
       enqueued: 1,
       alreadyQueued: 0,
+      notificationsDispatched: 0,
       failed: 0,
       oldestClaimedEventAgeMs: 0,
     });
@@ -129,6 +135,7 @@ describe('OutboxRelay.tick', () => {
       claimed: 0,
       enqueued: 0,
       alreadyQueued: 0,
+      notificationsDispatched: 0,
       failed: 0,
       oldestClaimedEventAgeMs: null,
     });
@@ -164,6 +171,7 @@ describe('OutboxRelay.tick', () => {
       claimed: 1,
       enqueued: 0,
       alreadyQueued: 1,
+      notificationsDispatched: 0,
       failed: 0,
       oldestClaimedEventAgeMs: 0,
     });
@@ -191,6 +199,7 @@ describe('OutboxRelay.tick', () => {
       claimed: 5,
       enqueued: 5,
       alreadyQueued: 0,
+      notificationsDispatched: 0,
       failed: 0,
       oldestClaimedEventAgeMs: 0,
     });
@@ -244,6 +253,7 @@ describe('OutboxRelay.tick', () => {
       claimed: 2,
       enqueued: 1,
       alreadyQueued: 0,
+      notificationsDispatched: 0,
       failed: 1,
       oldestClaimedEventAgeMs: 0,
     });
@@ -275,6 +285,7 @@ describe('OutboxRelay.tick', () => {
       claimed: 1,
       enqueued: 1,
       alreadyQueued: 0,
+      notificationsDispatched: 0,
       failed: 0,
       oldestClaimedEventAgeMs: 0,
     });
@@ -329,6 +340,7 @@ describe('OutboxRelay.tick', () => {
       claimed: 1,
       enqueued: 1,
       alreadyQueued: 0,
+      notificationsDispatched: 0,
       failed: 0,
       oldestClaimedEventAgeMs: 0,
     });
@@ -366,5 +378,88 @@ describe('OutboxRelay.tick', () => {
     const result = await relay.tick();
 
     expect(result.oldestClaimedEventAgeMs).toBe(12_000);
+  });
+
+  // P7-NOTIF-01: the notification event family — forwarded to the API's
+  // policy endpoint, never turned into a media-processing job.
+  const NOTIFICATION_EVENT_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c70';
+
+  function seedNotificationEvent(outboxEvents: FakeOutboxEventStore): void {
+    outboxEvents.seed({
+      id: NOTIFICATION_EVENT_ID,
+      aggregateId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c71',
+      eventType: RECOMMENDATION_CANDIDATE_CREATED_EVENT_TYPE,
+      payload: { candidateId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c71' },
+      traceId: 'trace-n1',
+      occurredAt: NOW,
+    });
+  }
+
+  it('forwards a candidate-created event whole, then publishes — never touching the job store or the queue', async () => {
+    const { relay, outboxEvents, processingJobs, mediaProcessingQueue, notificationEvents } =
+      buildRelay();
+    seedNotificationEvent(outboxEvents);
+
+    const result = await relay.tick();
+
+    expect(result).toEqual({
+      claimed: 1,
+      enqueued: 0,
+      alreadyQueued: 0,
+      notificationsDispatched: 1,
+      failed: 0,
+      oldestClaimedEventAgeMs: 0,
+    });
+    expect(notificationEvents.dispatched).toHaveLength(1);
+    expect(notificationEvents.dispatched[0]).toMatchObject({
+      id: NOTIFICATION_EVENT_ID,
+      eventType: RECOMMENDATION_CANDIDATE_CREATED_EVENT_TYPE,
+      payload: { candidateId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c71' },
+      traceId: 'trace-n1',
+    });
+    expect(processingJobs.jobs.size).toBe(0);
+    expect(mediaProcessingQueue.enqueued).toHaveLength(0);
+    expect(outboxEvents.markPublishedCalls).toEqual([NOTIFICATION_EVENT_ID]);
+  });
+
+  it('leaves a failed notification dispatch unpublished and re-forwards it next tick — the API side deduplicates', async () => {
+    const { relay, outboxEvents, notificationEvents } = buildRelay();
+    seedNotificationEvent(outboxEvents);
+    notificationEvents.rejectNextWith = new Error('api unavailable');
+
+    const first = await relay.tick();
+    expect(first).toMatchObject({ claimed: 1, notificationsDispatched: 0, failed: 1 });
+    expect(outboxEvents.markPublishedCalls).toEqual([]);
+
+    // Next tick: the SAME event is re-delivered; the fake mirrors the real
+    // endpoint's dedup summary shape.
+    const second = await relay.tick();
+    expect(second).toMatchObject({ claimed: 1, notificationsDispatched: 1, failed: 0 });
+    expect(outboxEvents.markPublishedCalls).toEqual([NOTIFICATION_EVENT_ID]);
+  });
+
+  it('keeps one notification failure from blocking the media events in the same batch, and vice versa', async () => {
+    const { relay, outboxEvents, notificationEvents, mediaProcessingQueue } = buildRelay();
+    seedNotificationEvent(outboxEvents);
+    outboxEvents.seed({
+      id: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c80',
+      aggregateId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c81',
+      eventType: MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
+      payload: payload({ mediaId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c81' }),
+      traceId: null,
+      occurredAt: NOW,
+    });
+    notificationEvents.rejectNextWith = new Error('api unavailable');
+
+    const result = await relay.tick();
+
+    expect(result).toMatchObject({
+      claimed: 2,
+      enqueued: 1,
+      notificationsDispatched: 0,
+      failed: 1,
+    });
+    expect(mediaProcessingQueue.enqueued).toHaveLength(1);
+    expect(outboxEvents.markPublishedCalls).toEqual(['019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c80']);
   });
 });

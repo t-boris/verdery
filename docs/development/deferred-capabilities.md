@@ -172,6 +172,23 @@ deterministic explanation (migration `1785800000000_recommendation-explanation.s
 on legacy pre-P7-BE-01 rows, which drain through supersession/expiry and are never presentable) and
 records the `generated → eligible` transition at persistence time.
 
+Phase 7 now includes P7-NOTIF-01: the notification pipeline from domain event to durable in-app
+inbox. The workers outbox relay recognizes `recommendation.candidate_created` as its fourth event
+type and forwards each claimed row to the API's OIDC-verified
+`POST /internal/notifications/events`; `ApplyNotificationPolicy` (the new `notifications` module)
+rechecks the candidate's CURRENT state, fans out to the garden's active members, resolves each
+recipient's preferences (per-type/per-channel entries with per-garden overrides, default-on),
+resolves quiet hours with real IANA time-zone math (DST-proven; preference zone override falling
+back to the profile's own `time_zone`), and persists one durable intent per recipient —
+per-recipient deduplication enforced by a unique `(recipient, dedup_key)` index so redelivery and
+concurrent delivery collapse, expiry tied to the candidate's own validity window, a structured
+`gardenToday` deep link, and a stable template key + parameters for client-side locale-late
+rendering. A superseding candidate's event closes the prior candidate's pending intents. The
+in-app inbox is the intent itself (`GET /notifications` with keyset pagination and durable
+read-triggered expiry; idempotent-by-design read/dismiss stamps;
+`GET`/`PUT /notification-preferences` guarded by a document revision starting at 0). Push delivery
+is deliberately absent — see the P7-NOTIF-02 entry below.
+
 ## What remains deferred, and why
 
 **Staging and production.** Only `verdery-dev` exists. Creating `verdery-staging` and `verdery-prod`
@@ -216,7 +233,9 @@ per bucket by `10-media-processing-queue.sh`, and `deploy-workers.sh`'s new
 configuration load without it). P7-ASYNC-01 extends that same env list with
 `WEATHER_REFRESH_SWEEP_URL` and `RECOMMENDATION_EVALUATION_SWEEP_URL` (both derived from the live
 API URL by `deploy-workers.sh` itself, both required at configuration load), in the same
-written-not-executed state.
+written-not-executed state. P7-NOTIF-01 adds `NOTIFICATION_EVENTS_URL` (same derivation, same
+required-at-load posture) to that list, likewise written and syntax-checked but not run against
+any real project.
 
 **Raw-capture retention enforcement (P6-RET-01 scope boundary).** The 30-days-after-successful-
 extraction rule (architecture/media-storage-and-processing.md section 15; garden-capture-and-scan.md
@@ -441,16 +460,36 @@ Cloud Scheduler HTTP job invokes — an OIDC-verified POST returning a structure
 and overlap-safe on the API side regardless of what schedules it — so the move is scheduling
 infrastructure plus log-heartbeat relocation only, no API or domain change.
 
-**Recommendation notification consumer (`recommendation.candidate_created`) — P7-NOTIF-01.**
-`EvaluateGardenRecommendations` now appends one `recommendation.candidate_created` outbox event per
-created candidate, in the same transaction as the candidate insert (notifications.md section 5's
-flow starts at "domain event"; emitting from the creating transaction is what spares P7-NOTIF-01
-from reopening this transaction path). NO consumer exists yet, deliberately: the workers relay
-claims only its three recognized media event types, so these rows sit unpublished — a durable,
-correct backlog, not a leak — until P7-NOTIF-01's notification policy claims the type. Draining
-that backlog late is safe by the flow's own design: the send worker rechecks recommendation
-freshness, preference, and expiration immediately before delivery (notifications.md section 9), so
-a stale candidate-created event closes without a notification.
+**~~Recommendation notification consumer (`recommendation.candidate_created`)~~ — closed by
+P7-NOTIF-01.** The workers relay now claims the type as its fourth recognized event and forwards
+each row whole to the API's OIDC-verified `POST /internal/notifications/events`
+(`ApplyNotificationPolicy` — the `domain event -> notification policy -> persist in-app intent`
+steps of notifications.md section 5), marking the outbox row published only after the API's 2xx.
+The anticipated safety property held exactly as designed: the policy rechecks candidate freshness
+at intent creation, so the accumulated pre-consumer backlog drains as typed suppressions
+(`candidate_not_live` / `candidate_window_passed` / `candidate_missing`), never as stale
+notifications. What this stage deliberately does NOT build is push DELIVERY — see the next entry.
+
+**Push delivery, device tokens, and send-time recheck execution (P7-NOTIF-02 scope boundary).**
+P7-NOTIF-01 ends at durable, policy-evaluated, inbox-visible intents: each `pending` intent
+already carries everything a delivery worker needs — per-channel eligibility, the quiet-hours
+resolved `earliest_delivery_at`, `expires_at`, the `recommendation_candidate_id` freshness
+linkage, priority, and a revision counter for guarded terminal transitions — but no FCM adapter,
+no device-token records (notifications.md section 6), no Cloud Task scheduling at the eligible
+time, and no send-time recheck EXECUTION exist yet; the recheck's classification logic itself
+(`assessCareRecommendationEvent`, `evaluateRecipientPolicy`) ships now and is what the send worker
+re-runs before any push. Related honest boundaries inside P7-NOTIF-01 itself: (1) `pending ->
+expired` closes durably today only through the recipient's own inbox read (the `GetTodayView`
+read-triggers-write precedent) — intents of recipients who never open their inbox stay honestly
+`pending` until P7-NOTIF-02's send worker closes them at send time, the doc's own place for that
+close ("Expired or stale intents close without delivery"); (2) the notification-type vocabulary is
+one type (`care_recommendation`) — client-publication and invitation notifications arrive with
+collaboration (P9), which also brings the transactional-email channel and its different opt-out
+classification (section 7); (3) "immediate versus digest behavior where offered" is not offered —
+per-candidate intents only, a product decision away; (4) no client renders the inbox yet — the
+contract surface (`Notifications` tag: list, read, dismiss, preferences) ships now for the client
+stage that picks it up, with `templateKey` + structured parameters ready for client-side
+locale-late rendering (section 8).
 
 **Offline Today actions in the sync protocol — decided by P7-IOS-01: not built.** The P7-BE-01
 recommendation commands are deliberately NOT routed through `POST /v1/sync/push`: recommendations

@@ -244,6 +244,17 @@ export type SyncClientPlatform = Schemas['SyncClientPlatform'];
 export type SyncClientRegistrationRequest = Schemas['SyncClientRegistrationRequest'];
 export type SyncClientInstallation = Schemas['SyncClientInstallation'];
 
+/** The notification inbox and preference schemas (P7-NOTIF-01). */
+export type NotificationType = Schemas['NotificationType'];
+export type NotificationPriority = Schemas['NotificationPriority'];
+export type NotificationDeepLink = Schemas['NotificationDeepLink'];
+export type Notification = Schemas['Notification'];
+export type NotificationListResult = Schemas['NotificationListResult'];
+export type NotificationQuietHours = Schemas['NotificationQuietHours'];
+export type NotificationPreferenceEntry = Schemas['NotificationPreferenceEntry'];
+export type NotificationPreferencesDocument = Schemas['NotificationPreferencesDocument'];
+export type UpdateNotificationPreferencesRequest = Schemas['UpdateNotificationPreferencesRequest'];
+
 /** The API base path. Breaking changes require a new major path. */
 export const API_BASE_PATH = '/v1';
 
@@ -384,6 +395,30 @@ export * from './media-processing.js';
  * posture as `./media-processing.js`, re-exported here unchanged.
  */
 export * from './recommendation-events.js';
+
+/**
+ * The relay-to-API notification event dispatch contract (P7-NOTIF-01) lives
+ * in `./notification-dispatch.js` — the same hand-written machine-to-machine
+ * posture as `./media-processing.js`, re-exported here unchanged.
+ */
+export * from './notification-dispatch.js';
+
+/**
+ * Error codes the notifications module raises (P7-NOTIF-01).
+ *
+ * The inbox commands conceal non-ownership as not-found (a caller must not
+ * learn that someone else's notification id exists), the same posture
+ * `GardenErrorCode.NotFound` documents for gardens.
+ */
+export const NotificationErrorCode = {
+  /** No notification exists at this ID, or it does not belong to the caller. */
+  NotFound: 'notification.not_found',
+  /** The supplied `If-Match` revision no longer matches the stored preference document. */
+  PreferencesStaleRevision: 'notification.preferences_stale_revision',
+} as const;
+
+export type NotificationErrorCode =
+  (typeof NotificationErrorCode)[keyof typeof NotificationErrorCode];
 
 /** Narrows an unknown response body to the shared error envelope. */
 export function isApiError(value: unknown): value is ApiError {

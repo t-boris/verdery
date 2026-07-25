@@ -4544,3 +4544,189 @@ real-PostgreSQL level.
   back).
 - `pnpm --filter @verdery/api build`, root `pnpm typecheck`, `pnpm lint`, `pnpm format:check`,
   `node scripts/check-file-size.mjs` all clean.
+
+## Stage 23 — P7-NOTIF-01, implementation complete
+
+The notification pipeline is real from domain event to durable in-app inbox — intents, inbox,
+preferences, quiet hours, time zones, deduplication, expiry, and deep links, everything the work
+package names EXCEPT push delivery, which is P7-NOTIF-02's by explicit scope: this stage ends at
+durable, policy-evaluated, inbox-visible intents that already carry everything a delivery worker
+needs. The Stage 18 backlog of `recommendation.candidate_created` outbox events finally has its
+consumer: the workers relay claims the type as its fourth recognized event and forwards each row
+to a new OIDC-verified `POST /internal/notifications/events`, where `ApplyNotificationPolicy` —
+notifications.md section 5's "notification policy" step, in a new `notifications` module — decides
+per recipient and persists. The acceptance evidence ("Notification policy tests") exists at three
+layers: pure domain decisions, the use case over fakes, and real PostgreSQL end to end.
+
+### Key decisions
+
+- **Pipeline wiring: the relay FORWARDS, the API DECIDES — the two-hop pattern, chosen for the
+  privilege boundary.** The policy's reads (garden membership, profiles, preferences,
+  recommendation candidates) are exactly the data `verdery_worker` deliberately cannot touch
+  (its grants stop at `platform.outbox_event` + `media.processing_job`; the P7-INT-01/P7-DATA-01
+  negative privilege tests), so in-process consumption in the worker was never on the table, and
+  in-process intent creation at event emission would couple the evaluating transaction to
+  notification policy (the exact coupling the outbox exists to break). The relay contributes what
+  it uniquely has — the already-polling loop and a verified worker-to-API OIDC identity (same
+  audience as every sweep and callback: one identity, not a second that could drift) — and the
+  crash-recovery shape is the established publish-first/record-second sequence with one step
+  fewer: dispatch (API 2xx = durably processed) then `markPublished`; a crash between the two
+  re-delivers, and the API's dedup converges the replay to zero new rows. The relay-side contract
+  (`NotificationDomainEventEnvelope`, the processing summary) is hand-written machine-to-machine
+  in `@verdery/api-contracts`' new `notification-dispatch.ts`, the `media-processing.ts` posture;
+  an unrecognized event type at the API is a 400 — a shared-constant drift between the two
+  services is a deploy defect surfaced loudly (the row stays unpublished and visible), never a
+  silent drop.
+- **The intent IS the inbox record, with delivery state and view state as separate facts.** One
+  `notifications.notification_intent` row per recipient carries section 4's field list column for
+  column (type+version, recipient, garden context, template key + structured parameters, priority,
+  earliest delivery + expiration, dedup key, channel eligibility, deep link, source event + trace
+  context). The lifecycle `state` is exactly what this stage can reach — `pending → superseded`
+  (a newer candidate's event closes the prior's pending intents) and `pending → expired` (the
+  inbox read's durable close) — with sent/failed vocabulary deliberately absent until P7-NOTIF-02
+  can reach it (the `garden.lifecycle_state` no-dead-states posture). `read_at`/`dismissed_at`
+  are inbox-view columns orthogonal to `state`, because "Push delivery success does not determine
+  inbox state" — and a user may read an entry whose delivery lifecycle has since closed.
+  `recipient_profile_id` cascades on profile deletion (the `idempotency_record` precedent: the
+  inbox leaves with the account); `garden_id`/`recommendation_candidate_id`/`source_event_id` are
+  deliberately FK-free plain uuids — section 11 requires a safe client fallback for unavailable
+  resources, which presumes intents outlive what they point at, and the freshness recheck treats
+  a missing candidate as `stale`, never an error.
+- **The policy rechecks candidate freshness at CREATION, not only at send time.** The relay's
+  backlog is explicitly allowed to age (Stage 18 said so), and a durable inbox entry about an
+  already-resolved recommendation would be wrong the moment it is written — so
+  `assessCareRecommendationEvent` reads the candidate's CURRENT state in the same transaction
+  that persists intents: missing → `candidate_missing`, non-live state → `candidate_not_live`
+  (section 16's "Recommendation superseded before delivery"), window passed →
+  `candidate_window_passed`; the drained pre-consumer backlog closes as typed suppressions.
+  Supersession close runs FIRST, before the freshness verdict, because the engine already
+  recorded the replacement durably — a stale NEW event must still close the OLD candidate's
+  pending intents while suppressing its own. Recipients are the garden's ACTIVE members (any
+  role — care notifications are relevant to anyone who can view), each additionally gated by
+  `isAccountUsable`. The same classification functions ship as the send-time recheck's logic for
+  P7-NOTIF-02 to re-run before any push (section 9).
+- **Quiet hours defer PUSH, never the inbox, with real IANA zone math — no new dependency.**
+  Section 5 persists the in-app intent before any delivery scheduling, so the policy stamps
+  `earliest_delivery_at` (push-eligible intents only) as "the earliest instant after now at which
+  the recipient's wall clock shows the window's end minute", computed against the platform's own
+  ICU zone data (`Intl`, offset-probing at ±1 day so a transition on the target day contributes
+  BOTH offsets — the naive same-day refinement provably misses one side of a fall-back overlap
+  and was caught during this stage's own review). That one rule pins both DST edges, and tests
+  hold it to concrete 2026 instants: a spring-forward gap end maps just past the gap (02:30 on
+  the 02:00→03:00 night delivers at 03:30, not a day later), and a fall-back ambiguous end picks
+  whichever occurrence is still ahead (15 minutes, never 24 hours). The zone is the preference
+  document's override or the profile's own `time_zone` (section 7 names time zone a preference;
+  the profile column has carried one since Phase 2) — proven load-bearing by a test where the
+  same instant is quiet in Tokyo and not in Berlin. A degenerate window (start = end) is rejected
+  at every layer: an always-quiet day is expressed by disabling the push channel, not by a
+  24-hour window.
+- **Deduplication is a unique index, not application bookkeeping.** Section 10's own example is
+  "recommendation ID plus reminder window"; for candidate-created intents the reminder window IS
+  the candidate's validity window (recurrence and re-surfacing mint NEW candidates by the
+  engine's construction), so the purpose-specific key is
+  `care_recommendation:candidate:{candidateId}`, unique per recipient
+  (`UNIQUE (recipient_profile_id, dedup_key)`, full — a replay must not recreate an intent that
+  has since closed), inserted `ON CONFLICT DO NOTHING`. Proven under a genuine concurrent race:
+  two `ApplyNotificationPolicy` runs of the same event under `Promise.all` against real
+  PostgreSQL produce exactly one intent, one `intentsCreated` and one `intentsDeduplicated`.
+- **Expiry is the candidate's own validity window, closed durably by the read that observes it.**
+  `expires_at` = the candidate's `windowEnd` where it has one (section 4's expiration tied to the
+  recommendation's validity), else a documented 7-day default (`CARE_RECOMMENDATION_DEFAULT_TTL_MS`,
+  the "no number decided, pick one and say so" posture). The inbox list closes the CALLER's own
+  past-expiry pending intents (`pending → expired`, revision-bumped) in the same transaction that
+  reads the page — the `GetTodayView` read-triggers-write precedent with the same three-part
+  justification (server-observable fact; a filter-only read would leave `expired` unreachable
+  dead vocabulary; naturally idempotent and bounded to the caller's rows). Recipients who never
+  open their inbox keep honestly-`pending` intents until P7-NOTIF-02's send worker closes them at
+  send time — the doc's own place for that close, recorded in deferred-capabilities.md.
+- **Deep links are structured route references, not URLs and not bearer material.** The contract's
+  `NotificationDeepLink` is `{ kind: 'gardenToday', gardenId, recommendationCandidateId }` —
+  stable resource identifiers the client resolves to its OWN navigation after authenticating
+  (section 11), with the candidate id letting the Today surface highlight the item while it is
+  still presentable. One kind exists because one notification type exists; new kinds arrive as
+  new variants and an unknown kind must fall back safely (the contract description says so).
+- **Preferences: explicit entry rows + one revision-guarded document, default ON.** Entries are
+  per (type, garden?) rows with two channel booleans (`UNIQUE NULLS NOT DISTINCT` on the scope —
+  one global row per type is a real constraint, not what NULL semantics would allow); resolution
+  is garden-entry > global entry > default-enabled, with the default argued once in
+  `notification-preference.ts`: opt-out is what makes a preference row a user decision rather
+  than a provisioning step. Quiet hours + zone override live on a per-profile document row whose
+  `revision` guards the whole-document `PUT /notification-preferences` — the one revision-guarded
+  resource whose `If-Match` may be `"0"` (a never-written document; the lazily-created-on-first-
+  write posture), with a concurrent first write losing as a clean 412 via `ON CONFLICT DO NOTHING`
+  rather than an aborted transaction. Garden-scoped entries require current ACTIVE membership,
+  concealed as not-found (`viewGarden` — tuning one's own notifications is a fact of membership,
+  not a content edit); unknown types are rejected (the vocabulary is code-owned, the
+  `consent_type` no-CHECK posture in the schema). The type vocabulary is exactly one type,
+  `care_recommendation` — new types arrive with the stages that produce them.
+- **Inbox read/dismiss are idempotent BY DESIGN, deliberately outside the Idempotency-Key /
+  If-Match conventions — with the reasoning in the contract.** Both are set-once monotonic stamps
+  on a single-owner row (COALESCE keeps the first value; revision bumps only on a real write, in
+  one SQL statement), so a retry or concurrent duplicate converges on identical state and
+  response by construction: an idempotency record would duplicate what the write already
+  guarantees, and a revision precondition would force clients to serialize inherently commutative
+  writes (two devices marking the same entry read). Garden-content commands are neither
+  single-owner nor monotonic, which is exactly why they need both headers. Non-ownership conceals
+  as `notification.not_found`. The inbox list itself is keyset-paginated over the UUIDv7 id
+  ordering (`ListGardens`' opaque-cursor mechanic) — a browsable history, deliberately not
+  Today's capped selection.
+- **Contract**: new `Notifications` tag — `GET /notifications`, `POST /notifications/{id}/read`,
+  `POST /notifications/{id}/dismiss`, `GET`/`PUT /notification-preferences` — with
+  `NotificationType` an OPEN string (an unknown type must render through the client's generic
+  fallback; an enum would break shipped clients at every addition), `templateKey` + structured
+  `parameters` for locale-late client rendering (section 8: identifiers and small facts only,
+  never rendered text). `PUT` joins the CORS method list in `app.ts` — the PATCH/DELETE lesson
+  its comment records, applied before a browser hits it. The internal envelope/summary contract
+  lives beside `media-processing.ts`/`recommendation-events.ts`, hand-written, outside OpenAPI.
+- **Composition**: `compose-notifications.ts` (the established split), the events route in
+  app.ts's machine-to-machine block under the SAME `CloudTasksInvocationVerifier`, the user routes
+  in the authenticated block. Workers config gains required `NOTIFICATION_EVENTS_URL`
+  (deploy-workers.sh derives it from the live API URL like the sweep URLs; configuration load
+  fails loudly without it); no API config at all — the TTL is a domain constant, and the verifier
+  reuses the existing audience.
+
+### Fixed in place (not deferred)
+
+1. The quiet-hours resolver's first draft probed offsets only at the target wall time (the naive
+   two-probe refinement) and resolved fall-back ambiguity as "globally first occurrence" — which
+   sent a recipient inside the repeated hour's second pass to TOMORROW's window end, a ~24-hour
+   deferral for a 15-minute quiet remainder. Caught while reasoning through the New York
+   2026-11-01 case before any test ran; rewritten as ±1-day offset probes plus "earliest
+   occurrence still ahead of now", and both directions of the edge are pinned by tests.
+2. The integration suite's first run seeded a `completed` candidate without `presented_at` and
+   was rejected by P7-DATA-01's presentation-timestamp CHECK — the constraint doing its job
+   against its own consumer; the seeding helper now stamps presented-and-beyond states.
+
+### Known limitations, deliberately deferred (recorded in `deferred-capabilities.md`)
+
+- Push delivery whole: FCM adapter, device-token records, Cloud Task scheduling at
+  `earliest_delivery_at`, and send-time recheck EXECUTION — P7-NOTIF-02 (the recheck's
+  classification logic ships now and is what that worker re-runs).
+- `pending → expired` at scale (recipients who never open their inbox) — the send worker's close.
+- Email channel, digest behavior, security-notice opt-out classification — with the stages that
+  introduce those types (P9 collaboration).
+- Client inbox UI — the contract surface ships now; no client renders it yet.
+
+### Verification evidence
+
+- Full API suite: 162 files / 1128 tests before → **173 files / 1228 tests** after (+11 files /
+  +100 tests): four domain suites (42 — the DST matrix, the intent state machine, preference
+  resolution, the policy decisions), four application suites over fakes (32 — fan-out,
+  garden-override re-enable, per-recipient quiet hours, redelivery collapse, stale-backlog
+  suppression, supersession-of-stale-event, inbox pagination/expiry, convergent stamps, the
+  preference document lifecycle), the migration suite (10 — every CHECK, the dedup uniqueness,
+  the profile cascade, `verdery_worker` gets NOTHING, down drops the schema whole),
+  `notification-routes.test.ts` (9 HTTP — including the full internal-event → inbox flow and the
+  412/404/400 surfaces), and `notifications.test.ts` (7 real-PostgreSQL — including the
+  `Promise.all` dedup race and the Tokyo-vs-UTC deferral), all green, real Docker.
+- Rollback-count ripple applied: all fourteen earlier rollback-testing migration suites bumped +1
+  (2 through 15) with their range comments naming `notifications-baseline` as the new top;
+  re-proven in the full run above.
+- Workers suite: 20 files / 112 tests before → **20 files / 117 tests** after (+5: forward-then-
+  publish with no job-store/queue touch, failed-dispatch redelivery with API-side dedup, mixed-
+  batch failure isolation, the real-PostgreSQL claim-forward-publish round trip for the fourth
+  event type, and the missing-`NOTIFICATION_EVENTS_URL` configuration rejection); build clean.
+- `@verdery/api-contracts`: redocly lint clean, `generate:check` clean, 29 contract tests pass.
+- Web suite: 62 files / 518 tests, untouched and green.
+- Root `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `node scripts/check-file-size.mjs`,
+  and `bash -n` on `deploy-workers.sh` all clean.

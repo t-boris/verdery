@@ -98,6 +98,12 @@ env_vars+=",MEDIA_RETENTION_SWEEP_URL=${api_service_url}/v1/internal/media-reten
 # hours) unless overridden here.
 env_vars+=",WEATHER_REFRESH_SWEEP_URL=${api_service_url}/v1/internal/weather-refresh/sweep"
 env_vars+=",RECOMMENDATION_EVALUATION_SWEEP_URL=${api_service_url}/v1/internal/recommendation-evaluation/sweep"
+# P7-NOTIF-01: the API's internal notification-policy endpoint the relay
+# forwards recommendation.candidate_created outbox events to, authenticated
+# for the same audience yet again; services/workers' configuration load
+# fails loudly without it. No interval variable of its own — the relay's
+# existing poll cadence is the schedule.
+env_vars+=",NOTIFICATION_EVENTS_URL=${api_service_url}/v1/internal/notifications/events"
 
 # `MEDIA_PROCESSING_TASK_URL` is self-referential (this service's own
 # validation-job route) — the exact same "look up the already-existing

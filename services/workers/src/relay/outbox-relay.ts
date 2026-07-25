@@ -62,14 +62,28 @@
  * `ensureRequested`/`enqueue`/`markQueued`/`markPublished` sequence, just
  * parameterized by `jobKind` now instead of a single hardcoded value.
  *
- * Source: implementation-plan.md work packages P6-ASYNC-01, P6-WORKER-02;
- * architecture/asynchronous-processing.md, sections "4. Transactional
- * Outbox", "5. Cloud Tasks", "11. Idempotency", "12. Retry Classification".
+ * P7-NOTIF-01 adds a second FAMILY, not a fourth job kind:
+ * `recommendation.candidate_created` events are FORWARDED whole to
+ * `services/api`'s internal notification-policy endpoint (see
+ * `notification-event-dispatcher.ts` for the privilege-boundary reasoning)
+ * instead of becoming media-processing jobs. The crash-recovery shape is
+ * the same publish-first/record-second sequence with one step fewer: the
+ * API endpoint is duplicate-safe per event (per-recipient deduplication
+ * keys), so `dispatch` then `markPublished` needs no durable job row in
+ * between — a crash between the two re-delivers next tick and the API
+ * converges to zero new intents.
+ *
+ * Source: implementation-plan.md work packages P6-ASYNC-01, P6-WORKER-02,
+ * P7-NOTIF-01; architecture/asynchronous-processing.md, sections
+ * "4. Transactional Outbox", "5. Cloud Tasks", "11. Idempotency",
+ * "12. Retry Classification"; architecture/notifications.md, section
+ * "5. Flow".
  */
 
 import {
   MEDIA_DELETION_REQUESTED_EVENT_TYPE,
   MEDIA_DERIVATIVE_GENERATION_REQUESTED_EVENT_TYPE,
+  RECOMMENDATION_CANDIDATE_CREATED_EVENT_TYPE,
   type MediaDeletionRequestedEventPayload,
   type MediaProcessingManifest,
   type MediaProcessingRequestedEventPayload,
@@ -80,6 +94,7 @@ import {
   MEDIA_VALIDATION_JOB_KIND,
 } from '../job-kind.js';
 import type { Logger } from '../logger.js';
+import type { NotificationEventDispatcher } from './notification-event-dispatcher.js';
 import type { OutboxEventRecord, OutboxEventStore } from './outbox-event-store.js';
 import type { MediaProcessingQueue } from './media-processing-queue.js';
 import type { ProcessingJobStore } from './processing-job-store.js';
@@ -106,6 +121,8 @@ export interface OutboxRelayDependencies {
   readonly outboxEvents: OutboxEventStore;
   readonly processingJobs: ProcessingJobStore;
   readonly mediaProcessingQueue: MediaProcessingQueue;
+  /** P7-NOTIF-01: forwards `recommendation.candidate_created` events to the API's notification policy — see this file's header. */
+  readonly notificationEvents: NotificationEventDispatcher;
   readonly clock: Clock;
   readonly logger: Logger;
   readonly batchSize: number;
@@ -115,6 +132,8 @@ export interface RelayTickResult {
   readonly claimed: number;
   readonly enqueued: number;
   readonly alreadyQueued: number;
+  /** Notification-relevant events forwarded to — and durably processed by — the API this tick (P7-NOTIF-01). */
+  readonly notificationsDispatched: number;
   readonly failed: number;
   /**
    * Age of the OLDEST event this tick claimed, measured `occurred_at` -> now
@@ -185,15 +204,21 @@ export class OutboxRelay {
 
     let enqueued = 0;
     let alreadyQueued = 0;
+    let notificationsDispatched = 0;
     let failed = 0;
 
     for (const event of events) {
       try {
-        const wasEnqueued = await this.processOne(event);
-        if (wasEnqueued) {
-          enqueued += 1;
+        if (event.eventType === RECOMMENDATION_CANDIDATE_CREATED_EVENT_TYPE) {
+          await this.dispatchNotificationEvent(event);
+          notificationsDispatched += 1;
         } else {
-          alreadyQueued += 1;
+          const wasEnqueued = await this.processOne(event);
+          if (wasEnqueued) {
+            enqueued += 1;
+          } else {
+            alreadyQueued += 1;
+          }
         }
       } catch (error) {
         failed += 1;
@@ -204,7 +229,26 @@ export class OutboxRelay {
       }
     }
 
-    return { claimed: events.length, enqueued, alreadyQueued, failed, oldestClaimedEventAgeMs };
+    return {
+      claimed: events.length,
+      enqueued,
+      alreadyQueued,
+      notificationsDispatched,
+      failed,
+      oldestClaimedEventAgeMs,
+    };
+  }
+
+  /**
+   * The notification family's publish-first/record-second pair: the API's
+   * 2xx means the event is durably processed (its policy outcomes
+   * committed), so only then is the row marked published. A crash between
+   * the two re-delivers next tick; the API's per-recipient deduplication
+   * keys make the replay a converging no-op — see this file's header.
+   */
+  private async dispatchNotificationEvent(event: OutboxEventRecord): Promise<void> {
+    await this.deps.notificationEvents.dispatch(event);
+    await this.deps.outboxEvents.markPublished(event.id, this.deps.clock.now());
   }
 
   /** Returns `true` when this call actually enqueued a Cloud Tasks task, `false` when the job was already past `requested` (crash-recovery replay). */

@@ -2,16 +2,24 @@ import {
   MEDIA_DELETION_REQUESTED_EVENT_TYPE,
   MEDIA_DERIVATIVE_GENERATION_REQUESTED_EVENT_TYPE,
   MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
+  RECOMMENDATION_CANDIDATE_CREATED_EVENT_TYPE,
 } from '@verdery/api-contracts';
 import type { Kysely } from 'kysely';
 import type { OutboxEventRecord, OutboxEventStore } from './outbox-event-store.js';
 import type { RelayDatabaseSchema } from './relay-database-schema.js';
 
-/** The three event types this relay recognizes — see `OutboxEventRecord.eventType`'s own doc comment. */
+/**
+ * The four event types this relay recognizes — the three media-processing
+ * kinds plus, since P7-NOTIF-01, the notification-relevant
+ * `recommendation.candidate_created` (forwarded to the API's notification
+ * policy rather than becoming a job — see `outbox-relay.ts`'s header).
+ * Rows of any other type stay unpublished until a consumer claims them.
+ */
 const RECOGNIZED_EVENT_TYPES = [
   MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
   MEDIA_DERIVATIVE_GENERATION_REQUESTED_EVENT_TYPE,
   MEDIA_DELETION_REQUESTED_EVENT_TYPE,
+  RECOMMENDATION_CANDIDATE_CREATED_EVENT_TYPE,
 ] as const;
 
 export class KyselyOutboxEventStore implements OutboxEventStore {

@@ -19,6 +19,7 @@ import { promisify } from 'node:util';
 import {
   MEDIA_DERIVATIVE_GENERATION_REQUESTED_EVENT_TYPE,
   MEDIA_PROCESSING_REQUESTED_EVENT_TYPE,
+  RECOMMENDATION_CANDIDATE_CREATED_EVENT_TYPE,
 } from '@verdery/api-contracts';
 import type { MediaProcessingRequestedEventPayload } from '@verdery/api-contracts';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
@@ -29,7 +30,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { KyselyOutboxEventStore } from './kysely-outbox-event-store.js';
 import { KyselyProcessingJobStore } from './kysely-processing-job-store.js';
 import { OutboxRelay } from './outbox-relay.js';
-import { FakeMediaProcessingQueue, fixedClock, silentLogger } from './relay-test-doubles.js';
+import {
+  FakeMediaProcessingQueue,
+  FakeNotificationEventDispatcher,
+  fixedClock,
+  silentLogger,
+} from './relay-test-doubles.js';
 import type { RelayDatabaseSchema } from './relay-database-schema.js';
 
 const execFileAsync = promisify(execFile);
@@ -133,6 +139,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       outboxEvents: new KyselyOutboxEventStore(db),
       processingJobs: new KyselyProcessingJobStore(db),
       mediaProcessingQueue,
+      notificationEvents: new FakeNotificationEventDispatcher(),
       clock: fixedClock(NOW),
       logger: silentLogger(),
       batchSize: 20,
@@ -147,6 +154,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       claimed: 1,
       enqueued: 1,
       alreadyQueued: 0,
+      notificationsDispatched: 0,
       failed: 0,
       oldestClaimedEventAgeMs: 0,
     });
@@ -174,6 +182,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       outboxEvents: new KyselyOutboxEventStore(db),
       processingJobs: new KyselyProcessingJobStore(db),
       mediaProcessingQueue,
+      notificationEvents: new FakeNotificationEventDispatcher(),
       clock: fixedClock(NOW),
       logger: silentLogger(),
       batchSize: 20,
@@ -202,6 +211,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       outboxEvents: new KyselyOutboxEventStore(db),
       processingJobs: new KyselyProcessingJobStore(db),
       mediaProcessingQueue,
+      notificationEvents: new FakeNotificationEventDispatcher(),
       clock: fixedClock(NOW),
       logger: silentLogger(),
       batchSize: 20,
@@ -213,6 +223,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       claimed: 1,
       enqueued: 0,
       alreadyQueued: 1,
+      notificationsDispatched: 0,
       failed: 0,
       oldestClaimedEventAgeMs: 0,
     });
@@ -242,6 +253,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       outboxEvents: new KyselyOutboxEventStore(db),
       processingJobs: new KyselyProcessingJobStore(db),
       mediaProcessingQueue: new FakeMediaProcessingQueue(),
+      notificationEvents: new FakeNotificationEventDispatcher(),
       clock: fixedClock(NOW),
       logger: silentLogger(),
       batchSize: 20,
@@ -277,6 +289,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       outboxEvents: new KyselyOutboxEventStore(db),
       processingJobs: new KyselyProcessingJobStore(db),
       mediaProcessingQueue,
+      notificationEvents: new FakeNotificationEventDispatcher(),
       clock: fixedClock(NOW),
       logger: silentLogger(),
       batchSize: 20,
@@ -288,6 +301,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       claimed: 1,
       enqueued: 1,
       alreadyQueued: 0,
+      notificationsDispatched: 0,
       failed: 0,
       oldestClaimedEventAgeMs: 0,
     });
@@ -298,5 +312,54 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       [derivativeEventId],
     );
     expect(jobRow.rows[0]).toEqual({ job_kind: 'derivative_generation', state: 'queued' });
+  });
+
+  it('claims a real recommendation.candidate_created row, forwards it, and marks it published without creating any job (P7-NOTIF-01)', async () => {
+    const notificationEventId = randomUUID();
+    const candidateId = randomUUID();
+    await pool.query(
+      `INSERT INTO platform.outbox_event
+         (id, event_type, aggregate_type, aggregate_id, payload, occurred_at)
+       VALUES ($1, $2, 'recommendation_candidate', $3, $4, now())`,
+      [
+        notificationEventId,
+        RECOMMENDATION_CANDIDATE_CREATED_EVENT_TYPE,
+        candidateId,
+        JSON.stringify({ candidateId }),
+      ],
+    );
+
+    const notificationEvents = new FakeNotificationEventDispatcher();
+    const relay = new OutboxRelay({
+      outboxEvents: new KyselyOutboxEventStore(db),
+      processingJobs: new KyselyProcessingJobStore(db),
+      mediaProcessingQueue: new FakeMediaProcessingQueue(),
+      notificationEvents,
+      clock: fixedClock(NOW),
+      logger: silentLogger(),
+      batchSize: 20,
+    });
+
+    const result = await relay.tick();
+
+    expect(result).toMatchObject({ claimed: 1, notificationsDispatched: 1, failed: 0 });
+    expect(notificationEvents.dispatched[0]).toMatchObject({
+      id: notificationEventId,
+      eventType: RECOMMENDATION_CANDIDATE_CREATED_EVENT_TYPE,
+      payload: { candidateId },
+    });
+
+    const outboxRow = await pool.query<{ published_at: Date | null; publish_attempts: number }>(
+      'SELECT published_at, publish_attempts FROM platform.outbox_event WHERE id = $1',
+      [notificationEventId],
+    );
+    expect(outboxRow.rows[0]?.published_at).not.toBeNull();
+    expect(outboxRow.rows[0]?.publish_attempts).toBe(1);
+
+    // No job row was created for the forwarded event.
+    const jobRow = await pool.query('SELECT id FROM media.processing_job WHERE id = $1', [
+      notificationEventId,
+    ]);
+    expect(jobRow.rows).toHaveLength(0);
   });
 });

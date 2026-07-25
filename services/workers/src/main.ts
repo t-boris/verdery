@@ -22,6 +22,7 @@ import { ProcessMediaDerivativeGenerationJob } from './derivatives/process-media
 import { createLogger, SERVICE_NAME } from './logger.js';
 import { MediaProcessingJobRouter } from './media-processing-job-router.js';
 import { CloudTasksMediaProcessingQueue } from './relay/cloud-tasks-media-processing-queue.js';
+import { GoogleApiNotificationEventDispatcher } from './relay/google-api-notification-event-dispatcher.js';
 import { KyselyOutboxEventStore } from './relay/kysely-outbox-event-store.js';
 import { KyselyProcessingJobStore } from './relay/kysely-processing-job-store.js';
 import { OutboxRelay } from './relay/outbox-relay.js';
@@ -120,6 +121,13 @@ async function main(): Promise<void> {
     outboxEvents: new KyselyOutboxEventStore(relayDatabase.db),
     processingJobs: new KyselyProcessingJobStore(relayDatabase.db),
     mediaProcessingQueue,
+    // P7-NOTIF-01: `recommendation.candidate_created` events are forwarded
+    // to the API's notification-policy endpoint, authenticated for the
+    // same worker-to-API audience as everything else this process calls.
+    notificationEvents: new GoogleApiNotificationEventDispatcher(
+      configuration.notificationEventsUrl,
+      configuration.mediaProcessing.resultCallbackAudience,
+    ),
     clock: { now: () => new Date() },
     logger,
     batchSize: configuration.relay.batchSize,

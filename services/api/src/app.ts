@@ -18,6 +18,7 @@ import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import { composeGardensMapping } from './compose-gardens-mapping.js';
 import { composeIntegrations } from './compose-integrations.js';
 import { composeMedia } from './compose-media.js';
+import { composeNotifications } from './compose-notifications.js';
 import { composeSynchronization } from './compose-synchronization.js';
 import { composeTasksRecommendations } from './compose-tasks-recommendations.js';
 import { registerWeatherRefreshSweepRoute } from './modules/integrations/public.js';
@@ -33,6 +34,10 @@ import {
   registerMediaRoutes,
 } from './modules/media/public.js';
 import type { MediaStorageGateway } from './modules/media/public.js';
+import {
+  registerNotificationEventsRoute,
+  registerNotificationRoutes,
+} from './modules/notifications/public.js';
 import {
   CorrectObservation,
   GetObservation,
@@ -167,7 +172,10 @@ export async function buildApplication(
     // `app.inject()`-based HTTP tests never exercise a browser's CORS
     // preflight at all, so this went unnoticed until a real browser E2E
     // sign-out (apps/web/e2e/sign-out.spec.ts) hit it directly.
-    methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+    // PUT joined the list with P7-NOTIF-01's whole-document
+    // `PUT /notification-preferences` — the same lesson, applied before a
+    // browser hits it rather than after.
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   });
 
   await app.register(underPressure, {
@@ -387,6 +395,16 @@ export async function buildApplication(
     cloudTasksInvocationVerifier,
   );
 
+  // notifications (P7-NOTIF-01): the in-app inbox, preferences, and the
+  // internal event endpoint the workers outbox relay posts
+  // `recommendation.candidate_created` events to. Reuses
+  // `gardenAuthorization` (garden-scoped preference entries) and the same
+  // worker-to-API invocation verifier as every sweep. Split into
+  // `compose-notifications.ts` for the same 600-line reason as its
+  // siblings.
+  const { notificationRoutesDependencies, notificationEventsRouteDependencies } =
+    composeNotifications(database, clock, gardenAuthorization, cloudTasksInvocationVerifier);
+
   // synchronization (P5-BE-01, P5-API-01): the native offline outbox
   // protocol's client-registration, push, and acknowledge endpoints. Depends
   // on every module wired above — it routes across all five record families
@@ -443,6 +461,9 @@ export async function buildApplication(
         instance,
         recommendationEvaluationSweepRouteDependencies,
       );
+      // P7-NOTIF-01: the workers outbox relay's notification-event
+      // endpoint — same identity check yet again.
+      registerNotificationEventsRoute(instance, notificationEventsRouteDependencies);
       done();
     },
     { prefix: API_BASE_PATH },
@@ -467,6 +488,7 @@ export async function buildApplication(
       registerObservationRoutes(instance, observationRoutesDependencies);
       registerTaskRoutes(instance, taskRoutesDependencies);
       registerRecommendationRoutes(instance, recommendationRoutesDependencies);
+      registerNotificationRoutes(instance, notificationRoutesDependencies);
       registerMediaRoutes(instance, mediaRoutesDependencies);
       registerSyncRoutes(instance, syncRoutesDependencies);
       done();

@@ -114,6 +114,14 @@ export const environmentSchema = z.object({
   WEATHER_REFRESH_SWEEP_INTERVAL_MS: durationMilliseconds.default(3_600_000),
   RECOMMENDATION_EVALUATION_SWEEP_URL: z.string().url(),
   RECOMMENDATION_EVALUATION_SWEEP_INTERVAL_MS: durationMilliseconds.default(21_600_000),
+
+  // P7-NOTIF-01: the API's internal notification-policy endpoint the relay
+  // forwards each claimed `recommendation.candidate_created` outbox event
+  // to (`POST /v1/internal/notifications/events`), authenticated with an ID
+  // token for the SAME audience as the result callback and every sweep —
+  // one worker-to-API identity. No interval of its own: the relay's
+  // existing poll cadence is the schedule.
+  NOTIFICATION_EVENTS_URL: z.string().url(),
 });
 
 export type RawEnvironment = z.infer<typeof environmentSchema>;
@@ -158,6 +166,8 @@ export interface WorkerConfiguration {
   readonly retentionSweep: SweepScheduleConfiguration;
   readonly weatherRefreshSweep: SweepScheduleConfiguration;
   readonly recommendationEvaluationSweep: SweepScheduleConfiguration;
+  /** P7-NOTIF-01 — see the schema's own comment on `NOTIFICATION_EVENTS_URL`. */
+  readonly notificationEventsUrl: string;
 }
 
 /** Raised when the process environment cannot produce a valid configuration. */
@@ -209,6 +219,7 @@ function toWorkerConfiguration(raw: RawEnvironment): WorkerConfiguration {
       sweepUrl: raw.RECOMMENDATION_EVALUATION_SWEEP_URL,
       intervalMs: raw.RECOMMENDATION_EVALUATION_SWEEP_INTERVAL_MS,
     },
+    notificationEventsUrl: raw.NOTIFICATION_EVENTS_URL,
   };
 }
 

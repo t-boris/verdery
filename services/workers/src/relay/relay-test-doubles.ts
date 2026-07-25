@@ -6,11 +6,13 @@
  * Not itself a `*.test.ts` file, so vitest never runs it as a suite.
  */
 
+import type { NotificationEventProcessingSummary } from '@verdery/api-contracts';
 import type { Logger } from '../logger.js';
 import type {
   MediaProcessingQueue,
   MediaProcessingQueueMessage,
 } from './media-processing-queue.js';
+import type { NotificationEventDispatcher } from './notification-event-dispatcher.js';
 import type { OutboxEventRecord, OutboxEventStore } from './outbox-event-store.js';
 import type {
   EnsureRequestedInput,
@@ -106,6 +108,31 @@ export class FakeMediaProcessingQueue implements MediaProcessingQueue {
       this.enqueued.push(message);
     }
     return Promise.resolve();
+  }
+}
+
+/** Records every dispatched event; duplicate-safe like the real API endpoint (a repeated event id is counted, not an error). */
+export class FakeNotificationEventDispatcher implements NotificationEventDispatcher {
+  readonly dispatched: OutboxEventRecord[] = [];
+  rejectNextWith: Error | null = null;
+
+  dispatch(event: OutboxEventRecord): Promise<NotificationEventProcessingSummary> {
+    if (this.rejectNextWith !== null) {
+      const error = this.rejectNextWith;
+      this.rejectNextWith = null;
+      return Promise.reject(error);
+    }
+
+    const alreadyDispatched = this.dispatched.some((seen) => seen.id === event.id);
+    this.dispatched.push(event);
+    return Promise.resolve({
+      eventType: event.eventType,
+      recipientsConsidered: 1,
+      intentsCreated: alreadyDispatched ? 0 : 1,
+      intentsDeduplicated: alreadyDispatched ? 1 : 0,
+      suppressed: {},
+      priorIntentsSuperseded: 0,
+    });
   }
 }
 
