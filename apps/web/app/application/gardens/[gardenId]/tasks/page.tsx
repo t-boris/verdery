@@ -25,8 +25,10 @@ export default async function TasksPage({
         <p className={styles['description']}>{t('tasks.pageDescription')}</p>
       </div>
 
+      {/* No section heading: it would repeat the page title verbatim
+          ("Tasks" above "Tasks"), which the deployed page showed plainly.
+          The filter panel and list are self-describing. */}
       <div className={styles['section']}>
-        <h2 className={styles['sectionTitle']}>{t('tasks.listTitle')}</h2>
         <TaskList gardenId={gardenId} />
       </div>
 
