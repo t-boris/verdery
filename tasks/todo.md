@@ -5860,3 +5860,125 @@ of scope.
 **Client UI is out of scope and is a dated gap, not an open deferral**: the App Store requires an
 in-app account-deletion path, so P8-STORE-01 cannot ship without an iOS screen over
 `POST /account/deletion`. The endpoints are ready and need no backend change.
+
+## Stage 33 — P8-SEC-01, implementation complete
+
+`docs/development/threat-model.md` models the system that ACTUALLY exists at this commit: ten
+surfaces, a deployed-topology diagram with six named trust boundaries, and a 92-row mitigation
+register (59 implemented-with-evidence, 28 planned-with-owner, 5 accepted-risk-pending-signature —
+counts verified against the table rows, not asserted). The signature stays open by design: the
+acceptance evidence is a SIGNED register, and no agent can sign it.
+
+Findings grounded in code rather than a template: no rate limiting exists anywhere; membership
+cannot be revoked at all (closed by Stage 32 while this was written); `/v1/internal/*` is publicly
+routable twice; signed-URL lifetimes are unbounded in configuration; the exports module — the
+highest-value data-egress path — writes no audit event while both sibling modules do; and the
+report-only CSP collects nothing and would break sign-in if flipped today. SSRF is shown mitigated
+by ABSENCE, proven by enumerating every outbound call, and registered as an invariant a future
+feature must not erase.
+
+Three fixes the model specified were held back because concurrent work packages owned their trees,
+then applied: HSTS from the web front door, bounded signed-access TTLs (capped at Cloud Storage's
+own V4 signing limit, so a larger value buys nothing), and an `export.requested` audit event
+recorded in the same transaction as the insert.
+
+## Stage 34 — P8-STORE-01 (automatable half), implementation complete
+
+The iOS app builds for a real device for the first time, and CI now proves it. `apps/ios` had an
+XcodeGen project nothing had ever built — CI ran only `swift build`/`swift test`, which compile for
+macOS. The first `-sdk iphoneos` build exposed four latent ship-blockers, all fixed: the
+authentication gateway did not compile for iOS (a Swift 6 concurrency error behind `#if os(iOS)`
+the macOS path never type-checked); the Xcode project had drifted four phases behind `project.yml`
+with `AppDelegate.swift` missing entirely; `GoogleService-Info.plist` was never bundled because
+`project.yml` used a key XcodeGen silently ignores, so `FirebaseApp.configure()` would have trapped
+on launch; and the build number was baked as a literal, so every TestFlight upload after the first
+would have been rejected as a duplicate.
+
+The app now archives into a signed `.ipa`, which proves membership, agreements, and the App ID are
+all real — shortening the owner list to four actions (App Store Connect record, agreements/tax/
+banking, an API key, TestFlight testers), recorded verbatim in
+`docs/development/ios-distribution.md`. Signing uses plain `xcodebuild` with native API-key auth
+rather than fastlane, which would be the only Ruby in the repository to wrap three first-party
+commands.
+
+The generated `.xcodeproj` is now gitignored and generated in CI instead of committed: a staleness
+gate was tried first and failed on its own first run, because XcodeGen's output varies by tool
+version, so CI and a developer machine disagreed about a file neither authored. Generating removes
+the drift by construction. The CI build command is the `-scheme`/generic-destination form, not
+`-target`/`-sdk`: the latter reads plausible but fails reproducibly because Firebase's SPM checkouts
+build with explicit modules whose module maps that path never generates — verified against a
+cleaned DerivedData rather than shipping a command that would fail on every push.
+
+## Stage 35 — P8-REL-01, implementation complete
+
+`docs/development/runbooks.md`: ten runbooks with a per-step exercised / read-only-verified /
+unexercised-with-blocker disposition and a 23-entry exercise log (~47 s of measured command time,
+nothing mutating run).
+
+Investigating the real posture corrected the plan's own assumption. Cloud SQL DOES have daily
+backups, 7 retained, PITR on with 7-day log retention. What is missing is different and more
+specific: the instance is ZONAL with no standby, deletion protection is off, no restore has ever
+been performed — so by the architecture's own standard the backups are unvalidated — bucket
+versioning is off, and every bucket is single-region.
+
+Findings that reshaped the runbooks rather than decorating them: `verdery-workers-dev` does not
+exist, so the relay and all four sweeps have never run anywhere and the Cloud Tasks API is still
+disabled; there are zero alert policies, notification channels, and log-based metrics, so no
+runbook may open with "when the alert fires" — every trigger is a human-run query; deploys create
+revisions in PAIRS sharing one image digest, so "roll back one revision" rolls back to the same
+code; `platform.outbox_event` has no terminal state, so a poisoned event retries forever; and Cloud
+Tasks has no dead-letter concept at all — the "dead letter" is a SQL query.
+
+## Stage 36 — P8-NET-01 and P8-DB-01 (written half), implementation complete
+
+Six scripts plus `config/prod.env`, none executed, none in `provision.sh`, each gated behind an
+explicit `VERDERY_APPLY=yes` because every one either costs money or restarts a database. Owner-
+decision values are left EMPTY rather than placeholdered — a plausible placeholder is a value a
+script applies for real.
+
+The edge: an HTTPS load balancer with serverless NEGs and a managed certificate; Cloud Armor with
+15 rules, where the WAF sets matching STRUCTURE are enforced and those matching CONTENT stay in
+preview, because this API accepts bilingual free-text plant names and CRS reliably flags
+apostrophes and the word "select"; and four rate limits derived from real usage (20 auth attempts
+per 5 minutes with a ban, because a 429 costs an attacker nothing on the product's most expensive
+unauthenticated endpoint; 600/min baseline counting only JSON and static assets, since media bytes
+ride signed GCS URLs that never reach the balancer).
+
+The threat model's twice-routable `/v1/internal/*` closes three ways, because ingress alone is not
+enough — the balancer deliberately routes `/v1/*` to the API, so it would reopen at the front door
+what ingress shut at the back: the ingress restriction removes the `*.run.app` route, the
+production web image is built WITHOUT `API_PROXY_ORIGIN` so the rewrite does not exist, and an
+Armor rule answers 404. `verify.sh` asserts all three. `allUsers` deliberately STAYS: a serverless
+NEG forwards no identity token, so removing it would 403 every balancer request — the script prints
+that reasoning so nobody "fixes" it.
+
+The database: regional HA (which forces a tier change, since shared-core cannot do HA at all),
+deletion protection, explicit backup/PITR, and `max_connections=100` derived from the actual pool
+arithmetic, with the instance-count alert threshold at 18 because `(100-8)/5` is the last moment an
+alert still precedes the failure. Every script defaults to today's dev behavior byte for byte,
+verified against the live service.
+
+## Stage 37 — P8-SLO-01, P8-LOAD-01, P8-SUPPORT-01, P8-GA-01 (buildable halves), complete
+
+Four packages whose named deliverable is an owner gate — an approval, a run against staging, an
+inbox with a person behind it, a signature. Each ships the artifact that makes the gate a real
+decision: `service-levels.md` (12 proposed SLIs/SLOs, error budget, quotas, retention schedule,
+owners), `load-testing.md` + `tests/load/` (a k6 harness for all seven scenarios, smoke-verified
+live), `support-operations.md` (severity, triage, diagnostics, disable controls, a support-access
+specification), and `ga-checklist.md` (61 gates: 19 automated, 26 never run as a release gate, 16
+impossible with named blockers).
+
+Every SLO number is derived so a reviewer can disagree with the derivation rather than the number.
+The 5-minute notification target is the sweep interval plus the claim lease, which exposes a
+ceiling nobody had written down: 1,500 intents per hour, above which the objective is unmeetable at
+any latency.
+
+Three retention findings: raw-capture's 30-day policy is user-visible and structurally
+unexecutable; `sync_change` and `idempotency_record` grow without bound because both 30-day
+constants gate a cursor or a replay, not a row; and `audit_event` has no policy at all — correctly
+never pruned, but "forever" was never decided.
+
+The support design builds into a seam the schema already left open: `audit_event` permits an
+`administrator` actor type with no producer anywhere, verified. The harness's own guard had a
+defect caught by running the refusal case rather than reading it — its allowlist matched a hostname
+that does not exist, so a full-profile run against the live service was silently permitted.
