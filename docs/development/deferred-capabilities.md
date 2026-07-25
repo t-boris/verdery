@@ -991,3 +991,54 @@ list. A "recommendation history" surface (terminal candidates, their feedback, a
 supersession/re-surfacing chain `supersedesCandidateId` already stores) needs a new read operation
 under the `Recommendations` tag first — a backend/contract addition no current work package owns.
 Until then, clients must not fabricate history from cached Today responses.
+
+**Capacity and unit-cost numbers.** The k6 harness for all seven P8-LOAD-01 scenarios exists and
+runs (`tests/load/`, documented in [load-testing.md](load-testing.md)), and its smoke scenario has
+been executed against the live `verdery-dev` API. Every capacity number is still deferred, because
+`verdery-dev` is not merely smaller than a production environment — it is differently shaped in the
+exact dimensions a load test measures. `--max-instances=2` is reached before any interesting
+saturation behaviour, so the result is the cap rather than the system; the shared-core `db-f1-micro`
+dominates every latency measurement; `services/workers` is not deployed, so four of the seven
+scenarios have no server-side counterpart; and there is no rate limiting, load balancer, or Cloud
+Armor, so a saturation test would measure the absence of the controls P8-NET-01 exists to add.
+Flips with a staging environment.
+
+**Application rate limiting and the storage-quota ceiling.** There is no rate limiting anywhere:
+`@fastify/rate-limit` is not a dependency, and the `429` machinery (`quota.rate_limited`,
+`QuotaExceededError`) is a translation layer for inbound provider 429s with no producer of its own.
+The per-user storage quota is the opposite shape — `media/domain/quota-reservation.ts` implements
+reserve → commit/release completely and correctly, and compares the total to nothing, because no
+numeric limit has ever been decided. Both are threat-model.md's `T-COST-01`/`-02`/`-03`/`-05`/`-10`,
+and both are small application changes once the numbers exist. [service-levels.md](service-levels.md)
+section 7 proposes them; approving that section is what flips this. The infrastructure half is
+written and unapplied in `12-cloud-armor.sh`.
+
+**Two list endpoints with no pagination.** `ListObservationsForGarden`, `ListObservationsForPlant`,
+and `ListTasksForGarden` have no `limit` in the application layer, the transport layer, or the SQL —
+a garden with 100,000 observations returns all of them in one response, against a service whose only
+backpressure is a 1000 ms event-loop shed. Every other list endpoint is bounded at 100 by the
+contract's shared `Limit` parameter. An entity ceiling is not a substitute: a 50,000-row response is
+a denial of service against the client even when it is a legal one against the server. Flips with
+the quota work above, and belongs with it.
+
+**Pruning for `platform.sync_change` and `platform.idempotency_record`.** Both carry a 30-day
+constant (`SYNC_CHANGES_RETENTION_MILLISECONDS`, `SYNC_PUSH_TTL_MILLISECONDS`) and both constants
+gate a _client-facing_ decision — whether a cursor is still resumable, whether an operation id may be
+replayed — not a row's lifetime. Nothing ever deletes from either table. This is a deliberate record
+of an undecided question rather than a bug: it cannot be both a 30-day promise and permanent storage,
+and the choice between adding a pruning sweep and accepting unbounded growth is
+[service-levels.md](service-levels.md) section 8.1's, not a sweep's to make silently.
+`platform.audit_event` sits in the same position with a different answer — nothing prunes it _by
+design_, because an audit row must outlive its subject, but "forever" has never been approved as a
+policy either.
+
+**Support access as a mechanism.** No administrative role, impersonation, support session, or
+time-limited elevation exists anywhere (threat-model.md `T-SUPPORT-01`), so the only way to answer a
+support question about a user's data today is a direct, unaudited database session by whoever holds
+the credentials. [support-operations.md](support-operations.md) section 6 specifies the buildable
+half — a `support_session` record under the existing recent-auth gate, a non-extendable time box,
+read-only scope through the `requireCapability` path every route already passes, and an audit row per
+read using the `administrator` actor type `platform.audit_event`'s own CHECK constraint already
+permits and nothing currently produces. It is deferred rather than built because P8-SUPPORT-01's
+establishment half — an inbox, a rota, a person — is an owner gate, and a support-access mechanism
+with nobody to use it would be an untested privileged path rather than a feature.
