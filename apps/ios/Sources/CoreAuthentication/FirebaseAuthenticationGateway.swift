@@ -29,31 +29,54 @@ public final class FirebaseAuthenticationGateway: AuthenticationGateway, Sendabl
     public init() {}
 
     #if os(iOS)
+    /// Runs Firebase's own web-based OAuth flow (an `ASWebAuthenticationSession`
+    /// it presents and manages internally via the default `AuthUIDelegate`) —
+    /// not the separate GoogleSignIn-iOS SDK, which this package does not
+    /// depend on — and returns the resulting Firebase ID token.
+    ///
+    /// `signIn(with: FederatedAuthProvider, uiDelegate:)` only has a
+    /// completion-handler form in this Firebase SDK version — unlike
+    /// `signIn(withEmail:link:)` below, it has no `async` overload of its own,
+    /// and Swift does not auto-bridge it. Wrapped explicitly.
+    ///
+    /// The ID token is read *inside* the callback rather than from a returned
+    /// `AuthDataResult`, so that only a `String` crosses the continuation
+    /// boundary. `AuthDataResult` is a main-actor-isolated, non-`Sendable`
+    /// reference type; resuming a continuation with one is a data race that
+    /// Swift 6's strict concurrency checking rejects outright. This is
+    /// compiled only for iOS, so a macOS-only `swift build` never surfaced it.
     @MainActor
-    public func signInWithGoogle() async throws -> String {
-        // Firebase's own web-based OAuth flow (an ASWebAuthenticationSession
-        // it presents and manages internally via the default AuthUIDelegate)
-        // — not the separate GoogleSignIn-iOS SDK, which this package does
-        // not depend on.
-        //
-        // `signIn(with: FederatedAuthProvider, uiDelegate:)` only has a
-        // completion-handler form in this Firebase SDK version — unlike
-        // `signIn(withEmail:link:)` below, it has no `async` overload of its
-        // own, and Swift does not auto-bridge it. Wrapped explicitly.
-        let provider = OAuthProvider(providerID: "google.com")
-        let result = try await withCheckedThrowingContinuation {
-            (continuation: CheckedContinuation<AuthDataResult, Error>) in
+    private func signIn(providerID: String, scopes: [String]? = nil) async throws -> String {
+        let provider = OAuthProvider(providerID: providerID)
+        if let scopes {
+            provider.scopes = scopes
+        }
+        return try await withCheckedThrowingContinuation {
+            (continuation: CheckedContinuation<String, Error>) in
             Auth.auth().signIn(with: provider, uiDelegate: nil) { authResult, error in
                 if let error {
                     continuation.resume(throwing: error)
                 } else if let authResult {
-                    continuation.resume(returning: authResult)
+                    authResult.user.getIDToken { token, tokenError in
+                        if let tokenError {
+                            continuation.resume(throwing: tokenError)
+                        } else if let token {
+                            continuation.resume(returning: token)
+                        } else {
+                            continuation.resume(
+                                throwing: CoreAuthenticationError.noResultFromFirebase)
+                        }
+                    }
                 } else {
                     continuation.resume(throwing: CoreAuthenticationError.noResultFromFirebase)
                 }
             }
         }
-        return try await result.user.getIDToken()
+    }
+
+    @MainActor
+    public func signInWithGoogle() async throws -> String {
+        try await signIn(providerID: "google.com")
     }
 
     /// Apple requires the `email` and `name` scopes to be requested
@@ -63,21 +86,7 @@ public final class FirebaseAuthenticationGateway: AuthenticationGateway, Sendabl
     /// which is all this application reads.
     @MainActor
     public func signInWithApple() async throws -> String {
-        let provider = OAuthProvider(providerID: "apple.com")
-        provider.scopes = ["email", "name"]
-        let result = try await withCheckedThrowingContinuation {
-            (continuation: CheckedContinuation<AuthDataResult, Error>) in
-            Auth.auth().signIn(with: provider, uiDelegate: nil) { authResult, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else if let authResult {
-                    continuation.resume(returning: authResult)
-                } else {
-                    continuation.resume(throwing: CoreAuthenticationError.noResultFromFirebase)
-                }
-            }
-        }
-        return try await result.user.getIDToken()
+        try await signIn(providerID: "apple.com", scopes: ["email", "name"])
     }
     #else
     // Firebase declares `signIn(with: FederatedAuthProvider, uiDelegate:)`

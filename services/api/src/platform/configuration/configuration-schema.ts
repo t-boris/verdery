@@ -108,8 +108,27 @@ export const environmentSchema = z.object({
   // begin a resumable upload after registration without holding a
   // long-lived credential open; fifteen minutes is a standard short-lived
   // window for a signed read URL.
-  MEDIA_UPLOAD_SESSION_TTL_MS: durationMilliseconds.default(3_600_000),
-  MEDIA_SIGNED_DOWNLOAD_TTL_MS: durationMilliseconds.default(900_000),
+  //
+  // Both are BOUNDED, not merely defaulted (P8-SEC-01, threat T-SIGNED-06):
+  // an unbounded duration silently turns "short-lived signed access" —
+  // security-and-privacy.md sections 9 and 12's own words, and the only
+  // thing standing between a leaked URL and unlimited access to sensitive
+  // media — into a long-lived bearer credential, from a single environment
+  // variable typo that nothing would reject. The ceiling is not invented:
+  // `MEDIA_SIGNED_DOWNLOAD_TTL_MS` feeds `getSignedUrl({ version: 'v4' })`,
+  // whose signer refuses anything past seven days outright ("Max allowed
+  // expiration is seven days (604800 seconds)",
+  // @google-cloud/storage's `signer.js`), so a larger value is not a longer
+  // URL, it is a request-time crash; and `MEDIA_UPLOAD_SESSION_TTL_MS` only
+  // advertises an expiry for a resumable session whose real lifetime is
+  // Cloud Storage's own one week (the same fact P6-RET-01's stale-upload
+  // sweep already reasons from), so advertising longer would be a lie to the
+  // client. Bounding both here keeps a misconfiguration a startup failure
+  // rather than a silent weakening — this file's established posture. A
+  // TIGHTER policy ceiling than the structural one is an owner decision,
+  // recorded in docs/development/threat-model.md's register.
+  MEDIA_UPLOAD_SESSION_TTL_MS: shortLivedDurationMilliseconds.default(3_600_000),
+  MEDIA_SIGNED_DOWNLOAD_TTL_MS: shortLivedDurationMilliseconds.default(900_000),
 
   // P6-ASYNC-01: the media-processing callback Cloud Tasks invokes
   // (`POST /v1/internal/media-processing-jobs/:jobId/callback`).
