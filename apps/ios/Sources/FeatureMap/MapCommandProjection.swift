@@ -188,7 +188,7 @@ enum MapCommandProjection {
                 geometry: geometry,
                 coordinateSpaceId: source.coordinateSpaceId,
                 label: source.label,
-                categoryDetails: source.categoryDetails,
+                categoryDetails: duplicatedDetails(of: source),
                 lifecycleState: .active,
                 revision: unconfirmedObjectRevision,
                 createdAt: now,
@@ -223,6 +223,27 @@ enum MapCommandProjection {
         case let .deleteObject(payload): payload.expectedRevision
         case let .restoreObject(payload): payload.expectedRevision
         }
+    }
+
+    /// A duplicate's details, mirroring the backend's own duplicate handler
+    /// exactly: an imported background's copy is reset to `uncalibrated`
+    /// with the server-owned calibration block dropped — calibration
+    /// revisions belong to the source object, never the copy (P6-PLAN-02's
+    /// duplicate-reset rule). Every other category carries its details
+    /// forward unchanged.
+    private static func duplicatedDetails(of source: GardenMapObject) -> GardenObjectDetails? {
+        guard case let .importedBackground(details)? = source.categoryDetails else {
+            return source.categoryDetails
+        }
+        return .importedBackground(
+            ImportedBackgroundDetails(
+                planMediaId: details.planMediaId,
+                sourcePageNumber: details.sourcePageNumber,
+                isBackgroundVisible: details.isBackgroundVisible,
+                calibrationState: .uncalibrated,
+                calibration: nil
+            )
+        )
     }
 
     private static func requireObject(_ objectId: String, in objectsById: [String: GardenMapObject]) throws -> GardenMapObject {

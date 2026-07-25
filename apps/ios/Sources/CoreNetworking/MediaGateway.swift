@@ -35,6 +35,18 @@ public protocol MediaGateway: Sendable {
     /// role that can view the garden can read it.
     func getMediaStatus(gardenId: String, mediaId: String) async throws -> Media
 
+    /// `GET /gardens/{gardenId}/media`: the garden's ORIGINAL media records
+    /// — never derivative rows — most recently created first, optionally
+    /// filtered to one media class (P6-PLAN-01; the plan-import picker
+    /// filters to `imported_plan`). `cursor`/`limit` are the contract's
+    /// ordinary keyset pagination.
+    func listGardenMedia(
+        gardenId: String,
+        mediaClass: MediaClass?,
+        cursor: String?,
+        limit: Int?
+    ) async throws -> MediaListResult
+
     /// `POST /gardens/{gardenId}/media/{mediaId}/complete`: verifies a
     /// finished upload and resolves it to `available` or `rejected`.
     /// Idempotent under a duplicate completion notification. `expectedRevision`
@@ -109,6 +121,35 @@ public struct URLSessionMediaGateway: MediaGateway {
     public func getMediaStatus(gardenId: String, mediaId: String) async throws -> Media {
         let result: MediaTransport = try await transport.get(
             operationPath: "gardens/\(gardenId)/media/\(mediaId)",
+            acceptedStatusCodes: [200]
+        )
+        return result.domainValue
+    }
+
+    public func listGardenMedia(
+        gardenId: String,
+        mediaClass: MediaClass?,
+        cursor: String?,
+        limit: Int?
+    ) async throws -> MediaListResult {
+        // Query built the same way `TaskGateway.listTasksForGarden` builds
+        // its `status` filter: every value here is an enum raw value, an
+        // opaque server-issued cursor, or an integer — none needs
+        // percent-escaping beyond what `APIConfiguration` already applies.
+        var query: [String] = []
+        if let mediaClass {
+            query.append("mediaClass=\(mediaClass.rawValue)")
+        }
+        if let cursor {
+            query.append("cursor=\(cursor)")
+        }
+        if let limit {
+            query.append("limit=\(limit)")
+        }
+        let path = "gardens/\(gardenId)/media" + (query.isEmpty ? "" : "?" + query.joined(separator: "&"))
+
+        let result: MediaListResultTransport = try await transport.get(
+            operationPath: path,
             acceptedStatusCodes: [200]
         )
         return result.domainValue

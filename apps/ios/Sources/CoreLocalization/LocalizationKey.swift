@@ -437,4 +437,79 @@ public enum LocalizationKey: String, Sendable, CaseIterable {
     case mediaStatusReady = "media.status.ready"
     case mediaStatusRejected = "media.status.rejected"
     case mediaStatusFailed = "media.status.failed"
+
+    // Property-plan document upload (P6-PLAN iOS parity) —
+    // `FeatureGardens.GardenPlanUploadView`.
+    case gardensOpenPlanUpload = "gardens.openPlanUpload"
+    case mediaPlanTitle = "media.plan.title"
+    case mediaPlanDescription = "media.plan.description"
+    case mediaPlanSelectImage = "media.plan.selectImage"
+    case mediaPlanSelectDocument = "media.plan.selectDocument"
+    case mediaPlanUnsupportedType = "media.plan.unsupportedType"
+    case mediaPlanTooLarge = "media.plan.tooLarge"
+    case mediaPlanReadFailed = "media.plan.readFailed"
+    case mediaPlanPdfNoPreview = "media.plan.pdfNoPreview"
+    case mediaPlanPreviewLoading = "media.plan.previewLoading"
+    case mediaPlanPreviewUnavailable = "media.plan.previewUnavailable"
+    case mediaPlanReadyForMap = "media.plan.readyForMap"
+    case mediaPlanStatusReady = "media.plan.statusReady"
+
+    // Map editor: imported plan backgrounds (P6-PLAN iOS parity) — the
+    // background panel, the canvas badge, and the per-background persisted
+    // visibility control. Wording mirrors the web catalogue's same-named
+    // `map.background.*` keys so the two clients state calibration
+    // quality identically.
+    case mapBackgroundPanelButton = "map.background.panelButton"
+    case mapBackgroundTitle = "map.background.title"
+    case mapBackgroundClose = "map.background.close"
+    case mapBackgroundOnMapTitle = "map.background.onMapTitle"
+    case mapBackgroundNoneOnMap = "map.background.noneOnMap"
+    case mapBackgroundPlansTitle = "map.background.plansTitle"
+    case mapBackgroundPlansLoading = "map.background.plansLoading"
+    case mapBackgroundNoPlans = "map.background.noPlans"
+    case mapBackgroundAddToMap = "map.background.addToMap"
+    case mapBackgroundPageNumber = "map.background.pageNumber"
+    case mapBackgroundPdfNoPreview = "map.background.pdfNoPreview"
+    case mapBackgroundNotCalibrated = "map.background.notCalibrated"
+    case mapBackgroundCalibrationStateLabel = "map.background.calibrationStateLabel"
+    case mapBackgroundCalibratedError = "map.background.calibratedError"
+    case mapBackgroundCalibratedNoEstimate = "map.background.calibratedNoEstimate"
+    case mapBackgroundShow = "map.background.show"
+    case mapBackgroundHide = "map.background.hide"
+    case mapBackgroundRemove = "map.background.remove"
+    case mapBackgroundRemoveConfirm = "map.background.removeConfirm"
+    case mapBackgroundUnnamed = "map.background.unnamed"
+    case mapBackgroundOpacity = "map.background.opacity"
+    case mapBackgroundImageLoading = "map.background.imageLoading"
+    case mapBackgroundImageUnavailable = "map.background.imageUnavailable"
+    case mapBackgroundLockedByCalibration = "map.background.lockedByCalibration"
+
+    // Map editor: plan-background calibration (P6-PLAN-02 iOS parity) —
+    // the calibration session bar. Step instructions say "Tap", the touch
+    // counterpart of the web catalogue's "Click"; everything else mirrors
+    // the web's `map.calibration.*` wording.
+    case mapCalibrationTitle = "map.calibration.title"
+    case mapCalibrationStart = "map.calibration.start"
+    case mapCalibrationRestart = "map.calibration.restart"
+    case mapCalibrationCancel = "map.calibration.cancel"
+    case mapCalibrationApply = "map.calibration.apply"
+    case mapCalibrationStepSegment = "map.calibration.stepSegment"
+    case mapCalibrationStepDistance = "map.calibration.stepDistance"
+    case mapCalibrationStepControlPlan = "map.calibration.stepControlPlan"
+    case mapCalibrationStepControlLocal = "map.calibration.stepControlLocal"
+    case mapCalibrationStepReady = "map.calibration.stepReady"
+    case mapCalibrationDistanceLabel = "map.calibration.distanceLabel"
+    case mapCalibrationRotationLabel = "map.calibration.rotationLabel"
+    case mapCalibrationAddControlPoint = "map.calibration.addControlPoint"
+    case mapCalibrationRepickSegment = "map.calibration.repickSegment"
+    case mapCalibrationRemovePoint = "map.calibration.removePoint"
+    case mapCalibrationControlPointsTitle = "map.calibration.controlPointsTitle"
+    case mapCalibrationNoControlPoints = "map.calibration.noControlPoints"
+    case mapCalibrationPointResidual = "map.calibration.pointResidual"
+    case mapCalibrationRms = "map.calibration.rms"
+    case mapCalibrationRmsUnavailable = "map.calibration.rmsUnavailable"
+    case mapCalibrationScaleSummary = "map.calibration.scaleSummary"
+    case mapCalibrationTransformRevision = "map.calibration.transformRevision"
+    case mapCalibrationInvalidInput = "map.calibration.invalidInput"
+    case mapCalibrationRequiresConnection = "map.calibration.requiresConnection"
 }

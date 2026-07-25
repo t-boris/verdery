@@ -255,6 +255,11 @@ public final class AppCompositionRoot {
             loadGardenMap: LoadGardenMap(gateway: mapGateway, localStore: store),
             submitMapCommand: SubmitMapCommand(gateway: mapGateway),
             applyMapCommandOffline: ApplyMapCommandOffline(localStore: store, profileId: profileId),
+            // P6-PLAN iOS parity: the plan-background panel's document list
+            // and the underlay's display-image resolution, both over the
+            // one shared media gateway.
+            listGardenPlanMedia: ListGardenPlanMedia(gateway: mediaGateway),
+            loadPlanBackgroundImage: LoadPlanBackgroundImage(gateway: mediaGateway),
             strings: strings
         )
     }
@@ -308,6 +313,20 @@ public final class AppCompositionRoot {
             // record-observation form's photo attachment — see
             // `makePhotoAttachmentController`'s own doc comment.
             photoAttachment: makePhotoAttachmentController(gardenId: gardenId, mediaClass: .gardenPhoto)
+        )
+    }
+
+    /// The garden's property-plan upload screen (P6-PLAN iOS parity):
+    /// the shared attachment controller with `media_class: 'imported_plan'`
+    /// — the same background upload session as every photo attachment —
+    /// plus the media gateway the processed plan's derivative preview is
+    /// resolved through.
+    public func makeGardenPlanUploadViewModel(gardenId: String) -> GardenPlanUploadViewModel {
+        GardenPlanUploadViewModel(
+            gardenId: gardenId,
+            attachment: makePhotoAttachmentController(gardenId: gardenId, mediaClass: .importedPlan),
+            mediaGateway: mediaGateway,
+            strings: strings
         )
     }
 

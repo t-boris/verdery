@@ -87,6 +87,15 @@ public struct RootView: View {
                             )
                         }
                     }
+                    // P6-PLAN iOS parity: the garden's property-plan upload
+                    // screen — a FeatureGardens destination routed through
+                    // composition because only the composition root can
+                    // hand it the shared upload coordinator.
+                    .navigationDestination(for: GardenPlanUploadRoute.self) { route in
+                        GardenPlanUploadView(
+                            model: composition.makeGardenPlanUploadViewModel(gardenId: route.gardenId)
+                        )
+                    }
                     .navigationDestination(for: GardenObservationsRoute.self) { route in
                         ObservationsTimelineView(
                             model: composition.makeObservationsTimelineViewModel(gardenId: route.gardenId)

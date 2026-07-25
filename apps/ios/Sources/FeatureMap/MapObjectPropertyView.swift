@@ -33,9 +33,11 @@ extension View {
 /// category-specific details, plus delete/restore, duplicate, shape editing,
 /// linework join, and a read-only measurement derived from its geometry.
 ///
-/// `lot`, `path`, `waterFeature`, and `importedBackground` have no details
-/// schema at all (`GardenObjectDetails`'s doc comment) — their details
-/// section is deliberately empty, not a placeholder.
+/// `lot`, `path`, and `waterFeature` have no details schema at all
+/// (`GardenObjectDetails`'s doc comment) — their details section is
+/// deliberately empty, not a placeholder. `importedBackground` shows its
+/// calibration state READ-ONLY here; its editable details (visibility) and
+/// the calibration flow live in the background panel and calibration bar.
 struct MapObjectPropertyView: View {
     let object: GardenMapObject
     let objectsById: [String: GardenMapObject]
@@ -260,8 +262,45 @@ struct MapObjectPropertyView: View {
             }
             annotationMeasurementProvenance
 
-        case .lot, .path, .waterFeature, .importedBackground:
+        case .importedBackground:
+            importedBackgroundStateRows
+
+        case .lot, .path, .waterFeature:
             EmptyView()
+        }
+    }
+
+    /// Read-only calibration state for a plan background — the same honest
+    /// wording as the canvas badge and background panel
+    /// (`MapCalibrationLabels`), plus the derived scale and transform
+    /// revision when calibrated. Managed elsewhere (background panel,
+    /// calibration flow); never edited by this form.
+    @ViewBuilder
+    private var importedBackgroundStateRows: some View {
+        if case let .importedBackground(value)? = object.categoryDetails {
+            HStack {
+                Text(strings(.mapBackgroundCalibrationStateLabel))
+                Spacer()
+                Text(MapCalibrationLabels.stateText(for: value.calibration, strings: strings))
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("map.property.calibrationState")
+            }
+            if let calibration = value.calibration {
+                Text(
+                    strings.string(
+                        .mapCalibrationScaleSummary,
+                        parameters: ["metres": String(format: "%.1f", calibration.transform.metresPerPlanUnit)]
+                    )
+                        + " · "
+                        + strings.string(
+                            .mapCalibrationTransformRevision,
+                            parameters: ["revision": String(calibration.transformRevision)]
+                        )
+                )
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("map.property.calibrationSummary")
+            }
         }
     }
 
@@ -400,7 +439,10 @@ struct EditableDetailsState: Equatable {
                 annotationMeasurementValue = Self.format(measurement.value)
                 annotationMeasurementUnit = measurement.unit
             }
-        case .none:
+        case .importedBackground, .none:
+            // An imported background's details are managed from the
+            // background panel (visibility) and the calibration flow
+            // (state/transform) — this form edits none of them.
             break
         }
     }
@@ -473,7 +515,16 @@ struct EditableDetailsState: Equatable {
                     measurement: Measurement(value: value, unit: annotationMeasurementUnit, acquisitionMethod: .userEntered)
                 )
             )
-        case .lot, .path, .waterFeature, .importedBackground:
+        case .importedBackground:
+            // Save passes the current details through with the server-owned
+            // calibration block stripped (`writableDetails`) — the server
+            // would ignore an echoed block anyway, but never submitting one
+            // keeps the client honest about what it owns.
+            if case let .importedBackground(value)? = existing {
+                return .importedBackground(value.writableDetails)
+            }
+            return existing
+        case .lot, .path, .waterFeature:
             return existing
         }
     }

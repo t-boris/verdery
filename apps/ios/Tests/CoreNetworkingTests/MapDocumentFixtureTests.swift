@@ -146,6 +146,7 @@ struct ProjectedObject: Codable, Equatable, Sendable {
             case let .tree(value): value
             case let .plant(value): value
             case let .utilityExclusion(value): value
+            case let .importedBackground(value): value
             }
 
         let data = try JSONEncoder().encode(payload)

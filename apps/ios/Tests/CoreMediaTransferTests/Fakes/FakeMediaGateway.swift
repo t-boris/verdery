@@ -100,6 +100,19 @@ actor FakeMediaGateway: MediaGateway {
         guard let accessHandler else { throw FakeError.unconfigured }
         return try accessHandler(mediaId).get()
     }
+
+    /// Nothing in `CoreMediaTransfer` lists media — the upload coordinator
+    /// only registers, completes, and polls status — so no test configures
+    /// this; an empty page is the honest inert response (P6-PLAN-01 added
+    /// the operation for the map editor's plan picker).
+    func listGardenMedia(
+        gardenId _: String,
+        mediaClass _: MediaClass?,
+        cursor _: String?,
+        limit _: Int?
+    ) async throws -> MediaListResult {
+        MediaListResult(items: [], nextCursor: nil)
+    }
 }
 
 /// Builds a `MediaUploadSession`/`Media` fixture with sensible defaults, so

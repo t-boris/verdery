@@ -213,23 +213,29 @@ itself is category-agnostic (`MapObjectRenderKind` derives fill/stroke/marker fr
 GeoJSON type, not from a category switch), so this was always true independent of which categories the
 create toolbar offered.
 
-**Commands wired up**: all 11 command types with real data to operate against —
+**Commands wired up**: all 12 command types with real data to operate against —
 `createObject`, `moveObject`, `replaceGeometry`, `editVertex`, `splitLinework`, `joinLinework`,
-`changeProperties`, `assignPlant`, `deleteObject`, `restoreObject`, `duplicateObject` — plus their
-inverses via `CoreDomain.deriveInverseCommand` for undo/redo (`splitLinework`/`joinLinework` have no
-single-command inverse by design; `MapUndoStack.topUndoIsBlocked` surfaces that instead of hiding it).
+`changeProperties`, `assignPlant`, `upsertCalibration`, `deleteObject`, `restoreObject`,
+`duplicateObject` — plus their inverses via `CoreDomain.deriveInverseCommand` for undo/redo
+(`splitLinework`/`joinLinework`/`upsertCalibration` have no single-command inverse by design;
+`MapUndoStack.topUndoIsBlocked` surfaces that instead of hiding it).
 Vertex-level reshape and whole-shape resize/rotate live behind an explicit "Edit shape" mode
 (`MapEditorViewModelReshaping.swift`, `MapVertexEditCommands.swift`, `MapShapeTransform.swift`); split
 and join live in that same mode plus a minimal join-selection flow
-(`MapEditorViewModelLinework.swift`). **Explicitly out of scope**, and why — see
+(`MapEditorViewModelLinework.swift`). Plan import and calibration (P6-PLAN iOS parity) are real:
+`GardenPlanUploadView` (FeatureGardens) uploads a plan document with `media_class: 'imported_plan'`,
+the map editor's background panel (`MapBackgroundPanelView`) places it as an `importedBackground`
+object and manages per-background visibility/removal, the canvas draws the screen-preview derivative
+under garden geometry with an honest calibration badge, and the calibration session
+(`MapEditorViewModelCalibration.swift`, `MapCalibrationBarView`) derives the plan-to-map transform
+through the SAME shared math the server runs (`CoreDomain.derivePlanCalibration`, pinned by the shared
+`geometry/calibration.json` fixtures). `upsertCalibration` submits through the ONLINE path only —
+the offline projection deliberately keeps refusing it (see `MapEditorViewModelCalibration.swift`'s
+doc comment for the reasoning). **Explicitly out of scope**, and why — see
 `MapGestureCommands.swift`'s and `MapObjectPropertyView.swift`'s doc comments for the same reasoning
 in place at the source:
-- `upsertCalibration` — requires an existing `importedBackground` object (a raster/PDF plan asset) to
-  calibrate against. Nothing in this app can create one yet; plan import is Phase 6 scope.
 - `decideProposal` — requires a system-generated proposal. Nothing in this app produces proposals yet;
   assisted capture and plan recognition is Phase 10 scope, gated behind a research decision not yet made.
-- Creating `importedBackground` objects — same reasoning as `upsertCalibration`; no image/plan upload
-  flow exists yet (Phase 6 scope).
 - Snapping visualization (architecture doc section "10. Snapping and Constraints") — advisory snap
   targets/constraints are not part of any of the six work items above and remain unbuilt.
 

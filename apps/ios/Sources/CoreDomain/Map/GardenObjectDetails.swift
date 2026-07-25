@@ -1,7 +1,10 @@
 /// Category-specific detail payloads.
 ///
-/// Categories without a case here (lot, path, waterFeature, importedBackground)
-/// carry no specialized fields beyond the common `garden_object` shape.
+/// Categories without a case here (lot, path, waterFeature) carry no
+/// specialized fields beyond the common `garden_object` shape.
+/// `importedBackground`'s payload lives in its own file
+/// (`ImportedBackgroundDetails.swift`) — it is the one detail family with
+/// nested server-owned structure (the calibration block).
 ///
 /// Every detail struct is `Codable` by straight synthesis: its Swift property
 /// names already match the JSON field names, so nothing here needs
@@ -169,8 +172,10 @@ public struct AnnotationDetails: Equatable, Sendable, Codable {
 
 /// The category-specific detail payload for a category that has one.
 ///
-/// Categories without a case here (lot, path, waterFeature, importedBackground)
-/// carry no specialized fields beyond the common `garden_object` shape.
+/// Categories without a case here (lot, path, waterFeature) carry no
+/// specialized fields beyond the common `garden_object` shape.
+/// `importedBackground` joined as the tenth branch in P6-PLAN-01, matching
+/// the contract's `GardenObjectDetails` union.
 public enum GardenObjectDetails: Equatable, Sendable {
     case structure(StructureDetails)
     case fence(FenceDetails)
@@ -181,6 +186,7 @@ public enum GardenObjectDetails: Equatable, Sendable {
     case tree(TreeDetails)
     case plant(PlantPlacementDetails)
     case utilityExclusion(UtilityExclusionDetails)
+    case importedBackground(ImportedBackgroundDetails)
 
     public var category: GardenObjectCategory {
         switch self {
@@ -193,6 +199,7 @@ public enum GardenObjectDetails: Equatable, Sendable {
         case .tree: .tree
         case .plant: .plant
         case .utilityExclusion: .utilityExclusion
+        case .importedBackground: .importedBackground
         }
     }
 }

@@ -5,10 +5,10 @@ import CoreGraphics
 ///
 /// All twelve non-`importedBackground` categories, spanning every geometry
 /// shape (area, line, point) the canvas draws. `importedBackground` is the
-/// one category deliberately left out: creating one needs a photo/plan
-/// upload flow that does not exist yet — Phase 6 scope
-/// (docs/implementation-plan.md, "Media, Photos, and Property-Plan
-/// Import") — so it is never faked with a placeholder shape here.
+/// one category deliberately left out of this TOOLBAR: it is never drawn
+/// freehand — one is created from an uploaded, processed plan document
+/// through the background panel instead
+/// (`MapEditorViewModelBackgrounds.addBackgroundToMap`, P6-PLAN iOS parity).
 ///
 /// `gate` is creatable like every other category, but carries an extra
 /// precondition the toolbar and view model enforce together: a gate cannot

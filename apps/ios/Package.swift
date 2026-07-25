@@ -212,6 +212,13 @@ let package = Package(
                 // Feature may depend on this Core target but not the
                 // reverse.
                 "CoreSynchronization",
+                // For `CoreMediaTransfer.PhotoAttachmentController`, which
+                // `GardenPlanUploadViewModel` uses to give the garden's
+                // property-plan upload screen real background-capable
+                // upload capability (P6-PLAN iOS parity) — the same reason
+                // `FeaturePlants`/`FeatureObservations` gained this
+                // dependency in P6-IOS-01.
+                "CoreMediaTransfer",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ]
         ),

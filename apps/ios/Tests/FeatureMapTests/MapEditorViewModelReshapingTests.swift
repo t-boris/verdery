@@ -121,6 +121,8 @@ struct MapEditorViewModelReshapingTests {
             loadGardenMap: LoadGardenMap(gateway: gateway, localStore: localStore),
             submitMapCommand: SubmitMapCommand(gateway: gateway),
             applyMapCommandOffline: ApplyMapCommandOffline(localStore: localStore, profileId: "profile-1"),
+            listGardenPlanMedia: ListGardenPlanMedia(gateway: FakeMapMediaGateway()),
+            loadPlanBackgroundImage: LoadPlanBackgroundImage(gateway: FakeMapMediaGateway()),
             strings: LocalizedStrings(locale: Locale(identifier: "en_GB"))
         )
     }

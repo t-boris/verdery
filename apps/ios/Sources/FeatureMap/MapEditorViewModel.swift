@@ -81,10 +81,30 @@ public final class MapEditorViewModel {
     /// (`MapEditorViewModelEditing.submit`, `MapEditorViewModelUndoRedo.submitUndoRedo`).
     public internal(set) var saveStatus: MapSaveStatus = .idle
 
+    /// The background panel's plan-document list (P6-PLAN iOS parity) —
+    /// a query, not a command, so it has its own load state instead of
+    /// riding `saveStatus`. See `MapEditorViewModelBackgrounds.swift`.
+    public internal(set) var planListState: PlanMediaListState = .idle
+    /// Resolved display images for plan backgrounds, by PLAN media id (the
+    /// original's, not the derivative's). Populated lazily by
+    /// `ensureBackgroundImagesLoaded()`; kept across reloads — a derivative
+    /// image is immutable once produced.
+    public internal(set) var backgroundImages: [String: PlanBackgroundImageState] = [:]
+    /// The in-progress calibration session, `nil` outside one. All
+    /// mutations flow through `MapEditorViewModelBackgrounds.swift`'s
+    /// wrappers over the pure `MapCalibrationSession` transitions.
+    public internal(set) var calibrationDraft: MapCalibrationDraft?
+    /// Client-local underlay opacity (0.15–1), the web editor's
+    /// dense-plan-while-tracing dimmer — a session preference like
+    /// `hiddenLayers`, never submitted as a command.
+    public var backgroundOpacity: Double = 1.0
+
     let gardenId: String
     let loadGardenMap: LoadGardenMap
     let submitMapCommand: SubmitMapCommand
     let applyMapCommandOffline: ApplyMapCommandOffline
+    let listGardenPlanMedia: ListGardenPlanMedia
+    let loadPlanBackgroundImage: LoadPlanBackgroundImage
     let strings: LocalizedStrings
 
     var objectsById: [String: GardenMapObject] = [:]
@@ -105,12 +125,16 @@ public final class MapEditorViewModel {
         loadGardenMap: LoadGardenMap,
         submitMapCommand: SubmitMapCommand,
         applyMapCommandOffline: ApplyMapCommandOffline,
+        listGardenPlanMedia: ListGardenPlanMedia,
+        loadPlanBackgroundImage: LoadPlanBackgroundImage,
         strings: LocalizedStrings
     ) {
         self.gardenId = gardenId
         self.loadGardenMap = loadGardenMap
         self.submitMapCommand = submitMapCommand
         self.applyMapCommandOffline = applyMapCommandOffline
+        self.listGardenPlanMedia = listGardenPlanMedia
+        self.loadPlanBackgroundImage = loadPlanBackgroundImage
         self.strings = strings
     }
 
@@ -266,6 +290,10 @@ public final class MapEditorViewModel {
         hiddenLayers = []
         lockedLayers = []
 
+        // A calibration session cannot meaningfully survive a full reload —
+        // its target object's revision may have changed under it.
+        calibrationDraft = nil
+
         do {
             let document = try await loadGardenMap(gardenId: gardenId)
             objectsById = Dictionary(uniqueKeysWithValues: document.objects.map { ($0.id, $0) })
@@ -277,6 +305,7 @@ public final class MapEditorViewModel {
             hasFitInitialViewport = false
             refreshRenderState()
             fitInitialViewportIfNeeded()
+            ensureBackgroundImagesLoaded()
         } catch let error as APIGatewayError {
             state = .failed(message: message(for: error))
         } catch {
@@ -296,7 +325,22 @@ public final class MapEditorViewModel {
             .compactMap { objectsById[$0] }
             .filter { $0.lifecycleState == .active }
             .filter { !hiddenLayers.contains(MapLayer(category: $0.category)) }
-            .map(MapRenderObject.init)
+            .map { object in
+                // During a calibration session the target background's
+                // selectable outline IS the live preview footprint, so hit
+                // testing, selection, and dragging all operate on what the
+                // user actually sees — see `MapEditorViewModelBackgrounds`.
+                guard let previewFootprint = calibrationPreviewFootprint(for: object.id) else {
+                    return MapRenderObject(object)
+                }
+                return MapRenderObject(
+                    id: object.id,
+                    category: object.category,
+                    geometry: previewFootprint,
+                    label: object.label,
+                    lifecycleState: object.lifecycleState
+                )
+            }
 
         state = .loaded(MapRenderSnapshot(objects: renderObjects))
     }

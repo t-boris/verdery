@@ -15,6 +15,15 @@ import CoreGraphics
 /// the UI represents that this is a local save, not a confirmed one.
 extension MapEditorViewModel {
     public func handleCanvasTap(atScreen point: CGPoint) async {
+        // A calibration session owns every canvas tap — segment/control
+        // point picking, never selection — matching the web overlay's
+        // full-canvas capture rectangle (pan/zoom still work; they are not
+        // taps). See `MapEditorViewModelCalibration.swift`.
+        if calibrationDraft != nil {
+            handleCalibrationTap(atScreen: point)
+            return
+        }
+
         if let category = armedCreateCategory {
             armedCreateCategory = nil
             await createObject(category: category, atScreen: point)
@@ -131,6 +140,23 @@ extension MapEditorViewModel {
         // Screen y grows downward, garden-local y grows north — see
         // `MapViewportTransform`'s doc comment.
         let dyMetres = -transform.localDistance(forScreenDistance: Double(translationScreen.height))
+
+        // A drag of the calibration session's target adjusts the live
+        // preview, not the stored object.
+        if calibrationDraft?.objectId == objectId {
+            handleCalibrationDragEnded(dxMetres: dxMetres, dyMetres: dyMetres)
+            return
+        }
+
+        // A calibrated background's footprint is derived from its transform
+        // — the server rejects `moveObject` for it
+        // (`map.imported_background.geometry_locked_by_calibration`), so
+        // the drag gesture routes to a manual-adjustment recalibration
+        // instead and still works, exactly like the web editor.
+        if isGeometryLockedByCalibration(object) {
+            await adjustCalibratedBackground(object: object, dxMetres: dxMetres, dyMetres: dyMetres)
+            return
+        }
 
         guard
             let command = MapGestureCommands.moveCommand(

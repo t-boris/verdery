@@ -22,10 +22,10 @@ import CoreDomain
 /// - Layer 7 (selection, handles, measurements, validation overlays) is
 ///   editor chrome, not user content, and is never user-toggleable.
 public enum MapLayer: String, Sendable, CaseIterable, Identifiable {
-    /// Layer 2: imported plan/image backgrounds. The toggle is real, but
-    /// nothing in this app can create an `importedBackground` object yet
-    /// (see `CreatableMapObjectCategory`'s doc comment, Phase 6 scope), so
-    /// this layer has nothing to hide until that lands.
+    /// Layer 2: imported plan/image backgrounds. This client-local toggle
+    /// hides every background at once — session-only, distinct from the
+    /// per-background PERSISTED `isBackgroundVisible` flag the background
+    /// panel manages (P6-PLAN iOS parity); both apply.
     case importedBackgrounds
     /// Layer 3: lot and fixed structures.
     case lotAndStructures

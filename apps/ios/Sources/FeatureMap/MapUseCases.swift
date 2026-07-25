@@ -40,12 +40,13 @@ public struct LoadGardenMap: Sendable {
 /// same responsibility split `GardensUseCases.swift` uses: the gateway
 /// shapes the request, the use case supplies what varies per attempt.
 ///
-/// Deliberately not called by `MapEditorViewModel` anymore as of P5-IOS-02
-/// (Stage 4b) — `ApplyMapCommandOffline` below is what
+/// Not the ordinary editing path since P5-IOS-02 (Stage 4b) —
+/// `ApplyMapCommandOffline` below is what
 /// `MapEditorViewModelEditing.submit`/`MapEditorViewModelUndoRedo.submitUndoRedo`
-/// call instead now. Left intact, matching `FeatureGardens.GardenGateway`'s
-/// identical treatment in Stage 4a, for a later stage's real push engine to
-/// call.
+/// call. It regained one real, deliberate caller with P6-PLAN iOS parity:
+/// `upsertCalibration` is online-only (see
+/// `MapEditorViewModelCalibration.swift`'s doc comment), so
+/// `submitCalibrationOnline` submits through this use case directly.
 public struct SubmitMapCommand: Sendable {
     private let gateway: any MapGateway
 
@@ -68,14 +69,18 @@ public struct SubmitMapCommand: Sendable {
 /// `SyncEngine` to push — architecture/offline-synchronization.md, section
 /// "6. Local Mutation Transaction".
 ///
-/// One method for all 11 reachable command types (12 counting
-/// `upsertCalibration`/`decideProposal`, which throw
-/// `MapCommandError.unsupportedCommand` — see `MapCommandProjection.apply`),
-/// not one use case per command type the way `GardensUseCases.swift` needed
-/// four separate ones: `SubmitMapCommand`'s own online precedent already
-/// dispatches every command generically (`MapCommandPayload`, a single
-/// discriminated union `MapGateway.submitCommand` accepts as-is), so this
-/// offline counterpart keeps that same one-method shape.
+/// One method for the 11 offline-capable command types.
+/// `upsertCalibration`/`decideProposal` throw
+/// `MapCommandError.unsupportedCommand` here (see
+/// `MapCommandProjection.apply`) — for calibration that is a KEPT,
+/// deliberate posture, not a gap: the calibration flow is online-only and
+/// submits through `SubmitMapCommand` instead (see
+/// `MapEditorViewModelCalibration.swift`'s doc comment). Not one use case
+/// per command type the way `GardensUseCases.swift` needed four separate
+/// ones: `SubmitMapCommand`'s own online precedent already dispatches every
+/// command generically (`MapCommandPayload`, a single discriminated union
+/// `MapGateway.submitCommand` accepts as-is), so this offline counterpart
+/// keeps that same one-method shape.
 public struct ApplyMapCommandOffline: Sendable {
     private let localStore: any LocalMapStore
     private let profileId: String

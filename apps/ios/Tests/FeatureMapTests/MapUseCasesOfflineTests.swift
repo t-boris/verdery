@@ -317,7 +317,7 @@ struct MapUseCasesOfflineTests {
         #expect(try await outbox.fetchAll().isEmpty)
     }
 
-    @Test("upsertCalibration reaches this store as unsupportedCommand — no real caller today, but a safe defensive failure if one appears")
+    @Test("upsertCalibration reaches this store as unsupportedCommand — the calibration flow is deliberately online-only (see MapEditorViewModelCalibration), so the offline path must keep refusing it")
     func upsertCalibrationIsUnsupported() async throws {
         let dbQueue = try makeDatabase()
         let store = GRDBMapStore(dbQueue: dbQueue)

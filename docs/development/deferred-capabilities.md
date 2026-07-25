@@ -260,16 +260,22 @@ orientation to derivative pixels) does not exist: keystone/perspective correctio
 plan has no server capability, and no client-side warping was half-built around that gap. A future
 capture-quality stage owns it if product need materializes.
 
-**iOS plan import and calibration (P6-PLAN-01/-02 follow-up).** The contract now carries
-everything the flow needs (`ImportedBackgroundDetails` with its `calibration` block,
-`ListGardenMedia`, `Media.derivatives`, the reworked `UpsertCalibrationCommand`); the iOS client
-has not been built against it yet — a dedicated follow-up work package implements document
-selection, upload, background management, and the calibration flow on `apps/ios`. That follow-up
-must also update `MapCommand.swift`'s `UpsertCalibrationPayload` to the reshaped P6-PLAN-02
-payload (expected revision, page aspect ratio, known distance, plan-fraction reference points,
-manual adjustment) and implement the Swift half of `derivePlanCalibration` against the shared
-`geometry/calibration.json` fixtures — the `command-inverse.json` fixture already carries the new
-payload shape.
+**iOS plan import and calibration — resolved by the P6-PLAN iOS parity follow-up.** The iOS client
+now implements the full flow the contract carried since P6-PLAN-01/-02: document selection
+(Photos + Files), local safety validation, private upload with `media_class: 'imported_plan'`
+through the P6-IOS-01 upload machinery (`FeatureGardens.GardenPlanUploadView`), background
+placement/visibility/removal and derivative rendering with honest calibration badges
+(`FeatureMap`'s background panel and canvas underlay), and the calibration session itself
+(`MapEditorViewModelCalibration.swift`). The Swift half of `derivePlanCalibration`
+(`CoreDomain/Geometry/PlanCalibration.swift`) reproduces the shared
+`geometry/calibration.json` fixtures byte-identically — all five success and four rejected cases,
+exact comparison — and the wire model was already brought to parity by Stage 10's coordinator
+correction. One deliberate divergence from the web, documented at the source: `upsertCalibration`
+submits online-only (the offline projection keeps refusing it) — the server derives the transform
+revision in one transaction, and a calibration session needs the signed-URL plan image anyway, so
+a device that can calibrate is online by construction. What remains open on iOS is exactly the
+system-wide deferrals recorded elsewhere in this document: PDF page rendering (so PDF backgrounds
+cannot display or calibrate — the UI states this), plan tile consumption, and geographic anchors.
 
 **Geographic anchors as calibration inputs (P6-PLAN-02 scope boundary).** Section 16 lists
 "optional geographic anchors" among the calibration inputs — pinning a plan point directly to a

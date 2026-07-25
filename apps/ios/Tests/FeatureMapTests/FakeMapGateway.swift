@@ -55,6 +55,7 @@ final class FakeMapGateway: MapGateway, @unchecked Sendable {
 
         case let .moveObject(payload):
             let object = try expectRevision(payload.objectId, payload.expectedRevision)
+            try rejectWhenCalibrationLocked(object)
             let moved = GardenMapObject(
                 id: object.id,
                 gardenId: object.gardenId,
@@ -103,12 +104,14 @@ final class FakeMapGateway: MapGateway, @unchecked Sendable {
 
         case let .replaceGeometry(payload):
             let object = try expectRevision(payload.objectId, payload.expectedRevision)
+            try rejectWhenCalibrationLocked(object)
             let updated = withGeometry(object, payload.geometry)
             objects[object.id] = updated
             return MapCommandResult(affectedObjects: [updated])
 
         case let .editVertex(payload):
             let object = try expectRevision(payload.objectId, payload.expectedRevision)
+            try rejectWhenCalibrationLocked(object)
             let geometry = try applyVertexOperation(
                 object.geometry,
                 ringIndex: payload.ringIndex,
@@ -197,12 +200,89 @@ final class FakeMapGateway: MapGateway, @unchecked Sendable {
             // `joined` first for the same reason as `splitLinework` above.
             return MapCommandResult(affectedObjects: [joined, deletedFirst, deletedSecond])
 
-        case .upsertCalibration, .decideProposal:
-            // Genuinely out of scope this pass — see MapGestureCommands's and
-            // MapObjectPropertyView's doc comments; nothing in this app
-            // creates an `importedBackground` object or a proposal for these
-            // to operate against.
+        case let .upsertCalibration(payload):
+            // Mirrors the real `UpsertMapCalibration` handler: revision-
+            // guarded, derives through the SAME shared math the server runs
+            // (`derivePlanCalibration`), rewrites the background's details
+            // (state `calibrated`, bumped transform revision, per-point
+            // residuals) and its geometry (the derived page footprint).
+            let object = try expectRevision(payload.backgroundObjectId, payload.expectedRevision)
+            guard case let .importedBackground(details)? = object.categoryDetails else {
+                throw APIGatewayError.unexpectedStatus(400, correlationId: "fake-not-a-background")
+            }
+            let derivation: PlanCalibrationDerivation
+            let footprint: Geometry
+            do {
+                derivation = try derivePlanCalibration(
+                    PlanCalibrationInput(
+                        pageAspectRatio: payload.pageAspectRatio,
+                        knownDistance: payload.knownDistance,
+                        referencePoints: payload.referencePoints,
+                        manualAdjustment: payload.manualAdjustment
+                    )
+                )
+                footprint = try planPageFootprint(
+                    derivation.transform, pageAspectRatio: payload.pageAspectRatio
+                )
+            } catch {
+                throw APIGatewayError.unexpectedStatus(422, correlationId: "fake-calibration-invalid")
+            }
+            let calibratedDetails = ImportedBackgroundDetails(
+                planMediaId: details.planMediaId,
+                sourcePageNumber: details.sourcePageNumber,
+                isBackgroundVisible: details.isBackgroundVisible,
+                calibrationState: .calibrated,
+                calibration: ImportedBackgroundCalibration(
+                    transformRevision: (details.calibration?.transformRevision ?? 0) + 1,
+                    pageAspectRatio: payload.pageAspectRatio,
+                    knownDistance: payload.knownDistance,
+                    referencePoints: payload.referencePoints.enumerated().map { index, point in
+                        CalibratedReferencePoint(
+                            planPoint: point.planPoint,
+                            localMetres: point.localMetres,
+                            residualMetres: derivation.pointResidualsMetres[index]
+                        )
+                    },
+                    manualAdjustment: payload.manualAdjustment,
+                    transform: derivation.transform,
+                    rmsErrorMetres: derivation.rmsErrorMetres
+                )
+            )
+            let calibrated = withDetails(withGeometry(object, footprint), .importedBackground(calibratedDetails))
+            // `withGeometry` and `withDetails` each bump the revision; the
+            // real server bumps once per command. Rebuild at exactly +1.
+            let confirmed = GardenMapObject(
+                id: object.id,
+                gardenId: object.gardenId,
+                category: object.category,
+                geometry: calibrated.geometry,
+                coordinateSpaceId: object.coordinateSpaceId,
+                label: object.label,
+                categoryDetails: calibrated.categoryDetails,
+                lifecycleState: object.lifecycleState,
+                revision: object.revision + 1,
+                createdAt: object.createdAt,
+                updatedAt: object.createdAt
+            )
+            objects[object.id] = confirmed
+            return MapCommandResult(affectedObjects: [confirmed])
+
+        case .decideProposal:
+            // Genuinely out of scope — nothing in this app creates a
+            // proposal for this to operate against (Phase 10).
             throw APIGatewayError.unexpectedStatus(501, correlationId: "fake-unsupported")
+        }
+    }
+
+    /// The server's own P6-PLAN-02 lock: geometry commands are rejected for
+    /// a calibrated background
+    /// (`map.imported_background.geometry_locked_by_calibration`) — its
+    /// footprint is derived from its transform.
+    private func rejectWhenCalibrationLocked(_ object: GardenMapObject) throws {
+        if case let .importedBackground(details)? = object.categoryDetails,
+            details.calibrationState == .calibrated
+        {
+            throw APIGatewayError.unexpectedStatus(409, correlationId: "fake-geometry-locked")
         }
     }
 

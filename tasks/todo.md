@@ -3324,3 +3324,116 @@ metric, or alert policy was created — documented, not deployed, per the same p
 | Root `pnpm typecheck` / `lint` / `format:check` | all pass                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `node scripts/check-file-size.mjs`              | passes                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | Log events pinned by tests, not just emitted    | register/complete/delete lines in `media-routes.test.ts`; the result summary at HTTP level in `media-processing-callback-route.test.ts` and at unit level (including `deletionLagMs: 300000` and both race-guard dispositions); the renamed worker event + `jobKind` in `validation-http-server.test.ts`; the lag figure in `outbox-relay.test.ts` (unordered-batch case) and both relay test tiers' updated `toEqual`s |
+
+## Stage 13 — P6-PLAN iOS parity, implementation complete
+
+The deferred iOS half of P6-PLAN-01/-02 is real end to end: a property-plan document can be
+selected (Photos or Files), locally safety-validated, privately uploaded
+(`media_class: 'imported_plan'`) through the P6-IOS-01 background-upload machinery, listed back,
+placed on the garden map as an `importedBackground` object, rendered under garden geometry from its
+screen-preview derivative, independently hidden/removed, and calibrated — two-point known distance,
+optional control points, manual rotation/translation, live preview through the SAME shared math the
+server runs, honest ±-error display — reaching behavioral parity with the web client.
+
+### Key decisions
+
+- **The Swift `derivePlanCalibration` is a line-for-line port of
+  `geometry-contracts/src/calibration.ts`, pinned by the shared fixtures.**
+  `CoreDomain/Geometry/PlanCalibration.swift` mirrors the similarity-transform model, the
+  fixed-scale 2D Kabsch fit, manual-adjustment composition, residuals against the rounded final
+  transform, null-below-2-points RMS, `planPageFootprint`, and the exact rounding grids
+  (ADR-0010's reasoning; `.toNearestOrAwayFromZero` as the IEEE counterpart of the TS
+  sign/round/abs formula, the same equivalence `CoordinateRounding` already established).
+  `PlanCalibrationEquivalenceTests` consumes `geometry/calibration.json` through the established
+  `GeometryFixtures` loader: all 5 success cases compare EXACTLY (transform, per-point residuals,
+  RMS including its null, footprint polygon) and all 4 rejected cases match their issue codes —
+  green on the first run, byte-identical output confirmed.
+- **`ImportedBackgroundDetails` joined the Swift details union as its tenth branch**
+  (`CoreDomain/Map/ImportedBackgroundDetails.swift`): the server-owned
+  `ImportedBackgroundCalibration` block (transform revision, inputs, transform, `rmsErrorMetres`
+  decoding explicit JSON `null` to `nil`), both coding layers (nested local + flat wire) updated,
+  `writableDetails` as the Swift counterpart of the web's `writableImportedBackgroundDetails` —
+  every `createObject`/`changeProperties` submission strips the server-owned block and echoes the
+  stored `calibrationState`, exactly what the server requires.
+- **Calibration is ONLINE-ONLY on iOS — the offline projection deliberately keeps refusing
+  `upsertCalibration`.** The server derives `transformRevision`/residuals/footprint in one
+  transaction (an optimistic projection would have to fabricate a transform revision), and a
+  session needs the rendered plan image (signed-URL fetch) anyway, so a device that can calibrate
+  is online by construction. `applyCalibration`/drag-adjust submit through the retained
+  `SubmitMapCommand` online path (its first real caller since P5-IOS-02 made editing
+  offline-first); a transport failure keeps the draft, reports "Calibration needs a connection",
+  and Apply is retryable. Documented in `MapEditorViewModelCalibration.swift`'s doc comment and
+  pinned by the (re-titled) `MapUseCasesOfflineTests` unsupported-command test. Undo honestly stops
+  at a calibration (`deriveInverseCommand` -> nil, the split/join posture).
+- **Server rules respected client-side**: a drag of a calibrated background routes to a
+  manual-adjustment recalibration from the STORED inputs (the web's `adjustCalibratedBackground`
+  model — the gesture still works); vertex editing is not offered for it
+  (`supportsVertexEdit` gate); the offline `duplicateObject` projection resets the copy to
+  uncalibrated exactly like the server; a server
+  `map.imported_background.geometry_locked_by_calibration` rejection maps to recalibrate-instead
+  guidance text.
+- **Plan upload reuses P6-IOS-01's machinery unchanged**: `GardenPlanUploadView(+ViewModel)` in
+  `FeatureGardens` (new `GardenPlanUploadRoute` from garden settings, composition-wired like every
+  feature route), `PhotoAttachmentController` with `media_class: 'imported_plan'`,
+  `PlanDocumentValidation` mirroring the worker policy (raster types + PDF, 50 MiB) for fast local
+  feedback, PhotosPicker for rasters plus `fileImporter` (security-scoped) for PDFs/files. A
+  processed raster previews through its screen-preview DERIVATIVE (never the sensitive original);
+  a PDF gets the honest "cannot be previewed yet" notice.
+- **Background display mirrors the web's placement math**: `MapBackgroundPlacement.swift` ports
+  `background-fit.ts`/`background-placement.ts` (contain-fit for uncalibrated, exact similarity
+  placement for calibrated, screen->plan-fraction inverse picking for both); the canvas draws the
+  underlay beneath all geometry (`MapCanvasBackgroundRendering.swift`) with the honest state badge
+  ("Not calibrated" / "Calibrated · ±N cm estimated error") from `MapCalibrationLabels` — one
+  wording, identical to the web's `calibration-labels.ts` conventions, shared by canvas badge,
+  background panel, and property sheet. A client-local underlay-opacity slider (0.15–1) matches
+  the web's tracing dimmer.
+- **The calibration session is a modal canvas mode** (`MapCalibrationSession.swift`, the pure
+  Swift port of `calibration-session.ts`; `MapEditorViewModelCalibration.swift`;
+  `MapCalibrationBarView`): session taps never select objects (the web overlay's capture
+  semantics), the target's outline IS the live preview footprint during a session (hit-testing and
+  dragging operate on what the user sees), a fresh scale-only calibration seeds a manual placement
+  centered on the placeholder box, recalibration seeds from stored inputs, and the degrees field
+  round-trips exactly.
+- **Contract read-side additions**: `MediaGateway.listGardenMedia`
+  (class filter + cursor/limit) and `Media.derivatives`
+  (+ `displayDerivative` preference: screen preview, thumbnail fallback) — decoded per the
+  contract, absent-on-write-path tolerated, covered by new `MediaGatewayTests` against the stubbed
+  transport.
+
+### Verified evidence
+
+| Check                              | Result                                                                                   |
+| ---------------------------------- | ---------------------------------------------------------------------------------------- |
+| `swift build`                      | clean, zero new warnings                                                                 |
+| `swift test`                       | 778 tests / 108 suites pass (baseline before this stage: 721 / 100)                      |
+| Shared calibration fixtures        | all 5 success + 4 rejected cases reproduce byte-identically in Swift (exact comparison)  |
+| `node scripts/check-file-size.mjs` | passes (MapCanvasView's background pass split into `MapCanvasBackgroundRendering.swift`) |
+| Root `pnpm lint` / `format:check`  | both pass                                                                                |
+
+New suites: PlanCalibrationEquivalence (9), ImportedBackgroundDetailsCoding (5), MediaGateway (4),
+MapCalibrationSession (11), MapBackgroundPlacement (9), MapEditorViewModel—plan backgrounds (13),
+PlanDocumentValidation (5). `FakeMapGateway` now executes `upsertCalibration` through the shared
+math and rejects geometry commands on calibrated backgrounds, mirroring the real server.
+
+### Known limitations, deliberately deferred (system-wide deferrals, unchanged)
+
+- PDF page rendering (P6-WORKER-02), plan tile consumption, geographic anchors, perspective
+  correction — the iOS UI states each honestly (PDF plans cannot be calibrated; PDF backgrounds
+  show as placeholder outlines) instead of failing.
+- The plan picker reads one page (50 most recent), the web picker's own deliberate scope.
+- Rotation adjustment is a degrees field (pivoted about the footprint center), not a canvas
+  rotate handle — the web's identical posture.
+- No simulator exists in this environment: SwiftUI view layers (pickers, canvas gestures, sheets)
+  are unexercised live; all logic beneath them is in pure, tested types per the feature's
+  established thin-view convention.
+
+### Corrections made during this stage's own review
+
+1. The default signed-URL byte fetchers created a new `URLSession` per call (a real resource
+   leak); both now hold one session per instance.
+2. Stale "nothing can create an importedBackground yet" comments and `apps/ios/README.md`'s map
+   section were updated in place; the property sheet's Save now submits `writableDetails` for a
+   background instead of echoing the server-owned calibration block.
+3. One shared-fixture observation for a later pass: `geometry/map-documents.json`'s P3-era
+   `importedBackground` object carries no `details` member, so no platform gets fixture-driven
+   coverage of the new details branch from it; Swift covers the shape with its own coding tests.

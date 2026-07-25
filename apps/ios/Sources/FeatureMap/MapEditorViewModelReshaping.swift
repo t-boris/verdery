@@ -24,9 +24,13 @@ extension MapEditorViewModel {
     }
 
     /// True when `object`'s geometry is one vertex editing supports — what
-    /// the property sheet checks before offering "Edit shape" at all.
+    /// the property sheet checks before offering "Edit shape" at all. A
+    /// calibrated background is excluded: its footprint is derived from its
+    /// calibration transform and the server rejects geometry commands for
+    /// it — recalibration (drag, or the calibration flow) is how it moves.
     public func supportsVertexEdit(_ object: GardenMapObject) -> Bool {
         MapVertexEditCommands.editableVertices(of: object.geometry) != nil
+            && !isGeometryLockedByCalibration(object)
     }
 
     public func beginVertexEdit(objectId: String) {

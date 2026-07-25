@@ -46,3 +46,17 @@ public struct GardenSyncConflictsRoute: Hashable, Sendable {
         self.gardenId = gardenId
     }
 }
+
+/// Requests to navigate to this garden's property-plan upload screen
+/// (P6-PLAN iOS parity). Unlike the routes above, the destination lives in
+/// this same feature (`GardenPlanUploadView`) — the marker type exists
+/// anyway because the view's dependencies (the shared upload coordinator)
+/// can only be assembled by the composition root, the same reason
+/// `GardenMapEditorRoute` routes through it.
+public struct GardenPlanUploadRoute: Hashable, Sendable {
+    public let gardenId: String
+
+    public init(gardenId: String) {
+        self.gardenId = gardenId
+    }
+}

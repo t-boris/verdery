@@ -46,7 +46,9 @@ public enum GardenObjectDetailsWireCoding {
             return .plant(try PlantPlacementDetails(from: decoder))
         case .utilityExclusion:
             return .utilityExclusion(try UtilityExclusionDetails(from: decoder))
-        case .lot, .path, .waterFeature, .importedBackground:
+        case .importedBackground:
+            return .importedBackground(try ImportedBackgroundDetails(from: decoder))
+        case .lot, .path, .waterFeature:
             throw DecodingError.dataCorruptedError(
                 forKey: .category,
                 in: peek,
@@ -73,6 +75,7 @@ public enum GardenObjectDetailsWireCoding {
         case let .tree(details): try details.encode(to: encoder)
         case let .plant(details): try details.encode(to: encoder)
         case let .utilityExclusion(details): try details.encode(to: encoder)
+        case let .importedBackground(details): try details.encode(to: encoder)
         }
     }
 }

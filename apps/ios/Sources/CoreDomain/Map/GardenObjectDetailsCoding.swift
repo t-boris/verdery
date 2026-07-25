@@ -38,7 +38,11 @@ extension GardenObjectDetails: Codable {
             self = .utilityExclusion(
                 try container.decode(UtilityExclusionDetails.self, forKey: .details)
             )
-        case .lot, .path, .waterFeature, .importedBackground:
+        case .importedBackground:
+            self = .importedBackground(
+                try container.decode(ImportedBackgroundDetails.self, forKey: .details)
+            )
+        case .lot, .path, .waterFeature:
             throw DecodingError.dataCorruptedError(
                 forKey: .category,
                 in: container,
@@ -61,6 +65,7 @@ extension GardenObjectDetails: Codable {
         case let .tree(details): try container.encode(details, forKey: .details)
         case let .plant(details): try container.encode(details, forKey: .details)
         case let .utilityExclusion(details): try container.encode(details, forKey: .details)
+        case let .importedBackground(details): try container.encode(details, forKey: .details)
         }
     }
 }

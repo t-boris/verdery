@@ -52,6 +52,11 @@ public struct GardenSettingsView: View {
                     }
                     .accessibilityIdentifier("gardens.settings.openMapEditor")
 
+                    NavigationLink(value: GardenPlanUploadRoute(gardenId: model.gardenId)) {
+                        Text(model.openPlanUploadTitle)
+                    }
+                    .accessibilityIdentifier("gardens.settings.openPlanUpload")
+
                     NavigationLink(value: GardenPlantsRoute(gardenId: model.gardenId)) {
                         Text(model.openPlantsTitle)
                     }

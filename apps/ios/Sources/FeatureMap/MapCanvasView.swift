@@ -25,6 +25,9 @@ import SwiftUI
 /// committed identically by `MapEditorViewModelReshaping.commitVertexMove`.
 struct MapCanvasView: View {
     let snapshot: MapRenderSnapshot
+    /// Imported-background underlays, drawn beneath every object in
+    /// document order — see `MapCanvasBackgroundRendering.swift`.
+    let backgroundLayers: [MapBackgroundRenderLayer]
     let transform: MapViewportTransform
     let selectedObjectId: String?
     let vertexEditObjectId: String?
@@ -328,11 +331,19 @@ struct MapCanvasView: View {
             effectiveTransform = effectiveTransform.panned(byScreenTranslation: liveDragTranslation)
         }
 
+        drawBackgroundImages(
+            context: context, transform: effectiveTransform,
+            dragObjectId: dragObjectId, dragTranslation: liveDragTranslation)
+
         for object in snapshot.objects {
             let extraOffset = (object.id == dragObjectId) ? liveDragTranslation : .zero
             let renderGeometry = (activeHandle?.objectId == object.id) ? (livePreviewGeometry ?? object.geometry) : object.geometry
             draw(object, geometry: renderGeometry, context: context, transform: effectiveTransform, extraOffset: extraOffset)
         }
+
+        drawBackgroundBadges(
+            context: context, transform: effectiveTransform,
+            dragObjectId: dragObjectId, dragTranslation: liveDragTranslation)
 
         if let vertexEditObjectId, let object = snapshot.objects.first(where: { $0.id == vertexEditObjectId }) {
             let geometry = (activeHandle != nil) ? (livePreviewGeometry ?? object.geometry) : object.geometry

@@ -23,6 +23,10 @@ struct MediaTransport: Codable {
     let uploadState: MediaUploadState
     let processingState: MediaProcessingState?
     let sensitivityClassification: MediaSensitivityClassification
+    /// Absent from write-path responses (`RegisterMediaUpload`/
+    /// `CompleteMediaUpload`) by contract — optional here, empty in the
+    /// domain value, so callers never branch on presence.
+    let derivatives: [MediaDerivativeSummary]?
     let revision: Int
     let createdAt: Date
     let updatedAt: Date
@@ -42,10 +46,20 @@ struct MediaTransport: Codable {
             uploadState: uploadState,
             processingState: processingState,
             sensitivityClassification: sensitivityClassification,
+            derivatives: derivatives ?? [],
             revision: revision,
             createdAt: createdAt,
             updatedAt: updatedAt
         )
+    }
+}
+
+struct MediaListResultTransport: Decodable {
+    let items: [MediaTransport]
+    let nextCursor: String?
+
+    var domainValue: MediaListResult {
+        MediaListResult(items: items.map(\.domainValue), nextCursor: nextCursor)
     }
 }
 

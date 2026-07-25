@@ -11,6 +11,7 @@ public struct MapEditorView: View {
     @State private var selectedTab: Tab = .canvas
     @State private var isLayersSheetPresented = false
     @State private var isWarningsSheetPresented = false
+    @State private var isBackgroundPanelPresented = false
     /// Per-session dismiss for the non-survey disclosure banner. Resets the
     /// next time this screen is opened fresh (a new `MapEditorView`
     /// instance) — per the work package, "a per-session dismiss that
@@ -75,6 +76,12 @@ public struct MapEditorView: View {
                     onToggleVisibility: { model.toggleLayerVisibility($0) },
                     onToggleLock: { model.toggleLayerLock($0) },
                     onClose: { isLayersSheetPresented = false }
+                )
+            }
+            .sheet(isPresented: $isBackgroundPanelPresented) {
+                MapBackgroundPanelView(
+                    model: model,
+                    onClose: { isBackgroundPanelPresented = false }
                 )
             }
             .sheet(isPresented: $isWarningsSheetPresented) {
@@ -156,7 +163,9 @@ public struct MapEditorView: View {
             switch selectedTab {
             case .canvas:
                 canvasArea
-                if model.vertexEditObjectId != nil {
+                if model.calibrationDraft != nil {
+                    MapCalibrationBarView(model: model)
+                } else if model.vertexEditObjectId != nil {
                     vertexEditActionBar
                 } else {
                     selectionBar
@@ -227,6 +236,7 @@ public struct MapEditorView: View {
             if case let .loaded(snapshot) = model.state {
                 MapCanvasView(
                     snapshot: snapshot,
+                    backgroundLayers: model.backgroundLayers,
                     transform: model.transform,
                     selectedObjectId: model.selectedObjectId,
                     vertexEditObjectId: model.vertexEditObjectId,
@@ -331,6 +341,21 @@ public struct MapEditorView: View {
                 }
                 .accessibilityIdentifier("map.editor.editSelected")
 
+                // The calibration entry for a selected plan background —
+                // disabled (never hidden) while its display image is not
+                // resolved, since a session needs plan points to tap.
+                if model.selectedObject?.category == .importedBackground {
+                    Button {
+                        if let objectId = model.selectedObjectId {
+                            model.beginCalibration(objectId: objectId)
+                        }
+                    } label: {
+                        Label(model.calibrateSelectionTitle, systemImage: "scope")
+                    }
+                    .disabled(!model.canCalibrateSelection)
+                    .accessibilityIdentifier("map.editor.calibrateSelected")
+                }
+
                 Spacer()
 
                 Button(role: .destructive) {
@@ -396,6 +421,15 @@ public struct MapEditorView: View {
                 }
                 .accessibilityIdentifier("map.editor.warnings")
             }
+
+            // The plan-background panel (P6-PLAN iOS parity) — upload
+            // management lives on the garden screen; this manages placement.
+            Button {
+                isBackgroundPanelPresented = true
+            } label: {
+                Label(model.backgroundsButtonTitle, systemImage: "doc.richtext")
+            }
+            .accessibilityIdentifier("map.editor.backgrounds")
 
             Button {
                 isLayersSheetPresented = true
