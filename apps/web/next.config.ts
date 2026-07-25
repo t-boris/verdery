@@ -28,6 +28,12 @@ const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   { key: 'X-Frame-Options', value: 'DENY' },
+  // helmet's own default, which the API already sends (`app.ts` disables
+  // only its CSP). Since the web client became the front door that carries
+  // the session cookie and proxies `/v1/*`, it should assert the same
+  // transport guarantee as the service behind it.
+  // Source: threat-model.md section 16 (P8-SEC-01).
+  { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
 ];
 
 const nextConfig: NextConfig = {
