@@ -83,6 +83,15 @@ public enum LocalizationKey: String, Sendable, CaseIterable {
     case mapEditorRetry = "map.editor.retry"
     case mapTabCanvas = "map.tab.canvas"
     case mapTabList = "map.tab.list"
+    /// Accessible name for the canvas/list segmented control itself. The two
+    /// segment titles above name the *options*; without this the control had
+    /// no name of its own, so VoiceOver announced only "selected, Canvas".
+    case mapTabPickerLabel = "map.tab.pickerLabel"
+    /// What the canvas tells VoiceOver about itself. The canvas is a
+    /// direct-manipulation surface with no VoiceOver equivalent for drawing
+    /// or dragging; saying so, and naming the alternative, is more useful
+    /// than the silence `.accessibilityHidden(true)` produced.
+    case mapCanvasAccessibilityLabel = "map.canvas.accessibilityLabel"
     case mapUndo = "map.undo"
     case mapRedo = "map.redo"
     case mapUndoUnavailable = "map.undo.unavailable"
@@ -483,6 +492,12 @@ public enum LocalizationKey: String, Sendable, CaseIterable {
     case mapBackgroundImageLoading = "map.background.imageLoading"
     case mapBackgroundImageUnavailable = "map.background.imageUnavailable"
     case mapBackgroundLockedByCalibration = "map.background.lockedByCalibration"
+
+    // Measurement units, as their own entries rather than literals appended
+    // to a formatted number: the abbreviation is a translated word, and the
+    // decimal separator inside `{value}` is the reader's, not POSIX's.
+    case mapUnitsCentimetres = "map.units.centimetres"
+    case mapUnitsMetres = "map.units.metres"
 
     // Map editor: plan-background calibration (P6-PLAN-02 iOS parity) —
     // the calibration session bar. Step instructions say "Tap", the touch

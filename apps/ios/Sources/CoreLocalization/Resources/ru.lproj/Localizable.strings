@@ -86,6 +86,8 @@
 "map.editor.retry" = "Повторить";
 "map.tab.canvas" = "Карта";
 "map.tab.list" = "Список";
+"map.tab.pickerLabel" = "Режим карты";
+"map.canvas.accessibilityLabel" = "Холст карты сада. Рисование и перетаскивание на холсте требуют прямого касания и не имеют эквивалента в VoiceOver; переключитесь на список объектов, чтобы выбирать, просматривать и удалять объекты.";
 "map.undo" = "Отменить";
 "map.redo" = "Повторить действие";
 "map.undo.unavailable" = "Это изменение нельзя отменить автоматически.";
@@ -454,6 +456,9 @@
 "map.background.imageLoading" = "Загрузка изображения плана.";
 "map.background.imageUnavailable" = "У этого плана пока нет отображаемого изображения (страницы PDF не рендерятся), поэтому его нельзя откалибровать.";
 "map.background.lockedByCalibration" = "Положение этой подложки задано её калибровкой. Перетащите её, чтобы скорректировать, или перекалибруйте.";
+
+"map.units.centimetres" = "{value} см";
+"map.units.metres" = "{value} м";
 
 "map.calibration.title" = "Калибровка";
 "map.calibration.start" = "Откалибровать";

@@ -124,7 +124,7 @@ export function SignInPanel() {
             label={t('auth.emailLabel')}
             type="email"
             autoComplete="email"
-            error={formState.errors.email === undefined ? undefined : t('auth.signInFailed')}
+            error={formState.errors.email === undefined ? undefined : t('auth.emailInvalid')}
             {...register('email')}
           />
           <Button type="submit" variant="secondary" busy={formState.isSubmitting}>

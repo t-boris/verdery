@@ -18,6 +18,13 @@ struct MapBackgroundPanelView: View {
     /// The background a removal confirmation is pending for.
     @State private var removalCandidateId: String?
 
+    /// A numeric field wide enough for its content at the reader's text size.
+    ///
+    /// `@ScaledMetric` grows the width with Dynamic Type; a bare `80` clipped
+    /// the page number to a single visible digit at the accessibility sizes,
+    /// which is exactly the setting a reader who needs them is using.
+    @ScaledMetric(relativeTo: .callout) private var pageNumberFieldWidth: CGFloat = 80
+
     var body: some View {
         NavigationStack {
             List {
@@ -127,6 +134,11 @@ struct MapBackgroundPanelView: View {
                 Text(model.strings(.mapBackgroundOpacity))
                 Slider(value: $model.backgroundOpacity, in: 0.15...1, step: 0.05)
                     .accessibilityLabel(model.strings(.mapBackgroundOpacity))
+                    // Without a value, VoiceOver announces the slider's raw
+                    // 0.15-1 position; a percentage is what the control means.
+                    .accessibilityValue(
+                        model.strings.number(model.backgroundOpacity * 100, fractionDigits: 0) + "%"
+                    )
                     .accessibilityIdentifier("map.background.opacity")
             }
         }
@@ -177,7 +189,7 @@ struct MapBackgroundPanelView: View {
                         model.strings(.mapBackgroundPageNumber),
                         text: pageNumberBinding(for: plan.id)
                     )
-                    .frame(maxWidth: 80)
+                    .frame(maxWidth: pageNumberFieldWidth)
                     .textFieldStyle(.roundedBorder)
                     #if os(iOS)
                         .keyboardType(.numberPad)

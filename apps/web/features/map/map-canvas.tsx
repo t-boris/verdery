@@ -2,10 +2,17 @@
 
 import { SNAP_TOLERANCE_SCREEN_PIXELS, type Position } from '@verdery/geometry-contracts';
 import type Konva from 'konva';
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import { Layer, Stage } from 'react-konva';
 
 import { useLocalization } from '@/shared/localization/public';
+import { VisuallyHidden } from '@/shared/ui/public';
 
 import { calibrationStateText } from './calibration-labels';
 import {
@@ -33,6 +40,18 @@ const NUDGE_METRES = 0.1;
 const NUDGE_METRES_FAST = 1;
 const ZOOM_IN_FACTOR = 1.1;
 const ZOOM_OUT_FACTOR = 1 / 1.1;
+
+/** One arrow-key press of camera movement, in screen pixels. Shift multiplies it. */
+const PAN_SCREEN_PIXELS = 40;
+const PAN_SCREEN_PIXELS_FAST = 200;
+
+/** Screen-space unit direction for each arrow key: y grows downward on screen. */
+const ARROW_DIRECTIONS: Readonly<Record<string, { readonly x: number; readonly y: number }>> = {
+  ArrowUp: { x: 0, y: -1 },
+  ArrowDown: { x: 0, y: 1 },
+  ArrowLeft: { x: -1, y: 0 },
+  ArrowRight: { x: 1, y: 0 },
+};
 
 function isEditableElement(target: EventTarget | null): boolean {
   return (
@@ -64,9 +83,10 @@ export interface MapCanvasProps {
  * `next/dynamic(..., { ssr: false })` from `map-editor.tsx`.
  */
 export function MapCanvas({ actions }: MapCanvasProps) {
-  const { t } = useLocalization();
+  const { t, locale } = useLocalization();
   const store = useMapEditorStore();
 
+  const keyboardHelpId = useId();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [size, setSize] = useState<CanvasSize>({ width: 0, height: 0 });
   const [pointerLocal, setPointerLocal] = useState<Position | null>(null);
@@ -140,6 +160,7 @@ export function MapCanvas({ actions }: MapCanvasProps) {
   const backgroundBadgeLabel = (record: (typeof visibleBackgrounds)[number]): string =>
     calibrationStateText(
       t,
+      locale,
       record.categoryDetails?.category === 'importedBackground'
         ? record.categoryDetails.details.calibration
         : undefined,
@@ -275,31 +296,36 @@ export function MapCanvas({ actions }: MapCanvasProps) {
       return;
     }
 
-    const nudge = event.shiftKey ? NUDGE_METRES_FAST : NUDGE_METRES;
-    if (store.state.selectedObjectId === null) {
+    // Zoom is keyboard-reachable as well as wheel-reachable: the wheel and
+    // the pinch gesture were the only ways to change scale, which left a
+    // keyboard-only reader unable to see anything outside the initial fit.
+    // `=` is the unshifted key that carries `+` on most layouts.
+    if (event.key === '+' || event.key === '=' || event.key === '-') {
+      event.preventDefault();
+      const pivot = { x: size.width / 2, y: size.height / 2 };
+      store.setCamera(
+        zoomCamera(camera, size, pivot, event.key === '-' ? ZOOM_OUT_FACTOR : ZOOM_IN_FACTOR),
+      );
       return;
     }
 
-    switch (event.key) {
-      case 'ArrowUp':
-        event.preventDefault();
-        void actions.moveObject(store.state.selectedObjectId, 0, nudge);
-        return;
-      case 'ArrowDown':
-        event.preventDefault();
-        void actions.moveObject(store.state.selectedObjectId, 0, -nudge);
-        return;
-      case 'ArrowLeft':
-        event.preventDefault();
-        void actions.moveObject(store.state.selectedObjectId, -nudge, 0);
-        return;
-      case 'ArrowRight':
-        event.preventDefault();
-        void actions.moveObject(store.state.selectedObjectId, nudge, 0);
-        return;
-      default:
-        return;
+    const arrow = ARROW_DIRECTIONS[event.key];
+    if (arrow === undefined) {
+      return;
     }
+    event.preventDefault();
+
+    // With an object selected the arrows nudge it; with nothing selected they
+    // pan the camera, which is the only keyboard way to reach a part of the
+    // garden that is currently off screen.
+    if (store.state.selectedObjectId === null) {
+      const step = event.shiftKey ? PAN_SCREEN_PIXELS_FAST : PAN_SCREEN_PIXELS;
+      store.setCamera(panCamera(camera, -arrow.x * step, -arrow.y * step));
+      return;
+    }
+
+    const nudge = event.shiftKey ? NUDGE_METRES_FAST : NUDGE_METRES;
+    void actions.moveObject(store.state.selectedObjectId, arrow.x * nudge, -arrow.y * nudge);
   };
 
   const modeHintKey =
@@ -332,8 +358,17 @@ export function MapCanvas({ actions }: MapCanvasProps) {
         tabIndex={0}
         role="application"
         aria-label={t('map.canvas.ariaLabel')}
+        aria-describedby={keyboardHelpId}
         onKeyDown={handleKeyDown}
       >
+        {/* The canvas announces what a keyboard can and cannot do here. The
+            second half is deliberately an admission rather than a promise:
+            drawing a shape and dragging a vertex are pointer gestures with
+            no keyboard equivalent in this pass, and the object list is the
+            accessible route to everything that does have one. */}
+        <VisuallyHidden>
+          <span id={keyboardHelpId}>{t('map.canvas.keyboardHelp')}</span>
+        </VisuallyHidden>
         {size.width > 0 && size.height > 0 && (
           <Stage
             width={size.width}

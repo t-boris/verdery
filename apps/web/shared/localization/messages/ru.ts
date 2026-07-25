@@ -1,10 +1,12 @@
 import type { MessageCatalogue } from '../catalogue';
 
+import { russianAccessibilityMessages } from './ru-accessibility';
 import { russianTodayMessages } from './ru-today';
 
 /** Russian message catalogue. Typed against the English catalogue, so it cannot be incomplete. */
 export const russianMessages: MessageCatalogue = {
   ...russianTodayMessages,
+  ...russianAccessibilityMessages,
   'app.name': 'Verdery',
   'app.tagline': 'Живая карта настоящего сада.',
   'app.skipToContent': 'Перейти к содержимому',
@@ -143,7 +145,6 @@ export const russianMessages: MessageCatalogue = {
   'map.toolbar.undo': 'Отменить',
   'map.toolbar.redo': 'Повторить',
 
-  'map.canvas.ariaLabel': 'Холст карты сада',
   'map.canvas.hintPoint': 'Нажмите на карту, чтобы разместить новый объект: {category}.',
   'map.canvas.hintPath':
     'Нажимайте, чтобы добавлять точки. Дважды щёлкните, нажмите Enter или выберите «Завершить фигуру», чтобы закончить. Esc — отменить.',

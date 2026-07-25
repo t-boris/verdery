@@ -106,7 +106,10 @@ enum TodayFixtures {
     }
 
     @MainActor
-    static func makeModel(gateway: FakeRecommendationGateway) -> TodayViewModel {
+    static func makeModel(
+        gateway: FakeRecommendationGateway,
+        strings: LocalizedStrings = LocalizedStrings(locale: Locale(identifier: "en_GB"))
+    ) -> TodayViewModel {
         TodayViewModel(
             gardenId: "garden-1",
             loadToday: LoadToday(gateway: gateway),
@@ -115,7 +118,7 @@ enum TodayFixtures {
             dismissRecommendation: DismissRecommendation(gateway: gateway),
             markRecommendationIrrelevant: MarkRecommendationIrrelevant(gateway: gateway),
             convertRecommendationToTask: ConvertRecommendationToTask(gateway: gateway),
-            strings: LocalizedStrings(locale: Locale(identifier: "en_GB"))
+            strings: strings
         )
     }
 }

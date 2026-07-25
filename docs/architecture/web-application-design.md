@@ -206,6 +206,64 @@ Expected API errors remain typed feature state. Error boundaries are reserved fo
 - Pointer targets support touch-capable laptops and tablets.
 - Motion and animation respect user preferences.
 
+### 14.1 Measurable Commitments
+
+The rules above are held to specific, tested thresholds:
+
+- **Contrast.** Body text, muted text, brand text, and every tone colour clear
+  WCAG 2.2 SC 1.4.3 (4.5:1) against every surface they are painted on, in both
+  palettes. A control's visual boundary clears SC 1.4.11 (3:1), which is why
+  `--color-control-border` exists separately from the decorative
+  `--color-border`: a form field and a secondary button have no fill of their
+  own, so their border is the whole of the information identifying them.
+- **Target size.** Every standalone control is at least `--control-min-size`
+  (2.75rem, 44px) in its block dimension — buttons, navigation links, and the
+  garden tabs alike. This is the outdoor-use requirement of
+  technical-specification.md section 11, not merely SC 2.5.8's 24px minimum.
+- **Structure.** Every route has exactly one `main` landmark and one `h1`, and
+  no heading level is skipped. A list row that opens its own detail panel
+  carries a heading, so the panel's contents sit under something.
+- **Disclosures.** A control that shows or hides a panel carries
+  `aria-expanded` and `aria-controls`; its panel container exists whether or
+  not it is open, so the reference always resolves.
+- **Navigation state.** The current garden tab carries `aria-current="page"`,
+  and never more than one tab at a time.
+- **Motion.** Under `prefers-reduced-motion: reduce`, every transition and
+  animation is suppressed — durations _and_ delays, since a zero-duration
+  transition behind a delay is still a freeze.
+- **The map canvas.** The Konva stage is a `role="application"` region with a
+  label and an `aria-describedby` that states its keyboard contract: arrow
+  keys pan the camera or nudge the selected object, plus and minus zoom,
+  Delete removes the selection, Escape clears it. The same description states
+  plainly that drawing a shape and dragging a vertex are pointer gestures with
+  no keyboard equivalent in the current implementation, and points at the
+  structured object list beside the map as the keyboard route to selecting,
+  renaming, repositioning, and deleting every object. An honest statement of
+  the gap is preferred to silence.
+
+### 14.2 How This Is Verified
+
+- `shared/ui/contrast.test.ts` parses `tokens.css` itself and asserts every
+  permitted colour pairing in both palettes, including the SC 1.4.11 control
+  boundaries for which axe implements no rule.
+- `e2e/accessibility.spec.ts` runs `@axe-core/playwright` (a dev dependency)
+  against every route the E2E harness can reach, in the light and dark themes,
+  with disclosures expanded and a form error showing, and asserts zero
+  violations across the `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`,
+  `wcag22aa`, and `best-practice` rule sets. axe runs in a real browser
+  because contrast, target size, and visibility all depend on computed layout,
+  which jsdom does not produce.
+- `e2e/keyboard.spec.ts` drives real key presses: the skip link, a
+  keyboard-only sign-in, a visible focus indicator on every focusable control
+  on every route, the Today disclosures, the map toolbar's `aria-pressed`
+  state, and canvas pan and zoom.
+- `e2e/responsive.spec.ts` asserts no horizontal document overflow at 360,
+  834, and 1440 CSS pixels, the target-size minimum at 360, and that the
+  garden tab bar scrolls sideways on one line rather than wrapping.
+- `e2e/reduced-motion.spec.ts` reads computed durations and delays under both
+  motion preferences, so the suppression is proved and the unsuppressed
+  default is proved not to be vacuous.
+
 ## 15. Localization
 
 English and Russian are supported from the first production release. Localization uses shared message identifiers and ICU-compatible formatting semantics.
@@ -213,6 +271,40 @@ English and Russian are supported from the first production release. Localizatio
 The client owns interface strings. Server responses provide stable error codes and structured values rather than final English sentences for ordinary validation.
 
 Dates, time zones, seasons, units, and decimal formatting use the user's locale and garden location as appropriate. Canonical API measurements remain metric.
+
+### 15.1 Presentation Rules
+
+- **Instants** (`completedAt`, `observedAt`, a recommendation window bound)
+  render in the reader's own time zone. The server's quiet-hours logic reasons
+  in the garden's zone; the client displays wall-clock time where the reader
+  is. `shared/localization/formatting.ts` owns this.
+- **Calendar days** (`dueDate`) are bare `YYYY-MM-DD` with no zone, and are
+  never passed through `new Date(...)`, which would parse them as UTC midnight
+  and shift them a day west of Greenwich.
+- **The negotiated locale is always passed explicitly.** A bare
+  `toLocaleString()` follows the JavaScript runtime's default locale — the
+  browser's, not the one this application negotiated — so a reader who chose
+  Russian would get Russian prose around an English date.
+- **Numbers carry the reader's separator.** `toFixed` emits a POSIX full stop;
+  measurement figures go through `formatFixed`, which pins the digit count
+  (never more precision than the estimate supports) while formatting for the
+  locale.
+- **Units are translated words, not literals appended to a number.**
+  `map.units.centimetres` / `map.units.metres` carry the abbreviation, so a
+  calibration figure reads "±1,5 см" in Russian rather than "±1.5 cm".
+  Canonical measurements remain metric throughout, per the geometry model.
+
+### 15.2 How This Is Verified
+
+- `shared/localization/keyed-copy.test.ts` scans every component for prose in
+  a JSX text child or a naming attribute (`aria-label`, `placeholder`,
+  `title`, `alt`, `label`) and fails on any string that is not a catalogue
+  key. It also asserts the two catalogues define identical key sets —
+  including the keys the `*-today` modules contribute — that no entry is
+  empty, that no Russian entry is still the English text, and that both
+  languages declare the same interpolation placeholders.
+- `shared/localization/formatting.test.ts` asserts locale-dependent output,
+  reader-zone rendering, and the calendar-day boundary.
 
 ## 16. Security
 
@@ -259,7 +351,9 @@ Required layers are:
 - Unit tests with Vitest.
 - Component tests with Testing Library.
 - Geometry fixture and property tests.
-- Accessibility checks.
+- Accessibility checks: automated axe passes over every reachable route in both
+  themes, keyboard-operability, responsive, and reduced-motion suites, and
+  token-level contrast arithmetic (see section 14.2).
 - Mock Service Worker tests for typed API outcomes.
 - Playwright end-to-end tests against a controlled environment.
 - Browser compatibility runs for supported Safari, Chrome, Firefox, and Edge versions.

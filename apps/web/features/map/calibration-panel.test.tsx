@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { LocalizationProvider } from '@/shared/localization/public';
+import { LocalizationProvider, createTranslator } from '@/shared/localization/public';
 
 import { formatErrorMetres } from './calibration-labels';
 import { CalibrationPanel } from './calibration-panel';
@@ -88,13 +88,23 @@ function renderPanel(selectedRecord: MapObjectRecord | null) {
 }
 
 describe('formatErrorMetres', () => {
+  const english = createTranslator('en');
+  const russian = createTranslator('ru');
+
   it('shows centimetres below a metre and metres above — never fake extra digits', () => {
-    expect(formatErrorMetres(0.12)).toBe('12.0 cm');
-    expect(formatErrorMetres(1.246)).toBe('1.25 m');
+    expect(formatErrorMetres(0.12, english, 'en')).toBe('12.0 cm');
+    expect(formatErrorMetres(1.246, english, 'en')).toBe('1.25 m');
     // The unit boundary itself (P6-QA-01): exactly one metre is metres, a
     // hair under stays centimetres.
-    expect(formatErrorMetres(1)).toBe('1.00 m');
-    expect(formatErrorMetres(0.999)).toBe('99.9 cm');
+    expect(formatErrorMetres(1, english, 'en')).toBe('1.00 m');
+    expect(formatErrorMetres(0.999, english, 'en')).toBe('99.9 cm');
+  });
+
+  it('localizes the decimal separator and the unit, keeping the same digits', () => {
+    // The figure a Russian reader sees used to be "1.5 cm" — a POSIX point
+    // and an English abbreviation inside Russian prose (P8-UX-01).
+    expect(formatErrorMetres(0.015, russian, 'ru')).toBe('1,5 см');
+    expect(formatErrorMetres(1.246, russian, 'ru')).toBe('1,25 м');
   });
 });
 
@@ -136,6 +146,51 @@ describe('CalibrationPanel', () => {
     renderPanel(backgroundRecord({ ...CALIBRATION, rmsErrorMetres: null }));
 
     expect(screen.getByText('Calibrated · accuracy not estimated')).toBeDefined();
+  });
+
+  /**
+   * The E2E harness cannot reach this panel — it mounts only when an
+   * imported plan background is the selected object, and putting one there
+   * needs a real Cloud Storage upload the harness has no bucket for. Its
+   * keyboard contract is therefore asserted here, against the mounted
+   * component: every control is a real `<button>` or a labelled field, so
+   * everything in the calibration flow is reachable by Tab and operable by
+   * Enter or Space. Nothing in it is a click-only `<div>`.
+   *
+   * Source: work package P8-UX-01.
+   */
+  it('exposes every control as a focusable button or a labelled field', () => {
+    imageReady();
+    renderPanel(backgroundRecord());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Calibrate' }));
+
+    const panel = screen.getByRole('heading', { name: 'Calibration' }).closest('div');
+    expect(panel).not.toBeNull();
+
+    // No click handler sits on a non-interactive element.
+    const clickable = (panel as HTMLElement).querySelectorAll('[onclick]');
+    expect(clickable.length).toBe(0);
+
+    // Every button is a real button, so Tab reaches it and Enter/Space fire it.
+    const buttons = screen.getAllByRole('button');
+    expect(buttons.length).toBeGreaterThan(0);
+    for (const button of buttons) {
+      expect(button.tagName).toBe('BUTTON');
+      expect((button.textContent ?? '').trim()).not.toBe('');
+    }
+
+    // Every field is named — an unlabelled number input in a measurement
+    // flow is a value a screen-reader user cannot identify.
+    for (const field of (panel as HTMLElement).querySelectorAll('input, select')) {
+      const id = field.getAttribute('id') ?? '';
+      const named =
+        (id !== '' && (panel as HTMLElement).querySelector(`label[for="${id}"]`) !== null) ||
+        field.getAttribute('aria-label') !== null ||
+        field.getAttribute('aria-labelledby') !== null ||
+        field.closest('label') !== null;
+      expect(named, field.outerHTML.slice(0, 120)).toBe(true);
+    }
   });
 
   it('cannot start calibrating a plan with no displayable image (every PDF today)', () => {

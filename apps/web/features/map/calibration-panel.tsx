@@ -3,7 +3,7 @@
 import { positionsOf } from '@verdery/geometry-contracts';
 import { useEffect, type ChangeEvent } from 'react';
 
-import { useLocalization } from '@/shared/localization/public';
+import { formatFixed, useLocalization } from '@/shared/localization/public';
 import { Button } from '@/shared/ui/public';
 
 import { calibrationStateText, formatErrorMetres } from './calibration-labels';
@@ -44,7 +44,7 @@ export interface CalibrationPanelProps {
  * `calibration-session.ts`.
  */
 export function CalibrationPanel({ gardenId, actions }: CalibrationPanelProps) {
-  const { t } = useLocalization();
+  const { t, locale } = useLocalization();
   const store = useMapEditorStore();
 
   const record = actions.selectedRecord;
@@ -105,10 +105,10 @@ export function CalibrationPanel({ gardenId, actions }: CalibrationPanelProps) {
           <p className={styles['quality']}>{t('map.background.notCalibrated')}</p>
         ) : (
           <>
-            <p className={styles['quality']}>{calibrationStateText(t, calibration)}</p>
+            <p className={styles['quality']}>{calibrationStateText(t, locale, calibration)}</p>
             <p className={styles['summary']}>
               {t('map.calibration.scaleSummary', {
-                metres: calibration.transform.metresPerPlanUnit.toFixed(1),
+                metres: formatFixed(calibration.transform.metresPerPlanUnit, 1, locale),
               })}{' '}
               ·{' '}
               {t('map.calibration.transformRevision', { revision: calibration.transformRevision })}
@@ -210,7 +210,8 @@ export function CalibrationPanel({ gardenId, actions }: CalibrationPanelProps) {
                 <span>
                   {t('map.calibration.pointResidual', {
                     index: index + 1,
-                    value: residual === undefined ? '—' : `±${formatErrorMetres(residual)}`,
+                    value:
+                      residual === undefined ? '—' : `±${formatErrorMetres(residual, t, locale)}`,
                   })}
                 </span>
                 <Button
@@ -234,6 +235,8 @@ export function CalibrationPanel({ gardenId, actions }: CalibrationPanelProps) {
           className={styles['numberInput']}
           type="number"
           step="any"
+          /* A number input's value attribute is always POSIX by HTML
+             definition; the browser localizes what it displays. */
           value={Number(manualRotationDegrees.toFixed(1))}
           disabled={preview?.kind !== 'ready' || pageAspectRatio === null}
           onChange={(event: ChangeEvent<HTMLInputElement>) => {
@@ -252,7 +255,7 @@ export function CalibrationPanel({ gardenId, actions }: CalibrationPanelProps) {
           {preview.derivation.rmsErrorMetres === null
             ? t('map.calibration.rmsUnavailable')
             : t('map.calibration.rms', {
-                value: formatErrorMetres(preview.derivation.rmsErrorMetres),
+                value: formatErrorMetres(preview.derivation.rmsErrorMetres, t, locale),
               })}
         </p>
       )}

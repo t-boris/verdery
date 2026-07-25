@@ -25,9 +25,14 @@ export function ProgressBar({ value, label }: ProgressBarProps) {
 
   return (
     <div className={styles['wrapper']}>
-      <label id={labelId} className={styles['label']}>
+      {/* A `<span>`, not a `<label>`: the association is made by
+          `aria-labelledby` below, and a `<label>` carrying no `for` and
+          wrapping no control is a labelling element bound to nothing —
+          clicking it does not reach the meter, and assistive technology has
+          two competing naming mechanisms to reconcile. */}
+      <span id={labelId} className={styles['label']}>
         {label}
-      </label>
+      </span>
       <div className={styles['row']}>
         <progress className={styles['bar']} value={clamped} max={100} aria-labelledby={labelId} />
         <span className={styles['percent']}>{rounded}%</span>

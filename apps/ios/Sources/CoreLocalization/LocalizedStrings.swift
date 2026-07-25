@@ -68,6 +68,24 @@ public struct LocalizedStrings: Sendable {
         string(forKey: key.rawValue, parameters: parameters)
     }
 
+    /// Formats a number with a fixed number of fraction digits, in the
+    /// reader's locale.
+    ///
+    /// `String(format: "%.1f", …)` always emits the POSIX decimal separator,
+    /// so a Russian reader saw `1.5` inside otherwise-Russian prose. The
+    /// digit count stays an explicit argument because a measurement figure
+    /// must never show more digits than the estimate behind it supports —
+    /// that decision belongs to the caller.
+    public func number(_ value: Double, fractionDigits: Int) -> String {
+        let formatter = NumberFormatter()
+        formatter.locale = locale
+        formatter.numberStyle = .decimal
+        formatter.usesGroupingSeparator = false
+        formatter.minimumFractionDigits = fractionDigits
+        formatter.maximumFractionDigits = fractionDigits
+        return formatter.string(from: NSNumber(value: value)) ?? String(value)
+    }
+
     private func format(_ parameter: ValidationParameter) -> String {
         switch parameter {
         case let .text(value):

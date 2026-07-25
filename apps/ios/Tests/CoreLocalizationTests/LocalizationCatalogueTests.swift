@@ -39,6 +39,63 @@ struct LocalizationCatalogueTests {
         #expect(Set(LocalizationKey.allCases.map(\.rawValue)).isSubset(of: english))
     }
 
+    /// Both catalogues must translate; a Russian entry left holding the
+    /// English sentence is a missing translation that every other check here
+    /// passes, because the key *is* present in both files.
+    @Test("No Russian entry is still the English text")
+    func russianIsActuallyTranslated() throws {
+        let english = LocalizedStrings(locale: Locale(identifier: "en_GB"))
+        let russian = LocalizedStrings(locale: Locale(identifier: "ru_RU"))
+
+        var identical: Set<String> = []
+        for key in LocalizationKey.allCases {
+            let englishText = english(key)
+            guard englishText == russian(key) else { continue }
+            // Strip placeholders before asking whether prose remains.
+            var prose = englishText
+            while let start = prose.firstIndex(of: "{"), let end = prose.firstIndex(of: "}"),
+                start < end
+            {
+                prose.removeSubrange(start...end)
+            }
+            if prose.range(of: "[A-Za-z]{4}", options: .regularExpression) != nil {
+                identical.insert(key.rawValue)
+            }
+        }
+
+        // Every entry in this catalogue is genuinely translated today. A
+        // future key that is legitimately identical in both languages — a
+        // brand name, say — belongs in an explicit allowlist here rather
+        // than in a weakened assertion.
+        #expect(identical.isEmpty, "Untranslated Russian entries: \(identical.sorted())")
+    }
+
+    /// A placeholder present in one language and absent in the other renders
+    /// as a literal `{value}` on screen for the reader of that language.
+    @Test("Both languages declare the same interpolation placeholders")
+    func placeholdersAgree() {
+        let english = LocalizedStrings(locale: Locale(identifier: "en_GB"))
+        let russian = LocalizedStrings(locale: Locale(identifier: "ru_RU"))
+
+        func placeholders(_ template: String) -> Set<String> {
+            let pattern = try? NSRegularExpression(pattern: #"\{(\w+)\}"#)
+            let range = NSRange(template.startIndex..<template.endIndex, in: template)
+            let matches = pattern?.matches(in: template, range: range) ?? []
+            return Set(
+                matches.compactMap { match in
+                    Range(match.range(at: 1), in: template).map { String(template[$0]) }
+                }
+            )
+        }
+
+        for key in LocalizationKey.allCases {
+            #expect(
+                placeholders(english(key)) == placeholders(russian(key)),
+                "\(key.rawValue) declares different placeholders in each language."
+            )
+        }
+    }
+
     @Test("The catalogue has no entry that nothing refers to")
     func catalogueHasNoOrphans() throws {
         let english = try #require(LocalizedStrings.keys(forLanguage: "en"))

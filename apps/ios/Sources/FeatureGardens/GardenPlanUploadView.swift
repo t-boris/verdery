@@ -14,6 +14,11 @@ public struct GardenPlanUploadView: View {
     @State private var pickedPhotoItem: PhotosPickerItem?
     @State private var isFileImporterPresented = false
 
+    /// The plan preview's ceiling, scaled with the reader's text size so the
+    /// caption and controls below it are not pushed off screen at the
+    /// accessibility sizes.
+    @ScaledMetric(relativeTo: .body) private var previewMaxHeight: CGFloat = 320
+
     /// The Files picker's accepted types — `PlanDocumentValidation`'s
     /// allowlist as UTTypes: PDF plus the raster plan types.
     private static let importableTypes: [UTType] = [.pdf, .jpeg, .png, .webP, .heic, .heif]
@@ -121,7 +126,7 @@ public struct GardenPlanUploadView: View {
                     Image(decorative: image, scale: 1)
                         .resizable()
                         .scaledToFit()
-                        .frame(maxHeight: 320)
+                        .frame(maxHeight: previewMaxHeight)
                         .accessibilityIdentifier("gardens.planUpload.preview")
                 }
             }

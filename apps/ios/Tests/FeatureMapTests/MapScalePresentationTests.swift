@@ -37,6 +37,17 @@ struct MapScalePresentationTests {
         #expect(text == strings.string(.mapScaleGeoreferencedWithAccuracy, parameters: ["accuracyMetres": "2.5"]))
     }
 
+    /// P8-UX-01: `String(format: "%.1f", …)` produced a POSIX decimal point
+    /// regardless of language, so a Russian reader saw "точность ±2.5 м".
+    @Test("The accuracy figure uses the reader's decimal separator")
+    func accuracyFigureIsLocalized() {
+        let russian = LocalizedStrings(locale: Locale(identifier: "ru_RU"))
+        let text = MapScalePresentation.text(for: georeference(accuracyMetres: 2.5), strings: russian)
+
+        #expect(text.contains("2,5"))
+        #expect(!text.contains("2.5"))
+    }
+
     @Test("A georeference with no accuracy figure omits the accuracy clause")
     func georeferenceWithoutAccuracyOmitsClause() {
         let text = MapScalePresentation.text(for: georeference(accuracyMetres: nil), strings: strings)

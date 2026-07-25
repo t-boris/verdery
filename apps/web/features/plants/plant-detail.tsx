@@ -60,7 +60,11 @@ export function PlantDetail({ gardenId, plantId }: PlantDetailProps) {
         <FailureAlert failure={query.error.failure} />
       )}
       <div className={styles['summary']}>
-        <h2 className={styles['name']}>{plant.displayName}</h2>
+        {/* The plant's own name is this page's `<h1>`: the route renders no
+            other top-level heading, so without it the page's `<h2>` sections
+            hung off nothing and a screen-reader user landed on a document
+            with no title of its own. */}
+        <h1 className={styles['name']}>{plant.displayName}</h1>
         <StatusPill tone={statusTone(plant.status)} label={t(statusLabel(plant.status))} />
         <span>{t(lifecycleStageLabel(plant.lifecycleStage))}</span>
         <span>{t(groupingKindLabel(plant.groupingKind))}</span>

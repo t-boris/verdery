@@ -58,6 +58,10 @@ public struct TodayView: View {
                         NavigationLink(value: TodayItemDetailRoute(itemId: item.id)) {
                             rowView(item)
                         }
+                        // One element, one sentence: see
+                        // `TodayItemPresentation.accessibilityLabel`.
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(item.accessibilityLabel)
                         .accessibilityIdentifier("today.row.\(item.id)")
                     }
                 }
@@ -83,6 +87,9 @@ public struct TodayView: View {
                 Text(notice)
                     .font(.footnote)
                     .foregroundStyle(.orange)
+                    // Orange alone carries the meaning visually; the trait is
+                    // what carries it to VoiceOver.
+                    .accessibilityAddTraits(.isStaticText)
                     .accessibilityIdentifier("today.staleNotice")
             }
         }
@@ -99,9 +106,9 @@ public struct TodayView: View {
                 .foregroundStyle(.secondary)
             HStack {
                 Text(item.urgencyLabel)
-                Text("·")
+                Text("·").accessibilityHidden(true)
                 Text(item.careCategory)
-                Text("·")
+                Text("·").accessibilityHidden(true)
                 Text(item.priorityScoreText)
             }
             .font(.footnote)

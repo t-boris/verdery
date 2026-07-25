@@ -28,7 +28,17 @@
   box-shadow: var(--shadow-sm);
 }
 
+/*
+ * The row's own link is the only way into the record, so it is a standalone
+ * navigation target and carries the same minimum hit area as a button —
+ * `technical-specification.md` section 11's outdoor-use requirement, asserted
+ * at 360px by `e2e/responsive.spec.ts`. `inline-flex` is what lets a
+ * `min-height` apply to an anchor at all.
+ */
 .link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-min-size);
   font-family: var(--font-family-display);
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);

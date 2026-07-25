@@ -22,11 +22,7 @@ public enum MapScalePresentation {
 
         return strings.string(
             .mapScaleGeoreferencedWithAccuracy,
-            parameters: ["accuracyMetres": formatted(accuracyMetres)]
+            parameters: ["accuracyMetres": strings.number(accuracyMetres, fractionDigits: 1)]
         )
-    }
-
-    private static func formatted(_ value: Double) -> String {
-        String(format: "%.1f", value)
     }
 }

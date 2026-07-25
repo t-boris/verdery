@@ -46,6 +46,35 @@ public struct TodayItemPresentation: Equatable, Sendable, Identifiable {
     public let evidenceLines: [TodayEvidenceLine]
     /// Feeds the next command's `If-Match`.
     public let revision: Int
+
+    /// The whole row as one spoken sentence.
+    ///
+    /// The row is a `VStack` of up to eight `Text` views, three of which are
+    /// a bare "·" separator glyph. Left as separate accessibility elements,
+    /// VoiceOver read them one swipe at a time and pronounced each separator
+    /// aloud, so reaching the row's action took eight gestures and included
+    /// three announcements of "middle dot". The view therefore collapses the
+    /// row into a single element named by this property.
+    ///
+    /// Assembled with ", " rather than through the catalogue on purpose: this
+    /// is a list of already-localized fragments, not a sentence with
+    /// grammar, and a comma is how VoiceOver is given a pause in every
+    /// language this application ships.
+    public var accessibilityLabel: String {
+        [
+            actionTitle,
+            targetLabel,
+            urgencyLabel,
+            priorityScoreText,
+            explanation,
+            windowText,
+            uncertaintyText,
+            isElevatedRisk ? safetyTierLabel : nil,
+        ]
+        .compactMap { $0 }
+        .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        .joined(separator: ", ")
+    }
 }
 
 /// Immutable display state for the Today screen.

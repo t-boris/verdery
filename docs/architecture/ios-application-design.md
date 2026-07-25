@@ -310,10 +310,66 @@ Required test layers are:
 - Geometry property and fixture tests shared semantically with web and backend.
 - View-model tests.
 - SwiftUI accessibility and UI tests for critical flows.
+- Accessibility-convention tests over the source itself (see section 19.1).
 - Real-device tests for camera, AR, background upload, and lifecycle recovery.
 - Operational membership/assignment revocation and client-invitation universal-link tests.
 
 Tests use injected clocks, identifier generators, network gateways, and capability providers.
+
+### 19.1 Accessibility and Localization Coverage
+
+This package has no UI-test target and no simulator in CI's `swift test` step,
+so the properties that live in view code are checked two ways.
+
+**As values.** Anything a view model or a presentation type computes is
+asserted directly:
+
+- `TodayItemPresentation.accessibilityLabel` is the whole Today row as one
+  spoken sentence. The row draws up to eight `Text` views, three of them a bare
+  "·" separator; left as separate elements VoiceOver needed eight swipes to
+  cross one row and pronounced the separators aloud. The view collapses the row
+  into one element named by that property, and
+  `Tests/FeatureRecommendationsTests/TodayAccessibilityTests.swift` asserts it
+  carries every field the row shows, leads with the action, contains no
+  decorative glyph, speaks the elevated-risk tier rather than relying on
+  orange, and follows the injected locale.
+- `MapAccessibilityLabels` and `MapCalibrationLabels` are covered the same way,
+  including the Russian rendering of a calibration figure.
+- `Tests/CoreLocalizationTests/LocalizationCatalogueTests.swift` asserts key
+  parity between the two catalogues, that every declared key and every
+  validation code has an entry, that nothing is orphaned, that no Russian entry
+  is still the English text, and that both languages declare the same
+  interpolation placeholders.
+
+**As conventions over the source.**
+`Tests/ArchitectureTests/AccessibilityConventionTests.swift` scans `Sources`
+and fails on:
+
+- a hard-coded font size (`.font(.system(size:))`, `UIFont.systemFont`), which
+  ignores Dynamic Type outright;
+- a literal `frame` dimension, which clips its own contents at the
+  accessibility text sizes — every one is now an `@ScaledMetric`;
+- a `withAnimation` or `.animation(` in a file that never reads
+  `accessibilityReduceMotion` (the application animates nothing today, so this
+  rule is forward-looking by design);
+- a user-facing number formatted with `String(format: "%.1f", …)`, which emits
+  a POSIX decimal separator regardless of language — those go through
+  `LocalizedStrings.number(_:fractionDigits:)`;
+- a control declared with an empty title, which leaves it with no accessible
+  name at all.
+
+**The map canvas.** `MapCanvasView` is a `Canvas` of drawn pixels, not views,
+so its shapes cannot become accessibility elements. It is exposed as one
+element whose label says so and names the alternative: `MapObjectListView`,
+reachable through the canvas/list picker, is the VoiceOver route to selecting,
+inspecting, and deleting every object. Move, resize, rotate, reshape, pan, and
+zoom remain touch-only, and the label says that too rather than leaving a
+reader to discover it.
+
+**What still needs a device.** Rendering at the accessibility text sizes,
+VoiceOver's actual traversal order and pronunciation, Reduce Motion and Reduce
+Transparency as the system applies them, and one-handed reachability are all
+confirmed only on real hardware or a simulator.
 
 ## 20. Performance Budgets
 

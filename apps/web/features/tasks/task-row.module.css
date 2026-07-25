@@ -16,9 +16,19 @@
   gap: var(--space-2) var(--space-3);
 }
 
+/*
+ * The row title is an `<h2>` so a screen-reader user can jump between tasks
+ * by heading, and so the details a row opens sit under a heading rather than
+ * loose in the page. The three declarations that restate the document
+ * defaults keep it looking exactly like the label it was — a list row, not a
+ * section title, so it stays on the body stack rather than the display serif.
+ */
 .title {
+  font-family: var(--font-family-sans);
   font-weight: var(--font-weight-semibold);
   font-size: var(--font-size-md);
+  line-height: var(--line-height-normal);
+  letter-spacing: normal;
   color: var(--color-text);
   margin-inline-end: auto;
 }
@@ -46,6 +56,7 @@
 
 .completeRow {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   gap: var(--space-3);
 }

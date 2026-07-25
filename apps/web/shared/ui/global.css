@@ -80,7 +80,7 @@ a {
 /* Standalone controls stay comfortable for touch input; inline links keep the text flow. */
 button,
 [role='button'] {
-  min-height: 2.75rem;
+  min-height: var(--control-min-size);
 }
 
 /*
@@ -116,13 +116,26 @@ p[role='status']::before {
   }
 }
 
+/*
+ * A reader who has asked their operating system for less motion gets none.
+ *
+ * The delay properties are reset alongside the durations: a zero-duration
+ * transition that still waits 200ms before applying is a 200ms freeze, not a
+ * suppressed animation. `scroll-behavior` covers the smooth-scroll a router
+ * navigation would otherwise perform.
+ *
+ * The E2E suite asserts this under `prefers-reduced-motion: reduce` for every
+ * animated element the token system introduced (`e2e/reduced-motion.spec.ts`).
+ */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
     scroll-behavior: auto !important;
   }
 }

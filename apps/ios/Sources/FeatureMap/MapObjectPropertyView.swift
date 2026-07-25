@@ -289,7 +289,7 @@ struct MapObjectPropertyView: View {
                 Text(
                     strings.string(
                         .mapCalibrationScaleSummary,
-                        parameters: ["metres": String(format: "%.1f", calibration.transform.metresPerPlanUnit)]
+                        parameters: ["metres": strings.number(calibration.transform.metresPerPlanUnit, fractionDigits: 1)]
                     )
                         + " · "
                         + strings.string(
@@ -326,7 +326,7 @@ struct MapObjectPropertyView: View {
                         strings.string(
                             .mapAnnotationUncertaintyLabel,
                             parameters: [
-                                "value": Self.formatted(uncertainty),
+                                "value": formatted(uncertainty),
                                 "unit": MapCategoryLocalization.name(for: measurement.unit, strings: strings),
                             ]
                         )
@@ -365,20 +365,26 @@ struct MapObjectPropertyView: View {
             guard let exterior = rings.first else { return nil }
             return strings.string(
                 .mapPropertyMeasurementArea,
-                parameters: ["squareMetres": Self.formatted(GeometryMeasurement.ringArea(exterior))]
+                parameters: ["squareMetres": formatted(GeometryMeasurement.ringArea(exterior))]
             )
         case let .lineString(line):
             return strings.string(
                 .mapPropertyMeasurementLength,
-                parameters: ["metres": Self.formatted(GeometryMeasurement.lineLength(line))]
+                parameters: ["metres": formatted(GeometryMeasurement.lineLength(line))]
             )
         case .point, .multiLineString, .multiPolygon:
             return nil
         }
     }
 
-    private static func formatted(_ value: Double) -> String {
-        String(format: "%.2f", value)
+    /// Two fraction digits, in the reader's locale.
+    ///
+    /// An instance method rather than a static one because the reader's
+    /// locale lives on `strings`: `String(format: "%.2f", …)` produced a
+    /// POSIX point regardless of language, so a Russian reader saw an area of
+    /// `12.50` where every other number on the screen used a comma.
+    private func formatted(_ value: Double) -> String {
+        strings.number(value, fractionDigits: 2)
     }
 }
 

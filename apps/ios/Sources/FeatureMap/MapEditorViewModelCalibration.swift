@@ -103,12 +103,17 @@ extension MapEditorViewModel {
         updateCalibrationDraft(MapCalibrationSession.withDistanceText(draft, distanceText: text))
     }
 
-    /// The manual rotation in degrees, rendered to one decimal — the bar's
-    /// rotation field round-trips through
+    /// The manual rotation in degrees, rendered to one decimal in the
+    /// reader's locale — the bar's rotation field round-trips through
     /// `MapCalibrationSession.withManualRotation` exactly.
+    ///
+    /// The separator is the reader's: `setCalibrationRotationDegrees` below
+    /// already accepts a comma, so a Russian reader now sees the same
+    /// character the number pad puts under their thumb instead of a POSIX
+    /// point they cannot type.
     public var calibrationRotationDegreesText: String {
         let radians = calibrationDraft?.manualAdjustment?.rotationRadians ?? 0
-        return String(format: "%.1f", radians * 180 / .pi)
+        return strings.number(radians * 180 / .pi, fractionDigits: 1)
     }
 
     public func setCalibrationRotationDegrees(_ text: String) {
@@ -155,7 +160,7 @@ extension MapEditorViewModel {
         return draft.referencePoints.indices.map { index in
             let value =
                 index < residuals.count
-                ? "±" + MapCalibrationLabels.formatErrorMetres(residuals[index])
+                ? "±" + MapCalibrationLabels.formatErrorMetres(residuals[index], strings: strings)
                 : "—"
             return strings.string(
                 .mapCalibrationPointResidual,
@@ -178,7 +183,7 @@ extension MapEditorViewModel {
             }
             return strings.string(
                 .mapCalibrationRms,
-                parameters: ["value": MapCalibrationLabels.formatErrorMetres(rms)]
+                parameters: ["value": MapCalibrationLabels.formatErrorMetres(rms, strings: strings)]
             )
         }
     }

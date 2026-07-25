@@ -7,7 +7,7 @@ import { useLocalization } from '@/shared/localization/public';
 import { Button, Card, FailureAlert, ProgressBar, StaleIndicator } from '@/shared/ui/public';
 
 import styles from './garden-photo-upload.module.css';
-import { uploadFailureReasonLabel, uploadPhaseLabel } from './labels';
+import { formatBytes, uploadFailureReasonLabel, uploadPhaseLabel } from './labels';
 import { MediaPreview } from './media-preview';
 import { useMediaUpload } from './use-media-upload';
 
@@ -19,17 +19,6 @@ export interface GardenPhotoUploadProps {
 const ACCEPTED_TYPES = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
 /** Section 8.1's declared garden-photo ceiling — checked client-side for fast feedback; the server enforces it authoritatively. */
 const MAX_GARDEN_PHOTO_BYTES = 25 * 1024 * 1024;
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) {
-    return `${String(bytes)} B`;
-  }
-  const kib = bytes / 1024;
-  if (kib < 1024) {
-    return `${kib.toFixed(0)} KiB`;
-  }
-  return `${(kib / 1024).toFixed(1)} MiB`;
-}
 
 function percentOf(uploadedBytes: number, totalBytes: number): number {
   return totalBytes <= 0 ? 0 : (uploadedBytes / totalBytes) * 100;
@@ -70,7 +59,7 @@ const CANCELLABLE_PHASES = new Set([
  * implementation-plan.md work package P6-WEB-01.
  */
 export function GardenPhotoUpload({ gardenId }: GardenPhotoUploadProps) {
-  const { t } = useLocalization();
+  const { t, locale } = useLocalization();
   const isOnline = useIsOnline();
   const upload = useMediaUpload(gardenId, 'garden_photo');
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -88,7 +77,7 @@ export function GardenPhotoUpload({ gardenId }: GardenPhotoUploadProps) {
       return;
     }
     if (file.size > MAX_GARDEN_PHOTO_BYTES) {
-      setValidationError(t('media.tooLarge', { max: formatBytes(MAX_GARDEN_PHOTO_BYTES) }));
+      setValidationError(t('media.tooLarge', { max: formatBytes(MAX_GARDEN_PHOTO_BYTES, locale) }));
       return;
     }
     setValidationError(null);
@@ -141,8 +130,8 @@ export function GardenPhotoUpload({ gardenId }: GardenPhotoUploadProps) {
           value={percent}
           label={t('media.progressLabel', {
             filename: upload.displayFilename ?? '',
-            uploaded: formatBytes(upload.uploadedBytes),
-            total: formatBytes(upload.totalBytes),
+            uploaded: formatBytes(upload.uploadedBytes, locale),
+            total: formatBytes(upload.totalBytes, locale),
           })}
         />
       )}

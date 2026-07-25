@@ -316,8 +316,8 @@ export function ImportedBackgroundFields({
   readonly details: ImportedBackgroundDetails;
   readonly onChange: (details: GardenObjectDetails) => void;
 }) {
-  const { t } = useLocalization();
-  const stateText = calibrationStateText(t, details.calibration);
+  const { t, locale } = useLocalization();
+  const stateText = calibrationStateText(t, locale, details.calibration);
 
   return (
     <>

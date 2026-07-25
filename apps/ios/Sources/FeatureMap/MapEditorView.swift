@@ -12,6 +12,12 @@ public struct MapEditorView: View {
     @State private var isLayersSheetPresented = false
     @State private var isWarningsSheetPresented = false
     @State private var isBackgroundPanelPresented = false
+    /// Honours the system Reduce Transparency setting; see ``scaleIndicator``.
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    /// The scale pill's own padding, scaled with the reader's text size so
+    /// the capsule grows with the caption inside it instead of clipping it.
+    @ScaledMetric(relativeTo: .caption2) private var scaleIndicatorPaddingHorizontal: CGFloat = 8
+    @ScaledMetric(relativeTo: .caption2) private var scaleIndicatorPaddingVertical: CGFloat = 4
     /// Per-session dismiss for the non-survey disclosure banner. Resets the
     /// next time this screen is opened fresh (a new `MapEditorView`
     /// instance) — per the work package, "a per-session dismiss that
@@ -121,11 +127,17 @@ public struct MapEditorView: View {
 
     private var loadedContent: some View {
         VStack(spacing: 0) {
-            Picker("", selection: $selectedTab) {
+            // A named control, with the name hidden visually: the segmented
+            // style already reads as a view switcher on screen, but an empty
+            // `Picker("")` label left VoiceOver with nothing to announce the
+            // control itself as.
+            Picker(model.tabPickerLabel, selection: $selectedTab) {
                 Text(model.canvasTabTitle).tag(Tab.canvas)
                 Text(model.listTabTitle).tag(Tab.list)
             }
             .pickerStyle(.segmented)
+            .labelsHidden()
+            .accessibilityLabel(model.tabPickerLabel)
             .padding([.horizontal, .top], 8)
             .accessibilityIdentifier("map.editor.tabPicker")
 
@@ -262,24 +274,39 @@ public struct MapEditorView: View {
             }
         }
         .accessibilityIdentifier("map.editor.canvas")
-        // The canvas is a tap/drag surface with no meaningful VoiceOver
-        // story of its own; `MapObjectListView` is the real accessible path
-        // to every object, so VoiceOver is pointed there instead of at
-        // individual, ungrouped shape hit-targets.
+        // One element with an honest description, rather than the silence
+        // `.accessibilityHidden(true)` used to produce.
+        //
+        // Exposing the individual drawn shapes is still not the answer —
+        // they are pixels in a `Canvas`, not views, and `MapObjectListView`
+        // is the real accessible path to every object. But a surface that
+        // simply does not exist for VoiceOver gives a reader no way to learn
+        // that the alternative exists, or that drawing and dragging are
+        // genuinely touch-only in this pass. The label says both.
         .accessibilityElement(children: .ignore)
-        .accessibilityHidden(true)
+        .accessibilityLabel(model.canvasAccessibilityLabel)
     }
 
     /// A small, always-accessible pill reading the garden's scale/accuracy
     /// state — deliberately a sibling of ``canvasSurface``, not nested
-    /// inside it, so `canvasSurface`'s own `.accessibilityHidden(true)`
-    /// never swallows it. See `MapScalePresentation`'s doc comment.
+    /// inside it, so `canvasSurface`'s own `.accessibilityElement(children:
+    /// .ignore)` never swallows it. See `MapScalePresentation`'s doc comment.
     private var scaleIndicator: some View {
         Text(model.scaleIndicatorText)
             .font(.caption2)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(.ultraThinMaterial, in: Capsule())
+            .padding(.horizontal, scaleIndicatorPaddingHorizontal)
+            .padding(.vertical, scaleIndicatorPaddingVertical)
+            // The pill sits over the canvas, so its backing has to keep the
+            // text legible against whatever is drawn beneath it. A blur does
+            // that for most readers; a reader who has turned Reduce
+            // Transparency on has asked not to be given one, and gets an
+            // opaque backing instead — which is the stronger contrast anyway.
+            .background(
+                reduceTransparency
+                    ? AnyShapeStyle(.background)
+                    : AnyShapeStyle(.ultraThinMaterial),
+                in: Capsule()
+            )
             .accessibilityIdentifier("map.editor.scaleIndicator")
     }
 

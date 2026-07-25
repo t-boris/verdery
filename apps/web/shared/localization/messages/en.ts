@@ -8,10 +8,12 @@
  *
  * Source: architecture/web-application-design.md, section "15. Localization".
  */
+import { englishAccessibilityMessages } from './en-accessibility';
 import { englishTodayMessages } from './en-today';
 
 export const englishMessages = {
   ...englishTodayMessages,
+  ...englishAccessibilityMessages,
   'app.name': 'Verdery',
   'app.tagline': 'A living map of a real garden.',
   'app.skipToContent': 'Skip to content',
@@ -151,7 +153,6 @@ export const englishMessages = {
   'map.toolbar.undo': 'Undo',
   'map.toolbar.redo': 'Redo',
 
-  'map.canvas.ariaLabel': 'Garden map canvas',
   'map.canvas.hintPoint': 'Click the map to place the new {category}.',
   'map.canvas.hintPath':
     'Click to add points. Double-click, press Enter, or choose "Finish shape" to complete it. Press Escape to cancel.',

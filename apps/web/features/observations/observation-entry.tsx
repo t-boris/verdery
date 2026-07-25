@@ -3,7 +3,7 @@
 import type { ImageAnalysisResult, Observation, ObservationPhoto } from '@verdery/api-contracts';
 import { useState } from 'react';
 
-import { useLocalization } from '@/shared/localization/public';
+import { formatInstant, useLocalization } from '@/shared/localization/public';
 import { Alert, Button, StatusPill } from '@/shared/ui/public';
 
 import { actorTypeLabel, analysisKindLabel, correctionKindLabel } from './labels';
@@ -75,14 +75,14 @@ function ObservationPhotoAnalysis({ photo }: { readonly photo: ObservationPhoto 
  * Source: packages/api-contracts/openapi.yaml, schema `Observation`.
  */
 export function ObservationEntry({ gardenId, plantId, observation }: ObservationEntryProps) {
-  const { t } = useLocalization();
+  const { t, locale } = useLocalization();
   const [correcting, setCorrecting] = useState(false);
 
   return (
     <li className={styles['entry']}>
       <div className={styles['header']}>
         <time dateTime={observation.observedAt}>
-          {new Date(observation.observedAt).toLocaleString()}
+          {formatInstant(observation.observedAt, locale)}
         </time>
         <span className={styles['actor']}>{t(actorTypeLabel(observation.actorType))}</span>
         {observation.isCorrected && (

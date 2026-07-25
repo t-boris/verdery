@@ -17,7 +17,7 @@
 .action {
   display: inline-flex;
   align-items: center;
-  min-height: 2.75rem;
+  min-height: var(--control-min-size);
   padding: var(--space-2) var(--space-5);
   border-radius: var(--radius-md);
   background-color: var(--color-accent);

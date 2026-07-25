@@ -2,10 +2,15 @@
 
 import type { TodayRecommendation } from '@verdery/api-contracts';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 import { useIsOnline } from '@/core/connectivity/public';
-import { useLocalization, type Translate } from '@/shared/localization/public';
+import {
+  formatInstant,
+  useLocalization,
+  type Locale,
+  type Translate,
+} from '@/shared/localization/public';
 import { Button, FailureAlert, StatusPill } from '@/shared/ui/public';
 
 import { describeUncertainty } from './explainers';
@@ -25,22 +30,18 @@ export interface TodayCardProps {
   readonly item: TodayRecommendation;
 }
 
-function formatTimestamp(timestamp: string): string {
-  return new Date(timestamp).toLocaleString();
-}
-
-function windowText(item: TodayRecommendation, t: Translate): string | null {
+function windowText(item: TodayRecommendation, t: Translate, locale: Locale): string | null {
   if (item.windowStart !== null && item.windowEnd !== null) {
     return t('today.windowRange', {
-      start: formatTimestamp(item.windowStart),
-      end: formatTimestamp(item.windowEnd),
+      start: formatInstant(item.windowStart, locale),
+      end: formatInstant(item.windowEnd, locale),
     });
   }
   if (item.windowEnd !== null) {
-    return t('today.windowUntil', { end: formatTimestamp(item.windowEnd) });
+    return t('today.windowUntil', { end: formatInstant(item.windowEnd, locale) });
   }
   if (item.windowStart !== null) {
-    return t('today.windowFrom', { start: formatTimestamp(item.windowStart) });
+    return t('today.windowFrom', { start: formatInstant(item.windowStart, locale) });
   }
   return null;
 }
@@ -67,9 +68,11 @@ function windowText(item: TodayRecommendation, t: Translate): string | null {
  * technical-specification.md, FR-3 and FR-24.
  */
 export function TodayCard({ gardenId, item }: TodayCardProps) {
-  const { t } = useLocalization();
+  const { t, locale } = useLocalization();
   const router = useRouter();
   const isOnline = useIsOnline();
+  const postponePanelId = useId();
+  const detailsPanelId = useId();
   const [postponeOpen, setPostponeOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
@@ -80,7 +83,7 @@ export function TodayCard({ gardenId, item }: TodayCardProps) {
 
   const uncertainty = describeUncertainty(item);
   const uncertaintyBasis = uncertainty.basis.map((line) => t(line.key, line.args)).join('; ');
-  const window = windowText(item, t);
+  const window = windowText(item, t, locale);
 
   const onConvert = () => {
     convertMutation.mutate(item.revision, {
@@ -96,7 +99,7 @@ export function TodayCard({ gardenId, item }: TodayCardProps) {
     >
       <div className={styles['header']}>
         <div className={styles['headline']}>
-          <span className={styles['title']}>{item.actionTitle}</span>
+          <h2 className={styles['title']}>{item.actionTitle}</h2>
           <span className={styles['priority']}>
             {t('today.priorityDisplay', { score: item.priorityScore })}
           </span>
@@ -147,7 +150,12 @@ export function TodayCard({ gardenId, item }: TodayCardProps) {
         >
           {t('today.convertToTask')}
         </Button>
-        <Button variant="secondary" onClick={() => setPostponeOpen(!postponeOpen)}>
+        <Button
+          variant="secondary"
+          aria-expanded={postponeOpen}
+          aria-controls={postponePanelId}
+          onClick={() => setPostponeOpen(!postponeOpen)}
+        >
           {t('today.postpone')}
         </Button>
         <Button
@@ -166,16 +174,23 @@ export function TodayCard({ gardenId, item }: TodayCardProps) {
         >
           {t('today.markIrrelevant')}
         </Button>
-        <Button variant="secondary" onClick={() => setDetailsOpen(!detailsOpen)}>
+        <Button
+          variant="secondary"
+          aria-expanded={detailsOpen}
+          aria-controls={detailsPanelId}
+          onClick={() => setDetailsOpen(!detailsOpen)}
+        >
           {t(detailsOpen ? 'today.detailsHide' : 'today.detailsShow')}
         </Button>
       </div>
 
-      {postponeOpen && (
-        <PostponeForm gardenId={gardenId} item={item} onDone={() => setPostponeOpen(false)} />
-      )}
+      <div id={postponePanelId}>
+        {postponeOpen && (
+          <PostponeForm gardenId={gardenId} item={item} onDone={() => setPostponeOpen(false)} />
+        )}
+      </div>
 
-      {detailsOpen && <TodayDetails item={item} />}
+      <div id={detailsPanelId}>{detailsOpen && <TodayDetails item={item} />}</div>
 
       {irrelevantMutation.isSuccess && (
         <p role="status" className={styles['feedbackNote']}>

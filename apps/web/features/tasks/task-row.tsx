@@ -1,10 +1,10 @@
 'use client';
 
 import type { Task } from '@verdery/api-contracts';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 import { useIsOnline } from '@/core/connectivity/public';
-import { useLocalization } from '@/shared/localization/public';
+import { formatCalendarDay, formatInstant, useLocalization } from '@/shared/localization/public';
 import { Button, FailureAlert, StatusPill, TextField } from '@/shared/ui/public';
 
 import {
@@ -49,7 +49,9 @@ type OpenPanel = 'none' | 'edit' | 'reschedule';
  * Source: packages/api-contracts/openapi.yaml, tag `Tasks`.
  */
 export function TaskRow({ gardenId, task }: TaskRowProps) {
-  const { t } = useLocalization();
+  const { t, locale } = useLocalization();
+  const editPanelId = useId();
+  const reschedulePanelId = useId();
   const [openPanel, setOpenPanel] = useState<OpenPanel>('none');
   const [completionNote, setCompletionNote] = useState('');
   const [dismissReason, setDismissReason] = useState('');
@@ -87,7 +89,7 @@ export function TaskRow({ gardenId, task }: TaskRowProps) {
   return (
     <li className={styles['row']}>
       <div className={styles['header']}>
-        <span className={styles['title']}>{task.title}</span>
+        <h2 className={styles['title']}>{task.title}</h2>
         <StatusPill tone={taskStatusTone(task.status)} label={t(taskStatusLabel(task.status))} />
         <span className={styles['meta']}>{t(urgencyLabel(task.urgency))}</span>
         <span className={styles['meta']}>{t(targetKindLabel(task.targetKind))}</span>
@@ -100,10 +102,14 @@ export function TaskRow({ gardenId, task }: TaskRowProps) {
             the recommendation candidate it was converted from, so the tasks
             list is where a converted Today item's trail continues. */}
         {task.originRecommendationId !== null && <span>{t('tasks.fromRecommendation')}</span>}
-        {task.dueDate !== null && <span>{t('tasks.dueDateDisplay', { date: task.dueDate })}</span>}
+        {task.dueDate !== null && (
+          <span>
+            {t('tasks.dueDateDisplay', { date: formatCalendarDay(task.dueDate, locale) })}
+          </span>
+        )}
         {task.completedAt !== null && (
           <span>
-            {t('tasks.completedAtDisplay', { date: new Date(task.completedAt).toLocaleString() })}
+            {t('tasks.completedAtDisplay', { date: formatInstant(task.completedAt, locale) })}
           </span>
         )}
       </div>
@@ -112,12 +118,16 @@ export function TaskRow({ gardenId, task }: TaskRowProps) {
         <div className={styles['actions']}>
           <Button
             variant="secondary"
+            aria-expanded={openPanel === 'edit'}
+            aria-controls={editPanelId}
             onClick={() => setOpenPanel(openPanel === 'edit' ? 'none' : 'edit')}
           >
             {t('tasks.edit')}
           </Button>
           <Button
             variant="secondary"
+            aria-expanded={openPanel === 'reschedule'}
+            aria-controls={reschedulePanelId}
             onClick={() => setOpenPanel(openPanel === 'reschedule' ? 'none' : 'reschedule')}
           >
             {t('tasks.reschedule')}
@@ -141,12 +151,16 @@ export function TaskRow({ gardenId, task }: TaskRowProps) {
         </div>
       )}
 
-      {mutable && openPanel === 'edit' && (
-        <TaskEditForm gardenId={gardenId} task={task} onDone={() => setOpenPanel('none')} />
-      )}
-      {mutable && openPanel === 'reschedule' && (
-        <TaskRescheduleForm gardenId={gardenId} task={task} onDone={() => setOpenPanel('none')} />
-      )}
+      <div id={editPanelId}>
+        {mutable && openPanel === 'edit' && (
+          <TaskEditForm gardenId={gardenId} task={task} onDone={() => setOpenPanel('none')} />
+        )}
+      </div>
+      <div id={reschedulePanelId}>
+        {mutable && openPanel === 'reschedule' && (
+          <TaskRescheduleForm gardenId={gardenId} task={task} onDone={() => setOpenPanel('none')} />
+        )}
+      </div>
 
       {mutable && (
         <div className={styles['completeRow']}>

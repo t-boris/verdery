@@ -116,7 +116,11 @@ Use:
 - Testing Library for components and accessible behavior.
 - Mock Service Worker for typed API outcomes.
 - Playwright for browser end-to-end behavior.
-- Automated accessibility checks.
+- Automated accessibility checks: `@axe-core/playwright` over every route the
+  browser E2E harness can reach, in both themes, asserting zero violations;
+  plus keyboard-operability, responsive (360/834/1440), and reduced-motion
+  suites, and a token-level contrast suite covering the non-text-contrast rules
+  axe does not implement. See web-application-design.md, section 14.2.
 - Visual regression for stable responsive and editor states.
 
 Supported browser coverage includes current supported Safari, Chrome, Firefox, and Edge release lines according to the launch matrix.

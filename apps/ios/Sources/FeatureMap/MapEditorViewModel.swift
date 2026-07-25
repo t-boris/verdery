@@ -143,6 +143,8 @@ public final class MapEditorViewModel {
     public var retryTitle: String { strings(.mapEditorRetry) }
     public var canvasTabTitle: String { strings(.mapTabCanvas) }
     public var listTabTitle: String { strings(.mapTabList) }
+    public var tabPickerLabel: String { strings(.mapTabPickerLabel) }
+    public var canvasAccessibilityLabel: String { strings(.mapCanvasAccessibilityLabel) }
     public var undoTitle: String { strings(.mapUndo) }
     public var redoTitle: String { strings(.mapRedo) }
     public var undoUnavailableMessage: String { strings(.mapUndoUnavailable) }

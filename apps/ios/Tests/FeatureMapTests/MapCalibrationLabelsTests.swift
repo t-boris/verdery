@@ -62,9 +62,33 @@ struct MapCalibrationLabelsTests {
     @Test("Error formatting matches the web client value for value: centimetres below a metre, metres at and above")
     func formatErrorMetresParity() {
         // The identical inputs/outputs the web's calibration-panel test pins.
-        #expect(MapCalibrationLabels.formatErrorMetres(0.12) == "12.0 cm")
-        #expect(MapCalibrationLabels.formatErrorMetres(1.246) == "1.25 m")
-        #expect(MapCalibrationLabels.formatErrorMetres(1) == "1.00 m")
-        #expect(MapCalibrationLabels.formatErrorMetres(0.999) == "99.9 cm")
+        #expect(MapCalibrationLabels.formatErrorMetres(0.12, strings: strings) == "12.0 cm")
+        #expect(MapCalibrationLabels.formatErrorMetres(1.246, strings: strings) == "1.25 m")
+        #expect(MapCalibrationLabels.formatErrorMetres(1, strings: strings) == "1.00 m")
+        #expect(MapCalibrationLabels.formatErrorMetres(0.999, strings: strings) == "99.9 cm")
+    }
+
+    /// P8-UX-01: the figure a Russian reader sees used to be "1.5 cm" — a
+    /// POSIX decimal point and an English abbreviation inside Russian prose.
+    /// The digit counts are unchanged, so cross-client precision parity
+    /// above still holds; only the punctuation and the unit are localized.
+    @Test("The separator and the unit follow the reader's language, the digits do not change")
+    func formatErrorMetresIsLocalized() {
+        let russian = LocalizedStrings(locale: Locale(identifier: "ru_RU"))
+
+        #expect(MapCalibrationLabels.formatErrorMetres(0.015, strings: russian) == "1,5 см")
+        #expect(MapCalibrationLabels.formatErrorMetres(1.246, strings: russian) == "1,25 м")
+    }
+
+    @Test("The whole calibrated-error sentence is Russian, figure included")
+    func stateTextIsFullyRussian() {
+        let russian = LocalizedStrings(locale: Locale(identifier: "ru_RU"))
+        let text = MapCalibrationLabels.stateText(
+            for: calibration(rmsErrorMetres: 0.12),
+            strings: russian
+        )
+
+        #expect(text == "Откалиброван · погрешность ±12,0 см")
+        #expect(!text.contains(" cm"))
     }
 }

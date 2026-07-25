@@ -8,7 +8,7 @@ import { useLocalization } from '@/shared/localization/public';
 import { Button, Card, FailureAlert, ProgressBar, StaleIndicator } from '@/shared/ui/public';
 
 import styles from './garden-plan-upload.module.css';
-import { uploadFailureReasonLabel, uploadPhaseLabel } from './labels';
+import { formatBytes, uploadFailureReasonLabel, uploadPhaseLabel } from './labels';
 import { useMediaAccess } from './queries';
 import { useMediaUpload } from './use-media-upload';
 
@@ -34,17 +34,6 @@ const ACCEPT_ATTRIBUTE = ACCEPTED_PLAN_TYPES.join(',');
 /** `validation-policy.ts`'s own `imported_plan` ceiling (50 MiB), checked client-side before any byte uploads. */
 const MAX_PLAN_BYTES = 50 * 1024 * 1024;
 const PDF_CONTENT_TYPE = 'application/pdf';
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) {
-    return `${String(bytes)} B`;
-  }
-  const kib = bytes / 1024;
-  if (kib < 1024) {
-    return `${kib.toFixed(0)} KiB`;
-  }
-  return `${(kib / 1024).toFixed(1)} MiB`;
-}
 
 function percentOf(uploadedBytes: number, totalBytes: number): number {
   return totalBytes <= 0 ? 0 : (uploadedBytes / totalBytes) * 100;
@@ -121,7 +110,7 @@ function PlanPreview({ gardenId, media }: { readonly gardenId: string; readonly 
  * P6-PLAN-01.
  */
 export function GardenPlanUpload({ gardenId }: GardenPlanUploadProps) {
-  const { t } = useLocalization();
+  const { t, locale } = useLocalization();
   const isOnline = useIsOnline();
   const upload = useMediaUpload(gardenId, 'imported_plan');
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -143,7 +132,7 @@ export function GardenPlanUpload({ gardenId }: GardenPlanUploadProps) {
       return;
     }
     if (file.size > MAX_PLAN_BYTES) {
-      setValidationError(t('media.tooLarge', { max: formatBytes(MAX_PLAN_BYTES) }));
+      setValidationError(t('media.tooLarge', { max: formatBytes(MAX_PLAN_BYTES, locale) }));
       return;
     }
     setValidationError(null);
@@ -196,8 +185,8 @@ export function GardenPlanUpload({ gardenId }: GardenPlanUploadProps) {
           value={percent}
           label={t('media.progressLabel', {
             filename: upload.displayFilename ?? '',
-            uploaded: formatBytes(upload.uploadedBytes),
-            total: formatBytes(upload.totalBytes),
+            uploaded: formatBytes(upload.uploadedBytes, locale),
+            total: formatBytes(upload.totalBytes, locale),
           })}
         />
       )}

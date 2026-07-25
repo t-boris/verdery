@@ -51,7 +51,7 @@ function backgroundsOf(records: readonly MapObjectRecord[]): readonly MapObjectR
  * same way `map-editor.tsx` does for the map document itself.
  */
 export function ImportedBackgroundPanel({ gardenId, actions }: ImportedBackgroundPanelProps) {
-  const { t } = useLocalization();
+  const { t, locale } = useLocalization();
   const store = useMapEditorStore();
   const listQuery = useGardenPlanMediaList(gardenId);
   const [pageByMediaId, setPageByMediaId] = useState<Record<string, string>>({});
@@ -63,6 +63,7 @@ export function ImportedBackgroundPanel({ gardenId, actions }: ImportedBackgroun
   const stateLabel = (record: MapObjectRecord): string =>
     calibrationStateText(
       t,
+      locale,
       record.categoryDetails?.category === 'importedBackground'
         ? record.categoryDetails.details.calibration
         : undefined,

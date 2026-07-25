@@ -10,6 +10,18 @@ import SwiftUI
 struct MapCalibrationBarView: View {
     @Bindable var model: MapEditorViewModel
 
+    /// Every fixed dimension in this bar scales with the reader's text size.
+    ///
+    /// The three literals these replace (120, 100, 220) were sized for the
+    /// default text size only: at the accessibility sizes the two numeric
+    /// fields clipped their own contents and the scrolling panel showed
+    /// barely one row, which made the calibration flow — the one flow where a
+    /// wrong number produces a wrong measurement — unusable for exactly the
+    /// readers who enlarge text.
+    @ScaledMetric(relativeTo: .body) private var distanceFieldWidth: CGFloat = 120
+    @ScaledMetric(relativeTo: .body) private var rotationFieldWidth: CGFloat = 100
+    @ScaledMetric(relativeTo: .body) private var sessionPanelHeight: CGFloat = 220
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if let hint = model.calibrationHint {
@@ -31,7 +43,7 @@ struct MapCalibrationBarView: View {
                 }
                 .padding(8)
             }
-            .frame(maxHeight: 220)
+            .frame(maxHeight: sessionPanelHeight)
 
             HStack {
                 Button(model.strings(.mapCalibrationApply)) {
@@ -64,7 +76,7 @@ struct MapCalibrationBarView: View {
                 )
             )
             .textFieldStyle(.roundedBorder)
-            .frame(maxWidth: 120)
+            .frame(maxWidth: distanceFieldWidth)
             #if os(iOS)
                 .keyboardType(.decimalPad)
             #endif
@@ -129,7 +141,7 @@ struct MapCalibrationBarView: View {
                 )
             )
             .textFieldStyle(.roundedBorder)
-            .frame(maxWidth: 100)
+            .frame(maxWidth: rotationFieldWidth)
             #if os(iOS)
                 .keyboardType(.numbersAndPunctuation)
             #endif

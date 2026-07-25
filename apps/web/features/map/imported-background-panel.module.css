@@ -43,6 +43,7 @@
 
 .rowHeader {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
@@ -72,6 +73,7 @@
 
 .pageField {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1);
   font-size: var(--font-size-sm);

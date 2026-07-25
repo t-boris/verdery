@@ -42,6 +42,12 @@ struct MapValidationSummaryView: View {
                 // comment explains.
                 Image(systemName: MapValidationPresentation.symbolName(for: issue.severity))
                     .foregroundStyle(issue.severity == .error ? Color.red : Color.orange)
+                    // The symbol is visual reinforcement of `severityName`
+                    // below, which already carries the severity in words.
+                    // Left exposed, `.combine` folded SwiftUI's default
+                    // symbol name ("exclamationmark triangle") into the
+                    // spoken row ahead of the issue's own text.
+                    .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(MapValidationPresentation.text(forCode: issue.code, strings: strings))
                     Text(severityName(issue.severity))

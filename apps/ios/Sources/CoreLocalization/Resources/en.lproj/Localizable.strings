@@ -86,6 +86,8 @@
 "map.editor.retry" = "Try again";
 "map.tab.canvas" = "Canvas";
 "map.tab.list" = "List";
+"map.tab.pickerLabel" = "Map view";
+"map.canvas.accessibilityLabel" = "Garden map canvas. Drawing and dragging on the canvas need direct touch and have no VoiceOver equivalent; switch to the Objects list to select, inspect, and delete objects instead.";
 "map.undo" = "Undo";
 "map.redo" = "Redo";
 "map.undo.unavailable" = "This change can't be undone automatically.";
@@ -454,6 +456,9 @@
 "map.background.imageLoading" = "Loading the plan image.";
 "map.background.imageUnavailable" = "This plan has no displayable image yet (PDF pages cannot render), so it cannot be calibrated.";
 "map.background.lockedByCalibration" = "This background's placement is set by its calibration. Drag it to adjust, or recalibrate.";
+
+"map.units.centimetres" = "{value} cm";
+"map.units.metres" = "{value} m";
 
 "map.calibration.title" = "Calibration";
 "map.calibration.start" = "Calibrate";
