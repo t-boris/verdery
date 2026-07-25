@@ -127,7 +127,8 @@ jobs:
             --project="${PROJECT_ID}" --region="${REGION}" --format="value(status.url)")
           IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/web:${GITHUB_SHA}"
           docker build -f apps/web/Dockerfile -t "${IMAGE}" \
-            --build-arg NEXT_PUBLIC_API_ORIGIN="${API_ORIGIN}" \
+            --build-arg NEXT_PUBLIC_API_ORIGIN=same-origin \
+            --build-arg API_PROXY_ORIGIN="${API_ORIGIN}" \
             --build-arg NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyCpCHmqYIRCBHChWqEYsLSZwz7EKjnWBoU \
             --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=verdery-dev.firebaseapp.com \
             --build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID=verdery-dev \

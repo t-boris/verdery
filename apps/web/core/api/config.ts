@@ -19,6 +19,16 @@ const DEFAULT_API_ORIGIN = 'http://localhost:8080';
  */
 export function resolveApiOrigin(): string {
   const configured = process.env.NEXT_PUBLIC_API_ORIGIN;
+
+  // The deployed build sets the literal sentinel 'same-origin': the web
+  // server proxies /v1/* to the API (next.config.ts rewrites), so browser
+  // requests stay first-party and the strict session cookie works. An
+  // explicit sentinel rather than '' because '' already means "use the
+  // local-development default" below.
+  if (configured === 'same-origin') {
+    return '';
+  }
+
   const origin = configured === undefined || configured === '' ? DEFAULT_API_ORIGIN : configured;
 
   return origin.replace(/\/+$/u, '');

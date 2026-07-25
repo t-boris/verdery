@@ -41,6 +41,23 @@ const nextConfig: NextConfig = {
   headers() {
     return Promise.resolve([{ source: '/:path*', headers: securityHeaders }]);
   },
+  // Same-origin API proxying for the DEPLOYED web app. The session cookie is
+  // deliberately `SameSite=strict` and host-only; on `run.app` the web and
+  // API services are different SITES (run.app is on the Public Suffix List),
+  // so a browser would neither store nor send it cross-origin — sign-in
+  // "succeeded" and then every authenticated call had no cookie, found live
+  // by the owner. Proxying /v1/* through the web server makes the API
+  // first-party to the browser: the cookie design stays strict and intact.
+  // Build-time (rewrites compile into the routes manifest): CI passes the
+  // API origin; locally this stays unset and no rewrite exists — local dev
+  // talks to localhost:8080 directly, which IS same-site.
+  rewrites() {
+    const proxyOrigin = process.env['API_PROXY_ORIGIN'];
+    if (proxyOrigin === undefined || proxyOrigin === '') {
+      return Promise.resolve([]);
+    }
+    return Promise.resolve([{ source: '/v1/:path*', destination: `${proxyOrigin}/v1/:path*` }]);
+  },
 };
 
 export default nextConfig;

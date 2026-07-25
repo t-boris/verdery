@@ -32,6 +32,9 @@ COPY packages/geometry-contracts packages/geometry-contracts
 COPY apps/web apps/web
 
 ARG NEXT_PUBLIC_API_ORIGIN
+# Server-side only (not NEXT_PUBLIC_): the /v1 rewrite target compiled into
+# the routes manifest at build — see next.config.ts's own comment.
+ARG API_PROXY_ORIGIN
 ARG NEXT_PUBLIC_FIREBASE_API_KEY
 ARG NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
 ARG NEXT_PUBLIC_FIREBASE_PROJECT_ID
