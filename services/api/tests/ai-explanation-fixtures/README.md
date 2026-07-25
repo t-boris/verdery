@@ -54,4 +54,10 @@ A reviewer reads each fixture file top to bottom: the baseline construction in
 `fixture-support.ts` (are the representative facts sensible?), then each case's draft,
 verdict, and `reviewNotes` (is the judgment right? is anything missing?). New adversarial
 ideas become new fixtures in the rule's file. Widening or narrowing the lexicons
-(`ai-explanation-lexicon.ts`) is a reviewed code edit whose effect these fixtures pin.
+(`ai-explanation-lexicon.ts`) is a reviewed code edit whose effect these fixtures pin —
+and whose category alignment with the rule layer's `EXCLUDED_RULE_CONTENT_CATEGORIES` is
+pinned by `src/modules/tasks-recommendations/domain/ai-explanation-lexicon.test.ts`. The
+consolidated safety review entry point (tier model, excluded categories, per-rule ledger,
+sign-off protocol) is `docs/development/recommendation-safety-catalog.md` (P7-SAFE-01);
+this harness's human evaluation pass is the separate, additional gate for live Vertex
+enablement.

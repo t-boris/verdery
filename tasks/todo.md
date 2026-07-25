@@ -5066,3 +5066,85 @@ deferred-capabilities.md.
   gained the new sweep block); build clean. Web suite: 62 files / 518 tests, untouched and green.
 - Root `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `node scripts/check-file-size.mjs`,
   and `bash -n deploy-workers.sh` all clean.
+
+## Stage 26 — P7-SAFE-01, implementation complete
+
+The safety catalog is real: `docs/development/recommendation-safety-catalog.md` is the single
+authoritative document a human horticultural reviewer reviews against and signs — the tier model
+with every enforcement point (type, domain validation, database CHECKs + composite FK, registrar),
+the ten excluded content categories each mapped to BOTH enforcement layers (rule-type validation
+and the bilingual AI lexicon, with file/symbol references), the elevated-risk constraint rules
+(the "exclude OR CONSTRAIN" half, the frost rule as exemplar), the per-rule review ledger over all
+four launch rules (key, version, tier, recommendation, thresholds, fixture coverage, review
+status, reviewNotes summary), the review procedure elevated from the fixture README, and the
+sign-off protocol (what an approval edits, why a rejection means a new rule version). The
+enforcement cross-check found one real alignment gap between the two safety lists and closed it
+with a CI drift test. The human sign-off itself stays honestly open — the phase plan's own
+boundary: no agent can perform a horticultural review.
+
+### Key decisions
+
+- **The honest boundary, restated as the deliverable's shape:** P7-SAFE-01's acceptance evidence
+  is "Reviewed safety catalog", and no agent can self-satisfy the "reviewed" half — so this stage
+  delivers the CATALOG (the one document a reviewer signs against), while every launch rule keeps
+  `reviewStatus: 'awaiting_horticultural_review'` and `launch-rule-catalog.test.ts` keeps
+  asserting it until a named reviewer replaces it. The catalog's own status banner, section 8, and
+  the reworked deferred-capabilities entry (now titled "Horticultural sign-off ... (P7-SAFE-01
+  scope boundary)") all say exactly this.
+- **The cross-check's one real finding — the two safety lists could drift, and `toxicity` is the
+  live divergence.** `EXCLUDED_RULE_CONTENT_CATEGORIES` (rule layer) names ten categories;
+  `PROHIBITED_CATEGORIES` (AI lexicon) carries nine ids — `toxicity` has no lexicon entry of its
+  own because in both product languages the words for "this plant is toxic" (toxic, poison, яд,
+  ядовит, токсич) ARE the `medical` entry's term set; a separate entry would duplicate the same
+  stems under a second id without rejecting a single additional draft. That divergence was
+  UNPINNED — nothing would have failed if a new rule-layer exclusion shipped without lexicon
+  coverage. The new `domain/ai-explanation-lexicon.test.ts` closes it: an explicit
+  `COVERING_LEXICON_CATEGORY` map (identity for nine, `toxicity → medical` documented) must cover
+  the rule list exactly, every lexicon id must be a rule-layer category (no orphan rejection
+  vocabulary), the toxicity → medical merge is PROVEN by matching representative toxicity
+  vocabulary in both languages through the real matcher, and every prohibited category must carry
+  terms in both languages. Extending either list without the other now fails CI.
+- **Every category in the work package title maps to enforced exclusions in BOTH layers:**
+  chemical, toxicity, pest-treatment, structural, medical, legal-boundary each appear in the
+  catalog's section-3 table with their rule-layer entry (`validateRuleDefinition` rejects any
+  spelling via `normalizeContentCategory`) and their AI-lexicon category (bilingual, rejected
+  regardless of baseline) — plus the other four the same policy covers (disease diagnosis,
+  fertilizer concentration, electrical, emergency).
+- **"Constrain, not just exclude" verified against section 13:** the catalog's section 4 states
+  the five elevated-risk constraint rules as they are actually implemented and pinned — explicit
+  uncertainty in the template ("may be frost-sensitive", pinned by test), stale-input `skip`
+  posture (vs the ordinary-care rule's labeled use, pinned per tier), deliberately low confidence
+  as a persisted number (10 vs 20, basis naming the tier and source), the hazard window ending AT
+  the forecast moment, and a protective non-invasive action the baseline-bounded action-concept
+  lexicon then prevents the AI layer from escalating. No code change was needed — the frost rule
+  already matched section 13's reading; the catalog now states the rules as reviewable policy.
+- **The catalog lives in `docs/development/`** (the established home for repository-facing
+  operational documents, registered in that README's table) rather than under `architecture/` —
+  it consolidates and references enforcement, it does not redesign it; recommendations-and-ai.md
+  section 13 remains the policy source the catalog maps to code.
+- **Doc synchronization, both directions:** the fixture README now names the catalog as the
+  consolidated review entry point (staying the fixture-level half of the procedure), the
+  AI-harness README names the alignment test and places its human pass as the separate Vertex
+  release gate, and deferred-capabilities' P7-AI-01 entry cross-references the catalog's
+  section 6 for the same distinction.
+
+### Known limitations, deliberately deferred (recorded in `deferred-capabilities.md`)
+
+- The horticultural sign-off itself — a named human reviewer working through the catalog's
+  section-6 procedure and executing section 7's metadata edit. Until then every launch rule says
+  `awaiting_horticultural_review` and CI keeps it said.
+- The AI harness's human evaluation pass over real model outputs (bilingual, per rule) — the
+  separate release gate for live Vertex enablement (P7-AI-01's entry), which rule-catalog
+  approval deliberately does not unlock by itself.
+
+### Verification evidence
+
+- Full API suite: 188 files / 1383 tests before → **189 files / 1387 tests** after (+1 file /
+  +4 tests: `ai-explanation-lexicon.test.ts` — the covering map's exact-set match against
+  `EXCLUDED_RULE_CONTENT_CATEGORIES`, the no-orphan-lexicon-category test, the proven
+  toxicity → medical merge in both languages, the both-languages-per-category coverage test),
+  all green, real Docker.
+- `pnpm --filter @verdery/api build`, root `pnpm typecheck`, `pnpm lint`, `pnpm format:check`,
+  `node scripts/check-file-size.mjs` all clean.
+- No migration, no contract change, no client change — the stage adds one test file and
+  documentation; zero pre-existing tests changed behavior.

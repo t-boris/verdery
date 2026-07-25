@@ -456,21 +456,29 @@ structure now would freeze a vocabulary no product decision has made; (5) conten
 refetch-window cache rule, not a stored or classified state — no document defines when plant-care
 content goes stale, so nothing pretends to know.
 
-**Horticultural review of the launch rule catalog (P7-RULE-01 scope boundary).** The
+**Horticultural sign-off of the launch rule catalog (P7-SAFE-01 scope boundary).** The
 deterministic rule engine and its four-rule launch catalog are fully built and tested in
 `services/api/src/modules/tasks-recommendations` (rule model, pure engine, idempotent
 `rule_version` registration, `EvaluateGardenRecommendations`, and the reviewable fixture suite in
-`services/api/tests/rule-fixtures/` — that directory's README is the reviewer's entry point), but
-the rules' horticultural CONTENT — thresholds, stage lists, cadences, stale-weather postures —
-is deliberately unreviewed: "Horticulture-reviewed fixture suite" names a HUMAN review no agent
-can self-satisfy, and that review is `P7-SAFE-01`'s deliverable. Until it lands, every launch
-rule carries `reviewStatus: 'awaiting_horticultural_review'` in its own metadata and
+`services/api/tests/rule-fixtures/`), and `P7-SAFE-01`'s implementable half is now delivered:
+the consolidated safety catalog at
+[recommendation-safety-catalog.md](recommendation-safety-catalog.md) — the reviewer's single
+entry point, carrying the tier model with every enforcement point, the ten excluded content
+categories with their rule-layer and AI-lexicon enforcement (including the documented and
+test-pinned `toxicity → medical` lexicon merge, `domain/ai-explanation-lexicon.test.ts`), the
+elevated-risk constraint rules, the per-rule review ledger, the review procedure, and the
+sign-off protocol. What remains open is the SIGN-OFF itself: the rules' horticultural CONTENT —
+thresholds, stage lists, cadences, stale-weather postures — names a HUMAN review no agent can
+self-satisfy. Until a named reviewer lands it, every launch rule carries
+`reviewStatus: 'awaiting_horticultural_review'` in its own metadata and
 `launch-rule-catalog.test.ts` fails if that marking is dropped without a named reviewer. NOT
 deferred, enforced structurally regardless of review: no rule definition can carry the
 `restricted` safety tier (the type cannot express it), no rule can declare an excluded content
 category (chemical application, toxicity, pest treatment, disease diagnosis, fertilizer
 concentration, structural, electrical, medical, legal-boundary, emergency — rejected by
-`validateRuleDefinition` in any spelling), and the P7-DATA-01 schema rejects a restricted-tier
+`validateRuleDefinition` in any spelling), the AI-explanation lexicon rejects the same subjects'
+vocabulary in both product languages regardless of any baseline (with the two lists' alignment
+CI-pinned), and the P7-DATA-01 schema rejects a restricted-tier
 candidate again at insert. Also deliberately absent, with a reason: seasonal applicability gating
 (no launch rule declares one, and a season honestly needs the garden's hemisphere via its
 georeference — the mechanism arrives with the first rule that needs it, not as dead code).
@@ -504,7 +512,9 @@ evaluation pass recommendations-and-ai.md section 16 requires — a bilingual re
 outputs for every launch rule through the shipped validation pipeline, which no agent can
 self-satisfy (the launch-rule catalog's own `awaiting_horticultural_review` honesty posture; the
 machine-checkable half already exists as `services/api/tests/ai-explanation-fixtures/`, whose
-README defines what the human pass adds). Also deliberately not built: Russian RUNTIME generation —
+README defines what the human pass adds, and
+[recommendation-safety-catalog.md](recommendation-safety-catalog.md) section 6 places this pass
+relative to the rule-catalog review it does not replace). Also deliberately not built: Russian RUNTIME generation —
 the validation machinery is bilingual and harness-proven, but the stored deterministic baseline is
 English rule content and no serving surface negotiates a locale yet, so the runtime locale is a
 documented `'en'` constant (`compose-tasks-recommendations.ts`); a locale-negotiated Today (or

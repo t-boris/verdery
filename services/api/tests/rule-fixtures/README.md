@@ -2,7 +2,10 @@
 
 This directory is the reviewable evidence for the launch recommendation rules
 (work package P7-RULE-01, acceptance evidence "Horticulture-reviewed fixture
-suite").
+suite"). The consolidated review entry point — tier model, excluded categories,
+per-rule ledger, and the sign-off protocol in one document — is
+`docs/development/recommendation-safety-catalog.md` (P7-SAFE-01); this README
+remains the fixture-level half of that procedure.
 
 **Review status: AWAITING horticultural review.** No agent or engineer can
 self-satisfy a horticultural review; that sign-off belongs to work package
