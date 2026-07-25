@@ -208,11 +208,11 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     // ---- The Today query: stored-factor priority order, first presentation.
     const today = await surface.today.execute(gardenId, ownerId, 10);
-    expect(today.items.map((item) => [item.ruleKey, item.priorityScore])).toEqual([
+    expect(today.result.items.map((item) => [item.ruleKey, item.priorityScore])).toEqual([
       ['lifecycle.harvest-readiness-check', 75],
       ['observation.routine-check-reminder', 40],
     ]);
-    const [harvestItem, reminderItem] = today.items;
+    const [harvestItem, reminderItem] = today.result.items;
     expect(harvestItem).toMatchObject({
       state: 'presented',
       urgency: 'high',
@@ -241,7 +241,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     // The presentation is recorded once: a repeat read transitions nothing.
     const repeat = await surface.today.execute(gardenId, ownerId, 10);
-    expect(repeat.items.map((item) => item.revision)).toEqual([3, 3]);
+    expect(repeat.result.items.map((item) => item.revision)).toEqual([3, 3]);
 
     // ---- Task conversion: candidate completed + feedback + linked task, one transaction.
     const harvestId = harvestItem?.id ?? '';
@@ -372,8 +372,8 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     // then flagged irrelevant — feedback-only, no revision bump.
     const resurfacedId = resurfaced?.candidateId ?? '';
     const todayAfter = await surface.today.execute(gardenId, ownerId, 10);
-    expect(todayAfter.items.map((item) => item.id)).toEqual([resurfacedId]);
-    expect(todayAfter.items[0]).toMatchObject({
+    expect(todayAfter.result.items.map((item) => item.id)).toEqual([resurfacedId]);
+    expect(todayAfter.result.items[0]).toMatchObject({
       supersedesCandidateId: reminderId,
       explanation:
         'Basil has not been observed for 23 days. Record a quick check of its condition.',

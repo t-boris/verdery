@@ -2,7 +2,7 @@
 
 > Status: Draft 0.2
 > Decision status: Approved baseline  
-> Last updated: July 23, 2026
+> Last updated: July 25, 2026
 
 ## 1. Purpose
 
@@ -306,24 +306,26 @@ Monitoring dashboard/alert policy is not this work package's own deliverable eit
 **What is logged, per request/delivery/tick — media id and class only, never filenames, signed
 URLs, object keys, or content** (media-storage-and-processing.md section 19):
 
-| Event                                        | Service           | Fields                                                                                                                                                                                                                                                                                                                    | Emitted by                                                                                                                                                                                                                                                                                                                                                    |
-| -------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `media.upload.registered`                    | `verdery-api`     | `mediaId`, `mediaClass`, `declaredByteSize`                                                                                                                                                                                                                                                                               | Every successful `POST /gardens/{gardenId}/media` (`media-routes.ts`).                                                                                                                                                                                                                                                                                        |
-| `media.upload.completed`                     | `verdery-api`     | `mediaId`, `mediaClass`, `outcome` (`available`/`rejected`), `registrationToCompletionMs`, `verifiedByteSize` (absent when rejected)                                                                                                                                                                                      | Every successful `POST .../media/{mediaId}/complete` — the synchronous declared-versus-actual verification. `rejected` here IS the checksum/type/size-mismatch signal for the synchronous stage.                                                                                                                                                              |
-| `media.deletion.scheduled`                   | `verdery-api`     | `mediaId`, `mediaClass`, `uploadState` (`deletion_scheduled`, or `deleted` on a replay)                                                                                                                                                                                                                                   | Every successful `POST .../media/{mediaId}/delete` — the USER-initiated half of deletion scheduling; sweep-initiated scheduling is counted by `retention.sweep_completed`.                                                                                                                                                                                    |
-| `media.processing.result_recorded`           | `verdery-api`     | `jobId`, `disposition` (`recorded`/`duplicate`/`cancelled_source_unavailable`/`lost_revision_race`), `jobKind`, `mediaId`, `outcome`, `outcomeCode`, `attempt`, `mediaClass`?, `workerDurationMs`?, `requestedToCompletedMs`?, `deletionLagMs`?                                                                           | Every authenticated worker result callback (`media-processing-callback-route.ts`), from the summary `RecordMediaProcessingResult.execute` returns — ONE event covers validation outcomes, derivative outcomes, AND deletion completions, split by `jobKind`.                                                                                                  |
-| `relay.tick_completed`                       | `verdery-workers` | `claimed`, `enqueued`, `alreadyQueued`, `notificationsDispatched`, `failed`, `oldestClaimedEventAgeMs`                                                                                                                                                                                                                    | Every relay tick that claimed at least one outbox event (`poller.ts`); an idle relay deliberately logs nothing per tick — see the liveness note below. `notificationsDispatched` (P7-NOTIF-01) counts events forwarded to the API's notification policy.                                                                                                      |
-| `relay.event_failed`                         | `verdery-workers` | `outboxEventId`, `err`                                                                                                                                                                                                                                                                                                    | Each outbox event whose job-create/enqueue/publish failed; the event stays unpublished and retries next tick.                                                                                                                                                                                                                                                 |
-| `media_processing.job_failed_retryable`      | `verdery-workers` | `jobId`, `jobKind`, `err`                                                                                                                                                                                                                                                                                                 | The worker HTTP target's 503 path (`validation-http-server.ts`) — each Cloud Tasks delivery that failed retryably, for ANY of the three job kinds.                                                                                                                                                                                                            |
-| `retention.sweep_completed`                  | `verdery-workers` | `retentionScheduled`, `retentionSkippedReferenced`, `staleScheduled`, `lostRaces`                                                                                                                                                                                                                                         | Every successful hourly sweep round-trip, all-zero counts included (`sweeps/google-api-sweep-trigger.ts`) — the sweep's own liveness heartbeat.                                                                                                                                                                                                               |
-| `retention.sweep_failed`                     | `verdery-workers` | `err`                                                                                                                                                                                                                                                                                                                     | A sweep round-trip that failed; retried on the next interval.                                                                                                                                                                                                                                                                                                 |
-| `weather.refresh_sweep_completed`            | `verdery-workers` | `gardensConsidered`, `refreshed`, `freshCacheHits`, `staleServed`, `unavailable`, `degradationReasons` (by typed reason), `stoppedOnQuotaExhaustion`                                                                                                                                                                      | Every successful hourly weather-refresh sweep round-trip (P7-ASYNC-01), all-zero counts included — with zero providers configured, `degradationReasons.noProviderConfigured` counting every considered garden IS the documented no-op made visible.                                                                                                           |
-| `weather.refresh_sweep_failed`               | `verdery-workers` | `err`                                                                                                                                                                                                                                                                                                                     | A weather-refresh sweep round-trip that failed; retried on the next interval.                                                                                                                                                                                                                                                                                 |
-| `recommendations.evaluation_sweep_completed` | `verdery-workers` | `gardensEvaluated`, `candidatesCreated`, `candidatesSuperseded`, `candidatesExpired`, `lostRaces`, `embellishment` (P7-AI-01: `candidatesConsidered`, `accepted`, `rejected`, `rejectionOutcomes` by typed outcome, `transientFailures`, `lostRaces`, `stoppedOnQuotaExhaustion`; `null` while the AI kill-switch is off) | Every successful six-hourly recommendation-evaluation sweep round-trip (P7-ASYNC-01), all-zero counts included — section 17's "Recommendation freshness and duplication" counters at their source, and (P7-AI-01) its calls / schema-validation-failure / fallback-rate / safety-filter counters: counts and versions only, never prompt or response content. |
-| `recommendations.evaluation_sweep_failed`    | `verdery-workers` | `err`                                                                                                                                                                                                                                                                                                                     | A recommendation-evaluation sweep round-trip that failed; retried on the next interval.                                                                                                                                                                                                                                                                       |
-| `notifications.event_processed`              | `verdery-api`     | `sourceEventId`, `eventType`, `recipientsConsidered`, `intentsCreated`, `intentsDeduplicated`, `priorIntentsSuperseded`, `suppressed` (by typed reason)                                                                                                                                                                   | Every authenticated relay delivery to `POST /internal/notifications/events` (P7-NOTIF-01) — notifications.md section 15's "intent creation, suppression reason" counters at their source. Counts only, never recipient identities.                                                                                                                            |
-| `notifications.intents_expired`              | `verdery-api`     | `intentsExpired`                                                                                                                                                                                                                                                                                                          | An inbox read (`GET /notifications`) that durably closed the caller's own past-expiry pending intents; reads that expired nothing log nothing.                                                                                                                                                                                                                |
-| `notifications.preferences_updated`          | `verdery-api`     | `revision`, `entryCount`, `hasQuietHours`                                                                                                                                                                                                                                                                                 | Every successful `PUT /notification-preferences` — section 15's "user preference changes", counts and revision only, never the preference values.                                                                                                                                                                                                             |
+| Event                                        | Service           | Fields                                                                                                                                                                                                                                                                                                                                                                     | Emitted by                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| -------------------------------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `media.upload.registered`                    | `verdery-api`     | `mediaId`, `mediaClass`, `declaredByteSize`                                                                                                                                                                                                                                                                                                                                | Every successful `POST /gardens/{gardenId}/media` (`media-routes.ts`).                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `media.upload.completed`                     | `verdery-api`     | `mediaId`, `mediaClass`, `outcome` (`available`/`rejected`), `registrationToCompletionMs`, `verifiedByteSize` (absent when rejected)                                                                                                                                                                                                                                       | Every successful `POST .../media/{mediaId}/complete` — the synchronous declared-versus-actual verification. `rejected` here IS the checksum/type/size-mismatch signal for the synchronous stage.                                                                                                                                                                                                                                                                                                                                   |
+| `media.deletion.scheduled`                   | `verdery-api`     | `mediaId`, `mediaClass`, `uploadState` (`deletion_scheduled`, or `deleted` on a replay)                                                                                                                                                                                                                                                                                    | Every successful `POST .../media/{mediaId}/delete` — the USER-initiated half of deletion scheduling; sweep-initiated scheduling is counted by `retention.sweep_completed`.                                                                                                                                                                                                                                                                                                                                                         |
+| `media.processing.result_recorded`           | `verdery-api`     | `jobId`, `disposition` (`recorded`/`duplicate`/`cancelled_source_unavailable`/`lost_revision_race`), `jobKind`, `mediaId`, `outcome`, `outcomeCode`, `attempt`, `mediaClass`?, `workerDurationMs`?, `requestedToCompletedMs`?, `deletionLagMs`?                                                                                                                            | Every authenticated worker result callback (`media-processing-callback-route.ts`), from the summary `RecordMediaProcessingResult.execute` returns — ONE event covers validation outcomes, derivative outcomes, AND deletion completions, split by `jobKind`.                                                                                                                                                                                                                                                                       |
+| `relay.tick_completed`                       | `verdery-workers` | `claimed`, `enqueued`, `alreadyQueued`, `notificationsDispatched`, `failed`, `oldestClaimedEventAgeMs`                                                                                                                                                                                                                                                                     | Every relay tick that claimed at least one outbox event (`poller.ts`); an idle relay deliberately logs nothing per tick — see the liveness note below. `notificationsDispatched` (P7-NOTIF-01) counts events forwarded to the API's notification policy.                                                                                                                                                                                                                                                                           |
+| `relay.event_failed`                         | `verdery-workers` | `outboxEventId`, `err`                                                                                                                                                                                                                                                                                                                                                     | Each outbox event whose job-create/enqueue/publish failed; the event stays unpublished and retries next tick.                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `media_processing.job_failed_retryable`      | `verdery-workers` | `jobId`, `jobKind`, `err`                                                                                                                                                                                                                                                                                                                                                  | The worker HTTP target's 503 path (`validation-http-server.ts`) — each Cloud Tasks delivery that failed retryably, for ANY of the three job kinds.                                                                                                                                                                                                                                                                                                                                                                                 |
+| `retention.sweep_completed`                  | `verdery-workers` | `retentionScheduled`, `retentionSkippedReferenced`, `staleScheduled`, `lostRaces`                                                                                                                                                                                                                                                                                          | Every successful hourly sweep round-trip, all-zero counts included (`sweeps/google-api-sweep-trigger.ts`) — the sweep's own liveness heartbeat.                                                                                                                                                                                                                                                                                                                                                                                    |
+| `retention.sweep_failed`                     | `verdery-workers` | `err`                                                                                                                                                                                                                                                                                                                                                                      | A sweep round-trip that failed; retried on the next interval.                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `weather.refresh_sweep_completed`            | `verdery-workers` | `gardensConsidered`, `refreshed`, `freshCacheHits`, `staleServed`, `unavailable`, `degradationReasons` (by typed reason), `stoppedOnQuotaExhaustion`                                                                                                                                                                                                                       | Every successful hourly weather-refresh sweep round-trip (P7-ASYNC-01), all-zero counts included — with zero providers configured, `degradationReasons.noProviderConfigured` counting every considered garden IS the documented no-op made visible.                                                                                                                                                                                                                                                                                |
+| `weather.refresh_sweep_failed`               | `verdery-workers` | `err`                                                                                                                                                                                                                                                                                                                                                                      | A weather-refresh sweep round-trip that failed; retried on the next interval.                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `recommendations.evaluation_sweep_completed` | `verdery-workers` | `gardensEvaluated`, `candidatesCreated`, `candidatesSuperseded`, `candidatesExpired`, `lostRaces`, `ruleSkips` (by typed reason — P7-ANALYTICS-01), `embellishment` (P7-AI-01: `candidatesConsidered`, `accepted`, `rejected`, `rejectionOutcomes` by typed outcome, `transientFailures`, `lostRaces`, `stoppedOnQuotaExhaustion`; `null` while the AI kill-switch is off) | Every successful six-hourly recommendation-evaluation sweep round-trip (P7-ASYNC-01), all-zero counts included — section 17's "Recommendation freshness and duplication" counters at their source, and (P7-AI-01) its calls / schema-validation-failure / fallback-rate / safety-filter counters: counts and versions only, never prompt or response content. `ruleSkips` counts whole-rule evaluation skips by reason (`weatherMissing`/`weatherStale`/`factMissing`) — the degraded-evaluation trace no candidate row can carry. |
+| `recommendations.evaluation_sweep_failed`    | `verdery-workers` | `err`                                                                                                                                                                                                                                                                                                                                                                      | A recommendation-evaluation sweep round-trip that failed; retried on the next interval.                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `notifications.event_processed`              | `verdery-api`     | `sourceEventId`, `eventType`, `recipientsConsidered`, `intentsCreated`, `intentsDeduplicated`, `priorIntentsSuperseded`, `suppressed` (by typed reason)                                                                                                                                                                                                                    | Every authenticated relay delivery to `POST /internal/notifications/events` (P7-NOTIF-01) — notifications.md section 15's "intent creation, suppression reason" counters at their source. Counts only, never recipient identities.                                                                                                                                                                                                                                                                                                 |
+| `notifications.delivery_sweep_completed`     | `verdery-workers` | `intentsExpired`, `intentsClaimed`, `intentsSent`, `intentsSkipped` (by typed reason), `intentsFailed` (by typed reason), `intentsDeferred`, `retriesScheduled`, `attemptOutcomes` (by classification), `devicesDisabled`, `lostRaces`                                                                                                                                     | Every successful minute-order notification-delivery sweep round-trip (P7-NOTIF-02), all-zero counts included — notifications.md section 15's send attempt / provider acceptance / invalid token / suppression counters. Counts only: no recipient identities, no tokens. Emitted ONLY by the worker trigger — the API route deliberately does not log it (P7-ANALYTICS-01 removed its duplicate emission of the same name from a second service).                                                                                  |
+| `recommendations.today_served`               | `verdery-api`     | `itemsServed`, `firstPresentations`, `limit`                                                                                                                                                                                                                                                                                                                               | Every successful `GET /gardens/{gardenId}/today` (P7-ANALYTICS-01) — recommendations-and-ai.md section 17's presentation measure at its source: `presented_at` rows carry every first presentation durably, but a Today read that served nothing (or nothing new) leaves no row behind. Counts only — no garden, candidate, or user identifiers, never explanation text.                                                                                                                                                           |
+| `notifications.intents_expired`              | `verdery-api`     | `intentsExpired`                                                                                                                                                                                                                                                                                                                                                           | An inbox read (`GET /notifications`) that durably closed the caller's own past-expiry pending intents; reads that expired nothing log nothing.                                                                                                                                                                                                                                                                                                                                                                                     |
+| `notifications.preferences_updated`          | `verdery-api`     | `revision`, `entryCount`, `hasQuietHours`                                                                                                                                                                                                                                                                                                                                  | Every successful `PUT /notification-preferences` — section 15's "user preference changes", counts and revision only, never the preference values.                                                                                                                                                                                                                                                                                                                                                                                  |
 
 Three latency figures and their exact meanings, each computable from data the emitting layer
 already holds (the `pullLagMilliseconds` precedent — no second query anywhere):
@@ -342,7 +344,8 @@ already holds (the `pullLagMilliseconds` precedent — no second query anywhere)
 
 **Worker liveness, honestly**: an idle relay emits no per-tick log line by design (17k+ lines/day
 of `claimed: 0` would drown the signal). The worker process's liveness signals are `service.started`
-on boot and the interval sweep heartbeats from the SAME process — the hourly
+on boot and the interval sweep heartbeats from the SAME process — the minute-order
+`notifications.delivery_sweep_completed` (P7-NOTIF-02, the tightest heartbeat), the hourly
 `retention.sweep_completed` and `weather.refresh_sweep_completed`, and the six-hourly
 `recommendations.evaluation_sweep_completed` (P7-ASYNC-01) — absence of any for a few hours means
 the whole worker is down or that sweep path specifically is broken, either of which
@@ -602,6 +605,296 @@ Garden Scan (Phase 10) stamps real deadlines. And `media.processing_job` rows th
 Tasks retries have no automatic re-drive — the runbook's manual re-emit is the documented
 remediation, and an automated re-drive is recorded in deferred-capabilities.md as a future
 decision, not silently promised here.
+
+### Care-loop quality measurement and dashboards (P7-ANALYTICS-01)
+
+P7-ANALYTICS-01 names two halves. The CONSENTED client-side product-analytics half — section
+10's per-user behavior events ("Recommendation presented/completed/postponed/rejected") emitted
+by clients under section 11's consent machinery — is blocked on the undecided consent model
+(`P0-SEC-01`), the exact blocker that deferred P4-OBS-01, and remains a documented deferral
+(see [deferred-capabilities.md](../development/deferred-capabilities.md)): no client event, no
+consent gate, and no analytics SDK exists anywhere in this codebase, deliberately absent rather
+than half-built. What THIS section delivers is the buildable half: SERVER-SIDE quality
+measurement of the care loop from data the server already owns operationally — candidate
+lifecycle rows, the append-only feedback trail, notification intents, and the structured sweep
+events — at the P5-OBS-01/P6-OBS-01 delivery bar: real signals verified by real tests, plus the
+documented account of the metrics, dashboard, and alerts they support. These are operational
+service logs and operator SQL over the server's own records (section 11's "technical logs
+necessary for security and service operation"), never consent-governed behavior events: no user
+identity, no per-record garden/candidate/plant identifiers, and no content appear in any of
+them.
+
+**The consent boundary is pinned by tests, not by convention.**
+`services/api/tests/analytics/care-loop-analytics.test.ts` catalogs every care-loop analytics
+event with an exact field allowlist `satisfies`-checked against the emitting result types (a
+field added, removed, or renamed in code fails compilation until the catalog is updated), pins
+every reason-map key vocabulary against its exported closed union, rejects identity- and
+content-shaped field names by denylist, restricts identifiers to the one sanctioned opaque
+machine id (`sourceEventId`, an outbox row id), and asserts each event name has exactly one
+emitting service. The wire is pinned separately at the emission points:
+`tests/http/recommendation-routes.test.ts` asserts `recommendations.today_served`'s emitted
+line as an exact key set (first read, repeat read, and the empty read), and
+`tests/http/notification-analytics-events.test.ts` does the same for
+`notifications.event_processed`, `notifications.intents_expired`, and
+`notifications.preferences_updated` — including proving by absence that quiet-hours values and
+garden ids never enter the preferences line.
+
+**Coverage audit — every measure the work package names, and its honest source:**
+
+| Care-loop measure                              | Source                                                                                                                                                                                                                                                                          | Status                                                                            |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Presentation                                   | `recommendations.today_served` (flow: reads, items served, first presentations — including the empty read no row can record) + `recommendation_candidate.presented_at` (durable cohort)                                                                                         | NEW event (this package); rows existed                                            |
+| Completion / postponement / rejection          | `recommendation_feedback` rows (`completed`/`postponed`/`dismissed`) joined to candidates and rule versions — the funnel SQL below; action-rate trends from the platform's per-request logs by route template (no per-command event, matching every other user content command) | Existing rows; SQL documented here                                                |
+| Irrelevance                                    | `recommendation_feedback` rows (`irrelevant`) — the funnel SQL below                                                                                                                                                                                                            | Existing rows; SQL documented here                                                |
+| Freshness — weather at refresh                 | `weather.refresh_sweep_completed` (`freshCacheHits`/`staleServed`/`unavailable`/`degradationReasons`)                                                                                                                                                                           | Existing (P7-ASYNC-01)                                                            |
+| Freshness — stale weather USED by a rule       | The stored `confidence` factor basis' `weatherFreshness: 'stale'` label (SQL below)                                                                                                                                                                                             | Existing rows; SQL documented here                                                |
+| Freshness — candidate at generation            | `recommendations.evaluation_sweep_completed` (`candidatesExpired`/`candidatesSuperseded`) + never-presented-close SQL below                                                                                                                                                     | Existing (P7-ASYNC-01); SQL documented here                                       |
+| Freshness — candidate at notification creation | `notifications.event_processed` `suppressed` by typed reason (`candidate_missing`/`candidate_not_live`/`candidate_window_passed`)                                                                                                                                               | Existing (P7-NOTIF-01)                                                            |
+| Freshness — candidate at push delivery         | `notifications.delivery_sweep_completed` `intentsSkipped` by typed reason + `notification_intent.close_reason` (stock SQL below)                                                                                                                                                | Existing (P7-NOTIF-02); event table row and single-emitter fix are this package's |
+| Fallback — AI embellishment                    | `recommendations.evaluation_sweep_completed`'s `embellishment` block (`rejected`/`rejectionOutcomes`/`transientFailures`) + `recommendation_ai_explanation` verdict rows (stock SQL below)                                                                                      | Existing (P7-AI-01)                                                               |
+| Fallback — weather-degraded rule evaluation    | `recommendations.evaluation_sweep_completed`'s `ruleSkips` by typed reason (`weatherMissing`/`weatherStale`/`factMissing`) — a skipped rule leaves no candidate row, so the sweep summary is its only observable trace                                                          | NEW field (this package)                                                          |
+| Fallback — notification skips                  | `notifications.event_processed` `suppressed` + delivery sweep `intentsSkipped`/`intentsFailed`/`attemptOutcomes`                                                                                                                                                                | Existing (P7-NOTIF-01/02)                                                         |
+
+The two NEW signals follow the established application-returns/transport-logs split exactly:
+`GetTodayView` now returns `{ result, firstPresentations }` (the `ListNotifications`
+inbox-outcome shape) and the route logs `recommendations.today_served`;
+`RunRecommendationEvaluationSweep` aggregates the engine's own `RuleDecision` skip trace —
+which `rule-evaluation.ts` has carried since P7-RULE-01 ("what fixtures assert and
+observability counts") but the sweep previously discarded — into `ruleSkips`, and the worker
+trigger logs it in the sweep heartbeat. One drift was also corrected:
+`notifications.delivery_sweep_completed` was emitted by BOTH the API route and the worker
+trigger (the only doubly-emitted event name in the codebase); the API-side line was removed so
+every sweep event has the single worker-side emitter its three siblings always had, and the
+catalog test now asserts one emitter per event name.
+
+**Quality measures that are SQL over durable rows, not log lines — the same documented
+judgment call as the media section's stock queries.** The section-16 evaluation measures
+(completion/postponement/rejection/irrelevance rates PER RULE VERSION) are cohort measures
+joining feedback to presented candidates — a join no log-based metric can perform, and exactly
+what the durable rows exist for ("User outcomes feed product quality analysis", section 19 of
+recommendations-and-ai.md). Operator queries today; a scheduled export needs section 17's
+explicit cost and privacy review first:
+
+```sql
+-- Care-loop outcome rates per rule version over the PRESENTED cohort
+-- (recommendations-and-ai.md section 16: completion / postponement /
+-- rejection / irrelevance per rule and version). States are terminal
+-- outcomes; `irrelevant` is feedback that may accompany a rejection, so
+-- it is counted from the feedback trail, not the state:
+SELECT rv.rule_key, rv.version,
+       count(*)                                       AS presented,
+       count(*) FILTER (WHERE c.state = 'completed')  AS completed,
+       count(*) FILTER (WHERE c.state = 'postponed')  AS postponed,
+       count(*) FILTER (WHERE c.state = 'rejected')   AS rejected,
+       count(*) FILTER (WHERE c.state = 'expired')    AS expired_unactioned,
+       count(*) FILTER (WHERE c.state = 'superseded') AS superseded_after_presentation,
+       count(*) FILTER (WHERE EXISTS (
+         SELECT 1 FROM tasks_recommendations.recommendation_feedback f
+         WHERE f.candidate_id = c.id AND f.feedback_kind = 'irrelevant'
+       ))                                             AS marked_irrelevant
+FROM tasks_recommendations.recommendation_candidate c
+JOIN tasks_recommendations.rule_version rv ON rv.id = c.rule_version_id
+WHERE c.presented_at >= now() - interval '30 days'
+GROUP BY rv.rule_key, rv.version
+ORDER BY rv.rule_key, rv.version;
+
+-- Conversion share of completions (FR-25's loop): a completion with an
+-- origin-linked task is "planned it"; without one, "did it now":
+SELECT rv.rule_key, rv.version,
+       count(*)    AS completions,
+       count(t.id) AS converted_to_task
+FROM tasks_recommendations.recommendation_candidate c
+JOIN tasks_recommendations.rule_version rv ON rv.id = c.rule_version_id
+LEFT JOIN tasks_recommendations.task t ON t.origin_recommendation_id = c.id
+WHERE c.state = 'completed'
+  AND c.presented_at >= now() - interval '30 days'
+GROUP BY rv.rule_key, rv.version;
+
+-- Generated-but-never-presented closes (oversupply/freshness: candidates
+-- that expired or were replaced before any user saw them):
+SELECT rv.rule_key, rv.version,
+       count(*) FILTER (WHERE c.presented_at IS NULL
+                          AND c.state IN ('expired', 'superseded')) AS closed_unseen,
+       count(*) FILTER (WHERE c.presented_at IS NOT NULL)           AS presented
+FROM tasks_recommendations.recommendation_candidate c
+JOIN tasks_recommendations.rule_version rv ON rv.id = c.rule_version_id
+WHERE c.created_at >= now() - interval '30 days'
+GROUP BY rv.rule_key, rv.version;
+
+-- Candidates generated on labeled STALE weather — the factor basis
+-- carries the label the engine stored (external-integrations.md section
+-- 11's "Cached stale data is labeled", persisted by the watering rule's
+-- declared `useLabeledStale` policy):
+SELECT rv.rule_key, rv.version, count(*) AS stale_weather_candidates
+FROM tasks_recommendations.recommendation_priority_factor pf
+JOIN tasks_recommendations.recommendation_candidate c ON c.id = pf.candidate_id
+JOIN tasks_recommendations.rule_version rv ON rv.id = c.rule_version_id
+WHERE pf.factor_kind = 'confidence'
+  AND pf.factor_value -> 'basis' ->> 'weatherFreshness' = 'stale'
+  AND c.created_at >= now() - interval '30 days'
+GROUP BY rv.rule_key, rv.version;
+
+-- AI embellishment verdicts at rest (the fallback rate's stock view; the
+-- sweep event's embellishment block is the flow view). Rejected drafts
+-- are retained in this table for evaluation — content lives here, never
+-- in logs (recommendations-and-ai.md section 15):
+SELECT locale, validation_outcome, count(*)
+FROM tasks_recommendations.recommendation_ai_explanation
+GROUP BY locale, validation_outcome;
+
+-- Notification intent closes at rest (candidate freshness at delivery
+-- time; the delivery sweep event is the flow view):
+SELECT state, close_reason, count(*)
+FROM notifications.notification_intent
+GROUP BY state, close_reason
+ORDER BY count(*) DESC;
+```
+
+Feedback COMMAND rates (actions per hour, error share) need no custom event: the platform logs
+every request with route template semantics (`.../recommendations/{id}/complete`, `/postpone`,
+`/dismiss`, `/mark-irrelevant`, `/convert-to-task`) and outcome — section 7's "request rate,
+latency, and outcome by route template", which is the same reason every other user content
+command (gardens, plants, tasks, observations) emits no per-command event. The per-rule
+breakdown those logs cannot provide is exactly what the funnel SQL provides.
+
+**Log-based metric definitions these fields support** (Cloud Monitoring, filtered by
+`jsonPayload.event`; the P6 section's service-name filters apply — `recommendations.today_served`
+and `notifications.event_processed` are `verdery-api`, both sweep events `verdery-workers`):
+
+- `today_served_items` / `today_first_presentations` — DISTRIBUTIONs, value extractors
+  `jsonPayload.itemsServed` / `jsonPayload.firstPresentations`, filter
+  `jsonPayload.event="recommendations.today_served"` (`ALIGN_SUM` turns either into a rate).
+- `today_empty_reads` — counter, same filter plus `jsonPayload.itemsServed=0` — the
+  "opened Today, found nothing actionable" share's numerator; the event count itself is the
+  denominator.
+- `recommendation_candidates_created` / `_superseded` / `_expired` — DISTRIBUTIONs on the
+  matching `jsonPayload.*` fields, filter
+  `jsonPayload.event="recommendations.evaluation_sweep_completed"`.
+- `recommendation_rule_skips_weather_missing` / `_weather_stale` / `_fact_missing` —
+  DISTRIBUTIONs, value extractors `jsonPayload.ruleSkips.weatherMissing` / `.weatherStale` /
+  `.factMissing`, same filter (map fields need one metric per key — Cloud Logging value
+  extractors address fixed paths; the vocabulary is closed and compile-pinned, so the set is
+  stable).
+- `recommendation_ai_accepted` / `_rejected` / `_transient_failures` — DISTRIBUTIONs on
+  `jsonPayload.embellishment.accepted` / `.rejected` / `.transientFailures`, same filter —
+  absent (no series) while the kill-switch keeps `embellishment` null, which is itself the
+  honest off-state signal.
+- `notification_intents_created` / `_deduplicated` / `_recipients_considered` — DISTRIBUTIONs
+  on the summary fields, filter `jsonPayload.event="notifications.event_processed"`; per-reason
+  suppression counters on `jsonPayload.suppressed.candidate_missing` / `.candidate_not_live` /
+  `.candidate_window_passed` / `.account_not_usable` / `.channels_disabled`.
+- `notification_intents_sent` / `_deferred` / `_devices_disabled` — DISTRIBUTIONs on the
+  matching fields, filter `jsonPayload.event="notifications.delivery_sweep_completed"`;
+  per-reason skip/failure counters on `jsonPayload.intentsSkipped.*` /
+  `jsonPayload.intentsFailed.*` over their closed vocabularies.
+- `notification_delivery_sweep_runs` — counter on the same filter: the worker's tightest
+  liveness heartbeat (minute-order cadence) and the absence-alert target below.
+
+**Dashboard widget compositions** — the "Recommendations and AI" dashboard (already in this
+document's required list above):
+
+- **Today usage** — `today_served` event rate beside `today_empty_reads` rate (the empty share
+  as a ratio line), with `today_first_presentations` `ALIGN_SUM`: how often Today is opened,
+  how often it has nothing to say, and how much of what it shows is new.
+- **Care funnel (per rule version)** — the funnel SQL above, as a periodically refreshed table
+  (operator-run today; a scheduled BigQuery export is a future, reviewed decision). This is the
+  section-16 evaluation loop's primary review surface: completion / postponement / rejection /
+  irrelevance rates side by side across rule versions, so a rule content change shows up as a
+  rate shift between versions.
+- **Generation health** — `recommendation_candidates_created` / `_superseded` / `_expired`
+  stacked per sweep run: steady supersession/expiry bands are freshness working as designed; a
+  growing `expired` band with flat presentations means candidates are outliving user attention
+  (see the never-presented SQL).
+- **Degraded inputs** — the three `recommendation_rule_skips_*` series, beside the weather
+  sweep's `staleServed`/`degradationReasons` (P6 table): the left shows rules refusing degraded
+  input, the right shows the input degrading. With zero weather providers configured (today's
+  reality), `weatherMissing` counting two rules per evaluated garden per run IS the documented
+  no-provider baseline made visible — a provider going live must visibly collapse this band.
+- **AI embellishment** — `recommendation_ai_accepted` vs `_rejected` stacked, with
+  `_transient_failures` and the `stoppedOnQuotaExhaustion` flag as annotations; the verdict
+  stock SQL splits `rejected` by outcome when the band moves.
+- **Notification funnel** — `notification_intents_created` against the per-reason suppression
+  counters (creation side), then `notification_intents_sent` against per-reason
+  skips/failures/deferrals (delivery side), with `devicesDisabled` as its own trend: candidates
+  → intents → pushes, each stage's losses typed.
+
+**Alert candidates, with reasoned starting thresholds** (per section 14, exact targets still
+need approval before production):
+
+1. **Delivery sweep absent**: `notification_delivery_sweep_runs` absent for 30 minutes
+   (metric-absence condition). The cadence is minute-order, so ~30 consecutive misses means the
+   worker process, its `NOTIFICATION_DELIVERY_SWEEP_URL`/OIDC configuration, or the API
+   endpoint is down — and because this is the tightest heartbeat the worker has, it now
+   catches a dead worker faster than the hourly retention-sweep-absent condition (which stays,
+   as the independent coarse check).
+2. **AI rejection-rate burn** (armed only while the kill-switch is on): `rejected / (accepted +
+rejected)` over a trailing 24 hours exceeds 30%. The validator's documented bias is
+   over-rejection with a safe deterministic fallback, so rejections are never user-facing
+   breakage — the alert is a model/prompt regression signal at a generous threshold, sized to
+   the six-hourly cadence (four data points a day). Pair with `stoppedOnQuotaExhaustion` true
+   on consecutive runs — the budget is undersized for the candidate volume.
+3. **Notification staleness burn**: (`suppressed.candidate_not_live` +
+   `suppressed.candidate_window_passed`) / `recipientsConsidered` over a trailing 6 hours
+   exceeds 50%. Suppression is correctness (a stale intent must never be created) — the alert
+   points at the CAUSE: the relay's backlog is aging past candidate lifetimes, so check the
+   P6 outbox-publication-lag alert and the relay first.
+4. **Delivery permanent-failure presence**: `intentsFailed.provider_permanent_failure` > 0 over
+   a trailing 1 hour. The classification deliberately routes `invalid-argument` here because it
+   may be OUR payload bug (P7-NOTIF-02's decision) — any presence is a defect signal, not
+   volume-thresholded noise.
+
+Deliberately NOT proposed as alerts: **empty-Today share** and every **care-funnel rate**
+(completion, postponement, rejection, irrelevance — product-quality review measures for the
+section-16 evaluation loop, reviewed per release, not incident pages); **`weatherMissing` rule
+skips** (a constant, documented baseline until a weather provider is configured — alerting on
+it today would page on the architecture; revisit when `P0-PROV-01` lands a provider);
+**`devicesDisabled`** (invalid tokens are routine device-lifecycle hygiene — dashboard trend).
+
+**Runbook entries** (section 18's shape):
+
+- **Delivery sweep absent.** Meaning: push delivery and at-scale intent expiry are paused;
+  in-app inboxes remain correct (intents are durable rows; the inbox read's own expiry close
+  still runs). First: `notifications.delivery_sweep_failed`'s `err` in worker logs — 401/403 is
+  OIDC audience/URL drift from `deploy-workers.sh`; connection errors mean the API is down; no
+  `_failed` lines either means the worker process is gone (check the other sweep heartbeats —
+  all silent means the process, one silent means that path). Safe remediation: restart/redeploy
+  the worker; claims are leases, so a crashed run's intents resurface within
+  `DELIVERY_CLAIM_LEASE_MS` (5 minutes) and nothing is lost, only delayed.
+- **AI rejection burn.** Meaning: the embellishment phase is discarding most drafts;
+  users see the deterministic explanations (correct, never degraded) — cost is being spent for
+  little served value. First: the verdict stock SQL grouped by `validation_outcome`; read the
+  retained rejected drafts in `recommendation_ai_explanation` (content is IN the rows, not in
+  logs). A `prohibited_content`/`unsupported_action` trend after a model or prompt-template
+  version change is a regression in that change; `schema_invalid` dominance is an adapter or
+  model contract problem. Safe remediation: switch `RECOMMENDATION_AI_EXPLANATION_ENABLED` off
+  — the tested rollback path restores baseline serving exactly, with zero provider calls —
+  then re-evaluate through the bilingual harness before re-enabling. NEVER relax
+  `validateAiExplanationDraft`'s rules as a firefight (the safety catalog owns them).
+- **Notification staleness burn.** Meaning: by the time events reach the policy, their
+  candidates are already resolved/expired — the pipeline is slow, not wrong. First: the P6
+  outbox-lag runbook (relay `oldestClaimedEventAgeMs`, `relay.event_failed`); then compare
+  event `occurredAt` against processing time in `notifications.event_processed` lines. Safe
+  remediation: fix the relay/queue lag and let the backlog drain — suppression converges it
+  safely (that is its design); do not widen candidate windows or disable the freshness recheck
+  to make the number smaller.
+- **Care-funnel regression (review-time, not paged).** Meaning: a rule version's completion
+  rate falls or its rejection/irrelevance rate rises against its predecessor. First: the funnel
+  SQL compared across `(rule_key, version)`; check whether the shift coincides with a rule
+  content change (the catalog pins content per version by hash), a season change, or a
+  degraded-input trend (the `ruleSkips` and stale-weather measures). Remediation is the
+  section-16 loop itself: adjust the rule content and ship it as a NEW version through the
+  review procedure — shipped versions are immutable, so the funnel always attributes rates to
+  exactly the content users saw.
+
+**What this section deliberately does not claim.** No live dashboard, log-based metric, or
+alert policy has been created against any environment (the standing P5/P6 boundary; live
+infrastructure actions need their own approval). The funnel SQL runs as operator queries — a
+scheduled export to BigQuery is named in section 17 as requiring explicit cost and privacy
+review, and none has happened. And the consented client-side analytics half — section 10's
+client-emitted product events, section 11's consent state versioning and synchronization, and
+any client analytics SDK — has no implementation to test: `P0-SEC-01` must decide the consent
+model first, and the deferral is recorded in deferred-capabilities.md rather than approximated
+here with an invented consent gate.
 
 ## 14. SLOs
 

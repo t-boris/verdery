@@ -24,6 +24,7 @@ import type { FastifyInstance } from 'fastify';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildTestApplication } from '../support/application.js';
+import { emittedPayloadKeys, lastLogEvent } from '../support/log-events.js';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
 import type {
   ApiError,
@@ -111,6 +112,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   let db: Kysely<DatabaseSchema>;
   let tokenVerifier: FakeTokenVerifier;
   let app: FastifyInstance;
+  let logRecords: string[];
 
   beforeAll(async () => {
     container = await new PostgreSqlContainer(POSTGIS_IMAGE).withPlatform(POSTGIS_PLATFORM).start();
@@ -135,7 +137,12 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     };
 
     tokenVerifier = new FakeTokenVerifier();
-    app = await buildTestApplication({ database, tokenVerifier });
+    logRecords = [];
+    app = await buildTestApplication({
+      database,
+      tokenVerifier,
+      onLogRecord: (record) => logRecords.push(record),
+    });
   });
 
   afterAll(async () => {
@@ -339,6 +346,18 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       { kind: 'urgency_window', contribution: 60, basis: { seeded: true } },
     ]);
 
+    // The serving request logged the presentation flow (P7-ANALYTICS-01):
+    // counts only, and the exact field set — nothing about the garden, the
+    // rules, or the user rides along.
+    const servedEvent = lastLogEvent(logRecords, 'recommendations.today_served');
+    expect(servedEvent).toMatchObject({ itemsServed: 2, firstPresentations: 2, limit: 10 });
+    expect(emittedPayloadKeys(servedEvent)).toEqual([
+      'event',
+      'firstPresentations',
+      'itemsServed',
+      'limit',
+    ]);
+
     // The repeat read is stable: no second presentation, same revisions.
     const repeat = asToday(
       await app.inject({
@@ -351,6 +370,12 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       [highId, 3],
       [lowId, 3],
     ]);
+    // The repeat read logs too — same set served, zero NEW presentations.
+    expect(lastLogEvent(logRecords, 'recommendations.today_served')).toMatchObject({
+      itemsServed: 2,
+      firstPresentations: 0,
+      limit: 10,
+    });
 
     // Complete the top item; a stale retry of the same revision conflicts.
     const completed = await app.inject({
@@ -392,6 +417,12 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       }),
     );
     expect(drained.items).toEqual([]);
+    // The empty read still logs — the "opened Today, found nothing" case is
+    // exactly what no candidate row can ever record (P7-ANALYTICS-01).
+    expect(lastLogEvent(logRecords, 'recommendations.today_served')).toMatchObject({
+      itemsServed: 0,
+      firstPresentations: 0,
+    });
   });
 
   it('postpones with a horizon and converts another into a task over real HTTP', async () => {

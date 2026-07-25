@@ -59,8 +59,10 @@ export {
 } from './domain/quiet-hours.js';
 export type {
   CandidateFreshnessFacts,
+  EventSuppressionReason,
   RecipientPolicyDecision,
   RecipientPolicyInput,
+  RecipientSuppressionReason,
 } from './domain/notification-policy.js';
 export {
   assessCareRecommendationEvent,
@@ -82,7 +84,10 @@ export {
 } from './application/notification-device-commands.js';
 export type { NotificationDeviceResource } from './application/notification-device-commands.js';
 export { RunNotificationDeliverySweep } from './application/run-notification-delivery-sweep.js';
-export type { NotificationDeliverySweepResult } from './application/run-notification-delivery-sweep.js';
+export type {
+  DeliveryFailReason,
+  NotificationDeliverySweepResult,
+} from './application/run-notification-delivery-sweep.js';
 export type {
   PushMessage,
   PushMessageSender,

@@ -117,13 +117,13 @@ describe('GetTodayView', () => {
 
     const today = await makeQuery(fakes).execute(GARDEN_ID, PROFILE_ID, 10);
 
-    expect(today.gardenId).toBe(GARDEN_ID);
-    expect(today.generatedAt).toBe(NOW.toISOString());
-    expect(today.items.map((item) => [item.id, item.priorityScore])).toEqual([
+    expect(today.result.gardenId).toBe(GARDEN_ID);
+    expect(today.result.generatedAt).toBe(NOW.toISOString());
+    expect(today.result.items.map((item) => [item.id, item.priorityScore])).toEqual([
       [CANDIDATE_B, 75],
       [CANDIDATE_A, 40],
     ]);
-    const [harvest] = today.items;
+    const [harvest] = today.result.items;
     expect(harvest).toMatchObject({
       ruleKey: 'lifecycle.harvest-readiness-check',
       ruleVersion: 1,
@@ -150,16 +150,20 @@ describe('GetTodayView', () => {
     });
 
     const first = await makeQuery(fakes).execute(GARDEN_ID, PROFILE_ID, 10);
-    expect(first.items[0]).toMatchObject({
+    expect(first.result.items[0]).toMatchObject({
       state: 'presented',
       revision: 3,
       presentedAt: NOW.toISOString(),
     });
+    // The outcome counts the read-triggered transition — what the route
+    // logs as `recommendations.today_served` (P7-ANALYTICS-01).
+    expect(first.firstPresentations).toBe(1);
     const stored = fakes.recommendationCandidates.candidates.get(CANDIDATE_A);
     expect(stored).toMatchObject({ state: 'presented', revision: 3, presentedAt: NOW });
 
     const second = await makeQuery(fakes).execute(GARDEN_ID, PROFILE_ID, 10);
-    expect(second.items[0]).toMatchObject({ state: 'presented', revision: 3 });
+    expect(second.result.items[0]).toMatchObject({ state: 'presented', revision: 3 });
+    expect(second.firstPresentations).toBe(0);
     expect(fakes.recommendationCandidates.candidates.get(CANDIDATE_A)?.revision).toBe(3);
     // The whole read-mark cycle ran under the per-garden advisory lock both times.
     expect(fakes.recommendationCandidates.lockedGardenIds).toEqual([GARDEN_ID, GARDEN_ID]);
@@ -181,7 +185,9 @@ describe('GetTodayView', () => {
 
     const today = await makeQuery(fakes).execute(GARDEN_ID, PROFILE_ID, 2);
 
-    expect(today.items.map((item) => item.id)).toEqual([CANDIDATE_A, CANDIDATE_B]);
+    expect(today.result.items.map((item) => item.id)).toEqual([CANDIDATE_A, CANDIDATE_B]);
+    // Only the two candidates actually served count as presentations.
+    expect(today.firstPresentations).toBe(2);
     expect(fakes.recommendationCandidates.candidates.get(CANDIDATE_C)).toMatchObject({
       state: 'eligible',
       presentedAt: null,
@@ -213,7 +219,8 @@ describe('GetTodayView', () => {
     });
 
     const today = await makeQuery(fakes).execute(GARDEN_ID, PROFILE_ID, 10);
-    expect(today.items).toEqual([]);
+    expect(today.result.items).toEqual([]);
+    expect(today.firstPresentations).toBe(0);
   });
 
   it('fails loudly when a candidate pins a rule version this build does not ship', async () => {
@@ -255,7 +262,7 @@ describe('GetTodayView', () => {
       10,
     );
 
-    const withRecord = today.items.find((item) => item.id === CANDIDATE_A);
+    const withRecord = today.result.items.find((item) => item.id === CANDIDATE_A);
     expect(withRecord).toMatchObject({
       explanation: 'Stored deterministic explanation.',
       explanationSource: 'ai_embellished',
@@ -263,7 +270,7 @@ describe('GetTodayView', () => {
     });
     // A candidate without an accepted record stays deterministic even
     // with serving enabled — fallback is per candidate.
-    const withoutRecord = today.items.find((item) => item.id === CANDIDATE_B);
+    const withoutRecord = today.result.items.find((item) => item.id === CANDIDATE_B);
     expect(withoutRecord).toMatchObject({
       explanationSource: 'deterministic',
       embellishedExplanation: null,
@@ -286,7 +293,7 @@ describe('GetTodayView', () => {
       10,
     );
 
-    expect(today.items[0]).toMatchObject({
+    expect(today.result.items[0]).toMatchObject({
       explanation: 'Stored deterministic explanation.',
       explanationSource: 'deterministic',
       embellishedExplanation: null,

@@ -72,6 +72,7 @@ import { ConflictError } from '../../../platform/errors/application-error.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import { expireRecommendationCandidate } from '../domain/recommendation-lifecycle.js';
+import type { RuleSkipReason } from '../domain/rule-definition.js';
 import type {
   EmbellishmentRunResult,
   RecommendationExplanationEmbellisher,
@@ -114,6 +115,17 @@ export interface RecommendationEvaluationSweepResult {
   readonly candidatesExpired: number;
   /** Gardens skipped after a concurrent-writer revision conflict — retried next run. */
   readonly lostRaces: number;
+  /**
+   * Whole-rule skips across every evaluation this run, counted by typed
+   * reason (P7-ANALYTICS-01). `weatherMissing`/`weatherStale` are the
+   * degraded-input evaluations recommendations-and-ai.md section 17 and
+   * external-integrations.md section 11 ask to measure — rule evaluations
+   * that could not run (or refused stale input, per the rule's own declared
+   * policy) leave no candidate row behind, so this counter is their ONLY
+   * observable trace; the engine's decision entries are otherwise discarded
+   * after persistence. Reason kinds only, never rule parameters or facts.
+   */
+  readonly ruleSkips: Readonly<Partial<Record<RuleSkipReason['kind'], number>>>;
   /** The AI-embellishment phase's own summary (P7-AI-01); `null` whenever the kill-switch keeps the phase from existing at all. */
   readonly embellishment: EmbellishmentRunResult | null;
 }
@@ -133,6 +145,7 @@ export class RunRecommendationEvaluationSweep {
     let candidatesCreated = 0;
     let candidatesSuperseded = 0;
     let lostRaces = 0;
+    const ruleSkips: Partial<Record<RuleSkipReason['kind'], number>> = {};
 
     let afterGardenId: Uuid | null = null;
     for (;;) {
@@ -152,6 +165,11 @@ export class RunRecommendationEvaluationSweep {
           candidatesSuperseded += result.createdCandidates.filter(
             (candidate) => candidate.supersededLivePrior,
           ).length;
+          for (const decision of result.decisions) {
+            if (decision.kind === 'ruleSkipped') {
+              ruleSkips[decision.reason.kind] = (ruleSkips[decision.reason.kind] ?? 0) + 1;
+            }
+          }
         } catch (error) {
           if (error instanceof ConflictError) {
             lostRaces += 1;
@@ -179,6 +197,7 @@ export class RunRecommendationEvaluationSweep {
       candidatesSuperseded,
       candidatesExpired: expiry.expired,
       lostRaces: lostRaces + expiry.lostRaces,
+      ruleSkips,
       embellishment,
     };
   }

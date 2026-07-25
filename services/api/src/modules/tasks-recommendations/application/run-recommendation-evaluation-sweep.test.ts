@@ -45,11 +45,12 @@ function pagedSource(ids: readonly Uuid[]): EvaluationGardenSource & { pageReque
 function evaluationResult(
   gardenId: Uuid,
   created: readonly { supersededCandidateId: Uuid | null }[],
+  decisions: EvaluateGardenRecommendationsResult['decisions'] = [],
 ): EvaluateGardenRecommendationsResult {
   return {
     gardenId,
     evaluatedAt: NOW,
-    decisions: [],
+    decisions,
     createdCandidates: created.map((item, index) => ({
       candidateId: `018f0000-0000-7000-8000-10000000000${String(index)}`,
       ruleKey: 'lifecycle.harvest-readiness-check',
@@ -158,8 +159,58 @@ describe('RunRecommendationEvaluationSweep', () => {
       candidatesSuperseded: 1,
       candidatesExpired: 0,
       lostRaces: 0,
+      ruleSkips: {},
       embellishment: null,
     });
+  });
+
+  it('aggregates rule-skip reasons across gardens — the degraded-evaluation counters (P7-ANALYTICS-01)', async () => {
+    const source = pagedSource([GARDEN_A, GARDEN_B]);
+    const evaluate = evaluator({
+      [GARDEN_A]: evaluationResult(
+        GARDEN_A,
+        [],
+        [
+          {
+            kind: 'ruleSkipped',
+            ruleKey: 'watering.dry-spell-check',
+            ruleVersion: 1,
+            reason: { kind: 'weatherMissing', requiredKind: 'observation' },
+          },
+          {
+            kind: 'ruleSkipped',
+            ruleKey: 'weather.frost-watch',
+            ruleVersion: 1,
+            reason: { kind: 'weatherStale', requiredKind: 'forecast' },
+          },
+        ],
+      ),
+      [GARDEN_B]: evaluationResult(
+        GARDEN_B,
+        [],
+        [
+          {
+            kind: 'ruleSkipped',
+            ruleKey: 'watering.dry-spell-check',
+            ruleVersion: 1,
+            reason: { kind: 'weatherMissing', requiredKind: 'observation' },
+          },
+          // Non-skip decisions must not count: eligibility misses and
+          // suppressions are routine outcomes, not degradations.
+          {
+            kind: 'targetNotEligible',
+            ruleKey: 'lifecycle.harvest-readiness-check',
+            ruleVersion: 1,
+            target: { kind: 'garden', gardenAreaMapObjectId: null, plantId: null },
+            reasonCode: 'plant.status_not_active',
+          },
+        ],
+      ),
+    });
+
+    const result = await buildSweep(source, evaluate, createTasksRecommendationsFakes()).execute();
+
+    expect(result.ruleSkips).toEqual({ weatherMissing: 2, weatherStale: 1 });
   });
 
   it('drains the whole eligible set through keyset pages, never capping the run', async () => {
@@ -225,6 +276,7 @@ describe('RunRecommendationEvaluationSweep', () => {
       candidatesSuperseded: 0,
       candidatesExpired: 0,
       lostRaces: 0,
+      ruleSkips: {},
       embellishment: null,
     });
   });

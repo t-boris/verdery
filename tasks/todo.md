@@ -5148,3 +5148,129 @@ boundary: no agent can perform a horticultural review.
   `node scripts/check-file-size.mjs` all clean.
 - No migration, no contract change, no client change — the stage adds one test file and
   documentation; zero pre-existing tests changed behavior.
+
+## Stage 27 — P7-ANALYTICS-01, implementation complete
+
+Care-loop quality measurement is real at the established observability bar, and the consent
+boundary is pinned by tests instead of convention. The work package's two halves landed exactly
+as the phase plan's blocker assessment decided: the CONSENTED client-side product-analytics half
+(section 10's client events, section 11's consent machinery, any analytics SDK) stays a
+documented deferral on `P0-SEC-01` — the exact P4-OBS-01 blocker, still undecided — while the
+buildable half ships whole: a measure-by-measure coverage audit of presentation / completion /
+postponement / rejection / irrelevance / freshness / fallback against what the server already
+logs and stores, two genuinely missing signals added at the established
+application-returns/transport-logs seam, the "Event schema and consent tests" acceptance
+evidence at three layers (compile-time catalog, runtime denylist, wire-level exact key sets),
+and the full P5/P6-shaped dashboard subsection (SQL quality measures, log-based metric
+definitions, "Recommendations and AI" widget compositions, reasoned alert candidates, runbook
+entries) in observability-and-analytics.md.
+
+### Key decisions
+
+- **The audit before the additions.** Nearly every named measure already had an honest source:
+  feedback rows + candidate states give completion/postponement/rejection/irrelevance per rule
+  version (durable cohort SQL — the section-16 evaluation measures, now written out in the doc);
+  the P7-ASYNC/NOTIF/AI sweep events give weather freshness, candidate expiry/supersession,
+  notification suppression by typed reason, and the AI embellishment fallback counters. Exactly
+  two flows had NO observable trace, and both got events at the established seam:
+  (1) **presentation** — `presented_at` rows record every first presentation durably, but a
+  Today read that served nothing (or nothing new) leaves no row, so `GetTodayView` now returns
+  `{ result, firstPresentations }` (the `ListNotifications` `InboxPageOutcome` shape exactly)
+  and the route logs `recommendations.today_served` (`itemsServed`, `firstPresentations`,
+  `limit` — counts only); (2) **weather-degraded rule evaluations** — the engine's `RuleDecision`
+  trace has carried typed skip reasons since P7-RULE-01 ("what fixtures assert and observability
+  counts", its own comment) but the sweep discarded them, so
+  `RunRecommendationEvaluationSweep` now aggregates `ruleSkips` by reason
+  (`weatherMissing`/`weatherStale`/`factMissing`) into its summary — a skipped rule leaves no
+  candidate row, making the sweep summary that measure's only possible carrier. Feedback
+  COMMAND rates deliberately got no per-command event: route-template request logs already
+  carry action rates (section 7), and no other user content command logs per-command events
+  either — the per-rule split is the funnel SQL's job.
+- **The consent boundary is mechanical, three layers deep.** (1)
+  `tests/analytics/care-loop-analytics.test.ts` catalogs every care-loop analytics event with
+  an exact field allowlist `satisfies`-pinned against the emitting result type — a field
+  added/removed/renamed in code fails COMPILATION until the catalog is updated — and pins every
+  reason-map key vocabulary against its exported closed union (`RuleSkipReason['kind']`,
+  `WeatherUnavailableReason`, `AiExplanationValidationOutcome`, the notification suppression/
+  skip/fail/attempt vocabularies — `DeliveryFailReason` newly exported and threaded through the
+  sweep's literals so the pin binds to code, not to a copy). (2) The same file's runtime
+  consent tests reject identity- and content-shaped field names by denylist (profile, recipient,
+  user, actor, email, garden/plant/candidate as singular references, token, text, explanation,
+  note, prompt, response, url…), restrict identifiers to the one sanctioned opaque machine id
+  (`sourceEventId`, an outbox row id, explicitly exempted), and require every reason vocabulary
+  to be a closed set of static machine words. (3) The wire itself:
+  `recommendation-routes.test.ts` asserts `today_served`'s emitted line as an exact key set
+  over first/repeat/empty reads, and the new `notification-analytics-events.test.ts` does the
+  same for `event_processed`, `intents_expired`, and `preferences_updated` — including proving
+  by absence that quiet-hours values and garden ids never enter the preferences line. The
+  future client half's consent gate is modeled as the honest ABSENT state (documented in the
+  doc subsection and deferred-capabilities.md), not half-built against an invented consent
+  model.
+- **One real drift found and fixed: `notifications.delivery_sweep_completed` was emitted by TWO
+  services.** Stage 25's API route logged the summary AND the worker's `GoogleApiSweepTrigger`
+  logged the same event name on every successful round-trip — the only doubly-emitted event
+  name in the codebase, a double-count hazard for any log-based metric filtered by event alone,
+  and a divergence from all three sibling sweeps (worker-side only). The API-side line was
+  removed (the route's comment now records why), the master event table gained the
+  delivery-sweep row Stage 25 never added (a doc-sync omission, also fixed), and the catalog
+  test asserts one emitting service per event name so the regression class is closed.
+- **The dashboard subsection follows the P5/P6 structure exactly** (observability-and-
+  analytics.md, "Care-loop quality measurement and dashboards (P7-ANALYTICS-01)"): the
+  coverage-audit table (each measure → source → existing/new); the funnel/conversion/
+  never-presented/stale-weather/AI-verdict/intent-close SQL over durable rows — cohort joins no
+  log metric can perform, the media section's documented judgment call applied again; log-based
+  metric definitions for every new and existing care-loop field (map-valued fields get one
+  metric per closed-vocabulary key, and the vocabularies are compile-pinned so the set is
+  stable); "Recommendations and AI" dashboard widget compositions; four alert candidates with
+  reasoned thresholds (delivery-sweep absence at the minute-order cadence — now the worker's
+  tightest heartbeat, also added to the liveness note; AI rejection-rate burn armed only with
+  the kill-switch on; notification staleness burn pointing at relay lag; permanent-failure
+  presence) and the deliberate non-alerts (care-funnel rates are section-16 review measures,
+  not pages; `weatherMissing` is the documented no-provider baseline until `P0-PROV-01`);
+  runbook entries for each.
+
+### Fixed in place (not deferred)
+
+1. The delivery sweep's `intentsFailed` reasons were inline string literals with no exported
+   union, so the catalog could not compile-pin them — `DeliveryFailReason` now exists in
+   `run-notification-delivery-sweep.ts`, annotated onto the literals that produce it, and
+   exported through the module's `public.ts` (with `EventSuppressionReason`/
+   `RecipientSuppressionReason`, which the policy module already declared but never exported).
+2. The doubly-emitted `notifications.delivery_sweep_completed` and the master event table's
+   missing delivery-sweep row — both Stage 25 leftovers, described above.
+3. The three suites that pin the evaluation sweep summary with deep equality
+   (`run-recommendation-evaluation-sweep.test.ts`, `recommendation-evaluation-sweep.test.ts`,
+   `media-processing-callback-route.test.ts`) gained the additive `ruleSkips` field — the exact
+   drift deep-equality pinning exists to catch, the Stage 24 mechanic; the integration suite's
+   pinned value (`{ weatherMissing: 2 }`) documents the no-provider reality: both
+   weather-required launch rules skip per evaluated garden.
+
+### Known limitations, deliberately deferred (recorded in `deferred-capabilities.md`)
+
+- The consented client-side analytics half whole — client-emitted product events, consent
+  state versioning/synchronization, opt-out behavior, any analytics SDK — blocked on
+  `P0-SEC-01`'s consent model; the server-side catalog is the discipline it will inherit.
+- Live dashboards, log-based metrics, and alert policies — the standing P1/P5/P6 "-01"
+  observability boundary: documented definitions, no live-infrastructure creation.
+- The funnel SQL as operator queries — a scheduled BigQuery export needs section 17's explicit
+  cost and privacy review first.
+
+### Verification evidence
+
+- Full API suite: 189 files / 1387 tests before → **191 files / 1397 tests** after (+2 files /
+  +10 tests): `tests/analytics/care-loop-analytics.test.ts` (6 — the compile-pinned catalog,
+  the Today-outcome shape, nested-summary and reason-vocabulary closure, the identity/content
+  denylist over fields and nested fields, static-machine-word vocabularies, one-emitter-per-
+  event), `tests/http/notification-analytics-events.test.ts` (3 — exact emitted key sets and
+  values for the three notification events over real HTTP + real PostgreSQL, including the
+  aged-intent expiry close and the value-absence proof), and the evaluation sweep's new
+  rule-skip aggregation unit test; extended in place: `get-today-view.test.ts`
+  (firstPresentations on first/repeat/capped/empty reads), `recommendation-routes.test.ts`
+  (`today_served` on first/repeat/empty reads with the exact-key-set assertion), and the three
+  ruleSkips deep-equality updates; all green, real Docker.
+- Workers suite: 20 files / 118 tests, green (the sweep-summary mirror gained the additive
+  `ruleSkips` field; type-only, no behavior change); build clean.
+- No migration, no OpenAPI contract change (the Today response body is unchanged — the new
+  outcome wrapper is server-internal), no client change.
+- `pnpm --filter @verdery/api build`, root `pnpm typecheck`, `pnpm lint`, `pnpm format:check`,
+  `node scripts/check-file-size.mjs` all clean.

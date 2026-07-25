@@ -654,6 +654,35 @@ action gated on its own approval (and on the worker service actually being deplo
 malware-provider/worker-rollout entry above still tracks), matching the P1-OBS-01/P5-OBS-01
 delivery bar for a "-01" observability work package.
 
+**Consented client-side care-loop analytics (P7-ANALYTICS-01 scope boundary, blocked on
+`P0-SEC-01`).** P7-ANALYTICS-01's consented half — architecture/observability-and-analytics.md
+section 10's client-emitted product events ("Recommendation presented/completed/postponed/
+rejected" and their kin), section 11's consent machinery (versioned consent state, synchronized
+opt-out, clients emitting nothing before consent), and any product-analytics SDK (Firebase
+Analytics/GA4 per section 2) — is deliberately absent, not half-built: the consent model is
+`P0-SEC-01`, still undecided, the exact blocker that deferred `P4-OBS-01`, and building a
+consent gate against an invented consent model would be worse than not building one. What the
+work package could honestly deliver is built: server-side quality measurement over the server's
+own operational records (candidate lifecycle, feedback trail, notification intents, sweep
+events) with the consent BOUNDARY pinned by tests — `services/api/tests/analytics/
+care-loop-analytics.test.ts` compile-pins every analytics event's field allowlist and closed
+reason vocabularies and rejects identity-/content-shaped fields, and the HTTP emission suites
+assert the emitted lines' exact key sets — so when `P0-SEC-01` lands, the client half starts
+from a catalog whose server-side discipline is already mechanical. See the observability
+document's P7-ANALYTICS-01 subsection for the full measure-by-measure account.
+
+**Care-loop dashboards, log-based metrics, and alert policies (P7-ANALYTICS-01).** The same
+shape as the sync- and media-dashboard entries above, applied to the care loop: every measure
+the work package names (presentation, completion, postponement, rejection, irrelevance,
+freshness, fallback) is now a real, test-verified structured log event or a documented SQL
+measure over durable rows, and observability-and-analytics.md's P7-ANALYTICS-01 subsection
+specifies the log-based metric definitions, the "Recommendations and AI" dashboard widget
+compositions, alert candidates with reasoned thresholds, and runbook entries they support —
+but no Cloud Monitoring dashboard, log-based metric, or alert policy has been CREATED against
+any environment, and the per-rule-version funnel SQL runs as operator queries (a scheduled
+BigQuery export needs section 17's explicit cost and privacy review). The P1/P5/P6 "-01"
+observability delivery bar, unchanged.
+
 **Stuck-deletion automatic re-drive (P6-OBS-01 audit finding, deliberately not built).** A
 `deletion_scheduled` record whose `media_deletion` job exhausts Cloud Tasks' bounded retries
 (10 attempts / 1 hour) has no automatic re-drive: the outbox event is already published, the

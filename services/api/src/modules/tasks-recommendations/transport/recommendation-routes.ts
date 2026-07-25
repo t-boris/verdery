@@ -118,7 +118,25 @@ export function registerRecommendationRoutes(
 
     const today = await deps.getTodayView.execute(gardenId, request.actorContext.profileId, limit);
 
-    return reply.status(200).send(today);
+    // One structured line per Today read (P7-ANALYTICS-01) —
+    // recommendations-and-ai.md section 17's presentation measure at its
+    // source: `presented_at` rows carry every first presentation durably,
+    // but a Today read that served nothing (or nothing NEW) leaves no row
+    // behind, so only this request can count it. Counts only — no garden
+    // or candidate ids, no user identity, never explanation text; this is
+    // an operational service log, not a consented product-analytics event
+    // (observability-and-analytics.md, sections 10-11).
+    request.log.info(
+      {
+        event: 'recommendations.today_served',
+        itemsServed: today.result.items.length,
+        firstPresentations: today.firstPresentations,
+        limit,
+      },
+      'Today view served',
+    );
+
+    return reply.status(200).send(today.result);
   });
 
   app.post(

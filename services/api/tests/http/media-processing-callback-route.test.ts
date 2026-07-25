@@ -347,6 +347,9 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       candidatesSuperseded: 0,
       candidatesExpired: 0,
       lostRaces: 0,
+      // P7-ANALYTICS-01: no garden evaluated means no rule ran, so no skip
+      // was counted either.
+      ruleSkips: {},
       // P7-AI-01: the kill-switch is off in the test configuration, so
       // the embellishment phase does not exist.
       embellishment: null,

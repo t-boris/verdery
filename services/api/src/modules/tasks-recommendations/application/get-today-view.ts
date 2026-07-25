@@ -93,6 +93,21 @@ import type {
 export const TODAY_DEFAULT_LIMIT = 10;
 export const TODAY_MAX_LIMIT = 25;
 
+/**
+ * The query's outcome: the client resource plus the read-triggered
+ * presentation count the transport logs (P7-ANALYTICS-01's
+ * `recommendations.today_served` — presentation is this care loop's first
+ * measured step, and the empty-read case leaves no row behind, so only the
+ * serving request can count it). The `InboxPageOutcome` shape exactly: the
+ * application returns the counters its read-triggered write produced, the
+ * route logs them.
+ */
+export interface TodayViewOutcome {
+  readonly result: TodayViewResource;
+  /** Candidates this read transitioned `eligible -> presented` — first inclusions only; a repeat read reports 0. */
+  readonly firstPresentations: number;
+}
+
 interface RankedCandidate {
   readonly stored: StoredCandidateWithRule;
   readonly priorityScore: number;
@@ -134,7 +149,7 @@ export class GetTodayView {
     private readonly clock: Clock,
   ) {}
 
-  async execute(gardenId: Uuid, profileId: Uuid, limit: number): Promise<TodayViewResource> {
+  async execute(gardenId: Uuid, profileId: Uuid, limit: number): Promise<TodayViewOutcome> {
     await this.authorization.requireCapability(gardenId, profileId, 'viewGarden');
 
     return this.unitOfWork.run(async (context) => {
@@ -188,6 +203,7 @@ export class GetTodayView {
       }
 
       const items: TodayRecommendationResource[] = [];
+      let firstPresentations = 0;
       for (const entry of ranked) {
         let { candidate } = entry.stored;
         if (candidate.state === 'eligible') {
@@ -207,6 +223,7 @@ export class GetTodayView {
             );
           }
           candidate = presented;
+          firstPresentations += 1;
         }
 
         const definition = this.catalog.find(entry.stored.ruleKey, entry.stored.ruleVersion);
@@ -232,7 +249,10 @@ export class GetTodayView {
         });
       }
 
-      return { gardenId, generatedAt: now.toISOString(), items };
+      return {
+        result: { gardenId, generatedAt: now.toISOString(), items },
+        firstPresentations,
+      };
     });
   }
 

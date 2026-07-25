@@ -27,14 +27,13 @@ export function registerNotificationDeliverySweepRoute(
 
     const result = await dependencies.runNotificationDeliverySweep.execute();
 
-    // One structured line per run — notifications.md section 15's send
-    // attempt / provider acceptance / invalid token / suppression counters
-    // at their source. Counts only: no recipient identities, no tokens.
-    request.log.info(
-      { event: 'notifications.delivery_sweep_completed', ...result },
-      'Notification delivery sweep completed',
-    );
-
+    // Deliberately NOT logged here: the worker's `GoogleApiSweepTrigger`
+    // logs this summary as `notifications.delivery_sweep_completed` on
+    // every successful round-trip, exactly as it does for the retention,
+    // weather, and evaluation sweeps — one emitter per event name, so a
+    // log-based metric on the event never double-counts a run
+    // (P7-ANALYTICS-01 removed this route's duplicate emission of the
+    // same name from a second service).
     return reply.status(200).send(result);
   });
 }

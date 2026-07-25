@@ -195,6 +195,9 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       candidatesSuperseded: 0,
       candidatesExpired: 0,
       lostRaces: 0,
+      // P7-ANALYTICS-01: both weather-required rules (watering observation,
+      // frost forecast) skip on the no-weather-record reality of this suite.
+      ruleSkips: { weatherMissing: 2 },
       // P7-AI-01: null embellisher — the kill-switch-off reality.
       embellishment: null,
     });
@@ -236,6 +239,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       candidatesSuperseded: 0,
       candidatesExpired: 0,
       lostRaces: 0,
+      ruleSkips: { weatherMissing: 2 },
       embellishment: null,
     });
     expect(await candidateRows()).toHaveLength(1);

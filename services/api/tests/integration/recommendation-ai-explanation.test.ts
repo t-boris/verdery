@@ -223,7 +223,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     expect(offSweep.embellishment).toBeNull();
     await off.todayOff.execute(gardenId, ownerId, 10);
     const baseline = await off.todayOff.execute(gardenId, ownerId, 10);
-    expect(baseline.items[0]).toMatchObject({
+    expect(baseline.result.items[0]).toMatchObject({
       explanationSource: 'deterministic',
       embellishedExplanation: null,
     });
@@ -263,10 +263,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     // Serving ON: the embellishment rides the item; the deterministic
     // reason is untouched.
     const served = await surface.todayOn.execute(gardenId, ownerId, 10);
-    expect(served.items[0]).toMatchObject({
+    expect(served.result.items[0]).toMatchObject({
       explanationSource: 'ai_embellished',
       embellishedExplanation: ACCEPTED_TEXT,
-      explanation: baseline.items[0]?.explanation,
+      explanation: baseline.result.items[0]?.explanation,
     });
 
     // Duplicate-safe: a re-run selects nothing and calls nothing.
@@ -319,7 +319,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     ]);
 
     const served = await surface.todayOn.execute(gardenId, ownerId, 10);
-    expect(served.items[0]).toMatchObject({
+    expect(served.result.items[0]).toMatchObject({
       explanationSource: 'deterministic',
       embellishedExplanation: null,
     });

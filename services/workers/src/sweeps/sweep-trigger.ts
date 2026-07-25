@@ -62,6 +62,8 @@ export interface RecommendationEvaluationSweepSummary {
   readonly candidatesSuperseded: number;
   readonly candidatesExpired: number;
   readonly lostRaces: number;
+  /** Whole-rule skips by typed reason (P7-ANALYTICS-01) — the degraded-evaluation counters, e.g. `{ "weatherMissing": 2 }`. */
+  readonly ruleSkips: Readonly<Record<string, number>>;
   /** `null` whenever the API's `RECOMMENDATION_AI_EXPLANATION_ENABLED` kill-switch keeps the phase from existing (every environment today). */
   readonly embellishment: RecommendationEmbellishmentSummary | null;
 }

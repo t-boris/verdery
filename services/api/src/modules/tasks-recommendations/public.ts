@@ -285,7 +285,7 @@ export {
   TODAY_DEFAULT_LIMIT,
   TODAY_MAX_LIMIT,
 } from './application/get-today-view.js';
-export type { AiExplanationServingPolicy } from './application/get-today-view.js';
+export type { AiExplanationServingPolicy, TodayViewOutcome } from './application/get-today-view.js';
 export type { AiExplanationRecordRepository } from './application/ai-explanation-record-repository.js';
 export {
   EMBELLISHMENT_BATCH_LIMIT,

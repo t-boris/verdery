@@ -76,6 +76,16 @@ export const DELIVERY_SWEEP_EXPIRY_LIMIT = 500;
  */
 export const DELIVERY_CLAIM_LEASE_MS = 5 * 60_000;
 
+/**
+ * Why an intent transitioned to `failed` — `intentsFailed`'s closed key
+ * vocabulary, exported so the analytics catalog
+ * (`tests/analytics/care-loop-analytics.test.ts`) pins it at compile time
+ * (P7-ANALYTICS-01): a new failure reason cannot ship without passing the
+ * consent-boundary review that test encodes.
+ */
+export type DeliveryFailReason =
+  'retry_budget_exhausted' | 'provider_permanent_failure' | 'all_tokens_invalid';
+
 export interface NotificationDeliverySweepResult {
   /** Past-expiry pending intents closed by this run's expiry phase. */
   readonly intentsExpired: number;
@@ -320,13 +330,15 @@ export class RunNotificationDeliverySweep {
           devicesDisabled,
           written,
           outcome: 'failed' as const,
-          failReason: 'retry_budget_exhausted',
+          failReason: 'retry_budget_exhausted' satisfies DeliveryFailReason,
         };
       }
 
       // No acceptance, nothing worth retrying: a permanent provider
       // failure, or every token dead (each already disabled above).
-      const failReason = anyPermanent ? 'provider_permanent_failure' : 'all_tokens_invalid';
+      const failReason: DeliveryFailReason = anyPermanent
+        ? 'provider_permanent_failure'
+        : 'all_tokens_invalid';
       const written = await context.delivery.closeDelivery(intent.id, 'failed', failReason, now);
       return { devicesDisabled, written, outcome: 'failed' as const, failReason };
     });
