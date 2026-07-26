@@ -97,13 +97,14 @@ export class KyselyMembershipRepository implements MembershipRepository {
   async listMembershipsForProfile(profileId: Uuid): Promise<GardenPartitionMembership[]> {
     const rows = await this.db
       .selectFrom('collaboration.membership')
-      .select(['garden_id', 'state'])
+      .select(['garden_id', 'state', 'role'])
       .where('profile_id', '=', profileId)
       .execute();
 
     return rows.map((row) => ({
       gardenId: row.garden_id,
       state: row.state as GardenMembershipState,
+      role: row.role as GardenRole,
     }));
   }
 

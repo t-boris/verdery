@@ -137,12 +137,14 @@ Organization membership alone never causes a garden partition grant. An active g
 
 Client engagement grants do not include the operational garden partition. The initial responsive web portal queries publication-only endpoints online. A future native client portal must use a separate read-only publication partition and cannot reuse operational records.
 
-### 11.1 Implemented revocation profile (P8-DELETE-01)
+### 11.1 Implemented revocation profile (P8-DELETE-01, P9A-SYNC-01)
 
 Revocation now has real producers: a garden deletion request revokes every non-owner member, the
-deletion sweep's claim revokes whoever remains, and an account deletion revokes the leaver's own
-memberships. Each one is delivered as the ORDINARY change the contract already documents — a
-`garden` record with `operation: 'delete'` — never a distinct change shape.
+deletion sweep's claim revokes whoever remains, an account deletion revokes the leaver's own
+memberships, and an ordinary membership removal (`RemoveMember`, including a member removing
+themselves) revokes the removed member alone. Each one is delivered as the ORDINARY change the
+contract already documents — a `garden` record with `operation: 'delete'` — never a distinct
+change shape.
 
 Two properties this needed, neither of which the pull side had to change to gain:
 
@@ -160,6 +162,13 @@ records are not re-emitted, because the client purged them locally on the tombst
 "authorization partitions changed incompatibly" (section 13), whose prescribed recovery is a full
 resynchronization — the client drops its cursor and pulls from the beginning. Recorded as a
 client-side obligation in `docs/development/deferred-capabilities.md`.
+
+GRANTING access for the first time (`AcceptInvitation`, P9A-SYNC-01) takes the exact same `garden`
+`upsert` shape as restoring it, addressed to the new member alone. A brand-new member's own
+first-ever pull starts at `sequence` `0` and so receives the garden's full prior history regardless;
+an already-active client (on other gardens) who gains this one mid-stream is the same asymmetric
+case restore already names, and gets the same answer — the client-side full-resync obligation
+above, not a second mechanism invented for grants specifically.
 
 ## 12. Initial Synchronization
 

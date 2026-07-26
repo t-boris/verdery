@@ -7,11 +7,26 @@
  * record families (`garden` vs. `plant` vs. `task`, and so on), because
  * nothing before the synchronization protocol needed to route one batch
  * spanning every family at once.
+ *
+ * BOUNDARY CAPABILITY CHECK (P9A-SYNC-01, G-8
+ * `docs/development/garden-capability-matrix.md`): before dispatching,
+ * `requiredPushCapability` declares what this exact payload needs, and this
+ * method asserts it directly — defence in depth, not a replacement for the
+ * per-command `requireCapability` calls the delegated command still makes
+ * (and still must pass) on its own. A failure here is mapped through the
+ * SAME `toRejected` every delegated command's own `executeAndMapOutcome`
+ * uses, so a viewer's push is refused with an ordinary per-operation
+ * `rejected` result inside the HTTP 200 batch, identically to today —
+ * nothing about the wire shape changes, only that the refusal is now
+ * guaranteed at the boundary too, not solely inherited.
  */
 
 import type { SyncOperationPayload } from '@verdery/api-contracts';
+import { ApplicationError } from '../../../platform/errors/application-error.js';
+import type { GardenAuthorization } from '../../gardens-mapping/public.js';
 import type { DeletionActor } from '../../../shared/deletion/deletion-policy.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
+import { toRejected } from './execute-and-map-outcome.js';
 import type { GardenObjectOperationRouterDependencies } from './route-garden-object-operation.js';
 import { routeGardenObjectOperation } from './route-garden-object-operation.js';
 import type { GardenOperationRouterDependencies } from './route-garden-operation.js';
@@ -20,6 +35,7 @@ import type { ObservationOperationRouterDependencies } from './route-observation
 import { routeObservationOperation } from './route-observation-operation.js';
 import type { PlantOperationRouterDependencies } from './route-plant-operation.js';
 import { routePlantOperation } from './route-plant-operation.js';
+import { requiredPushCapability } from './sync-operation-capability.js';
 import type { TaskOperationRouterDependencies } from './route-task-operation.js';
 import { routeTaskOperation } from './route-task-operation.js';
 import type { SyncOperationOutcome } from './sync-operation-outcome.js';
@@ -30,6 +46,8 @@ export interface SyncOperationRouterDependencies {
   readonly plant: PlantOperationRouterDependencies;
   readonly observation: ObservationOperationRouterDependencies;
   readonly task: TaskOperationRouterDependencies;
+  /** G-8's own boundary check — the same `GardenAuthorization` every routed command already holds, reused here rather than duplicated. */
+  readonly authorization: GardenAuthorization;
 }
 
 export class SyncOperationRouter {
@@ -41,6 +59,22 @@ export class SyncOperationRouter {
     payload: SyncOperationPayload,
   ): Promise<SyncOperationOutcome> {
     const profileId = actor.profileId;
+
+    const requiredCapability = requiredPushCapability(payload);
+    if (requiredCapability !== null) {
+      try {
+        await this.deps.authorization.requireCapability(
+          payload.gardenId,
+          profileId,
+          requiredCapability,
+        );
+      } catch (error) {
+        if (error instanceof ApplicationError) {
+          return toRejected(error);
+        }
+        throw error;
+      }
+    }
 
     switch (payload.recordType) {
       case 'garden':

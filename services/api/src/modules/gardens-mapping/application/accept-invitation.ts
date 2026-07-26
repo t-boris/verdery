@@ -49,11 +49,25 @@
  *
  * Source: implementation-plan.md work package P9A-API-01;
  * architecture/identity-and-authorization.md, section "10. Invitations".
+ *
+ * THE GRANT SIGNAL (P9A-SYNC-01): a `garden` `upsert`, addressed via
+ * `target_profile_id` to the accepting profile alone — the exact shape
+ * `garden-membership-revocation.ts`'s `restoreGardenMemberships` already
+ * establishes for regaining access, applied here to gaining it for the first
+ * time. Existing members receive nothing from this: they already know the
+ * garden. As with restore, this upsert does not itself back-fill the
+ * garden's CONTENT records for a profile whose own sync cursor has already
+ * advanced past their low `sequence` numbers (the ordinary case for a
+ * brand-new member, whose first-ever pull starts at `sequence` `0`, is
+ * unaffected) — that gap is the same already-accepted client-side full-resync
+ * obligation `restoreGardenMemberships`'s own header comment names and
+ * `docs/development/deferred-capabilities.md` records, not a new one this
+ * command invents.
  */
 
 import type { GardenMember } from '@verdery/api-contracts';
 import { CollaborationErrorCode } from '@verdery/api-contracts';
-import { NotFoundError } from '../../../platform/errors/application-error.js';
+import { InternalError, NotFoundError } from '../../../platform/errors/application-error.js';
 import type { IdempotencyStore } from '../../../platform/idempotency/idempotency-store.js';
 import { generateUuidV7 } from '../../../shared/identifiers/uuid.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
@@ -198,10 +212,25 @@ export class AcceptInvitation {
         },
       });
 
-      // Sync emission for the new member's own client is deliberately NOT
-      // done here — P9A-SYNC-01 owns wiring membership grants into the sync
-      // change log (see this work package's own constraints: "sync ...
-      // explicitly other work packages — do not build them").
+      const garden = await context.gardens.findById(invitation.gardenId);
+      if (garden === null) {
+        // Unreachable in practice: the invitation just resolved to this
+        // garden id, and nothing hard-deletes a garden outside the deletion
+        // purge, which revokes every membership (including any pending
+        // invitation's target) long before the row itself disappears.
+        throw new InternalError(
+          'gardens.invitations.accept.garden_missing',
+          'The garden this invitation grants access to could not be found.',
+        );
+      }
+      await context.syncChanges.record({
+        gardenId: garden.id,
+        recordId: garden.id,
+        recordType: 'garden',
+        operation: 'upsert',
+        recordRevision: garden.revision,
+        targetProfileId: actor.profileId,
+      });
 
       // Built from what this transaction just wrote, not re-read: every
       // field is already known, and a re-read could only ever confirm what

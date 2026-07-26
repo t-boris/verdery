@@ -6149,8 +6149,14 @@ No endpoint writes to either table yet. P9A completes them rather than inventing
       and collaboration notification intents. Completion attribution proven to survive the
       assignee losing garden access (tested against a real removal). Concurrent assignment
       resolved via the task's existing revision guard — no new locking invented.
-- [ ] P9A-SYNC-01 — Synchronize membership grants/revocations, assignments, and attribution without
-      retaining inaccessible garden data after revocation.
+- [x] P9A-SYNC-01 — Synchronize membership grants/revocations, assignments, and attribution without
+      retaining inaccessible garden data after revocation. Closed a real hole: ordinary
+      `RemoveMember` wrote no sync tombstone at all before this — only garden/account deletion
+      did — so a removed member's offline client never learned it lost access. Now emits the
+      same `garden`/`delete` tombstone, addressed via `targetProfileId`. Also closed G-8/G-9/G-10
+      from the frozen capability matrix (push boundary capability check, pull-side role pin,
+      mid-pull auth failure now surfaces as a revocation tombstone instead of a 500). 229 files /
+      1786 tests, all green.
 - [ ] P9A-IOS-01 — Invitation acceptance, member/role display, assignments, co-owner administration,
       removal, and revoked-access recovery in the native app.
 - [ ] P9A-WEB-01 — The same on web, plus the member administration table.

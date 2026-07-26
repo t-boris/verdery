@@ -101,6 +101,7 @@ export function composeSynchronization(
   const getTask = new GetTask(taskRepository, gardenAuthorization);
 
   const router = new SyncOperationRouter({
+    authorization: gardenAuthorization,
     garden: {
       createGarden: gardenRoutesDependencies.createGarden,
       renameGarden: gardenRoutesDependencies.renameGarden,

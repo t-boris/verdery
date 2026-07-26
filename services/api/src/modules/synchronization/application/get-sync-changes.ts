@@ -108,8 +108,10 @@ import type {
   GetCalibration,
   GetGarden,
   GetMapObject,
+  GardenRole,
   MembershipRepository,
 } from '../../gardens-mapping/public.js';
+import { roleHasCapability } from '../../gardens-mapping/public.js';
 import type { GetObservationForSync } from '../../observations-history/public.js';
 import type { GetPlant } from '../../plants-inventory/public.js';
 import type { GetTask } from '../../tasks-recommendations/public.js';
@@ -123,6 +125,7 @@ import {
   requireFreshCursor,
 } from './sync-changes-cursor.js';
 import { requireSupportedSyncProtocolVersion } from './sync-protocol-version.js';
+import { requiredPullCapability } from './sync-record-pull-capability.js';
 
 export interface GetSyncChangesRequest {
   readonly after: string | null;
@@ -139,6 +142,17 @@ export interface SyncChangeRecordReaders {
   readonly getObservationForSync: GetObservationForSync;
   readonly getTask: GetTask;
 }
+
+/**
+ * What `fetchRecordSnapshot` resolves to — a real snapshot, or `'revoked'`
+ * when a fresh membership check (G-10) confirms the caller's access to the
+ * row's own garden ended between the top of `execute` and this specific
+ * row's own read. `toWireChange` turns the latter into the ordinary
+ * `garden`/`delete` tombstone shape, never an `InternalError`.
+ */
+type RecordSnapshotOutcome =
+  | { readonly kind: 'snapshot'; readonly snapshot: SyncRecordSnapshot }
+  | { readonly kind: 'revoked' };
 
 function toCalibrationSnapshot(calibration: {
   readonly id: Uuid;
@@ -224,6 +238,14 @@ export class GetSyncChanges {
     const tombstoneOnlyGardenIds = memberships
       .filter((membership) => membership.state !== 'active')
       .map((membership) => membership.gardenId);
+    // G-9's own boundary check needs the caller's role per garden, which
+    // `activeGardenIds` above (built for the query's visibility filter only)
+    // discards — see `sync-record-pull-capability.ts`'s own header comment.
+    const activeRoleByGardenId = new Map<Uuid, GardenRole>(
+      memberships
+        .filter((membership) => membership.state === 'active')
+        .map((membership): [Uuid, GardenRole] => [membership.gardenId, membership.role]),
+    );
 
     const rows = await this.syncChanges.listAfter({
       profileId,
@@ -240,7 +262,7 @@ export class GetSyncChanges {
     // comment makes for its per-operation idempotency lookups.
     const items: SyncChange[] = [];
     for (const row of rows) {
-      items.push(await this.toWireChange(row, profileId));
+      items.push(await this.toWireChange(row, profileId, activeRoleByGardenId));
     }
 
     const lastSequence = rows.at(-1)?.sequence ?? cursor.afterSequence;
@@ -249,7 +271,11 @@ export class GetSyncChanges {
     return { items, nextCursor };
   }
 
-  private async toWireChange(row: SyncChangeRecord, profileId: Uuid): Promise<SyncChange> {
+  private async toWireChange(
+    row: SyncChangeRecord,
+    profileId: Uuid,
+    activeRoleByGardenId: ReadonlyMap<Uuid, GardenRole>,
+  ): Promise<SyncChange> {
     const base = {
       sequence: row.sequence,
       gardenId: row.gardenId,
@@ -275,13 +301,47 @@ export class GetSyncChanges {
       );
     }
 
-    const record = await this.fetchRecordSnapshot(
+    const outcome = await this.fetchRecordSnapshot(
       row.gardenId,
       row.recordId,
       row.recordType,
       profileId,
+      activeRoleByGardenId.get(row.gardenId),
     );
-    return { ...base, record };
+
+    if (outcome.kind === 'revoked') {
+      // G-10 (`docs/development/garden-capability-matrix.md`): the caller's
+      // access to THIS row's own garden ended between `listMembershipsForProfile`
+      // above and this row's own read — confirmed just now by a fresh
+      // membership check, not inferred from the error's shape. Surfaced as
+      // the SAME ordinary `garden`/`delete` tombstone
+      // offline-synchronization.md section "11.1 Implemented revocation
+      // profile" already documents for every other revocation, addressed to
+      // nobody in particular here (this response IS this profile's own
+      // pull) — never as an `InternalError`. A full resync (section "13. Full
+      // Resynchronization") is NOT used for this case: every authorization
+      // revocation this codebase produces is already representable as an
+      // ordinary per-garden tombstone (section 11.1), so partition reset stays
+      // reserved for the two triggers `sync-changes-cursor.ts` already
+      // implements (an expired cursor, an unsupported protocol version) — a
+      // race landing here is not a third kind of staleness, just this same
+      // kind observed one row earlier than the row that will carry it next
+      // page. The real tombstone (written by whichever command revoked this
+      // membership) still arrives on a later page, addressed and idempotent
+      // exactly like any other — this is a defensive same-page substitute for
+      // an internal error, not a replacement for it.
+      return {
+        sequence: row.sequence,
+        gardenId: row.gardenId,
+        recordId: row.gardenId,
+        recordType: 'garden',
+        operation: 'delete',
+        recordRevision: row.recordRevision,
+        committedAt: row.committedAt.toISOString(),
+      };
+    }
+
+    return { ...base, record: outcome.snapshot };
   }
 
   private async fetchRecordSnapshot(
@@ -289,7 +349,24 @@ export class GetSyncChanges {
     recordId: Uuid,
     recordType: SyncRecordType,
     profileId: Uuid,
-  ): Promise<SyncRecordSnapshot> {
+    activeRole: GardenRole | undefined,
+  ): Promise<RecordSnapshotOutcome> {
+    // G-9: a defence-in-depth boundary assertion, not the real enforcement —
+    // each reader below still runs its own `GardenAuthorization.requireCapability`
+    // unchanged. `activeRole` is always defined here in practice: this method
+    // only runs for an `upsert` row, whose `gardenId` was already established
+    // to be in `activeGardenIds` (and therefore in `activeRoleByGardenId`) by
+    // the same call to `listMembershipsForProfile` moments earlier.
+    if (
+      activeRole === undefined ||
+      !roleHasCapability(activeRole, requiredPullCapability(recordType))
+    ) {
+      throw new InternalError(
+        'synchronization.changes.record_family_not_readable',
+        `A ${recordType} change was not readable by the caller's own declared role — a regression in the pull path's own capability pin (G-9).`,
+      );
+    }
+
     try {
       switch (recordType) {
         case 'garden':
@@ -297,61 +374,95 @@ export class GetSyncChanges {
           // record IS the garden, the same identity `route-garden-operation.ts`'s
           // own `fetchCurrentRecord` relies on.
           return {
-            recordType: 'garden',
-            data: await this.readers.getGarden.execute(gardenId, profileId),
+            kind: 'snapshot',
+            snapshot: {
+              recordType: 'garden',
+              data: await this.readers.getGarden.execute(gardenId, profileId),
+            },
           };
         case 'gardenObject':
           return {
-            recordType: 'gardenObject',
-            data: (await this.readers.getMapObject.execute(
-              gardenId,
-              recordId,
-              profileId,
-            )) as unknown as GardenObjectContract,
+            kind: 'snapshot',
+            snapshot: {
+              recordType: 'gardenObject',
+              data: (await this.readers.getMapObject.execute(
+                gardenId,
+                recordId,
+                profileId,
+              )) as unknown as GardenObjectContract,
+            },
           };
         case 'calibration':
           return {
-            recordType: 'calibration',
-            data: toCalibrationSnapshot(
-              await this.readers.getCalibration.execute(gardenId, recordId, profileId),
-            ),
+            kind: 'snapshot',
+            snapshot: {
+              recordType: 'calibration',
+              data: toCalibrationSnapshot(
+                await this.readers.getCalibration.execute(gardenId, recordId, profileId),
+              ),
+            },
           };
         case 'plant':
           return {
-            recordType: 'plant',
-            data: (await this.readers.getPlant.execute(
-              gardenId,
-              recordId,
-              profileId,
-            )) as unknown as PlantContract,
+            kind: 'snapshot',
+            snapshot: {
+              recordType: 'plant',
+              data: (await this.readers.getPlant.execute(
+                gardenId,
+                recordId,
+                profileId,
+              )) as unknown as PlantContract,
+            },
           };
         case 'observation':
           return {
-            recordType: 'observation',
-            data: (await this.readers.getObservationForSync.execute(
-              gardenId,
-              recordId,
-              profileId,
-            )) as unknown as ObservationContract,
+            kind: 'snapshot',
+            snapshot: {
+              recordType: 'observation',
+              data: (await this.readers.getObservationForSync.execute(
+                gardenId,
+                recordId,
+                profileId,
+              )) as unknown as ObservationContract,
+            },
           };
         case 'task':
           return {
-            recordType: 'task',
-            data: (await this.readers.getTask.execute(
-              gardenId,
-              recordId,
-              profileId,
-            )) as unknown as TaskContract,
+            kind: 'snapshot',
+            snapshot: {
+              recordType: 'task',
+              data: (await this.readers.getTask.execute(
+                gardenId,
+                recordId,
+                profileId,
+              )) as unknown as TaskContract,
+            },
           };
       }
     } catch (error) {
       if (error instanceof ApplicationError) {
-        // Not reachable in practice: `activeGardenIds` already established
-        // this garden is currently accessible moments earlier in the same
-        // call, and nothing hard-deletes any of these six record types (see
-        // each `Get*` class's own header comment) — but an honest internal
-        // error is a better failure than crashing the whole page on a `404`/
-        // `403` that would otherwise misreport a sync-log inconsistency as
+        // G-10: confirm against the CURRENT membership state, rather than
+        // assuming every `ApplicationError` here means the same thing.
+        // `activeGardenIds` established this garden was accessible moments
+        // earlier in the same call, so an authorization failure now most
+        // likely means the caller's access ended in between (see this
+        // method's own `activeRole` parameter for the other, already-pinned
+        // half of this same "was true a moment ago" family of races) — but a
+        // fresh read here proves it instead of guessing from the error's
+        // shape.
+        const stillActive = await this.memberships.findActiveByGardenAndProfile(
+          gardenId,
+          profileId,
+        );
+        if (stillActive === null) {
+          return { kind: 'revoked' };
+        }
+
+        // Access is still active: this is NOT a revocation race. Nothing
+        // hard-deletes any of these six record types (see each `Get*`
+        // class's own header comment), so an honest internal error is a
+        // better failure than crashing the whole page on a `404`/`403` that
+        // would otherwise misreport a genuine sync-log inconsistency as
         // "this specific resource doesn't exist", mirroring
         // `route-plant-operation.ts`'s own `currentPlantRecordRevisions`
         // fallback for its analogous "should never happen" case.

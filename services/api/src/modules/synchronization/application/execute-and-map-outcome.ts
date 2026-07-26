@@ -47,7 +47,15 @@ import {
 } from '../../../platform/errors/application-error.js';
 import type { SyncOperationOutcome } from './sync-operation-outcome.js';
 
-function toRejected(error: ApplicationError): SyncOperationOutcome {
+/**
+ * Maps any typed `ApplicationError` to a `rejected` outcome. Exported for
+ * `sync-operation-router.ts`'s own boundary capability check (G-8,
+ * `docs/development/garden-capability-matrix.md`) to reuse verbatim — a
+ * capability failure at the routing boundary must produce the exact same
+ * per-operation `rejected` shape a delegated command's own failure would,
+ * not a distinct error path.
+ */
+export function toRejected(error: ApplicationError): SyncOperationOutcome {
   const detail: SyncOperationError = {
     code: error.code,
     message: error.message,

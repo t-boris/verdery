@@ -41,6 +41,15 @@ export type GardenMembershipState = 'active' | 'removed';
 export interface GardenPartitionMembership {
   readonly gardenId: Uuid;
   readonly state: GardenMembershipState;
+  /**
+   * Added for G-9 (`docs/development/garden-capability-matrix.md`): the pull
+   * path (`GetSyncChanges`) previously split gardens on `state` alone with no
+   * way to also assert a per-record-family capability, because this
+   * projection never selected `role` at all. Meaningless when `state` is not
+   * `'active'` (a tombstone-only garden's own removed role is not consulted
+   * for anything).
+   */
+  readonly role: GardenRole;
 }
 
 /** A membership row with everything the deletion workflows decide on: who, which role, which state, and when the state last moved. */

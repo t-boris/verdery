@@ -18,13 +18,17 @@
  */
 
 import {
+  AcceptInvitation,
   ArchiveGarden,
   AssignPlantToTarget,
   ChangeMapObjectProperties,
+  ChangeMemberRole,
   CreateGarden,
+  CreateInvitation,
   CreateMapObject,
   DecideMapProposal,
   DeleteMapObject,
+  DemoteOwner,
   DuplicateMapObject,
   EditMapObjectVertex,
   GardenAuthorization,
@@ -35,9 +39,12 @@ import {
   KyselyCalibrationRepository,
   KyselyGardenRepository,
   KyselyGardensMappingUnitOfWork,
+  KyselyInvitationRepository,
   KyselyMapObjectRepository,
   KyselyMembershipRepository,
   MoveMapObject,
+  PromoteToOwner,
+  RemoveMember,
   RenameGarden,
   ReplaceMapObjectGeometry,
   RequestGardenDeletion,
@@ -67,6 +74,7 @@ import {
   UpdatePlantDetails,
 } from '../../src/modules/plants-inventory/public.js';
 import {
+  AssignTask,
   AttachTaskFile,
   CompleteTask,
   CreateManualTask,
@@ -133,6 +141,45 @@ export function buildSyncTestHarness(db: Kysely<DatabaseSchema>, clock: Clock) {
     clock,
   );
   const getGarden = new GetGarden(gardenRepository, gardenAuthorization);
+
+  // Membership commands (P9A-API-01/P9A-OWNER-01) — not part of the sync push
+  // protocol themselves (see `sync-operation-capability.ts`'s own header
+  // comment: no `recordType` routes to any of these), but their effect on
+  // `platform.sync_change`/`collaboration.membership` is exactly what
+  // P9A-SYNC-01's own membership-change/revocation/grant scenarios exercise
+  // through `getSyncChanges` below.
+  const invitationRepository = new KyselyInvitationRepository(db);
+  const createInvitation = new CreateInvitation(
+    gardenIdempotency,
+    gardensMappingUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
+  const acceptInvitation = new AcceptInvitation(gardenIdempotency, gardensMappingUnitOfWork, clock);
+  const removeMember = new RemoveMember(
+    gardenIdempotency,
+    gardensMappingUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
+  const changeMemberRole = new ChangeMemberRole(
+    gardenIdempotency,
+    gardensMappingUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
+  const promoteToOwner = new PromoteToOwner(
+    gardenIdempotency,
+    gardensMappingUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
+  const demoteOwner = new DemoteOwner(
+    gardenIdempotency,
+    gardensMappingUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
 
   // gardenObject (map) family.
   const mapObjectRepository = new KyselyMapObjectRepository(db);
@@ -357,9 +404,22 @@ export function buildSyncTestHarness(db: Kysely<DatabaseSchema>, clock: Clock) {
     gardenAuthorization,
     clock,
   );
+  // Not part of the sync push protocol (`SyncTaskCommand` has no
+  // `tasks.assignTask` member — see `sync-operation-capability.ts`'s own
+  // header comment), but its effect on the `task` record's own
+  // `assignedProfileId`/`assignedAt` is exactly what
+  // `synchronization-pull.test.ts`'s attribution-projection test exercises.
+  const assignTask = new AssignTask(
+    taskRepository,
+    tasksRecommendationsIdempotency,
+    tasksRecommendationsUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
   const getTask = new GetTask(taskRepository, gardenAuthorization);
 
   const router = new SyncOperationRouter({
+    authorization: gardenAuthorization,
     garden: { createGarden, renameGarden, archiveGarden, requestGardenDeletion, getGarden },
     gardenObject: {
       createMapObject,
@@ -434,9 +494,16 @@ export function buildSyncTestHarness(db: Kysely<DatabaseSchema>, clock: Clock) {
     taskRepository,
     mapObjectRepository,
     membershipRepository,
+    invitationRepository,
     createGarden,
     renameGarden,
     getGarden,
+    createInvitation,
+    acceptInvitation,
+    removeMember,
+    changeMemberRole,
+    promoteToOwner,
+    demoteOwner,
     createMapObject,
     deleteMapObject,
     upsertMapCalibration,
@@ -445,6 +512,7 @@ export function buildSyncTestHarness(db: Kysely<DatabaseSchema>, clock: Clock) {
     recordObservation,
     createManualTask,
     editTask,
+    assignTask,
     registerSyncClient: new RegisterSyncClient(installations, synchronizationIdempotency, clock),
     pushSyncOperations: new PushSyncOperations(synchronizationIdempotency, router),
     getSyncChanges,

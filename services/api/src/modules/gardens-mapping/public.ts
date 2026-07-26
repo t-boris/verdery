@@ -8,6 +8,11 @@
 
 export type { Garden, GardenLifecycleState } from './domain/garden.js';
 export type { GardenCapability, GardenRole } from './domain/garden-role.js';
+// `roleHasCapability` is a pure predicate other modules' own boundary
+// assertions need to declare and pin a required capability against (P9A-SYNC-01,
+// G-8/G-9 in `docs/development/garden-capability-matrix.md`) — exported
+// alongside the two types above rather than duplicated per module.
+export { roleHasCapability } from './domain/garden-role.js';
 export type { MapObject, MapObjectLifecycleState, MapObjectSummary } from './domain/map-object.js';
 export { GardenAuthorization } from './application/garden-authorization.js';
 export { ArchiveGarden } from './application/archive-garden.js';

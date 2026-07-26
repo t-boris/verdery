@@ -943,13 +943,16 @@ build, each with its flip condition:
   deferral: the App Store requires an in-app account-deletion path, so P8-STORE-01 cannot ship
   without an iOS screen over `POST /account/deletion`. The endpoints are ready and need no backend
   change.
-- **A restored member's local content.** Restoring a garden (or an account) reactivates the
-  membership and emits a `garden` `upsert`, but does NOT re-emit the garden's content records — the
-  restored client purged them locally on the revocation tombstone. The client's own recovery is the
-  full resynchronization `offline-synchronization.md` section 13 already prescribes for
-  "authorization partitions changed incompatibly" (drop the cursor, pull from the beginning). No
-  server change is required for that; a client-side rule is. Flips into server scope only if
-  per-garden resumable pull is ever added.
+- **A restored (or newly invited) member's local content.** Restoring a garden (or an account)
+  reactivates the membership and emits a `garden` `upsert`, but does NOT re-emit the garden's
+  content records — the restored client purged them locally on the revocation tombstone. The
+  client's own recovery is the full resynchronization `offline-synchronization.md` section 13
+  already prescribes for "authorization partitions changed incompatibly" (drop the cursor, pull
+  from the beginning). No server change is required for that; a client-side rule is. `AcceptInvitation`
+  (P9A-SYNC-01) emits the identical `garden` `upsert` for a first-time grant and relies on the same
+  client-side rule for a member whose own cursor has already advanced past that garden's earlier
+  history — not a new case, the same one. Flips into server scope only if per-garden resumable pull
+  is ever added.
 - **Immediate irreversible deletion** (section 12). The recovery window is unconditional. Section
   12 permits an immediate path "when shared ownership, fraud/security review, and legal obligations
   permit it" — none of those review processes exist, and a destructive path gated on absent

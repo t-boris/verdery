@@ -301,4 +301,56 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     });
     expect(result.items[0]).not.toHaveProperty('record');
   });
+
+  it('projects a task change with its P9A-TASK-01 assignment attribution fields, through the existing task record — not a new record type', async () => {
+    // P9A-SYNC-01: confirms `assignedProfileId`/`assignedAt`/`completedByProfileId`
+    // already flow through `GetTask`'s own `TaskResource` shape (`task-view.ts`)
+    // unchanged — no sync-projection code needed adding them, only this proof
+    // that they were never missing.
+    const now = new Date('2026-07-21T10:30:00Z');
+    const { ownerId, gardenId } = await createGardenWithOwner(now);
+    const harness = buildSyncTestHarness(db, fixedClock(now));
+
+    const task = await harness.createManualTask.execute(
+      gardenId,
+      ownerId,
+      {
+        target: { kind: 'garden' },
+        title: 'Water the beds',
+        notes: null,
+        dueDate: null,
+        originObservationId: null,
+      },
+      generateUuidV7(),
+    );
+    await harness.assignTask.execute(task.id, ownerId, task.revision, ownerId, generateUuidV7());
+
+    const result = await harness.getSyncChanges.execute(ownerId, {
+      after: null,
+      limit: 50,
+      protocolVersion: 1,
+    });
+
+    // The LAST matching row, not the first: the task's creation and its
+    // subsequent assignment are two separate `upsert` rows for the same
+    // `recordId` (sequence-ordered), and only the later one carries the
+    // assignment.
+    const taskChange = result.items
+      .filter((item) => item.recordType === 'task' && item.recordId === task.id)
+      .at(-1);
+    expect(taskChange).toMatchObject({
+      recordType: 'task',
+      operation: 'upsert',
+      record: { recordType: 'task', data: { assignedProfileId: ownerId } },
+    });
+    if (
+      taskChange === undefined ||
+      taskChange.operation !== 'upsert' ||
+      taskChange.record === undefined
+    ) {
+      throw new Error('expected an upsert task change carrying a record');
+    }
+    const data = taskChange.record.data as { assignedAt: string | null };
+    expect(typeof data.assignedAt).toBe('string');
+  });
 });

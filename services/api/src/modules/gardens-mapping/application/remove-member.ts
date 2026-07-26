@@ -25,12 +25,26 @@
  * migrations/1786500000000_collaboration-operations-and-attribution.sql
  * (the last-owner comment); docs/development/garden-capability-matrix.md,
  * rows H11, H12.
+ *
+ * THE REVOCATION TOMBSTONE (P9A-SYNC-01): the ordinary "kick this person off
+ * the garden" case had no producer of the offline-synchronization revocation
+ * signal until now — `garden-membership-revocation.ts`'s `revokeGardenMemberships`
+ * only ever runs from garden deletion. This command writes the SAME shape
+ * that function does (a `garden` record, `operation: 'delete'`, addressed via
+ * `target_profile_id` so only the removed member's own client discards it —
+ * architecture/offline-synchronization.md, section "11.1 Implemented
+ * revocation profile"), not a second mechanism. Self-removal (H12) reaches
+ * this exact same line: `targetProfileId === actorProfileId` in that case,
+ * and the tombstone is addressed to the caller's own next pull, which is
+ * correct — a member who just removed themselves must also learn it from
+ * sync, not only from this call's own response.
  */
 
 import type { GardenMember } from '@verdery/api-contracts';
 import { CollaborationErrorCode } from '@verdery/api-contracts';
 import {
   DomainRuleViolatedError,
+  InternalError,
   NotFoundError,
 } from '../../../platform/errors/application-error.js';
 import type { IdempotencyStore } from '../../../platform/idempotency/idempotency-store.js';
@@ -102,6 +116,28 @@ export class RemoveMember {
       const now = this.clock.now();
       await context.memberships.closeOpenPeriod(target.id, now, 'removed');
       await context.memberships.setState(target.id, 'removed', now);
+
+      const garden = await context.gardens.findById(gardenId);
+      if (garden === null) {
+        // Unreachable in practice: the active-membership lookup above already
+        // established this garden exists — a membership row only outlives its
+        // garden after a PURGE, which itself revokes every membership first
+        // (`garden-membership-revocation.ts`), so no ACTIVE membership could
+        // reach this point once its garden is gone. An honest internal error
+        // is more truthful than writing a tombstone with a fabricated revision.
+        throw new InternalError(
+          'gardens.members.remove.garden_missing',
+          'The garden for an active membership could not be found.',
+        );
+      }
+      await context.syncChanges.record({
+        gardenId: garden.id,
+        recordId: garden.id,
+        recordType: 'garden',
+        operation: 'delete',
+        recordRevision: garden.revision,
+        targetProfileId,
+      });
 
       await context.auditLogger.record({
         eventType: 'membership.removed',
