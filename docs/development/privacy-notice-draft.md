@@ -868,8 +868,8 @@ georeference command ships.
 
 **Verdery ships bilingual on both clients**, verified:
 
-- iOS: `CFBundleLocalizations` declares `en` and `ru`; both `Localizable.strings` catalogues are 537
-  lines.
+- iOS: `CFBundleLocalizations` declares `en` and `ru`; both `Localizable.strings` catalogues declare
+  the same 501 entries, which a test asserts rather than a reviewer counting.
 - Web: `apps/web/shared/localization/messages/{en,ru}*.ts`.
 - `ios-distribution.md` §7 already contains a full Russian App Store listing.
 

@@ -51,5 +51,7 @@
 	</array>
 	<key>VerderyAPIOrigin</key>
 	<string>$(API_ORIGIN)</string>
+	<key>VerderyWebOrigin</key>
+	<string>$(WEB_ORIGIN)</string>
 </dict>
 </plist>

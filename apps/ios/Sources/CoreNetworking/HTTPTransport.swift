@@ -210,7 +210,8 @@ struct HTTPTransport: Sendable {
             request.setValue("Bearer \(idToken)", forHTTPHeaderField: "Authorization")
         }
 
-        if let provider = appCheckTokenProvider, let appCheckToken = try await provider.currentToken() {
+        if let provider = appCheckTokenProvider,
+           let appCheckToken = await appCheckToken(from: provider, correlationId: correlationId) {
             request.setValue(appCheckToken, forHTTPHeaderField: APIConfiguration.appCheckHeader)
         }
 
@@ -220,6 +221,59 @@ struct HTTPTransport: Sendable {
         }
 
         return request
+    }
+
+    /// Resolves the App Check token as a best-effort signal: a failure to
+    /// obtain one omits the header, it never fails the request.
+    ///
+    /// App Check is a traffic-CLASSIFICATION signal, not a credential. The
+    /// backend registers it as an `onRequest` hook that runs in `monitor`
+    /// mode — `services/api/src/platform/app-check/app-check-plugin.ts`:
+    /// "classify and log, never reject. The state of every environment
+    /// today" — so `X-Firebase-AppCheck` is optional on every route, and a
+    /// request carrying no token at all is answered normally. Only the
+    /// `Authorization` header above is genuinely required, which is why that
+    /// one is still `try`.
+    ///
+    /// This was NOT a hypothetical. `AppCheck.appCheck().token(forcingRefresh:)`
+    /// (`CoreAuthentication.FirebaseAppCheckTokenProvider`) throws whenever
+    /// the SDK cannot exchange an attestation — and it could never succeed
+    /// for this project, because `firebaseappcheck.googleapis.com` is not an
+    /// enabled service on it, so the exchange call is refused with
+    /// `SERVICE_DISABLED` before App Attest is even relevant. Propagating
+    /// that throw out of `makeRequest` meant every authenticated request in
+    /// the shipped app died *before it was sent*: nothing reached the API,
+    /// no `URLError` was ever raised, and the escaping non-`APIGatewayError`
+    /// landed in each view model's generic `catch`, which reports
+    /// `error.server.unexpected` — "Something went wrong on our side" on a
+    /// server that had not been asked anything. Confirmed against the real
+    /// deployment: zero requests from any iOS user agent appear in
+    /// `verdery-api-dev`'s Cloud Run logs, while the same `GET /v1/gardens`
+    /// issued by hand with a real Firebase ID token and no App Check header
+    /// answers `200 {"items":[]}`.
+    ///
+    /// Nothing is silenced: the failure is recorded, and a genuinely failing
+    /// request still surfaces its own error to the reader. What changes is
+    /// that an unavailable optional signal degrades the request's
+    /// classification instead of destroying the request.
+    private func appCheckToken(
+        from provider: any AppCheckTokenProvider,
+        correlationId: CorrelationIdentifier
+    ) async -> String? {
+        do {
+            return try await provider.currentToken()
+        } catch {
+            // Only the fact of the failure is logged. The underlying error
+            // can carry project and device detail, which the same redaction
+            // rule that governs the transport failure above keeps out of a
+            // diagnostic record.
+            log.record(
+                .warning,
+                "App Check token unavailable; sending the request without the classification header.",
+                correlationId: correlationId
+            )
+            return nil
+        }
     }
 
     /// Maps a rejected status onto the contract's error envelope.

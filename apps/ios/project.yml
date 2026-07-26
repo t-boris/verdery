@@ -119,6 +119,14 @@ targets:
         # for TestFlight MUST override it, e.g.
         # `xcodebuild ... API_ORIGIN=https://api.example.com`.
         VerderyAPIOrigin: "$(API_ORIGIN)"
+        # Which deployed web application an emailed sign-in link points at —
+        # see Sources/AppComposition/AppEnvironment.swift. Same build-setting
+        # reference shape as VerderyAPIOrigin above, but note the fallback
+        # differs: an unset API origin degrades to localhost, which is right
+        # for a Simulator; an unset web origin degrades to the DEPLOYED web
+        # application, because a link mailed to a reader is opened outside
+        # this device and localhost could never work for anyone.
+        VerderyWebOrigin: "$(WEB_ORIGIN)"
     entitlements:
       path: Generated/Verdery.entitlements
       properties:
@@ -134,8 +142,6 @@ targets:
         # pin.
         DEVELOPMENT_TEAM: 3M68DG8S7N
         MARKETING_VERSION: "1.0"
-        # Overridden per archive; see the VerderyAPIOrigin note above.
-        API_ORIGIN: "http://localhost:8080"
         # Overridden per upload by scripts/archive-and-upload.sh: App
         # Store Connect rejects a build whose (version, build) pair it has
         # already seen, so this literal is only the local-build default.
@@ -143,3 +149,28 @@ targets:
         SWIFT_VERSION: "6.2"
         TARGETED_DEVICE_FAMILY: "1,2"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      # Which API each configuration talks to. Per configuration, not one
+      # shared value: `localhost` is correct for a Simulator build talking to
+      # a container on the same machine and is meaningless on a phone, where
+      # localhost IS the phone. A Release build had that localhost value baked
+      # in through build 153, so every server-backed surface — Today, the
+      # journal, and the map — failed on device and the app looked broken.
+      #
+      # The Release origin is the deployed development API
+      # (`verdery-api-dev` on Cloud Run, public ingress, verified answering
+      # `GET /v1/health/ready` with `{"status":"ready"}`). It is not a secret:
+      # the same host appears in tests/load/run.sh and
+      # docs/development/infrastructure.md.
+      #
+      # `scripts/archive-and-upload.sh` can override it per archive via
+      # VERDERY_API_ORIGIN once a production origin exists.
+      configs:
+        Debug:
+          API_ORIGIN: "http://localhost:8080"
+          # NOT localhost, in either configuration: the sign-in link this
+          # value builds is delivered by email and opened wherever the reader
+          # reads their mail, which is never this machine.
+          WEB_ORIGIN: "https://verdery-web-dev-t6amsr5o6a-uc.a.run.app"
+        Release:
+          API_ORIGIN: "https://verdery-api-dev-t6amsr5o6a-uc.a.run.app"
+          WEB_ORIGIN: "https://verdery-web-dev-t6amsr5o6a-uc.a.run.app"

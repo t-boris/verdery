@@ -460,14 +460,25 @@ Ordered by how much they matter.
    app has no `aps-environment` entitlement, correctly. When the client half is built, the entitlement
    and a `UIBackgroundModes` entry must be added to `project.yml` and the App ID's push capability
    enabled in the developer portal.
-6. **App Check runs in debug-provider mode for any DEBUG build** and its tokens are rejected unless
-   registered in the Firebase console. Release builds use App Attest. This is expected while App
-   Check is monitor-only, but a TestFlight build is a Release build, so App Attest runs for real
-   there for the first time.
-7. **Sign in with Apple and Google have never been exercised on a device or simulator.** They compile
+6. **App Check is not provisioned for `verdery-dev` at all.** `firebaseappcheck.googleapis.com` is
+   not an enabled service on the project, so neither the DEBUG debug-provider nor the Release App
+   Attest provider can complete an attestation exchange — both fail with `SERVICE_DISABLED`. That is
+   tolerable only because App Check is monitor-only and the header is optional; the client now sends
+   requests without it rather than failing them (see [what build 156 found](#what-build-156-found)).
+   Enabling the API and registering the App Attest provider is a prerequisite of enforcement
+   (rollout stage 3), not of today's monitoring.
+7. **An emailed sign-in link cannot return to the app.** It now points at the deployed web handler
+   (`/auth/email-link`), which completes the sign-in in a browser. Capturing it in the app instead
+   needs three things that do not exist: the `ASSOCIATED_DOMAINS` capability on the `com.verdery.app`
+   App ID (which carries only `IN_APP_PURCHASE` and `APPLE_ID_AUTH`), a
+   `com.apple.developer.associated-domains` entitlement listing
+   `applinks:verdery-web-dev-t6amsr5o6a-uc.a.run.app`, and an `apple-app-site-association` document
+   served by that host at `/.well-known/` over HTTPS with no redirect. All three must land together;
+   any one alone changes nothing.
+8. **Sign in with Apple and Google have never been exercised on a device or simulator.** They compile
    and are wired correctly, but the first genuine test of the OAuth redirect and the
    `CFBundleURLSchemes` entry will be the first TestFlight install.
-8. **The `Verdery.xcodeproj` remains committed** even though it is fully generated. CI and the upload
+9. **The `Verdery.xcodeproj` remains committed** even though it is fully generated. CI and the upload
    script both regenerate it, so drift is now detected rather than silent; removing it from version
    control entirely would be tidier and is a reasonable follow-up.
 
@@ -498,6 +509,40 @@ than the individual bugs.
 The common cause is that nothing ever built the app target — CI ran `swift build`/`swift test`
 only, both of which target macOS. CI now builds for `iphoneos` and fails if a fresh
 `xcodegen generate` would change the committed project.
+
+### What build 156 found
+
+The first build a real person signed into on a real device. Both findings share the shape of the
+four above: invisible to every test, because both depend on cloud project configuration that no
+test environment has.
+
+1. **Every authenticated screen reported "Something went wrong on our side."**
+   `HTTPTransport.makeRequest` awaited the App Check token with `try`, so a failure to obtain one
+   aborted the request before it was built. `verdery-dev` has never had
+   `firebaseappcheck.googleapis.com` enabled, so obtaining one always failed — in Release via App
+   Attest, in DEBUG via the debug provider, both refused at the exchange with `SERVICE_DISABLED`.
+   The thrown error was not an `APIGatewayError`, so it fell into each view model's generic `catch`,
+   which reports `error.server.unexpected`.
+
+   The evidence that settles it, rather than the reasoning that suggests it: `verdery-api-dev`'s
+   Cloud Run request log contains **no iOS user agent at all** over fourteen days, while
+   `GET /v1/gardens` issued by hand with a real Firebase ID token and **no App Check header**
+   answers `200 {"items":[]}`. The app was never talking to the server; the server was never
+   refusing it.
+
+   The owner reported this as "it happens when there are no gardens". That was an accurate
+   observation of _when_ they saw it and a coincidence of _why_: the garden list is the first screen
+   after sign-in, so an account with no gardens has nothing else to look at. Any account would have
+   seen it. Fixed by making the App Check token best-effort — see
+   [identity-and-authorization.md, section 12](../architecture/identity-and-authorization.md#12-app-check).
+
+2. **The emailed sign-in link led to a 404.** `ActionCodeSettings.url` was hard-coded to
+   `https://verdery-dev.firebaseapp.com/emailSignIn`. Firebase accepted it, generated the link, and
+   mailed it; the host simply serves Firebase's "Site Not Found" page, because this project has no
+   Firebase Hosting site. From the reader's side that is indistinguishable from the email never
+   arriving. The continue URL is now a build input (`WEB_ORIGIN` → `VerderyWebOrigin`, the same
+   shape as `API_ORIGIN`) pointing at the deployed web application's own working
+   `/auth/email-link` handler, which the web client has always used.
 
 ## 13. Staged rollout and rollback
 

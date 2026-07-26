@@ -552,3 +552,20 @@
 "tasks.create.open" = "Новая задача";
 "observations.record.open" = "Записать наблюдение";
 "plants.add.open" = "Добавить растение";
+
+/* Экран аккаунта: кто вошёл в приложение, что это за сборка и как выйти. */
+"profile.title" = "Аккаунт";
+"profile.signedIn" = "Вы вошли";
+"profile.section.about" = "Эта сборка";
+"profile.email.verified" = "Адрес подтверждён";
+"profile.email.unverified" = "Адрес не подтверждён";
+"profile.provider.google" = "Аккаунт Google";
+"profile.provider.apple" = "Аккаунт Apple";
+"profile.provider.email" = "Ссылка из письма";
+"profile.app.version" = "Версия";
+"profile.app.build" = "Сборка";
+"profile.app.language" = "Язык";
+"profile.signOut.confirm.title" = "Выйти из Verdery?";
+"profile.signOut.confirm.message" = "Всё, что записано офлайн и ещё не выгружено, останется на этом устройстве до следующего входа.";
+"profile.signOut.cancel" = "Остаться в аккаунте";
+"profile.signOut.failed" = "Выйти не удалось. Попробуйте ещё раз.";

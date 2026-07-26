@@ -36,7 +36,19 @@ struct LocalizationCatalogueTests {
     func declaredKeysAreCovered() throws {
         let english = try #require(LocalizedStrings.keys(forLanguage: "en"))
 
-        #expect(Set(LocalizationKey.allCases.map(\.rawValue)).isSubset(of: english))
+        #expect(Set(LocalizedStrings.declaredKeys).isSubset(of: english))
+    }
+
+    /// The application declares its keys across more than one enum — see
+    /// `ProfileLocalizationKey` for why — so a key set that was added and never
+    /// added to `declaredKeys` would silently escape every check in this suite.
+    @Test("Every declared key set is included in the list the checks run over")
+    func declarationListIsComplete() {
+        let declared = Set(LocalizedStrings.declaredKeys)
+
+        #expect(Set(LocalizationKey.allCases.map(\.rawValue)).isSubset(of: declared))
+        #expect(Set(ProfileLocalizationKey.allCases.map(\.rawValue)).isSubset(of: declared))
+        #expect(declared.count == LocalizedStrings.declaredKeys.count, "A key is declared twice.")
     }
 
     /// Both catalogues must translate; a Russian entry left holding the
@@ -48,9 +60,9 @@ struct LocalizationCatalogueTests {
         let russian = LocalizedStrings(locale: Locale(identifier: "ru_RU"))
 
         var identical: Set<String> = []
-        for key in LocalizationKey.allCases {
-            let englishText = english(key)
-            guard englishText == russian(key) else { continue }
+        for key in LocalizedStrings.declaredKeys {
+            let englishText = english.string(forKey: key)
+            guard englishText == russian.string(forKey: key) else { continue }
             // Strip placeholders before asking whether prose remains.
             var prose = englishText
             while let start = prose.firstIndex(of: "{"), let end = prose.firstIndex(of: "}"),
@@ -59,7 +71,7 @@ struct LocalizationCatalogueTests {
                 prose.removeSubrange(start...end)
             }
             if prose.range(of: "[A-Za-z]{4}", options: .regularExpression) != nil {
-                identical.insert(key.rawValue)
+                identical.insert(key)
             }
         }
 
@@ -88,10 +100,11 @@ struct LocalizationCatalogueTests {
             )
         }
 
-        for key in LocalizationKey.allCases {
+        for key in LocalizedStrings.declaredKeys {
             #expect(
-                placeholders(english(key)) == placeholders(russian(key)),
-                "\(key.rawValue) declares different placeholders in each language."
+                placeholders(english.string(forKey: key))
+                    == placeholders(russian.string(forKey: key)),
+                "\(key) declares different placeholders in each language."
             )
         }
     }
@@ -99,7 +112,7 @@ struct LocalizationCatalogueTests {
     @Test("The catalogue has no entry that nothing refers to")
     func catalogueHasNoOrphans() throws {
         let english = try #require(LocalizedStrings.keys(forLanguage: "en"))
-        let declared = Set(LocalizationKey.allCases.map(\.rawValue))
+        let declared = Set(LocalizedStrings.declaredKeys)
             .union(GeometryValidationCode.all)
 
         #expect(english.subtracting(declared).isEmpty)

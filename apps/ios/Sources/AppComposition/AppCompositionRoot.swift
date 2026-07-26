@@ -39,12 +39,17 @@ public final class AppCompositionRoot {
     private let recommendationGateway: any RecommendationGateway
     private let syncGateway: any SyncGateway
     private let mediaGateway: any MediaGateway
-    private let authenticationGateway: any AuthenticationGateway
     private let clientInstallationStore: any ClientInstallationIdentityStore
     // Module-internal, not `private`: read by the per-profile store
-    // factories in `AppCompositionRoot+LocalStores.swift`, a same-type
-    // extension in another file — see that file's own doc comment.
+    // factories in `AppCompositionRoot+LocalStores.swift`, and — for the two
+    // below — by the account screen's factory in `AccountEntryPoint.swift`.
+    // Both are same-type extensions in other files, which `private` (a file
+    // scope, not a type scope) would exclude.
     let log: any DiagnosticLog
+    let authenticationGateway: any AuthenticationGateway
+    /// The locale the catalogue above was resolved against, kept so the
+    /// account screen can name the language it is actually rendering in.
+    let locale: Locale
 
     /// The real background-capable upload transport (P6-IOS-01) —
     /// constructed eagerly, here in `init`, not lazily on first screen
@@ -104,6 +109,7 @@ public final class AppCompositionRoot {
         )
     ) {
         self.strings = LocalizedStrings(locale: locale)
+        self.locale = locale
         self.log = log
 
         let tokenProvider = FirebaseAuthTokenProvider()
@@ -183,7 +189,9 @@ public final class AppCompositionRoot {
             appCheckTokenProvider: appCheckTokenProvider,
             log: log
         )
-        self.authenticationGateway = FirebaseAuthenticationGateway()
+        self.authenticationGateway = FirebaseAuthenticationGateway(
+            emailSignInContinueURL: AppEnvironment.emailSignInContinueURL
+        )
         self.sessionObserver = AuthenticationSessionObserver()
 
         // Device-scoped, not per-profile — see that type's own doc comment

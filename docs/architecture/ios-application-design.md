@@ -276,6 +276,16 @@ resolution, and service status. They are deliberately not the app's front door;
 they were until work package P8-UX-01, when the primary surfaces were
 `NavigationLink`s inside the settings form.
 
+The account screen is reached from the leading toolbar slot of both signed-in
+shells — the garden picker, and every tab of one garden, beside the garden
+button — and is presented as a sheet. It is deliberately not a sixth tab, and
+deliberately not inside garden settings: an account belongs to no garden. It
+shows only what the client genuinely holds about the signed-in profile (display
+name or address, sign-in method, whether the address is confirmed) plus this
+build's version, build number, and language, and it owns the only sign-out in
+the application. Signing out is confirmed first, because work recorded offline
+and not yet uploaded stays on the device until the next sign-in.
+
 A typed application router owns major destinations and modal flows. Features declare destinations without reaching into other feature view hierarchies.
 
 Deep links are parsed into typed intents, authenticated, authorized against locally known state where possible, and resolved through normal application use cases.
@@ -376,7 +386,11 @@ asserted directly:
   parity between the two catalogues, that every declared key and every
   validation code has an entry, that nothing is orphaned, that no Russian entry
   is still the English text, and that both languages declare the same
-  interpolation placeholders.
+  interpolation placeholders. Keys are declared by more than one enum — an
+  enum's cases cannot be split across files, and `LocalizationKey.swift` is at
+  the repository's 600-line ceiling — so those checks run over
+  `LocalizedStrings.declaredKeys`, and one further test asserts that list
+  includes every key set.
 
 **As conventions over the source.**
 `Tests/ArchitectureTests/AccessibilityConventionTests.swift` scans `Sources`

@@ -483,6 +483,12 @@ let package = Package(
             name: "FeatureHealthTests",
             dependencies: ["FeatureHealth"]
         ),
+        // `CoreAuthentication` for the `AuthenticationGateway` stub and the
+        // `AuthenticatedAccount` fixtures — gateway protocol, never the SDK.
+        .testTarget(
+            name: "FeatureAuthenticationTests",
+            dependencies: ["FeatureAuthentication", "CoreAuthentication", "CoreLocalization"]
+        ),
         .testTarget(
             name: "FeatureGardensTests",
             dependencies: [

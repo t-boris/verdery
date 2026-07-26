@@ -259,6 +259,26 @@ Rollout stages are:
 
 App Check failure does not reveal whether a garden or account exists.
 
+A client must never let App Check decide whether a request is sent. The token
+is a classification signal, not a credential: the backend hook runs in
+`monitor` mode in every environment today, so `X-Firebase-AppCheck` is optional
+on every route and a request carrying no token at all is answered normally. A
+client that cannot obtain a token therefore omits the header, records the fact
+as a diagnostic, and sends the request anyway.
+
+This is a rule learned from a live defect rather than a precaution. The iOS
+transport used to treat token acquisition as mandatory. `verdery-dev` has never
+had `firebaseappcheck.googleapis.com` enabled, so the SDK's attestation
+exchange could never succeed and always threw — which meant that in the shipped
+TestFlight build every authenticated request died before it was sent. Nothing
+reached the API (`verdery-api-dev`'s request log contains no iOS user agent at
+all), no transport error was raised, and the escaping error surfaced to readers
+as `error.server.unexpected` — a server-side apology for a server that had
+never been asked anything.
+
+Enabling App Check for a project is therefore a prerequisite of rollout stage 3
+(enforcement), not of stage 1: no client may depend on it before then.
+
 ## 13. Administrative and Support Access
 
 Support access is not represented as an ordinary garden role. It requires:

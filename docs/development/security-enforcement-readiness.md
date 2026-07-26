@@ -328,6 +328,33 @@ which endpoint and by `jsonPayload.classification` to see whether clients are fa
 (`invalid`) or not attempting it (`missing`) — those have different fixes. Flip only when the count
 is attributable to abuse rather than to the iOS or web client.
 
+#### Hard prerequisite: the iOS client currently sends no App Check header at all
+
+**Flipping enforcement today would reject every authenticated iOS request.** This is not a
+prediction from the telemetry — it follows from two facts that must both be fixed first.
+
+`firebaseappcheck.googleapis.com` **is not an enabled service** on `verdery-dev`; verify with
+`gcloud services list --enabled --project=verdery-dev | grep appcheck`, which returns nothing. The
+SDK's attestation exchange is therefore refused with `SERVICE_DISABLED` before App Attest is
+reached, so `AppCheck.appCheck().token(forcingRefresh:)` cannot succeed for any device.
+
+Since the fix described in `CoreNetworking.HTTPTransport.appCheckToken(from:correlationId:)`, that
+failure omits the header instead of destroying the request — which is correct while the mode is
+`monitor`, because the header is optional on every route. It also means iOS traffic classifies as
+`missing`, permanently and invisibly, and enforcement is deliberately fail-closed. The telemetry
+above will show iOS under `classification="missing"`; that is the client being unable to attest,
+**not** abuse, and it must not be read as a signal to flip.
+
+Before `APP_CHECK_ENFORCEMENT=enforce`, all three must hold:
+
+1. `firebaseappcheck.googleapis.com` enabled on the project.
+2. The App Attest provider registered for `com.verdery.app` in the Firebase console.
+3. A build in which a real device is observed classifying as `valid` — not merely one where the
+   token call stops throwing.
+
+Until then App Check enforcement is stage 3 for the **web** client only, and the App Check row of
+the GA checklist cannot be signed for iOS.
+
 ---
 
 ## 3. IAM and secret review

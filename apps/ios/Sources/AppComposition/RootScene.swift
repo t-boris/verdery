@@ -93,6 +93,16 @@ public struct RootView: View {
             guard newPhase == .active else { return }
             Self.triggerSyncOnForeground(composition: composition)
         }
+        // Signing out leaves the garden chosen, and this state outlives the
+        // sign-in screen: without this, the next sign-in — possibly as a
+        // different profile — would land straight inside the previous
+        // reader's garden. Clearing it here rather than at the sign-out call
+        // site keeps the rule where the state lives, and makes it hold for
+        // every way a session can end, including one Firebase ends itself.
+        .onChange(of: composition.sessionObserver.isSignedIn) { _, isSignedIn in
+            guard !isSignedIn else { return }
+            selectedGarden = nil
+        }
     }
 
     @ViewBuilder
@@ -109,6 +119,7 @@ public struct RootView: View {
                 GardensListView(model: composition.makeGardensListViewModel()) { gardenId, gardenName in
                     selectedGarden = SelectedGarden(id: gardenId, name: gardenName)
                 }
+                .accountToolbar(composition: composition)
             }
         }
     }

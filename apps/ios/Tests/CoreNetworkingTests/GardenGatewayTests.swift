@@ -143,6 +143,62 @@ struct GardenGatewayTests {
             request.value(forHTTPHeaderField: APIConfiguration.appCheckHeader) == "app-check-token-789"
         )
     }
+
+    /// The defect the owner hit on a TestFlight device: every authenticated
+    /// screen reported "Something went wrong on our side" against a server
+    /// that had never been asked anything.
+    ///
+    /// `FirebaseAppCheckTokenProvider.currentToken()` throws whenever the SDK
+    /// cannot exchange an attestation, which for this project it never can —
+    /// `firebaseappcheck.googleapis.com` is not enabled on it. The transport
+    /// used to let that throw escape `makeRequest`, so no request was ever
+    /// sent and the non-`APIGatewayError` fell into each view model's generic
+    /// `catch`. App Check is monitor-only and its header is optional on every
+    /// route, so an unobtainable token must degrade the request's
+    /// classification, not destroy the request.
+    @Test("Sends the request without the App Check header when the App Check provider throws")
+    func sendsRequestWhenAppCheckTokenProviderThrows() async throws {
+        let identifier = "appcheck-throwing"
+        defer { StubURLProtocol.unregister(identifier) }
+
+        let gateway = makeGateway(
+            identifier: identifier,
+            answer: .json(200, Self.emptyPage),
+            authToken: "id-token-abc",
+            appCheckTokenProvider: ThrowingAppCheckTokenProvider()
+        )
+
+        let page = try await gateway.list(cursor: nil)
+        let request = try #require(StubURLProtocol.requests(forSession: identifier).first)
+
+        #expect(page.items.isEmpty)
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer id-token-abc")
+        #expect(request.value(forHTTPHeaderField: APIConfiguration.appCheckHeader) == nil)
+    }
+
+    /// The exact body the deployed API returns to a freshly-authenticated
+    /// account that owns no gardens — verified by hand against
+    /// `https://verdery-api-dev-…/v1/gardens`, which answers
+    /// `200 {"items":[]}`. `nextCursor` is absent, not `null`, because the
+    /// server omits an undefined optional field; every other test here uses
+    /// the explicit-`null` form, so the shape a real empty account actually
+    /// produces had no coverage.
+    @Test("Decodes the empty page the server really sends, with nextCursor absent")
+    func decodesEmptyPageWithAbsentCursor() async throws {
+        let identifier = "empty-page-absent-cursor"
+        defer { StubURLProtocol.unregister(identifier) }
+
+        let gateway = makeGateway(
+            identifier: identifier,
+            answer: .json(200, #"{"items":[]}"#),
+            authToken: "id-token-def"
+        )
+
+        let page = try await gateway.list(cursor: nil)
+
+        #expect(page.items.isEmpty)
+        #expect(page.nextCursor == nil)
+    }
 }
 
 /// Deterministic correlation identifiers, so a test can assert the header.
@@ -164,4 +220,12 @@ private struct FakeAppCheckTokenProvider: AppCheckTokenProvider {
     let token: String?
 
     func currentToken() async throws -> String? { token }
+}
+
+/// Stands in for `FirebaseAppCheckTokenProvider` on a build whose project
+/// has no App Check registration — which is every build of this app today.
+private struct ThrowingAppCheckTokenProvider: AppCheckTokenProvider {
+    struct Failure: Error {}
+
+    func currentToken() async throws -> String? { throw Failure() }
 }

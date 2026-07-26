@@ -1,4 +1,5 @@
 import FirebaseAuth
+import Foundation
 import Observation
 
 /// Whether a profile is currently signed in, kept current by Firebase's own
@@ -13,8 +14,18 @@ import Observation
 @Observable
 public final class AuthenticationSessionObserver {
     public private(set) var isSignedIn: Bool
+    /// Who is signed in, as a Firebase-free value.
+    ///
+    /// Kept on this type rather than read from `Auth.auth().currentUser` at the
+    /// point of use for the same reason `isSignedIn` is: a snapshot read is
+    /// briefly `nil` on launch, and the account screen would then have nothing
+    /// to show for an already-signed-in reader.
+    public private(set) var currentAccount: AuthenticatedAccount?
     /// Scopes the per-profile local store; see `CorePersistence.LocalDatabase`.
-    public private(set) var currentFirebaseUid: String?
+    ///
+    /// Derived rather than stored: one listener callback then cannot leave the
+    /// uid describing a different profile from `currentAccount`.
+    public var currentFirebaseUid: String? { currentAccount?.uid }
 
     // `deinit` is never actor-isolated, even on a @MainActor class, so a
     // plain @MainActor-isolated stored property cannot be read there. This
@@ -30,16 +41,41 @@ public final class AuthenticationSessionObserver {
 
     public init() {
         self.isSignedIn = Auth.auth().currentUser != nil
-        self.currentFirebaseUid = Auth.auth().currentUser?.uid
+        self.currentAccount = Auth.auth().currentUser.map(Self.account(for:))
         self.handle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             self?.isSignedIn = user != nil
-            self?.currentFirebaseUid = user?.uid
+            self?.currentAccount = user.map(Self.account(for:))
         }
+    }
+
+    /// The one place a `FirebaseAuth.User` becomes a value the rest of the
+    /// application may hold.
+    ///
+    /// An empty display name or address is mapped to `nil`, not passed
+    /// through: the SDK returns `""` for a field a provider did not supply,
+    /// and a screen must be able to tell "absent" from "blank" so it can omit
+    /// the row rather than render a labelled emptiness.
+    private static func account(for user: User) -> AuthenticatedAccount {
+        AuthenticatedAccount(
+            uid: user.uid,
+            displayName: user.displayName?.nonEmpty,
+            emailAddress: user.email?.nonEmpty,
+            isEmailVerified: user.isEmailVerified,
+            providerIdentifiers: user.providerData.map(\.providerID)
+        )
     }
 
     deinit {
         if let handle {
             Auth.auth().removeStateDidChangeListener(handle)
         }
+    }
+}
+
+extension String {
+    /// `nil` for a string that is empty once trimmed.
+    fileprivate var nonEmpty: String? {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

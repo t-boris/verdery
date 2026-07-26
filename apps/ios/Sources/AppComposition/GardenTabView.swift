@@ -122,10 +122,13 @@ struct GardenTabView: View {
     ///
     /// The garden button is applied here rather than per screen, so settings
     /// are one tap away from all five surfaces instead of only from whichever
-    /// one happened to own them.
+    /// one happened to own them. The account button sits beside it for the
+    /// same reason: the leading slot answers "who and where am I", and an
+    /// account is not the property of any one tab.
     private func stack<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         NavigationStack {
             content()
+                .accountToolbar(composition: composition)
                 .toolbar {
                     ToolbarItem(placement: .navigation) {
                         Button {

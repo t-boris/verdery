@@ -26,7 +26,23 @@ public final class FirebaseAuthenticationGateway: AuthenticationGateway, Sendabl
     /// terminated in between.
     private static let pendingEmailKey = "verdery.emailForSignIn"
 
-    public init() {}
+    /// The `continue URL` the emailed sign-in link carries, and the page a
+    /// reader who opens that link actually lands on.
+    ///
+    /// Injected rather than compiled in, for the same reason the API origin
+    /// is (`AppComposition.AppEnvironment`): it names a deployed environment,
+    /// and this file had the wrong one hard-coded —
+    /// `https://verdery-dev.firebaseapp.com/emailSignIn`, a host that serves
+    /// Firebase's own "Site Not Found" page with HTTP 404 because this
+    /// project has no Firebase Hosting site. Firebase generated and mailed
+    /// the link perfectly happily; it simply led nowhere, which is exactly
+    /// what "the email never arrives with anything usable" looks like from
+    /// the outside.
+    private let emailSignInContinueURL: URL
+
+    public init(emailSignInContinueURL: URL) {
+        self.emailSignInContinueURL = emailSignInContinueURL
+    }
 
     #if os(iOS)
     /// Runs Firebase's own web-based OAuth flow (an `ASWebAuthenticationSession`
@@ -146,9 +162,18 @@ public final class FirebaseAuthenticationGateway: AuthenticationGateway, Sendabl
     }
     #endif
 
+    /// Sends the sign-in link, pointed at the deployed web handler.
+    ///
+    /// `handleCodeInApp` and the iOS bundle ID stay set, so the link is still
+    /// eligible to be captured by this app the day it can be: capture needs
+    /// an Associated Domains entitlement and an `apple-app-site-association`
+    /// served by the continue URL's host, neither of which exists yet — see
+    /// `AppComposition.AppEnvironment.emailSignInContinueURL`. Until then the
+    /// link opens in a browser and completes the sign-in there, on a page
+    /// that is deployed and answers `200`, instead of a 404.
     public func sendEmailSignInLink(to email: String) async throws {
         let settings = ActionCodeSettings()
-        settings.url = URL(string: "https://verdery-dev.firebaseapp.com/emailSignIn")
+        settings.url = emailSignInContinueURL
         settings.handleCodeInApp = true
         settings.setIOSBundleID(Bundle.main.bundleIdentifier ?? "com.verdery.app")
 

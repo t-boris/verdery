@@ -29,6 +29,26 @@ public struct LocalizedStrings: Sendable {
         string(forKey: key.rawValue)
     }
 
+    /// The same resolution for the account screen's own key set.
+    ///
+    /// An overload rather than a generic or an existential parameter, because
+    /// only a concrete parameter type keeps `strings(.profileTitle)` working:
+    /// leading-dot syntax needs a contextual type, and the compiler considers
+    /// every overload when it looks the member up. See
+    /// ``ProfileLocalizationKey`` for why there is a second key set at all.
+    public func callAsFunction(_ key: ProfileLocalizationKey) -> String {
+        string(forKey: key.rawValue)
+    }
+
+    /// Every key any of the application's key sets declares.
+    ///
+    /// Exposed so catalogue completeness stays one check over one list rather
+    /// than a test that has to remember each key set — the failure mode a
+    /// second key set could otherwise introduce.
+    public static let declaredKeys: [String] =
+        LocalizationKey.allCases.map(\.rawValue)
+        + ProfileLocalizationKey.allCases.map(\.rawValue)
+
     /// Resolves an arbitrary key, used for codes that originate in Core.
     ///
     /// Returns the key itself when the catalogue has no entry, which is what

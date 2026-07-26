@@ -552,3 +552,21 @@
 "tasks.create.open" = "New task";
 "observations.record.open" = "Record observation";
 "plants.add.open" = "Add plant";
+
+/* The account screen: the identity the app already holds for the signed-in
+   profile, what this build is, and the way out. */
+"profile.title" = "Account";
+"profile.signedIn" = "Signed in";
+"profile.section.about" = "This build";
+"profile.email.verified" = "Address confirmed";
+"profile.email.unverified" = "Address not confirmed";
+"profile.provider.google" = "Google account";
+"profile.provider.apple" = "Apple account";
+"profile.provider.email" = "Emailed link";
+"profile.app.version" = "Version";
+"profile.app.build" = "Build";
+"profile.app.language" = "Language";
+"profile.signOut.confirm.title" = "Sign out of Verdery?";
+"profile.signOut.confirm.message" = "Anything recorded offline and not yet uploaded stays on this device until you sign in again.";
+"profile.signOut.cancel" = "Stay signed in";
+"profile.signOut.failed" = "Signing out did not finish. Try again.";
