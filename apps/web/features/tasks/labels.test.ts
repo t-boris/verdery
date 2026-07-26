@@ -1,9 +1,17 @@
-import type { TaskStatus, TaskTargetKind, TaskUrgency } from '@verdery/api-contracts';
+import type {
+  GardenRole,
+  TaskActivityEntry,
+  TaskStatus,
+  TaskTargetKind,
+  TaskUrgency,
+} from '@verdery/api-contracts';
 import { describe, expect, it } from 'vitest';
 
 import {
+  assignableMemberRoleLabel,
   isTaskMutable,
   targetKindLabel,
+  taskActivityCommandLabel,
   taskStatusLabel,
   taskStatusTone,
   urgencyLabel,
@@ -66,5 +74,31 @@ describe('isTaskMutable', () => {
     ['deleted', false],
   ])('returns %s for %s', (status, expected) => {
     expect(isTaskMutable(status)).toBe(expected);
+  });
+});
+
+describe('taskActivityCommandLabel', () => {
+  it.each<[TaskActivityEntry['commandType'], string]>([
+    ['createManualTask', 'tasks.activity.command.createManualTask'],
+    ['editTask', 'tasks.activity.command.editTask'],
+    ['rescheduleTask', 'tasks.activity.command.rescheduleTask'],
+    ['completeTask', 'tasks.activity.command.completeTask'],
+    ['dismissTask', 'tasks.activity.command.dismissTask'],
+    ['skipTask', 'tasks.activity.command.skipTask'],
+    ['deleteTask', 'tasks.activity.command.deleteTask'],
+    ['convertRecommendationToTask', 'tasks.activity.command.convertRecommendationToTask'],
+    ['assignTask', 'tasks.activity.command.assignTask'],
+  ])('maps %s to %s', (commandType, key) => {
+    expect(taskActivityCommandLabel(commandType)).toBe(key);
+  });
+});
+
+describe('assignableMemberRoleLabel', () => {
+  it.each<[GardenRole, string]>([
+    ['owner', 'tasks.assign.role.owner'],
+    ['editor', 'tasks.assign.role.editor'],
+    ['viewer', 'tasks.assign.role.viewer'],
+  ])('maps %s to %s', (role, key) => {
+    expect(assignableMemberRoleLabel(role)).toBe(key);
   });
 });

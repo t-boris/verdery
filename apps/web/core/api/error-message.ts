@@ -1,4 +1,9 @@
-import { GardenErrorCode, MapErrorCode, SharedErrorCode } from '@verdery/api-contracts';
+import {
+  CollaborationErrorCode,
+  GardenErrorCode,
+  MapErrorCode,
+  SharedErrorCode,
+} from '@verdery/api-contracts';
 
 import type { MessageKey } from '@/shared/localization/public';
 
@@ -31,6 +36,21 @@ const MESSAGE_KEYS: Readonly<Record<string, MessageKey>> = {
   [MapErrorCode.NotFound]: 'error.mapObjectNotFound',
   [MapErrorCode.StaleRevision]: 'error.mapObjectStaleRevision',
   [MapErrorCode.LifecycleConflict]: 'error.mapObjectLifecycleConflict',
+  [CollaborationErrorCode.MembershipNotFound]: 'error.membershipNotFound',
+  [CollaborationErrorCode.LastOwnerRequired]: 'error.lastOwnerRequired',
+  [CollaborationErrorCode.OwnerRoleNotAllowed]: 'error.ownerRoleNotAllowed',
+  [CollaborationErrorCode.InvitationNotFound]: 'error.invitationNotFound',
+  [CollaborationErrorCode.InvitationAlreadyPending]: 'error.invitationAlreadyPending',
+  [CollaborationErrorCode.InvitationExpired]: 'error.invitationExpired',
+  [CollaborationErrorCode.InvitationRevoked]: 'error.invitationRevoked',
+  [CollaborationErrorCode.InvitationAlreadyAccepted]: 'error.invitationAlreadyAccepted',
+  [CollaborationErrorCode.InvitationEmailMismatch]: 'error.invitationEmailMismatch',
+  [CollaborationErrorCode.RecentAuthenticationRequired]:
+    'error.collaborationRecentAuthenticationRequired',
+  [CollaborationErrorCode.TargetNotOwner]: 'error.targetNotOwner',
+  [CollaborationErrorCode.TargetAlreadyOwner]: 'error.targetAlreadyOwner',
+  [CollaborationErrorCode.OwnershipTransferAlreadyPending]: 'error.ownershipTransferAlreadyPending',
+  [CollaborationErrorCode.OwnershipTransferNotFound]: 'error.ownershipTransferNotFound',
 };
 
 /** Returns the message identifier for an error code, or the generic one. */

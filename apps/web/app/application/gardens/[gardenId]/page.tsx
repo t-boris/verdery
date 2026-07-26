@@ -1,5 +1,6 @@
 import { getRequestTranslator } from '@/shared/localization/server';
 
+import { Collaborators } from '@/features/collaboration/public';
 import { GardenSettings } from '@/features/gardens/public';
 import { GardenPhotoUpload, GardenPlanUpload } from '@/features/media/public';
 
@@ -25,6 +26,7 @@ export default async function GardenSettingsPage({
       <GardenSettings gardenId={gardenId} />
       <GardenPhotoUpload gardenId={gardenId} />
       <GardenPlanUpload gardenId={gardenId} />
+      <Collaborators gardenId={gardenId} />
     </div>
   );
 }

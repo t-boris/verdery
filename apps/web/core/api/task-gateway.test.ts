@@ -1,4 +1,4 @@
-import type { Task, TaskListResult } from '@verdery/api-contracts';
+import type { Task, TaskActivityListResult, TaskListResult } from '@verdery/api-contracts';
 import { describe, expect, it } from 'vitest';
 
 import { createApiClient, type FetchLike } from './client';
@@ -8,6 +8,7 @@ const ORIGIN = 'https://api.example.test';
 const GARDEN_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0b';
 const TASK_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0c';
 const IDEMPOTENCY_KEY = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0d';
+const PROFILE_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0f';
 
 interface RecordedRequest {
   readonly url: string;
@@ -166,5 +167,59 @@ describe('createTaskGateway', () => {
 
     expect(recorded[0]?.url).toBe(`${ORIGIN}/v1/gardens/${GARDEN_ID}/tasks/${TASK_ID}/attachments`);
     expect(headersOf(recorded[0]!)['if-match']).toBeUndefined();
+  });
+
+  it('posts to the assign sub-resource with the quoted revision as If-Match', async () => {
+    const assigned: Task = { ...TASK, assignedProfileId: PROFILE_ID, assignedAt: TASK.createdAt };
+    const { gateway, recorded } = gatewayRecording(jsonResponse(assigned, 200));
+
+    const result = await gateway.assign(
+      GARDEN_ID,
+      TASK_ID,
+      { assigneeProfileId: PROFILE_ID },
+      8,
+      IDEMPOTENCY_KEY,
+    );
+
+    expect(recorded[0]?.url).toBe(`${ORIGIN}/v1/gardens/${GARDEN_ID}/tasks/${TASK_ID}/assign`);
+    expect(recorded[0]?.init.method).toBe('POST');
+    expect(headersOf(recorded[0]!)['if-match']).toBe('"8"');
+    expect(JSON.parse(recorded[0]?.init.body as string)).toEqual({
+      assigneeProfileId: PROFILE_ID,
+    });
+    expect(result).toEqual(expect.objectContaining({ ok: true, data: assigned }));
+  });
+
+  it('sends an explicit null assigneeProfileId to unassign', async () => {
+    const { gateway, recorded } = gatewayRecording(jsonResponse(TASK, 200));
+
+    await gateway.assign(GARDEN_ID, TASK_ID, { assigneeProfileId: null }, 9, IDEMPOTENCY_KEY);
+
+    expect(JSON.parse(recorded[0]?.init.body as string)).toEqual({ assigneeProfileId: null });
+  });
+
+  it('reads the activity sub-resource with no revision or idempotency headers', async () => {
+    const activity: TaskActivityListResult = {
+      items: [
+        {
+          revision: 1,
+          commandType: 'createManualTask',
+          actorProfileId: PROFILE_ID,
+          status: null,
+          dueDate: null,
+          assignedProfileId: null,
+          recordedAt: TASK.createdAt,
+        },
+      ],
+    };
+    const { gateway, recorded } = gatewayRecording(jsonResponse(activity, 200));
+
+    const result = await gateway.activity(GARDEN_ID, TASK_ID);
+
+    expect(recorded[0]?.url).toBe(`${ORIGIN}/v1/gardens/${GARDEN_ID}/tasks/${TASK_ID}/activity`);
+    expect(recorded[0]?.init.method).toBe('GET');
+    expect(headersOf(recorded[0]!)['if-match']).toBeUndefined();
+    expect(headersOf(recorded[0]!)['idempotency-key']).toBeUndefined();
+    expect(result).toEqual(expect.objectContaining({ ok: true, data: activity }));
   });
 });

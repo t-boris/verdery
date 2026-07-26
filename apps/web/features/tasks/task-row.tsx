@@ -16,6 +16,8 @@ import {
 } from './labels';
 import { useCompleteTask, useDeleteTask, useDismissTask, useSkipTask } from './queries';
 import styles from './task-row.module.css';
+import { TaskActivityView } from './task-activity-view';
+import { TaskAssignForm } from './task-assign-form';
 import { TaskEditForm } from './task-edit-form';
 import { TaskRescheduleForm } from './task-reschedule-form';
 
@@ -24,17 +26,28 @@ export interface TaskRowProps {
   readonly task: Task;
 }
 
-type OpenPanel = 'none' | 'edit' | 'reschedule';
+type OpenPanel = 'none' | 'edit' | 'reschedule' | 'assign' | 'activity';
 
 /**
  * One task, and every state-transition command the contract allows for it.
- * `Edit`, `Reschedule`, `Complete`, `Dismiss`, `Skip`, and `Delete` are all
- * gated on `isTaskMutable` (`planned`/`suggested` only) — a terminal-status
- * task (`completed`, `skipped`, `dismissed`, `deleted`) offers none of them,
- * matching every one of those operations' own "only legal while `planned`
- * or `suggested`" precondition. "Delete" calls `DeleteTask`, a status
- * transition rather than a real `DELETE`, but is labeled "Delete"
- * regardless — see `core/api/task-gateway.ts`'s module doc comment.
+ * `Edit`, `Reschedule`, `Assign`, `Complete`, `Dismiss`, `Skip`, and `Delete`
+ * are all gated on `isTaskMutable` (`planned`/`suggested` only) — a
+ * terminal-status task (`completed`, `skipped`, `dismissed`, `deleted`)
+ * offers none of them, matching every one of those operations' own "only
+ * legal while `planned` or `suggested`" precondition. "Delete" calls
+ * `DeleteTask`, a status transition rather than a real `DELETE`, but is
+ * labeled "Delete" regardless — see `core/api/task-gateway.ts`'s module doc
+ * comment.
+ *
+ * "Activity" (P9A-TASK-01) is the one toggle NOT gated on `isTaskMutable`:
+ * the shared activity history is a read, open to every garden role
+ * regardless of the task's status — see `listTaskActivity`'s own contract
+ * description.
+ *
+ * Current assignment (`assignedProfileId`) is always shown, regardless of
+ * status — "Unassigned" is itself informative, not just an assigned target.
+ * Completion attribution (`completedByProfileId`) is shown only when it
+ * usefully differs from the assignee — see the `completedBy` block below.
  *
  * `Complete`/`Dismiss`/`Skip`/`Delete` are additionally disabled while the
  * browser is offline (P5-WEB-01 follow-up), the same `disabled={!isOnline}`
@@ -52,6 +65,8 @@ export function TaskRow({ gardenId, task }: TaskRowProps) {
   const { t, locale } = useLocalization();
   const editPanelId = useId();
   const reschedulePanelId = useId();
+  const assignPanelId = useId();
+  const activityPanelId = useId();
   const [openPanel, setOpenPanel] = useState<OpenPanel>('none');
   const [completionNote, setCompletionNote] = useState('');
   const [dismissReason, setDismissReason] = useState('');
@@ -112,6 +127,19 @@ export function TaskRow({ gardenId, task }: TaskRowProps) {
             {t('tasks.completedAtDisplay', { date: formatInstant(task.completedAt, locale) })}
           </span>
         )}
+        <span>
+          {task.assignedProfileId === null
+            ? t('tasks.unassigned')
+            : t('tasks.assignedToDisplay', { profileId: task.assignedProfileId })}
+        </span>
+        {/* Shown only when it usefully differs from the assignee — including
+            when the task was never assigned at all (`assignedProfileId` is
+            `null`, `completedByProfileId` is not), the same `!==` comparison
+            catching both cases. */}
+        {task.completedByProfileId !== null &&
+          task.completedByProfileId !== task.assignedProfileId && (
+            <span>{t('tasks.completedByDisplay', { profileId: task.completedByProfileId })}</span>
+          )}
       </div>
 
       {mutable && (
@@ -134,6 +162,14 @@ export function TaskRow({ gardenId, task }: TaskRowProps) {
           </Button>
           <Button
             variant="secondary"
+            aria-expanded={openPanel === 'assign'}
+            aria-controls={assignPanelId}
+            onClick={() => setOpenPanel(openPanel === 'assign' ? 'none' : 'assign')}
+          >
+            {t('tasks.assign')}
+          </Button>
+          <Button
+            variant="secondary"
             busy={skipMutation.isPending}
             disabled={!isOnline}
             onClick={onSkip}
@@ -151,6 +187,17 @@ export function TaskRow({ gardenId, task }: TaskRowProps) {
         </div>
       )}
 
+      <div className={styles['actions']}>
+        <Button
+          variant="secondary"
+          aria-expanded={openPanel === 'activity'}
+          aria-controls={activityPanelId}
+          onClick={() => setOpenPanel(openPanel === 'activity' ? 'none' : 'activity')}
+        >
+          {t('tasks.activity.toggle')}
+        </Button>
+      </div>
+
       <div id={editPanelId}>
         {mutable && openPanel === 'edit' && (
           <TaskEditForm gardenId={gardenId} task={task} onDone={() => setOpenPanel('none')} />
@@ -160,6 +207,14 @@ export function TaskRow({ gardenId, task }: TaskRowProps) {
         {mutable && openPanel === 'reschedule' && (
           <TaskRescheduleForm gardenId={gardenId} task={task} onDone={() => setOpenPanel('none')} />
         )}
+      </div>
+      <div id={assignPanelId}>
+        {mutable && openPanel === 'assign' && (
+          <TaskAssignForm gardenId={gardenId} task={task} onDone={() => setOpenPanel('none')} />
+        )}
+      </div>
+      <div id={activityPanelId}>
+        {openPanel === 'activity' && <TaskActivityView gardenId={gardenId} taskId={task.id} />}
       </div>
 
       {mutable && (

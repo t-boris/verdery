@@ -1,12 +1,14 @@
 'use client';
 
 import type {
+  AssignTaskRequest,
   CompleteTaskRequest,
   CreateManualTaskRequest,
   DismissTaskRequest,
   EditTaskRequest,
   RescheduleTaskRequest,
   Task,
+  TaskActivityListResult,
   TaskListResult,
   TaskStatus,
 } from '@verdery/api-contracts';
@@ -174,5 +176,44 @@ export function useDeleteTask(gardenId: string, taskId: string) {
     mutationFn: async (expectedRevision) =>
       unwrap(await gateway.delete(gardenId, taskId, expectedRevision, generateIdempotencyKey())),
     onSuccess: () => invalidateTasks(queryClient, gardenId),
+  });
+}
+
+export interface AssignTaskVariables {
+  readonly input: AssignTaskRequest;
+  readonly expectedRevision: number;
+}
+
+/**
+ * Assigns, reassigns, or unassigns (`input.assigneeProfileId: null`) a task
+ * (P9A-TASK-01). A stale `expectedRevision` surfaces through the same
+ * `ApiFailureError`/`error.staleRevision` path every other revision-guarded
+ * task mutation here already uses — no special-cased handling, matching
+ * `useEditTask`/`useRescheduleTask`.
+ */
+export function useAssignTask(gardenId: string, taskId: string) {
+  const gateway = useTaskGateway();
+  const queryClient = useQueryClient();
+
+  return useMutation<Task, ApiFailureError, AssignTaskVariables>({
+    mutationFn: async ({ input, expectedRevision }) =>
+      unwrap(
+        await gateway.assign(gardenId, taskId, input, expectedRevision, generateIdempotencyKey()),
+      ),
+    onSuccess: () => invalidateTasks(queryClient, gardenId),
+  });
+}
+
+/**
+ * A task's shared activity history (P9A-TASK-01), oldest first. Read-only —
+ * no idempotency key or revision precondition, and no invalidation to wire
+ * up, since nothing here writes.
+ */
+export function useTaskActivity(gardenId: string, taskId: string) {
+  const gateway = useTaskGateway();
+
+  return useQuery<TaskActivityListResult, ApiFailureError>({
+    queryKey: ['tasks', gardenId, taskId, 'activity'] as const,
+    queryFn: async ({ signal }) => unwrap(await gateway.activity(gardenId, taskId, signal)),
   });
 }
