@@ -26,7 +26,13 @@ import { composeSynchronization } from './compose-synchronization.js';
 import { composeTasksRecommendations } from './compose-tasks-recommendations.js';
 import { registerWeatherRefreshSweepRoute } from './modules/integrations/public.js';
 import type { AiExplanationProviderAdapter } from './modules/integrations/public.js';
-import { registerGardenRoutes, registerMapRoutes } from './modules/gardens-mapping/public.js';
+import {
+  registerGardenRoutes,
+  registerInvitationExpirySweepRoute,
+  registerInvitationRoutes,
+  registerMapRoutes,
+  registerMemberRoutes,
+} from './modules/gardens-mapping/public.js';
 import {
   KyselyIdentityProviderLinkRepository,
   KyselyProfileRepository,
@@ -243,8 +249,14 @@ export async function buildApplication(
   // `compose-gardens-mapping.ts` purely to keep this file under the
   // repository's 600-line source-file limit — see that file's own header
   // comment. `gardenAuthorization` is reused by every module wired below.
-  const { gardenAuthorization, gardenRoutesDependencies, mapRoutesDependencies } =
-    composeGardensMapping(database, clock);
+  const {
+    gardenAuthorization,
+    gardenRoutesDependencies,
+    mapRoutesDependencies,
+    invitationRoutesDependencies,
+    memberRoutesDependencies,
+    invitationExpirySweepRouteDependencies,
+  } = composeGardensMapping(database, clock, cloudTasksInvocationVerifier);
 
   // media (P6-API-01): registration, authorized resumable upload sessions,
   // completion verification, status, and authorized short-lived access.
@@ -480,6 +492,10 @@ export async function buildApplication(
       registerExportInternalRoutes(instance, exportInternalRoutesDependencies);
       // P8-DELETE-01: the deletion sweep — same identity check, fifth sweep.
       registerDeletionSweepRoute(instance, deletionSweepRouteDependencies);
+      // P9A-API-01: the invitation expiry sweep — same identity check,
+      // sixth sweep. Not yet scheduled by a worker (see that route's own
+      // header for why) but callable the same way every sibling sweep is.
+      registerInvitationExpirySweepRoute(instance, invitationExpirySweepRouteDependencies);
       done();
     },
     { prefix: API_BASE_PATH },
@@ -503,6 +519,9 @@ export async function buildApplication(
       registerAuthentication(instance, { tokenVerifier, provisionProfile });
       registerGardenRoutes(instance, gardenRoutesDependencies);
       registerMapRoutes(instance, mapRoutesDependencies);
+      // P9A-API-01: operational invitations and membership administration.
+      registerInvitationRoutes(instance, invitationRoutesDependencies);
+      registerMemberRoutes(instance, memberRoutesDependencies);
       registerPlantRoutes(instance, plantRoutesDependencies);
       registerObservationRoutes(instance, observationRoutesDependencies);
       registerTaskRoutes(instance, taskRoutesDependencies);

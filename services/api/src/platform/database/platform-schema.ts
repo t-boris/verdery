@@ -81,6 +81,12 @@ export interface AuditEventRow {
   actor_type: Generated<'user' | 'system' | 'administrator'>;
   // No `| null` here: JsonValue is `unknown`, which already subsumes null.
   details: JsonValue;
+  /**
+   * P9A-DATA-01: the garden this event concerns. `null` for an account-level
+   * event with no garden. No foreign key — the record must survive its
+   * subject, matching `subject_id`'s own posture.
+   */
+  garden_id: string | null;
   occurred_at: Generated<Date>;
 }
 

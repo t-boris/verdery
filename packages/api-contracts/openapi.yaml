@@ -58,6 +58,8 @@ tags:
     description: The caller's own account lifecycle — requesting deletion of the account and everything it solely owns, inspecting the resulting 30-day recovery window and its per-garden resolution, and withdrawing the request before the deadline. These are the only operations reachable while an account is inside its recovery window; every other endpoint refuses a non-active account.
   - name: Exports
     description: Portable data export — request an asynchronous account-wide or garden-scoped export package (ZIP with JSON, GeoJSON, CSV, entitled media, checksums, and a README), poll its state, and obtain a short-lived signed download URL while the package is within its 7-day expiry window. Generation is asynchronous and checkpointed; completion is announced through the in-app notification inbox.
+  - name: Collaboration
+    description: Operational garden membership and invitations — issue and revoke editor/viewer invitations, accept one as the invited profile, list a garden's member roster, and change or remove a non-owner member's role. Owner promotion, demotion, and ownership transfer are a separate, recent-auth-gated flow and do not appear here.
 
 paths:
   /health/live:
@@ -429,6 +431,302 @@ paths:
           $ref: '#/components/responses/Conflict'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
+
+  /gardens/{gardenId}/invitations:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: createInvitation
+      tags: [Collaboration]
+      summary: Invite a person to a garden
+      description: |
+        Owner-only. Issues an opaque, single-use, expiring invitation for
+        `editor` or `viewer` — never `owner`; a token can never grant
+        ownership by construction. At most one PENDING invitation may exist
+        per (garden, intended email); issuing a second while the first is
+        still pending is rejected with `409`. An invitation with no intended
+        email is shareable with anyone who receives the link.
+
+        The raw token is returned exactly once, in this response, and is
+        never recoverable afterward — the server stores only its hash.
+        Distribute it out of band; this endpoint does not send email.
+
+        Source: implementation-plan.md work package P9A-API-01;
+        architecture/identity-and-authorization.md, section
+        "10. Invitations".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInvitationRequest'
+      responses:
+        '201':
+          description: The created invitation, including its one-time raw token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateInvitationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    get:
+      operationId: listGardenInvitations
+      tags: [Collaboration]
+      summary: List a garden's invitations
+      description: |
+        Owner-only, unlike `listGardenMembers` — an invitation carries an
+        intended email, which is the enumeration surface
+        `garden-capability-matrix.md` reserves to the owner alone. Returns
+        every invitation regardless of state (pending, accepted, revoked,
+        expired), newest first, so the owner can find a pending invitation
+        to revoke without having retained its id from the create response.
+
+        Source: implementation-plan.md work package P9A-API-01;
+        docs/development/garden-capability-matrix.md, row H5.
+      responses:
+        '200':
+          description: The garden's invitations, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitationListResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /gardens/{gardenId}/invitations/{invitationId}/revoke:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: invitationId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: revokeInvitation
+      tags: [Collaboration]
+      summary: Revoke a garden invitation
+      description: |
+        Owner-only. Idempotent: revoking an invitation that is already
+        revoked, accepted, or expired returns that invitation's current
+        state unchanged rather than an error.
+
+        Source: implementation-plan.md work package P9A-API-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: The invitation's current state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invitation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /invitations/accept:
+    post:
+      operationId: acceptInvitation
+      tags: [Collaboration]
+      summary: Accept a garden invitation
+      description: |
+        Grants the AUTHENTICATED caller the invitation's intended role.
+        Identified by the raw token plus the caller's own session — not by
+        the token alone — so acceptance is always attributable to a real
+        account, and an email-bound invitation can be checked against a
+        VERIFIED email claim rather than an unauthenticated assertion.
+
+        Idempotent and handles, each distinguishably:
+
+        - The caller already has active membership on the garden: returns
+          it unchanged, `200`, no error.
+        - The invitation is expired or revoked: `409`.
+        - The invitation was already accepted (by this caller outside the
+          idempotency-key replay window, or by someone else): `409`.
+        - The invitation is bound to an email the caller's own verified
+          email does not match: `403`. Existence is never concealed here —
+          the caller already holds the token — but this response does not
+          disclose what the correct email is.
+
+        Source: implementation-plan.md work package P9A-API-01;
+        architecture/identity-and-authorization.md, section
+        "10. Invitations".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptInvitationRequest'
+      responses:
+        '200':
+          description: The caller's membership on the garden the invitation named.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GardenMember'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /gardens/{gardenId}/members:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    get:
+      operationId: listGardenMembers
+      tags: [Collaboration]
+      summary: List a garden's active members
+      description: |
+        Every active role may read this — owner, editor, and viewer alike
+        (garden-capability-matrix.md, row H2 / decision S1): a household
+        member who cannot see who else can see their garden has less
+        visibility into their own garden than a stranger would. Entries
+        carry `profileId` and `role`, never an email address — email is the
+        invitation-binding and enumeration surface, and stays owner-visible
+        only on the invitation itself.
+
+        Source: implementation-plan.md work package P9A-API-01;
+        docs/development/garden-capability-matrix.md, section "4.8 Membership".
+      responses:
+        '200':
+          description: The garden's active members.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GardenMemberListResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /gardens/{gardenId}/members/{profileId}:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: profileId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    patch:
+      operationId: changeGardenMemberRole
+      tags: [Collaboration]
+      summary: Change a member's role between editor and viewer
+      description: |
+        Owner-only. Moves a non-owner member between `editor` and `viewer`
+        only — the target's current role must already be one of those two,
+        and the requested role must be one of those two. Promoting to, or
+        demoting from, `owner` is a separate, recent-auth-gated flow and is
+        rejected here with `422`.
+
+        Source: implementation-plan.md work package P9A-API-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeGardenMemberRoleRequest'
+      responses:
+        '200':
+          description: The member's updated role.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GardenMember'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+    delete:
+      operationId: removeGardenMember
+      tags: [Collaboration]
+      summary: Remove a member, or leave a garden
+      description: |
+        A caller may always remove THEMSELVES (leaving a garden is not
+        membership administration). Removing anyone else requires the
+        owner-only membership-administration capability. Either way, removing
+        the garden's last active owner is refused with `422` — including a
+        sole owner attempting to leave their own garden; they must transfer
+        ownership or delete the garden instead.
+
+        Source: implementation-plan.md work package P9A-API-01;
+        architecture/identity-and-authorization.md, section
+        "11. Ownership Transfer".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: The removed membership.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GardenMember'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
 
   /gardens/{gardenId}/map:
     parameters:
@@ -3433,6 +3731,149 @@ components:
           type: string
           minLength: 1
           maxLength: 120
+
+    # --- Collaboration (P9A-API-01) -----------------------------------
+
+    GardenMemberState:
+      type: string
+      enum: [active, removed]
+      description: |
+        Mirrors `collaboration.membership.state`. A member roster
+        (`listGardenMembers`) only ever returns `active` entries; this value
+        is carried on every `GardenMember` regardless, so the shape stays
+        stable if a later endpoint returns non-active history.
+
+    GardenMember:
+      type: object
+      additionalProperties: false
+      required: [id, gardenId, profileId, role, state, createdAt, updatedAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        gardenId:
+          $ref: '#/components/schemas/Uuid'
+        profileId:
+          $ref: '#/components/schemas/Uuid'
+        role:
+          $ref: '#/components/schemas/GardenRole'
+        state:
+          $ref: '#/components/schemas/GardenMemberState'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+
+    GardenMemberListResult:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/GardenMember'
+
+    InvitationListResult:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Invitation'
+
+    ChangeGardenMemberRoleRequest:
+      type: object
+      additionalProperties: false
+      required: [role]
+      properties:
+        role:
+          $ref: '#/components/schemas/InvitationIntendedRole'
+
+    InvitationIntendedRole:
+      type: string
+      enum: [editor, viewer]
+      description: |
+        The role vocabulary an invitation, or a role change under this same
+        module, may name. Never `owner` — ownership moves only through the
+        dedicated transfer flow (`invitation_intended_role_check`).
+
+    InvitationState:
+      type: string
+      enum: [pending, accepted, revoked, expired]
+      description: Mirrors `collaboration.invitation.state`.
+
+    Invitation:
+      type: object
+      additionalProperties: false
+      required: [id, gardenId, inviterProfileId, intendedRole, state, createdAt, expiresAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        gardenId:
+          $ref: '#/components/schemas/Uuid'
+        inviterProfileId:
+          $ref: '#/components/schemas/Uuid'
+        intendedRole:
+          $ref: '#/components/schemas/InvitationIntendedRole'
+        intendedEmail:
+          type: string
+          format: email
+          description: Absent for an unbound invitation, shareable with anyone who receives the link.
+        state:
+          $ref: '#/components/schemas/InvitationState'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        expiresAt:
+          $ref: '#/components/schemas/Timestamp'
+        acceptedAt:
+          $ref: '#/components/schemas/Timestamp'
+        revokedAt:
+          $ref: '#/components/schemas/Timestamp'
+        resultingMembershipId:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: Present only once the invitation has been accepted.
+
+    CreateInvitationResult:
+      description: |
+        An `Invitation` plus the raw token — present ONLY in this one
+        response. The server stores only the token's hash; there is no
+        endpoint that can ever return it again.
+      allOf:
+        - $ref: '#/components/schemas/Invitation'
+        - type: object
+          additionalProperties: false
+          required: [token]
+          properties:
+            token:
+              type: string
+              minLength: 32
+              maxLength: 128
+              description: Opaque single-use secret. Distribute out of band; excluded from logs and analytics.
+
+    CreateInvitationRequest:
+      type: object
+      additionalProperties: false
+      required: [intendedRole]
+      properties:
+        intendedRole:
+          $ref: '#/components/schemas/InvitationIntendedRole'
+        intendedEmail:
+          type: string
+          format: email
+          description: Omit for an unbound invitation shareable with anyone who receives the link.
+
+    AcceptInvitationRequest:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token:
+          type: string
+          minLength: 32
+          maxLength: 128
 
     SessionLoginRequest:
       type: object
@@ -7688,6 +8129,13 @@ components:
 
     PreconditionFailed:
       description: The supplied revision precondition did not match the current revision.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    UnprocessableEntity:
+      description: The request is structurally valid but violates a domain rule (for example, the last-owner invariant).
       content:
         application/json:
           schema:

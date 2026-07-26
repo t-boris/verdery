@@ -103,3 +103,31 @@ export { KyselyMapObjectRepository } from './persistence/kysely-map-object-repos
 export { KyselyRevisionJournalWriter } from './persistence/kysely-revision-journal-writer.js';
 export { registerMapRoutes } from './transport/map-routes.js';
 export type { MapRoutesDependencies } from './transport/map-routes.js';
+
+// Collaboration: operational invitations and membership administration
+// (P9A-API-01). Reuses `GardenAuthorization`, `GardensMappingUnitOfWork`,
+// and `MembershipRepository` above — see membership-repository.ts's own
+// header for why this module still owns `collaboration.membership` and,
+// now, `collaboration.invitation`/`collaboration.membership_period` too.
+export type { InvitationRole, InvitationState, Invitation } from './domain/invitation.js';
+export { CreateInvitation, INVITATION_TTL_MILLISECONDS } from './application/create-invitation.js';
+export { RevokeInvitation } from './application/revoke-invitation.js';
+export { AcceptInvitation } from './application/accept-invitation.js';
+export type { AcceptInvitationActor } from './application/accept-invitation.js';
+export { ListGardenMembers } from './application/list-garden-members.js';
+export { ListGardenInvitations } from './application/list-garden-invitations.js';
+export { ChangeMemberRole } from './application/change-member-role.js';
+export { RemoveMember } from './application/remove-member.js';
+export {
+  RunInvitationExpirySweep,
+  INVITATION_EXPIRY_SWEEP_LIMIT,
+} from './application/run-invitation-expiry-sweep.js';
+export type { InvitationExpirySweepResult } from './application/run-invitation-expiry-sweep.js';
+export type { InvitationRepository } from './application/invitation-repository.js';
+export { KyselyInvitationRepository } from './persistence/kysely-invitation-repository.js';
+export { registerInvitationRoutes } from './transport/invitation-routes.js';
+export type { InvitationRoutesDependencies } from './transport/invitation-routes.js';
+export { registerMemberRoutes } from './transport/member-routes.js';
+export type { MemberRoutesDependencies } from './transport/member-routes.js';
+export { registerInvitationExpirySweepRoute } from './transport/invitation-expiry-sweep-route.js';
+export type { InvitationExpirySweepRouteDependencies } from './transport/invitation-expiry-sweep-route.js';

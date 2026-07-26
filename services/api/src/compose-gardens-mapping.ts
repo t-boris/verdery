@@ -20,10 +20,13 @@
  */
 
 import {
+  AcceptInvitation,
   ArchiveGarden,
   AssignPlantToTarget,
   ChangeMapObjectProperties,
+  ChangeMemberRole,
   CreateGarden,
+  CreateInvitation,
   CreateMapObject,
   DecideMapProposal,
   DeleteMapObject,
@@ -37,22 +40,32 @@ import {
   KyselyGardenRepository,
   KyselyGardensMappingUnitOfWork,
   KyselyGeoreferenceRepository,
+  KyselyInvitationRepository,
   KyselyMapObjectRepository,
   KyselyMembershipRepository,
+  ListGardenInvitations,
+  ListGardenMembers,
   ListGardens,
   MoveMapObject,
+  RemoveMember,
   RenameGarden,
   ReplaceMapObjectGeometry,
   RequestGardenDeletion,
   RestoreGardenDeletion,
   RestoreMapObject,
+  RevokeInvitation,
+  RunInvitationExpirySweep,
   SplitMapObjectLinework,
   UpsertMapCalibration,
 } from './modules/gardens-mapping/public.js';
 import type {
   GardenRoutesDependencies,
+  InvitationExpirySweepRouteDependencies,
+  InvitationRoutesDependencies,
   MapRoutesDependencies,
+  MemberRoutesDependencies,
 } from './modules/gardens-mapping/public.js';
+import type { CloudTasksInvocationVerifier } from './platform/tasks/cloud-tasks-invocation-verifier.js';
 import type { DatabaseGateway } from './platform/database/database-gateway.js';
 import type { Clock } from './shared/time/clock.js';
 import { KyselyIdempotencyStore } from './platform/idempotency/kysely-idempotency-store.js';
@@ -61,11 +74,18 @@ export interface GardensMappingComposition {
   readonly gardenAuthorization: GardenAuthorization;
   readonly gardenRoutesDependencies: GardenRoutesDependencies;
   readonly mapRoutesDependencies: MapRoutesDependencies;
+  /** P9A-API-01 — garden-scoped invitation issue/revoke/accept. */
+  readonly invitationRoutesDependencies: InvitationRoutesDependencies;
+  /** P9A-API-01 — garden member roster, role change, removal. */
+  readonly memberRoutesDependencies: MemberRoutesDependencies;
+  /** P9A-API-01 — the worker-triggered invitation expiry sweep. */
+  readonly invitationExpirySweepRouteDependencies: InvitationExpirySweepRouteDependencies;
 }
 
 export function composeGardensMapping(
   database: DatabaseGateway,
   clock: Clock,
+  cloudTasksInvocationVerifier: CloudTasksInvocationVerifier,
 ): GardensMappingComposition {
   // gardens-mapping: owns gardens and, in Phase 2 only, garden membership —
   // see membership-repository.ts for why. Read paths use the pooled
@@ -200,5 +220,66 @@ export function composeGardensMapping(
     ),
   };
 
-  return { gardenAuthorization, gardenRoutesDependencies, mapRoutesDependencies };
+  // Collaboration (P9A-API-01): invitations and membership administration.
+  // Shares `gardenIdempotency`/`gardensMappingUnitOfWork`/`gardenAuthorization`
+  // with the garden lifecycle and map commands above — same idempotency
+  // table, same transaction boundary, same capability matrix. The sweep's
+  // own repository is bound directly to the pooled connection, not the
+  // transactional unit of work — see `RunInvitationExpirySweep`'s header for
+  // why one bulk statement needs no transaction wrapper.
+  const invitationRoutesDependencies: InvitationRoutesDependencies = {
+    createInvitation: new CreateInvitation(
+      gardenIdempotency,
+      gardensMappingUnitOfWork,
+      gardenAuthorization,
+      clock,
+    ),
+    listGardenInvitations: new ListGardenInvitations(
+      new KyselyInvitationRepository(database.queries),
+      gardenAuthorization,
+    ),
+    revokeInvitation: new RevokeInvitation(
+      gardenIdempotency,
+      gardensMappingUnitOfWork,
+      gardenAuthorization,
+      clock,
+    ),
+    acceptInvitation: new AcceptInvitation(gardenIdempotency, gardensMappingUnitOfWork, clock),
+  };
+
+  const memberRoutesDependencies: MemberRoutesDependencies = {
+    listGardenMembers: new ListGardenMembers(
+      new KyselyMembershipRepository(database.queries),
+      gardenAuthorization,
+    ),
+    changeMemberRole: new ChangeMemberRole(
+      gardenIdempotency,
+      gardensMappingUnitOfWork,
+      gardenAuthorization,
+      clock,
+    ),
+    removeMember: new RemoveMember(
+      gardenIdempotency,
+      gardensMappingUnitOfWork,
+      gardenAuthorization,
+      clock,
+    ),
+  };
+
+  const invitationExpirySweepRouteDependencies: InvitationExpirySweepRouteDependencies = {
+    runInvitationExpirySweep: new RunInvitationExpirySweep(
+      new KyselyInvitationRepository(database.queries),
+      clock,
+    ),
+    cloudTasksInvocationVerifier,
+  };
+
+  return {
+    gardenAuthorization,
+    gardenRoutesDependencies,
+    mapRoutesDependencies,
+    invitationRoutesDependencies,
+    memberRoutesDependencies,
+    invitationExpirySweepRouteDependencies,
+  };
 }

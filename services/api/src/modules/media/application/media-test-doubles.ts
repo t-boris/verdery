@@ -406,6 +406,38 @@ export class FakeMembershipRepository implements MembershipRepository {
   setState(): Promise<void> {
     throw new Error('not used by this test');
   }
+
+  insert(): Promise<void> {
+    throw new Error('not used by this test');
+  }
+
+  findActiveByGardenAndProfile(): ReturnType<MembershipRepository['findActiveByGardenAndProfile']> {
+    throw new Error('not used by this test');
+  }
+
+  listActiveForGarden(): ReturnType<MembershipRepository['listActiveForGarden']> {
+    throw new Error('not used by this test');
+  }
+
+  lockActiveOwnerIds(): ReturnType<MembershipRepository['lockActiveOwnerIds']> {
+    throw new Error('not used by this test');
+  }
+
+  lockMembership(): ReturnType<MembershipRepository['lockMembership']> {
+    throw new Error('not used by this test');
+  }
+
+  changeRole(): Promise<void> {
+    throw new Error('not used by this test');
+  }
+
+  openPeriod(): Promise<void> {
+    throw new Error('not used by this test');
+  }
+
+  closeOpenPeriod(): Promise<void> {
+    throw new Error('not used by this test');
+  }
 }
 
 export function buildMembership(overrides: Partial<Membership> & { gardenId: Uuid }): Membership {

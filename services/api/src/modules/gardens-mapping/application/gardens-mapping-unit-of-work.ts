@@ -29,6 +29,7 @@ import type { MediaRepository } from '../../media/public.js';
 import type { CalibrationRepository } from './calibration-repository.js';
 import type { CoordinateSpaceRepository } from './coordinate-space-repository.js';
 import type { GardenRepository } from './garden-repository.js';
+import type { InvitationRepository } from './invitation-repository.js';
 import type { MapObjectRepository } from './map-object-repository.js';
 import type { MembershipRepository } from './membership-repository.js';
 import type { RevisionJournalWriter } from './revision-journal-writer.js';
@@ -36,6 +37,8 @@ import type { RevisionJournalWriter } from './revision-journal-writer.js';
 export interface GardensMappingTransactionContext {
   readonly gardens: GardenRepository;
   readonly memberships: MembershipRepository;
+  /** P9A-API-01 — bound to the same transaction as every other port here, so an invitation write and its resulting membership grant commit or roll back together. */
+  readonly invitations: InvitationRepository;
   readonly idempotency: IdempotencyStore;
   readonly outbox: OutboxAppender;
   readonly auditLogger: AuditLogger;

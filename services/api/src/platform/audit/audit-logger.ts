@@ -18,6 +18,14 @@ export interface AuditEventInput {
   readonly actorProfileId: Uuid | null;
   readonly actorType: AuditActorType;
   readonly details?: unknown;
+  /**
+   * The garden this event concerns (P9A-DATA-01's `platform.audit_event
+   * .garden_id`). Omit for an account-level event with no garden (provider
+   * link, session revocation, account suspension) — every collaboration
+   * event category (membership grant, role change, removal, invitation
+   * issue/revoke/accept) supplies it.
+   */
+  readonly gardenId?: Uuid;
 }
 
 export interface AuditLogger {

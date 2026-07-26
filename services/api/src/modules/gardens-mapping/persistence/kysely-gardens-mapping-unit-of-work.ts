@@ -13,6 +13,7 @@ import type {
 import { KyselyCalibrationRepository } from './kysely-calibration-repository.js';
 import { KyselyCoordinateSpaceRepository } from './kysely-coordinate-space-repository.js';
 import { KyselyGardenRepository } from './kysely-garden-repository.js';
+import { KyselyInvitationRepository } from './kysely-invitation-repository.js';
 import { KyselyMapObjectRepository } from './kysely-map-object-repository.js';
 import { KyselyMembershipRepository } from './kysely-membership-repository.js';
 import { KyselyRevisionJournalWriter } from './kysely-revision-journal-writer.js';
@@ -28,6 +29,7 @@ export class KyselyGardensMappingUnitOfWork implements GardensMappingUnitOfWork 
       const context: GardensMappingTransactionContext = {
         gardens: new KyselyGardenRepository(trx),
         memberships: new KyselyMembershipRepository(trx),
+        invitations: new KyselyInvitationRepository(trx),
         idempotency: new KyselyIdempotencyStore(trx, this.clock),
         outbox: new KyselyOutboxAppender(trx, this.clock),
         auditLogger: new KyselyAuditLogger(trx, this.clock),

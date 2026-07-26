@@ -264,6 +264,19 @@ export type ExportRequestState = Schemas['ExportRequestState'];
 export type CreateExportRequest = Schemas['CreateExportRequest'];
 export type ExportRequest = Schemas['ExportRequest'];
 
+/** The collaboration membership and invitation schemas (P9A-API-01). */
+export type GardenMemberState = Schemas['GardenMemberState'];
+export type GardenMember = Schemas['GardenMember'];
+export type GardenMemberListResult = Schemas['GardenMemberListResult'];
+export type ChangeGardenMemberRoleRequest = Schemas['ChangeGardenMemberRoleRequest'];
+export type InvitationIntendedRole = Schemas['InvitationIntendedRole'];
+export type InvitationState = Schemas['InvitationState'];
+export type Invitation = Schemas['Invitation'];
+export type InvitationListResult = Schemas['InvitationListResult'];
+export type CreateInvitationResult = Schemas['CreateInvitationResult'];
+export type CreateInvitationRequest = Schemas['CreateInvitationRequest'];
+export type AcceptInvitationRequest = Schemas['AcceptInvitationRequest'];
+
 /** The account-deletion schemas (P8-DELETE-01). */
 export type AccountDeletionState = Schemas['AccountDeletionState'];
 export type AccountDeletionGardenResolution = Schemas['AccountDeletionGardenResolution'];
@@ -482,6 +495,45 @@ export const DeletionErrorCode = {
 } as const;
 
 export type DeletionErrorCode = (typeof DeletionErrorCode)[keyof typeof DeletionErrorCode];
+
+/**
+ * Error codes the collaboration membership and invitation endpoints raise
+ * (P9A-API-01).
+ *
+ * Membership non-existence is concealed as `notFound` exactly like
+ * `GardenErrorCode.NotFound` does for a garden a caller cannot see — a
+ * caller who cannot see a garden must not learn who its members are either,
+ * and a target profile with no active membership looks identical to one
+ * that was never a member. Invitation lookups by token key on the token's
+ * own secrecy rather than membership: a caller who already possesses the
+ * token has already proven they received a real invitation, so its
+ * `notFound`/`expired`/`revoked`/`alreadyAccepted` codes are ordinary domain
+ * states, not a concealment device — see architecture/identity-and-
+ * authorization.md, section "10. Invitations".
+ */
+export const CollaborationErrorCode = {
+  /** No ACTIVE membership exists at this profile on this garden, or the caller lacks visibility into it. */
+  MembershipNotFound: 'collaboration.membership.not_found',
+  /** The command would leave the garden with no active owner (section "11. Ownership Transfer": "a garden must always have at least one owner unless it is in a deletion workflow"). */
+  LastOwnerRequired: 'collaboration.membership.last_owner_required',
+  /** `changeMemberRole` was asked to move a role into or out of `owner` — out of scope for this endpoint; owner transitions are a dedicated, recent-auth-gated flow. */
+  OwnerRoleNotAllowed: 'collaboration.membership.owner_role_not_allowed',
+  /** No invitation exists at this token, or the token is malformed. Never distinguished from a genuinely unknown token. */
+  InvitationNotFound: 'collaboration.invitation.not_found',
+  /** A PENDING invitation already exists for this garden and intended email (the partial unique index's application-level mirror). */
+  InvitationAlreadyPending: 'collaboration.invitation.already_pending',
+  /** The invitation's `expiresAt` has passed. Evaluated at acceptance time regardless of whether the expiry sweep has already run. */
+  InvitationExpired: 'collaboration.invitation.expired',
+  /** The invitation was revoked before it was accepted. */
+  InvitationRevoked: 'collaboration.invitation.revoked',
+  /** The invitation was already accepted — by this caller (replayed outside the idempotency window) or another. */
+  InvitationAlreadyAccepted: 'collaboration.invitation.already_accepted',
+  /** The invitation is bound to an email address that does not match the accepting caller's own verified email. */
+  InvitationEmailMismatch: 'collaboration.invitation.email_mismatch',
+} as const;
+
+export type CollaborationErrorCode =
+  (typeof CollaborationErrorCode)[keyof typeof CollaborationErrorCode];
 
 /** Narrows an unknown response body to the shared error envelope. */
 export function isApiError(value: unknown): value is ApiError {

@@ -8,6 +8,8 @@ import type {
   GardenMembershipState,
   GardenPartitionMembership,
   MembershipDetail,
+  MembershipPeriodEndedReason,
+  MembershipPeriodInput,
   MembershipRepository,
 } from '../application/membership-repository.js';
 
@@ -68,13 +70,23 @@ export class KyselyMembershipRepository implements MembershipRepository {
   }
 
   async insertOwner(id: Uuid, gardenId: Uuid, profileId: Uuid, now: Date): Promise<void> {
+    await this.insert(id, gardenId, profileId, 'owner', now);
+  }
+
+  async insert(
+    id: Uuid,
+    gardenId: Uuid,
+    profileId: Uuid,
+    role: GardenRole,
+    now: Date,
+  ): Promise<void> {
     await this.db
       .insertInto('collaboration.membership')
       .values({
         id,
         garden_id: gardenId,
         profile_id: profileId,
-        role: 'owner',
+        role,
         state: 'active',
         created_at: now,
         updated_at: now,
@@ -98,7 +110,7 @@ export class KyselyMembershipRepository implements MembershipRepository {
   async listForGarden(gardenId: Uuid): Promise<MembershipDetail[]> {
     const rows = await this.db
       .selectFrom('collaboration.membership')
-      .select(['id', 'garden_id', 'profile_id', 'role', 'state', 'updated_at'])
+      .select(['id', 'garden_id', 'profile_id', 'role', 'state', 'created_at', 'updated_at'])
       .where('garden_id', '=', gardenId)
       .orderBy('id', 'asc')
       .execute();
@@ -109,7 +121,7 @@ export class KyselyMembershipRepository implements MembershipRepository {
   async listDetailsForProfile(profileId: Uuid): Promise<MembershipDetail[]> {
     const rows = await this.db
       .selectFrom('collaboration.membership')
-      .select(['id', 'garden_id', 'profile_id', 'role', 'state', 'updated_at'])
+      .select(['id', 'garden_id', 'profile_id', 'role', 'state', 'created_at', 'updated_at'])
       .where('profile_id', '=', profileId)
       .orderBy('id', 'asc')
       .execute();
@@ -124,6 +136,95 @@ export class KyselyMembershipRepository implements MembershipRepository {
       .where('id', '=', membershipId)
       .execute();
   }
+
+  async findActiveByGardenAndProfile(
+    gardenId: Uuid,
+    profileId: Uuid,
+  ): Promise<MembershipDetail | null> {
+    const row = await this.db
+      .selectFrom('collaboration.membership')
+      .select(['id', 'garden_id', 'profile_id', 'role', 'state', 'created_at', 'updated_at'])
+      .where('garden_id', '=', gardenId)
+      .where('profile_id', '=', profileId)
+      .where('state', '=', 'active')
+      .executeTakeFirst();
+
+    return row === undefined ? null : toMembershipDetail(row);
+  }
+
+  async listActiveForGarden(gardenId: Uuid): Promise<MembershipDetail[]> {
+    const rows = await this.db
+      .selectFrom('collaboration.membership')
+      .select(['id', 'garden_id', 'profile_id', 'role', 'state', 'created_at', 'updated_at'])
+      .where('garden_id', '=', gardenId)
+      .where('state', '=', 'active')
+      .orderBy('created_at', 'asc')
+      .execute();
+
+    return rows.map(toMembershipDetail);
+  }
+
+  async lockActiveOwnerIds(gardenId: Uuid): Promise<readonly Uuid[]> {
+    const rows = await this.db
+      .selectFrom('collaboration.membership')
+      .select('id')
+      .where('garden_id', '=', gardenId)
+      .where('role', '=', 'owner')
+      .where('state', '=', 'active')
+      .orderBy('id', 'asc')
+      .forUpdate()
+      .execute();
+
+    return rows.map((row) => row.id);
+  }
+
+  async lockMembership(membershipId: Uuid): Promise<MembershipDetail | null> {
+    const row = await this.db
+      .selectFrom('collaboration.membership')
+      .select(['id', 'garden_id', 'profile_id', 'role', 'state', 'created_at', 'updated_at'])
+      .where('id', '=', membershipId)
+      .forUpdate()
+      .executeTakeFirst();
+
+    return row === undefined ? null : toMembershipDetail(row);
+  }
+
+  async changeRole(membershipId: Uuid, role: GardenRole, now: Date): Promise<void> {
+    await this.db
+      .updateTable('collaboration.membership')
+      .set({ role, updated_at: now })
+      .where('id', '=', membershipId)
+      .execute();
+  }
+
+  async openPeriod(input: MembershipPeriodInput): Promise<void> {
+    await this.db
+      .insertInto('collaboration.membership_period')
+      .values({
+        id: input.id,
+        membership_id: input.membershipId,
+        garden_id: input.gardenId,
+        profile_id: input.profileId,
+        role: input.role,
+        valid_from: input.validFrom,
+        valid_until: null,
+        ended_reason: null,
+      })
+      .execute();
+  }
+
+  async closeOpenPeriod(
+    membershipId: Uuid,
+    validUntil: Date,
+    endedReason: MembershipPeriodEndedReason,
+  ): Promise<void> {
+    await this.db
+      .updateTable('collaboration.membership_period')
+      .set({ valid_until: validUntil, ended_reason: endedReason })
+      .where('membership_id', '=', membershipId)
+      .where('valid_until', 'is', null)
+      .execute();
+  }
 }
 
 function toMembershipDetail(row: {
@@ -132,6 +233,7 @@ function toMembershipDetail(row: {
   profile_id: string;
   role: string;
   state: string;
+  created_at: Date;
   updated_at: Date;
 }): MembershipDetail {
   return {
@@ -140,6 +242,7 @@ function toMembershipDetail(row: {
     profileId: row.profile_id,
     role: row.role as GardenRole,
     state: row.state as GardenMembershipState,
+    createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }

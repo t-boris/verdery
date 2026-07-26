@@ -29,6 +29,47 @@ export interface MembershipRow {
 }
 
 /**
+ * `collaboration.membership_period` (P9A-DATA-01) — one row per continuous
+ * stretch of one person's access to one garden at one role. `garden_id` and
+ * `profile_id` are denormalized from the membership row (see the migration's
+ * own comment); `valid_until`/`ended_reason` are `null` together exactly
+ * while the period is open.
+ */
+export interface MembershipPeriodRow {
+  id: string;
+  membership_id: string;
+  garden_id: string;
+  profile_id: string;
+  role: string;
+  valid_from: Date;
+  valid_until: Date | null;
+  ended_reason: string | null;
+  created_at: Generated<Date>;
+}
+
+/**
+ * `collaboration.invitation`, completed by P9A-DATA-01. `token_hash` is the
+ * only trace of the opaque secret this row ever carries — see
+ * `application/invitation-token.ts`. `intended_email` is always lowercase
+ * when present (`invitation_intended_email_normalized_check`).
+ */
+export interface InvitationRow {
+  id: string;
+  garden_id: string;
+  inviter_profile_id: string;
+  intended_role: string;
+  intended_email: string | null;
+  token_hash: string;
+  state: Generated<string>;
+  accepted_by_profile_id: string | null;
+  created_at: Generated<Date>;
+  expires_at: Date;
+  accepted_at: Date | null;
+  revoked_at: Date | null;
+  resulting_membership_id: string | null;
+}
+
+/**
  * `kind` and `axis_convention` are database-defaulted single-value columns
  * today (the migration's `CHECK` pins each to its one current value) — still
  * `Generated<string>`, not a literal type, because Kysely row types describe
@@ -218,6 +259,8 @@ export interface CalibrationRow {
 export interface GardensMappingDatabaseSchema {
   'gardens_mapping.garden': GardenRow;
   'collaboration.membership': MembershipRow;
+  'collaboration.membership_period': MembershipPeriodRow;
+  'collaboration.invitation': InvitationRow;
   'gardens_mapping.coordinate_space': CoordinateSpaceRow;
   'gardens_mapping.georeference': GeoreferenceRow;
   'gardens_mapping.garden_object': GardenObjectRow;

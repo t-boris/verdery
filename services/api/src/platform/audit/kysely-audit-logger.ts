@@ -21,6 +21,7 @@ export class KyselyAuditLogger implements AuditLogger {
         actor_profile_id: input.actorProfileId,
         actor_type: input.actorType,
         details: input.details === undefined ? null : JSON.stringify(input.details),
+        garden_id: input.gardenId ?? null,
         occurred_at: this.clock.now(),
       })
       .execute();

@@ -244,6 +244,193 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/gardens/{gardenId}/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List a garden's invitations
+         * @description Owner-only, unlike `listGardenMembers` — an invitation carries an
+         *     intended email, which is the enumeration surface
+         *     `garden-capability-matrix.md` reserves to the owner alone. Returns
+         *     every invitation regardless of state (pending, accepted, revoked,
+         *     expired), newest first, so the owner can find a pending invitation
+         *     to revoke without having retained its id from the create response.
+         *
+         *     Source: implementation-plan.md work package P9A-API-01;
+         *     docs/development/garden-capability-matrix.md, row H5.
+         */
+        get: operations["listGardenInvitations"];
+        put?: never;
+        /**
+         * Invite a person to a garden
+         * @description Owner-only. Issues an opaque, single-use, expiring invitation for
+         *     `editor` or `viewer` — never `owner`; a token can never grant
+         *     ownership by construction. At most one PENDING invitation may exist
+         *     per (garden, intended email); issuing a second while the first is
+         *     still pending is rejected with `409`. An invitation with no intended
+         *     email is shareable with anyone who receives the link.
+         *
+         *     The raw token is returned exactly once, in this response, and is
+         *     never recoverable afterward — the server stores only its hash.
+         *     Distribute it out of band; this endpoint does not send email.
+         *
+         *     Source: implementation-plan.md work package P9A-API-01;
+         *     architecture/identity-and-authorization.md, section
+         *     "10. Invitations".
+         */
+        post: operations["createInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/invitations/{invitationId}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                invitationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke a garden invitation
+         * @description Owner-only. Idempotent: revoking an invitation that is already
+         *     revoked, accepted, or expired returns that invitation's current
+         *     state unchanged rather than an error.
+         *
+         *     Source: implementation-plan.md work package P9A-API-01.
+         */
+        post: operations["revokeInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invitations/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept a garden invitation
+         * @description Grants the AUTHENTICATED caller the invitation's intended role.
+         *     Identified by the raw token plus the caller's own session — not by
+         *     the token alone — so acceptance is always attributable to a real
+         *     account, and an email-bound invitation can be checked against a
+         *     VERIFIED email claim rather than an unauthenticated assertion.
+         *
+         *     Idempotent and handles, each distinguishably:
+         *
+         *     - The caller already has active membership on the garden: returns
+         *       it unchanged, `200`, no error.
+         *     - The invitation is expired or revoked: `409`.
+         *     - The invitation was already accepted (by this caller outside the
+         *       idempotency-key replay window, or by someone else): `409`.
+         *     - The invitation is bound to an email the caller's own verified
+         *       email does not match: `403`. Existence is never concealed here —
+         *       the caller already holds the token — but this response does not
+         *       disclose what the correct email is.
+         *
+         *     Source: implementation-plan.md work package P9A-API-01;
+         *     architecture/identity-and-authorization.md, section
+         *     "10. Invitations".
+         */
+        post: operations["acceptInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List a garden's active members
+         * @description Every active role may read this — owner, editor, and viewer alike
+         *     (garden-capability-matrix.md, row H2 / decision S1): a household
+         *     member who cannot see who else can see their garden has less
+         *     visibility into their own garden than a stranger would. Entries
+         *     carry `profileId` and `role`, never an email address — email is the
+         *     invitation-binding and enumeration surface, and stays owner-visible
+         *     only on the invitation itself.
+         *
+         *     Source: implementation-plan.md work package P9A-API-01;
+         *     docs/development/garden-capability-matrix.md, section "4.8 Membership".
+         */
+        get: operations["listGardenMembers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/members/{profileId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                profileId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a member, or leave a garden
+         * @description A caller may always remove THEMSELVES (leaving a garden is not
+         *     membership administration). Removing anyone else requires the
+         *     owner-only membership-administration capability. Either way, removing
+         *     the garden's last active owner is refused with `422` — including a
+         *     sole owner attempting to leave their own garden; they must transfer
+         *     ownership or delete the garden instead.
+         *
+         *     Source: implementation-plan.md work package P9A-API-01;
+         *     architecture/identity-and-authorization.md, section
+         *     "11. Ownership Transfer".
+         */
+        delete: operations["removeGardenMember"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a member's role between editor and viewer
+         * @description Owner-only. Moves a non-owner member between `editor` and `viewer`
+         *     only — the target's current role must already be one of those two,
+         *     and the requested role must be one of those two. Promoting to, or
+         *     demoting from, `owner` is a separate, recent-auth-gated flow and is
+         *     rejected here with `422`.
+         *
+         *     Source: implementation-plan.md work package P9A-API-01.
+         */
+        patch: operations["changeGardenMemberRole"];
+        trace?: never;
+    };
     "/gardens/{gardenId}/map": {
         parameters: {
             query?: {
@@ -2132,6 +2319,82 @@ export interface components {
         };
         RenameGardenRequest: {
             name: string;
+        };
+        /**
+         * @description Mirrors `collaboration.membership.state`. A member roster
+         *     (`listGardenMembers`) only ever returns `active` entries; this value
+         *     is carried on every `GardenMember` regardless, so the shape stays
+         *     stable if a later endpoint returns non-active history.
+         * @enum {string}
+         */
+        GardenMemberState: "active" | "removed";
+        GardenMember: {
+            id: components["schemas"]["Uuid"];
+            gardenId: components["schemas"]["Uuid"];
+            profileId: components["schemas"]["Uuid"];
+            role: components["schemas"]["GardenRole"];
+            state: components["schemas"]["GardenMemberState"];
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+        };
+        GardenMemberListResult: {
+            items: components["schemas"]["GardenMember"][];
+        };
+        InvitationListResult: {
+            items: components["schemas"]["Invitation"][];
+        };
+        ChangeGardenMemberRoleRequest: {
+            role: components["schemas"]["InvitationIntendedRole"];
+        };
+        /**
+         * @description The role vocabulary an invitation, or a role change under this same
+         *     module, may name. Never `owner` — ownership moves only through the
+         *     dedicated transfer flow (`invitation_intended_role_check`).
+         * @enum {string}
+         */
+        InvitationIntendedRole: "editor" | "viewer";
+        /**
+         * @description Mirrors `collaboration.invitation.state`.
+         * @enum {string}
+         */
+        InvitationState: "pending" | "accepted" | "revoked" | "expired";
+        Invitation: {
+            id: components["schemas"]["Uuid"];
+            gardenId: components["schemas"]["Uuid"];
+            inviterProfileId: components["schemas"]["Uuid"];
+            intendedRole: components["schemas"]["InvitationIntendedRole"];
+            /**
+             * Format: email
+             * @description Absent for an unbound invitation, shareable with anyone who receives the link.
+             */
+            intendedEmail?: string;
+            state: components["schemas"]["InvitationState"];
+            createdAt: components["schemas"]["Timestamp"];
+            expiresAt: components["schemas"]["Timestamp"];
+            acceptedAt?: components["schemas"]["Timestamp"];
+            revokedAt?: components["schemas"]["Timestamp"];
+            /** @description Present only once the invitation has been accepted. */
+            resultingMembershipId?: components["schemas"]["Uuid"];
+        };
+        /**
+         * @description An `Invitation` plus the raw token — present ONLY in this one
+         *     response. The server stores only the token's hash; there is no
+         *     endpoint that can ever return it again.
+         */
+        CreateInvitationResult: components["schemas"]["Invitation"] & {
+            /** @description Opaque single-use secret. Distribute out of band; excluded from logs and analytics. */
+            token: string;
+        };
+        CreateInvitationRequest: {
+            intendedRole: components["schemas"]["InvitationIntendedRole"];
+            /**
+             * Format: email
+             * @description Omit for an unbound invitation shareable with anyone who receives the link.
+             */
+            intendedEmail?: string;
+        };
+        AcceptInvitationRequest: {
+            token: string;
         };
         SessionLoginRequest: {
             /** @description Freshly obtained Firebase ID token, verified server-side before any cookie is issued. */
@@ -4387,6 +4650,15 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /** @description The request is structurally valid but violates a domain rule (for example, the last-owner invariant). */
+        UnprocessableEntity: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
         /** @description A quota or rate limit was exceeded. */
         TooManyRequests: {
             headers: {
@@ -4784,6 +5056,237 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    listGardenInvitations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The garden's invitations, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationListResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createInvitation: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInvitationRequest"];
+            };
+        };
+        responses: {
+            /** @description The created invitation, including its one-time raw token. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateInvitationResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    revokeInvitation: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                invitationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The invitation's current state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invitation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    acceptInvitation: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptInvitationRequest"];
+            };
+        };
+        responses: {
+            /** @description The caller's membership on the garden the invitation named. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GardenMember"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listGardenMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The garden's active members. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GardenMemberListResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    removeGardenMember: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                profileId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The removed membership. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GardenMember"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    changeGardenMemberRole: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                profileId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeGardenMemberRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description The member's updated role. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GardenMember"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
         };
     };
     getGardenMap: {

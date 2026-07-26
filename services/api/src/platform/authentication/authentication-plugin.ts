@@ -131,6 +131,8 @@ export function registerAuthentication(
       signInProvider: credential.signInProvider,
       credentialKind,
       requestId: request.id,
+      email: credential.email,
+      emailVerified: credential.emailVerified,
     };
   });
 }

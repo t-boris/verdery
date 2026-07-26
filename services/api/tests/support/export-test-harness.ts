@@ -50,7 +50,12 @@ export function fixedClock(at: Date): Clock {
   return { now: () => at };
 }
 
-export function actorFor(profileId: string, authenticatedAt: Date): ActorContext {
+export function actorFor(
+  profileId: string,
+  authenticatedAt: Date,
+  email?: string,
+  emailVerified = true,
+): ActorContext {
   return {
     profileId,
     firebaseUid: `firebase-${profileId}`,
@@ -58,6 +63,8 @@ export function actorFor(profileId: string, authenticatedAt: Date): ActorContext
     signInProvider: 'password',
     credentialKind: 'sessionCookie',
     requestId: randomUUID(),
+    email,
+    emailVerified: email === undefined ? false : emailVerified,
   };
 }
 
