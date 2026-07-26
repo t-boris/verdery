@@ -57,6 +57,7 @@ apps/web/
 │   ├── media/
 │   ├── imports/
 │   ├── collaboration/
+│   ├── organizations/
 │   ├── client-engagements/
 │   ├── client-publications/
 │   ├── garden-timeline/

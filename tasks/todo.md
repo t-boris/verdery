@@ -6215,8 +6215,13 @@ no garden access), and the client-engagement record P9C's publication workflow w
       own package (a per-profile assignment listing, plus tombstone emission on
       end/revoke — mirroring P9A-SYNC-01's `RemoveMember` fix) before assignment-based access is
       usable outside raw HTTP calls.
-- [ ] P9B-WEB-01 — responsive professional workspace: organization members, assigned gardens,
+- [x] P9B-WEB-01 — responsive professional workspace: organization members, assigned gardens,
       clients, engagements, publisher administration. Solo-professional and small-team E2E.
+      Publisher administration confirmed not built anywhere (that's P9C-PUBLISH-01) — nothing
+      fabricated for it. New "Organizations" root nav link beside "Gardens"; garden settings
+      gained sibling read sections for assignments/engagements, owner-gated. A real per-row
+      permission bug (End/Revoke/Activate rendered for every caller, not just admins) was caught
+      by the agent's own test suite before reaching review. 89 files / 842 tests, all green.
 
 ## Open product decisions (§23), resolved as conservative judgment calls, documented not blocking
 

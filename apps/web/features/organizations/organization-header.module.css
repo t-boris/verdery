@@ -1,0 +1,26 @@
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.name {
+  margin-inline-end: auto;
+  font-family: var(--font-family-display);
+  font-size: clamp(1.5rem, 1.3rem + 0.8vw, 1.9rem);
+  letter-spacing: var(--letter-spacing-tight);
+  color: var(--color-text);
+}
+
+.errorState {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-start;
+}

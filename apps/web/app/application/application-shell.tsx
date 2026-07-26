@@ -64,9 +64,20 @@ function gardenSections(gardenId: string): readonly GardenSection[] {
  * not a list: several end-to-end assertions count `listitem` roles on a page,
  * and chrome must never leak into content-level queries.
  *
+ * `Organizations` (P9B-WEB-01) is a SECOND root link, always rendered next
+ * to `Gardens` rather than shown only once a lightweight query confirms the
+ * profile already belongs to one — the professional workspace is not
+ * garden-scoped, so it needs its own top-level entry point, and this bar's
+ * own "no data is fetched here" constraint above rules out gating it behind
+ * a membership check. It is also symmetrical with `Gardens` itself: garden
+ * creation is equally open to anyone and that link is never hidden for a
+ * profile with zero gardens either — `GardenList`'s own empty state is where
+ * "you have none yet" belongs, not the shell. `OrganizationList` carries the
+ * identical empty state for organizations.
+ *
  * Source: architecture/identity-and-authorization.md, section
  * "5. Web Session Flow", step 6 ("Logout clears the cookie and may revoke
- * refresh tokens").
+ * refresh tokens"); implementation-plan.md work package P9B-WEB-01.
  */
 export function ApplicationShell({ children }: { readonly children: ReactNode }) {
   const { t } = useLocalization();
@@ -95,13 +106,20 @@ export function ApplicationShell({ children }: { readonly children: ReactNode })
   return (
     <div className={styles['shell']}>
       <div className={styles['bar']}>
-        <nav aria-label={t('shell.primaryNavLabel')}>
+        <nav className={styles['primaryNav']} aria-label={t('shell.primaryNavLabel')}>
           <Link
             className={styles['rootLink']}
             href="/application/gardens"
             aria-current={pathname === '/application/gardens' ? 'page' : undefined}
           >
             {t('gardens.title')}
+          </Link>
+          <Link
+            className={styles['rootLink']}
+            href="/application/organizations"
+            aria-current={pathname.startsWith('/application/organizations') ? 'page' : undefined}
+          >
+            {t('organizations.title')}
           </Link>
         </nav>
         <Button variant="secondary" busy={signingOut} onClick={() => void onSignOut()}>

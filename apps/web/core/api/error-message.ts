@@ -1,7 +1,9 @@
 import {
+  ClientEngagementErrorCode,
   CollaborationErrorCode,
   GardenErrorCode,
   MapErrorCode,
+  OrganizationErrorCode,
   SharedErrorCode,
 } from '@verdery/api-contracts';
 
@@ -51,6 +53,17 @@ const MESSAGE_KEYS: Readonly<Record<string, MessageKey>> = {
   [CollaborationErrorCode.TargetAlreadyOwner]: 'error.targetAlreadyOwner',
   [CollaborationErrorCode.OwnershipTransferAlreadyPending]: 'error.ownershipTransferAlreadyPending',
   [CollaborationErrorCode.OwnershipTransferNotFound]: 'error.ownershipTransferNotFound',
+  [OrganizationErrorCode.NotFound]: 'error.organizationNotFound',
+  [OrganizationErrorCode.ProfileNotFound]: 'error.organizationProfileNotFound',
+  [OrganizationErrorCode.MembershipNotFound]: 'error.organizationMembershipNotFound',
+  [OrganizationErrorCode.MembershipAlreadyExists]: 'error.organizationMembershipAlreadyExists',
+  [OrganizationErrorCode.LastAdminRequired]: 'error.organizationLastAdminRequired',
+  [OrganizationErrorCode.AssignmentNotFound]: 'error.gardenAssignmentNotFound',
+  [OrganizationErrorCode.AssignmentAlreadyActive]: 'error.gardenAssignmentAlreadyActive',
+  [OrganizationErrorCode.AssigneeNotOrganizationMember]: 'error.gardenAssignmentAssigneeNotMember',
+  [OrganizationErrorCode.AssignmentInvalidTransition]: 'error.gardenAssignmentInvalidTransition',
+  [ClientEngagementErrorCode.NotFound]: 'error.clientEngagementNotFound',
+  [ClientEngagementErrorCode.InvalidTransition]: 'error.clientEngagementInvalidTransition',
 };
 
 /** Returns the message identifier for an error code, or the generic one. */

@@ -11,6 +11,7 @@
 import { englishAccessibilityMessages } from './en-accessibility';
 import { englishCollaborationMessages } from './en-collaboration';
 import { englishMediaMessages } from './en-media';
+import { englishOrganizationsMessages } from './en-organizations';
 import { englishTaskCollaborationMessages } from './en-task-collaboration';
 import { englishTodayMessages } from './en-today';
 
@@ -19,6 +20,7 @@ export const englishMessages = {
   ...englishAccessibilityMessages,
   ...englishCollaborationMessages,
   ...englishTaskCollaborationMessages,
+  ...englishOrganizationsMessages,
   'app.name': 'Verdery',
   'app.tagline': 'A living map of a real garden.',
   'app.skipToContent': 'Skip to content',

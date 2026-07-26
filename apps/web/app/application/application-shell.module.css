@@ -14,6 +14,13 @@
   border-bottom: var(--border-width) solid var(--color-border);
 }
 
+.primaryNav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+
 .rootLink {
   display: inline-flex;
   align-items: center;

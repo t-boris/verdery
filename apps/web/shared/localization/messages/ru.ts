@@ -3,6 +3,7 @@ import type { MessageCatalogue } from '../catalogue';
 import { russianAccessibilityMessages } from './ru-accessibility';
 import { russianCollaborationMessages } from './ru-collaboration';
 import { russianMediaMessages } from './ru-media';
+import { russianOrganizationsMessages } from './ru-organizations';
 import { russianTaskCollaborationMessages } from './ru-task-collaboration';
 import { russianTodayMessages } from './ru-today';
 
@@ -12,6 +13,7 @@ export const russianMessages: MessageCatalogue = {
   ...russianAccessibilityMessages,
   ...russianCollaborationMessages,
   ...russianTaskCollaborationMessages,
+  ...russianOrganizationsMessages,
   'app.name': 'Verdery',
   'app.tagline': 'Живая карта настоящего сада.',
   'app.skipToContent': 'Перейти к содержимому',
