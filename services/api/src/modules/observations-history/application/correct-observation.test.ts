@@ -18,7 +18,11 @@ import type {
 } from '../../../platform/sync/sync-change-recorder.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import { GardenAuthorization } from '../../gardens-mapping/public.js';
-import type { GardenRole, MembershipRepository } from '../../gardens-mapping/public.js';
+import type {
+  GardenLifecycleState,
+  GardenRole,
+  MembershipRepository,
+} from '../../gardens-mapping/public.js';
 import { registerMediaRecord } from '../../media/public.js';
 import type { MediaRecord, MediaRepository } from '../../media/public.js';
 import { createObservation } from '../domain/observation.js';
@@ -46,17 +50,23 @@ function fixedClock(): Clock {
 }
 
 class FakeMembershipRepository implements MembershipRepository {
-  constructor(private readonly role: GardenRole | null) {}
+  constructor(
+    private readonly role: GardenRole | null,
+    private readonly gardenLifecycleState: GardenLifecycleState = 'active',
+  ) {}
 
-  findActiveMembership() {
+  findGardenAccess() {
     if (this.role === null) {
       return Promise.resolve(null);
     }
     return Promise.resolve({
-      id: randomUUID(),
-      gardenId: GARDEN_ID,
-      profileId: PROFILE_ID,
-      role: this.role,
+      membership: {
+        id: randomUUID(),
+        gardenId: GARDEN_ID,
+        profileId: PROFILE_ID,
+        role: this.role,
+      },
+      gardenLifecycleState: this.gardenLifecycleState,
     });
   }
 

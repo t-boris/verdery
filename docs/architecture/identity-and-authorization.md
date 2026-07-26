@@ -213,6 +213,27 @@ Every protected use case evaluates:
 
 Authorization occurs inside the application layer and uses current server data. Client checks improve UX but are not security boundaries.
 
+### 9.1 Implemented garden evaluation
+
+`GardenAuthorization.requireCapability` is the single evaluator every garden-scoped use case in
+every module calls, and it answers three of the steps above in order, because each presupposes the
+previous:
+
+1. **Current garden membership** (step 4). No active membership on an existing garden is concealed
+   as `garden.not_found` — a caller must not learn which garden ids exist. A membership row that
+   outlived its purged garden fails here too, and identically.
+2. **Required capability** (step 5), from the role matrix in `gardens-mapping/domain/garden-role.ts`
+   — `forbidden`, which a member already knows applies to a garden they know exists.
+3. **Resource-specific restrictions** (step 7), today the garden's own lifecycle state: a second
+   matrix in the same file names the lifecycle states each capability may be exercised in, and a
+   capability exercised outside them is refused with `garden.lifecycle_conflict` (HTTP 422). This is
+   what freezes content in a garden pending deletion — see `data-export-and-deletion.md`
+   section 10.1, step 3, for the matrix's current contents and the reasoning behind each entry.
+
+The matrix is exhaustive over capabilities by type, so adding a capability for a future command is a
+compile error until its lifecycle decision is recorded. Steps 3, 6, and 8 have no garden-scoped
+producer yet; they are evaluated elsewhere or deferred (`deferred-capabilities.md`).
+
 ## 10. Invitations
 
 Invitations use opaque, single-purpose, expiring tokens stored only as hashes.

@@ -15,11 +15,15 @@
  *   sweep + its internal route — the first callers P7-INT-01 built this
  *   module's exports for.
  *
- * No real weather provider exists (P0-PROV-01 undecided): the registry has
- * zero production registrations, `activeProviderKey` is null in every
- * environment, and the honest runtime outcome is the typed
+ * P0-PROV-01's WEATHER half is decided (2026-07-26): Open-Meteo, CC BY 4.0,
+ * models pinned to NOAA. The registry now has one real registration
+ * (`persistence/open-meteo-weather-registration.ts`), built by
+ * `compose-integrations.ts` from configuration. Registered is not active:
+ * `activeProviderKey` (`WEATHER_ACTIVE_PROVIDER_KEY`) still selects, and
+ * where it is unset the honest runtime outcome remains the typed
  * `noProviderConfigured` degradation — see
- * `application/refresh-garden-weather.ts`.
+ * `application/refresh-garden-weather.ts`. The PLANT-CONTENT half of
+ * P0-PROV-01 remains open.
  *
  * P7-INT-02 lands the module's plant-content half under the same blocker
  * posture: the taxonomy-mapping and content domain models, the
@@ -203,6 +207,37 @@ export type {
   VertexAiExplanationAdapterConfiguration,
   VertexGenerativeClient,
 } from './persistence/vertex-ai-explanation-adapter.js';
+
+// P0-PROV-01 (weather half, decided 2026-07-26): the REAL Open-Meteo
+// adapter and its one registry entry. The composition root builds the
+// registration from configuration (`compose-integrations.ts`); which
+// provider is ACTIVE stays `WEATHER_ACTIVE_PROVIDER_KEY`, so an environment
+// with no key and no selection keeps the honest `noProviderConfigured`
+// degradation.
+export {
+  buildOpenMeteoRequestUrl,
+  OpenMeteoWeatherAdapter,
+  OPEN_METEO_CUSTOMER_BASE_URL,
+  OPEN_METEO_FREE_BASE_URL,
+} from './persistence/open-meteo-weather-adapter.js';
+export type {
+  OpenMeteoHttpFetch,
+  OpenMeteoHttpResponse,
+  OpenMeteoTier,
+  OpenMeteoWeatherAdapterConfiguration,
+} from './persistence/open-meteo-weather-adapter.js';
+export {
+  createOpenMeteoWeatherRegistration,
+  openMeteoLicenseNote,
+  OPEN_METEO_ATTRIBUTION_TEXT,
+  OPEN_METEO_ATTRIBUTION_URL,
+  OPEN_METEO_PROVIDER_KEY,
+} from './persistence/open-meteo-weather-registration.js';
+export type { OpenMeteoRegistrationOptions } from './persistence/open-meteo-weather-registration.js';
+export {
+  OPEN_METEO_PINNED_MODELS,
+  parseOpenMeteoPayload,
+} from './persistence/open-meteo-payload.js';
 
 export { KyselyWeatherRecordRepository } from './persistence/kysely-weather-record-repository.js';
 export { KyselyProviderQuotaRepository } from './persistence/kysely-provider-quota-repository.js';

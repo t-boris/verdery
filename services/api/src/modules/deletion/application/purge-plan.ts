@@ -354,6 +354,25 @@ export const GARDEN_PURGE_STEPS: readonly PurgeStep[] = [
     table: 'collaboration.invitation',
     rows: (gardenId) => sql`garden_id = ${gardenId}`,
   },
+  // Access HISTORY, unlike the membership row it belongs to, is ordinary
+  // garden content: nothing in the synchronization protocol reads it, so
+  // nothing depends on it outliving the garden. The membership row itself
+  // still survives as the revocation tombstone; only the record of when each
+  // grant began and ended goes (P9A-DATA-01).
+  {
+    name: 'collaboration.membership_period',
+    table: 'collaboration.membership_period',
+    rows: (gardenId) => sql`garden_id = ${gardenId}`,
+  },
+  // The transfer record names the garden by foreign key, so it has to go
+  // before the garden row can. Its own audit event survives in
+  // `platform.audit_event`, which is what the evidence requirement actually
+  // rests on.
+  {
+    name: 'collaboration.ownership_transfer',
+    table: 'collaboration.ownership_transfer',
+    rows: (gardenId) => sql`garden_id = ${gardenId}`,
+  },
 
   // The garden itself. Reachable only once every step above has converged on
   // zero, which is the same thing as saying nothing references it any more.
@@ -440,6 +459,16 @@ export const ACCOUNT_PURGE_STEPS: readonly PurgeStep[] = [
     name: 'collaboration.invitation',
     table: 'collaboration.invitation',
     rows: (profileId) => sql`inviter_profile_id = ${profileId}`,
+  },
+  // "Revokes ... memberships" applied to the part of a membership that is
+  // personal rather than protocol: when this person's access to each garden
+  // began and ended. The membership ROW still survives as the revocation
+  // tombstone the offline protocol reads (see this file's header); its
+  // history does not, including for shared gardens that outlive the account.
+  {
+    name: 'collaboration.membership_period',
+    table: 'collaboration.membership_period',
+    rows: (profileId) => sql`profile_id = ${profileId}`,
   },
   {
     name: 'identity_access.consent_record',

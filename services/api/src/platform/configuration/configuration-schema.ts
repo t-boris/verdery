@@ -21,7 +21,12 @@ export type DeploymentEnvironment = 'development' | 'staging' | 'production';
  * Source: architecture/observability-and-analytics.md, section
  * "6. Prohibited Telemetry".
  */
-export const SECRET_VARIABLES: ReadonlySet<string> = new Set(['DATABASE_URL']);
+export const SECRET_VARIABLES: ReadonlySet<string> = new Set([
+  'DATABASE_URL',
+  // The Open-Meteo paid-plan key travels as a query parameter, so a
+  // validator message quoting the offending value would print the credential.
+  'WEATHER_OPEN_METEO_API_KEY',
+]);
 
 const positiveInteger = z.coerce.number().int().positive();
 
@@ -170,6 +175,44 @@ export const environmentSchema = z.object({
   WEATHER_OBSERVATION_FRESH_FOR_MS: positiveInteger.default(3_600_000),
   WEATHER_FORECAST_FRESH_FOR_MS: positiveInteger.default(21_600_000),
 
+  // P0-PROV-01 (weather half, decided 2026-07-26): Open-Meteo is the
+  // selected provider, so the registry now has a real registration and these
+  // are the numbers section 3's adapter contract leaves to configuration —
+  // the strict per-call deadline and the two call budgets. Reasoned
+  // defaults in the established "no number decided yet, pick one and say so"
+  // posture: 8 s bounds a sweep-phase call; the budgets sit far under the
+  // paid Standard plan's allowance while still capping a runaway sweep.
+  WEATHER_CALL_TIMEOUT_MS: positiveInteger.default(8_000),
+  WEATHER_MAX_CALLS_PER_HOUR: positiveInteger.default(300),
+  WEATHER_MAX_CALLS_PER_DAY: positiveInteger.default(3_000),
+
+  // The two Open-Meteo hosts, chosen by tier rather than by a free-form URL
+  // so a typo cannot silently point production at a differently-licensed
+  // endpoint (the `DATABASE_CONNECTION_MODE` enum precedent):
+  //
+  // - `free`     — api.open-meteo.com, no key, NON-COMMERCIAL use only.
+  //                The default, and what development runs on today: there is
+  //                no paid key in any environment yet.
+  // - `customer` — customer-api.open-meteo.com with `WEATHER_OPEN_METEO_API_KEY`,
+  //                the paid Standard plan. Required together
+  //                (`findWeatherProviderIssues`), because a paid host without
+  //                a key rejects every request.
+  //
+  // The licence stamped on stored rows differs between the two, so the tier
+  // is a licensing decision, not only a routing one. The pinned NOAA model
+  // list is deliberately NOT here — it decides which licence the data
+  // carries, so it stays a reviewed code constant
+  // (`open-meteo-payload.ts`).
+  //
+  // Day windows: 7 past days is the recent-rainfall input the watering rules
+  // read (model-analysed precipitation, labeled as such on every row), and 7
+  // forecast days covers the frost-watch horizon. Both are bounded by what
+  // the API itself accepts.
+  WEATHER_OPEN_METEO_TIER: z.enum(['free', 'customer']).default('free'),
+  WEATHER_OPEN_METEO_API_KEY: z.string().min(1).optional(),
+  WEATHER_OPEN_METEO_PAST_DAYS: z.coerce.number().int().min(0).max(92).default(7),
+  WEATHER_OPEN_METEO_FORECAST_DAYS: z.coerce.number().int().min(1).max(16).default(7),
+
   // P7-AI-01: the bounded Vertex AI explanation embellishment.
   //
   // `RECOMMENDATION_AI_EXPLANATION_ENABLED` is the KILL-SWITCH — section
@@ -287,6 +330,29 @@ export function findAiExplanationIssues(
     }));
 }
 
+/**
+ * Cross-field rule for the Open-Meteo tier, the `findDatabaseModeIssues`
+ * shape (and its same raw-source reasoning): the paid host authenticates by
+ * `apikey` and rejects every keyless request, so selecting it without a key
+ * is a deployment mistake to name at startup, not at the first sweep.
+ */
+export function findWeatherProviderIssues(
+  source: Readonly<Record<string, string | undefined>>,
+): ConfigurationIssue[] {
+  if (source['WEATHER_OPEN_METEO_TIER'] !== 'customer') {
+    return [];
+  }
+  if (source['WEATHER_OPEN_METEO_API_KEY'] !== undefined) {
+    return [];
+  }
+  return [
+    {
+      variable: 'WEATHER_OPEN_METEO_API_KEY',
+      message: 'Required when WEATHER_OPEN_METEO_TIER is "customer"',
+    },
+  ];
+}
+
 export interface HttpConfiguration {
   readonly host: string;
   readonly port: number;
@@ -340,12 +406,28 @@ export interface MediaConfiguration {
   };
 }
 
-/** P7-ASYNC-01 — see the schema's own comment on the three `WEATHER_*` variables. */
+/** The Open-Meteo host tier — a licensing choice, not only a routing one. */
+export type OpenMeteoTierSetting = RawEnvironment['WEATHER_OPEN_METEO_TIER'];
+
+/** P0-PROV-01 (weather half) — see the schema's own comment on the `WEATHER_OPEN_METEO_*` variables. */
+export interface OpenMeteoConfiguration {
+  readonly tier: OpenMeteoTierSetting;
+  /** `null` on the keyless free tier; present whenever the tier is `customer` (the cross-field check). */
+  readonly apiKey: string | null;
+  readonly pastDays: number;
+  readonly forecastDays: number;
+}
+
+/** P7-ASYNC-01 and P0-PROV-01 — see the schema's own comments on the `WEATHER_*` variables. */
 export interface WeatherConfiguration {
-  /** `null` until a real provider is selected (P0-PROV-01). */
+  /** `'open-meteo'` selects the registered adapter; `null` keeps the honest `noProviderConfigured` degradation. */
   readonly activeProviderKey: string | null;
   readonly observationFreshForMs: number;
   readonly forecastFreshForMs: number;
+  readonly callTimeoutMs: number;
+  readonly maxCallsPerHour: number;
+  readonly maxCallsPerDay: number;
+  readonly openMeteo: OpenMeteoConfiguration;
 }
 
 /** P7-AI-01 — see the schema's own comment on the `RECOMMENDATION_AI_*` variables. */
@@ -439,6 +521,15 @@ export function toApplicationConfiguration(raw: RawEnvironment): ApplicationConf
       activeProviderKey: raw.WEATHER_ACTIVE_PROVIDER_KEY ?? null,
       observationFreshForMs: raw.WEATHER_OBSERVATION_FRESH_FOR_MS,
       forecastFreshForMs: raw.WEATHER_FORECAST_FRESH_FOR_MS,
+      callTimeoutMs: raw.WEATHER_CALL_TIMEOUT_MS,
+      maxCallsPerHour: raw.WEATHER_MAX_CALLS_PER_HOUR,
+      maxCallsPerDay: raw.WEATHER_MAX_CALLS_PER_DAY,
+      openMeteo: {
+        tier: raw.WEATHER_OPEN_METEO_TIER,
+        apiKey: raw.WEATHER_OPEN_METEO_API_KEY ?? null,
+        pastDays: raw.WEATHER_OPEN_METEO_PAST_DAYS,
+        forecastDays: raw.WEATHER_OPEN_METEO_FORECAST_DAYS,
+      },
     },
     aiExplanation: {
       enabled: raw.RECOMMENDATION_AI_EXPLANATION_ENABLED,

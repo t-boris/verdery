@@ -85,6 +85,18 @@ export function createGarden(id: Uuid, rawName: string, ownerProfileId: Uuid, no
   };
 }
 
+/**
+ * The lifecycle guard for the garden AGGREGATE's own mutations.
+ *
+ * Deliberately narrow: it covers `renameGarden` below and nothing else,
+ * because renaming is a `manageGarden` command and `manageGarden` is the one
+ * capability the authorization layer cannot refuse wholesale during a pending
+ * deletion — RESTORE holds it too, and refusing it would close the recovery
+ * window this state exists to provide (see `garden-role.ts`). Garden CONTENT
+ * — map objects, calibration, plants, observations, tasks, media — is frozen
+ * one layer up instead, where `GardenAuthorization.requireCapability` refuses
+ * `editGardenContent` for exactly these two states, once, for every module.
+ */
 function requireMutable(garden: Garden): void {
   if (garden.lifecycleState === 'deletion_requested' || garden.lifecycleState === 'purging') {
     throw new DomainRuleViolatedError(

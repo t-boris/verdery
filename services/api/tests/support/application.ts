@@ -59,14 +59,19 @@ export const testConfiguration: ApplicationConfiguration = {
       invokerServiceAccountEmail: 'verdery-worker-test@verdery-test.iam.gserviceaccount.com',
     },
   },
-  // P7-ASYNC-01: no provider registered (the composition root registers
-  // zero), so every test-built application runs with the honest
-  // `noProviderConfigured` reality; the windows are the schema's own
-  // documented defaults.
+  // P7-ASYNC-01 / P0-PROV-01: the Open-Meteo adapter IS registered by the
+  // composition root, but no provider is SELECTED here, so every test-built
+  // application runs with the honest `noProviderConfigured` reality and
+  // never reaches the network. The numbers and the keyless free tier are the
+  // schema's own documented defaults.
   weather: {
     activeProviderKey: null,
     observationFreshForMs: 3_600_000,
     forecastFreshForMs: 21_600_000,
+    callTimeoutMs: 8_000,
+    maxCallsPerHour: 300,
+    maxCallsPerDay: 3_000,
+    openMeteo: { tier: 'free', apiKey: null, pastDays: 7, forecastDays: 7 },
   },
   // P7-AI-01: the kill-switch off — every test-built application runs the
   // pure deterministic explanation path, like every real environment

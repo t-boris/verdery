@@ -32,8 +32,16 @@ const OPERATION = 'gardens.delete_request';
  *    garden tombstone. See that file's header for why the owner is retained
  *    and why the tombstones are addressed.
  * 3. "Marks the garden deletion requested and revokes new edits" — the
- *    lifecycle transition; `requireMutable` in the domain already refuses
- *    every content command from that state onward.
+ *    lifecycle transition, plus the one thing that makes "revokes new edits"
+ *    true rather than merely intended: `GardenAuthorization.requireCapability`
+ *    refuses the `editGardenContent` capability from this state onward, so
+ *    every content command in every module — map objects, calibration,
+ *    plants, observations, tasks, media — is refused at its own authorization
+ *    step, including commands not yet written. (The domain's own
+ *    `requireMutable` covers the one mutation that does NOT hold that
+ *    capability: `renameGarden`, an owner's `manageGarden` command. See
+ *    `domain/garden-role.ts` for why `manageGarden` cannot be refused
+ *    wholesale — RESTORE holds it too.)
  * 4. "Provides the approved recovery window" — `recoveryDeadlineAt`, stamped
  *    by the domain transition from the one shared 30-day policy.
  *

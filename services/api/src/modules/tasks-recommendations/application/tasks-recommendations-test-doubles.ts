@@ -26,6 +26,7 @@ import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import { GardenAuthorization } from '../../gardens-mapping/public.js';
 import type {
+  GardenLifecycleState,
   GardenRole,
   MapObject,
   MapObjectRepository,
@@ -318,10 +319,17 @@ export function getObservationResolving(observations: Map<Uuid, Observation>): G
 }
 
 export class FakeMembershipRepository implements MembershipRepository {
-  constructor(private readonly membership: FakeMembership | null) {}
+  constructor(
+    private readonly membership: FakeMembership | null,
+    private readonly gardenLifecycleState: GardenLifecycleState = 'active',
+  ) {}
 
-  findActiveMembership(): ReturnType<MembershipRepository['findActiveMembership']> {
-    return Promise.resolve(this.membership);
+  findGardenAccess(): ReturnType<MembershipRepository['findGardenAccess']> {
+    return Promise.resolve(
+      this.membership === null
+        ? null
+        : { membership: this.membership, gardenLifecycleState: this.gardenLifecycleState },
+    );
   }
 
   insertOwner(): Promise<void> {
@@ -346,8 +354,11 @@ export class FakeMembershipRepository implements MembershipRepository {
 }
 
 /** A real `GardenAuthorization` backed by a fake membership repository — `GardenAuthorization` is a concrete class with a private field, so a hand-rolled substitute is not structurally assignable; this is the same construction `plants-inventory-test-doubles.ts`'s own `authorizationGranting` uses. */
-export function authorizationGranting(membership: FakeMembership): GardenAuthorization {
-  return new GardenAuthorization(new FakeMembershipRepository(membership));
+export function authorizationGranting(
+  membership: FakeMembership,
+  gardenLifecycleState: GardenLifecycleState = 'active',
+): GardenAuthorization {
+  return new GardenAuthorization(new FakeMembershipRepository(membership, gardenLifecycleState));
 }
 
 export function authorizationDenying(): GardenAuthorization {

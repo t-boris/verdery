@@ -103,16 +103,6 @@ describe('loadConfiguration', () => {
     }
   });
 
-  it('defaults the weather block: no active provider, documented freshness windows (P7-ASYNC-01)', () => {
-    const configuration = loadConfiguration(VALID_ENVIRONMENT);
-
-    expect(configuration.weather).toEqual({
-      activeProviderKey: null,
-      observationFreshForMs: 3_600_000,
-      forecastFreshForMs: 21_600_000,
-    });
-  });
-
   it('parses an explicit weather provider key and freshness overrides', () => {
     const configuration = loadConfiguration({
       ...VALID_ENVIRONMENT,
@@ -121,7 +111,7 @@ describe('loadConfiguration', () => {
       WEATHER_FORECAST_FRESH_FOR_MS: '7200000',
     });
 
-    expect(configuration.weather).toEqual({
+    expect(configuration.weather).toMatchObject({
       activeProviderKey: 'some-provider',
       observationFreshForMs: 600_000,
       forecastFreshForMs: 7_200_000,
@@ -259,5 +249,57 @@ describe('loadConfiguration', () => {
         expect.arrayContaining(['RECOMMENDATION_AI_VERTEX_PROJECT_ID', 'RECOMMENDATION_AI_MODEL']),
       );
     }
+  });
+
+  it('defaults the weather block: no active provider, documented freshness windows, keyless non-commercial Open-Meteo', () => {
+    const configuration = loadConfiguration(VALID_ENVIRONMENT);
+
+    expect(configuration.weather).toEqual({
+      // P0-PROV-01's weather half is decided, but selecting the adapter is
+      // still a per-environment act: unset means `noProviderConfigured`.
+      activeProviderKey: null,
+      observationFreshForMs: 3_600_000,
+      forecastFreshForMs: 21_600_000,
+      callTimeoutMs: 8_000,
+      maxCallsPerHour: 300,
+      maxCallsPerDay: 3_000,
+      openMeteo: { tier: 'free', apiKey: null, pastDays: 7, forecastDays: 7 },
+    });
+  });
+
+  it('parses the paid Open-Meteo tier with its key and day windows', () => {
+    const configuration = loadConfiguration({
+      ...VALID_ENVIRONMENT,
+      WEATHER_ACTIVE_PROVIDER_KEY: 'open-meteo',
+      WEATHER_OPEN_METEO_TIER: 'customer',
+      WEATHER_OPEN_METEO_API_KEY: 'paid-plan-key',
+      WEATHER_OPEN_METEO_PAST_DAYS: '14',
+      WEATHER_OPEN_METEO_FORECAST_DAYS: '16',
+    });
+
+    expect(configuration.weather.activeProviderKey).toBe('open-meteo');
+    expect(configuration.weather.openMeteo).toEqual({
+      tier: 'customer',
+      apiKey: 'paid-plan-key',
+      pastDays: 14,
+      forecastDays: 16,
+    });
+  });
+
+  it('rejects the paid Open-Meteo host without a key, and day windows the API cannot serve', () => {
+    try {
+      loadConfiguration({ ...VALID_ENVIRONMENT, WEATHER_OPEN_METEO_TIER: 'customer' });
+      expect.unreachable('The paid host without a key must be rejected');
+    } catch (error) {
+      expect((error as ConfigurationError).variables).toEqual(
+        expect.arrayContaining(['WEATHER_OPEN_METEO_API_KEY']),
+      );
+      // The key is a secret: its name may appear, its value never does.
+      expect((error as ConfigurationError).message).not.toContain('paid-plan-key');
+    }
+
+    expect(() =>
+      loadConfiguration({ ...VALID_ENVIRONMENT, WEATHER_OPEN_METEO_FORECAST_DAYS: '30' }),
+    ).toThrowError(ConfigurationError);
   });
 });

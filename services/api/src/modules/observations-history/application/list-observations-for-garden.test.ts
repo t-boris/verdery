@@ -2,7 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { NotFoundError } from '../../../platform/errors/application-error.js';
 import { GardenAuthorization } from '../../gardens-mapping/public.js';
-import type { GardenRole, MembershipRepository } from '../../gardens-mapping/public.js';
+import type {
+  GardenLifecycleState,
+  GardenRole,
+  MembershipRepository,
+} from '../../gardens-mapping/public.js';
 import { createObservation } from '../domain/observation.js';
 import { ListObservationsForGarden } from './list-observations-for-garden.js';
 import type { ObservationHistoryEntry, ObservationRepository } from './observation-repository.js';
@@ -11,17 +15,23 @@ const GARDEN_ID = randomUUID();
 const PROFILE_ID = randomUUID();
 
 class FakeMembershipRepository implements MembershipRepository {
-  constructor(private readonly role: GardenRole | null) {}
+  constructor(
+    private readonly role: GardenRole | null,
+    private readonly gardenLifecycleState: GardenLifecycleState = 'active',
+  ) {}
 
-  findActiveMembership() {
+  findGardenAccess() {
     if (this.role === null) {
       return Promise.resolve(null);
     }
     return Promise.resolve({
-      id: randomUUID(),
-      gardenId: GARDEN_ID,
-      profileId: PROFILE_ID,
-      role: this.role,
+      membership: {
+        id: randomUUID(),
+        gardenId: GARDEN_ID,
+        profileId: PROFILE_ID,
+        role: this.role,
+      },
+      gardenLifecycleState: this.gardenLifecycleState,
     });
   }
 

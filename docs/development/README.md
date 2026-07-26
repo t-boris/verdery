@@ -13,6 +13,7 @@ Documentation for working _in_ this repository. Product meaning lives in
 | [infrastructure.md](infrastructure.md)                               | How is `verdery-dev` provisioned, and how do I deploy to it?                                   |
 | [runbooks.md](runbooks.md)                                           | What do I do when something breaks, and what has actually been exercised?                      |
 | [ios-distribution.md](ios-distribution.md)                           | How does an iOS build reach TestFlight and the App Store, and what only the owner can do?      |
+| [garden-capability-matrix.md](garden-capability-matrix.md)           | What may an owner, editor, or viewer do on a shared garden, and what does the code enforce?    |
 | [deferred-capabilities.md](deferred-capabilities.md)                 | What is deliberately not built yet, and why?                                                   |
 | [recommendation-safety-catalog.md](recommendation-safety-catalog.md) | What may the recommendation pipeline generate, and how does a horticultural reviewer sign off? |
 | [threat-model.md](threat-model.md)                                   | What can attack this system, what stops it today, and what does the owner sign off on?         |

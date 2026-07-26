@@ -1,5 +1,7 @@
+import { GardenErrorCode } from '@verdery/api-contracts';
 import { describe, expect, it } from 'vitest';
 import { DependencyUnavailableError } from '../../../platform/errors/application-error.js';
+import type { GardenLifecycleState } from '../../gardens-mapping/public.js';
 import {
   authorizationDenying,
   authorizationGranting,
@@ -28,6 +30,7 @@ function buildUseCase(
   options: {
     role?: 'owner' | 'editor' | 'viewer' | null;
     storage?: FakeMediaStorageGateway;
+    gardenLifecycleState?: GardenLifecycleState;
   } = {},
 ) {
   const fakes = createMediaFakes();
@@ -36,6 +39,7 @@ function buildUseCase(
       ? authorizationDenying()
       : authorizationGranting(
           buildMembership({ gardenId: GARDEN_ID, role: options.role ?? 'owner' }),
+          options.gardenLifecycleState ?? 'active',
         );
   const storage = options.storage ?? new FakeMediaStorageGateway();
 
@@ -52,6 +56,20 @@ function buildUseCase(
 }
 
 describe('RegisterMediaUpload', () => {
+  it.each<GardenLifecycleState>(['deletion_requested', 'purging'])(
+    'refuses an upload into a %s garden, reserving no quota',
+    async (gardenLifecycleState) => {
+      const { useCase, fakes } = buildUseCase({ gardenLifecycleState });
+
+      await expect(
+        useCase.execute(GARDEN_ID, PROFILE_ID, BASE_INPUT, '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0e'),
+      ).rejects.toMatchObject({ code: GardenErrorCode.LifecycleConflict });
+
+      expect(fakes.media.records.size).toBe(0);
+      expect(fakes.quotaReservations.reservations.size).toBe(0);
+    },
+  );
+
   it('registers the media record, reserves quota, opens an upload session, and returns authorized', async () => {
     const { useCase, fakes, storage } = buildUseCase();
 

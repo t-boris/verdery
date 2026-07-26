@@ -12,7 +12,11 @@
  */
 
 import { GardenAuthorization } from '../../gardens-mapping/public.js';
-import type { GardenRole, MembershipRepository } from '../../gardens-mapping/public.js';
+import type {
+  GardenLifecycleState,
+  GardenRole,
+  MembershipRepository,
+} from '../../gardens-mapping/public.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 
 export interface FakeMembership {
@@ -23,10 +27,17 @@ export interface FakeMembership {
 }
 
 class FakeMembershipRepository implements MembershipRepository {
-  constructor(private readonly membership: FakeMembership | null) {}
+  constructor(
+    private readonly membership: FakeMembership | null,
+    private readonly gardenLifecycleState: GardenLifecycleState = 'active',
+  ) {}
 
-  findActiveMembership(): ReturnType<MembershipRepository['findActiveMembership']> {
-    return Promise.resolve(this.membership);
+  findGardenAccess(): ReturnType<MembershipRepository['findGardenAccess']> {
+    return Promise.resolve(
+      this.membership === null
+        ? null
+        : { membership: this.membership, gardenLifecycleState: this.gardenLifecycleState },
+    );
   }
 
   insertOwner(): Promise<void> {
@@ -51,8 +62,11 @@ class FakeMembershipRepository implements MembershipRepository {
 }
 
 /** A real `GardenAuthorization` over a fake membership — the sibling modules' own construction. */
-export function authorizationGranting(membership: FakeMembership): GardenAuthorization {
-  return new GardenAuthorization(new FakeMembershipRepository(membership));
+export function authorizationGranting(
+  membership: FakeMembership,
+  gardenLifecycleState: GardenLifecycleState = 'active',
+): GardenAuthorization {
+  return new GardenAuthorization(new FakeMembershipRepository(membership, gardenLifecycleState));
 }
 
 export function authorizationDenying(): GardenAuthorization {

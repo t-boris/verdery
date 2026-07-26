@@ -66,6 +66,13 @@ const DOCUMENTED_PLAN_EXCEPTIONS = new Set([
   // record it describes; purging it would delete the very row an offline
   // client reconnects to find.
   'platform.sync_change',
+  // The completion evidence (data-export-and-deletion.md section 10.9), which
+  // this suite asserts survives further down. P9A-DATA-01 gave it a
+  // `garden_id` so a garden-scoped audit query stops having to search
+  // `details` jsonb, which is what brings it into the catalog sweep — the
+  // column carries no foreign key, for the same reason `subject_id` next to
+  // it never had one.
+  'platform.audit_event',
   // Deleted by `ON DELETE CASCADE` from a table the plan DOES name.
   'gardens_mapping.structure_details',
   'gardens_mapping.fence_details',

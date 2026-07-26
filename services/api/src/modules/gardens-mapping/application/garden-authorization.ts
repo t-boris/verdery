@@ -7,39 +7,78 @@
  * as `notFound`, the latter is a `forbidden` a member already knows applies
  * to a garden they know exists.
  *
+ * THREE questions, in this order, because each one presupposes the answer to
+ * the previous (identity-and-authorization.md section 9, steps 4, 5 and 7):
+ *
+ * 1. Does the caller have access at all? -> `notFound`, concealing existence.
+ * 2. Does their role carry the capability? -> `forbidden`.
+ * 3. Is the garden in a lifecycle state where that capability applies?
+ *    -> `garden.lifecycle_conflict` (HTTP 422).
+ *
+ * Step 3 is the ONE enforcement point for "a garden pending deletion refuses
+ * content writes" (data-export-and-deletion.md section 10.3). It lives here,
+ * not in each command, because every garden-scoped command in every module —
+ * gardens-mapping, plants-inventory, observations-history,
+ * tasks-recommendations, media, exports, notifications — already funnels
+ * through this method, and a rule enforced once here holds for commands that
+ * have not been written yet. Which capability survives which lifecycle state
+ * is decided in `domain/garden-role.ts`, not here.
+ *
+ * The garden's lifecycle state is NOT re-read separately: it arrives with the
+ * membership from one query, so it is the state as of the same instant the
+ * membership was true.
+ *
  * Source: architecture/identity-and-authorization.md, section
  * "9. Authorization Evaluation"; implementation-plan.md work package P2-SEC-01.
  */
 
 import { GardenErrorCode, SharedErrorCode } from '@verdery/api-contracts';
-import { ForbiddenError, NotFoundError } from '../../../platform/errors/application-error.js';
+import {
+  DomainRuleViolatedError,
+  ForbiddenError,
+  NotFoundError,
+} from '../../../platform/errors/application-error.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { GardenCapability } from '../domain/garden-role.js';
-import { roleHasCapability } from '../domain/garden-role.js';
+import { capabilityAllowedInLifecycleState, roleHasCapability } from '../domain/garden-role.js';
 import type { Membership, MembershipRepository } from './membership-repository.js';
 
 export class GardenAuthorization {
   constructor(private readonly memberships: MembershipRepository) {}
 
-  /** Returns the caller's membership, or throws `notFound`/`forbidden` per the concealment rule above. */
+  /** Returns the caller's membership, or throws `notFound`/`forbidden`/`lifecycleConflict` per the rules above. */
   async requireCapability(
     gardenId: Uuid,
     profileId: Uuid,
     capability: GardenCapability,
   ): Promise<Membership> {
-    const membership = await this.memberships.findActiveMembership(gardenId, profileId);
+    const access = await this.memberships.findGardenAccess(gardenId, profileId);
 
-    if (membership === null) {
+    if (access === null) {
       throw new NotFoundError(GardenErrorCode.NotFound, 'Garden not found.');
     }
 
-    if (!roleHasCapability(membership.role, capability)) {
+    if (!roleHasCapability(access.membership.role, capability)) {
       throw new ForbiddenError(
         SharedErrorCode.Forbidden,
         'You do not have permission to perform this action on this garden.',
       );
     }
 
-    return membership;
+    if (!capabilityAllowedInLifecycleState(capability, access.gardenLifecycleState)) {
+      // `domainRuleViolated` -> HTTP 422, the same status and the same
+      // `garden.lifecycle_conflict` code the domain's own lifecycle refusals
+      // already use, so a client needs no second failure mode to understand.
+      // On the offline path this becomes a per-operation `rejected` push
+      // outcome (`execute-and-map-outcome.ts`), which clients treat as
+      // terminal — a queued edit into a garden since marked for deletion is
+      // dropped, never retried forever.
+      throw new DomainRuleViolatedError(
+        GardenErrorCode.LifecycleConflict,
+        'This action is not available for a garden pending deletion.',
+      );
+    }
+
+    return access.membership;
   }
 }

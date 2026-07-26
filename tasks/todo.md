@@ -6097,3 +6097,53 @@ Running the load harness's refusal case exposed a guard matching a hostname that
 Auditing accessibility exposed that every button in the app had been below the required target size
 since the design pass. Verifying the privacy notice against code corrected twelve claims. None of
 these were visible to a careful reading of the same code.
+
+---
+
+# Phase 9A — Operational Team Collaboration
+
+Phase 8 is implementation-complete; its remaining items are owner gates and the two undecided
+product decisions (`P0-PROV-01` vendor selection, `P0-SEC-01` consent model), neither of which
+engineering can close.
+
+Phase 9 ships as four independently flaggable subphases (plan §18.1). P9A depends on neither P9B
+nor P9C, so it is taken first and delivered whole.
+
+## Starting position, established by reading the schema rather than assuming
+
+`collaboration.membership` and `collaboration.invitation` already exist from `P2-DATA-01`
+(`1784736116655_identity-and-gardens-baseline.sql`) as deliberate skeletons: membership carries
+`role IN ('owner','editor','viewer')` and `state IN ('active','removed')` with a
+`(garden_id, profile_id)` uniqueness constraint; invitation stores only a token hash and forbids
+`owner` as an intended role, because ownership moves through the dedicated transfer flow alone.
+No endpoint writes to either table yet. P9A completes them rather than inventing them.
+
+## Work packages
+
+- [ ] P9A-CAP-01 — Freeze the operational capability matrix across garden content, tasks, accepted
+      history, raw media, expensive processing, export, publication, membership, and deletion.
+      Positive AND negative entries; this is the vocabulary every later package tests against.
+- [ ] P9A-DATA-01 — Complete invitation, membership, role transition, co-owner, assignment,
+      attribution, and collaboration-audit schema. Migration plus last-owner, uniqueness, and
+      temporal-state tests.
+- [ ] P9A-API-01 — Invitation create/revoke/accept/expire and membership list/change/remove
+      endpoints. Contract, email binding, idempotency, expiry, enumeration, and audit tests.
+- [ ] P9A-OWNER-01 — Recent-auth co-owner promotion/demotion and ownership transfer. Ordinary
+      invitations grant only editor or viewer.
+- [ ] P9A-TASK-01 — Task assignment, reassignment, completion attribution, shared activity history,
+      and collaboration notification intents.
+- [ ] P9A-SYNC-01 — Synchronize membership grants/revocations, assignments, and attribution without
+      retaining inaccessible garden data after revocation.
+- [ ] P9A-IOS-01 — Invitation acceptance, member/role display, assignments, co-owner administration,
+      removal, and revoked-access recovery in the native app.
+- [ ] P9A-WEB-01 — The same on web, plus the member administration table.
+
+## Sequencing
+
+CAP and DATA run first and in parallel — the matrix is a document, the schema is a migration, and
+neither blocks the other. API follows DATA. OWNER and TASK follow API in parallel. SYNC follows
+TASK. IOS and WEB follow SYNC in parallel. Each wave is verified personally before the next starts.
+
+## Review
+
+_(filled in as the phase closes)_

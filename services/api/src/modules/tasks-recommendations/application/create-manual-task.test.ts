@@ -1,3 +1,4 @@
+import { GardenErrorCode } from '@verdery/api-contracts';
 import { describe, expect, it } from 'vitest';
 import {
   ForbiddenError,
@@ -5,7 +6,7 @@ import {
   ValidationError,
 } from '../../../platform/errors/application-error.js';
 import type { Observation } from '../../observations-history/public.js';
-import type { MapObjectSummary } from '../../gardens-mapping/public.js';
+import type { GardenLifecycleState, MapObjectSummary } from '../../gardens-mapping/public.js';
 import type { Plant } from '../../plants-inventory/public.js';
 import { CreateManualTask } from './create-manual-task.js';
 import {
@@ -65,6 +66,31 @@ function noObservations() {
 }
 
 describe('CreateManualTask', () => {
+  it.each<GardenLifecycleState>(['deletion_requested', 'purging'])(
+    'refuses to create a task in a %s garden, writing nothing',
+    async (gardenLifecycleState) => {
+      const fakes = createTasksRecommendationsFakes();
+      const createManualTask = new CreateManualTask(
+        fakes.idempotency,
+        new FakeTasksRecommendationsUnitOfWork(fakes),
+        authorizationGranting(OWNER_MEMBERSHIP, gardenLifecycleState),
+        noObservations(),
+        fixedClock(NOW),
+      );
+
+      await expect(
+        createManualTask.execute(
+          GARDEN_ID,
+          PROFILE_ID,
+          { target: { kind: 'garden' }, title: 'Water the whole garden' },
+          '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a11',
+        ),
+      ).rejects.toMatchObject({ code: GardenErrorCode.LifecycleConflict });
+
+      expect(fakes.tasks.tasks.size).toBe(0);
+    },
+  );
+
   it('creates a garden-level task with no target references', async () => {
     const fakes = createTasksRecommendationsFakes();
     const createManualTask = new CreateManualTask(

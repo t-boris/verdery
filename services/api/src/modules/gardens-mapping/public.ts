@@ -17,6 +17,7 @@ export { GetGarden } from './application/get-garden.js';
 export type { GardensMappingUnitOfWork } from './application/gardens-mapping-unit-of-work.js';
 export { ListGardens } from './application/list-gardens.js';
 export type {
+  GardenAccess,
   GardenMembershipState,
   GardenPartitionMembership,
   Membership,

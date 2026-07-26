@@ -215,8 +215,34 @@ step against the list above:
    purges its local copy (section 13). The requesting OWNER keeps their membership — they are the
    only person who can withdraw the request, and a recovery window that locks out the person who
    might change their mind is not a recovery window.
-3. **Marks deletion requested and revokes new edits** — the lifecycle transition; the domain's own
-   `requireMutable` already refuses every content command from `deletion_requested` onward.
+3. **Marks deletion requested and revokes new edits** — the lifecycle transition, plus the single
+   enforcement point that makes "revokes new edits" true: `GardenAuthorization.requireCapability`
+   refuses the `editGardenContent` capability while a garden is `deletion_requested` or `purging`.
+   Every garden-scoped content command in every module (map objects, calibration, plants,
+   observations, tasks, media) authorizes through that one method, so the freeze covers commands
+   added later without each one repeating a check. Which capability survives which lifecycle state
+   is a matrix in `gardens-mapping/domain/garden-role.ts`, exhaustive over capabilities by type, so
+   a new capability cannot compile without a decision. The refusal is `garden.lifecycle_conflict`
+   (HTTP **422**), the same code the domain's own lifecycle refusals raise, and on the offline path
+   it becomes a per-operation `rejected` push outcome — terminal, so a queued edit into a garden
+   marked for deletion since it was written is dropped rather than retried forever.
+
+   Three deliberate exemptions, each load-bearing:
+   - **Reads are never refused** (`viewGarden` in every state). A window in which the owner cannot
+     see what they are about to lose is not a recovery window.
+   - **Garden export stays available while `deletion_requested`** (`exportGarden`), for the same
+     reason — but is refused once the garden is `purging`, because step 5's
+     `exports.export_request.close_active` has already run by then and a request accepted afterwards
+     would point at a garden row the purge is about to delete.
+   - **`manageGarden` is not gated by lifecycle state at all**, because RESTORE holds it: the four
+     lifecycle commands disagree about what is legal from where, and only their domain transitions
+     can express that (`renameGarden` and `archiveGarden` refuse a pending deletion through the
+     domain's own `requireMutable`; `restoreGarden` accepts `deletion_requested` and refuses
+     `purging`).
+
+   The purge itself is unaffected: it writes through its own executor and unit of work, never
+   through `GardenAuthorization`, so the guard can never block the work it is waiting for.
+
 4. **The approved recovery window** — `recovery_deadline_at`, stamped 30 days out (section 11 names
    the figure once, for the whole feature). `DELETE /gardens/{gardenId}/delete-request` reverses
    everything above until the sweep claims the garden.
@@ -343,13 +369,14 @@ the same way from foreign keys to `identity_access.profile`.
 
 **What survives a purge, and why:**
 
-| Survivor                                          | Reason                                                                                                 |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `platform.sync_change`                            | The garden's `delete` tombstone. Purging it would delete the row an offline client reconnects to find. |
-| `collaboration.membership`                        | Reduced to `removed` tombstones — how `GetSyncChanges` decides what a revoked client may still learn.  |
-| `platform.audit_event`                            | The completion trail (`garden.purge_started`, `garden.purged`, `account.purged`).                      |
-| `deletion.deletion_record` (+ `purge_checkpoint`) | The purge job, which is also the completion evidence.                                                  |
-| `identity_access.profile`                         | Account purge only, minimized to a tombstone — see section 11.1.                                       |
+| Survivor                                          | Reason                                                                                                                                                                                           |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `platform.sync_change`                            | The garden's `delete` tombstone. Purging it would delete the row an offline client reconnects to find.                                                                                           |
+| `collaboration.membership`                        | Reduced to `removed` tombstones — how `GetSyncChanges` decides what a revoked client may still learn.                                                                                            |
+| `platform.audit_event`                            | The completion trail (`garden.purge_started`, `garden.purged`, `account.purged`).                                                                                                                |
+| `deletion.deletion_record` (+ `purge_checkpoint`) | The purge job, which is also the completion evidence.                                                                                                                                            |
+| `identity_access.profile`                         | Account purge only, minimized to a tombstone — see section 11.1.                                                                                                                                 |
+| `collaboration.ownership_transfer`                | Account purge only — the provenance of a surviving garden's current ownership. Its profile ids now resolve to tombstones, so the record identifies nobody. The garden purge deletes it outright. |
 
 **The evidence contains identifiers, timestamps, and COUNTS. Nothing else** — no name, no filename,
 no location, no row copied out before deletion, and never a database error message (a stuck purge

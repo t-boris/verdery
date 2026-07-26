@@ -21,7 +21,11 @@ import type { OutboxAppender, OutboxEventInput } from '../../../platform/outbox/
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import { GardenAuthorization } from '../../gardens-mapping/public.js';
-import type { Membership, MembershipRepository } from '../../gardens-mapping/public.js';
+import type {
+  GardenLifecycleState,
+  Membership,
+  MembershipRepository,
+} from '../../gardens-mapping/public.js';
 import type { MediaRecord } from '../domain/media-record.js';
 import type { ProcessingJob } from '../domain/processing-job.js';
 import type { QuotaReservation } from '../domain/quota-reservation.js';
@@ -370,10 +374,17 @@ export class FakeAuditLogger implements AuditLogger {
  * `plants-inventory-test-doubles.ts`'s own `FakeMembershipRepository` uses.
  */
 export class FakeMembershipRepository implements MembershipRepository {
-  constructor(private readonly membership: Membership | null) {}
+  constructor(
+    private readonly membership: Membership | null,
+    private readonly gardenLifecycleState: GardenLifecycleState = 'active',
+  ) {}
 
-  findActiveMembership(): ReturnType<MembershipRepository['findActiveMembership']> {
-    return Promise.resolve(this.membership);
+  findGardenAccess(): ReturnType<MembershipRepository['findGardenAccess']> {
+    return Promise.resolve(
+      this.membership === null
+        ? null
+        : { membership: this.membership, gardenLifecycleState: this.gardenLifecycleState },
+    );
   }
 
   insertOwner(): Promise<void> {
@@ -406,8 +417,11 @@ export function buildMembership(overrides: Partial<Membership> & { gardenId: Uui
   };
 }
 
-export function authorizationGranting(membership: Membership): GardenAuthorization {
-  return new GardenAuthorization(new FakeMembershipRepository(membership));
+export function authorizationGranting(
+  membership: Membership,
+  gardenLifecycleState: GardenLifecycleState = 'active',
+): GardenAuthorization {
+  return new GardenAuthorization(new FakeMembershipRepository(membership, gardenLifecycleState));
 }
 
 export function authorizationDenying(): GardenAuthorization {

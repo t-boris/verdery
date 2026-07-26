@@ -1,11 +1,12 @@
 import type { Kysely } from 'kysely';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
+import type { GardenLifecycleState } from '../domain/garden.js';
 import type { GardenRole } from '../domain/garden-role.js';
 import type {
+  GardenAccess,
   GardenMembershipState,
   GardenPartitionMembership,
-  Membership,
   MembershipDetail,
   MembershipRepository,
 } from '../application/membership-repository.js';
@@ -13,13 +14,42 @@ import type {
 export class KyselyMembershipRepository implements MembershipRepository {
   constructor(private readonly db: Kysely<DatabaseSchema>) {}
 
-  async findActiveMembership(gardenId: Uuid, profileId: Uuid): Promise<Membership | null> {
+  /**
+   * An INNER JOIN to the garden, not a second query: authorization decides on
+   * the role and the lifecycle state together, so they are read together, at
+   * one instant.
+   *
+   * The join also does real work on its own. `collaboration.membership` has no
+   * foreign key to `gardens_mapping.garden` (the revocation tombstone must
+   * outlive the garden it names — see `GardenMembershipState`), so a membership
+   * row can genuinely outlive its garden; an inner join is what turns that into
+   * the `null` the caller conceals as `notFound`, instead of authorizing a
+   * caller against a garden that no longer exists.
+   *
+   * Crossing from `collaboration` into `gardens_mapping` here is the same
+   * deliberate Phase-2 consolidation `membership-repository.ts` already
+   * records: this module owns both tables today. When a real Collaboration
+   * module takes `membership` over, this join is the seam — the port stays
+   * `findGardenAccess`, and the composition of the two facts moves with it.
+   */
+  async findGardenAccess(gardenId: Uuid, profileId: Uuid): Promise<GardenAccess | null> {
     const row = await this.db
       .selectFrom('collaboration.membership')
-      .select(['id', 'garden_id', 'profile_id', 'role'])
-      .where('garden_id', '=', gardenId)
-      .where('profile_id', '=', profileId)
-      .where('state', '=', 'active')
+      .innerJoin(
+        'gardens_mapping.garden',
+        'gardens_mapping.garden.id',
+        'collaboration.membership.garden_id',
+      )
+      .select([
+        'collaboration.membership.id as id',
+        'collaboration.membership.garden_id as garden_id',
+        'collaboration.membership.profile_id as profile_id',
+        'collaboration.membership.role as role',
+        'gardens_mapping.garden.lifecycle_state as lifecycle_state',
+      ])
+      .where('collaboration.membership.garden_id', '=', gardenId)
+      .where('collaboration.membership.profile_id', '=', profileId)
+      .where('collaboration.membership.state', '=', 'active')
       .executeTakeFirst();
 
     if (row === undefined) {
@@ -27,10 +57,13 @@ export class KyselyMembershipRepository implements MembershipRepository {
     }
 
     return {
-      id: row.id,
-      gardenId: row.garden_id,
-      profileId: row.profile_id,
-      role: row.role as GardenRole,
+      membership: {
+        id: row.id,
+        gardenId: row.garden_id,
+        profileId: row.profile_id,
+        role: row.role as GardenRole,
+      },
+      gardenLifecycleState: row.lifecycle_state as GardenLifecycleState,
     };
   }
 

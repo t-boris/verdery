@@ -1,6 +1,7 @@
+import { GardenErrorCode } from '@verdery/api-contracts';
 import { describe, expect, it } from 'vitest';
 import { ForbiddenError, ValidationError } from '../../../platform/errors/application-error.js';
-import type { MapObjectSummary } from '../../gardens-mapping/public.js';
+import type { GardenLifecycleState, MapObjectSummary } from '../../gardens-mapping/public.js';
 import { AddPlant } from './add-plant.js';
 import {
   authorizationDenying,
@@ -33,6 +34,30 @@ function activeMapObjectSummary(): MapObjectSummary {
 }
 
 describe('AddPlant', () => {
+  it.each<GardenLifecycleState>(['deletion_requested', 'purging'])(
+    'refuses to add a plant to a %s garden, writing nothing',
+    async (gardenLifecycleState) => {
+      const fakes = createPlantsInventoryFakes();
+      const addPlant = new AddPlant(
+        fakes.idempotency,
+        new FakePlantsInventoryUnitOfWork(fakes),
+        authorizationGranting(OWNER_MEMBERSHIP, gardenLifecycleState),
+        fixedClock(NOW),
+      );
+
+      await expect(
+        addPlant.execute(
+          GARDEN_ID,
+          PROFILE_ID,
+          { displayName: 'Tomato', groupingKind: 'individual' },
+          '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0e',
+        ),
+      ).rejects.toMatchObject({ code: GardenErrorCode.LifecycleConflict });
+
+      expect(fakes.plants.plants.size).toBe(0);
+    },
+  );
+
   it('creates a plant, journals it, and returns a resource, not a raw entity', async () => {
     const fakes = createPlantsInventoryFakes();
     const addPlant = new AddPlant(

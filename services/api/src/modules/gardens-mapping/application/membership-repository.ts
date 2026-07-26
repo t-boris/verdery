@@ -1,4 +1,5 @@
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
+import type { GardenLifecycleState } from '../domain/garden.js';
 import type { GardenRole } from '../domain/garden-role.js';
 
 export interface Membership {
@@ -6,6 +7,23 @@ export interface Membership {
   readonly gardenId: Uuid;
   readonly profileId: Uuid;
   readonly role: GardenRole;
+}
+
+/**
+ * Everything `GardenAuthorization` needs to answer one request: the caller's
+ * active membership AND the garden's own lifecycle state.
+ *
+ * The two travel together because authorization decides on both — the role
+ * says whether the caller may ask, the lifecycle state says whether the garden
+ * is in a state to be asked (see `garden-role.ts`'s second matrix). Reading
+ * them in one query rather than two is not only cheaper: it removes the window
+ * in which a garden could enter `deletion_requested` between the membership
+ * read and the lifecycle read, which is precisely the window this guard exists
+ * to close.
+ */
+export interface GardenAccess {
+  readonly membership: Membership;
+  readonly gardenLifecycleState: GardenLifecycleState;
 }
 
 /**
@@ -46,7 +64,16 @@ export interface MembershipDetail {
  * ship and a real Collaboration module has its own write path to this table.
  */
 export interface MembershipRepository {
-  findActiveMembership(gardenId: Uuid, profileId: Uuid): Promise<Membership | null>;
+  /**
+   * The caller's ACTIVE membership on an EXISTING garden, with that garden's
+   * lifecycle state. `null` means "no access to speak of" and covers both
+   * halves deliberately: no active membership, or no garden row left at all
+   * (a purge removes the garden but leaves the `removed` membership tombstone
+   * behind — see `GardenMembershipState`). Both must look identical to a
+   * caller, which is exactly what `GardenAuthorization` conceals as
+   * `notFound`.
+   */
+  findGardenAccess(gardenId: Uuid, profileId: Uuid): Promise<GardenAccess | null>;
 
   /** Grants the owner role at garden creation. Every garden has exactly one owner at creation. */
   insertOwner(id: Uuid, gardenId: Uuid, profileId: Uuid, now: Date): Promise<void>;
@@ -57,7 +84,7 @@ export interface MembershipRepository {
    * ordinary upserts" (`state === 'active'`) and "gardens whose only
    * remaining visibility is their own revocation tombstone"
    * (`state !== 'active'`) from a single read. Not narrowed to active-only
-   * like `findActiveMembership`, deliberately: a profile whose membership was
+   * like `findGardenAccess`, deliberately: a profile whose membership was
    * removed still needs to learn that fact from its next pull.
    */
   listMembershipsForProfile(profileId: Uuid): Promise<GardenPartitionMembership[]>;

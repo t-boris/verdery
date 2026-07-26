@@ -56,11 +56,18 @@ const START = new Date('2026-07-25T09:00:00Z');
  *   data, so it identifies nobody.
  * - `collaboration.membership.profile_id` — the revocation tombstones the
  *   offline protocol reads (deletion baseline migration's own header).
+ * - `collaboration.ownership_transfer.from_profile_id` / `.to_profile_id` —
+ *   the provenance of a SURVIVING garden's current ownership (P9A-DATA-01).
+ *   Deleting it would erase how the remaining owner came to own the garden;
+ *   keeping it costs nothing, for exactly the reason the audit event above
+ *   is kept: the id now resolves to a tombstone and identifies nobody.
  */
 const DOCUMENTED_SURVIVORS = new Set([
   'identity_access.profile.id',
   'platform.audit_event.actor_profile_id',
   'collaboration.membership.profile_id',
+  'collaboration.ownership_transfer.from_profile_id',
+  'collaboration.ownership_transfer.to_profile_id',
 ]);
 
 const dockerAvailable = await isDockerAvailable();

@@ -16,8 +16,13 @@ import type {
   SyncChangeRecorder,
 } from '../../../platform/sync/sync-change-recorder.js';
 import type { Clock } from '../../../shared/time/clock.js';
+import { GardenErrorCode } from '@verdery/api-contracts';
 import { GardenAuthorization } from '../../gardens-mapping/public.js';
-import type { GardenRole, MembershipRepository } from '../../gardens-mapping/public.js';
+import type {
+  GardenLifecycleState,
+  GardenRole,
+  MembershipRepository,
+} from '../../gardens-mapping/public.js';
 import { registerMediaRecord } from '../../media/public.js';
 import type { MediaRecord, MediaRepository } from '../../media/public.js';
 import type { ImageAnalysisResult } from '../domain/image-analysis-result.js';
@@ -46,17 +51,23 @@ function fixedClock(): Clock {
 }
 
 class FakeMembershipRepository implements MembershipRepository {
-  constructor(private readonly role: GardenRole | null) {}
+  constructor(
+    private readonly role: GardenRole | null,
+    private readonly gardenLifecycleState: GardenLifecycleState = 'active',
+  ) {}
 
-  findActiveMembership() {
+  findGardenAccess() {
     if (this.role === null) {
       return Promise.resolve(null);
     }
     return Promise.resolve({
-      id: randomUUID(),
-      gardenId: GARDEN_ID,
-      profileId: PROFILE_ID,
-      role: this.role,
+      membership: {
+        id: randomUUID(),
+        gardenId: GARDEN_ID,
+        profileId: PROFILE_ID,
+        role: this.role,
+      },
+      gardenLifecycleState: this.gardenLifecycleState,
     });
   }
 
@@ -81,8 +92,11 @@ class FakeMembershipRepository implements MembershipRepository {
   }
 }
 
-function authorizationWithRole(role: GardenRole | null): GardenAuthorization {
-  return new GardenAuthorization(new FakeMembershipRepository(role));
+function authorizationWithRole(
+  role: GardenRole | null,
+  gardenLifecycleState: GardenLifecycleState = 'active',
+): GardenAuthorization {
+  return new GardenAuthorization(new FakeMembershipRepository(role, gardenLifecycleState));
 }
 
 class FakeObservationRepository implements ObservationRepository {
@@ -305,6 +319,7 @@ interface Harness {
 
 function buildHarness(options: {
   role?: GardenRole | null;
+  gardenLifecycleState?: GardenLifecycleState;
   plantGardenIds?: ReadonlyMap<string, string>;
   mediaIds?: ReadonlySet<string>;
 }): Harness {
@@ -326,7 +341,7 @@ function buildHarness(options: {
   const recordObservation = new RecordObservation(
     idempotency,
     new FakeUnitOfWork(context),
-    authorizationWithRole(options.role ?? 'editor'),
+    authorizationWithRole(options.role ?? 'editor', options.gardenLifecycleState ?? 'active'),
     fixedClock(),
   );
 
@@ -343,6 +358,28 @@ const NOTE_ONLY_INPUT: RecordObservationInput = {
 };
 
 describe('RecordObservation', () => {
+  it.each<GardenLifecycleState>(['deletion_requested', 'purging'])(
+    'refuses to record an observation in a %s garden, writing nothing',
+    async (gardenLifecycleState) => {
+      const { recordObservation, observations, syncChanges } = buildHarness({
+        gardenLifecycleState,
+        plantGardenIds: new Map([[PLANT_ID, GARDEN_ID]]),
+      });
+
+      await expect(
+        recordObservation.execute(
+          GARDEN_ID,
+          PROFILE_ID,
+          { ...NOTE_ONLY_INPUT, plantId: PLANT_ID },
+          randomUUID(),
+        ),
+      ).rejects.toMatchObject({ code: GardenErrorCode.LifecycleConflict });
+
+      expect(observations.rows).toHaveLength(0);
+      expect(syncChanges.entries).toEqual([]);
+    },
+  );
+
   it('records a plant-level observation and returns it uncorrected', async () => {
     const { recordObservation, observations, syncChanges } = buildHarness({
       plantGardenIds: new Map([[PLANT_ID, GARDEN_ID]]),

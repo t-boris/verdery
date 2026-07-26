@@ -9,15 +9,20 @@
  * weather use cases, and the scheduled weather-refresh sweep with its
  * internal machine-to-machine route.
  *
- * The registry is constructed with ZERO registrations — no weather vendor
- * exists (P0-PROV-01 undecided), `weather.activeProviderKey` is null in
- * every environment, and every sweep run degrades to the typed
- * `noProviderConfigured` outcome by design. Selecting a vendor later means:
- * one adapter class, one registration added HERE, one configuration key —
- * nothing else moves (the P7-INT-01 replacement tests prove it).
+ * The registry now holds exactly ONE registration: Open-Meteo, the weather
+ * half of P0-PROV-01 decided on 2026-07-26. It is exactly the change
+ * P7-INT-01 predicted — one adapter class, one registration added HERE, one
+ * configuration key — and nothing else moved.
+ *
+ * Registered is not the same as ACTIVE: `weather.activeProviderKey`
+ * (`WEATHER_ACTIVE_PROVIDER_KEY`) still selects, and where it is unset the
+ * sweep keeps degrading to the typed `noProviderConfigured` outcome. The
+ * registration itself is keyless-safe: the default free tier needs no API
+ * key, so development composes without one.
  */
 
 import {
+  createOpenMeteoWeatherRegistration,
   GenerateAiExplanation,
   GetGardenWeather,
   KyselyProviderQuotaRepository,
@@ -63,7 +68,22 @@ export function composeIntegrations(
   aiExplanationAdapter: AiExplanationProviderAdapter | null,
   cloudTasksInvocationVerifier: CloudTasksInvocationVerifier,
 ): IntegrationsComposition {
-  const registry = new WeatherProviderRegistry([]);
+  // `globalThis.fetch` is the platform's own HTTP client (Node 24,
+  // ADR-0009); no HTTP dependency is added for one REST provider.
+  const registry = new WeatherProviderRegistry([
+    createOpenMeteoWeatherRegistration(
+      {
+        configuration: weather.openMeteo,
+        fetchTimeoutMs: weather.callTimeoutMs,
+        quotaLimits: {
+          maxCallsPerHour: weather.maxCallsPerHour,
+          maxCallsPerDay: weather.maxCallsPerDay,
+        },
+      },
+      (url, init) => globalThis.fetch(url, init),
+      clock,
+    ),
+  ]);
   const weatherRecords = new KyselyWeatherRecordRepository(database.queries);
   const providerQuotas = new KyselyProviderQuotaRepository(database.queries);
   const freshnessPolicy = {

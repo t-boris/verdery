@@ -11,12 +11,15 @@ const PLANT_ID = randomUUID();
 const PROFILE_ID = randomUUID();
 
 class FakeMembershipRepository implements MembershipRepository {
-  findActiveMembership() {
+  findGardenAccess() {
     return Promise.resolve({
-      id: randomUUID(),
-      gardenId: GARDEN_ID,
-      profileId: PROFILE_ID,
-      role: 'viewer' as const,
+      membership: {
+        id: randomUUID(),
+        gardenId: GARDEN_ID,
+        profileId: PROFILE_ID,
+        role: 'viewer' as const,
+      },
+      gardenLifecycleState: 'active' as const,
     });
   }
 

@@ -60,10 +60,32 @@ export async function seedGardenContent(
     INSERT INTO gardens_mapping.garden (id, name, created_by_profile_id, created_at, updated_at)
     VALUES (${gardenId}, ${name}, ${ownerId}, ${now}, ${now})
   `.execute(db);
+  const ownerMembershipId = randomUUID();
+  const editorMembershipId = randomUUID();
   await sql`
     INSERT INTO collaboration.membership (id, garden_id, profile_id, role, state, created_at, updated_at)
-    VALUES (${randomUUID()}, ${gardenId}, ${ownerId}, 'owner', 'active', ${now}, ${now}),
-           (${randomUUID()}, ${gardenId}, ${editorId}, 'editor', 'active', ${now}, ${now})
+    VALUES (${ownerMembershipId}, ${gardenId}, ${ownerId}, 'owner', 'active', ${now}, ${now}),
+           (${editorMembershipId}, ${gardenId}, ${editorId}, 'editor', 'active', ${now}, ${now})
+  `.execute(db);
+  // The open access period behind each membership (P9A-DATA-01). Written here
+  // rather than left to the migration's backfill because that backfill runs
+  // before this fixture exists, which would leave the purge step for this
+  // table asserting emptiness it never had to achieve.
+  await sql`
+    INSERT INTO collaboration.membership_period
+      (id, membership_id, garden_id, profile_id, role, valid_from)
+    VALUES (${randomUUID()}, ${ownerMembershipId}, ${gardenId}, ${ownerId}, 'owner', ${now}),
+           (${randomUUID()}, ${editorMembershipId}, ${gardenId}, ${editorId}, 'editor', ${now})
+  `.execute(db);
+  // A completed ownership transfer, so the purge step for that table is not
+  // vacuous either. `completed` rather than `pending` keeps the garden's one
+  // in-flight-transfer slot free.
+  await sql`
+    INSERT INTO collaboration.ownership_transfer
+      (id, garden_id, from_profile_id, to_profile_id, from_resulting_role,
+       state, authenticated_at, requested_at, completed_at)
+    VALUES (${randomUUID()}, ${gardenId}, ${ownerId}, ${editorId}, 'editor',
+            'completed', ${now}, ${now}, ${now})
   `.execute(db);
   await sql`
     INSERT INTO collaboration.invitation
