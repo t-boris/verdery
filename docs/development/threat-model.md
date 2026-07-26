@@ -380,15 +380,16 @@ cannot erase it quietly.
 
 Every outbound HTTP call in the repository, enumerated:
 
-| Caller              | Destination                             | Where the URL comes from                                                                                                                    |
-| ------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `services/api`      | Firebase Auth, FCM                      | `firebase-admin` SDK — no URL in application code                                                                                           |
-| `services/api`      | Cloud Storage (sign, metadata)          | `@google-cloud/storage` SDK, addressed by bucket + object key, never by URL                                                                 |
-| `services/api`      | Vertex AI                               | `@google/genai` SDK; the client is **not constructed at all** unless the kill-switch is on (it is off in every environment)                 |
-| `services/api`      | Weather / plant-content providers       | The provider registry has **zero registrations**; an unregistered active key fails at construction, not at runtime                          |
-| `services/workers`  | `/v1/internal/*` on the API (4 clients) | `services/workers/src/configuration.ts`, each a `z.string().url()` environment variable validated at startup; ID tokens minted per audience |
-| `services/workers`  | Cloud Tasks, Cloud Storage              | Google SDKs                                                                                                                                 |
-| `apps/web` (server) | The API origin, for the `/v1/*` rewrite | `API_PROXY_ORIGIN`, read at **build** time and compiled into the routes manifest — not a runtime input                                      |
+| Caller              | Destination                             | Where the URL comes from                                                                                                                                            |
+| ------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `services/api`      | Firebase Auth, FCM                      | `firebase-admin` SDK — no URL in application code                                                                                                                   |
+| `services/api`      | Cloud Storage (sign, metadata)          | `@google-cloud/storage` SDK, addressed by bucket + object key, never by URL                                                                                         |
+| `services/api`      | Vertex AI                               | `@google/genai` SDK; the client is **not constructed at all** unless the kill-switch is on (it is off in every environment)                                         |
+| `services/api`      | Weather provider (Open-Meteo)           | `globalThis.fetch`, addressed by configured host + query params, never by a client-supplied URL; keyless by default, `apikey` only when the paid tier is configured |
+| `services/api`      | Plant-content providers                 | The provider registry has **zero registrations**; an unregistered active key fails at construction, not at runtime                                                  |
+| `services/workers`  | `/v1/internal/*` on the API (4 clients) | `services/workers/src/configuration.ts`, each a `z.string().url()` environment variable validated at startup; ID tokens minted per audience                         |
+| `services/workers`  | Cloud Tasks, Cloud Storage              | Google SDKs                                                                                                                                                         |
+| `apps/web` (server) | The API origin, for the `/v1/*` rewrite | `API_PROXY_ORIGIN`, read at **build** time and compiled into the routes manifest — not a runtime input                                                              |
 
 | Id          | Threat                                                                          | Existing mitigation and evidence                                                                                                                                                                                     |
 | ----------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

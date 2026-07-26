@@ -235,12 +235,14 @@ worker-driven sweep — never inside a request a user is waiting on. If that hol
 degrades _freshness_, not _availability_. That is the property worth a load test, and it is what
 this scenario asserts.
 
-**What it can and cannot measure today, precisely.** Zero providers are registered:
-`compose-integrations.ts` constructs `new WeatherProviderRegistry([])`,
+**What it can and cannot measure today, precisely.** Open-Meteo is registered in
+`compose-integrations.ts` (`P0-PROV-01`'s weather half, decided 2026-07-26), but not active:
 `WEATHER_ACTIVE_PROVIDER_KEY` is unset everywhere, and the AI kill-switch is off. So today the sweep
-returns the typed `noProviderConfigured` degradation for every considered garden, and the run
+still returns the typed `noProviderConfigured` degradation for every considered garden, and the run
 measures the **floor** — the sweep's cost with no provider latency in it at all. That is still the
 baseline every later measurement is compared against, and it proves the assertion mechanism works.
+Once the active key and a paid-tier API key are configured, this floor stops being representative
+and the scenario must be re-run with the real provider live.
 
 Inducing real provider latency is **blocked on a provider existing** (`P0-PROV-01`, undecided), not
 deferred by choice. When one is selected, point its registration's base URL at a delaying stub in a

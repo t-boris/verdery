@@ -411,11 +411,15 @@ proven by the two-fake replacement tests in
 use cases into the composition root, so `WEATHER_OBSERVATION_FRESH_FOR_MS` /
 `WEATHER_FORECAST_FRESH_FOR_MS` now carry documented reasoned defaults (one hour / six hours,
 `configuration-schema.ts`'s own comment) and `WEATHER_ACTIVE_PROVIDER_KEY` is optional environment
-configuration, absent everywhere. Quota budgets remain per-provider registration metadata with no
-registrations to carry them. Scheduling is closed: the worker's hourly interval scheduler triggers
-`/internal/weather-refresh/sweep`, which iterates active georeferenced gardens through
-`RefreshGardenWeather` (least-recently-fetched first, batch-capped, quota-exhaustion stops the
-batch honestly) — with zero providers a typed, logged, observable no-op. Related, and NOT deferred:
+configuration, absent everywhere. **`P0-PROV-01`'s weather half is now decided** (2026-07-26,
+`docs/implementation-plan.md` §29.1.1): Open-Meteo, models pinned to NOAA, registered in
+`compose-integrations.ts` with real license/quota/timeout metadata. Registered is not active —
+`WEATHER_ACTIVE_PROVIDER_KEY` still selects nothing, so the sweep's behavior below is unchanged
+until that key and a paid-tier API key are configured. Scheduling is closed: the worker's hourly
+interval scheduler triggers `/internal/weather-refresh/sweep`, which iterates active georeferenced
+gardens through `RefreshGardenWeather` (least-recently-fetched first, batch-capped,
+quota-exhaustion stops the batch honestly) — with no active provider a typed, logged, observable
+no-op. Related, and NOT deferred:
 `tasks_recommendations.recommendation_evidence.source_weather_record_id` — P7-DATA-01's documented
 bare-uuid deferral — is now a real foreign key onto `integrations.weather_record`, closed by
 `1785700000000_integrations-weather-baseline.sql` at the first moment its target table existed.
@@ -432,10 +436,10 @@ language, licensed description and care-guidance sections, license/attribution/j
 presentation snapshot per row), and the `MapPlantTaxonomy`/`RefreshPlantContent`/`GetPlantContent`
 use cases with the shared quota/deadline machinery — but NO real plant-content vendor exists
 anywhere in this repository, deliberately: provider selection is `P0-PROV-01`, the same undecided
-implementation-time selection that bounds the weather integration. The registry has zero
-production registrations, the active key is null everywhere, every outcome is a typed
-`noProviderConfigured` degradation, and the only adapter implementations are the deterministic
-fakes the provider-replacement tests run
+implementation-time selection that bounded the weather integration until its half was decided
+(see above) — the plant-content half remains open. The registry has zero production registrations,
+the active key is null everywhere, every outcome is a typed `noProviderConfigured` degradation, and
+the only adapter implementations are the deterministic fakes the provider-replacement tests run
 (`tests/integration/integrations-plant-content.test.ts` — the work package's acceptance
 evidence: two fakes through identical machinery; the switch is one adapter class, one
 registration, one explicit `MapPlantTaxonomy` run, and one configuration key; both providers'
