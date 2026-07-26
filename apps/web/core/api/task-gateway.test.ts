@@ -58,6 +58,9 @@ const TASK: Task = {
   createdAt: '2026-07-21T09:00:00Z',
   updatedAt: '2026-07-21T09:00:00Z',
   completedAt: null,
+  assignedProfileId: null,
+  assignedAt: null,
+  completedByProfileId: null,
 };
 
 describe('createTaskGateway', () => {
