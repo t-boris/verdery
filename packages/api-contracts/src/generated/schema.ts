@@ -735,6 +735,79 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/gardens/{gardenId}/assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List a garden's active professional assignments
+         * @description Every active role may read this — owner, editor, and viewer alike,
+         *     the same `viewGarden` reasoning `listGardenMembers` already applies:
+         *     a household member who cannot see which outside professional
+         *     currently has access to their own garden has less visibility into
+         *     it than a stranger would. Returns every ACTIVE
+         *     `collaboration.garden_assignment` row naming this garden, across
+         *     every service organization, newest-assigned first.
+         *
+         *     This is a read of the SAME rows `listOrganizationGardenAssignments`
+         *     (tag `Organizations`) reads from the opposite direction — "who can
+         *     reach this garden" versus "which gardens can this organization's
+         *     members reach." Neither endpoint's authorization gate is satisfied
+         *     by the other: seeing this list requires garden membership, not
+         *     organization membership, and organization membership alone never
+         *     grants it (ADR-0012).
+         *
+         *     Source: implementation-plan.md work package P9B-API-01;
+         *     architecture/collaboration-and-client-sharing.md, section
+         *     "7. Service Organizations and Assignments".
+         */
+        get: operations["listGardenAssignments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/engagements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List a garden's client engagements
+         * @description Owner-only (`manageGarden`), unlike `listGardenAssignments` — an
+         *     engagement names a service organization relationship and stewardship
+         *     policy, the same "business-relationship" sensitivity
+         *     `listGardenInvitations` already reserves to the owner alone (an
+         *     invitation carries an intended email; an engagement carries who is
+         *     contracted to serve this garden and under what data policy). Returns
+         *     every engagement in any state (`draft`, `active`, `ended`,
+         *     `revoked`), newest first.
+         *
+         *     Source: implementation-plan.md work package P9B-API-01;
+         *     architecture/collaboration-and-client-sharing.md, section
+         *     "8. Client Engagement".
+         */
+        get: operations["listGardenClientEngagements"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/gardens/{gardenId}/map": {
         parameters: {
             query?: {
@@ -2616,6 +2689,447 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/service-organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the caller's own service organizations
+         * @description Every organization the caller has ACTIVE membership on, most
+         *     recently created first — the organization-scoped mirror of
+         *     `listGardens`.
+         *
+         *     Source: implementation-plan.md work package P9B-API-01.
+         */
+        get: operations["listServiceOrganizations"];
+        put?: never;
+        /**
+         * Create a service organization
+         * @description ANY authenticated profile may call this — an organization does not
+         *     exist yet for anyone to hold a role on, so no capability could
+         *     possibly gate its own creation, the same reasoning
+         *     `createGarden` already applies to a brand-new garden. Creates the
+         *     organization AND grants its caller `organizationAdmin` membership in
+         *     one transaction (ADR-0012: "a solo professional may start with an
+         *     organization containing one administrator").
+         *
+         *     Source: implementation-plan.md work package P9B-API-01;
+         *     architecture/decisions/ADR-0012-separate-team-and-client-sharing.md,
+         *     section "Service Organizations".
+         */
+        post: operations["createServiceOrganization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/service-organizations/{organizationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get one service organization
+         * @description Any ACTIVE member may read this — `organizationAdmin` and
+         *     `professional` alike; there is no capability gate on a plain read of
+         *     the organization's own identity. Existence is concealed as `404` to
+         *     a non-member, the same posture `getGarden` already applies.
+         *
+         *     Source: implementation-plan.md work package P9B-API-01.
+         */
+        get: operations["getServiceOrganization"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/service-organizations/{organizationId}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List an organization's active membership roster
+         * @description Any ACTIVE member may read this — `organizationAdmin` and
+         *     `professional` alike, the same "any role may see who else can see
+         *     their own resource" reasoning `listGardenMembers` already applies.
+         *
+         *     Source: implementation-plan.md work package P9B-API-01.
+         */
+        get: operations["listOrganizationMembers"];
+        put?: never;
+        /**
+         * Add an existing profile as an organization member
+         * @description `organizationAdmin`-only (`manageOrganizationMembership`). Adds an
+         *     EXISTING profile by id directly — no invitation-with-token flow
+         *     exists for organization membership, deliberately: unlike a garden
+         *     invitation (which must reach someone with no prior relationship to
+         *     the garden, often by unauthenticated email link) or a client
+         *     invitation (P9C-INVITE-01, which must bind and verify an external
+         *     client's email), an organization admin already has an ordinary,
+         *     authenticated relationship with the professional they are adding —
+         *     the same "do not build an invitation system this package does not
+         *     actually need" judgment call implementation-plan.md work package
+         *     P9B-API-01 itself calls for. Fails with `409` if the named profile
+         *     already has ANY membership record (active or removed) on this
+         *     organization — `collaboration.organization_membership`'s own
+         *     one-row-per-pair-forever constraint means a removed member cannot
+         *     currently be re-added.
+         *
+         *     Source: implementation-plan.md work package P9B-API-01;
+         *     architecture/collaboration-and-client-sharing.md, section
+         *     "7. Service Organizations and Assignments".
+         */
+        post: operations["addOrganizationMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/service-organizations/{organizationId}/members/{profileId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: components["schemas"]["Uuid"];
+                profileId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a member, or leave an organization
+         * @description A caller may always remove THEMSELVES — leaving an organization is
+         *     not organization administration, the same posture
+         *     `removeGardenMember` already takes for leaving a garden. Removing
+         *     anyone else requires `manageOrganizationMembership`. Either way,
+         *     removing the organization's last active `organizationAdmin` is
+         *     refused with `422`, including a sole admin attempting to leave their
+         *     own organization.
+         *
+         *     Source: implementation-plan.md work package P9B-API-01.
+         */
+        delete: operations["removeOrganizationMember"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a member's role between organizationAdmin and professional
+         * @description `organizationAdmin`-only (`manageOrganizationMembership`). Refused
+         *     with `422` when the change would leave the organization with no
+         *     active `organizationAdmin` — the last-admin invariant this package
+         *     protects the same way `changeGardenMemberRole`'s sibling
+         *     `demoteGardenOwner` protects the garden's own last-owner invariant, a
+         *     locking read (`FOR UPDATE`) over every other active admin
+         *     immediately before the write, exactly as the P9B-DATA-01 migration's
+         *     own header prescribes.
+         *
+         *     Source: implementation-plan.md work package P9B-API-01;
+         *     migrations/1786600000000_service-organizations-and-client-engagements.sql.
+         */
+        patch: operations["changeOrganizationMemberRole"];
+        trace?: never;
+    };
+    "/service-organizations/{organizationId}/garden-assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List an organization's active garden assignments
+         * @description Any ACTIVE member may read this — "which gardens can this
+         *     organization's members reach," the mirror question
+         *     `listGardenAssignments` (tag `Collaboration`) answers from the
+         *     garden's own side.
+         *
+         *     Source: implementation-plan.md work package P9B-API-01.
+         */
+        get: operations["listOrganizationGardenAssignments"];
+        put?: never;
+        /**
+         * Assign an organization member to a garden
+         * @description `organizationAdmin`-only (`manageGardenAssignment`) — the ONE place
+         *     organization boundaries and garden boundaries meet. Checks BOTH that
+         *     the caller holds `manageGardenAssignment` on `organizationId` AND
+         *     that `profileId` is genuinely an ACTIVE member of THAT SAME
+         *     organization (`422` `organization.assignment.assignee_not_member`
+         *     otherwise) — an organization can never assign a stranger to
+         *     anything.
+         *
+         *     Free-standing, NOT scoped by an active client engagement: this
+         *     endpoint does not require a `client_engagement` naming this
+         *     organization and garden to already exist. Section 3's own domain
+         *     diagram draws `garden_assignment` as a direct edge from
+         *     `organization_membership` to `garden`, with no `client_engagement`
+         *     on that path at all, and `garden_assignment` carries no foreign key
+         *     or other reference to `client_engagement` in the schema — the two
+         *     are genuinely independent records. An organization administrator may
+         *     therefore assign any of their organization's members to any garden
+         *     id that exists, unconditionally; nothing here asks the garden's
+         *     owner to have approved it first. `404` if no garden exists at
+         *     `gardenId`. Fails with `409` if the named profile already holds an
+         *     ACTIVE assignment on this garden (`garden_assignment_active_key`'s
+         *     own invariant — the schema's enforcement of "organization membership
+         *     alone grants no garden access, an active assignment is what does,"
+         *     at most one at a time).
+         *
+         *     Source: implementation-plan.md work package P9B-API-01;
+         *     architecture/collaboration-and-client-sharing.md, sections
+         *     "3. Domain Relationships", "7. Service Organizations and Assignments".
+         */
+        post: operations["createGardenAssignment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/service-organizations/{organizationId}/garden-assignments/{assignmentId}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: components["schemas"]["Uuid"];
+                assignmentId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End a garden assignment
+         * @description `organizationAdmin`-only (`manageGardenAssignment`). Idempotent:
+         *     ending an assignment already `ended` returns it unchanged; ending one
+         *     that is `revoked` (a different terminal state) is refused with
+         *     `422`.
+         *
+         *     Source: implementation-plan.md work package P9B-API-01.
+         */
+        post: operations["endGardenAssignment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/service-organizations/{organizationId}/garden-assignments/{assignmentId}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: components["schemas"]["Uuid"];
+                assignmentId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke a garden assignment
+         * @description `organizationAdmin`-only (`manageGardenAssignment`). Idempotent:
+         *     revoking an assignment already `revoked` returns it unchanged;
+         *     revoking one that is `ended` (a different terminal state) is refused
+         *     with `422`.
+         *
+         *     Source: implementation-plan.md work package P9B-API-01.
+         */
+        post: operations["revokeGardenAssignment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/service-organizations/{organizationId}/client-engagements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List an organization's client engagements
+         * @description Any ACTIVE member may read this. Returns every engagement in any
+         *     state, newest first.
+         *
+         *     Source: implementation-plan.md work package P9B-API-01.
+         */
+        get: operations["listOrganizationClientEngagements"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/client-engagements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a client engagement for a garden
+         * @description Draft state only — `activateClientEngagement` is the separate step
+         *     that makes it live. Authorization is dual, decided by whether
+         *     `serviceOrganizationId` is supplied:
+         *
+         *     - Supplied: the caller must hold `manageEngagement` on THAT
+         *       organization. The named garden need only EXIST (`404` otherwise);
+         *       nothing requires its owner to have done anything first, the same
+         *       free-standing posture `createGardenAssignment` already takes for
+         *       the identical reason (section 3's domain diagram; no schema
+         *       reference links `client_engagement` to any prerequisite).
+         *     - Omitted: the caller must hold `manageGarden` on the garden itself
+         *       — a garden owner running the service relationship directly, no
+         *       service organization attached (ADR-0012 section 4.4: "For an
+         *       engagement with no service organization, a garden owner grants
+         *       [publisher access]"; creating the engagement itself follows the
+         *       same owner-only posture).
+         *
+         *     `stewardshipPolicy` defaults to `residential` (the only value the
+         *     database currently admits) and `clientNotificationsEnabled` defaults
+         *     to `true` when omitted.
+         *
+         *     Source: implementation-plan.md work package P9B-API-01;
+         *     architecture/collaboration-and-client-sharing.md, section
+         *     "8. Client Engagement";
+         *     architecture/decisions/ADR-0012-separate-team-and-client-sharing.md,
+         *     section "Client Engagement".
+         */
+        post: operations["createClientEngagement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/client-engagements/{engagementId}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Activate a draft client engagement
+         * @description Same dual authorization as `createClientEngagement`, re-evaluated
+         *     against the STORED engagement's own `serviceOrganizationId` (never
+         *     against a client-supplied value). Only the `draft` -> `active`
+         *     transition applies; idempotent when already `active`. Refused with
+         *     `422` (`client_engagement.invalid_transition`) from `ended` or
+         *     `revoked` — both terminal.
+         *
+         *     Enforces only the state-machine transition itself
+         *     (`client-engagement-state.ts`). The richer precondition
+         *     collaboration-and-client-sharing.md section 8 also describes
+         *     ("activation requires ... one client identity or pending bound
+         *     invitation") is NOT enforced by this endpoint: nothing in this
+         *     package creates a `client_access_grant` row — that mechanism is
+         *     P9C-INVITE-01's own scope ("implement email-bound, expiring client
+         *     invitations"). Documented here rather than silently assumed, the
+         *     same honesty the underlying migration's own header applies to every
+         *     invariant it does not enforce.
+         *
+         *     Source: implementation-plan.md work packages P9B-API-01, P9C-INVITE-01;
+         *     architecture/collaboration-and-client-sharing.md, section
+         *     "8. Client Engagement".
+         */
+        post: operations["activateClientEngagement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/client-engagements/{engagementId}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End an active client engagement
+         * @description Same dual authorization as `createClientEngagement`. Only the
+         *     `active` -> `ended` transition applies; idempotent when already
+         *     `ended`. Refused with `422` from `draft` (never activated) or
+         *     `revoked`.
+         *
+         *     Source: implementation-plan.md work package P9B-API-01;
+         *     architecture/collaboration-and-client-sharing.md, section
+         *     "8. Client Engagement".
+         */
+        post: operations["endClientEngagement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/client-engagements/{engagementId}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke a client engagement
+         * @description Same dual authorization as `createClientEngagement`. Valid from
+         *     `draft` OR `active`; idempotent when already `revoked`. Refused with
+         *     `422` from `ended` (a different terminal state).
+         *
+         *     Source: implementation-plan.md work package P9B-API-01;
+         *     architecture/collaboration-and-client-sharing.md, section
+         *     "8. Client Engagement".
+         */
+        post: operations["revokeClientEngagement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2813,6 +3327,151 @@ export interface components {
         };
         AcceptInvitationRequest: {
             token: string;
+        };
+        /**
+         * @description Mirrors `collaboration.organization_membership.role`
+         *     (`organization_membership_role_check`), camelCased on the wire the
+         *     same way `GardenLifecycleState` camelCases `deletion_requested`.
+         *     `organizationAdmin` holds every organization capability
+         *     (`manageOrganizationMembership`, `manageGardenAssignment`,
+         *     `manageEngagement`); `professional` holds none of its own — a
+         *     professional's rights come entirely from an explicit
+         *     `GardenAssignment`, never from organization membership itself
+         *     (ADR-0012: "Organization membership alone grants no garden access").
+         *
+         *     Source: architecture/collaboration-and-client-sharing.md, section
+         *     "7. Service Organizations and Assignments".
+         * @enum {string}
+         */
+        OrganizationRole: "organizationAdmin" | "professional";
+        ServiceOrganization: {
+            id: components["schemas"]["Uuid"];
+            name: string;
+            /** @description The authenticated caller's own role on this organization. Informational for client UI only. */
+            callerRole: components["schemas"]["OrganizationRole"];
+            revision: components["schemas"]["Revision"];
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+        };
+        ServiceOrganizationListResult: {
+            items: components["schemas"]["ServiceOrganization"][];
+        };
+        CreateServiceOrganizationRequest: {
+            name: string;
+        };
+        /**
+         * @description Mirrors `collaboration.organization_membership.state`.
+         * @enum {string}
+         */
+        OrganizationMemberState: "active" | "removed";
+        OrganizationMember: {
+            id: components["schemas"]["Uuid"];
+            organizationId: components["schemas"]["Uuid"];
+            profileId: components["schemas"]["Uuid"];
+            role: components["schemas"]["OrganizationRole"];
+            state: components["schemas"]["OrganizationMemberState"];
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+        };
+        OrganizationMemberListResult: {
+            items: components["schemas"]["OrganizationMember"][];
+        };
+        AddOrganizationMemberRequest: {
+            /** @description An existing profile's id. No invitation flow exists for organization membership — see `addOrganizationMember`'s own description. */
+            profileId: components["schemas"]["Uuid"];
+            role: components["schemas"]["OrganizationRole"];
+        };
+        ChangeOrganizationMemberRoleRequest: {
+            role: components["schemas"]["OrganizationRole"];
+        };
+        /**
+         * @description The role vocabulary a garden assignment may name — identical to
+         *     `InvitationIntendedRole` and for the identical reason: `owner`
+         *     is excluded (`garden_assignment_role_check`), because the garden's
+         *     owner is the CLIENT; ownership never travels through an assignment.
+         * @enum {string}
+         */
+        GardenAssignmentRole: "editor" | "viewer";
+        /**
+         * @description Mirrors `collaboration.garden_assignment.state`. Both `ended` and
+         *     `revoked` are terminal — see `garden-assignment-state.ts`'s own
+         *     state diagram.
+         * @enum {string}
+         */
+        GardenAssignmentState: "active" | "ended" | "revoked";
+        GardenAssignment: {
+            id: components["schemas"]["Uuid"];
+            organizationId: components["schemas"]["Uuid"];
+            /** @description The assigned professional — an ACTIVE member of `organizationId` at the time this assignment was created. */
+            profileId: components["schemas"]["Uuid"];
+            gardenId: components["schemas"]["Uuid"];
+            role: components["schemas"]["GardenAssignmentRole"];
+            state: components["schemas"]["GardenAssignmentState"];
+            validFrom: components["schemas"]["Timestamp"];
+            /** @description Present only once `state` is `ended` or `revoked`. */
+            validUntil?: components["schemas"]["Timestamp"];
+            createdByProfileId: components["schemas"]["Uuid"];
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        GardenAssignmentListResult: {
+            items: components["schemas"]["GardenAssignment"][];
+        };
+        CreateGardenAssignmentRequest: {
+            /** @description Must name a profile holding ACTIVE membership on the organization named in the path. */
+            profileId: components["schemas"]["Uuid"];
+            gardenId: components["schemas"]["Uuid"];
+            role: components["schemas"]["GardenAssignmentRole"];
+        };
+        /**
+         * @description Mirrors `collaboration.client_engagement.state`. Both `ended` and
+         *     `revoked` are terminal — see `client-engagement-state.ts`'s own
+         *     state diagram.
+         * @enum {string}
+         */
+        ClientEngagementState: "draft" | "active" | "ended" | "revoked";
+        /**
+         * @description Mirrors `collaboration.client_engagement.stewardship_policy`. Only
+         *     one value is admitted today — the default residential-service
+         *     policy (collaboration-and-client-sharing.md section 18) making the
+         *     accepted garden model and published deliverables client-exportable,
+         *     while provider-internal notes, drafts, assignments, diagnostics, and
+         *     estimates are not. A second, contractually different policy
+         *     requires explicit product and legal approval.
+         * @enum {string}
+         */
+        StewardshipPolicy: "residential";
+        ClientEngagement: {
+            id: components["schemas"]["Uuid"];
+            gardenId: components["schemas"]["Uuid"];
+            /** @description Absent when the garden's own owner runs the engagement directly, with no service organization attached. */
+            serviceOrganizationId?: components["schemas"]["Uuid"];
+            state: components["schemas"]["ClientEngagementState"];
+            stewardshipPolicy: components["schemas"]["StewardshipPolicy"];
+            clientNotificationsEnabled: boolean;
+            createdByProfileId: components["schemas"]["Uuid"];
+            activatedAt?: components["schemas"]["Timestamp"];
+            endedAt?: components["schemas"]["Timestamp"];
+            revokedAt?: components["schemas"]["Timestamp"];
+            /** @description Present only on a revoked engagement, and only when one was given. */
+            revokedReason?: string;
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+        };
+        ClientEngagementListResult: {
+            items: components["schemas"]["ClientEngagement"][];
+        };
+        CreateClientEngagementRequest: {
+            gardenId: components["schemas"]["Uuid"];
+            /** @description Omit for a garden owner running the engagement directly, with no service organization attached. */
+            serviceOrganizationId?: components["schemas"]["Uuid"];
+            /** @description Defaults to `residential` when omitted. */
+            stewardshipPolicy?: components["schemas"]["StewardshipPolicy"];
+            /** @description Defaults to `true` when omitted. */
+            clientNotificationsEnabled?: boolean;
+        };
+        RevokeClientEngagementRequest: {
+            /** @description Optional free-text reason, stored as `revoked_reason`. */
+            reason?: string;
         };
         SessionLoginRequest: {
             /** @description Freshly obtained Firebase ID token, verified server-side before any cookie is issued. */
@@ -6046,6 +6705,55 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
         };
     };
+    listGardenAssignments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The garden's active assignments. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GardenAssignmentListResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listGardenClientEngagements: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The garden's client engagements, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientEngagementListResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     getGardenMap: {
         parameters: {
             query?: {
@@ -8146,6 +8854,512 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    listServiceOrganizations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's service organizations. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceOrganizationListResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createServiceOrganization: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateServiceOrganizationRequest"];
+            };
+        };
+        responses: {
+            /** @description The created organization, with the caller's own `organizationAdmin` role. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceOrganization"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getServiceOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The organization. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceOrganization"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listOrganizationMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The organization's active members. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationMemberListResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    addOrganizationMember: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                organizationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddOrganizationMemberRequest"];
+            };
+        };
+        responses: {
+            /** @description The new membership. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationMember"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    removeOrganizationMember: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                organizationId: components["schemas"]["Uuid"];
+                profileId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The removed membership. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationMember"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    changeOrganizationMemberRole: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                organizationId: components["schemas"]["Uuid"];
+                profileId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeOrganizationMemberRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description The member's updated (or already current) role. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationMember"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    listOrganizationGardenAssignments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The organization's active assignments. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GardenAssignmentListResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createGardenAssignment: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                organizationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateGardenAssignmentRequest"];
+            };
+        };
+        responses: {
+            /** @description The created assignment. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GardenAssignment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    endGardenAssignment: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                organizationId: components["schemas"]["Uuid"];
+                assignmentId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The ended assignment. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GardenAssignment"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    revokeGardenAssignment: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                organizationId: components["schemas"]["Uuid"];
+                assignmentId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The revoked assignment. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GardenAssignment"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    listOrganizationClientEngagements: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The organization's client engagements, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientEngagementListResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createClientEngagement: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateClientEngagementRequest"];
+            };
+        };
+        responses: {
+            /** @description The created engagement, in `draft` state. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientEngagement"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    activateClientEngagement: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The activated (or already active) engagement. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientEngagement"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    endClientEngagement: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The ended engagement. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientEngagement"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    revokeClientEngagement: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RevokeClientEngagementRequest"];
+            };
+        };
+        responses: {
+            /** @description The revoked engagement. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientEngagement"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
         };
     };
 }

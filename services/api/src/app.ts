@@ -15,6 +15,14 @@ import helmet from '@fastify/helmet';
 import underPressure from '@fastify/under-pressure';
 import { API_BASE_PATH } from '@verdery/api-contracts';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
+import {
+  registerClientEngagementRoutes,
+  registerGardenAssignmentRoutes,
+  registerGardenScopedCollaborationRoutes,
+  registerOrganizationMemberRoutes,
+  registerOrganizationRoutes,
+} from './modules/collaboration/public.js';
+import { composeCollaboration } from './compose-collaboration.js';
 import { composeDeletion } from './compose-deletion.js';
 import { composeExports } from './compose-exports.js';
 import { composeGardensMapping } from './compose-gardens-mapping.js';
@@ -259,6 +267,21 @@ export async function buildApplication(
     invitationExpirySweepRouteDependencies,
     ownershipRoutesDependencies,
   } = composeGardensMapping(database, clock, cloudTasksInvocationVerifier);
+
+  // collaboration (P9B-API-01): service organizations, organization
+  // membership, garden assignment, and client engagement lifecycle. Reuses
+  // `gardenAuthorization` (the org-backed and garden-scoped dual
+  // authorization gates) and `profileRepository` (validates an added
+  // organization member's profile id actually exists). Split into
+  // `compose-collaboration.ts` for the same 600-line reason as its
+  // siblings.
+  const {
+    organizationRoutesDependencies,
+    organizationMemberRoutesDependencies,
+    gardenAssignmentRoutesDependencies,
+    clientEngagementRoutesDependencies,
+    gardenScopedRoutesDependencies,
+  } = composeCollaboration(database, clock, gardenAuthorization, profileRepository);
 
   // media (P6-API-01): registration, authorized resumable upload sessions,
   // completion verification, status, and authorized short-lived access.
@@ -526,6 +549,14 @@ export async function buildApplication(
       registerMemberRoutes(instance, memberRoutesDependencies);
       // P9A-OWNER-01: recent-auth-gated promote/demote/transfer/cancel.
       registerOwnershipRoutes(instance, ownershipRoutesDependencies);
+      // P9B-API-01: service organizations, organization membership, garden
+      // assignment, and client engagement lifecycle, plus the two
+      // garden-scoped reads onto that domain.
+      registerOrganizationRoutes(instance, organizationRoutesDependencies);
+      registerOrganizationMemberRoutes(instance, organizationMemberRoutesDependencies);
+      registerGardenAssignmentRoutes(instance, gardenAssignmentRoutesDependencies);
+      registerClientEngagementRoutes(instance, clientEngagementRoutesDependencies);
+      registerGardenScopedCollaborationRoutes(instance, gardenScopedRoutesDependencies);
       registerPlantRoutes(instance, plantRoutesDependencies);
       registerObservationRoutes(instance, observationRoutesDependencies);
       registerTaskRoutes(instance, taskRoutesDependencies);

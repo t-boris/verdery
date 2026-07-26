@@ -6195,9 +6195,22 @@ no garden access), and the client-engagement record P9C's publication workflow w
       Engagement state-sequencing is NOT database-enforced (no PL/pgSQL in this repo, matching
       the last-owner precedent) — proved by a test that walks a row backwards and the DB accepts
       it. 237 files / 1835 tests, all green.
-- [ ] P9B-API-01 — organization/member/assignment and client-engagement lifecycle APIs without
+- [x] P9B-API-01 — organization/member/assignment and client-engagement lifecycle APIs without
       allowing organization membership alone to grant garden access. Organization/garden
-      cross-product denial matrix.
+      cross-product denial matrix. 241 files / 1888 tests, all green. New `Organizations` contract
+      tag, 18 endpoints, last-admin lock proven under real concurrency (mirrors last-owner).
+      Assignment modeled as free-standing (no FK to `client_engagement` — confirmed in the
+      migration and the architecture doc's own domain-relationship diagram).
+- [ ] **P9B-AUTH-01 (found during review, not in the original plan table — genuinely necessary)** —
+      wire `garden_assignment` into real garden access. Found by personally reading the denial-
+      matrix test: a professional with an ACTIVE assignment naming an exact garden still gets
+      `NotFoundError` from `GardenAuthorization.requireCapability` for `viewGarden`, because
+      `MembershipRepository.findGardenAccess` (the ONLY resolution path every content module —
+      map, plants, tasks, observations, media — funnels through) reads exclusively from
+      `collaboration.membership` and has never heard of `collaboration.garden_assignment`.
+      Assignments are currently pure bookkeeping with zero behavioral effect: an org admin can
+      "assign" a professional to a garden today and that professional can do nothing on it. This
+      must be fixed before P9B-WEB-01, or the professional workspace UI would visibly do nothing.
 - [ ] P9B-WEB-01 — responsive professional workspace: organization members, assigned gardens,
       clients, engagements, publisher administration. Solo-professional and small-team E2E.
 

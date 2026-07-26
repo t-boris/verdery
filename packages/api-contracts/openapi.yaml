@@ -59,7 +59,24 @@ tags:
   - name: Exports
     description: Portable data export — request an asynchronous account-wide or garden-scoped export package (ZIP with JSON, GeoJSON, CSV, entitled media, checksums, and a README), poll its state, and obtain a short-lived signed download URL while the package is within its 7-day expiry window. Generation is asynchronous and checkpointed; completion is announced through the in-app notification inbox.
   - name: Collaboration
-    description: Operational garden membership and invitations — issue and revoke editor/viewer invitations, accept one as the invited profile, list a garden's member roster, and change or remove a non-owner member's role. Owner promotion, demotion, and ownership transfer (P9A-OWNER-01) are the same tag's recent-auth-gated operations for the owner set itself — promote an active member to co-owner, demote a co-owner back to editor/viewer while at least one other owner remains, and REQUEST transfer of ownership outright to another active member. A requested transfer stays pending until its named recipient accepts or declines it, or its initiator cancels it — ownership only actually moves on acceptance.
+    description: Operational garden membership and invitations — issue and revoke editor/viewer invitations, accept one as the invited profile, list a garden's member roster, and change or remove a non-owner member's role. Owner promotion, demotion, and ownership transfer (P9A-OWNER-01) are the same tag's recent-auth-gated operations for the owner set itself — promote an active member to co-owner, demote a co-owner back to editor/viewer while at least one other owner remains, and REQUEST transfer of ownership outright to another active member. A requested transfer stays pending until its named recipient accepts or declines it, or its initiator cancels it — ownership only actually moves on acceptance. This tag also carries the two garden-scoped READS onto the professional-service domain (`GET /gardens/{gardenId}/assignments`, `GET /gardens/{gardenId}/engagements`) — they are garden-scoped resources, authorized the same way every other garden read in this tag is, even though the rows they read belong to the `Organizations` tag's own domain.
+  - name: Organizations
+    description: |
+      The professional-service domain (P9B-API-01) — lightweight service
+      organizations, their membership, the explicit garden assignment that is
+      the ONLY mechanism through which organization membership becomes garden
+      access, and client engagement lifecycle. Distinct from `Collaboration`
+      deliberately: these resources are organization- and engagement-scoped,
+      not garden-scoped, and the single most important invariant this tag's
+      own endpoints protect is ADR-0012's own sentence — "Organization
+      membership alone grants no garden access. A professional must also have
+      an active garden assignment or operational garden membership." No
+      endpoint under this tag ever resolves garden access from
+      `organization_membership` alone.
+
+      Source: architecture/decisions/ADR-0012-separate-team-and-client-sharing.md;
+      architecture/collaboration-and-client-sharing.md, sections
+      "7. Service Organizations and Assignments", "8. Client Engagement".
 
 paths:
   /health/live:
@@ -1149,6 +1166,89 @@ paths:
                 $ref: '#/components/schemas/IncomingOwnershipTransferListResult'
         '401':
           $ref: '#/components/responses/Unauthorized'
+
+  /gardens/{gardenId}/assignments:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    get:
+      operationId: listGardenAssignments
+      tags: [Collaboration]
+      summary: List a garden's active professional assignments
+      description: |
+        Every active role may read this — owner, editor, and viewer alike,
+        the same `viewGarden` reasoning `listGardenMembers` already applies:
+        a household member who cannot see which outside professional
+        currently has access to their own garden has less visibility into
+        it than a stranger would. Returns every ACTIVE
+        `collaboration.garden_assignment` row naming this garden, across
+        every service organization, newest-assigned first.
+
+        This is a read of the SAME rows `listOrganizationGardenAssignments`
+        (tag `Organizations`) reads from the opposite direction — "who can
+        reach this garden" versus "which gardens can this organization's
+        members reach." Neither endpoint's authorization gate is satisfied
+        by the other: seeing this list requires garden membership, not
+        organization membership, and organization membership alone never
+        grants it (ADR-0012).
+
+        Source: implementation-plan.md work package P9B-API-01;
+        architecture/collaboration-and-client-sharing.md, section
+        "7. Service Organizations and Assignments".
+      responses:
+        '200':
+          description: The garden's active assignments.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GardenAssignmentListResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /gardens/{gardenId}/engagements:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    get:
+      operationId: listGardenClientEngagements
+      tags: [Collaboration]
+      summary: List a garden's client engagements
+      description: |
+        Owner-only (`manageGarden`), unlike `listGardenAssignments` — an
+        engagement names a service organization relationship and stewardship
+        policy, the same "business-relationship" sensitivity
+        `listGardenInvitations` already reserves to the owner alone (an
+        invitation carries an intended email; an engagement carries who is
+        contracted to serve this garden and under what data policy). Returns
+        every engagement in any state (`draft`, `active`, `ended`,
+        `revoked`), newest first.
+
+        Source: implementation-plan.md work package P9B-API-01;
+        architecture/collaboration-and-client-sharing.md, section
+        "8. Client Engagement".
+      responses:
+        '200':
+          description: The garden's client engagements, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientEngagementListResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /gardens/{gardenId}/map:
     parameters:
@@ -4051,6 +4151,656 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /service-organizations:
+    post:
+      operationId: createServiceOrganization
+      tags: [Organizations]
+      summary: Create a service organization
+      description: |
+        ANY authenticated profile may call this — an organization does not
+        exist yet for anyone to hold a role on, so no capability could
+        possibly gate its own creation, the same reasoning
+        `createGarden` already applies to a brand-new garden. Creates the
+        organization AND grants its caller `organizationAdmin` membership in
+        one transaction (ADR-0012: "a solo professional may start with an
+        organization containing one administrator").
+
+        Source: implementation-plan.md work package P9B-API-01;
+        architecture/decisions/ADR-0012-separate-team-and-client-sharing.md,
+        section "Service Organizations".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateServiceOrganizationRequest'
+      responses:
+        '201':
+          description: The created organization, with the caller's own `organizationAdmin` role.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceOrganization'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    get:
+      operationId: listServiceOrganizations
+      tags: [Organizations]
+      summary: List the caller's own service organizations
+      description: |
+        Every organization the caller has ACTIVE membership on, most
+        recently created first — the organization-scoped mirror of
+        `listGardens`.
+
+        Source: implementation-plan.md work package P9B-API-01.
+      responses:
+        '200':
+          description: The caller's service organizations.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceOrganizationListResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /service-organizations/{organizationId}:
+    parameters:
+      - name: organizationId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    get:
+      operationId: getServiceOrganization
+      tags: [Organizations]
+      summary: Get one service organization
+      description: |
+        Any ACTIVE member may read this — `organizationAdmin` and
+        `professional` alike; there is no capability gate on a plain read of
+        the organization's own identity. Existence is concealed as `404` to
+        a non-member, the same posture `getGarden` already applies.
+
+        Source: implementation-plan.md work package P9B-API-01.
+      responses:
+        '200':
+          description: The organization.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceOrganization'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /service-organizations/{organizationId}/members:
+    parameters:
+      - name: organizationId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    get:
+      operationId: listOrganizationMembers
+      tags: [Organizations]
+      summary: List an organization's active membership roster
+      description: |
+        Any ACTIVE member may read this — `organizationAdmin` and
+        `professional` alike, the same "any role may see who else can see
+        their own resource" reasoning `listGardenMembers` already applies.
+
+        Source: implementation-plan.md work package P9B-API-01.
+      responses:
+        '200':
+          description: The organization's active members.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationMemberListResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      operationId: addOrganizationMember
+      tags: [Organizations]
+      summary: Add an existing profile as an organization member
+      description: |
+        `organizationAdmin`-only (`manageOrganizationMembership`). Adds an
+        EXISTING profile by id directly — no invitation-with-token flow
+        exists for organization membership, deliberately: unlike a garden
+        invitation (which must reach someone with no prior relationship to
+        the garden, often by unauthenticated email link) or a client
+        invitation (P9C-INVITE-01, which must bind and verify an external
+        client's email), an organization admin already has an ordinary,
+        authenticated relationship with the professional they are adding —
+        the same "do not build an invitation system this package does not
+        actually need" judgment call implementation-plan.md work package
+        P9B-API-01 itself calls for. Fails with `409` if the named profile
+        already has ANY membership record (active or removed) on this
+        organization — `collaboration.organization_membership`'s own
+        one-row-per-pair-forever constraint means a removed member cannot
+        currently be re-added.
+
+        Source: implementation-plan.md work package P9B-API-01;
+        architecture/collaboration-and-client-sharing.md, section
+        "7. Service Organizations and Assignments".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddOrganizationMemberRequest'
+      responses:
+        '201':
+          description: The new membership.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationMember'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /service-organizations/{organizationId}/members/{profileId}:
+    parameters:
+      - name: organizationId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: profileId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    patch:
+      operationId: changeOrganizationMemberRole
+      tags: [Organizations]
+      summary: Change a member's role between organizationAdmin and professional
+      description: |
+        `organizationAdmin`-only (`manageOrganizationMembership`). Refused
+        with `422` when the change would leave the organization with no
+        active `organizationAdmin` — the last-admin invariant this package
+        protects the same way `changeGardenMemberRole`'s sibling
+        `demoteGardenOwner` protects the garden's own last-owner invariant, a
+        locking read (`FOR UPDATE`) over every other active admin
+        immediately before the write, exactly as the P9B-DATA-01 migration's
+        own header prescribes.
+
+        Source: implementation-plan.md work package P9B-API-01;
+        migrations/1786600000000_service-organizations-and-client-engagements.sql.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeOrganizationMemberRoleRequest'
+      responses:
+        '200':
+          description: The member's updated (or already current) role.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationMember'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+    delete:
+      operationId: removeOrganizationMember
+      tags: [Organizations]
+      summary: Remove a member, or leave an organization
+      description: |
+        A caller may always remove THEMSELVES — leaving an organization is
+        not organization administration, the same posture
+        `removeGardenMember` already takes for leaving a garden. Removing
+        anyone else requires `manageOrganizationMembership`. Either way,
+        removing the organization's last active `organizationAdmin` is
+        refused with `422`, including a sole admin attempting to leave their
+        own organization.
+
+        Source: implementation-plan.md work package P9B-API-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: The removed membership.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationMember'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /service-organizations/{organizationId}/garden-assignments:
+    parameters:
+      - name: organizationId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: createGardenAssignment
+      tags: [Organizations]
+      summary: Assign an organization member to a garden
+      description: |
+        `organizationAdmin`-only (`manageGardenAssignment`) — the ONE place
+        organization boundaries and garden boundaries meet. Checks BOTH that
+        the caller holds `manageGardenAssignment` on `organizationId` AND
+        that `profileId` is genuinely an ACTIVE member of THAT SAME
+        organization (`422` `organization.assignment.assignee_not_member`
+        otherwise) — an organization can never assign a stranger to
+        anything.
+
+        Free-standing, NOT scoped by an active client engagement: this
+        endpoint does not require a `client_engagement` naming this
+        organization and garden to already exist. Section 3's own domain
+        diagram draws `garden_assignment` as a direct edge from
+        `organization_membership` to `garden`, with no `client_engagement`
+        on that path at all, and `garden_assignment` carries no foreign key
+        or other reference to `client_engagement` in the schema — the two
+        are genuinely independent records. An organization administrator may
+        therefore assign any of their organization's members to any garden
+        id that exists, unconditionally; nothing here asks the garden's
+        owner to have approved it first. `404` if no garden exists at
+        `gardenId`. Fails with `409` if the named profile already holds an
+        ACTIVE assignment on this garden (`garden_assignment_active_key`'s
+        own invariant — the schema's enforcement of "organization membership
+        alone grants no garden access, an active assignment is what does,"
+        at most one at a time).
+
+        Source: implementation-plan.md work package P9B-API-01;
+        architecture/collaboration-and-client-sharing.md, sections
+        "3. Domain Relationships", "7. Service Organizations and Assignments".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGardenAssignmentRequest'
+      responses:
+        '201':
+          description: The created assignment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GardenAssignment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+    get:
+      operationId: listOrganizationGardenAssignments
+      tags: [Organizations]
+      summary: List an organization's active garden assignments
+      description: |
+        Any ACTIVE member may read this — "which gardens can this
+        organization's members reach," the mirror question
+        `listGardenAssignments` (tag `Collaboration`) answers from the
+        garden's own side.
+
+        Source: implementation-plan.md work package P9B-API-01.
+      responses:
+        '200':
+          description: The organization's active assignments.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GardenAssignmentListResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /service-organizations/{organizationId}/garden-assignments/{assignmentId}/end:
+    parameters:
+      - name: organizationId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: assignmentId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: endGardenAssignment
+      tags: [Organizations]
+      summary: End a garden assignment
+      description: |
+        `organizationAdmin`-only (`manageGardenAssignment`). Idempotent:
+        ending an assignment already `ended` returns it unchanged; ending one
+        that is `revoked` (a different terminal state) is refused with
+        `422`.
+
+        Source: implementation-plan.md work package P9B-API-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: The ended assignment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GardenAssignment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /service-organizations/{organizationId}/garden-assignments/{assignmentId}/revoke:
+    parameters:
+      - name: organizationId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: assignmentId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: revokeGardenAssignment
+      tags: [Organizations]
+      summary: Revoke a garden assignment
+      description: |
+        `organizationAdmin`-only (`manageGardenAssignment`). Idempotent:
+        revoking an assignment already `revoked` returns it unchanged;
+        revoking one that is `ended` (a different terminal state) is refused
+        with `422`.
+
+        Source: implementation-plan.md work package P9B-API-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: The revoked assignment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GardenAssignment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /service-organizations/{organizationId}/client-engagements:
+    parameters:
+      - name: organizationId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    get:
+      operationId: listOrganizationClientEngagements
+      tags: [Organizations]
+      summary: List an organization's client engagements
+      description: |
+        Any ACTIVE member may read this. Returns every engagement in any
+        state, newest first.
+
+        Source: implementation-plan.md work package P9B-API-01.
+      responses:
+        '200':
+          description: The organization's client engagements, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientEngagementListResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /client-engagements:
+    post:
+      operationId: createClientEngagement
+      tags: [Organizations]
+      summary: Create a client engagement for a garden
+      description: |
+        Draft state only — `activateClientEngagement` is the separate step
+        that makes it live. Authorization is dual, decided by whether
+        `serviceOrganizationId` is supplied:
+
+        - Supplied: the caller must hold `manageEngagement` on THAT
+          organization. The named garden need only EXIST (`404` otherwise);
+          nothing requires its owner to have done anything first, the same
+          free-standing posture `createGardenAssignment` already takes for
+          the identical reason (section 3's domain diagram; no schema
+          reference links `client_engagement` to any prerequisite).
+        - Omitted: the caller must hold `manageGarden` on the garden itself
+          — a garden owner running the service relationship directly, no
+          service organization attached (ADR-0012 section 4.4: "For an
+          engagement with no service organization, a garden owner grants
+          [publisher access]"; creating the engagement itself follows the
+          same owner-only posture).
+
+        `stewardshipPolicy` defaults to `residential` (the only value the
+        database currently admits) and `clientNotificationsEnabled` defaults
+        to `true` when omitted.
+
+        Source: implementation-plan.md work package P9B-API-01;
+        architecture/collaboration-and-client-sharing.md, section
+        "8. Client Engagement";
+        architecture/decisions/ADR-0012-separate-team-and-client-sharing.md,
+        section "Client Engagement".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateClientEngagementRequest'
+      responses:
+        '201':
+          description: The created engagement, in `draft` state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientEngagement'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /client-engagements/{engagementId}/activate:
+    parameters:
+      - name: engagementId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: activateClientEngagement
+      tags: [Organizations]
+      summary: Activate a draft client engagement
+      description: |
+        Same dual authorization as `createClientEngagement`, re-evaluated
+        against the STORED engagement's own `serviceOrganizationId` (never
+        against a client-supplied value). Only the `draft` -> `active`
+        transition applies; idempotent when already `active`. Refused with
+        `422` (`client_engagement.invalid_transition`) from `ended` or
+        `revoked` — both terminal.
+
+        Enforces only the state-machine transition itself
+        (`client-engagement-state.ts`). The richer precondition
+        collaboration-and-client-sharing.md section 8 also describes
+        ("activation requires ... one client identity or pending bound
+        invitation") is NOT enforced by this endpoint: nothing in this
+        package creates a `client_access_grant` row — that mechanism is
+        P9C-INVITE-01's own scope ("implement email-bound, expiring client
+        invitations"). Documented here rather than silently assumed, the
+        same honesty the underlying migration's own header applies to every
+        invariant it does not enforce.
+
+        Source: implementation-plan.md work packages P9B-API-01, P9C-INVITE-01;
+        architecture/collaboration-and-client-sharing.md, section
+        "8. Client Engagement".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: The activated (or already active) engagement.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientEngagement'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /client-engagements/{engagementId}/end:
+    parameters:
+      - name: engagementId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: endClientEngagement
+      tags: [Organizations]
+      summary: End an active client engagement
+      description: |
+        Same dual authorization as `createClientEngagement`. Only the
+        `active` -> `ended` transition applies; idempotent when already
+        `ended`. Refused with `422` from `draft` (never activated) or
+        `revoked`.
+
+        Source: implementation-plan.md work package P9B-API-01;
+        architecture/collaboration-and-client-sharing.md, section
+        "8. Client Engagement".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: The ended engagement.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientEngagement'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /client-engagements/{engagementId}/revoke:
+    parameters:
+      - name: engagementId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: revokeClientEngagement
+      tags: [Organizations]
+      summary: Revoke a client engagement
+      description: |
+        Same dual authorization as `createClientEngagement`. Valid from
+        `draft` OR `active`; idempotent when already `revoked`. Refused with
+        `422` from `ended` (a different terminal state).
+
+        Source: implementation-plan.md work package P9B-API-01;
+        architecture/collaboration-and-client-sharing.md, section
+        "8. Client Engagement".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevokeClientEngagementRequest'
+      responses:
+        '200':
+          description: The revoked engagement.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientEngagement'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
 components:
   securitySchemes:
     firebaseIdToken:
@@ -4492,6 +5242,302 @@ components:
           type: string
           minLength: 32
           maxLength: 128
+
+    # --- Organizations, garden assignment, and client engagement (P9B-API-01) ---
+
+    OrganizationRole:
+      type: string
+      enum: [organizationAdmin, professional]
+      description: |
+        Mirrors `collaboration.organization_membership.role`
+        (`organization_membership_role_check`), camelCased on the wire the
+        same way `GardenLifecycleState` camelCases `deletion_requested`.
+        `organizationAdmin` holds every organization capability
+        (`manageOrganizationMembership`, `manageGardenAssignment`,
+        `manageEngagement`); `professional` holds none of its own — a
+        professional's rights come entirely from an explicit
+        `GardenAssignment`, never from organization membership itself
+        (ADR-0012: "Organization membership alone grants no garden access").
+
+        Source: architecture/collaboration-and-client-sharing.md, section
+        "7. Service Organizations and Assignments".
+
+    ServiceOrganization:
+      type: object
+      additionalProperties: false
+      required: [id, name, callerRole, revision, createdAt, updatedAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        callerRole:
+          allOf:
+            - $ref: '#/components/schemas/OrganizationRole'
+          description: The authenticated caller's own role on this organization. Informational for client UI only.
+        revision:
+          $ref: '#/components/schemas/Revision'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+
+    ServiceOrganizationListResult:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceOrganization'
+
+    CreateServiceOrganizationRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+
+    OrganizationMemberState:
+      type: string
+      enum: [active, removed]
+      description: Mirrors `collaboration.organization_membership.state`.
+
+    OrganizationMember:
+      type: object
+      additionalProperties: false
+      required: [id, organizationId, profileId, role, state, createdAt, updatedAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        organizationId:
+          $ref: '#/components/schemas/Uuid'
+        profileId:
+          $ref: '#/components/schemas/Uuid'
+        role:
+          $ref: '#/components/schemas/OrganizationRole'
+        state:
+          $ref: '#/components/schemas/OrganizationMemberState'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+
+    OrganizationMemberListResult:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrganizationMember'
+
+    AddOrganizationMemberRequest:
+      type: object
+      additionalProperties: false
+      required: [profileId, role]
+      properties:
+        profileId:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: An existing profile's id. No invitation flow exists for organization membership — see `addOrganizationMember`'s own description.
+        role:
+          $ref: '#/components/schemas/OrganizationRole'
+
+    ChangeOrganizationMemberRoleRequest:
+      type: object
+      additionalProperties: false
+      required: [role]
+      properties:
+        role:
+          $ref: '#/components/schemas/OrganizationRole'
+
+    GardenAssignmentRole:
+      type: string
+      enum: [editor, viewer]
+      description: |
+        The role vocabulary a garden assignment may name — identical to
+        `InvitationIntendedRole` and for the identical reason: `owner`
+        is excluded (`garden_assignment_role_check`), because the garden's
+        owner is the CLIENT; ownership never travels through an assignment.
+
+    GardenAssignmentState:
+      type: string
+      enum: [active, ended, revoked]
+      description: |
+        Mirrors `collaboration.garden_assignment.state`. Both `ended` and
+        `revoked` are terminal — see `garden-assignment-state.ts`'s own
+        state diagram.
+
+    GardenAssignment:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - organizationId
+        - profileId
+        - gardenId
+        - role
+        - state
+        - validFrom
+        - createdByProfileId
+        - createdAt
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        organizationId:
+          $ref: '#/components/schemas/Uuid'
+        profileId:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: The assigned professional — an ACTIVE member of `organizationId` at the time this assignment was created.
+        gardenId:
+          $ref: '#/components/schemas/Uuid'
+        role:
+          $ref: '#/components/schemas/GardenAssignmentRole'
+        state:
+          $ref: '#/components/schemas/GardenAssignmentState'
+        validFrom:
+          $ref: '#/components/schemas/Timestamp'
+        validUntil:
+          allOf:
+            - $ref: '#/components/schemas/Timestamp'
+          description: Present only once `state` is `ended` or `revoked`.
+        createdByProfileId:
+          $ref: '#/components/schemas/Uuid'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+
+    GardenAssignmentListResult:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/GardenAssignment'
+
+    CreateGardenAssignmentRequest:
+      type: object
+      additionalProperties: false
+      required: [profileId, gardenId, role]
+      properties:
+        profileId:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: Must name a profile holding ACTIVE membership on the organization named in the path.
+        gardenId:
+          $ref: '#/components/schemas/Uuid'
+        role:
+          $ref: '#/components/schemas/GardenAssignmentRole'
+
+    ClientEngagementState:
+      type: string
+      enum: [draft, active, ended, revoked]
+      description: |
+        Mirrors `collaboration.client_engagement.state`. Both `ended` and
+        `revoked` are terminal — see `client-engagement-state.ts`'s own
+        state diagram.
+
+    StewardshipPolicy:
+      type: string
+      enum: [residential]
+      description: |
+        Mirrors `collaboration.client_engagement.stewardship_policy`. Only
+        one value is admitted today — the default residential-service
+        policy (collaboration-and-client-sharing.md section 18) making the
+        accepted garden model and published deliverables client-exportable,
+        while provider-internal notes, drafts, assignments, diagnostics, and
+        estimates are not. A second, contractually different policy
+        requires explicit product and legal approval.
+
+    ClientEngagement:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - gardenId
+        - state
+        - stewardshipPolicy
+        - clientNotificationsEnabled
+        - createdByProfileId
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        gardenId:
+          $ref: '#/components/schemas/Uuid'
+        serviceOrganizationId:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: Absent when the garden's own owner runs the engagement directly, with no service organization attached.
+        state:
+          $ref: '#/components/schemas/ClientEngagementState'
+        stewardshipPolicy:
+          $ref: '#/components/schemas/StewardshipPolicy'
+        clientNotificationsEnabled:
+          type: boolean
+        createdByProfileId:
+          $ref: '#/components/schemas/Uuid'
+        activatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        endedAt:
+          $ref: '#/components/schemas/Timestamp'
+        revokedAt:
+          $ref: '#/components/schemas/Timestamp'
+        revokedReason:
+          type: string
+          description: Present only on a revoked engagement, and only when one was given.
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+
+    ClientEngagementListResult:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClientEngagement'
+
+    CreateClientEngagementRequest:
+      type: object
+      additionalProperties: false
+      required: [gardenId]
+      properties:
+        gardenId:
+          $ref: '#/components/schemas/Uuid'
+        serviceOrganizationId:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: Omit for a garden owner running the engagement directly, with no service organization attached.
+        stewardshipPolicy:
+          allOf:
+            - $ref: '#/components/schemas/StewardshipPolicy'
+          description: Defaults to `residential` when omitted.
+        clientNotificationsEnabled:
+          type: boolean
+          description: Defaults to `true` when omitted.
+
+    RevokeClientEngagementRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          description: Optional free-text reason, stored as `revoked_reason`.
 
     SessionLoginRequest:
       type: object

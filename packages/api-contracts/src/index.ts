@@ -282,6 +282,15 @@ export type CreateInvitationResult = Schemas['CreateInvitationResult'];
 export type CreateInvitationRequest = Schemas['CreateInvitationRequest'];
 export type AcceptInvitationRequest = Schemas['AcceptInvitationRequest'];
 
+/**
+ * The professional-service domain schemas, error codes (P9B-API-01) live in
+ * `./organizations.js` — split out of this file purely for the
+ * repository's 600-line source-file rule once this package's own type and
+ * error-code catalogue grew past the limit; still part of this package's
+ * one public surface, re-exported here unchanged.
+ */
+export * from './organizations.js';
+
 /** The ownership-administration schemas (P9A-OWNER-01): promote, demote, transfer, cancel. */
 export type OwnershipTransferState = Schemas['OwnershipTransferState'];
 export type OwnershipTransfer = Schemas['OwnershipTransfer'];
