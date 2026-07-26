@@ -160,7 +160,13 @@ export type { OwnershipTransferAcceptActor } from './application/accept-ownershi
 export { DeclineOwnershipTransfer } from './application/decline-ownership-transfer.js';
 export type { OwnershipTransferDeclineActor } from './application/decline-ownership-transfer.js';
 export { CancelOwnershipTransfer } from './application/cancel-ownership-transfer.js';
-export type { OwnershipTransferRepository } from './application/ownership-transfer-repository.js';
+export type {
+  IncomingOwnershipTransfer,
+  OwnershipTransferRepository,
+} from './application/ownership-transfer-repository.js';
 export { KyselyOwnershipTransferRepository } from './persistence/kysely-ownership-transfer-repository.js';
+// P9A-OWNER-02 — the garden-scoped and profile-scoped ownership-transfer reads.
+export { GetGardenOwnershipTransfer } from './application/get-garden-ownership-transfer.js';
+export { ListIncomingOwnershipTransfers } from './application/list-incoming-ownership-transfers.js';
 export { registerOwnershipRoutes } from './transport/ownership-routes.js';
 export type { OwnershipRoutesDependencies } from './transport/ownership-routes.js';

@@ -1,7 +1,10 @@
 import type { Kysely } from 'kysely';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
-import type { OwnershipTransferRepository } from '../application/ownership-transfer-repository.js';
+import type {
+  IncomingOwnershipTransfer,
+  OwnershipTransferRepository,
+} from '../application/ownership-transfer-repository.js';
 import type {
   OwnershipTransfer,
   OwnershipTransferResultingRole,
@@ -36,6 +39,16 @@ function toOwnershipTransfer(row: OwnershipTransferRowShape): OwnershipTransfer 
     cancelledAt: row.cancelled_at,
     cancellationReason: row.cancellation_reason,
   };
+}
+
+interface IncomingOwnershipTransferRowShape extends OwnershipTransferRowShape {
+  garden_name: string;
+}
+
+function toIncomingOwnershipTransfer(
+  row: IncomingOwnershipTransferRowShape,
+): IncomingOwnershipTransfer {
+  return { ...toOwnershipTransfer(row), gardenName: row.garden_name };
 }
 
 export class KyselyOwnershipTransferRepository implements OwnershipTransferRepository {
@@ -94,5 +107,32 @@ export class KyselyOwnershipTransferRepository implements OwnershipTransferRepos
       })
       .where('id', '=', transfer.id)
       .execute();
+  }
+
+  async listIncomingForProfile(profileId: Uuid): Promise<readonly IncomingOwnershipTransfer[]> {
+    const rows = await this.db
+      .selectFrom('collaboration.ownership_transfer as ot')
+      .innerJoin('gardens_mapping.garden as g', 'g.id', 'ot.garden_id')
+      .select([
+        'ot.id',
+        'ot.garden_id',
+        'ot.from_profile_id',
+        'ot.to_profile_id',
+        'ot.from_resulting_role',
+        'ot.state',
+        'ot.authenticated_at',
+        'ot.requested_at',
+        'ot.completed_at',
+        'ot.cancelled_at',
+        'ot.cancellation_reason',
+        'g.name as garden_name',
+      ])
+      .where('ot.to_profile_id', '=', profileId)
+      .where('ot.state', '=', 'pending')
+      .orderBy('ot.requested_at', 'desc')
+      .orderBy('ot.id', 'desc')
+      .execute();
+
+    return rows.map(toIncomingOwnershipTransfer);
   }
 }

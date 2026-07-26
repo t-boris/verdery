@@ -2,6 +2,23 @@ import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { OwnershipTransfer } from '../domain/ownership-transfer.js';
 
 /**
+ * One PENDING transfer addressed to a profile, joined with the destination
+ * garden's own name (P9A-OWNER-02) — `listIncomingForProfile`'s own result
+ * shape, the same "join enriches the base type" precedent
+ * `GardenWithCallerRole` already sets in `garden-repository.ts` for exactly
+ * the same reason: the caller needs the garden's name to render a real card
+ * ("accept ownership of Riverside Garden?"), and the join that already knows
+ * it is cheaper than a second round trip per item. `gardens_mapping.garden`
+ * is this module's own table, so joining it from this module's own
+ * ownership-transfer persistence class crosses no module boundary — it is
+ * the identical cross-table join `KyselyGardenRepository.listForProfile`
+ * already performs the other direction (garden joined to membership).
+ */
+export interface IncomingOwnershipTransfer extends OwnershipTransfer {
+  readonly gardenName: string;
+}
+
+/**
  * Persistence port for `collaboration.ownership_transfer` (P9A-OWNER-01).
  * Lives beside `MembershipRepository`/`InvitationRepository` for the same
  * "temporary consolidation" reason those files' own headers record.
@@ -51,4 +68,21 @@ export interface OwnershipTransferRepository {
 
   /** Persists every mutable field of `transfer` — state, and whichever of the completion/cancellation columns that state implies. */
   update(transfer: OwnershipTransfer): Promise<void>;
+
+  /**
+   * Every PENDING transfer, across EVERY garden, addressed to this profile
+   * (`to_profile_id`) — the read that removes the "recipient needs an
+   * out-of-band link" gap `GetGardenOwnershipTransfer` alone cannot close,
+   * since that one still requires already knowing which garden to ask about
+   * (P9A-OWNER-02). Most recently requested first. Deliberately its own
+   * method rather than a profile-scoped mode bolted onto
+   * `findPendingForGarden`: that method's contract is "one garden's own
+   * pending row", unlocked, called by commands that already resolved a
+   * `gardenId`; this one has no `gardenId` at all, is the SOLE authority
+   * (nothing else concurrently narrows or re-checks its result the way
+   * `lockPendingForGarden` guards a state transition), and is read-only by
+   * construction — merging the two would make one method answer two
+   * unrelated questions.
+   */
+  listIncomingForProfile(profileId: Uuid): Promise<readonly IncomingOwnershipTransfer[]>;
 }

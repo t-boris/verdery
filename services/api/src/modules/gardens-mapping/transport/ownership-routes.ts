@@ -1,7 +1,9 @@
 /**
  * Owner-administration HTTP routes (P9A-OWNER-01): promote to co-owner,
  * demote an owner, request an ownership transfer, accept or decline it as
- * its recipient, or cancel it as its initiator.
+ * its recipient, or cancel it as its initiator. Extended by P9A-OWNER-02
+ * with two read-only routes: the garden-scoped pending-transfer lookup and
+ * the profile-scoped "every transfer addressed to me" list.
  *
  * A separate file from `member-routes.ts` rather than an addition to it —
  * `member-routes.ts` is P9A-API-01's already-shipped surface
@@ -11,13 +13,21 @@
  * routes share (and, for accept/decline, deliberately NO recent-auth
  * precondition at all — see `accept-ownership-transfer.ts`'s header).
  *
+ * `GET /ownership-transfers/incoming` lives here too, alongside the
+ * garden-scoped routes, rather than in a separate file — the same
+ * "one file per resource concept, mixing top-level and nested paths"
+ * structure `garden-routes.ts` already establishes (`GET /gardens` sits
+ * beside `GET /gardens/{gardenId}` there); this file is the ownership
+ * transfer resource's home regardless of which routes carry a `:gardenId`.
+ *
  * Source: packages/api-contracts/openapi.yaml, tag `Collaboration`;
- * implementation-plan.md work package P9A-OWNER-01.
+ * implementation-plan.md work packages P9A-OWNER-01, P9A-OWNER-02.
  */
 
 import type {
   ChangeGardenMemberRoleRequest,
   GardenMember,
+  IncomingOwnershipTransferListResult,
   OwnershipTransfer,
   TransferOwnershipRequest,
 } from '@verdery/api-contracts';
@@ -26,6 +36,8 @@ import type { AcceptOwnershipTransfer } from '../application/accept-ownership-tr
 import type { CancelOwnershipTransfer } from '../application/cancel-ownership-transfer.js';
 import type { DeclineOwnershipTransfer } from '../application/decline-ownership-transfer.js';
 import type { DemoteOwner } from '../application/demote-owner.js';
+import type { GetGardenOwnershipTransfer } from '../application/get-garden-ownership-transfer.js';
+import type { ListIncomingOwnershipTransfers } from '../application/list-incoming-ownership-transfers.js';
 import type { PromoteToOwner } from '../application/promote-to-owner.js';
 import type { TransferOwnership } from '../application/transfer-ownership.js';
 import { invalid, requireGardenId, requireIdempotencyKey, UUID_PATTERN } from './garden-routes.js';
@@ -37,6 +49,10 @@ export interface OwnershipRoutesDependencies {
   readonly acceptOwnershipTransfer: AcceptOwnershipTransfer;
   readonly declineOwnershipTransfer: DeclineOwnershipTransfer;
   readonly cancelOwnershipTransfer: CancelOwnershipTransfer;
+  /** P9A-OWNER-02 — the garden-scoped pending-transfer read. */
+  readonly getGardenOwnershipTransfer: GetGardenOwnershipTransfer;
+  /** P9A-OWNER-02 — the profile-scoped "every transfer addressed to me" read. */
+  readonly listIncomingOwnershipTransfers: ListIncomingOwnershipTransfers;
 }
 
 const CHANGEABLE_ROLES = new Set(['editor', 'viewer']);
@@ -114,6 +130,17 @@ export function registerOwnershipRoutes(
     return reply.status(200).send(member);
   });
 
+  app.get('/gardens/:gardenId/ownership-transfer', async (request, reply) => {
+    const gardenId = requireGardenId(request);
+
+    const transfer: OwnershipTransfer = await dependencies.getGardenOwnershipTransfer.execute(
+      gardenId,
+      request.actorContext.profileId,
+    );
+
+    return reply.status(200).send(transfer);
+  });
+
   app.post('/gardens/:gardenId/ownership-transfer', async (request, reply) => {
     const gardenId = requireGardenId(request);
     const idempotencyKey = requireIdempotencyKey(request);
@@ -167,5 +194,12 @@ export function registerOwnershipRoutes(
     );
 
     return reply.status(200).send(transfer);
+  });
+
+  app.get('/ownership-transfers/incoming', async (request, reply) => {
+    const result: IncomingOwnershipTransferListResult =
+      await dependencies.listIncomingOwnershipTransfers.execute(request.actorContext.profileId);
+
+    return reply.status(200).send(result);
   });
 }

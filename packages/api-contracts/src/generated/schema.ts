@@ -519,7 +519,30 @@ export interface paths {
             };
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Read the garden's currently pending ownership transfer
+         * @description Closes the one real gap this tag's write-only ownership-transfer
+         *     surface left: before this, the initiating owner could not confirm a
+         *     requested transfer was still pending after a page reload except by
+         *     attempting `cancelGardenOwnershipTransfer` and reading its `404` as
+         *     "nothing was pending".
+         *
+         *     Readable by two parties: the current owner
+         *     (`administerOwnership`) — checking a transfer they requested — or the
+         *     named recipient (`toProfileId` equal to the caller) — checking an
+         *     offer addressed to them, without needing `administerOwnership`. `404`
+         *     with `collaboration.ownership_transfer.not_found` both when nothing
+         *     is pending for this garden AND when a transfer is pending but the
+         *     caller is neither party — an editor or viewer with no standing over
+         *     the transfer must not learn one exists, the identical concealment
+         *     `acceptOwnershipTransfer`/`declineOwnershipTransfer` already apply to
+         *     a caller who is not the named recipient.
+         *
+         *     Source: implementation-plan.md work package P9A-OWNER-02;
+         *     architecture/identity-and-authorization.md, section
+         *     "11. Ownership Transfer".
+         */
+        get: operations["getGardenOwnershipTransfer"];
         put?: never;
         /**
          * Request transfer of garden ownership to another active member
@@ -666,6 +689,46 @@ export interface paths {
          *     "11. Ownership Transfer".
          */
         post: operations["declineOwnershipTransfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ownership-transfers/incoming": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List every pending ownership transfer addressed to the caller
+         * @description Profile-scoped, not garden-scoped — no `gardenId` path segment, and no
+         *     garden membership capability is checked, mirroring `listGardens`:
+         *     "every pending transfer naming me" is inherently scoped to the
+         *     caller's own identity, the same way "every garden I belong to" is.
+         *
+         *     This is the read that actually closes the recipient side of the gap
+         *     `getGardenOwnershipTransfer` alone cannot: a recipient who does not
+         *     already know which garden a transfer concerns has no `gardenId` to
+         *     ask that endpoint about. Before this endpoint, the only way a
+         *     recipient could learn a transfer named them was out of band, from the
+         *     initiator.
+         *
+         *     Returns every PENDING transfer across every garden where the caller
+         *     is the named recipient (`toProfileId`), most recently requested
+         *     first. Each item carries the destination garden's own current name
+         *     (`gardenName`) so a client can render a real card ("accept ownership
+         *     of Riverside Garden?") rather than an anonymous offer.
+         *
+         *     Source: implementation-plan.md work package P9A-OWNER-02;
+         *     architecture/identity-and-authorization.md, section
+         *     "11. Ownership Transfer".
+         */
+        get: operations["listIncomingOwnershipTransfers"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2686,6 +2749,20 @@ export interface components {
             toProfileId: components["schemas"]["Uuid"];
             /** @description The role the caller (the outgoing owner) holds once the transfer completes. */
             resultingRole: components["schemas"]["InvitationIntendedRole"];
+        };
+        /**
+         * @description An `OwnershipTransfer` plus the destination garden's own current
+         *     name (P9A-OWNER-02) — `listIncomingOwnershipTransfers`'s own item
+         *     shape. The name is joined in so a recipient deciding whether to
+         *     accept ownership of a garden can see which one, rather than only its
+         *     opaque id.
+         */
+        IncomingOwnershipTransfer: components["schemas"]["OwnershipTransfer"] & {
+            /** @description The destination garden's current name, as of when this list was read. */
+            gardenName: string;
+        };
+        IncomingOwnershipTransferListResult: {
+            items: components["schemas"]["IncomingOwnershipTransfer"][];
         };
         /**
          * @description The role vocabulary an invitation, or a role change under this same
@@ -5778,6 +5855,30 @@ export interface operations {
             422: components["responses"]["UnprocessableEntity"];
         };
     };
+    getGardenOwnershipTransfer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The garden's currently PENDING ownership transfer. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnershipTransfer"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     transferGardenOwnership: {
         parameters: {
             query?: never;
@@ -5922,6 +6023,27 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listIncomingOwnershipTransfers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every pending ownership transfer addressed to the caller. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncomingOwnershipTransferListResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
     getGardenMap: {

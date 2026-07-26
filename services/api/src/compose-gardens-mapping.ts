@@ -39,6 +39,7 @@ import {
   GardenAuthorization,
   GetGarden,
   GetGardenMap,
+  GetGardenOwnershipTransfer,
   JoinMapObjectLinework,
   KyselyCoordinateSpaceRepository,
   KyselyGardenRepository,
@@ -47,9 +48,11 @@ import {
   KyselyInvitationRepository,
   KyselyMapObjectRepository,
   KyselyMembershipRepository,
+  KyselyOwnershipTransferRepository,
   ListGardenInvitations,
   ListGardenMembers,
   ListGardens,
+  ListIncomingOwnershipTransfers,
   MoveMapObject,
   PromoteToOwner,
   RemoveMember,
@@ -290,6 +293,16 @@ export function composeGardensMapping(
   // same transaction boundary (which is where `KyselyOwnershipTransferRepository`
   // is actually bound; see `kysely-gardens-mapping-unit-of-work.ts`), same
   // capability matrix.
+  //
+  // The two P9A-OWNER-02 reads below need their own `KyselyOwnershipTransferRepository`
+  // instance bound directly to the pooled connection, `database.queries` —
+  // the transactional one above is scoped inside `gardensMappingUnitOfWork.run`
+  // and never escapes it, exactly the same "read paths use the pooled
+  // connection directly" reason `listGardenInvitations` below constructs its
+  // own `KyselyInvitationRepository(database.queries)` rather than reusing
+  // the unit of work's transactional instance.
+  const ownershipTransferReadRepository = new KyselyOwnershipTransferRepository(database.queries);
+
   const ownershipRoutesDependencies: OwnershipRoutesDependencies = {
     promoteToOwner: new PromoteToOwner(
       gardenIdempotency,
@@ -326,6 +339,13 @@ export function composeGardensMapping(
       gardensMappingUnitOfWork,
       gardenAuthorization,
       clock,
+    ),
+    getGardenOwnershipTransfer: new GetGardenOwnershipTransfer(
+      ownershipTransferReadRepository,
+      gardenAuthorization,
+    ),
+    listIncomingOwnershipTransfers: new ListIncomingOwnershipTransfers(
+      ownershipTransferReadRepository,
     ),
   };
 

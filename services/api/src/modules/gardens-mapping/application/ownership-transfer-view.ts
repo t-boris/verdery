@@ -4,8 +4,12 @@
  * documents.
  */
 
-import type { OwnershipTransfer as OwnershipTransferResource } from '@verdery/api-contracts';
+import type {
+  IncomingOwnershipTransfer as IncomingOwnershipTransferResource,
+  OwnershipTransfer as OwnershipTransferResource,
+} from '@verdery/api-contracts';
 import type { OwnershipTransfer } from '../domain/ownership-transfer.js';
+import type { IncomingOwnershipTransfer } from './ownership-transfer-repository.js';
 
 export function toOwnershipTransferResource(
   transfer: OwnershipTransfer,
@@ -35,4 +39,18 @@ export function toOwnershipTransferResource(
   }
 
   return resource;
+}
+
+/**
+ * Maps an `IncomingOwnershipTransfer` (a PENDING transfer joined with its
+ * destination garden's name — see `ownership-transfer-repository.ts`'s own
+ * header) to the contract shape `listIncomingOwnershipTransfers` returns.
+ */
+export function toIncomingOwnershipTransferResource(
+  transfer: IncomingOwnershipTransfer,
+): IncomingOwnershipTransferResource {
+  return {
+    ...toOwnershipTransferResource(transfer),
+    gardenName: transfer.gardenName,
+  };
 }

@@ -134,6 +134,11 @@ export type CompleteTaskRequest = Schemas['CompleteTaskRequest'];
 export type DismissTaskRequest = Schemas['DismissTaskRequest'];
 export type AttachTaskFileRequest = Schemas['AttachTaskFileRequest'];
 
+/** The task assignment and shared activity history schemas (P9A-TASK-01). */
+export type AssignTaskRequest = Schemas['AssignTaskRequest'];
+export type TaskActivityEntry = Schemas['TaskActivityEntry'];
+export type TaskActivityListResult = Schemas['TaskActivityListResult'];
+
 /** The Today view and recommendation schemas (P7-BE-01). */
 export type RecommendationState = Schemas['RecommendationState'];
 export type RecommendationSafetyTier = Schemas['RecommendationSafetyTier'];
@@ -281,6 +286,9 @@ export type AcceptInvitationRequest = Schemas['AcceptInvitationRequest'];
 export type OwnershipTransferState = Schemas['OwnershipTransferState'];
 export type OwnershipTransfer = Schemas['OwnershipTransfer'];
 export type TransferOwnershipRequest = Schemas['TransferOwnershipRequest'];
+/** The ownership-transfer read schemas (P9A-OWNER-02): the garden-scoped and profile-scoped reads. */
+export type IncomingOwnershipTransfer = Schemas['IncomingOwnershipTransfer'];
+export type IncomingOwnershipTransferListResult = Schemas['IncomingOwnershipTransferListResult'];
 
 /** The account-deletion schemas (P8-DELETE-01). */
 export type AccountDeletionState = Schemas['AccountDeletionState'];
