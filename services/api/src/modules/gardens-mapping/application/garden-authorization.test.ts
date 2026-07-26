@@ -8,11 +8,14 @@ import {
 import type { GardenLifecycleState } from '../domain/garden.js';
 import type { GardenCapability, GardenRole } from '../domain/garden-role.js';
 import { GARDEN_CAPABILITIES } from '../domain/garden-role.js';
+import type { GardenAssignmentAccessSource } from './garden-assignment-access-source.js';
 import { GardenAuthorization } from './garden-authorization.js';
 import type { GardenAccess, Membership, MembershipRepository } from './membership-repository.js';
 
 const GARDEN_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0c';
+const OTHER_GARDEN_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0d';
 const PROFILE_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0b';
+const ASSIGNMENT_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0e';
 
 const EVERY_LIFECYCLE_STATE: readonly GardenLifecycleState[] = [
   'active',
@@ -88,8 +91,36 @@ class FakeMembershipRepository implements MembershipRepository {
   }
 }
 
+/** A fake `GardenAssignmentAccessSource` scoped to exactly one (garden, profile) pair, mirroring `FakeMembershipRepository`'s own single-fixture shape. */
+class FakeGardenAssignmentAccessSource implements GardenAssignmentAccessSource {
+  constructor(
+    private readonly gardenId: string,
+    private readonly profileId: string,
+    private readonly role: GardenRole | null,
+    private readonly gardenLifecycleState: GardenLifecycleState = 'active',
+  ) {}
+
+  findActiveAssignment(
+    gardenId: string,
+    profileId: string,
+  ): ReturnType<GardenAssignmentAccessSource['findActiveAssignment']> {
+    if (this.role === null || gardenId !== this.gardenId || profileId !== this.profileId) {
+      return Promise.resolve(null);
+    }
+    return Promise.resolve({
+      assignmentId: ASSIGNMENT_ID,
+      role: this.role,
+      gardenLifecycleState: this.gardenLifecycleState,
+    });
+  }
+}
+
 function membershipWithRole(role: GardenRole): Membership {
   return { id: 'membership-1', gardenId: GARDEN_ID, profileId: PROFILE_ID, role };
+}
+
+function assignmentWithRole(role: GardenRole): Membership {
+  return { id: ASSIGNMENT_ID, gardenId: GARDEN_ID, profileId: PROFILE_ID, role };
 }
 
 function authorizationFor(
@@ -132,6 +163,124 @@ describe('GardenAuthorization', () => {
     } else {
       await expect(attempt).rejects.toBeInstanceOf(ForbiddenError);
     }
+  });
+});
+
+/**
+ * The assignment-sourced fallback (P9B-API-02 fix): membership finds
+ * nothing, so `GardenAssignmentAccessSource` gets a say. Mirrors the ordinary
+ * three-question evaluation exactly — these tests exist to prove the
+ * fallback plugs into the SAME evaluation, not a parallel one.
+ */
+describe('GardenAuthorization assignment-sourced fallback', () => {
+  it('grants viewGarden through an active assignment when no membership exists', async () => {
+    const authorization = new GardenAuthorization(
+      new FakeMembershipRepository(null),
+      new FakeGardenAssignmentAccessSource(GARDEN_ID, PROFILE_ID, 'viewer'),
+    );
+
+    await expect(
+      authorization.requireCapability(GARDEN_ID, PROFILE_ID, 'viewGarden'),
+    ).resolves.toEqual(assignmentWithRole('viewer'));
+  });
+
+  it('grants editGardenContent through an editor assignment', async () => {
+    const authorization = new GardenAuthorization(
+      new FakeMembershipRepository(null),
+      new FakeGardenAssignmentAccessSource(GARDEN_ID, PROFILE_ID, 'editor'),
+    );
+
+    await expect(
+      authorization.requireCapability(GARDEN_ID, PROFILE_ID, 'editGardenContent'),
+    ).resolves.toEqual(assignmentWithRole('editor'));
+  });
+
+  it('refuses editGardenContent for a viewer-role assignment (forbidden, same as ordinary viewer membership)', async () => {
+    const authorization = new GardenAuthorization(
+      new FakeMembershipRepository(null),
+      new FakeGardenAssignmentAccessSource(GARDEN_ID, PROFILE_ID, 'viewer'),
+    );
+
+    await expect(
+      authorization.requireCapability(GARDEN_ID, PROFILE_ID, 'editGardenContent'),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it.each<GardenCapability>(['manageGarden', 'exportGarden', 'administerOwnership'])(
+    'never grants %s through an assignment, regardless of its role (owner-only, and garden_assignment.role excludes owner)',
+    async (capability) => {
+      const editorAssignment = new GardenAuthorization(
+        new FakeMembershipRepository(null),
+        new FakeGardenAssignmentAccessSource(GARDEN_ID, PROFILE_ID, 'editor'),
+      );
+      const viewerAssignment = new GardenAuthorization(
+        new FakeMembershipRepository(null),
+        new FakeGardenAssignmentAccessSource(GARDEN_ID, PROFILE_ID, 'viewer'),
+      );
+
+      await expect(
+        editorAssignment.requireCapability(GARDEN_ID, PROFILE_ID, capability),
+      ).rejects.toBeInstanceOf(ForbiddenError);
+      await expect(
+        viewerAssignment.requireCapability(GARDEN_ID, PROFILE_ID, capability),
+      ).rejects.toBeInstanceOf(ForbiddenError);
+    },
+  );
+
+  it('conceals existence as notFound when neither membership nor an assignment exists', async () => {
+    const authorization = new GardenAuthorization(
+      new FakeMembershipRepository(null),
+      new FakeGardenAssignmentAccessSource(GARDEN_ID, PROFILE_ID, null),
+    );
+
+    await expect(
+      authorization.requireCapability(GARDEN_ID, PROFILE_ID, 'viewGarden'),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('an assignment on a DIFFERENT garden grants nothing on the garden actually being asked about', async () => {
+    const authorization = new GardenAuthorization(
+      new FakeMembershipRepository(null),
+      new FakeGardenAssignmentAccessSource(OTHER_GARDEN_ID, PROFILE_ID, 'editor'),
+    );
+
+    await expect(
+      authorization.requireCapability(GARDEN_ID, PROFILE_ID, 'viewGarden'),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('ordinary membership is tried first and wins when both a membership and an assignment exist', async () => {
+    const authorization = new GardenAuthorization(
+      new FakeMembershipRepository(membershipWithRole('viewer')),
+      new FakeGardenAssignmentAccessSource(GARDEN_ID, PROFILE_ID, 'editor'),
+    );
+
+    await expect(
+      authorization.requireCapability(GARDEN_ID, PROFILE_ID, 'viewGarden'),
+    ).resolves.toEqual(membershipWithRole('viewer'));
+  });
+
+  it('falls back to no access at all when no assignment source is configured (the pre-fix default)', async () => {
+    const authorization = new GardenAuthorization(new FakeMembershipRepository(null));
+
+    await expect(
+      authorization.requireCapability(GARDEN_ID, PROFILE_ID, 'viewGarden'),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('respects the SAME lifecycle-state matrix for an assignment-sourced grant: editGardenContent refused while the garden is deletion_requested', async () => {
+    const authorization = new GardenAuthorization(
+      new FakeMembershipRepository(null),
+      new FakeGardenAssignmentAccessSource(GARDEN_ID, PROFILE_ID, 'editor', 'deletion_requested'),
+    );
+
+    await expect(
+      authorization.requireCapability(GARDEN_ID, PROFILE_ID, 'editGardenContent'),
+    ).rejects.toBeInstanceOf(DomainRuleViolatedError);
+    // viewGarden survives every lifecycle state, assignment-sourced or not.
+    await expect(
+      authorization.requireCapability(GARDEN_ID, PROFILE_ID, 'viewGarden'),
+    ).resolves.toEqual(assignmentWithRole('editor'));
   });
 });
 

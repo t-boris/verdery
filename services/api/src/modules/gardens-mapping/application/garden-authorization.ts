@@ -28,8 +28,37 @@
  * membership from one query, so it is the state as of the same instant the
  * membership was true.
  *
+ * ## Step 1 has TWO independent sources, not one (P9B-API-02 fix)
+ *
+ * ADR-0012: "Organization membership alone grants no garden access. A
+ * professional must also have an active garden assignment OR operational
+ * garden membership" — an ALTERNATE, equally-real path, not a lesser one.
+ * `findGardenAccess` (ordinary `collaboration.membership`) is tried first;
+ * only when it finds nothing does `assignments` (`collaboration
+ * .garden_assignment`, via `GardenAssignmentAccessSource` — see that port's
+ * own header for why this is a second port rather than a change to
+ * `findGardenAccess` itself) get consulted. Whichever source answers, the
+ * SAME three-step evaluation below runs unchanged: an assignment-sourced
+ * grant is subject to the identical role -> capability and
+ * capability -> lifecycle-state matrices ordinary membership already is,
+ * never a bypass of either. Since `garden_assignment.role` is schema-limited
+ * to `editor`/`viewer` (`garden_assignment_role_check` — a professional works
+ * a client's garden, they do not own it), `roleHasCapability` already
+ * guarantees an assignment can never carry `manageGarden`/`exportGarden`/
+ * `administerOwnership` — no separate check is needed for that.
+ *
+ * `assignments` is optional: every module OTHER than gardens-mapping's own
+ * composition constructs no `GardenAuthorization` of its own (they all reuse
+ * the single shared instance `compose-gardens-mapping.ts` builds — see that
+ * file's own header), and most unit-test fakes across this codebase have no
+ * reason to know about garden assignments at all. `null` here means
+ * literally "no second source configured", not "assignments never grant
+ * access" — the one production composition root always supplies the real
+ * adapter.
+ *
  * Source: architecture/identity-and-authorization.md, section
- * "9. Authorization Evaluation"; implementation-plan.md work package P2-SEC-01.
+ * "9. Authorization Evaluation"; implementation-plan.md work package P2-SEC-01;
+ * ADR-0012-separate-team-and-client-sharing.md.
  */
 
 import { GardenErrorCode, SharedErrorCode } from '@verdery/api-contracts';
@@ -41,10 +70,14 @@ import {
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { GardenCapability } from '../domain/garden-role.js';
 import { capabilityAllowedInLifecycleState, roleHasCapability } from '../domain/garden-role.js';
-import type { Membership, MembershipRepository } from './membership-repository.js';
+import type { GardenAssignmentAccessSource } from './garden-assignment-access-source.js';
+import type { GardenAccess, Membership, MembershipRepository } from './membership-repository.js';
 
 export class GardenAuthorization {
-  constructor(private readonly memberships: MembershipRepository) {}
+  constructor(
+    private readonly memberships: MembershipRepository,
+    private readonly assignments: GardenAssignmentAccessSource | null = null,
+  ) {}
 
   /** Returns the caller's membership, or throws `notFound`/`forbidden`/`lifecycleConflict` per the rules above. */
   async requireCapability(
@@ -52,7 +85,7 @@ export class GardenAuthorization {
     profileId: Uuid,
     capability: GardenCapability,
   ): Promise<Membership> {
-    const access = await this.memberships.findGardenAccess(gardenId, profileId);
+    const access = await this.resolveAccess(gardenId, profileId);
 
     if (access === null) {
       throw new NotFoundError(GardenErrorCode.NotFound, 'Garden not found.');
@@ -80,5 +113,37 @@ export class GardenAuthorization {
     }
 
     return access.membership;
+  }
+
+  /**
+   * Ordinary membership first; only when it finds nothing does an active
+   * garden assignment get a say — see this file's header, "Step 1 has TWO
+   * independent sources". Returns the same `GardenAccess` shape either way,
+   * so every step after this call is source-agnostic.
+   */
+  private async resolveAccess(gardenId: Uuid, profileId: Uuid): Promise<GardenAccess | null> {
+    const membershipAccess = await this.memberships.findGardenAccess(gardenId, profileId);
+    if (membershipAccess !== null) {
+      return membershipAccess;
+    }
+
+    if (this.assignments === null) {
+      return null;
+    }
+
+    const assignmentAccess = await this.assignments.findActiveAssignment(gardenId, profileId);
+    if (assignmentAccess === null) {
+      return null;
+    }
+
+    return {
+      membership: {
+        id: assignmentAccess.assignmentId,
+        gardenId,
+        profileId,
+        role: assignmentAccess.role,
+      },
+      gardenLifecycleState: assignmentAccess.gardenLifecycleState,
+    };
   }
 }

@@ -6201,16 +6201,20 @@ no garden access), and the client-engagement record P9C's publication workflow w
       tag, 18 endpoints, last-admin lock proven under real concurrency (mirrors last-owner).
       Assignment modeled as free-standing (no FK to `client_engagement` — confirmed in the
       migration and the architecture doc's own domain-relationship diagram).
-- [ ] **P9B-AUTH-01 (found during review, not in the original plan table — genuinely necessary)** —
-      wire `garden_assignment` into real garden access. Found by personally reading the denial-
-      matrix test: a professional with an ACTIVE assignment naming an exact garden still gets
-      `NotFoundError` from `GardenAuthorization.requireCapability` for `viewGarden`, because
-      `MembershipRepository.findGardenAccess` (the ONLY resolution path every content module —
-      map, plants, tasks, observations, media — funnels through) reads exclusively from
-      `collaboration.membership` and has never heard of `collaboration.garden_assignment`.
-      Assignments are currently pure bookkeeping with zero behavioral effect: an org admin can
-      "assign" a professional to a garden today and that professional can do nothing on it. This
-      must be fixed before P9B-WEB-01, or the professional workspace UI would visibly do nothing.
+- [x] **P9B-AUTH-01 (found during review, not in the original plan table — genuinely necessary)** —
+      wire `garden_assignment` into real garden access. `GardenAuthorization` gained a second
+      access-resolution path (`GardenAssignmentAccessSource`, a narrow read port mirroring the
+      existing `garden-recipient-source.ts`/`kysely-evaluation-garden-source.ts` cross-module-read
+      precedent, not a `gardens-mapping` reach into `collaboration`'s own persistence). Assignment
+      role maps onto ordinary editor/viewer capabilities, never owner-only ones; lifecycle-state
+      protection unchanged. 241 files / 1904 tests, all green.
+      **New follow-up flagged, not fixed (documented in `get-sync-changes.ts` as "KNOWN GAP,
+      FLAGGED NOT FIXED")**: an assignment-sourced professional can now genuinely edit a garden
+      over HTTP, but `GetSyncChanges` still builds the sync partition from `collaboration.membership`
+      alone — that garden never reaches their native/web client via `/v1/sync/changes`. Needs its
+      own package (a per-profile assignment listing, plus tombstone emission on
+      end/revoke — mirroring P9A-SYNC-01's `RemoveMember` fix) before assignment-based access is
+      usable outside raw HTTP calls.
 - [ ] P9B-WEB-01 — responsive professional workspace: organization members, assigned gardens,
       clients, engagements, publisher administration. Solo-professional and small-team E2E.
 

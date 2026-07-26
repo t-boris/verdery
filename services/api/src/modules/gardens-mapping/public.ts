@@ -29,6 +29,15 @@ export type {
   MembershipDetail,
   MembershipRepository,
 } from './application/membership-repository.js';
+// P9B-API-02: the second, organization-assignment-sourced garden access
+// path `GardenAuthorization` consults when ordinary membership grants
+// nothing — see that port's own header for why it is a separate port
+// rather than a change to `MembershipRepository.findGardenAccess`.
+export type {
+  GardenAssignmentAccess,
+  GardenAssignmentAccessSource,
+} from './application/garden-assignment-access-source.js';
+export { KyselyGardenAssignmentAccessSource } from './persistence/kysely-garden-assignment-access-source.js';
 export { RenameGarden } from './application/rename-garden.js';
 export { RequestGardenDeletion } from './application/request-garden-deletion.js';
 export { RestoreGardenDeletion } from './application/restore-garden-deletion.js';

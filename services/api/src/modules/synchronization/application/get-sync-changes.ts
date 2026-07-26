@@ -71,6 +71,53 @@
  * `tombstoneOnlyGardenIds` below keeps working for a client that has not
  * reconnected yet.
  *
+ * ## KNOWN GAP, FLAGGED NOT FIXED: `collaboration.garden_assignment` never
+ * reaches this partition (P9B-API-02)
+ *
+ * `execute` below builds `activeGardenIds`/`tombstoneOnlyGardenIds`/
+ * `activeRoleByGardenId` from `MembershipRepository.listMembershipsForProfile`
+ * ALONE — `collaboration.membership` only. P9B-API-02 gave `GardenAuthorization`
+ * a second, assignment-sourced access path (`GardenAssignmentAccessSource`,
+ * `gardens-mapping/application/garden-assignment-access-source.ts`), so a
+ * professional whose ONLY access to a garden is an active
+ * `collaboration.garden_assignment` row can now genuinely view and edit that
+ * garden's content over ordinary HTTP requests — but this method has no
+ * equivalent "list active assignments for profile" call, so that same
+ * garden never appears in `activeGardenIds` here. The garden is invisible to
+ * that professional's `/v1/sync/changes` partition entirely: their
+ * native/web client never receives it, even though the server-side
+ * authorization check now genuinely allows it.
+ *
+ * Deliberately NOT fixed in the same change that added the assignment
+ * access path, because it is a materially larger, separate piece of work,
+ * not a one-line addition:
+ *
+ *   1. A new per-profile "list active assignments" read has to be added
+ *      (mirroring `listMembershipsForProfile`, sourced from
+ *      `collaboration.garden_assignment`) and merged into
+ *      `activeGardenIds`/`activeRoleByGardenId` below.
+ *   2. Ending or revoking an assignment has to produce a tombstone an
+ *      already-synced client's next pull will see. Today it does not:
+ *      `EndGardenAssignment`/`RevokeGardenAssignment`/`CreateGardenAssignment`
+ *      (`collaboration/application/*-garden-assignment.ts`) append only to
+ *      the generic `outbox`, never to `platform.sync_change` — unlike
+ *      `RequestGardenDeletion`'s membership revocation, which writes an
+ *      addressed `garden`/`delete` tombstone specifically so
+ *      `tombstoneOnlyGardenIds` keeps working. No equivalent exists for an
+ *      ended/revoked assignment, so even after (1) a client could keep a
+ *      garden it lost assignment-based access to.
+ *   3. Whether a NEWLY assignment-visible garden's full historical content
+ *      correctly backfills for a profile whose `sequence` cursor has
+ *      already advanced past that garden's own historical rows is a
+ *      question this pull design already has to answer for ordinary
+ *      invitation-based membership grants (a global, not per-garden,
+ *      cursor) — not one this gap introduces, but one the assignment path
+ *      would inherit unresolved rather than newly create.
+ *
+ * Tracked here, explicitly, rather than silently left for someone to
+ * rediscover by noticing a professional's client is missing a garden they
+ * can otherwise edit.
+ *
  * ## Building each upsert row's `record`
  *
  * A `delete`-operation row carries no `record` at all (the contract's own

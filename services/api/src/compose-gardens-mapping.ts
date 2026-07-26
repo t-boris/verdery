@@ -42,6 +42,7 @@ import {
   GetGardenOwnershipTransfer,
   JoinMapObjectLinework,
   KyselyCoordinateSpaceRepository,
+  KyselyGardenAssignmentAccessSource,
   KyselyGardenRepository,
   KyselyGardensMappingUnitOfWork,
   KyselyGeoreferenceRepository,
@@ -103,8 +104,15 @@ export function composeGardensMapping(
   // see membership-repository.ts for why. Read paths use the pooled
   // connection directly; commands go through the transactional unit of work.
   const gardenRepository = new KyselyGardenRepository(database.queries);
+  // P9B-API-02: the assignment-sourced fallback `GardenAuthorization` needs
+  // to honor `collaboration.garden_assignment` — see that class's own
+  // header, "Step 1 has TWO independent sources". Wired here, once, onto the
+  // single `gardenAuthorization` instance every other module's composition
+  // reuses (see this file's own header), so the fix holds everywhere this
+  // instance is already shared.
   const gardenAuthorization = new GardenAuthorization(
     new KyselyMembershipRepository(database.queries),
+    new KyselyGardenAssignmentAccessSource(database.queries),
   );
   const gardenIdempotency = new KyselyIdempotencyStore(database.queries, clock);
   const gardensMappingUnitOfWork = new KyselyGardensMappingUnitOfWork(database.queries, clock);
