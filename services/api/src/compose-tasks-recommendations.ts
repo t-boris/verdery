@@ -26,6 +26,7 @@ import type {
 } from './modules/integrations/public.js';
 import type { GetObservation } from './modules/observations-history/public.js';
 import {
+  AssignTask,
   AttachTaskFile,
   CompleteRecommendation,
   CompleteTask,
@@ -38,9 +39,11 @@ import {
   EditTask,
   EmbellishRecommendationExplanations,
   EvaluateGardenRecommendations,
+  GetTaskActivity,
   GetTodayView,
   KyselyEvaluationGardenSource,
   KyselyRecommendationCandidateRepository,
+  KyselyTaskActivityRepository,
   KyselyTaskRepository,
   KyselyTasksRecommendationsUnitOfWork,
   ListTasksForGarden,
@@ -88,6 +91,7 @@ export function composeTasksRecommendations(
   cloudTasksInvocationVerifier: CloudTasksInvocationVerifier,
 ): TasksRecommendationsComposition {
   const taskRepository = new KyselyTaskRepository(database.queries);
+  const taskActivityRepository = new KyselyTaskActivityRepository(database.queries);
   const idempotency = new KyselyIdempotencyStore(database.queries, clock);
   const unitOfWork = new KyselyTasksRecommendationsUnitOfWork(database.queries, clock);
 
@@ -130,6 +134,12 @@ export function composeTasksRecommendations(
       unitOfWork,
       gardenAuthorization,
       clock,
+    ),
+    assignTask: new AssignTask(taskRepository, idempotency, unitOfWork, gardenAuthorization, clock),
+    getTaskActivity: new GetTaskActivity(
+      taskRepository,
+      taskActivityRepository,
+      gardenAuthorization,
     ),
   };
 

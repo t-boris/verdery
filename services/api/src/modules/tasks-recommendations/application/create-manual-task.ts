@@ -136,6 +136,7 @@ export class CreateManualTask {
           commandType: 'createManualTask',
           status: task.status,
           dueDate: task.dueDate,
+          assignedProfileId: null,
           actorProfileId: profileId,
         });
         await context.syncChanges.record({

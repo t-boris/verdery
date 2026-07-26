@@ -277,6 +277,11 @@ export type CreateInvitationResult = Schemas['CreateInvitationResult'];
 export type CreateInvitationRequest = Schemas['CreateInvitationRequest'];
 export type AcceptInvitationRequest = Schemas['AcceptInvitationRequest'];
 
+/** The ownership-administration schemas (P9A-OWNER-01): promote, demote, transfer, cancel. */
+export type OwnershipTransferState = Schemas['OwnershipTransferState'];
+export type OwnershipTransfer = Schemas['OwnershipTransfer'];
+export type TransferOwnershipRequest = Schemas['TransferOwnershipRequest'];
+
 /** The account-deletion schemas (P8-DELETE-01). */
 export type AccountDeletionState = Schemas['AccountDeletionState'];
 export type AccountDeletionGardenResolution = Schemas['AccountDeletionGardenResolution'];
@@ -432,6 +437,13 @@ export * from './recommendation-events.js';
 export * from './notification-dispatch.js';
 
 /**
+ * The task-assignment outbox event contract (P9A-TASK-01) lives in
+ * `./task-events.js` — the same hand-written machine-to-machine posture as
+ * `./recommendation-events.js`, re-exported here unchanged.
+ */
+export * from './task-events.js';
+
+/**
  * Error codes the notifications module raises (P7-NOTIF-01).
  *
  * The inbox commands conceal non-ownership as not-found (a caller must not
@@ -530,6 +542,24 @@ export const CollaborationErrorCode = {
   InvitationAlreadyAccepted: 'collaboration.invitation.already_accepted',
   /** The invitation is bound to an email address that does not match the accepting caller's own verified email. */
   InvitationEmailMismatch: 'collaboration.invitation.email_mismatch',
+  /**
+   * Promotion, demotion, and ownership transfer require the acting owner's
+   * session `auth_time` to be recent (P9A-OWNER-01, matrix rows H8/H9/H13:
+   * "recent auth ≤ 30 m"); it is too old. A domain-local code rather than a
+   * reuse of `DeletionErrorCode.RecentAuthenticationRequired` — this
+   * codebase's established posture of one error code per sensitive-action
+   * family, matching `ExportErrorCode.RecentAuthenticationRequired`'s own
+   * precedent alongside deletion's.
+   */
+  RecentAuthenticationRequired: 'collaboration.membership.recent_authentication_required',
+  /** `demoteOwner` was asked to demote a target whose CURRENT role is not `owner`. Also reused by `acceptOwnershipTransfer`'s re-validation of the transfer's `from_profile_id` at acceptance time — the identical fact, just re-read later by the recipient instead of the initiator. */
+  TargetNotOwner: 'collaboration.membership.target_not_owner',
+  /** `transferOwnership` named a target who already holds `owner` — demoting the existing co-owner set is `demoteOwner`'s job instead. Also reused by `acceptOwnershipTransfer`'s re-validation of the caller's own membership (a concurrent `promoteGardenMember` could have made them co-owner already while the transfer stayed pending). */
+  TargetAlreadyOwner: 'collaboration.membership.target_already_owner',
+  /** A PENDING ownership transfer already exists for this garden (`ownership_transfer_pending_key`'s application-level mirror, and the genuine concurrent race the mirror cannot see). */
+  OwnershipTransferAlreadyPending: 'collaboration.ownership_transfer.already_pending',
+  /** No PENDING ownership transfer exists for this garden addressed to the caller — reused identically by `cancelGardenOwnershipTransfer`, `acceptOwnershipTransfer`, and `declineOwnershipTransfer` (not pending at all, or pending for someone else — deliberately not distinguished, the same concealment posture `MembershipNotFound` already applies). */
+  OwnershipTransferNotFound: 'collaboration.ownership_transfer.not_found',
 } as const;
 
 export type CollaborationErrorCode =

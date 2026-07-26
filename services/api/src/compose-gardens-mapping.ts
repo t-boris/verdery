@@ -21,15 +21,19 @@
 
 import {
   AcceptInvitation,
+  AcceptOwnershipTransfer,
   ArchiveGarden,
   AssignPlantToTarget,
+  CancelOwnershipTransfer,
   ChangeMapObjectProperties,
   ChangeMemberRole,
   CreateGarden,
   CreateInvitation,
   CreateMapObject,
   DecideMapProposal,
+  DeclineOwnershipTransfer,
   DeleteMapObject,
+  DemoteOwner,
   DuplicateMapObject,
   EditMapObjectVertex,
   GardenAuthorization,
@@ -47,6 +51,7 @@ import {
   ListGardenMembers,
   ListGardens,
   MoveMapObject,
+  PromoteToOwner,
   RemoveMember,
   RenameGarden,
   ReplaceMapObjectGeometry,
@@ -56,6 +61,7 @@ import {
   RevokeInvitation,
   RunInvitationExpirySweep,
   SplitMapObjectLinework,
+  TransferOwnership,
   UpsertMapCalibration,
 } from './modules/gardens-mapping/public.js';
 import type {
@@ -64,6 +70,7 @@ import type {
   InvitationRoutesDependencies,
   MapRoutesDependencies,
   MemberRoutesDependencies,
+  OwnershipRoutesDependencies,
 } from './modules/gardens-mapping/public.js';
 import type { CloudTasksInvocationVerifier } from './platform/tasks/cloud-tasks-invocation-verifier.js';
 import type { DatabaseGateway } from './platform/database/database-gateway.js';
@@ -80,6 +87,8 @@ export interface GardensMappingComposition {
   readonly memberRoutesDependencies: MemberRoutesDependencies;
   /** P9A-API-01 — the worker-triggered invitation expiry sweep. */
   readonly invitationExpirySweepRouteDependencies: InvitationExpirySweepRouteDependencies;
+  /** P9A-OWNER-01 — recent-auth-gated promote/demote/transfer/cancel. */
+  readonly ownershipRoutesDependencies: OwnershipRoutesDependencies;
 }
 
 export function composeGardensMapping(
@@ -274,6 +283,52 @@ export function composeGardensMapping(
     cloudTasksInvocationVerifier,
   };
 
+  // Owner administration (P9A-OWNER-01): promote to co-owner, demote an
+  // owner, request a transfer, accept/decline/cancel it. Shares
+  // `gardenIdempotency`/`gardensMappingUnitOfWork`/`gardenAuthorization`
+  // with every other Collaboration command above — same idempotency table,
+  // same transaction boundary (which is where `KyselyOwnershipTransferRepository`
+  // is actually bound; see `kysely-gardens-mapping-unit-of-work.ts`), same
+  // capability matrix.
+  const ownershipRoutesDependencies: OwnershipRoutesDependencies = {
+    promoteToOwner: new PromoteToOwner(
+      gardenIdempotency,
+      gardensMappingUnitOfWork,
+      gardenAuthorization,
+      clock,
+    ),
+    demoteOwner: new DemoteOwner(
+      gardenIdempotency,
+      gardensMappingUnitOfWork,
+      gardenAuthorization,
+      clock,
+    ),
+    transferOwnership: new TransferOwnership(
+      gardenIdempotency,
+      gardensMappingUnitOfWork,
+      gardenAuthorization,
+      clock,
+    ),
+    acceptOwnershipTransfer: new AcceptOwnershipTransfer(
+      gardenIdempotency,
+      gardensMappingUnitOfWork,
+      gardenAuthorization,
+      clock,
+    ),
+    declineOwnershipTransfer: new DeclineOwnershipTransfer(
+      gardenIdempotency,
+      gardensMappingUnitOfWork,
+      gardenAuthorization,
+      clock,
+    ),
+    cancelOwnershipTransfer: new CancelOwnershipTransfer(
+      gardenIdempotency,
+      gardensMappingUnitOfWork,
+      gardenAuthorization,
+      clock,
+    ),
+  };
+
   return {
     gardenAuthorization,
     gardenRoutesDependencies,
@@ -281,5 +336,6 @@ export function composeGardensMapping(
     invitationRoutesDependencies,
     memberRoutesDependencies,
     invitationExpirySweepRouteDependencies,
+    ownershipRoutesDependencies,
   };
 }

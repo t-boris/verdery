@@ -16,6 +16,7 @@ import { KyselyGardenRepository } from './kysely-garden-repository.js';
 import { KyselyInvitationRepository } from './kysely-invitation-repository.js';
 import { KyselyMapObjectRepository } from './kysely-map-object-repository.js';
 import { KyselyMembershipRepository } from './kysely-membership-repository.js';
+import { KyselyOwnershipTransferRepository } from './kysely-ownership-transfer-repository.js';
 import { KyselyRevisionJournalWriter } from './kysely-revision-journal-writer.js';
 
 export class KyselyGardensMappingUnitOfWork implements GardensMappingUnitOfWork {
@@ -30,6 +31,7 @@ export class KyselyGardensMappingUnitOfWork implements GardensMappingUnitOfWork 
         gardens: new KyselyGardenRepository(trx),
         memberships: new KyselyMembershipRepository(trx),
         invitations: new KyselyInvitationRepository(trx),
+        ownershipTransfers: new KyselyOwnershipTransferRepository(trx),
         idempotency: new KyselyIdempotencyStore(trx, this.clock),
         outbox: new KyselyOutboxAppender(trx, this.clock),
         auditLogger: new KyselyAuditLogger(trx, this.clock),

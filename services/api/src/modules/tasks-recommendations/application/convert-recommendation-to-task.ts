@@ -163,6 +163,7 @@ export class ConvertRecommendationToTask {
           commandType: 'convertRecommendationToTask',
           status: task.status,
           dueDate: task.dueDate,
+          assignedProfileId: null,
           actorProfileId: profileId,
         });
         await context.syncChanges.record({

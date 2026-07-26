@@ -32,6 +32,7 @@ import type { GardenRepository } from './garden-repository.js';
 import type { InvitationRepository } from './invitation-repository.js';
 import type { MapObjectRepository } from './map-object-repository.js';
 import type { MembershipRepository } from './membership-repository.js';
+import type { OwnershipTransferRepository } from './ownership-transfer-repository.js';
 import type { RevisionJournalWriter } from './revision-journal-writer.js';
 
 export interface GardensMappingTransactionContext {
@@ -39,6 +40,8 @@ export interface GardensMappingTransactionContext {
   readonly memberships: MembershipRepository;
   /** P9A-API-01 — bound to the same transaction as every other port here, so an invitation write and its resulting membership grant commit or roll back together. */
   readonly invitations: InvitationRepository;
+  /** P9A-OWNER-01 — bound to the same transaction as `memberships`, so an ownership-transfer row and the two membership role changes it describes commit or roll back together. */
+  readonly ownershipTransfers: OwnershipTransferRepository;
   readonly idempotency: IdempotencyStore;
   readonly outbox: OutboxAppender;
   readonly auditLogger: AuditLogger;

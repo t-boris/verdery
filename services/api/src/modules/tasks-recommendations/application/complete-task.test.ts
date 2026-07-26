@@ -57,9 +57,33 @@ describe('CompleteTask', () => {
         commandType: 'completeTask',
         status: 'completed',
         dueDate: null,
+        assignedProfileId: null,
         actorProfileId: PROFILE_ID,
       },
     ]);
+  });
+
+  it('stamps completedByProfileId with the actual caller, not the task assignee', async () => {
+    const assigneeId = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a10';
+    const fakes = fakesWithTask({ assignedProfileId: assigneeId, assignedAt: NOW });
+    const completeTask = new CompleteTask(
+      fakes.tasks,
+      fakes.idempotency,
+      new FakeTasksRecommendationsUnitOfWork(fakes),
+      authorizationGranting(OWNER_MEMBERSHIP),
+      fixedClock(NOW),
+    );
+
+    const result = await completeTask.execute(
+      TASK_ID,
+      PROFILE_ID,
+      1,
+      null,
+      '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a11',
+    );
+
+    expect(result.assignedProfileId).toBe(assigneeId);
+    expect(result.completedByProfileId).toBe(PROFILE_ID);
   });
 
   it('rejects completing an already-completed task', async () => {

@@ -230,3 +230,19 @@ export function parseAttachTaskFileRequest(body: unknown): AttachTaskFileInput {
 
   return { mediaId };
 }
+
+/**
+ * `assigneeProfileId` is required (unlike this file's other optional
+ * fields): the whole point of the request is to state the new assignment,
+ * and `null` is how a caller explicitly unassigns rather than a shorthand
+ * for "no change" (P9A-TASK-01).
+ */
+export function parseAssignTaskRequest(body: unknown): string | null {
+  const record = requireRecord(body, '');
+  if (!('assigneeProfileId' in record)) {
+    throw invalid('assigneeProfileId is required.', 'request.invalid', '/assigneeProfileId');
+  }
+
+  const value = record['assigneeProfileId'];
+  return value === null ? null : requireUuid(value, '/assigneeProfileId');
+}

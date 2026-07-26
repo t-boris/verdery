@@ -29,6 +29,9 @@ interface TaskRowLike {
   created_at: Date;
   updated_at: Date;
   completed_at: Date | null;
+  assigned_profile_id: string | null;
+  assigned_at: Date | null;
+  completed_by_profile_id: string | null;
 }
 
 function toTask(row: TaskRowLike): Task {
@@ -54,6 +57,9 @@ function toTask(row: TaskRowLike): Task {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     completedAt: row.completed_at,
+    assignedProfileId: row.assigned_profile_id,
+    assignedAt: row.assigned_at,
+    completedByProfileId: row.completed_by_profile_id,
   };
 }
 
@@ -96,6 +102,9 @@ export class KyselyTaskRepository implements TaskRepository {
           created_at: task.createdAt,
           updated_at: task.updatedAt,
           completed_at: task.completedAt,
+          assigned_profile_id: task.assignedProfileId,
+          assigned_at: task.assignedAt,
+          completed_by_profile_id: task.completedByProfileId,
         })
         .execute();
     } catch (error) {
@@ -123,6 +132,9 @@ export class KyselyTaskRepository implements TaskRepository {
           revision: task.revision,
           updated_at: task.updatedAt,
           completed_at: task.completedAt,
+          assigned_profile_id: task.assignedProfileId,
+          assigned_at: task.assignedAt,
+          completed_by_profile_id: task.completedByProfileId,
         })
         .where('id', '=', task.id)
         .where('revision', '=', expectedRevision)

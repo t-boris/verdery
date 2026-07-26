@@ -6120,18 +6120,35 @@ No endpoint writes to either table yet. P9A completes them rather than inventing
 
 ## Work packages
 
-- [ ] P9A-CAP-01 — Freeze the operational capability matrix across garden content, tasks, accepted
+- [x] P9A-CAP-01 — Freeze the operational capability matrix across garden content, tasks, accepted
       history, raw media, expensive processing, export, publication, membership, and deletion.
       Positive AND negative entries; this is the vocabulary every later package tests against.
-- [ ] P9A-DATA-01 — Complete invitation, membership, role transition, co-owner, assignment,
+      `docs/development/garden-capability-matrix.md` — 96 capabilities, 288 cells, no blanks;
+      69/96 enforced today, 18-entry gap list, 7 documented architecture silences (S1-S7).
+- [x] P9A-DATA-01 — Complete invitation, membership, role transition, co-owner, assignment,
       attribution, and collaboration-audit schema. Migration plus last-owner, uniqueness, and
-      temporal-state tests.
-- [ ] P9A-API-01 — Invitation create/revoke/accept/expire and membership list/change/remove
+      temporal-state tests. `1786500000000_collaboration-operations-and-attribution.sql` —
+      `membership_period`, `ownership_transfer`, task assignment/attribution columns,
+      `audit_event.garden_id`. Last-owner invariant NOT database-enforced (no PL/pgSQL in this
+      repo); the migration prescribes the locking read, proven both ways under real Postgres.
+- [x] P9A-API-01 — Invitation create/revoke/accept/expire and membership list/change/remove
       endpoints. Contract, email binding, idempotency, expiry, enumeration, and audit tests.
-- [ ] P9A-OWNER-01 — Recent-auth co-owner promotion/demotion and ownership transfer. Ordinary
-      invitations grant only editor or viewer.
-- [ ] P9A-TASK-01 — Task assignment, reassignment, completion attribution, shared activity history,
-      and collaboration notification intents.
+      Plus `GET /gardens/{gardenId}/invitations` (added beyond spec — closes a real gap:
+      without it an owner can only revoke an invitation whose id survived from the create
+      response). 216 files / 1675 tests, all green.
+- [x] P9A-OWNER-01 — Recent-auth co-owner promotion/demotion and ownership transfer. Ordinary
+      invitations grant only editor or viewer. Owner reviewed the transfer confirmation policy
+      and required RECIPIENT ACCEPTANCE rather than the initial no-acceptance reading — a
+      unilateral handover would let one click strip the original owner's rights and saddle the
+      target with deletion/export/membership-administration rights before they agreed. Transfer
+      now stays `pending` until `AcceptOwnershipTransfer` or `DeclineOwnershipTransfer` resolves
+      it. A real race was found and fixed during the rework: `ownership_transfer` updates had no
+      row lock, so accept/cancel/decline could clobber each other's result; fixed with
+      `lockPendingForGarden`, proven under real concurrency. 224 files / 1750 tests, all green.
+- [x] P9A-TASK-01 — Task assignment, reassignment, completion attribution, shared activity history,
+      and collaboration notification intents. Completion attribution proven to survive the
+      assignee losing garden access (tested against a real removal). Concurrent assignment
+      resolved via the task's existing revision guard — no new locking invented.
 - [ ] P9A-SYNC-01 — Synchronize membership grants/revocations, assignments, and attribution without
       retaining inaccessible garden data after revocation.
 - [ ] P9A-IOS-01 — Invitation acceptance, member/role display, assignments, co-owner administration,

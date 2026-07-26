@@ -51,6 +51,7 @@ import {
   FakeRuleVersionRepository,
 } from './recommendation-test-doubles.js';
 import type { TaskAttachmentRepository } from './task-attachment-repository.js';
+import type { TaskActivityEntry, TaskActivityRepository } from './task-activity-repository.js';
 import type { TaskRepository } from './task-repository.js';
 import type {
   TaskRevisionJournalEntry,
@@ -94,6 +95,9 @@ export function buildTask(overrides: Partial<Task> & { id: Uuid; gardenId: Uuid 
     createdAt: new Date('2026-07-01T00:00:00Z'),
     updatedAt: new Date('2026-07-01T00:00:00Z'),
     completedAt: null,
+    assignedProfileId: null,
+    assignedAt: null,
+    completedByProfileId: null,
     ...overrides,
   };
 }
@@ -144,6 +148,31 @@ export class FakeTaskRevisionJournalWriter implements TaskRevisionJournalWriter 
     this.entries.push(entry);
     return Promise.resolve();
   }
+}
+
+/** `GetTaskActivity`'s read port, backed by the same entries a `FakeTaskRevisionJournalWriter` collected — the two are deliberately separate fakes (matching the separate read/write ports they stand in for), but a test can seed one from the other via `activityFromJournal` below. */
+export class FakeTaskActivityRepository implements TaskActivityRepository {
+  constructor(private readonly entriesByTask: Map<Uuid, TaskActivityEntry[]> = new Map()) {}
+
+  listForTask(taskId: Uuid): Promise<TaskActivityEntry[]> {
+    return Promise.resolve(this.entriesByTask.get(taskId) ?? []);
+  }
+}
+
+/** Projects a written journal entry into the shape `TaskActivityRepository` reads back, stamping a deterministic `recordedAt` — the same field the real `task_revision.recorded_at` default supplies. */
+export function activityFromJournal(
+  entry: TaskRevisionJournalEntry,
+  recordedAt: Date,
+): TaskActivityEntry {
+  return {
+    revision: entry.revision,
+    commandType: entry.commandType,
+    actorProfileId: entry.actorProfileId,
+    status: entry.status,
+    dueDate: entry.dueDate,
+    assignedProfileId: entry.assignedProfileId,
+    recordedAt,
+  };
 }
 
 export class FakeSyncChangeRecorder implements SyncChangeRecorder {
@@ -318,17 +347,37 @@ export function getObservationResolving(observations: Map<Uuid, Observation>): G
   return new GetObservation(new FakeObservationRepository(observations));
 }
 
+/**
+ * Backed by every membership passed in, keyed by `profileId` — needed the
+ * moment a command checks TWO different profiles' capabilities against the
+ * same garden in one call (P9A-TASK-01's `AssignTask`: the actor AND the
+ * proposed assignee). A single-membership fake would silently answer every
+ * profile identically, which is exactly the bug this shape exists to make
+ * impossible to write.
+ */
 export class FakeMembershipRepository implements MembershipRepository {
-  constructor(
-    private readonly membership: FakeMembership | null,
-    private readonly gardenLifecycleState: GardenLifecycleState = 'active',
-  ) {}
+  private readonly membershipsByProfile: ReadonlyMap<Uuid, FakeMembership>;
 
-  findGardenAccess(): ReturnType<MembershipRepository['findGardenAccess']> {
+  constructor(
+    memberships: FakeMembership | readonly FakeMembership[] | null,
+    private readonly gardenLifecycleState: GardenLifecycleState = 'active',
+  ) {
+    const list: readonly FakeMembership[] =
+      memberships === null ? [] : Array.isArray(memberships) ? memberships : [memberships];
+    this.membershipsByProfile = new Map(
+      list.map((membership): [Uuid, FakeMembership] => [membership.profileId, membership]),
+    );
+  }
+
+  findGardenAccess(
+    _gardenId: Uuid,
+    profileId: Uuid,
+  ): ReturnType<MembershipRepository['findGardenAccess']> {
+    const membership = this.membershipsByProfile.get(profileId);
     return Promise.resolve(
-      this.membership === null
+      membership === undefined
         ? null
-        : { membership: this.membership, gardenLifecycleState: this.gardenLifecycleState },
+        : { membership, gardenLifecycleState: this.gardenLifecycleState },
     );
   }
 
@@ -391,6 +440,14 @@ export function authorizationGranting(
   gardenLifecycleState: GardenLifecycleState = 'active',
 ): GardenAuthorization {
   return new GardenAuthorization(new FakeMembershipRepository(membership, gardenLifecycleState));
+}
+
+/** `authorizationGranting`'s multi-profile counterpart — for commands like `AssignTask` that must resolve capabilities for more than one profile against the same garden in a single call. */
+export function authorizationGrantingMany(
+  memberships: readonly FakeMembership[],
+  gardenLifecycleState: GardenLifecycleState = 'active',
+): GardenAuthorization {
+  return new GardenAuthorization(new FakeMembershipRepository(memberships, gardenLifecycleState));
 }
 
 export function authorizationDenying(): GardenAuthorization {

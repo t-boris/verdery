@@ -32,6 +32,7 @@ import {
   registerInvitationRoutes,
   registerMapRoutes,
   registerMemberRoutes,
+  registerOwnershipRoutes,
 } from './modules/gardens-mapping/public.js';
 import {
   KyselyIdentityProviderLinkRepository,
@@ -256,6 +257,7 @@ export async function buildApplication(
     invitationRoutesDependencies,
     memberRoutesDependencies,
     invitationExpirySweepRouteDependencies,
+    ownershipRoutesDependencies,
   } = composeGardensMapping(database, clock, cloudTasksInvocationVerifier);
 
   // media (P6-API-01): registration, authorized resumable upload sessions,
@@ -522,6 +524,8 @@ export async function buildApplication(
       // P9A-API-01: operational invitations and membership administration.
       registerInvitationRoutes(instance, invitationRoutesDependencies);
       registerMemberRoutes(instance, memberRoutesDependencies);
+      // P9A-OWNER-01: recent-auth-gated promote/demote/transfer/cancel.
+      registerOwnershipRoutes(instance, ownershipRoutesDependencies);
       registerPlantRoutes(instance, plantRoutesDependencies);
       registerObservationRoutes(instance, observationRoutesDependencies);
       registerTaskRoutes(instance, taskRoutesDependencies);

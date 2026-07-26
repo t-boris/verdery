@@ -83,7 +83,7 @@ export type {
   TaskTimeWindow,
   TaskUrgency,
 } from './domain/task.js';
-export { createTaskFromRecommendation } from './domain/task.js';
+export { assignTask, createTaskFromRecommendation } from './domain/task.js';
 export type { TaskStatus, TaskTerminalStatus } from './domain/task-lifecycle.js';
 export type { TaskAttachment } from './domain/task-attachment.js';
 
@@ -279,6 +279,16 @@ export { GetTask } from './application/get-task.js';
 export { ListTasksForGarden } from './application/list-tasks-for-garden.js';
 export { AttachTaskFile } from './application/attach-task-file.js';
 export type { AttachTaskFileInput } from './application/attach-task-file.js';
+// Collaboration: task assignment, completion attribution, and shared
+// activity history (P9A-TASK-01).
+export { AssignTask } from './application/assign-task.js';
+export { GetTaskActivity } from './application/get-task-activity.js';
+export type {
+  TaskActivityEntry,
+  TaskActivityRepository,
+} from './application/task-activity-repository.js';
+export type { TaskActivityResource } from './application/task-activity-view.js';
+export { KyselyTaskActivityRepository } from './persistence/kysely-task-activity-repository.js';
 
 export {
   GetTodayView,

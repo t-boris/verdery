@@ -7,6 +7,8 @@ const CAPABILITIES: readonly GardenCapability[] = [
   'viewGarden',
   'editGardenContent',
   'manageGarden',
+  'exportGarden',
+  'administerOwnership',
 ];
 
 /**
@@ -15,7 +17,13 @@ const CAPABILITIES: readonly GardenCapability[] = [
  * architecture/testing-strategy.md's "every role/capability combination."
  */
 const EXPECTED: Readonly<Record<GardenRole, ReadonlySet<GardenCapability>>> = {
-  owner: new Set(['viewGarden', 'editGardenContent', 'manageGarden']),
+  owner: new Set([
+    'viewGarden',
+    'editGardenContent',
+    'manageGarden',
+    'exportGarden',
+    'administerOwnership',
+  ]),
   editor: new Set(['viewGarden', 'editGardenContent']),
   viewer: new Set(['viewGarden']),
 };

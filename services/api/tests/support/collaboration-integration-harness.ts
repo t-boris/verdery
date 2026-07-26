@@ -1,9 +1,10 @@
 /**
- * Shared fixture builders for the P9A-API-01 integration suites
+ * Shared fixture builders for the P9A-API-01/P9A-OWNER-01 integration suites
  * (`collaboration-invitations.test.ts`, `collaboration-accept-invitation
- * .test.ts`, `collaboration-membership.test.ts`) — real PostgreSQL, real
- * Kysely repositories, no fakes, the same posture `gardens-mapping.test.ts`
- * already established for this module.
+ * .test.ts`, `collaboration-membership.test.ts`,
+ * `collaboration-ownership.test.ts`) — real PostgreSQL, real Kysely
+ * repositories, no fakes, the same posture `gardens-mapping.test.ts` already
+ * established for this module.
  *
  * Pure functions only, no shared container: "every suite keeps its own
  * container" (`postgres-container.ts`'s own header), so each test file runs
@@ -98,6 +99,44 @@ export async function activeOwnerCount(
     .where('state', '=', 'active')
     .executeTakeFirst();
   return Number(row?.count ?? 0);
+}
+
+/**
+ * Seeds a PENDING `collaboration.ownership_transfer` row directly, bypassing
+ * `TransferOwnership` — useful even though a real call to `TransferOwnership`
+ * now ALSO leaves a pending row (it only requests; see that file's header),
+ * because this fixture lets a test seed an arbitrary `fromProfileId`/
+ * `toProfileId`/`requestedAt` combination directly, without also satisfying
+ * `TransferOwnership`'s own request-time validation (active membership,
+ * recent auth, not-already-owner) first. Tests that specifically exercise
+ * `TransferOwnership`'s own request path call it directly instead.
+ */
+export async function insertPendingOwnershipTransfer(
+  db: Kysely<DatabaseSchema>,
+  gardenId: string,
+  fromProfileId: string,
+  toProfileId: string,
+  fromResultingRole: 'editor' | 'viewer' = 'editor',
+  requestedAt: Date = new Date('2026-02-01T00:00:00Z'),
+): Promise<string> {
+  const id = randomUUID();
+  await db
+    .insertInto('collaboration.ownership_transfer')
+    .values({
+      id,
+      garden_id: gardenId,
+      from_profile_id: fromProfileId,
+      to_profile_id: toProfileId,
+      from_resulting_role: fromResultingRole,
+      state: 'pending',
+      authenticated_at: requestedAt,
+      requested_at: requestedAt,
+      completed_at: null,
+      cancelled_at: null,
+      cancellation_reason: null,
+    })
+    .execute();
+  return id;
 }
 
 export async function auditEventFor(

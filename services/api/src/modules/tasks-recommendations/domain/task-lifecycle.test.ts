@@ -4,6 +4,7 @@ import type { Task } from './task.js';
 import { requireEditableStatus, transitionTaskToTerminalStatus } from './task-lifecycle.js';
 
 const NOW = new Date('2026-07-21T12:00:00Z');
+const ACTOR_PROFILE_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0f';
 
 function plannedTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -28,6 +29,9 @@ function plannedTask(overrides: Partial<Task> = {}): Task {
     createdAt: new Date('2026-07-01T00:00:00Z'),
     updatedAt: new Date('2026-07-01T00:00:00Z'),
     completedAt: null,
+    assignedProfileId: null,
+    assignedAt: null,
+    completedByProfileId: null,
     ...overrides,
   };
 }
@@ -47,16 +51,36 @@ describe('requireEditableStatus', () => {
 
 describe('transitionTaskToTerminalStatus', () => {
   it('completes a planned task, setting completedAt and bumping the revision', () => {
-    const result = transitionTaskToTerminalStatus(plannedTask(), 'completed', NOW);
+    const result = transitionTaskToTerminalStatus(
+      plannedTask(),
+      'completed',
+      ACTOR_PROFILE_ID,
+      NOW,
+    );
     expect(result.status).toBe('completed');
     expect(result.completedAt).toBe(NOW);
     expect(result.revision).toBe(2);
     expect(result.updatedAt).toBe(NOW);
   });
 
+  it('stamps completedByProfileId with the transitioning actor only for the completed target', () => {
+    const completed = transitionTaskToTerminalStatus(
+      plannedTask(),
+      'completed',
+      ACTOR_PROFILE_ID,
+      NOW,
+    );
+    expect(completed.completedByProfileId).toBe(ACTOR_PROFILE_ID);
+
+    for (const target of ['dismissed', 'skipped', 'deleted'] as const) {
+      const result = transitionTaskToTerminalStatus(plannedTask(), target, ACTOR_PROFILE_ID, NOW);
+      expect(result.completedByProfileId).toBeNull();
+    }
+  });
+
   it('dismisses, skips, and deletes a planned task without touching completedAt', () => {
     for (const target of ['dismissed', 'skipped', 'deleted'] as const) {
-      const result = transitionTaskToTerminalStatus(plannedTask(), target, NOW);
+      const result = transitionTaskToTerminalStatus(plannedTask(), target, ACTOR_PROFILE_ID, NOW);
       expect(result.status).toBe(target);
       expect(result.completedAt).toBeNull();
     }
@@ -64,21 +88,21 @@ describe('transitionTaskToTerminalStatus', () => {
 
   it('rejects transitioning a task that is already terminal', () => {
     const completed = plannedTask({ status: 'completed', completedAt: NOW });
-    expect(() => transitionTaskToTerminalStatus(completed, 'dismissed', NOW)).toThrow(
-      DomainRuleViolatedError,
-    );
+    expect(() =>
+      transitionTaskToTerminalStatus(completed, 'dismissed', ACTOR_PROFILE_ID, NOW),
+    ).toThrow(DomainRuleViolatedError);
   });
 
   it('rejects completing a task twice', () => {
     const completed = plannedTask({ status: 'completed', completedAt: NOW });
-    expect(() => transitionTaskToTerminalStatus(completed, 'completed', NOW)).toThrow(
-      DomainRuleViolatedError,
-    );
+    expect(() =>
+      transitionTaskToTerminalStatus(completed, 'completed', ACTOR_PROFILE_ID, NOW),
+    ).toThrow(DomainRuleViolatedError);
   });
 
   it('accepts a transition from suggested', () => {
     const suggested = plannedTask({ status: 'suggested' });
-    const result = transitionTaskToTerminalStatus(suggested, 'skipped', NOW);
+    const result = transitionTaskToTerminalStatus(suggested, 'skipped', ACTOR_PROFILE_ID, NOW);
     expect(result.status).toBe('skipped');
   });
 });

@@ -17,6 +17,7 @@ export class KyselyTaskRevisionJournalWriter implements TaskRevisionJournalWrite
         command_type: entry.commandType,
         status: entry.status,
         due_date: entry.dueDate,
+        assigned_profile_id: entry.assignedProfileId,
         actor_profile_id: entry.actorProfileId,
       })
       .execute();

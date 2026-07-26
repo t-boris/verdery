@@ -3,6 +3,7 @@ import { ValidationError } from '../../../platform/errors/application-error.js';
 import { DomainRuleViolatedError } from '../../../platform/errors/application-error.js';
 import type { CreateTaskInput, TaskTarget } from './task.js';
 import {
+  assignTask,
   createTask,
   createTaskFromRecommendation,
   updateTaskDetails,
@@ -174,6 +175,38 @@ describe('updateTaskDetails', () => {
     expect(() => updateTaskDetails(completed, { title: 'Too late' }, LATER)).toThrow(
       DomainRuleViolatedError,
     );
+  });
+});
+
+describe('assignTask', () => {
+  const ASSIGNEE_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a11';
+
+  it('assigns, setting assignedProfileId and assignedAt together and bumping the revision', () => {
+    const assigned = assignTask(createTask(baseInput()), ASSIGNEE_ID, LATER);
+    expect(assigned.assignedProfileId).toBe(ASSIGNEE_ID);
+    expect(assigned.assignedAt).toBe(LATER);
+    expect(assigned.revision).toBe(2);
+    expect(assigned.updatedAt).toBe(LATER);
+  });
+
+  it('reassigns by calling again with a different profile', () => {
+    const first = assignTask(createTask(baseInput()), ASSIGNEE_ID, NOW);
+    const reassigned = assignTask(first, PROFILE_ID, LATER);
+    expect(reassigned.assignedProfileId).toBe(PROFILE_ID);
+    expect(reassigned.assignedAt).toBe(LATER);
+    expect(reassigned.revision).toBe(3);
+  });
+
+  it('unassigns with null, clearing both columns together', () => {
+    const assigned = assignTask(createTask(baseInput()), ASSIGNEE_ID, NOW);
+    const unassigned = assignTask(assigned, null, LATER);
+    expect(unassigned.assignedProfileId).toBeNull();
+    expect(unassigned.assignedAt).toBeNull();
+  });
+
+  it('rejects assigning a task that is not planned or suggested', () => {
+    const completed = { ...createTask(baseInput()), status: 'completed' as const };
+    expect(() => assignTask(completed, ASSIGNEE_ID, LATER)).toThrow(DomainRuleViolatedError);
   });
 });
 

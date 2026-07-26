@@ -60,6 +60,7 @@ describe('RescheduleTask', () => {
         commandType: 'rescheduleTask',
         status: null,
         dueDate: '2026-08-01',
+        assignedProfileId: null,
         actorProfileId: PROFILE_ID,
       },
     ]);

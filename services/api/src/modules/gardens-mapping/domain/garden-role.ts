@@ -36,10 +36,34 @@ export type GardenCapability =
    * matrix change here, not a parallel mechanism (deferred-capabilities.md
    * records the open product decision).
    */
-  | 'exportGarden';
+  | 'exportGarden'
+  /**
+   * Promote a member to owner, demote an owner, or transfer ownership
+   * (P9A-OWNER-01, matrix rows H8/H9/H13). Owner only, and deliberately a
+   * SEPARATE bit from `manageGarden` rather than a reuse of it — gap G-3
+   * (garden-capability-matrix.md) names exactly this risk: "so that 'may
+   * administer members' and 'may hand over the garden' are not the same
+   * bit". `manageGarden` still gates ordinary membership administration
+   * (invite, revoke, change editor/viewer role, remove — P9A-API-01's own
+   * commands, unchanged here); this capability gates only the owner-set
+   * itself, the one place a mistake can orphan a garden or hand it to the
+   * wrong person. Every command holding it also requires a RECENT
+   * authentication on top (`assertRecentAuthenticationForOwnershipAdministration`
+   * in `domain/ownership-transfer.ts`) — a second, independent gate this
+   * capability matrix has no room to express, checked by each command
+   * directly, the same layering `RequestGardenDeletion` already uses for
+   * `manageGarden` plus `assertRecentAuthenticationForDeletion`.
+   */
+  | 'administerOwnership';
 
 const ROLE_CAPABILITIES: Readonly<Record<GardenRole, ReadonlySet<GardenCapability>>> = {
-  owner: new Set(['viewGarden', 'editGardenContent', 'manageGarden', 'exportGarden']),
+  owner: new Set([
+    'viewGarden',
+    'editGardenContent',
+    'manageGarden',
+    'exportGarden',
+    'administerOwnership',
+  ]),
   editor: new Set(['viewGarden', 'editGardenContent']),
   viewer: new Set(['viewGarden']),
 };
@@ -97,6 +121,28 @@ const EVERY_LIFECYCLE_STATE: readonly GardenLifecycleState[] = [
  *   `exports.export_request.close_active` preparation has already run by then,
  *   so a request accepted afterwards would be a live row pointing at a garden
  *   whose row the purge is about to delete.
+ * - `administerOwnership` — every state, mirroring `manageGarden` rather than
+ *   `editGardenContent`: promoting, demoting, or transferring ownership is
+ *   garden ADMINISTRATION, not content, and `manageGarden`'s own reasoning
+ *   above (RESTORE must remain reachable from `deletion_requested`) applies
+ *   equally to the retained owner's ability to manage who else holds
+ *   ownership while they decide whether to restore. In practice this rarely
+ *   matters once a deletion request is pending:
+ *   `revokeGardenMemberships` (P8-DELETE-01) revokes every membership except
+ *   the REQUESTING owner's own, co-owners included, so a promote or transfer
+ *   attempted from `deletion_requested` almost always fails on its own
+ *   target-membership lookup (`collaboration.membership.not_found`) before
+ *   this matrix would ever refuse it, and a demote attempted there fails on
+ *   the last-owner lock (the requester is typically the only active member
+ *   left). Refusing it here too would be a second, redundant guard for a case
+ *   the domain checks already cover, and would ALSO block the one scenario
+ *   where it is not redundant: a garden with MULTIPLE co-owners who chose not
+ *   to revoke each other before requesting deletion is unaffected by that
+ *   revocation (the request only ever retains the requester), so this
+ *   capability staying open here is inert, not exploitable. `purging` is the
+ *   one state where it is moot rather than merely inert: every membership is
+ *   revoked at that point (`retainedProfileId: null`), so `viewGarden` itself
+ *   already fails first via `findGardenAccess` returning no active row.
  */
 const CAPABILITY_LIFECYCLE_STATES: Readonly<
   Record<GardenCapability, ReadonlySet<GardenLifecycleState>>
@@ -105,6 +151,7 @@ const CAPABILITY_LIFECYCLE_STATES: Readonly<
   editGardenContent: new Set(['active', 'archived']),
   manageGarden: new Set(EVERY_LIFECYCLE_STATE),
   exportGarden: new Set(['active', 'archived', 'deletion_requested']),
+  administerOwnership: new Set(EVERY_LIFECYCLE_STATE),
 };
 
 /**

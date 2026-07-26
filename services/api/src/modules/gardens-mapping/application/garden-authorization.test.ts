@@ -152,6 +152,7 @@ const EXPECTED_STATES: Readonly<Record<GardenCapability, readonly GardenLifecycl
   editGardenContent: ['active', 'archived'],
   manageGarden: ['active', 'archived', 'deletion_requested', 'purging'],
   exportGarden: ['active', 'archived', 'deletion_requested'],
+  administerOwnership: ['active', 'archived', 'deletion_requested', 'purging'],
 };
 
 describe('GardenAuthorization garden lifecycle', () => {

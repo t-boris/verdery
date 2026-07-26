@@ -36,7 +36,7 @@ export async function transitionTaskStatus(
   now: Date,
 ): Promise<TaskResource> {
   const updated = await applyTaskRevisionGuardedUpdate(tasks, taskId, expectedRevision, (task) =>
-    transitionTaskToTerminalStatus(task, target, now),
+    transitionTaskToTerminalStatus(task, target, actorProfileId, now),
   );
 
   await revisionJournal.record({
@@ -45,6 +45,7 @@ export async function transitionTaskStatus(
     commandType,
     status: updated.status,
     dueDate: null,
+    assignedProfileId: null,
     actorProfileId,
   });
   await syncChanges.record({

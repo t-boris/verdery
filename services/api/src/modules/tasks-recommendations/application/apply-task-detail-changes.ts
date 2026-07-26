@@ -44,6 +44,7 @@ export async function applyTaskDetailChanges(
     commandType,
     status: null,
     dueDate: changes.dueDate !== undefined ? updated.dueDate : null,
+    assignedProfileId: null,
     actorProfileId,
   });
   await syncChanges.record({

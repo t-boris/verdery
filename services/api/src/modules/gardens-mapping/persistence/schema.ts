@@ -48,6 +48,27 @@ export interface MembershipPeriodRow {
 }
 
 /**
+ * `collaboration.ownership_transfer` (P9A-DATA-01, written by P9A-OWNER-01).
+ * `state` has no `Generated<>` wrapper unlike `InvitationRow.state`: every
+ * writer here names it explicitly on insert (`'pending'`), never relying on
+ * the column's own database default — see `KyselyOwnershipTransferRepository
+ * .insertPending`.
+ */
+export interface OwnershipTransferRow {
+  id: string;
+  garden_id: string;
+  from_profile_id: string;
+  to_profile_id: string;
+  from_resulting_role: string;
+  state: string;
+  authenticated_at: Date;
+  requested_at: Generated<Date>;
+  completed_at: Date | null;
+  cancelled_at: Date | null;
+  cancellation_reason: string | null;
+}
+
+/**
  * `collaboration.invitation`, completed by P9A-DATA-01. `token_hash` is the
  * only trace of the opaque secret this row ever carries — see
  * `application/invitation-token.ts`. `intended_email` is always lowercase
@@ -261,6 +282,7 @@ export interface GardensMappingDatabaseSchema {
   'collaboration.membership': MembershipRow;
   'collaboration.membership_period': MembershipPeriodRow;
   'collaboration.invitation': InvitationRow;
+  'collaboration.ownership_transfer': OwnershipTransferRow;
   'gardens_mapping.coordinate_space': CoordinateSpaceRow;
   'gardens_mapping.georeference': GeoreferenceRow;
   'gardens_mapping.garden_object': GardenObjectRow;

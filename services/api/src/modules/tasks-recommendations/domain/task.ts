@@ -92,6 +92,29 @@ export interface Task {
   readonly updatedAt: Date;
   /** Set only by a `CompleteTask` transition to `'completed'`; `null` otherwise, and never cleared once set. */
   readonly completedAt: Date | null;
+  /**
+   * The garden member responsible for this task (P9A-TASK-01) — `null` means
+   * unassigned. Set only by `AssignTask`, together with `assignedAt`
+   * (`task_assignment_linkage_check`). References `identity_access.profile`,
+   * never `collaboration.membership`, the same choice `completedByProfileId`
+   * documents below — an assignment stays readable after the assignee loses
+   * garden access.
+   */
+  readonly assignedProfileId: Uuid | null;
+  /** Present exactly when `assignedProfileId` is — see the migration's `task_assignment_linkage_check`. */
+  readonly assignedAt: Date | null;
+  /**
+   * The ACTUAL caller who completed this task (P9A-TASK-01) — set by
+   * `CompleteTask` from its own `profileId` argument, never from
+   * `assignedProfileId` (the assignee and the completer are not required to
+   * be the same profile). References `identity_access.profile` for the same
+   * survives-access-loss reason `assignedProfileId` documents; the
+   * migration's `task_completion_attribution_check` only requires that a
+   * completion instant exist alongside it, never the reverse, so a
+   * completion recorded before this column existed simply carries no
+   * attribution.
+   */
+  readonly completedByProfileId: Uuid | null;
 }
 
 /**
@@ -234,6 +257,9 @@ export function createTask(input: CreateTaskInput): Task {
     createdAt: input.now,
     updatedAt: input.now,
     completedAt: null,
+    assignedProfileId: null,
+    assignedAt: null,
+    completedByProfileId: null,
   };
 }
 
@@ -294,6 +320,9 @@ export function createTaskFromRecommendation(input: CreateTaskFromRecommendation
     createdAt: input.now,
     updatedAt: input.now,
     completedAt: null,
+    assignedProfileId: null,
+    assignedAt: null,
+    completedByProfileId: null,
   };
 }
 
@@ -362,6 +391,38 @@ export function updateTaskDetails(task: Task, changes: TaskDetailChanges, now: D
     urgency: changes.urgency !== undefined ? changes.urgency : task.urgency,
     recurrenceRule:
       changes.recurrenceRule !== undefined ? changes.recurrenceRule : task.recurrenceRule,
+    revision: task.revision + 1,
+    updatedAt: now,
+  };
+}
+
+/**
+ * Assigns, reassigns, or unassigns (`assigneeProfileId: null`) a task
+ * (P9A-TASK-01). One function for all three: reassignment is the same
+ * operation applied again, and unassignment is the same operation applied
+ * with `null` — the migration's `task_assignment_linkage_check` requires
+ * `assignedProfileId`/`assignedAt` to be present or absent together, which
+ * this function keeps true by construction rather than by a caller
+ * remembering to clear both.
+ *
+ * Gated by `requireEditableStatus`, the same precondition every other
+ * task-changing command in this module shares: assigning work to, or taking
+ * work away from, a task that is already terminal (completed, skipped,
+ * dismissed, deleted) has no meaning.
+ *
+ * WHO may be named as `assigneeProfileId` is an application-layer concern,
+ * not a domain one — this function only shapes the task's own state.
+ * `AssignTask` (application layer) is what checks the assignee holds
+ * `editGardenContent` on this task's garden before ever calling this
+ * function, per docs/development/garden-capability-matrix.md row B14.
+ */
+export function assignTask(task: Task, assigneeProfileId: Uuid | null, now: Date): Task {
+  requireEditableStatus(task);
+
+  return {
+    ...task,
+    assignedProfileId: assigneeProfileId,
+    assignedAt: assigneeProfileId === null ? null : now,
     revision: task.revision + 1,
     updatedAt: now,
   };

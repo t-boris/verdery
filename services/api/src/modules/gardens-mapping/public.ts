@@ -131,3 +131,31 @@ export { registerMemberRoutes } from './transport/member-routes.js';
 export type { MemberRoutesDependencies } from './transport/member-routes.js';
 export { registerInvitationExpirySweepRoute } from './transport/invitation-expiry-sweep-route.js';
 export type { InvitationExpirySweepRouteDependencies } from './transport/invitation-expiry-sweep-route.js';
+
+// Owner administration: promote to co-owner, demote an owner, request an
+// ownership transfer, accept or decline it as its recipient, or cancel it as
+// its initiator (P9A-OWNER-01). Reuses
+// `GardenAuthorization`/`GardensMappingUnitOfWork`/`MembershipRepository`
+// above, the same posture the rest of Collaboration already takes.
+export type {
+  OwnershipAdministrationActor,
+  OwnershipTransfer,
+  OwnershipTransferResultingRole,
+  OwnershipTransferState,
+} from './domain/ownership-transfer.js';
+export {
+  OWNERSHIP_ADMINISTRATION_RECENT_AUTHENTICATION_MAX_AGE_MS,
+  assertRecentAuthenticationForOwnershipAdministration,
+} from './domain/ownership-transfer.js';
+export { PromoteToOwner } from './application/promote-to-owner.js';
+export { DemoteOwner } from './application/demote-owner.js';
+export { TransferOwnership } from './application/transfer-ownership.js';
+export { AcceptOwnershipTransfer } from './application/accept-ownership-transfer.js';
+export type { OwnershipTransferAcceptActor } from './application/accept-ownership-transfer.js';
+export { DeclineOwnershipTransfer } from './application/decline-ownership-transfer.js';
+export type { OwnershipTransferDeclineActor } from './application/decline-ownership-transfer.js';
+export { CancelOwnershipTransfer } from './application/cancel-ownership-transfer.js';
+export type { OwnershipTransferRepository } from './application/ownership-transfer-repository.js';
+export { KyselyOwnershipTransferRepository } from './persistence/kysely-ownership-transfer-repository.js';
+export { registerOwnershipRoutes } from './transport/ownership-routes.js';
+export type { OwnershipRoutesDependencies } from './transport/ownership-routes.js';

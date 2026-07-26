@@ -85,3 +85,25 @@ export function mediaNotAvailableForAttachmentError(pointer: string): Validation
     { details: [{ code: 'tasks_recommendations.task.media_not_available', pointer }] },
   );
 }
+
+/**
+ * `AssignTask`'s `assigneeProfileId` names someone other than an active
+ * member holding `editGardenContent` on this task's own garden
+ * (docs/development/garden-capability-matrix.md, row B14: "Assignee must
+ * hold `editGardenContent`; assigning to a viewer is Denied for all
+ * actors"). A `ValidationError`, not a `ForbiddenError`: this rejects a
+ * malformed request body, not the CALLER's own permission — the caller
+ * already passed `editGardenContent` themselves (`requireTaskAndAuthorize`)
+ * before this check ever runs.
+ */
+export function ineligibleAssigneeError(): ValidationError {
+  return new ValidationError(
+    SharedErrorCode.RequestInvalid,
+    'assigneeProfileId must reference an active garden member who holds editGardenContent (owner or editor).',
+    {
+      details: [
+        { code: 'tasks_recommendations.task.ineligible_assignee', pointer: '/assigneeProfileId' },
+      ],
+    },
+  );
+}

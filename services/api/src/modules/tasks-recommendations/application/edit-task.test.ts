@@ -63,6 +63,7 @@ describe('EditTask', () => {
         commandType: 'editTask',
         status: null,
         dueDate: null,
+        assignedProfileId: null,
         actorProfileId: PROFILE_ID,
       },
     ]);

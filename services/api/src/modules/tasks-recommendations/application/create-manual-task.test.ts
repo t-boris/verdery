@@ -123,6 +123,7 @@ describe('CreateManualTask', () => {
         commandType: 'createManualTask',
         status: 'planned',
         dueDate: null,
+        assignedProfileId: null,
         actorProfileId: PROFILE_ID,
       },
     ]);

@@ -41,6 +41,11 @@ export interface TaskResource {
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly completedAt: string | null;
+  /** The garden member responsible for this task (P9A-TASK-01); `null` when unassigned. */
+  readonly assignedProfileId: string | null;
+  readonly assignedAt: string | null;
+  /** The actual caller who completed this task (P9A-TASK-01, B17) — readable even after that profile loses garden access. `null` until completed. */
+  readonly completedByProfileId: string | null;
 }
 
 export function toTaskResource(task: Task): TaskResource {
@@ -66,5 +71,8 @@ export function toTaskResource(task: Task): TaskResource {
     createdAt: task.createdAt.toISOString(),
     updatedAt: task.updatedAt.toISOString(),
     completedAt: task.completedAt === null ? null : task.completedAt.toISOString(),
+    assignedProfileId: task.assignedProfileId,
+    assignedAt: task.assignedAt === null ? null : task.assignedAt.toISOString(),
+    completedByProfileId: task.completedByProfileId,
   };
 }

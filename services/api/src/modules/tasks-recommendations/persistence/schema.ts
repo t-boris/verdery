@@ -32,6 +32,10 @@ export interface TaskRow {
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
   completed_at: Date | null;
+  /** P9A-TASK-01: `assigned_profile_id`/`assigned_at` present or absent together (`task_assignment_linkage_check`); `completed_by_profile_id` set only alongside `completed_at` (`task_completion_attribution_check`). All three reference `identity_access.profile`, never `collaboration.membership`, so attribution survives the profile losing garden access. */
+  assigned_profile_id: string | null;
+  assigned_at: Date | null;
+  completed_by_profile_id: string | null;
 }
 
 export interface TaskAttachmentRow {
@@ -56,6 +60,8 @@ export interface TaskRevisionRow {
   command_type: string;
   status: string | null;
   due_date: string | null;
+  /** P9A-TASK-01: populated only by an `assignTask` row — see `TaskRevisionJournalEntry.assignedProfileId`'s own doc comment. */
+  assigned_profile_id: string | null;
   actor_profile_id: string;
   recorded_at: Generated<Date>;
 }

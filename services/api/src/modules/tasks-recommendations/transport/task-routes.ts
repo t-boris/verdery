@@ -29,18 +29,21 @@ import {
   requireGardenId,
   requireIdempotencyKey,
 } from '../../gardens-mapping/transport/garden-routes.js';
+import type { AssignTask } from '../application/assign-task.js';
 import type { AttachTaskFile } from '../application/attach-task-file.js';
 import type { CompleteTask } from '../application/complete-task.js';
 import type { CreateManualTask } from '../application/create-manual-task.js';
 import type { DeleteTask } from '../application/delete-task.js';
 import type { DismissTask } from '../application/dismiss-task.js';
 import type { EditTask } from '../application/edit-task.js';
+import type { GetTaskActivity } from '../application/get-task-activity.js';
 import type { ListTasksForGarden } from '../application/list-tasks-for-garden.js';
 import type { RescheduleTask } from '../application/reschedule-task.js';
 import type { SkipTask } from '../application/skip-task.js';
 import type { TaskStatus } from '../domain/task-lifecycle.js';
 import {
   TASK_STATUSES,
+  parseAssignTaskRequest,
   parseAttachTaskFileRequest,
   parseCompletionNote,
   parseCreateManualTaskRequest,
@@ -59,6 +62,8 @@ export interface TaskRoutesDependencies {
   readonly skipTask: SkipTask;
   readonly deleteTask: DeleteTask;
   readonly attachTaskFile: AttachTaskFile;
+  readonly assignTask: AssignTask;
+  readonly getTaskActivity: GetTaskActivity;
 }
 
 function requireTaskId(request: FastifyRequest): string {
@@ -238,6 +243,37 @@ export function registerTaskRoutes(app: FastifyInstance, deps: TaskRoutesDepende
     );
 
     return reply.status(200).send(task);
+  });
+
+  app.post('/gardens/:gardenId/tasks/:taskId/assign', async (request, reply) => {
+    requireGardenId(request);
+    const taskId = requireTaskId(request);
+    const idempotencyKey = requireIdempotencyKey(request);
+    const expectedRevision = requireExpectedRevision(request);
+    const assigneeProfileId = parseAssignTaskRequest(request.body);
+
+    const task = await deps.assignTask.execute(
+      taskId,
+      request.actorContext.profileId,
+      expectedRevision,
+      assigneeProfileId,
+      idempotencyKey,
+    );
+
+    return reply.status(200).send(task);
+  });
+
+  app.get('/gardens/:gardenId/tasks/:taskId/activity', async (request, reply) => {
+    const gardenId = requireGardenId(request);
+    const taskId = requireTaskId(request);
+
+    const items = await deps.getTaskActivity.execute(
+      gardenId,
+      taskId,
+      request.actorContext.profileId,
+    );
+
+    return reply.status(200).send(toItemsResult(items));
   });
 
   app.post('/gardens/:gardenId/tasks/:taskId/attachments', async (request, reply) => {

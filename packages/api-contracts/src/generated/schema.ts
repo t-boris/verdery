@@ -431,6 +431,247 @@ export interface paths {
         patch: operations["changeGardenMemberRole"];
         trace?: never;
     };
+    "/gardens/{gardenId}/members/{profileId}/promote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                profileId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Promote an active member to co-owner
+         * @description Owner-only, and requires RECENT authentication (a session whose
+         *     underlying sign-in is older than 30 minutes is rejected with `403`
+         *     and `error.code`
+         *     `collaboration.membership.recent_authentication_required`) — matrix
+         *     row H8. The target must hold ACTIVE `editor` or `viewer` membership;
+         *     promoting a target who is already `owner` is a no-op, `200`,
+         *     unchanged. Multiple active owners are allowed by design
+         *     (identity-and-authorization.md, section "8. Operational Garden
+         *     Roles": "Equal household partners may both be owners"), so this
+         *     never touches any OTHER member's role.
+         *
+         *     This is the ONLY path from an accepted ordinary invitation to
+         *     co-ownership: `createInvitation` can never name `owner` as the
+         *     intended role, by construction.
+         *
+         *     Source: implementation-plan.md work package P9A-OWNER-01;
+         *     architecture/identity-and-authorization.md, sections "10. Invitations",
+         *     "11. Ownership Transfer"; docs/development/garden-capability-matrix.md,
+         *     row H8.
+         */
+        post: operations["promoteGardenMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/members/{profileId}/demote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                profileId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Demote a co-owner to editor or viewer
+         * @description Owner-only, and requires RECENT authentication exactly like
+         *     `promoteGardenMember` — matrix row H9. The target's CURRENT role must
+         *     already be `owner`; demoting a non-owner is `422`
+         *     (`collaboration.membership.target_not_owner`) — use
+         *     `changeGardenMemberRole` to move between `editor` and `viewer`
+         *     instead. Refused with `422`
+         *     (`collaboration.membership.last_owner_required`) when the target is
+         *     the garden's LAST active owner — including under genuine concurrent
+         *     demotion attempts against two co-owners, where exactly one succeeds.
+         *     Self-targeting is permitted: an owner may step themselves down while
+         *     at least one other active owner remains.
+         *
+         *     Source: implementation-plan.md work package P9A-OWNER-01;
+         *     architecture/identity-and-authorization.md, section
+         *     "11. Ownership Transfer"; docs/development/garden-capability-matrix.md,
+         *     rows H9, H10.
+         */
+        post: operations["demoteGardenOwner"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/ownership-transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request transfer of garden ownership to another active member
+         * @description Owner-only, and requires RECENT authentication exactly like
+         *     `promoteGardenMember`/`demoteGardenOwner` — matrix row H13. The
+         *     target must hold ACTIVE `editor` or `viewer` membership (`404` when
+         *     it does not; `422` with
+         *     `collaboration.membership.target_already_owner` when the target is
+         *     already an owner — demote the existing owner instead).
+         *
+         *     THIS ONLY REQUESTS. Nobody's role changes yet: the caller remains
+         *     owner, with full administration rights, until the request is
+         *     resolved. On success the `ownership_transfer` row is written as
+         *     `pending` and stays there.
+         *
+         *     CONFIRMATION POLICY: ownership actually moves only when the named
+         *     recipient calls `acceptOwnershipTransfer`. This is an explicit,
+         *     reviewed product decision: a transfer is a unilateral full handover
+         *     of deletion, export, and membership-administration rights, with no
+         *     recovery path if the initiator names the wrong person, so — unlike
+         *     `promoteGardenMember`, which only ever ADDS a co-owner — it requires
+         *     the recipient's own explicit acceptance, not merely the initiator's
+         *     recent-auth-gated request. The recipient may instead
+         *     `declineOwnershipTransfer` it, or the initiator may
+         *     `cancelGardenOwnershipTransfer` it, either of which also leaves every
+         *     role unchanged.
+         *
+         *     At most one PENDING transfer may exist per garden; a second request
+         *     while one is genuinely in flight is rejected with `409`
+         *     (`collaboration.ownership_transfer.already_pending`) rather than a
+         *     raw constraint violation.
+         *
+         *     Source: implementation-plan.md work package P9A-OWNER-01;
+         *     architecture/identity-and-authorization.md, section
+         *     "11. Ownership Transfer"; docs/development/garden-capability-matrix.md,
+         *     row H13; migrations/1786500000000_collaboration-operations-and-attribution.sql.
+         */
+        post: operations["transferGardenOwnership"];
+        /**
+         * Cancel the garden's pending ownership transfer as its initiator
+         * @description Owner-only. Cancels the garden's currently PENDING ownership
+         *     transfer, if one exists (`404` with
+         *     `collaboration.ownership_transfer.not_found` otherwise) — the
+         *     INITIATOR's own withdrawal of a request they made, reachable any time
+         *     before the recipient acts on it, which under the recipient-acceptance
+         *     policy `transferGardenOwnership` implements is the ordinary in-between
+         *     state, not a rare edge case. Its recipient has a separate, symmetric
+         *     way to refuse the same offer: `declineOwnershipTransfer`.
+         *
+         *     Source: implementation-plan.md work package P9A-OWNER-01;
+         *     architecture/identity-and-authorization.md, section
+         *     "11. Ownership Transfer".
+         */
+        delete: operations["cancelGardenOwnershipTransfer"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/ownership-transfer/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept a pending ownership transfer addressed to the caller
+         * @description Called by the TARGET named in the garden's currently PENDING
+         *     transfer's `toProfileId` — the one command that actually moves
+         *     ownership. Identified by garden plus the caller's own identity, no
+         *     token: `404` with `collaboration.ownership_transfer.not_found` when
+         *     no transfer is pending, or one is pending but does not name the
+         *     caller (the two are deliberately indistinguishable — a caller must
+         *     not learn that a transfer exists naming someone else).
+         *
+         *     RE-VALIDATES AT ACCEPTANCE TIME, not just at request time: the
+         *     transfer's `fromProfileId` must STILL be an active owner right now
+         *     (`422` with `collaboration.membership.target_not_owner` if they were
+         *     demoted, removed, or transferred ownership elsewhere while this
+         *     stayed pending); the caller must still hold ACTIVE, non-`owner`
+         *     membership (`404` with `collaboration.membership.not_found`, or `422`
+         *     with `collaboration.membership.target_already_owner`, if either
+         *     changed while this stayed pending). Any such failure leaves
+         *     everything exactly as it was — no membership row is touched, and the
+         *     transfer is left in whatever state it was already in.
+         *
+         *     On success, atomically: the initiator's own role becomes the
+         *     `fromResultingRole` recorded on the transfer, the caller becomes
+         *     `owner`, and the transfer is marked `completed`.
+         *
+         *     NOT recent-auth-gated, unlike every OTHER owner-administration
+         *     operation on this tag: every recent-auth gate here protects a caller
+         *     administering someone ELSE'S access, and accepting is the opposite
+         *     shape — the caller is only disposing of an offer addressed to
+         *     themselves, the same risk category `acceptInvitation` is in.
+         *
+         *     Source: implementation-plan.md work package P9A-OWNER-01;
+         *     architecture/identity-and-authorization.md, section
+         *     "11. Ownership Transfer"; docs/development/garden-capability-matrix.md,
+         *     row H13.
+         */
+        post: operations["acceptOwnershipTransfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/ownership-transfer/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decline a pending ownership transfer addressed to the caller
+         * @description Called by the TARGET named in the garden's currently PENDING
+         *     transfer's `toProfileId` — the symmetric refusal to
+         *     `acceptOwnershipTransfer`, resolved by the recipient rather than the
+         *     initiator (`cancelGardenOwnershipTransfer` is the initiator's own,
+         *     separate withdrawal path). `404` with
+         *     `collaboration.ownership_transfer.not_found` when no transfer is
+         *     pending, or one is pending but does not name the caller.
+         *
+         *     Touches no membership row and asserts nothing about the current
+         *     owner: refusing an offer is valid regardless of whether its premise
+         *     still holds. On success the transfer is marked `cancelled` with a
+         *     recipient-attributed reason. Not recent-auth-gated, for the same
+         *     reason `acceptOwnershipTransfer` and `cancelGardenOwnershipTransfer`
+         *     are not.
+         *
+         *     Source: implementation-plan.md work package P9A-OWNER-01;
+         *     architecture/identity-and-authorization.md, section
+         *     "11. Ownership Transfer".
+         */
+        post: operations["declineOwnershipTransfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/gardens/{gardenId}/map": {
         parameters: {
             query?: {
@@ -1114,6 +1355,73 @@ export interface paths {
          *     Source: implementation-plan.md work packages P4-BE-03, P4-CONTRACT-01.
          */
         post: operations["deleteTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/tasks/{taskId}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                taskId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assign, reassign, or unassign a task
+         * @description Assigns a task to an active member of its own garden, reassigns it
+         *     to a different one, or unassigns it (`assigneeProfileId: null`) —
+         *     one operation for all three (P9A-TASK-01). The caller must hold
+         *     `editGardenContent` on the garden (owner or editor); the named
+         *     `assigneeProfileId` must independently hold `editGardenContent` too
+         *     — assigning to a viewer, or to a profile with no active membership
+         *     on this garden, is rejected with `400`. Only legal while the task is
+         *     `'planned'` or `'suggested'`, the same precondition every other task
+         *     mutation on this tag shares. Concurrent assignment resolves through
+         *     the task's own `revision` precondition: the losing request receives
+         *     `412`, never a corrupted task.
+         *
+         *     Source: implementation-plan.md work package P9A-TASK-01;
+         *     docs/development/garden-capability-matrix.md, rows B14, B15.
+         */
+        post: operations["assignTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/tasks/{taskId}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                taskId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read a task's shared activity history
+         * @description Every accepted command against this task — creation, edits,
+         *     reschedules, terminal transitions, and every assign/reassign/
+         *     unassign — oldest first, naming who performed it and, for
+         *     assignment entries, who was assigned (P9A-TASK-01, row B17).
+         *     Readable by every garden role, including viewer: this is a read of
+         *     who-did-what, not a content edit.
+         *
+         *     Source: implementation-plan.md work package P9A-TASK-01;
+         *     docs/development/garden-capability-matrix.md, row B17.
+         */
+        get: operations["listTaskActivity"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2347,6 +2655,39 @@ export interface components {
             role: components["schemas"]["InvitationIntendedRole"];
         };
         /**
+         * @description Mirrors `collaboration.ownership_transfer.state`. `transferGardenOwnership`
+         *     only ever creates a `pending` row; it reaches `completed` when the
+         *     named recipient calls `acceptOwnershipTransfer`, or `cancelled` when
+         *     either the recipient calls `declineOwnershipTransfer` or the
+         *     initiator calls `cancelGardenOwnershipTransfer`. `pending` is the
+         *     ordinary, externally observable in-between state for as long as
+         *     neither has happened yet.
+         * @enum {string}
+         */
+        OwnershipTransferState: "pending" | "completed" | "cancelled";
+        OwnershipTransfer: {
+            id: components["schemas"]["Uuid"];
+            gardenId: components["schemas"]["Uuid"];
+            fromProfileId: components["schemas"]["Uuid"];
+            toProfileId: components["schemas"]["Uuid"];
+            /** @description The role the outgoing owner holds once this transfer completes. */
+            fromResultingRole: components["schemas"]["InvitationIntendedRole"];
+            state: components["schemas"]["OwnershipTransferState"];
+            /** @description The recent-authentication instant that satisfied section 11's sensitive-action precondition. */
+            authenticatedAt: components["schemas"]["Timestamp"];
+            requestedAt: components["schemas"]["Timestamp"];
+            completedAt?: components["schemas"]["Timestamp"];
+            cancelledAt?: components["schemas"]["Timestamp"];
+            /** @description Present only on a cancelled transfer, and only when one was given. */
+            cancellationReason?: string;
+        };
+        TransferOwnershipRequest: {
+            /** @description Must name a profile holding ACTIVE `editor` or `viewer` membership on this garden. */
+            toProfileId: components["schemas"]["Uuid"];
+            /** @description The role the caller (the outgoing owner) holds once the transfer completes. */
+            resultingRole: components["schemas"]["InvitationIntendedRole"];
+        };
+        /**
          * @description The role vocabulary an invitation, or a role change under this same
          *     module, may name. Never `owner` — ownership moves only through the
          *     dedicated transfer flow (`invitation_intended_role_check`).
@@ -3283,6 +3624,23 @@ export interface components {
             createdAt: components["schemas"]["Timestamp"];
             updatedAt: components["schemas"]["Timestamp"];
             completedAt: components["schemas"]["Timestamp"] | null;
+            /**
+             * @description The garden member responsible for this task (P9A-TASK-01) —
+             *     `null` when unassigned. Set only by `AssignTask`; the assignee
+             *     must be an active member holding `editGardenContent` (owner or
+             *     editor) on this task's own garden.
+             */
+            assignedProfileId: components["schemas"]["Uuid"] | null;
+            /** @description Present exactly when `assignedProfileId` is. */
+            assignedAt: components["schemas"]["Timestamp"] | null;
+            /**
+             * @description The actual caller who completed this task (P9A-TASK-01) — not
+             *     necessarily `assignedProfileId`. Stays readable after that
+             *     profile loses access to this garden, because it references the
+             *     profile directly rather than the membership. `null` until
+             *     completed.
+             */
+            completedByProfileId: components["schemas"]["Uuid"] | null;
         };
         TaskAttachment: {
             id: components["schemas"]["Uuid"];
@@ -3347,6 +3705,41 @@ export interface components {
         };
         AttachTaskFileRequest: {
             mediaId: components["schemas"]["Uuid"];
+        };
+        /**
+         * @description Assigns, reassigns, or unassigns (`assigneeProfileId: null`) a task
+         *     (P9A-TASK-01). `assigneeProfileId` is required, unlike this tag's
+         *     other request bodies: `null` is how a caller explicitly unassigns,
+         *     not a shorthand for "no change." The named profile must be an
+         *     active member of this task's own garden holding `editGardenContent`
+         *     (owner or editor) — assigning to a viewer, or to a non-member, is
+         *     rejected as a bad request. Source:
+         *     tasks-recommendations/application/assign-task.ts.
+         */
+        AssignTaskRequest: {
+            assigneeProfileId: components["schemas"]["Uuid"] | null;
+        };
+        /**
+         * @description One row of a task's shared activity history (P9A-TASK-01, row B17) —
+         *     the application-layer projection of one `tasks_recommendations.
+         *     task_revision` row: every accepted command against this task,
+         *     oldest first, naming who performed it and what it changed.
+         */
+        TaskActivityEntry: {
+            revision: components["schemas"]["Revision"];
+            /** @enum {string} */
+            commandType: "createManualTask" | "editTask" | "rescheduleTask" | "completeTask" | "dismissTask" | "skipTask" | "deleteTask" | "convertRecommendationToTask" | "assignTask";
+            actorProfileId: components["schemas"]["Uuid"];
+            /** @description Populated only for the entries that changed status. */
+            status: components["schemas"]["TaskStatus"] | null;
+            /** @description Populated only for the entries that changed the due date. */
+            dueDate: string | null;
+            /** @description Populated only for `assignTask` entries — the assignee that command settled on, or `null` for an unassignment. */
+            assignedProfileId: components["schemas"]["Uuid"] | null;
+            recordedAt: components["schemas"]["Timestamp"];
+        };
+        TaskActivityListResult: {
+            items: components["schemas"]["TaskActivityEntry"][];
         };
         /**
          * @description Section 6's candidate lifecycle. Responses here only ever carry
@@ -5289,6 +5682,248 @@ export interface operations {
             422: components["responses"]["UnprocessableEntity"];
         };
     };
+    promoteGardenMember: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                profileId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The member's updated (or already current) role. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GardenMember"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /**
+             * @description The caller is not an owner, or their session's underlying sign-in
+             *     is older than 30 minutes
+             *     (`collaboration.membership.recent_authentication_required`).
+             */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    demoteGardenOwner: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                profileId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeGardenMemberRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description The demoted member's updated role. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GardenMember"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /**
+             * @description The caller is not an owner, or their session's underlying sign-in
+             *     is older than 30 minutes
+             *     (`collaboration.membership.recent_authentication_required`).
+             */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    transferGardenOwnership: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferOwnershipRequest"];
+            };
+        };
+        responses: {
+            /** @description The newly requested, still-PENDING ownership transfer. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnershipTransfer"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /**
+             * @description The caller is not an owner, or their session's underlying sign-in
+             *     is older than 30 minutes
+             *     (`collaboration.membership.recent_authentication_required`).
+             */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    cancelGardenOwnershipTransfer: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The cancelled ownership transfer. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnershipTransfer"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    acceptOwnershipTransfer: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The completed ownership transfer. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnershipTransfer"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    declineOwnershipTransfer: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The declined (cancelled) ownership transfer. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnershipTransfer"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     getGardenMap: {
         parameters: {
             query?: {
@@ -6275,6 +6910,76 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    assignTask: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                taskId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description The task with its new assignment. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    listTaskActivity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                taskId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The task's activity history, oldest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskActivityListResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     attachTaskFile: {

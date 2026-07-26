@@ -22,6 +22,7 @@
  */
 
 import { DomainRuleViolatedError } from '../../../platform/errors/application-error.js';
+import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Task } from './task.js';
 
 export type TaskStatus =
@@ -62,10 +63,19 @@ export type TaskTerminalStatus = 'completed' | 'skipped' | 'dismissed' | 'delete
  * "Delete" is modeled the same way plants-inventory models it: a status
  * transition (here, to `'deleted'`), never a hard `DELETE` — matching every
  * other "delete" in this codebase's Phase 3/4 modules.
+ *
+ * `actorProfileId` (P9A-TASK-01) is the caller `CompleteTask`/`DismissTask`/
+ * `SkipTask`/`DeleteTask` were invoked with — stamped onto
+ * `completedByProfileId` ONLY for the `'completed'` target, mirroring how
+ * `completedAt` itself is only set for that one target. This is
+ * ATTRIBUTION, deliberately distinct from `assignedProfileId`: whoever
+ * completes a task need not be the person it was assigned to, so this
+ * function never reads `task.assignedProfileId` to decide the value.
  */
 export function transitionTaskToTerminalStatus(
   task: Task,
   target: TaskTerminalStatus,
+  actorProfileId: Uuid,
   now: Date,
 ): Task {
   requireEditableStatus(task);
@@ -74,6 +84,7 @@ export function transitionTaskToTerminalStatus(
     ...task,
     status: target,
     completedAt: target === 'completed' ? now : task.completedAt,
+    completedByProfileId: target === 'completed' ? actorProfileId : task.completedByProfileId,
     revision: task.revision + 1,
     updatedAt: now,
   };
