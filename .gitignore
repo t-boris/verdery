@@ -36,3 +36,8 @@ xcuserdata/
 .claude/
 docs/.claude/
 docs/graph-architecture.md
+
+# Apple signing credentials — a .p8 App Store Connect key is a real private
+# key. Keep it outside the repository entirely; this is a backstop, not the
+# storage location.
+*.p8
