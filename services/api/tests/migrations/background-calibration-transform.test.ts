@@ -246,12 +246,13 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     await client.end();
 
-    // `count: 11` undoes the ten newer migrations
+    // `count: 12` undoes the eleven newer migrations
     // (1785600000000_recommendations-baseline.sql through
-    // 1786500000000_collaboration-operations-and-attribution.sql — nothing this
-    // file's own assertions below check) first, then this migration itself.
-    // Update again the next time a migration is added on top of that one.
-    await migrate(databaseUrl, 'down', 11);
+    // 1786600000000_service-organizations-and-client-engagements.sql —
+    // nothing this file's own assertions below check) first, then this
+    // migration itself. Update again the next time a migration is added on
+    // top of that one.
+    await migrate(databaseUrl, 'down', 12);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

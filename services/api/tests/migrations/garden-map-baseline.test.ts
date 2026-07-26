@@ -351,17 +351,17 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving the identity-and-gardens-baseline schemas and tables otherwise intact', async () => {
     await client.end();
 
-    // `count: 19` undoes this migration and every migration applied after it
+    // `count: 20` undoes this migration and every migration applied after it
     // (currently plants-observations-tasks-baseline through
-    // collaboration-operations-and-attribution, each of which depends, directly
-    // or transitively, on tables this one creates and must come down first).
-    // Update this count when a later migration is added on top.
+    // service-organizations-and-client-engagements, each of which depends,
+    // directly or transitively, on tables this one creates and must come down
+    // first). Update this count when a later migration is added on top.
     await runner({
       databaseUrl,
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 19,
+      count: 20,
       log: () => {},
     });
 

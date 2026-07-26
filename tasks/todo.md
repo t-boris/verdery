@@ -6170,3 +6170,98 @@ TASK. IOS and WEB follow SYNC in parallel. Each wave is verified personally befo
 ## Review
 
 _(filled in as the phase closes)_
+
+---
+
+# Phase 9B — Professional Service Domain
+
+Continues directly from Phase 9A (server + both clients complete, committed, deployed). Owner
+explicitly chose to finish all of Phase 9 (B, C, D) before starting Phase 10, rather than jumping
+ahead once P9A landed.
+
+## Scope, from docs/implementation-plan.md §18.2 and architecture/collaboration-and-client-sharing.md
+
+P9B adds a lightweight service-organization domain: solo professionals or small garden-care teams,
+membership in that organization, explicit garden assignments (organization membership alone grants
+no garden access), and the client-engagement record P9C's publication workflow will build on.
+
+## Work packages
+
+- [x] P9B-DATA-01 — service organizations, organization memberships, explicit garden assignments,
+      client engagements, client access grants, effective dates, stewardship policy. Migration,
+      tenant-isolation, assignment, and engagement-state tests.
+      `1786600000000_service-organizations-and-client-engagements.sql` — new `collaboration/`
+      TypeScript module (architecture docs already name it, distinct from `gardens-mapping`).
+      Engagement state-sequencing is NOT database-enforced (no PL/pgSQL in this repo, matching
+      the last-owner precedent) — proved by a test that walks a row backwards and the DB accepts
+      it. 237 files / 1835 tests, all green.
+- [ ] P9B-API-01 — organization/member/assignment and client-engagement lifecycle APIs without
+      allowing organization membership alone to grant garden access. Organization/garden
+      cross-product denial matrix.
+- [ ] P9B-WEB-01 — responsive professional workspace: organization members, assigned gardens,
+      clients, engagements, publisher administration. Solo-professional and small-team E2E.
+
+## Open product decisions (§23), resolved as conservative judgment calls, documented not blocking
+
+- Which organization roles get publisher capability by default → `organization_admin` only,
+  `professional` earns it per-engagement (mirrors P9A's `administerOwnership` being a separate bit
+  from ordinary membership administration).
+- Everything else in §23 concerns P9C (portal mutation shape, staff-identity fields client sees,
+  automatic publication, non-residential stewardship) — deferred to P9C, not blocking P9B.
+
+## Sequencing
+
+DATA → API → WEB, strictly sequential (each genuinely depends on the last, unlike P9A's several
+parallel tracks). Verified personally before each next stage starts.
+
+---
+
+# Phase 9C — Client Publication and Portal
+
+Depends on P9B's engagement model. Not started until P9B lands.
+
+## Work packages (§18.2)
+
+- [ ] P9C-DATA-01 — work logs, client updates, immutable publication versions, selected-media
+      entitlements, accepted-garden snapshots, withdrawal, publication audit.
+- [ ] P9C-PUBLISH-01 — draft → ready-for-client → published → withdrawn workflow, a separate
+      publisher capability; task completion never auto-publishes by default.
+- [ ] P9C-INVITE-01 — email-bound, expiring client invitations, Firebase email magic-link,
+      engagement revocation; no anonymous public links.
+- [ ] P9C-API-01 — publication-only client endpoints; a client cannot enumerate operational
+      records or other engagements.
+- [ ] P9C-WEB-01 — deliberately read-only responsive client portal route group.
+- [ ] P9C-MEDIA-01 — media authorized through active engagement plus explicit publication
+      entitlement; short-lived access, state rechecked at authorization time.
+- [ ] P9C-EXPORT-01 — default residential stewardship: accepted garden model and published
+      deliverables are client-exportable; provider-internal operations excluded.
+- [ ] P9C-OBS-01 — privacy-safe audit/metrics for invitation, publication latency, withdrawal,
+      revocation, portal access, authorization denial.
+
+---
+
+# Phase 9D — Seasonal Context
+
+May ship independently of B/C. Not started until B/C land (sequencing choice: finish the two
+access-plane phases first, since they are architecturally riskier; seasonal context is additive
+data/UX with no security surface).
+
+## Work packages (§18.2)
+
+- [ ] P9D-CONTEXT-01 — reviewed facts for sunlight, soil, drainage, irrigation, microclimate,
+      greenhouse/container/open-ground, source/quality.
+- [ ] P9D-SEASON-01 — seasonal calendars, succession planning, crop rotation, recurrence,
+      location-aware schedule rules.
+- [ ] P9D-UX-01 — seasonal plan, context quality, shared responsibilities, conflicts, without
+      overwhelming Today.
+
+---
+
+# Phase 9 — Final QA
+
+- [ ] P9-QA-01 — operational-team, organization-assignment, client-publication, cross-client,
+      removed/revoked actor, media, export, DST, and season-boundary matrices; final G9 package.
+
+## Review
+
+_(filled in as the phase closes)_

@@ -474,15 +474,15 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     await client.end();
 
-    // `count: 10` undoes the nine newer migrations
+    // `count: 11` undoes the ten newer migrations
     // (1785700000000_integrations-weather-baseline.sql through
-    // 1786500000000_collaboration-operations-and-attribution.sql — the weather
-    // table only feeds the FK exercised above, and the explanation column
-    // and plant-content/notification/AI-explanation tables add nothing
-    // this test's own assertions below check) first, then this migration
-    // itself. Update again the next time a migration is added on top of
-    // that one.
-    await migrate(databaseUrl, 'down', 10);
+    // 1786600000000_service-organizations-and-client-engagements.sql — the
+    // weather table only feeds the FK exercised above, and the explanation
+    // column and plant-content/notification/AI-explanation/service-
+    // organization tables add nothing this test's own assertions below
+    // check) first, then this migration itself. Update again the next time
+    // a migration is added on top of that one.
+    await migrate(databaseUrl, 'down', 11);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

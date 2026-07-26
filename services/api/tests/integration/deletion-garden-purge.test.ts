@@ -73,6 +73,19 @@ const DOCUMENTED_PLAN_EXCEPTIONS = new Set([
   // column carries no foreign key, for the same reason `subject_id` next to
   // it never had one.
   'platform.audit_event',
+  // P9B-DATA-01's assignment and engagement records — the same tombstone
+  // reasoning as `collaboration.membership` above, deliberately applied to
+  // two brand-new tables rather than only inherited by an old one:
+  // `collaboration.garden_assignment` and `collaboration.client_engagement`
+  // carry a `garden_id` with NO foreign key (see that migration's own "NO
+  // FOREIGN KEY ON `garden_id`" comment) specifically so an assignment or
+  // engagement record survives a garden purge for audit, dispute, legal, and
+  // stewardship-retention purposes (collaboration-and-client-sharing.md
+  // section 18). Neither is in scope for P9B-DATA-01's purge plan — that is
+  // a future package's decision, made explicitly if provider records are
+  // ever required to be purged with the garden rather than retained past it.
+  'collaboration.garden_assignment',
+  'collaboration.client_engagement',
   // Deleted by `ON DELETE CASCADE` from a table the plan DOES name.
   'gardens_mapping.structure_details',
   'gardens_mapping.fence_details',
