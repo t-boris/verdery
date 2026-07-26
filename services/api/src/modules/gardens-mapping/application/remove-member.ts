@@ -10,14 +10,36 @@
  * only co-owner. `manageGarden` is required UNLESS the caller is removing
  * themselves.
  *
- * THE LAST-OWNER LOCK, run exactly when the migration's own comment
+ * THE TARGET ROW IS ALWAYS LOCKED FIRST (`lockMembership`), even when
+ * removing a non-owner — a real bug fixed after shipping, not a style
+ * choice. The original version decided whether the last-owner check applied
+ * from an UNLOCKED read, and only locked at all once it already believed the
+ * target was an owner. That read a stale snapshot: a concurrent role change
+ * on the SAME row (accepting an ownership transfer, a promotion) could turn
+ * this membership into the garden's sole owner between the unlocked read
+ * and this transaction's write, and the removal would go through with no
+ * last-owner check ever having run, because the decision was made before
+ * the role changed. A real-Postgres concurrency test caught this exact
+ * interleaving (`collaboration-ownership-transfer-decline.test.ts`,
+ * "acceptance racing the recipient's own self-removal") — both the accept
+ * and the removal committed successfully, leaving the garden owned by
+ * someone whose membership had just been marked `removed`. Locking the
+ * target row up front, THEN deciding, closes it: whichever of the two
+ * commands acquires the lock first, the other blocks and re-reads the
+ * CURRENT role once unblocked, exactly like every other owner-set-shrinking
+ * command in this module (`accept-ownership-transfer.ts`,
+ * `promote-to-owner.ts`, `demote-owner.ts`, `transfer-ownership.ts`).
+ *
+ * THE LAST-OWNER LOCK proper, run exactly when the migration's own comment
  * prescribes it — "any command that removes or demotes an owner", not
  * every call to this function: `lockActiveOwnerIds` only runs when the
- * TARGET's current role is `owner`. Removing a non-owner member can never
- * shrink the owner set, so locking the owner rows for that case would be
- * pure overhead with no invariant behind it. `FOR UPDATE ... ORDER BY id`
- * runs, and its result is inspected, BEFORE the removal write — the exact
- * sequencing the migration's comment requires so a concurrent second
+ * TARGET's (locked) current role is `owner`. Removing a non-owner member
+ * can never shrink the owner set, so locking the OTHER owner rows for that
+ * case would be pure overhead with no invariant behind it — the target's
+ * OWN row is still locked either way, by the paragraph above.
+ * `FOR UPDATE ... ORDER BY id` runs, and its result is inspected, BEFORE
+ * the removal write — the exact sequencing the migration's comment requires
+ * so a concurrent second
  * removal blocks instead of reading a stale owner count.
  *
  * Source: implementation-plan.md work package P9A-API-01;
@@ -91,11 +113,30 @@ export class RemoveMember {
     };
 
     return runIdempotentCommand(this.idempotency, this.unitOfWork, input, 200, async (context) => {
-      const target = await context.memberships.findActiveByGardenAndProfile(
+      const initialLookup = await context.memberships.findActiveByGardenAndProfile(
         gardenId,
         targetProfileId,
       );
-      if (target === null) {
+      if (initialLookup === null) {
+        throw new NotFoundError(
+          CollaborationErrorCode.MembershipNotFound,
+          'No active membership exists for this profile on this garden.',
+        );
+      }
+
+      // Re-read under lock before deciding anything: `initialLookup` above
+      // resolves the row's id only. Branching the last-owner check on THAT
+      // unlocked snapshot is unsafe — a concurrent role change (accepting an
+      // ownership transfer, a promotion) can turn this membership into the
+      // garden's sole owner between the read above and this transaction's
+      // write, and a decision made before that change would never see it,
+      // letting a removal strip the garden's only owner with the last-owner
+      // protection never running. `lockMembership` forces the same
+      // serialization every other owner-set-shrinking command in this module
+      // already relies on (`accept-ownership-transfer.ts`,
+      // `promote-to-owner.ts`, `demote-owner.ts`, `transfer-ownership.ts`).
+      const target = await context.memberships.lockMembership(initialLookup.id);
+      if (target === null || target.state !== 'active') {
         throw new NotFoundError(
           CollaborationErrorCode.MembershipNotFound,
           'No active membership exists for this profile on this garden.',
