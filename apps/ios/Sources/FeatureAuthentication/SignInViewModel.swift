@@ -35,22 +35,35 @@ public final class SignInViewModel {
     public var emailSentTitle: String { strings(.authSignInEmailSent) }
     public var emailSentDescription: String { strings(.authSignInEmailSentDescription) }
 
+    /// Dismissing the provider's sheet returns the screen to rest, with no
+    /// message.
+    ///
+    /// A reader who taps "cancel" made a choice; reporting it as a failure
+    /// would accuse them of an error they caused deliberately. Both native
+    /// providers report cancellation as
+    /// ``CoreAuthentication/CoreAuthenticationError/cancelledByUser``, so this
+    /// screen recognizes one shape rather than each SDK's own code.
     public func signInWithGoogle() async {
         state = .signingIn
 
         do {
             _ = try await authenticationGateway.signInWithGoogle()
             state = .idle
+        } catch CoreAuthenticationError.cancelledByUser {
+            state = .idle
         } catch {
             state = .failed(message: strings(.authSignInFailed))
         }
     }
 
+    /// See ``signInWithGoogle()`` for why cancellation is not a failure.
     public func signInWithApple() async {
         state = .signingIn
 
         do {
             _ = try await authenticationGateway.signInWithApple()
+            state = .idle
+        } catch CoreAuthenticationError.cancelledByUser {
             state = .idle
         } catch {
             state = .failed(message: strings(.authSignInFailed))

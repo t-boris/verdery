@@ -59,6 +59,10 @@ let package = Package(
         // products are linked; nothing in this package touches Analytics,
         // Crashlytics, or any other Firebase product.
         .package(url: "https://github.com/firebase/firebase-ios-sdk", from: "12.16.0"),
+        // Google Sign-In, because Firebase's generic IDP web flow cannot carry
+        // it on a device — see Sources/CoreAuthentication/
+        // GoogleSignInPresenter.swift for the defect that forced it.
+        .package(url: "https://github.com/google/GoogleSignIn-iOS", from: "9.2.0"),
         // The per-profile local read model store, per
         // architecture/ios-application-design.md, section "6. Persistence"
         // and implementation-plan.md work package P2-IOS-01.
@@ -95,14 +99,14 @@ let package = Package(
             dependencies: ["CoreDomain", "CoreObservability"]
         ),
 
-        // The only target that imports FirebaseAuth and FirebaseAppCheck.
-        // Exposes `AuthTokenProvider` and `AppCheckTokenProvider` (both
-        // declared in CoreDomain) so CoreNetworking depends on those
-        // protocols, never on this target or on Firebase directly.
+        // The only target that imports FirebaseAuth, FirebaseAppCheck, or
+        // GoogleSignIn. Exposes `AuthTokenProvider` and `AppCheckTokenProvider`
+        // (both declared in CoreDomain) so CoreNetworking depends on those
+        // protocols, never on this target or on an SDK directly.
         //
-        // Source: architecture/ios-application-design.md, section
-        // "21. Dependency Rules" ("Firebase ... types remain inside adapters
-        // or feature infrastructure").
+        // Source: architecture/ios-application-design.md, section "21.
+        // Dependency Rules" ("Firebase ... types remain inside adapters or
+        // feature infrastructure").
         .target(
             name: "CoreAuthentication",
             dependencies: [
@@ -110,6 +114,9 @@ let package = Package(
                 "CoreObservability",
                 .product(name: "FirebaseAuth", package: "firebase-ios-sdk"),
                 .product(name: "FirebaseAppCheck", package: "firebase-ios-sdk"),
+                // iOS only: the SDK's sign-in flow is `TARGET_OS_IOS`-only, and
+                // the headless macOS build this package keeps ships no product.
+                .product(name: "GoogleSignIn", package: "GoogleSignIn-iOS", condition: .when(platforms: [.iOS])),
             ]
         ),
 
@@ -121,10 +128,9 @@ let package = Package(
         // design.md, section "21. Dependency Rules" ("GRDB ... types remain
         // inside adapters or feature infrastructure").
         //
-        // Source: architecture/ios-application-design.md, sections
-        // "4. Application Structure" and "7. Local Persistence";
-        // architecture/offline-synchronization.md, section "5. Local
-        // Tables"; implementation-plan.md work package P5-IOS-01.
+        // Source: architecture/ios-application-design.md, sections "4. Application
+        // Structure" and "7. Local Persistence"; architecture/offline-synchronization.md,
+        // section "5. Local Tables"; implementation-plan.md work package P5-IOS-01.
         .target(
             name: "CorePersistence",
             dependencies: [
@@ -143,10 +149,9 @@ let package = Package(
         // this is that work package, so `RemoteSyncEngine` can call
         // `CoreNetworking.SyncGateway` directly.
         //
-        // Source: architecture/ios-application-design.md, section
-        // "8. Synchronization Integration"; architecture/offline-
-        // synchronization.md; implementation-plan.md work packages
-        // P5-IOS-01, P5-IOS-03.
+        // Source: architecture/ios-application-design.md, section "8. Synchronization
+        // Integration"; architecture/offline-synchronization.md;
+        // implementation-plan.md work packages P5-IOS-01, P5-IOS-03.
         .target(
             name: "CoreSynchronization",
             dependencies: ["CoreDomain", "CorePersistence", "CoreNetworking"]
@@ -162,10 +167,9 @@ let package = Package(
         // architecture/offline-synchronization.md, section "18. Media
         // Coordination" says media transfer shares with sync.
         //
-        // Source: architecture/ios-application-design.md, sections
-        // "4. Application Structure", "13. Media Transfer";
-        // architecture/media-storage-and-processing.md; implementation-plan.md
-        // work package P6-IOS-01.
+        // Source: architecture/ios-application-design.md, sections "4. Application
+        // Structure", "13. Media Transfer"; architecture/media-storage-and-processing.md;
+        // implementation-plan.md work package P6-IOS-01.
         .target(
             name: "CoreMediaTransfer",
             dependencies: [
@@ -241,8 +245,7 @@ let package = Package(
         // centralizes the database's lifecycle/schema while the feature owns
         // its own read-model repository directly against GRDB.
         //
-        // Source: implementation-plan.md work packages P3-IOS-01, P3-IOS-02,
-        // P5-IOS-02.
+        // Source: implementation-plan.md work packages P3-IOS-01, P3-IOS-02, P5-IOS-02.
         .target(
             name: "FeatureMap",
             dependencies: [
@@ -332,15 +335,12 @@ let package = Package(
         // `LocalObservationStore` does for `observation` (Stage 4d) — see
         // `FeaturePlants`'s own comment above for why `CorePersistence`
         // centralizes the database's lifecycle/schema while the feature owns
-        // its own read-model repository directly against GRDB. Unlike a
-        // stale garden/plant/map-object revision (this comment's own prior
-        // reasoning for why `FeatureTasks` initially stayed always-fresh-
-        // from-server), the risk that reasoning warned about turns out not to
-        // be new here: every prior stage's own mutable-record commands
-        // already resolved it by never advancing a locally-projected
-        // revision (`unconfirmedTaskRevision`, `TasksUseCases.swift`) — the
-        // local commit always still quotes the last server-confirmed
-        // revision, exactly as an always-fresh-from-server read would have.
+        // its own read-model repository directly against GRDB. A stale
+        // locally-projected revision, which that comment warned about, is not
+        // a new risk here: `unconfirmedTaskRevision` (`TasksUseCases.swift`)
+        // never advances one, so a local commit still quotes the last
+        // server-confirmed revision, exactly as an always-fresh-from-server
+        // read would have.
         //
         // Source: implementation-plan.md work packages P4-IOS-01, P5-IOS-02.
         .target(

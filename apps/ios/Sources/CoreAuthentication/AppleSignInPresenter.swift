@@ -154,22 +154,38 @@ extension AppleSignInPresenter: ASAuthorizationControllerDelegate {
         controller _: ASAuthorizationController,
         didCompleteWithError error: Error
     ) {
-        finish(with: .failure(error))
+        finish(with: .failure(Self.mapped(error)))
+    }
+
+    /// Translates a dismissed sheet into
+    /// ``CoreAuthenticationError/cancelledByUser``, the one shape the sign-in
+    /// screen recognizes as "nothing went wrong".
+    ///
+    /// Everything else passes through untouched, so `AuthenticationServices`'s
+    /// own diagnosis survives. ``GoogleSignInPresenter`` does the same for its
+    /// SDK's cancellation code.
+    private static func mapped(_ error: Error) -> Error {
+        guard
+            let authorizationError = error as? ASAuthorizationError,
+            authorizationError.code == .canceled
+        else {
+            return error
+        }
+
+        return CoreAuthenticationError.cancelledByUser
     }
 }
 
 extension AppleSignInPresenter: ASAuthorizationControllerPresentationContextProviding {
-    /// The scene's key window.
+    /// The scene's key window, resolved through the one lookup both native
+    /// providers share — see ``SignInPresentation``.
     ///
     /// A bare `ASPresentationAnchor()` fallback rather than a trap: an app with
     /// no key window cannot be showing the sign-in button that started this,
     /// so the branch is unreachable in practice, and crashing would be a worse
     /// answer than letting `AuthenticationServices` report its own error.
     func presentationAnchor(for _: ASAuthorizationController) -> ASPresentationAnchor {
-        UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .flatMap(\.windows)
-            .first { $0.isKeyWindow } ?? ASPresentationAnchor()
+        SignInPresentation.keyWindow() ?? ASPresentationAnchor()
     }
 }
 #endif

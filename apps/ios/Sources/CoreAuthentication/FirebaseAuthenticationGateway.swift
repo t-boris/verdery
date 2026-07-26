@@ -1,10 +1,22 @@
 import FirebaseAuth
 import Foundation
 
-/// Failures that originate in this adapter itself rather than in Firebase's
-/// own reported error, for a completion handler that returns neither.
-enum CoreAuthenticationError: Error {
-    case noResultFromFirebase
+/// Outcomes this module reports itself, rather than passing an SDK's own error
+/// through.
+///
+/// Public because the sign-in screen has to be able to tell one of them —
+/// ``cancelledByUser`` — apart from a real failure; see
+/// `FeatureAuthentication.SignInViewModel`.
+public enum CoreAuthenticationError: Error {
+    /// The reader dismissed the provider's own sheet without signing in.
+    ///
+    /// Not a failure: nothing went wrong, and the screen must return to rest
+    /// rather than accuse the reader of an error they caused deliberately.
+    /// Both native providers report it — Apple as `ASAuthorizationError
+    /// .canceled`, Google as `GIDSignInErrorCode.canceled` — and both are
+    /// translated to this one case at the edge, so the screen has a single
+    /// thing to recognize.
+    case cancelledByUser
     /// Firebase's `OAuthProvider`-based web sign-in flow is
     /// `@available(macOS, unavailable)`. Only reachable in the `swift build`/
     /// `swift test` macOS target this package builds for headless CI — see
@@ -45,54 +57,43 @@ public final class FirebaseAuthenticationGateway: AuthenticationGateway, Sendabl
     }
 
     #if os(iOS)
-    /// Runs Firebase's own web-based OAuth flow (an `ASWebAuthenticationSession`
-    /// it presents and manages internally via the default `AuthUIDelegate`) —
-    /// not the separate GoogleSignIn-iOS SDK, which this package does not
-    /// depend on — and returns the resulting Firebase ID token.
+    /// Google's own native sign-in sheet, not Firebase's generic web flow.
     ///
-    /// `signIn(with: FederatedAuthProvider, uiDelegate:)` only has a
-    /// completion-handler form in this Firebase SDK version — unlike
-    /// `signIn(withEmail:link:)` below, it has no `async` overload of its own,
-    /// and Swift does not auto-bridge it. Wrapped explicitly.
+    /// The generic flow — `Auth.signIn(with: OAuthProvider(providerID:
+    /// "google.com"))`, which this method used through TestFlight build 157 —
+    /// cannot complete on a device: it runs in an `SFSafariViewController`
+    /// whose `sessionStorage` is partitioned and discarded, so Firebase's
+    /// handler page cannot find its own state when Google redirects back and
+    /// ends at "Unable to process request due to missing initial state". See
+    /// ``GoogleSignInPresenter`` for the full account.
     ///
-    /// The ID token is read *inside* the callback rather than from a returned
-    /// `AuthDataResult`, so that only a `String` crosses the continuation
-    /// boundary. `AuthDataResult` is a main-actor-isolated, non-`Sendable`
-    /// reference type; resuming a continuation with one is a data race that
-    /// Swift 6's strict concurrency checking rejects outright. This is
-    /// compiled only for iOS, so a macOS-only `swift build` never surfaced it.
-    @MainActor
-    private func signIn(providerID: String, scopes: [String]? = nil) async throws -> String {
-        let provider = OAuthProvider(providerID: providerID)
-        if let scopes {
-            provider.scopes = scopes
-        }
-        return try await withCheckedThrowingContinuation {
-            (continuation: CheckedContinuation<String, Error>) in
-            Auth.auth().signIn(with: provider, uiDelegate: nil) { authResult, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else if let authResult {
-                    authResult.user.getIDToken { token, tokenError in
-                        if let tokenError {
-                            continuation.resume(throwing: tokenError)
-                        } else if let token {
-                            continuation.resume(returning: token)
-                        } else {
-                            continuation.resume(
-                                throwing: CoreAuthenticationError.noResultFromFirebase)
-                        }
-                    }
-                } else {
-                    continuation.resume(throwing: CoreAuthenticationError.noResultFromFirebase)
-                }
-            }
-        }
-    }
-
+    /// Removing this last caller left the generic `signIn(providerID:scopes:)`
+    /// helper with none, so it was deleted rather than left behind as a
+    /// web-flow path nothing can reach.
     @MainActor
     public func signInWithGoogle() async throws -> String {
-        try await signIn(providerID: "google.com")
+        let assertion = try await GoogleSignInPresenter.requestAssertion()
+
+        return try await exchangeGoogleAssertion(
+            idToken: assertion.idToken,
+            accessToken: assertion.accessToken
+        )
+    }
+
+    /// Deliberately `nonisolated`, and taking only value types — see
+    /// ``exchangeAppleAssertion(identityToken:rawNonce:fullName:)`` below for
+    /// why: `AuthDataResult` is a non-`Sendable` reference type that must not
+    /// cross back to the main actor.
+    private func exchangeGoogleAssertion(
+        idToken: String,
+        accessToken: String
+    ) async throws -> String {
+        let credential = GoogleAuthProvider.credential(
+            withIDToken: idToken,
+            accessToken: accessToken
+        )
+        let result = try await Auth.auth().signIn(with: credential)
+        return try await result.user.getIDToken()
     }
 
     /// Apple's own native authorization sheet, not Firebase's generic web
@@ -195,19 +196,27 @@ public final class FirebaseAuthenticationGateway: AuthenticationGateway, Sendabl
         try Auth.auth().signOut()
     }
 
-    /// Forwards an incoming URL to Firebase.
+    /// Forwards an incoming URL to each SDK that might be waiting for it.
     ///
-    /// `canHandle` returns `true` only while a federated web flow is actually
-    /// waiting for this exact callback, so calling it for every URL the app
-    /// receives is safe, and calling it twice for the same URL — which happens
-    /// if the SDK's delegate swizzling is also active — is a no-op the second
-    /// time.
+    /// Google's SDK gets first refusal: its OAuth redirect arrives on this
+    /// app's `CFBundleURLSchemes` entry (the reversed client ID), and
+    /// `GIDSignIn.handle(_:)` claims it only while a sign-in it started is
+    /// actually outstanding. Firebase keeps its turn unconditionally
+    /// afterwards, because the email-link flow still depends on it: `canHandle`
+    /// likewise returns `true` only while a flow is waiting for this exact
+    /// callback, so calling it for every URL the app receives is safe, and
+    /// calling it twice for the same URL — which happens if the SDK's delegate
+    /// swizzling is also active — is a no-op the second time.
     @MainActor
     public func handleOpenURL(_ url: URL) -> Bool {
         #if os(iOS)
-        Auth.auth().canHandle(url)
+        if GoogleSignInPresenter.handle(url) {
+            return true
+        }
+
+        return Auth.auth().canHandle(url)
         #else
-        false
+        return false
         #endif
     }
 

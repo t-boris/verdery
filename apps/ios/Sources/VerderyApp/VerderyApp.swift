@@ -1,4 +1,5 @@
 import AppComposition
+import CoreAuthentication
 import FirebaseAppCheck
 import FirebaseCore
 import SwiftUI
@@ -53,6 +54,13 @@ struct VerderyApp: App {
         // GoogleService-Info.plist bundled.
         FirebaseApp.configure()
 
+        #if os(iOS)
+        // Must run after FirebaseApp.configure(): the client ID is read out of
+        // Firebase's own parsed GoogleService-Info.plist, which does not exist
+        // until then.
+        Self.configureGoogleSignIn()
+        #endif
+
         let root = AppCompositionRoot(configuration: AppEnvironment.current)
         _composition = State(wrappedValue: root)
 
@@ -70,6 +78,27 @@ struct VerderyApp: App {
         appDelegate.composition = root
         #endif
     }
+
+    #if os(iOS)
+    /// Points Google's sign-in SDK at this app's OAuth client.
+    ///
+    /// `FirebaseApp.app()?.options.clientID` is the `CLIENT_ID` key of the
+    /// bundled `GoogleService-Info.plist`, already parsed — so the value is
+    /// never repeated as a literal in the sources, and a regenerated plist
+    /// carries a new client ID through without a code change. Its reversed
+    /// form is separately declared as this app's `CFBundleURLSchemes` entry
+    /// (`project.yml`), which is how the OAuth redirect finds its way back.
+    ///
+    /// Silent when the plist is absent: only the Xcode-built app target bundles
+    /// one, and a build without it has already trapped in
+    /// `FirebaseApp.configure()` above.
+    @MainActor
+    private static func configureGoogleSignIn() {
+        guard let clientID = FirebaseApp.app()?.options.clientID else { return }
+
+        GoogleSignInPresenter.configure(clientID: clientID)
+    }
+    #endif
 
     /// The Simulator cannot perform App Attest, so DEBUG builds (local
     /// development, CI, the Simulator) fall back to the debug provider

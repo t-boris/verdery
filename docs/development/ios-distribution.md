@@ -475,9 +475,12 @@ Ordered by how much they matter.
    `applinks:verdery-web-dev-t6amsr5o6a-uc.a.run.app`, and an `apple-app-site-association` document
    served by that host at `/.well-known/` over HTTPS with no redirect. All three must land together;
    any one alone changes nothing.
-8. **Sign in with Apple and Google have never been exercised on a device or simulator.** They compile
-   and are wired correctly, but the first genuine test of the OAuth redirect and the
-   `CFBundleURLSchemes` entry will be the first TestFlight install.
+8. **Sign in with Apple and Google now use each provider's native SDK, and only Google has been
+   exercised on a device.** Build 157 was the first genuine test of either, and it found that
+   Firebase's generic IDP web flow cannot complete Google sign-in at all — see
+   [what build 157 found](#what-build-157-found). Both providers now present their own sheet, so
+   neither depends on Firebase's `/__/auth/handler` page any more. Apple's native path still has
+   never run on a device.
 9. **The `Verdery.xcodeproj` remains committed** even though it is fully generated. CI and the upload
    script both regenerate it, so drift is now detected rather than silent; removing it from version
    control entirely would be tidier and is a reasonable follow-up.
@@ -543,6 +546,46 @@ test environment has.
    arriving. The continue URL is now a build input (`WEB_ORIGIN` → `VerderyWebOrigin`, the same
    shape as `API_ORIGIN`) pointing at the deployed web application's own working
    `/auth/email-link` handler, which the web client has always used.
+
+### What build 157 found
+
+The first build a real person tried to sign into with Google. One finding, and it has the same shape
+as the crash that moved Apple off the same flow one build earlier: Firebase's generic IDP web flow is
+not a supported way to sign a native app in with a first-party provider.
+
+1. **Google sign-in failed with "Unable to process request due to missing initial state."** That
+   string comes from Firebase's own web auth handler page. `signInWithGoogle()` was
+   `signIn(providerID: "google.com")`, which opens the project's
+   `/__/auth/handler` page in an `SFSafariViewController`. That page writes the flow's state into
+   the browser's `sessionStorage` before redirecting to Google and looks it up again on the way
+   back — but that storage is partitioned from Safari's and discarded with the view controller, so
+   the lookup finds nothing.
+
+   What the evidence ruled out matters as much as what it showed.
+   `https://verdery-dev.firebaseapp.com/` answers `404` (this project has no Hosting site), but
+   `/__/auth/handler` and `/__/auth/iframe` both answer `200`: the page is served, only its state
+   is gone. The archive's
+   `CFBundleURLSchemes` entry matches `REVERSED_CLIENT_ID` exactly, so the callback scheme was never
+   the fault either.
+
+   Fixed by moving Google to its own SDK — `GoogleSignIn-iOS`, pinned `from: "9.2.0"`, the single
+   dependency the repository owner approved for this. `GIDSignIn` presents Google's sheet, and the
+   returned `idToken`/`accessToken` become a `GoogleAuthProvider` credential for
+   `Auth.auth().signIn(with:)`. The client ID is read from the bundled `GoogleService-Info.plist`
+   through `FirebaseApp.app()?.options.clientID`, so it appears in no source file. Nothing in the
+   app uses Firebase's federated web flow now, so the private generic `signIn(providerID:scopes:)`
+   helper was deleted with it; `.onOpenURL` still reaches `Auth.auth().canHandle`, which the email
+   magic link continues to need, after `GIDSignIn.handle(_:)` has had its turn.
+
+   Adding the SDK downgrades `gtm-session-fetcher` from 5.3.0 to 3.5.0. That is forced by
+   GTMAppAuth 5.0.0 and is inside the range firebase-ios-sdk 12.16.0 itself declares, which is why
+   the resolver accepted it.
+
+   A real Google sign-in still cannot be verified anywhere but a device: it needs interactive
+   consent. What is verified is that the SDK is linked into `Verdery.app` (225 `GIDSignIn` symbols,
+   plus `GoogleSignIn_GoogleSignIn.bundle`), that the client ID is read rather than hard-coded, and
+   that a dismissed sheet now reports `CoreAuthenticationError.cancelledByUser`, which the sign-in
+   screen treats as a return to rest rather than an error banner.
 
 ## 13. Staged rollout and rollback
 

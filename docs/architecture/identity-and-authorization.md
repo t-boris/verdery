@@ -60,6 +60,8 @@ Grow Garden API
    └── authorize requested garden capability
 ```
 
+On iOS, "provider sign-in" means each provider's own native SDK, never Firebase's generic IDP web flow: `ASAuthorizationAppleIDProvider` for Apple, `GIDSignIn` (GoogleSignIn-iOS) for Google. Each returns an assertion that the client exchanges for a Firebase credential (`OAuthProvider.appleCredential(withIDToken:rawNonce:fullName:)`, `GoogleAuthProvider.credential(withIDToken:accessToken:)`) and signs in with. The generic flow cannot complete either on a device — it traps for Apple, and for Google it loses its own state in `SFSafariViewController`'s partitioned `sessionStorage` and ends at "Unable to process request due to missing initial state". Only the email magic link still relies on Firebase's own web handling. See `apps/ios/Sources/CoreAuthentication/AppleSignInPresenter.swift` and `GoogleSignInPresenter.swift`.
+
 The native client refreshes credentials through the Firebase SDK. The API does not receive or store provider refresh tokens.
 
 ## 5. Web Session Flow

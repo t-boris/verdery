@@ -25,16 +25,14 @@ public protocol AuthenticationGateway: Sendable {
     func signOut() throws
 
     /// Hands a URL the operating system delivered to the app back to the
-    /// authentication SDK, returning whether the SDK claimed it.
+    /// authentication SDKs, returning whether one of them claimed it.
     ///
-    /// Firebase's federated web flow finishes by redirecting the browser to
-    /// this app's custom URL scheme. The SDK presents that flow in an
-    /// `SFSafariViewController`, which — unlike `ASWebAuthenticationSession` —
-    /// does not intercept the redirect itself; iOS delivers it to the app, and
-    /// the flow only completes once the app passes it back. Nothing did, so
-    /// the browser sat on a blank page indefinitely. The SDK's own
-    /// documentation states the requirement: "If swizzling is disabled, URLs
-    /// received by the application delegate must be forwarded to this method."
+    /// A sign-in flow that leaves the app finishes by redirecting to a URL the
+    /// OS delivers here, and the flow only completes once the app passes it
+    /// back — both SDKs state the requirement, and while nothing did, a
+    /// redirected browser sat on a blank page indefinitely. Google's SDK is
+    /// offered the URL first (it started any flow arriving on this app's
+    /// custom scheme), then Firebase, which the email magic link still needs.
     ///
     /// Returning `false` means the URL was not an authentication callback and
     /// the caller should keep handling it.
