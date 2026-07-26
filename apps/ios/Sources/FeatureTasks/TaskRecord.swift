@@ -33,6 +33,11 @@ struct TaskRecord: Codable, FetchableRecord, PersistableRecord {
     let createdAt: Date
     let updatedAt: Date
     let completedAt: Date?
+    /// Added for P9A-TASK-01 (`addAssignmentFieldsToTask` migration) —
+    /// mirrors `CoreDomain.GardenTask`'s own three new fields.
+    let assignedProfileId: String?
+    let assignedAt: Date?
+    let completedByProfileId: String?
 }
 
 extension TaskRecord {
@@ -57,6 +62,9 @@ extension TaskRecord {
         self.createdAt = task.createdAt
         self.updatedAt = task.updatedAt
         self.completedAt = task.completedAt
+        self.assignedProfileId = task.assignedProfileId
+        self.assignedAt = task.assignedAt
+        self.completedByProfileId = task.completedByProfileId
     }
 
     /// `nil` when any stored column cannot be decoded back into its domain
@@ -93,7 +101,10 @@ extension TaskRecord {
             createdByProfileId: createdByProfileId,
             createdAt: createdAt,
             updatedAt: updatedAt,
-            completedAt: completedAt
+            completedAt: completedAt,
+            assignedProfileId: assignedProfileId,
+            assignedAt: assignedAt,
+            completedByProfileId: completedByProfileId
         )
     }
 }

@@ -32,6 +32,13 @@ struct GardenTaskTransport: Codable {
     let createdAt: Date
     let updatedAt: Date
     let completedAt: Date?
+    /// Added for P9A-TASK-01. All three are plain `Codable` optionals, not a
+    /// custom decoder: the contract lists them as `required` (always present,
+    /// `null` or a value) rather than omittable, which is exactly what a
+    /// synthesized `Optional` property already decodes correctly.
+    let assignedProfileId: String?
+    let assignedAt: Date?
+    let completedByProfileId: String?
 
     var domainValue: GardenTask {
         GardenTask(
@@ -54,7 +61,10 @@ struct GardenTaskTransport: Codable {
             createdByProfileId: createdByProfileId,
             createdAt: createdAt,
             updatedAt: updatedAt,
-            completedAt: completedAt
+            completedAt: completedAt,
+            assignedProfileId: assignedProfileId,
+            assignedAt: assignedAt,
+            completedByProfileId: completedByProfileId
         )
     }
 }
@@ -154,4 +164,53 @@ struct DismissTaskRequestTransport: Encodable {
 
 struct AttachTaskFileRequestTransport: Encodable {
     let mediaId: String
+}
+
+/// Mirrors `packages/api-contracts/openapi.yaml`'s `AssignTaskRequest`:
+/// `assigneeProfileId` is required, and `nil` is how a caller explicitly
+/// unassigns — never a shorthand for "no change" the way `FieldUpdate`
+/// distinguishes elsewhere on this tag. A custom encoder is what that
+/// requires: the compiler's synthesized `Encodable` conformance treats a
+/// plain `String?` stored property as omittable (`encodeIfPresent`
+/// semantics) and would drop the key entirely for `nil`, silently turning an
+/// unassign request into a no-op body. Calling the generic
+/// `container.encode(_:forKey:)` instead — not `encodeIfPresent` — invokes
+/// `Optional`'s own `Encodable` conformance, which writes a literal `null`
+/// for `nil` rather than omitting the key.
+struct AssignTaskRequestTransport: Encodable {
+    let assigneeProfileId: String?
+
+    private enum CodingKeys: String, CodingKey { case assigneeProfileId }
+
+    func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(assigneeProfileId, forKey: .assigneeProfileId)
+    }
+}
+
+/// Mirrors `packages/api-contracts/openapi.yaml`'s `TaskActivityEntry`.
+struct TaskActivityEntryTransport: Decodable {
+    let revision: Int
+    let commandType: TaskActivityCommandType
+    let actorProfileId: String
+    let status: TaskStatus?
+    let dueDate: String?
+    let assignedProfileId: String?
+    let recordedAt: Date
+
+    var domainValue: TaskActivityEntry {
+        TaskActivityEntry(
+            revision: revision,
+            commandType: commandType,
+            actorProfileId: actorProfileId,
+            status: status,
+            dueDate: dueDate,
+            assignedProfileId: assignedProfileId,
+            recordedAt: recordedAt
+        )
+    }
+}
+
+struct TaskActivityListResultTransport: Decodable {
+    let items: [TaskActivityEntryTransport]
 }

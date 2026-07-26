@@ -18,6 +18,14 @@ public final class GardenSettingsViewModel {
     public private(set) var actionErrorMessage: String?
     /// Set once deletion has been requested, so the view can navigate back.
     public private(set) var didRequestDeletion = false
+    /// Set once `load()` discovers this profile's own access to the garden
+    /// was revoked (P9A-SYNC-01's tombstone reaching this device, or simply
+    /// this screen's own next network call after some other revocation
+    /// producer ran) — see `load()`'s own doc comment on the `garden.not_found`
+    /// branch. The view offers an explicit way back to the gardens list
+    /// rather than auto-dismissing, so the reader sees why they left rather
+    /// than experiencing what would otherwise look like a random pop.
+    public private(set) var didLoseAccess = false
 
     /// Exposed so `GardenSettingsView` can build a `GardenMapEditorRoute`
     /// without this view model growing a second responsibility of its own —
@@ -73,6 +81,8 @@ public final class GardenSettingsViewModel {
     public var openObservationsTitle: String { strings(.gardensOpenObservations) }
     public var openTasksTitle: String { strings(.gardensOpenTasks) }
     public var openSyncConflictsTitle: String { strings(.gardensOpenSyncConflicts) }
+    public var openCollaboratorsTitle: String { strings(.collaborationTitle) }
+    public var backToGardensTitle: String { strings(.collaborationRevokedAccessBackToGardens) }
     public var serviceHealthTitle: String { strings(.healthTitle) }
     public var manageTitle: String { strings(.gardensManageTitle) }
     public var archiveConfirmMessage: String { strings(.gardensArchiveConfirm) }
@@ -98,7 +108,23 @@ public final class GardenSettingsViewModel {
                 apply(fetched)
             }
         } catch let error as APIGatewayError {
-            if !hadCachedResult {
+            // `garden.not_found` is the same concealment `GetGarden` uses for
+            // a garden that never existed AND for one this profile's active
+            // membership was just revoked from — see
+            // `identity-and-authorization.md`, section "9.1 Implemented
+            // garden evaluation". This screen is reachable only by
+            // navigating from a garden this profile already had in its own
+            // list, so that ambiguity resolves in practice: revocation is
+            // the honest reading, always — unlike every other failure below,
+            // this one must NOT be swallowed just because `hadCachedResult`
+            // is `true`. Before this fix, a garden revoked mid-session left
+            // this screen showing its last-cached summary forever, with no
+            // indication anything had changed — exactly the "stale UI"
+            // P9A-IOS-01 asks this case to avoid.
+            if isAccessRevoked(error) {
+                didLoseAccess = true
+                state = .failed(message: strings(.collaborationRevokedAccessMessage))
+            } else if !hadCachedResult {
                 state = .failed(message: message(for: error))
             }
         } catch {
@@ -106,6 +132,15 @@ public final class GardenSettingsViewModel {
                 state = .failed(message: strings(.serverUnexpected))
             }
         }
+    }
+
+    /// Whether `error` is `GetGarden`'s `garden.not_found` — the access-
+    /// revocation reading described above.
+    ///
+    /// Source: packages/api-contracts/src/index.ts, `GardenErrorCode.NotFound`.
+    private func isAccessRevoked(_ error: APIGatewayError) -> Bool {
+        guard case let .service(body, statusCode, _) = error else { return false }
+        return statusCode == 404 && body.code == "garden.not_found"
     }
 
     public func apply(_ garden: Garden) {

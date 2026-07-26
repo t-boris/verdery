@@ -75,7 +75,10 @@ public actor InMemoryTaskStore: LocalTaskStore {
             createdByProfileId: current.createdByProfileId,
             createdAt: current.createdAt,
             updatedAt: current.updatedAt,
-            completedAt: current.completedAt
+            completedAt: current.completedAt,
+            assignedProfileId: current.assignedProfileId,
+            assignedAt: current.assignedAt,
+            completedByProfileId: current.completedByProfileId
         )
         // Mirrors what a real `sync_outbox` row's removal accomplishes for
         // `GRDBTaskStore`: `replaceAll` no longer protects this task from a

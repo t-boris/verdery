@@ -296,6 +296,127 @@ struct TaskGatewayTests {
         #expect(request.url?.path == "/v1/gardens/garden-1/tasks/task-1/attachments")
         #expect(attachment.mediaId == "media-1")
     }
+
+    // MARK: - Assignment and activity history (P9A-TASK-01)
+
+    private static let assignedTaskJSON = #"""
+        {
+          "id": "task-1",
+          "gardenId": "garden-1",
+          "targetKind": "garden",
+          "targetGardenAreaMapObjectId": null,
+          "targetPlantId": null,
+          "title": "Water the tomatoes",
+          "notes": null,
+          "status": "planned",
+          "dueDate": null,
+          "timeWindowStart": null,
+          "timeWindowEnd": null,
+          "recurrenceRule": null,
+          "urgency": "normal",
+          "source": "manual",
+          "originObservationId": null,
+          "revision": 2,
+          "createdByProfileId": "profile-1",
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "updatedAt": "2026-01-01T00:00:00.000Z",
+          "completedAt": null,
+          "assignedProfileId": "profile-2",
+          "assignedAt": "2026-01-01T00:00:00.000Z",
+          "completedByProfileId": null
+        }
+        """#
+
+    @Test("assignTask sends a literal null, not an omitted key, to unassign")
+    func assignTaskSendsExplicitNullToUnassign() async throws {
+        let identifier = "assign-task-unassign"
+        defer { StubURLProtocol.unregister(identifier) }
+
+        let gateway = makeGateway(identifier: identifier, answer: .json(200, Self.taskJSON))
+
+        _ = try await gateway.assignTask(
+            gardenId: "garden-1",
+            taskId: "task-1",
+            assigneeProfileId: nil,
+            expectedRevision: 3,
+            idempotencyKey: "idem-assign-1"
+        )
+
+        let request = try #require(StubURLProtocol.requests(forSession: identifier).first)
+        #expect(request.url?.path == "/v1/gardens/garden-1/tasks/task-1/assign")
+        #expect(request.httpMethod == "POST")
+        #expect(request.value(forHTTPHeaderField: APIConfiguration.ifMatchHeader) == "\"3\"")
+
+        let body = try #require(request.bodyStreamJSON ?? request.httpBodyJSON)
+        // Present AND null — an omitted key here would silently turn an
+        // unassign into a no-op body, the exact defect
+        // `AssignTaskRequestTransport`'s own custom encoder exists to avoid.
+        #expect(body["assigneeProfileId"] is NSNull)
+    }
+
+    @Test("assignTask returns the task's new assignment fields")
+    func assignTaskDecodesAssignmentFields() async throws {
+        let identifier = "assign-task-assign"
+        defer { StubURLProtocol.unregister(identifier) }
+
+        let gateway = makeGateway(identifier: identifier, answer: .json(200, Self.assignedTaskJSON))
+
+        let task = try await gateway.assignTask(
+            gardenId: "garden-1",
+            taskId: "task-1",
+            assigneeProfileId: "profile-2",
+            expectedRevision: 1,
+            idempotencyKey: "idem-assign-2"
+        )
+
+        let request = try #require(StubURLProtocol.requests(forSession: identifier).first)
+        let body = try #require(request.bodyStreamJSON ?? request.httpBodyJSON)
+        #expect(body["assigneeProfileId"] as? String == "profile-2")
+        #expect(task.assignedProfileId == "profile-2")
+        #expect(task.assignedAt != nil)
+        #expect(task.completedByProfileId == nil)
+    }
+
+    @Test("listTaskActivity decodes every entry, including an unassignment's null assignedProfileId")
+    func listTaskActivityDecodesEntries() async throws {
+        let identifier = "list-task-activity"
+        defer { StubURLProtocol.unregister(identifier) }
+
+        let activityJSON = #"""
+            {
+              "items": [
+                {
+                  "revision": 1,
+                  "commandType": "createManualTask",
+                  "actorProfileId": "profile-1",
+                  "status": null,
+                  "dueDate": null,
+                  "assignedProfileId": null,
+                  "recordedAt": "2026-01-01T00:00:00.000Z"
+                },
+                {
+                  "revision": 2,
+                  "commandType": "assignTask",
+                  "actorProfileId": "profile-1",
+                  "status": null,
+                  "dueDate": null,
+                  "assignedProfileId": null,
+                  "recordedAt": "2026-01-02T00:00:00.000Z"
+                }
+              ]
+            }
+            """#
+        let gateway = makeGateway(identifier: identifier, answer: .json(200, activityJSON))
+
+        let entries = try await gateway.listTaskActivity(gardenId: "garden-1", taskId: "task-1")
+
+        let request = try #require(StubURLProtocol.requests(forSession: identifier).first)
+        #expect(request.url?.path == "/v1/gardens/garden-1/tasks/task-1/activity")
+        #expect(request.httpMethod == "GET")
+        #expect(entries.map(\.revision) == [1, 2])
+        #expect(entries.last?.commandType == .assignTask)
+        #expect(entries.last?.assignedProfileId == nil)
+    }
 }
 
 private struct FixedCorrelationIdentifierProvider: CorrelationIdentifierProvider {

@@ -55,7 +55,7 @@ public struct GardenSettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Metrics.space5) {
                     identityCard(summary)
-                    configurationSection
+                    configurationSection(summary)
 
                     if summary.isOwner {
                         renameSection(summary)
@@ -73,8 +73,27 @@ public struct GardenSettingsView: View {
             }
 
         case let .failed(message):
-            FailureStateView(message: message)
-                .accessibilityIdentifier("gardens.settings.failure")
+            if model.didLoseAccess {
+                // `onSwitchGarden` unwinds all the way to the gardens list
+                // (`RootView.signedInBody`'s `{ self.selectedGarden = nil }`),
+                // not merely this sheet — the whole tab shell underneath it
+                // is for a garden this profile no longer has access to, so
+                // dismissing only the settings sheet would leave that
+                // broken shell on screen. Falls back to `dismiss()` (closing
+                // only this sheet) on the rare construction that supplies no
+                // callback at all, rather than presenting no action.
+                FailureStateView(message: message, retryTitle: model.backToGardensTitle) {
+                    if let onSwitchGarden {
+                        onSwitchGarden()
+                    } else {
+                        dismiss()
+                    }
+                }
+                .accessibilityIdentifier("gardens.settings.revokedAccess")
+            } else {
+                FailureStateView(message: message)
+                    .accessibilityIdentifier("gardens.settings.failure")
+            }
         }
     }
 
@@ -119,11 +138,23 @@ public struct GardenSettingsView: View {
         }
     }
 
-    /// The three destinations that are configuration rather than daily work.
-    private var configurationSection: some View {
+    /// The destinations that are configuration rather than daily work.
+    /// Collaborators is the one card every role sees — the member roster
+    /// itself is not owner-only (`garden-capability-matrix.md`, row H2) —
+    /// while the other three stay visible regardless of role too, matching
+    /// this section's existing posture of hiding nothing, only the
+    /// owner-only mutating controls further down (`renameSection`,
+    /// `manageSection`).
+    private func configurationSection(_ summary: GardenSettingsSummary) -> some View {
         VStack(alignment: .leading, spacing: Metrics.space2) {
             SectionEyebrow(symbol: "slider.horizontal.3", title: model.title)
 
+            navigationCard(
+                value: GardenCollaboratorsRoute(gardenId: model.gardenId, isOwner: summary.isOwner),
+                symbol: CollaborationSymbols.member,
+                title: model.openCollaboratorsTitle,
+                identifier: "gardens.settings.openCollaborators"
+            )
             navigationCard(
                 value: GardenPlanUploadRoute(gardenId: model.gardenId),
                 symbol: "doc.viewfinder",

@@ -84,3 +84,25 @@ public struct GardenTodayRoute: Hashable, Sendable {
 public struct GardenServiceHealthRoute: Hashable, Sendable {
     public init() {}
 }
+
+/// Requests to navigate from this garden's settings screen to its
+/// Collaborators screen (P9A-IOS-01) — the same marker-type pattern as
+/// `GardenPlanUploadRoute`: the destination (`CollaboratorsView`) lives in
+/// this same feature, but its view model needs a `CollaborationGateway` only
+/// the composition root can construct, so a route value, not a direct
+/// `NavigationLink` to the view, is what `GardenSettingsView` pushes.
+///
+/// `isOwner` travels with the route rather than being re-derived by the
+/// destination screen: `GardenSettingsView` already knows the caller's role
+/// from the `Garden` it loaded to render this same settings screen, and
+/// hiding owner-only sections is a usability choice the server independently
+/// enforces regardless (`CollaboratorsViewModel`'s own doc comment).
+public struct GardenCollaboratorsRoute: Hashable, Sendable {
+    public let gardenId: String
+    public let isOwner: Bool
+
+    public init(gardenId: String, isOwner: Bool) {
+        self.gardenId = gardenId
+        self.isOwner = isOwner
+    }
+}

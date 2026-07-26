@@ -32,6 +32,15 @@ public struct TaskRow: Equatable, Sendable, Identifiable {
     /// row here, not one edited record, is independently either confirmed or
     /// pending.
     public let isPendingSync: Bool
+    /// "Assigned: {who}" — `nil` when unassigned, and also suppressed
+    /// (`nil`) exactly when ``completedByChipLabel`` already names the same
+    /// profile: showing "Assigned: Editor" next to "Completed by: Editor"
+    /// for the identical person is redundant, not two facts. See
+    /// `TasksListViewModel.row(_:)`'s own doc comment for the full rule.
+    public let assignedChipLabel: String?
+    /// "Completed by: {who}" — shown only once this task's status is
+    /// `completed` and it actually has a `completedByProfileId`.
+    public let completedByChipLabel: String?
 }
 
 /// Immutable display state for the task list screen.
@@ -39,4 +48,37 @@ public enum TasksListViewState: Equatable, Sendable {
     case loading
     case loaded([TaskRow])
     case failed(message: String)
+}
+
+/// One already-localized row of a task's activity timeline.
+public struct TaskActivityRow: Equatable, Sendable, Identifiable {
+    public let id: Int
+    public let symbol: String
+    /// The full sentence naming who did what — e.g. "Assigned to Editor —
+    /// by Owner".
+    public let text: String
+    /// Populated only for the `editTask`/`rescheduleTask` entries that
+    /// actually changed the due date — see `TaskCollaborationLocalization
+    /// .row(for:roster:strings:)`'s own doc comment for why this is never
+    /// fabricated for an entry the contract's own `dueDate` field left `nil`.
+    public let dueDateCaption: String?
+    public let recordedAtText: String
+}
+
+/// Immutable display state for one task's activity sheet.
+public enum TaskActivityViewState: Equatable, Sendable {
+    case loading
+    case loaded([TaskActivityRow])
+    case failed(message: String)
+}
+
+/// One already-localized row of the assignment picker — an active member
+/// holding `editGardenContent` (owner or editor; a viewer is never offered,
+/// matching the contract's own eligibility rule), named by role since no
+/// display name exists — see `TaskCollaborationLocalization`'s own doc
+/// comment.
+public struct TaskAssignCandidateRow: Equatable, Sendable, Identifiable {
+    public let id: String
+    public let profileId: String
+    public let roleLabel: String
 }

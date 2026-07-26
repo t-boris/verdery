@@ -40,6 +40,21 @@ public struct LocalizedStrings: Sendable {
         string(forKey: key.rawValue)
     }
 
+    /// The same resolution for the task-assignment/activity screens' own key
+    /// set. See ``TaskCollaborationLocalizationKey`` for why this is a third
+    /// key set rather than more cases somewhere existing.
+    public func callAsFunction(_ key: TaskCollaborationLocalizationKey) -> String {
+        string(forKey: key.rawValue)
+    }
+
+    /// The same resolution for the Collaborators/ownership-transfer/accept-
+    /// invitation key set (P9A-IOS-01). See ``CollaborationLocalizationKey``
+    /// for why this is yet another key set rather than more cases somewhere
+    /// existing.
+    public func callAsFunction(_ key: CollaborationLocalizationKey) -> String {
+        string(forKey: key.rawValue)
+    }
+
     /// Every key any of the application's key sets declares.
     ///
     /// Exposed so catalogue completeness stays one check over one list rather
@@ -48,6 +63,8 @@ public struct LocalizedStrings: Sendable {
     public static let declaredKeys: [String] =
         LocalizationKey.allCases.map(\.rawValue)
         + ProfileLocalizationKey.allCases.map(\.rawValue)
+        + TaskCollaborationLocalizationKey.allCases.map(\.rawValue)
+        + CollaborationLocalizationKey.allCases.map(\.rawValue)
 
     /// Resolves an arbitrary key, used for codes that originate in Core.
     ///
@@ -85,6 +102,22 @@ public struct LocalizedStrings: Sendable {
     }
 
     public func string(_ key: LocalizationKey, parameters: [String: String]) -> String {
+        string(forKey: key.rawValue, parameters: parameters)
+    }
+
+    /// The same parameterized resolution for
+    /// ``TaskCollaborationLocalizationKey``'s own templated entries (an
+    /// activity row naming who acted, and who was assigned).
+    public func string(_ key: TaskCollaborationLocalizationKey, parameters: [String: String]) -> String {
+        string(forKey: key.rawValue, parameters: parameters)
+    }
+
+    /// The same parameterized resolution for
+    /// ``CollaborationLocalizationKey``'s own templated entries (a role
+    /// named in a confirmation prompt, a garden named in an accept-
+    /// invitation or ownership-transfer message, a share link embedded in
+    /// invite/transfer share text).
+    public func string(_ key: CollaborationLocalizationKey, parameters: [String: String]) -> String {
         string(forKey: key.rawValue, parameters: parameters)
     }
 

@@ -85,7 +85,24 @@ public struct GardenTask: Equatable, Sendable, Identifiable {
     public let createdAt: Date
     public let updatedAt: Date
     public let completedAt: Date?
+    /// The garden member responsible for this task (P9A-TASK-01) — `nil`
+    /// when unassigned. Set only by `AssignTask`; the assignee must be an
+    /// active member holding `editGardenContent` (owner or editor) on this
+    /// task's own garden.
+    public let assignedProfileId: String?
+    /// Present exactly when `assignedProfileId` is.
+    public let assignedAt: Date?
+    /// The actual profile who completed this task (P9A-TASK-01) — not
+    /// necessarily `assignedProfileId`. Stays readable after that profile
+    /// loses access to this garden, because it references the profile
+    /// directly rather than the membership. `nil` until completed.
+    public let completedByProfileId: String?
 
+    /// `assignedProfileId`/`assignedAt`/`completedByProfileId` default to
+    /// `nil` so every call site that predates P9A-TASK-01 — production code
+    /// and test fixtures alike — keeps compiling unchanged; only the call
+    /// sites that actually need to carry an assignment/attribution forward
+    /// pass them explicitly.
     public init(
         id: String,
         gardenId: String,
@@ -106,7 +123,10 @@ public struct GardenTask: Equatable, Sendable, Identifiable {
         createdByProfileId: String,
         createdAt: Date,
         updatedAt: Date,
-        completedAt: Date?
+        completedAt: Date?,
+        assignedProfileId: String? = nil,
+        assignedAt: Date? = nil,
+        completedByProfileId: String? = nil
     ) {
         self.id = id
         self.gardenId = gardenId
@@ -128,5 +148,8 @@ public struct GardenTask: Equatable, Sendable, Identifiable {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.completedAt = completedAt
+        self.assignedProfileId = assignedProfileId
+        self.assignedAt = assignedAt
+        self.completedByProfileId = completedByProfileId
     }
 }

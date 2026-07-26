@@ -9,6 +9,12 @@ import Foundation
 /// guard from a broken one.
 final class FakeTaskGateway: TaskGateway, @unchecked Sendable {
     private var tasks: [String: GardenTask]
+    private var activityByTaskId: [String: [TaskActivityEntry]] = [:]
+    /// When set, `assignTask`/`listTaskActivity` throw this once instead of
+    /// answering — mirrors `FakeRecommendationGateway.nextFailure`'s
+    /// identical role, letting a test simulate a genuine 412/409 revision
+    /// conflict without a real concurrent second actor.
+    var nextFailure: APIGatewayError?
 
     init(tasks: [GardenTask] = []) {
         self.tasks = Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0) })
@@ -122,6 +128,39 @@ final class FakeTaskGateway: TaskGateway, @unchecked Sendable {
         TaskAttachment(id: "attachment-1", taskId: taskId, mediaId: mediaId, createdAt: Date(timeIntervalSince1970: 0))
     }
 
+    func assignTask(
+        gardenId: String,
+        taskId: String,
+        assigneeProfileId: String?,
+        expectedRevision: Int,
+        idempotencyKey: String
+    ) async throws -> GardenTask {
+        try throwPlannedFailure()
+        let task = try expectMutable(taskId, expectedRevision)
+        let updated = withAssignment(task, assigneeProfileId: assigneeProfileId)
+        tasks[task.id] = updated
+        return updated
+    }
+
+    func listTaskActivity(gardenId: String, taskId: String) async throws -> [TaskActivityEntry] {
+        try throwPlannedFailure()
+        return activityByTaskId[taskId] ?? []
+    }
+
+    /// Test-only seam: lets a test populate what `listTaskActivity` returns
+    /// for one task, since nothing else in this fake ever appends to a real
+    /// journal the way the server's own `task_revision` table does.
+    func seedActivity(taskId: String, entries: [TaskActivityEntry]) {
+        activityByTaskId[taskId] = entries
+    }
+
+    private func throwPlannedFailure() throws {
+        if let failure = nextFailure {
+            nextFailure = nil
+            throw failure
+        }
+    }
+
     private func resolved<Value>(_ fieldUpdate: FieldUpdate<Value>, current: Value?) -> Value? {
         switch fieldUpdate {
         case .unchanged: current
@@ -148,7 +187,26 @@ final class FakeTaskGateway: TaskGateway, @unchecked Sendable {
             recurrenceRule: task.recurrenceRule, urgency: task.urgency, source: task.source,
             originObservationId: task.originObservationId, revision: task.revision + 1,
             createdByProfileId: task.createdByProfileId, createdAt: task.createdAt, updatedAt: task.updatedAt,
-            completedAt: status == .completed ? Date(timeIntervalSince1970: 1) : task.completedAt
+            completedAt: status == .completed ? Date(timeIntervalSince1970: 1) : task.completedAt,
+            assignedProfileId: task.assignedProfileId,
+            assignedAt: task.assignedAt,
+            completedByProfileId: status == .completed ? "profile-1" : task.completedByProfileId
+        )
+    }
+
+    private func withAssignment(_ task: GardenTask, assigneeProfileId: String?) -> GardenTask {
+        GardenTask(
+            id: task.id, gardenId: task.gardenId, targetKind: task.targetKind,
+            targetGardenAreaMapObjectId: task.targetGardenAreaMapObjectId, targetPlantId: task.targetPlantId,
+            title: task.title, notes: task.notes, status: task.status, dueDate: task.dueDate,
+            timeWindowStart: task.timeWindowStart, timeWindowEnd: task.timeWindowEnd,
+            recurrenceRule: task.recurrenceRule, urgency: task.urgency, source: task.source,
+            originObservationId: task.originObservationId, revision: task.revision + 1,
+            createdByProfileId: task.createdByProfileId, createdAt: task.createdAt, updatedAt: task.updatedAt,
+            completedAt: task.completedAt,
+            assignedProfileId: assigneeProfileId,
+            assignedAt: assigneeProfileId != nil ? Date(timeIntervalSince1970: 1) : nil,
+            completedByProfileId: task.completedByProfileId
         )
     }
 

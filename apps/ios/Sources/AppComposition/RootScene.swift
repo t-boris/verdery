@@ -65,7 +65,10 @@ public struct RootView: View {
     /// synchronization engine "reacts to: ... App foreground/background
     /// transitions." (P5-IOS-03, Stage 5b.)
     ///
-    /// The only real scene-phase/foreground trigger this codebase wires:
+    /// The only real scene-phase/foreground trigger this codebase wires,
+    /// shared by two independent reactions on the same transition to
+    /// `.active` (``triggerSyncOnForeground``, and
+    /// ``triggerIncomingOwnershipTransfersRefresh`` added for P9A-OWNER-02):
     /// connectivity-change (`NWPathMonitor`) and background-processing-
     /// opportunity (`BGTaskScheduler`) triggers remain a real, separate gap
     /// — confirmed by inspection, not assumed, that nothing in this
@@ -92,6 +95,7 @@ public struct RootView: View {
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active else { return }
             Self.triggerSyncOnForeground(composition: composition)
+            Self.triggerIncomingOwnershipTransfersRefresh(composition: composition)
         }
         // Signing out leaves the garden chosen, and this state outlives the
         // sign-in screen: without this, the next sign-in — possibly as a
@@ -107,21 +111,58 @@ public struct RootView: View {
 
     @ViewBuilder
     private var signedInBody: some View {
-        if let selectedGarden {
-            GardenTabView(
-                composition: composition,
-                gardenId: selectedGarden.id,
-                gardenName: selectedGarden.name,
-                onSwitchGarden: { self.selectedGarden = nil }
-            )
-        } else {
-            NavigationStack {
-                GardensListView(model: composition.makeGardensListViewModel()) { gardenId, gardenName in
-                    selectedGarden = SelectedGarden(id: gardenId, name: gardenName)
+        Group {
+            if let selectedGarden {
+                GardenTabView(
+                    composition: composition,
+                    gardenId: selectedGarden.id,
+                    gardenName: selectedGarden.name,
+                    onSwitchGarden: { self.selectedGarden = nil }
+                )
+            } else {
+                NavigationStack {
+                    GardensListView(model: composition.makeGardensListViewModel()) { gardenId, gardenName in
+                        selectedGarden = SelectedGarden(id: gardenId, name: gardenName)
+                    }
+                    .accountToolbar(composition: composition)
                 }
-                .accountToolbar(composition: composition)
             }
         }
+        // The entry point a `verdery://invite?token=` deep link opens into
+        // (P9A-IOS-01) — reachable from either state above: an invitation
+        // may arrive while the reader is inside a garden or still choosing
+        // one. A full-screen cover, not a sheet: accepting an invitation is
+        // its own destination, not a modal refinement of whichever screen
+        // happened to be showing when the link was tapped.
+        .acceptInvitationCover(isPresented: isAcceptInvitationPresented) {
+            if let token = composition.collaborationSessionState.pendingInvitationToken {
+                AcceptInvitationView(
+                    model: composition.makeAcceptInvitationViewModel(token: token),
+                    onOpenGarden: { gardenId, gardenName in
+                        composition.collaborationSessionState.clearPendingInvitation()
+                        selectedGarden = SelectedGarden(id: gardenId, name: gardenName)
+                    },
+                    onClose: {
+                        composition.collaborationSessionState.clearPendingInvitation()
+                    }
+                )
+            }
+        }
+    }
+
+    /// A deep link can arrive while signed out too (`AppCompositionRoot
+    /// .handleIncomingURL` records the token regardless of session state);
+    /// this only ever presents once `signedInBody` itself is on screen, so a
+    /// token that arrived while signed out waits, untouched, for the reader
+    /// to sign in — never lost, never presented to nobody.
+    private var isAcceptInvitationPresented: Binding<Bool> {
+        Binding(
+            get: { composition.collaborationSessionState.pendingInvitationToken != nil },
+            set: { isPresented in
+                guard !isPresented else { return }
+                composition.collaborationSessionState.clearPendingInvitation()
+            }
+        )
     }
 
     /// A fresh engine per foreground transition, matching `makeSyncEngine()`'s
@@ -142,6 +183,19 @@ public struct RootView: View {
             try? await engine.retryNow()
         }
     }
+
+    /// Refreshes `collaborationSessionState.incomingTransfers` on the same
+    /// foreground trigger as ``triggerSyncOnForeground`` — see
+    /// `AppCompositionRoot.refreshIncomingOwnershipTransfers()`'s own doc
+    /// comment for why this trigger and `GardenTabView`'s own shell-appear
+    /// trigger together are this feature's chosen "check periodically or on
+    /// a lifecycle event" pair (P9A-OWNER-02).
+    @MainActor
+    private static func triggerIncomingOwnershipTransfersRefresh(composition: AppCompositionRoot) {
+        Task {
+            await composition.refreshIncomingOwnershipTransfers()
+        }
+    }
 }
 
 /// The garden the reader is currently inside.
@@ -152,4 +206,25 @@ public struct RootView: View {
 private struct SelectedGarden: Equatable {
     let id: String
     let name: String
+}
+
+/// A full-screen cover on iOS; `fullScreenCover` itself does not exist on
+/// macOS, which this package also builds for headlessly (see
+/// `Package.swift`'s own doc comment on why `swift build`/`swift test`
+/// target macOS at all) — the same `#if os(iOS)` pattern
+/// `FeatureMap/MapObjectPropertyView.swift` already uses for its own
+/// iOS-only modifiers. The `#else` branch (a plain sheet) is dead in the
+/// shipped iOS app; it exists only to keep the headless macOS build
+/// compiling.
+extension View {
+    fileprivate func acceptInvitationCover<CoverContent: View>(
+        isPresented: Binding<Bool>,
+        @ViewBuilder content: @escaping () -> CoverContent
+    ) -> some View {
+        #if os(iOS)
+        fullScreenCover(isPresented: isPresented, content: content)
+        #else
+        sheet(isPresented: isPresented, content: content)
+        #endif
+    }
 }

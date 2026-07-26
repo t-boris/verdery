@@ -57,7 +57,14 @@ enum TaskDetailProjection {
             createdByProfileId: current.createdByProfileId,
             createdAt: current.createdAt,
             updatedAt: timestamp,
-            completedAt: current.completedAt
+            completedAt: current.completedAt,
+            // Neither `EditTask` nor `RescheduleTask` ever changes an
+            // assignment or completion attribution — both pass through
+            // unchanged, the same "guard the status, apply the change"
+            // scope this projection's own doc comment describes.
+            assignedProfileId: current.assignedProfileId,
+            assignedAt: current.assignedAt,
+            completedByProfileId: current.completedByProfileId
         )
     }
 }

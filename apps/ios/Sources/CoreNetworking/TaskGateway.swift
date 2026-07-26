@@ -87,6 +87,33 @@ public protocol TaskGateway: Sendable {
         mediaId: String,
         idempotencyKey: String
     ) async throws -> TaskAttachment
+
+    /// Assigns, reassigns, or unassigns (`assigneeProfileId: nil`) a task
+    /// (P9A-TASK-01). Online only — unlike the seven offline-capable
+    /// commands above, this has no local projection: assignment eligibility
+    /// depends on the assignee's OWN capability, which only the server can
+    /// evaluate, so there is nothing safe to project optimistically offline.
+    func assignTask(
+        gardenId: String,
+        taskId: String,
+        assigneeProfileId: String?,
+        expectedRevision: Int,
+        idempotencyKey: String
+    ) async throws -> GardenTask
+
+    /// Reads a task's shared activity history (P9A-TASK-01, row B17) — every
+    /// role may read this, so no idempotency key or revision precondition
+    /// applies to a plain `GET`.
+    func listTaskActivity(gardenId: String, taskId: String) async throws -> [TaskActivityEntry]
+
+    // The assignment picker's candidate roster is NOT read through this
+    // gateway: `GET /gardens/{gardenId}/members` is a `Collaboration`-tagged
+    // operation, and `CollaborationGateway.listMembers(gardenId:)` (the
+    // P9A-API-01 collaboration-administration work) already wraps it,
+    // returning the exact `CoreDomain.GardenMember` shape the picker needs.
+    // `FeatureTasks` depends on `CollaborationGateway` directly for that read
+    // rather than this file re-declaring it a second time under a different
+    // name.
 }
 
 /// URLSession-backed implementation of the manual task operations.
@@ -291,6 +318,31 @@ public struct URLSessionTaskGateway: TaskGateway {
             acceptedStatusCodes: [201]
         )
         return result.domainValue
+    }
+
+    public func assignTask(
+        gardenId: String,
+        taskId: String,
+        assigneeProfileId: String?,
+        expectedRevision: Int,
+        idempotencyKey: String
+    ) async throws -> GardenTask {
+        let result: GardenTaskTransport = try await transport.send(
+            method: "POST",
+            operationPath: "gardens/\(gardenId)/tasks/\(taskId)/assign",
+            body: AssignTaskRequestTransport(assigneeProfileId: assigneeProfileId),
+            headers: revisionHeaders(expectedRevision: expectedRevision, idempotencyKey: idempotencyKey),
+            acceptedStatusCodes: [200]
+        )
+        return result.domainValue
+    }
+
+    public func listTaskActivity(gardenId: String, taskId: String) async throws -> [TaskActivityEntry] {
+        let result: TaskActivityListResultTransport = try await transport.get(
+            operationPath: "gardens/\(gardenId)/tasks/\(taskId)/activity",
+            acceptedStatusCodes: [200]
+        )
+        return result.items.map(\.domainValue)
     }
 
     private func revisionHeaders(expectedRevision: Int, idempotencyKey: String) -> [String: String] {

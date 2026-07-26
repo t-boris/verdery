@@ -56,7 +56,18 @@ enum TaskTerminalStatus: Equatable, Sendable {
     /// row deletion from the local `task` table. `task-lifecycle.ts`'s own
     /// header comment states this explicitly: "no hard-delete anywhere, only
     /// status transitions."
-    func apply(to current: GardenTask, at timestamp: Date) throws -> GardenTask {
+    ///
+    /// `actingProfileId` is this device's own profile id — the same one
+    /// every offline command's use case already threads through as
+    /// `createdByProfileId` on a fresh `CreateManualTask` projection. Used
+    /// only for the `.completed` transition, to optimistically set
+    /// `completedByProfileId` (P9A-TASK-01): this device completing the task
+    /// IS the actor that will complete it server-side too, so recording it
+    /// locally now is correct, not a guess — the server's own accepted push
+    /// only ever confirms the same actor, never substitutes a different one.
+    /// `dismiss`/`skip`/`delete` never set it: `completedByProfileId` stays
+    /// `nil` until, and only until, a task is actually completed.
+    func apply(to current: GardenTask, at timestamp: Date, actingProfileId: String) throws -> GardenTask {
         try TaskLifecycleRules.requireEditableStatus(current)
 
         return GardenTask(
@@ -79,7 +90,11 @@ enum TaskTerminalStatus: Equatable, Sendable {
             createdByProfileId: current.createdByProfileId,
             createdAt: current.createdAt,
             updatedAt: timestamp,
-            completedAt: self == .completed ? timestamp : current.completedAt
+            completedAt: self == .completed ? timestamp : current.completedAt,
+            // Assignment itself is untouched by any terminal transition.
+            assignedProfileId: current.assignedProfileId,
+            assignedAt: current.assignedAt,
+            completedByProfileId: self == .completed ? actingProfileId : current.completedByProfileId
         )
     }
 }

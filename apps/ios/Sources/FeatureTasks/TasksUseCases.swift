@@ -361,7 +361,7 @@ public struct CompleteTask: Sendable {
                 throw TaskCommandError.localRecordNotFound
             }
 
-            let projection = try TaskTerminalStatus.completed.apply(to: current, at: timestamp)
+            let projection = try TaskTerminalStatus.completed.apply(to: current, at: timestamp, actingProfileId: profileId)
             let operation = OutboxOperation(
                 id: operationId,
                 profileId: profileId,
@@ -414,7 +414,7 @@ public struct DismissTask: Sendable {
                 throw TaskCommandError.localRecordNotFound
             }
 
-            let projection = try TaskTerminalStatus.dismissed.apply(to: current, at: timestamp)
+            let projection = try TaskTerminalStatus.dismissed.apply(to: current, at: timestamp, actingProfileId: profileId)
             let operation = OutboxOperation(
                 id: operationId,
                 profileId: profileId,
@@ -466,7 +466,7 @@ public struct SkipTask: Sendable {
                 throw TaskCommandError.localRecordNotFound
             }
 
-            let projection = try TaskTerminalStatus.skipped.apply(to: current, at: timestamp)
+            let projection = try TaskTerminalStatus.skipped.apply(to: current, at: timestamp, actingProfileId: profileId)
             // No `request` — matches `SyncSkipTaskCommand`, which carries
             // only `commandType`/`taskId`/`expectedRevision`.
             let operation = OutboxOperation(
@@ -520,7 +520,7 @@ public struct DeleteTask: Sendable {
                 throw TaskCommandError.localRecordNotFound
             }
 
-            let projection = try TaskTerminalStatus.deleted.apply(to: current, at: timestamp)
+            let projection = try TaskTerminalStatus.deleted.apply(to: current, at: timestamp, actingProfileId: profileId)
             // No `request` — matches `SyncDeleteTaskCommand`, which carries
             // only `commandType`/`taskId`/`expectedRevision`.
             let operation = OutboxOperation(

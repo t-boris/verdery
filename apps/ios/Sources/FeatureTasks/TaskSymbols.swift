@@ -63,4 +63,6 @@ enum TaskSymbols {
     static let edit = "pencil"
     static let reschedule = "calendar.badge.clock"
     static let pendingSync = "arrow.triangle.2.circlepath"
+    static let assign = "person.crop.circle.badge.plus"
+    static let activity = "clock.arrow.circlepath"
 }

@@ -67,6 +67,8 @@ public struct TasksListView: View {
             .sheet(isPresented: $isCreatePresented) { createSheet }
             .sheet(isPresented: isEditSheetPresented) { editSheet }
             .sheet(isPresented: isRescheduleSheetPresented) { rescheduleSheet }
+            .sheet(isPresented: isAssignSheetPresented) { assignSheet }
+            .sheet(isPresented: isActivitySheetPresented) { activitySheet }
             .confirmationDialog(
                 model.deleteActionTitle,
                 isPresented: isDeleteConfirmationPresented,
@@ -227,6 +229,18 @@ public struct TasksListView: View {
                         if let dueDateText = row.dueDateText {
                             Chip(symbol: TaskSymbols.dueDate, label: dueDateText, tone: .info)
                         }
+                        // Independent, both nil-safe: `assignedChipLabel` is
+                        // already `nil` when it would merely repeat
+                        // `completedByChipLabel`'s own identity (see
+                        // `TaskCollaborationLocalization.assignedChipLabel`'s
+                        // own doc comment) — the two chips both showing at
+                        // once means they genuinely differ.
+                        if let assignedChipLabel = row.assignedChipLabel {
+                            Chip(symbol: TaskSymbols.assign, label: assignedChipLabel, tone: .accent)
+                        }
+                        if let completedByChipLabel = row.completedByChipLabel {
+                            Chip(symbol: TaskSymbols.complete, label: completedByChipLabel, tone: .positive)
+                        }
                         if row.isPendingSync {
                             StatusGlyph(
                                 symbol: TaskSymbols.pendingSync,
@@ -293,6 +307,12 @@ public struct TasksListView: View {
     }
 
     /// The full set, for anyone who does not know the swipes are there.
+    ///
+    /// "Assign" shares `row.isMutable`'s gate with every other mutation on
+    /// this menu — the contract's own "only while `planned`/`suggested`"
+    /// precondition, unchanged for assignment. "Activity" is never gated by
+    /// it: reading who-did-what stays legal for a task in any status,
+    /// including a completed or deleted one — matrix row B17's own rule.
     @ViewBuilder
     private func contextMenu(_ row: TaskRow) -> some View {
         if row.isMutable {
@@ -305,6 +325,11 @@ public struct TasksListView: View {
                 model.reschedulingTaskId = row.id
             } label: {
                 Label(model.rescheduleActionTitle, systemImage: TaskSymbols.reschedule)
+            }
+            Button {
+                model.assigningTaskId = row.id
+            } label: {
+                Label(model.assignActionTitle, systemImage: TaskSymbols.assign)
             }
             Button {
                 perform { await model.complete(taskId: row.id) }
@@ -326,6 +351,11 @@ public struct TasksListView: View {
             } label: {
                 Label(model.deleteActionTitle, systemImage: TaskSymbols.delete)
             }
+        }
+        Button {
+            model.viewingActivityTaskId = row.id
+        } label: {
+            Label(model.activityActionTitle, systemImage: TaskSymbols.activity)
         }
     }
 
@@ -356,6 +386,20 @@ public struct TasksListView: View {
         Binding(
             get: { model.reschedulingTaskId != nil },
             set: { isPresented in if !isPresented { model.reschedulingTaskId = nil } }
+        )
+    }
+
+    private var isAssignSheetPresented: Binding<Bool> {
+        Binding(
+            get: { model.assigningTaskId != nil },
+            set: { isPresented in if !isPresented { model.assigningTaskId = nil } }
+        )
+    }
+
+    private var isActivitySheetPresented: Binding<Bool> {
+        Binding(
+            get: { model.viewingActivityTaskId != nil },
+            set: { isPresented in if !isPresented { model.viewingActivityTaskId = nil } }
         )
     }
 
@@ -424,6 +468,47 @@ public struct TasksListView: View {
                     )
                 },
                 onClose: { model.reschedulingTaskId = nil }
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var assignSheet: some View {
+        if let taskId = model.assigningTaskId, let task = model.tasksById[taskId] {
+            TaskAssignSheetView(
+                candidates: model.eligibleAssignCandidates,
+                currentAssigneeProfileId: task.assignedProfileId,
+                title: model.assignTitle,
+                unassignedOptionLabel: model.assignUnassignedOptionLabel,
+                submitTitle: model.assignSubmitTitle,
+                closeTitle: model.closeTitle,
+                isLoadingCandidates: model.isLoadingAssignCandidates,
+                candidatesLoadingMessage: model.assignCandidatesLoadingMessage,
+                candidatesEmptyMessage: model.assignCandidatesEmptyMessage,
+                candidatesErrorMessage: model.assignCandidatesErrorMessage,
+                isSubmitting: model.isSubmittingAssign,
+                submitErrorMessage: model.assignErrorMessage,
+                onAppear: { await model.loadAssignCandidates() },
+                onSubmit: { assigneeProfileId in
+                    await model.submitAssign(taskId: taskId, assigneeProfileId: assigneeProfileId)
+                    Haptics.play(model.assignErrorMessage == nil ? .success : .failure)
+                },
+                onClose: { model.assigningTaskId = nil }
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var activitySheet: some View {
+        if let taskId = model.viewingActivityTaskId {
+            TaskActivityView(
+                state: model.activityState,
+                title: model.activityTitle,
+                loadingMessage: model.activityLoadingMessage,
+                emptyMessage: model.activityEmptyMessage,
+                closeTitle: model.closeTitle,
+                onAppear: { await model.loadActivity(taskId: taskId) },
+                onClose: { model.viewingActivityTaskId = nil }
             )
         }
     }

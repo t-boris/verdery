@@ -569,3 +569,113 @@
 "profile.signOut.confirm.message" = "Всё, что записано офлайн и ещё не выгружено, останется на этом устройстве до следующего входа.";
 "profile.signOut.cancel" = "Остаться в аккаунте";
 "profile.signOut.failed" = "Выйти не удалось. Попробуйте ещё раз.";
+
+/* Task assignment and shared activity history (P9A-TASK-01). */
+"tasks.assignAction" = "Назначить";
+"tasks.assign.title" = "Назначить задачу";
+"tasks.assign.unassignedOption" = "Не назначено";
+"tasks.assign.submit" = "Сохранить назначение";
+"tasks.assign.candidatesLoading" = "Загрузка участников…";
+"tasks.assign.candidatesEmpty" = "Пока некому назначить задачу. Сначала пригласите редактора или совладельца.";
+"tasks.assign.candidatesFailed" = "Не удалось загрузить участников.";
+"tasks.assign.conflict" = "Задача изменилась с момента открытия. Показана последняя версия — попробуйте снова.";
+"tasks.assignedToLabel" = "Назначено: {who}";
+"tasks.completedByLabel" = "Выполнено: {who}";
+"tasks.activityAction" = "История";
+"tasks.activity.title" = "История";
+"tasks.activity.loading" = "Загрузка истории…";
+"tasks.activity.empty" = "Пока нет истории.";
+"tasks.activity.failed" = "Не удалось загрузить историю.";
+"tasks.activity.created" = "Создано: {actor}";
+"tasks.activity.edited" = "Изменено: {actor}";
+"tasks.activity.rescheduled" = "Перенесено: {actor}";
+"tasks.activity.completed" = "Выполнено: {actor}";
+"tasks.activity.dismissed" = "Отклонено: {actor}";
+"tasks.activity.skipped" = "Пропущено: {actor}";
+"tasks.activity.deleted" = "Удалено: {actor}";
+"tasks.activity.converted" = "Создано из рекомендации: {actor}";
+"tasks.activity.assigned" = "Назначено участнику {assignee} — {actor}";
+"tasks.activity.unassigned" = "Назначение снято — {actor}";
+"tasks.activity.dueDateCaption" = "Срок: {date}";
+
+/* Совместная работа: участники, приглашения, передача владения (P9A-IOS-01). */
+"collaboration.title" = "Участники";
+"collaboration.section.members" = "Участники";
+"collaboration.member.generic" = "Участник";
+"collaboration.section.pendingInvitations" = "Ожидающие приглашения";
+"collaboration.pendingInvitations.empty" = "Нет ожидающих приглашений.";
+
+"collaboration.invite.button" = "Пригласить";
+"collaboration.invite.title" = "Пригласить участника";
+"collaboration.invite.roleLabel" = "Роль";
+"collaboration.invite.emailLabel" = "Email (необязательно)";
+"collaboration.invite.emailHint" = "Оставьте пустым, чтобы поделиться ссылкой, которой сможет воспользоваться кто угодно.";
+"collaboration.invite.submit" = "Создать приглашение";
+"collaboration.invite.tokenTitle" = "Ссылка-приглашение";
+"collaboration.invite.tokenWarning" = "Эта ссылка показывается только один раз и не может быть получена снова. Поделитесь ею сейчас.";
+"collaboration.invite.share" = "Поделиться приглашением";
+"collaboration.invite.shareMessage" = "Вас пригласили для совместной работы над садом в Verdery. Откройте эту ссылку в приложении Verdery: {link}";
+"collaboration.invite.done" = "Готово";
+
+"collaboration.invitation.state.pending" = "Ожидает";
+"collaboration.invitation.state.accepted" = "Принято";
+"collaboration.invitation.state.revoked" = "Отозвано";
+"collaboration.invitation.state.expired" = "Истекло";
+"collaboration.invitation.noEmail" = "Любой, у кого есть ссылка";
+"collaboration.invitation.revoke" = "Отозвать";
+"collaboration.invitation.revoke.confirm" = "Отозвать это приглашение? Ссылка перестанет работать.";
+
+"collaboration.member.action.changeRole" = "Изменить роль";
+"collaboration.member.action.promote" = "Сделать совладельцем";
+"collaboration.member.action.demote" = "Понизить из владельцев";
+"collaboration.member.action.remove" = "Удалить";
+"collaboration.member.confirm.changeRole" = "Изменить роль этого участника на «{role}»?";
+"collaboration.member.confirm.promote" = "Сделать этого участника совладельцем? Он получит полные права администрирования владельца.";
+"collaboration.member.confirm.demote" = "Понизить этого владельца? Выберите его новую роль ниже.";
+"collaboration.member.confirm.remove" = "Удалить этого участника из сада? Он немедленно потеряет доступ.";
+
+"collaboration.ownershipTransfer.title" = "Передача владения";
+"collaboration.ownershipTransfer.button" = "Передать владение";
+"collaboration.ownershipTransfer.targetLabel" = "Участник";
+"collaboration.ownershipTransfer.resultingRoleLabel" = "Ваша новая роль";
+"collaboration.ownershipTransfer.submit" = "Запросить передачу";
+"collaboration.ownershipTransfer.confirm" = "Запросить передачу владения? Получатель должен принять её, прежде чем что-либо изменится.";
+"collaboration.ownershipTransfer.pending" = "Передача владения ожидает подтверждения";
+"collaboration.ownershipTransfer.cancel" = "Отменить передачу";
+"collaboration.ownershipTransfer.cancel.confirm" = "Отменить эту ожидающую передачу владения?";
+"collaboration.ownershipTransfer.share" = "Поделиться ссылкой на передачу";
+"collaboration.ownershipTransfer.shareMessage" = "Вам предложили владение садом в Verdery. Откройте эту ссылку в приложении Verdery, чтобы рассмотреть предложение: {link}";
+"collaboration.ownershipTransfer.noEligibleMembers" = "Прежде чем передавать владение, пригласите редактора или наблюдателя.";
+
+"collaboration.ownershipTransfer.recipient.banner" = "Вам предложили владение этим садом";
+"collaboration.ownershipTransfer.recipient.review" = "Рассмотреть";
+"collaboration.ownershipTransfer.recipient.title" = "Предложение владения";
+"collaboration.ownershipTransfer.recipient.message" = "Вам предложили владение садом «{garden}». Если вы примете предложение, вы станете владельцем; текущий владелец сохранит доступ с другой ролью.";
+"collaboration.ownershipTransfer.recipient.accept" = "Принять";
+"collaboration.ownershipTransfer.recipient.decline" = "Отклонить";
+"collaboration.ownershipTransfer.recipient.notNow" = "Не сейчас";
+"collaboration.ownershipTransfer.recipient.acceptedMessage" = "Теперь вы владелец этого сада.";
+"collaboration.ownershipTransfer.recipient.declinedMessage" = "Вы отклонили предложение владения.";
+"collaboration.ownershipTransfer.recipient.staleMessage" = "Это предложение больше недоступно.";
+
+"collaboration.acceptInvitation.title" = "Вступление в сад";
+"collaboration.acceptInvitation.loading" = "Принимаем приглашение…";
+"collaboration.acceptInvitation.success" = "Вы присоединились к саду «{garden}».";
+"collaboration.acceptInvitation.openGarden" = "Открыть сад";
+"collaboration.acceptInvitation.expiredOrRevoked" = "Это приглашение истекло или было отозвано.";
+"collaboration.acceptInvitation.alreadyAccepted" = "Это приглашение уже было использовано.";
+"collaboration.acceptInvitation.emailMismatch" = "Это приглашение было отправлено на другой адрес электронной почты.";
+"collaboration.acceptInvitation.genericFailure" = "Не удалось принять это приглашение.";
+"collaboration.acceptInvitation.close" = "Закрыть";
+
+"collaboration.error.recentAuthRequired" = "В целях безопасности выйдите из аккаунта и войдите снова, затем повторите попытку.";
+"collaboration.error.lastOwnerRequired" = "В саду всегда должен оставаться хотя бы один владелец.";
+"collaboration.error.targetNotOwner" = "Этот участник не является владельцем.";
+"collaboration.error.targetAlreadyOwner" = "Этот участник уже является владельцем.";
+"collaboration.error.ownerRoleNotAllowed" = "Чтобы изменить владение, используйте повышение или понижение, а не это действие.";
+"collaboration.error.invitationAlreadyPending" = "Приглашение на этот адрес уже ожидает ответа.";
+"collaboration.error.transferAlreadyPending" = "Передача владения для этого сада уже ожидает ответа.";
+"collaboration.error.notFound" = "Это больше недоступно.";
+
+"collaboration.revokedAccess.message" = "У вас больше нет доступа к этому саду.";
+"collaboration.revokedAccess.backToGardens" = "Назад к садам";

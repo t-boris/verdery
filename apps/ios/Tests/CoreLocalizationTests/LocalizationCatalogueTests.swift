@@ -48,6 +48,8 @@ struct LocalizationCatalogueTests {
 
         #expect(Set(LocalizationKey.allCases.map(\.rawValue)).isSubset(of: declared))
         #expect(Set(ProfileLocalizationKey.allCases.map(\.rawValue)).isSubset(of: declared))
+        #expect(Set(TaskCollaborationLocalizationKey.allCases.map(\.rawValue)).isSubset(of: declared))
+        #expect(Set(CollaborationLocalizationKey.allCases.map(\.rawValue)).isSubset(of: declared))
         #expect(declared.count == LocalizedStrings.declaredKeys.count, "A key is declared twice.")
     }
 

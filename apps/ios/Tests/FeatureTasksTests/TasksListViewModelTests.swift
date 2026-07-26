@@ -30,7 +30,8 @@ struct TasksListViewModelTests {
 
     private func makeModel(
         gateway: FakeTaskGateway,
-        localStore: any LocalTaskStore = InMemoryTaskStore()
+        localStore: any LocalTaskStore = InMemoryTaskStore(),
+        collaborationGateway: FakeCollaborationGateway = FakeCollaborationGateway()
     ) -> TasksListViewModel {
         TasksListViewModel(
             gardenId: "garden-1",
@@ -42,7 +43,17 @@ struct TasksListViewModelTests {
             dismissTask: DismissTask(localStore: localStore, profileId: "profile-1"),
             skipTask: SkipTask(localStore: localStore, profileId: "profile-1"),
             deleteTask: DeleteTask(localStore: localStore, profileId: "profile-1"),
+            assignTask: AssignTask(gateway: gateway, localStore: localStore),
+            getTaskActivity: GetTaskActivity(gateway: gateway),
+            listGardenMembers: ListGardenMembers(gateway: collaborationGateway),
             strings: LocalizedStrings(locale: Locale(identifier: "en_GB"))
+        )
+    }
+
+    private func member(profileId: String = "profile-2", role: GardenRole = .editor) -> GardenMember {
+        GardenMember(
+            id: "member-\(profileId)", gardenId: "garden-1", profileId: profileId, role: role, state: .active,
+            createdAt: Date(timeIntervalSince1970: 0), updatedAt: Date(timeIntervalSince1970: 0)
         )
     }
 
@@ -260,5 +271,115 @@ struct TasksListViewModelTests {
             return
         }
         #expect(rows.first?.status == .completed)
+    }
+
+    // MARK: - Assignment and activity history (P9A-TASK-01)
+
+    @Test("submitAssign assigns the task, updates the row's chip, and closes the sheet")
+    func submitAssignAssignsTaskAndClosesSheet() async {
+        let gateway = FakeTaskGateway(tasks: [task()])
+        let collaborationGateway = FakeCollaborationGateway(members: [member(profileId: "profile-2", role: .editor)])
+        let model = makeModel(gateway: gateway, collaborationGateway: collaborationGateway)
+        await model.load()
+        await model.loadAssignCandidates()
+        model.assigningTaskId = "task-1"
+
+        await model.submitAssign(taskId: "task-1", assigneeProfileId: "profile-2")
+
+        #expect(model.assignErrorMessage == nil)
+        #expect(model.assigningTaskId == nil)
+        guard case let .loaded(rows) = model.state else {
+            Issue.record("Expected loaded state")
+            return
+        }
+        #expect(rows.first?.assignedChipLabel != nil)
+    }
+
+    @Test("submitAssign surfaces a clean conflict message on a stale revision and refreshes")
+    func submitAssignSurfacesRevisionConflict() async {
+        let gateway = FakeTaskGateway(tasks: [task()])
+        let model = makeModel(gateway: gateway)
+        await model.load()
+        model.assigningTaskId = "task-1"
+        gateway.nextFailure = .service(
+            APIErrorBody(code: "shared.revision_mismatch", message: "stale", correlationId: "fake", retryable: false),
+            statusCode: 412,
+            retryAfterSeconds: nil
+        )
+
+        await model.submitAssign(taskId: "task-1", assigneeProfileId: "profile-2")
+
+        #expect(model.assignErrorMessage == LocalizedStrings(locale: Locale(identifier: "en_GB"))(.tasksAssignConflict))
+        // The sheet stays open — a stale attempt is a retryable conflict,
+        // not something that should silently close the sheet as if it
+        // succeeded.
+        #expect(model.assigningTaskId == "task-1")
+    }
+
+    @Test("eligibleAssignCandidates excludes viewers, offering only owner/editor")
+    func eligibleAssignCandidatesExcludesViewers() async {
+        let gateway = FakeTaskGateway(tasks: [task()])
+        let collaborationGateway = FakeCollaborationGateway(members: [
+            member(profileId: "profile-1", role: .owner),
+            member(profileId: "profile-2", role: .editor),
+            member(profileId: "profile-3", role: .viewer),
+        ])
+        let model = makeModel(gateway: gateway, collaborationGateway: collaborationGateway)
+        await model.load()
+
+        await model.loadAssignCandidates()
+
+        #expect(model.eligibleAssignCandidates.map(\.profileId).sorted() == ["profile-1", "profile-2"])
+    }
+
+    @Test("loadActivity renders the shared activity history oldest first, as returned")
+    func loadActivityRendersHistory() async {
+        let gateway = FakeTaskGateway(tasks: [task()])
+        gateway.seedActivity(
+            taskId: "task-1",
+            entries: [
+                TaskActivityEntry(
+                    revision: 1, commandType: .createManualTask, actorProfileId: "profile-1",
+                    status: nil, dueDate: nil, assignedProfileId: nil, recordedAt: Date(timeIntervalSince1970: 0)
+                ),
+                TaskActivityEntry(
+                    revision: 2, commandType: .assignTask, actorProfileId: "profile-1",
+                    status: nil, dueDate: nil, assignedProfileId: "profile-2", recordedAt: Date(timeIntervalSince1970: 10)
+                ),
+            ]
+        )
+        let model = makeModel(gateway: gateway)
+        await model.load()
+
+        await model.loadActivity(taskId: "task-1")
+
+        guard case let .loaded(rows) = model.activityState else {
+            Issue.record("Expected loaded activity state")
+            return
+        }
+        #expect(rows.map(\.id) == [1, 2])
+    }
+
+    @Test("a completed task shows completed-by, and assigned suppresses only when it names the same profile")
+    func completedByAndAssignedChipsReflectAttribution() async {
+        let gateway = FakeTaskGateway(tasks: [task()])
+        let collaborationGateway = FakeCollaborationGateway(members: [member(profileId: "profile-2", role: .editor)])
+        let model = makeModel(gateway: gateway, collaborationGateway: collaborationGateway)
+        await model.load()
+        await model.loadAssignCandidates()
+
+        // Assign to profile-2, then have `FakeTaskGateway`'s own completion
+        // path (which always attributes to "profile-1") complete it —
+        // exercising the "assigned to one profile, completed by a different
+        // one" mismatch the row's own doc comment describes.
+        await model.submitAssign(taskId: "task-1", assigneeProfileId: "profile-2")
+        await model.complete(taskId: "task-1")
+
+        guard case let .loaded(rows) = model.state, let row = rows.first else {
+            Issue.record("Expected loaded state")
+            return
+        }
+        #expect(row.assignedChipLabel != nil)
+        #expect(row.completedByChipLabel != nil)
     }
 }

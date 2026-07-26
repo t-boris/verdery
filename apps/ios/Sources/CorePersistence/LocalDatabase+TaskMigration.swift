@@ -57,5 +57,21 @@ extension LocalDatabase {
             }
             try db.create(index: "task_on_gardenId", on: "task", columns: ["gardenId"])
         }
+
+        // P9A-TASK-01: `CoreDomain.GardenTask.assignedProfileId`/`assignedAt`/
+        // `completedByProfileId`. All three are nullable with no `DEFAULT`
+        // needed — every existing row predates assignment and completion
+        // attribution, so `NULL` (unassigned, never completed-by-anyone-in-
+        // particular) is already each column's own correct historical value,
+        // not a placeholder standing in for one, matching
+        // `addRecordTypeToSyncConflict`'s contrasting case where a
+        // non-nullable column needed an explicit default instead.
+        migrator.registerMigration("addAssignmentFieldsToTask") { db in
+            try db.alter(table: "task") { table in
+                table.add(column: "assignedProfileId", .text)
+                table.add(column: "assignedAt", .datetime)
+                table.add(column: "completedByProfileId", .text)
+            }
+        }
     }
 }

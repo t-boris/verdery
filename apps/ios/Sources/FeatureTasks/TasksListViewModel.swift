@@ -26,7 +26,11 @@ import Observation
 @MainActor
 @Observable
 public final class TasksListViewModel {
-    public private(set) var state: TasksListViewState = .loading
+    // `internal(set)`, not `private(set)`: `TaskAssignmentViewModelActions
+    // .swift`'s `applyLoadedFromCurrentTasks()` writes this directly, an
+    // extension in a different file — the same reason `isPerformingRowAction`
+    // below is `internal(set)` rather than `private(set)`.
+    public internal(set) var state: TasksListViewState = .loading
     /// `nil` means "every status" — the contract's own default for an
     /// omitted filter.
     public var statusFilter: TaskStatus?
@@ -55,6 +59,14 @@ public final class TasksListViewModel {
     public var editingTaskId: String?
     /// Which row's reschedule sheet is open, if any.
     public var reschedulingTaskId: String?
+    /// Which row's assign sheet is open, if any (P9A-TASK-01). Set from the
+    /// view exactly like `editingTaskId`/`reschedulingTaskId`; the sheet
+    /// itself triggers `loadAssignCandidates()` via its own `.task {}`, the
+    /// same lifecycle-driven load `TasksListView.body` already uses for
+    /// `load()`.
+    public var assigningTaskId: String?
+    /// Which row's activity sheet is open, if any (P9A-TASK-01).
+    public var viewingActivityTaskId: String?
     // `internal(set)`, not `private(set)`: written from
     // `TasksListViewModelActions.swift`'s `performRowAction`, an extension
     // in a different file — the same reason `MapEditorViewModel`'s own
@@ -62,6 +74,26 @@ public final class TasksListViewModel {
     // anything its topic-scoped extension files write.
     public internal(set) var isPerformingRowAction = false
     public internal(set) var rowActionErrorMessage: String?
+
+    // Assignment (P9A-TASK-01) — written from
+    // `TaskAssignmentViewModelActions.swift`, an extension in a different
+    // file, the same reason `isPerformingRowAction`/`rowActionErrorMessage`
+    // above are `internal(set)` rather than `private(set)`.
+    public internal(set) var isLoadingAssignCandidates = false
+    public internal(set) var assignCandidatesErrorMessage: String?
+    public internal(set) var isSubmittingAssign = false
+    public internal(set) var assignErrorMessage: String?
+    public internal(set) var activityState: TaskActivityViewState = .loading
+
+    /// This garden's active members by profile id, resolved to their role —
+    /// the same narrow roster `ListGardenMembers` reads, kept here (not
+    /// re-fetched per row) so every row's assignment/completion label and
+    /// the activity sheet's actor/assignee names can all resolve against one
+    /// shared lookup. Best-effort: a failed fetch leaves this empty, which
+    /// degrades every identity display to the raw profile id — never blocks
+    /// the task list itself. Module-internal, not `private`: written from
+    /// `TaskAssignmentViewModelActions.swift`.
+    var membersById: [String: GardenRole] = [:]
 
     /// Task ids with an offline mutation committed this session whose outbox
     /// operation this stage (P5-IOS-02) cannot yet confirm pushed —
@@ -86,6 +118,12 @@ public final class TasksListViewModel {
     let dismissTask: DismissTask
     let skipTask: SkipTask
     let deleteTask: DeleteTask
+    // Assignment (P9A-TASK-01) — online, gateway-backed; see
+    // `TaskAssignmentUseCases.swift`'s own doc comment for why these three
+    // are not offline-outbox commands the way the seven above are.
+    let assignTask: AssignTask
+    let getTaskActivity: GetTaskActivity
+    let listGardenMembers: ListGardenMembers
     let strings: LocalizedStrings
 
     var tasksById: [String: GardenTask] = [:]
@@ -100,6 +138,9 @@ public final class TasksListViewModel {
         dismissTask: DismissTask,
         skipTask: SkipTask,
         deleteTask: DeleteTask,
+        assignTask: AssignTask,
+        getTaskActivity: GetTaskActivity,
+        listGardenMembers: ListGardenMembers,
         strings: LocalizedStrings
     ) {
         self.gardenId = gardenId
@@ -111,6 +152,9 @@ public final class TasksListViewModel {
         self.dismissTask = dismissTask
         self.skipTask = skipTask
         self.deleteTask = deleteTask
+        self.assignTask = assignTask
+        self.getTaskActivity = getTaskActivity
+        self.listGardenMembers = listGardenMembers
         self.strings = strings
     }
 
@@ -147,6 +191,37 @@ public final class TasksListViewModel {
     public var newTaskTitle: String { strings(.tasksCreateOpen) }
     public var openFilterLabel: String { strings(.tasksFilterOpen) }
 
+    // Assignment and activity history (P9A-TASK-01).
+    public var assignActionTitle: String { strings(.tasksAssignAction) }
+    public var assignTitle: String { strings(.tasksAssignTitle) }
+    public var assignUnassignedOptionLabel: String { strings(.tasksAssignUnassignedOption) }
+    public var assignSubmitTitle: String { strings(.tasksAssignSubmit) }
+    public var assignCandidatesLoadingMessage: String { strings(.tasksAssignCandidatesLoading) }
+    public var assignCandidatesEmptyMessage: String { strings(.tasksAssignCandidatesEmpty) }
+    public var activityActionTitle: String { strings(.tasksActivityAction) }
+    public var activityTitle: String { strings(.tasksActivityTitle) }
+    public var activityLoadingMessage: String { strings(.tasksActivityLoading) }
+    public var activityEmptyMessage: String { strings(.tasksActivityEmpty) }
+
+    /// The assignment picker's own candidate list: this garden's active
+    /// members holding `editGardenContent` (owner or editor) — matrix row
+    /// B14's own eligibility rule, enforced here so an ineligible member
+    /// (a viewer) is never even offered, not merely rejected after the fact.
+    /// Sorted by role then profile id for a stable, deterministic order —
+    /// `membersById` is a dictionary, which has none of its own.
+    public var eligibleAssignCandidates: [TaskAssignCandidateRow] {
+        membersById
+            .filter { $0.value == .owner || $0.value == .editor }
+            .map { profileId, role in
+                TaskAssignCandidateRow(
+                    id: profileId,
+                    profileId: profileId,
+                    roleLabel: TaskCollaborationLocalization.roleName(role, strings: strings)
+                )
+            }
+            .sorted { ($0.roleLabel, $0.profileId) < ($1.roleLabel, $1.profileId) }
+    }
+
     public func targetKindName(_ kind: TaskTargetKind) -> String {
         TasksLocalization.targetKindName(kind, strings: strings)
     }
@@ -177,6 +252,7 @@ public final class TasksListViewModel {
             // this network call.
             _ = try await listTasksForGarden(gardenId: gardenId)
             let merged = try await listTasksForGarden.cached(gardenId: gardenId)
+            await refreshMembersById()
             applyLoaded(merged)
         } catch let error as APIGatewayError {
             if !hadCachedResult {
@@ -253,7 +329,15 @@ public final class TasksListViewModel {
         createUrgency = .normal
     }
 
-    private func row(_ task: GardenTask) -> TaskRow {
+    /// Builds one row's display state, including its assignment/completion
+    /// chip labels — see `TaskCollaborationLocalization.assignedChipLabel`/
+    /// `.completedByChipLabel` for the "at most one redundant chip, both
+    /// nil-safe" rule this reuses without duplicating it here.
+    // Module-internal, not `private`: called from
+    // `TaskAssignmentViewModelActions.swift`'s `applyLoadedFromCurrentTasks()`,
+    // an extension in a different file — the same reason `tasksById` is not
+    // `private`.
+    func row(_ task: GardenTask) -> TaskRow {
         TaskRow(
             id: task.id,
             title: task.title,
@@ -266,7 +350,9 @@ public final class TasksListViewModel {
             targetLabel: targetLabel(for: task),
             revision: task.revision,
             isMutable: task.status.isMutable,
-            isPendingSync: locallyMutatedTaskIds.contains(task.id)
+            isPendingSync: locallyMutatedTaskIds.contains(task.id),
+            assignedChipLabel: TaskCollaborationLocalization.assignedChipLabel(for: task, roster: membersById, strings: strings),
+            completedByChipLabel: TaskCollaborationLocalization.completedByChipLabel(for: task, roster: membersById, strings: strings)
         )
     }
 

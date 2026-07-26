@@ -116,9 +116,27 @@ targets:
         # apps/web/core/auth/firebase-app.ts's identical reasoning about the
         # web apiKey.
         # Source: GoogleService-Info.plist, key REVERSED_CLIENT_ID.
+        #
+        # A second entry, `verdery`, is this app's OWN deep-link scheme
+        # (P9A-IOS-01): the entry point for an invitation-accept link
+        # (`verdery://invite?token=`) and an ownership-transfer review link
+        # (`verdery://ownership-transfer?gardenId=`), both shared out of band
+        # through the system share sheet — see `CollaborationSessionState
+        # .handleDeepLink(_:)`. Chosen over Associated Domains/universal
+        # links because this App ID carries no `com.apple.developer
+        # .associated-domains` capability today (only `IN_APP_PURCHASE` and
+        # `APPLE_ID_AUTH` — see `AppEnvironment.emailSignInContinueURL`'s own
+        # doc comment, which documents the identical gap for the emailed
+        # sign-in link) — a custom scheme needs no entitlement, no hosted
+        # `apple-app-site-association` document, and no further Apple
+        # Developer configuration, at the honestly-scoped cost that the link
+        # only resolves into this app when it is already installed.
         CFBundleURLTypes:
           - CFBundleURLSchemes:
               - com.googleusercontent.apps.417008876420-ofvf3en5tk3th23cd0flklqa22vncvt4
+          - CFBundleURLName: com.verdery.app.collaboration
+            CFBundleURLSchemes:
+              - verdery
         # Which API this build talks to, as a build-setting reference rather
         # than a literal — see Sources/AppComposition/AppEnvironment.swift.
         # The default below is the local development container, which is right

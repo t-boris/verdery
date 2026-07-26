@@ -105,6 +105,28 @@ struct GardenTabView: View {
             }
         }
         .tint(Palette.accent)
+        // The shell-appear half of this feature's two refresh triggers — see
+        // `AppCompositionRoot.refreshIncomingOwnershipTransfers()`'s own doc
+        // comment; `RootView`'s own app-foreground trigger is the other
+        // (P9A-OWNER-02). Opening a garden this way reflects a pending
+        // ownership offer immediately, rather than waiting for the next
+        // foregrounding.
+        .task {
+            await composition.refreshIncomingOwnershipTransfers()
+        }
+        // Shown across every tab, not tucked inside Settings — see
+        // `IncomingOwnershipTransferBanner`'s own doc comment for why this is
+        // the more discoverable placement the task calls for (P9A-IOS-01).
+        .safeAreaInset(edge: .top) {
+            IncomingOwnershipTransferBanner(
+                sessionState: composition.collaborationSessionState,
+                gardenId: gardenId,
+                strings: strings,
+                makeReviewModel: {
+                    composition.makeIncomingOwnershipTransferReviewViewModel(gardenId: gardenId, gardenName: gardenName)
+                }
+            )
+        }
         .sheet(isPresented: $isSettingsPresented) {
             GardenSettingsSheet(
                 composition: composition,
@@ -163,6 +185,11 @@ private struct GardenSettingsSheet: View {
                 model: composition.makeGardenSettingsViewModel(gardenId: gardenId),
                 onSwitchGarden: onSwitchGarden
             )
+            .navigationDestination(for: GardenCollaboratorsRoute.self) { route in
+                CollaboratorsView(
+                    model: composition.makeCollaboratorsViewModel(gardenId: route.gardenId, isOwner: route.isOwner)
+                )
+            }
             .navigationDestination(for: GardenPlanUploadRoute.self) { route in
                 GardenPlanUploadView(
                     model: composition.makeGardenPlanUploadViewModel(gardenId: route.gardenId)

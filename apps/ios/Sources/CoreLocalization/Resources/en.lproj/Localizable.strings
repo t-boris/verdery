@@ -570,3 +570,113 @@
 "profile.signOut.confirm.message" = "Anything recorded offline and not yet uploaded stays on this device until you sign in again.";
 "profile.signOut.cancel" = "Stay signed in";
 "profile.signOut.failed" = "Signing out did not finish. Try again.";
+
+/* Task assignment and shared activity history (P9A-TASK-01). */
+"tasks.assignAction" = "Assign";
+"tasks.assign.title" = "Assign task";
+"tasks.assign.unassignedOption" = "Unassigned";
+"tasks.assign.submit" = "Save assignment";
+"tasks.assign.candidatesLoading" = "Loading members…";
+"tasks.assign.candidatesEmpty" = "No member can be assigned yet. Invite an editor or co-owner first.";
+"tasks.assign.candidatesFailed" = "Couldn't load members.";
+"tasks.assign.conflict" = "This task changed since you opened it. Showing the latest version — please try again.";
+"tasks.assignedToLabel" = "Assigned: {who}";
+"tasks.completedByLabel" = "Completed by {who}";
+"tasks.activityAction" = "Activity";
+"tasks.activity.title" = "Activity";
+"tasks.activity.loading" = "Loading activity…";
+"tasks.activity.empty" = "No activity yet.";
+"tasks.activity.failed" = "Couldn't load activity.";
+"tasks.activity.created" = "Created by {actor}";
+"tasks.activity.edited" = "Edited by {actor}";
+"tasks.activity.rescheduled" = "Rescheduled by {actor}";
+"tasks.activity.completed" = "Completed by {actor}";
+"tasks.activity.dismissed" = "Dismissed by {actor}";
+"tasks.activity.skipped" = "Skipped by {actor}";
+"tasks.activity.deleted" = "Deleted by {actor}";
+"tasks.activity.converted" = "Converted from a recommendation by {actor}";
+"tasks.activity.assigned" = "Assigned to {assignee} — by {actor}";
+"tasks.activity.unassigned" = "Unassigned — by {actor}";
+"tasks.activity.dueDateCaption" = "Due {date}";
+
+/* Collaboration: member roster, invitations, ownership transfer (P9A-IOS-01). */
+"collaboration.title" = "Collaborators";
+"collaboration.section.members" = "Members";
+"collaboration.member.generic" = "Signed-in member";
+"collaboration.section.pendingInvitations" = "Pending invitations";
+"collaboration.pendingInvitations.empty" = "No pending invitations.";
+
+"collaboration.invite.button" = "Invite";
+"collaboration.invite.title" = "Invite a collaborator";
+"collaboration.invite.roleLabel" = "Role";
+"collaboration.invite.emailLabel" = "Email (optional)";
+"collaboration.invite.emailHint" = "Leave blank to share a link anyone can use.";
+"collaboration.invite.submit" = "Create invitation";
+"collaboration.invite.tokenTitle" = "Invitation link";
+"collaboration.invite.tokenWarning" = "This link is shown only once and can't be retrieved again. Share it now.";
+"collaboration.invite.share" = "Share invitation";
+"collaboration.invite.shareMessage" = "You're invited to collaborate on a Verdery garden. Open this link in the Verdery app: {link}";
+"collaboration.invite.done" = "Done";
+
+"collaboration.invitation.state.pending" = "Pending";
+"collaboration.invitation.state.accepted" = "Accepted";
+"collaboration.invitation.state.revoked" = "Revoked";
+"collaboration.invitation.state.expired" = "Expired";
+"collaboration.invitation.noEmail" = "Anyone with the link";
+"collaboration.invitation.revoke" = "Revoke";
+"collaboration.invitation.revoke.confirm" = "Revoke this invitation? The link will stop working.";
+
+"collaboration.member.action.changeRole" = "Change role";
+"collaboration.member.action.promote" = "Promote to co-owner";
+"collaboration.member.action.demote" = "Demote from owner";
+"collaboration.member.action.remove" = "Remove";
+"collaboration.member.confirm.changeRole" = "Change this member's role to {role}?";
+"collaboration.member.confirm.promote" = "Promote this member to co-owner? They will gain full owner administration rights.";
+"collaboration.member.confirm.demote" = "Demote this owner? Choose their new role below.";
+"collaboration.member.confirm.remove" = "Remove this member from the garden? They will lose access immediately.";
+
+"collaboration.ownershipTransfer.title" = "Ownership transfer";
+"collaboration.ownershipTransfer.button" = "Transfer ownership";
+"collaboration.ownershipTransfer.targetLabel" = "Member";
+"collaboration.ownershipTransfer.resultingRoleLabel" = "Your new role";
+"collaboration.ownershipTransfer.submit" = "Request transfer";
+"collaboration.ownershipTransfer.confirm" = "Request to transfer ownership? The recipient must accept before anything changes.";
+"collaboration.ownershipTransfer.pending" = "Ownership transfer pending";
+"collaboration.ownershipTransfer.cancel" = "Cancel transfer";
+"collaboration.ownershipTransfer.cancel.confirm" = "Cancel this pending ownership transfer?";
+"collaboration.ownershipTransfer.share" = "Share transfer link";
+"collaboration.ownershipTransfer.shareMessage" = "You've been offered ownership of a Verdery garden. Open this link in the Verdery app to review it: {link}";
+"collaboration.ownershipTransfer.noEligibleMembers" = "Invite an editor or viewer before transferring ownership.";
+
+"collaboration.ownershipTransfer.recipient.banner" = "You've been offered ownership of this garden";
+"collaboration.ownershipTransfer.recipient.review" = "Review";
+"collaboration.ownershipTransfer.recipient.title" = "Ownership offer";
+"collaboration.ownershipTransfer.recipient.message" = "Someone has offered you ownership of \"{garden}\". Accepting makes you an owner; the current owner keeps access at a different role.";
+"collaboration.ownershipTransfer.recipient.accept" = "Accept";
+"collaboration.ownershipTransfer.recipient.decline" = "Decline";
+"collaboration.ownershipTransfer.recipient.notNow" = "Not now";
+"collaboration.ownershipTransfer.recipient.acceptedMessage" = "You are now an owner of this garden.";
+"collaboration.ownershipTransfer.recipient.declinedMessage" = "You declined the ownership offer.";
+"collaboration.ownershipTransfer.recipient.staleMessage" = "This offer is no longer available.";
+
+"collaboration.acceptInvitation.title" = "Join garden";
+"collaboration.acceptInvitation.loading" = "Accepting invitation…";
+"collaboration.acceptInvitation.success" = "You've joined {garden}.";
+"collaboration.acceptInvitation.openGarden" = "Open garden";
+"collaboration.acceptInvitation.expiredOrRevoked" = "This invitation has expired or was revoked.";
+"collaboration.acceptInvitation.alreadyAccepted" = "This invitation has already been used.";
+"collaboration.acceptInvitation.emailMismatch" = "This invitation was sent to a different email address.";
+"collaboration.acceptInvitation.genericFailure" = "This invitation could not be accepted.";
+"collaboration.acceptInvitation.close" = "Close";
+
+"collaboration.error.recentAuthRequired" = "For your security, please sign out and sign back in, then try again.";
+"collaboration.error.lastOwnerRequired" = "A garden must always keep at least one owner.";
+"collaboration.error.targetNotOwner" = "This member is not an owner.";
+"collaboration.error.targetAlreadyOwner" = "This member is already an owner.";
+"collaboration.error.ownerRoleNotAllowed" = "Use promote or demote to change ownership, not this action.";
+"collaboration.error.invitationAlreadyPending" = "An invitation to this address is already pending.";
+"collaboration.error.transferAlreadyPending" = "A transfer is already pending for this garden.";
+"collaboration.error.notFound" = "This is no longer available.";
+
+"collaboration.revokedAccess.message" = "You no longer have access to this garden.";
+"collaboration.revokedAccess.backToGardens" = "Back to gardens";

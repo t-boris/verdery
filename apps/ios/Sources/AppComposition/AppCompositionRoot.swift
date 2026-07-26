@@ -29,13 +29,25 @@ import Foundation
 public final class AppCompositionRoot {
     public let sessionObserver: AuthenticationSessionObserver
 
-    private let strings: LocalizedStrings
+    // `strings`/`gardenGateway`/`collaborationGateway`: module-internal, not
+    // `private` — read by `AppCompositionRoot+Collaboration.swift`'s
+    // factories (a same-type extension in another file, which `private`, a
+    // file scope rather than a type scope, would exclude), the same reason
+    // `log`/`authenticationGateway`/`locale` below already are.
+    let strings: LocalizedStrings
     private let healthGateway: any HealthGateway
-    private let gardenGateway: any GardenGateway
+    let gardenGateway: any GardenGateway
     private let mapGateway: any MapGateway
     private let plantGateway: any PlantGateway
     private let observationGateway: any ObservationGateway
     private let taskGateway: any TaskGateway
+    /// P9A-TASK-01's task-assignment picker is this instance's only consumer
+    /// today — see `makeTasksListViewModel(gardenId:)`'s own construction of
+    /// `ListGardenMembers`. `FeatureGardens`'s own collaboration-
+    /// administration screen (the other half of P9A-IOS-01) is expected to
+    /// become a second consumer of this same instance once it lands, not a
+    /// reason to construct a second one.
+    let collaborationGateway: any CollaborationGateway
     private let recommendationGateway: any RecommendationGateway
     private let syncGateway: any SyncGateway
     private let mediaGateway: any MediaGateway
@@ -50,6 +62,11 @@ public final class AppCompositionRoot {
     /// The locale the catalogue above was resolved against, kept so the
     /// account screen can name the language it is actually rendering in.
     let locale: Locale
+    /// One instance for the app's lifetime — see its own doc comment for why
+    /// (P9A-IOS-01). `public` rather than read only through a factory method:
+    /// `RootScene`/`GardenTabView` read it directly to decide whether to
+    /// present the accept-invitation screen or an ownership-transfer banner.
+    public let collaborationSessionState = CollaborationSessionState()
 
     /// The real background-capable upload transport (P6-IOS-01) —
     /// constructed eagerly, here in `init`, not lazily on first screen
@@ -162,6 +179,15 @@ public final class AppCompositionRoot {
             appCheckTokenProvider: appCheckTokenProvider,
             log: log
         )
+        // Same scope as every Phase 4/5 gateway above — P9A-API-01's
+        // operational-collaboration surface.
+        self.collaborationGateway = URLSessionCollaborationGateway(
+            configuration: configuration,
+            session: session,
+            authTokenProvider: tokenProvider,
+            appCheckTokenProvider: appCheckTokenProvider,
+            log: log
+        )
         // The Today recommendation surface (P7-IOS-01) authenticates and
         // classifies traffic the same way every Phase 4+ gateway above does.
         self.recommendationGateway = URLSessionRecommendationGateway(
@@ -252,44 +278,12 @@ public final class AppCompositionRoot {
         SignInViewModel(authenticationGateway: authenticationGateway, strings: strings)
     }
 
-    /// Routes a URL the operating system delivered to the app.
-    ///
-    /// Two sign-in methods finish by reopening this app with a URL, and
-    /// neither completes unless something consumes it:
-    ///
-    /// 1. The federated web flow (Google) redirects to this app's registered
-    ///    custom scheme. Firebase presents that flow in an
-    ///    `SFSafariViewController`, which does not intercept its own redirect,
-    ///    so the SDK has to be handed the URL — otherwise the browser is left
-    ///    on a blank page forever, which is exactly what a device build did.
-    /// 2. The email sign-in link returns as a link Firebase recognizes, and
-    ///    completing it also needs the address the link was sent to, which
-    ///    ``AuthenticationGateway/pendingEmailForSignIn`` holds.
-    ///
-    /// Nothing observes the result: success is reported by Firebase's own auth
-    /// state listener, which `AuthenticationSessionObserver` already watches
-    /// and `RootView` already renders from — the same reactive path every
-    /// other sign-in method reports through, rather than a second flag.
-    @discardableResult
-    public func handleIncomingURL(_ url: URL) -> Bool {
-        if authenticationGateway.handleOpenURL(url) {
-            return true
-        }
-
-        let link = url.absoluteString
-        guard
-            authenticationGateway.isSignInEmailLink(link),
-            let email = authenticationGateway.pendingEmailForSignIn
-        else {
-            return false
-        }
-
-        Task { [authenticationGateway] in
-            _ = try? await authenticationGateway.completeEmailSignIn(email: email, link: link)
-        }
-
-        return true
-    }
+    // `handleIncomingURL(_:)` — routes a URL the OS delivered to the app,
+    // including this app's own `verdery://` collaboration deep links — lives
+    // in `AppCompositionRoot+DeepLinks.swift`, split out purely to keep this
+    // file under this repository's 600-line rule, the same
+    // `AppCompositionRoot+LocalStores.swift`/`AccountEntryPoint.swift`
+    // precedent.
 
     public func makeGardensListViewModel() -> GardensListViewModel {
         let store = localGardenStore()
@@ -448,6 +442,9 @@ public final class AppCompositionRoot {
             dismissTask: DismissTask(localStore: store, profileId: profileId),
             skipTask: SkipTask(localStore: store, profileId: profileId),
             deleteTask: DeleteTask(localStore: store, profileId: profileId),
+            assignTask: AssignTask(gateway: taskGateway, localStore: store),
+            getTaskActivity: GetTaskActivity(gateway: taskGateway),
+            listGardenMembers: ListGardenMembers(gateway: collaborationGateway),
             strings: strings
         )
     }
