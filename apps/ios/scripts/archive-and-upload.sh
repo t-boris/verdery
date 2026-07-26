@@ -10,12 +10,14 @@
 # app is now first-party:
 #
 #   * `xcodebuild archive` builds the .xcarchive.
-#   * `xcodebuild -exportArchive` with `destination = upload` in the export
-#     options plist exports AND uploads in one step — no `altool`, which Apple
-#     has deprecated, and no Transporter download.
-#   * App Store Connect API-key authentication is native to that same command
-#     (`-authenticationKeyPath`/`-authenticationKeyID`/`-authenticationKeyIssuerID`),
-#     so no Apple ID, no app-specific password, and no 2FA session to refresh.
+#   * `xcodebuild -exportArchive` produces the signed .ipa.
+#   * `xcrun altool --upload-app` uploads it with an App Store Connect API key
+#     — no Apple ID, no app-specific password, no 2FA session to refresh.
+#
+#     These are two commands rather than the one `destination = upload`
+#     advertises, because that single form signs with the API key too and so
+#     demands the Admin role. See the comment above the export step for the
+#     failure it produces and why App Manager is the right role to keep.
 #
 # That matches the repository's existing shape — infrastructure/gcloud/scripts
 # is bash with the same `set -euo pipefail` + `log`/`fail` structure — and adds
@@ -141,7 +143,7 @@ cat >"${EXPORT_OPTIONS_PLIST}" <<PLIST
 	<key>method</key>
 	<string>app-store-connect</string>
 	<key>destination</key>
-	<string>$([[ "${VALIDATE_ONLY}" -eq 1 ]] && echo export || echo upload)</string>
+	<string>export</string>
 	<key>teamID</key>
 	<string>${TEAM_ID}</string>
 	<key>uploadSymbols</key>
@@ -165,16 +167,39 @@ if [[ "${VALIDATE_ONLY}" -eq 1 ]]; then
   exit 0
 fi
 
-# --- Export and upload -------------------------------------------------------
-log "Exporting and uploading to App Store Connect"
+# --- Export locally, then upload -------------------------------------------
+#
+# TWO STEPS, NOT ONE, AND WHY
+# ---------------------------
+# `-exportArchive` with `destination = upload` and `-authenticationKey*` looks
+# like the tidy single command, and it fails: xcodebuild uses the same key for
+# SIGNING as for uploading, and cloud signing requires an App Store Connect key
+# with the Admin role. An App Manager key — the role Apple's own documentation
+# recommends for CI, and the least privilege that can upload a build — is
+# refused with "Cloud signing permission error / No signing certificate
+# 'iOS Distribution' found", after the archive has already been built.
+#
+# Splitting the steps keeps the key at App Manager: the export signs with the
+# machine's own Xcode account (`-allowProvisioningUpdates`, which is what
+# issues the cloud-managed distribution certificate), and `altool` uploads the
+# finished .ipa with the API key, which is all an upload actually needs.
+#
+# Found by running the real thing against a real App Manager key.
+log "Exporting the signed .ipa"
 xcodebuild -exportArchive \
   -archivePath "${ARCHIVE_PATH}" \
   -exportPath "${EXPORT_PATH}" \
   -exportOptionsPlist "${EXPORT_OPTIONS_PLIST}" \
-  -authenticationKeyPath "$(cd "$(dirname "${VERDERY_ASC_KEY_PATH}")" && pwd)/$(basename "${VERDERY_ASC_KEY_PATH}")" \
-  -authenticationKeyID "${VERDERY_ASC_KEY_ID}" \
-  -authenticationKeyIssuerID "${VERDERY_ASC_ISSUER_ID}" \
   -allowProvisioningUpdates
 
-log "Uploaded build ${BUILD_NUMBER} of ${BUNDLE_ID}."
-log "App Store Connect processes it for 5-30 minutes before it appears in TestFlight."
+IPA_PATH="$(find "${EXPORT_PATH}" -name '*.ipa' -maxdepth 1 | head -1)"
+[[ -n "${IPA_PATH}" ]] || fail "No .ipa was produced in ${EXPORT_PATH}"
+
+log "Uploading ${IPA_PATH} to App Store Connect"
+xcrun altool --upload-app --type ios \
+  --file "${IPA_PATH}" \
+  --apiKey "${VERDERY_ASC_KEY_ID}" \
+  --apiIssuer "${VERDERY_ASC_ISSUER_ID}"
+
+log "Uploaded. The build appears in TestFlight once App Store Connect finishes"
+log "processing it, usually within a few minutes."
