@@ -5982,3 +5982,118 @@ The support design builds into a seam the schema already left open: `audit_event
 `administrator` actor type with no producer anywhere, verified. The harness's own guard had a
 defect caught by running the refusal case rather than reading it — its allowlist matched a hostname
 that does not exist, so a full-profile run against the live service was silently permitted.
+
+## Stage 38 — P8-UX-01 (code-verifiable half), implementation complete
+
+An axe audit runs against every route the E2E harness reaches, in BOTH themes, plus expanded
+disclosures and a live form error — in Chromium, because the highest-value rules (contrast, target
+size, visibility) need computed layout that jsdom does not produce, so axe disables them there.
+
+Thirteen real violations, each a defect rather than a lint nit: the control border measured 1.45:1,
+and an unfilled input's border IS the entire visual signal that a control exists; every button had
+been a 40px target since the design pass, because a class selector silently beat the global element
+rule; the plant detail page had no `h1` at all; Today cards and task rows were spans, so a
+screen-reader user could not jump between them; four disclosures announced nothing.
+
+Keyboard: every focusable control on every route is focused and checked for a visible indicator.
+The map canvas gained arrow-key panning and `+`/`-` zoom — a keyboard user previously could never
+reach anything outside the initial fit. What still cannot be done by keyboard (drawing, vertex
+dragging) is stated in a translated description the canvas points at, with a test asserting that
+admission stays present.
+
+Responsive found a systemic overflow: an input carries a ~20-character intrinsic minimum and a flex
+item defaults to `min-width: auto`, so any field beside a button refused to shrink — the tasks page
+overflowed 187px at 360. Fixed at the field primitives rather than per page. Reduced motion reset
+durations but not delays, so a zero-duration transition behind a 200 ms delay was still a freeze.
+
+Localization: `toLocaleString` with no locale followed the BROWSER's locale, so a reader who chose
+Russian got Russian prose around an English date; a bare `YYYY-MM-DD` due date parsed as UTC
+midnight and displayed the previous day west of Greenwich; error-distance units were hardcoded
+English on BOTH clients. Digit counts are unchanged, so the cross-client precision parity that
+mattered still holds.
+
+## Stage 39 — P8-PRIV-01 (draft half), implementation complete
+
+`docs/development/privacy-notice-draft.md`: a ready-for-review US notice where every factual claim
+carries a code or migration reference, so counsel can check each statement rather than trust it.
+
+Verifying against the code corrected twelve claims that would otherwise have shipped. Four matter:
+`gardens_mapping.georeference` has no writer at all, so one of the two stated reasons for declaring
+Precise Location is currently unreachable; only DERIVATIVES strip EXIF, originals are stored
+byte-identical with GPS intact; "we do not collect IP addresses" would have been false because
+Cloud Run's own request log records `remoteIp` even though the application logger removes nine field
+paths; and `idempotency_record.response_body` stores complete API response bodies whose TTL is
+enforced by nothing.
+
+The retention section keeps the ENFORCED/DECLARED split: raw-capture's 30-day policy is stated as
+policy, as a feature that does not exist, and as a deletion that is not implemented — three
+sentences, because a notice promising a deletion the system cannot perform is the worst error
+available here. Support access is described as what it is — a direct database query constrained by
+a written rule, not a control. No consent claim is made, because no consent mechanism exists.
+
+## Stage 40 — P8-SEC-02 (readiness half), implementation complete
+
+Nothing is flipped: the CSP stays report-only and App Check stays in monitor mode, both by default
+everywhere. What changed is that flipping becomes a config decision backed by evidence.
+
+Running the ENTIRE E2E suite with the policy enforced found three defects no amount of reading
+would have: App Check's browser SDK calls `content-firebaseappcheck`, not `firebaseappcheck`, so
+the first corrected policy blocked every attestation on every route SILENTLY — poisoning the very
+telemetry the App Check decision depends on; `signInWithPopup` loads `apis.google.com/js/api.js`,
+without which Google and Apple sign-in fail with only "Sign-in did not succeed"; and the emulator
+origin needed `frame-src`. A fourth came from tests: `new URL('javascript:...')` parses happily, so
+the report handler would have logged attacker text.
+
+Violation reporting is first-party into Cloud Logging rather than a hosted collector — a new vendor
+and a new outbound flow of users' URLs to solve what a log line already solves. It records document
+path and blocked origin only, never the script sample, because an email-link `oobCode` IS the
+credential and a signed GCS URL is a bearer token.
+
+App Check enforcement is code for WHICH endpoints and config for WHETHER, checked before
+authentication so a refusal cannot disclose existence. Monitor mode now emits `wouldReject` through
+the same path enforcement uses — precisely the beta telemetry the flip was waiting on.
+
+# Phase 8 — Foundation Beta, Hardening, and United States GA, review
+
+Every one of the sixteen work packages has its buildable half delivered, verified, committed, and
+CI-confirmed. What remains is, in every case, a decision or an action only the repository owner can
+take — not unbuilt work.
+
+| Work package   | Delivered                                                                  | Gate that remains                 |
+| -------------- | -------------------------------------------------------------------------- | --------------------------------- |
+| P8-EXPORT-01   | Account/garden export with a frozen consistency boundary and privacy tests | —                                 |
+| Web deployment | `verdery-web-dev` live, CI-deployed, CORS/origins/Firebase wired           | —                                 |
+| Web design     | A coherent visual language, both themes                                    | —                                 |
+| P8-DELETE-01   | Deletion with 30-day recovery, catalog-derived emptiness proof             | Client screens (blocks App Store) |
+| P8-SEC-01      | Threat model, 92-row register                                              | The signature                     |
+| P8-STORE-01    | Device build, signed `.ipa`, CI gate, store artifacts                      | Four Apple actions                |
+| P8-REL-01      | Ten runbooks, 23 exercises                                                 | Authorizing a restore drill       |
+| P8-NET-01      | Load balancer, Cloud Armor, ingress lockdown — written                     | Domain, ~40 USD/mo, apply         |
+| P8-DB-01       | Regional HA, deletion protection, alerts, budget — written                 | ~100 USD/mo, a downtime window    |
+| P8-SLO-01      | 12 derived SLOs, quotas, retention schedule                                | Approval                          |
+| P8-LOAD-01     | k6 harness, all seven scenarios, smoke-verified                            | A staging environment             |
+| P8-SUPPORT-01  | Severity, triage, diagnostics, support-access spec                         | An inbox and a rota               |
+| P8-UX-01       | Axe/keyboard/responsive/motion/i18n suites, 13 fixes                       | Real-device sign-off              |
+| P8-PRIV-01     | Fact-checked notice draft                                                  | Legal review, entity details      |
+| P8-SEC-02      | Enforceable CSP, App Check switch, IAM review                              | Telemetry, then the flips         |
+| P8-GA-01       | 61-gate checklist                                                          | Running it, and the signature     |
+
+## Exit criteria
+
+Two of the eight §17.3 criteria are reachable today, and `ga-checklist.md` counts them honestly
+rather than claiming otherwise. The binding constraint is not code: there is no production project,
+no staging, and no restore has ever been performed — which by the reliability document's own
+standard leaves real, succeeding backups unvalidated. One non-destructive restore to a scratch
+instance is the cheapest high-value hour available and produces the RTO number both the checklist
+and the SLO draft are missing.
+
+## What this phase found by building rather than reading
+
+The pattern worth recording: five of the phase's most valuable findings came from executing
+something for the first time, not from analysis. The first iOS device build exposed four latent
+ship-blockers invisible to seven phases of macOS-only compilation. Enforcing the CSP in a real
+browser exposed an App Check origin that would have silently poisoned its own decision telemetry.
+Running the load harness's refusal case exposed a guard matching a hostname that does not exist.
+Auditing accessibility exposed that every button in the app had been below the required target size
+since the design pass. Verifying the privacy notice against code corrected twelve claims. None of
+these were visible to a careful reading of the same code.
