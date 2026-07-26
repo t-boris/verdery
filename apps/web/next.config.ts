@@ -1,41 +1,24 @@
 import type { NextConfig } from 'next';
 
+import { STATIC_SECURITY_HEADERS } from './shared/security/security-headers';
+
 /**
- * Content Security Policy, declared in report-only mode.
+ * The Content Security Policy is NO LONGER SET HERE (P8-SEC-02).
  *
- * The architecture requires the policy to be defined and monitored before it is
- * enforced, so violations are collected first and enforcement is turned on once
- * the report stream is clean.
+ * `headers()` produces one static table at build time, and the policy now
+ * carries a per-request nonce — a nonce that is identical on every response
+ * is not a nonce, it is a password an attacker reads out of the page they are
+ * injecting into. The policy is therefore built per request in
+ * `apps/web/proxy.ts` from `shared/security/content-security-policy.ts`,
+ * which is also where its correctness is pinned by tests and where the
+ * report-only-to-enforce switch lives.
  *
- * Source: architecture/web-application-design.md, section "16. Security".
+ * What remains here are the headers that genuinely do not vary, applied to
+ * every path including the static assets the proxy deliberately skips.
+ *
+ * Source: architecture/web-application-design.md, section "16. Security";
+ * docs/development/threat-model.md, section 16.3.
  */
-const contentSecurityPolicy = [
-  "default-src 'self'",
-  // Next.js injects inline bootstrap and hydration scripts.
-  "script-src 'self' 'unsafe-inline'",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "font-src 'self'",
-  // The API origin is added by deployment configuration once it is known.
-  "connect-src 'self'",
-  "frame-ancestors 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-].join('; ');
-
-const securityHeaders = [
-  { key: 'Content-Security-Policy-Report-Only', value: contentSecurityPolicy },
-  { key: 'X-Content-Type-Options', value: 'nosniff' },
-  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-  { key: 'X-Frame-Options', value: 'DENY' },
-  // helmet's own default, which the API already sends (`app.ts` disables
-  // only its CSP). Since the web client became the front door that carries
-  // the session cookie and proxies `/v1/*`, it should assert the same
-  // transport guarantee as the service behind it.
-  // Source: threat-model.md section 16 (P8-SEC-01).
-  { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
-];
-
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   // `standalone` emits a self-contained server (server.js + traced
@@ -45,7 +28,7 @@ const nextConfig: NextConfig = {
   // Source: implementation-plan.md Phase 8 (web deployment stage).
   output: 'standalone',
   headers() {
-    return Promise.resolve([{ source: '/:path*', headers: securityHeaders }]);
+    return Promise.resolve([{ source: '/:path*', headers: [...STATIC_SECURITY_HEADERS] }]);
   },
   // Same-origin API proxying for the DEPLOYED web app. The session cookie is
   // deliberately `SameSite=strict` and host-only; on `run.app` the web and

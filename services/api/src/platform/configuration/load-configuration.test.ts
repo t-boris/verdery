@@ -198,6 +198,33 @@ describe('loadConfiguration', () => {
     });
   });
 
+  it('defaults App Check enforcement OFF — the P8-SEC-02 switch, the state of every environment', () => {
+    // The single most load-bearing default in this file. If it ever inverts,
+    // every deployed environment starts refusing unattested traffic to the
+    // session, media, export, and Today endpoints on the next deploy, with
+    // nobody having decided to.
+    const configuration = loadConfiguration(VALID_ENVIRONMENT);
+
+    expect(configuration.appCheck).toEqual({ enforcement: 'monitor' });
+  });
+
+  it('parses the enforce position when it is explicitly asked for', () => {
+    const configuration = loadConfiguration({
+      ...VALID_ENVIRONMENT,
+      APP_CHECK_ENFORCEMENT: 'enforce',
+    });
+
+    expect(configuration.appCheck).toEqual({ enforcement: 'enforce' });
+  });
+
+  it('rejects an unrecognized App Check enforcement value rather than guessing', () => {
+    // A boolean-ish typo like "true" must not silently mean either position.
+    // Failing at startup is the only outcome that cannot be misread later.
+    expect(() =>
+      loadConfiguration({ ...VALID_ENVIRONMENT, APP_CHECK_ENFORCEMENT: 'true' }),
+    ).toThrowError(ConfigurationError);
+  });
+
   it('parses an enabled AI-explanation block with its required project and model', () => {
     const configuration = loadConfiguration({
       ...VALID_ENVIRONMENT,

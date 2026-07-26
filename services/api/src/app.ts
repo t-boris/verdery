@@ -167,6 +167,11 @@ export async function buildApplication(
     identityProviderAccounts,
   } = dependencies;
 
+  // P8-SEC-02: read once, here, and handed to every `registerAppCheck` call
+  // below, so the three registrations cannot drift into disagreeing about
+  // whether enforcement is on. `'monitor'` in every environment today.
+  const appCheckEnforcement = configuration.appCheck.enforcement;
+
   const app = Fastify({
     loggerInstance: logger,
     genReqId: generateRequestId,
@@ -424,8 +429,19 @@ export async function buildApplication(
 
   // Unauthenticated: this is how a session is established or cleared in the
   // first place, so it cannot itself require one.
+  //
+  // App Check is registered here too (P8-SEC-02). `POST /v1/auth/session` is
+  // the most expensive UNAUTHENTICATED endpoint in the product — every call
+  // costs a Firebase verifyIdToken AND a createSessionCookie (threat-model.md
+  // `T-COST-02`) — so it is precisely where attestation is worth the most and
+  // precisely where P2-APPCHK-01's "authenticated routes only" scope left a
+  // hole. Monitor-only by default like everywhere else; the enforced-endpoint
+  // list decides which routes the `enforce` position actually applies to, and
+  // `DELETE /v1/auth/session` is deliberately not on it, so sign-out keeps
+  // working for a client whose attestation is broken.
   await app.register(
     (instance, _options, done) => {
+      registerAppCheck(instance, { appCheckVerifier, enforcementMode: appCheckEnforcement });
       registerSessionRoutes(instance, { tokenVerifier, provisionProfile });
       done();
     },
@@ -472,15 +488,18 @@ export async function buildApplication(
   // Authenticated: registerAuthentication's onRequest hook and the garden
   // routes share this one encapsulation context, so the hook applies to
   // every route below it and no sibling registration outside this block.
-  // registerAppCheck shares it too, monitor-only: P2-APPCHK-01 depends on
-  // P2-AUTH-01 and its completion evidence concerns these authenticated
-  // routes, not the unauthenticated health or session-login routes.
-  // Registered before registerAuthentication so the classification is
-  // observed for every request that reaches this block, including one
-  // authentication itself goes on to reject.
+  // registerAppCheck shares it too: P2-APPCHK-01 depends on P2-AUTH-01 and
+  // its completion evidence concerns these authenticated routes. P8-SEC-02
+  // added the unauthenticated session block above, where `T-COST-02` lives.
+  // Registered BEFORE registerAuthentication for two reasons: the
+  // classification is observed for every request that reaches this block,
+  // including one authentication itself goes on to reject; and, once
+  // `appCheckEnforcement` is `'enforce'`, a refusal happens before any
+  // credential is verified, any profile is provisioned, and any garden is
+  // read — so it cannot disclose whether either exists.
   await app.register(
     (instance, _options, done) => {
-      registerAppCheck(instance, { appCheckVerifier });
+      registerAppCheck(instance, { appCheckVerifier, enforcementMode: appCheckEnforcement });
       registerAuthentication(instance, { tokenVerifier, provisionProfile });
       registerGardenRoutes(instance, gardenRoutesDependencies);
       registerMapRoutes(instance, mapRoutesDependencies);
@@ -506,7 +525,7 @@ export async function buildApplication(
   // and exactly three routes.
   await app.register(
     (instance, _options, done) => {
-      registerAppCheck(instance, { appCheckVerifier });
+      registerAppCheck(instance, { appCheckVerifier, enforcementMode: appCheckEnforcement });
       registerAuthentication(instance, {
         tokenVerifier,
         provisionProfile,

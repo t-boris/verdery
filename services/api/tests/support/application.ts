@@ -81,6 +81,15 @@ export const testConfiguration: ApplicationConfiguration = {
     maxCallsPerHour: 50,
     maxCallsPerDay: 500,
   },
+  // P8-SEC-02: the enforcement switch in its default position, like every
+  // real environment today. This is load-bearing for the whole suite: it is
+  // why 1,500-odd existing tests, most of which send no App Check header at
+  // all, keep exercising exactly the pipeline they were written against.
+  // `buildTestApplication({ configuration: ... })` is how the enforce
+  // position is tested, and only the tests that mean to test it get it.
+  appCheck: {
+    enforcement: 'monitor',
+  },
 };
 
 /** A database that answers health checks according to the supplied behavior. */
@@ -152,17 +161,25 @@ export interface TestApplicationOptions {
   readonly cloudTasksInvocationVerifier?: CloudTasksInvocationVerifier;
   readonly pushMessageSender?: PushMessageSender;
   readonly identityProviderAccounts?: IdentityProviderAccountGateway;
+  /**
+   * Overrides `testConfiguration` wholesale. Added for P8-SEC-02, whose whole
+   * point is that both positions of the App Check enforcement switch are
+   * proven — which needs an application built with `enforcement: 'enforce'`
+   * while every other suite keeps the default.
+   */
+  readonly configuration?: ApplicationConfiguration;
 }
 
 export async function buildTestApplication(
   options: TestApplicationOptions = {},
 ): Promise<FastifyInstance> {
-  const logger = createLogger(testConfiguration, 'verdery-api-test', {
+  const configuration = options.configuration ?? testConfiguration;
+  const logger = createLogger(configuration, 'verdery-api-test', {
     write: (record) => options.onLogRecord?.(record),
   });
 
   return buildApplication({
-    configuration: testConfiguration,
+    configuration,
     logger,
     database: options.database ?? stubDatabase(options.ping ?? (() => Promise.resolve())),
     tokenVerifier: options.tokenVerifier ?? stubTokenVerifier(),

@@ -186,8 +186,20 @@ API_PID=$!
 wait_for_http "API" "http://localhost:${API_PORT}/v1/health/ready" 30
 
 # --- 4. The web app, pointed at the API and the Auth emulator ---------------
-log "Starting the web app (next dev) on port ${WEB_PORT}"
-NEXT_PUBLIC_API_ORIGIN="http://localhost:${API_PORT}" \
+# WEB_CSP_MODE=enforce (P8-SEC-02) makes this whole suite the evidence that the
+# Content Security Policy is correct. Every spec below — sign-in, the map, the
+# care loop, keyboard, responsive, accessibility — runs against an ENFORCING
+# policy, so a missing directive is a failing test rather than a console
+# warning nobody reads. `e2e/content-security-policy.spec.ts` asserts that this
+# variable really took effect, so the suite cannot silently degrade into
+# proving nothing.
+#
+# This does NOT flip anything deployed: the API and the web deployment scripts
+# set no WEB_CSP_MODE, so every real environment keeps the report-only default.
+# See docs/development/security-enforcement-readiness.md, section 1.6.
+log "Starting the web app (next dev) on port ${WEB_PORT}, with the CSP ENFORCED"
+WEB_CSP_MODE=enforce \
+  NEXT_PUBLIC_API_ORIGIN="http://localhost:${API_PORT}" \
   NEXT_PUBLIC_FIREBASE_API_KEY=demo-verdery-e2e-api-key \
   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="${FIREBASE_PROJECT_ID}.firebaseapp.com" \
   NEXT_PUBLIC_FIREBASE_PROJECT_ID="${FIREBASE_PROJECT_ID}" \

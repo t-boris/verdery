@@ -51,5 +51,21 @@ declare namespace NodeJS {
      * — never a deployed environment.
      */
     readonly NEXT_PUBLIC_USE_FIREBASE_EMULATOR?: string;
+
+    /**
+     * P8-SEC-02: which header the Content Security Policy is served under.
+     * `"enforce"` serves it as `Content-Security-Policy`; anything else,
+     * including absence, serves it as `Content-Security-Policy-Report-Only`.
+     *
+     * Read server-side only, by `apps/web/proxy.ts` — deliberately NOT a
+     * `NEXT_PUBLIC_` variable, because the browser has no use for it and a
+     * value inlined into the client bundle could not be changed without a
+     * rebuild.
+     *
+     * Default (absent) is report-only, and a typo is report-only: accidental
+     * enforcement is a blank page for every user, while accidental
+     * report-only is the status quo.
+     */
+    readonly WEB_CSP_MODE?: string;
   }
 }

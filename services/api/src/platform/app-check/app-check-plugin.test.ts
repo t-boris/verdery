@@ -1,15 +1,22 @@
 /**
- * Plugin-level tests: monitor-only means the request must never be blocked
- * by App Check, whatever the verifier reports or does.
+ * Plugin-level tests.
+ *
+ * Monitor mode — the default, and every environment today — means the request
+ * must never be blocked by App Check, whatever the verifier reports or does.
+ * Enforce mode means exactly one thing more: an unattested request to an
+ * endpoint on the reviewed list is refused, and nothing else changes.
  *
  * A minimal Fastify instance is built directly here, rather than through
  * `buildTestApplication`, so the assertions stay about this hook alone and
  * do not depend on the rest of the request pipeline.
  */
 
+import { API_BASE_PATH, type ApiError } from '@verdery/api-contracts';
 import Fastify, { type FastifyBaseLogger } from 'fastify';
 import { describe, expect, it, vi } from 'vitest';
-import { APP_CHECK_HEADER, registerAppCheck } from './app-check-plugin.js';
+import { registerErrorHandling } from '../errors/error-handler.js';
+import type { AppCheckEnforcementMode } from './app-check-enforcement.js';
+import { APP_CHECK_HEADER, APP_CHECK_REJECTED_CODE, registerAppCheck } from './app-check-plugin.js';
 import type { AppCheckClassification, AppCheckVerifier } from './app-check-verifier.js';
 
 function fakeVerifier(classify: AppCheckVerifier['classify']): AppCheckVerifier {
@@ -35,12 +42,39 @@ function spyLogger(): FastifyBaseLogger & { info: ReturnType<typeof vi.fn> } {
 async function buildPluginTestApplication(
   appCheckVerifier: AppCheckVerifier,
   logger: FastifyBaseLogger,
+  enforcementMode?: AppCheckEnforcementMode,
 ) {
   const app = Fastify({ loggerInstance: logger });
-  registerAppCheck(app, { appCheckVerifier });
+  // The real error handler, and only it: a typed `ForbiddenError` maps to 403
+  // there and nowhere else, so asserting a status code here would otherwise
+  // be asserting Fastify's 500 fallback rather than this plugin's behavior.
+  registerErrorHandling(app);
+  registerAppCheck(app, {
+    appCheckVerifier,
+    ...(enforcementMode === undefined ? {} : { enforcementMode }),
+  });
   app.get('/probe', () => ({ ok: true }));
+  // Two real, registered enforced endpoints — the cheapest unauthenticated
+  // one and a garden-scoped one — plus an unenforced sibling on the same
+  // prefix, so the enforce-mode tests distinguish "this route" from "this
+  // area of the API".
+  app.post(`${API_BASE_PATH}/auth/session`, () => ({ ok: true }));
+  app.get(`${API_BASE_PATH}/gardens/:gardenId/today`, () => ({ ok: true }));
+  app.get(`${API_BASE_PATH}/gardens`, () => ({ ok: true }));
   await app.ready();
   return app;
+}
+
+/** Finds this plugin's own log record, ignoring Fastify's request/response lines. */
+function classifiedRecord(logger: ReturnType<typeof spyLogger>): Record<string, unknown> {
+  const call = logger.info.mock.calls.find(
+    ([record]) =>
+      typeof record === 'object' &&
+      record !== null &&
+      (record as { event?: unknown }).event === 'app_check.classified',
+  );
+  expect(call).toBeDefined();
+  return (call as [Record<string, unknown>, string])[0];
 }
 
 describe('registerAppCheck', () => {
@@ -152,6 +186,187 @@ describe('registerAppCheck', () => {
 
     expect(classifiedCall).toBeDefined();
     expect(JSON.stringify(classifiedCall)).not.toContain('super-secret-token-value');
+    await app.close();
+  });
+});
+
+describe('registerAppCheck — the enforcement switch', () => {
+  it('defaults to monitor when no mode is supplied', async () => {
+    const logger = spyLogger();
+    const app = await buildPluginTestApplication(
+      fakeVerifier(() => Promise.resolve('missing')),
+      logger,
+    );
+
+    const response = await app.inject({ method: 'POST', url: `${API_BASE_PATH}/auth/session` });
+
+    expect(response.statusCode).toBe(200);
+    expect(classifiedRecord(logger)['mode']).toBe('monitor');
+    await app.close();
+  });
+
+  it('logs outcome "wouldReject" in monitor mode on an enforced endpoint', async () => {
+    const logger = spyLogger();
+    const app = await buildPluginTestApplication(
+      fakeVerifier(() => Promise.resolve('missing')),
+      logger,
+      'monitor',
+    );
+
+    const response = await app.inject({ method: 'POST', url: `${API_BASE_PATH}/auth/session` });
+
+    // The whole point: the request SUCCEEDS, and the log line still says
+    // enforcement would have refused it. That is the counter the flip
+    // decision has been waiting on.
+    expect(response.statusCode).toBe(200);
+    expect(classifiedRecord(logger)).toMatchObject({
+      enforced: true,
+      mode: 'monitor',
+      outcome: 'wouldReject',
+      classification: 'missing',
+    });
+    await app.close();
+  });
+
+  it('logs outcome "observed" in monitor mode on an unenforced endpoint', async () => {
+    const logger = spyLogger();
+    const app = await buildPluginTestApplication(
+      fakeVerifier(() => Promise.resolve('missing')),
+      logger,
+      'monitor',
+    );
+
+    await app.inject({ method: 'GET', url: `${API_BASE_PATH}/gardens` });
+
+    expect(classifiedRecord(logger)).toMatchObject({ enforced: false, outcome: 'observed' });
+    await app.close();
+  });
+
+  it('rejects an unattested request to an enforced endpoint in enforce mode', async () => {
+    const logger = spyLogger();
+    const app = await buildPluginTestApplication(
+      fakeVerifier(() => Promise.resolve('missing')),
+      logger,
+      'enforce',
+    );
+
+    const response = await app.inject({ method: 'POST', url: `${API_BASE_PATH}/auth/session` });
+
+    expect(response.statusCode).toBe(403);
+    expect(classifiedRecord(logger)).toMatchObject({ mode: 'enforce', outcome: 'rejected' });
+    await app.close();
+  });
+
+  it('rejects an INVALID token exactly as it rejects a missing one', async () => {
+    const logger = spyLogger();
+    const app = await buildPluginTestApplication(
+      fakeVerifier(() => Promise.resolve('invalid')),
+      logger,
+      'enforce',
+    );
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `${API_BASE_PATH}/gardens/g-1/today`,
+      headers: { [APP_CHECK_HEADER]: 'a-token-that-does-not-verify' },
+    });
+
+    expect(response.statusCode).toBe(403);
+    await app.close();
+  });
+
+  it('admits a valid token to an enforced endpoint in enforce mode', async () => {
+    const logger = spyLogger();
+    const app = await buildPluginTestApplication(
+      fakeVerifier(() => Promise.resolve('valid')),
+      logger,
+      'enforce',
+    );
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `${API_BASE_PATH}/gardens/g-1/today`,
+      headers: { [APP_CHECK_HEADER]: 'a-good-token' },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(classifiedRecord(logger)).toMatchObject({ mode: 'enforce', outcome: 'observed' });
+    await app.close();
+  });
+
+  it('leaves UNENFORCED endpoints reachable without a token even in enforce mode', async () => {
+    const logger = spyLogger();
+    const app = await buildPluginTestApplication(
+      fakeVerifier(() => Promise.resolve('missing')),
+      logger,
+      'enforce',
+    );
+
+    const response = await app.inject({ method: 'GET', url: `${API_BASE_PATH}/gardens` });
+
+    // Enforcement is scoped, not global: one misconfigured client degrades
+    // the expensive endpoints, it does not take the product down.
+    expect(response.statusCode).toBe(200);
+    await app.close();
+  });
+
+  it('fails closed when the verifier itself throws, in enforce mode only', async () => {
+    const throwingVerifier = fakeVerifier(() => Promise.reject(new Error('boom')));
+
+    const enforcing = await buildPluginTestApplication(throwingVerifier, spyLogger(), 'enforce');
+    const enforced = await enforcing.inject({
+      method: 'POST',
+      url: `${API_BASE_PATH}/auth/session`,
+      headers: { [APP_CHECK_HEADER]: 'some-token' },
+    });
+    expect(enforced.statusCode).toBe(403);
+    await enforcing.close();
+
+    const monitoring = await buildPluginTestApplication(throwingVerifier, spyLogger(), 'monitor');
+    const monitored = await monitoring.inject({
+      method: 'POST',
+      url: `${API_BASE_PATH}/auth/session`,
+      headers: { [APP_CHECK_HEADER]: 'some-token' },
+    });
+    expect(monitored.statusCode).toBe(200);
+    await monitoring.close();
+  });
+
+  it('rejects with a code distinct from ordinary authorization failure', async () => {
+    const app = await buildPluginTestApplication(
+      fakeVerifier(() => Promise.resolve('missing')),
+      spyLogger(),
+      'enforce',
+    );
+
+    const response = await app.inject({ method: 'POST', url: `${API_BASE_PATH}/auth/session` });
+
+    // NOT `auth.forbidden`: an operator watching a flip must be able to
+    // separate "unattested client" from "unauthorized user", and a client
+    // must be able to separate "refresh your token and retry" from "stop
+    // asking". One shared code would collapse both.
+    const body = response.json<ApiError>();
+    expect(body.error.code).toBe(APP_CHECK_REJECTED_CODE);
+    expect(body.error.code).not.toBe('auth.forbidden');
+    expect(response.statusCode).toBe(403);
+    await app.close();
+  });
+
+  it('still never logs the token value when it rejects', async () => {
+    const logger = spyLogger();
+    const app = await buildPluginTestApplication(
+      fakeVerifier(() => Promise.resolve('invalid')),
+      logger,
+      'enforce',
+    );
+
+    await app.inject({
+      method: 'POST',
+      url: `${API_BASE_PATH}/auth/session`,
+      headers: { [APP_CHECK_HEADER]: 'super-secret-token-value' },
+    });
+
+    expect(JSON.stringify(classifiedRecord(logger))).not.toContain('super-secret-token-value');
     await app.close();
   });
 });

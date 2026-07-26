@@ -9,6 +9,7 @@
  */
 
 import { z } from 'zod';
+import type { AppCheckEnforcementMode } from '../app-check/app-check-enforcement.js';
 
 /** Deployment environments the service is built for. */
 export type DeploymentEnvironment = 'development' | 'staging' | 'production';
@@ -202,6 +203,30 @@ export const environmentSchema = z.object({
   RECOMMENDATION_AI_MAX_OUTPUT_TOKENS: positiveInteger.default(512),
   RECOMMENDATION_AI_MAX_CALLS_PER_HOUR: positiveInteger.default(50),
   RECOMMENDATION_AI_MAX_CALLS_PER_DAY: positiveInteger.default(500),
+
+  // P8-SEC-02: the App Check enforcement switch — rollout stage 3 made
+  // operational, in exactly the shape `RECOMMENDATION_AI_EXPLANATION_ENABLED`
+  // above already established for a capability that is built before it is
+  // turned on.
+  //
+  // `monitor` (the default, and the state of every environment today):
+  // classify every request and log the outcome, reject nothing. Identical
+  // observable behavior to the pre-P8-SEC-02 service, with one addition — the
+  // log line now also carries `outcome: 'wouldReject'` whenever enforcement
+  // WOULD have refused the request, which is the telemetry the flip decision
+  // has been blocked on.
+  //
+  // `enforce`: additionally reject a missing or invalid App Check token, and
+  // ONLY on `APP_CHECK_ENFORCED_ENDPOINTS` — a reviewed list that lives in
+  // code (platform/app-check/app-check-enforcement.ts), not here. What is
+  // protected is a code change that goes through review; whether protection
+  // is active is this variable. Flipping it back to `monitor` IS the
+  // rollback, and needs no deployment of new code.
+  //
+  // Deliberately not a boolean: `APP_CHECK_ENFORCEMENT=monitor` reads as a
+  // state an operator can reason about in a runbook, where
+  // `APP_CHECK_ENFORCEMENT_ENABLED=false` reads as an absence.
+  APP_CHECK_ENFORCEMENT: z.enum(['monitor', 'enforce']).default('monitor'),
 });
 
 export type RawEnvironment = z.infer<typeof environmentSchema>;
@@ -338,6 +363,12 @@ export interface AiExplanationConfiguration {
   readonly maxCallsPerDay: number;
 }
 
+/** P8-SEC-02 — see the schema's own comment on `APP_CHECK_ENFORCEMENT`. */
+export interface AppCheckConfiguration {
+  /** `'monitor'` everywhere today: classify and log, reject nothing. */
+  readonly enforcement: AppCheckEnforcementMode;
+}
+
 export interface ApplicationConfiguration {
   readonly environment: DeploymentEnvironment;
   readonly serviceVersion: string;
@@ -349,6 +380,7 @@ export interface ApplicationConfiguration {
   readonly media: MediaConfiguration;
   readonly weather: WeatherConfiguration;
   readonly aiExplanation: AiExplanationConfiguration;
+  readonly appCheck: AppCheckConfiguration;
 }
 
 function toDatabaseConfiguration(raw: RawEnvironment): DatabaseConfiguration {
@@ -417,6 +449,9 @@ export function toApplicationConfiguration(raw: RawEnvironment): ApplicationConf
       maxOutputTokens: raw.RECOMMENDATION_AI_MAX_OUTPUT_TOKENS,
       maxCallsPerHour: raw.RECOMMENDATION_AI_MAX_CALLS_PER_HOUR,
       maxCallsPerDay: raw.RECOMMENDATION_AI_MAX_CALLS_PER_DAY,
+    },
+    appCheck: {
+      enforcement: raw.APP_CHECK_ENFORCEMENT,
     },
   };
 }
