@@ -535,3 +535,20 @@
 "today.evidence.lifecycleStage" = "Стадия жизненного цикла";
 "today.evidence.geometryExposure" = "Геометрия и освещённость";
 "today.evidence.userPreference" = "Предпочтение пользователя";
+
+/* Оболочка с вкладками (P8-UX-01): пять основных экранов одного сада и меню
+   сада, заменившее экран настроек в роли главного входа в приложение. */
+"shell.tab.today" = "Сегодня";
+"shell.tab.tasks" = "Задачи";
+"shell.tab.plants" = "Растения";
+"shell.tab.journal" = "Журнал";
+"shell.tab.map" = "Карта";
+"shell.garden.switch" = "Сменить сад";
+"shell.garden.menu" = "Сад";
+"gardens.open" = "Открыть";
+"gardens.new" = "Новый сад";
+"gardens.create.cancel" = "Отмена";
+"tasks.filter.open" = "К выполнению";
+"tasks.create.open" = "Новая задача";
+"observations.record.open" = "Записать наблюдение";
+"plants.add.open" = "Добавить растение";

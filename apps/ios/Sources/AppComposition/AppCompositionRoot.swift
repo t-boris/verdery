@@ -232,8 +232,55 @@ public final class AppCompositionRoot {
         )
     }
 
+    /// The catalogue, for the composition layer's own shell chrome.
+    ///
+    /// `RootView` and `GardenTabView` are views this layer owns rather than a
+    /// feature's, so they have no view model to read their strings from; the
+    /// tab titles still have to be keyed and translated like every other
+    /// user-visible string.
+    public var localizedStrings: LocalizedStrings { strings }
+
     public func makeSignInViewModel() -> SignInViewModel {
         SignInViewModel(authenticationGateway: authenticationGateway, strings: strings)
+    }
+
+    /// Routes a URL the operating system delivered to the app.
+    ///
+    /// Two sign-in methods finish by reopening this app with a URL, and
+    /// neither completes unless something consumes it:
+    ///
+    /// 1. The federated web flow (Google) redirects to this app's registered
+    ///    custom scheme. Firebase presents that flow in an
+    ///    `SFSafariViewController`, which does not intercept its own redirect,
+    ///    so the SDK has to be handed the URL — otherwise the browser is left
+    ///    on a blank page forever, which is exactly what a device build did.
+    /// 2. The email sign-in link returns as a link Firebase recognizes, and
+    ///    completing it also needs the address the link was sent to, which
+    ///    ``AuthenticationGateway/pendingEmailForSignIn`` holds.
+    ///
+    /// Nothing observes the result: success is reported by Firebase's own auth
+    /// state listener, which `AuthenticationSessionObserver` already watches
+    /// and `RootView` already renders from — the same reactive path every
+    /// other sign-in method reports through, rather than a second flag.
+    @discardableResult
+    public func handleIncomingURL(_ url: URL) -> Bool {
+        if authenticationGateway.handleOpenURL(url) {
+            return true
+        }
+
+        let link = url.absoluteString
+        guard
+            authenticationGateway.isSignInEmailLink(link),
+            let email = authenticationGateway.pendingEmailForSignIn
+        else {
+            return false
+        }
+
+        Task { [authenticationGateway] in
+            _ = try? await authenticationGateway.completeEmailSignIn(email: email, link: link)
+        }
+
+        return true
     }
 
     public func makeGardensListViewModel() -> GardensListViewModel {

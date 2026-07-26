@@ -39,6 +39,7 @@ let package = Package(
         .library(name: "CorePersistence", targets: ["CorePersistence"]),
         .library(name: "CoreSynchronization", targets: ["CoreSynchronization"]),
         .library(name: "CoreMediaTransfer", targets: ["CoreMediaTransfer"]),
+        .library(name: "CoreDesignSystem", targets: ["CoreDesignSystem"]),
         .library(name: "FeatureHealth", targets: ["FeatureHealth"]),
         .library(name: "FeatureAuthentication", targets: ["FeatureAuthentication"]),
         .library(name: "FeatureGardens", targets: ["FeatureGardens"]),
@@ -72,6 +73,13 @@ let package = Package(
             name: "CoreObservability",
             dependencies: ["CoreDomain"]
         ),
+
+        // The shared visual language — the iOS counterpart of
+        // `apps/web/shared/ui/tokens.css`, expressed in the platform's own
+        // idioms. Depends on nothing, not even CoreDomain: a token knows
+        // nothing about gardens, which is what lets every feature use it.
+        // See Sources/CoreDesignSystem/Palette.swift. (P8-UX-01.)
+        .target(name: "CoreDesignSystem"),
 
         // Localized strings are a Core capability rather than a feature asset
         // because validation issue codes produced by CoreDomain must resolve to
@@ -146,18 +154,13 @@ let package = Package(
 
         // Background-capable media registration/upload/verify coordination
         // (P6-IOS-01): local file durability before any network call, the
-        // resumable-upload session Cloud Storage wire protocol over a real
-        // `URLSessionConfiguration.background(withIdentifier:)` transport,
-        // progress/pause/retry/recovery, and explicit completion/status
+        // resumable-upload wire protocol over a real background
+        // `URLSession`, progress/pause/retry/recovery, and completion
         // polling. Depends on `CoreSynchronization` — a Core-on-Core
-        // dependency with real precedent (`CoreSynchronization` itself
-        // depends on `CorePersistence`/`CoreNetworking`) — for `SyncBackoff`
-        // and the now-`public` `SyncErrorCategory.isEligibleForAutomaticRetry`
-        // / `APIGatewayError.syncErrorCategory`: the exact "which failures
-        // retry automatically vs. need user action" policy
+        // dependency with real precedent — to reuse, rather than re-derive,
+        // the "which failures retry automatically" policy that
         // architecture/offline-synchronization.md, section "18. Media
-        // Coordination" says media-transfer retry shares with sync retry,
-        // reused rather than re-derived.
+        // Coordination" says media transfer shares with sync.
         //
         // Source: architecture/ios-application-design.md, sections
         // "4. Application Structure", "13. Media Transfer";
@@ -177,6 +180,7 @@ let package = Package(
                 // each independently writing the same switch-to-string
                 // mapping twice.
                 "CoreLocalization",
+                "CoreDesignSystem",
             ]
         ),
 
@@ -184,12 +188,12 @@ let package = Package(
         // feature.
         .target(
             name: "FeatureHealth",
-            dependencies: ["CoreDomain", "CoreNetworking", "CoreLocalization"]
+            dependencies: ["CoreDomain", "CoreNetworking", "CoreLocalization", "CoreDesignSystem"]
         ),
 
         .target(
             name: "FeatureAuthentication",
-            dependencies: ["CoreDomain", "CoreAuthentication", "CoreNetworking", "CoreLocalization"]
+            dependencies: ["CoreDomain", "CoreAuthentication", "CoreNetworking", "CoreLocalization", "CoreDesignSystem"]
         ),
 
         .target(
@@ -198,6 +202,7 @@ let package = Package(
                 "CoreDomain",
                 "CoreNetworking",
                 "CoreLocalization",
+                "CoreDesignSystem",
                 // For `CorePersistence.LocalDatabase`, which opens and
                 // migrates the database `GRDBGardenStore` reads and writes.
                 // `FeatureGardens` still depends on GRDB directly too: its
@@ -244,6 +249,7 @@ let package = Package(
                 "CoreDomain",
                 "CoreNetworking",
                 "CoreLocalization",
+                "CoreDesignSystem",
                 "CorePersistence",
                 // For `CoreSynchronization.SyncRecordApplier`, which
                 // `MapSyncRecordApplier` conforms to (P5-IOS-03, Stage 5a) —
@@ -272,6 +278,7 @@ let package = Package(
                 "CoreDomain",
                 "CoreNetworking",
                 "CoreLocalization",
+                "CoreDesignSystem",
                 "CorePersistence",
                 // For `CoreSynchronization.SyncRecordApplier`, which
                 // `PlantSyncRecordApplier` conforms to (P5-IOS-03, Stage 5a)
@@ -289,20 +296,11 @@ let package = Package(
         // `FeatureObservations` gained a GRDB dependency in P5-IOS-02
         // (Stage 4d): `LocalObservationStore` durably persists the
         // purely-local `observation` rows `RecordObservation`/
-        // `CorrectObservation` append offline, the same way `FeaturePlants`'s
-        // `LocalPlantStore` does for `plant` (Stage 4c) — see that target's
-        // own comment above for why `CorePersistence` centralizes the
-        // database's lifecycle/schema while the feature owns its own
-        // read-model repository directly against GRDB. Unlike `plant`,
-        // `garden`, and `garden_object`, an observation carries no
-        // `expectedRevision` at all — see `FeatureObservations
-        // .LocalObservationStore`'s own doc comment for why this table is
-        // shaped differently (append-only, no "current record" to load)
-        // rather than a straight copy of `LocalPlantStore`'s pattern.
-        // `ListObservationsForGarden`/`ListObservationsForPlant` stay
-        // always-fresh-from-server for the same reason as before; only
-        // `RecordObservation`/`CorrectObservation` route through this new
-        // table.
+        // `CorrectObservation` append offline, the same split as
+        // `FeaturePlants` above. Unlike every other table, an observation
+        // carries no `expectedRevision` — see that store's own doc comment
+        // for why it is append-only with no "current record" to load. The
+        // two list use cases stay always-fresh-from-server.
         //
         // Source: implementation-plan.md work packages P4-IOS-01, P5-IOS-02.
         .target(
@@ -311,6 +309,7 @@ let package = Package(
                 "CoreDomain",
                 "CoreNetworking",
                 "CoreLocalization",
+                "CoreDesignSystem",
                 "CorePersistence",
                 // For `CoreSynchronization.SyncRecordApplier`, which
                 // `ObservationSyncRecordApplier` conforms to (P5-IOS-03,
@@ -350,6 +349,7 @@ let package = Package(
                 "CoreDomain",
                 "CoreNetworking",
                 "CoreLocalization",
+                "CoreDesignSystem",
                 "CorePersistence",
                 // For `CoreSynchronization.SyncRecordApplier`, which
                 // `TaskSyncRecordApplier` conforms to (P5-IOS-03, Stage 5a) —
@@ -371,7 +371,7 @@ let package = Package(
         // degrades honestly when offline instead of projecting one.
         .target(
             name: "FeatureRecommendations",
-            dependencies: ["CoreDomain", "CoreNetworking", "CoreLocalization"]
+            dependencies: ["CoreDomain", "CoreNetworking", "CoreLocalization", "CoreDesignSystem"]
         ),
 
         // Durable-conflict list and compare/resolve screen (P5-CONFLICT-01).
@@ -386,6 +386,7 @@ let package = Package(
             dependencies: [
                 "CoreDomain",
                 "CoreLocalization",
+                "CoreDesignSystem",
                 "CorePersistence",
                 // For `ConflictResolvingSyncEngine`/`RemoteSyncEngine`, which
                 // `SyncConflictsViewModel` calls to resolve a conflict — see
@@ -404,6 +405,7 @@ let package = Package(
                 "CoreNetworking",
                 "CoreObservability",
                 "CoreLocalization",
+                "CoreDesignSystem",
                 "CoreAuthentication",
                 // For `LocalDatabase.open`, which the garden store's
                 // composition still opens directly here — see
@@ -473,6 +475,7 @@ let package = Package(
                 "CorePersistence",
                 // For `PhotoAttachmentStatusLocalizationTests`.
                 "CoreLocalization",
+                "CoreDesignSystem",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ]
         ),

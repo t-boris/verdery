@@ -53,7 +53,7 @@ struct VerderyApp: App {
         // GoogleService-Info.plist bundled.
         FirebaseApp.configure()
 
-        let root = AppCompositionRoot(configuration: AppEnvironment.development)
+        let root = AppCompositionRoot(configuration: AppEnvironment.current)
         _composition = State(wrappedValue: root)
 
         #if os(iOS)

@@ -1,15 +1,22 @@
+import CoreDesignSystem
 import SwiftUI
 
-/// A garden's Today screen: the small prioritized recommendation set, each
-/// row carrying the proposed action, target, reason, urgency, care
-/// category, validity window, priority score, and the confidence factor's
-/// uncertainty line. Rows push ``TodayItemDetailView``, where the full
-/// priority breakdown, the evidence, and the controls live.
+/// A garden's Today screen: the small prioritized recommendation set.
 ///
-/// The degraded states this view renders are the ones
-/// ``TodayViewModel``'s own doc comment decides: a named offline state, a
-/// staleness notice over a kept last-fetched set, the established failure
-/// surface, and an honest empty state.
+/// Each item is a card, not a list row. The card leads with the care
+/// category's symbol on a tinted medallion, states the proposed action in the
+/// display face, and reduces everything that used to be a stack of grey
+/// sentences — urgency, category, score, window, uncertainty, safety tier — to
+/// a wrapping row of chips. That is roughly a third of the height of the old
+/// row and readable without reading: urgency is a flame or a tortoise, a
+/// watering job is a droplet, an elevated-risk item carries a shield.
+///
+/// The score, which was a sentence fragment, is now a figure on the card's
+/// trailing edge in monospaced digits, so a column of cards ranks visibly.
+///
+/// The degraded states are the ones ``TodayViewModel`` decides: a named
+/// offline state, a staleness notice over a kept last-fetched set, the
+/// established failure surface, and an honest empty state.
 public struct TodayView: View {
     @State private var model: TodayViewModel
 
@@ -20,6 +27,7 @@ public struct TodayView: View {
     public var body: some View {
         content
             .navigationTitle(model.title)
+            .screenBackground()
             .task { await model.load() }
             .navigationDestination(for: TodayItemDetailRoute.self) { route in
                 TodayItemDetailView(model: model, itemId: route.itemId)
@@ -30,34 +38,52 @@ public struct TodayView: View {
     private var content: some View {
         switch model.state {
         case .loading:
-            ProgressView(model.loadingMessage)
+            LoadingStateView(model.loadingMessage)
                 .accessibilityIdentifier("today.loading")
 
         case .offline:
-            unavailableView(message: model.offlineMessage, identifier: "today.offline")
+            EmptyStateView(
+                symbol: "wifi.slash",
+                title: model.title,
+                message: model.offlineMessage,
+                actionTitle: model.retryTitle,
+                actionSymbol: "arrow.clockwise",
+                action: { Task { await model.load() } }
+            )
+            .accessibilityIdentifier("today.offline")
 
         case let .failed(message):
-            unavailableView(message: message, identifier: "today.failure")
+            FailureStateView(
+                message: message,
+                retryTitle: model.retryTitle,
+                retry: { Task { await model.load() } }
+            )
+            .accessibilityIdentifier("today.failure")
 
         case let .loaded(items) where items.isEmpty:
-            List {
-                staleNoticeSection
-                Section {
-                    Text(model.emptyMessage)
-                        .foregroundStyle(.secondary)
-                        .accessibilityIdentifier("today.empty")
+            ScrollView {
+                VStack(spacing: Metrics.space4) {
+                    staleNotice
+                    EmptyStateView(
+                        symbol: "checkmark.seal.fill",
+                        title: model.title,
+                        message: model.emptyMessage
+                    )
+                    .accessibilityIdentifier("today.empty")
                 }
+                .padding(Metrics.space4)
             }
             .refreshable { await model.load() }
 
         case let .loaded(items):
-            List {
-                staleNoticeSection
-                Section {
+            ScrollView {
+                LazyVStack(spacing: Metrics.space3) {
+                    staleNotice
                     ForEach(items) { item in
                         NavigationLink(value: TodayItemDetailRoute(itemId: item.id)) {
-                            rowView(item)
+                            card(item)
                         }
+                        .buttonStyle(.plain)
                         // One element, one sentence: see
                         // `TodayItemPresentation.accessibilityLabel`.
                         .accessibilityElement(children: .ignore)
@@ -65,70 +91,97 @@ public struct TodayView: View {
                         .accessibilityIdentifier("today.row.\(item.id)")
                     }
                 }
+                .padding(Metrics.space4)
             }
             .refreshable { await model.load() }
         }
     }
 
-    private func unavailableView(message: String, identifier: String) -> some View {
-        VStack(spacing: 12) {
-            Text(message)
-                .multilineTextAlignment(.center)
-                .accessibilityIdentifier(identifier)
-            Button(model.retryTitle) { Task { await model.load() } }
-        }
-        .padding()
-    }
-
     @ViewBuilder
-    private var staleNoticeSection: some View {
+    private var staleNotice: some View {
         if let notice = model.staleNoticeText {
-            Section {
-                Text(notice)
-                    .font(.footnote)
-                    .foregroundStyle(.orange)
-                    // Orange alone carries the meaning visually; the trait is
-                    // what carries it to VoiceOver.
-                    .accessibilityAddTraits(.isStaticText)
-                    .accessibilityIdentifier("today.staleNotice")
+            // Tone plus symbol, never tone alone — `InlineMessage` names its
+            // own glyph, which is what carries the warning to a reader who
+            // cannot distinguish the colour.
+            InlineMessage(notice, tone: .warning)
+                .padding(Metrics.space2)
+                .background(
+                    RoundedRectangle(cornerRadius: Metrics.radiusMedium, style: .continuous)
+                        .fill(Tone.warning.quietFill)
+                )
+                .accessibilityIdentifier("today.staleNotice")
+        }
+    }
+
+    private func card(_ item: TodayItemPresentation) -> some View {
+        SurfaceCard {
+            VStack(alignment: .leading, spacing: Metrics.space3) {
+                HStack(alignment: .top, spacing: Metrics.space3) {
+                    IconMedallion(
+                        symbol: TodaySymbols.careCategory(item.careCategory),
+                        label: item.careCategory,
+                        tone: TodaySymbols.urgencyTone(item.urgency)
+                    )
+
+                    VStack(alignment: .leading, spacing: Metrics.space1) {
+                        Text(item.actionTitle)
+                            .font(Typography.heading)
+                            .foregroundStyle(Palette.text)
+                        Label(item.targetLabel, systemImage: TodaySymbols.target)
+                            .font(Typography.detail)
+                            .foregroundStyle(Palette.textMuted)
+                            .lineLimit(1)
+                    }
+
+                    Spacer(minLength: 0)
+
+                    Text(item.priorityScoreText)
+                        .font(Typography.metric)
+                        .foregroundStyle(TodaySymbols.urgencyTone(item.urgency).foreground)
+                }
+
+                Text(item.explanation)
+                    .font(Typography.detail)
+                    .foregroundStyle(Palette.textMuted)
+                    .lineLimit(3)
+
+                chips(item)
             }
         }
     }
 
-    private func rowView(_ item: TodayItemPresentation) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(item.actionTitle).font(.headline)
-            Text(item.targetLabel)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Text(item.explanation)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-            HStack {
-                Text(item.urgencyLabel)
-                Text("·").accessibilityHidden(true)
-                Text(item.careCategory)
-                Text("·").accessibilityHidden(true)
-                Text(item.priorityScoreText)
+    /// Everything that used to be a paragraph of grey sentences, as a wrapping
+    /// row of chips. `ViewThatFits` keeps it on one line when it fits and
+    /// drops the least essential chip when it does not, rather than truncating
+    /// mid-word.
+    private func chips(_ item: TodayItemPresentation) -> some View {
+        HStack(spacing: Metrics.space2) {
+            Chip(
+                symbol: TodaySymbols.urgency(item.urgency),
+                label: item.urgencyLabel,
+                tone: TodaySymbols.urgencyTone(item.urgency)
+            )
+
+            if item.isElevatedRisk {
+                Chip(
+                    symbol: TodaySymbols.elevatedRisk,
+                    label: item.safetyTierLabel,
+                    tone: .negative
+                )
+                .accessibilityIdentifier("today.row.\(item.id).elevatedRisk")
             }
-            .font(.footnote)
-            .foregroundStyle(.secondary)
+
             if let windowText = item.windowText {
-                Text(windowText).font(.caption).foregroundStyle(.secondary)
+                Chip(symbol: TodaySymbols.window, label: windowText, tone: .info)
             }
+
             if let uncertaintyText = item.uncertaintyText {
-                Text(uncertaintyText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Chip(symbol: TodaySymbols.uncertainty, label: uncertaintyText, tone: .neutral)
                     .accessibilityIdentifier("today.row.\(item.id).uncertainty")
             }
-            if item.isElevatedRisk {
-                Text(item.safetyTierLabel)
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-                    .accessibilityIdentifier("today.row.\(item.id).elevatedRisk")
-            }
+
+            Spacer(minLength: 0)
         }
-        .padding(.vertical, 2)
+        .lineLimit(1)
     }
 }

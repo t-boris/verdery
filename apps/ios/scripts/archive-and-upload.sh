@@ -27,10 +27,12 @@
 #
 # USAGE
 # -----
-#   # Everything except the upload. Runs today, with no credentials at all.
-#   ./scripts/archive-and-upload.sh --validate-only
+#   # Everything except the upload. Needs the API origin, nothing else.
+#   VERDERY_API_ORIGIN=https://api.example.com \
+#     ./scripts/archive-and-upload.sh --validate-only
 #
 #   # The real thing, once the owner has supplied an API key.
+#   VERDERY_API_ORIGIN=https://api.example.com \
 #   VERDERY_ASC_KEY_ID=XXXXXXXXXX \
 #   VERDERY_ASC_ISSUER_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx \
 #   VERDERY_ASC_KEY_PATH=~/private_keys/AuthKey_XXXXXXXXXX.p8 \
@@ -110,8 +112,29 @@ fi
 log "Regenerating Verdery.xcodeproj from project.yml"
 (cd "${IOS_ROOT}" && xcodegen generate)
 
+# --- The API this build will talk to -----------------------------------------
+# There is no working default here on purpose. `project.yml` leaves API_ORIGIN
+# at http://localhost:8080, which is right for the Simulator and meaningless on
+# a phone — localhost is the phone. A TestFlight build made with that default
+# reaches nothing: Today, the journal, and the map are all server-backed reads,
+# so three of the five tabs show their offline/failure state and the app looks
+# broken. That is exactly what happened to build 153.
+#
+# Refusing to archive without it is deliberate: a silent wrong default is what
+# produced a shipped build nobody could use.
+VERDERY_API_ORIGIN="${VERDERY_API_ORIGIN:-}"
+if [[ -z "${VERDERY_API_ORIGIN}" ]]; then
+  fail "VERDERY_API_ORIGIN is not set. Set it to the deployed API origin, e.g.
+  VERDERY_API_ORIGIN=https://api.example.com ./scripts/archive-and-upload.sh
+Use http://localhost:8080 only for a Simulator build, never for an upload."
+fi
+case "${VERDERY_API_ORIGIN}" in
+  https://*) ;;
+  *) fail "VERDERY_API_ORIGIN must be https:// — the app declares no App Transport Security exception. Got: ${VERDERY_API_ORIGIN}" ;;
+esac
+
 # --- Archive -----------------------------------------------------------------
-log "Archiving ${SCHEME} (${CONFIGURATION}) — bundle ${BUNDLE_ID}, build ${BUILD_NUMBER}, team ${TEAM_ID}"
+log "Archiving ${SCHEME} (${CONFIGURATION}) — bundle ${BUNDLE_ID}, build ${BUILD_NUMBER}, team ${TEAM_ID}, API ${VERDERY_API_ORIGIN}"
 rm -rf "${ARCHIVE_PATH}" "${EXPORT_PATH}"
 mkdir -p "${BUILD_DIR}"
 
@@ -124,6 +147,7 @@ xcodebuild archive \
   PRODUCT_BUNDLE_IDENTIFIER="${BUNDLE_ID}" \
   DEVELOPMENT_TEAM="${TEAM_ID}" \
   CURRENT_PROJECT_VERSION="${BUILD_NUMBER}" \
+  API_ORIGIN="${VERDERY_API_ORIGIN}" \
   CODE_SIGN_STYLE=Automatic \
   -allowProvisioningUpdates
 

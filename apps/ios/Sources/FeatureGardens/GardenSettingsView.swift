@@ -1,20 +1,43 @@
+import CoreDesignSystem
 import SwiftUI
 
-/// A single garden's settings: rename, archive, and request deletion,
-/// present only for the owner.
+/// A single garden's settings.
 ///
-/// Source: implementation-plan.md work packages P2-IOS-01, P2-SEC-01.
+/// What this screen is no longer: the app's front door. It used to be a `Form`
+/// whose middle section held `NavigationLink`s to Today, the map, the plan
+/// upload, plants, observations, tasks, and sync conflicts — the whole product,
+/// filed under settings. Those five daily surfaces are now tabs
+/// (`AppComposition.GardenTabView`), and what stays here is what genuinely
+/// configures a garden: its name, its lifecycle, the property plan behind its
+/// map, the conflicts synchronization is waiting on, and the service's status.
+///
+/// Both destructive actions now confirm before running, using the catalogue's
+/// `gardens.archive.confirm` and `gardens.requestDeletion.confirm` sentences —
+/// written for exactly this and never shown to anyone until now. Neither is
+/// reversible from this screen, and a form row that archived a garden on one
+/// mis-tap is the kind of thing this pass exists to remove.
+///
+/// Source: implementation-plan.md work packages P2-IOS-01, P2-SEC-01;
+/// work package P8-UX-01.
 public struct GardenSettingsView: View {
     @State private var model: GardenSettingsViewModel
+    @State private var isArchiveConfirmationPresented = false
+    @State private var isDeletionConfirmationPresented = false
+    @FocusState private var isNameFieldFocused: Bool
     @Environment(\.dismiss) private var dismiss
 
-    public init(model: GardenSettingsViewModel) {
+    private let onSwitchGarden: (() -> Void)?
+
+    public init(model: GardenSettingsViewModel, onSwitchGarden: (() -> Void)? = nil) {
         _model = State(wrappedValue: model)
+        self.onSwitchGarden = onSwitchGarden
     }
 
     public var body: some View {
         content
             .navigationTitle(model.title)
+            .inlineNavigationTitle()
+            .screenBackground()
             .task { await model.load() }
             .onChange(of: model.didRequestDeletion) { _, requested in
                 if requested { dismiss() }
@@ -25,105 +48,220 @@ public struct GardenSettingsView: View {
     private var content: some View {
         switch model.state {
         case .loading:
-            ProgressView()
+            LoadingStateView(model.title)
                 .accessibilityIdentifier("gardens.settings.loading")
 
         case let .loaded(summary):
-            Form {
-                Section {
-                    Text("\(summary.lifecycleLabel) · \(summary.roleLabel)")
-                        .foregroundStyle(.secondary)
+            ScrollView {
+                VStack(alignment: .leading, spacing: Metrics.space5) {
+                    identityCard(summary)
+                    configurationSection
 
-                    if let syncStatusLabel = summary.syncStatusLabel {
-                        Text(syncStatusLabel)
-                            .foregroundStyle(.orange)
-                            .accessibilityIdentifier("gardens.settings.syncStatus")
+                    if summary.isOwner {
+                        renameSection(summary)
+                        manageSection(summary)
+                    }
+
+                    switchGardenButton
+
+                    if let message = model.actionErrorMessage {
+                        InlineMessage(message)
+                            .accessibilityIdentifier("gardens.settings.actionFailure")
                     }
                 }
-
-                // Available to every role, not only the owner — unlike
-                // rename/archive/delete below, viewing and editing the map is
-                // not an owner-only action, and the map's own commands
-                // re-enforce role restrictions server-side regardless of what
-                // this screen shows.
-                Section {
-                    NavigationLink(value: GardenTodayRoute(gardenId: model.gardenId)) {
-                        Text(model.openTodayTitle)
-                    }
-                    .accessibilityIdentifier("gardens.settings.openToday")
-
-                    NavigationLink(value: GardenMapEditorRoute(gardenId: model.gardenId)) {
-                        Text(model.openMapEditorTitle)
-                    }
-                    .accessibilityIdentifier("gardens.settings.openMapEditor")
-
-                    NavigationLink(value: GardenPlanUploadRoute(gardenId: model.gardenId)) {
-                        Text(model.openPlanUploadTitle)
-                    }
-                    .accessibilityIdentifier("gardens.settings.openPlanUpload")
-
-                    NavigationLink(value: GardenPlantsRoute(gardenId: model.gardenId)) {
-                        Text(model.openPlantsTitle)
-                    }
-                    .accessibilityIdentifier("gardens.settings.openPlants")
-
-                    NavigationLink(value: GardenObservationsRoute(gardenId: model.gardenId)) {
-                        Text(model.openObservationsTitle)
-                    }
-                    .accessibilityIdentifier("gardens.settings.openObservations")
-
-                    NavigationLink(value: GardenTasksRoute(gardenId: model.gardenId)) {
-                        Text(model.openTasksTitle)
-                    }
-                    .accessibilityIdentifier("gardens.settings.openTasks")
-
-                    NavigationLink(value: GardenSyncConflictsRoute(gardenId: model.gardenId)) {
-                        Text(model.openSyncConflictsTitle)
-                    }
-                    .accessibilityIdentifier("gardens.settings.openSyncConflicts")
-                }
-
-                if summary.isOwner {
-                    Section(model.renameFieldLabel) {
-                        TextField(model.renameFieldLabel, text: $model.editedName)
-                            .accessibilityIdentifier("gardens.settings.nameField")
-
-                        Button(model.renameSubmitTitle) {
-                            Task { await model.submitRename() }
-                        }
-                        .disabled(model.isSubmitting || !summary.isActive)
-                        .accessibilityIdentifier("gardens.settings.rename")
-                    }
-
-                    if summary.isActive {
-                        Section(model.archiveTitle) {
-                            Button(model.archiveTitle, role: .destructive) {
-                                Task { await model.archive() }
-                            }
-                            .disabled(model.isSubmitting)
-                            .accessibilityIdentifier("gardens.settings.archive")
-                        }
-                    }
-
-                    Section {
-                        Button(model.requestDeletionTitle, role: .destructive) {
-                            Task { await model.requestDeletion() }
-                        }
-                        .disabled(model.isSubmitting)
-                        .accessibilityIdentifier("gardens.settings.requestDeletion")
-                    }
-                }
-
-                if let message = model.actionErrorMessage {
-                    Section {
-                        Text(message).foregroundStyle(.red)
-                    }
-                }
+                .padding(Metrics.space4)
             }
 
         case let .failed(message):
-            Text(message)
+            FailureStateView(message: message)
                 .accessibilityIdentifier("gardens.settings.failure")
+        }
+    }
+
+    /// The garden itself, at a glance: name in the display face, state and
+    /// role as chips, pending synchronization as a chip of its own.
+    private func identityCard(_ summary: GardenSettingsSummary) -> some View {
+        SurfaceCard {
+            VStack(alignment: .leading, spacing: Metrics.space3) {
+                HStack(spacing: Metrics.space3) {
+                    IconMedallion(
+                        symbol: GardenSymbols.lifecycle(summary.lifecycleState),
+                        label: summary.lifecycleLabel,
+                        tone: GardenSymbols.lifecycleTone(summary.lifecycleState),
+                        isLarge: true
+                    )
+                    Text(summary.name)
+                        .font(Typography.title)
+                        .foregroundStyle(Palette.text)
+                }
+
+                HStack(spacing: Metrics.space2) {
+                    Chip(
+                        symbol: GardenSymbols.lifecycle(summary.lifecycleState),
+                        label: summary.lifecycleLabel,
+                        tone: GardenSymbols.lifecycleTone(summary.lifecycleState)
+                    )
+                    Chip(
+                        symbol: GardenSymbols.role(summary.callerRole),
+                        label: summary.roleLabel,
+                        tone: .info
+                    )
+                    if let syncStatusLabel = summary.syncStatusLabel {
+                        Chip(
+                            symbol: GardenSymbols.pendingSync,
+                            label: syncStatusLabel,
+                            tone: .warning
+                        )
+                        .accessibilityIdentifier("gardens.settings.syncStatus")
+                    }
+                }
+            }
+        }
+    }
+
+    /// The three destinations that are configuration rather than daily work.
+    private var configurationSection: some View {
+        VStack(alignment: .leading, spacing: Metrics.space2) {
+            SectionEyebrow(symbol: "slider.horizontal.3", title: model.title)
+
+            navigationCard(
+                value: GardenPlanUploadRoute(gardenId: model.gardenId),
+                symbol: "doc.viewfinder",
+                title: model.openPlanUploadTitle,
+                identifier: "gardens.settings.openPlanUpload"
+            )
+            navigationCard(
+                value: GardenSyncConflictsRoute(gardenId: model.gardenId),
+                symbol: "arrow.triangle.branch",
+                title: model.openSyncConflictsTitle,
+                identifier: "gardens.settings.openSyncConflicts"
+            )
+            navigationCard(
+                value: GardenServiceHealthRoute(),
+                symbol: "waveform.path.ecg",
+                title: model.serviceHealthTitle,
+                identifier: "gardens.settings.openServiceHealth"
+            )
+        }
+    }
+
+    private func navigationCard(
+        value: some Hashable,
+        symbol: String,
+        title: String,
+        identifier: String
+    ) -> some View {
+        NavigationLink(value: value) {
+            SurfaceCard {
+                HStack(spacing: Metrics.space3) {
+                    IconMedallion(symbol: symbol, label: title, tone: .accent)
+                    Text(title)
+                        .font(Typography.body)
+                        .foregroundStyle(Palette.text)
+                        .multilineTextAlignment(.leading)
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(Typography.detail)
+                        .foregroundStyle(Palette.textMuted)
+                        .accessibilityHidden(true)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(identifier)
+    }
+
+    private func renameSection(_ summary: GardenSettingsSummary) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.space2) {
+            SectionEyebrow(symbol: "textformat", title: model.renameFieldLabel)
+
+            SurfaceCard {
+                VStack(alignment: .leading, spacing: Metrics.space3) {
+                    TextField(model.renameFieldLabel, text: $model.editedName)
+                        .textFieldStyle(.roundedBorder)
+                        .focused($isNameFieldFocused)
+                        .submitLabel(.done)
+                        .onSubmit(submitRename)
+                        .accessibilityIdentifier("gardens.settings.nameField")
+
+                    Button(action: submitRename) {
+                        Label(model.renameSubmitTitle, systemImage: "checkmark")
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .disabled(model.isSubmitting || !summary.isActive)
+                    .accessibilityIdentifier("gardens.settings.rename")
+                }
+            }
+        }
+    }
+
+    private func manageSection(_ summary: GardenSettingsSummary) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.space2) {
+            SectionEyebrow(symbol: "exclamationmark.triangle", title: model.manageTitle)
+
+            if summary.isActive {
+                Button {
+                    isArchiveConfirmationPresented = true
+                } label: {
+                    Label(model.archiveTitle, systemImage: "archivebox")
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .disabled(model.isSubmitting)
+                .accessibilityIdentifier("gardens.settings.archive")
+                .confirmationDialog(
+                    model.archiveConfirmMessage,
+                    isPresented: $isArchiveConfirmationPresented,
+                    titleVisibility: .visible
+                ) {
+                    Button(model.archiveTitle) {
+                        Task {
+                            await model.archive()
+                            Haptics.play(.warning)
+                        }
+                    }
+                    Button(model.cancelTitle, role: .cancel) {}
+                }
+            }
+
+            Button {
+                isDeletionConfirmationPresented = true
+            } label: {
+                Label(model.requestDeletionTitle, systemImage: "trash")
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .disabled(model.isSubmitting)
+            .accessibilityIdentifier("gardens.settings.requestDeletion")
+            .confirmationDialog(
+                model.requestDeletionConfirmMessage,
+                isPresented: $isDeletionConfirmationPresented,
+                titleVisibility: .visible
+            ) {
+                Button(model.requestDeletionTitle, role: .destructive) {
+                    Task {
+                        await model.requestDeletion()
+                        Haptics.play(.warning)
+                    }
+                }
+                Button(model.cancelTitle, role: .cancel) {}
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var switchGardenButton: some View {
+        if let onSwitchGarden {
+            Button(action: onSwitchGarden) {
+                Label(model.switchGardenTitle, systemImage: "arrow.left.arrow.right")
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .accessibilityIdentifier("gardens.settings.switchGarden")
+        }
+    }
+
+    private func submitRename() {
+        Task {
+            await model.submitRename()
+            Haptics.play(model.actionErrorMessage == nil ? .success : .failure)
         }
     }
 }

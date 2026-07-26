@@ -24,6 +24,10 @@ public struct TodayItemPresentation: Equatable, Sendable, Identifiable {
     /// time, shown verbatim.
     public let explanation: String
     public let urgencyLabel: String
+    /// The stored urgency itself, alongside its localized label, so the row
+    /// can pick a symbol and a tone for it — which SF Symbol stands for
+    /// "urgent" is a presentation decision and belongs in the view.
+    public let urgency: TaskUrgency
     /// The rule's care category, shown as stored — an open vocabulary the
     /// server deliberately does not enumerate yet.
     public let careCategory: String

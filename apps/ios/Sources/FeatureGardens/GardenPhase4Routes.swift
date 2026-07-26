@@ -72,3 +72,15 @@ public struct GardenTodayRoute: Hashable, Sendable {
         self.gardenId = gardenId
     }
 }
+
+/// Requests to navigate from the garden settings sheet to the service-status
+/// screen (P8-UX-01).
+///
+/// `FeatureHealth` is a sibling feature, so the same marker-type pattern
+/// applies. The route carries no garden id — service health is a property of
+/// the deployment, not of a garden — but is still a distinct `Hashable` type,
+/// because a `navigationDestination` is registered per type and an empty
+/// struct is the smallest thing that can identify this one.
+public struct GardenServiceHealthRoute: Hashable, Sendable {
+    public init() {}
+}

@@ -1,29 +1,40 @@
+import CoreDesignSystem
 import CoreDomain
 import SwiftUI
 
 /// The plant inventory's entry point.
 ///
-/// There is no `GET /gardens/{gardenId}/plants` list operation in the
-/// contract — only a single-plant `GET`. Rather than fabricate a
-/// client-side aggregation no real endpoint backs (which would silently go
-/// stale or incomplete the moment a plant is added from any other client),
-/// this screen offers exactly what the contract supports: adding a plant
-/// (after which its id is known, so this screen can push straight to its
-/// detail screen), and opening a plant whose id is already known — reached,
-/// for instance, by copying it from this same "just created" flow, or from
-/// an observation's or a task's own plant reference elsewhere in this app.
+/// There is still no `GET /gardens/{gardenId}/plants` list operation in the
+/// contract — only a single-plant `GET` — so this screen still cannot show an
+/// inventory, and this pass deliberately did not invent one: a client-side
+/// aggregation no endpoint backs would go stale or incomplete the moment a
+/// plant were added from another client. That constraint is what shapes the
+/// screen: it leads with the act it *can* perform, adding a plant, and keeps
+/// opening a known plant as a secondary affordance below it.
+///
+/// What changed is how the adding reads. It was thirteen labelled `Form` rows
+/// in one column; grouping kind, acquisition-date type, and — on the detail
+/// screen — lifecycle stage and status are now chip rows, each led by the
+/// symbol that stands for that value, so choosing one is a single tap against
+/// a recognisable shape rather than a `Picker` wheel. Optional fields stay
+/// collapsed behind their toggles.
 ///
 /// See `AddPlantFromPhotoRequest`/`AddPlantFromPhoto` in `PlantGateway.swift`
 /// for the second honest gap this screen leaves: identifying a plant from a
-/// photo needs a `photoMediaId`, and this codebase has no file-upload flow
-/// yet to produce one (`media.media_record` only records that a reference
-/// exists). That flow is fully implemented and tested at the gateway layer
-/// and deliberately absent here, the same way Phase 3 honestly deferred
-/// calibration/proposals rather than building a UI control that could never
-/// actually succeed.
+/// photo needs a `photoMediaId` produced by an upload flow this screen does
+/// not have.
 public struct PlantsHomeView: View {
     @State private var model: PlantsHomeViewModel
-    @State private var path: [String] = []
+    /// The plant this screen pushed to, if any.
+    ///
+    /// A local `@State` driving `.navigationDestination(item:)` rather than a
+    /// `NavigationStack` of this screen's own: the tab shell already owns a
+    /// stack, and nesting a second one inside it — which this screen used to
+    /// do — traps every push inside the child and leaves the outer navigation
+    /// bar showing the wrong title.
+    @State private var openedPlantId: String?
+    @State private var isAddPresented = false
+    @FocusState private var isOpenIdFocused: Bool
     private let destination: (String) -> AnyView
 
     public init(model: PlantsHomeViewModel, destination: @escaping (String) -> AnyView) {
@@ -32,136 +43,111 @@ public struct PlantsHomeView: View {
     }
 
     public var body: some View {
-        NavigationStack(path: $path) {
-            Form {
-                addSection
-                openSection
+        ScrollView {
+            VStack(alignment: .leading, spacing: Metrics.space5) {
+                addCard
+                openCard
 
                 if let message = model.errorMessage {
-                    Section {
-                        Text(message).foregroundStyle(.red)
-                            .accessibilityIdentifier("plants.home.failure")
+                    InlineMessage(message)
+                        .accessibilityIdentifier("plants.home.failure")
+                }
+            }
+            .padding(Metrics.space4)
+        }
+        .navigationTitle(model.title)
+        .screenBackground()
+        .navigationDestination(item: $openedPlantId) { plantId in
+            destination(plantId)
+        }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    isAddPresented = true
+                } label: {
+                    Label(model.addSectionTitle, systemImage: "plus")
+                }
+                .accessibilityIdentifier("plants.add.open")
+            }
+        }
+        .sheet(isPresented: $isAddPresented) {
+            PlantAddSheetView(model: model) { didSucceed in
+                Haptics.play(didSucceed ? .success : .failure)
+                if didSucceed { isAddPresented = false }
+            }
+        }
+        .onChange(of: model.navigateToPlantId) { _, newValue in
+            if let newValue {
+                openedPlantId = newValue
+                model.consumeNavigation()
+            }
+        }
+    }
+
+    /// The screen's primary act, as a large invitation rather than a form
+    /// section — this is what the empty inventory offers, and there is nothing
+    /// else for it to show.
+    private var addCard: some View {
+        Button {
+            isAddPresented = true
+        } label: {
+            SurfaceCard(tone: .accent) {
+                HStack(spacing: Metrics.space3) {
+                    IconMedallion(
+                        symbol: "leaf.fill",
+                        label: model.addSectionTitle,
+                        tone: .accent,
+                        isLarge: true
+                    )
+                    VStack(alignment: .leading, spacing: Metrics.space1) {
+                        Text(model.addSectionTitle)
+                            .font(Typography.title)
+                            .foregroundStyle(Palette.text)
+                        Text(model.displayNameLabel)
+                            .font(Typography.detail)
+                            .foregroundStyle(Palette.textMuted)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "plus.circle.fill")
+                        .foregroundStyle(Palette.accent)
+                        .accessibilityHidden(true)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("plants.add.card")
+    }
+
+    private var openCard: some View {
+        VStack(alignment: .leading, spacing: Metrics.space2) {
+            SectionEyebrow(symbol: "magnifyingglass", title: model.openSectionTitle)
+
+            SurfaceCard {
+                VStack(alignment: .leading, spacing: Metrics.space3) {
+                    InlineMessage(model.openHint, tone: .info)
+
+                    HStack(spacing: Metrics.space2) {
+                        TextField(model.openIdLabel, text: $model.openPlantId)
+                            .textFieldStyle(.roundedBorder)
+                            .focused($isOpenIdFocused)
+                            .submitLabel(.go)
+                            .onSubmit { model.openPlant() }
+                            .accessibilityIdentifier("plants.open.idField")
+
+                        Button {
+                            model.openPlant()
+                        } label: {
+                            Label(model.openSubmitTitle, systemImage: "arrow.right.circle.fill")
+                                .labelStyle(.iconOnly)
+                                .font(Typography.title)
+                        }
+                        .tint(Palette.accent)
+                        .disabled(model.openPlantId.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .accessibilityLabel(model.openSubmitTitle)
+                        .accessibilityIdentifier("plants.open.submit")
                     }
                 }
             }
-            .navigationTitle(model.title)
-            .navigationDestination(for: String.self) { plantId in
-                destination(plantId)
-            }
-            .sheet(isPresented: $model.isTaxonomyPickerPresented) {
-                TaxonomyReferencePickerView(
-                    title: model.taxonomyPickerTitle,
-                    searchLabel: model.taxonomyPickerSearchLabel,
-                    emptyMessage: model.taxonomyPickerEmptyMessage,
-                    closeTitle: model.closeTitle,
-                    displayName: { model.taxonomyDisplayName($0) },
-                    search: { await model.searchTaxonomy(query: $0) },
-                    onSelect: { model.selectTaxonomy($0) },
-                    onClose: { model.isTaxonomyPickerPresented = false }
-                )
-            }
-            .onChange(of: model.navigateToPlantId) { _, newValue in
-                if let newValue {
-                    path.append(newValue)
-                    model.consumeNavigation()
-                }
-            }
-        }
-    }
-
-    private var addSection: some View {
-        Section(model.addSectionTitle) {
-            TextField(model.displayNameLabel, text: $model.displayName)
-                .accessibilityIdentifier("plants.add.displayNameField")
-
-            Picker(model.groupingKindLabel, selection: $model.groupingKind) {
-                ForEach(PlantGroupingKind.allCases, id: \.self) { kind in
-                    Text(model.groupingKindName(kind)).tag(kind)
-                }
-            }
-            .accessibilityIdentifier("plants.add.groupingKindPicker")
-
-            if model.groupingKind != .individual {
-                TextField(model.quantityLabel, text: $model.quantityText)
-                    #if os(iOS)
-                    .keyboardType(.numberPad)
-                    #endif
-                    .accessibilityIdentifier("plants.add.quantityField")
-            }
-
-            TextField(model.varietyLabelLabel, text: $model.varietyLabel)
-                .accessibilityIdentifier("plants.add.varietyLabelField")
-
-            Toggle(model.acquisitionDateToggleLabel, isOn: $model.hasAcquisitionDate)
-                .accessibilityIdentifier("plants.add.acquisitionDateToggle")
-
-            if model.hasAcquisitionDate {
-                DatePicker(
-                    model.acquisitionDateLabel,
-                    selection: $model.acquisitionDate,
-                    displayedComponents: .date
-                )
-                .accessibilityIdentifier("plants.add.acquisitionDatePicker")
-
-                Picker(model.acquisitionDateTypeLabel, selection: $model.acquisitionDateType) {
-                    ForEach(PlantAcquisitionDateType.allCases, id: \.self) { type in
-                        Text(model.acquisitionDateTypeName(type)).tag(type)
-                    }
-                }
-                .accessibilityIdentifier("plants.add.acquisitionDateTypePicker")
-            }
-
-            taxonomyRow
-
-            TextField(model.gardenAreaLabel, text: $model.gardenAreaMapObjectId)
-                .accessibilityIdentifier("plants.add.gardenAreaField")
-            TextField(model.placementLabel, text: $model.placementMapObjectId)
-                .accessibilityIdentifier("plants.add.placementField")
-            Text(model.mapObjectIdHint)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-
-            Button(model.addSubmitTitle) {
-                Task { await model.submitAddPlant() }
-            }
-            .disabled(model.state == .submitting)
-            .accessibilityIdentifier("plants.add.submit")
-        }
-    }
-
-    private var taxonomyRow: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Button {
-                model.isTaxonomyPickerPresented = true
-            } label: {
-                HStack {
-                    Text(model.taxonomyLabel)
-                    Spacer()
-                    Text(model.selectedTaxonomySummary)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("plants.add.taxonomyRow")
-
-            if model.selectedTaxonomyReference != nil {
-                Button(model.taxonomyClearLabel) { model.clearTaxonomy() }
-                    .accessibilityIdentifier("plants.add.taxonomyClear")
-            }
-        }
-    }
-
-    private var openSection: some View {
-        Section(model.openSectionTitle) {
-            Text(model.openHint)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-            TextField(model.openIdLabel, text: $model.openPlantId)
-                .accessibilityIdentifier("plants.open.idField")
-            Button(model.openSubmitTitle) {
-                model.openPlant()
-            }
-            .accessibilityIdentifier("plants.open.submit")
         }
     }
 }

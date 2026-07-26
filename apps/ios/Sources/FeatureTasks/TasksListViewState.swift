@@ -8,6 +8,10 @@ public struct TaskRow: Equatable, Sendable, Identifiable {
     public let status: TaskStatus
     public let statusLabel: String
     public let urgencyLabel: String
+    /// The stored urgency alongside its localized label, so the row can pick
+    /// a symbol and a tone — which SF Symbol stands for "urgent" is a
+    /// presentation decision and belongs in the view.
+    public let urgency: TaskUrgency
     public let dueDateText: String?
     public let targetLabel: String
     public let revision: Int

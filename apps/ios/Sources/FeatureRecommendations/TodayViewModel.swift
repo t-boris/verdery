@@ -163,6 +163,7 @@ public final class TodayViewModel {
             targetLabel: targetLabel(for: item),
             explanation: recommendation.explanation,
             urgencyLabel: TodayLocalization.urgencyName(recommendation.urgency, strings: strings),
+            urgency: recommendation.urgency,
             careCategory: recommendation.careCategory,
             windowText: TodayLocalization.windowText(
                 start: recommendation.windowStart,

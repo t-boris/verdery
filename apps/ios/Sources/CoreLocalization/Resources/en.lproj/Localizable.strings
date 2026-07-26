@@ -535,3 +535,20 @@
 "today.evidence.lifecycleStage" = "Lifecycle stage";
 "today.evidence.geometryExposure" = "Geometry and exposure";
 "today.evidence.userPreference" = "User preference";
+
+/* The tab shell (P8-UX-01): the five primary surfaces of one garden, plus the
+   garden menu that replaced the settings screen as the app's front door. */
+"shell.tab.today" = "Today";
+"shell.tab.tasks" = "Tasks";
+"shell.tab.plants" = "Plants";
+"shell.tab.journal" = "Journal";
+"shell.tab.map" = "Map";
+"shell.garden.switch" = "Switch garden";
+"shell.garden.menu" = "Garden";
+"gardens.open" = "Open";
+"gardens.new" = "New garden";
+"gardens.create.cancel" = "Cancel";
+"tasks.filter.open" = "To do";
+"tasks.create.open" = "New task";
+"observations.record.open" = "Record observation";
+"plants.add.open" = "Add plant";

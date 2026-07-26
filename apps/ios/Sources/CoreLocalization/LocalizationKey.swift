@@ -528,11 +528,9 @@ public enum LocalizationKey: String, Sendable, CaseIterable {
     case mapCalibrationInvalidInput = "map.calibration.invalidInput"
     case mapCalibrationRequiresConnection = "map.calibration.requiresConnection"
 
-    // The Today recommendation surface (P7-IOS-01) —
-    // `FeatureRecommendations`. `gardens.openToday` sits with this section
-    // rather than the earlier `gardens.open*` block for the same reason
-    // `gardens.openPlanUpload` sits with the plan-upload section: keys are
-    // grouped by the stage that introduced them.
+    // The Today recommendation surface (P7-IOS-01). Keys are grouped by the
+    // stage that introduced them, which is why `gardens.openToday` sits here
+    // rather than with the earlier `gardens.open*` block.
     case gardensOpenToday = "gardens.openToday"
     case todayTitle = "today.title"
     case todayLoading = "today.loading"
@@ -583,4 +581,20 @@ public enum LocalizationKey: String, Sendable, CaseIterable {
     case todayEvidenceLifecycleStage = "today.evidence.lifecycleStage"
     case todayEvidenceGeometryExposure = "today.evidence.geometryExposure"
     case todayEvidenceUserPreference = "today.evidence.userPreference"
+
+    // The tab shell (P8-UX-01): the primary surfaces became tabs.
+    case shellTabToday = "shell.tab.today"
+    case shellTabTasks = "shell.tab.tasks"
+    case shellTabPlants = "shell.tab.plants"
+    case shellTabJournal = "shell.tab.journal"
+    case shellTabMap = "shell.tab.map"
+    case shellGardenMenu = "shell.garden.menu"
+    case shellSwitchGarden = "shell.garden.switch"
+    case gardensOpen = "gardens.open"
+    case gardensNew = "gardens.new"
+    case gardensCreateCancel = "gardens.create.cancel"
+    case tasksFilterOpen = "tasks.filter.open"
+    case tasksCreateOpen = "tasks.create.open"
+    case observationsRecordOpen = "observations.record.open"
+    case plantsAddOpen = "plants.add.open"
 }

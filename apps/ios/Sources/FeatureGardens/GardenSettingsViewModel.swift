@@ -73,6 +73,12 @@ public final class GardenSettingsViewModel {
     public var openObservationsTitle: String { strings(.gardensOpenObservations) }
     public var openTasksTitle: String { strings(.gardensOpenTasks) }
     public var openSyncConflictsTitle: String { strings(.gardensOpenSyncConflicts) }
+    public var serviceHealthTitle: String { strings(.healthTitle) }
+    public var manageTitle: String { strings(.gardensManageTitle) }
+    public var archiveConfirmMessage: String { strings(.gardensArchiveConfirm) }
+    public var requestDeletionConfirmMessage: String { strings(.gardensRequestDeletionConfirm) }
+    public var cancelTitle: String { strings(.gardensCreateCancel) }
+    public var switchGardenTitle: String { strings(.shellSwitchGarden) }
 
     public func load() async {
         var hadCachedResult = false
@@ -108,6 +114,8 @@ public final class GardenSettingsViewModel {
         state = .loaded(
             GardenSettingsSummary(
                 name: garden.name,
+                lifecycleState: garden.lifecycleState,
+                callerRole: garden.callerRole,
                 lifecycleLabel: lifecycleLabel(for: garden.lifecycleState),
                 roleLabel: roleLabel(for: garden.callerRole),
                 isOwner: garden.callerRole == .owner,

@@ -70,6 +70,26 @@ Feature view models:
 - Own transient interaction state, not durable domain authority.
 - Remain small enough to represent one screen or cohesive editor flow.
 
+Every view composes from `CoreDesignSystem`, the shared visual language: the
+palette, the type scale, the spacing and radius steps, and the small set of
+primitives (`SurfaceCard`, `Chip`, `IconMedallion`, `EmptyStateView`,
+`InlineMessage`, the button styles) that screens are built from. It is the iOS
+counterpart of `apps/web/shared/ui/tokens.css` and carries the same
+"botanical ledger" identity — warm paper canvas, deep fir green, a serif face
+for headings — so the two clients read as one product. `CoreDesignSystem`
+depends on nothing, not even `CoreDomain`; a domain value's symbol and tone are
+chosen by a per-feature table (`TaskSymbols`, `PlantSymbols`, `GardenSymbols`,
+`TodaySymbols`, `ObservationSymbols`), because which SF Symbol stands for
+"urgent" is a presentation decision.
+
+The interface is icon-led: state that used to be a labelled sentence — task
+status and urgency, plant lifecycle stage, garden lifecycle and role,
+observation kind, pending synchronization — is rendered as a symbol plus a
+short label, never a symbol alone. Symbols are sized by text style and
+`imageScale`, never by a point size, so they scale with Dynamic Type and sit on
+the adjacent label's baseline; every touch target still clears 44 points
+however small the symbol inside it is drawn.
+
 ### 5.2 Application
 
 Application use cases coordinate domain rules, repositories, local transactions, synchronization, and platform services. Examples include:
@@ -238,6 +258,23 @@ captured → registered → queued → uploading → verifying → retained/dele
 The application never deletes the only local copy until the server confirms upload integrity or the user deliberately discards it.
 
 ## 14. Navigation
+
+A garden is the workspace every record belongs to, so choosing one is a mode
+switch rather than a push. The authenticated root is therefore one of two
+things: the garden picker, or — once a garden is chosen — that garden's tab
+bar. "Switch garden" returns to the picker.
+
+Inside a garden, the five surfaces a gardener moves between constantly and in
+no fixed order are tabs, each with its own `NavigationStack` so each keeps its
+own history: **Today**, **Tasks**, **Plants**, **Journal** (observations), and
+**Map**. Five, not six — iPhone collapses a sixth into a "More" list.
+
+Garden settings are behind one button present on every tab, presented as a
+sheet, and hold only what configures a garden: its name, its lifecycle, the
+property plan behind its map, the synchronization conflicts awaiting
+resolution, and service status. They are deliberately not the app's front door;
+they were until work package P8-UX-01, when the primary surfaces were
+`NavigationLink`s inside the settings form.
 
 A typed application router owns major destinations and modal flows. Features declare destinations without reaching into other feature view hierarchies.
 

@@ -49,5 +49,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>VerderyAPIOrigin</key>
+	<string>$(API_ORIGIN)</string>
 </dict>
 </plist>

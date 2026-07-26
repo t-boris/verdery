@@ -50,6 +50,7 @@ public final class GardensListViewModel {
     public var createTitle: String { strings(.gardensCreateTitle) }
     public var createNameLabel: String { strings(.gardensCreateNameLabel) }
     public var createSubmitTitle: String { strings(.gardensCreateSubmit) }
+    public var cancelTitle: String { strings(.gardensCreateCancel) }
 
     public func load() async {
         let hadCachedResult: Bool
@@ -108,6 +109,8 @@ public final class GardensListViewModel {
         GardenSummary(
             id: garden.id,
             name: garden.name,
+            lifecycleState: garden.lifecycleState,
+            callerRole: garden.callerRole,
             lifecycleLabel: lifecycleLabel(for: garden.lifecycleState),
             roleLabel: roleLabel(for: garden.callerRole),
             syncStatusLabel: locallySavedGardenIds.contains(garden.id) ? strings(.gardensSavedLocally) : nil

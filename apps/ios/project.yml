@@ -112,6 +112,13 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLSchemes:
               - com.googleusercontent.apps.417008876420-ofvf3en5tk3th23cd0flklqa22vncvt4
+        # Which API this build talks to, as a build-setting reference rather
+        # than a literal — see Sources/AppComposition/AppEnvironment.swift.
+        # The default below is the local development container, which is right
+        # for the Simulator and unreachable from a phone: an archive intended
+        # for TestFlight MUST override it, e.g.
+        # `xcodebuild ... API_ORIGIN=https://api.example.com`.
+        VerderyAPIOrigin: "$(API_ORIGIN)"
     entitlements:
       path: Generated/Verdery.entitlements
       properties:
@@ -127,6 +134,8 @@ targets:
         # pin.
         DEVELOPMENT_TEAM: 3M68DG8S7N
         MARKETING_VERSION: "1.0"
+        # Overridden per archive; see the VerderyAPIOrigin note above.
+        API_ORIGIN: "http://localhost:8080"
         # Overridden per upload by scripts/archive-and-upload.sh: App
         # Store Connect rejects a build whose (version, build) pair it has
         # already seen, so this literal is only the local-build default.

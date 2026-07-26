@@ -1,12 +1,6 @@
+import CoreDesignSystem
 import FeatureAuthentication
 import FeatureGardens
-import FeatureHealth
-import FeatureMap
-import FeatureObservations
-import FeaturePlants
-import FeatureRecommendations
-import FeatureSyncConflicts
-import FeatureTasks
 import SwiftUI
 
 /// The application's root scene.
@@ -26,22 +20,46 @@ public struct RootScene: Scene {
     public var body: some Scene {
         WindowGroup {
             RootView(composition: composition)
+                // The single hook that completes a federated or email-link
+                // sign-in; see `AppCompositionRoot.handleIncomingURL`.
+                //
+                // `.onOpenURL` rather than `AppDelegate`'s
+                // `application(_:open:options:)`: UIKit delivers that method
+                // only to apps that do not adopt scenes, and a SwiftUI `App`
+                // always does — the `@UIApplicationDelegateAdaptor` this app
+                // installs for background uploads does not change that. This
+                // modifier receives both custom-scheme URLs and universal
+                // links, which is every shape a sign-in callback arrives in,
+                // and it is attached above `RootView`'s own signed-in/
+                // signed-out branch so a callback still lands if Firebase's
+                // state listener flips the branch first.
+                .onOpenURL { url in
+                    composition.handleIncomingURL(url)
+                }
         }
     }
 }
 
 /// Root view hierarchy.
 ///
-/// Routes between the sign-in screen and the authenticated application based
-/// on `AuthenticationSessionObserver`, kept current by Firebase's own
-/// listener rather than a one-time snapshot — see that type for why.
+/// Three states, in order of how far the reader has got: signed out, signed in
+/// with no garden chosen, and inside one garden.
 ///
-/// iPhone and iPad share this hierarchy; a size-class-driven split arrives with
-/// the first feature that has a list and a detail.
+/// The third replaced a single `NavigationStack` rooted at the garden list, in
+/// which every screen the app has was reached by pushing through
+/// `GardenSettingsView`. A garden is a workspace — everything in the product
+/// belongs to exactly one — so choosing one is a mode switch rather than a
+/// push, and the whole root swaps to that garden's tab bar. That also means
+/// "switch garden" is a way *back out*, not a `NavigationStack` pop through
+/// screens the reader never wanted.
+///
+/// The chosen garden is deliberately not persisted across launches: doing so
+/// would need a new stored preference, which is behavior rather than
+/// presentation, and this pass changes presentation.
 public struct RootView: View {
     private let composition: AppCompositionRoot
 
-    @State private var path: [AppRoute] = [.gardens]
+    @State private var selectedGarden: SelectedGarden?
     /// App foreground/background transitions — architecture/ios-application-
     /// design.md, section "8. Synchronization Integration": the
     /// synchronization engine "reacts to: ... App foreground/background
@@ -51,13 +69,11 @@ public struct RootView: View {
     /// connectivity-change (`NWPathMonitor`) and background-processing-
     /// opportunity (`BGTaskScheduler`) triggers remain a real, separate gap
     /// — confirmed by inspection, not assumed, that nothing in this
-    /// codebase observes either today (no `NWPathMonitor`/`BGTaskScheduler`/
-    /// `scenePhase` reference existed anywhere before this change). Both
-    /// would need genuinely new subsystems (a path monitor actor;
-    /// `BGTaskSchedulerPermittedIdentifiers` in `Info.plist` plus a
-    /// registered background task handler) well beyond "a small, clearly-
-    /// scoped addition," so they are left as a documented gap for a future
-    /// stage rather than built here.
+    /// codebase observes either today. Both would need genuinely new
+    /// subsystems (a path monitor actor; `BGTaskSchedulerPermittedIdentifiers`
+    /// in `Info.plist` plus a registered background task handler) well beyond
+    /// "a small, clearly-scoped addition," so they are left as a documented
+    /// gap for a future stage rather than built here.
     @Environment(\.scenePhase) private var scenePhase
 
     public init(composition: AppCompositionRoot) {
@@ -65,86 +81,35 @@ public struct RootView: View {
     }
 
     public var body: some View {
-        if composition.sessionObserver.isSignedIn {
-            NavigationStack(path: $path) {
-                destination(for: path.first ?? .gardens)
-                    .navigationDestination(for: AppRoute.self, destination: destination(for:))
-                    // A distinct type from both `AppRoute` and the bare
-                    // `String` `GardensListView` pushes for a garden id — see
-                    // `GardenMapEditorRoute`'s doc comment for why reusing
-                    // either would be ambiguous on this one stack.
-                    .navigationDestination(for: GardenMapEditorRoute.self) { route in
-                        MapEditorView(model: composition.makeMapEditorViewModel(gardenId: route.gardenId))
-                    }
-                    // Phase 4: plant inventory, observation history, and
-                    // manual tasks — one route type per destination, the
-                    // same reason `GardenMapEditorRoute` exists.
-                    .navigationDestination(for: GardenPlantsRoute.self) { route in
-                        PlantsHomeView(model: composition.makePlantsHomeViewModel(gardenId: route.gardenId)) { plantId in
-                            AnyView(
-                                PlantDetailView(
-                                    model: composition.makePlantDetailViewModel(gardenId: route.gardenId, plantId: plantId)
-                                )
-                            )
-                        }
-                    }
-                    // P6-PLAN iOS parity: the garden's property-plan upload
-                    // screen — a FeatureGardens destination routed through
-                    // composition because only the composition root can
-                    // hand it the shared upload coordinator.
-                    .navigationDestination(for: GardenPlanUploadRoute.self) { route in
-                        GardenPlanUploadView(
-                            model: composition.makeGardenPlanUploadViewModel(gardenId: route.gardenId)
-                        )
-                    }
-                    .navigationDestination(for: GardenObservationsRoute.self) { route in
-                        ObservationsTimelineView(
-                            model: composition.makeObservationsTimelineViewModel(gardenId: route.gardenId)
-                        )
-                    }
-                    .navigationDestination(for: GardenTasksRoute.self) { route in
-                        TasksListView(model: composition.makeTasksListViewModel(gardenId: route.gardenId))
-                    }
-                    // P7-IOS-01: the garden's Today recommendation screen,
-                    // and the Today feature's own post-conversion link into
-                    // the same garden's task list — two marker routes, the
-                    // same reason `GardenTasksRoute` exists (features never
-                    // depend on each other; only this composition layer
-                    // names both).
-                    .navigationDestination(for: GardenTodayRoute.self) { route in
-                        TodayView(model: composition.makeTodayViewModel(gardenId: route.gardenId))
-                    }
-                    .navigationDestination(for: TodayTasksRoute.self) { route in
-                        TasksListView(model: composition.makeTasksListViewModel(gardenId: route.gardenId))
-                    }
-                    // P5-CONFLICT-01: the durable conflict list/compare/
-                    // resolve screen, one route type per destination, the
-                    // same reason `GardenTasksRoute`/`GardenPlantsRoute`/
-                    // `GardenObservationsRoute` exist.
-                    .navigationDestination(for: GardenSyncConflictsRoute.self) { route in
-                        SyncConflictsView(model: composition.makeSyncConflictsViewModel(gardenId: route.gardenId))
-                    }
-            }
-            .onChange(of: scenePhase) { _, newPhase in
-                guard newPhase == .active else { return }
-                Self.triggerSyncOnForeground(composition: composition)
-            }
-        } else {
-            NavigationStack {
+        Group {
+            if composition.sessionObserver.isSignedIn {
+                signedInBody
+            } else {
                 SignInView(model: composition.makeSignInViewModel())
             }
+        }
+        .tint(Palette.accent)
+        .onChange(of: scenePhase) { _, newPhase in
+            guard newPhase == .active else { return }
+            Self.triggerSyncOnForeground(composition: composition)
         }
     }
 
     @ViewBuilder
-    private func destination(for route: AppRoute) -> some View {
-        switch route {
-        case .gardens:
-            GardensListView(model: composition.makeGardensListViewModel()) { gardenId in
-                AnyView(GardenSettingsView(model: composition.makeGardenSettingsViewModel(gardenId: gardenId)))
+    private var signedInBody: some View {
+        if let selectedGarden {
+            GardenTabView(
+                composition: composition,
+                gardenId: selectedGarden.id,
+                gardenName: selectedGarden.name,
+                onSwitchGarden: { self.selectedGarden = nil }
+            )
+        } else {
+            NavigationStack {
+                GardensListView(model: composition.makeGardensListViewModel()) { gardenId, gardenName in
+                    selectedGarden = SelectedGarden(id: gardenId, name: gardenName)
+                }
             }
-        case .serviceHealth:
-            ServiceHealthView(model: composition.makeServiceHealthViewModel())
         }
     }
 
@@ -166,4 +131,14 @@ public struct RootView: View {
             try? await engine.retryNow()
         }
     }
+}
+
+/// The garden the reader is currently inside.
+///
+/// Carries the name as well as the id so the tab bar's garden button can be
+/// labelled immediately, without every tab waiting on its own fetch to learn
+/// what the reader just tapped.
+private struct SelectedGarden: Equatable {
+    let id: String
+    let name: String
 }

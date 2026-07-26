@@ -79,14 +79,55 @@ public final class FirebaseAuthenticationGateway: AuthenticationGateway, Sendabl
         try await signIn(providerID: "google.com")
     }
 
-    /// Apple requires the `email` and `name` scopes to be requested
-    /// explicitly, and returns them only on a user's very first
-    /// authorization for this Services ID — Firebase still carries the
-    /// verified email on every subsequent sign-in via the ID token itself,
-    /// which is all this application reads.
+    /// Apple's own native authorization sheet, not Firebase's generic web
+    /// flow.
+    ///
+    /// The generic flow is not merely discouraged for `apple.com` — it traps.
+    /// `OAuthProvider.init(providerID:auth:)` calls `fatalError("Sign in with
+    /// Apple is not supported via generic IDP; You must use the Apple SDK for
+    /// Sign in with Apple.")` for this provider ID whenever no auth emulator
+    /// is configured, so the previous implementation terminated the app the
+    /// instant the button was tapped. See ``AppleSignInPresenter`` for the
+    /// crash report this reproduces from.
+    ///
+    /// The nonce is generated here and used twice: its SHA-256 goes to Apple,
+    /// which embeds it in the signed token, and the raw value goes to
+    /// Firebase, which checks the two agree. That is what stops a token
+    /// captured in transit from being replayed.
     @MainActor
     public func signInWithApple() async throws -> String {
-        try await signIn(providerID: "apple.com", scopes: ["email", "name"])
+        let rawNonce = try AppleSignInPresenter.makeRawNonce()
+        let presenter = AppleSignInPresenter()
+        let assertion = try await presenter.requestAssertion(
+            hashedNonce: AppleSignInPresenter.hashed(nonce: rawNonce)
+        )
+
+        return try await exchangeAppleAssertion(
+            identityToken: assertion.identityToken,
+            rawNonce: rawNonce,
+            fullName: assertion.fullName
+        )
+    }
+
+    /// Deliberately `nonisolated`, and taking only value types.
+    ///
+    /// `AuthDataResult` is a non-`Sendable` reference type, so awaiting
+    /// `signIn(with:)` from the main actor would return one across an
+    /// isolation boundary — which Swift 6 rejects. Keeping the whole exchange
+    /// off the main actor means only the resulting `String` ever crosses back,
+    /// the same shape ``signIn(providerID:scopes:)`` uses for its own reason.
+    private func exchangeAppleAssertion(
+        identityToken: String,
+        rawNonce: String,
+        fullName: PersonNameComponents?
+    ) async throws -> String {
+        let credential = OAuthProvider.appleCredential(
+            withIDToken: identityToken,
+            rawNonce: rawNonce,
+            fullName: fullName
+        )
+        let result = try await Auth.auth().signIn(with: credential)
+        return try await result.user.getIDToken()
     }
     #else
     // Firebase declares `signIn(with: FederatedAuthProvider, uiDelegate:)`
@@ -127,6 +168,26 @@ public final class FirebaseAuthenticationGateway: AuthenticationGateway, Sendabl
 
     public func signOut() throws {
         try Auth.auth().signOut()
+    }
+
+    /// Forwards an incoming URL to Firebase.
+    ///
+    /// `canHandle` returns `true` only while a federated web flow is actually
+    /// waiting for this exact callback, so calling it for every URL the app
+    /// receives is safe, and calling it twice for the same URL — which happens
+    /// if the SDK's delegate swizzling is also active — is a no-op the second
+    /// time.
+    @MainActor
+    public func handleOpenURL(_ url: URL) -> Bool {
+        #if os(iOS)
+        Auth.auth().canHandle(url)
+        #else
+        false
+        #endif
+    }
+
+    public var pendingEmailForSignIn: String? {
+        Self.pendingEmailForSignIn()
     }
 
     /// The address `sendEmailSignInLink` stored, for completing sign-in after

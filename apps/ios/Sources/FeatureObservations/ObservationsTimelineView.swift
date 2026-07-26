@@ -1,60 +1,75 @@
+import CoreDesignSystem
 import CoreDomain
-import CoreMediaTransfer
-import PhotosUI
 import SwiftUI
 
-/// A garden's observation timeline: chronological history, an optional
-/// per-plant filter, a "record observation" form (including, as of
-/// P6-IOS-01, a photo attachment), and a correction ("amend"/"supersede")
-/// action per row.
+/// A garden's observation journal: a chronological history, an optional
+/// per-plant filter, and a correction action per entry.
 ///
-/// A row's `isCorrected` flag and any photo-analysis results are surfaced
-/// plainly — never as a confirmed diagnosis — and correcting a row never
-/// edits it: the original stays visible underneath the new correction row.
+/// What changed: recording an observation was a nine-control `Section` pinned
+/// above the history, so the history — the thing a journal exists to show —
+/// started below the fold and the screen read as a form with a list attached.
+/// Recording now happens in a sheet behind a toolbar button
+/// (``ObservationRecordSheetView``), and the timeline occupies the screen.
 ///
-/// Photo attachment is real, working upload capability as of P6-IOS-01 —
-/// see `ObservationsTimelineViewModel.photoAttachment`'s own doc comment.
-/// Recording a note and/or a condition summary still works fully without a
-/// photo; the submit action is disabled only while a picked photo is still
-/// mid-upload (`ObservationsTimelineViewModel.isPhotoBlockingSubmit`).
+/// Each entry became a card led by a symbol medallion that says at a glance
+/// what kind of entry it is — a plain note, a correction, or one carrying
+/// photo analysis — with the timestamp, correction state, and pending-sync
+/// state as chips rather than as three more lines of grey text. Correcting an
+/// entry moved into a long-press context menu and a trailing swipe, so the
+/// button that used to sit inside every single row is gone.
+///
+/// The contract this screen keeps: a row's `isCorrected` flag and any
+/// photo-analysis result are surfaced plainly, never as a confirmed diagnosis,
+/// and correcting an entry never edits it — the original stays visible
+/// underneath the later correction.
 public struct ObservationsTimelineView: View {
     @State private var model: ObservationsTimelineViewModel
-    @State private var pickedPhotoItem: PhotosPickerItem?
+    @State private var isRecordPresented = false
 
     public init(model: ObservationsTimelineViewModel) {
         _model = State(wrappedValue: model)
     }
 
     public var body: some View {
-        List {
-            filterSection
-            recordSection
-            timelineSection
-        }
-        .navigationTitle(model.title)
-        .task { await model.load() }
-        .refreshable { await model.load() }
-        .onChange(of: pickedPhotoItem) { _, newItem in
-            guard let newItem else { return }
-            Task { await loadAndAttach(newItem) }
-        }
-        .sheet(isPresented: isCorrectionSheetPresented) {
-            ObservationCorrectionSheetView(
-                title: model.correctionSheetTitle,
-                correctionKindLabel: model.correctionKindLabel,
-                noteTextLabel: model.noteTextLabel,
-                conditionSummaryLabel: model.conditionSummaryLabel,
-                submitTitle: model.correctionSubmitTitle,
-                closeTitle: model.closeTitle,
-                isSubmitting: model.isSubmittingCorrection,
-                errorMessage: model.correctionErrorMessage,
-                correctionKindName: { model.correctionKindName($0) },
-                onSubmit: { kind, note, condition in
-                    await model.submitCorrection(kind: kind, noteText: note, conditionSummary: condition)
-                },
-                onClose: { model.correctingObservationId = nil }
-            )
-        }
+        content
+            .navigationTitle(model.title)
+            .screenBackground()
+            .task { await model.load() }
+            .refreshable { await model.load() }
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        isRecordPresented = true
+                    } label: {
+                        Label(model.recordSectionTitle, systemImage: "plus")
+                    }
+                    .accessibilityIdentifier("observations.record.open")
+                }
+            }
+            .sheet(isPresented: $isRecordPresented) {
+                ObservationRecordSheetView(model: model) { didSucceed in
+                    Haptics.play(didSucceed ? .success : .failure)
+                    if didSucceed { isRecordPresented = false }
+                }
+            }
+            .sheet(isPresented: isCorrectionSheetPresented) {
+                ObservationCorrectionSheetView(
+                    title: model.correctionSheetTitle,
+                    correctionKindLabel: model.correctionKindLabel,
+                    noteTextLabel: model.noteTextLabel,
+                    conditionSummaryLabel: model.conditionSummaryLabel,
+                    submitTitle: model.correctionSubmitTitle,
+                    closeTitle: model.closeTitle,
+                    isSubmitting: model.isSubmittingCorrection,
+                    errorMessage: model.correctionErrorMessage,
+                    correctionKindName: { model.correctionKindName($0) },
+                    onSubmit: { kind, note, condition in
+                        await model.submitCorrection(
+                            kind: kind, noteText: note, conditionSummary: condition)
+                    },
+                    onClose: { model.correctingObservationId = nil }
+                )
+            }
     }
 
     private var isCorrectionSheetPresented: Binding<Bool> {
@@ -64,192 +79,220 @@ public struct ObservationsTimelineView: View {
         )
     }
 
-    private var filterSection: some View {
-        Section(model.filterLabel) {
-            TextField(model.plantIdLabel, text: $model.plantIdFilter)
-                .accessibilityIdentifier("observations.filter.plantIdField")
-            HStack {
-                Button(model.filterApplyTitle) { Task { await model.load() } }
-                    .accessibilityIdentifier("observations.filter.apply")
-                if !model.plantIdFilter.isEmpty {
-                    Button(model.filterClearTitle) { Task { await model.clearFilter() } }
-                        .accessibilityIdentifier("observations.filter.clear")
-                }
-            }
-        }
-    }
-
-    private var recordSection: some View {
-        Section(model.recordSectionTitle) {
-            TextField(model.noteTextLabel, text: $model.recordNoteText, axis: .vertical)
-                .accessibilityIdentifier("observations.record.noteField")
-            TextField(model.conditionSummaryLabel, text: $model.recordConditionSummary, axis: .vertical)
-                .accessibilityIdentifier("observations.record.conditionField")
-            TextField(model.plantIdLabel, text: $model.recordPlantId)
-                .accessibilityIdentifier("observations.record.plantIdField")
-            TextField(model.gardenObjectIdLabel, text: $model.recordGardenObjectId)
-                .accessibilityIdentifier("observations.record.gardenObjectIdField")
-            Text(model.mapObjectIdHint)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-
-            Toggle(model.observedAtToggleLabel, isOn: $model.recordHasObservedAt)
-                .accessibilityIdentifier("observations.record.observedAtToggle")
-            if model.recordHasObservedAt {
-                DatePicker(model.observedAtLabel, selection: $model.recordObservedAt)
-                    .accessibilityIdentifier("observations.record.observedAtPicker")
-            }
-
-            photoPickerRow
-
-            if let message = model.recordErrorMessage {
-                Text(message).foregroundStyle(.red)
-                    .accessibilityIdentifier("observations.record.failure")
-            }
-
-            Button(model.recordSubmitTitle) {
-                Task { await model.submitRecordObservation() }
-            }
-            .disabled(model.isSubmittingRecord || model.isPhotoBlockingSubmit)
-            .accessibilityIdentifier("observations.record.submit")
-        }
-    }
-
-    /// Absent entirely for a view model built with no `photoAttachment` —
-    /// see `FeaturePlants.PlantDetailView.photoSection`'s identical
-    /// reasoning.
     @ViewBuilder
-    private var photoPickerRow: some View {
-        if let photoAttachment = model.photoAttachment {
-            PhotosPicker(model.photoPickButtonTitle, selection: $pickedPhotoItem, matching: .images)
-                .accessibilityIdentifier("observations.record.photo.pick")
-
-            if photoAttachment.status != .idle {
-                Text(model.photoStatusText)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("observations.record.photo.status")
-
-                if photoAttachment.status.isRetryable, case .failed = photoAttachment.status {
-                    Button(model.photoRetryButtonTitle) {
-                        Task { await model.retryRecordPhotoUpload() }
-                    }
-                    .accessibilityIdentifier("observations.record.photo.retry")
-                }
-
-                Button(model.photoRemoveButtonTitle, role: .destructive) {
-                    pickedPhotoItem = nil
-                    Task { await model.discardRecordPhoto() }
-                }
-                .accessibilityIdentifier("observations.record.photo.remove")
-            }
-        }
-    }
-
-    /// See `FeaturePlants.PlantDetailView.loadAndAttach`'s identical doc
-    /// comment.
-    private func loadAndAttach(_ item: PhotosPickerItem) async {
-        guard let data = try? await item.loadTransferable(type: Data.self) else { return }
-        let contentType = item.supportedContentTypes.first?.preferredMIMEType ?? "image/jpeg"
-        await model.pickRecordPhoto(data: data, contentType: contentType)
-    }
-
-    @ViewBuilder
-    private var timelineSection: some View {
+    private var content: some View {
         switch model.state {
         case .loading:
-            Section {
-                ProgressView(model.loadingMessage)
-                    .accessibilityIdentifier("observations.loading")
-            }
+            LoadingStateView(model.loadingMessage)
+                .accessibilityIdentifier("observations.loading")
 
         case let .loaded(rows) where rows.isEmpty:
-            Section {
-                Text(model.emptyMessage)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("observations.empty")
+            VStack(spacing: Metrics.space4) {
+                filterBar
+                EmptyStateView(
+                    symbol: "book.closed",
+                    title: model.title,
+                    message: model.emptyMessage,
+                    actionTitle: model.recordSectionTitle,
+                    action: { isRecordPresented = true }
+                )
+                .accessibilityIdentifier("observations.empty")
+                Spacer()
             }
+            .padding(Metrics.space4)
 
         case let .loaded(rows):
-            Section {
-                ForEach(rows) { row in
-                    rowView(row)
+            // Above the `List`, not a `Section` of it — see
+            // `FeatureTasks.TasksListView` for the screenshot that prompted it.
+            VStack(spacing: 0) {
+                filterBar
+
+                List {
+                    ForEach(rows) { row in
+                        rowView(row)
+                            .listRowInsets(
+                                EdgeInsets(
+                                    top: Metrics.space1,
+                                    leading: Metrics.space4,
+                                    bottom: Metrics.space1,
+                                    trailing: Metrics.space4
+                                )
+                            )
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button {
+                                    model.correctingObservationId = row.id
+                                } label: {
+                                    Label(
+                                        model.correctActionTitle,
+                                        systemImage: ObservationSymbols.correct
+                                    )
+                                }
+                                .tint(Palette.accent)
+                                .accessibilityIdentifier("observations.row.\(row.id).correct")
+                            }
+                            .contextMenu {
+                                Button {
+                                    model.correctingObservationId = row.id
+                                } label: {
+                                    Label(
+                                        model.correctActionTitle,
+                                        systemImage: ObservationSymbols.correct
+                                    )
+                                }
+                            }
+                    }
                 }
+                .listStyle(.plain)
             }
 
         case let .failed(message):
-            Section {
-                Text(message)
-                    .accessibilityIdentifier("observations.failure")
-                Button(model.retryTitle) { Task { await model.load() } }
+            FailureStateView(
+                message: message,
+                retryTitle: model.retryTitle,
+                retry: { Task { await model.load() } }
+            )
+            .accessibilityIdentifier("observations.failure")
+        }
+    }
+
+    /// The plant filter, as a single field with an inline clear affordance
+    /// rather than a labelled row plus two separate buttons.
+    private var filterBar: some View {
+        HStack(spacing: Metrics.space2) {
+            Image(systemName: "line.3.horizontal.decrease.circle")
+                .foregroundStyle(Palette.textMuted)
+                .accessibilityHidden(true)
+
+            TextField(model.plantIdLabel, text: $model.plantIdFilter)
+                .textFieldStyle(.roundedBorder)
+                .submitLabel(.search)
+                .onSubmit { Task { await model.load() } }
+                .accessibilityIdentifier("observations.filter.plantIdField")
+
+            if model.plantIdFilter.isEmpty {
+                Button {
+                    Task { await model.load() }
+                } label: {
+                    Label(model.filterApplyTitle, systemImage: "magnifyingglass")
+                        .labelStyle(.iconOnly)
+                }
+                .accessibilityLabel(model.filterApplyTitle)
+                .accessibilityIdentifier("observations.filter.apply")
+            } else {
+                Button {
+                    Task { await model.clearFilter() }
+                } label: {
+                    Label(model.filterClearTitle, systemImage: "xmark.circle.fill")
+                        .labelStyle(.iconOnly)
+                }
+                .accessibilityLabel(model.filterClearTitle)
+                .accessibilityIdentifier("observations.filter.clear")
             }
         }
+        .tint(Palette.accent)
+        .padding(.horizontal, Metrics.space4)
+        .padding(.vertical, Metrics.space2)
     }
 
     private func rowView(_ row: ObservationRow) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(row.observedAtText).font(.footnote).foregroundStyle(.secondary)
-                if row.isCorrected {
-                    Text(model.correctedBadgeText)
-                        .font(.caption)
-                        .padding(.horizontal, 6)
-                        .background(Capsule().fill(Color.secondary.opacity(0.2)))
+        SurfaceCard {
+            HStack(alignment: .top, spacing: Metrics.space3) {
+                IconMedallion(
+                    symbol: ObservationSymbols.entry(row),
+                    label: row.correctionKindLabel ?? model.title,
+                    tone: row.correctionKindLabel == nil ? .accent : .info
+                )
+
+                VStack(alignment: .leading, spacing: Metrics.space2) {
+                    HStack(spacing: Metrics.space2) {
+                        Chip(
+                            symbol: ObservationSymbols.observedAt,
+                            label: row.observedAtText,
+                            tone: .neutral
+                        )
+                        if row.isCorrected {
+                            Chip(
+                                symbol: ObservationSymbols.corrected,
+                                label: model.correctedBadgeText,
+                                tone: .info
+                            )
+                        }
+                        if row.isPendingSync {
+                            StatusGlyph(
+                                symbol: ObservationSymbols.pendingSync,
+                                label: model.savedLocallyBadgeText,
+                                tone: .warning
+                            )
+                            .accessibilityIdentifier("observations.row.\(row.id).pendingSync")
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .lineLimit(1)
+
+                    if let correctionOfText = model.correctionOfText(for: row) {
+                        Text(correctionOfText)
+                            .font(Typography.micro)
+                            .foregroundStyle(Palette.textMuted)
+                            .accessibilityIdentifier("observations.row.\(row.id).correctionOf")
+                    }
+
+                    if let noteText = row.noteText, !noteText.isEmpty {
+                        Text(noteText)
+                            .font(Typography.body)
+                            .foregroundStyle(Palette.text)
+                    }
+
+                    if let conditionSummary = row.conditionSummary, !conditionSummary.isEmpty {
+                        Text(conditionSummary)
+                            .font(Typography.detail)
+                            .foregroundStyle(Palette.textMuted)
+                    }
+
+                    ForEach(row.analysisSummaries) { summary in
+                        analysisView(summary)
+                    }
                 }
-                if row.isPendingSync {
-                    Text(model.savedLocallyBadgeText)
-                        .font(.caption)
-                        .padding(.horizontal, 6)
-                        .background(Capsule().fill(Color.secondary.opacity(0.2)))
-                        .accessibilityIdentifier("observations.row.\(row.id).pendingSync")
-                }
             }
-
-            if let correctionOfText = model.correctionOfText(for: row) {
-                Text(correctionOfText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("observations.row.\(row.id).correctionOf")
-            }
-
-            if let noteText = row.noteText, !noteText.isEmpty {
-                Text(noteText)
-            }
-            if let conditionSummary = row.conditionSummary, !conditionSummary.isEmpty {
-                Text(conditionSummary).foregroundStyle(.secondary)
-            }
-
-            ForEach(row.analysisSummaries) { summary in
-                analysisView(summary)
-            }
-
-            Button(model.correctActionTitle) {
-                model.correctingObservationId = row.id
-            }
-            .font(.footnote)
-            .accessibilityIdentifier("observations.row.\(row.id).correct")
         }
-        .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
         .accessibilityIdentifier("observations.row.\(row.id)")
     }
 
+    /// A photo-analysis result, always alongside its disclaimer.
+    ///
+    /// The disclaimer is a warning-toned `InlineMessage` with its own symbol,
+    /// so "this is a suggestion, not a diagnosis" reads at the same glance as
+    /// the suggestion itself rather than as a footnote below it.
     private func analysisView(_ summary: ObservationAnalysisSummary) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text("\(summary.kindLabel): \(summary.suggestedLabel) (\(summary.confidenceText))")
-                .font(.footnote)
-            // Never shown as a confirmed diagnosis: the disclaimer is always
-            // visible alongside the suggestion, not only when
-            // `requiresConfirmation` happens to be true.
+        VStack(alignment: .leading, spacing: Metrics.space1) {
+            HStack(spacing: Metrics.space2) {
+                Chip(
+                    symbol: ObservationSymbols.analysis,
+                    label: summary.kindLabel,
+                    tone: .accent
+                )
+                Text(summary.suggestedLabel)
+                    .font(Typography.detail)
+                    .foregroundStyle(Palette.text)
+                Text(summary.confidenceText)
+                    .font(Typography.micro)
+                    .foregroundStyle(Palette.textMuted)
+            }
+
             if summary.requiresConfirmation {
-                Text(model.analysisDisclaimer)
-                    .font(.caption2)
-                    .foregroundStyle(.orange)
+                InlineMessage(model.analysisDisclaimer, tone: .warning)
             }
             if summary.requestedAdditionalEvidence {
-                Text(model.additionalEvidenceRequested)
-                    .font(.caption2)
-                    .foregroundStyle(.orange)
+                InlineMessage(model.additionalEvidenceRequested, tone: .warning)
             }
         }
+        .padding(Metrics.space2)
+        .background(
+            RoundedRectangle(cornerRadius: Metrics.radiusSmall, style: .continuous)
+                .fill(Palette.surfaceSunken)
+        )
         .accessibilityIdentifier("observations.analysis.\(summary.id)")
     }
 }

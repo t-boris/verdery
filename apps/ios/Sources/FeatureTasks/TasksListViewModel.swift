@@ -144,6 +144,8 @@ public final class TasksListViewModel {
     public var cancelTitle: String { strings(.tasksCancel) }
     public var closeTitle: String { strings(.tasksClose) }
     public var savedLocallyLabel: String { strings(.tasksSavedLocally) }
+    public var newTaskTitle: String { strings(.tasksCreateOpen) }
+    public var openFilterLabel: String { strings(.tasksFilterOpen) }
 
     public func targetKindName(_ kind: TaskTargetKind) -> String {
         TasksLocalization.targetKindName(kind, strings: strings)
@@ -259,6 +261,7 @@ public final class TasksListViewModel {
             status: task.status,
             statusLabel: TasksLocalization.statusName(task.status, strings: strings),
             urgencyLabel: TasksLocalization.urgencyName(task.urgency, strings: strings),
+            urgency: task.urgency,
             dueDateText: task.dueDate,
             targetLabel: targetLabel(for: task),
             revision: task.revision,
