@@ -16,6 +16,7 @@ Documentation for working _in_ this repository. Product meaning lives in
 | [deferred-capabilities.md](deferred-capabilities.md)                 | What is deliberately not built yet, and why?                                                   |
 | [recommendation-safety-catalog.md](recommendation-safety-catalog.md) | What may the recommendation pipeline generate, and how does a horticultural reviewer sign off? |
 | [threat-model.md](threat-model.md)                                   | What can attack this system, what stops it today, and what does the owner sign off on?         |
+| [privacy-notice-draft.md](privacy-notice-draft.md)                   | What do we tell users about their data, and which claims are verified against code?            |
 | [service-levels.md](service-levels.md)                               | What numbers is this service held to, and what do they cost to meet?                           |
 | [load-testing.md](load-testing.md)                                   | How is capacity measured, and why can it not be measured yet?                                  |
 | [support-operations.md](support-operations.md)                       | Someone reported a problem — how is it classified, diagnosed, and escalated?                   |
