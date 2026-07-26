@@ -96,13 +96,13 @@ is itself blocked.
 
 ## 5. Backup and restore
 
-| #   | Gate                                      | Command / procedure                                                        | Evidence                                      | Status |
-| --- | ----------------------------------------- | -------------------------------------------------------------------------- | --------------------------------------------- | ------ |
-| 23  | Backups exist and are recent              | `gcloud sql backups list --instance=<instance> --project=<project>`        | `SUCCESSFUL` rows within the retention window | `M`    |
-| 24  | **A restore has actually been performed** | RB-02, executed end to end onto a scratch instance                         | —                                             | `X`    |
-| 25  | Restore is timed against an RTO           | Same exercise, wall-clock recorded                                         | —                                             | `X`    |
-| 26  | Point-in-time recovery works              | `gcloud sql instances clone <src> <dst> --point-in-time=<timestamp>`       | —                                             | `X`    |
-| 27  | Post-restore verification passes          | RB-02's own post-restore checks (row counts, migration state, a live read) | —                                             | `X`    |
+| #   | Gate                                      | Command / procedure                                                        | Evidence                                                                                                                                   | Status |
+| --- | ----------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| 23  | Backups exist and are recent              | `gcloud sql backups list --instance=<instance> --project=<project>`        | `SUCCESSFUL` rows within the retention window                                                                                              | `M`    |
+| 24  | **A restore has actually been performed** | RB-02, executed end to end onto a scratch instance                         | Done 2026-07-26: clone of the 09:00 UTC backup reached `RUNNABLE` with the `verdery` database present; scratch instance deleted            | `PASS` |
+| 25  | Restore is timed against an RTO           | Same exercise, wall-clock recorded                                         | **52 minutes** (`04:46:57Z`→`05:38:52Z`, Cloud SQL operation timestamps). Database layer only — no application cutover, and not under load | `PASS` |
+| 26  | Point-in-time recovery works              | `gcloud sql instances clone <src> <dst> --point-in-time=<timestamp>`       | —                                                                                                                                          | `X`    |
+| 27  | Post-restore verification passes          | RB-02's own post-restore checks (row counts, migration state, a live read) | —                                                                                                                                          | `X`    |
 
 **All four are impossible today, and gate 24 is the most consequential unrun item in this
 document.** Backups and PITR are real, enabled, and succeeding — four `SUCCESSFUL` backups, daily at

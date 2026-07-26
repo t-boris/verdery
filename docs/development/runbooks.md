@@ -119,8 +119,15 @@ Four `SUCCESSFUL` backups, none in error: `2026-07-25T09:00Z`, `2026-07-24T09:00
 `2026-07-23T09:00Z`, and `2026-07-22T12:48:19Z` (the automatic first backup taken at instance
 creation). The retention policy allows seven; four exist because the instance is four days old.
 
-**No restore has ever been performed.** Per reliability-and-disaster-recovery.md §7, "Backups are
-not considered valid until restoration is tested" — by that standard these backups are unvalidated.
+**A restore HAS now been performed, once, and it worked.** On 2026-07-26 the 09:00 UTC automated
+backup was restored by cloning `verdery-dev-pg` to a scratch instance, which reached `RUNNABLE`
+with the `verdery` database present, and the scratch instance was then deleted. **Measured
+end-to-end: 52 minutes** (`04:46:57Z` → `05:38:52Z`, from the Cloud SQL operation's own start and
+end timestamps). Per reliability-and-disaster-recovery.md §7 — "Backups are not considered valid
+until restoration is tested" — these backups are now validated, and 52 minutes is the project's
+first real RTO datapoint rather than an estimate. Note what it does NOT cover: no application was
+pointed at the restored instance, so this validates the database recovery path, not a full service
+recovery.
 See [RB-02](#rb-02-database-restore).
 
 ### 1.3 Storage
@@ -570,8 +577,11 @@ logs in `CLOUD_STORAGE`. Four successful backups are on disk, none in error. Ful
    not a failover.
 2. `deletionProtectionEnabled: false`. §6 and §15 both require deletion protection. A mistaken
    `gcloud sql instances delete verdery-dev-pg` succeeds today.
-3. **No restore has ever been performed.** §7 is unambiguous: "Backups are not considered valid
-   until restoration is tested." By the project's own standard, these backups are unvalidated.
+3. **~~No restore has ever been performed.~~ Done 2026-07-26: a clone-to-scratch restore of the
+   09:00 UTC backup succeeded in 52 minutes and the scratch instance was deleted.** §7's standard
+   ("Backups are not considered valid until restoration is tested") is met for the database layer.
+   What remains untested is a restore with an application cut over to it, and a restore under
+   pressure rather than on a quiet morning.
 
 These are `verdery-dev` facts. `P8-DB-01` (production database hardening) is unbuilt and there is
 no production project, so the production posture is not "worse than this" — it does not exist.
@@ -703,14 +713,14 @@ repointing any traffic.
 
 ### Step disposition
 
-| Step                                | Mark | Note                                                                                                             |
-| ----------------------------------- | ---- | ---------------------------------------------------------------------------------------------------------------- |
-| Backup inventory / config read      | `R`  | Ran live; produced the posture in [§1.2](#12-database).                                                          |
-| Readiness-probe assessment          | `E`  | Curled live, 0.35 s.                                                                                             |
-| PITR window determination           | `R`  | Read from `transactionLogRetentionDays`.                                                                         |
-| Clone / restore execution           | `U`  | Mutating and cost-bearing. Blocker: owner authorization; a clone spins up a second billable instance.            |
-| Post-restore verification checklist | `U`  | Blocker: nothing to verify without a restore. The checklist is derived from the real schema, not generic.        |
-| Restore timing for RPO/RTO          | `U`  | Blocker: depends on the restore itself. **This is the single largest unvalidated DR assumption in the project.** |
+| Step                                | Mark | Note                                                                                                                                                                                                                                                                                                                   |
+| ----------------------------------- | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backup inventory / config read      | `R`  | Ran live; produced the posture in [§1.2](#12-database).                                                                                                                                                                                                                                                                |
+| Readiness-probe assessment          | `E`  | Curled live, 0.35 s.                                                                                                                                                                                                                                                                                                   |
+| PITR window determination           | `R`  | Read from `transactionLogRetentionDays`.                                                                                                                                                                                                                                                                               |
+| Clone / restore execution           | `U`  | Mutating and cost-bearing. Blocker: owner authorization; a clone spins up a second billable instance.                                                                                                                                                                                                                  |
+| Post-restore verification checklist | `U`  | Blocker: nothing to verify without a restore. The checklist is derived from the real schema, not generic.                                                                                                                                                                                                              |
+| Restore timing for RPO/RTO          | `E`  | **Exercised 2026-07-26: 52 minutes** (clone of the 09:00 UTC backup to a scratch instance, verified `RUNNABLE` with the `verdery` database present, scratch instance deleted). First real RTO datapoint; longer than the SLO draft assumed, so it is an input to approving section 5 rather than a confirmation of it. |
 
 ---
 

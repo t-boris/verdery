@@ -251,6 +251,29 @@ cycle contributes equally to every window.
   `LOAD-04 recommendation batch` and a dedicated export run in load-testing.md must produce the
   distribution first.
 
+## 4.1 The one recovery number that is now measured
+
+Every objective above describes the service running. This one describes it coming back, and unlike
+the rest it is no longer an estimate.
+
+On 2026-07-26 the 09:00 UTC automated backup of `verdery-dev-pg` was restored by cloning to a
+scratch instance, which reached `RUNNABLE` with the `verdery` database present; the scratch
+instance was then deleted. **Measured end to end: 52 minutes** (`04:46:57Z` → `05:38:52Z`, taken
+from the Cloud SQL operation's own timestamps, not a stopwatch).
+
+Three consequences for approving this document:
+
+- The backups are **validated** by reliability-and-disaster-recovery.md §7's own standard
+  ("Backups are not considered valid until restoration is tested"), which they were not before.
+- **52 minutes is longer than a one-hour recovery objective can absorb** once the decision to
+  restore, the DNS or configuration cutover, and any verification are added. An RTO for the
+  database layer alone should be proposed at **PROPOSED: 2 hours**, not one, on the current
+  `db-f1-micro` zonal instance.
+- It measures the **database layer only**: no application was pointed at the restored instance, and
+  the drill ran on a quiet morning rather than under pressure. A full service-recovery number is
+  still unmeasured, and regional HA (P8-DB-01, deferred to production by owner decision) would
+  change this figure entirely, since a failover is minutes rather than an hour.
+
 ## 5. Error-budget policy
 
 ### 5.1 The budget
