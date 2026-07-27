@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -27,6 +27,11 @@ type State = 'working' | 'needsEmail' | 'error';
 const emailSchema = z.object({ email: z.email() });
 type EmailValues = z.infer<typeof emailSchema>;
 
+/** A relative path only — never an absolute URL a crafted `next` value could turn into an off-app redirect. */
+function isSafeRelativePath(next: string): boolean {
+  return next.startsWith('/') && !next.startsWith('//');
+}
+
 /**
  * Completes an email magic-link sign-in.
  *
@@ -35,12 +40,22 @@ type EmailValues = z.infer<typeof emailSchema>;
  * Firebase's own documented pattern resolves by asking the user to confirm
  * their address again, not by failing outright.
  *
+ * `next` rides in this same link's own query string — `sendEmailSignInLink`
+ * embeds it in the continue URL Firebase appends its own parameters to, so
+ * it survives the round trip through the user's inbox. Without this, every
+ * caller of `sendEmailSignInLink` (sign-in requested from an invitation
+ * page, from the client portal, from anywhere but a bare sign-in) would
+ * land back on the gardens list instead of wherever they were actually
+ * trying to go — silently dropping, for example, an invitation token this
+ * same page never saw.
+ *
  * Source: architecture/identity-and-authorization.md, section
  * "3. Initial Sign-In Methods".
  */
 export function EmailLinkCompletion() {
   const { t } = useLocalization();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [state, setState] = useState<State>('working');
 
   const { register, handleSubmit, formState } = useForm<EmailValues>({
@@ -56,7 +71,8 @@ export function EmailLinkCompletion() {
       if (isFailure(result)) {
         throw new ApiFailureError(result);
       }
-      router.push('/application/gardens');
+      const next = searchParams.get('next');
+      router.push(next !== null && isSafeRelativePath(next) ? next : '/application/gardens');
     } catch {
       setState('error');
     }

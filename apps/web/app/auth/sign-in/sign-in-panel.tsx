@@ -79,7 +79,8 @@ export function SignInPanel() {
   const onEmailSubmit = handleSubmit(async (values) => {
     setEmailError(null);
     try {
-      await sendEmailSignInLink(values.email);
+      const next = searchParams.get('next') ?? '/application/gardens';
+      await sendEmailSignInLink(values.email, next);
       setLinkSent(true);
     } catch {
       setEmailError(t('auth.signInFailed'));

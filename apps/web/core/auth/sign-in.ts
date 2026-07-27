@@ -44,13 +44,21 @@ export async function signInWithApple(): Promise<string> {
   return credential.user.getIdToken();
 }
 
-function emailLinkCallbackUrl(): string {
-  return `${globalThis.location.origin}/auth/email-link`;
+/**
+ * `next` rides in the continue URL's own query string. Firebase appends its
+ * own `oobCode`/`mode`/`apiKey` parameters to whatever URL is given here —
+ * it does not replace them — so a `next` value embedded now is still present
+ * on the link the user actually clicks, days later, in their inbox.
+ */
+function emailLinkCallbackUrl(next: string): string {
+  const url = new URL('/auth/email-link', globalThis.location.origin);
+  url.searchParams.set('next', next);
+  return url.toString();
 }
 
-export async function sendEmailSignInLink(email: string): Promise<void> {
+export async function sendEmailSignInLink(email: string, next: string): Promise<void> {
   await sendSignInLinkToEmail(auth(), email, {
-    url: emailLinkCallbackUrl(),
+    url: emailLinkCallbackUrl(next),
     handleCodeInApp: true,
   });
   globalThis.localStorage.setItem(EMAIL_FOR_SIGN_IN_STORAGE_KEY, email);
