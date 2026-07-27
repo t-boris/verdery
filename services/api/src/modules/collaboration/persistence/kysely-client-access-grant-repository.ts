@@ -137,4 +137,31 @@ export class KyselyClientAccessGrantRepository implements ClientAccessGrantRepos
 
     return rows.map(toDomain);
   }
+
+  async findActiveForProfileAndEngagement(
+    clientProfileId: Uuid,
+    engagementId: Uuid,
+  ): Promise<ClientAccessGrant | null> {
+    const row = await this.db
+      .selectFrom('collaboration.client_access_grant')
+      .select(SELECTED_COLUMNS)
+      .where('engagement_id', '=', engagementId)
+      .where('client_profile_id', '=', clientProfileId)
+      .where('state', '=', 'active')
+      .executeTakeFirst();
+
+    return row === undefined ? null : toDomain(row);
+  }
+
+  async listActiveForProfile(clientProfileId: Uuid): Promise<readonly ClientAccessGrant[]> {
+    const rows = await this.db
+      .selectFrom('collaboration.client_access_grant')
+      .select(SELECTED_COLUMNS)
+      .where('client_profile_id', '=', clientProfileId)
+      .where('state', '=', 'active')
+      .orderBy('granted_at', 'desc')
+      .execute();
+
+    return rows.map(toDomain);
+  }
 }

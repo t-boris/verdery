@@ -208,3 +208,19 @@ export type { ClientUpdateItemRoutesDependencies } from './transport/client-upda
 // `publication-routes.ts`'s own header for why.
 export { registerPublicationRoutes } from './transport/publication-routes.js';
 export type { PublicationRoutesDependencies } from './transport/publication-routes.js';
+
+// Client portal (P9C-API-01, tag `ClientPortal`) — publication-only client
+// reads: which gardens the caller's own active grants cover, one garden's
+// accepted-garden overview, its visible publications, and its factual
+// timeline. The media-access route this tag also names lives in the media
+// module instead (`GetClientMediaAccess`, P9C-MEDIA-01); this module owns
+// only the four reads whose data it itself owns.
+export { ClientPortalAuthorization } from './application/client-portal-authorization.js';
+export type { ClientPublicationReadRepository } from './application/client-publication-read-repository.js';
+export { KyselyClientPublicationReadRepository } from './persistence/kysely-client-publication-read-repository.js';
+export { ListClientGardens } from './application/list-client-gardens.js';
+export { GetClientGardenOverview } from './application/get-client-garden-overview.js';
+export { ListClientPublications } from './application/list-client-publications.js';
+export { GetClientTimeline } from './application/get-client-timeline.js';
+export { registerClientPortalRoutes } from './transport/client-portal-routes.js';
+export type { ClientPortalRoutesDependencies } from './transport/client-portal-routes.js';

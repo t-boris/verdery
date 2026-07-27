@@ -17,6 +17,7 @@ import { API_BASE_PATH } from '@verdery/api-contracts';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import {
   registerClientEngagementRoutes,
+  registerClientPortalRoutes,
   registerGardenAssignmentRoutes,
   registerGardenScopedCollaborationRoutes,
   registerOrganizationMemberRoutes,
@@ -54,6 +55,7 @@ import {
   registerDeletionSweepRoute,
 } from './modules/deletion/public.js';
 import {
+  registerClientMediaRoutes,
   registerMediaProcessingCallbackRoute,
   registerMediaRetentionSweepRoute,
   registerMediaRoutes,
@@ -184,8 +186,7 @@ export async function buildApplication(
   } = dependencies;
 
   // P8-SEC-02: read once, here, and handed to every `registerAppCheck` call
-  // below, so the three registrations cannot drift into disagreeing about
-  // whether enforcement is on. `'monitor'` in every environment today.
+  // below, so the registrations cannot drift into disagreeing about it.
   const appCheckEnforcement = configuration.appCheck.enforcement;
 
   const app = Fastify({
@@ -208,17 +209,12 @@ export async function buildApplication(
         ? false
         : [...configuration.http.allowedOrigins],
     credentials: true,
-    // @fastify/cors defaults to 'GET,HEAD,POST' when `methods` is not given,
-    // which silently blocks every PATCH (rename garden) and DELETE (end
-    // session) request a real cross-origin browser client sends: the
-    // preflight succeeds, but the browser then refuses the actual request
-    // with "Method ... is not allowed by Access-Control-Allow-Methods".
-    // `app.inject()`-based HTTP tests never exercise a browser's CORS
-    // preflight at all, so this went unnoticed until a real browser E2E
-    // sign-out (apps/web/e2e/sign-out.spec.ts) hit it directly.
-    // PUT joined the list with P7-NOTIF-01's whole-document
-    // `PUT /notification-preferences` — the same lesson, applied before a
-    // browser hits it rather than after.
+    // @fastify/cors defaults to 'GET,HEAD,POST', silently blocking PATCH
+    // (rename garden) and DELETE (end session): the preflight succeeds but a
+    // real browser then refuses the actual request. `app.inject()`-based
+    // tests never exercise a CORS preflight, so this went unnoticed until a
+    // real browser E2E (apps/web/e2e/sign-out.spec.ts) hit it. PUT joined
+    // later for P7-NOTIF-01's whole-document `PUT /notification-preferences`.
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   });
 
@@ -255,8 +251,7 @@ export async function buildApplication(
   );
 
   // gardens-mapping and the garden map (P3-BE-01, P3-BE-02): garden
-  // lifecycle and map-object dependency wiring. Split out for the same
-  // 600-line reason as its siblings. `gardenAuthorization` is reused below.
+  // lifecycle and map-object dependency wiring. `gardenAuthorization` is reused below.
   const {
     gardenAuthorization,
     gardenRoutesDependencies,
@@ -268,8 +263,7 @@ export async function buildApplication(
   } = composeGardensMapping(database, clock, cloudTasksInvocationVerifier);
 
   // integrations (P7-ASYNC-01, P7-AI-01, P9C-INVITE-01): weather, bounded
-  // AI-explanation, and the (usually null) Resend adapter — moved ahead of
-  // `composeCollaboration`, its new consumer. Split out, same reason as above.
+  // AI-explanation, and the (usually null) Resend adapter.
   const {
     getGardenWeather,
     generateAiExplanation,
@@ -295,6 +289,7 @@ export async function buildApplication(
     clientEngagementRoutesDependencies,
     gardenScopedRoutesDependencies,
     publicationRoutesDependencies,
+    clientPortalRoutesDependencies,
   } = composeCollaboration(database, clock, gardenAuthorization, profileRepository, {
     adapter: transactionalEmailAdapter,
     clientPortalBaseUrl: configuration.transactionalEmail.clientPortalBaseUrl,
@@ -310,6 +305,7 @@ export async function buildApplication(
     mediaRoutesDependencies,
     mediaProcessingCallbackRouteDependencies,
     mediaRetentionSweepRouteDependencies,
+    clientMediaRoutesDependencies,
   } = composeMedia(
     database,
     clock,
@@ -569,6 +565,10 @@ export async function buildApplication(
       registerNotificationRoutes(instance, notificationRoutesDependencies);
       registerNotificationDeviceRoutes(instance, notificationDeviceRoutesDependencies);
       registerMediaRoutes(instance, mediaRoutesDependencies);
+      // P9C-API-01: the publication-only client portal, plus its
+      // media-access route (from the media module) just below.
+      registerClientPortalRoutes(instance, clientPortalRoutesDependencies);
+      registerClientMediaRoutes(instance, clientMediaRoutesDependencies);
       registerExportRoutes(instance, exportRoutesDependencies);
       registerSyncRoutes(instance, syncRoutesDependencies);
       done();

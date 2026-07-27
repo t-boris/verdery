@@ -6278,8 +6278,15 @@ verdery_application` (proven behaviorally under `SET ROLE`, not just read from g
       immediately after. Resend webhook receiver (bounce/complaint) verified feasible but not
       built — documented as a real follow-up, not silently dropped. 260 files / 2057 tests, all
       green.
-- [ ] P9C-API-01 — publication-only client endpoints; a client cannot enumerate operational
-      records or other engagements.
+- [x] P9C-API-01 — publication-only client endpoints; a client cannot enumerate operational
+      records or other engagements. New `ClientPortal` contract tag: `/client/gardens` (resolved
+      entirely from the caller's own profile, no path parameter at all), `.../overview`,
+      `.../publications`, `.../timeline`, plus a thin wrapper route over the existing
+      `GetClientMediaAccess` (P9C-MEDIA-01) — its authorization logic untouched. `clientGardenId`
+      is `client_engagement.id` used as-is; every read re-derives authorization from a fresh grant
+      lookup, never trusting the path value as authority. Concealment proved byte-identical
+      between a garbage id and another client's real, active engagement. `/exports` deliberately
+      left alone — that's `P9C-EXPORT-01`, not yet started. 262 files / 2075 tests, all green.
 - [ ] P9C-WEB-01 — deliberately read-only responsive client portal route group.
 - [x] P9C-MEDIA-01 — media authorized through active engagement plus explicit publication
       entitlement; short-lived access, state rechecked at authorization time. New narrow

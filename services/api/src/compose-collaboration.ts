@@ -29,6 +29,7 @@ import {
   AddClientUpdateItem,
   AddOrganizationMember,
   ChangeOrganizationMemberRole,
+  ClientPortalAuthorization,
   CreateClientEngagement,
   CreateClientInvitation,
   CreateClientUpdate,
@@ -36,11 +37,14 @@ import {
   CreateServiceOrganization,
   EndClientEngagement,
   EndGardenAssignment,
+  GetClientGardenOverview,
+  GetClientTimeline,
   GetClientUpdate,
   GetOrganization,
   GrantPublisherAccess,
   KyselyClientAccessGrantRepository,
   KyselyClientEngagementRepository,
+  KyselyClientPublicationReadRepository,
   KyselyClientUpdateItemRepository,
   KyselyClientUpdateRepository,
   KyselyCollaborationUnitOfWork,
@@ -51,7 +55,9 @@ import {
   KyselyWorkLogRepository,
   ListClientEngagementsForGarden,
   ListClientEngagementsForOrganization,
+  ListClientGardens,
   ListClientInvitationsForEngagement,
+  ListClientPublications,
   ListClientUpdatesForEngagement,
   ListEngagementWorkLogs,
   ListGardenAssignmentsForGarden,
@@ -76,6 +82,7 @@ import type {
   ClientEngagementRoutesDependencies,
   ClientInvitationEmailConfiguration,
   ClientInvitationRoutesDependencies,
+  ClientPortalRoutesDependencies,
   ClientUpdateItemRoutesDependencies,
   ClientUpdateRoutesDependencies,
   GardenAssignmentRoutesDependencies,
@@ -101,6 +108,7 @@ export interface CollaborationComposition {
   readonly clientEngagementRoutesDependencies: ClientEngagementRoutesDependencies;
   readonly gardenScopedRoutesDependencies: GardenScopedRoutesDependencies;
   readonly publicationRoutesDependencies: PublicationRoutesDependencies;
+  readonly clientPortalRoutesDependencies: ClientPortalRoutesDependencies;
 }
 
 export function composeCollaboration(
@@ -411,6 +419,42 @@ export function composeCollaboration(
     clientInvitationRoutesDependencies,
   };
 
+  // P9C-API-01: the publication-only client-portal reads. Reuses
+  // `clientAccessGrantRepository`/`clientEngagementRepository`/
+  // `gardenRepository`, all already constructed above for other purposes —
+  // the same "second independent reader over the same pool" posture this
+  // file already documents, applied to a fourth consumer rather than a
+  // fresh one. `clientPublicationReadRepository` is this package's OWN new
+  // read port (see its own header for why it is separate from
+  // `PublicationRepository`, which `publicationRoutesDependencies` above
+  // already uses for the write side only).
+  const clientPublicationReadRepository = new KyselyClientPublicationReadRepository(
+    database.queries,
+  );
+  const clientPortalAuthorization = new ClientPortalAuthorization(
+    clientAccessGrantRepository,
+    clientEngagementRepository,
+  );
+  const clientPortalRoutesDependencies: ClientPortalRoutesDependencies = {
+    listClientGardens: new ListClientGardens(
+      clientAccessGrantRepository,
+      clientEngagementRepository,
+      gardenRepository,
+    ),
+    getClientGardenOverview: new GetClientGardenOverview(
+      clientPortalAuthorization,
+      clientPublicationReadRepository,
+    ),
+    listClientPublications: new ListClientPublications(
+      clientPortalAuthorization,
+      clientPublicationReadRepository,
+    ),
+    getClientTimeline: new GetClientTimeline(
+      clientPortalAuthorization,
+      clientPublicationReadRepository,
+    ),
+  };
+
   return {
     organizationRoutesDependencies,
     organizationMemberRoutesDependencies,
@@ -418,5 +462,6 @@ export function composeCollaboration(
     clientEngagementRoutesDependencies,
     gardenScopedRoutesDependencies,
     publicationRoutesDependencies,
+    clientPortalRoutesDependencies,
   };
 }

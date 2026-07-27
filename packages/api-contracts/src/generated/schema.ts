@@ -3627,6 +3627,182 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/client/gardens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the caller's own client-portal gardens
+         * @description Every engagement the AUTHENTICATED caller currently holds an
+         *     ACTIVE `client_access_grant` on, resolved entirely from the
+         *     caller's own profile — no path or query parameter names an
+         *     engagement, organization, or garden, so there is nothing here for
+         *     a caller to guess or enumerate. Each item's `id` IS the
+         *     `clientGardenId` every other `ClientPortal` operation takes.
+         *
+         *     Source: implementation-plan.md work package P9C-API-01.
+         */
+        get: operations["listClientGardens"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/client/gardens/{clientGardenId}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clientGardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get a client garden's accepted-garden overview
+         * @description Re-resolves the caller's own ACTIVE `client_access_grant` for
+         *     `clientGardenId` first — never trusts the path parameter alone
+         *     (this tag's own description) — then returns the accepted-garden-
+         *     snapshot content (`kind: garden_snapshot`) from the latest
+         *     published version that included one, if any. Snapshot fields are
+         *     entirely absent, with `200` and no error, when no such publication
+         *     has ever gone out — an honest absence, not a client-portal
+         *     precondition failure.
+         *
+         *     Source: implementation-plan.md work package P9C-API-01;
+         *     architecture/collaboration-and-client-sharing.md, section
+         *     "11. Publication Contents".
+         */
+        get: operations["getClientGardenOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/client/gardens/{clientGardenId}/publications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clientGardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List a client garden's published updates
+         * @description Every `published`-state `client_update`'s resulting
+         *     `publication_version` for this engagement, newest-published first,
+         *     each with its client-safe title, summary, and item snapshots
+         *     grouped under that one version. A `withdrawn` update's version
+         *     never appears — the identical `client_update.state = 'published'`
+         *     join `getClientMediaAccess` already uses to decide publication
+         *     visibility.
+         *
+         *     Source: implementation-plan.md work package P9C-API-01;
+         *     architecture/collaboration-and-client-sharing.md, sections
+         *     "10. Publication Workflow", "11. Publication Contents".
+         */
+        get: operations["listClientPublications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/client/gardens/{clientGardenId}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clientGardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get a client garden's factual timeline
+         * @description The SAME visible (`published`, never `withdrawn`) publication
+         *     items `listClientPublications` reads, reshaped: every item of
+         *     every kind (`work_log`, `media`, `garden_snapshot`,
+         *     `timeline_entry`) across every visible publication version,
+         *     flattened into ONE chronological sequence ordered by its own
+         *     `occurredAt`, oldest first — a factual narrative of what happened
+         *     and when, not a log of publisher batches. Genuinely distinct from
+         *     `listClientPublications`: that operation groups by publication
+         *     version (title, summary, and a bounded item list per publish
+         *     event); this one has no version grouping or title/summary at all,
+         *     only the flattened facts in time order, per
+         *     collaboration-and-client-sharing.md section 12.1 ("Garden Timeline
+         *     is factual. It is composed from immutable published updates,
+         *     completed-work snapshots, selected media, and accepted garden
+         *     snapshots with real timestamps").
+         *
+         *     Source: implementation-plan.md work package P9C-API-01;
+         *     architecture/collaboration-and-client-sharing.md, section
+         *     "12. Garden Timeline and Time Machine".
+         */
+        get: operations["getClientTimeline"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/client/publications/{publicationId}/media/{mediaId}/access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publicationId: components["schemas"]["Uuid"];
+                mediaId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get short-lived client access to one entitled media object
+         * @description A thin transport wrapper around the existing `GetClientMediaAccess`
+         *     command (P9C-MEDIA-01) — this operation adds no authorization
+         *     logic of its own. `mediaId` is the sole authority parameter beyond
+         *     the caller's own authenticated profile: access is decided entirely
+         *     from the `media_entitlement` row naming this exact media object
+         *     (which, in turn, already names its own engagement and publication
+         *     version), re-verifying at issuance time that the engagement is
+         *     `active`, the caller's own `client_access_grant` on it is
+         *     `active`, and the entitling publication is genuinely `published`
+         *     (collaboration-and-client-sharing.md section 16's six-condition
+         *     list). `publicationId` is validated as a well-formed identifier
+         *     but is NOT itself an authorization input — it exists purely so
+         *     this route's URL mirrors architecture section 13's own path shape;
+         *     a mismatched, stale, or unrelated `publicationId` alongside a
+         *     genuinely entitled `mediaId` still succeeds, the same way none of
+         *     this tag's other operations accept an operational id as authority.
+         *     State is rechecked fresh on every call; nothing here caches a
+         *     prior verdict.
+         *
+         *     Source: implementation-plan.md work packages P9C-MEDIA-01,
+         *     P9C-API-01; architecture/collaboration-and-client-sharing.md,
+         *     section "16. Media Access".
+         */
+        get: operations["getClientMediaAccess"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4211,6 +4387,98 @@ export interface components {
             gardenSnapshot?: components["schemas"]["PublishGardenSnapshotInput"];
             timelineEntries?: components["schemas"]["PublishTimelineEntryInput"][];
             staffAttributions?: components["schemas"]["PublishStaffAttributionInput"][];
+        };
+        ClientGarden: {
+            /** @description The `clientGardenId` every other `ClientPortal` operation takes. */
+            id: components["schemas"]["Uuid"];
+            /** @description The garden's current display name, read live (not a publication snapshot) — this is portal navigation, not published content. */
+            name: string;
+        };
+        ClientGardenListResult: {
+            items: components["schemas"]["ClientGarden"][];
+        };
+        /** @description All snapshot fields are absent, with `200` and no error, when no `garden_snapshot` has ever been published for this garden — an honest absence, not a failure. */
+        ClientGardenOverview: {
+            clientGardenId: components["schemas"]["Uuid"];
+            /** @description Present only once a `garden_snapshot` has ever been published for this garden. */
+            publicationId?: components["schemas"]["Uuid"];
+            /** @description Present only once a `garden_snapshot` has ever been published for this garden. */
+            overviewText?: string;
+            /** @description Optional structured supplement, present only alongside `overviewText`, and only when the publisher supplied one. */
+            snapshotData?: {
+                [key: string]: unknown;
+            };
+            /** @description Present only alongside `overviewText`. */
+            occurredAt?: components["schemas"]["Timestamp"];
+            /** @description When the containing publication itself was published. Present only alongside `overviewText`. */
+            publishedAt?: components["schemas"]["Timestamp"];
+        };
+        ClientPublicationItem: {
+            id: components["schemas"]["Uuid"];
+            kind: components["schemas"]["PublicationItemKind"];
+            occurredAt: components["schemas"]["Timestamp"];
+            /** @description Present only when `kind` is `work_log` — curated, client-safe text. */
+            description?: string;
+            /** @description Present only when `kind` is `media`. The exact id `getClientMediaAccess`'s own `{mediaId}` path parameter expects. */
+            mediaId?: components["schemas"]["Uuid"];
+            /** @description Present only when `kind` is `media`. */
+            mediaRole?: components["schemas"]["PublicationMediaRole"];
+            /** @description Optional, `kind media` only. */
+            caption?: string;
+            /** @description Present only when `kind` is `garden_snapshot`. */
+            overviewText?: string;
+            /** @description Optional structured supplement, `kind garden_snapshot` only. */
+            snapshotData?: {
+                [key: string]: unknown;
+            };
+            /** @description Present only when `kind` is `timeline_entry`. */
+            entryText?: string;
+        };
+        ClientPublicationStaffAttribution: {
+            id: components["schemas"]["Uuid"];
+            /** @description A snapshot at publication time — never a live join to a profile's current display name. */
+            displayName: string;
+            roleLabel?: string;
+        };
+        ClientPublicationSummary: {
+            /** @description The `publicationId` `getClientMediaAccess`'s own path takes. */
+            id: components["schemas"]["Uuid"];
+            versionNumber: number;
+            title: string;
+            summary: string;
+            publishedAt: components["schemas"]["Timestamp"];
+            items: components["schemas"]["ClientPublicationItem"][];
+            staffAttributions: components["schemas"]["ClientPublicationStaffAttribution"][];
+        };
+        ClientPublicationListResult: {
+            items: components["schemas"]["ClientPublicationSummary"][];
+        };
+        /** @description No version grouping and no title/summary, deliberately — see `getClientTimeline`'s own description for why this differs from `ClientPublicationSummary`. */
+        ClientTimelineEntry: {
+            /** @description Which visible publication this fact came from — the same id `listClientPublications` returns as each summary's own `id`. */
+            publicationId: components["schemas"]["Uuid"];
+            kind: components["schemas"]["PublicationItemKind"];
+            occurredAt: components["schemas"]["Timestamp"];
+            /** @description Present only when `kind` is `work_log`. */
+            description?: string;
+            /** @description Present only when `kind` is `media`. */
+            mediaId?: components["schemas"]["Uuid"];
+            /** @description Present only when `kind` is `media`. */
+            mediaRole?: components["schemas"]["PublicationMediaRole"];
+            /** @description Optional, `kind media` only. */
+            caption?: string;
+            /** @description Present only when `kind` is `garden_snapshot`. */
+            overviewText?: string;
+            /** @description Optional structured supplement, `kind garden_snapshot` only. */
+            snapshotData?: {
+                [key: string]: unknown;
+            };
+            /** @description Present only when `kind` is `timeline_entry`. */
+            entryText?: string;
+        };
+        ClientTimelineResult: {
+            /** @description Oldest first — a factual narrative read from the beginning, not a publisher's own newest-first update log. */
+            items: components["schemas"]["ClientTimelineEntry"][];
         };
         SessionLoginRequest: {
             /** @description Freshly obtained Firebase ID token, verified server-side before any cookie is issued. */
@@ -10707,6 +10975,124 @@ export interface operations {
             404: components["responses"]["NotFound"];
             412: components["responses"]["PreconditionFailed"];
             422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    listClientGardens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's own client-portal gardens. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientGardenListResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getClientGardenOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clientGardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The garden's current overview, possibly with no snapshot yet. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientGardenOverview"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listClientPublications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clientGardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The garden's visible publications, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientPublicationListResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getClientTimeline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clientGardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The garden's factual timeline, oldest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientTimelineResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getClientMediaAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publicationId: components["schemas"]["Uuid"];
+                mediaId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Short-lived, authorized access to the entitled media object. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaAccess"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
 }

@@ -171,3 +171,11 @@ export { GcsMediaStorageGateway } from './persistence/gcs-media-storage-gateway.
 export type { MediaDatabaseSchema } from './persistence/schema.js';
 export type { MediaRoutesDependencies } from './transport/media-routes.js';
 export { registerMediaRoutes } from './transport/media-routes.js';
+// P9C-API-01: the client-portal's own thin transport wrapper around
+// `GetClientMediaAccess` above (`/client/publications/{publicationId}/media/
+// {mediaId}/access`, tag `ClientPortal`) — a separate registration function
+// from `registerMediaRoutes` because it lives under a distinct client-facing
+// path group with no `gardenId`, the same operational/client route-file
+// split `collaboration/public.ts` already draws.
+export type { ClientMediaRoutesDependencies } from './transport/client-media-routes.js';
+export { registerClientMediaRoutes } from './transport/client-media-routes.js';

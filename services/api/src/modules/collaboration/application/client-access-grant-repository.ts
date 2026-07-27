@@ -45,4 +45,30 @@ export interface ClientAccessGrantRepository {
 
   /** Every grant this engagement has ever issued, in any state, newest first. */
   listForEngagement(engagementId: Uuid): Promise<readonly ClientAccessGrant[]>;
+
+  /**
+   * The caller's own ACTIVE grant on this exact engagement, or `null` —
+   * covers "no grant at all", "grant still pending", "grant expired", and
+   * "grant revoked" identically (P9C-API-01). This is the ONE read the
+   * client portal's own authorization resolver
+   * (`ClientPortalAuthorization.requireActiveGardenAccess`) performs before
+   * trusting a caller-supplied `clientGardenId` at all — never a lookup by
+   * `engagementId` alone, matching collaboration-and-client-sharing.md
+   * section 13's own sentence: "authorization always starts from the
+   * current client profile and active access grant."
+   */
+  findActiveForProfileAndEngagement(
+    clientProfileId: Uuid,
+    engagementId: Uuid,
+  ): Promise<ClientAccessGrant | null>;
+
+  /**
+   * Every ACTIVE grant this client profile currently holds, across every
+   * engagement, newest-granted first (P9C-API-01). The entire authority
+   * behind `ListClientGardens`: that operation takes no path parameter
+   * naming an engagement, garden, or organization, so this is the one query
+   * that turns "which gardens can this client see" into a real answer
+   * instead of a client-supplied claim.
+   */
+  listActiveForProfile(clientProfileId: Uuid): Promise<readonly ClientAccessGrant[]>;
 }

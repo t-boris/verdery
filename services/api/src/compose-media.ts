@@ -17,9 +17,11 @@ import type { GardenAuthorization } from './modules/gardens-mapping/public.js';
 import {
   CompleteMediaUpload,
   DeleteGardenMedia,
+  GetClientMediaAccess,
   GetMediaAccess,
   GetMediaRetentionPolicy,
   GetMediaStatus,
+  KyselyClientMediaEntitlementSource,
   KyselyMediaRepository,
   KyselyMediaUnitOfWork,
   ListGardenMedia,
@@ -28,6 +30,7 @@ import {
   RunMediaRetentionSweep,
 } from './modules/media/public.js';
 import type {
+  ClientMediaRoutesDependencies,
   MediaProcessingCallbackRouteDependencies,
   MediaRetentionSweepRouteDependencies,
   MediaRoutesDependencies,
@@ -44,6 +47,7 @@ export interface MediaComposition {
   readonly mediaRoutesDependencies: MediaRoutesDependencies;
   readonly mediaProcessingCallbackRouteDependencies: MediaProcessingCallbackRouteDependencies;
   readonly mediaRetentionSweepRouteDependencies: MediaRetentionSweepRouteDependencies;
+  readonly clientMediaRoutesDependencies: ClientMediaRoutesDependencies;
 }
 
 /**
@@ -131,9 +135,27 @@ export function composeMedia(
     cloudTasksInvocationVerifier,
   };
 
+  // P9C-API-01: the client-portal's own thin transport wrapper around the
+  // already-built `GetClientMediaAccess` (P9C-MEDIA-01) — no new
+  // authorization logic, only its own dependencies wired the same way
+  // `mediaRoutesDependencies.getMediaAccess` above wires the OPERATIONAL
+  // command. `KyselyClientMediaEntitlementSource` is the narrow read port
+  // into `collaboration`'s own client-publication tables that command
+  // already depends on (see that port's own header for the module-boundary
+  // reasoning).
+  const clientMediaRoutesDependencies: ClientMediaRoutesDependencies = {
+    getClientMediaAccess: new GetClientMediaAccess(
+      mediaRepository,
+      new KyselyClientMediaEntitlementSource(database.queries),
+      mediaStorageGateway,
+      clock,
+    ),
+  };
+
   return {
     mediaRoutesDependencies,
     mediaProcessingCallbackRouteDependencies,
     mediaRetentionSweepRouteDependencies,
+    clientMediaRoutesDependencies,
   };
 }

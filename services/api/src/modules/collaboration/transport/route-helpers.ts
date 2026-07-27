@@ -66,6 +66,11 @@ export function requireGrantId(request: FastifyRequest): string {
   return requireUuidParam(request, 'grantId', 'grantId');
 }
 
+/** The client portal's own path parameter (P9C-API-01) — a well-formed UUID is all this validates; it is never trusted as authority on its own. See `ClientPortalAuthorization`'s own header for why every route that takes it re-resolves access from the caller's own active grant before using it. */
+export function requireClientGardenId(request: FastifyRequest): string {
+  return requireUuidParam(request, 'clientGardenId', 'clientGardenId');
+}
+
 export function requireIdempotencyKey(request: FastifyRequest): string {
   const header = request.headers[IDEMPOTENCY_KEY_HEADER];
   const key = Array.isArray(header) ? header[0] : header;

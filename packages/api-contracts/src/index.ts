@@ -289,6 +289,8 @@ export * from './publications.js';
 /** The client-invitation/access-grant schemas/error codes (P9C-INVITE-01) live in `./client-invitations.js`, and the `client_update.published` notification-event contract in `./client-publication-events.js` — same 600-line-rule posture. */
 export * from './client-invitations.js';
 export * from './client-publication-events.js';
+/** The client-portal read-only domain schemas/error codes (P9C-API-01) live in `./client-portal.js` — same 600-line-rule posture as `./client-invitations.js` above. */
+export * from './client-portal.js';
 
 /** The ownership-administration schemas (P9A-OWNER-01): promote, demote, transfer, cancel. */
 export type OwnershipTransferState = Schemas['OwnershipTransferState'];
