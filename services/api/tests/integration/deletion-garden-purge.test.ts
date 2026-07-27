@@ -86,6 +86,22 @@ const DOCUMENTED_PLAN_EXCEPTIONS = new Set([
   // ever required to be purged with the garden rather than retained past it.
   'collaboration.garden_assignment',
   'collaboration.client_engagement',
+  // P9C-DATA-01's own work-log and publication records — the identical
+  // tombstone reasoning as the two entries directly above, applied to four
+  // more new tables: `collaboration.work_log`, `collaboration.client_update`,
+  // `collaboration.publication_version`, and `collaboration.publication_item`
+  // all carry a `garden_id` with NO foreign key (see that migration's own
+  // "GARDEN_ID: NOT NULL, NO FOREIGN KEY, ON FOUR TABLES" comment)
+  // specifically so a professional's logged work and the publications a
+  // client actually saw survive a garden purge for the same audit, dispute,
+  // legal, and stewardship-retention purposes collaboration-and-client-
+  // sharing.md section 18 already justifies for engagement/assignment
+  // records. Neither purging nor retaining these past a client relationship
+  // ending is in scope for P9C-DATA-01 — that is a future package's decision.
+  'collaboration.work_log',
+  'collaboration.client_update',
+  'collaboration.publication_version',
+  'collaboration.publication_item',
   // Deleted by `ON DELETE CASCADE` from a table the plan DOES name.
   'gardens_mapping.structure_details',
   'gardens_mapping.fence_details',

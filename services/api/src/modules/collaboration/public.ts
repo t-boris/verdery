@@ -16,6 +16,8 @@ export type { GardenAssignmentState } from './domain/garden-assignment-state.js'
 export { isValidGardenAssignmentTransition } from './domain/garden-assignment-state.js';
 export type { ClientEngagementState } from './domain/client-engagement-state.js';
 export { isValidClientEngagementTransition } from './domain/client-engagement-state.js';
+export type { PublicationState } from './domain/publication-state.js';
+export { isValidPublicationTransition } from './domain/publication-state.js';
 export type { ServiceOrganization } from './domain/service-organization.js';
 export {
   createServiceOrganization,

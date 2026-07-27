@@ -257,11 +257,11 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   });
 
   it('rolls back cleanly: the exports schema drops whole, garden_id NOT NULL returns, and re-migrating up succeeds', async () => {
-    // `count: 4` undoes this migration and every migration applied after it
+    // `count: 5` undoes this migration and every migration applied after it
     // (currently deletion-baseline through
-    // service-organizations-and-client-engagements). Update this count when a
+    // client-publication-and-work-logs). Update this count when a
     // later migration is added on top.
-    await migrate(databaseUrl, 'down', 4);
+    await migrate(databaseUrl, 'down', 5);
 
     const schema = await client.query(
       `SELECT 1 FROM information_schema.schemata WHERE schema_name = 'exports'`,

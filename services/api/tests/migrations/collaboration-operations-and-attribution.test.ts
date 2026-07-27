@@ -488,12 +488,12 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   });
 
   it('rolls back cleanly, and re-applying backfills a period for every membership that already existed', async () => {
-    // `count: 2` undoes this migration and the one migration applied after it
-    // (1786600000000_service-organizations-and-client-engagements.sql,
-    // nothing this file's own assertions below check) first, then this
-    // migration itself. Update this count when a later migration is added on
-    // top.
-    await migrate(databaseUrl, 'down', 2);
+    // `count: 3` undoes this migration and the two migrations applied after
+    // it (1786600000000_service-organizations-and-client-engagements.sql and
+    // 1786700000000_client-publication-and-work-logs.sql, nothing this
+    // file's own assertions below check) first, then this migration itself.
+    // Update this count when a later migration is added on top.
+    await migrate(databaseUrl, 'down', 3);
 
     const tables = await client.query(
       `SELECT 1 FROM information_schema.tables

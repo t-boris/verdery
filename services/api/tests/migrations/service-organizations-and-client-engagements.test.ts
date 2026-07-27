@@ -462,7 +462,11 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   });
 
   it('rolls back cleanly, leaving no trace of any of the six new tables', async () => {
-    await migrate(databaseUrl, 'down', 1);
+    // `count: 2` undoes this migration and the one migration applied after
+    // it (1786700000000_client-publication-and-work-logs.sql, nothing this
+    // file's own assertions below check) first, then this migration itself.
+    // Update this count when a later migration is added on top.
+    await migrate(databaseUrl, 'down', 2);
 
     const { rows } = await client.query<Row>(
       `SELECT table_name FROM information_schema.tables
