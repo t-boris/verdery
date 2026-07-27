@@ -23,9 +23,18 @@
  * in `tasks-recommendations` calls this — publication is always a distinct,
  * manually initiated act, never a side effect of finishing work.
  *
- * Source: implementation-plan.md work package P9C-PUBLISH-01;
+ * PROHIBITED-CONTENT FIX (P9C-OBS-01). `title` becomes the eventual
+ * publication's own headline text once published — section 19's own
+ * exclusion list names "publication text" explicitly, so the audit
+ * `details` below no longer carries it (it did, prior to this package);
+ * `update-client-update-content.ts`'s own audit for the identical field
+ * never did, which is what this fix now matches.
+ *
+ * Source: implementation-plan.md work packages P9C-PUBLISH-01, P9C-OBS-01;
  * architecture/decisions/ADR-0012-separate-team-and-client-sharing.md,
- * section "Publication Boundary".
+ * section "Publication Boundary";
+ * architecture/collaboration-and-client-sharing.md, section
+ * "19. Audit and Observability".
  */
 
 import type { ClientUpdate as ClientUpdateResource } from '@verdery/api-contracts';
@@ -100,7 +109,7 @@ export class CreateClientUpdate {
         actorProfileId,
         actorType: 'user',
         gardenId: engagement.gardenId,
-        details: { engagementId, title },
+        details: { engagementId },
       });
       await context.outbox.append({
         eventType: 'client_update.created',

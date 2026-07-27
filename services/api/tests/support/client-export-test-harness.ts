@@ -36,6 +36,7 @@ import {
 import { KyselyPlantRepository } from '../../src/modules/plants-inventory/public.js';
 import { GetClientExportManifest } from '../../src/modules/exports/public.js';
 import type { DatabaseSchema } from '../../src/platform/database/database-gateway.js';
+import { KyselyAuditLogger } from '../../src/platform/audit/kysely-audit-logger.js';
 import type { Clock } from '../../src/shared/time/clock.js';
 import { insertGarden, insertProfile } from './collaboration-fixtures.js';
 import type { Row } from './collaboration-fixtures.js';
@@ -62,10 +63,12 @@ export function buildGetClientExportManifest(
     new KyselyClientAccessGrantRepository(db),
     new KyselyClientEngagementRepository(db),
   );
+  const auditLogger = new KyselyAuditLogger(db, clock);
   const clientMediaAccess = new GetClientMediaAccess(
     new KyselyMediaRepository(db),
     new KyselyClientMediaEntitlementSource(db),
     storage,
+    auditLogger,
     fixedMediaClock(clock.now()),
   );
 
@@ -78,6 +81,7 @@ export function buildGetClientExportManifest(
     new KyselyMapObjectRepository(db),
     new KyselyPlantRepository(db),
     clientMediaAccess,
+    auditLogger,
     clock,
   );
 }

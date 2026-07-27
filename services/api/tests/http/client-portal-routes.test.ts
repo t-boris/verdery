@@ -126,6 +126,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   let pgClient: pg.Client;
   let tokenVerifier: FakeTokenVerifier;
   let app: FastifyInstance;
+  const logRecords: string[] = [];
 
   beforeAll(async () => {
     container = await startPostgresTestContainer();
@@ -157,6 +158,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       database,
       tokenVerifier,
       mediaStorageGateway: new FakeMediaStorageGateway(),
+      onLogRecord: (record) => logRecords.push(record),
     });
   }, 120_000);
 
@@ -166,6 +168,14 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     await db.destroy();
     await container?.stop();
   });
+
+  /** The most recently logged record whose `event` field matches — parsed, not a raw string search. Mirrors `sync-routes.test.ts`'s own identical helper. */
+  function lastLogEvent(event: string): Record<string, unknown> | undefined {
+    const matches = logRecords
+      .map((record) => JSON.parse(record) as Record<string, unknown>)
+      .filter((parsed) => parsed['event'] === event);
+    return matches.at(-1);
+  }
 
   function bearer(token: string): { authorization: string } {
     return { authorization: `Bearer ${token}` };
@@ -306,6 +316,18 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     expect(forGarbageId.statusCode).toBe(404);
     expect(asError(forOthersEngagement).error.code).toBe('client_portal.not_found');
     expect(asError(forOthersEngagement).error.code).toBe(asError(forGarbageId).error.code);
+
+    // P9C-OBS-01: a lightweight structured-log denial, never a full audit
+    // row, and never carrying the denied clientGardenId — the aggregate
+    // metric answers "how many", never "whose".
+    const denial = lastLogEvent('authorization.denied');
+    expect(denial).toMatchObject({
+      surface: 'client_portal',
+      reasonCategory: 'not_entitled',
+      route: '/v1/client/gardens/:clientGardenId/publications',
+    });
+    expect(JSON.stringify(denial)).not.toContain(garbageId);
+    expect(JSON.stringify(denial)).not.toContain(clientA.engagementId);
   });
 
   it('the media-access route delegates to GetClientMediaAccess: an entitled media id succeeds, an unentitled one is denied', async () => {
@@ -375,7 +397,19 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       headers: bearer(client.token),
     });
     expect(entitledResponse.statusCode).toBe(200);
-    expect(asMediaAccess(entitledResponse).url).toBeTruthy();
+    const grantedAccess = asMediaAccess(entitledResponse);
+    expect(grantedAccess.url).toBeTruthy();
+
+    // P9C-OBS-01: a real `client_media.access_granted` audit row, written
+    // through the real route — never the signed URL itself.
+    const mediaAuditRows = await pgClient.query<{ details: Record<string, unknown> }>(
+      `SELECT details FROM platform.audit_event WHERE subject_id = $1 AND event_type = $2`,
+      [mediaRecordId, 'client_media.access_granted'],
+    );
+    expect(mediaAuditRows.rows).toHaveLength(1);
+    const mediaAuditDetails = mediaAuditRows.rows[0]?.details;
+    expect(mediaAuditDetails).toMatchObject({ engagementId: client.engagementId });
+    expect(JSON.stringify(mediaAuditDetails)).not.toContain(grantedAccess.url);
 
     const unentitledResponse = await app.inject({
       method: 'GET',
@@ -383,6 +417,21 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       headers: bearer(client.token),
     });
     expect(unentitledResponse.statusCode).toBe(404);
+
+    // P9C-OBS-01: a lightweight denial log, never an audit row, and never
+    // carrying the denied mediaId.
+    const mediaDenial = lastLogEvent('authorization.denied');
+    expect(mediaDenial).toMatchObject({
+      surface: 'client_media',
+      reasonCategory: 'not_entitled',
+      route: '/v1/client/publications/:publicationId/media/:mediaId/access',
+    });
+    expect(JSON.stringify(mediaDenial)).not.toContain(unentitledMediaRecordId);
+    const deniedMediaAuditRows = await pgClient.query(
+      `SELECT id FROM platform.audit_event WHERE subject_id = $1`,
+      [unentitledMediaRecordId],
+    );
+    expect(deniedMediaAuditRows.rows).toHaveLength(0);
 
     const malformedResponse = await app.inject({
       method: 'GET',

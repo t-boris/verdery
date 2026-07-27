@@ -95,14 +95,29 @@
  * — "do not invent a different retention posture for the client-facing
  * copy of the same underlying data."
  *
+ * AUDIT, ADDED BY P9C-OBS-01. Section 19 names "export" as its own required
+ * audit category, DISTINCT from "portal access to sensitive media" — every
+ * media item this manifest includes is already separately audited by
+ * `GetClientMediaAccess` itself (this command calls it once per entitled
+ * item, so that audit trail is already complete and is not duplicated
+ * here). This command additionally records ONE
+ * `client_export.manifest_generated` row per call, identifying the
+ * ENGAGEMENT/GARDEN and a COUNT of what was included — never the garden
+ * model, plant data, or media ids themselves. The METRIC half ("engagement
+ * handoff/export completion") is served by the structured log line
+ * `client-export-routes.ts` ALREADY emits (`client_export.manifest_served`,
+ * landed with P9C-EXPORT-01) — this audit row is the missing DURABLE half,
+ * not a duplicate of that signal.
+ *
  * Source: architecture/collaboration-and-client-sharing.md, section
  * "18. Data Stewardship, Export, and Engagement End";
  * architecture/data-export-and-deletion.md; implementation-plan.md work
- * package P9C-EXPORT-01.
+ * packages P9C-EXPORT-01, P9C-OBS-01.
  */
 
 import type { ClientPublicationSummary } from '@verdery/api-contracts';
 import { ClientPortalErrorCode, MediaErrorCode } from '@verdery/api-contracts';
+import type { AuditLogger } from '../../../platform/audit/audit-logger.js';
 import { ApplicationError, NotFoundError } from '../../../platform/errors/application-error.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
@@ -152,6 +167,8 @@ function isMediaEntitlementDenial(error: unknown): boolean {
   );
 }
 
+const MANIFEST_GENERATED_AUDIT_EVENT_TYPE = 'client_export.manifest_generated';
+
 export class GetClientExportManifest {
   constructor(
     private readonly authorization: ClientPortalAuthorization,
@@ -162,6 +179,7 @@ export class GetClientExportManifest {
     private readonly mapObjects: MapObjectRepository,
     private readonly plants: PlantRepository,
     private readonly clientMediaAccess: GetClientMediaAccess,
+    private readonly auditLogger: AuditLogger,
     private readonly clock: Clock,
   ) {}
 
@@ -191,6 +209,21 @@ export class GetClientExportManifest {
       toClientPublicationSummaryResource,
     );
     const media = await this.buildEntitledMedia(clientProfileId, versions);
+
+    // P9C-OBS-01: "export" is its own required audit category (section
+    // 19), distinct from the per-media-item "portal access to sensitive
+    // media" audit `GetClientMediaAccess` already wrote above, once per
+    // entitled item. Counts only — never the garden model, plant data, or
+    // media ids themselves.
+    await this.auditLogger.record({
+      eventType: MANIFEST_GENERATED_AUDIT_EVENT_TYPE,
+      subjectType: 'client_engagement',
+      subjectId: clientGardenId,
+      actorProfileId: clientProfileId,
+      actorType: 'user',
+      gardenId: engagement.gardenId,
+      details: { publicationCount: publications.length, mediaCount: media.length },
+    });
 
     return {
       clientGardenId,

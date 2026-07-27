@@ -94,12 +94,43 @@
  * `1786700000000_client-publication-and-work-logs.sql`) before writing this
  * class, not assumed.
  *
+ * AUDIT, ADDED BY P9C-OBS-01 (section 19: "portal access to sensitive
+ * media" is a required audit category). Every successful grant through
+ * this command records ONE `client_media.access_granted` row through the
+ * same read-path `AuditLogger` port `GetMediaAccess` already uses outside
+ * any transaction (`media-unit-of-work.ts`'s own header: "GetMediaAccess's
+ * own sensitive-access audit record is a read-path concern ... written
+ * ... outside this transaction boundary"). UNLIKE `GetMediaAccess`, which
+ * audits ONLY `restricted`-classified media, this command audits EVERY
+ * successful call: `GetMediaAccess`'s own sensitivity classification is an
+ * INTERNAL viewer/editor distinction that has no bearing here — every
+ * grant this command ever issues hands a byte-access mechanism to an
+ * EXTERNAL client, which is the more sensitive boundary section 16's own
+ * six-condition gate exists to police in the first place. The audited
+ * `details` never carries a bucket name, object key, or the signed URL
+ * itself (section 19's own exclusion list: "media URLs ... where a
+ * pseudonymous aggregate is sufficient") — only the `engagementId`/
+ * `publicationVersionId` the entitlement grant already resolved, the same
+ * kind of internal identifier every other collaboration audit row already
+ * carries.
+ *
+ * A DENIED attempt is NOT audited here — see
+ * `platform/telemetry/authorization-denial-log.ts`'s own header for why a
+ * denial is a lighter, high-volume structured LOG line (recorded by
+ * `client-media-routes.ts`, the transport layer, never this command) and
+ * not a durable `platform.audit_event` row: every expired session, revoked
+ * grant, or probing request would otherwise write a row, which is exactly
+ * the routine-noise-in-a-durable-table outcome an audit table should not
+ * absorb.
+ *
  * Source: architecture/collaboration-and-client-sharing.md, section
  * "16. Media Access"; architecture/media-storage-and-processing.md, section
- * "12. Download Flow"; implementation-plan.md work package P9C-MEDIA-01.
+ * "12. Download Flow"; implementation-plan.md work packages P9C-MEDIA-01,
+ * P9C-OBS-01.
  */
 
 import type { MediaAccess } from '@verdery/api-contracts';
+import type { AuditLogger } from '../../../platform/audit/audit-logger.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import type { ClientMediaEntitlementSource } from './client-media-entitlement-source.js';
@@ -108,11 +139,14 @@ import type { MediaRepository } from './media-repository.js';
 import type { MediaStorageGateway } from './media-storage-gateway.js';
 import { toMediaAccessResource } from './media-view.js';
 
+const ACCESS_GRANTED_AUDIT_EVENT_TYPE = 'client_media.access_granted';
+
 export class GetClientMediaAccess {
   constructor(
     private readonly media: MediaRepository,
     private readonly entitlements: ClientMediaEntitlementSource,
     private readonly storage: MediaStorageGateway,
+    private readonly auditLogger: AuditLogger,
     private readonly clock: Clock,
   ) {}
 
@@ -180,6 +214,31 @@ export class GetClientMediaAccess {
       { bucketName: record.bucketName as string, objectKey: record.objectKey as string },
       now,
     );
+
+    // P9C-OBS-01: portal access to sensitive media (section 19) — every
+    // successful grant, not only `restricted`-classified ones. See this
+    // class's own header, "AUDIT, ADDED BY P9C-OBS-01", for why. Never the
+    // signed URL, bucket name, or object key — only the ids the entitlement
+    // grant itself already resolved.
+    await this.auditLogger.record({
+      eventType: ACCESS_GRANTED_AUDIT_EVENT_TYPE,
+      subjectType: 'media',
+      subjectId: record.id,
+      actorProfileId: clientProfileId,
+      actorType: 'user',
+      // `MediaRecord.gardenId` is nullable in general (account-scoped
+      // media); every record this command actually ever reaches DOES
+      // belong to a garden — client entitlement is granted through a
+      // publish transaction that itself requires `media.gardenId` to match
+      // the client update's own garden (`publish-client-update.ts`'s own
+      // "Step 2" re-validation) — but the type does not encode that, so
+      // this coalesces defensively rather than asserting it.
+      ...(record.gardenId === null ? {} : { gardenId: record.gardenId }),
+      details: {
+        engagementId: grant.engagementId,
+        publicationVersionId: grant.publicationVersionId,
+      },
+    });
 
     return toMediaAccessResource(access);
   }

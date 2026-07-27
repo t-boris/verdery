@@ -23,17 +23,38 @@
  * module's own `GetClientMediaAccess` (P9C-MEDIA-01), owned by that module,
  * not this one.
  *
+ * DENIAL TELEMETRY (P9C-OBS-01). The three `clientGardenId`-scoped reads
+ * below log one `authorization.denied` line — `reasonCategory: 'not_entitled'`
+ * always, never a finer category — before re-throwing the concealed
+ * `client_portal.not_found` error, and NEVER on success: this is deliberately
+ * NOT a full audit row per read (see `platform/telemetry/
+ * authorization-denial-log.ts`'s own header), and successful reads are not
+ * logged at all — "portal open rate" is served by Cloud Run's own built-in
+ * `request_count`/`request_latencies`, grouped by route template, the
+ * identical built-in-metric posture `docs/development/service-levels.md`'s
+ * own SLI-1/SLI-2 already take for every other route group; adding a
+ * bespoke log line for every ordinary, successful, high-volume portal read
+ * would duplicate a signal Cloud Run already provides for free. `GET
+ * /client/gardens` (no `clientGardenId`) is deliberately NOT instrumented
+ * here: `ListClientGardens` has no denial path of its own to log — it
+ * simply lists whatever engagements the caller's own grants resolve to.
+ *
  * Source: packages/api-contracts/openapi.yaml, tag `ClientPortal`;
- * implementation-plan.md work package P9C-API-01.
+ * implementation-plan.md work packages P9C-API-01, P9C-OBS-01;
+ * architecture/collaboration-and-client-sharing.md, section
+ * "19. Audit and Observability".
  */
 
-import type {
-  ClientGardenListResult,
-  ClientGardenOverview,
-  ClientPublicationListResult,
-  ClientTimelineResult,
+import {
+  type ClientGardenListResult,
+  type ClientGardenOverview,
+  ClientPortalErrorCode,
+  type ClientPublicationListResult,
+  type ClientTimelineResult,
 } from '@verdery/api-contracts';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { ApplicationError } from '../../../platform/errors/application-error.js';
+import { logAuthorizationDenial } from '../../../platform/telemetry/authorization-denial-log.js';
 import type { GetClientGardenOverview } from '../application/get-client-garden-overview.js';
 import type { GetClientTimeline } from '../application/get-client-timeline.js';
 import type { ListClientGardens } from '../application/list-client-gardens.js';
@@ -45,6 +66,28 @@ export interface ClientPortalRoutesDependencies {
   readonly getClientGardenOverview: GetClientGardenOverview;
   readonly listClientPublications: ListClientPublications;
   readonly getClientTimeline: GetClientTimeline;
+}
+
+/**
+ * Every `clientGardenId`-scoped read's own denial is the identical
+ * concealed `ClientPortalAuthorization` outcome (see this file's own
+ * header) — logged once, here, rather than duplicating the try/catch three
+ * times. Re-throws unchanged; the response the caller receives is not
+ * affected in any way.
+ */
+async function runOrLogDenial<T>(request: FastifyRequest, execute: () => Promise<T>): Promise<T> {
+  try {
+    return await execute();
+  } catch (error) {
+    if (error instanceof ApplicationError && error.code === ClientPortalErrorCode.NotFound) {
+      logAuthorizationDenial(request.log, {
+        surface: 'client_portal',
+        reasonCategory: 'not_entitled',
+        route: request.routeOptions?.url ?? request.url,
+      });
+    }
+    throw error;
+  }
 }
 
 export function registerClientPortalRoutes(
@@ -62,9 +105,8 @@ export function registerClientPortalRoutes(
   app.get('/client/gardens/:clientGardenId/overview', async (request, reply) => {
     const clientGardenId = requireClientGardenId(request);
 
-    const overview: ClientGardenOverview = await dependencies.getClientGardenOverview.execute(
-      request.actorContext.profileId,
-      clientGardenId,
+    const overview: ClientGardenOverview = await runOrLogDenial(request, () =>
+      dependencies.getClientGardenOverview.execute(request.actorContext.profileId, clientGardenId),
     );
 
     return reply.status(200).send(overview);
@@ -73,9 +115,8 @@ export function registerClientPortalRoutes(
   app.get('/client/gardens/:clientGardenId/publications', async (request, reply) => {
     const clientGardenId = requireClientGardenId(request);
 
-    const result: ClientPublicationListResult = await dependencies.listClientPublications.execute(
-      request.actorContext.profileId,
-      clientGardenId,
+    const result: ClientPublicationListResult = await runOrLogDenial(request, () =>
+      dependencies.listClientPublications.execute(request.actorContext.profileId, clientGardenId),
     );
 
     return reply.status(200).send(result);
@@ -84,9 +125,8 @@ export function registerClientPortalRoutes(
   app.get('/client/gardens/:clientGardenId/timeline', async (request, reply) => {
     const clientGardenId = requireClientGardenId(request);
 
-    const result: ClientTimelineResult = await dependencies.getClientTimeline.execute(
-      request.actorContext.profileId,
-      clientGardenId,
+    const result: ClientTimelineResult = await runOrLogDenial(request, () =>
+      dependencies.getClientTimeline.execute(request.actorContext.profileId, clientGardenId),
     );
 
     return reply.status(200).send(result);

@@ -12,6 +12,7 @@ import type { MediaRecord } from '../domain/media-record.js';
 import type { ClientMediaEntitlementGrant } from './client-media-entitlement-source.js';
 import { GetClientMediaAccess } from './get-client-media-access.js';
 import {
+  FakeAuditLogger,
   FakeClientMediaEntitlementSource,
   FakeMediaRepository,
   FakeMediaStorageGateway,
@@ -81,10 +82,17 @@ function buildUseCase(record: MediaRecord) {
   media.records.set(record.id, record);
   const entitlements = new FakeClientMediaEntitlementSource();
   const storage = new FakeMediaStorageGateway();
+  const auditLogger = new FakeAuditLogger();
 
-  const useCase = new GetClientMediaAccess(media, entitlements, storage, fixedClock(NOW));
+  const useCase = new GetClientMediaAccess(
+    media,
+    entitlements,
+    storage,
+    auditLogger,
+    fixedClock(NOW),
+  );
 
-  return { useCase, entitlements, storage };
+  return { useCase, entitlements, storage, auditLogger };
 }
 
 describe('GetClientMediaAccess', () => {
@@ -243,7 +251,13 @@ describe('GetClientMediaAccess', () => {
     // Only the ORIGINAL id is entitled — never the derivative's own id.
     entitlements.grant(CLIENT_PROFILE_ID, MEDIA_ID, fullyValidGrant());
     const storage = new FakeMediaStorageGateway();
-    const useCase = new GetClientMediaAccess(media, entitlements, storage, fixedClock(NOW));
+    const useCase = new GetClientMediaAccess(
+      media,
+      entitlements,
+      storage,
+      new FakeAuditLogger(),
+      fixedClock(NOW),
+    );
 
     await expect(useCase.execute(CLIENT_PROFILE_ID, derivative.id)).resolves.toBeDefined();
     expect(storage.createSignedUrlCalls).toHaveLength(1);
@@ -259,7 +273,13 @@ describe('GetClientMediaAccess', () => {
     // Only the DERIVATIVE is entitled — the original itself never is.
     entitlements.grant(CLIENT_PROFILE_ID, derivative.id, fullyValidGrant());
     const storage = new FakeMediaStorageGateway();
-    const useCase = new GetClientMediaAccess(media, entitlements, storage, fixedClock(NOW));
+    const useCase = new GetClientMediaAccess(
+      media,
+      entitlements,
+      storage,
+      new FakeAuditLogger(),
+      fixedClock(NOW),
+    );
 
     await expect(useCase.execute(CLIENT_PROFILE_ID, original.id)).rejects.toMatchObject({
       category: 'notFound',
@@ -276,5 +296,55 @@ describe('GetClientMediaAccess', () => {
       },
     );
     expect(storage.createSignedUrlCalls).toHaveLength(0);
+  });
+
+  // --- P9C-OBS-01: portal access to sensitive media (section 19) ---------
+
+  it('records a client_media.access_granted audit event on every successful grant, carrying only ids', async () => {
+    const { useCase, entitlements, auditLogger } = buildUseCase(availableOriginal());
+    entitlements.grant(CLIENT_PROFILE_ID, MEDIA_ID, fullyValidGrant());
+
+    await useCase.execute(CLIENT_PROFILE_ID, MEDIA_ID);
+
+    expect(auditLogger.events).toHaveLength(1);
+    expect(auditLogger.events[0]).toMatchObject({
+      eventType: 'client_media.access_granted',
+      subjectType: 'media',
+      subjectId: MEDIA_ID,
+      actorProfileId: CLIENT_PROFILE_ID,
+      actorType: 'user',
+      gardenId: GARDEN_ID,
+      details: { engagementId: ENGAGEMENT_ID, publicationVersionId: PUBLICATION_VERSION_ID },
+    });
+  });
+
+  it('prohibited-content telemetry: the access-granted audit event never carries the bucket name, object key, or signed URL', async () => {
+    const { useCase, entitlements, auditLogger, storage } = buildUseCase(availableOriginal());
+    entitlements.grant(CLIENT_PROFILE_ID, MEDIA_ID, fullyValidGrant());
+    // A realistic forbidden value for each excluded category (section 19:
+    // "media URLs ... where a pseudonymous aggregate is sufficient") — the
+    // fake storage gateway's signed URL genuinely embeds the bucket name and
+    // object key, so this proves the audit event carries neither, not merely
+    // that nobody happened to pass them in.
+    const result = await useCase.execute(CLIENT_PROFILE_ID, MEDIA_ID);
+    expect(result.url).toContain(BUCKET);
+    expect(result.url).toContain(OBJECT_KEY);
+    expect(storage.createSignedUrlCalls).toHaveLength(1);
+
+    expect(auditLogger.events).toHaveLength(1);
+    const serializedEvent = JSON.stringify(auditLogger.events[0]);
+    expect(serializedEvent).not.toContain(BUCKET);
+    expect(serializedEvent).not.toContain(OBJECT_KEY);
+    expect(serializedEvent).not.toContain(result.url);
+  });
+
+  it('records no audit event at all for a denied attempt — a denial is a lighter structured-log metric, not an audit row', async () => {
+    const { useCase, auditLogger } = buildUseCase(availableOriginal());
+    // No entitlement granted — the ordinary denial path.
+
+    await expect(useCase.execute(CLIENT_PROFILE_ID, MEDIA_ID)).rejects.toMatchObject({
+      category: 'notFound',
+    });
+    expect(auditLogger.events).toHaveLength(0);
   });
 });

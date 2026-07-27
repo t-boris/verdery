@@ -148,6 +148,10 @@ export function composeMedia(
       mediaRepository,
       new KyselyClientMediaEntitlementSource(database.queries),
       mediaStorageGateway,
+      // P9C-OBS-01: the same read-path `AuditLogger` instance
+      // `getMediaAccess` above already uses — no per-call state to
+      // duplicate.
+      auditLogger,
       clock,
     ),
   };

@@ -191,6 +191,7 @@ Required dashboards:
 - Queue and job health.
 - Cost and quota.
 - Deletion and retention compliance.
+- Client publication and portal.
 
 Each dashboard links to its runbook and owning component.
 
@@ -897,6 +898,228 @@ client-emitted product events, section 11's consent state versioning and synchro
 any client analytics SDK — has no implementation to test: `P0-SEC-01` must decide the consent
 model first, and the deferral is recorded in deferred-capabilities.md rather than approximated
 here with an invented consent gate.
+
+### Client publication and portal dashboard, alert candidates, and runbook (P9C-OBS-01)
+
+Section 19 names two DIFFERENT kinds of signal — "audit events" (a durable `platform.audit_event`
+row) and "product and operational metrics" (a Cloud Monitoring log-based metric, built from a
+Cloud Logging structured log line) — and this subsection is where that distinction actually
+matters, unlike P5/P6/P7's own subsections above, where almost every signal was already a log
+line. **`platform.audit_event` is a Postgres table, not a Cloud Logging sink**: no log-based
+metric can EVER be built directly from an audit row, regardless of which fields it carries. Most
+of section 19's named audit categories — invitation lifecycle, membership/ownership change,
+organization assignment, engagement lifecycle, publisher grant, publication, withdrawal — already
+had real `platform.audit_event` rows before this package (P9A/P9B/P9C-PUBLISH-01/P9C-INVITE-01),
+verified in `tests/integration/collaboration-*.test.ts` and `tests/integration/client-*.test.ts`;
+this package's own job was two-fold: close the one confirmed AUDIT gap ("portal access to
+sensitive media" had no row at all), and add the STRUCTURED LOG lines the METRICS half of section
+19 needs, which existing audit rows structurally cannot provide — real signals, verified by real
+tests (`tests/http/client-portal-routes.test.ts`,
+`tests/http/client-update-and-invitation-telemetry.test.ts`,
+`src/modules/media/application/get-client-media-access.test.ts`,
+`tests/integration/client-export-manifest.test.ts`), not a deployed dashboard or alert policy —
+the same P5-OBS-01/P6-OBS-01 delivery bar and the same reason a deployed Cloud Monitoring
+dashboard/alert policy is not this work package's own deliverable
+([deferred-capabilities.md](../development/deferred-capabilities.md)).
+
+**The audit gap this package closed**, and the two pre-existing PROHIBITED-CONTENT violations it
+found and fixed while establishing the real starting state (both free text that had been landing
+in an audit row's `details` JSON — corrected to the same "presence boolean, never the value"
+convention `notifications.preferences_updated`'s own `hasQuietHours` already established):
+
+| Row                                                            | Before this package                                                                                                         | After this package                                                                                                                                   |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `client_media.access_granted` (`GetClientMediaAccess`)         | No audit record at all — confirmed by inspection, zero audit/log calls.                                                     | One row per successful grant: `subjectType: 'media'`, `engagementId`/`publicationVersionId` only — never the signed URL, bucket name, or object key. |
+| `client_export.manifest_generated` (`GetClientExportManifest`) | No audit record at all — "export" is its own required category, distinct from per-media access.                             | One row per manifest read: `publicationCount`/`mediaCount` only — never the garden model, plant data, or media ids.                                  |
+| `client_update.withdrawn` `details`                            | `{ engagementId, reason }` — `reason` is documented, free text ("Optional free-text reason, stored as `withdrawn_reason`"). | `{ engagementId, hasReason }`.                                                                                                                       |
+| `client_engagement.revoked` `details`                          | `{ serviceOrganizationId, reason }` — same free-text shape ("... stored as `revoked_reason`").                              | `{ serviceOrganizationId, hasReason }`.                                                                                                              |
+| `client_update.created` `details`                              | `{ engagementId, title }` — `title` becomes the eventual publication's own headline text.                                   | `{ engagementId }` — matching `client_update.content_updated`'s own audit, which never carried `title` either.                                       |
+
+A denied access attempt is deliberately NOT audited (neither the media grant nor any of the four
+denial surfaces below) — see `platform/telemetry/authorization-denial-log.ts`'s own header: a
+denial is orders of magnitude higher volume than a genuine grant (an expired session, a revoked
+link, or a probing request all produce one), so a `platform.audit_event` row per denial would
+bloat a durable, allegedly-forever-retained table (service-levels.md §8: "Nothing deletes from
+`platform.audit_event`, by design") with routine noise. A log line is the correctly-weighted
+signal for a denial, exactly like `sync.pull.rejected` already is for a rejected sync pull.
+
+**What is logged — structured log lines, no `platform.audit_event` row, no signed URL, token,
+email, title, summary, or free-text reason in any of them:**
+
+| Event                                | Fields                                                                                                                                                              | Emitted by                                                                                                                                                                                                                                                                                                                                                      |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `authorization.denied`               | `surface` (`client_portal`/`client_media`/`client_invitation_accept`/`publisher_grant`), `reasonCategory`, `route`                                                  | Every denied request across the four client-facing authorization gates below — see "Why `reasonCategory` is as coarse as it is" below for why NO resource identifier is ever included, by design.                                                                                                                                                               |
+| `client_update.publish_completed`    | `engagementId`, `versionNumber`, `itemCount`, `workLogItemCount`, `mediaItemCount`, `workToPublicationLagMs`? (absent when the publish included no `work_log` item) | Every successful `POST .../updates/{id}/publish` (`client-update-routes.ts`) — `workToPublicationLagMs` computed purely from the response the command already returned (the latest included work log's `occurredAt` versus `publishedAt`), the identical "no second query" posture `pullLagMilliseconds` already established in the P5-OBS-01 subsection above. |
+| `client_update.withdraw_completed`   | `engagementId`, `hasReason`                                                                                                                                         | Every successful `POST .../updates/{id}/withdraw`.                                                                                                                                                                                                                                                                                                              |
+| `client_invitation.accept_completed` | `engagementId`                                                                                                                                                      | Every successful `POST /client-invitations/accept`.                                                                                                                                                                                                                                                                                                             |
+| `client_export.manifest_served`      | `clientGardenId`, `publicationCount`, `mediaCount`                                                                                                                  | Every `GET /client/gardens/{id}/exports` (already landed with P9C-EXPORT-01, unchanged by this package — documented here because it is the flow signal "engagement handoff/export completion" needs; no new event was added for it, since one already existed).                                                                                                 |
+
+**Why `reasonCategory` is as coarse as it is, per surface — reused vocabulary, not an invented
+one:**
+
+- `client_portal` (the three `clientGardenId`-scoped reads): always `not_entitled`.
+  `ClientPortalAuthorization`'s own header argues at length that collapsing every distinct failure
+  mode (nonexistent id, another client's engagement, a revoked grant, an ended engagement) into
+  ONE concealed outcome is deliberate — "a second, more specific code would be a concealment bug,
+  not an improvement" (`client-portal-errors.ts`). This telemetry does not invent an internal-only
+  distinction that design deliberately erased.
+- `client_media` (the media-access route): `not_entitled` (checks 2-5 of section 16's six-condition
+  gate, folded into `GetClientMediaAccess`'s own single `mediaNotFoundError()` for the identical
+  concealment reason) or `not_available` (check 6, media not yet processed).
+- `client_invitation_accept`: `revoked` / `expired` / `already_accepted` / `email_mismatch` /
+  `engagement_not_active` / `not_found` — UNLIKE the two surfaces above, these are NOT concealed
+  from the client to begin with (`domain/client-access-grant.ts`'s own
+  `assertClientAccessGrantAcceptable`/`assertClientEmailBindingSatisfied` already return them as
+  distinct, client-visible error codes — a client holding a token already knows the invitation
+  exists), so reusing them here for the aggregate metric invents no new distinction either.
+- `publisher_grant` (publish/withdraw): always `not_entitled` — the one
+  `ClientUpdateErrorCode.PublisherAccessRequired` case, a caller who administers the engagement but
+  holds no active publisher grant.
+
+None of the four carries an engagement id, client garden id, media id, or route PARAMETER value —
+only the route TEMPLATE (`request.routeOptions.url`) — so the resulting aggregate metric answers
+"how many denials, of which kind, on which surface" and never "whose", per section 19's own words.
+
+**Log-based metric definitions these fields support** (Cloud Monitoring, filtered by
+`jsonPayload.event`, all `verdery-api`):
+
+- `authorization_denied` — counter, filter `jsonPayload.event="authorization.denied"`, label
+  extractors on `jsonPayload.surface` AND `jsonPayload.reasonCategory` — ONE metric, sliced by both
+  labels, answers "authorization denial counts by safe reason category" (section 19) for every
+  instrumented surface at once.
+- `client_update_publish_completed` — counter, filter
+  `jsonPayload.event="client_update.publish_completed"`.
+- `client_update_publish_version_number` — DISTRIBUTION, value extractor `jsonPayload.versionNumber`,
+  same filter — `> 1` is a correction/re-publish of an update already published once before.
+- `client_update_work_to_publication_lag_ms` — DISTRIBUTION, value extractor
+  `jsonPayload.workToPublicationLagMs`, same filter (Cloud Monitoring log-based metrics simply skip
+  lines where the extractor path is absent, the identical behavior `pullLagMilliseconds` already
+  relies on).
+- `client_update_withdraw_completed` — counter, filter
+  `jsonPayload.event="client_update.withdraw_completed"`.
+- `client_invitation_accept_completed` — counter, filter
+  `jsonPayload.event="client_invitation.accept_completed"`.
+- `client_export_manifest_served` — counter, filter `jsonPayload.event="client_export.manifest_served"`;
+  `client_export_manifest_media_count` — DISTRIBUTION on `jsonPayload.mediaCount`, same filter.
+
+**Dashboard widget compositions** — the "Client publication and portal" dashboard (added to this
+document's required list above):
+
+- **Publication funnel** — `client_update_publish_completed` rate beside
+  `client_update_withdraw_completed` rate: publication volume against the withdrawal share
+  ("publication correction or withdrawal rate", section 19) over the same window.
+- **Time from work to publication** — `client_update_work_to_publication_lag_ms` p50/p95: how long
+  finished work waits before a client sees it, section 19's own named measure, directly.
+- **Publish version distribution** — `client_update_publish_version_number` grouped into `= 1`
+  (first publish) versus `> 1` (correction): the correction half of the funnel widget above, split
+  out.
+- **Invitation acceptance** — `client_invitation_accept_completed` rate against
+  `authorization_denied{surface="client_invitation_accept"}` grouped by `reasonCategory`, stacked:
+  the `expired` band, specifically, IS "invitation expiry rate" (section 19); `revoked`/
+  `already_accepted`/`email_mismatch` are the other named-but-distinguishable denial reasons on
+  this one surface.
+- **Authorization denials by surface** — `authorization_denied` grouped by `surface`, stacked area:
+  which of the four client-facing gates is refusing the most traffic, at a glance.
+- **Export/handoff completion** — `client_export_manifest_served` rate beside
+  `client_export_manifest_media_count` p50 ("engagement handoff/export completion", section 19).
+
+**Portal open and return rate — a documented judgment call, not a gap.** "Portal open rate" needs
+NO new instrumentation: the four `GET /v1/client/gardens*` reads are ordinary, successful,
+high-volume requests, and Cloud Run's own built-in `run.googleapis.com/request_count` grouped by
+route template already answers "how often is the portal opened" per route — the identical
+built-in-metric posture `docs/development/service-levels.md`'s own SLI-1/SLI-2 already take for
+every other route group, and exactly why this package deliberately does NOT log a line on every
+successful `client_portal` read (only on denial — see the "no full audit row per ordinary read"
+reasoning above, applied identically to logging). "Portal return rate" (repeat opens by the SAME
+client over time) is `BLOCKED`: computing it needs a durable last-open timestamp per client, and
+none exists — building a full audit row per read was rejected above as disproportionate to a
+high-volume path, and a new lightweight aggregate table is out of this package's own constraints
+("No new database tables for metrics"). The honest state is that this specific half of section
+19's "portal open and return rate" has no producer today; a future, reviewed decision (a
+`last_opened_at` column on `client_access_grant`, updated at low cost on the existing read path)
+is the concrete next step, not invented here.
+
+**"Active shared gardens and assignment completion" (section 19) is out of this package's own
+instrumentation scope** — P9C-OBS-01's own named focus is "invitation, publication latency,
+withdrawal, engagement revocation, portal access, and authorization denial"
+(implementation-plan.md), and active-engagement/assignment counts are plain STOCK queries over
+rows P9A/P9B-API-01 already created, the identical "database query, not a log line" judgment call
+section 19's own media-storage counterpart already documents:
+
+```sql
+-- Client invitation acceptance/expiry, current stock by state (the STOCK
+-- half; `client_invitation.accept_completed`/`authorization_denied
+-- {surface="client_invitation_accept"}` above are the FLOW half, per
+-- attempt):
+SELECT state, count(*) AS grants
+FROM collaboration.client_access_grant
+GROUP BY state;
+
+-- Publication correction/withdrawal, current stock:
+SELECT state, count(*) AS client_updates
+FROM collaboration.client_update
+WHERE state IN ('published', 'withdrawn')
+GROUP BY state;
+
+-- Active shared gardens and assignment completion:
+SELECT count(*) AS active_engagements
+FROM collaboration.client_engagement WHERE state = 'active';
+SELECT count(*) AS active_garden_assignments
+FROM collaboration.garden_assignment WHERE state = 'active';
+```
+
+**Alert candidates, with reasoned starting thresholds** (per section 14, exact targets still need
+approval before production):
+
+1. **Authorization denial spike, per surface**: `authorization_denied{surface=X}` over a trailing
+   15-minute window exceeds 5x that surface's own trailing 24-hour median rate. Every surface here
+   is client-facing (reachable with nothing but a bearer token and a guessed or stale id/token), so
+   a sudden spike is the credible signal of either scripted probing/enumeration attempts or a
+   client-side regression sending stale tokens/ids after a release — the same "compare against the
+   surface's own baseline, not a fixed number" reasoning this document does not yet have anywhere
+   else, because every OTHER denial-shaped signal so far (media validation failures, sync
+   rejections) has a stable, review-derived percentage threshold; a brand-new client-facing surface
+   with no beta traffic yet does not. Response: correlate `reasonCategory` against the surface — a
+   `client_invitation_accept` spike concentrated in `expired` is a stale-link / marketing-email
+   problem, not an attack; a `client_portal`/`client_media` spike with no single dominant
+   `reasonCategory` (impossible today, since both surfaces log only one category each — a REAL
+   future distinguishing signal would itself be the alert to investigate) is enumeration.
+2. **Invitation expiry share, review-time, not paged**: `authorization_denied
+{surface="client_invitation_accept", reasonCategory="expired"}` exceeds 25% of
+   (`client_invitation_accept_completed` + all `client_invitation_accept` denials) over a trailing
+   7 days. Mirrors the care-funnel regression precedent above (a product-quality review measure,
+   not an incident) — a high expiry share usually means the default invitation window
+   (`CLIENT_INVITATION_EXPIRY_*`) is too short for how clients actually respond, or transactional
+   email deliverability (external-integrations.md, the Resend adapter) is degraded; either is an
+   operational/product decision, not a page.
+
+**Runbook entries** (section 18's shape):
+
+- **Authorization denial spike.** Meaning: elevated probing, enumeration, or a client-side
+  regression against a client-facing surface. First: `authorization_denied` grouped by `surface`
+  and `reasonCategory` over the spike window, then Cloud Run's own per-route request/response
+  metrics for the SAME route template (the aggregate metric never carries which id was probed, by
+  design — this is where the boundary of what this telemetry can tell an operator is intentional,
+  not a gap: distinguishing WHICH caller is probing needs the platform's own request-level access
+  logs and, if it becomes a genuine abuse pattern, the rate-limiting work `service-levels.md`
+  section 7.2 proposes and has not yet been built). Safe remediation: none server-side for
+  legitimate probing (the denial is the system working); for a client regression, check the
+  release that shipped around the spike's start.
+- **Invitation expiry share.** Meaning: invitations are lapsing before clients act on them. First:
+  the invitation-acceptance stock SQL above, grouped by `state`, and the transactional email
+  adapter's own delivery outcome logging (external-integrations.md) for the same window — a
+  deliverability regression and a too-short expiry window look identical from
+  `authorization_denied` alone and must be told apart at the email-provider layer. Safe
+  remediation: none server-side beyond operational communication with the professional issuing the
+  invitations; widening the expiry default is a reviewed product decision, not a live-tuning knob.
+
+**What this section deliberately does not claim.** No live dashboard, log-based metric, or alert
+policy has been created against any environment — the same P5-OBS-01/App-Check precedent every
+subsection above already states. "Portal return rate" and "active shared gardens and assignment
+completion" have no new producer, for the reasons stated above, not silently promised here. The
+prohibited-content correction table above fixed two REAL, pre-existing violations found while
+establishing this package's own starting state — recorded here as findings, not hidden as if they
+had never happened.
 
 ## 14. SLOs
 

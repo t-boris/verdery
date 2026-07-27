@@ -3,22 +3,44 @@
  * edit content, submit, publish, withdraw — the
  * `internal_draft -> ready_for_client -> published -> withdrawn` workflow.
  *
+ * PUBLISH/WITHDRAW TELEMETRY (P9C-OBS-01). `POST .../publish` logs
+ * `client_update.publish_completed` on success — `versionNumber` (`1` is a
+ * first publish, `> 1` is a correction/re-publish, serving "publication
+ * correction ... rate" alongside `withdraw_completed` below) and
+ * `workToPublicationLagMs` ("time from work completion to publication",
+ * section 19), computed PURELY from the `PublicationVersion` the command
+ * already returned — the SAME "no second query" posture
+ * `sync-routes.ts`'s own `pullLagMilliseconds` comment documents: every
+ * `work_log`-kind item already carries its own `occurredAt`, and the
+ * version already carries `publishedAt`, so this is the gap between the
+ * LATEST included work and the moment it was published. Absent when the
+ * publish included no `work_log` item (nothing to measure a gap from) —
+ * the identical "absent when not computable" convention `pullLagMilliseconds`
+ * itself uses. `POST .../withdraw` logs `client_update.withdraw_completed`
+ * ("... or withdrawal rate", the same section), never the withdrawal
+ * reason (only whether one was given). Either route logs
+ * `authorization.denied` (`surface: 'publisher_grant'`) instead, on a
+ * caller who administers the engagement but holds no publisher grant.
+ *
  * Source: packages/api-contracts/openapi.yaml, tag `Publications`;
- * implementation-plan.md work package P9C-PUBLISH-01;
- * architecture/collaboration-and-client-sharing.md, section
- * "10. Publication Workflow".
+ * implementation-plan.md work packages P9C-PUBLISH-01, P9C-OBS-01;
+ * architecture/collaboration-and-client-sharing.md, sections
+ * "10. Publication Workflow", "19. Audit and Observability".
  */
 
-import type {
-  ClientUpdate,
-  ClientUpdateListResult,
-  CreateClientUpdateRequest,
-  PublicationVersion,
-  PublishClientUpdateRequest,
-  UpdateClientUpdateContentRequest,
-  WithdrawClientUpdateRequest,
+import {
+  type ClientUpdate,
+  type ClientUpdateListResult,
+  ClientUpdateErrorCode,
+  type CreateClientUpdateRequest,
+  type PublicationVersion,
+  type PublishClientUpdateRequest,
+  type UpdateClientUpdateContentRequest,
+  type WithdrawClientUpdateRequest,
 } from '@verdery/api-contracts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { ApplicationError } from '../../../platform/errors/application-error.js';
+import { logAuthorizationDenial } from '../../../platform/telemetry/authorization-denial-log.js';
 import type { CreateClientUpdate } from '../application/create-client-update.js';
 import type { GetClientUpdate } from '../application/get-client-update.js';
 import type { ListClientUpdatesForEngagement } from '../application/list-client-updates-for-engagement.js';
@@ -40,6 +62,30 @@ import {
   requireIdempotencyKey,
   UUID_PATTERN,
 } from './route-helpers.js';
+
+/** `true` only for the caller who administers the engagement but holds no active publisher grant — every OTHER failure (not-found, state-machine, revision) is left uninstrumented here, unchanged from before this package. */
+function isPublisherAccessDenial(error: unknown): boolean {
+  return (
+    error instanceof ApplicationError &&
+    error.code === ClientUpdateErrorCode.PublisherAccessRequired
+  );
+}
+
+/**
+ * "Time from work completion to publication" (section 19), computed from
+ * data the response already carries — see this file's own header. `null`
+ * when the publish included no `work_log` item.
+ */
+function computeWorkToPublicationLagMs(version: PublicationVersion): number | undefined {
+  const workLogOccurredAtValues = version.items
+    .filter((item) => item.kind === 'work_log')
+    .map((item) => new Date(item.occurredAt).getTime());
+  if (workLogOccurredAtValues.length === 0) {
+    return undefined;
+  }
+  const latestWorkCompletedAt = Math.max(...workLogOccurredAtValues);
+  return new Date(version.publishedAt).getTime() - latestWorkCompletedAt;
+}
 
 export interface ClientUpdateRoutesDependencies {
   readonly listClientUpdates: ListClientUpdatesForEngagement;
@@ -258,13 +304,39 @@ export function registerClientUpdateRoutes(
       const expectedRevision = requireExpectedRevision(request);
       const body = requirePublishBody(request);
 
-      const version: PublicationVersion = await dependencies.publishClientUpdate.execute(
-        engagementId,
-        clientUpdateId,
-        body,
-        request.actorContext.profileId,
-        expectedRevision,
-        idempotencyKey,
+      let version: PublicationVersion;
+      try {
+        version = await dependencies.publishClientUpdate.execute(
+          engagementId,
+          clientUpdateId,
+          body,
+          request.actorContext.profileId,
+          expectedRevision,
+          idempotencyKey,
+        );
+      } catch (error) {
+        if (isPublisherAccessDenial(error)) {
+          logAuthorizationDenial(request.log, {
+            surface: 'publisher_grant',
+            reasonCategory: 'not_entitled',
+            route: request.routeOptions?.url ?? request.url,
+          });
+        }
+        throw error;
+      }
+
+      const workToPublicationLagMs = computeWorkToPublicationLagMs(version);
+      request.log.info(
+        {
+          event: 'client_update.publish_completed',
+          engagementId,
+          versionNumber: version.versionNumber,
+          itemCount: version.items.length,
+          workLogItemCount: version.items.filter((item) => item.kind === 'work_log').length,
+          mediaItemCount: version.items.filter((item) => item.kind === 'media').length,
+          ...(workToPublicationLagMs === undefined ? {} : { workToPublicationLagMs }),
+        },
+        'Client update published',
       );
 
       return reply.status(200).send(version);
@@ -280,13 +352,34 @@ export function registerClientUpdateRoutes(
       const expectedRevision = requireExpectedRevision(request);
       const reason = parseWithdrawReason(request);
 
-      const update: ClientUpdate = await dependencies.withdrawClientUpdate.execute(
-        engagementId,
-        clientUpdateId,
-        reason,
-        request.actorContext.profileId,
-        expectedRevision,
-        idempotencyKey,
+      let update: ClientUpdate;
+      try {
+        update = await dependencies.withdrawClientUpdate.execute(
+          engagementId,
+          clientUpdateId,
+          reason,
+          request.actorContext.profileId,
+          expectedRevision,
+          idempotencyKey,
+        );
+      } catch (error) {
+        if (isPublisherAccessDenial(error)) {
+          logAuthorizationDenial(request.log, {
+            surface: 'publisher_grant',
+            reasonCategory: 'not_entitled',
+            route: request.routeOptions?.url ?? request.url,
+          });
+        }
+        throw error;
+      }
+
+      request.log.info(
+        {
+          event: 'client_update.withdraw_completed',
+          engagementId,
+          hasReason: reason !== null,
+        },
+        'Client update withdrawn',
       );
 
       return reply.status(200).send(update);

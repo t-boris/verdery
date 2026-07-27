@@ -10,9 +10,16 @@
  * pre-terminal state). IDEMPOTENT when already `revoked`. Refused with
  * `422` from `ended` — a different terminal state.
  *
- * Source: implementation-plan.md work package P9B-API-01;
- * architecture/collaboration-and-client-sharing.md, section
- * "8. Client Engagement".
+ * PROHIBITED-CONTENT FIX (P9C-OBS-01). `reason` is documented, free text
+ * ("Optional free-text reason, stored as `revoked_reason`" — the contract's
+ * own words) — this command's audit `details` never carries it, only
+ * whether one was given (`hasReason`), the same "presence boolean, never
+ * the value" convention `withdraw-client-update.ts`'s own fix and
+ * `notifications.preferences_updated`'s `hasQuietHours` already establish.
+ *
+ * Source: implementation-plan.md work packages P9B-API-01, P9C-OBS-01;
+ * architecture/collaboration-and-client-sharing.md, sections
+ * "8. Client Engagement", "19. Audit and Observability".
  */
 
 import type { ClientEngagement as ClientEngagementResource } from '@verdery/api-contracts';
@@ -100,7 +107,10 @@ export class RevokeClientEngagement {
         actorProfileId,
         actorType: 'user',
         gardenId: locked.gardenId,
-        details: { serviceOrganizationId: locked.serviceOrganizationId, reason },
+        details: {
+          serviceOrganizationId: locked.serviceOrganizationId,
+          hasReason: reason !== null,
+        },
       });
       await context.outbox.append({
         eventType: 'client_engagement.revoked',

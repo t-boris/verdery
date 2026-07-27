@@ -40,6 +40,7 @@ import {
   KyselyMediaRepository,
 } from '../../src/modules/media/public.js';
 import type { DatabaseSchema } from '../../src/platform/database/database-gateway.js';
+import { KyselyAuditLogger } from '../../src/platform/audit/kysely-audit-logger.js';
 import { KyselyIdempotencyStore } from '../../src/platform/idempotency/kysely-idempotency-store.js';
 import { ForbiddenError, NotFoundError } from '../../src/platform/errors/application-error.js';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
@@ -383,6 +384,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       new KyselyMediaRepository(db),
       new KyselyClientMediaEntitlementSource(db),
       storage,
+      new KyselyAuditLogger(db, fixedClock(JUNE)),
       fixedClock(JUNE),
     );
 

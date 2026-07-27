@@ -6287,7 +6287,14 @@ verdery_application` (proven behaviorally under `SET ROLE`, not just read from g
       lookup, never trusting the path value as authority. Concealment proved byte-identical
       between a garbage id and another client's real, active engagement. `/exports` deliberately
       left alone — that's `P9C-EXPORT-01`, not yet started. 262 files / 2075 tests, all green.
-- [ ] P9C-WEB-01 — deliberately read-only responsive client portal route group.
+- [x] P9C-WEB-01 — deliberately read-only responsive client portal route group at `/client-portal`,
+      outside `/application` entirely since a client may hold zero operational access. Its own
+      minimal `ClientShell` (garden switcher, Overview/Updates/Timeline tabs, sign-out) replaces
+      `ApplicationShell` rather than showing navigation for things the caller cannot reach.
+      Client-invitation acceptance lives at a sibling route, `/invite/client-portal/accept`,
+      outside both `/client-portal` and `/application` for the same reason `/invite/accept`
+      already sits there. `proxy.ts`'s existing session-cookie gate extended to cover the new
+      route root rather than duplicated.
 - [x] P9C-MEDIA-01 — media authorized through active engagement plus explicit publication
       entitlement; short-lived access, state rechecked at authorization time. New narrow
       cross-module read port (`ClientMediaEntitlementSource`, mirroring the
@@ -6308,8 +6315,30 @@ verdery_application` (proven behaviorally under `SET ROLE`, not just read from g
       `active`-engagement check runs — documented in `data-export-and-deletion.md` and
       `deferred-capabilities.md`. `app.ts` split into `application-dependencies.ts` to stay
       under the line limit. 264 files / 2091 tests, all green.
-- [ ] P9C-OBS-01 — privacy-safe audit/metrics for invitation, publication latency, withdrawal,
-      revocation, portal access, authorization denial.
+- [x] P9C-OBS-01 — privacy-safe audit/metrics for invitation, publication latency, withdrawal,
+      revocation, portal access, authorization denial. Closed the one confirmed audit gap
+      (`client_media.access_granted` had no row at all) plus added a new
+      `client_export.manifest_generated` event; both `details` carry only internal ids
+      (`engagementId`, `publicationVersionId`, `publicationCount`/`mediaCount`) — proven by a test asserting the
+      signed URL never appears in the audit row's JSON. New shared `authorization-denial-log.ts`
+      structured-log helper (not an audit row — denials are high-volume, routine noise for a
+      durable table) wired into all four client-facing authorization gates (`client_portal`,
+      `client_media`, `client_invitation_accept`, `publisher_grant`), reusing each surface's own
+      existing error-code vocabulary rather than inventing a finer-grained category than that
+      surface's own concealment design already allows. `client_update.publish_completed` /
+      `withdraw_completed` / `client_invitation.accept_completed` log lines added for the
+      remaining section-19 metrics (publish latency computed with no second query, from data the
+      publish response already returns). Found and fixed two REAL, pre-existing
+      prohibited-content violations in already-merged P9C-PUBLISH-01 code while establishing the
+      package's own starting state: `withdraw-client-update.ts`/`revoke-client-engagement.ts`
+      were storing free-text `reason` in audit `details`, and `create-client-update.ts` was
+      storing the publication `title` — all three corrected to the existing "presence boolean,
+      never the value" convention. Dashboard/alert-candidate/runbook documentation added to
+      `observability-and-analytics.md`; "portal return rate" honestly documented as blocked (no
+      durable last-open timestamp exists, and adding one is out of this package's own "no new
+      tables for metrics" constraint) rather than invented. 265 files / 2099 tests, all green.
+
+Phase 9C is now fully complete — every work package above is `[x]`.
 
 ---
 

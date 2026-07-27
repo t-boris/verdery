@@ -15,9 +15,17 @@
  * `client_update.state` and stop surfacing a withdrawn update's content —
  * this command's own job ends at recording the withdrawal itself.
  *
- * Source: implementation-plan.md work package P9C-PUBLISH-01;
- * architecture/collaboration-and-client-sharing.md, section
- * "10. Publication Workflow".
+ * PROHIBITED-CONTENT FIX (P9C-OBS-01). `reason` is documented, free text
+ * ("Optional free-text reason, stored as `withdrawn_reason`" — the
+ * contract's own words) — this command's audit `details` never carries it,
+ * only whether one was given (`hasReason`), the identical "presence
+ * boolean, never the value" convention `notifications.preferences_updated`
+ * already established (`hasQuietHours`). Section 19's own exclusion list
+ * names "notes" explicitly; a withdrawal reason is exactly that.
+ *
+ * Source: implementation-plan.md work packages P9C-PUBLISH-01, P9C-OBS-01;
+ * architecture/collaboration-and-client-sharing.md, sections
+ * "10. Publication Workflow", "19. Audit and Observability".
  */
 
 import type { ClientUpdate as ClientUpdateResource } from '@verdery/api-contracts';
@@ -109,7 +117,7 @@ export class WithdrawClientUpdate {
         actorProfileId,
         actorType: 'user',
         gardenId: updated.gardenId,
-        details: { engagementId, reason },
+        details: { engagementId, hasReason: reason !== null },
       });
       await context.outbox.append({
         eventType: 'client_update.withdrawn',

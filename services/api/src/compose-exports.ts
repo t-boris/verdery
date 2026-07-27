@@ -59,6 +59,7 @@ import type {
   ExportRoutesDependencies,
 } from './modules/exports/public.js';
 import type { DatabaseGateway } from './platform/database/database-gateway.js';
+import { KyselyAuditLogger } from './platform/audit/kysely-audit-logger.js';
 import { KyselyIdempotencyStore } from './platform/idempotency/kysely-idempotency-store.js';
 import type { MediaConfiguration } from './platform/configuration/configuration-schema.js';
 import type { CloudTasksInvocationVerifier } from './platform/tasks/cloud-tasks-invocation-verifier.js';
@@ -128,6 +129,11 @@ export function composeExports(
       new KyselyMapObjectRepository(database.queries),
       new KyselyPlantRepository(database.queries),
       getClientMediaAccess,
+      // P9C-OBS-01: a fresh reader over the same pooled connection — the
+      // same "second independent instance over the same pool" posture this
+      // file's own header already documents for every OTHER dependency
+      // built here.
+      new KyselyAuditLogger(database.queries, clock),
       clock,
     ),
   };

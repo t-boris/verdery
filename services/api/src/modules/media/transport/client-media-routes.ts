@@ -26,16 +26,25 @@
  * not accepted as authority" posture every other `ClientPortal` route
  * takes, applied here to a path segment that carries no authority at all.
  *
+ * DENIAL TELEMETRY (P9C-OBS-01). A denied call — `MediaErrorCode.NotFound`
+ * (checks 2-5 folded together, concealed by `GetClientMediaAccess`'s own
+ * design — see that class's header) or `MediaErrorCode.NotAvailable`
+ * (check 6) — logs one `authorization.denied` line before re-throwing,
+ * never an audit row (see `platform/telemetry/authorization-denial-log.ts`
+ * for why). No media id, engagement id, or other identifier is logged —
+ * only the fixed `not_entitled`/`not_available` category.
+ *
  * Source: packages/api-contracts/openapi.yaml, tag `ClientPortal`;
- * implementation-plan.md work packages P9C-MEDIA-01, P9C-API-01;
- * architecture/collaboration-and-client-sharing.md, section
- * "16. Media Access".
+ * implementation-plan.md work packages P9C-MEDIA-01, P9C-API-01, P9C-OBS-01;
+ * architecture/collaboration-and-client-sharing.md, sections
+ * "16. Media Access", "19. Audit and Observability".
  */
 
 import type { MediaAccess } from '@verdery/api-contracts';
-import { SharedErrorCode } from '@verdery/api-contracts';
+import { MediaErrorCode, SharedErrorCode } from '@verdery/api-contracts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { ValidationError } from '../../../platform/errors/application-error.js';
+import { ApplicationError, ValidationError } from '../../../platform/errors/application-error.js';
+import { logAuthorizationDenial } from '../../../platform/telemetry/authorization-denial-log.js';
 import { UUID_PATTERN } from '../../gardens-mapping/transport/garden-routes.js';
 import type { GetClientMediaAccess } from '../application/get-client-media-access.js';
 
@@ -73,6 +82,20 @@ function requireMediaId(request: FastifyRequest): string {
   return mediaId;
 }
 
+/** `null` for any error this route does not treat as an authorization denial (a malformed-request `ValidationError`, or a genuine infrastructure fault) — those propagate unlogged, exactly as before this package. */
+function clientMediaDenialReason(error: unknown): string | null {
+  if (!(error instanceof ApplicationError)) {
+    return null;
+  }
+  if (error.code === MediaErrorCode.NotFound) {
+    return 'not_entitled';
+  }
+  if (error.code === MediaErrorCode.NotAvailable) {
+    return 'not_available';
+  }
+  return null;
+}
+
 export function registerClientMediaRoutes(
   app: FastifyInstance,
   dependencies: ClientMediaRoutesDependencies,
@@ -83,10 +106,23 @@ export function registerClientMediaRoutes(
     requirePublicationId(request);
     const mediaId = requireMediaId(request);
 
-    const access: MediaAccess = await dependencies.getClientMediaAccess.execute(
-      request.actorContext.profileId,
-      mediaId,
-    );
+    let access: MediaAccess;
+    try {
+      access = await dependencies.getClientMediaAccess.execute(
+        request.actorContext.profileId,
+        mediaId,
+      );
+    } catch (error) {
+      const reasonCategory = clientMediaDenialReason(error);
+      if (reasonCategory !== null) {
+        logAuthorizationDenial(request.log, {
+          surface: 'client_media',
+          reasonCategory,
+          route: request.routeOptions?.url ?? request.url,
+        });
+      }
+      throw error;
+    }
 
     return reply.status(200).send(access);
   });

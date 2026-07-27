@@ -43,9 +43,11 @@ import {
   KyselyMediaRepository,
 } from '../../src/modules/media/public.js';
 import type { DatabaseSchema } from '../../src/platform/database/database-gateway.js';
+import { KyselyAuditLogger } from '../../src/platform/audit/kysely-audit-logger.js';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
 import { startPostgresTestContainer } from '../support/postgres-container.js';
 import { insertGarden, insertProfile } from '../support/collaboration-fixtures.js';
+import { auditEventFor } from '../support/collaboration-integration-harness.js';
 import {
   insertClientAccessGrant,
   insertClientEngagement,
@@ -107,6 +109,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
         new KyselyMediaRepository(db),
         new KyselyClientMediaEntitlementSource(db),
         storage,
+        new KyselyAuditLogger(db, fixedClock(NOW)),
         fixedClock(NOW),
       ),
       storage,
@@ -187,7 +190,8 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   }
 
   it('succeeds and returns a short-lived signed URL when every condition genuinely holds', async () => {
-    const { clientProfileId, mediaId } = await seedValidScenario();
+    const { clientProfileId, mediaId, engagementId, publicationVersionId } =
+      await seedValidScenario();
     const { useCase, storage } = buildUseCase();
 
     const access = await useCase.execute(clientProfileId, mediaId);
@@ -195,6 +199,13 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     expect(access.url).toContain(BUCKET);
     expect(access.expiresAt).toBe(new Date(NOW.getTime() + 900_000).toISOString());
     expect(storage.createSignedUrlCalls).toHaveLength(1);
+
+    // P9C-OBS-01: a real `platform.audit_event` row, written through the
+    // real Kysely adapter — never the signed URL itself.
+    const audit = await auditEventFor(db, mediaId, 'client_media.access_granted');
+    expect(audit).toBeDefined();
+    expect(audit?.details).toMatchObject({ engagementId, publicationVersionId });
+    expect(JSON.stringify(audit?.details)).not.toContain(access.url);
   });
 
   it('denies a REVOKED client access grant', async () => {

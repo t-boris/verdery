@@ -43,7 +43,11 @@ import {
 import { KyselyIdempotencyStore } from '../../src/platform/idempotency/kysely-idempotency-store.js';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
 import { startPostgresTestContainer } from '../support/postgres-container.js';
-import { insertGarden, insertMembership } from '../support/collaboration-integration-harness.js';
+import {
+  auditEventFor,
+  insertGarden,
+  insertMembership,
+} from '../support/collaboration-integration-harness.js';
 import {
   fixedClock,
   insertClientEngagement,
@@ -289,6 +293,14 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     );
     expect(revoked.state).toBe('revoked');
     expect(revoked.revokedReason).toBe('client changed their mind');
+
+    // Prohibited-content telemetry (P9C-OBS-01): a revocation reason is
+    // free text (section 19's own "notes" exclusion) — only presence is
+    // recorded, never the value, even though the command itself received it.
+    const auditRevoked = await auditEventFor(db, draftId, 'client_engagement.revoked');
+    expect(auditRevoked).toBeDefined();
+    expect(auditRevoked?.details).toMatchObject({ hasReason: true });
+    expect(JSON.stringify(auditRevoked?.details)).not.toContain('client changed their mind');
 
     const endedId = await insertClientEngagement(db, gardenId, adminId, organizationId);
     await activateEngagementCommand(MARCH).execute(endedId, adminId, randomUUID());

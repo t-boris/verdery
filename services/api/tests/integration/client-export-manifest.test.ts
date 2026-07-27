@@ -46,6 +46,7 @@ import {
   buildGetClientExportManifest,
   seedClientExportScenario,
 } from '../support/client-export-test-harness.js';
+import { auditEventFor } from '../support/collaboration-integration-harness.js';
 
 const SUITE_NAME = 'client export manifest';
 const MIGRATIONS_DIRECTORY = new URL('../../migrations', import.meta.url).pathname;
@@ -112,6 +113,28 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     expect(manifest.media[0]?.mediaId).toBe(scenario.mediaId);
     expect(manifest.media[0]?.access.url).toContain('test-user-media');
     expect(storage.createSignedUrlCalls).toHaveLength(1);
+
+    // P9C-OBS-01: "export" is its own required audit category (section
+    // 19) — a real `platform.audit_event` row, distinct from (and in
+    // addition to) the per-media `client_media.access_granted` row
+    // `GetClientMediaAccess` already writes for the one entitled item.
+    const exportAudit = await auditEventFor(
+      db,
+      scenario.engagementId,
+      'client_export.manifest_generated',
+    );
+    expect(exportAudit).toBeDefined();
+    expect(exportAudit?.details).toMatchObject({ publicationCount: 1, mediaCount: 1 });
+    // Prohibited-content telemetry: never the garden model, media id, or
+    // signed URL — only counts.
+    const serializedExportAudit = JSON.stringify(exportAudit?.details);
+    expect(serializedExportAudit).not.toContain(scenario.mediaId);
+    expect(serializedExportAudit).not.toContain(scenario.gardenId);
+    expect(serializedExportAudit).not.toContain(manifest.media[0]?.access.url);
+
+    const mediaAudit = await auditEventFor(db, scenario.mediaId, 'client_media.access_granted');
+    expect(mediaAudit).toBeDefined();
+    expect(JSON.stringify(mediaAudit?.details)).not.toContain(manifest.media[0]?.access.url);
   });
 
   it('excludes provider-internal operational records — observations, tasks, and recommendations never appear, genuinely absent from the wire response', async () => {

@@ -218,6 +218,11 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     const auditCreated = await auditEventFor(db, draft.id, 'client_update.created');
     expect(auditCreated).toBeDefined();
+    // Prohibited-content telemetry (P9C-OBS-01): the title is publication
+    // text (section 19's own exclusion list) and must never reach the
+    // audit row, even though the command itself received it.
+    expect(auditCreated?.details).toEqual({ engagementId });
+    expect(JSON.stringify(auditCreated?.details)).not.toContain('March visit summary');
 
     await addItemCommand(MARCH).execute(
       engagementId,
@@ -349,6 +354,13 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     const auditWithdrawn = await auditEventFor(db, draft.id, 'client_update.withdrawn');
     expect(auditWithdrawn).toBeDefined();
+    // Prohibited-content telemetry (P9C-OBS-01): a withdrawal reason is
+    // free text (section 19's own "notes" exclusion) — only presence is
+    // recorded, never the value, even though the command itself received it.
+    expect(auditWithdrawn?.details).toEqual({ engagementId, hasReason: true });
+    expect(JSON.stringify(auditWithdrawn?.details)).not.toContain(
+      'Client requested removal from portal',
+    );
   });
 
   // --- Publisher capability is genuinely separate -------------------------
