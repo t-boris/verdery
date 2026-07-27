@@ -11,9 +11,13 @@
 
 import { IDEMPOTENCY_KEY_HEADER } from '@verdery/api-contracts';
 import type { FastifyRequest } from 'fastify';
-import { invalid, UUID_PATTERN } from '../../gardens-mapping/transport/garden-routes.js';
+import {
+  invalid,
+  requireExpectedRevision,
+  UUID_PATTERN,
+} from '../../gardens-mapping/transport/garden-routes.js';
 
-export { UUID_PATTERN, invalid };
+export { UUID_PATTERN, invalid, requireExpectedRevision };
 
 function requireUuidParam(request: FastifyRequest, paramName: string, pointerName: string): string {
   const params = request.params as Record<string, unknown>;
@@ -48,6 +52,14 @@ export function requireAssignmentId(request: FastifyRequest): string {
 
 export function requireEngagementId(request: FastifyRequest): string {
   return requireUuidParam(request, 'engagementId', 'engagementId');
+}
+
+export function requireClientUpdateId(request: FastifyRequest): string {
+  return requireUuidParam(request, 'clientUpdateId', 'clientUpdateId');
+}
+
+export function requireItemId(request: FastifyRequest): string {
+  return requireUuidParam(request, 'itemId', 'itemId');
 }
 
 export function requireIdempotencyKey(request: FastifyRequest): string {

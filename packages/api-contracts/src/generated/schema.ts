@@ -3130,6 +3130,375 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/client-engagements/{engagementId}/publishers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List an engagement's publisher grants
+         * @description Every ACTIVE and revoked grant on this engagement, newest first.
+         *     Authorized the same dual gate as `grantPublisherAccess` — only
+         *     whoever administers the engagement (an organization's
+         *     `manageEngagement` holders when org-backed, the garden's own owner
+         *     otherwise) may see who currently holds publisher access on it.
+         *
+         *     Source: implementation-plan.md work package P9C-PUBLISH-01.
+         */
+        get: operations["listEngagementPublishers"];
+        put?: never;
+        /**
+         * Grant publisher access on an engagement
+         * @description Publisher access is a SEPARATE capability, never implied by
+         *     `manageEngagement`, `manageGarden`, or organization/garden role alone
+         *     (ADR-0012, "Publication Boundary"). Authorization is the same dual
+         *     gate `createClientEngagement` uses, re-evaluated against the
+         *     engagement's CURRENT `serviceOrganizationId`: an organization's
+         *     `manageEngagement` holders grant it for an organization-backed
+         *     engagement; the garden's own owner (`manageGarden`) grants it when no
+         *     service organization is attached.
+         *
+         *     The named profile must independently be eligible: an ACTIVE member of
+         *     the SAME service organization for an organization-backed engagement,
+         *     or an ACTIVE garden member (any role) of the engagement's own garden
+         *     otherwise. Refused with `409` when the named profile already holds an
+         *     ACTIVE grant on this engagement (`publisher_grant_active_key`).
+         *
+         *     Source: implementation-plan.md work package P9C-PUBLISH-01;
+         *     architecture/decisions/ADR-0012-separate-team-and-client-sharing.md,
+         *     section "Publication Boundary".
+         */
+        post: operations["grantPublisherAccess"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/client-engagements/{engagementId}/publishers/{profileId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+                profileId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke a profile's publisher access on an engagement
+         * @description Same dual authorization gate as `grantPublisherAccess`. Idempotent
+         *     when the named profile's grant is already revoked, or when no grant
+         *     ever existed for this profile — both return the same `404`
+         *     (`publisher_grant.not_found`) unless a grant (active or revoked)
+         *     exists, in which case an already-revoked grant is returned unchanged
+         *     with `200`.
+         *
+         *     Source: implementation-plan.md work package P9C-PUBLISH-01.
+         */
+        delete: operations["revokePublisherAccess"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/client-engagements/{engagementId}/work-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List the engagement garden's work logs
+         * @description The candidate list a publisher selects completed work from when
+         *     staging a `client_update` — plain reads of `collaboration.work_log`
+         *     for the engagement's own garden, newest first. Authorized by an
+         *     ACTIVE publisher grant on this engagement — no new authorization
+         *     machinery beyond what preparing a client update already requires.
+         *
+         *     Source: implementation-plan.md work package P9C-PUBLISH-01.
+         */
+        get: operations["listEngagementWorkLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/client-engagements/{engagementId}/updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List an engagement's client updates
+         * @description Every `client_update` on this engagement in any state, newest first,
+         *     each with its currently staged items. Authorized by an ACTIVE
+         *     publisher grant on this engagement.
+         *
+         *     Source: implementation-plan.md work package P9C-PUBLISH-01.
+         */
+        get: operations["listClientUpdates"];
+        put?: never;
+        /**
+         * Create a client update in internal_draft
+         * @description The first of the workflow's three-to-four distinct publisher-
+         *     initiated steps (ADR-0012, "Publication Boundary"). Publisher-only —
+         *     gated by an ACTIVE `publisher_grant` on this engagement, never by
+         *     `manageEngagement`/`manageGarden` alone. Requires the engagement be
+         *     `active`. `summary` starts unset; `submitClientUpdate` requires it be
+         *     supplied first via `updateClientUpdateContent`.
+         *
+         *     Task completion never triggers this: nothing in this codebase calls
+         *     it from `CompleteTask`, matching the explicit requirement that
+         *     publication is always a distinct, manually initiated act.
+         *
+         *     Source: implementation-plan.md work package P9C-PUBLISH-01;
+         *     architecture/collaboration-and-client-sharing.md, section
+         *     "10. Publication Workflow".
+         */
+        post: operations["createClientUpdate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/client-engagements/{engagementId}/updates/{clientUpdateId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+                clientUpdateId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get a client update
+         * @description Returns the update with its currently staged items — the preview a
+         *     publisher reviews before submitting. Authorized by an ACTIVE
+         *     publisher grant on this engagement.
+         *
+         *     Source: implementation-plan.md work package P9C-PUBLISH-01.
+         */
+        get: operations["getClientUpdate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit a draft update's title and summary
+         * @description `internal_draft` only — content is locked from `ready_for_client`
+         *     onward, matching the strictly linear state machine
+         *     (`publication-state.ts`): there is no edge back to `internal_draft`,
+         *     so a submitted update cannot be edited and re-submitted. Revision-
+         *     guarded by `If-Match` against `client_update.revision`.
+         *
+         *     Source: implementation-plan.md work package P9C-PUBLISH-01.
+         */
+        patch: operations["updateClientUpdateContent"];
+        trace?: never;
+    };
+    "/client-engagements/{engagementId}/updates/{clientUpdateId}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+                clientUpdateId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stage a work-log or media item on a draft update
+         * @description `internal_draft` only. `kind: work_log` requires `sourceWorkLogId`
+         *     (must belong to the engagement's own garden) and a curated,
+         *     client-safe `description` — independent text, not necessarily the
+         *     source work log's own words. `kind: media` requires `mediaRecordId`
+         *     (must belong to the engagement's own garden and be `available`) and
+         *     `mediaRole`. Both kinds are re-validated again at publish time
+         *     (`publishClientUpdate` step 2) since staged content can go stale
+         *     between selection and publication.
+         *
+         *     Source: implementation-plan.md work package P9C-PUBLISH-01;
+         *     migrations/1786800000000_engagement-publisher-grant-and-client-update-items.sql.
+         */
+        post: operations["addClientUpdateItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/client-engagements/{engagementId}/updates/{clientUpdateId}/items/{itemId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+                clientUpdateId: components["schemas"]["Uuid"];
+                itemId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a staged item from a draft update
+         * @description `internal_draft` only, mirroring `addClientUpdateItem`.
+         *
+         *     Source: implementation-plan.md work package P9C-PUBLISH-01.
+         */
+        delete: operations["removeClientUpdateItem"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/client-engagements/{engagementId}/updates/{clientUpdateId}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+                clientUpdateId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit a draft update for review (internal_draft -> ready_for_client)
+         * @description Only the `internal_draft -> ready_for_client` edge applies
+         *     (`publication-state.ts`). Requires `summary` already set
+         *     (`client_update_summary_required_check`); refused with `422`
+         *     otherwise. Revision-guarded by `If-Match`. Refused with `422` from
+         *     any other state — this state machine has no edge back to
+         *     `internal_draft`, so a submitted update cannot be re-submitted.
+         *
+         *     Source: implementation-plan.md work package P9C-PUBLISH-01;
+         *     architecture/collaboration-and-client-sharing.md, section
+         *     "10. Publication Workflow".
+         */
+        post: operations["submitClientUpdate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/client-engagements/{engagementId}/updates/{clientUpdateId}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+                clientUpdateId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish a ready-for-client update (ready_for_client -> published)
+         * @description The six-step publish transaction (collaboration-and-client-sharing.md
+         *     section 10): (1) revalidates the caller's publisher grant, the
+         *     engagement's `active` state, and the garden every selected item must
+         *     belong to; (2) re-validates every staged work-log/media item plus any
+         *     inline garden-snapshot/timeline-entry/staff-attribution content
+         *     supplied in this request; (3) creates an immutable
+         *     `publication_version` and its per-kind item snapshots; (4) creates
+         *     explicit `media_entitlement` records for every media item; (5)
+         *     appends an audit record and an outbox event atomically with the same
+         *     write; (6) the outbox event is what a notification worker consumes
+         *     strictly after this transaction commits — nothing here sends a
+         *     notification synchronously.
+         *
+         *     `gardenSnapshot`, `timelineEntries`, and `staffAttributions` are
+         *     supplied directly in this request (not staged in advance): they are
+         *     narrative content the publisher composes for the publication itself,
+         *     unlike work-log/media items, which are selected from existing
+         *     operational records and staged beforehand via `addClientUpdateItem`.
+         *     All three are optional; a publication with zero items is valid.
+         *
+         *     Revision-guarded by `If-Match` against `client_update.revision` —
+         *     the mechanism that resolves two publishers racing to publish the SAME
+         *     update: exactly one revision-guarded write succeeds, the other
+         *     receives `412`. Only the `ready_for_client -> published` edge
+         *     applies; refused with `422` from any other state, including an
+         *     already-`published` update (this state machine has no `published ->
+         *     published` edge), so a retried publish that reuses the same
+         *     `Idempotency-Key` replays the same result, while one that does not
+         *     receives a clean `422` rather than a raw constraint violation —
+         *     `publication_version.client_update_id` is `UNIQUE`, so a genuine
+         *     double-insert is additionally caught and translated, never surfaced
+         *     as a raw `500`.
+         *
+         *     Source: implementation-plan.md work package P9C-PUBLISH-01;
+         *     architecture/collaboration-and-client-sharing.md, sections
+         *     "10. Publication Workflow", "11. Publication Contents".
+         */
+        post: operations["publishClientUpdate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/client-engagements/{engagementId}/updates/{clientUpdateId}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+                clientUpdateId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw a published update (published -> withdrawn)
+         * @description Only the `published -> withdrawn` edge applies; a true terminal, and
+         *     idempotent when already `withdrawn`. Never deletes the publication
+         *     version, its items, or its media entitlements — withdrawal removes
+         *     the update from ordinary client queries and revokes portal
+         *     visibility, but preserves the audit/dispute record
+         *     (collaboration-and-client-sharing.md section 10). Revision-guarded by
+         *     `If-Match`.
+         *
+         *     Source: implementation-plan.md work package P9C-PUBLISH-01;
+         *     architecture/collaboration-and-client-sharing.md, section
+         *     "10. Publication Workflow".
+         */
+        post: operations["withdrawClientUpdate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3472,6 +3841,209 @@ export interface components {
         RevokeClientEngagementRequest: {
             /** @description Optional free-text reason, stored as `revoked_reason`. */
             reason?: string;
+        };
+        /**
+         * @description Mirrors `collaboration.publisher_grant.state`. A two-state machine with one edge (`active -> revoked`); `revoked` is a true terminal.
+         * @enum {string}
+         */
+        PublisherGrantState: "active" | "revoked";
+        PublisherGrant: {
+            id: components["schemas"]["Uuid"];
+            engagementId: components["schemas"]["Uuid"];
+            profileId: components["schemas"]["Uuid"];
+            state: components["schemas"]["PublisherGrantState"];
+            grantedByProfileId: components["schemas"]["Uuid"];
+            grantedAt: components["schemas"]["Timestamp"];
+            revokedAt?: components["schemas"]["Timestamp"];
+            /** @description Present only once `state` is `revoked`. */
+            revokedByProfileId?: components["schemas"]["Uuid"];
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        PublisherGrantListResult: {
+            items: components["schemas"]["PublisherGrant"][];
+        };
+        GrantPublisherAccessRequest: {
+            /**
+             * @description For an organization-backed engagement, must be an ACTIVE member of
+             *     that same organization. Otherwise, must hold ACTIVE garden
+             *     membership (any role) on the engagement's own garden.
+             */
+            profileId: components["schemas"]["Uuid"];
+        };
+        /**
+         * @description Mirrors `collaboration.client_update.state`. Strictly linear
+         *     (`publication-state.ts`): `internal_draft -> ready_for_client ->
+         *     published -> withdrawn`, with no edge skipping a step or reaching
+         *     `internal_draft` twice.
+         * @enum {string}
+         */
+        ClientUpdateState: "internal_draft" | "ready_for_client" | "published" | "withdrawn";
+        /**
+         * @description The two kinds a staged `client_update_item` may be — see `addClientUpdateItem`'s own description for why the other two publication-item kinds are not staged.
+         * @enum {string}
+         */
+        ClientUpdateItemKind: "work_log" | "media";
+        /**
+         * @description Shared by staged and published media items. `general` is a plain finished-work photo with no before/after counterpart.
+         * @enum {string}
+         */
+        PublicationMediaRole: "before" | "after" | "general";
+        ClientUpdateItem: {
+            id: components["schemas"]["Uuid"];
+            clientUpdateId: components["schemas"]["Uuid"];
+            kind: components["schemas"]["ClientUpdateItemKind"];
+            occurredAt: components["schemas"]["Timestamp"];
+            /** @description Present only when `kind` is `work_log`. */
+            sourceWorkLogId?: components["schemas"]["Uuid"];
+            /** @description Present only when `kind` is `work_log` — curated, client-safe text, independent of the source work log's own words. */
+            description?: string;
+            /** @description Present only when `kind` is `media`. */
+            mediaRecordId?: components["schemas"]["Uuid"];
+            /** @description Present only when `kind` is `media`. */
+            mediaRole?: components["schemas"]["PublicationMediaRole"];
+            /** @description Optional, `kind media` only. */
+            caption?: string;
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        ClientUpdate: {
+            id: components["schemas"]["Uuid"];
+            engagementId: components["schemas"]["Uuid"];
+            gardenId: components["schemas"]["Uuid"];
+            state: components["schemas"]["ClientUpdateState"];
+            title: string;
+            /** @description Required from `ready_for_client` onward (`client_update_summary_required_check`); unset while `internal_draft`. */
+            summary?: string;
+            revision: components["schemas"]["Revision"];
+            createdByProfileId: components["schemas"]["Uuid"];
+            submittedAt?: components["schemas"]["Timestamp"];
+            publishedAt?: components["schemas"]["Timestamp"];
+            /** @description Present only once `state` is `published` or `withdrawn`. Not necessarily `createdByProfileId` — the publisher is not guaranteed to be the update's own creator. */
+            publishedByProfileId?: components["schemas"]["Uuid"];
+            withdrawnAt?: components["schemas"]["Timestamp"];
+            withdrawnByProfileId?: components["schemas"]["Uuid"];
+            /** @description Present only on a withdrawn update, and only when one was given. */
+            withdrawnReason?: string;
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+            /** @description Currently staged items. Always present, possibly empty. */
+            items: components["schemas"]["ClientUpdateItem"][];
+        };
+        ClientUpdateListResult: {
+            items: components["schemas"]["ClientUpdate"][];
+        };
+        CreateClientUpdateRequest: {
+            title: string;
+        };
+        /** @description At least one of `title`/`summary` must be supplied. */
+        UpdateClientUpdateContentRequest: {
+            title?: string;
+            summary?: string;
+        };
+        AddClientUpdateItemRequest: {
+            kind: components["schemas"]["ClientUpdateItemKind"];
+            occurredAt: components["schemas"]["Timestamp"];
+            /** @description Required when `kind` is `work_log`. */
+            sourceWorkLogId?: components["schemas"]["Uuid"];
+            /** @description Required when `kind` is `work_log`. */
+            description?: string;
+            /** @description Required when `kind` is `media`. */
+            mediaRecordId?: components["schemas"]["Uuid"];
+            /** @description Required when `kind` is `media`. */
+            mediaRole?: components["schemas"]["PublicationMediaRole"];
+            /** @description Optional, `kind media` only. */
+            caption?: string;
+        };
+        WithdrawClientUpdateRequest: {
+            /** @description Optional free-text reason, stored as `withdrawn_reason`. */
+            reason?: string;
+        };
+        WorkLog: {
+            id: components["schemas"]["Uuid"];
+            gardenId: components["schemas"]["Uuid"];
+            assignmentId?: components["schemas"]["Uuid"];
+            taskId?: components["schemas"]["Uuid"];
+            actorProfileId: components["schemas"]["Uuid"];
+            description: string;
+            occurredAt: components["schemas"]["Timestamp"];
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        WorkLogListResult: {
+            items: components["schemas"]["WorkLog"][];
+        };
+        /**
+         * @description Mirrors `collaboration.publication_item.kind` — every published item kind, a strict superset of `ClientUpdateItemKind`.
+         * @enum {string}
+         */
+        PublicationItemKind: "work_log" | "media" | "garden_snapshot" | "timeline_entry";
+        PublicationItem: {
+            id: components["schemas"]["Uuid"];
+            publicationVersionId: components["schemas"]["Uuid"];
+            kind: components["schemas"]["PublicationItemKind"];
+            occurredAt: components["schemas"]["Timestamp"];
+            /** @description Present only when `kind` is `work_log`. */
+            description?: string;
+            /** @description Present only when `kind` is `work_log`. Provenance only — never re-read to render client content. */
+            sourceWorkLogId?: components["schemas"]["Uuid"];
+            /** @description Present only when `kind` is `media`. */
+            mediaRecordId?: components["schemas"]["Uuid"];
+            /** @description Present only when `kind` is `media`. */
+            mediaRole?: components["schemas"]["PublicationMediaRole"];
+            /** @description Optional, `kind media` only. */
+            caption?: string;
+            /** @description Present only when `kind` is `garden_snapshot`. */
+            overviewText?: string;
+            /** @description Optional structured supplement, `kind garden_snapshot` only. No fixed shape. */
+            snapshotData?: {
+                [key: string]: unknown;
+            };
+            /** @description Present only when `kind` is `timeline_entry`. */
+            entryText?: string;
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        PublicationStaffAttribution: {
+            id: components["schemas"]["Uuid"];
+            publicationVersionId: components["schemas"]["Uuid"];
+            staffProfileId: components["schemas"]["Uuid"];
+            /** @description A snapshot at publication time — never a live join to the profile's current display name. */
+            displayName: string;
+            roleLabel?: string;
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        PublicationVersion: {
+            id: components["schemas"]["Uuid"];
+            clientUpdateId: components["schemas"]["Uuid"];
+            engagementId: components["schemas"]["Uuid"];
+            gardenId: components["schemas"]["Uuid"];
+            versionNumber: number;
+            title: string;
+            summary: string;
+            clientUpdateRevisionAtPublish: components["schemas"]["Revision"];
+            publishedAt: components["schemas"]["Timestamp"];
+            publishedByProfileId: components["schemas"]["Uuid"];
+            createdAt: components["schemas"]["Timestamp"];
+            items: components["schemas"]["PublicationItem"][];
+            staffAttributions: components["schemas"]["PublicationStaffAttribution"][];
+        };
+        PublishGardenSnapshotInput: {
+            overviewText: string;
+            snapshotData?: {
+                [key: string]: unknown;
+            };
+        };
+        PublishTimelineEntryInput: {
+            entryText: string;
+            occurredAt: components["schemas"]["Timestamp"];
+        };
+        PublishStaffAttributionInput: {
+            staffProfileId: components["schemas"]["Uuid"];
+            displayName: string;
+            roleLabel?: string;
+        };
+        /** @description All fields optional — a publication with zero items is valid. Composed directly here, not staged in advance; see `publishClientUpdate`'s own description. */
+        PublishClientUpdateRequest: {
+            gardenSnapshot?: components["schemas"]["PublishGardenSnapshotInput"];
+            timelineEntries?: components["schemas"]["PublishTimelineEntryInput"][];
+            staffAttributions?: components["schemas"]["PublishStaffAttributionInput"][];
         };
         SessionLoginRequest: {
             /** @description Freshly obtained Firebase ID token, verified server-side before any cookie is issued. */
@@ -9359,6 +9931,466 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    listEngagementPublishers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The engagement's publisher grants. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublisherGrantListResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    grantPublisherAccess: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantPublisherAccessRequest"];
+            };
+        };
+        responses: {
+            /** @description The created, active publisher grant. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublisherGrant"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    revokePublisherAccess: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+                profileId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The revoked (or already revoked) publisher grant. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublisherGrant"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listEngagementWorkLogs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The garden's work logs, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkLogListResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listClientUpdates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The engagement's client updates. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientUpdateListResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createClientUpdate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateClientUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description The created update, in internal_draft state. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientUpdate"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getClientUpdate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+                clientUpdateId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The requested client update. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientUpdate"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateClientUpdateContent: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+                clientUpdateId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateClientUpdateContentRequest"];
+            };
+        };
+        responses: {
+            /** @description The updated draft. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientUpdate"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            412: components["responses"]["PreconditionFailed"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    addClientUpdateItem: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+                clientUpdateId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddClientUpdateItemRequest"];
+            };
+        };
+        responses: {
+            /** @description The staged item. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientUpdateItem"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    removeClientUpdateItem: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+                clientUpdateId: components["schemas"]["Uuid"];
+                itemId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The removed item. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientUpdateItem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    submitClientUpdate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+                clientUpdateId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The submitted update. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientUpdate"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            412: components["responses"]["PreconditionFailed"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    publishClientUpdate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+                clientUpdateId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PublishClientUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description The immutable publication version just created. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationVersion"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    withdrawClientUpdate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+                clientUpdateId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["WithdrawClientUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description The withdrawn (or already withdrawn) update. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientUpdate"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            412: components["responses"]["PreconditionFailed"];
             422: components["responses"]["UnprocessableEntity"];
         };
     };

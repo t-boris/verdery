@@ -6252,15 +6252,29 @@ verdery_application` (proven behaviorally under `SET ROLE`, not just read from g
       metadata); `client_update`'s draft/mutable half deliberately excluded, since that split is
       what makes the REVOKE possible. State sequencing remains application-deferred, matching
       every prior state machine this session. 249 files / 1950 tests, all green.
-- [ ] P9C-PUBLISH-01 — draft → ready-for-client → published → withdrawn workflow, a separate
-      publisher capability; task completion never auto-publishes by default.
+- [x] P9C-PUBLISH-01 — draft → ready-for-client → published → withdrawn workflow, a separate
+      publisher capability; task completion never auto-publishes by default. New
+      `collaboration.publisher_grant` table, per-engagement, deliberately not folded into
+      `manageEngagement` — an org admin holding that capability by role alone must not become a
+      publisher for free. A small additive migration (`client_update_item`) added for staging
+      selected work-log/media content; garden-snapshot/timeline/staff-attribution content is
+      supplied directly in the publish request instead, since there is no candidate list to stage
+      for narrative text. Six-step publish transaction proven at the row level; two publishers
+      racing the same update proven to resolve to exactly one surviving `publication_version`
+      under real concurrent Postgres transactions.
 - [ ] P9C-INVITE-01 — email-bound, expiring client invitations, Firebase email magic-link,
       engagement revocation; no anonymous public links.
 - [ ] P9C-API-01 — publication-only client endpoints; a client cannot enumerate operational
       records or other engagements.
 - [ ] P9C-WEB-01 — deliberately read-only responsive client portal route group.
-- [ ] P9C-MEDIA-01 — media authorized through active engagement plus explicit publication
-      entitlement; short-lived access, state rechecked at authorization time.
+- [x] P9C-MEDIA-01 — media authorized through active engagement plus explicit publication
+      entitlement; short-lived access, state rechecked at authorization time. New narrow
+      cross-module read port (`ClientMediaEntitlementSource`, mirroring the
+      `GardenAssignmentAccessSource` precedent) lets `media` read `collaboration`'s tables
+      without owning them. Full denial matrix proved: revoked grant, withdrawn publication
+      (published then withdrawn — proves withdrawal itself is what revokes access, not merely
+      never having published), cross-client, ended/revoked engagement, no entitlement at all,
+      pending grant. Combined with PUBLISH-01: 255 files / 2003 tests, all green.
 - [ ] P9C-EXPORT-01 — default residential stewardship: accepted garden model and published
       deliverables are client-exportable; provider-internal operations excluded.
 - [ ] P9C-OBS-01 — privacy-safe audit/metrics for invitation, publication latency, withdrawal,

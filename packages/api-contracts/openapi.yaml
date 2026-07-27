@@ -77,6 +77,23 @@ tags:
       Source: architecture/decisions/ADR-0012-separate-team-and-client-sharing.md;
       architecture/collaboration-and-client-sharing.md, sections
       "7. Service Organizations and Assignments", "8. Client Engagement".
+  - name: Publications
+    description: |
+      The client-publication domain (P9C-PUBLISH-01) — the separate publisher
+      capability, and the `internal_draft -> ready_for_client -> published ->
+      withdrawn` `client_update` workflow. Distinct from `Organizations`
+      deliberately: publisher access is its own capability, explicitly
+      granted per engagement, never implied by `manageEngagement`,
+      `manageGarden`, or organization/garden role alone (ADR-0012,
+      "Publication Boundary": "Owner, editor, or professional status alone
+      does not grant publication access"). Task completion never publishes
+      automatically — every operation under this tag is a distinct,
+      publisher-initiated step.
+
+      Source: architecture/decisions/ADR-0012-separate-team-and-client-sharing.md,
+      section "Publication Boundary";
+      architecture/collaboration-and-client-sharing.md, sections
+      "4.4 Publisher", "10. Publication Workflow", "11. Publication Contents".
 
 paths:
   /health/live:
@@ -4801,6 +4818,609 @@ paths:
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
 
+  /client-engagements/{engagementId}/publishers:
+    parameters:
+      - name: engagementId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    get:
+      operationId: listEngagementPublishers
+      tags: [Publications]
+      summary: List an engagement's publisher grants
+      description: |
+        Every ACTIVE and revoked grant on this engagement, newest first.
+        Authorized the same dual gate as `grantPublisherAccess` — only
+        whoever administers the engagement (an organization's
+        `manageEngagement` holders when org-backed, the garden's own owner
+        otherwise) may see who currently holds publisher access on it.
+
+        Source: implementation-plan.md work package P9C-PUBLISH-01.
+      responses:
+        '200':
+          description: The engagement's publisher grants.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublisherGrantListResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      operationId: grantPublisherAccess
+      tags: [Publications]
+      summary: Grant publisher access on an engagement
+      description: |
+        Publisher access is a SEPARATE capability, never implied by
+        `manageEngagement`, `manageGarden`, or organization/garden role alone
+        (ADR-0012, "Publication Boundary"). Authorization is the same dual
+        gate `createClientEngagement` uses, re-evaluated against the
+        engagement's CURRENT `serviceOrganizationId`: an organization's
+        `manageEngagement` holders grant it for an organization-backed
+        engagement; the garden's own owner (`manageGarden`) grants it when no
+        service organization is attached.
+
+        The named profile must independently be eligible: an ACTIVE member of
+        the SAME service organization for an organization-backed engagement,
+        or an ACTIVE garden member (any role) of the engagement's own garden
+        otherwise. Refused with `409` when the named profile already holds an
+        ACTIVE grant on this engagement (`publisher_grant_active_key`).
+
+        Source: implementation-plan.md work package P9C-PUBLISH-01;
+        architecture/decisions/ADR-0012-separate-team-and-client-sharing.md,
+        section "Publication Boundary".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GrantPublisherAccessRequest'
+      responses:
+        '201':
+          description: The created, active publisher grant.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublisherGrant'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /client-engagements/{engagementId}/publishers/{profileId}:
+    parameters:
+      - name: engagementId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: profileId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    delete:
+      operationId: revokePublisherAccess
+      tags: [Publications]
+      summary: Revoke a profile's publisher access on an engagement
+      description: |
+        Same dual authorization gate as `grantPublisherAccess`. Idempotent
+        when the named profile's grant is already revoked, or when no grant
+        ever existed for this profile — both return the same `404`
+        (`publisher_grant.not_found`) unless a grant (active or revoked)
+        exists, in which case an already-revoked grant is returned unchanged
+        with `200`.
+
+        Source: implementation-plan.md work package P9C-PUBLISH-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: The revoked (or already revoked) publisher grant.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublisherGrant'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /client-engagements/{engagementId}/work-logs:
+    parameters:
+      - name: engagementId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    get:
+      operationId: listEngagementWorkLogs
+      tags: [Publications]
+      summary: List the engagement garden's work logs
+      description: |
+        The candidate list a publisher selects completed work from when
+        staging a `client_update` — plain reads of `collaboration.work_log`
+        for the engagement's own garden, newest first. Authorized by an
+        ACTIVE publisher grant on this engagement — no new authorization
+        machinery beyond what preparing a client update already requires.
+
+        Source: implementation-plan.md work package P9C-PUBLISH-01.
+      responses:
+        '200':
+          description: The garden's work logs, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkLogListResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /client-engagements/{engagementId}/updates:
+    parameters:
+      - name: engagementId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    get:
+      operationId: listClientUpdates
+      tags: [Publications]
+      summary: List an engagement's client updates
+      description: |
+        Every `client_update` on this engagement in any state, newest first,
+        each with its currently staged items. Authorized by an ACTIVE
+        publisher grant on this engagement.
+
+        Source: implementation-plan.md work package P9C-PUBLISH-01.
+      responses:
+        '200':
+          description: The engagement's client updates.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientUpdateListResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      operationId: createClientUpdate
+      tags: [Publications]
+      summary: Create a client update in internal_draft
+      description: |
+        The first of the workflow's three-to-four distinct publisher-
+        initiated steps (ADR-0012, "Publication Boundary"). Publisher-only —
+        gated by an ACTIVE `publisher_grant` on this engagement, never by
+        `manageEngagement`/`manageGarden` alone. Requires the engagement be
+        `active`. `summary` starts unset; `submitClientUpdate` requires it be
+        supplied first via `updateClientUpdateContent`.
+
+        Task completion never triggers this: nothing in this codebase calls
+        it from `CompleteTask`, matching the explicit requirement that
+        publication is always a distinct, manually initiated act.
+
+        Source: implementation-plan.md work package P9C-PUBLISH-01;
+        architecture/collaboration-and-client-sharing.md, section
+        "10. Publication Workflow".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateClientUpdateRequest'
+      responses:
+        '201':
+          description: The created update, in internal_draft state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientUpdate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /client-engagements/{engagementId}/updates/{clientUpdateId}:
+    parameters:
+      - name: engagementId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: clientUpdateId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    get:
+      operationId: getClientUpdate
+      tags: [Publications]
+      summary: Get a client update
+      description: |
+        Returns the update with its currently staged items — the preview a
+        publisher reviews before submitting. Authorized by an ACTIVE
+        publisher grant on this engagement.
+
+        Source: implementation-plan.md work package P9C-PUBLISH-01.
+      responses:
+        '200':
+          description: The requested client update.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientUpdate'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      operationId: updateClientUpdateContent
+      tags: [Publications]
+      summary: Edit a draft update's title and summary
+      description: |
+        `internal_draft` only — content is locked from `ready_for_client`
+        onward, matching the strictly linear state machine
+        (`publication-state.ts`): there is no edge back to `internal_draft`,
+        so a submitted update cannot be edited and re-submitted. Revision-
+        guarded by `If-Match` against `client_update.revision`.
+
+        Source: implementation-plan.md work package P9C-PUBLISH-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateClientUpdateContentRequest'
+      responses:
+        '200':
+          description: The updated draft.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientUpdate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /client-engagements/{engagementId}/updates/{clientUpdateId}/items:
+    parameters:
+      - name: engagementId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: clientUpdateId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: addClientUpdateItem
+      tags: [Publications]
+      summary: Stage a work-log or media item on a draft update
+      description: |
+        `internal_draft` only. `kind: work_log` requires `sourceWorkLogId`
+        (must belong to the engagement's own garden) and a curated,
+        client-safe `description` — independent text, not necessarily the
+        source work log's own words. `kind: media` requires `mediaRecordId`
+        (must belong to the engagement's own garden and be `available`) and
+        `mediaRole`. Both kinds are re-validated again at publish time
+        (`publishClientUpdate` step 2) since staged content can go stale
+        between selection and publication.
+
+        Source: implementation-plan.md work package P9C-PUBLISH-01;
+        migrations/1786800000000_engagement-publisher-grant-and-client-update-items.sql.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddClientUpdateItemRequest'
+      responses:
+        '201':
+          description: The staged item.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientUpdateItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /client-engagements/{engagementId}/updates/{clientUpdateId}/items/{itemId}:
+    parameters:
+      - name: engagementId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: clientUpdateId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    delete:
+      operationId: removeClientUpdateItem
+      tags: [Publications]
+      summary: Remove a staged item from a draft update
+      description: |
+        `internal_draft` only, mirroring `addClientUpdateItem`.
+
+        Source: implementation-plan.md work package P9C-PUBLISH-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: The removed item.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientUpdateItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /client-engagements/{engagementId}/updates/{clientUpdateId}/submit:
+    parameters:
+      - name: engagementId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: clientUpdateId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: submitClientUpdate
+      tags: [Publications]
+      summary: Submit a draft update for review (internal_draft -> ready_for_client)
+      description: |
+        Only the `internal_draft -> ready_for_client` edge applies
+        (`publication-state.ts`). Requires `summary` already set
+        (`client_update_summary_required_check`); refused with `422`
+        otherwise. Revision-guarded by `If-Match`. Refused with `422` from
+        any other state — this state machine has no edge back to
+        `internal_draft`, so a submitted update cannot be re-submitted.
+
+        Source: implementation-plan.md work package P9C-PUBLISH-01;
+        architecture/collaboration-and-client-sharing.md, section
+        "10. Publication Workflow".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: The submitted update.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientUpdate'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /client-engagements/{engagementId}/updates/{clientUpdateId}/publish:
+    parameters:
+      - name: engagementId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: clientUpdateId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: publishClientUpdate
+      tags: [Publications]
+      summary: Publish a ready-for-client update (ready_for_client -> published)
+      description: |
+        The six-step publish transaction (collaboration-and-client-sharing.md
+        section 10): (1) revalidates the caller's publisher grant, the
+        engagement's `active` state, and the garden every selected item must
+        belong to; (2) re-validates every staged work-log/media item plus any
+        inline garden-snapshot/timeline-entry/staff-attribution content
+        supplied in this request; (3) creates an immutable
+        `publication_version` and its per-kind item snapshots; (4) creates
+        explicit `media_entitlement` records for every media item; (5)
+        appends an audit record and an outbox event atomically with the same
+        write; (6) the outbox event is what a notification worker consumes
+        strictly after this transaction commits — nothing here sends a
+        notification synchronously.
+
+        `gardenSnapshot`, `timelineEntries`, and `staffAttributions` are
+        supplied directly in this request (not staged in advance): they are
+        narrative content the publisher composes for the publication itself,
+        unlike work-log/media items, which are selected from existing
+        operational records and staged beforehand via `addClientUpdateItem`.
+        All three are optional; a publication with zero items is valid.
+
+        Revision-guarded by `If-Match` against `client_update.revision` —
+        the mechanism that resolves two publishers racing to publish the SAME
+        update: exactly one revision-guarded write succeeds, the other
+        receives `412`. Only the `ready_for_client -> published` edge
+        applies; refused with `422` from any other state, including an
+        already-`published` update (this state machine has no `published ->
+        published` edge), so a retried publish that reuses the same
+        `Idempotency-Key` replays the same result, while one that does not
+        receives a clean `422` rather than a raw constraint violation —
+        `publication_version.client_update_id` is `UNIQUE`, so a genuine
+        double-insert is additionally caught and translated, never surfaced
+        as a raw `500`.
+
+        Source: implementation-plan.md work package P9C-PUBLISH-01;
+        architecture/collaboration-and-client-sharing.md, sections
+        "10. Publication Workflow", "11. Publication Contents".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublishClientUpdateRequest'
+      responses:
+        '200':
+          description: The immutable publication version just created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicationVersion'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /client-engagements/{engagementId}/updates/{clientUpdateId}/withdraw:
+    parameters:
+      - name: engagementId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: clientUpdateId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: withdrawClientUpdate
+      tags: [Publications]
+      summary: Withdraw a published update (published -> withdrawn)
+      description: |
+        Only the `published -> withdrawn` edge applies; a true terminal, and
+        idempotent when already `withdrawn`. Never deletes the publication
+        version, its items, or its media entitlements — withdrawal removes
+        the update from ordinary client queries and revokes portal
+        visibility, but preserves the audit/dispute record
+        (collaboration-and-client-sharing.md section 10). Revision-guarded by
+        `If-Match`.
+
+        Source: implementation-plan.md work package P9C-PUBLISH-01;
+        architecture/collaboration-and-client-sharing.md, section
+        "10. Publication Workflow".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WithdrawClientUpdateRequest'
+      responses:
+        '200':
+          description: The withdrawn (or already withdrawn) update.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientUpdate'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
 components:
   securitySchemes:
     firebaseIdToken:
@@ -5538,6 +6158,443 @@ components:
         reason:
           type: string
           description: Optional free-text reason, stored as `revoked_reason`.
+
+    PublisherGrantState:
+      type: string
+      enum: [active, revoked]
+      description: Mirrors `collaboration.publisher_grant.state`. A two-state machine with one edge (`active -> revoked`); `revoked` is a true terminal.
+
+    PublisherGrant:
+      type: object
+      additionalProperties: false
+      required: [id, engagementId, profileId, state, grantedByProfileId, grantedAt, createdAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        engagementId:
+          $ref: '#/components/schemas/Uuid'
+        profileId:
+          $ref: '#/components/schemas/Uuid'
+        state:
+          $ref: '#/components/schemas/PublisherGrantState'
+        grantedByProfileId:
+          $ref: '#/components/schemas/Uuid'
+        grantedAt:
+          $ref: '#/components/schemas/Timestamp'
+        revokedAt:
+          $ref: '#/components/schemas/Timestamp'
+        revokedByProfileId:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: Present only once `state` is `revoked`.
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+
+    PublisherGrantListResult:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublisherGrant'
+
+    GrantPublisherAccessRequest:
+      type: object
+      additionalProperties: false
+      required: [profileId]
+      properties:
+        profileId:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: |
+            For an organization-backed engagement, must be an ACTIVE member of
+            that same organization. Otherwise, must hold ACTIVE garden
+            membership (any role) on the engagement's own garden.
+
+    ClientUpdateState:
+      type: string
+      enum: [internal_draft, ready_for_client, published, withdrawn]
+      description: |
+        Mirrors `collaboration.client_update.state`. Strictly linear
+        (`publication-state.ts`): `internal_draft -> ready_for_client ->
+        published -> withdrawn`, with no edge skipping a step or reaching
+        `internal_draft` twice.
+
+    ClientUpdateItemKind:
+      type: string
+      enum: [work_log, media]
+      description: The two kinds a staged `client_update_item` may be — see `addClientUpdateItem`'s own description for why the other two publication-item kinds are not staged.
+
+    PublicationMediaRole:
+      type: string
+      enum: [before, after, general]
+      description: Shared by staged and published media items. `general` is a plain finished-work photo with no before/after counterpart.
+
+    ClientUpdateItem:
+      type: object
+      additionalProperties: false
+      required: [id, clientUpdateId, kind, occurredAt, createdAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        clientUpdateId:
+          $ref: '#/components/schemas/Uuid'
+        kind:
+          $ref: '#/components/schemas/ClientUpdateItemKind'
+        occurredAt:
+          $ref: '#/components/schemas/Timestamp'
+        sourceWorkLogId:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: Present only when `kind` is `work_log`.
+        description:
+          type: string
+          description: Present only when `kind` is `work_log` — curated, client-safe text, independent of the source work log's own words.
+        mediaRecordId:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: Present only when `kind` is `media`.
+        mediaRole:
+          allOf:
+            - $ref: '#/components/schemas/PublicationMediaRole'
+          description: Present only when `kind` is `media`.
+        caption:
+          type: string
+          description: Optional, `kind media` only.
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+
+    ClientUpdate:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - engagementId
+        - gardenId
+        - state
+        - title
+        - revision
+        - createdByProfileId
+        - createdAt
+        - updatedAt
+        - items
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        engagementId:
+          $ref: '#/components/schemas/Uuid'
+        gardenId:
+          $ref: '#/components/schemas/Uuid'
+        state:
+          $ref: '#/components/schemas/ClientUpdateState'
+        title:
+          type: string
+          minLength: 1
+        summary:
+          type: string
+          description: Required from `ready_for_client` onward (`client_update_summary_required_check`); unset while `internal_draft`.
+        revision:
+          $ref: '#/components/schemas/Revision'
+        createdByProfileId:
+          $ref: '#/components/schemas/Uuid'
+        submittedAt:
+          $ref: '#/components/schemas/Timestamp'
+        publishedAt:
+          $ref: '#/components/schemas/Timestamp'
+        publishedByProfileId:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: Present only once `state` is `published` or `withdrawn`. Not necessarily `createdByProfileId` — the publisher is not guaranteed to be the update's own creator.
+        withdrawnAt:
+          $ref: '#/components/schemas/Timestamp'
+        withdrawnByProfileId:
+          $ref: '#/components/schemas/Uuid'
+        withdrawnReason:
+          type: string
+          description: Present only on a withdrawn update, and only when one was given.
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClientUpdateItem'
+          description: Currently staged items. Always present, possibly empty.
+
+    ClientUpdateListResult:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClientUpdate'
+
+    CreateClientUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+
+    UpdateClientUpdateContentRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          minLength: 1
+        summary:
+          type: string
+          minLength: 1
+      description: At least one of `title`/`summary` must be supplied.
+
+    AddClientUpdateItemRequest:
+      type: object
+      additionalProperties: false
+      required: [kind, occurredAt]
+      properties:
+        kind:
+          $ref: '#/components/schemas/ClientUpdateItemKind'
+        occurredAt:
+          $ref: '#/components/schemas/Timestamp'
+        sourceWorkLogId:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: Required when `kind` is `work_log`.
+        description:
+          type: string
+          minLength: 1
+          description: Required when `kind` is `work_log`.
+        mediaRecordId:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: Required when `kind` is `media`.
+        mediaRole:
+          allOf:
+            - $ref: '#/components/schemas/PublicationMediaRole'
+          description: Required when `kind` is `media`.
+        caption:
+          type: string
+          minLength: 1
+          description: Optional, `kind media` only.
+
+    WithdrawClientUpdateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          description: Optional free-text reason, stored as `withdrawn_reason`.
+
+    WorkLog:
+      type: object
+      additionalProperties: false
+      required: [id, gardenId, actorProfileId, description, occurredAt, createdAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        gardenId:
+          $ref: '#/components/schemas/Uuid'
+        assignmentId:
+          $ref: '#/components/schemas/Uuid'
+        taskId:
+          $ref: '#/components/schemas/Uuid'
+        actorProfileId:
+          $ref: '#/components/schemas/Uuid'
+        description:
+          type: string
+        occurredAt:
+          $ref: '#/components/schemas/Timestamp'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+
+    WorkLogListResult:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkLog'
+
+    PublicationItemKind:
+      type: string
+      enum: [work_log, media, garden_snapshot, timeline_entry]
+      description: Mirrors `collaboration.publication_item.kind` — every published item kind, a strict superset of `ClientUpdateItemKind`.
+
+    PublicationItem:
+      type: object
+      additionalProperties: false
+      required: [id, publicationVersionId, kind, occurredAt, createdAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        publicationVersionId:
+          $ref: '#/components/schemas/Uuid'
+        kind:
+          $ref: '#/components/schemas/PublicationItemKind'
+        occurredAt:
+          $ref: '#/components/schemas/Timestamp'
+        description:
+          type: string
+          description: Present only when `kind` is `work_log`.
+        sourceWorkLogId:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: Present only when `kind` is `work_log`. Provenance only — never re-read to render client content.
+        mediaRecordId:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: Present only when `kind` is `media`.
+        mediaRole:
+          allOf:
+            - $ref: '#/components/schemas/PublicationMediaRole'
+          description: Present only when `kind` is `media`.
+        caption:
+          type: string
+          description: Optional, `kind media` only.
+        overviewText:
+          type: string
+          description: Present only when `kind` is `garden_snapshot`.
+        snapshotData:
+          type: object
+          additionalProperties: true
+          description: Optional structured supplement, `kind garden_snapshot` only. No fixed shape.
+        entryText:
+          type: string
+          description: Present only when `kind` is `timeline_entry`.
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+
+    PublicationStaffAttribution:
+      type: object
+      additionalProperties: false
+      required: [id, publicationVersionId, staffProfileId, displayName, createdAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        publicationVersionId:
+          $ref: '#/components/schemas/Uuid'
+        staffProfileId:
+          $ref: '#/components/schemas/Uuid'
+        displayName:
+          type: string
+          description: A snapshot at publication time — never a live join to the profile's current display name.
+        roleLabel:
+          type: string
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+
+    PublicationVersion:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - clientUpdateId
+        - engagementId
+        - gardenId
+        - versionNumber
+        - title
+        - summary
+        - clientUpdateRevisionAtPublish
+        - publishedAt
+        - publishedByProfileId
+        - createdAt
+        - items
+        - staffAttributions
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        clientUpdateId:
+          $ref: '#/components/schemas/Uuid'
+        engagementId:
+          $ref: '#/components/schemas/Uuid'
+        gardenId:
+          $ref: '#/components/schemas/Uuid'
+        versionNumber:
+          type: integer
+          minimum: 1
+        title:
+          type: string
+        summary:
+          type: string
+        clientUpdateRevisionAtPublish:
+          $ref: '#/components/schemas/Revision'
+        publishedAt:
+          $ref: '#/components/schemas/Timestamp'
+        publishedByProfileId:
+          $ref: '#/components/schemas/Uuid'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicationItem'
+        staffAttributions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicationStaffAttribution'
+
+    PublishGardenSnapshotInput:
+      type: object
+      additionalProperties: false
+      required: [overviewText]
+      properties:
+        overviewText:
+          type: string
+          minLength: 1
+        snapshotData:
+          type: object
+          additionalProperties: true
+
+    PublishTimelineEntryInput:
+      type: object
+      additionalProperties: false
+      required: [entryText, occurredAt]
+      properties:
+        entryText:
+          type: string
+          minLength: 1
+        occurredAt:
+          $ref: '#/components/schemas/Timestamp'
+
+    PublishStaffAttributionInput:
+      type: object
+      additionalProperties: false
+      required: [staffProfileId, displayName]
+      properties:
+        staffProfileId:
+          $ref: '#/components/schemas/Uuid'
+        displayName:
+          type: string
+          minLength: 1
+        roleLabel:
+          type: string
+          minLength: 1
+
+    PublishClientUpdateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        gardenSnapshot:
+          $ref: '#/components/schemas/PublishGardenSnapshotInput'
+        timelineEntries:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublishTimelineEntryInput'
+        staffAttributions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublishStaffAttributionInput'
+      description: All fields optional — a publication with zero items is valid. Composed directly here, not staged in advance; see `publishClientUpdate`'s own description.
 
     SessionLoginRequest:
       type: object

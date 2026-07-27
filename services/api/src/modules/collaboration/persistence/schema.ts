@@ -250,6 +250,44 @@ export interface MediaEntitlementRow {
   created_at: Generated<Date>;
 }
 
+/**
+ * Mirrors `collaboration.publisher_grant` (P9C-PUBLISH-01) — the separate,
+ * explicit publisher capability ADR-0012's "Publication Boundary" section
+ * names, kept independent of `manageEngagement`/`manageGarden`. See the
+ * migration's own header, "WHY A NEW GRANT TABLE".
+ */
+export interface PublisherGrantRow {
+  id: string;
+  engagement_id: string;
+  profile_id: string;
+  state: Generated<string>;
+  granted_by_profile_id: string;
+  granted_at: Generated<Date>;
+  revoked_at: Date | null;
+  revoked_by_profile_id: string | null;
+  created_at: Generated<Date>;
+}
+
+/**
+ * Mirrors `collaboration.client_update_item` (P9C-PUBLISH-01) — the mutable
+ * staging set a publisher builds while a `client_update` sits in
+ * `internal_draft`, copied from at publish time into the immutable
+ * `publication_item`/detail tables. See the migration's own header,
+ * "CLIENT_UPDATE_ITEM".
+ */
+export interface ClientUpdateItemRow {
+  id: string;
+  client_update_id: string;
+  kind: Generated<string>;
+  occurred_at: Date;
+  source_work_log_id: string | null;
+  description: string | null;
+  media_record_id: string | null;
+  media_role: string | null;
+  caption: string | null;
+  created_at: Generated<Date>;
+}
+
 export interface CollaborationDatabaseSchema {
   'collaboration.service_organization': ServiceOrganizationRow;
   'collaboration.organization_membership': OrganizationMembershipRow;
@@ -267,4 +305,6 @@ export interface CollaborationDatabaseSchema {
   'collaboration.publication_timeline_entry_detail': PublicationTimelineEntryDetailRow;
   'collaboration.publication_staff_attribution': PublicationStaffAttributionRow;
   'collaboration.media_entitlement': MediaEntitlementRow;
+  'collaboration.publisher_grant': PublisherGrantRow;
+  'collaboration.client_update_item': ClientUpdateItemRow;
 }

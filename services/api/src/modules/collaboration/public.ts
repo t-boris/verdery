@@ -95,3 +95,81 @@ export type { ClientEngagementRoutesDependencies } from './transport/client-enga
 // The two garden-scoped reads (tag `Collaboration`).
 export { registerGardenScopedCollaborationRoutes } from './transport/garden-scoped-routes.js';
 export type { GardenScopedRoutesDependencies } from './transport/garden-scoped-routes.js';
+
+// Publisher grant, work-log read, and the client-update publication
+// workflow (P9C-PUBLISH-01, tag `Publications`) — the separate publisher
+// capability and the internal_draft -> ready_for_client -> published ->
+// withdrawn state machine ADR-0012 names.
+export type {
+  PublisherGrantDetail,
+  PublisherGrantInsertInput,
+  PublisherGrantRepository,
+  PublisherGrantState,
+} from './application/publisher-grant-repository.js';
+export { PublisherAuthorization } from './application/publisher-authorization.js';
+export { GrantPublisherAccess } from './application/grant-publisher-access.js';
+export { RevokePublisherAccess } from './application/revoke-publisher-access.js';
+export { ListPublisherGrantsForEngagement } from './application/list-publisher-grants-for-engagement.js';
+export { KyselyPublisherGrantRepository } from './persistence/kysely-publisher-grant-repository.js';
+export { registerPublisherGrantRoutes } from './transport/publisher-grant-routes.js';
+export type { PublisherGrantRoutesDependencies } from './transport/publisher-grant-routes.js';
+
+export type { WorkLogDetail, WorkLogRepository } from './application/work-log-repository.js';
+export { KyselyWorkLogRepository } from './persistence/kysely-work-log-repository.js';
+export { ListEngagementWorkLogs } from './application/list-engagement-work-logs.js';
+export { registerWorkLogRoutes } from './transport/work-log-routes.js';
+export type { WorkLogRoutesDependencies } from './transport/work-log-routes.js';
+
+export type {
+  ClientUpdateDetail,
+  ClientUpdateInsertInput,
+  ClientUpdateRepository,
+} from './application/client-update-repository.js';
+export type {
+  ClientUpdateItemDetail,
+  ClientUpdateItemInsertInput,
+  ClientUpdateItemKind,
+  ClientUpdateItemRepository,
+  PublicationMediaRole,
+} from './application/client-update-item-repository.js';
+export type {
+  CreatePublicationVersionInput,
+  PublicationGardenSnapshotItemInput,
+  PublicationItemDetail,
+  PublicationMediaItemInput,
+  PublicationRepository,
+  PublicationStaffAttributionDetail,
+  PublicationStaffAttributionInput,
+  PublicationTimelineEntryItemInput,
+  PublicationVersionDetail,
+  PublicationWorkLogItemInput,
+} from './application/publication-repository.js';
+export { KyselyClientUpdateRepository } from './persistence/kysely-client-update-repository.js';
+export { KyselyClientUpdateItemRepository } from './persistence/kysely-client-update-item-repository.js';
+export { KyselyPublicationRepository } from './persistence/kysely-publication-repository.js';
+export { CreateClientUpdate } from './application/create-client-update.js';
+export { GetClientUpdate } from './application/get-client-update.js';
+export { ListClientUpdatesForEngagement } from './application/list-client-updates-for-engagement.js';
+export { UpdateClientUpdateContent } from './application/update-client-update-content.js';
+export type { UpdateClientUpdateContentInput } from './application/update-client-update-content.js';
+export { AddClientUpdateItem } from './application/add-client-update-item.js';
+export type { AddClientUpdateItemInput } from './application/add-client-update-item.js';
+export { RemoveClientUpdateItem } from './application/remove-client-update-item.js';
+export { SubmitClientUpdate } from './application/submit-client-update.js';
+export { PublishClientUpdate } from './application/publish-client-update.js';
+export type {
+  PublishClientUpdateInput,
+  PublishGardenSnapshotInput,
+  PublishStaffAttributionRequestInput,
+  PublishTimelineEntryInput,
+} from './application/publish-client-update.js';
+export { WithdrawClientUpdate } from './application/withdraw-client-update.js';
+export { registerClientUpdateRoutes } from './transport/client-update-routes.js';
+export type { ClientUpdateRoutesDependencies } from './transport/client-update-routes.js';
+export { registerClientUpdateItemRoutes } from './transport/client-update-item-routes.js';
+export type { ClientUpdateItemRoutesDependencies } from './transport/client-update-item-routes.js';
+
+// The single aggregate registration call `app.ts` actually uses — see
+// `publication-routes.ts`'s own header for why.
+export { registerPublicationRoutes } from './transport/publication-routes.js';
+export type { PublicationRoutesDependencies } from './transport/publication-routes.js';

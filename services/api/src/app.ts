@@ -21,6 +21,7 @@ import {
   registerGardenScopedCollaborationRoutes,
   registerOrganizationMemberRoutes,
   registerOrganizationRoutes,
+  registerPublicationRoutes,
 } from './modules/collaboration/public.js';
 import { composeCollaboration } from './compose-collaboration.js';
 import { composeDeletion } from './compose-deletion.js';
@@ -268,19 +269,18 @@ export async function buildApplication(
     ownershipRoutesDependencies,
   } = composeGardensMapping(database, clock, cloudTasksInvocationVerifier);
 
-  // collaboration (P9B-API-01): service organizations, organization
-  // membership, garden assignment, and client engagement lifecycle. Reuses
-  // `gardenAuthorization` (the org-backed and garden-scoped dual
-  // authorization gates) and `profileRepository` (validates an added
-  // organization member's profile id actually exists). Split into
-  // `compose-collaboration.ts` for the same 600-line reason as its
-  // siblings.
+  // collaboration (P9B-API-01, P9C-PUBLISH-01): organizations, assignments,
+  // client engagements, the separate publisher capability, and the
+  // client-update publication workflow. Reuses `gardenAuthorization`/
+  // `profileRepository`. Split into `compose-collaboration.ts` for the same
+  // 600-line reason as its siblings.
   const {
     organizationRoutesDependencies,
     organizationMemberRoutesDependencies,
     gardenAssignmentRoutesDependencies,
     clientEngagementRoutesDependencies,
     gardenScopedRoutesDependencies,
+    publicationRoutesDependencies,
   } = composeCollaboration(database, clock, gardenAuthorization, profileRepository);
 
   // media (P6-API-01): registration, authorized resumable upload sessions,
@@ -557,6 +557,8 @@ export async function buildApplication(
       registerGardenAssignmentRoutes(instance, gardenAssignmentRoutesDependencies);
       registerClientEngagementRoutes(instance, clientEngagementRoutesDependencies);
       registerGardenScopedCollaborationRoutes(instance, gardenScopedRoutesDependencies);
+      // P9C-PUBLISH-01: publisher capability and client-update workflow.
+      registerPublicationRoutes(instance, publicationRoutesDependencies);
       registerPlantRoutes(instance, plantRoutesDependencies);
       registerObservationRoutes(instance, observationRoutesDependencies);
       registerTaskRoutes(instance, taskRoutesDependencies);

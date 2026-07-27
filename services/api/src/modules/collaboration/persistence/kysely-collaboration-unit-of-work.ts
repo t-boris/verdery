@@ -9,9 +9,14 @@ import type {
   CollaborationUnitOfWork,
 } from '../application/collaboration-unit-of-work.js';
 import { KyselyClientEngagementRepository } from './kysely-client-engagement-repository.js';
+import { KyselyClientUpdateItemRepository } from './kysely-client-update-item-repository.js';
+import { KyselyClientUpdateRepository } from './kysely-client-update-repository.js';
 import { KyselyGardenAssignmentRepository } from './kysely-garden-assignment-repository.js';
 import { KyselyOrganizationMembershipRepository } from './kysely-organization-membership-repository.js';
 import { KyselyOrganizationRepository } from './kysely-organization-repository.js';
+import { KyselyPublicationRepository } from './kysely-publication-repository.js';
+import { KyselyPublisherGrantRepository } from './kysely-publisher-grant-repository.js';
+import { KyselyWorkLogRepository } from './kysely-work-log-repository.js';
 
 export class KyselyCollaborationUnitOfWork implements CollaborationUnitOfWork {
   constructor(
@@ -26,6 +31,11 @@ export class KyselyCollaborationUnitOfWork implements CollaborationUnitOfWork {
         organizationMemberships: new KyselyOrganizationMembershipRepository(trx),
         gardenAssignments: new KyselyGardenAssignmentRepository(trx),
         clientEngagements: new KyselyClientEngagementRepository(trx),
+        publisherGrants: new KyselyPublisherGrantRepository(trx),
+        clientUpdates: new KyselyClientUpdateRepository(trx),
+        clientUpdateItems: new KyselyClientUpdateItemRepository(trx),
+        workLogs: new KyselyWorkLogRepository(trx),
+        publications: new KyselyPublicationRepository(trx),
         idempotency: new KyselyIdempotencyStore(trx, this.clock),
         outbox: new KyselyOutboxAppender(trx, this.clock),
         auditLogger: new KyselyAuditLogger(trx, this.clock),

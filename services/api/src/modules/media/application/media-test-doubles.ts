@@ -29,6 +29,10 @@ import type {
 import type { MediaRecord } from '../domain/media-record.js';
 import type { ProcessingJob } from '../domain/processing-job.js';
 import type { QuotaReservation } from '../domain/quota-reservation.js';
+import type {
+  ClientMediaEntitlementGrant,
+  ClientMediaEntitlementSource,
+} from './client-media-entitlement-source.js';
 import type { MediaReferenceFinder, MediaReferenceKind } from './media-reference-finder.js';
 import type {
   FindDerivativeInput,
@@ -524,6 +528,32 @@ export class FakeIdempotencyStore implements IdempotencyStore {
         ? null
         : { responseStatusCode: existing.responseStatusCode, responseBody: existing.responseBody },
     );
+  }
+}
+
+/**
+ * In-memory stand-in for `KyselyClientMediaEntitlementSource`, keyed
+ * identically: `(clientProfileId, mediaRecordId)` -> a grant, or `null`. A
+ * test registers exactly the rows the scenario needs via `grant` — no
+ * hidden defaulting to "active/active/published", so a test that forgets to
+ * set a state up correctly fails loudly rather than passing by accident.
+ */
+export class FakeClientMediaEntitlementSource implements ClientMediaEntitlementSource {
+  private readonly grants = new Map<string, ClientMediaEntitlementGrant>();
+
+  private key(clientProfileId: Uuid, mediaRecordId: Uuid): string {
+    return `${clientProfileId}:${mediaRecordId}`;
+  }
+
+  grant(clientProfileId: Uuid, mediaRecordId: Uuid, entry: ClientMediaEntitlementGrant): void {
+    this.grants.set(this.key(clientProfileId, mediaRecordId), entry);
+  }
+
+  findEntitlementGrant(
+    clientProfileId: Uuid,
+    mediaRecordId: Uuid,
+  ): Promise<ClientMediaEntitlementGrant | null> {
+    return Promise.resolve(this.grants.get(this.key(clientProfileId, mediaRecordId)) ?? null);
   }
 }
 

@@ -371,15 +371,15 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, dropping the integrations schema and the evidence FK while earlier tables survive', async () => {
     await client.end();
 
-    // `count: 11` undoes the ten newer migrations
+    // `count: 12` undoes the eleven newer migrations
     // (1785800000000_recommendation-explanation.sql through
-    // 1786700000000_client-publication-and-work-logs.sql — an
-    // explanation column and the plant-content, notification,
-    // AI-explanation, notification-delivery, service-organization, and
-    // client-publication tables, nothing this file's own assertions below
-    // check) first, then this migration itself. Update again the next time
-    // a migration is added on top of that one.
-    await migrate(databaseUrl, 'down', 11);
+    // 1786800000000_engagement-publisher-grant-and-client-update-items.sql
+    // — an explanation column and the plant-content, notification,
+    // AI-explanation, notification-delivery, service-organization,
+    // client-publication, and publisher-grant tables, nothing this file's
+    // own assertions below check) first, then this migration itself. Update
+    // again the next time a migration is added on top of that one.
+    await migrate(databaseUrl, 'down', 12);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

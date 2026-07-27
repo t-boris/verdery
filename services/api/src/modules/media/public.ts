@@ -150,6 +150,20 @@ export { GetMediaStatus } from './application/get-media-status.js';
 export { GetMediaAccess } from './application/get-media-access.js';
 // P6-PLAN-01: media listing (originals, by garden and class).
 export { ListGardenMedia } from './application/list-garden-media.js';
+// P9C-MEDIA-01: client-side media authorization — active engagement plus
+// explicit publication entitlement, short-lived and rechecked at issuance
+// time. `ClientMediaEntitlementSource` is a narrow read port into
+// `collaboration`'s own client-publication tables (see that file's own
+// header for the module-boundary reasoning); `KyselyClientMediaEntitlementSource`
+// is its Kysely adapter, exported here for a future P9C-API-01 route to wire
+// alongside `GetClientMediaAccess`.
+export type {
+  ClientAccessGrantState,
+  ClientMediaEntitlementGrant,
+  ClientMediaEntitlementSource,
+} from './application/client-media-entitlement-source.js';
+export { GetClientMediaAccess } from './application/get-client-media-access.js';
+export { KyselyClientMediaEntitlementSource } from './persistence/kysely-client-media-entitlement-source.js';
 export { KyselyMediaRepository } from './persistence/kysely-media-repository.js';
 export { KyselyQuotaReservationRepository } from './persistence/kysely-quota-reservation-repository.js';
 export { KyselyMediaUnitOfWork } from './persistence/kysely-media-unit-of-work.js';

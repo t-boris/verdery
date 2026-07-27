@@ -25,15 +25,26 @@ import type { AuditLogger } from '../../../platform/audit/audit-logger.js';
 import type { IdempotencyStore } from '../../../platform/idempotency/idempotency-store.js';
 import type { OutboxAppender } from '../../../platform/outbox/outbox-appender.js';
 import type { ClientEngagementRepository } from './client-engagement-repository.js';
+import type { ClientUpdateItemRepository } from './client-update-item-repository.js';
+import type { ClientUpdateRepository } from './client-update-repository.js';
 import type { GardenAssignmentRepository } from './garden-assignment-repository.js';
 import type { OrganizationMembershipRepository } from './organization-membership-repository.js';
 import type { OrganizationRepository } from './organization-repository.js';
+import type { PublicationRepository } from './publication-repository.js';
+import type { PublisherGrantRepository } from './publisher-grant-repository.js';
+import type { WorkLogRepository } from './work-log-repository.js';
 
 export interface CollaborationTransactionContext {
   readonly organizations: OrganizationRepository;
   readonly organizationMemberships: OrganizationMembershipRepository;
   readonly gardenAssignments: GardenAssignmentRepository;
   readonly clientEngagements: ClientEngagementRepository;
+  /** P9C-PUBLISH-01: the separate publisher capability, the client-update draft/staging tables, and the immutable publication writer — bound to the same transaction as every P9B repository above. */
+  readonly publisherGrants: PublisherGrantRepository;
+  readonly clientUpdates: ClientUpdateRepository;
+  readonly clientUpdateItems: ClientUpdateItemRepository;
+  readonly workLogs: WorkLogRepository;
+  readonly publications: PublicationRepository;
   readonly idempotency: IdempotencyStore;
   readonly outbox: OutboxAppender;
   readonly auditLogger: AuditLogger;
