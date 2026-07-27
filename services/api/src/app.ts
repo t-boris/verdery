@@ -89,6 +89,7 @@ import {
 import {
   registerRecommendationEvaluationSweepRoute,
   registerRecommendationRoutes,
+  registerSeasonalPlanRoutes,
   registerTaskRoutes,
 } from './modules/tasks-recommendations/public.js';
 import { registerSyncRoutes } from './modules/synchronization/public.js';
@@ -317,6 +318,7 @@ export async function buildApplication(
     taskRoutesDependencies,
     recommendationRoutesDependencies,
     recommendationEvaluationSweepRouteDependencies,
+    seasonalPlanRoutesDependencies,
   } = composeTasksRecommendations(
     database,
     clock,
@@ -510,6 +512,8 @@ export async function buildApplication(
       registerObservationRoutes(instance, observationRoutesDependencies);
       registerTaskRoutes(instance, taskRoutesDependencies);
       registerRecommendationRoutes(instance, recommendationRoutesDependencies);
+      // P9D-SEASON-API-01: the garden-wide seasonal plan read.
+      registerSeasonalPlanRoutes(instance, seasonalPlanRoutesDependencies);
       registerNotificationRoutes(instance, notificationRoutesDependencies);
       registerNotificationDeviceRoutes(instance, notificationDeviceRoutesDependencies);
       registerMediaRoutes(instance, mediaRoutesDependencies);

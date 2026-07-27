@@ -6398,7 +6398,27 @@ data/UX with no security surface).
         undefined-elsewhere "how long is a rotation season" ambiguity as 365 days (one year),
         documented in the rule file. 276 files / 2260 tests, all green; all four root gates
         (build, test, typecheck, lint, format:check, check:file-size) clean.
-  - [ ] Stage 3 — P9D-SEASON-API-01: not started (may not be needed — decide after Stage 2).
+  - [x] Stage 3 — P9D-SEASON-API-01: `GET /gardens/{gardenId}/seasonal-plan`, owned by
+        `tasks-recommendations` (not `gardens-mapping` — that module never imports from
+        `plants-inventory`, so it would have introduced a new circular edge; `tasks-recommendations`
+        already imports read ports from both siblings with no dependency arrow pointing back at it
+        from either). Reuses `gather-seasonal-facts.ts`'s `gatherTaxonomyFacts`/
+        `gatherPriorBedOccupants` directly rather than re-deriving their query logic — their
+        `context` parameter was narrowed from the full `TasksRecommendationsTransactionContext` to
+        a new `SeasonalFactGatheringPorts` (`Pick` of the three ports actually used), letting a
+        plain non-transactional read path (`GetGardenSeasonalPlan`, new pooled Kysely adapters in
+        `compose-tasks-recommendations.ts`) supply just those three ports instead of faking a dozen
+        unrelated transactional ones; `EvaluateGardenRecommendations`'s own transactional call is
+        unaffected (a wider object still satisfies the narrower type). Response: `hemisphere` (null
+        = never georeferenced, satisfying "hemisphereUnknown or equivalent"), `plants[]` (every
+        active plant, each with either its taxon's full reviewed seasonal timing or an explicit
+        `noSeasonalData` marker — never omitted), and `rotationStatus[]` (continuous within/clear
+        rest-period state per placed plant with a known family, computed with
+        `crop-rotation-caution.ts`'s own newly-exported `ROTATION_SEASON_DAYS` constant and
+        `rule-support.ts`'s `wholeDaysBetween` — never re-derived). New OpenAPI tag `SeasonalPlan`
+        and `packages/api-contracts/src/seasonal-plan.ts`, split out of `index.ts` per that
+        package's own 600-line convention. 278 files / 2270 tests, all green; all four root gates
+        (build, test, typecheck, lint, format:check, check:file-size) clean.
 - [ ] P9D-UX-01 — seasonal plan, context quality, shared responsibilities, conflicts, without
       overwhelming Today.
 
@@ -6545,13 +6565,37 @@ unreviewed-content posture, not inventing a new gate), appended to `createLaunch
   genuine rule-evaluation tests, both the fires-correctly and the honestly-skips-when-unreviewed
   paths, against real `GardenFacts`, not mocked evaluation.
 
-### Stage 3 — P9D-SEASON-API-01 (depends on Stage 2; only if Stage 2's rules are not sufficient)
+### Stage 3 — P9D-SEASON-API-01 (depends on Stage 2, now landed)
 
-Whether a dedicated read endpoint is needed (e.g. "this garden's full seasonal plan," not just
-individual fired recommendations) or P9D-UX-01 can be served entirely by the existing
-recommendation/Today endpoints plus one new endpoint is a decision to make AFTER Stage 2 lands and
-its actual shape is known — not pre-designed here to avoid guessing at a shape Stage 2 will
-determine.
+**Decision: needed.** The existing recommendation/Today endpoints only ever surface a rule's
+`eligible`/`approaching` outcome for the rule's own narrow `approachWindowDays` horizon — they
+cannot answer "what does this garden's whole season look like," because a window outside that
+horizon never produces a candidate at all. `taxonomy_seasonal_fact` also has no HTTP-facing read
+path of its own yet (P9D-CONTEXT-01/DATA-01's own deliberate deferral). P9D-UX-01's own "seasonal
+plan" wording needs a genuine forward-looking view, not just today's fired cards.
+
+- **New endpoint**: `GET /gardens/{gardenId}/seasonal-plan` (`gardens-mapping` or
+  `tasks-recommendations` — whichever module already owns the cross-module read composition this
+  needs; decide during implementation by checking which module can reach `plants-inventory`'s
+  `taxonomy_seasonal_fact`/bed-occupancy reads and `gardens-mapping`'s `garden_context_fact`
+  without a new circular import). Returns, per plant with known taxonomy: the taxon's full reviewed
+  seasonal fact (all configured windows, not just the currently-open one) for the garden's
+  hemisphere, plus — when the garden was never georeferenced — an explicit `hemisphereUnknown`
+  flag so the client can render an honest "we don't know your season" state rather than an empty
+  list.
+- **Rotation conflicts**: reuse `crop-rotation-caution`'s own already-built evaluation logic
+  conceptually, but this is a READ, not a fired recommendation — expose current bed-rotation
+  status (prior family, elapsed days, rest threshold) per placed plant with a known family,
+  independent of whether the rule has actually fired (the rule only fires within its own
+  `validityWindowDays`/`recurrenceIntervalMs` cadence; the PLAN view should show the state
+  continuously).
+- **Context quality**: NOT new work — `GET /gardens/{gardenId}/context` (P9D-CONTEXT-01) already
+  serves this; P9D-UX-01 consumes it directly, no Stage 3 endpoint needed for this part.
+- **Shared responsibilities**: NOT new backend work — reuses P9A's existing task-assignment data
+  (a seasonal recommendation converted to a task already carries an assignee through the existing
+  task/assignment endpoints). P9D-UX-01 composes this client-side from data already served.
+- Authorization: `viewGarden`, the same read capability `GetGardenMap`/`ListGardenContextFacts`
+  already use — no new capability.
 
 ---
 

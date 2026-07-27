@@ -43,6 +43,8 @@ garden facts + weather + care history + knowledge rules
                 user action and feedback
 ```
 
+`GET /gardens/{gardenId}/seasonal-plan` (P9D-SEASON-API-01) is a separate, plain structured read that does NOT go through this pipeline: it returns every taxon's full reviewed seasonal timing fact (every configured window, not only whichever one happens to be open right now) and the continuous bed-rotation state per placed plant with a known family, computed independently of `eligibility and safety filters`/`priority and timing calculation` and their own re-fire cadence. The rule-fired pipeline above answers "what should I do today"; the seasonal plan read answers "what does this whole garden's season look like," a question no candidate's own narrow eligibility window can answer on its own.
+
 ## 4. Structured Inputs
 
 Inputs may include:

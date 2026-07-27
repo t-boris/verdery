@@ -50,6 +50,8 @@ tags:
     description: Garden care tasks — manual creation, scheduling, completion, and file attachments.
   - name: Recommendations
     description: The Today view's prioritized, explainable recommendation set and its controls — completion, postponement, dismissal, relevance feedback, and conversion into a task. Candidates are generated exclusively by the server-side rule engine; these operations read and act on them, never create them.
+  - name: SeasonalPlan
+    description: A garden-wide, forward-looking read of every reviewed seasonal timing fact for the garden's own plants (every configured window, not only whichever one happens to be open right now) plus the continuous bed-rotation status per placed plant with a known family — distinct from the rule-fired Today/Recommendations set above, which only ever surfaces a candidate within its own narrow eligibility window.
   - name: Media
     description: Garden-scoped media upload registration, backend-authorized resumable upload sessions, client-triggered completion verification, status, and short-lived authorized download access.
   - name: Synchronization
@@ -2870,6 +2872,54 @@ paths:
                 $ref: '#/components/schemas/TodayResult'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /gardens/{gardenId}/seasonal-plan:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    get:
+      operationId: getGardenSeasonalPlan
+      tags: [SeasonalPlan]
+      summary: Get the garden's seasonal plan
+      description: |
+        Every ACTIVE plant's full reviewed seasonal timing fact (all
+        configured windows — sow indoors/outdoors, transplant, harvest,
+        days-to-maturity, succession interval, rotation rest period — not
+        only whichever window happens to be open right now, unlike the
+        rule-fired Today view), plus the continuous bed-rotation status per
+        placed plant with a known family — computed independently of
+        whether `rotation.crop-rotation-caution` would currently fire.
+
+        A plant whose taxon is unknown, or whose taxon has no reviewed
+        seasonal fact for this garden's hemisphere, is still included with
+        an explicit `noSeasonalData` marker — never silently omitted, so a
+        client can distinguish "nothing configured" from "this plant does
+        not exist". `hemisphere` is `null` when the garden has never been
+        georeferenced, so the client can render an honest "we don't know
+        your season" state instead of an empty list masquerading as
+        "nothing to show".
+
+        Authorized the same way `getGardenMap`/`listGardenContextFacts`
+        already are (`viewGarden`) — no new capability.
+
+        Source: tasks/todo.md, "P9D-SEASON-01 design decisions", "Stage 3 —
+        P9D-SEASON-API-01"; implementation-plan.md work package
+        P9D-SEASON-API-01.
+      responses:
+        '200':
+          description: The garden's current seasonal plan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeasonalPlanResult'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -10139,6 +10189,257 @@ components:
           $ref: '#/components/schemas/Recommendation'
         task:
           $ref: '#/components/schemas/Task'
+
+    # ------------------------------------------------------------------
+    # Seasonal plan (P9D-SEASON-API-01).
+    #
+    # A garden-wide, forward-looking structured read, independent of the
+    # rule-fired Today/Recommendations pipeline above — see the
+    # `SeasonalPlan` tag description and `getGardenSeasonalPlan`'s own
+    # operation description for what this returns and why.
+    # ------------------------------------------------------------------
+
+    Hemisphere:
+      type: string
+      enum: [northern, southern]
+      description: |
+        Derived from a garden's current georeference latitude sign
+        (`deriveHemisphere`, tasks-recommendations/domain/garden-facts.ts) —
+        never guessed. Absent from `SeasonalPlanResult.hemisphere` (`null`
+        instead) exactly when the garden has never been georeferenced.
+
+    SeasonalPlanTaxonomyTiming:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          sowIndoorsStartMonth,
+          sowIndoorsEndMonth,
+          sowOutdoorsStartMonth,
+          sowOutdoorsEndMonth,
+          transplantStartMonth,
+          transplantEndMonth,
+          harvestStartMonth,
+          harvestEndMonth,
+          daysToMaturityMin,
+          daysToMaturityMax,
+          successionIntervalDays,
+          rotationRestSeasons,
+        ]
+      description: |
+        Every timing/duration column a reviewed `taxonomy_seasonal_fact` row
+        carries. Every field is independently nullable — a crop with no
+        transplant stage, or no known succession benefit, is a fully
+        legitimate fact with those fields `null`; never a fabricated window.
+      properties:
+        sowIndoorsStartMonth:
+          oneOf:
+            - type: integer
+              minimum: 1
+              maximum: 12
+            - type: 'null'
+        sowIndoorsEndMonth:
+          oneOf:
+            - type: integer
+              minimum: 1
+              maximum: 12
+            - type: 'null'
+        sowOutdoorsStartMonth:
+          oneOf:
+            - type: integer
+              minimum: 1
+              maximum: 12
+            - type: 'null'
+        sowOutdoorsEndMonth:
+          oneOf:
+            - type: integer
+              minimum: 1
+              maximum: 12
+            - type: 'null'
+        transplantStartMonth:
+          oneOf:
+            - type: integer
+              minimum: 1
+              maximum: 12
+            - type: 'null'
+        transplantEndMonth:
+          oneOf:
+            - type: integer
+              minimum: 1
+              maximum: 12
+            - type: 'null'
+        harvestStartMonth:
+          oneOf:
+            - type: integer
+              minimum: 1
+              maximum: 12
+            - type: 'null'
+        harvestEndMonth:
+          oneOf:
+            - type: integer
+              minimum: 1
+              maximum: 12
+            - type: 'null'
+        daysToMaturityMin:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+        daysToMaturityMax:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+        successionIntervalDays:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+          description: 'Null = no succession benefit for this crop.'
+        rotationRestSeasons:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+          description: 'Null = no known family-conflict rest period.'
+
+    SeasonalPlanTaxonomyStatusReviewed:
+      type: object
+      additionalProperties: false
+      required: [status, timing]
+      properties:
+        status:
+          type: string
+          enum: [reviewed]
+        timing:
+          $ref: '#/components/schemas/SeasonalPlanTaxonomyTiming'
+
+    SeasonalPlanTaxonomyStatusMissing:
+      type: object
+      additionalProperties: false
+      required: [status]
+      description: |
+        The explicit "no seasonal data" marker — present whether the
+        plant's taxon is entirely unknown or simply has no
+        `horticulturally_reviewed` fact for this garden's hemisphere; both
+        collapse to this one honest outcome rather than a silently omitted
+        plant.
+      properties:
+        status:
+          type: string
+          enum: [noSeasonalData]
+
+    SeasonalPlanTaxonomyStatus:
+      oneOf:
+        - $ref: '#/components/schemas/SeasonalPlanTaxonomyStatusReviewed'
+        - $ref: '#/components/schemas/SeasonalPlanTaxonomyStatusMissing'
+      discriminator:
+        propertyName: status
+        # Without explicit mapping, openapi-typescript sets each branch's
+        # discriminator literal to the referenced schema's own *name*
+        # instead of the real wire value — see `Geometry`'s identical note
+        # above.
+        mapping:
+          reviewed: '#/components/schemas/SeasonalPlanTaxonomyStatusReviewed'
+          noSeasonalData: '#/components/schemas/SeasonalPlanTaxonomyStatusMissing'
+
+    SeasonalPlanPlantEntry:
+      type: object
+      additionalProperties: false
+      required: [plantId, taxonomyReferenceId, seasonalFact]
+      properties:
+        plantId:
+          $ref: '#/components/schemas/Uuid'
+        taxonomyReferenceId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        seasonalFact:
+          $ref: '#/components/schemas/SeasonalPlanTaxonomyStatus'
+
+    SeasonalPlanRotationStatusEntry:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          plantId,
+          gardenAreaMapObjectId,
+          family,
+          priorFamily,
+          priorOccupancyEndedAt,
+          elapsedDays,
+          rotationRestSeasons,
+          restPeriodThresholdDays,
+          withinRestPeriod,
+        ]
+      description: |
+        One placed plant's continuous bed-rotation state — computed
+        independently of `rotation.crop-rotation-caution`'s own re-fire
+        cadence. Present for every plant with a known bed placement AND a
+        known own family, including "no known conflict" (`priorFamily`
+        `null`) and "no configured rest period" (`rotationRestSeasons`
+        `null`) outcomes — never limited to plants that would currently
+        justify a fired recommendation.
+      properties:
+        plantId:
+          $ref: '#/components/schemas/Uuid'
+        gardenAreaMapObjectId:
+          $ref: '#/components/schemas/Uuid'
+        family:
+          type: string
+          minLength: 1
+        priorFamily:
+          oneOf:
+            - type: string
+              minLength: 1
+            - type: 'null'
+          description: "Null = no departed occupant is known within the lookback window, or the departed occupant's own family is unknown."
+        priorOccupancyEndedAt:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        elapsedDays:
+          oneOf:
+            - type: integer
+              minimum: 0
+            - type: 'null'
+          description: 'Null exactly when priorOccupancyEndedAt is null.'
+        rotationRestSeasons:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+          description: 'Null = this taxon has no reviewed seasonal fact for this hemisphere, or the fact configures no rest period.'
+        restPeriodThresholdDays:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+          description: 'rotationRestSeasons converted to elapsed days. Null exactly when rotationRestSeasons is null.'
+        withinRestPeriod:
+          type: boolean
+          description: 'True only when priorFamily matches family AND a threshold is configured AND elapsedDays is still below it.'
+
+    SeasonalPlanResult:
+      type: object
+      additionalProperties: false
+      required: [gardenId, hemisphere, plants, rotationStatus]
+      properties:
+        gardenId:
+          $ref: '#/components/schemas/Uuid'
+        hemisphere:
+          oneOf:
+            - $ref: '#/components/schemas/Hemisphere'
+            - type: 'null'
+          description: 'Null exactly when the garden has never been georeferenced — the explicit "we don''t know your season" signal.'
+        plants:
+          type: array
+          items:
+            $ref: '#/components/schemas/SeasonalPlanPlantEntry'
+        rotationStatus:
+          type: array
+          items:
+            $ref: '#/components/schemas/SeasonalPlanRotationStatusEntry'
 
     # ------------------------------------------------------------------
     # Media (P6-API-01).

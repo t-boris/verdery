@@ -11,6 +11,22 @@
  * `bedOccupancyHistory`) — see that context interface's own header for why
  * this in-transaction shape was chosen over weather/hemisphere's
  * pre-transaction fetch-then-thread shape.
+ *
+ * PARAMETER TYPE (P9D-SEASON-API-01): both functions declare their `context`
+ * parameter as `SeasonalFactGatheringPorts` — a `Pick` of only the three
+ * ports they actually read — rather than the full
+ * `TasksRecommendationsTransactionContext`. `EvaluateGardenRecommendations`
+ * still passes its whole transaction context unchanged (a wider object
+ * satisfies a narrower required shape structurally, so this is not a
+ * breaking change for that caller). The narrowing exists for
+ * `GetGardenSeasonalPlan` (`get-garden-seasonal-plan.ts`), a plain HTTP GET
+ * with no transaction and no reason to construct fakes/instances for the
+ * dozen unrelated ports (`tasks`, `media`, `outbox`, ...) a plain read never
+ * touches — reusing these exact functions rather than re-deriving their
+ * query logic a second time, per this package's own "narrow read port,
+ * single source of truth" discipline (see `bed-occupancy-history.ts`'s own
+ * header on why bed occupancy itself is a derived read, not a duplicated
+ * table).
  */
 
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
@@ -21,6 +37,12 @@ import type {
   TaxonomyFact,
 } from '../domain/garden-facts.js';
 import type { TasksRecommendationsTransactionContext } from './tasks-recommendations-unit-of-work.js';
+
+/** The narrow read-port subset `gatherTaxonomyFacts`/`gatherPriorBedOccupants` need — see this file's own header, "PARAMETER TYPE". */
+export type SeasonalFactGatheringPorts = Pick<
+  TasksRecommendationsTransactionContext,
+  'taxonomyReferences' | 'taxonomySeasonalFacts' | 'bedOccupancyHistory'
+>;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -52,7 +74,7 @@ const BED_ROTATION_LOOKBACK_DAYS = 10 * 365;
  * garden", not an early return here.
  */
 export async function gatherTaxonomyFacts(
-  context: TasksRecommendationsTransactionContext,
+  context: SeasonalFactGatheringPorts,
   plants: readonly PlantFact[],
   hemisphere: Hemisphere | null,
 ): Promise<TaxonomyFact[]> {
@@ -90,7 +112,7 @@ export async function gatherTaxonomyFacts(
  * plants is looked up at most once.
  */
 export async function gatherPriorBedOccupants(
-  context: TasksRecommendationsTransactionContext,
+  context: SeasonalFactGatheringPorts,
   plants: readonly PlantFact[],
   taxonomyFacts: readonly TaxonomyFact[],
   evaluatedAt: Date,

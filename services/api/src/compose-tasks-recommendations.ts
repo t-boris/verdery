@@ -40,6 +40,7 @@ import {
   EditTask,
   EmbellishRecommendationExplanations,
   EvaluateGardenRecommendations,
+  GetGardenSeasonalPlan,
   GetTaskActivity,
   GetTodayView,
   KyselyEvaluationGardenSource,
@@ -57,8 +58,15 @@ import {
 import type {
   RecommendationEvaluationSweepRouteDependencies,
   RecommendationRoutesDependencies,
+  SeasonalPlanRoutesDependencies,
   TaskRoutesDependencies,
 } from './modules/tasks-recommendations/public.js';
+import {
+  KyselyBedOccupancyHistoryReader,
+  KyselyPlantRepository,
+  KyselyTaxonomyReferenceRepository,
+  KyselyTaxonomySeasonalFactRepository,
+} from './modules/plants-inventory/public.js';
 import type { DatabaseGateway } from './platform/database/database-gateway.js';
 import { KyselyIdempotencyStore } from './platform/idempotency/kysely-idempotency-store.js';
 import type { CloudTasksInvocationVerifier } from './platform/tasks/cloud-tasks-invocation-verifier.js';
@@ -79,6 +87,8 @@ export interface TasksRecommendationsComposition {
   readonly taskRoutesDependencies: TaskRoutesDependencies;
   readonly recommendationRoutesDependencies: RecommendationRoutesDependencies;
   readonly recommendationEvaluationSweepRouteDependencies: RecommendationEvaluationSweepRouteDependencies;
+  /** P9D-SEASON-API-01 — the seasonal-plan read. */
+  readonly seasonalPlanRoutesDependencies: SeasonalPlanRoutesDependencies;
 }
 
 export function composeTasksRecommendations(
@@ -221,9 +231,32 @@ export function composeTasksRecommendations(
     ),
   };
 
+  // P9D-SEASON-API-01: the seasonal-plan read. Four more read-only adapters
+  // bound directly to the pooled connection — `plantRepository`,
+  // `taxonomyReferenceRepository`, `taxonomySeasonalFactRepository`, and
+  // `bedOccupancyHistoryReader` are `plants-inventory`-owned ports, the same
+  // "construct a second stateless instance for a read path" judgment
+  // `georeferenceRepository` above already makes for `gardens-mapping`'s
+  // `GeoreferenceRepository` — this is a plain HTTP GET with no transaction,
+  // so none of these need the transactional unit of work's own bound
+  // instances (see `get-garden-seasonal-plan.ts`'s own header,
+  // "NON-TRANSACTIONAL BY DESIGN").
+  const seasonalPlanRoutesDependencies: SeasonalPlanRoutesDependencies = {
+    getGardenSeasonalPlan: new GetGardenSeasonalPlan(
+      gardenAuthorization,
+      new KyselyPlantRepository(database.queries),
+      new KyselyTaxonomyReferenceRepository(database.queries),
+      new KyselyTaxonomySeasonalFactRepository(database.queries),
+      new KyselyBedOccupancyHistoryReader(database.queries),
+      georeferenceRepository,
+      clock,
+    ),
+  };
+
   return {
     taskRoutesDependencies,
     recommendationRoutesDependencies,
     recommendationEvaluationSweepRouteDependencies,
+    seasonalPlanRoutesDependencies,
   };
 }

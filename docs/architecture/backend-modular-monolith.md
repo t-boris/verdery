@@ -118,7 +118,7 @@ Owns append-oriented observations, measurements, notes, event history, and prove
 
 ### 6.5 Tasks and Recommendations
 
-Owns task lifecycle, completion, postponement, rejection, recommendation candidates, explanations, evidence, and feedback.
+Owns task lifecycle, completion, postponement, rejection, recommendation candidates, explanations, evidence, and feedback. Also owns the garden-wide seasonal plan read (`GET /gardens/{gardenId}/seasonal-plan`, P9D-SEASON-API-01): every reviewed seasonal timing fact for the garden's own plants and the continuous bed-rotation status per placed plant with a known family, independent of the rule-fired Today/Recommendations pipeline above. This module owns the route (not `gardens-mapping`) because it already imports read ports from both `gardens-mapping` (`GeoreferenceRepository`, `GardenAuthorization`) and `plants-inventory` (`PlantRepository`, `TaxonomyReferenceRepository`, `TaxonomySeasonalFactRepository`, `BedOccupancyHistoryReader`) with no dependency arrow pointing back at it from either sibling — putting the route in `gardens-mapping` instead would require a new import from `plants-inventory`, which would be circular, since `plants-inventory` already imports `gardens-mapping`.
 
 ### 6.6 Media
 

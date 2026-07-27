@@ -1701,6 +1701,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/gardens/{gardenId}/seasonal-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get the garden's seasonal plan
+         * @description Every ACTIVE plant's full reviewed seasonal timing fact (all
+         *     configured windows — sow indoors/outdoors, transplant, harvest,
+         *     days-to-maturity, succession interval, rotation rest period — not
+         *     only whichever window happens to be open right now, unlike the
+         *     rule-fired Today view), plus the continuous bed-rotation status per
+         *     placed plant with a known family — computed independently of
+         *     whether `rotation.crop-rotation-caution` would currently fire.
+         *
+         *     A plant whose taxon is unknown, or whose taxon has no reviewed
+         *     seasonal fact for this garden's hemisphere, is still included with
+         *     an explicit `noSeasonalData` marker — never silently omitted, so a
+         *     client can distinguish "nothing configured" from "this plant does
+         *     not exist". `hemisphere` is `null` when the garden has never been
+         *     georeferenced, so the client can render an honest "we don't know
+         *     your season" state instead of an empty list masquerading as
+         *     "nothing to show".
+         *
+         *     Authorized the same way `getGardenMap`/`listGardenContextFacts`
+         *     already are (`viewGarden`) — no new capability.
+         *
+         *     Source: tasks/todo.md, "P9D-SEASON-01 design decisions", "Stage 3 —
+         *     P9D-SEASON-API-01"; implementation-plan.md work package
+         *     P9D-SEASON-API-01.
+         */
+        get: operations["getGardenSeasonalPlan"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/gardens/{gardenId}/recommendations/{recommendationId}/complete": {
         parameters: {
             query?: never;
@@ -5870,6 +5914,96 @@ export interface components {
             task: components["schemas"]["Task"];
         };
         /**
+         * @description Derived from a garden's current georeference latitude sign
+         *     (`deriveHemisphere`, tasks-recommendations/domain/garden-facts.ts) —
+         *     never guessed. Absent from `SeasonalPlanResult.hemisphere` (`null`
+         *     instead) exactly when the garden has never been georeferenced.
+         * @enum {string}
+         */
+        Hemisphere: "northern" | "southern";
+        /**
+         * @description Every timing/duration column a reviewed `taxonomy_seasonal_fact` row
+         *     carries. Every field is independently nullable — a crop with no
+         *     transplant stage, or no known succession benefit, is a fully
+         *     legitimate fact with those fields `null`; never a fabricated window.
+         */
+        SeasonalPlanTaxonomyTiming: {
+            sowIndoorsStartMonth: number | null;
+            sowIndoorsEndMonth: number | null;
+            sowOutdoorsStartMonth: number | null;
+            sowOutdoorsEndMonth: number | null;
+            transplantStartMonth: number | null;
+            transplantEndMonth: number | null;
+            harvestStartMonth: number | null;
+            harvestEndMonth: number | null;
+            daysToMaturityMin: number | null;
+            daysToMaturityMax: number | null;
+            /** @description Null = no succession benefit for this crop. */
+            successionIntervalDays: number | null;
+            /** @description Null = no known family-conflict rest period. */
+            rotationRestSeasons: number | null;
+        };
+        SeasonalPlanTaxonomyStatusReviewed: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            status: "reviewed";
+            timing: components["schemas"]["SeasonalPlanTaxonomyTiming"];
+        };
+        /**
+         * @description The explicit "no seasonal data" marker — present whether the
+         *     plant's taxon is entirely unknown or simply has no
+         *     `horticulturally_reviewed` fact for this garden's hemisphere; both
+         *     collapse to this one honest outcome rather than a silently omitted
+         *     plant.
+         */
+        SeasonalPlanTaxonomyStatusMissing: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            status: "noSeasonalData";
+        };
+        SeasonalPlanTaxonomyStatus: components["schemas"]["SeasonalPlanTaxonomyStatusReviewed"] | components["schemas"]["SeasonalPlanTaxonomyStatusMissing"];
+        SeasonalPlanPlantEntry: {
+            plantId: components["schemas"]["Uuid"];
+            taxonomyReferenceId: components["schemas"]["Uuid"] | null;
+            seasonalFact: components["schemas"]["SeasonalPlanTaxonomyStatus"];
+        };
+        /**
+         * @description One placed plant's continuous bed-rotation state — computed
+         *     independently of `rotation.crop-rotation-caution`'s own re-fire
+         *     cadence. Present for every plant with a known bed placement AND a
+         *     known own family, including "no known conflict" (`priorFamily`
+         *     `null`) and "no configured rest period" (`rotationRestSeasons`
+         *     `null`) outcomes — never limited to plants that would currently
+         *     justify a fired recommendation.
+         */
+        SeasonalPlanRotationStatusEntry: {
+            plantId: components["schemas"]["Uuid"];
+            gardenAreaMapObjectId: components["schemas"]["Uuid"];
+            family: string;
+            /** @description Null = no departed occupant is known within the lookback window, or the departed occupant's own family is unknown. */
+            priorFamily: string | null;
+            priorOccupancyEndedAt: components["schemas"]["Timestamp"] | null;
+            /** @description Null exactly when priorOccupancyEndedAt is null. */
+            elapsedDays: number | null;
+            /** @description Null = this taxon has no reviewed seasonal fact for this hemisphere, or the fact configures no rest period. */
+            rotationRestSeasons: number | null;
+            /** @description rotationRestSeasons converted to elapsed days. Null exactly when rotationRestSeasons is null. */
+            restPeriodThresholdDays: number | null;
+            /** @description True only when priorFamily matches family AND a threshold is configured AND elapsedDays is still below it. */
+            withinRestPeriod: boolean;
+        };
+        SeasonalPlanResult: {
+            gardenId: components["schemas"]["Uuid"];
+            /** @description Null exactly when the garden has never been georeferenced — the explicit "we don't know your season" signal. */
+            hemisphere: components["schemas"]["Hemisphere"] | null;
+            plants: components["schemas"]["SeasonalPlanPlantEntry"][];
+            rotationStatus: components["schemas"]["SeasonalPlanRotationStatusEntry"][];
+        };
+        /**
          * @description Matches section 3's class table exactly. No separate "purpose" field
          *     exists: see `media.media_record.media_class`'s own migration comment
          *     for why "purpose" resolves to this field alone.
@@ -9173,6 +9307,30 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getGardenSeasonalPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The garden's current seasonal plan. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeasonalPlanResult"];
+                };
+            };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
         };

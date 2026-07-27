@@ -337,6 +337,27 @@ export type { RecommendationRoutesDependencies } from './transport/recommendatio
 export { registerRecommendationEvaluationSweepRoute } from './transport/recommendation-evaluation-sweep-route.js';
 export type { RecommendationEvaluationSweepRouteDependencies } from './transport/recommendation-evaluation-sweep-route.js';
 
+// Seasonal plan (P9D-SEASON-API-01): the garden-wide forward-looking
+// seasonal-fact and continuous bed-rotation-status read, distinct from the
+// rule-fired Today/Recommendations surface above — see
+// `application/get-garden-seasonal-plan.ts`'s own header for the module-
+// ownership and reuse reasoning.
+export { GetGardenSeasonalPlan } from './application/get-garden-seasonal-plan.js';
+export type {
+  GardenSeasonalPlan,
+  SeasonalPlanPlantEntry,
+  SeasonalPlanRotationStatusEntry,
+  SeasonalPlanTaxonomyStatus,
+  SeasonalPlanTiming,
+} from './application/get-garden-seasonal-plan.js';
+// `SeasonalPlanResult` and its nested resource shapes are the contract's own
+// generated types (`@verdery/api-contracts`), not re-exported here — see
+// `get-garden-seasonal-plan-view.ts`'s own header for why the mapping is
+// typed directly against them instead of a hand-rolled duplicate.
+export { toGardenSeasonalPlanResource } from './application/get-garden-seasonal-plan-view.js';
+export { registerSeasonalPlanRoutes } from './transport/seasonal-plan-routes.js';
+export type { SeasonalPlanRoutesDependencies } from './transport/seasonal-plan-routes.js';
+
 export { KyselyTaskRepository } from './persistence/kysely-task-repository.js';
 export { KyselyTaskAttachmentRepository } from './persistence/kysely-task-attachment-repository.js';
 export { KyselyTaskRevisionJournalWriter } from './persistence/kysely-task-revision-journal-writer.js';

@@ -59,9 +59,19 @@ import {
   wholeDaysBetween,
 } from './rule-support.js';
 
+/**
+ * One rotation "season" in days — see this file's own header, "SEASON"
+ * LENGTH. Exported (P9D-SEASON-API-01) so `GetGardenSeasonalPlan`'s
+ * continuous rest-period read (`application/get-garden-seasonal-plan.ts`)
+ * can compute the identical `rotationRestSeasons -> days` threshold this
+ * rule uses, rather than re-deriving or hardcoding the same number a second
+ * time — the same single-source-of-truth discipline `wholeDaysBetween`
+ * being imported (not reimplemented) already follows one file down.
+ */
+export const ROTATION_SEASON_DAYS = 365;
+
 const PARAMETERS = {
-  /** One rotation "season" in days — see this file's own header, "SEASON" LENGTH. */
-  rotationSeasonDays: 365,
+  rotationSeasonDays: ROTATION_SEASON_DAYS,
   validityWindowDays: 21,
   recurrenceIntervalDays: 30,
 } as const;

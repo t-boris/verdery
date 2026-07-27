@@ -155,6 +155,9 @@ export type TodayResult = Schemas['TodayResult'];
 export type PostponeRecommendationRequest = Schemas['PostponeRecommendationRequest'];
 export type ConvertRecommendationToTaskResult = Schemas['ConvertRecommendationToTaskResult'];
 
+/** The seasonal plan schemas (P9D-SEASON-API-01) live in `./seasonal-plan.js` — same 600-line-rule posture as `./garden-context.js` above. */
+export * from './seasonal-plan.js';
+
 /** The media schemas (P6-API-01). */
 export type MediaClass = Schemas['MediaClass'];
 export type MediaUploadState = Schemas['MediaUploadState'];
