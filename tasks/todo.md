@@ -6974,10 +6974,16 @@ work package, its own completion evidence, and this matrix's own findings; appro
    correct — and is recorded here honestly as a real, un-litigated limitation rather than silently
    fixed or silently ignored.
 
-**Deployment status at G9 approval**: all Phase 9 backend/web/iOS code is merged to `master` and
-CI-green. Deployed builds (Cloud Run + a new TestFlight/App Store build reflecting the FULL phase)
-and a Russian-language testing guide are the one remaining action before Phase 9 is considered
-fully delivered to the user, tracked separately below this review.
+**Deployment status at G9 approval — now complete.** All Phase 9 backend/web/iOS code is merged to
+`master`, CI-green, and deployed: the `Deploy to development` workflow ran automatically after the
+final P9-QA-01 push (API image built, migrations run, Cloud Run deployed and verified against a
+real request; web image built, deployed, and verified serving a page) —
+`https://verdery-web-dev-417008876420.us-central1.run.app`. A new iOS build was archived and
+uploaded to TestFlight via `apps/ios/scripts/archive-and-upload.sh` (build number derived from
+`git rev-list --count HEAD` on `master`, per that script's own convention) — **build 190**,
+confirmed `VALID` in App Store Connect. A Russian-language testing guide covering all four
+subphases (access, step-by-step checklists per feature, and the three P9-QA-01 findings recorded
+above as "what not to be alarmed by") was written and published. Phase 9 is fully delivered.
 
 ### P9-QA-01, Batch A — access, isolation, and lifecycle matrices (1-7), completion notes
 
