@@ -6360,17 +6360,45 @@ data/UX with no security surface).
       2166 tests, all green.
 - [ ] P9D-SEASON-01 — seasonal calendars, succession planning, crop rotation, recurrence,
       location-aware schedule rules. Full scope confirmed by user (not the leaner MVP alternative)
-      — see "P9D-SEASON-01 design decisions" below for the staged plan this is broken into. - [x] Stage 1 — P9D-SEASON-DATA-01: botanical family/genus on `taxonomy_reference`
-      (purely additive — confirmed no application-layer write path exists for that table at
-      all today, so no new command was needed); new `taxonomy_seasonal_fact` table with full
-      ADR-0013 provenance, review-status filter enforced in the read port's own SQL, not
-      merely documented; bed-occupancy history via three new snapshot columns on the
-      existing `plant_revision` journal (not a new interval table), reconstructed by a new
-      `BedOccupancyHistoryReader`; `hemisphere` added to `GardenFacts`, derived from a
-      garden's georeference latitude sign, wired into `EvaluateGardenRecommendations`
-      (a deliberate, documented deviation from this section's own original wiring-location
-      note — `KyselyEvaluationGardenSource` turned out to have no access to a single
-      garden's facts at all). 274 files / 2222 tests, all green. - [ ] Stage 2 — P9D-SEASON-RULES-01: not started. - [ ] Stage 3 — P9D-SEASON-API-01: not started (may not be needed — decide after Stage 2).
+      — see "P9D-SEASON-01 design decisions" below for the staged plan this is broken into.
+  - [x] Stage 1 — P9D-SEASON-DATA-01: botanical family/genus on `taxonomy_reference`
+        (purely additive — confirmed no application-layer write path exists for that table at
+        all today, so no new command was needed); new `taxonomy_seasonal_fact` table with full
+        ADR-0013 provenance, review-status filter enforced in the read port's own SQL, not
+        merely documented; bed-occupancy history via three new snapshot columns on the
+        existing `plant_revision` journal (not a new interval table), reconstructed by a new
+        `BedOccupancyHistoryReader`; `hemisphere` added to `GardenFacts`, derived from a
+        garden's georeference latitude sign, wired into `EvaluateGardenRecommendations`
+        (a deliberate, documented deviation from this section's own original wiring-location
+        note — `KyselyEvaluationGardenSource` turned out to have no access to a single
+        garden's facts at all). 274 files / 2222 tests, all green.
+  - [x] Stage 2 — P9D-SEASON-RULES-01: three new launch rules
+        (`seasonal.sowing-window-check`, `succession.replanting-reminder`,
+        `rotation.crop-rotation-caution`), all `ordinary_care`, all
+        `awaiting_horticultural_review` under a widened `RuleReviewMetadata.awaitingReviewBy`
+        literal union (`'P7-SAFE-01' | 'P9D-SEASON-RULES-01'`). Closed Stage 1's two named
+        gaps: `PlantFact` gained `taxonomyReferenceId`/`gardenAreaMapObjectId` (the latter not
+        explicitly requested but needed so `crop-rotation-caution` can distinguish "not placed"
+        from "no known conflict" as separate typed skips); `GardenFacts` gained
+        `taxonomyFacts`/`priorBedOccupants`, assembled by a new `gather-seasonal-facts.ts`
+        helper INSIDE `EvaluateGardenRecommendations`'s own transaction (the `plants`/
+        `observations` in-transaction pattern, not weather/hemisphere's pre-transaction
+        fetch-then-thread one — these are per-plant/per-bed queries whose inputs are only known
+        once the plant list itself has been read, which happens inside the transaction).
+        `TaxonomyReferenceRepository` gained `findById` (previously search-only). New
+        `seasonal_calendar` evidence kind required a small additive migration
+        (`1787200000000_seasonal-calendar-evidence-kind.sql`, no PL/pgSQL) widening two
+        `recommendation_evidence` CHECKs — the one migration this stage needed, consuming
+        Stage 1's schema without adding a table. `succession.replanting-reminder`'s own header
+        documents a genuine engine constraint the brief's literal wording could not satisfy
+        exactly: `timing.recurrenceIntervalMs` is one static value per rule VERSION (not
+        per-target), so a truly per-taxon `successionIntervalDays` cannot set it directly;
+        resolved with a reviewable garden-wide fallback cadence while the real number is always
+        quoted honestly in evidence/explanation. `crop-rotation-caution` resolves an
+        undefined-elsewhere "how long is a rotation season" ambiguity as 365 days (one year),
+        documented in the rule file. 276 files / 2260 tests, all green; all four root gates
+        (build, test, typecheck, lint, format:check, check:file-size) clean.
+  - [ ] Stage 3 — P9D-SEASON-API-01: not started (may not be needed — decide after Stage 2).
 - [ ] P9D-UX-01 — seasonal plan, context quality, shared responsibilities, conflicts, without
       overwhelming Today.
 

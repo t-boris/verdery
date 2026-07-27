@@ -12,6 +12,7 @@ import {
   FIXTURE_NOW,
   OBSERVATION_ID,
   PLANT_A_ID,
+  SEASONAL_RULES_HEMISPHERE_SKIPS,
   fireDecision,
   gardenFacts,
   noPrior,
@@ -60,6 +61,7 @@ export const observationRoutineCheckReminderFixtures: readonly RuleFixture[] = [
           'plant.not_ready_to_harvest',
         ),
         BOTH_WEATHER_RULES_SKIP[1],
+        ...SEASONAL_RULES_HEMISPHERE_SKIPS,
       ],
       plannedCandidates: [
         {
@@ -139,6 +141,7 @@ export const observationRoutineCheckReminderFixtures: readonly RuleFixture[] = [
           'plant.not_ready_to_harvest',
         ),
         BOTH_WEATHER_RULES_SKIP[1],
+        ...SEASONAL_RULES_HEMISPHERE_SKIPS,
       ],
       plannedCandidates: [
         {
@@ -218,6 +221,7 @@ export const observationRoutineCheckReminderFixtures: readonly RuleFixture[] = [
           'plant.not_ready_to_harvest',
         ),
         BOTH_WEATHER_RULES_SKIP[1],
+        ...SEASONAL_RULES_HEMISPHERE_SKIPS,
       ],
       plannedCandidates: [],
     },
@@ -258,6 +262,7 @@ export const observationRoutineCheckReminderFixtures: readonly RuleFixture[] = [
           'plant.not_ready_to_harvest',
         ),
         BOTH_WEATHER_RULES_SKIP[1],
+        ...SEASONAL_RULES_HEMISPHERE_SKIPS,
       ],
       plannedCandidates: [],
     },

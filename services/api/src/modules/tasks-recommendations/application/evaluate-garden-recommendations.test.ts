@@ -108,6 +108,9 @@ describe('EvaluateGardenRecommendations', () => {
     expect(registered.sort()).toEqual([
       'lifecycle.harvest-readiness-check@1',
       'observation.routine-check-reminder@1',
+      'rotation.crop-rotation-caution@1',
+      'seasonal.sowing-window-check@1',
+      'succession.replanting-reminder@1',
       'watering.dry-spell-check@1',
       'weather.frost-watch@1',
     ]);
@@ -187,7 +190,14 @@ describe('EvaluateGardenRecommendations', () => {
       }) as unknown,
     });
 
-    const weatherSkips = result.decisions.filter((decision) => decision.kind === 'ruleSkipped');
+    // Scoped to weather-typed skips specifically: `result.decisions` also
+    // carries the three P9D-SEASON-RULES-01 seasonal rules' own
+    // `factMissing` (hemisphere-unknown) skips, not this test's concern.
+    const weatherSkips = result.decisions.filter(
+      (decision) =>
+        decision.kind === 'ruleSkipped' &&
+        (decision.reason.kind === 'weatherMissing' || decision.reason.kind === 'weatherStale'),
+    );
     expect(weatherSkips).toEqual([
       expect.objectContaining({
         ruleKey: 'watering.dry-spell-check',

@@ -272,6 +272,9 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     expect(ruleVersions).toEqual([
       { rule_key: 'lifecycle.harvest-readiness-check', version: 1 },
       { rule_key: 'observation.routine-check-reminder', version: 1 },
+      { rule_key: 'rotation.crop-rotation-caution', version: 1 },
+      { rule_key: 'seasonal.sowing-window-check', version: 1 },
+      { rule_key: 'succession.replanting-reminder', version: 1 },
       { rule_key: 'watering.dry-spell-check', version: 1 },
       { rule_key: 'weather.frost-watch', version: 1 },
     ]);

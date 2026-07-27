@@ -64,17 +64,37 @@ const PINNED_CONTENT_HASHES: Record<string, string> = {
   'lifecycle.harvest-readiness-check@1':
     '37faefd86a7579b8a777e6824813ccc4e4705660b8fe2e7eeec2cabd493fb3b9',
   'weather.frost-watch@1': '81393cbcad700f43db7d5f140edf3b861a4edb536529a4f2df8d4cecb10fc7a8',
+  'seasonal.sowing-window-check@1':
+    'f87b787ee5811637d130b73c29473b871c3021795eddda843b1e19b640025324',
+  'succession.replanting-reminder@1':
+    '5a2045ca6adbc597fdac72071c343456edd1290fc6bf7fc9fb367626a57b4456',
+  'rotation.crop-rotation-caution@1':
+    'a44565f74c0bec6fb5112c14387aeda0ef18b4b509256892bfdaf00d5c1e8382',
+};
+
+/** `awaitingReviewBy` by rule key — the original four launch rules under `P7-SAFE-01`, the three P9D-SEASON-RULES-01 seasonal rules under their own work package (`RuleReviewMetadata`'s widened type). */
+const EXPECTED_AWAITING_REVIEW_BY: Record<string, string> = {
+  'watering.dry-spell-check': 'P7-SAFE-01',
+  'observation.routine-check-reminder': 'P7-SAFE-01',
+  'lifecycle.harvest-readiness-check': 'P7-SAFE-01',
+  'weather.frost-watch': 'P7-SAFE-01',
+  'seasonal.sowing-window-check': 'P9D-SEASON-RULES-01',
+  'succession.replanting-reminder': 'P9D-SEASON-RULES-01',
+  'rotation.crop-rotation-caution': 'P9D-SEASON-RULES-01',
 };
 
 describe('launch rule catalog', () => {
   const catalog = createLaunchRuleCatalog();
 
-  it('ships exactly the four launch rules, all at version 1 and all active', () => {
+  it('ships exactly the seven launch rules, all at version 1 and all active', () => {
     expect(catalog.allVersions().map((rule) => `${rule.ruleKey}@${String(rule.version)}`)).toEqual([
       'watering.dry-spell-check@1',
       'observation.routine-check-reminder@1',
       'lifecycle.harvest-readiness-check@1',
       'weather.frost-watch@1',
+      'seasonal.sowing-window-check@1',
+      'succession.replanting-reminder@1',
+      'rotation.crop-rotation-caution@1',
     ]);
     expect(catalog.activeRules()).toEqual(catalog.allVersions());
   });
@@ -88,11 +108,11 @@ describe('launch rule catalog', () => {
     ).toHaveLength(1);
   });
 
-  it('marks EVERY launch rule as awaiting horticultural review by P7-SAFE-01', () => {
+  it('marks EVERY launch rule as awaiting horticultural review, each by its own owning work package', () => {
     for (const rule of catalog.allVersions()) {
       expect(rule.review).toEqual({
         reviewStatus: 'awaiting_horticultural_review',
-        awaitingReviewBy: 'P7-SAFE-01',
+        awaitingReviewBy: EXPECTED_AWAITING_REVIEW_BY[rule.ruleKey],
       });
     }
   });
@@ -103,6 +123,9 @@ describe('launch rule catalog', () => {
       'observation',
       'harvest',
       'weather_protection',
+      'sowing',
+      'succession_planting',
+      'crop_rotation',
     ]);
   });
 

@@ -102,8 +102,15 @@ export type RuleWeatherPolicy =
 export type RuleReviewMetadata =
   | {
       readonly reviewStatus: 'awaiting_horticultural_review';
-      /** The work package that owns the outstanding human review. */
-      readonly awaitingReviewBy: 'P7-SAFE-01';
+      /**
+       * The work package that owns the outstanding human review. A closed
+       * literal union, not `string`: `P7-SAFE-01` is the launch four's own
+       * owner; `P9D-SEASON-RULES-01` (P9D-SEASON-RULES-01) is the seasonal
+       * three's — every launch rule still names exactly one real,
+       * traceable work package, the same honesty the single-literal type
+       * enforced before this stage added a second cohort of rules.
+       */
+      readonly awaitingReviewBy: 'P7-SAFE-01' | 'P9D-SEASON-RULES-01';
     }
   | {
       readonly reviewStatus: 'horticulturally_reviewed';

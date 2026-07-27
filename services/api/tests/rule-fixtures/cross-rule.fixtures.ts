@@ -16,6 +16,7 @@ import {
   PLANT_B_ID,
   PRIOR_CANDIDATE_A_ID,
   PRIOR_CANDIDATE_B_ID,
+  SEASONAL_RULES_HEMISPHERE_SKIPS,
   TASK_A_ID,
   TASK_B_ID,
   WEATHER_FORECAST_ID,
@@ -88,6 +89,7 @@ export const crossRuleFixtures: readonly RuleFixture[] = [
           kind: 'weatherMissing',
           requiredKind: 'forecast',
         }),
+        ...SEASONAL_RULES_HEMISPHERE_SKIPS,
       ],
       plannedCandidates: [],
     },
@@ -148,6 +150,7 @@ export const crossRuleFixtures: readonly RuleFixture[] = [
           kind: 'weatherMissing',
           requiredKind: 'forecast',
         }),
+        ...SEASONAL_RULES_HEMISPHERE_SKIPS,
       ],
       plannedCandidates: [
         {
@@ -248,6 +251,7 @@ export const crossRuleFixtures: readonly RuleFixture[] = [
           'plant.not_ready_to_harvest',
         ),
         fireDecision('weather.frost-watch', PLANT_A_ID, 95),
+        ...SEASONAL_RULES_HEMISPHERE_SKIPS,
       ],
       plannedCandidates: [
         {

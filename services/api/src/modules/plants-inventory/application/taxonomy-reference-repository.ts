@@ -1,6 +1,17 @@
+import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { TaxonomyReference } from '../domain/taxonomy-reference.js';
 
 export interface TaxonomyReferenceRepository {
+  /**
+   * A single reference by id, or `null` when unknown. P9D-SEASON-RULES-01's
+   * read path for `family` (`crop-rotation-caution`'s own input) and for
+   * resolving a bed's past occupant's taxon — the same `findById(id):
+   * Promise<T | null>` shape `PlantRepository`/`TaskRepository` already
+   * carry, added here because nothing needed a single-row lookup by id
+   * before this stage (`search` was the only read path).
+   */
+  findById(id: Uuid): Promise<TaxonomyReference | null>;
+
   /**
    * `query === null` lists the catalog (most recent first, by `scientificName`
    * ascending). A non-null query matches `scientificName` or `commonName` by

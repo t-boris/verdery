@@ -3,6 +3,12 @@
  * split out of `tasks-recommendations-test-doubles.ts` (which stays the
  * task-command half) so neither file crowds the 600-line budget. Not a
  * `*.test.ts` file; vitest never runs it as a suite.
+ *
+ * `FakeTaxonomyReferenceRepository`/`FakeTaxonomySeasonalFactRepository`/
+ * `FakeBedOccupancyHistoryReader` (P9D-SEASON-RULES-01) join
+ * `FakeGeoreferenceRepository` below for the same reason: all four back
+ * `plants-inventory`/`gardens-mapping` read ports `EvaluateGardenRecommendations`
+ * consults for facts it does not own.
  */
 
 import { generateUuidV7 } from '../../../shared/identifiers/uuid.js';
@@ -17,6 +23,15 @@ import type {
   WeatherRecordKind,
   WeatherRecordRepository,
 } from '../../integrations/public.js';
+import type {
+  BedOccupancyHistoryReader,
+  BedOccupancyPeriod,
+  Hemisphere,
+  TaxonomyReference,
+  TaxonomyReferenceRepository,
+  TaxonomySeasonalFact,
+  TaxonomySeasonalFactRepository,
+} from '../../plants-inventory/public.js';
 import type { AiExplanationRecord } from '../domain/ai-explanation.js';
 import type { AiExplanationRecordRepository } from './ai-explanation-record-repository.js';
 import type { RecommendationCandidate } from '../domain/recommendation-candidate.js';
@@ -429,5 +444,63 @@ export class FakeGeoreferenceRepository implements GeoreferenceRepository {
   findCurrentForGarden(gardenId: Uuid): Promise<Georeference | null> {
     this.calls.push(gardenId);
     return Promise.resolve(this.byGardenId.get(gardenId) ?? null);
+  }
+}
+
+/** `findById` serves `gather-seasonal-facts.ts`'s own two reads (a taxon's own family, and a departed bed occupant's family); `search` throws since no unit test in this suite drives it. */
+export class FakeTaxonomyReferenceRepository implements TaxonomyReferenceRepository {
+  constructor(private readonly references: Map<Uuid, TaxonomyReference> = new Map()) {}
+
+  findById(id: Uuid): Promise<TaxonomyReference | null> {
+    return Promise.resolve(this.references.get(id) ?? null);
+  }
+
+  search(): Promise<TaxonomyReference[]> {
+    throw new Error('not used by this test');
+  }
+}
+
+/** Keyed by `${taxonomyReferenceId}:${hemisphere}`, mirroring the real repository's own unique key — re-applies the SAME `horticulturally_reviewed` filter the real Kysely repository's SQL enforces, so a seeded `awaiting_horticultural_review` row is honestly invisible here too. */
+export class FakeTaxonomySeasonalFactRepository implements TaxonomySeasonalFactRepository {
+  constructor(private readonly facts: Map<string, TaxonomySeasonalFact> = new Map()) {}
+
+  findReviewedForTaxonomyAndHemisphere(
+    taxonomyReferenceId: Uuid,
+    hemisphere: Hemisphere,
+  ): Promise<TaxonomySeasonalFact | null> {
+    const fact = this.facts.get(`${taxonomyReferenceId}:${hemisphere}`);
+    return Promise.resolve(
+      fact !== undefined && fact.reviewStatus === 'horticulturally_reviewed' ? fact : null,
+    );
+  }
+}
+
+/**
+ * In-memory `BedOccupancyHistoryReader`, keyed by `bedMapObjectId` —
+ * `BedOccupancyPeriod` itself carries no bed id (the real port's own return
+ * shape: the bed was the query's input, not part of the answer), so the
+ * fake's OWN seed map supplies the keying the real SQL's `WHERE
+ * garden_area_map_object_id = $bed` clause performs. `findForBed` then
+ * re-applies the real reconstruction query's own `[intervalStart,
+ * intervalEnd]` overlap test over that bed's seeded periods.
+ */
+export class FakeBedOccupancyHistoryReader implements BedOccupancyHistoryReader {
+  constructor(
+    private readonly periodsByBed: Map<Uuid, readonly BedOccupancyPeriod[]> = new Map(),
+  ) {}
+
+  findForBed(
+    bedMapObjectId: Uuid,
+    intervalStart: Date,
+    intervalEnd: Date,
+  ): Promise<readonly BedOccupancyPeriod[]> {
+    const periods = this.periodsByBed.get(bedMapObjectId) ?? [];
+    const matching = periods.filter(
+      (period) =>
+        period.occupiedFrom.getTime() <= intervalEnd.getTime() &&
+        (period.occupiedUntil === null ||
+          period.occupiedUntil.getTime() >= intervalStart.getTime()),
+    );
+    return Promise.resolve(matching);
   }
 }

@@ -14,13 +14,26 @@
  * Append-only: a content change ships as a NEW version appended here —
  * see `rule-catalog.ts` for the discipline and its two mechanical guards.
  *
+ * P9D-SEASON-RULES-01 (Stage 2 of P9D-SEASON-01) appends three more rules
+ * on top of the original four launch rules — `seasonal.sowing-window
+ * -check`, `succession.replanting-reminder`, `rotation.crop-rotation
+ * -caution` — each `awaiting_horticultural_review` by that SAME work
+ * package (a distinct `awaitingReviewBy` value from the original four's
+ * `P7-SAFE-01`, per `RuleReviewMetadata`'s own widened type), consuming
+ * `GardenFacts.hemisphere`/`taxonomyFacts`/`priorBedOccupants` — none of
+ * which the original four ever read.
+ *
  * Source: architecture/recommendations-and-ai.md, sections "5. Rule
- * Engine" and "13. Safety Tiers"; tasks/todo.md, "Phase 7 ... planning".
+ * Engine" and "13. Safety Tiers"; tasks/todo.md, "Phase 7 ... planning",
+ * "P9D-SEASON-01 design decisions".
  */
 
 import { RuleCatalog } from '../rule-catalog.js';
+import { cropRotationCautionRule } from './crop-rotation-caution.js';
 import { lifecycleHarvestReadinessCheckRule } from './lifecycle-harvest-readiness-check.js';
 import { observationRoutineCheckReminderRule } from './observation-routine-check-reminder.js';
+import { seasonalSowingWindowCheckRule } from './seasonal-sowing-window-check.js';
+import { successionReplantingReminderRule } from './succession-replanting-reminder.js';
 import { wateringDrySpellCheckRule } from './watering-dry-spell-check.js';
 import { weatherFrostWatchRule } from './weather-frost-watch.js';
 
@@ -31,5 +44,8 @@ export function createLaunchRuleCatalog(): RuleCatalog {
     observationRoutineCheckReminderRule,
     lifecycleHarvestReadinessCheckRule,
     weatherFrostWatchRule,
+    seasonalSowingWindowCheckRule,
+    successionReplantingReminderRule,
+    cropRotationCautionRule,
   ]);
 }

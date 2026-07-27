@@ -198,8 +198,12 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       candidatesExpired: 0,
       lostRaces: 0,
       // P7-ANALYTICS-01: both weather-required rules (watering observation,
-      // frost forecast) skip on the no-weather-record reality of this suite.
-      ruleSkips: { weatherMissing: 2 },
+      // frost forecast) skip on the no-weather-record reality of this
+      // suite; P9D-SEASON-RULES-01's three seasonal rules skip too, on the
+      // never-georeferenced (hemisphere-unknown) reality of the same
+      // eligible garden — all five are `factMissing`/`weatherMissing`
+      // typed skips, never silence.
+      ruleSkips: { factMissing: 3, weatherMissing: 2 },
       // P7-AI-01: null embellisher — the kill-switch-off reality.
       embellishment: null,
     });
@@ -241,7 +245,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       candidatesSuperseded: 0,
       candidatesExpired: 0,
       lostRaces: 0,
-      ruleSkips: { weatherMissing: 2 },
+      ruleSkips: { factMissing: 3, weatherMissing: 2 },
       embellishment: null,
     });
     expect(await candidateRows()).toHaveLength(1);
@@ -333,7 +337,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       lostRaces: 0,
       // The elevated-risk frost rule's declared posture is `skip`: a stale
       // forecast produces nothing, and the skip is a typed counter.
-      ruleSkips: { weatherStale: 1 },
+      ruleSkips: { factMissing: 3, weatherStale: 1 },
       embellishment: null,
     });
 

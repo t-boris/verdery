@@ -199,7 +199,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     // this file's own assertions below check) first, then this migration
     // itself. Update this count when a later migration is added on top, the
     // same convention every earlier migration test here follows.
-    await migrate(databaseUrl, 'down', 3);
+    await migrate(databaseUrl, 'down', 4);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

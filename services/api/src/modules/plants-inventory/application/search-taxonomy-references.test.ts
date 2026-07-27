@@ -19,6 +19,10 @@ class FakeTaxonomyReferenceRepository implements TaxonomyReferenceRepository {
   lastQuery: string | null | undefined;
   lastLimit: number | undefined;
 
+  findById(): Promise<TaxonomyReference | null> {
+    throw new Error('not used by this test');
+  }
+
   search(query: string | null, limit: number): Promise<TaxonomyReference[]> {
     this.lastQuery = query;
     this.lastLimit = limit;

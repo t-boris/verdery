@@ -25,6 +25,10 @@ export function buildPlantFact(overrides: Partial<PlantFact> & { plantId: Uuid }
     lifecycleStage: 'growing',
     status: 'active',
     createdAt: new Date('2026-05-01T08:00:00Z'),
+    // P9D-SEASON-RULES-01: unknown by default, matching `fixture-support
+    // .ts`'s own `plantFact` convention.
+    taxonomyReferenceId: null,
+    gardenAreaMapObjectId: null,
     ...overrides,
   };
 }
@@ -40,6 +44,8 @@ export function buildGardenFacts(overrides: Partial<GardenFacts> = {}): GardenFa
     weatherObservation: { availability: 'missing' },
     weatherForecast: { availability: 'missing' },
     hemisphere: null,
+    taxonomyFacts: [],
+    priorBedOccupants: [],
     ...overrides,
   };
 }

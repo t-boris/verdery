@@ -54,13 +54,42 @@
  * prevent. Provider CALLS never happen inside a transaction; only the
  * selection reads and the single-row verdict writes do.
  *
+ * `taxonomyReferences`, `taxonomySeasonalFacts`, `bedOccupancyHistory`
+ * (P9D-SEASON-RULES-01): three more `plants-inventory`-owned read ports,
+ * bound here transaction-scoped for the SAME reason `plants`/`observations`
+ * already are, NOT the pre-transaction fetch-then-thread shape
+ * `weatherObservation`/`weatherForecast`/`hemisphere` use in
+ * `evaluate-garden-recommendations.ts`. Two independent reasons, either one
+ * sufficient on its own:
+ *
+ * 1. Weather and hemisphere are each ONE fixed-shape fact per garden,
+ *    resolvable before the transaction even opens. Seasonal facts and
+ *    bed-occupancy history are PER-PLANT and PER-BED queries whose inputs
+ *    (which taxa, which beds) are only known once the plant list itself has
+ *    been read — and that read happens INSIDE the transaction (the existing
+ *    `context.plants.search` scan). There is no "before the transaction"
+ *    moment at which these queries could even be issued.
+ * 2. `EvaluateGardenRecommendations`'s own header already states the rule
+ *    for facts whose evidence rows quote them: "that read must be
+ *    snapshot-consistent with those writes" (given for `observations`).
+ *    Family, seasonal timing, and bed history are exactly such facts here —
+ *    `seasonal-sowing-window-check`/`succession-replanting-reminder`/
+ *    `crop-rotation-caution` (P9D-SEASON-RULES-01) quote them as
+ *    `seasonal_calendar` evidence — so the same rule places them in the
+ *    transaction, not before it.
+ *
  * Source: architecture/backend-modular-monolith.md, section "12. Transactions".
  */
 
 import type { MapObjectRepository } from '../../gardens-mapping/public.js';
 import type { MediaRepository } from '../../media/public.js';
 import type { ObservationRepository } from '../../observations-history/public.js';
-import type { PlantRepository } from '../../plants-inventory/public.js';
+import type {
+  BedOccupancyHistoryReader,
+  PlantRepository,
+  TaxonomyReferenceRepository,
+  TaxonomySeasonalFactRepository,
+} from '../../plants-inventory/public.js';
 import type { IdempotencyStore } from '../../../platform/idempotency/idempotency-store.js';
 import type { OutboxAppender } from '../../../platform/outbox/outbox-appender.js';
 import type { SyncChangeRecorder } from '../../../platform/sync/sync-change-recorder.js';
@@ -85,6 +114,9 @@ export interface TasksRecommendationsTransactionContext {
   readonly recommendationCandidates: RecommendationCandidateRepository;
   readonly outbox: OutboxAppender;
   readonly aiExplanations: AiExplanationRecordRepository;
+  readonly taxonomyReferences: TaxonomyReferenceRepository;
+  readonly taxonomySeasonalFacts: TaxonomySeasonalFactRepository;
+  readonly bedOccupancyHistory: BedOccupancyHistoryReader;
 }
 
 export interface TasksRecommendationsUnitOfWork {

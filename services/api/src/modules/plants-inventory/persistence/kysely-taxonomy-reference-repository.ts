@@ -1,6 +1,7 @@
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
+import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { TaxonomyReferenceRepository } from '../application/taxonomy-reference-repository.js';
 import type { TaxonomyReference, TaxonomySource } from '../domain/taxonomy-reference.js';
 
@@ -51,6 +52,16 @@ function toTaxonomyReference(row: TaxonomyReferenceRowLike): TaxonomyReference {
 
 export class KyselyTaxonomyReferenceRepository implements TaxonomyReferenceRepository {
   constructor(private readonly db: Kysely<DatabaseSchema>) {}
+
+  async findById(id: Uuid): Promise<TaxonomyReference | null> {
+    const row = await this.db
+      .selectFrom('plants_inventory.taxonomy_reference')
+      .selectAll()
+      .where('id', '=', id)
+      .executeTakeFirst();
+
+    return row === undefined ? null : toTaxonomyReference(row);
+  }
 
   async search(query: string | null, limit: number): Promise<TaxonomyReference[]> {
     if (query === null) {

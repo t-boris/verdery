@@ -321,7 +321,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     // itself. Update this count when a later migration is added on top —
     // the same convention every earlier migration test in this suite
     // already follows.
-    await migrate(databaseUrl, 'down', 5);
+    await migrate(databaseUrl, 'down', 6);
 
     const { rows } = await client.query<Row>(
       `SELECT table_name FROM information_schema.tables

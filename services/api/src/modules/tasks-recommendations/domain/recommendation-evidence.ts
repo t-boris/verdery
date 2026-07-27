@@ -30,6 +30,19 @@ import type { Uuid } from '../../../shared/identifiers/uuid.js';
  * bullet is deliberately NOT a kind here: the candidate pins it as
  * `ruleVersionId`, and duplicating it as evidence would state one fact in
  * two places.
+ *
+ * `seasonal_calendar` (P9D-SEASON-RULES-01): purely additive, alongside the
+ * already-reserved `garden_context`/`soil_moisture`/`geometry_exposure` —
+ * a context kind with no backing table row of its own (the reviewed
+ * `taxonomy_seasonal_fact` row it quotes is snapshotted into `factValue`,
+ * the same "value snapshot, not a live reference" posture every other
+ * context kind here already takes), so it needs no new structured
+ * reference column and no new branch in
+ * `validateEvidenceReferenceConsistency` below — the existing "any kind
+ * not named above must carry no reference" fallback already covers it
+ * correctly. `migrations/1787200000000_seasonal-calendar-evidence-kind.sql`
+ * widens the two database CHECKs (`recommendation_evidence_kind_check`,
+ * `recommendation_evidence_reference_consistency_check`) to match.
  */
 export type RecommendationEvidenceKind =
   | 'plant_identity'
@@ -40,7 +53,8 @@ export type RecommendationEvidenceKind =
   | 'task'
   | 'lifecycle_stage'
   | 'geometry_exposure'
-  | 'user_preference';
+  | 'user_preference'
+  | 'seasonal_calendar';
 
 export interface RecommendationEvidence {
   readonly id: Uuid;

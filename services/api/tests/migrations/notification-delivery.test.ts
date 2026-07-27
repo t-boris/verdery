@@ -346,7 +346,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     // client-invitation-token, garden-context-facts, and
     // taxonomy-seasonal-facts-and-bed-history) first, then this
     // one. Update the count the next time a migration is added on top.
-    await migrate(databaseUrl, 'down', 10);
+    await migrate(databaseUrl, 'down', 11);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

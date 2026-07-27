@@ -497,7 +497,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     // 1787100000000_taxonomy-seasonal-facts-and-bed-history.sql, nothing
     // this file's own assertions below check) first, then this migration
     // itself. Update this count when a later migration is added on top.
-    await migrate(databaseUrl, 'down', 7);
+    await migrate(databaseUrl, 'down', 8);
 
     const tables = await client.query(
       `SELECT 1 FROM information_schema.tables

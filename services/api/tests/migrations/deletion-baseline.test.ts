@@ -337,7 +337,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     // (currently collaboration-operations-and-attribution through
     // taxonomy-seasonal-facts-and-bed-history). Update this
     // count when a later migration is added on top.
-    await migrate(databaseUrl, 'down', 8);
+    await migrate(databaseUrl, 'down', 9);
 
     const schema = await client.query(
       `SELECT 1 FROM information_schema.schemata WHERE schema_name = 'deletion'`,

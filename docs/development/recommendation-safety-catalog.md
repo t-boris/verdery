@@ -1,14 +1,15 @@
-# Recommendation safety catalog (P7-SAFE-01)
+# Recommendation safety catalog (P7-SAFE-01, extended by P9D-SEASON-RULES-01)
 
 The single authoritative document a human horticultural reviewer reviews against and signs.
 It consolidates, in one place: the safety-tier model and where it is enforced, the excluded
 content categories and where each exclusion is enforced, the constraint rules for
-elevated-risk generation, the per-rule review ledger for the four launch rules, the review
+elevated-risk generation, the per-rule review ledger for all seven launch rules, the review
 procedure, and the sign-off protocol.
 
 **Review status: AWAITING horticultural review.** No agent or engineer can perform a
 horticultural review; producing this catalog is work package `P7-SAFE-01`'s implementable
-half, and the sign-off itself remains honestly open (recorded in
+half (extended, not replaced, by `P9D-SEASON-RULES-01` for the three seasonal rules Stage 2
+of P9D-SEASON-01 added), and the sign-off itself remains honestly open (recorded in
 [deferred-capabilities.md](deferred-capabilities.md)). Everything in sections 2–4 is
 enforced structurally **regardless of review** — types, validation, database constraints,
 and CI tests, each named below with its file and symbol.
@@ -17,10 +18,12 @@ and CI tests, each named below with its file and symbol.
 
 The launch recommendation pipeline is rules-first and deterministic
 ([../architecture/recommendations-and-ai.md](../architecture/recommendations-and-ai.md),
-ADR-0008): four versioned rules produce every candidate, and the optional AI step may only
-rephrase a candidate's own stored deterministic explanation — it never creates a
-recommendation and never survives validation with new content. Safety therefore has exactly
-two enforcement surfaces, both covered here:
+ADR-0008): seven versioned rules produce every candidate (the original four launch rules,
+plus three seasonal rules — sowing-window timing, succession replanting, crop-rotation
+caution — P9D-SEASON-RULES-01 appended), and the optional AI step may only rephrase a
+candidate's own stored deterministic explanation — it never creates a recommendation and
+never survives validation with new content. Safety therefore has exactly two enforcement
+surfaces, both covered here:
 
 - **The rule layer** — what a rule definition may declare and what a candidate row may
   contain (`services/api/src/modules/tasks-recommendations/domain/rule-definition.ts`,
@@ -40,7 +43,7 @@ exists.
 
 | Tier            | Section 13 subjects                                                                    | Launch posture                                                                                                                                                   |
 | --------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ordinary_care` | Watering, routine pruning timing, observation reminders, general maintenance           | Generatable through the standard pipeline (3 of 4 launch rules)                                                                                                  |
+| `ordinary_care` | Watering, routine pruning timing, observation reminders, general maintenance           | Generatable through the standard pipeline (6 of 7 launch rules — the three P9D-SEASON-RULES-01 seasonal rules are all `ordinary_care`)                           |
 | `elevated_risk` | Disease diagnosis, toxicity, pest treatment, fertilizer concentration, weather hazards | Generatable only under the section-4 constraints (1 launch rule, and only its weather-hazard subject — the other four subjects are excluded outright, section 3) |
 | `restricted`    | Chemical application, emergency, legal-boundary, structural, electrical, medical       | **Structurally impossible** — see below                                                                                                                          |
 
@@ -167,12 +170,18 @@ every rejection falls back to the always-served deterministic text.
 
 ## 5. Launch rule ledger
 
-All four rules: `reviewStatus: 'awaiting_horticultural_review'`,
-`awaitingReviewBy: 'P7-SAFE-01'` — carried in each rule's own `review` metadata and
-asserted by `launch-rule-catalog.test.ts` until a named reviewer replaces it. Rule sources
-live in `services/api/src/modules/tasks-recommendations/domain/rules/`; fixtures in
-`services/api/tests/rule-fixtures/` (22 scenarios total, each with per-scenario
-horticultural `reviewNotes`; the cross-rule file exercises all four rules together).
+All seven rules: `reviewStatus: 'awaiting_horticultural_review'` — the original four under
+`awaitingReviewBy: 'P7-SAFE-01'`, the three P9D-SEASON-RULES-01 seasonal rules under
+`awaitingReviewBy: 'P9D-SEASON-RULES-01'` (`RuleReviewMetadata`'s own widened
+`awaitingReviewBy` literal union, `domain/rule-definition.ts`) — carried in each rule's own
+`review` metadata and asserted by `launch-rule-catalog.test.ts` until a named reviewer
+replaces it. Rule sources live in
+`services/api/src/modules/tasks-recommendations/domain/rules/`; fixtures in
+`services/api/tests/rule-fixtures/` (44 scenarios total — 23 for the original four rules,
+21 for the three seasonal rules — each with per-scenario horticultural `reviewNotes`; the
+cross-rule file exercises the original four rules together, and each seasonal rule's own
+fixture file necessarily also pins the other two seasonal rules' decisions for the same
+facts, since the full seven-rule catalog runs on every fixture).
 
 ### 5.1 `watering.dry-spell-check` v1 — ordinary care
 
@@ -231,7 +240,51 @@ horticultural `reviewNotes`; the cross-rule file exercises all four rules togeth
 | Review questions | Is 0 °C the right threshold (radiation frost can strike above it)? Is the stage list right? Is refusing stale forecasts the right elevated-risk posture?              |
 | Status           | **Awaiting horticultural review**                                                                                                                                     |
 
-### 5.5 Cross-rule behavior (reviewed as content, not per rule)
+### 5.5 `seasonal.sowing-window-check` v1 — ordinary care
+
+| Field            | Value                                                                                                                                                                                                                       |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tier / category  | `ordinary_care` / `sowing`; urgency `normal`                                                                                                                                                                                |
+| Recommends       | Names which reviewed sow-indoors/sow-outdoors/transplant window a taxon is within or approaching, for the garden's own hemisphere                                                                                           |
+| Trigger          | Today falls within, or within `approachWindowDays` (14) of, a `horticulturally_reviewed` window for the plant's own taxon; the whole rule skips on an unknown hemisphere                                                    |
+| Eligible plants  | Active, with a known taxon whose reviewed seasonal fact configures at least one window                                                                                                                                      |
+| Timing           | 14-day validity window, 14-day recurrence interval; no weather                                                                                                                                                              |
+| Month wraparound | A window like November–February is handled correctly (`monthInRange`/`daysUntilNextMonthStart`, `rule-support.ts`), unit-tested directly and via a dedicated fixture                                                        |
+| Priority         | 60: urgency 15 + seasonal constraint 20 + plant impact 10 + confidence 15 (reviewed fact)                                                                                                                                   |
+| Fixtures         | `seasonal-sowing-window-check.fixtures.ts`, 7 scenarios: within-window fire, approaching-window fire, month-wraparound fire, hemisphere-unknown skip, unreviewed-fact skip, no-windows-configured skip, outside-window skip |
+| Review questions | Is a 14-day approach horizon sensible? Is the sow-indoors/sow-outdoors/transplant priority order right when several windows overlap?                                                                                        |
+| Status           | **Awaiting horticultural review**                                                                                                                                                                                           |
+
+### 5.6 `succession.replanting-reminder` v1 — ordinary care
+
+| Field             | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tier / category   | `ordinary_care` / `succession_planting`; urgency `normal`                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Recommends        | Reminds the gardener to sow another batch for a taxon with a reviewed `successionIntervalDays`, quoting the real configured interval                                                                                                                                                                                                                                                                                                                      |
+| Trigger           | Active plant with a known taxon whose reviewed seasonal fact configures `successionIntervalDays`; the whole rule skips on an unknown hemisphere                                                                                                                                                                                                                                                                                                           |
+| Recurrence design | The engine's own `timing.recurrenceIntervalMs` mechanism is reused (not a new one), but that field is ONE static value per rule version, while `successionIntervalDays` genuinely varies per taxon — see the rule file's own header for the full reasoning. Resolution: `recurrenceIntervalDaysFallback` (21 days) is a garden-wide placeholder spacing value; the real per-taxon number is always quoted honestly in evidence and explanation regardless |
+| Timing            | 10-day validity window, 21-day recurrence interval (fallback, see above); no weather                                                                                                                                                                                                                                                                                                                                                                      |
+| Priority          | 60: urgency 15 + seasonal constraint 20 + plant impact 10 + confidence 15 (reviewed fact)                                                                                                                                                                                                                                                                                                                                                                 |
+| Fixtures          | `succession-replanting-reminder.fixtures.ts`, 6 scenarios: fire, recurrence-suppressed re-fire, fallback-elapsed re-fire, hemisphere-unknown skip, unreviewed-fact skip, no-interval-configured skip                                                                                                                                                                                                                                                      |
+| Review questions  | Is 21 days an acceptable garden-wide fallback cadence given the real interval is always shown to the user? Should a later stage add a per-target recurrence override to the engine instead?                                                                                                                                                                                                                                                               |
+| Status            | **Awaiting horticultural review**                                                                                                                                                                                                                                                                                                                                                                                                                         |
+
+### 5.7 `rotation.crop-rotation-caution` v1 — ordinary care
+
+| Field               | Value                                                                                                                                                                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tier / category     | `ordinary_care` / `crop_rotation`; urgency `normal`                                                                                                                                                                                   |
+| Recommends          | Warns when a plant's own bed most recently grew the SAME botanical family within the taxon's own reviewed `rotationRestSeasons` — never a disease diagnosis, only the prior family and elapsed days                                   |
+| Trigger             | Active, placed plant with known family, a configured `rotationRestSeasons`, and a known departed prior bed occupant of the SAME family within the rest period; the whole rule skips on an unknown hemisphere                          |
+| Season length       | One rotation "season" = 365 days (`rotationSeasonDays`) — this codebase has no other season-boundary concept; the rule file's own header explains why one year is the conservative reading (a shorter season would under-warn)        |
+| Bed-occupancy input | `PriorBedOccupantFact` (`gather-seasonal-facts.ts`), derived from `BedOccupancyHistoryReader` inside the SAME transaction as the rest of fact-gathering — unit-tested directly in `gather-seasonal-facts.test.ts`                     |
+| Timing              | 21-day validity window, 30-day recurrence interval; no weather                                                                                                                                                                        |
+| Priority            | 65: urgency 15 + seasonal constraint 20 + plant impact 15 + confidence 15 (bed history + reviewed fact)                                                                                                                               |
+| Fixtures            | `crop-rotation-caution.fixtures.ts`, 8 scenarios: fire, rest-period-elapsed skip, different-family skip, no-known-prior-occupant skip, not-placed skip, no-rest-period-configured skip, hemisphere-unknown skip, unreviewed-fact skip |
+| Review questions    | Is one season == one year the right reading? Is 730 days (2 seasons) a sensible DEFAULT rest period for the fixture's own Solanaceae example, and is the caution itself (vs. a stronger warning) the right posture?                   |
+| Status              | **Awaiting horticultural review**                                                                                                                                                                                                     |
+
+### 5.8 Cross-rule behavior (reviewed as content, not per rule)
 
 `cross-rule.fixtures.ts`, 3 scenarios: idempotent re-evaluation (live candidates suppress
 exact re-generation), suppression by a converted task vs the −15 `task_overlap` penalty for
@@ -247,7 +300,7 @@ catalog's own:
 1. **Read this catalog top to bottom** — sections 2–4 are the enforced boundary (nothing
    there needs horticultural judgment; it needs verification that the boundary is where
    this document says it is), section 5 is the content under review.
-2. **Read the four rule definitions** in
+2. **Read the seven rule definitions** in
    `services/api/src/modules/tasks-recommendations/domain/rules/` — each is one file whose
    thresholds sit in a named `parameters` block, whose stage lists are named constants, and
    whose header states what it recommends and what it deliberately does not.
@@ -273,7 +326,8 @@ in `domain/rule-definition.ts` — from
 review: { reviewStatus: 'awaiting_horticultural_review', awaitingReviewBy: 'P7-SAFE-01' }
 ```
 
-to
+(or `awaitingReviewBy: 'P9D-SEASON-RULES-01'` for one of the three seasonal rules — the
+type's own widened literal union names both real work packages, never a placeholder) to
 
 ```ts
 review: { reviewStatus: 'horticulturally_reviewed', reviewedBy: '<name>', reviewedOn: 'YYYY-MM-DD' }

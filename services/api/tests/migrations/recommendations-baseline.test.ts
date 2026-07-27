@@ -424,6 +424,40 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     );
   });
 
+  it('accepts the widened seasonal_calendar context kind (1787200000000, P9D-SEASON-RULES-01) with no source reference', async () => {
+    await freshFoundation();
+
+    // A context kind carrying a stray reference is still rejected — the
+    // widened CHECK's "no reference" branch now includes this kind too.
+    await expect(
+      insertCandidateWithEvidence(
+        {},
+        { evidence_kind: 'seasonal_calendar', source_plant_id: plantId },
+      ),
+    ).rejects.toThrow(/recommendation_evidence_reference_consistency_check/);
+
+    const { candidateId } = await insertCandidateWithEvidence(
+      {},
+      { evidence_kind: 'seasonal_calendar', fact_key: 'taxonomy.seasonal_window' },
+    );
+
+    // Clean up: this suite's own later "rolls back" test re-narrows this
+    // CHECK back to its pre-1787200000000 vocabulary, which would reject a
+    // lingering `seasonal_calendar` row. `candidate_id`'s own FK is
+    // immediate, so evidence is removed first; the candidate's deferred
+    // primary-evidence FK is satisfied once the candidate itself is gone
+    // too, both within this one implicit transaction.
+    await client.query('BEGIN');
+    await client.query(
+      'DELETE FROM tasks_recommendations.recommendation_evidence WHERE candidate_id = $1',
+      [candidateId],
+    );
+    await client.query('DELETE FROM tasks_recommendations.recommendation_candidate WHERE id = $1', [
+      candidateId,
+    ]);
+    await client.query('COMMIT');
+  });
+
   it('keeps supersession same-garden, one successor per prior record, never self-referential', async () => {
     await freshFoundation();
     const { candidateId: priorId } = await insertCandidateWithEvidence();
@@ -484,7 +518,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     // taxonomy-seasonal-facts-and-bed-history tables add nothing this
     // test's own assertions below check) first, then this migration itself.
     // Update again the next time a migration is added on top of that one.
-    await migrate(databaseUrl, 'down', 16);
+    await migrate(databaseUrl, 'down', 17);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

@@ -48,6 +48,25 @@
  * it mirrors weather's own already-established fetch-then-thread shape
  * exactly, rather than inventing a new one.
  *
+ * Seasonal facts and bed-occupancy history (P9D-SEASON-RULES-01) are
+ * gathered INSIDE the transaction too, via three more `plants-inventory`
+ * read ports now bound on `TasksRecommendationsTransactionContext`
+ * (`taxonomyReferences`, `taxonomySeasonalFacts`, `bedOccupancyHistory`) —
+ * see that interface's own header for why this is the `plants`/
+ * `observations` in-transaction shape, NOT weather/hemisphere's
+ * pre-transaction fetch-then-thread shape, despite both being facts from
+ * modules THIS module does not own. In short: these are per-plant/per-bed
+ * queries whose inputs are only known once the plant list itself has been
+ * read (which happens inside the transaction already), and their values
+ * are quoted verbatim as `seasonal_calendar` evidence, so they need the
+ * same snapshot consistency `observations` already gets.
+ *
+ * `PlantFact.taxonomyReferenceId`/`gardenAreaMapObjectId`: both already
+ * exist on the `Plant` record this function reads per plant (see
+ * `plants-inventory/domain/plant.ts`); this is threading an existing value
+ * through, the same way every other `PlantFact` field already does, not a
+ * new query.
+ *
  * No authorization, deliberately: this use case has no user-facing
  * transport — the same server-side posture `RefreshGardenWeather`
  * documents. The stage that first exposes evaluation to an actor adds
@@ -99,6 +118,7 @@ import { createRuleVersion } from '../domain/rule-version.js';
 import type { RuleCatalog } from '../domain/rule-catalog.js';
 import type { RuleDecision } from '../domain/rule-evaluation.js';
 import { evaluateGardenRules } from '../domain/rule-evaluation.js';
+import { gatherPriorBedOccupants, gatherTaxonomyFacts } from './gather-seasonal-facts.js';
 import type { StoredCandidateWithRule } from './recommendation-candidate-repository.js';
 import type { RuleVersionIdMap } from './rule-version-repository.js';
 import { ruleVersionIdentity } from './rule-version-repository.js';
@@ -368,7 +388,7 @@ export class EvaluateGardenRecommendations {
   }
 }
 
-/** Reads the garden's plants (all pages, id-ordered for deterministic engine input), observations, and open tasks with their origin rule keys resolved. */
+/** Reads the garden's plants (all pages, id-ordered for deterministic engine input), observations, open tasks with their origin rule keys resolved, and the P9D-SEASON-RULES-01 taxonomy/bed-occupancy facts those plants' own taxa and placements justify. */
 async function gatherGardenFacts(
   context: TasksRecommendationsTransactionContext,
   gardenId: Uuid,
@@ -393,6 +413,11 @@ async function gatherGardenFacts(
         lifecycleStage: plant.lifecycleStage,
         status: plant.status,
         createdAt: plant.createdAt,
+        // P9D-SEASON-RULES-01: both already present on the `Plant` record
+        // just read above — see this file's own header for why this is a
+        // thread-through, not a new query.
+        taxonomyReferenceId: plant.taxonomyReferenceId,
+        gardenAreaMapObjectId: plant.gardenAreaMapObjectId,
       });
     }
     cursor = page.nextCursor;
@@ -415,6 +440,14 @@ async function gatherGardenFacts(
     originCandidates.map((stored) => [stored.candidate.id, stored.ruleKey]),
   );
 
+  const taxonomyFacts = await gatherTaxonomyFacts(context, plants, hemisphere);
+  const priorBedOccupants = await gatherPriorBedOccupants(
+    context,
+    plants,
+    taxonomyFacts,
+    evaluatedAt,
+  );
+
   return {
     gardenId,
     evaluatedAt,
@@ -435,5 +468,7 @@ async function gatherGardenFacts(
     weatherObservation,
     weatherForecast,
     hemisphere,
+    taxonomyFacts,
+    priorBedOccupants,
   };
 }

@@ -2,7 +2,12 @@ import type { Kysely } from 'kysely';
 import { KyselyMapObjectRepository } from '../../gardens-mapping/public.js';
 import { KyselyMediaRepository } from '../../media/public.js';
 import { KyselyObservationRepository } from '../../observations-history/public.js';
-import { KyselyPlantRepository } from '../../plants-inventory/public.js';
+import {
+  KyselyBedOccupancyHistoryReader,
+  KyselyPlantRepository,
+  KyselyTaxonomyReferenceRepository,
+  KyselyTaxonomySeasonalFactRepository,
+} from '../../plants-inventory/public.js';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
 import { KyselyIdempotencyStore } from '../../../platform/idempotency/kysely-idempotency-store.js';
 import { KyselyOutboxAppender } from '../../../platform/outbox/kysely-outbox-appender.js';
@@ -41,6 +46,9 @@ export class KyselyTasksRecommendationsUnitOfWork implements TasksRecommendation
         recommendationCandidates: new KyselyRecommendationCandidateRepository(trx),
         outbox: new KyselyOutboxAppender(trx, this.clock),
         aiExplanations: new KyselyAiExplanationRecordRepository(trx),
+        taxonomyReferences: new KyselyTaxonomyReferenceRepository(trx),
+        taxonomySeasonalFacts: new KyselyTaxonomySeasonalFactRepository(trx),
+        bedOccupancyHistory: new KyselyBedOccupancyHistoryReader(trx),
       };
 
       return work(context);

@@ -14,14 +14,20 @@ import type {
   GardenFacts,
   GardenRuleEvaluationPlan,
   PlantFact,
+  PriorBedOccupantFact,
   PriorCandidateFact,
   PriorRecommendationState,
   RecommendationTarget,
   RuleDecision,
   RuleSkipReason,
   SuppressionReason,
+  TaxonomyFact,
   WeatherFact,
 } from '../../src/modules/tasks-recommendations/public.js';
+import type {
+  TaxonomySeasonalFact,
+  TaxonomySeasonalTiming,
+} from '../../src/modules/plants-inventory/public.js';
 
 /** The evaluation instant every fixture shares. */
 export const FIXTURE_NOW = new Date('2026-07-25T09:00:00Z');
@@ -36,6 +42,11 @@ export const PRIOR_CANDIDATE_A_ID = '019a2000-0000-7000-8000-00000000aa07';
 export const PRIOR_CANDIDATE_B_ID = '019a2000-0000-7000-8000-00000000aa08';
 export const TASK_A_ID = '019a2000-0000-7000-8000-00000000aa09';
 export const TASK_B_ID = '019a2000-0000-7000-8000-00000000aa0a';
+/** P9D-SEASON-RULES-01: a taxon and a bed placement the seasonal rules' own fixtures share. */
+export const TAXONOMY_A_ID = '019a2000-0000-7000-8000-00000000aa0b';
+export const TAXONOMY_B_ID = '019a2000-0000-7000-8000-00000000aa0c';
+export const GARDEN_AREA_A_ID = '019a2000-0000-7000-8000-00000000aa0d';
+export const SEASONAL_FACT_A_ID = '019a2000-0000-7000-8000-00000000aa0e';
 
 export const HOUR_MS = 60 * 60 * 1000;
 export const DAY_MS = 24 * HOUR_MS;
@@ -64,6 +75,11 @@ export function plantFact(overrides: Partial<PlantFact> & { plantId: string }): 
     // Five days before FIXTURE_NOW: recent enough that the observation
     // reminder stays quiet unless a fixture says otherwise.
     createdAt: new Date('2026-07-20T09:00:00Z'),
+    // P9D-SEASON-RULES-01: unknown by default — a fixture that wants a
+    // seasonal rule to see a real taxon/placement says so explicitly,
+    // never inherits one by accident.
+    taxonomyReferenceId: null,
+    gardenAreaMapObjectId: null,
     ...overrides,
   };
 }
@@ -78,6 +94,66 @@ export function gardenFacts(overrides: Partial<GardenFacts> = {}): GardenFacts {
     weatherObservation: { availability: 'missing' },
     weatherForecast: { availability: 'missing' },
     hemisphere: null,
+    taxonomyFacts: [],
+    priorBedOccupants: [],
+    ...overrides,
+  };
+}
+
+/**
+ * A `horticulturally_reviewed` seasonal fact for `TAXONOMY_A_ID`/northern
+ * hemisphere by default — every timing/duration field `null` unless
+ * overridden via `timingOverrides` (the domain's own "unknown stays
+ * unknown" default, made explicit here rather than a fixture accidentally
+ * inheriting a fabricated window).
+ */
+export function reviewedSeasonalFact(
+  timingOverrides: Partial<TaxonomySeasonalTiming> = {},
+  taxonomyReferenceId: string = TAXONOMY_A_ID,
+): TaxonomySeasonalFact {
+  return {
+    id: SEASONAL_FACT_A_ID,
+    taxonomyReferenceId,
+    hemisphere: 'northern',
+    sowIndoorsStartMonth: null,
+    sowIndoorsEndMonth: null,
+    sowOutdoorsStartMonth: null,
+    sowOutdoorsEndMonth: null,
+    transplantStartMonth: null,
+    transplantEndMonth: null,
+    harvestStartMonth: null,
+    harvestEndMonth: null,
+    daysToMaturityMin: null,
+    daysToMaturityMax: null,
+    successionIntervalDays: null,
+    rotationRestSeasons: null,
+    authoringMethod: 'human_authored',
+    reviewStatus: 'horticulturally_reviewed',
+    reviewedBy: 'Fixture Reviewer',
+    reviewedOn: '2026-01-01',
+    createdAt: new Date('2026-01-01T00:00:00Z'),
+    ...timingOverrides,
+  };
+}
+
+/** One `GardenFacts.taxonomyFacts` entry — `seasonalFact: null` (the default) is how a fixture represents "no `horticulturally_reviewed` fact exists", whether the row is absent or still `awaiting_horticultural_review`; both collapse to the identical `null` the real repository's own filter already produces. */
+export function taxonomyFact(overrides: Partial<TaxonomyFact> = {}): TaxonomyFact {
+  return {
+    taxonomyReferenceId: TAXONOMY_A_ID,
+    family: 'Solanaceae',
+    seasonalFact: null,
+    ...overrides,
+  };
+}
+
+/** One `GardenFacts.priorBedOccupants` entry — both `priorFamily`/`priorOccupancyEndedAt` default to `null` ("no known conflict"), matching `gather-seasonal-facts.ts`'s own null-together invariant for "no departed occupant found". */
+export function priorBedOccupant(
+  overrides: Partial<PriorBedOccupantFact> & { plantId: string },
+): PriorBedOccupantFact {
+  return {
+    gardenAreaMapObjectId: GARDEN_AREA_A_ID,
+    priorFamily: null,
+    priorOccupancyEndedAt: null,
     ...overrides,
   };
 }
@@ -156,6 +232,43 @@ export function notEligibleDecision(
 export function ruleSkippedDecision(ruleKey: string, reason: RuleSkipReason): RuleDecision {
   return { kind: 'ruleSkipped', ruleKey, ruleVersion: 1, reason };
 }
+
+/**
+ * The identical text `HEMISPHERE_UNKNOWN_DETAIL`
+ * (`domain/rules/rule-support.ts`) carries — duplicated here rather than
+ * imported, the same "fixtures own small constants locally" convention
+ * `HOUR_MS`/`DAY_MS` above already follow (neither is imported from
+ * `rule-support.ts` either).
+ */
+const HEMISPHERE_UNKNOWN_DETAIL =
+  "This garden has never been georeferenced, so its hemisphere — and therefore any taxon's " +
+  'reviewed seasonal timing — is unknown.';
+
+/**
+ * The three P9D-SEASON-RULES-01 seasonal rules ALL skip identically
+ * (a rule-level `factMissing` skip, not a per-target one — see each
+ * rule's own header) whenever `GardenFacts.hemisphere` is `null`, which is
+ * `gardenFacts()`'s own default. Every pre-existing fixture file (whose
+ * scenarios never set `hemisphere`) therefore gets exactly these three
+ * decisions appended, in catalog order, after the four original rules'
+ * own decisions — catalog order is evaluation order, and the three
+ * seasonal rules were appended AFTER the original four
+ * (`launch-rule-catalog.ts`).
+ */
+export const SEASONAL_RULES_HEMISPHERE_SKIPS: readonly RuleDecision[] = [
+  ruleSkippedDecision('seasonal.sowing-window-check', {
+    kind: 'factMissing',
+    detail: HEMISPHERE_UNKNOWN_DETAIL,
+  }),
+  ruleSkippedDecision('succession.replanting-reminder', {
+    kind: 'factMissing',
+    detail: HEMISPHERE_UNKNOWN_DETAIL,
+  }),
+  ruleSkippedDecision('rotation.crop-rotation-caution', {
+    kind: 'factMissing',
+    detail: HEMISPHERE_UNKNOWN_DETAIL,
+  }),
+];
 
 export function suppressedDecision(
   ruleKey: string,

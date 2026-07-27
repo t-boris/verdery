@@ -153,12 +153,19 @@ export type {
   ObservationFact,
   OpenTaskFact,
   PlantFact,
+  PriorBedOccupantFact,
   PriorCandidateFact,
   PriorRecommendationState,
+  TaxonomyFact,
   WeatherFact,
   WeatherMeasurementFacts,
 } from './domain/garden-facts.js';
-export { latestObservationForPlant, sameRecommendationTarget } from './domain/garden-facts.js';
+export {
+  latestObservationForPlant,
+  priorBedOccupantFor,
+  sameRecommendationTarget,
+  taxonomyFactFor,
+} from './domain/garden-facts.js';
 export {
   EXCLUDED_RULE_CONTENT_CATEGORIES,
   normalizeContentCategory,

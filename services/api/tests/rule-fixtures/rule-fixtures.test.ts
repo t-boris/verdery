@@ -16,9 +16,12 @@ import {
   evaluateGardenRules,
 } from '../../src/modules/tasks-recommendations/public.js';
 import type { RuleFixture } from './fixture-support.js';
+import { cropRotationCautionFixtures } from './crop-rotation-caution.fixtures.js';
 import { crossRuleFixtures } from './cross-rule.fixtures.js';
 import { lifecycleHarvestReadinessCheckFixtures } from './lifecycle-harvest-readiness-check.fixtures.js';
 import { observationRoutineCheckReminderFixtures } from './observation-routine-check-reminder.fixtures.js';
+import { seasonalSowingWindowCheckFixtures } from './seasonal-sowing-window-check.fixtures.js';
+import { successionReplantingReminderFixtures } from './succession-replanting-reminder.fixtures.js';
 import { wateringDrySpellCheckFixtures } from './watering-dry-spell-check.fixtures.js';
 import { weatherFrostWatchFixtures } from './weather-frost-watch.fixtures.js';
 
@@ -27,6 +30,9 @@ const FIXTURE_GROUPS: readonly (readonly [string, readonly RuleFixture[]])[] = [
   ['observation.routine-check-reminder', observationRoutineCheckReminderFixtures],
   ['lifecycle.harvest-readiness-check', lifecycleHarvestReadinessCheckFixtures],
   ['weather.frost-watch', weatherFrostWatchFixtures],
+  ['seasonal.sowing-window-check', seasonalSowingWindowCheckFixtures],
+  ['succession.replanting-reminder', successionReplantingReminderFixtures],
+  ['rotation.crop-rotation-caution', cropRotationCautionFixtures],
   ['cross-rule', crossRuleFixtures],
 ];
 

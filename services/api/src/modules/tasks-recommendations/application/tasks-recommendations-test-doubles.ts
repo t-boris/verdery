@@ -34,22 +34,31 @@ import type {
   MembershipRepository,
   ViewportBoundingBox,
 } from '../../gardens-mapping/public.js';
-import type { MediaRecord, MediaRepository } from '../../media/public.js';
 import type {
   Observation,
   ObservationHistoryEntry,
   ObservationRepository,
 } from '../../observations-history/public.js';
 import { GetObservation } from '../../observations-history/public.js';
-import type { Plant, PlantRepository } from '../../plants-inventory/public.js';
+import type {
+  BedOccupancyPeriod,
+  Plant,
+  PlantRepository,
+  TaxonomyReference,
+  TaxonomySeasonalFact,
+} from '../../plants-inventory/public.js';
 import type { Task } from '../domain/task.js';
 import type { TaskStatus } from '../domain/task-lifecycle.js';
 import type { TaskAttachment } from '../domain/task-attachment.js';
 import {
   FakeAiExplanationRecordRepository,
+  FakeBedOccupancyHistoryReader,
   FakeRecommendationCandidateRepository,
   FakeRuleVersionRepository,
+  FakeTaxonomyReferenceRepository,
+  FakeTaxonomySeasonalFactRepository,
 } from './recommendation-test-doubles.js';
+import { FakeMediaRepository } from './tasks-recommendations-media-test-double.js';
 import type { TaskAttachmentRepository } from './task-attachment-repository.js';
 import type { TaskActivityEntry, TaskActivityRepository } from './task-activity-repository.js';
 import type { TaskRepository } from './task-repository.js';
@@ -247,64 +256,6 @@ export class FakePlantRepository implements PlantRepository {
       items,
       nextCursor: nextOffset < matching.length ? String(nextOffset) : null,
     });
-  }
-}
-
-export class FakeMediaRepository implements MediaRepository {
-  readonly records = new Map<Uuid, MediaRecord>();
-
-  insert(record: MediaRecord): Promise<void> {
-    this.records.set(record.id, record);
-    return Promise.resolve();
-  }
-
-  get(id: Uuid): Promise<MediaRecord | null> {
-    return Promise.resolve(this.records.get(id) ?? null);
-  }
-
-  /** No real lock in memory — same read as `get`, matching the media module's own fake. */
-  getForShare(id: Uuid): Promise<MediaRecord | null> {
-    return this.get(id);
-  }
-
-  update(): Promise<boolean> {
-    throw new Error('not used by this test');
-  }
-
-  findDerivative(): Promise<MediaRecord | null> {
-    throw new Error('not used by this test');
-  }
-
-  listForGarden(): ReturnType<MediaRepository['listForGarden']> {
-    throw new Error('not used by this test');
-  }
-
-  listDisplayDerivatives(): Promise<readonly MediaRecord[]> {
-    throw new Error('not used by this test');
-  }
-
-  listPurgeCandidates(): Promise<readonly MediaRecord[]> {
-    throw new Error('not used by this test');
-  }
-
-  countUndeletedForPurge(): Promise<number> {
-    throw new Error('not used by this test');
-  }
-
-  scheduleDerivativesForDeletion(): Promise<number> {
-    throw new Error('not used by this test');
-  }
-
-  markScheduledDerivativesDeleted(): Promise<number> {
-    throw new Error('not used by this test');
-  }
-
-  listRetentionExpired(): Promise<readonly MediaRecord[]> {
-    throw new Error('not used by this test');
-  }
-
-  listStaleUploads(): Promise<readonly MediaRecord[]> {
-    throw new Error('not used by this test');
   }
 }
 
@@ -550,12 +501,18 @@ export interface TasksRecommendationsFakes {
   readonly recommendationCandidates: FakeRecommendationCandidateRepository;
   readonly outbox: FakeOutboxAppender;
   readonly aiExplanations: FakeAiExplanationRecordRepository;
+  readonly taxonomyReferences: FakeTaxonomyReferenceRepository;
+  readonly taxonomySeasonalFacts: FakeTaxonomySeasonalFactRepository;
+  readonly bedOccupancyHistory: FakeBedOccupancyHistoryReader;
 }
 
 export function createTasksRecommendationsFakes(options?: {
   mapObjectSummaries?: Map<Uuid, MapObjectSummary>;
   plants?: Map<Uuid, Plant>;
   observations?: Map<Uuid, Observation>;
+  taxonomyReferences?: Map<Uuid, TaxonomyReference>;
+  taxonomySeasonalFacts?: Map<string, TaxonomySeasonalFact>;
+  bedOccupancyPeriods?: Map<Uuid, readonly BedOccupancyPeriod[]>;
 }): TasksRecommendationsFakes {
   const ruleVersions = new FakeRuleVersionRepository();
   const recommendationCandidates = new FakeRecommendationCandidateRepository(ruleVersions);
@@ -573,6 +530,9 @@ export function createTasksRecommendationsFakes(options?: {
     recommendationCandidates,
     outbox: new FakeOutboxAppender(),
     aiExplanations: new FakeAiExplanationRecordRepository(recommendationCandidates),
+    taxonomyReferences: new FakeTaxonomyReferenceRepository(options?.taxonomyReferences),
+    taxonomySeasonalFacts: new FakeTaxonomySeasonalFactRepository(options?.taxonomySeasonalFacts),
+    bedOccupancyHistory: new FakeBedOccupancyHistoryReader(options?.bedOccupancyPeriods),
   };
 }
 
