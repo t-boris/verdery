@@ -6248,7 +6248,7 @@ Depends on P9B's engagement model. Not started until P9B lands.
       entitlements, accepted-garden snapshots, withdrawal, publication audit.
       `1786700000000_client-publication-and-work-logs.sql` — 10 tables. Immutability of the
       8 published-content tables is DATABASE-ENFORCED via `REVOKE UPDATE, DELETE ... FROM
-      verdery_application` (proven behaviorally under `SET ROLE`, not just read from grants
+verdery_application` (proven behaviorally under `SET ROLE`, not just read from grants
       metadata); `client_update`'s draft/mutable half deliberately excluded, since that split is
       what makes the REVOKE possible. State sequencing remains application-deferred, matching
       every prior state machine this session. 249 files / 1950 tests, all green.
