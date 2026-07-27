@@ -6351,9 +6351,26 @@ data/UX with no security surface).
 ## Work packages (§18.2)
 
 - [x] P9D-CONTEXT-01 — reviewed facts for sunlight, soil, drainage, irrigation, microclimate,
-      greenhouse/container/open-ground, source/quality.
+      greenhouse/container/open-ground, source/quality. New `gardens_mapping.garden_context_fact`
+      table, one row per `(garden, contextKind)`, source/review-status CHECK-enforced both
+      directions against real Postgres. New `PUT`/`GET /gardens/{gardenId}/context` routes on the
+      existing `editGardenContent`/`viewGarden` capabilities. Found and fixed a real gap while
+      wiring this in: the new table had no purge-plan step, so deleting a garden would have left
+      orphaned context facts (or failed on the FK) — added to `GARDEN_PURGE_STEPS`. 269 files /
+      2166 tests, all green.
 - [ ] P9D-SEASON-01 — seasonal calendars, succession planning, crop rotation, recurrence,
-      location-aware schedule rules.
+      location-aware schedule rules. Full scope confirmed by user (not the leaner MVP alternative)
+      — see "P9D-SEASON-01 design decisions" below for the staged plan this is broken into. - [x] Stage 1 — P9D-SEASON-DATA-01: botanical family/genus on `taxonomy_reference`
+      (purely additive — confirmed no application-layer write path exists for that table at
+      all today, so no new command was needed); new `taxonomy_seasonal_fact` table with full
+      ADR-0013 provenance, review-status filter enforced in the read port's own SQL, not
+      merely documented; bed-occupancy history via three new snapshot columns on the
+      existing `plant_revision` journal (not a new interval table), reconstructed by a new
+      `BedOccupancyHistoryReader`; `hemisphere` added to `GardenFacts`, derived from a
+      garden's georeference latitude sign, wired into `EvaluateGardenRecommendations`
+      (a deliberate, documented deviation from this section's own original wiring-location
+      note — `KyselyEvaluationGardenSource` turned out to have no access to a single
+      garden's facts at all). 274 files / 2222 tests, all green. - [ ] Stage 2 — P9D-SEASON-RULES-01: not started. - [ ] Stage 3 — P9D-SEASON-API-01: not started (may not be needed — decide after Stage 2).
 - [ ] P9D-UX-01 — seasonal plan, context quality, shared responsibilities, conflicts, without
       overwhelming Today.
 
@@ -6406,6 +6423,107 @@ horticulturally_reviewed_default`, `reviewedBy`/`reviewedOn` — the same
   reviewed default (e.g., a regional default sun exposure) — never a generative-model output at
   request time, so ADR-0013's extraction/proposal-queue machinery does not apply here. This
   package adds no new AI-authoring surface.
+
+## P9D-SEASON-01 design decisions (recorded before dispatch — full scope, per explicit user choice)
+
+Research (full agent report not reproduced here) found real, load-bearing gaps, not just
+implementation choices: `plants_inventory.taxonomy_reference` has no botanical family/genus at
+all; nothing tracks which taxon occupied a bed in a past season (`movePlant` overwrites placement
+in place, and `plant_revision` does not journal placement fields); `plant_content_record` carries
+only two free-text sections (`description`/`careGuidance`), no structured sowing/harvest/maturity
+facts; `GardenFacts` has no hemisphere/season field and `deferred-capabilities.md` already names
+this exact gap ("the mechanism arrives with the first rule that needs it, not as dead code" — this
+package is that first rule). Full scope means building all of this, not routing around it.
+
+Broken into three dependent stages, mirroring how P9C's single implementation-plan row was itself
+seven work packages in practice:
+
+### Stage 1 — P9D-SEASON-DATA-01 (foundation: taxonomy, facts, history, hemisphere)
+
+- **Family/genus on `taxonomy_reference`**: additive nullable `family text`, `genus text` columns
+  — same "unknown stays unknown" latitude `commonName`/`varietyName` already take on that table.
+  Before writing the migration, the agent must first determine HOW rows actually enter
+  `taxonomy_reference` today (seed-only vs. a `user_defined`-source creation path reachable from
+  `CreatePlant`/`ConfirmPlantIdentification` — the earlier research pass could not confirm this
+  either way) — that answer decides whether family/genus needs its own write path or is backfilled
+  through seed fixtures only.
+- **New table `plants_inventory.taxonomy_seasonal_fact`**, one row per
+  `(taxonomyReferenceId, hemisphere)` — `hemisphere: 'northern' | 'southern'`, since sowing/
+  transplant/harvest windows genuinely differ by hemisphere. Columns, ALL nullable (a crop with no
+  transplant stage, e.g. a root vegetable, must be representable — never a fabricated window):
+  `sowIndoorsStartMonth`/`EndMonth`, `sowOutdoorsStartMonth`/`EndMonth`, `transplantStartMonth`/
+  `EndMonth`, `harvestStartMonth`/`EndMonth` (all `1`–`12`), `daysToMaturityMin`/`Max`,
+  `successionIntervalDays` (null = no succession benefit for this crop), `rotationRestSeasons`
+  (null = no known family-conflict rest period). Plus ADR-0013 compliance, structurally, not by
+  reviewer instruction: `authoringMethod` (`human_authored`, `ai_extracted_from_source`, or
+  `ai_proposed_reviewed`), `sourceCitation` (required exactly when `ai_extracted_from_source`),
+  `reviewStatus` (`awaiting_horticultural_review` or `horticulturally_reviewed`), `reviewedBy`/
+  `reviewedOn` (required exactly when `horticulturally_reviewed`) — the identical shape
+  `RuleReviewMetadata` already established for RULE content, applied here to DATA content. Seed
+  fixture rows ship `awaiting_horticultural_review` by default, the same "ship honestly unreviewed,
+  name the owning stage" precedent every one of the four launch rules already sets. **Stage 2's
+  rules must only ever read `reviewStatus: 'horticulturally_reviewed'` rows** — this is the actual
+  enforcement point, not a separate gate.
+- **Bed-occupancy history — extend `plant_revision`, do not build a new interval table.** Add
+  nullable `garden_area_map_object_id`, `placement_map_object_id`, `taxonomy_reference_id`
+  snapshot columns to the EXISTING `plant_revision` journal, populated on `createPlant` and
+  `movePlant` (and `confirmPlantIdentification` if — confirm during implementation — that command
+  is what changes `taxonomyReferenceId` after creation). This follows the journal's own existing
+  partial-snapshot convention (each command populates only the fields IT changed; lifecycle/status
+  commands leave these three null, exactly as `lifecycleStage`/`status` are already left null on
+  `movePlant`'s own rows today). "What taxon occupied bed X during season Y" becomes a derived
+  query over this journal (latest placement-bearing row at or before a time, per plant, filtered to
+  the bed) — deliberately NOT a separately-maintained occupancy-interval table, avoiding a second
+  source of truth that could drift from the journal.
+- **Hemisphere into the rule engine**: add `hemisphere: 'northern' | 'southern' | null` to
+  `GardenFacts` (`tasks-recommendations/domain/garden-facts.ts`), populated in
+  `KyselyEvaluationGardenSource` from `GeoreferenceRepository.findCurrentForGarden(gardenId)`'s
+  `geographicAnchor[1]` sign — `null` when the garden has never been georeferenced, never guessed.
+  This is the one new `GardenFacts` field this stage adds; no other field changes.
+- Completion evidence: "Horticulture-reviewed seasonal fixtures" (this package's own named
+  evidence) means the fixture DATA proves the review-status gate genuinely works — a real seed
+  fixture in each state, a test proving an `awaiting_horticultural_review` fact is excluded from
+  whatever the rule-facing read query is, not merely that the column exists.
+
+### Stage 2 — P9D-SEASON-RULES-01 (depends on Stage 1; new rules, launch-catalog pattern)
+
+Three new rules, each built exactly like `weather-frost-watch.ts`/`lifecycle-harvest-readiness
+-check.ts` (own file under `domain/rules/`, `review: { reviewStatus: 'awaiting_horticultural_review'
+, awaitingReviewBy: 'P9D-SEASON-RULES-01' }` — mirroring every existing launch rule's own honest
+unreviewed-content posture, not inventing a new gate), appended to `createLaunchRuleCatalog()`:
+
+- **`seasonal-sowing-window-check`** — fires when today falls within (or is approaching) a taxon's
+  reviewed sowing/transplant/harvest window for the garden's own `hemisphere` fact; skips (typed
+  `RuleSkipReason`, not silently) when `hemisphere` is `null` (ungeoreferenced garden) or no
+  `horticulturally_reviewed` fact exists for that taxon — never fabricates a window.
+- **`succession-replanting-reminder`** — fires `successionIntervalDays` after the plant's own
+  relevant prior event (sow/harvest, from `plant_revision`/observation history), for taxa with a
+  configured `successionIntervalDays`. **"Recurrence" for this package is served by the rule
+  engine's OWN existing `timing.recurrenceIntervalMs` mechanism** (already built, already used by
+  every rule for re-fire spacing) — set from `successionIntervalDays * DAY_MS`. This is a
+  deliberate scope decision: it reuses a mechanism that already exists rather than building a new
+  recurrence engine, and it deliberately does NOT touch `task.recurrence_rule` (still exactly the
+  honestly-deferred raw-string placeholder `plants-observations-tasks-baseline.sql`'s own comment
+  already documents it as) — nothing in FR-21/FR-25 or this package's own brief asks for that
+  separate gap to be closed, and doing so anyway would be exactly the invented-scope CLAUDE.md
+  rules and this session's own practice both warn against.
+- **`crop-rotation-caution`** — using Stage 1's bed-occupancy query plus `taxonomy_reference
+.family`, warns when a plant is newly placed (or its identification confirmed) into a bed that
+  held the same family within `rotationRestSeasons`. New `RecommendationEvidenceKind` entry:
+  `'seasonal_calendar'` (additive to the existing closed set, alongside the already-reserved
+  `garden_context`/`soil_moisture`/`geometry_exposure`).
+- Completion evidence: "Horticulture-reviewed seasonal fixtures" continued — real fixture rows
+  (some `horticulturally_reviewed`, some deliberately still `awaiting_horticultural_review`) driving
+  genuine rule-evaluation tests, both the fires-correctly and the honestly-skips-when-unreviewed
+  paths, against real `GardenFacts`, not mocked evaluation.
+
+### Stage 3 — P9D-SEASON-API-01 (depends on Stage 2; only if Stage 2's rules are not sufficient)
+
+Whether a dedicated read endpoint is needed (e.g. "this garden's full seasonal plan," not just
+individual fired recommendations) or P9D-UX-01 can be served entirely by the existing
+recommendation/Today endpoints plus one new endpoint is a decision to make AFTER Stage 2 lands and
+its actual shape is known — not pre-designed here to avoid guessing at a shape Stage 2 will
+determine.
 
 ---
 

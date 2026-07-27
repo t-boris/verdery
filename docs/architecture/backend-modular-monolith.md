@@ -107,7 +107,10 @@ Owns gardens, coordinate spaces, objects, geometry revisions, validation, calibr
 
 ### 6.3 Plants and Inventory
 
-Owns plant instances, plant grouping, taxonomy references, placements, lifecycle, and garden-specific plant facts.
+Owns plant instances, plant grouping, taxonomy references (including botanical family/genus and
+per-hemisphere seasonal sowing/transplant/harvest timing facts), placements, lifecycle,
+garden-specific plant facts, and bed-occupancy history (reconstructed from the plant revision
+journal's placement/taxon snapshots, not a separately maintained table).
 
 ### 6.4 Observations and History
 

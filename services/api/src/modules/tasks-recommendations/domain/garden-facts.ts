@@ -22,11 +22,21 @@
  * Inputs" and "5. Rule Engine".
  */
 
+import type { Position } from '@verdery/geometry-contracts';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { WeatherFreshness, WeatherRecordKind } from '../../integrations/public.js';
 import type { LifecycleStage, PlantStatus } from '../../plants-inventory/public.js';
 import type { RecommendationTarget } from './recommendation-candidate.js';
 import type { RecommendationCandidateState } from './recommendation-lifecycle.js';
+
+/**
+ * The two-value vocabulary `plants_inventory`'s `Hemisphere`
+ * (domain/taxonomy-seasonal-fact.ts) also carries — kept as an independent
+ * literal type here rather than a cross-module import, the same reasoning
+ * that file's own header gives: a trivial two-value string union each
+ * module already owns its own copy of.
+ */
+export type Hemisphere = 'northern' | 'southern';
 
 /** One plant's rule-relevant facts — "Plant identity", "Plant lifecycle stage" (section 4). */
 export interface PlantFact {
@@ -99,6 +109,15 @@ export interface GardenFacts {
   readonly openTasks: readonly OpenTaskFact[];
   readonly weatherObservation: WeatherFact;
   readonly weatherForecast: WeatherFact;
+  /**
+   * P9D-SEASON-DATA-01: derived from the garden's current georeference
+   * (`GeoreferenceRepository.findCurrentForGarden`), never guessed — `null`
+   * when the garden has never been georeferenced. No launch rule reads this
+   * field yet (P9D-SEASON-RULES-01, a separate later work package, is the
+   * first consumer) — see `deriveHemisphere`'s own doc comment for the
+   * derivation rule itself.
+   */
+  readonly hemisphere: Hemisphere | null;
 }
 
 /**
@@ -166,4 +185,29 @@ export function latestObservationForPlant(
     }
   }
   return latest;
+}
+
+/**
+ * Derives `GardenFacts.hemisphere` from a garden's current georeference
+ * anchor: `null` in (never georeferenced) yields `null` out — never
+ * guessed. Otherwise the sign of `geographicAnchor[1]` (latitude; `Position`
+ * is `[longitude, latitude]`, the GeoJSON convention
+ * `@verdery/geometry-contracts` already follows throughout).
+ *
+ * EQUATOR EDGE CASE (latitude exactly `0`), a genuine ambiguity
+ * tasks/todo.md's own design does not resolve: this function resolves it as
+ * `'northern'`. Conservative and consistent with how this codebase treats
+ * boundary comparisons elsewhere (`plant_quantity_positive_check`-style
+ * strict `>`/`<` pairs, `windowEnd`-inclusive checks): a `>= 0` test is a
+ * single, total, side-free comparison, whereas special-casing `=== 0` into a
+ * third `null`/"equatorial" outcome would invent a state no launch rule or
+ * schema anywhere in this codebase asks for, for a coordinate that will
+ * essentially never occur from a real address geocode.
+ */
+export function deriveHemisphere(geographicAnchor: Position | null): Hemisphere | null {
+  if (geographicAnchor === null) {
+    return null;
+  }
+  const latitude = geographicAnchor[1];
+  return latitude >= 0 ? 'northern' : 'southern';
 }

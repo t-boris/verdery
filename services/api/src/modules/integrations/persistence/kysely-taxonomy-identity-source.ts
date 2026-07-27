@@ -33,6 +33,8 @@ export class KyselyTaxonomyIdentitySource implements TaxonomyIdentitySource {
       scientificName: row.scientific_name,
       commonName: row.common_name,
       varietyName: row.variety_name,
+      family: row.family,
+      genus: row.genus,
       source: row.source as TaxonomySource,
       createdByProfileId: row.created_by_profile_id,
       createdAt: row.created_at,

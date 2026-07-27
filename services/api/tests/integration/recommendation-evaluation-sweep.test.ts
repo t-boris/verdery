@@ -20,6 +20,7 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import '../../src/platform/database/pg-bigint-parser.js';
 import '../../src/platform/database/pg-date-parser.js';
+import { KyselyGeoreferenceRepository } from '../../src/modules/gardens-mapping/persistence/kysely-georeference-repository.js';
 import { SteppingClock } from '../../src/modules/integrations/application/integrations-test-doubles.js';
 import {
   GetGardenWeather,
@@ -154,6 +155,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       unitOfWork,
       createLaunchRuleCatalog(),
       new GetGardenWeather(new KyselyWeatherRecordRepository(db), FRESHNESS, clock),
+      new KyselyGeoreferenceRepository(db),
       clock,
     );
     return new RunRecommendationEvaluationSweep(

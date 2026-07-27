@@ -56,6 +56,9 @@ describe('SetPlantStatus', () => {
         commandType: 'setStatus',
         lifecycleStage: null,
         status: 'removed',
+        gardenAreaMapObjectId: null,
+        placementMapObjectId: null,
+        taxonomyReferenceId: null,
         actorProfileId: PROFILE_ID,
       },
     ]);

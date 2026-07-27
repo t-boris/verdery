@@ -29,6 +29,25 @@
  * weather-dependent rule records a typed `weatherMissing` skip — the
  * documented degradation, never an invented value.
  *
+ * Hemisphere (P9D-SEASON-DATA-01) is read the SAME way, for the SAME
+ * reason: `gardens_mapping.georeference` is another module's read-only
+ * fact from this module's side (see `GeoreferenceRepository`'s own header,
+ * "none of the thirteen map commands mutate georeferencing") that a
+ * transaction over THIS module's own tables cannot make any more
+ * consistent, so it is fetched before the transaction via
+ * `GeoreferenceRepository.findCurrentForGarden` (gardens-mapping's own
+ * public port) and derived with `deriveHemisphere`, then threaded into
+ * `gatherGardenFacts` exactly like `weatherObservation`/`weatherForecast`
+ * are. NOTE ON THE DESIGN RECORD: tasks/todo.md's own design notes name
+ * `KyselyEvaluationGardenSource` as where this wiring happens; that class
+ * only ever selects ELIGIBLE GARDEN IDS for the sweep
+ * (`EvaluationGardenSource.listEligibleGardenIds`) and has no access to a
+ * single garden's `GardenFacts` at all, so that reference cannot be
+ * literal. This file, the one place `GardenFacts` is actually assembled, is
+ * the most conservative, most consistent-with-existing-pattern resolution:
+ * it mirrors weather's own already-established fetch-then-thread shape
+ * exactly, rather than inventing a new one.
+ *
  * No authorization, deliberately: this use case has no user-facing
  * transport — the same server-side posture `RefreshGardenWeather`
  * documents. The stage that first exposes evaluation to an actor adds
@@ -56,13 +75,16 @@ import { ConflictError, InternalError } from '../../../platform/errors/applicati
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import { generateUuidV7 } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
+import type { GeoreferenceRepository } from '../../gardens-mapping/public.js';
 import type { GetGardenWeather, GetGardenWeatherResult } from '../../integrations/public.js';
 import type {
   PlantFact,
   GardenFacts,
+  Hemisphere,
   PriorCandidateFact,
   WeatherFact,
 } from '../domain/garden-facts.js';
+import { deriveHemisphere } from '../domain/garden-facts.js';
 import type {
   RecommendationTarget,
   RecommendationUrgency,
@@ -152,6 +174,7 @@ export class EvaluateGardenRecommendations {
     private readonly unitOfWork: TasksRecommendationsUnitOfWork,
     private readonly catalog: RuleCatalog,
     private readonly getGardenWeather: GetGardenWeather,
+    private readonly georeferenceRepository: GeoreferenceRepository,
     private readonly clock: Clock,
   ) {}
 
@@ -165,6 +188,8 @@ export class EvaluateGardenRecommendations {
     const weatherForecast = toWeatherFact(
       await this.getGardenWeather.execute({ gardenId, kind: 'forecast' }),
     );
+    const georeference = await this.georeferenceRepository.findCurrentForGarden(gardenId);
+    const hemisphere: Hemisphere | null = deriveHemisphere(georeference?.geographicAnchor ?? null);
 
     return this.unitOfWork.run(async (context) => {
       await context.recommendationCandidates.lockGardenForEvaluation(gardenId);
@@ -177,6 +202,7 @@ export class EvaluateGardenRecommendations {
         evaluatedAt,
         weatherObservation,
         weatherForecast,
+        hemisphere,
       );
 
       const liveStored = await context.recommendationCandidates.listLiveForGarden(gardenId);
@@ -349,6 +375,7 @@ async function gatherGardenFacts(
   evaluatedAt: Date,
   weatherObservation: WeatherFact,
   weatherForecast: WeatherFact,
+  hemisphere: Hemisphere | null,
 ): Promise<GardenFacts> {
   const plants: PlantFact[] = [];
   let cursor: string | null = null;
@@ -407,5 +434,6 @@ async function gatherGardenFacts(
     })),
     weatherObservation,
     weatherForecast,
+    hemisphere,
   };
 }

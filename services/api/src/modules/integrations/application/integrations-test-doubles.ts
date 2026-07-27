@@ -420,6 +420,8 @@ export function testTaxonomyReference(
     scientificName: 'Solanum lycopersicum',
     commonName: 'Tomato',
     varietyName: null,
+    family: null,
+    genus: null,
     source: 'system_catalog',
     createdByProfileId: null,
     createdAt: new Date('2026-07-01T00:00:00Z'),

@@ -222,9 +222,9 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving the plants-observations-tasks-baseline schemas and tables otherwise intact', async () => {
     await client.end();
 
-    // `count: 22` undoes this migration and every migration applied after it
+    // `count: 23` undoes this migration and every migration applied after it
     // (currently synchronization-baseline through
-    // garden-context-facts, none of which
+    // taxonomy-seasonal-facts-and-bed-history, none of which
     // depend on anything this one creates but all of which were applied
     // later and must unwind first). Update this count when a later
     // migration is added on top.
@@ -233,7 +233,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 22,
+      count: 23,
       log: () => {},
     });
 

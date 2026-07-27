@@ -338,14 +338,15 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     await client.end();
 
-    // `count: 9` undoes the eight newer migrations (exports-baseline,
+    // `count: 10` undoes the nine newer migrations (exports-baseline,
     // deletion-baseline, collaboration-operations-and-attribution,
     // service-organizations-and-client-engagements,
     // client-publication-and-work-logs,
     // engagement-publisher-grant-and-client-update-items,
-    // client-invitation-token, and garden-context-facts) first, then this
+    // client-invitation-token, garden-context-facts, and
+    // taxonomy-seasonal-facts-and-bed-history) first, then this
     // one. Update the count the next time a migration is added on top.
-    await migrate(databaseUrl, 'down', 9);
+    await migrate(databaseUrl, 'down', 10);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

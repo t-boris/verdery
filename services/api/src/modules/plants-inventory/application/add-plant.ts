@@ -96,6 +96,12 @@ export class AddPlant {
           commandType: 'addPlant',
           lifecycleStage: plant.lifecycleStage,
           status: plant.status,
+          // Placement and taxonomy are both established for the first time
+          // at creation, so the full snapshot is recorded here — see
+          // `PlantRevisionJournalEntry`'s own doc comment.
+          gardenAreaMapObjectId: plant.gardenAreaMapObjectId,
+          placementMapObjectId: plant.placementMapObjectId,
+          taxonomyReferenceId: plant.taxonomyReferenceId,
           actorProfileId: profileId,
         });
         await context.syncChanges.record({

@@ -90,6 +90,12 @@ export class MovePlant {
           commandType: 'movePlant',
           lifecycleStage: null,
           status: null,
+          // Only placement changed here — taxonomy stays null on this row,
+          // matching the journal's own partial-snapshot convention (see
+          // `PlantRevisionJournalEntry`'s doc comment).
+          gardenAreaMapObjectId: moved.gardenAreaMapObjectId,
+          placementMapObjectId: moved.placementMapObjectId,
+          taxonomyReferenceId: null,
           actorProfileId: profileId,
         });
         await context.syncChanges.record({

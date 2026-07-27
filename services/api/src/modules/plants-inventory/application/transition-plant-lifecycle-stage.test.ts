@@ -56,6 +56,9 @@ describe('TransitionPlantLifecycleStage', () => {
         commandType: 'transitionLifecycleStage',
         lifecycleStage: 'flowering',
         status: null,
+        gardenAreaMapObjectId: null,
+        placementMapObjectId: null,
+        taxonomyReferenceId: null,
         actorProfileId: PROFILE_ID,
       },
     ]);

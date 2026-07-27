@@ -64,6 +64,11 @@ export class SetPlantStatus {
           commandType: 'setStatus',
           lifecycleStage: null,
           status: transitioned.status,
+          // A status-only command; never touches placement or taxonomy —
+          // see `PlantRevisionJournalEntry`'s own doc comment.
+          gardenAreaMapObjectId: null,
+          placementMapObjectId: null,
+          taxonomyReferenceId: null,
           actorProfileId: profileId,
         });
         // 'upsert', even for a transition to 'removed'/'dead': there is no

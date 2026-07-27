@@ -71,6 +71,9 @@ describe('ConfirmPlantIdentification', () => {
         commandType: 'confirmIdentification',
         lifecycleStage: null,
         status: null,
+        gardenAreaMapObjectId: null,
+        placementMapObjectId: null,
+        taxonomyReferenceId: TAXONOMY_ID,
         actorProfileId: PROFILE_ID,
       },
     ]);

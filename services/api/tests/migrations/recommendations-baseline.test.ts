@@ -474,16 +474,17 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     await client.end();
 
-    // `count: 15` undoes the fourteen newer migrations
+    // `count: 16` undoes the fifteen newer migrations
     // (1785700000000_integrations-weather-baseline.sql through
-    // 1787000000000_garden-context-facts.sql
+    // 1787100000000_taxonomy-seasonal-facts-and-bed-history.sql
     // — the weather table only feeds the FK exercised above, and the
     // explanation column and plant-content/notification/AI-explanation/
     // service-organization/client-publication/publisher-grant/
-    // client-invitation-token/garden-context-facts tables add nothing this
+    // client-invitation-token/garden-context-facts/
+    // taxonomy-seasonal-facts-and-bed-history tables add nothing this
     // test's own assertions below check) first, then this migration itself.
     // Update again the next time a migration is added on top of that one.
-    await migrate(databaseUrl, 'down', 15);
+    await migrate(databaseUrl, 'down', 16);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

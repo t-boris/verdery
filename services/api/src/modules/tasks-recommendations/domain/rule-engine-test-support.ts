@@ -39,6 +39,7 @@ export function buildGardenFacts(overrides: Partial<GardenFacts> = {}): GardenFa
     openTasks: [],
     weatherObservation: { availability: 'missing' },
     weatherForecast: { availability: 'missing' },
+    hemisphere: null,
     ...overrides,
   };
 }

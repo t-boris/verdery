@@ -340,16 +340,16 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, dropping the notifications schema whole while every earlier table survives', async () => {
     await client.end();
 
-    // `count: 11` undoes the ten newer migrations
+    // `count: 12` undoes the eleven newer migrations
     // (1786200000000_notification-delivery.sql — this schema's OWN
     // delivery tables and intent alterations, which must leave before the
     // baseline can — 1786100000000_recommendation-ai-explanation.sql, a
-    // tasks_recommendations table, and seven more through
-    // 1787000000000_garden-context-facts.sql,
+    // tasks_recommendations table, and eight more through
+    // 1787100000000_taxonomy-seasonal-facts-and-bed-history.sql,
     // nothing this file's own assertions check) first, then this migration
     // itself. Update again the next time a migration is added on top of
     // those.
-    await migrate(databaseUrl, 'down', 11);
+    await migrate(databaseUrl, 'down', 12);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

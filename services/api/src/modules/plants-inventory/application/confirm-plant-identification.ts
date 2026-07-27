@@ -75,6 +75,14 @@ export class ConfirmPlantIdentification {
           commandType: 'confirmIdentification',
           lifecycleStage: null,
           status: null,
+          // Only taxonomy changed here — placement stays null on this row,
+          // matching the journal's own partial-snapshot convention (see
+          // `PlantRevisionJournalEntry`'s doc comment). `UpdatePlantDetails`
+          // can also change `plant.taxonomyReferenceId` (see that command's
+          // own snapshot comment) — this is simply the OTHER command that does.
+          gardenAreaMapObjectId: null,
+          placementMapObjectId: null,
+          taxonomyReferenceId: confirmed.taxonomyReferenceId,
           actorProfileId: profileId,
         });
         await context.syncChanges.record({

@@ -90,6 +90,9 @@ describe('AddPlant', () => {
         commandType: 'addPlant',
         lifecycleStage: 'planned',
         status: 'active',
+        gardenAreaMapObjectId: null,
+        placementMapObjectId: null,
+        taxonomyReferenceId: null,
         actorProfileId: PROFILE_ID,
       },
     ]);

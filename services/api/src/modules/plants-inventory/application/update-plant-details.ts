@@ -58,6 +58,22 @@ export class UpdatePlantDetails {
           commandType: 'updateDetails',
           lifecycleStage: null,
           status: null,
+          // Details changes never touch placement, but `PlantDetailsChanges.
+          // taxonomyReferenceId` CAN (a caller may correct or clear
+          // taxonomyReferenceId through this command, not only through
+          // `ConfirmPlantIdentification` — see `PlantDetailsChanges`'s own
+          // doc comment on `domain/plant.ts`). Snapshotting it only when this
+          // specific call actually named it in `changes` — not on every
+          // details edit — is what keeps this the same "only when this
+          // command changed the field" convention the rest of this journal
+          // follows; reading `changes.taxonomyReferenceId !== undefined`
+          // rather than always writing `updated.taxonomyReferenceId` is what
+          // makes that distinction, since the latter is always defined
+          // whether or not this call touched it.
+          gardenAreaMapObjectId: null,
+          placementMapObjectId: null,
+          taxonomyReferenceId:
+            changes.taxonomyReferenceId !== undefined ? updated.taxonomyReferenceId : null,
           actorProfileId: profileId,
         });
         await context.syncChanges.record({

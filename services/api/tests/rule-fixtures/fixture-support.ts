@@ -77,6 +77,7 @@ export function gardenFacts(overrides: Partial<GardenFacts> = {}): GardenFacts {
     openTasks: [],
     weatherObservation: { availability: 'missing' },
     weatherForecast: { availability: 'missing' },
+    hemisphere: null,
     ...overrides,
   };
 }

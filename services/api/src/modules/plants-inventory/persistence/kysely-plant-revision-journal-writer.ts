@@ -17,6 +17,9 @@ export class KyselyPlantRevisionJournalWriter implements PlantRevisionJournalWri
         command_type: entry.commandType,
         lifecycle_stage: entry.lifecycleStage,
         status: entry.status,
+        garden_area_map_object_id: entry.gardenAreaMapObjectId,
+        placement_map_object_id: entry.placementMapObjectId,
+        taxonomy_reference_id: entry.taxonomyReferenceId,
         actor_profile_id: entry.actorProfileId,
       })
       .execute();

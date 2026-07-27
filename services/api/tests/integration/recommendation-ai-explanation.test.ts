@@ -23,6 +23,7 @@ import '../../src/platform/database/pg-date-parser.js';
 import { CreateGarden } from '../../src/modules/gardens-mapping/application/create-garden.js';
 import { GardenAuthorization } from '../../src/modules/gardens-mapping/application/garden-authorization.js';
 import { KyselyGardensMappingUnitOfWork } from '../../src/modules/gardens-mapping/persistence/kysely-gardens-mapping-unit-of-work.js';
+import { KyselyGeoreferenceRepository } from '../../src/modules/gardens-mapping/persistence/kysely-georeference-repository.js';
 import { KyselyMembershipRepository } from '../../src/modules/gardens-mapping/persistence/kysely-membership-repository.js';
 import {
   FakeAiExplanationProviderAdapter,
@@ -160,6 +161,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       unitOfWork,
       catalog,
       new GetGardenWeather(new KyselyWeatherRecordRepository(db), FRESHNESS, clock),
+      new KyselyGeoreferenceRepository(db),
       clock,
     );
     const generate = new GenerateAiExplanation(

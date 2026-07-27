@@ -127,6 +127,11 @@ export class AddPlantFromPhoto {
           commandType: 'addPlantFromPhoto',
           lifecycleStage: plant.lifecycleStage,
           status: plant.status,
+          // Full snapshot at creation — see `AddPlant`'s identical comment
+          // and `PlantRevisionJournalEntry`'s own doc comment.
+          gardenAreaMapObjectId: plant.gardenAreaMapObjectId,
+          placementMapObjectId: plant.placementMapObjectId,
+          taxonomyReferenceId: plant.taxonomyReferenceId,
           actorProfileId: profileId,
         });
         await context.syncChanges.record({

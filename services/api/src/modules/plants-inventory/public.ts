@@ -49,6 +49,39 @@ export type { PlantPhoto } from './domain/plant-photo.js';
 export type { PlantIdentification } from './domain/plant-identification.js';
 export type { TaxonomyReference, TaxonomySource } from './domain/taxonomy-reference.js';
 
+// Seasonal facts and bed-occupancy history (P9D-SEASON-DATA-01). Exported
+// narrowly — the read ports and the domain provenance shape, no HTTP
+// transport, the same "export a narrow read port, don't build the consumer
+// yet" discipline `GardenContextFactRepository`/`ListGardenContextFacts`
+// already established for gardens-mapping's sibling table. Stage 2
+// (P9D-SEASON-RULES-01, a separate later work package) is the consumer.
+export type {
+  Hemisphere,
+  TaxonomySeasonalAuthoring,
+  TaxonomySeasonalAuthoringCandidate,
+  TaxonomySeasonalAuthoringMethod,
+  TaxonomySeasonalFact,
+  TaxonomySeasonalFactProvenance,
+  TaxonomySeasonalFactProvenanceCandidate,
+  TaxonomySeasonalReview,
+  TaxonomySeasonalReviewCandidate,
+  TaxonomySeasonalReviewStatus,
+  TaxonomySeasonalTiming,
+} from './domain/taxonomy-seasonal-fact.js';
+export {
+  HEMISPHERES,
+  validateTaxonomySeasonalAuthoring,
+  validateTaxonomySeasonalFactProvenance,
+  validateTaxonomySeasonalReview,
+} from './domain/taxonomy-seasonal-fact.js';
+export type { TaxonomySeasonalFactRepository } from './application/taxonomy-seasonal-fact-repository.js';
+export { KyselyTaxonomySeasonalFactRepository } from './persistence/kysely-taxonomy-seasonal-fact-repository.js';
+export type {
+  BedOccupancyHistoryReader,
+  BedOccupancyPeriod,
+} from './application/bed-occupancy-history.js';
+export { KyselyBedOccupancyHistoryReader } from './persistence/kysely-bed-occupancy-history-reader.js';
+
 export type {
   PlantRepository,
   PlantSearchFilters,

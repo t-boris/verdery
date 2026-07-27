@@ -62,6 +62,13 @@ describe('UpdatePlantDetails', () => {
         commandType: 'updateDetails',
         lifecycleStage: null,
         status: null,
+        gardenAreaMapObjectId: null,
+        placementMapObjectId: null,
+        // taxonomyReferenceId was not named in this call's changes, so it
+        // stays null on the journal row even though the plant itself has one
+        // (P9D-SEASON-DATA-01's "only when this command changed the field"
+        // convention — see `UpdatePlantDetails`'s own comment).
+        taxonomyReferenceId: null,
         actorProfileId: PROFILE_ID,
       },
     ]);
@@ -86,6 +93,24 @@ describe('UpdatePlantDetails', () => {
     );
 
     expect(result.taxonomyReferenceId).toBeNull();
+    // Both "not named in changes" and "named and cleared to null" leave the
+    // journal's own taxonomyReferenceId at null, so this call alone cannot
+    // distinguish the two at the unit level — the real distinguishing case
+    // (named WITH a non-null id) is proven end-to-end against real Postgres
+    // in tests/integration/plants-inventory-seasonal-and-occupancy.test.ts.
+    expect(fakes.revisionJournal.entries).toEqual([
+      {
+        plantId: PLANT_ID,
+        revision: 2,
+        commandType: 'updateDetails',
+        lifecycleStage: null,
+        status: null,
+        gardenAreaMapObjectId: null,
+        placementMapObjectId: null,
+        taxonomyReferenceId: null,
+        actorProfileId: PROFILE_ID,
+      },
+    ]);
   });
 
   it('rejects a stale expectedRevision', async () => {

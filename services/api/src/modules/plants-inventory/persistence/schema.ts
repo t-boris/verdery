@@ -5,6 +5,9 @@ export interface TaxonomyReferenceRow {
   scientific_name: string;
   common_name: string | null;
   variety_name: string | null;
+  /** P9D-SEASON-DATA-01: additive, nullable — see `domain/taxonomy-reference.ts`'s own header. */
+  family: string | null;
+  genus: string | null;
   source: string;
   created_by_profile_id: string | null;
   created_at: Generated<Date>;
@@ -80,6 +83,14 @@ export interface PlantIdentificationRow {
  * Append-only journal: `sequence` is the physical insertion order, `revision`
  * is the plant's own logical revision at the time this row was written —
  * structurally identical to `gardens_mapping.garden_object_revision`.
+ *
+ * `garden_area_map_object_id`/`placement_map_object_id`/
+ * `taxonomy_reference_id` (P9D-SEASON-DATA-01): nullable placement/taxon
+ * snapshot columns, populated only by the command that changed the field
+ * they carry — see `migrations/1787100000000_taxonomy-seasonal-facts-and-
+ * bed-history.sql`'s own header for exactly which commands populate which
+ * columns, and `application/bed-occupancy-history.ts` for the read query
+ * this snapshot exists to serve.
  */
 export interface PlantRevisionRow {
   sequence: Generated<number>;
@@ -88,12 +99,47 @@ export interface PlantRevisionRow {
   command_type: string;
   lifecycle_stage: string | null;
   status: string | null;
+  garden_area_map_object_id: string | null;
+  placement_map_object_id: string | null;
+  taxonomy_reference_id: string | null;
   actor_profile_id: string;
   recorded_at: Generated<Date>;
 }
 
+/**
+ * One row per (taxonomyReferenceId, hemisphere) — see
+ * `domain/taxonomy-seasonal-fact.ts`'s own header for the full shape and
+ * ADR-0013 provenance reasoning. No `Generated<>` wrapper is needed beyond
+ * `created_at`: this table has no other server-defaulted column and no
+ * update path (see the migration's own "NO `revision` COLUMN" note).
+ */
+export interface TaxonomySeasonalFactRow {
+  id: string;
+  taxonomy_reference_id: string;
+  hemisphere: string;
+  sow_indoors_start_month: number | null;
+  sow_indoors_end_month: number | null;
+  sow_outdoors_start_month: number | null;
+  sow_outdoors_end_month: number | null;
+  transplant_start_month: number | null;
+  transplant_end_month: number | null;
+  harvest_start_month: number | null;
+  harvest_end_month: number | null;
+  days_to_maturity_min: number | null;
+  days_to_maturity_max: number | null;
+  succession_interval_days: number | null;
+  rotation_rest_seasons: number | null;
+  authoring_method: string;
+  source_citation: string | null;
+  review_status: string;
+  reviewed_by: string | null;
+  reviewed_on: string | null;
+  created_at: Generated<Date>;
+}
+
 export interface PlantsInventoryDatabaseSchema {
   'plants_inventory.taxonomy_reference': TaxonomyReferenceRow;
+  'plants_inventory.taxonomy_seasonal_fact': TaxonomySeasonalFactRow;
   'plants_inventory.plant': PlantRow;
   'plants_inventory.plant_photo': PlantPhotoRow;
   'plants_inventory.plant_identification': PlantIdentificationRow;

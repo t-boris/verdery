@@ -8,6 +8,7 @@
 import { generateUuidV7 } from '../../../shared/identifiers/uuid.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
+import type { Georeference, GeoreferenceRepository } from '../../gardens-mapping/public.js';
 import { GetGardenWeather } from '../../integrations/public.js';
 import type {
   AiExplanationLocale,
@@ -410,4 +411,23 @@ export function getGardenWeatherOver(
   clock: Clock,
 ): GetGardenWeather {
   return new GetGardenWeather(new FakeWeatherRecordRepository(records), freshnessPolicy, clock);
+}
+
+/**
+ * In-memory `GeoreferenceRepository` (P9D-SEASON-DATA-01) — one optional
+ * `Georeference` per garden, `null` meaning "never georeferenced", plus a
+ * call log so a test can prove `EvaluateGardenRecommendations` actually
+ * consults this port for the garden it is evaluating (the "wiring" proof;
+ * `deriveHemisphere`'s own domain-level unit tests in `garden-facts.test.ts`
+ * cover the derivation itself, and a real-Postgres proof lives in
+ * `tests/integration/garden-hemisphere.test.ts`).
+ */
+export class FakeGeoreferenceRepository implements GeoreferenceRepository {
+  readonly byGardenId = new Map<Uuid, Georeference>();
+  readonly calls: Uuid[] = [];
+
+  findCurrentForGarden(gardenId: Uuid): Promise<Georeference | null> {
+    this.calls.push(gardenId);
+    return Promise.resolve(this.byGardenId.get(gardenId) ?? null);
+  }
 }

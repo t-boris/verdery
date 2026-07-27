@@ -8,7 +8,7 @@ import { RuleCatalog } from '../domain/rule-catalog.js';
 import { createLaunchRuleCatalog } from '../domain/rules/launch-rule-catalog.js';
 import { createRuleVersion } from '../domain/rule-version.js';
 import { EvaluateGardenRecommendations } from './evaluate-garden-recommendations.js';
-import { getGardenWeatherOver } from './recommendation-test-doubles.js';
+import { FakeGeoreferenceRepository, getGardenWeatherOver } from './recommendation-test-doubles.js';
 import {
   FakeTasksRecommendationsUnitOfWork,
   buildTask,
@@ -82,11 +82,13 @@ function makeEvaluate(options: {
   catalog?: RuleCatalog;
   fakes: ReturnType<typeof createTasksRecommendationsFakes>;
   weatherRecords?: readonly WeatherRecord[];
+  georeferenceRepository?: FakeGeoreferenceRepository;
 }) {
   return new EvaluateGardenRecommendations(
     new FakeTasksRecommendationsUnitOfWork(options.fakes),
     options.catalog ?? createLaunchRuleCatalog(),
     getGardenWeatherOver(options.weatherRecords ?? [], FRESHNESS, fixedClock(NOW)),
+    options.georeferenceRepository ?? new FakeGeoreferenceRepository(),
     fixedClock(NOW),
   );
 }
@@ -321,5 +323,20 @@ describe('EvaluateGardenRecommendations', () => {
 
     await expect(evaluate.execute({ gardenId: GARDEN_ID })).rejects.toBeInstanceOf(InternalError);
     expect(fakes.recommendationCandidates.candidates.size).toBe(0);
+  });
+
+  it('consults GeoreferenceRepository.findCurrentForGarden for the evaluated garden (P9D-SEASON-DATA-01 hemisphere wiring)', async () => {
+    const fakes = createTasksRecommendationsFakes();
+    const georeferenceRepository = new FakeGeoreferenceRepository();
+
+    await makeEvaluate({ fakes, georeferenceRepository }).execute({ gardenId: GARDEN_ID });
+
+    // The derivation itself (sign of geographicAnchor[1], and the null/
+    // never-georeferenced case) is unit-tested directly in
+    // garden-facts.test.ts against `deriveHemisphere`; this proves the one
+    // thing that test cannot: that `EvaluateGardenRecommendations` actually
+    // reaches this port for the garden it is evaluating, not a different
+    // one and not zero times.
+    expect(georeferenceRepository.calls).toEqual([GARDEN_ID]);
   });
 });

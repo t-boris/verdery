@@ -61,6 +61,9 @@ describe('MovePlant', () => {
         commandType: 'movePlant',
         lifecycleStage: null,
         status: null,
+        gardenAreaMapObjectId: MAP_OBJECT_ID,
+        placementMapObjectId: null,
+        taxonomyReferenceId: null,
         actorProfileId: PROFILE_ID,
       },
     ]);

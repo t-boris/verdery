@@ -19,6 +19,7 @@
  */
 
 import type { GardenAuthorization } from './modules/gardens-mapping/public.js';
+import { KyselyGeoreferenceRepository } from './modules/gardens-mapping/public.js';
 import type {
   AiExplanationLocale,
   GenerateAiExplanation,
@@ -147,10 +148,19 @@ export function composeTasksRecommendations(
   // file's header.
   const catalog = createLaunchRuleCatalog();
 
+  // P9D-SEASON-DATA-01: a read-only adapter over gardens-mapping's own
+  // public `GeoreferenceRepository` port, bound directly to the pooled
+  // connection — the same "construct a second stateless instance for a read
+  // path" judgment `ownershipTransferReadRepository` makes in
+  // `compose-gardens-mapping.ts`, rather than threading gardens-mapping's
+  // composition return value across modules for a single read-only port.
+  const georeferenceRepository = new KyselyGeoreferenceRepository(database.queries);
+
   const evaluateGardenRecommendations = new EvaluateGardenRecommendations(
     unitOfWork,
     catalog,
     getGardenWeather,
+    georeferenceRepository,
     clock,
   );
   // P7-AI-01: the embellishment phase exists ONLY when the kill-switch is

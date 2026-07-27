@@ -58,6 +58,11 @@ export class TransitionPlantLifecycleStage {
           commandType: 'transitionLifecycleStage',
           lifecycleStage: transitioned.lifecycleStage,
           status: null,
+          // A lifecycle-stage-only command; never touches placement or
+          // taxonomy — see `PlantRevisionJournalEntry`'s own doc comment.
+          gardenAreaMapObjectId: null,
+          placementMapObjectId: null,
+          taxonomyReferenceId: null,
           actorProfileId: profileId,
         });
         await context.syncChanges.record({

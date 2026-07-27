@@ -8,6 +8,8 @@ const TOMATO: TaxonomyReference = {
   scientificName: 'Solanum lycopersicum',
   commonName: 'Tomato',
   varietyName: null,
+  family: 'Solanaceae',
+  genus: 'Solanum',
   source: 'system_catalog',
   createdByProfileId: null,
   createdAt: new Date('2026-01-01T00:00:00Z'),
