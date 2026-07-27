@@ -6419,7 +6419,7 @@ data/UX with no security surface).
         and `packages/api-contracts/src/seasonal-plan.ts`, split out of `index.ts` per that
         package's own 600-line convention. 278 files / 2270 tests, all green; all four root gates
         (build, test, typecheck, lint, format:check, check:file-size) clean.
-- [ ] P9D-UX-01 — seasonal plan, context quality, shared responsibilities, conflicts, without
+- [x] P9D-UX-01 — seasonal plan, context quality, shared responsibilities, conflicts, without
       overwhelming Today. Split into web first, then iOS mirroring the same information
       architecture — see "P9D-UX-01 design decisions" below for the shared plan both draw from.
   - [x] Web — new `features/seasonal-plan/` and `features/garden-context/` slices, a sibling
@@ -6456,7 +6456,115 @@ data/UX with no security surface).
         bed-occupancy history needs the full map/garden-object placement pipeline, out of scope for
         this pass. 106 web test files / 934 tests, all green; all six root gates (build, test,
         typecheck, lint, format:check, check:file-size) clean.
-  - [ ] iOS — not started; mirrors the same information architecture once dispatched.
+  - [x] iOS — new `CoreNetworking.SeasonalPlanGateway`/`GardenContextGateway` (protocol +
+        `URLSession*` implementation + `*Transport` wire structs), mirroring
+        `RecommendationGateway`'s exact shape and copying its "not a synced record family, degrades
+        honestly offline" doc-comment reasoning almost verbatim; the record method deliberately
+        omits both `Idempotency-Key` and `If-Match` (the one PUT-based mutation in this client with
+        neither header — the endpoint's own last-writer-wins upsert contract), the sole deliberate
+        divergence from every sibling gateway's mutation shape. New `CoreDomain` types
+        (`SeasonalPlan.swift`, `GardenContextFact.swift`) plus `GardenRole` gained `Hashable`
+        (additive) so a route can carry the caller's real role, not
+        a pre-collapsed `Bool`. `SeasonalPlanView` landed as a NEW feature module,
+        `FeatureSeasonalPlan` — not grown inside `FeatureRecommendations` — because it is a distinct
+        screen family (a forward-looking planning surface, not a recommendation-feedback one),
+        matching the `FeatureHealth`/`FeatureSyncConflicts` precedent (a small, GRDB-free,
+        `CoreSynchronization`-free module reached from elsewhere by a marker route) rather than the
+        "grow the origin feature" one; `Package.swift` gained the target/product/test-target triad
+        plus the `AppComposition` dependency. Calendar and Rotation land as two always-visible
+        sections (`SeasonalCalendarSection`/`RotationConflictsSection`), the same "no in-page tab
+        widget to invent" reasoning the web sibling documents; month names come from
+        `DateFormatter.standaloneMonthSymbols` (`SeasonalPlanLocalization.monthName`, this
+        codebase's own first month-name utility — none existed); rotation conflicts render as a
+        warning-toned `Chip` on `SurfaceCard(tone: .warning)`, non-conflicts sit behind a native
+        `DisclosureGroup`. Context quality landed inside `FeatureGardens` (not a new module,
+        matching web's placement and this package's own explicit routing) as three new types —
+        `ContextQualityView`, `ContextQualityViewModel`, `ContextQualityRowView` — reached by a
+        fifth `navigationCard` appended to `GardenSettingsView.configurationSection` (a genuine
+        wording ambiguity in the dispatch — "a new section function... reached via a
+        `navigationCard`... the same way `GardenCollaboratorsRoute`/`GardenPlanUploadRoute` already
+        are" — resolved in favor of the
+        conservative reading: those two routes are themselves just `navigationCard` entries inside
+        that one existing function, not standalone sections of their own, so a sixth-card-shaped
+        lone section would have invented a pattern this file does not otherwise have) via a new
+        `GardenContextQualityRoute(gardenId:callerRole:)`. `canEdit` mirrors
+        `TasksListViewModel.eligibleAssignCandidates`'s matrix-row-B14 two-role check
+        (`callerRole == .owner || .editor`) as an independently unit-tested computed property, not
+        a pre-collapsed `Bool` threaded through the route — `callerRole` travels through instead,
+        the same "known already from the `Garden` `GardenSettingsView` already loaded, not
+        re-fetched" reasoning `GardenCollaboratorsRoute.isOwner` documents for itself.
+        `recordedByProfileId` shown as the raw profile id — this codebase's own established
+        `TodayViewModel.targetLabel` raw-id-fallback convention, confirmed by the web equivalent's
+        own research that no member-display-name field exists anywhere. Two new
+        `SeasonalPlanLocalizationKey`/`GardenContextLocalizationKey` enum files (`LocalizationKey`
+        was already at the 600-line cap), wired into `LocalizedStrings` (`callAsFunction` +
+        parameterized `string(_:parameters:)` overloads, `declaredKeys`) exactly like
+        `ProfileLocalizationKey`'s own precedent, with matching English/Russian catalogue entries.
+        **Navigation placement, confirmed**: Seasonal plan is reached by a `NavigationLink` card
+        near the top of `TodayView`'s own list (both the empty and non-empty `.loaded` branches),
+        pushed onto Today's existing `NavigationStack` via a new `TodaySeasonalPlanRoute` —
+        resolved in `GardenTabView`'s Today tab alongside the already-existing `TodayTasksRoute`,
+        exactly the same cross-feature marker-route pattern; NOT a sixth tab, and
+        `GardenTabView.swift`'s own five-tabs doc comment is untouched. Its own hemisphere-unknown
+        empty state reaches the map/georeference calibration flow via a second marker route,
+        `SeasonalPlanCalibrationRoute`, resolved to the existing `MapEditorView` in that same Today
+        tab stack. **Context quality placement, confirmed**: inside `GardenSettingsSheet`, not a
+        new top-level route. One genuine, deliberate scope divergence from the web sibling,
+        documented in `SeasonalPlanViewModel`'s own doc comment: plant rows show the raw
+        `seasonalPlan.plantFallback` (`"Plant: {plantId}"`) rather than a resolved display name —
+        the web sibling built a second read-only `plantId -> displayName` lookup directly on
+        `core/api`'s plant gateway for this; the iOS dispatch's own brief never asked for plant-name
+        resolution, and building a second gateway dependency into an otherwise
+        `FeatureHealth`-sized module for a label was judged out of proportion to a brief that
+        already gives this exact fallback shape a home (`TodayViewModel.targetLabel`'s identical
+        raw-id convention) — flagged here rather than decided silently. This package's own delta:
+        23 new source files (`CoreDomain` ×2, `CoreNetworking` ×4, `CoreLocalization` ×2,
+        `FeatureSeasonalPlan` ×8, `FeatureGardens` ×6, `AppComposition` ×1), 7 new test files
+        (`CoreNetworkingTests` ×2, `FeatureGardensTests` ×2, `FeatureSeasonalPlanTests` ×3), and
+        13 edited non-test files (`Package.swift`; `AppCompositionRoot.swift`/`GardenTabView.swift`;
+        `CoreDomain/Identity/Garden.swift`; `LocalizedStrings.swift` plus both `.lproj` catalogues;
+        `GardenPhase4Routes.swift`/`GardenSettingsView.swift`/`GardenSettingsViewModel.swift`;
+        `TodayRoutes.swift`/`TodayView.swift`/`TodayViewModel.swift`) — landing at 363 total
+        `Sources` and 138 total `Tests` Swift files package-wide. 933 tests / 129 suites, all green
+        (21 new: 2 `SeasonalPlanGatewayTests`, 3 `GardenContextGatewayTests`,
+        7 `SeasonalPlanViewModelTests`, 9 `ContextQualityViewModelTests`), including the full
+        `LocalizationCatalogueTests` suite (both catalogues stay key-for-key identical) and
+        `ArchitectureTests` (dependency rules,
+        accessibility conventions) unmodified and still green. `swift build`/`swift test` both
+        clean; the real Xcode project (`xcodegen generate` plus the CI step's own
+        `xcodebuild -scheme Verdery -destination 'generic/platform=iOS'`, the step that once
+        caught a build-only-headless gap) also builds clean. A booted iOS 26.5 simulator was
+        available in this environment: the real `.app` was installed and launched, reaching the
+        sign-in screen with no crash — genuine confirmation the composition root's eager
+        construction of the two new gateways doesn't
+        break app launch — but this repository ships no XCUITest target and no seeded demo backend
+        (`scripts/capture-screenshots.sh`'s own header: driving the app past sign-in needs a real
+        account against a real backend, "it cannot navigate the app"), so exercising the new screens
+        themselves with real signed-in data was not possible in this sandboxed environment; that
+        coverage rests on the automated suite above, not a live click-through — stated plainly
+        rather than implied otherwise.
+
+### iOS navigation placement decision (resolved before dispatch, does not mirror web verbatim)
+
+Research surfaced a genuine architectural tension `GardenTabView.swift`'s own doc comment already
+names: iOS deliberately caps at five tabs ("Five, not six: iPhone collapses a sixth tab into a
+'More' list, which would bury whichever surface lost the draw... configuration, not daily surfaces,
+[live] inside the settings sheet"). The web sibling added Seasonal plan as a 7th top-level nav item
+— not a constraint iOS shares (no tab-bar collapse problem there), so this is NOT simply "mirror
+web's placement."
+
+**Decision: reachable via a card/link from the existing Today tab, NOT a 6th tab and NOT buried in
+`GardenSettingsSheet`.** Applying the doc comment's own framework: Seasonal plan is read-oriented
+reference/planning content, not a daily action surface (no complete/dismiss/postpone commands live
+there) — closer to "occasional planning surface" than Today/Tasks, but also not mere
+"configuration" the way Collaborators/PlanUpload/SyncConflicts are (a user is genuinely meant to
+open it as a destination, not just once to configure something). A prominent
+`NavigationLink`/card near the top of `TodayView`'s own list (pushed onto that tab's existing
+`NavigationStack`, not a new tab or a new sheet route) keeps the five-tab structure and its own
+documented rationale completely untouched. Context quality, unlike Seasonal plan, DOES belong in
+`GardenSettingsSheet`/`GardenSettingsView` — mirrors web's own placement exactly, confirmed by
+research: it is genuinely a settings-shaped, occasionally-edited fact list, the same shape as the
+sheet's existing Collaborators/PlanUpload sections.
 
 ## P9D-CONTEXT-01 design decisions (recorded before dispatch, per prior-phase practice)
 

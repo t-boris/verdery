@@ -29,3 +29,23 @@ public struct TodayItemDetailRoute: Hashable, Sendable {
         self.itemId = itemId
     }
 }
+
+/// Request to navigate from the Today screen to the same garden's Seasonal
+/// plan screen (P9D-UX-01) — the same `TodayTasksRoute` pattern:
+/// `FeatureRecommendations` cannot depend on `FeatureSeasonalPlan` either
+/// ("features never depend on each other"), so this feature only says
+/// *that* the seasonal plan should open; `AppComposition/GardenTabView.swift`
+/// turns the value into the real view.
+///
+/// This is the iOS navigation placement this package's own design decision
+/// settled on (tasks/todo.md, "iOS navigation placement decision"): a
+/// prominent card near the top of `TodayView`'s own list, pushed onto
+/// Today's existing `NavigationStack` — not a sixth tab, not a route inside
+/// `GardenSettingsSheet`.
+public struct TodaySeasonalPlanRoute: Hashable, Sendable {
+    public let gardenId: String
+
+    public init(gardenId: String) {
+        self.gardenId = gardenId
+    }
+}

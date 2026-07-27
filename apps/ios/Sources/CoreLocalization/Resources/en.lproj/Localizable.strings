@@ -680,3 +680,79 @@
 
 "collaboration.revokedAccess.message" = "You no longer have access to this garden.";
 "collaboration.revokedAccess.backToGardens" = "Back to gardens";
+
+/* Seasonal plan (P9D-UX-01): the Calendar and Rotation sub-views reached
+   from a card on the Today tab. */
+"seasonalPlan.title" = "Seasonal plan";
+"seasonalPlan.description" = "Reviewed sowing, transplanting, and harvest windows for this garden's plants, plus rotation status for beds by botanical family.";
+"seasonalPlan.todayCard.subtitle" = "Sowing windows and rotation status";
+"seasonalPlan.loading" = "Loading the seasonal plan…";
+"seasonalPlan.retry" = "Try again";
+"seasonalPlan.offline" = "The seasonal plan needs a connection — it is confirmed by the server. Check your connection and try again.";
+"seasonalPlan.stale" = "Couldn't refresh. Showing the plan loaded at {time} — it may be out of date.";
+"seasonalPlan.plantFallback" = "Plant: {plantId}";
+"seasonalPlan.calendar.title" = "Calendar";
+"seasonalPlan.calendar.empty" = "No active plants yet.";
+"seasonalPlan.calendar.noSeasonalData" = "No seasonal data yet";
+"seasonalPlan.calendar.noWindowsConfigured" = "No windows configured";
+"seasonalPlan.calendar.sowIndoorsLabel" = "Sow indoors";
+"seasonalPlan.calendar.sowOutdoorsLabel" = "Sow outdoors";
+"seasonalPlan.calendar.transplantLabel" = "Transplant";
+"seasonalPlan.calendar.harvestLabel" = "Harvest";
+"seasonalPlan.calendar.monthRange" = "{start} – {end}";
+"seasonalPlan.calendar.singleMonth" = "{month}";
+"seasonalPlan.hemisphereUnknownTitle" = "We don't know your season yet";
+"seasonalPlan.hemisphereUnknownDescription" = "Calibrate this garden's location on the map to unlock sowing and harvest windows for its hemisphere.";
+"seasonalPlan.hemisphereUnknownLink" = "Open the map";
+"seasonalPlan.rotation.title" = "Rotation";
+"seasonalPlan.rotation.conflictsEmpty" = "No rotation conflicts right now.";
+"seasonalPlan.rotation.conflictBadge" = "Rest period";
+"seasonalPlan.rotation.conflictText" = "This bed grew {priorFamily} {elapsedDays} days ago; {family} recommends resting {restPeriodThresholdDays} days first.";
+"seasonalPlan.rotation.noPriorOccupant" = "No prior occupant is known for this {family} planting.";
+"seasonalPlan.rotation.differentFamily" = "The prior occupant was {priorFamily}, a different family from {family}.";
+"seasonalPlan.rotation.restDurationUnknown" = "The prior {priorFamily} occupant's departure date is unknown, so a {family} rest period cannot be checked.";
+"seasonalPlan.rotation.noRestPeriodConfigured" = "Grown here {elapsedDays} days after {priorFamily}; {family} has no configured rest period.";
+"seasonalPlan.rotation.restPeriodElapsed" = "Grown here {elapsedDays} days after {priorFamily}; {family}'s {restPeriodThresholdDays}-day rest period has already elapsed.";
+"seasonalPlan.rotation.showOthers" = "Show other beds";
+"seasonalPlan.rotation.hideOthers" = "Hide other beds";
+
+/* Context quality (P9D-UX-01): one row per GardenContextKind, reached from
+   garden settings. */
+"contextQuality.title" = "Context quality";
+"contextQuality.description" = "What this garden's growing environment is understood to be, and how each fact was recorded.";
+"contextQuality.openTitle" = "Context quality";
+"contextQuality.loading" = "Loading context facts…";
+"contextQuality.retry" = "Try again";
+"contextQuality.offline" = "Context quality needs a connection — it is confirmed by the server. Check your connection and try again.";
+"contextQuality.declare" = "Declare";
+"contextQuality.edit" = "Edit";
+"contextQuality.notDeclared" = "Not yet declared";
+"contextQuality.valueLabel" = "Value";
+"contextQuality.valueRequired" = "Enter a value.";
+"contextQuality.save" = "Save";
+"contextQuality.cancelEdit" = "Cancel";
+"contextQuality.recordedByDisplay" = "Declared by {profileId}";
+"contextQuality.reviewedByDisplay" = "Reviewed by {reviewedBy} on {reviewedOn}";
+"contextQuality.kind.sunExposure" = "Sun exposure";
+"contextQuality.kind.soilType" = "Soil type";
+"contextQuality.kind.drainage" = "Drainage";
+"contextQuality.kind.irrigationMethod" = "Irrigation method";
+"contextQuality.kind.growingContext" = "Growing context";
+"contextQuality.kind.microclimate" = "Microclimate";
+"contextQuality.source.userDeclared" = "Declared by a member";
+"contextQuality.source.horticulturallyReviewedDefault" = "Horticulturally reviewed default";
+"contextQuality.source.imported" = "Imported";
+"contextQuality.enum.sunExposure.fullSun" = "Full sun";
+"contextQuality.enum.sunExposure.partialSun" = "Partial sun";
+"contextQuality.enum.sunExposure.partialShade" = "Partial shade";
+"contextQuality.enum.sunExposure.fullShade" = "Full shade";
+"contextQuality.enum.drainage.wellDrained" = "Well drained";
+"contextQuality.enum.drainage.poorDrainage" = "Poor drainage";
+"contextQuality.enum.drainage.waterlogged" = "Waterlogged";
+"contextQuality.enum.irrigationMethod.manual" = "Manual";
+"contextQuality.enum.irrigationMethod.drip" = "Drip";
+"contextQuality.enum.irrigationMethod.sprinkler" = "Sprinkler";
+"contextQuality.enum.irrigationMethod.none" = "None";
+"contextQuality.enum.growingContext.openGround" = "Open ground";
+"contextQuality.enum.growingContext.container" = "Container";
+"contextQuality.enum.growingContext.greenhouse" = "Greenhouse";

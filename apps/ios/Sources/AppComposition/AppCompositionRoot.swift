@@ -49,6 +49,16 @@ public final class AppCompositionRoot {
     /// reason to construct a second one.
     let collaborationGateway: any CollaborationGateway
     private let recommendationGateway: any RecommendationGateway
+    // The Seasonal plan and Context quality surfaces (P9D-UX-01) — same
+    // scope as `recommendationGateway` immediately above: both are ONLINE,
+    // gateway-backed capabilities with no local read-model table (see each
+    // gateway's own doc comment). `let`, not `private let`: read by
+    // `AppCompositionRoot+SeasonalPlan.swift`'s factories, a same-type
+    // extension in another file, which `private` (a file scope, not a type
+    // scope) would exclude — the same reason `strings`/`gardenGateway`/
+    // `collaborationGateway` above already are `let`.
+    let seasonalPlanGateway: any SeasonalPlanGateway
+    let gardenContextGateway: any GardenContextGateway
     private let syncGateway: any SyncGateway
     private let mediaGateway: any MediaGateway
     private let clientInstallationStore: any ClientInstallationIdentityStore
@@ -191,6 +201,22 @@ public final class AppCompositionRoot {
         // The Today recommendation surface (P7-IOS-01) authenticates and
         // classifies traffic the same way every Phase 4+ gateway above does.
         self.recommendationGateway = URLSessionRecommendationGateway(
+            configuration: configuration,
+            session: session,
+            authTokenProvider: tokenProvider,
+            appCheckTokenProvider: appCheckTokenProvider,
+            log: log
+        )
+        // Same scope as every Phase 4/5 gateway above — P9D-UX-01's
+        // Seasonal plan and Context quality surfaces.
+        self.seasonalPlanGateway = URLSessionSeasonalPlanGateway(
+            configuration: configuration,
+            session: session,
+            authTokenProvider: tokenProvider,
+            appCheckTokenProvider: appCheckTokenProvider,
+            log: log
+        )
+        self.gardenContextGateway = URLSessionGardenContextGateway(
             configuration: configuration,
             session: session,
             authTokenProvider: tokenProvider,

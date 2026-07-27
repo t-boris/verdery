@@ -1,3 +1,5 @@
+import CoreDomain
+
 /// Requests to navigate from this garden's settings screen to its plant
 /// inventory, observation history, and manual tasks screens.
 ///
@@ -104,5 +106,29 @@ public struct GardenCollaboratorsRoute: Hashable, Sendable {
     public init(gardenId: String, isOwner: Bool) {
         self.gardenId = gardenId
         self.isOwner = isOwner
+    }
+}
+
+/// Requests to navigate from this garden's settings screen to its Context
+/// quality screen (P9D-UX-01) — the same `GardenCollaboratorsRoute`/
+/// `GardenPlanUploadRoute` pattern: the destination (`ContextQualityView`)
+/// lives in this same feature, but its view model needs a
+/// `CoreNetworking.GardenContextGateway` only the composition root can
+/// construct, so a route value, not a direct `NavigationLink` to the view,
+/// is what `GardenSettingsView` pushes.
+///
+/// `callerRole` travels with the route the same reason `isOwner` travels
+/// with `GardenCollaboratorsRoute` above — `GardenSettingsView` already
+/// knows it from the `Garden` it loaded — but carries the full `GardenRole`
+/// rather than a pre-collapsed `Bool`, because `ContextQualityViewModel
+/// .canEdit` needs the real owner-OR-editor check (matrix row B14), not
+/// merely an owner check.
+public struct GardenContextQualityRoute: Hashable, Sendable {
+    public let gardenId: String
+    public let callerRole: GardenRole
+
+    public init(gardenId: String, callerRole: GardenRole) {
+        self.gardenId = gardenId
+        self.callerRole = callerRole
     }
 }

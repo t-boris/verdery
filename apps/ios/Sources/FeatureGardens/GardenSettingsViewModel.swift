@@ -82,6 +82,11 @@ public final class GardenSettingsViewModel {
     public var openTasksTitle: String { strings(.gardensOpenTasks) }
     public var openSyncConflictsTitle: String { strings(.gardensOpenSyncConflicts) }
     public var openCollaboratorsTitle: String { strings(.collaborationTitle) }
+    /// The `navigationCard` title reaching `GardenContextQualityRoute`
+    /// (P9D-UX-01) — resolved from `GardenContextLocalizationKey`, the same
+    /// key set `ContextQualityViewModel` itself reads, so the card and the
+    /// screen it opens read identically.
+    public var openContextQualityTitle: String { strings(.contextQualityOpenTitle) }
     public var backToGardensTitle: String { strings(.collaborationRevokedAccessBackToGardens) }
     public var serviceHealthTitle: String { strings(.healthTitle) }
     public var manageTitle: String { strings(.gardensManageTitle) }

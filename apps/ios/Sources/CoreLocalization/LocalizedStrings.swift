@@ -55,6 +55,20 @@ public struct LocalizedStrings: Sendable {
         string(forKey: key.rawValue)
     }
 
+    /// The same resolution for the Seasonal plan screen's own key set
+    /// (P9D-UX-01). See ``SeasonalPlanLocalizationKey`` for why this is yet
+    /// another key set rather than more cases somewhere existing.
+    public func callAsFunction(_ key: SeasonalPlanLocalizationKey) -> String {
+        string(forKey: key.rawValue)
+    }
+
+    /// The same resolution for the Context quality screen's own key set
+    /// (P9D-UX-01). See ``GardenContextLocalizationKey`` for why this is yet
+    /// another key set rather than more cases somewhere existing.
+    public func callAsFunction(_ key: GardenContextLocalizationKey) -> String {
+        string(forKey: key.rawValue)
+    }
+
     /// Every key any of the application's key sets declares.
     ///
     /// Exposed so catalogue completeness stays one check over one list rather
@@ -65,6 +79,8 @@ public struct LocalizedStrings: Sendable {
         + ProfileLocalizationKey.allCases.map(\.rawValue)
         + TaskCollaborationLocalizationKey.allCases.map(\.rawValue)
         + CollaborationLocalizationKey.allCases.map(\.rawValue)
+        + SeasonalPlanLocalizationKey.allCases.map(\.rawValue)
+        + GardenContextLocalizationKey.allCases.map(\.rawValue)
 
     /// Resolves an arbitrary key, used for codes that originate in Core.
     ///
@@ -118,6 +134,20 @@ public struct LocalizedStrings: Sendable {
     /// invitation or ownership-transfer message, a share link embedded in
     /// invite/transfer share text).
     public func string(_ key: CollaborationLocalizationKey, parameters: [String: String]) -> String {
+        string(forKey: key.rawValue, parameters: parameters)
+    }
+
+    /// The same parameterized resolution for ``SeasonalPlanLocalizationKey``'s
+    /// own templated entries (a month range, a rotation-conflict sentence
+    /// naming family/priorFamily/elapsedDays/restPeriodThresholdDays, the raw
+    /// plant-id fallback).
+    public func string(_ key: SeasonalPlanLocalizationKey, parameters: [String: String]) -> String {
+        string(forKey: key.rawValue, parameters: parameters)
+    }
+
+    /// The same parameterized resolution for ``GardenContextLocalizationKey``'s
+    /// own templated entries (a recorded-by profile id, a reviewed-by/on pair).
+    public func string(_ key: GardenContextLocalizationKey, parameters: [String: String]) -> String {
         string(forKey: key.rawValue, parameters: parameters)
     }
 

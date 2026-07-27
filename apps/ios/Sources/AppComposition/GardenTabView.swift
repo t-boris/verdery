@@ -6,6 +6,7 @@ import FeatureObservations
 import FeaturePlants
 import FeatureHealth
 import FeatureRecommendations
+import FeatureSeasonalPlan
 import FeatureSyncConflicts
 import FeatureTasks
 import SwiftUI
@@ -68,6 +69,20 @@ struct GardenTabView: View {
                     TodayView(model: composition.makeTodayViewModel(gardenId: gardenId))
                         .navigationDestination(for: TodayTasksRoute.self) { _ in
                             TasksListView(model: composition.makeTasksListViewModel(gardenId: gardenId))
+                        }
+                        // Seasonal plan (P9D-UX-01): a card near the top of
+                        // Today's own list, pushed onto this same
+                        // `NavigationStack` — this package's own resolved
+                        // navigation placement decision, not a sixth tab.
+                        .navigationDestination(for: TodaySeasonalPlanRoute.self) { route in
+                            SeasonalPlanView(model: composition.makeSeasonalPlanViewModel(gardenId: route.gardenId))
+                        }
+                        // Seasonal plan's own hemisphere-unknown empty state
+                        // reaches the map/georeference calibration flow from
+                        // within this same stack — see
+                        // `SeasonalPlanCalibrationRoute`'s own doc comment.
+                        .navigationDestination(for: SeasonalPlanCalibrationRoute.self) { route in
+                            MapEditorView(model: composition.makeMapEditorViewModel(gardenId: route.gardenId))
                         }
                 }
             }
@@ -188,6 +203,11 @@ private struct GardenSettingsSheet: View {
             .navigationDestination(for: GardenCollaboratorsRoute.self) { route in
                 CollaboratorsView(
                     model: composition.makeCollaboratorsViewModel(gardenId: route.gardenId, isOwner: route.isOwner)
+                )
+            }
+            .navigationDestination(for: GardenContextQualityRoute.self) { route in
+                ContextQualityView(
+                    model: composition.makeContextQualityViewModel(gardenId: route.gardenId, callerRole: route.callerRole)
                 )
             }
             .navigationDestination(for: GardenPlanUploadRoute.self) { route in

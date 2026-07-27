@@ -679,3 +679,79 @@
 
 "collaboration.revokedAccess.message" = "У вас больше нет доступа к этому саду.";
 "collaboration.revokedAccess.backToGardens" = "Назад к садам";
+
+/* Сезонный план (P9D-UX-01): вкладки «Календарь» и «Севооборот», открываемые
+   карточкой на вкладке «Сегодня». */
+"seasonalPlan.title" = "Сезонный план";
+"seasonalPlan.description" = "Проверенные сроки посева, пересадки и сбора урожая для растений этого сада, а также статус севооборота по грядкам в разрезе ботанических семейств.";
+"seasonalPlan.todayCard.subtitle" = "Сроки посева и статус севооборота";
+"seasonalPlan.loading" = "Загружаем сезонный план…";
+"seasonalPlan.retry" = "Повторить";
+"seasonalPlan.offline" = "Для сезонного плана нужно подключение — данные подтверждаются сервером. Проверьте соединение и повторите попытку.";
+"seasonalPlan.stale" = "Не удалось обновить. Показан план, загруженный в {time} — он может быть устаревшим.";
+"seasonalPlan.plantFallback" = "Растение: {plantId}";
+"seasonalPlan.calendar.title" = "Календарь";
+"seasonalPlan.calendar.empty" = "Пока нет активных растений.";
+"seasonalPlan.calendar.noSeasonalData" = "Пока нет сезонных данных";
+"seasonalPlan.calendar.noWindowsConfigured" = "Сроки не настроены";
+"seasonalPlan.calendar.sowIndoorsLabel" = "Посев в помещении";
+"seasonalPlan.calendar.sowOutdoorsLabel" = "Посев в грунт";
+"seasonalPlan.calendar.transplantLabel" = "Пересадка";
+"seasonalPlan.calendar.harvestLabel" = "Сбор урожая";
+"seasonalPlan.calendar.monthRange" = "{start} – {end}";
+"seasonalPlan.calendar.singleMonth" = "{month}";
+"seasonalPlan.hemisphereUnknownTitle" = "Пока не знаем ваш сезон";
+"seasonalPlan.hemisphereUnknownDescription" = "Откалибруйте расположение этого сада на карте, чтобы открыть сроки посева и сбора урожая для его полушария.";
+"seasonalPlan.hemisphereUnknownLink" = "Открыть карту";
+"seasonalPlan.rotation.title" = "Севооборот";
+"seasonalPlan.rotation.conflictsEmpty" = "Сейчас нет конфликтов севооборота.";
+"seasonalPlan.rotation.conflictBadge" = "Период отдыха";
+"seasonalPlan.rotation.conflictText" = "На этой грядке {elapsedDays} дн. назад росло семейство {priorFamily}; для {family} рекомендуется период отдыха {restPeriodThresholdDays} дн.";
+"seasonalPlan.rotation.noPriorOccupant" = "Для этой посадки семейства {family} предыдущий обитатель грядки неизвестен.";
+"seasonalPlan.rotation.differentFamily" = "Предыдущим обитателем было семейство {priorFamily} — оно отличается от {family}.";
+"seasonalPlan.rotation.restDurationUnknown" = "Дата ухода предыдущего обитателя семейства {priorFamily} неизвестна, поэтому период отдыха для {family} проверить нельзя.";
+"seasonalPlan.rotation.noRestPeriodConfigured" = "Растёт здесь {elapsedDays} дн. после {priorFamily}; для {family} период отдыха не настроен.";
+"seasonalPlan.rotation.restPeriodElapsed" = "Растёт здесь {elapsedDays} дн. после {priorFamily}; {restPeriodThresholdDays}-дневный период отдыха для {family} уже прошёл.";
+"seasonalPlan.rotation.showOthers" = "Показать остальные грядки";
+"seasonalPlan.rotation.hideOthers" = "Скрыть остальные грядки";
+
+/* Качество данных об условиях (P9D-UX-01): по одной строке на каждый
+   GardenContextKind, открывается из настроек сада. */
+"contextQuality.title" = "Качество данных об условиях";
+"contextQuality.description" = "Что известно об условиях выращивания в этом саду и как был зафиксирован каждый факт.";
+"contextQuality.openTitle" = "Качество данных об условиях";
+"contextQuality.loading" = "Загружаем факты об условиях…";
+"contextQuality.retry" = "Повторить";
+"contextQuality.offline" = "Для раздела «Качество данных об условиях» нужно подключение — данные подтверждаются сервером. Проверьте соединение и повторите попытку.";
+"contextQuality.declare" = "Указать";
+"contextQuality.edit" = "Изменить";
+"contextQuality.notDeclared" = "Пока не указано";
+"contextQuality.valueLabel" = "Значение";
+"contextQuality.valueRequired" = "Введите значение.";
+"contextQuality.save" = "Сохранить";
+"contextQuality.cancelEdit" = "Отмена";
+"contextQuality.recordedByDisplay" = "Указано пользователем {profileId}";
+"contextQuality.reviewedByDisplay" = "Проверено: {reviewedBy}, {reviewedOn}";
+"contextQuality.kind.sunExposure" = "Освещённость";
+"contextQuality.kind.soilType" = "Тип почвы";
+"contextQuality.kind.drainage" = "Дренаж";
+"contextQuality.kind.irrigationMethod" = "Способ полива";
+"contextQuality.kind.growingContext" = "Условия выращивания";
+"contextQuality.kind.microclimate" = "Микроклимат";
+"contextQuality.source.userDeclared" = "Указано участником";
+"contextQuality.source.horticulturallyReviewedDefault" = "Проверенное агрономом значение по умолчанию";
+"contextQuality.source.imported" = "Импортировано";
+"contextQuality.enum.sunExposure.fullSun" = "Полное солнце";
+"contextQuality.enum.sunExposure.partialSun" = "Частичное солнце";
+"contextQuality.enum.sunExposure.partialShade" = "Полутень";
+"contextQuality.enum.sunExposure.fullShade" = "Полная тень";
+"contextQuality.enum.drainage.wellDrained" = "Хороший дренаж";
+"contextQuality.enum.drainage.poorDrainage" = "Плохой дренаж";
+"contextQuality.enum.drainage.waterlogged" = "Застой воды";
+"contextQuality.enum.irrigationMethod.manual" = "Ручной";
+"contextQuality.enum.irrigationMethod.drip" = "Капельный";
+"contextQuality.enum.irrigationMethod.sprinkler" = "Дождевание";
+"contextQuality.enum.irrigationMethod.none" = "Отсутствует";
+"contextQuality.enum.growingContext.openGround" = "Открытый грунт";
+"contextQuality.enum.growingContext.container" = "Контейнер";
+"contextQuality.enum.growingContext.greenhouse" = "Теплица";

@@ -64,6 +64,7 @@ public struct TodayView: View {
             ScrollView {
                 VStack(spacing: Metrics.space4) {
                     staleNotice
+                    seasonalPlanCard
                     EmptyStateView(
                         symbol: "checkmark.seal.fill",
                         title: model.title,
@@ -79,6 +80,7 @@ public struct TodayView: View {
             ScrollView {
                 LazyVStack(spacing: Metrics.space3) {
                     staleNotice
+                    seasonalPlanCard
                     ForEach(items) { item in
                         NavigationLink(value: TodayItemDetailRoute(itemId: item.id)) {
                             card(item)
@@ -111,6 +113,38 @@ public struct TodayView: View {
                 )
                 .accessibilityIdentifier("today.staleNotice")
         }
+    }
+
+    /// A prominent card near the top of Today's own list, pushing the
+    /// Seasonal plan screen onto Today's existing `NavigationStack` — this
+    /// package's own resolved navigation placement decision (tasks/todo.md,
+    /// "iOS navigation placement decision"): not a sixth tab, not a route
+    /// inside `GardenSettingsSheet`. Shown in every `.loaded` state
+    /// (including the empty one) — this is a standing entry point to a
+    /// planning surface, not conditioned on today's own candidate set.
+    private var seasonalPlanCard: some View {
+        NavigationLink(value: TodaySeasonalPlanRoute(gardenId: model.gardenId)) {
+            SurfaceCard {
+                HStack(spacing: Metrics.space3) {
+                    IconMedallion(symbol: "leaf.fill", label: model.seasonalPlanCardTitle, tone: .accent)
+                    VStack(alignment: .leading, spacing: Metrics.space1) {
+                        Text(model.seasonalPlanCardTitle)
+                            .font(Typography.body)
+                            .foregroundStyle(Palette.text)
+                        Text(model.seasonalPlanCardSubtitle)
+                            .font(Typography.detail)
+                            .foregroundStyle(Palette.textMuted)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(Typography.detail)
+                        .foregroundStyle(Palette.textMuted)
+                        .accessibilityHidden(true)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("today.seasonalPlanCard")
     }
 
     private func card(_ item: TodayItemPresentation) -> some View {

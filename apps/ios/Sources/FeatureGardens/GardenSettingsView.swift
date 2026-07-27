@@ -141,10 +141,24 @@ public struct GardenSettingsView: View {
     /// The destinations that are configuration rather than daily work.
     /// Collaborators is the one card every role sees — the member roster
     /// itself is not owner-only (`garden-capability-matrix.md`, row H2) —
-    /// while the other three stay visible regardless of role too, matching
+    /// while the other four stay visible regardless of role too, matching
     /// this section's existing posture of hiding nothing, only the
     /// owner-only mutating controls further down (`renameSection`,
     /// `manageSection`).
+    ///
+    /// Context quality (P9D-UX-01) joins this same section as a fifth card,
+    /// resolving a genuine ambiguity in how this package's own dispatch
+    /// worded the requirement ("a new section function... reached via a
+    /// `navigationCard`... the same way `GardenCollaboratorsRoute`/
+    /// `GardenPlanUploadRoute` already are"): both of those routes are
+    /// themselves already just `navigationCard` entries INSIDE this one
+    /// function, not separate top-level sections of their own — there is no
+    /// existing precedent for a section that holds exactly one card. Adding
+    /// a sixth-card-shaped standalone section here would invent a new
+    /// pattern this file does not otherwise have; a fifth card in the
+    /// existing, already-established "configuration destinations" list is
+    /// the more conservative reading, and literally what "the same way...
+    /// already are" describes.
     private func configurationSection(_ summary: GardenSettingsSummary) -> some View {
         VStack(alignment: .leading, spacing: Metrics.space2) {
             SectionEyebrow(symbol: "slider.horizontal.3", title: model.title)
@@ -154,6 +168,12 @@ public struct GardenSettingsView: View {
                 symbol: CollaborationSymbols.member,
                 title: model.openCollaboratorsTitle,
                 identifier: "gardens.settings.openCollaborators"
+            )
+            navigationCard(
+                value: GardenContextQualityRoute(gardenId: model.gardenId, callerRole: summary.callerRole),
+                symbol: "sun.max",
+                title: model.openContextQualityTitle,
+                identifier: "gardens.settings.openContextQuality"
             )
             navigationCard(
                 value: GardenPlanUploadRoute(gardenId: model.gardenId),

@@ -92,6 +92,17 @@ public final class TodayViewModel {
         self.strings = strings
     }
 
+    /// The Seasonal plan card's title/subtitle (P9D-UX-01) — resolved from
+    /// `SeasonalPlanLocalizationKey`, not this feature's own key set: the
+    /// same catalogue Seasonal plan's own screen reads, so the card and the
+    /// screen it opens read identically. `TodayViewModel` may depend on
+    /// `CoreLocalization` freely (it is a Core target); what it may NOT do
+    /// is import `FeatureSeasonalPlan` itself, which is why the destination
+    /// is a marker route (`TodaySeasonalPlanRoute`), not a direct view
+    /// reference.
+    public var seasonalPlanCardTitle: String { strings(.seasonalPlanTitle) }
+    public var seasonalPlanCardSubtitle: String { strings(.seasonalPlanTodayCardSubtitle) }
+
     public var title: String { strings(.todayTitle) }
     public var loadingMessage: String { strings(.todayLoading) }
     public var retryTitle: String { strings(.todayRetry) }

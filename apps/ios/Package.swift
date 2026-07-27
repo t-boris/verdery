@@ -16,9 +16,8 @@ import PackageDescription
 // already defined here — this file remains the source of truth for every
 // module boundary.
 //
-// Source: architecture/README.md, section "5. Repository Shape";
-// architecture/ios-application-design.md, sections "4. Application Structure"
-// and "21. Dependency Rules".
+// Source: architecture/README.md, section "5. Repository Shape"; architecture/
+// ios-application-design.md, sections "4. Application Structure" and "21. Dependency Rules".
 let package = Package(
     name: "Verdery",
     // English is the development language; every other catalogue is a
@@ -48,6 +47,7 @@ let package = Package(
         .library(name: "FeatureObservations", targets: ["FeatureObservations"]),
         .library(name: "FeatureTasks", targets: ["FeatureTasks"]),
         .library(name: "FeatureRecommendations", targets: ["FeatureRecommendations"]),
+        .library(name: "FeatureSeasonalPlan", targets: ["FeatureSeasonalPlan"]),
         .library(name: "FeatureSyncConflicts", targets: ["FeatureSyncConflicts"]),
         .library(name: "AppComposition", targets: ["AppComposition"]),
     ],
@@ -104,9 +104,8 @@ let package = Package(
         // (both declared in CoreDomain) so CoreNetworking depends on those
         // protocols, never on this target or on an SDK directly.
         //
-        // Source: architecture/ios-application-design.md, section "21.
-        // Dependency Rules" ("Firebase ... types remain inside adapters or
-        // feature infrastructure").
+        // Source: architecture/ios-application-design.md, section "21. Dependency Rules" ("Firebase
+        // ... types remain inside adapters or feature infrastructure").
         .target(
             name: "CoreAuthentication",
             dependencies: [
@@ -128,9 +127,8 @@ let package = Package(
         // design.md, section "21. Dependency Rules" ("GRDB ... types remain
         // inside adapters or feature infrastructure").
         //
-        // Source: architecture/ios-application-design.md, sections "4. Application
-        // Structure" and "7. Local Persistence"; architecture/offline-synchronization.md,
-        // section "5. Local Tables"; implementation-plan.md work package P5-IOS-01.
+        // Source: architecture/ios-application-design.md, sections "4. Application Structure" and
+        // "7. Local Persistence"; offline-synchronization.md, section "5. Local Tables"; P5-IOS-01.
         .target(
             name: "CorePersistence",
             dependencies: [
@@ -149,27 +147,22 @@ let package = Package(
         // this is that work package, so `RemoteSyncEngine` can call
         // `CoreNetworking.SyncGateway` directly.
         //
-        // Source: architecture/ios-application-design.md, section "8. Synchronization
-        // Integration"; architecture/offline-synchronization.md;
-        // implementation-plan.md work packages P5-IOS-01, P5-IOS-03.
+        // Source: architecture/ios-application-design.md, section "8. Synchronization Integration";
+        // architecture/offline-synchronization.md; implementation-plan.md P5-IOS-01, P5-IOS-03.
         .target(
             name: "CoreSynchronization",
             dependencies: ["CoreDomain", "CorePersistence", "CoreNetworking"]
         ),
 
-        // Background-capable media registration/upload/verify coordination
-        // (P6-IOS-01): local file durability before any network call, the
-        // resumable-upload wire protocol over a real background
-        // `URLSession`, progress/pause/retry/recovery, and completion
-        // polling. Depends on `CoreSynchronization` — a Core-on-Core
-        // dependency with real precedent — to reuse, rather than re-derive,
-        // the "which failures retry automatically" policy that
-        // architecture/offline-synchronization.md, section "18. Media
-        // Coordination" says media transfer shares with sync.
+        // Background-capable media registration/upload/verify coordination (P6-IOS-01): local
+        // file durability before any network call, the resumable-upload wire protocol over a real
+        // background `URLSession`, progress/pause/retry/recovery, and completion polling. Depends
+        // on `CoreSynchronization` — a Core-on-Core dependency with real precedent — to reuse,
+        // rather than re-derive, the "which failures retry automatically" policy that
+        // offline-synchronization.md, section "18. Media Coordination" shares with sync.
         //
-        // Source: architecture/ios-application-design.md, sections "4. Application
-        // Structure", "13. Media Transfer"; architecture/media-storage-and-processing.md;
-        // implementation-plan.md work package P6-IOS-01.
+        // Source: architecture/ios-application-design.md, sections "4. Application Structure",
+        // "13. Media Transfer"; architecture/media-storage-and-processing.md; P6-IOS-01.
         .target(
             name: "CoreMediaTransfer",
             dependencies: [
@@ -233,17 +226,15 @@ let package = Package(
             ]
         ),
 
-        // The map editor: SwiftUI Canvas rendering, selection, gestures,
-        // commands, properties, measurement overlays, and an optional MapKit
-        // backdrop.
+        // The map editor: SwiftUI Canvas rendering, selection, gestures, commands, properties,
+        // measurement overlays, and an optional MapKit backdrop.
         //
-        // Gained a GRDB dependency in P5-IOS-02 (Stage 4b): `LocalMapStore`
-        // durably persists the local `garden_object` read model an offline
-        // command's optimistic projection commits against, the same way
-        // `FeatureGardens`'s `GRDBGardenStore` already does for `garden` —
-        // see that target's own comment just above for why `CorePersistence`
-        // centralizes the database's lifecycle/schema while the feature owns
-        // its own read-model repository directly against GRDB.
+        // Gained a GRDB dependency in P5-IOS-02 (Stage 4b): `LocalMapStore` durably persists the
+        // local `garden_object` read model an offline command's optimistic projection commits
+        // against, the same way `FeatureGardens`'s `GRDBGardenStore` already does for `garden` —
+        // see that target's own comment above for why `CorePersistence` centralizes the
+        // database's lifecycle/schema while the feature owns its own read-model repository
+        // directly against GRDB.
         //
         // Source: implementation-plan.md work packages P3-IOS-01, P3-IOS-02, P5-IOS-02.
         .target(
@@ -262,17 +253,14 @@ let package = Package(
             ]
         ),
 
-        // Plant inventory, observations/history, and manual tasks (Phase 4).
-        // `FeaturePlants` gained a GRDB dependency in P5-IOS-02
-        // (Stage 4c): `LocalPlantStore` durably persists the local `plant`
-        // read model an offline command's optimistic projection commits
-        // against, the same way `FeatureMap`'s `GRDBMapStore` already does
-        // for `garden_object` (Stage 4b) — see that target's own comment
-        // above for why `CorePersistence` centralizes the database's
-        // lifecycle/schema while the feature owns its own read-model
-        // repository directly against GRDB. `PlantDetailViewModel`'s reads
-        // stay always-fresh-from-server for the same reason as before; only
-        // the five offline-capable commands route through this new table.
+        // Plant inventory, observations/history, and manual tasks (Phase 4). `FeaturePlants`
+        // gained a GRDB dependency in P5-IOS-02 (Stage 4c): `LocalPlantStore` durably persists
+        // the local `plant` read model an offline command's optimistic projection commits
+        // against, the same way `FeatureMap`'s `GRDBMapStore` already does for `garden_object`
+        // (Stage 4b) — see that target's own comment above for why `CorePersistence` centralizes
+        // the database's lifecycle/schema while the feature owns its own read-model repository
+        // directly against GRDB. Reads stay always-fresh-from-server; only the five
+        // offline-capable commands route through this table.
         //
         // Source: implementation-plan.md work packages P4-IOS-01, P5-IOS-02.
         .target(
@@ -374,6 +362,13 @@ let package = Package(
             dependencies: ["CoreDomain", "CoreNetworking", "CoreLocalization", "CoreDesignSystem"]
         ),
 
+        // The Seasonal plan screen (P9D-UX-01), reached from a Today card, not a sixth tab —
+        // shaped like `FeatureHealth`, distinct from `FeatureRecommendations`.
+        .target(
+            name: "FeatureSeasonalPlan",
+            dependencies: ["CoreDomain", "CoreNetworking", "CoreLocalization", "CoreDesignSystem"]
+        ),
+
         // Durable-conflict list and compare/resolve screen (P5-CONFLICT-01).
         // No GRDB dependency of its own — unlike `FeatureGardens`/`FeatureMap`/
         // `FeaturePlants`/`FeatureObservations`/`FeatureTasks`, this feature
@@ -432,6 +427,7 @@ let package = Package(
                 "FeatureObservations",
                 "FeatureTasks",
                 "FeatureRecommendations",
+                "FeatureSeasonalPlan",
                 "FeatureSyncConflicts",
                 .product(name: "FirebaseCore", package: "firebase-ios-sdk"),
             ]
@@ -580,6 +576,10 @@ let package = Package(
         .testTarget(
             name: "FeatureRecommendationsTests",
             dependencies: ["FeatureRecommendations"]
+        ),
+        .testTarget(
+            name: "FeatureSeasonalPlanTests",
+            dependencies: ["FeatureSeasonalPlan"]
         ),
         .testTarget(
             name: "FeatureSyncConflictsTests",
