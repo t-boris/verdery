@@ -44,7 +44,14 @@ export interface GardenMapDocumentResource {
   readonly validationSummary: readonly ValidationIssueResource[];
 }
 
-function toGeoreferenceResource(georeference: Georeference): GeoreferenceResource {
+/**
+ * Exported (P9C-EXPORT-01) so the client-export manifest's own garden-model
+ * builder can reuse this exact mapping for its own `georeference` field —
+ * never a second copy of the same five-field projection. See
+ * `exports/application/get-client-export-manifest.ts`'s own header for why
+ * it shares this mechanism rather than re-deriving it.
+ */
+export function toGeoreferenceResource(georeference: Georeference): GeoreferenceResource {
   return {
     localAnchor: georeference.localAnchor,
     geographicAnchor: georeference.geographicAnchor,

@@ -931,6 +931,20 @@ pipeline is implemented and tested end to end (see `data-export-and-deletion.md`
   P6-RET-01 delete-only role already bound there); written and reviewed, NOT executed — the
   standing infra boundary.
 
+**Client export handoff-window residual (P9C-EXPORT-01 scope boundary).** The client-entitled
+export manifest (`GetClientExportManifest`, `data-export-and-deletion.md` section 4.1) is
+implemented and tested end to end; one gap named by the architecture was found genuine, not
+invented around:
+
+- **No configured "handoff window."** Section 18 step 3 promises portal/media access survives "the
+  configured handoff window" after an engagement ends. No such window is configured anywhere in
+  this codebase: `GetClientMediaAccess` requires the entitling engagement to be `active`, full stop,
+  so an ended engagement's media becomes unavailable the INSTANT it ends, not after a grace period.
+  The manifest's own `media` list is made to behave consistently with that live route rather than
+  inventing a different rule for the export copy. Flips when a product decision names an actual
+  duration and a mechanism (most likely a scheduled state transition or a grace-period check
+  alongside `GetClientMediaAccess`'s own `engagementState !== 'active'` gate) is built for it.
+
 **Deletion residuals (P8-DELETE-01 scope boundaries).** Garden and account deletion — recent-auth
 gates, the 30-day recovery window and its restore, ownership resolution, the revocation cascade,
 the checkpointed purge, media byte deletion through the P6 workflow, the Firebase identity

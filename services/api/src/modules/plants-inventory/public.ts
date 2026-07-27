@@ -68,6 +68,11 @@ export type {
 } from './application/plants-inventory-unit-of-work.js';
 export { PlantErrorCode } from './application/plant-errors.js';
 export type { PlantResource } from './application/plant-view.js';
+// `toPlantResource` itself (not only its type) is exported for P9C-EXPORT-01:
+// the client-export manifest reuses this exact mapping for its own "accepted
+// garden model" section rather than a second copy — see that command's own
+// header.
+export { toPlantResource } from './application/plant-view.js';
 export type { PlantPhotoResource } from './application/plant-photo-view.js';
 export type { TaxonomyReferenceResource } from './application/taxonomy-reference-view.js';
 export type { PhotoIdentificationSuggestion } from './application/identify-plant-from-photo.js';

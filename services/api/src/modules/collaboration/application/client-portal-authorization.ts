@@ -83,4 +83,58 @@ export class ClientPortalAuthorization {
 
     return engagement;
   }
+
+  /**
+   * The export/handoff variant (P9C-EXPORT-01): admits an ENDED engagement
+   * in addition to an ACTIVE one — everything else is IDENTICAL to
+   * `requireActiveGardenAccess` (the same grant check, the same concealed
+   * `clientGardenNotFoundError()` for every failure mode, never a
+   * distinguishable answer).
+   *
+   * WHY `ended` IS ADMITTED. Section 18's engagement-end sequence requires
+   * step 2, "Produces or offers the entitled export/handoff package," to
+   * remain possible AFTER step 1, "Stops new client publication and access,"
+   * has already taken effect — `EndClientEngagement` (P9B-API-01) transitions
+   * `client_engagement.state` to `ended` as its ONLY effect (confirmed by
+   * reading that command), so admitting `ended` here is exactly what makes
+   * the handoff package reachable at all once an engagement is over. Nothing
+   * about the caller's own `client_access_grant` changes for this method:
+   * `EndClientEngagement` never touches `client_access_grant` either (this
+   * file's own header, "WHY BOTH CHECKS, NOT JUST THE GRANT"), so the grant
+   * must still be genuinely `active` — this method relaxes the ENGAGEMENT
+   * check only, never the grant check.
+   *
+   * WHY `revoked` IS NOT ADMITTED. Section 8's diagram reaches `revoked` from
+   * an adversarial or mistaken cancellation (fraud, wrong client, wrong
+   * garden), never from a completed engagement — the blanket rule "an ended
+   * OR revoked engagement cannot authorize new portal or media access"
+   * (section 8) still governs a revoked one; section 18's handoff promise is
+   * for a natural end, not a revocation. A garden owner who revokes an
+   * engagement by mistake can create a NEW one and issue a fresh invitation;
+   * nothing in the architecture asks a revoked relationship to keep handing
+   * out data afterward.
+   *
+   * Source: architecture/collaboration-and-client-sharing.md, sections
+   * "8. Client Engagement", "18. Data Stewardship, Export, and Engagement
+   * End"; implementation-plan.md work package P9C-EXPORT-01.
+   */
+  async requireExportableGardenAccess(
+    clientProfileId: Uuid,
+    clientGardenId: Uuid,
+  ): Promise<ClientEngagementDetail> {
+    const grant = await this.grants.findActiveForProfileAndEngagement(
+      clientProfileId,
+      clientGardenId,
+    );
+    if (grant === null) {
+      throw clientGardenNotFoundError();
+    }
+
+    const engagement = await this.engagements.findById(clientGardenId);
+    if (engagement === null || (engagement.state !== 'active' && engagement.state !== 'ended')) {
+      throw clientGardenNotFoundError();
+    }
+
+    return engagement;
+  }
 }

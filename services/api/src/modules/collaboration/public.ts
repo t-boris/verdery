@@ -218,6 +218,12 @@ export type { PublicationRoutesDependencies } from './transport/publication-rout
 export { ClientPortalAuthorization } from './application/client-portal-authorization.js';
 export type { ClientPublicationReadRepository } from './application/client-publication-read-repository.js';
 export { KyselyClientPublicationReadRepository } from './persistence/kysely-client-publication-read-repository.js';
+// `toClientPublicationSummaryResource` itself (not only the classes that use
+// it) is exported for P9C-EXPORT-01: the client-export manifest reuses this
+// exact shaping — the same restricted, client-safe projection
+// `listClientPublications` already returns — for its own `publications`
+// field, rather than a second copy of the same field-by-field omission list.
+export { toClientPublicationSummaryResource } from './application/client-portal-view.js';
 export { ListClientGardens } from './application/list-client-gardens.js';
 export { GetClientGardenOverview } from './application/get-client-garden-overview.js';
 export { ListClientPublications } from './application/list-client-publications.js';

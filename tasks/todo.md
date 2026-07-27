@@ -6296,8 +6296,18 @@ verdery_application` (proven behaviorally under `SET ROLE`, not just read from g
       (published then withdrawn — proves withdrawal itself is what revokes access, not merely
       never having published), cross-client, ended/revoked engagement, no entitlement at all,
       pending grant. Combined with PUBLISH-01: 255 files / 2003 tests, all green.
-- [ ] P9C-EXPORT-01 — default residential stewardship: accepted garden model and published
+- [x] P9C-EXPORT-01 — default residential stewardship: accepted garden model and published
       deliverables are client-exportable; provider-internal operations excluded.
+      `GET /client/gardens/{clientGardenId}/exports` — synchronous, unlike the operational
+      request/poll/download pipeline, since a client export is categorically bounded (current
+      state, a handful of publications, media as signed URLs). Reuses `GetClientMediaAccess`
+      for entitlement, never re-derives it. Withdrawn/unpublished/soft-deleted/other-engagement
+      content proven genuinely absent from the wire response, not merely undocumented. A real
+      gap flagged, not invented: no "handoff window" duration is configured anywhere, so an
+      ended engagement's media disappears immediately once `GetClientMediaAccess`'s own strict
+      `active`-engagement check runs — documented in `data-export-and-deletion.md` and
+      `deferred-capabilities.md`. `app.ts` split into `application-dependencies.ts` to stay
+      under the line limit. 264 files / 2091 tests, all green.
 - [ ] P9C-OBS-01 — privacy-safe audit/metrics for invitation, publication latency, withdrawal,
       revocation, portal access, authorization denial.
 

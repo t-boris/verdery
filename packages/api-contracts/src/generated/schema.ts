@@ -3803,6 +3803,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/client/gardens/{clientGardenId}/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clientGardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get the client-entitled export/handoff manifest for a garden
+         * @description The default residential stewardship policy's export/handoff package
+         *     (architecture/collaboration-and-client-sharing.md section 18): the
+         *     accepted garden model (current map objects and plants — never
+         *     operational history, drafts, or provider-internal notes) plus every
+         *     CURRENTLY published deliverable this engagement has, plus every
+         *     media item this client is genuinely entitled to.
+         *
+         *     Synchronous, unlike the operational `Exports` tag's request/poll/
+         *     download shape: a client export is categorically bounded (current
+         *     state, not history; a handful of published summaries; media served
+         *     as signed URLs, never a ZIP), so no durable job or worker round trip
+         *     is needed. Every media item is re-verified through the identical
+         *     entitlement check `getClientMediaAccess` enforces, one at a time,
+         *     before it is included — an item this caller is not entitled to is
+         *     silently absent from `media`, never a distinguishable error.
+         *
+         *     AUTHORIZATION admits an engagement that is `active` OR `ended` (never
+         *     `draft` or `revoked`) — the one deliberate widening beyond every
+         *     other `ClientPortal` read, so that ending an engagement does not
+         *     itself delete the client's ability to obtain their handoff package
+         *     (section 18, step 2). The caller's own `client_access_grant` must
+         *     still be genuinely active. A withdrawn publication never appears —
+         *     "published deliverables" means currently published, matching every
+         *     other `ClientPortal` read exactly, so this route cannot become a
+         *     side channel around withdrawal.
+         *
+         *     Source: implementation-plan.md work package P9C-EXPORT-01;
+         *     architecture/collaboration-and-client-sharing.md, section
+         *     "18. Data Stewardship, Export, and Engagement End";
+         *     architecture/data-export-and-deletion.md.
+         */
+        get: operations["getClientExportManifest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4479,6 +4530,41 @@ export interface components {
         ClientTimelineResult: {
             /** @description Oldest first — a factual narrative read from the beginning, not a publisher's own newest-first update log. */
             items: components["schemas"]["ClientTimelineEntry"][];
+        };
+        /**
+         * @description The accepted garden model (section 18): current map objects and
+         *     plants, exactly as the operational map/plant reads already expose
+         *     them. Never operational history, drafts, capture proposals, or
+         *     provider-internal notes.
+         */
+        ClientExportGardenModel: {
+            id: components["schemas"]["Uuid"];
+            name: string;
+            lifecycleState: components["schemas"]["GardenLifecycleState"];
+            revision: components["schemas"]["Revision"];
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+            coordinateSpaceId: components["schemas"]["Uuid"];
+            georeference?: components["schemas"]["Georeference"];
+            /** @description Every currently active (non-deleted) map object — the accepted CURRENT state, never soft-deleted history. */
+            mapObjects: components["schemas"]["GardenObject"][];
+            plants: components["schemas"]["Plant"][];
+        };
+        /** @description One media item this client is genuinely entitled to, re-verified through the identical check `getClientMediaAccess` enforces. */
+        ClientExportMediaEntry: {
+            /** @description The exact id `getClientMediaAccess`'s own `{mediaId}` path parameter expects. */
+            mediaId: components["schemas"]["Uuid"];
+            access: components["schemas"]["MediaAccess"];
+        };
+        ClientExportManifest: {
+            clientGardenId: components["schemas"]["Uuid"];
+            /** @description When this manifest was read — a fresh read boundary, not a stored package's creation time. */
+            generatedAt: components["schemas"]["Timestamp"];
+            gardenModel: components["schemas"]["ClientExportGardenModel"];
+            /** @description Every CURRENTLY published (never withdrawn) update, identical to `listClientPublications`. */
+            publications: components["schemas"]["ClientPublicationSummary"][];
+            /** @description Only media this client is currently entitled to. An item referenced by `publications` but absent here failed the same entitlement check `getClientMediaAccess` would apply — never a distinguishable error. */
+            media: components["schemas"]["ClientExportMediaEntry"][];
         };
         SessionLoginRequest: {
             /** @description Freshly obtained Firebase ID token, verified server-side before any cookie is issued. */
@@ -11089,6 +11175,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MediaAccess"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getClientExportManifest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clientGardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The garden's current export/handoff manifest. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientExportManifest"];
                 };
             };
             401: components["responses"]["Unauthorized"];

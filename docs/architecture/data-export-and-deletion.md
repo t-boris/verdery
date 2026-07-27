@@ -42,6 +42,63 @@ PDF reports and GeoPackage are future optional formats. Shapefile is not a basel
 - The default residential-service policy includes the accepted garden model, client publications, published completed-work snapshots derived from work logs, and entitled published media; it does not expose raw internal work logs.
 - Service organizations retain their internal operational records unless garden/account deletion or another policy applies.
 
+### 4.1 Implemented client engagement export profile (P9C-EXPORT-01)
+
+`GET /client/gardens/{clientGardenId}/exports` (`openapi.yaml`, tag `ClientPortal`, operation
+`getClientExportManifest`) is the client-scoped equivalent of the account/garden export above,
+built as a genuine extension of the `exports` module (`GetClientExportManifest`) rather than a
+second export system. It is **synchronous** — one manifest, no request/poll/download job — because
+a client export is categorically bounded: the CURRENT accepted garden model (no history), a
+handful of currently published summaries, and media served as short-lived signed URLs, the same
+one-item-at-a-time mechanism `getClientMediaAccess` already uses. What P8-EXPORT-01's discipline it
+reuses is the manifest itself: it discloses exactly what is included, and anything that fails
+entitlement is silently absent, never a distinguishable error — not the ZIP/staging/Cloud-Tasks
+machinery, which nothing here produces enough bytes to need.
+
+**Authorization** goes through `ClientPortalAuthorization`, extended with one new method,
+`requireExportableGardenAccess`, rather than a second authorization class. It admits an engagement
+that is `active` OR `ended` — the one deliberate widening beyond every other client-portal read, so
+that ending an engagement does not itself delete the client's own ability to obtain the handoff
+package section 18 promises. `revoked` and `draft` are refused exactly like every other
+`ClientPortal` route: section 8's blanket "an ended or revoked engagement cannot authorize new
+portal or media access" still governs a revocation, which section 18's handoff promise was never
+meant to override.
+
+**The manifest** has three parts:
+
+- `gardenModel` — the accepted garden model: current map objects (`lifecycle_state = 'active'`,
+  excluding soft-deleted history) and current plants, read through the SAME repositories and view
+  functions (`toGardenObjectResource`/`toPlantResource`/`toGeoreferenceResource`) the operational
+  `getGardenMap`/`searchPlants` reads already use — never a second copy of that mapping logic.
+  Garden memberships and calibrations are deliberately excluded: neither is "the accepted garden
+  model," and calibrations are capture-processing diagnostics.
+- `publications` — every CURRENTLY published (never withdrawn) update, via
+  `ClientPublicationReadRepository.listVisibleForEngagement` plus `toClientPublicationSummaryResource`,
+  the exact query and shaping `listClientPublications` already uses. **Decided:** "published
+  deliverables" means currently published, not ever published — an export that included withdrawn
+  content anyway would be a side channel around the client's own portal.
+- `media` — every media item this client is genuinely entitled to, re-verified ONE AT A TIME
+  through the SAME `GetClientMediaAccess` command the live media-access route calls (never a
+  re-derived entitlement rule). An item that fails entitlement is silently absent, proven the same
+  way the media-access denial matrix proves it.
+
+**The genuine gap, flagged rather than invented around:** section 18 step 3 promises portal/media
+access survives "the configured handoff window" after an engagement ends. No such window is
+configured anywhere in this codebase yet — `GetClientMediaAccess` requires the entitling engagement
+to be `active`, full stop, so an ended engagement's media becomes unavailable the INSTANT it ends,
+not after a grace period. This command does not invent a number to close that gap; it makes the
+export's own `media` list behave consistently with the live media-access route (both go empty at
+the same instant, for the same reason) and records the gap here.
+
+**Deletion consistency.** `client_engagement.garden_id` deliberately carries no foreign key (see
+section 13.1's purge-survivor table and the P9B-DATA-01 migration's own note), so the engagement
+record survives a garden purge for audit/dispute/legal retention — but that preservation is for the
+PROVIDER, not for continued client service. Once the underlying garden row is gone, or the garden
+has reached `purging` (the same point past which the operational `exportGarden` capability is
+refused, for the identical "a request accepted now would point at a row the purge is about to
+delete" reason), the manifest command refuses the same concealed way an unknown `clientGardenId`
+does. `deletionRequested` stays exportable, mirroring the operational export's own posture exactly.
+
 ## 5. Export Request
 
 An export request records:

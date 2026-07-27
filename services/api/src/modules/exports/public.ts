@@ -53,3 +53,17 @@ export type { ExportRoutesDependencies } from './transport/export-routes.js';
 export { registerExportRoutes } from './transport/export-routes.js';
 export type { ExportInternalRoutesDependencies } from './transport/export-internal-routes.js';
 export { registerExportInternalRoutes } from './transport/export-internal-routes.js';
+
+// Client-entitled export/handoff manifest (P9C-EXPORT-01, tag ClientPortal) —
+// the client-scoped equivalent of the surface above, reusing its discipline
+// (a manifest discloses what is included; entitlement is re-verified, never
+// assumed) without reusing its asynchronous job machinery — see
+// `GetClientExportManifest`'s own header for why.
+export type {
+  ClientExportGardenModelResource,
+  ClientExportManifestResource,
+  ClientExportMediaEntryResource,
+} from './application/client-export-view.js';
+export { GetClientExportManifest } from './application/get-client-export-manifest.js';
+export type { ClientExportRoutesDependencies } from './transport/client-export-routes.js';
+export { registerClientExportRoutes } from './transport/client-export-routes.js';

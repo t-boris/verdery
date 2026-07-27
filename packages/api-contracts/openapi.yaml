@@ -143,14 +143,20 @@ tags:
       "Client cannot enumerate operational records or other engagements."
 
       Read-only in this initial release (section 14: "deliberately
-      read-only in the initial release") — client-entitled export
-      (`GET /client/gardens/{clientGardenId}/exports`) is a SEPARATE work
-      package, P9C-EXPORT-01, and is not part of this tag yet.
+      read-only in the initial release"). `getClientExportManifest`
+      (P9C-EXPORT-01) is the one exception to "publication-only": it also
+      discloses the accepted garden model (current map objects and plants),
+      because section 18 makes that, alongside published deliverables,
+      client-exportable by the default residential stewardship policy. It is
+      still a plain synchronous read — no request/poll/download job, unlike
+      the operational `Exports` tag — because a client export never carries
+      operational history or unentitled media, only the same bounded content
+      every other operation under this tag already reads.
 
-      Source: implementation-plan.md work package P9C-API-01;
+      Source: implementation-plan.md work packages P9C-API-01, P9C-EXPORT-01;
       architecture/collaboration-and-client-sharing.md, sections
       "2. Core Boundary", "12. Garden Timeline and Time Machine",
-      "13. API Surfaces".
+      "13. API Surfaces", "18. Data Stewardship, Export, and Engagement End".
 
 paths:
   /health/live:
@@ -5866,6 +5872,61 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /client/gardens/{clientGardenId}/exports:
+    parameters:
+      - name: clientGardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    get:
+      operationId: getClientExportManifest
+      tags: [ClientPortal]
+      summary: Get the client-entitled export/handoff manifest for a garden
+      description: |
+        The default residential stewardship policy's export/handoff package
+        (architecture/collaboration-and-client-sharing.md section 18): the
+        accepted garden model (current map objects and plants — never
+        operational history, drafts, or provider-internal notes) plus every
+        CURRENTLY published deliverable this engagement has, plus every
+        media item this client is genuinely entitled to.
+
+        Synchronous, unlike the operational `Exports` tag's request/poll/
+        download shape: a client export is categorically bounded (current
+        state, not history; a handful of published summaries; media served
+        as signed URLs, never a ZIP), so no durable job or worker round trip
+        is needed. Every media item is re-verified through the identical
+        entitlement check `getClientMediaAccess` enforces, one at a time,
+        before it is included — an item this caller is not entitled to is
+        silently absent from `media`, never a distinguishable error.
+
+        AUTHORIZATION admits an engagement that is `active` OR `ended` (never
+        `draft` or `revoked`) — the one deliberate widening beyond every
+        other `ClientPortal` read, so that ending an engagement does not
+        itself delete the client's ability to obtain their handoff package
+        (section 18, step 2). The caller's own `client_access_grant` must
+        still be genuinely active. A withdrawn publication never appears —
+        "published deliverables" means currently published, matching every
+        other `ClientPortal` read exactly, so this route cannot become a
+        side channel around withdrawal.
+
+        Source: implementation-plan.md work package P9C-EXPORT-01;
+        architecture/collaboration-and-client-sharing.md, section
+        "18. Data Stewardship, Export, and Engagement End";
+        architecture/data-export-and-deletion.md.
+      responses:
+        '200':
+          description: The garden's current export/handoff manifest.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientExportManifest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
 components:
   securitySchemes:
     firebaseIdToken:
@@ -7316,6 +7377,102 @@ components:
           items:
             $ref: '#/components/schemas/ClientTimelineEntry'
           description: Oldest first — a factual narrative read from the beginning, not a publisher's own newest-first update log.
+
+    # --- Client export/handoff manifest (P9C-EXPORT-01, tag ClientPortal) ---
+    #
+    # `gardenModel.mapObjects`/`gardenModel.plants` reuse `GardenObject`/`Plant`
+    # UNCHANGED — the identical shapes `getGardenMap`/`searchPlants` already
+    # return operationally — rather than a second, parallel export-specific
+    # shape for the same current-state facts. `georeference` reuses
+    # `Georeference` the same way `GardenMapDocument.georeference` does.
+    # Deliberately absent from `gardenModel`: garden memberships (operational
+    # collaborator identities, not the "garden model" section 18 names) and
+    # calibrations (capture-processing diagnostics, explicitly excluded by
+    # section 18).
+
+    ClientExportGardenModel:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          name,
+          lifecycleState,
+          revision,
+          createdAt,
+          updatedAt,
+          coordinateSpaceId,
+          mapObjects,
+          plants,
+        ]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+        lifecycleState:
+          $ref: '#/components/schemas/GardenLifecycleState'
+        revision:
+          $ref: '#/components/schemas/Revision'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        coordinateSpaceId:
+          $ref: '#/components/schemas/Uuid'
+        georeference:
+          $ref: '#/components/schemas/Georeference'
+        mapObjects:
+          type: array
+          items:
+            $ref: '#/components/schemas/GardenObject'
+          description: Every currently active (non-deleted) map object — the accepted CURRENT state, never soft-deleted history.
+        plants:
+          type: array
+          items:
+            $ref: '#/components/schemas/Plant'
+      description: |
+        The accepted garden model (section 18): current map objects and
+        plants, exactly as the operational map/plant reads already expose
+        them. Never operational history, drafts, capture proposals, or
+        provider-internal notes.
+
+    ClientExportMediaEntry:
+      type: object
+      additionalProperties: false
+      required: [mediaId, access]
+      properties:
+        mediaId:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: The exact id `getClientMediaAccess`'s own `{mediaId}` path parameter expects.
+        access:
+          $ref: '#/components/schemas/MediaAccess'
+      description: One media item this client is genuinely entitled to, re-verified through the identical check `getClientMediaAccess` enforces.
+
+    ClientExportManifest:
+      type: object
+      additionalProperties: false
+      required: [clientGardenId, generatedAt, gardenModel, publications, media]
+      properties:
+        clientGardenId:
+          $ref: '#/components/schemas/Uuid'
+        generatedAt:
+          allOf:
+            - $ref: '#/components/schemas/Timestamp'
+          description: When this manifest was read — a fresh read boundary, not a stored package's creation time.
+        gardenModel:
+          $ref: '#/components/schemas/ClientExportGardenModel'
+        publications:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClientPublicationSummary'
+          description: Every CURRENTLY published (never withdrawn) update, identical to `listClientPublications`.
+        media:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClientExportMediaEntry'
+          description: Only media this client is currently entitled to. An item referenced by `publications` but absent here failed the same entitlement check `getClientMediaAccess` would apply — never a distinguishable error.
 
     SessionLoginRequest:
       type: object

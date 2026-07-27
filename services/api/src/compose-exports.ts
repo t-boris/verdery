@@ -8,13 +8,42 @@
  * Reuses `gardenAuthorization` and the shared `mediaStorageGateway` (the
  * download signs URLs through the same gateway `GetMediaAccess` uses —
  * "the existing signed-access mechanism").
+ *
+ * Also composes the client-entitled export manifest (P9C-EXPORT-01):
+ * `getClientMediaAccess` arrives ALREADY CONSTRUCTED (built once by
+ * `composeMedia`, the same `clientMediaRoutesDependencies.getClientMediaAccess`
+ * instance `registerClientMediaRoutes` itself uses) rather than a second
+ * one — there is no per-call state to duplicate, and constructing a second
+ * instance would risk the two drifting in configuration. Every other new
+ * dependency here (`GardenRepository`/`MapObjectRepository`/
+ * `CoordinateSpaceRepository`/`GeoreferenceRepository`/`PlantRepository`/
+ * `ClientAccessGrantRepository`/`ClientEngagementRepository`/
+ * `ClientPublicationReadRepository`) is a FRESH, stateless reader over the
+ * same pooled connection — the identical "second independent reader over
+ * the same pool" posture `compose-collaboration.ts`'s own header documents
+ * for its own `KyselyGardenRepository`, applied here to a fifth consumer
+ * rather than a fourth.
  */
 
+import {
+  ClientPortalAuthorization,
+  KyselyClientAccessGrantRepository,
+  KyselyClientEngagementRepository,
+  KyselyClientPublicationReadRepository,
+} from './modules/collaboration/public.js';
+import {
+  KyselyCoordinateSpaceRepository,
+  KyselyGardenRepository,
+  KyselyGeoreferenceRepository,
+  KyselyMapObjectRepository,
+} from './modules/gardens-mapping/public.js';
 import type { GardenAuthorization } from './modules/gardens-mapping/public.js';
-import type { MediaStorageGateway } from './modules/media/public.js';
+import type { GetClientMediaAccess, MediaStorageGateway } from './modules/media/public.js';
 import { KyselyMediaRepository } from './modules/media/public.js';
+import { KyselyPlantRepository } from './modules/plants-inventory/public.js';
 import {
   CompleteExport,
+  GetClientExportManifest,
   GetExportDownload,
   GetExportRequest,
   KyselyExportRequestRepository,
@@ -25,6 +54,7 @@ import {
   RunExportSnapshot,
 } from './modules/exports/public.js';
 import type {
+  ClientExportRoutesDependencies,
   ExportInternalRoutesDependencies,
   ExportRoutesDependencies,
 } from './modules/exports/public.js';
@@ -37,6 +67,7 @@ import type { Clock } from './shared/time/clock.js';
 export interface ExportsComposition {
   readonly exportRoutesDependencies: ExportRoutesDependencies;
   readonly exportInternalRoutesDependencies: ExportInternalRoutesDependencies;
+  readonly clientExportRoutesDependencies: ClientExportRoutesDependencies;
 }
 
 export function composeExports(
@@ -47,6 +78,7 @@ export function composeExports(
   bucketNames: MediaConfiguration['buckets'],
   serviceVersion: string,
   cloudTasksInvocationVerifier: CloudTasksInvocationVerifier,
+  getClientMediaAccess: GetClientMediaAccess,
 ): ExportsComposition {
   const exportRequestRepository = new KyselyExportRequestRepository(database.queries);
   const exportsUnitOfWork = new KyselyExportsUnitOfWork(database.queries, clock);
@@ -81,5 +113,28 @@ export function composeExports(
     cloudTasksInvocationVerifier,
   };
 
-  return { exportRoutesDependencies, exportInternalRoutesDependencies };
+  const clientPortalAuthorization = new ClientPortalAuthorization(
+    new KyselyClientAccessGrantRepository(database.queries),
+    new KyselyClientEngagementRepository(database.queries),
+  );
+
+  const clientExportRoutesDependencies: ClientExportRoutesDependencies = {
+    getClientExportManifest: new GetClientExportManifest(
+      clientPortalAuthorization,
+      new KyselyClientPublicationReadRepository(database.queries),
+      new KyselyGardenRepository(database.queries),
+      new KyselyCoordinateSpaceRepository(database.queries),
+      new KyselyGeoreferenceRepository(database.queries),
+      new KyselyMapObjectRepository(database.queries),
+      new KyselyPlantRepository(database.queries),
+      getClientMediaAccess,
+      clock,
+    ),
+  };
+
+  return {
+    exportRoutesDependencies,
+    exportInternalRoutesDependencies,
+    clientExportRoutesDependencies,
+  };
 }

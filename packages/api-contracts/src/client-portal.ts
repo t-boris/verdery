@@ -22,6 +22,11 @@ export type ClientPublicationListResult = Schemas['ClientPublicationListResult']
 export type ClientTimelineEntry = Schemas['ClientTimelineEntry'];
 export type ClientTimelineResult = Schemas['ClientTimelineResult'];
 
+/** The client export/handoff manifest schemas (P9C-EXPORT-01). */
+export type ClientExportGardenModel = Schemas['ClientExportGardenModel'];
+export type ClientExportMediaEntry = Schemas['ClientExportMediaEntry'];
+export type ClientExportManifest = Schemas['ClientExportManifest'];
+
 /**
  * Error codes the client-portal endpoints raise (P9C-API-01).
  *

@@ -85,11 +85,17 @@ export type {
   GardenObjectResource,
   MapCommandResultResource,
 } from './application/map-object-view.js';
+// `toGardenObjectResource` itself (not only its type) is exported for
+// P9C-EXPORT-01: the client-export manifest reuses this exact mapping for
+// its own "accepted garden model" section rather than a second copy — see
+// that command's own header.
+export { toGardenObjectResource } from './application/map-object-view.js';
 export type {
   GardenMapDocumentResource,
   GeoreferenceResource,
   ValidationIssueResource,
 } from './application/get-garden-map.js';
+export { toGeoreferenceResource } from './application/get-garden-map.js';
 export type {
   RevisionJournalEntry,
   RevisionJournalWriter,

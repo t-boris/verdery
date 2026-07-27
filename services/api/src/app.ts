@@ -14,7 +14,7 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import underPressure from '@fastify/under-pressure';
 import { API_BASE_PATH } from '@verdery/api-contracts';
-import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance } from 'fastify';
 import {
   registerClientEngagementRoutes,
   registerClientPortalRoutes,
@@ -35,7 +35,6 @@ import { composePlantsInventory } from './compose-plants-inventory.js';
 import { composeSynchronization } from './compose-synchronization.js';
 import { composeTasksRecommendations } from './compose-tasks-recommendations.js';
 import { registerWeatherRefreshSweepRoute } from './modules/integrations/public.js';
-import type { AiExplanationProviderAdapter } from './modules/integrations/public.js';
 import {
   registerGardenRoutes,
   registerInvitationExpirySweepRoute,
@@ -49,7 +48,11 @@ import {
   KyselyProfileRepository,
   ProvisionProfile,
 } from './modules/identity-access/public.js';
-import { registerExportInternalRoutes, registerExportRoutes } from './modules/exports/public.js';
+import {
+  registerClientExportRoutes,
+  registerExportInternalRoutes,
+  registerExportRoutes,
+} from './modules/exports/public.js';
 import {
   registerAccountDeletionRoutes,
   registerDeletionSweepRoute,
@@ -60,14 +63,12 @@ import {
   registerMediaRetentionSweepRoute,
   registerMediaRoutes,
 } from './modules/media/public.js';
-import type { MediaStorageGateway } from './modules/media/public.js';
 import {
   registerNotificationDeliverySweepRoute,
   registerNotificationDeviceRoutes,
   registerNotificationEventsRoute,
   registerNotificationRoutes,
 } from './modules/notifications/public.js';
-import type { PushMessageSender } from './modules/notifications/public.js';
 import {
   CorrectObservation,
   GetObservation,
@@ -92,73 +93,12 @@ import {
 import { registerSyncRoutes } from './modules/synchronization/public.js';
 import { KyselyAuditLogger } from './platform/audit/kysely-audit-logger.js';
 import { registerAppCheck } from './platform/app-check/app-check-plugin.js';
-import type { AppCheckVerifier } from './platform/app-check/app-check-verifier.js';
 import { registerAuthentication } from './platform/authentication/authentication-plugin.js';
-import type { IdentityProviderAccountGateway } from './platform/authentication/identity-provider-account-gateway.js';
 import { registerSessionRoutes } from './platform/authentication/transport/session-routes.js';
-import type { TokenVerifier } from './platform/authentication/token-verifier.js';
-import type { ApplicationConfiguration } from './platform/configuration/configuration-schema.js';
-import type { DatabaseGateway } from './platform/database/database-gateway.js';
 import { KyselyIdempotencyStore } from './platform/idempotency/kysely-idempotency-store.js';
 import { registerErrorHandling } from './platform/errors/error-handler.js';
-import type { CloudTasksInvocationVerifier } from './platform/tasks/cloud-tasks-invocation-verifier.js';
 import { generateRequestId, registerCorrelation } from './platform/telemetry/correlation.js';
-import type { Clock } from './shared/time/clock.js';
-
-/**
- * Everything the HTTP application needs, constructed before it is built.
- *
- * The logger is typed as Fastify's own interface rather than as a pino instance
- * so that request-scoped child loggers stay assignable throughout the pipeline.
- */
-export interface ApplicationDependencies {
-  readonly configuration: ApplicationConfiguration;
-  readonly logger: FastifyBaseLogger;
-  readonly database: DatabaseGateway;
-  readonly tokenVerifier: TokenVerifier;
-  readonly appCheckVerifier: AppCheckVerifier;
-  readonly clock: Clock;
-  /**
-   * The media module's Cloud Storage port, already constructed — mirrors
-   * `tokenVerifier`/`appCheckVerifier`: `main.ts` builds the concrete
-   * adapter (`GcsMediaStorageGateway`, wrapping a `@google-cloud/storage`
-   * client authenticated through Application Default Credentials) and this
-   * file only ever depends on the port interface, so a test can substitute a
-   * fake here the same way it substitutes `stubTokenVerifier()`.
-   */
-  readonly mediaStorageGateway: MediaStorageGateway;
-  /**
-   * P6-ASYNC-01: verifies the Cloud Tasks OIDC token on the media-processing
-   * callback. Same "port arrives already constructed" shape as
-   * `mediaStorageGateway`: `main.ts` builds the real `GoogleOidcInvocationVerifier`,
-   * tests substitute a fake.
-   */
-  readonly cloudTasksInvocationVerifier: CloudTasksInvocationVerifier;
-  /**
-   * P7-AI-01: the Vertex AI explanation adapter, or `null` whenever the
-   * `RECOMMENDATION_AI_EXPLANATION_ENABLED` kill-switch is off (every
-   * environment today). Same "port arrives already constructed" shape as
-   * `mediaStorageGateway`; `null` here means no code path can reach
-   * Vertex at all — the strongest form of the rollback guarantee.
-   */
-  readonly aiExplanationAdapter: AiExplanationProviderAdapter | null;
-  /**
-   * P7-NOTIF-02: the FCM boundary — `main.ts` builds the real
-   * `FcmPushMessageSender` over the same `firebase-admin` app the token
-   * verifier uses; tests substitute a fake. Same "port arrives already
-   * constructed" shape as `mediaStorageGateway`.
-   */
-  readonly pushMessageSender: PushMessageSender;
-  /**
-   * P8-DELETE-01: the Firebase Authentication boundary account purge uses to
-   * delete the identity itself (`deleteUser`). Same "port arrives already
-   * constructed" shape as `mediaStorageGateway`: `main.ts` builds the real
-   * `FirebaseIdentityProviderAccountGateway` over the same `firebase-admin`
-   * app the token verifier uses; tests substitute a fake, so no test can
-   * reach a real identity provider.
-   */
-  readonly identityProviderAccounts: IdentityProviderAccountGateway;
-}
+import type { ApplicationDependencies } from './application-dependencies.js';
 
 /**
  * Event-loop delay above which the instance rejects new work.
@@ -408,13 +348,14 @@ export async function buildApplication(
     configuration.environment,
   );
 
-  // exports (P8-EXPORT-01): the data-export request/status/download surface
-  // and the three internal endpoints the generation worker calls. Reuses
-  // `gardenAuthorization` (garden-scoped export capability), the shared
-  // storage gateway (signed package downloads), and the same worker-to-API
-  // invocation verifier as every internal endpoint. Split into
-  // `compose-exports.ts` for the same 600-line reason as its siblings.
-  const { exportRoutesDependencies, exportInternalRoutesDependencies } = composeExports(
+  // exports (P8-EXPORT-01, P9C-EXPORT-01): export request/status/download,
+  // the worker-internal endpoints, and the client export/handoff manifest —
+  // see `compose-exports.ts` for the dependency reasoning.
+  const {
+    exportRoutesDependencies,
+    exportInternalRoutesDependencies,
+    clientExportRoutesDependencies,
+  } = composeExports(
     database,
     clock,
     gardenAuthorization,
@@ -422,6 +363,7 @@ export async function buildApplication(
     configuration.media.buckets,
     configuration.serviceVersion,
     cloudTasksInvocationVerifier,
+    clientMediaRoutesDependencies.getClientMediaAccess,
   );
 
   // deletion (P8-DELETE-01): the account-deletion command surface and the
@@ -565,10 +507,11 @@ export async function buildApplication(
       registerNotificationRoutes(instance, notificationRoutesDependencies);
       registerNotificationDeviceRoutes(instance, notificationDeviceRoutesDependencies);
       registerMediaRoutes(instance, mediaRoutesDependencies);
-      // P9C-API-01: the publication-only client portal, plus its
-      // media-access route (from the media module) just below.
+      // P9C-API-01: the publication-only client portal, its media-access
+      // route (media module), and the P9C-EXPORT-01 export/handoff manifest.
       registerClientPortalRoutes(instance, clientPortalRoutesDependencies);
       registerClientMediaRoutes(instance, clientMediaRoutesDependencies);
+      registerClientExportRoutes(instance, clientExportRoutesDependencies);
       registerExportRoutes(instance, exportRoutesDependencies);
       registerSyncRoutes(instance, syncRoutesDependencies);
       done();
