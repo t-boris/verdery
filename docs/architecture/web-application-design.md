@@ -58,9 +58,7 @@ apps/web/
 │   ├── imports/
 │   ├── collaboration/
 │   ├── organizations/
-│   ├── client-engagements/
-│   ├── client-publications/
-│   ├── garden-timeline/
+│   ├── client-portal/
 │   └── settings/
 ├── core/
 │   ├── api/

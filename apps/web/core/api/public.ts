@@ -14,6 +14,7 @@ export {
   type FetchLike,
 } from './client';
 export { createBrowserApiClient, resolveApiOrigin } from './config';
+export { createClientPortalGateway, type ClientPortalGateway } from './client-portal-gateway';
 export { createCollaborationGateway, type CollaborationGateway } from './collaboration-gateway';
 export { CORRELATION_ID_HEADER, createCorrelationId } from './correlation';
 export { CSRF_HEADER_NAME, csrfHeader } from './csrf';

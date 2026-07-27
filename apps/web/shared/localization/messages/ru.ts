@@ -1,6 +1,7 @@
 import type { MessageCatalogue } from '../catalogue';
 
 import { russianAccessibilityMessages } from './ru-accessibility';
+import { russianClientPortalMessages } from './ru-client-portal';
 import { russianCollaborationMessages } from './ru-collaboration';
 import { russianMediaMessages } from './ru-media';
 import { russianOrganizationsMessages } from './ru-organizations';
@@ -14,6 +15,7 @@ export const russianMessages: MessageCatalogue = {
   ...russianCollaborationMessages,
   ...russianTaskCollaborationMessages,
   ...russianOrganizationsMessages,
+  ...russianClientPortalMessages,
   'app.name': 'Verdery',
   'app.tagline': 'Живая карта настоящего сада.',
   'app.skipToContent': 'Перейти к содержимому',

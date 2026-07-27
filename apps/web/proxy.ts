@@ -3,11 +3,18 @@
  *
  * 1. SESSION ROUTING. Routes based on session cookie *presence* only — not
  *    validity. This is a UX redirect, not the security boundary: a
- *    present-but-expired or -revoked cookie still reaches `/application/*`,
- *    and the API rejects the resulting requests with `401` exactly as it
- *    would with no cookie at all, because every actual request is verified
- *    server-side regardless of what this proxy (Next.js 16's rename of what
- *    was called "middleware") decided.
+ *    present-but-expired or -revoked cookie still reaches `/application/*`
+ *    or `/client-portal/*`, and the API rejects the resulting requests with
+ *    `401` exactly as it would with no cookie at all, because every actual
+ *    request is verified server-side regardless of what this proxy
+ *    (Next.js 16's rename of what was called "middleware") decided.
+ *    `/client-portal/*` (P9C-WEB-01) shares this exact gate with
+ *    `/application/*` rather than inventing a parallel one: both are
+ *    authenticated-session route groups, gated by the identical session
+ *    cookie — the client portal's own authorization (which engagement,
+ *    which garden) is a server-side concern the API re-verifies on every
+ *    request, the same "UX redirect, not the security boundary" posture as
+ *    `/application` above.
  *
  * 2. THE CONTENT SECURITY POLICY (P8-SEC-02). Set here rather than in
  *    `next.config.ts` because it carries a per-request nonce, and a nonce
@@ -111,7 +118,10 @@ export function proxy(request: NextRequest) {
   const nonce = generateNonce();
   const policy = policyForRequest(nonce);
 
-  if (pathname.startsWith('/application') && !hasSessionCookie) {
+  const requiresSession =
+    pathname.startsWith('/application') || pathname.startsWith('/client-portal');
+
+  if (requiresSession && !hasSessionCookie) {
     const signIn = request.nextUrl.clone();
     signIn.pathname = '/auth/sign-in';
     signIn.searchParams.set('next', pathname);

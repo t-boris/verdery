@@ -9,6 +9,7 @@
  * Source: architecture/web-application-design.md, section "15. Localization".
  */
 import { englishAccessibilityMessages } from './en-accessibility';
+import { englishClientPortalMessages } from './en-client-portal';
 import { englishCollaborationMessages } from './en-collaboration';
 import { englishMediaMessages } from './en-media';
 import { englishOrganizationsMessages } from './en-organizations';
@@ -21,6 +22,7 @@ export const englishMessages = {
   ...englishCollaborationMessages,
   ...englishTaskCollaborationMessages,
   ...englishOrganizationsMessages,
+  ...englishClientPortalMessages,
   'app.name': 'Verdery',
   'app.tagline': 'A living map of a real garden.',
   'app.skipToContent': 'Skip to content',

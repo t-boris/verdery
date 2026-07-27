@@ -1,5 +1,7 @@
 import {
+  ClientAccessGrantErrorCode,
   ClientEngagementErrorCode,
+  ClientPortalErrorCode,
   CollaborationErrorCode,
   GardenErrorCode,
   MapErrorCode,
@@ -64,6 +66,17 @@ const MESSAGE_KEYS: Readonly<Record<string, MessageKey>> = {
   [OrganizationErrorCode.AssignmentInvalidTransition]: 'error.gardenAssignmentInvalidTransition',
   [ClientEngagementErrorCode.NotFound]: 'error.clientEngagementNotFound',
   [ClientEngagementErrorCode.InvalidTransition]: 'error.clientEngagementInvalidTransition',
+  [ClientAccessGrantErrorCode.NotFound]: 'error.clientAccessGrantNotFound',
+  [ClientAccessGrantErrorCode.AlreadyOutstanding]: 'error.clientAccessGrantAlreadyOutstanding',
+  [ClientAccessGrantErrorCode.Expired]: 'error.clientAccessGrantExpired',
+  [ClientAccessGrantErrorCode.Revoked]: 'error.clientAccessGrantRevoked',
+  [ClientAccessGrantErrorCode.AlreadyAccepted]: 'error.clientAccessGrantAlreadyAccepted',
+  [ClientAccessGrantErrorCode.EmailMismatch]: 'error.clientAccessGrantEmailMismatch',
+  [ClientAccessGrantErrorCode.EngagementNotInvitable]:
+    'error.clientAccessGrantEngagementNotInvitable',
+  [ClientAccessGrantErrorCode.EngagementNotActive]: 'error.clientAccessGrantEngagementNotActive',
+  [ClientAccessGrantErrorCode.InvalidTransition]: 'error.clientAccessGrantInvalidTransition',
+  [ClientPortalErrorCode.NotFound]: 'error.clientGardenNotFound',
 };
 
 /** Returns the message identifier for an error code, or the generic one. */
