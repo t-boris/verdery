@@ -6791,9 +6791,377 @@ Claude-in-Chrome before iOS starts), then iOS mirroring the same information arc
 
 # Phase 9 — Final QA
 
-- [ ] P9-QA-01 — operational-team, organization-assignment, client-publication, cross-client,
+- [x] P9-QA-01 — operational-team, organization-assignment, client-publication, cross-client,
       removed/revoked actor, media, export, DST, and season-boundary matrices; final G9 package.
+      13 new test files (7 access/isolation, 6 time-correctness), 44 new tests, all passing against
+      real Postgres/PostGIS, zero application code changed. No bug found. Two findings recorded as
+      documented, intentional behavior (not fixed): capability composition is strict precedence,
+      not a union, when a profile holds both operational membership and an org assignment on the
+      same garden; client invitation accept is the one client-facing route that is NOT
+      byte-identical between "unknown token" and "wrong email," both already covered by this
+      codebase's own existing design (`garden-authorization.ts`, architecture section 20). One
+      open, un-litigated gap recorded honestly, not fixed: a garden owner has no visibility today
+      into whether an assigned professional's organization standing has lapsed — `RevokeGardenAssignment`
+      is the correct, already-shipped tool to end that access, but nothing surfaces the need to use
+      it. See "Review" below for the full G9 write-up.
+
+## P9-QA-01 design decisions (recorded before dispatch)
+
+Every individual work package this phase already proved its OWN slice under real Postgres — this
+package is deliberately NOT re-testing any single package's own claims. Its value is CHAINING
+subphases together and sweeping a concern ACROSS every surface at once, the way no single work
+package's own test suite was scoped to do. Split into two parallel dispatches — access/isolation
+concerns share one character (end-to-end integration tests over real Postgres, `services/api/tests/
+integration/`), time concerns are a genuinely different one (pure date-arithmetic edge cases,
+mostly unit-level):
+
+**Batch A — access, isolation, and lifecycle matrices** (`services/api/tests/integration/`, new
+`p9-qa-*.test.ts` files, one per matrix):
+
+1. **Operational-team**: one continuous scenario chaining P9A's OWN work packages together, not
+   re-proving any single one — invite → accept → promote to co-owner → assign a task → remove a
+   member → prove the removed member's next server call is denied AND their sync pull emits the
+   tombstone `RemoveMember`'s own fix (P9A-SYNC-01) already guarantees in isolation, now proven as
+   one chain.
+2. **Organization-assignment**: prove organization membership ALONE still grants zero garden
+   access (P9B's own invariant), then the genuine cross-subphase case no single package tested —
+   the SAME profile holding BOTH an operational membership (P9A) AND an org `garden_assignment`
+   (P9B) on the SAME garden — composes to the more permissive of the two, correctly, not a
+   conflict or a silent downgrade.
+3. **Client-publication**: full engagement lifecycle chained end to end — invite a client → accept
+   → publish an update → client reads it via the portal → withdraw → client can no longer see it →
+   revoke the engagement → client is now locked out of the portal, media, AND export together (not
+   just the one surface P9C-INVITE-01/PUBLISH-01 each proved on their own).
+4. **Cross-client concealment sweep**: byte-identical "doesn't exist" vs. "not yours" responses,
+   swept across EVERY client-facing route in one pass (portal overview/publications/timeline,
+   media access, export, invitation accept) — this exact invariant is already proven per-route;
+   this matrix's value is proving it holds simultaneously, not that any one route regressed.
+5. **Removed/revoked actor sweep**: the highest-value matrix. For every KIND of access loss this
+   phase introduced (operational removal, ownership transfer away from someone, org membership
+   removal, garden_assignment revocation, client engagement revocation, client access grant
+   revocation), confirm the SAME actor is cut off across EVERY surface they could have reached
+   (REST call, sync pull, media signed-URL issuance, export manifest) — not just the one surface
+   the removing command's own package tested.
+6. **Media cross-path**: the SAME media object reached through the operational route, the client
+   route (`GetClientMediaAccess`), and export, by different actors (owner, editor, viewer, an
+   org-assigned professional, an entitled client) — confirm each path enforces its OWN
+   authorization independently, and that revoking one path (e.g. ending an engagement) does not
+   leave a stale grant reachable through a different one.
+7. **Export comparison**: operational export (P8) vs. client export (P9C-EXPORT-01) side by side
+   against the SAME garden — confirm operational export is not wrongly restricted to
+   published-only content, and client export never includes unpublished/internal content, proven
+   as one comparative test rather than two independent assumptions.
+
+**Batch B — time-correctness matrices** (mostly unit-level, `services/api/src/**/*.test.ts` plus a
+handful of integration tests where a real Postgres `timestamptz` round-trip matters):
+
+8. **DST**: every date/time computation across the WHOLE phase (not just P9D) that could silently
+   shift across a spring-forward/fall-back transition — task due dates and quiet-hour windows
+   (P7), invitation expiry (P9C), publication timestamps, AND the new P9D seasonal-window
+   arithmetic (`daysUntilNextMonthStart`, `wholeDaysBetween`, hemisphere derivation). Every one of
+   these is already UTC-based per this codebase's own established convention — this matrix's job
+   is to prove that claim behaviorally (construct real DST-boundary-crossing `Date`s, confirm no
+   function anywhere silently uses local time), not merely to assert "we use UTC" from memory.
+9. **Season-boundary**: P9D-specific edge cases at the calendar-year seam — a sowing window
+   crossing December 31st into January (already unit-tested for `seasonal.sowing-window-check`
+   itself; this matrix's job is the cases NOT yet covered: a succession interval whose next
+   occurrence crosses the year boundary, a rotation rest period whose elapsed-days count spans two
+   different calendar years, and the equator edge case (`latitude === 0`) actually exercised
+   through the full `GetGardenSeasonalPlan`/`EvaluateGardenRecommendations` path, not just
+   `deriveHemisphere` in isolation).
+
+**Final G9 package**: after both batches land and are personally verified (same standard as every
+prior package this phase), write the phase-review section below this one — a summary of every
+work package, its own completion evidence, and this matrix's own findings; approve G9.
 
 ## Review
 
-_(filled in as the phase closes)_
+### G9 phase review — Phase 9 (Team Collaboration, Client Delivery, Seasonal Context)
+
+**G9 is approved.** Every work package across all four subphases is `[x]`, personally verified
+(build, full test suite, all four root gates, real Testcontainers Postgres, CI) and pushed to
+`master`. P9-QA-01's own cross-cutting sweep found no application-level bug in any subphase.
+
+**Subphase summary:**
+
+- **P9A — Operational team collaboration**: invitation, membership, ownership transfer (reworked
+  to require-recipient-acceptance per an explicit safety decision made mid-phase), task assignment/
+  attribution, sync tombstones on revocation. A real concurrency bug (`RemoveMember` racing
+  `AcceptOwnershipTransfer`) was found via CI, not assumed to be a flake, and fixed by locking the
+  target row before any decision.
+- **P9B — Professional service domain**: service organizations, organization membership,
+  `garden_assignment` as the one and only path from org membership to real garden access
+  (organization membership alone was found to grant zero real access on first landing and fixed
+  the same day).
+- **P9C — Client publication and portal**: work logs, immutable publication versions
+  (database-enforced via `REVOKE UPDATE, DELETE`, proven under `SET ROLE`), a separate publisher
+  capability, email-bound expiring invitations (Resend adapter, verified live against Resend's own
+  docs), a deliberately read-only client portal, media authorized through engagement plus explicit
+  entitlement, client export, and privacy-safe audit/telemetry (closing the one confirmed audit
+  gap and fixing two real pre-existing prohibited-content leaks in already-merged code).
+- **P9D — Seasonal context**: reviewed garden growing-context facts with source/quality tracking;
+  the full-scope choice (over a leaner MVP) for seasonal calendars, succession planning, and crop
+  rotation — new taxonomy family/genus, ADR-0013-compliant reviewed seasonal facts, bed-occupancy
+  history derived from the existing plant revision journal (not a new table), three new
+  recommendation rules, a forward-looking seasonal-plan read endpoint, and UI on both web and iOS
+  (with a deliberately different navigation placement on iOS, resolving a real conflict with the
+  web sibling's own placement rather than copying it blindly).
+- **P9-QA-01**: 13 new cross-cutting test files, 44 new tests, zero application code changes, zero
+  bugs found. Two findings recorded as intentional, already-documented behavior; one open,
+  low-severity observability gap recorded honestly rather than fixed unprompted (see below).
+
+**Exit criteria (implementation-plan.md §18.3), verified against:**
+
+- Invitations opaque, expiring, revocable, idempotent, audited — ✓, both operational (P9A) and
+  client (P9C) invitation families; P9-QA-01 matrix 3/5(e)/5(f) chain revocation end to end.
+- Explicit access-plane/capability tests including cross-garden, cross-organization,
+  cross-engagement, cross-client denial — ✓, every subphase's own suite plus P9-QA-01 matrix 4's
+  cross-client concealment sweep and matrix 2's organization-boundary proof.
+- Removing access affects the next server operation and produces correct native local cleanup — ✓,
+  P9-QA-01 matrix 1 and matrix 5 prove this chained, across REST, sync, media, and export surfaces
+  together, not just the one surface each removing command's own package tested.
+- Shared task attribution and conflicting changes remain understandable and recoverable — ✓, P9A's
+  own attribution/history work; genuine concurrent-edit scenarios proven under real concurrent
+  Postgres transactions throughout the phase.
+- Organization membership alone never grants garden access — ✓, re-confirmed by P9-QA-01 matrix 2
+  as still holding, with the added, previously-untested finding that composition with operational
+  membership is strict precedence, not a union (see Findings below).
+- Clients never receive the operational sync partition or internal content — ✓, P9C's own
+  concealment design plus P9-QA-01 matrix 7's direct comparative proof that client export excludes
+  every internal record a fixture deliberately included.
+- Publishing creates an immutable client-safe version; task completion never auto-publishes — ✓,
+  P9C-PUBLISH-01's own six-step transaction; no code path anywhere converts a completed task into a
+  publication without an explicit publish command.
+- The portal exposes factual published history independently from future illustrative Time
+  Machine scenarios — ✓ by construction: the portal only ever reads `client_update`/
+  `publication_version` (factual, published-only); no Time Machine feature exists yet in this
+  codebase for it to need separating from.
+- Engagement revocation, publication withdrawal, media access, export, and end-of-engagement
+  stewardship verified and audited — ✓, P9C-OBS-01's own audit/telemetry work plus P9-QA-01 matrix
+  3/5/6's behavioral proof that revocation actually cuts off every surface, not just that an audit
+  row gets written.
+- Seasonal and context guidance stores source, quality, location, and version — ✓,
+  `garden_context_fact`'s source/review-status pair and `taxonomy_seasonal_fact`'s ADR-0013
+  authoring-method/review-status/citation fields, both structurally enforced by CHECK constraints,
+  not merely documented convention.
+- Team collaboration, professional service, client portal, and seasonal features can be disabled
+  independently without damaging accepted garden data — **satisfied structurally, not by an
+  explicit toggle**: every subphase is purely additive (new schemas, new modules, new routes) and
+  none restructures or requires migrating pre-existing garden/plant data to function: a garden with
+  no P9A team, no P9B organization, no P9C engagement, and no P9D context facts continues to work
+  exactly as it did before Phase 9, since every one of these is an optional, additively-joined
+  extension, not a required rewrite of the core garden aggregate. No dedicated feature-flag
+  mechanism was built or tested this phase; if a runtime kill-switch (as opposed to architectural
+  independence) is ever required, that is future work, not a claim made here.
+
+**P9-QA-01 findings, carried forward from the batch notes below, restated here as the G9 record:**
+
+1. **Capability composition is strict precedence, not a union** (`garden-authorization.ts`,
+   confirmed intentional per its own P9B-API-02 header): a profile holding both an operational
+   membership and an organization `garden_assignment` on the same garden gets whichever grant
+   `GardenAuthorization.resolveAccess` finds first (membership, if any exists at all), never the
+   more permissive union of the two. Documented, not changed.
+2. **Client invitation accept is not byte-identical for "unknown token" vs. "wrong email"** — the
+   one exception among six client-facing routes, and the one place where reaching the diverging
+   response requires already possessing the real secret token, which architecture section 20 names
+   as a legitimately distinct required behavior. Documented, not changed.
+3. **Open gap, not fixed**: no garden-owner-facing signal exists today for "an assigned
+   professional's organization membership has lapsed." `RevokeGardenAssignment` is the correct,
+   already-shipped tool an org admin (not the garden owner) can use to end that access, but nothing
+   prompts its use and the garden owner has no way to see the assignee's current organizational
+   standing from `ListGardenAssignmentsForGarden`'s own response shape. This is a product/UX
+   observability gap, not an access-control defect — the underlying authorization is already
+   correct — and is recorded here honestly as a real, un-litigated limitation rather than silently
+   fixed or silently ignored.
+
+**Deployment status at G9 approval**: all Phase 9 backend/web/iOS code is merged to `master` and
+CI-green. Deployed builds (Cloud Run + a new TestFlight/App Store build reflecting the FULL phase)
+and a Russian-language testing guide are the one remaining action before Phase 9 is considered
+fully delivered to the user, tracked separately below this review.
+
+### P9-QA-01, Batch A — access, isolation, and lifecycle matrices (1-7), completion notes
+
+All seven files live under `services/api/tests/integration/`, named `p9-qa-<matrix-name>.test.ts`,
+each ≤600 lines, all passing against real Postgres/PostGIS via Testcontainers. No application/
+domain/production code was modified — tests only, per this batch's own ground rules. Two genuine
+findings surfaced (both detailed below); neither contradicts an explicit written invariant, both
+are directly explained by the actual source code's own comments, so neither is reported as a bug —
+both are flagged for awareness since they diverge from the natural-language assumption the
+matrices were scoped from.
+
+- `p9-qa-operational-team-chain.test.ts` (1 test): chains `CreateInvitation` -> `AcceptInvitation`
+  -> `PromoteToOwner` (co-owner) -> `CreateManualTask` + `AssignTask` -> `RemoveMember`, then proves
+  the removed CO-OWNER's next authenticated call (`GetGarden`, `CreateManualTask`) is denied
+  `NotFoundError`, their sync pull emits exactly the `garden`/`delete` tombstone P9A-SYNC-01's fix
+  produces, a fresh first-ever pull shows only that tombstone, and the still-active original owner
+  is entirely unaffected. Confirms the fix holds through the fuller, chained real-world path, not
+  only the plain-editor-removed case `synchronization-membership-lifecycle.test.ts` already proves.
+- `p9-qa-organization-assignment-composition.test.ts` (4 tests): confirms organization membership
+  ALONE grants zero garden access. **Finding**: the SAME profile holding both an operational
+  `collaboration.membership` and an organization `garden_assignment` on the SAME garden does **not**
+  compose to the more permissive grant. Reading `GardenAuthorization.resolveAccess` directly: it
+  tries ordinary membership FIRST and only falls back to the assignment source when membership is
+  entirely absent — a strict precedence for "does access exist at all" (ADR-0012's own "assignment
+  OR membership"), never a union of capability sets. Proven in both directions: viewer-membership +
+  editor-assignment yields ONLY viewer (assignment never consulted); editor-membership +
+  viewer-assignment yields editor only because membership itself already grants it. A fourth test
+  confirms that once the operational membership is removed, the assignment becomes the sole active
+  source and its own role then applies. This matches `garden-authorization.ts`'s own documented
+  design (P9B-API-02 header) precisely — not a bug, but the opposite of what "compose to the more
+  permissive grant" would suggest in prose, so flagged for awareness.
+- `p9-qa-client-publication-lifecycle.test.ts` (1 test): the full real-command chain —
+  `CreateClientEngagement` -> `ActivateClientEngagement` -> `CreateClientInvitation` (real email via
+  `FakeTransactionalEmailAdapter`, token extracted from the actual sent link) -> `AcceptClientInvitation`
+  -> `CreateClientUpdate`/`AddClientUpdateItem`/`UpdateClientUpdateContent`/`SubmitClientUpdate`/
+  `PublishClientUpdate` (with a media item) -> client reads overview/publications/timeline AND media
+  -> `WithdrawClientUpdate` (portal goes dark) -> `RevokeClientEngagement` -> portal (all 3 reads),
+  media, AND export manifest all denied together in the same chained state. Every step is a real
+  command; nothing is bypassed with a direct-row fixture.
+- `p9-qa-cross-client-concealment-sweep.test.ts` (5 tests): for portal overview/publications/
+  timeline, client media access, and client export manifest, client B's "garbage id" error and
+  "client A's real id" error are asserted `toEqual` (full `{category, code, message}` object
+  equality) — genuinely byte-identical, not just "both 404-ish." **Finding**: client invitation
+  accept is the one exception. An unknown token is concealed as `notFound`
+  (`client_access_grant.not_found`); a REAL token bound to a different email raises a distinct
+  `forbidden` (`client_access_grant.email_mismatch`) — read directly from
+  `domain/client-access-grant.ts#assertClientEmailBindingSatisfied`. Proven explicitly as NOT equal,
+  with both shapes asserted. Architecture section 20 lists "Email mismatch" as its own required
+  failure behavior distinct from generic concealment, and reaching this path already requires
+  possessing client A's own real, unguessable token (unlike a probeable `clientGardenId`/`mediaId`)
+  — plausibly intentional, but it does mean 5 of 6 client-facing routes are byte-identical and one
+  is not, worth a deliberate decision rather than an assumption.
+- `p9-qa-removed-revoked-actor-sweep.test.ts` (6 tests, table-driven): (a) operational member
+  removed — REST denied + sync tombstone; (b) ownership dropped to a lower role via `DemoteOwner` —
+  owner-only REST now `ForbiddenError` while the lower role's own capability survives, no spurious
+  sync row; (c) organization membership removed via `RemoveOrganizationMember` — every
+  organization-scoped capability denied; **finding**: a separate, independently-held
+  `garden_assignment` is untouched by this command and keeps granting garden access afterward (two
+  independent lifecycles — `RemoveOrganizationMember`'s own header never claims otherwise, and
+  nothing in the architecture doc says org-membership removal must cascade to assignments; scenario
+  (d) below is the actual, correct way to end that access); (d) `garden_assignment` revoked via
+  `RevokeGardenAssignment` — REST and operational media (`GetMediaAccess`) both denied, organization
+  membership itself untouched; (e) client engagement revoked — portal, media, and export all denied
+  together; (f) one client's own access grant individually revoked via `RevokeClientInvitation` —
+  that client alone is denied portal and media while the engagement and a DIFFERENT client on it are
+  proven unaffected (isolation).
+- `p9-qa-media-cross-path.test.ts` (4 tests): the same garden's standard-classified, entitled media
+  and a restricted-classified, never-published media, reached through all three paths. Operational:
+  owner/editor/viewer all read standard; viewer alone is refused restricted (`ForbiddenError`,
+  `mediaViewerAccessRestrictedError`), owner/editor are not. Client: the entitled client reaches
+  standard, never restricted (`NotFoundError` — a different gate than the operational
+  sensitivity-classification check, never consulted). Export: operational export's
+  `media-records.json` includes both; the client manifest includes only the entitled one.
+  Revocation isolation: `EndClientEngagement` cuts the client's own media path
+  (`GetClientMediaAccess` -> `NotFoundError`) while the SAME media object stays fully reachable via
+  the operational path for owner, editor, and viewer alike — ending a client engagement never
+  touches `collaboration.membership`.
+- `p9-qa-export-comparison.test.ts` (2 tests): against one fixture (accepted garden model, one
+  published update, provider-internal observation/task/recommendation records that were never
+  published), the operational export (P8) genuinely includes the internal content — not wrongly
+  restricted to published-only — while the client export manifest's serialized JSON never contains
+  any of it, both directions asserted in the same test. A second test adds an unpublished, never-
+  entitled media record: the operational export's `media-records.json` includes it alongside the
+  published one; the client manifest's `media` array includes only the entitled one.
+
+**Final test counts (last clean isolated run of this batch's own files):** 7 files, 23 tests, all
+passing (`services/api/tests/integration/p9-qa-*.test.ts`). Full-repo
+`pnpm --filter @verdery/api test` (`npx vitest run --pool=forks --max-workers=6`, bounded to avoid
+Docker/Testcontainers daemon contention from this 24-core machine's default unbounded worker
+parallelism — the same transient-timeout pattern, on a shifting set of files unrelated to this
+batch, Batch B's own note above already documents): 291/291 files, 2314/2314 tests, clean.
+
+**Root gates:** `pnpm --filter @verdery/api build`, `pnpm typecheck`, `pnpm lint`,
+`pnpm format:check`, and `pnpm check:file-size` all clean repo-wide.
+
+### P9-QA-01, Batch B — DST (Matrix 8) and Season-boundary (Matrix 9), completion notes
+
+All six files live under the new `services/api/tests/dst/` directory (each ≤600 lines, all
+passing). No application/domain code was modified — tests only, per this batch's own ground
+rules. No genuine bug was found anywhere: every date/time computation swept by this batch is, in
+fact, pure UTC arithmetic with no local-timezone dependency, confirmed adversarially (see the
+`process.env['TZ']`-forcing technique in the rule-support file below, chosen specifically because a
+naive "assert against a UTC-computed expected value" test would NOT actually fail on a
+regression to `.getMonth()`/`.getDate()` when the CI runner's own host zone happens to be UTC).
+
+**Matrix 8 — DST:**
+
+- `p9-qa-dst-notification-quiet-hours.test.ts` (Postgres integration, 3 tests): runs the REAL
+  `ApplyNotificationPolicy` pipeline (real `identity_access.profile.time_zone`, a real
+  `notification_preference_document` row written/read through `KyselyNotificationPreferenceRepository`,
+  the real command, the real persisted `notification_intent.earliest_delivery_at` column) through
+  the America/New_York 2026-03-08 spring-forward gap and the 2026-11-01 fall-back ambiguity (both
+  occurrences). `quiet-hours.test.ts` already proves the pure `resolveEarliestDeliveryAt` function
+  exhaustively; this closes the gap that no suite had run the full WIRED pipeline through an actual
+  DST transition (`notifications.test.ts`'s own "real zone math" case deliberately uses
+  Asia/Tokyo — no DST — to avoid exactly this). All 3 pass.
+- `p9-qa-dst-client-invitation-expiry.test.ts` (Postgres integration, 4 tests): a real
+  `client_access_grant` created just before the same spring-forward transition with the real
+  7-day `CLIENT_INVITATION_TTL_MILLISECONDS` window crossing it; proves the Postgres `timestamptz`
+  round-trip preserves the exact millisecond duration, `AcceptClientInvitation` accepts one second
+  before the exact expiry instant and refuses exactly at and one hour past it (pinning the
+  precise failure boundary, not just a happy path). All 4 pass.
+- `p9-qa-dst-publication-lag.test.ts` (Postgres integration via direct command construction, 2
+  tests): `PublishClientUpdate`/`WithdrawClientUpdate` called directly with a DST-straddling
+  `fixedClock` (not through HTTP — `tests/support/application.ts`'s `buildTestApplication` hardwires
+  `SystemClock` with no override, so no test can pin the wall-clock instant an HTTP-routed publish
+  stamps; documented in the file's own header). Reproduces `client_update_routes.ts`'s own
+  `computeWorkToPublicationLagMs` formula verbatim against the real returned `PublicationVersion`;
+  confirms the work-to-publication lag across the March transition is exactly 7 days
+  (604,800,000 ms), and the publish-to-withdraw gap across the November transition is exact too.
+  All 2 pass.
+- `p9-qa-dst-rule-support-arithmetic.test.ts` (pure unit, 7 tests): `daysUntilNextMonthStart`/
+  `wholeDaysBetween`/`deriveHemisphere` under a process `TZ` explicitly forced to America/New_York
+  and Pacific/Auckland (both DST-observing, one behind UTC and one ahead), with UTC instants
+  chosen so the LOCAL calendar date in that zone provably disagrees with the UTC one — a
+  regression to `.getMonth()`/`.getDate()` would fail these specific assertions even on a
+  UTC-zoned CI runner where the existing `rule-support.test.ts`/`garden-facts.test.ts` would not
+  catch it. `deriveHemisphere` takes a `Position`, never a `Date` — noted explicitly rather than
+  inventing a fake temporal scenario for a function with no temporal input. All 7 pass.
+
+**Matrix 9 — Season-boundary:**
+
+- **Succession interval crossing the year boundary: no test written, deliberately.**
+  `succession-replanting-reminder.ts`'s `evaluate`/`evaluatePlant` never reads
+  `facts.evaluatedAt` at all (confirmed by inspection — eligibility depends only on
+  `plant.status`/`taxonomyReferenceId`/`successionIntervalDays`), and the engine's own recurrence
+  gate that governs this rule's re-fire timing (`rule-evaluation.ts` line ~360:
+  `new Date(latest.createdAt.getTime() + rule.timing.recurrenceIntervalMs)`) is pure millisecond
+  arithmetic with no calendar-month or calendar-year component anywhere in the call chain. A
+  year-boundary test for this rule would not exercise any code path that could behave differently
+  near January 1st — writing one would not prove anything real, so none was written. This
+  reasoning is also recorded in `p9-qa-season-boundary-rotation.test.ts`'s own file header.
+- `p9-qa-season-boundary-rotation.test.ts` (pure unit, 3 tests): calls
+  `cropRotationCautionRule.evaluate()` directly (not through the shared fixture harness, whose own
+  scenarios only ever offset `priorOccupancyEndedAt` from the single shared `FIXTURE_NOW`) with
+  real calendar dates straddling one and two January 1sts (2025-11-15 -> 2026-03-01, 106 days;
+  2024-01-01 -> 2026-03-01, 790 days), checked against an INDEPENDENTLY reimplemented
+  `Date.UTC`-based day-count helper (never reusing `wholeDaysBetween` itself, to avoid a
+  tautological assertion). Elapsed-days counts are exact across the seam in both directions —
+  correctly still-resting and correctly rest-period-elapsed. All 3 pass.
+- `p9-qa-season-boundary-equator.test.ts` (Postgres integration, 2 tests): a garden georeferenced
+  at EXACTLY `latitude: 0` through real PostGIS storage (`garden-hemisphere.test.ts` already
+  covers Amsterdam/Sydney/ungeoreferenced end to end, and `garden-facts.test.ts` already unit-tests
+  `deriveHemisphere([0,0]) === 'northern'` in isolation, but neither combination existed). Proves
+  the equator-derived `'northern'` hemisphere propagates through TWO real full paths: (1)
+  `GetGardenSeasonalPlan` resolves the plant's taxon to the `horticulturally_reviewed` NORTHERN
+  seasonal fact (`status: 'reviewed'`, correct window months) rather than `noSeasonalData` — a
+  deliberately-configured but empty SOUTHERN row for the same taxon exists specifically so a
+  hemisphere mix-up would be visibly wrong rather than accidentally passing either way; (2)
+  `EvaluateGardenRecommendations` actually FIRES a real `seasonal.sowing-window-check` candidate,
+  with the persisted evidence row itself naming `hemisphere: 'northern'`. Both pass.
+
+**Final test counts (last full clean isolated run of this batch's own files):** 6 files, 21 tests,
+all passing (`services/api/tests/dst/*.test.ts`). A full-repo `pnpm --filter @verdery/api test` run
+with no other Docker load passed 289/289 files, 2308/2308 tests. Later full-suite attempts run
+concurrently with Batch A's own in-progress Docker-heavy test activity showed transient
+container-startup-timeout failures across a SHIFTING set of files, including several with no
+relation to this batch or to P9-QA-01 at all (`tests/migrations/*.test.ts`,
+`tests/integration/synchronization.test.ts`) — reproduced as passing cleanly in isolation
+immediately afterward, consistent with Docker daemon contention from two agents running
+concurrently on the same machine, not a regression.
+
+**Root gates:** `pnpm --filter @verdery/api build` clean. `pnpm lint` and `pnpm check:file-size`
+clean repo-wide. `pnpm typecheck` and `pnpm format:check` are clean for every file this batch
+touched; both currently report issues ONLY inside Batch A's own still-in-progress files (not
+touched by this batch), expected since Batch A was still actively adding files at the time of this
+note.
