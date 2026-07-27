@@ -103,7 +103,7 @@ Owns application profiles, Firebase identity mapping, account state, garden-role
 
 ### 6.2 Gardens and Mapping
 
-Owns gardens, coordinate spaces, objects, geometry revisions, validation, calibration, georeferencing, and proposal acceptance.
+Owns gardens, coordinate spaces, objects, geometry revisions, validation, calibration, georeferencing, proposal acceptance, and garden context facts (sun exposure, soil type, drainage, irrigation method, growing context, and microclimate, each with its own source and quality).
 
 ### 6.3 Plants and Inventory
 

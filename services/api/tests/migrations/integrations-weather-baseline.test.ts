@@ -371,16 +371,16 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, dropping the integrations schema and the evidence FK while earlier tables survive', async () => {
     await client.end();
 
-    // `count: 13` undoes the twelve newer migrations
+    // `count: 14` undoes the thirteen newer migrations
     // (1785800000000_recommendation-explanation.sql through
-    // 1786900000000_client-invitation-token.sql
+    // 1787000000000_garden-context-facts.sql
     // — an explanation column and the plant-content, notification,
     // AI-explanation, notification-delivery, service-organization,
-    // client-publication, publisher-grant, and client-invitation-token
-    // tables, nothing this file's own assertions below check) first, then
-    // this migration itself. Update again the next time a migration is
-    // added on top of that one.
-    await migrate(databaseUrl, 'down', 13);
+    // client-publication, publisher-grant, client-invitation-token, and
+    // garden-context-facts tables, nothing this file's own assertions below
+    // check) first, then this migration itself. Update again the next time
+    // a migration is added on top of that one.
+    await migrate(databaseUrl, 'down', 14);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

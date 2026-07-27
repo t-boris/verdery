@@ -124,6 +124,36 @@ export { KyselyRevisionJournalWriter } from './persistence/kysely-revision-journ
 export { registerMapRoutes } from './transport/map-routes.js';
 export type { MapRoutesDependencies } from './transport/map-routes.js';
 
+// Garden context facts (P9D-CONTEXT-01): reviewed or declared facts about a
+// garden's physical growing environment — sun exposure, soil type,
+// drainage, irrigation method, growing context, and microclimate — with
+// their own source and quality. Exported narrowly: the repository type and
+// the read command (`ListGardenContextFacts`) are the read port a future
+// cross-module reader (`tasks-recommendations`'s rule engine, not built
+// this pass) will need, the same narrow-read-port posture
+// `GardenAssignmentAccessSource` already establishes in this module.
+export type {
+  GardenContextFact,
+  GardenContextFactProvenance,
+  GardenContextFactValue,
+  GardenContextKind,
+  GardenContextSource,
+  RecordGardenContextFactInput,
+} from './domain/garden-context-fact.js';
+export {
+  GARDEN_CONTEXT_KINDS,
+  validateGardenContextFactInput,
+  validateGardenContextFactProvenance,
+  validateGardenContextFactValue,
+} from './domain/garden-context-fact.js';
+export type { GardenContextFactRepository } from './application/garden-context-fact-repository.js';
+export { ListGardenContextFacts } from './application/list-garden-context-facts.js';
+export { RecordGardenContextFact } from './application/record-garden-context-fact.js';
+export { toGardenContextFactResource } from './application/garden-context-fact-view.js';
+export { KyselyGardenContextFactRepository } from './persistence/kysely-garden-context-fact-repository.js';
+export { registerGardenContextRoutes } from './transport/garden-context-routes.js';
+export type { GardenContextRoutesDependencies } from './transport/garden-context-routes.js';
+
 // Collaboration: operational invitations and membership administration
 // (P9A-API-01). Reuses `GardenAuthorization`, `GardensMappingUnitOfWork`,
 // and `MembershipRepository` above — see membership-repository.ts's own

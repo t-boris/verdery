@@ -472,9 +472,9 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     await client.end();
 
-    // `count: 19` undoes the eighteen newer migrations
+    // `count: 20` undoes the nineteen newer migrations
     // (1785200000000_media-processing-jobs.sql through
-    // 1786900000000_client-invitation-token.sql)
+    // 1787000000000_garden-context-facts.sql)
     // first, then this one — matching every earlier migration test's own
     // convention of unwinding whatever landed on top since this file was
     // written. Update again the next time a migration is added on top of
@@ -484,7 +484,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 19,
+      count: 20,
       log: () => {},
     });
 

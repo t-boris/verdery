@@ -217,13 +217,13 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     await client.end();
 
-    // `count: 16` undoes the fifteen newer migrations
+    // `count: 17` undoes the sixteen newer migrations
     // (1785500000000_background-calibration-transform.sql through
-    // 1786900000000_client-invitation-token.sql —
+    // 1787000000000_garden-context-facts.sql —
     // nothing this file's own assertions below check) first, then this
     // migration itself. Update again the next time a migration is added on
     // top of that one.
-    await migrate(databaseUrl, 'down', 16);
+    await migrate(databaseUrl, 'down', 17);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

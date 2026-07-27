@@ -88,6 +88,9 @@ export type MapCommandPayload = Schemas['MapCommandPayload'];
 export type MapCommandRequest = Schemas['MapCommandRequest'];
 export type MapCommandResult = Schemas['MapCommandResult'];
 
+/** The garden context facts schemas (P9D-CONTEXT-01) live in `./garden-context.js` — same 600-line-rule posture as `./organizations.js` above. */
+export * from './garden-context.js';
+
 /** The plants-inventory schemas (P4-CONTRACT-01). */
 export type PlantGroupingKind = Schemas['PlantGroupingKind'];
 export type PlantAcquisitionDateType = Schemas['PlantAcquisitionDateType'];
@@ -383,20 +386,8 @@ export const MapErrorCode = {
 
 export type MapErrorCode = (typeof MapErrorCode)[keyof typeof MapErrorCode];
 
-/**
- * Error codes the synchronization endpoints raise at the whole-request
- * level (`PushSyncOperations`, `GetSyncChanges`, `RegisterSyncClient`), as
- * opposed to a per-operation `SyncRejectedOperationResult.error.code`,
- * which is module-specific and not enumerated here.
- */
-export const SyncErrorCode = {
-  /** `protocolVersion` is outside the server's currently supported window. Does not imply the client's local outbox was lost. */
-  ProtocolVersionUnsupported: 'sync.protocol_version.unsupported',
-  /** `after` is older than the server's retained change history; a full resynchronization is required. */
-  CursorExpired: 'sync.changes.cursor_expired',
-} as const;
-
-export type SyncErrorCode = (typeof SyncErrorCode)[keyof typeof SyncErrorCode];
+/** The synchronization endpoints' whole-request error codes (`SyncErrorCode`) live in `./sync-contracts.js` — same 600-line-rule posture as `./organizations.js` above. */
+export * from './sync-contracts.js';
 
 /**
  * Error codes the media module's endpoints raise (P6-API-01).

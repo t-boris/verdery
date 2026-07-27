@@ -884,6 +884,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/gardens/{gardenId}/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List a garden's context facts
+         * @description Every context fact currently recorded for this garden — sun
+         *     exposure, soil type, drainage, irrigation method, growing context,
+         *     and microclimate, whichever have been declared or reviewed so far.
+         *     Available to any member with garden read access (`viewGarden`),
+         *     the same posture `getGardenMap` already applies.
+         *
+         *     Source: implementation-plan.md §18.2, work package P9D-CONTEXT-01;
+         *     technical-specification.md FR-22 ("Garden Context").
+         */
+        get: operations["listGardenContextFacts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/context/{contextKind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                contextKind: components["schemas"]["GardenContextKind"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Declare or update one garden context fact
+         * @description Creates the fact at `contextKind` for this garden, or updates it in
+         *     place if one is already recorded — one row per
+         *     `(gardenId, contextKind)`. Requires the same capability as editing
+         *     garden map content (`editGardenContent`, the same capability
+         *     `submitMapCommand` requires) — a sun-exposure or drainage
+         *     declaration is exactly the kind of garden-content edit that
+         *     capability already governs.
+         *
+         *     Idempotent BY DESIGN, so this operation deliberately takes neither
+         *     `Idempotency-Key` nor `If-Match` — the same posture
+         *     `registerNotificationDevice` documents for itself: a last-writer-
+         *     wins upsert on a single natural key, where a retry or concurrent
+         *     duplicate submitting the same body converges on identical stored
+         *     state and an identical response, so a separate idempotency record
+         *     would duplicate what the upsert already guarantees.
+         *
+         *     Source: implementation-plan.md §18.2, work package P9D-CONTEXT-01;
+         *     technical-specification.md FR-22 ("Garden Context").
+         */
+        put: operations["recordGardenContextFact"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/gardens/{gardenId}/plants": {
         parameters: {
             query?: never;
@@ -5213,6 +5282,74 @@ export interface components {
             affectedObjects: components["schemas"]["GardenObject"][];
         };
         /**
+         * @description Which aspect of the garden's physical growing environment this fact
+         *     describes. Matches `context_kind` in
+         *     migrations/1787000000000_garden-context-facts.sql exactly — enum
+         *     values are the same snake_case string this service uses internally,
+         *     not translated to camelCase (unlike the older `GardenLifecycleState`
+         *     precedent; this contract's more recent additions, such as
+         *     `ClientUpdateState`, already expose snake_case enum values directly).
+         * @enum {string}
+         */
+        GardenContextKind: "sun_exposure" | "soil_type" | "drainage" | "irrigation_method" | "growing_context" | "microclimate";
+        /**
+         * @description How a context fact's value was obtained. `horticulturally_reviewed_default`
+         *     additionally requires `reviewedBy`/`reviewedOn` on the same fact —
+         *     FR-22: "The source and quality of each context type must be
+         *     understood before it influences high-impact guidance."
+         * @enum {string}
+         */
+        GardenContextSource: "user_declared" | "horticulturally_reviewed_default" | "imported";
+        /**
+         * @description One reviewed or declared fact about a garden's physical growing
+         *     environment. One row per `(gardenId, contextKind)`; recording the
+         *     same `contextKind` again updates this same fact in place rather
+         *     than creating a second one.
+         *
+         *     Source: implementation-plan.md §18.2, work package P9D-CONTEXT-01;
+         *     technical-specification.md FR-22 ("Garden Context").
+         */
+        GardenContextFact: {
+            id: components["schemas"]["Uuid"];
+            gardenId: components["schemas"]["Uuid"];
+            contextKind: components["schemas"]["GardenContextKind"];
+            /**
+             * @description The declared value. For `sun_exposure`: `full_sun` |
+             *     `partial_sun` | `partial_shade` | `full_shade`. For `drainage`:
+             *     `well_drained` | `poor_drainage` | `waterlogged`. For
+             *     `irrigation_method`: `manual` | `drip` | `sprinkler` | `none`.
+             *     For `growing_context`: `open_ground` | `container` |
+             *     `greenhouse`. For `soil_type`/`microclimate`: free text, the
+             *     same latitude `BedDetails.soilNotes` already takes.
+             */
+            value: string;
+            source: components["schemas"]["GardenContextSource"];
+            /** @description Human reviewer name or identifier. Present only when `source` is `horticulturally_reviewed_default`. */
+            reviewedBy?: string;
+            /**
+             * Format: date
+             * @description Calendar date of horticultural sign-off. Present only when `source` is `horticulturally_reviewed_default`.
+             */
+            reviewedOn?: string;
+            /** @description Who declared or imported this fact. Always present, distinct from `reviewedBy`, a human reviewer name not necessarily tied to a profile. */
+            recordedByProfileId: components["schemas"]["Uuid"];
+            recordedAt: components["schemas"]["Timestamp"];
+            revision: components["schemas"]["Revision"];
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+        };
+        GardenContextFactListResult: {
+            items: components["schemas"]["GardenContextFact"][];
+        };
+        /** @description `contextKind` travels in the path (`PUT /gardens/{gardenId}/context/{contextKind}`), not in this body. */
+        RecordGardenContextFactRequest: {
+            value: string;
+            source: components["schemas"]["GardenContextSource"];
+            reviewedBy?: string;
+            /** Format: date */
+            reviewedOn?: string;
+        };
+        /**
          * @description Whether `Plant` tracks a single instance, a row, or a group as one record.
          * @enum {string}
          */
@@ -7932,6 +8069,61 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    listGardenContextFacts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The garden's currently recorded context facts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GardenContextFactListResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    recordGardenContextFact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                contextKind: components["schemas"]["GardenContextKind"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordGardenContextFactRequest"];
+            };
+        };
+        responses: {
+            /** @description The recorded context fact, at its new revision. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GardenContextFact"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     searchPlants: {

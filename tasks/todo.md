@@ -6350,12 +6350,62 @@ data/UX with no security surface).
 
 ## Work packages (§18.2)
 
-- [ ] P9D-CONTEXT-01 — reviewed facts for sunlight, soil, drainage, irrigation, microclimate,
+- [x] P9D-CONTEXT-01 — reviewed facts for sunlight, soil, drainage, irrigation, microclimate,
       greenhouse/container/open-ground, source/quality.
 - [ ] P9D-SEASON-01 — seasonal calendars, succession planning, crop rotation, recurrence,
       location-aware schedule rules.
 - [ ] P9D-UX-01 — seasonal plan, context quality, shared responsibilities, conflicts, without
       overwhelming Today.
+
+## P9D-CONTEXT-01 design decisions (recorded before dispatch, per prior-phase practice)
+
+Research findings (full agent report not reproduced here): `garden-facts.ts`'s own header already
+states plainly that "soil or moisture facts... garden geometry and exposure" have "no backing data
+anywhere in this repository today" — confirming this is genuinely greenfield, not an extension of
+a half-built feature. `RecommendationEvidenceKind` already reserves `garden_context` /
+`soil_moisture` / `geometry_exposure` slots no rule populates yet — this package's job is to build
+what those slots point at.
+
+- **Owning module: `gardens-mapping`**, not `plants-inventory` — these are facts about the
+  garden's physical growing environment (owned by gardens-mapping, alongside `garden` and
+  `georeference`), not about a specific plant instance.
+- **Granularity: one row per (garden, context kind)**, not six-plus-metadata columns on `garden`
+  itself. FR-22's own words — "source and quality of **each** context type must be understood" —
+  argue for independent provenance per fact, the same reasoning `recommendation_evidence` already
+  applies to rule inputs. Table: `gardens_mapping.garden_context_fact`, one row per
+  `(garden_id, context_kind)`, `UNIQUE`-constrained. `contextKind` is a fixed CHECK vocabulary
+  (six values, listed below) mirroring `RecommendationEvidenceKind`'s own closed-set style; `value`
+  is validated per-kind at the application layer against that kind's own fixed vocabulary:
+  - `sun_exposure`: full sun, partial sun, partial shade, or full shade.
+  - `drainage`: well-drained, poor drainage, or waterlogged.
+  - `irrigation_method`: manual, drip, sprinkler, or none.
+  - `growing_context`: open ground, container, or greenhouse.
+  - `soil_type` and `microclimate`: free text, the same latitude `bed_details.soil_notes` already
+    takes.
+
+  Current-value, update-in-place, not an append-only history — FR-22 does not ask for a timeline
+  of context changes, only that the CURRENT value's source/quality be known.
+
+- **Source/quality shape: combine two existing patterns, not a sixth new one.** `source` (`
+user_declared | horticulturally_reviewed_default | imported`) plus, when `
+horticulturally_reviewed_default`, `reviewedBy`/`reviewedOn` — the same
+  `RuleReviewMetadata`-style human-sign-off pair every shipped launch rule already carries in
+  `rule-definition.ts`. `recordedByProfileId`/`recordedAt` always present (who/when declared or
+  imported it), mirroring `plant_content_record`'s own fetch/version metadata. Deliberately NOT
+  reusing `garden_object.provenance`/`confidence` — those describe HOW A SHAPE WAS CAPTURED
+  (drawing, AR measurement, etc.), a different concept from how a SOIL/SUN FACT was sourced, and
+  conflating the two column names would blur two things this codebase currently keeps cleanly
+  separate.
+- **Distinct from `bed_details.bedKind`/`soil_notes` — not a replacement.** Those remain
+  per-bed physical attributes on a mapped object; `garden_context_fact` is garden-wide (a garden
+  may have no mapped beds at all and still have a known sun exposure or irrigation method) and is
+  what `RecommendationEvidenceKind.garden_context`/`soil_moisture`/`geometry_exposure` actually
+  wire into. No migration touches `bed_details`.
+- **No AI-authored content here.** ADR-0013 governs care-content AUTHORING (rule/fixture text);
+  `garden_context_fact` rows are either the gardener's own declaration or an operator-configured
+  reviewed default (e.g., a regional default sun exposure) — never a generative-model output at
+  request time, so ADR-0013's extraction/proposal-queue machinery does not apply here. This
+  package adds no new AI-authoring surface.
 
 ---
 

@@ -292,6 +292,14 @@ export const GARDEN_PURGE_STEPS: readonly PurgeStep[] = [
     table: 'gardens_mapping.coordinate_space',
     rows: (gardenId) => sql`garden_id = ${gardenId}`,
   },
+  // Garden context facts (P9D-CONTEXT-01) — a plain garden-scoped table with
+  // nothing referencing it, the same shape as `georeference`/
+  // `coordinate_space` immediately above.
+  {
+    name: 'gardens_mapping.garden_context_fact',
+    table: 'gardens_mapping.garden_context_fact',
+    rows: (gardenId) => sql`garden_id = ${gardenId}`,
+  },
 
   // Weather, after `recommendation_evidence.source_weather_record_id` is gone.
   {

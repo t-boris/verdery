@@ -277,6 +277,27 @@ export interface CalibrationRow {
   created_at: Generated<Date>;
 }
 
+/**
+ * `gardens_mapping.garden_context_fact` (P9D-CONTEXT-01). `reviewed_on` is a
+ * `date` column, read as the raw `'YYYY-MM-DD'` string — the same
+ * convention `plants_inventory.plant.acquisition_date` documents for itself
+ * in `modules/plants-inventory/persistence/schema.ts`.
+ */
+export interface GardenContextFactRow {
+  id: string;
+  garden_id: string;
+  context_kind: string;
+  value: string;
+  source: string;
+  reviewed_by: string | null;
+  reviewed_on: string | null;
+  recorded_by_profile_id: string;
+  recorded_at: Date;
+  revision: Generated<number>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
 export interface GardensMappingDatabaseSchema {
   'gardens_mapping.garden': GardenRow;
   'collaboration.membership': MembershipRow;
@@ -298,4 +319,5 @@ export interface GardensMappingDatabaseSchema {
   'gardens_mapping.imported_background_details': ImportedBackgroundDetailsRow;
   'gardens_mapping.garden_object_revision': GardenObjectRevisionRow;
   'gardens_mapping.calibration': CalibrationRow;
+  'gardens_mapping.garden_context_fact': GardenContextFactRow;
 }

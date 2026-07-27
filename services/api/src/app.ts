@@ -36,6 +36,7 @@ import { composeSynchronization } from './compose-synchronization.js';
 import { composeTasksRecommendations } from './compose-tasks-recommendations.js';
 import { registerWeatherRefreshSweepRoute } from './modules/integrations/public.js';
 import {
+  registerGardenContextRoutes,
   registerGardenRoutes,
   registerInvitationExpirySweepRoute,
   registerInvitationRoutes,
@@ -200,6 +201,7 @@ export async function buildApplication(
     memberRoutesDependencies,
     invitationExpirySweepRouteDependencies,
     ownershipRoutesDependencies,
+    gardenContextRoutesDependencies,
   } = composeGardensMapping(database, clock, cloudTasksInvocationVerifier);
 
   // integrations (P7-ASYNC-01, P7-AI-01, P9C-INVITE-01): weather, bounded
@@ -485,6 +487,10 @@ export async function buildApplication(
       registerAuthentication(instance, { tokenVerifier, provisionProfile });
       registerGardenRoutes(instance, gardenRoutesDependencies);
       registerMapRoutes(instance, mapRoutesDependencies);
+      // P9D-CONTEXT-01: reviewed/declared garden context facts (sun
+      // exposure, soil type, drainage, irrigation method, growing context,
+      // microclimate).
+      registerGardenContextRoutes(instance, gardenContextRoutesDependencies);
       // P9A-API-01: operational invitations and membership administration.
       registerInvitationRoutes(instance, invitationRoutesDependencies);
       registerMemberRoutes(instance, memberRoutesDependencies);

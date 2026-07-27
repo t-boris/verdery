@@ -43,6 +43,7 @@ import {
   JoinMapObjectLinework,
   KyselyCoordinateSpaceRepository,
   KyselyGardenAssignmentAccessSource,
+  KyselyGardenContextFactRepository,
   KyselyGardenRepository,
   KyselyGardensMappingUnitOfWork,
   KyselyGeoreferenceRepository,
@@ -50,12 +51,14 @@ import {
   KyselyMapObjectRepository,
   KyselyMembershipRepository,
   KyselyOwnershipTransferRepository,
+  ListGardenContextFacts,
   ListGardenInvitations,
   ListGardenMembers,
   ListGardens,
   ListIncomingOwnershipTransfers,
   MoveMapObject,
   PromoteToOwner,
+  RecordGardenContextFact,
   RemoveMember,
   RenameGarden,
   ReplaceMapObjectGeometry,
@@ -69,6 +72,7 @@ import {
   UpsertMapCalibration,
 } from './modules/gardens-mapping/public.js';
 import type {
+  GardenContextRoutesDependencies,
   GardenRoutesDependencies,
   InvitationExpirySweepRouteDependencies,
   InvitationRoutesDependencies,
@@ -93,6 +97,8 @@ export interface GardensMappingComposition {
   readonly invitationExpirySweepRouteDependencies: InvitationExpirySweepRouteDependencies;
   /** P9A-OWNER-01 — recent-auth-gated promote/demote/transfer/cancel. */
   readonly ownershipRoutesDependencies: OwnershipRoutesDependencies;
+  /** P9D-CONTEXT-01 — garden context facts (sun exposure, soil type, drainage, irrigation method, growing context, microclimate) list/record. */
+  readonly gardenContextRoutesDependencies: GardenContextRoutesDependencies;
 }
 
 export function composeGardensMapping(
@@ -357,6 +363,26 @@ export function composeGardensMapping(
     ),
   };
 
+  // Garden context facts (P9D-CONTEXT-01): a single upsert-by-natural-key
+  // repository bound directly to the pooled connection — `recordOrUpdate` is
+  // one atomic `INSERT ... ON CONFLICT DO UPDATE` statement (see the
+  // repository's own header), so unlike the garden lifecycle/map/collaboration
+  // commands above it needs neither `gardensMappingUnitOfWork` nor
+  // `gardenIdempotency`; it shares only `gardenAuthorization`.
+  const gardenContextFactRepository = new KyselyGardenContextFactRepository(database.queries);
+
+  const gardenContextRoutesDependencies: GardenContextRoutesDependencies = {
+    listGardenContextFacts: new ListGardenContextFacts(
+      gardenAuthorization,
+      gardenContextFactRepository,
+    ),
+    recordGardenContextFact: new RecordGardenContextFact(
+      gardenAuthorization,
+      gardenContextFactRepository,
+      clock,
+    ),
+  };
+
   return {
     gardenAuthorization,
     gardenRoutesDependencies,
@@ -365,5 +391,6 @@ export function composeGardensMapping(
     memberRoutesDependencies,
     invitationExpirySweepRouteDependencies,
     ownershipRoutesDependencies,
+    gardenContextRoutesDependencies,
   };
 }
