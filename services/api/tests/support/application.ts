@@ -95,6 +95,16 @@ export const testConfiguration: ApplicationConfiguration = {
   appCheck: {
     enforcement: 'monitor',
   },
+  // P9C-INVITE-01: no Resend account is provisioned for the test suite,
+  // like every real environment today — every test-built application runs
+  // with the honest `null`-adapter degradation `CreateClientInvitation`
+  // answers with, never a real network call.
+  transactionalEmail: {
+    apiKey: null,
+    fromEmail: null,
+    clientPortalBaseUrl: null,
+    callTimeoutMs: 8_000,
+  },
 };
 
 /** A database that answers health checks according to the supplied behavior. */

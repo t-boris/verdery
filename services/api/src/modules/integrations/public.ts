@@ -77,6 +77,9 @@ export type {
 } from './application/weather-provider-registry.js';
 export type { WeatherRecordRepository } from './application/weather-record-repository.js';
 export { quotaWindowStart } from './application/provider-quota-repository.js';
+/** The bounded-deadline racing helper (external-integrations.md section 11) — provider-neutral, reused by P9C-INVITE-01's transactional-email call the same way `RefreshGardenWeather` uses it for its own provider call. */
+export { withDeadline } from './application/with-deadline.js';
+export type { DeadlineOutcome } from './application/with-deadline.js';
 export type {
   ProviderQuotaConsumeResult,
   ProviderQuotaLimits,
@@ -246,3 +249,29 @@ export { KyselyPlantTaxonomyMappingRepository } from './persistence/kysely-plant
 export { KyselyPlantContentRecordRepository } from './persistence/kysely-plant-content-record-repository.js';
 export { KyselyTaxonomyIdentitySource } from './persistence/kysely-taxonomy-identity-source.js';
 export type { IntegrationsDatabaseSchema } from './persistence/schema.js';
+
+// P9C-INVITE-01: the transactional-email capability — the provider-neutral
+// port (external-integrations.md section 10) and the real Resend adapter,
+// the transactional-email decision implementation-plan.md section 29.1.1
+// records. `CreateClientInvitation` (collaboration module) is this
+// capability's one consumer today, the same "no registry, only one caller"
+// posture the port's own header documents. `ResendTransactionalEmailAdapter`
+// is constructed only by `compose-integrations.ts`, and only when
+// `RESEND_API_KEY` is configured — absent (every environment today), the
+// honest runtime state is a `null` adapter and a typed degradation, the
+// identical posture `AiExplanationProviderAdapter | null` already takes.
+export type {
+  TransactionalEmailAdapter,
+  TransactionalEmailMessage,
+  TransactionalEmailSendResult,
+} from './application/transactional-email-provider.js';
+export {
+  RESEND_BASE_URL,
+  RESEND_SEND_EMAIL_PATH,
+  ResendTransactionalEmailAdapter,
+} from './persistence/resend-transactional-email-adapter.js';
+export type {
+  ResendConfiguration,
+  ResendHttpFetch,
+  ResendHttpResponse,
+} from './persistence/resend-transactional-email-adapter.js';

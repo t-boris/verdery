@@ -99,15 +99,21 @@ export interface ClientEngagementRow {
  * Mirrors `collaboration.client_access_grant`. `client_profile_id` and
  * `invited_email` are both nullable because a grant identifies its client
  * either by a bound profile or by an invitation target that has not yet been
- * accepted — see the migration's own "WHY `client_access_grant` HAS NO
- * TOKEN" comment. No token/expiry columns exist here on purpose: that
- * mechanism belongs to P9C-INVITE-01.
+ * accepted — see the P9B-DATA-01 migration's own "WHY `client_access_grant`
+ * HAS NO TOKEN" comment. `token_hash`/`expires_at` (P9C-INVITE-01,
+ * `1786900000000_client-invitation-token.sql`) are the invitation mechanism
+ * that migration deliberately left unbuilt — both nullable for the same
+ * "a directly-created grant carries neither" reason, paired by that
+ * migration's own CHECK. `state` still describes what the column returns,
+ * not the CHECK's current (now four-value) vocabulary.
  */
 export interface ClientAccessGrantRow {
   id: string;
   engagement_id: string;
   client_profile_id: string | null;
   invited_email: string | null;
+  token_hash: string | null;
+  expires_at: Date | null;
   state: Generated<string>;
   granted_at: Date | null;
   revoked_at: Date | null;

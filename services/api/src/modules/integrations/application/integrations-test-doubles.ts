@@ -48,6 +48,11 @@ import type { TaxonomyIdentitySource } from './taxonomy-identity-source.js';
 import type { NormalizedWeatherReading, WeatherProviderAdapter } from './weather-provider.js';
 import type { WeatherProviderMetadata } from './weather-provider-registry.js';
 import type { WeatherRecordRepository } from './weather-record-repository.js';
+import type {
+  TransactionalEmailAdapter,
+  TransactionalEmailMessage,
+  TransactionalEmailSendResult,
+} from './transactional-email-provider.js';
 
 export function fixedClock(at: Date): Clock {
   return { now: () => at };
@@ -519,6 +524,56 @@ export class FakeAiExplanationProviderAdapter implements AiExplanationProviderAd
           behavior.error instanceof Error
             ? behavior.error
             : new Error('fake AI provider failure', { cause: behavior.error }),
+        );
+      case 'hang':
+        return new Promise((_resolve, reject) => {
+          signal.addEventListener('abort', () => {
+            this.lastSignalAborted = true;
+            reject(new Error('aborted by deadline'));
+          });
+        });
+    }
+  }
+}
+
+/**
+ * A deterministic `TransactionalEmailAdapter` (P9C-INVITE-01) — this
+ * capability's own real Resend adapter has no keyless mode (unlike Open-
+ * Meteo's free tier), so every `CreateClientInvitation` test needs a fake
+ * rather than a real network-touching path, the identical reasoning
+ * `FakeMediaStorageGateway` documents for Cloud Storage.
+ */
+export type FakeTransactionalEmailBehavior =
+  | { readonly kind: 'succeed' }
+  | { readonly kind: 'fail'; readonly error?: unknown }
+  | { readonly kind: 'hang' };
+
+export class FakeTransactionalEmailAdapter implements TransactionalEmailAdapter {
+  callCount = 0;
+  readonly sentMessages: TransactionalEmailMessage[] = [];
+  lastSignalAborted = false;
+
+  constructor(private behavior: FakeTransactionalEmailBehavior = { kind: 'succeed' }) {}
+
+  setBehavior(behavior: FakeTransactionalEmailBehavior): void {
+    this.behavior = behavior;
+  }
+
+  send(
+    message: TransactionalEmailMessage,
+    signal: AbortSignal,
+  ): Promise<TransactionalEmailSendResult> {
+    this.callCount += 1;
+    this.sentMessages.push(message);
+    const behavior = this.behavior;
+    switch (behavior.kind) {
+      case 'succeed':
+        return Promise.resolve({ providerMessageId: `fake-message-${String(this.callCount)}` });
+      case 'fail':
+        return Promise.reject(
+          behavior.error instanceof Error
+            ? behavior.error
+            : new Error('fake transactional email provider failure', { cause: behavior.error }),
         );
       case 'hang':
         return new Promise((_resolve, reject) => {

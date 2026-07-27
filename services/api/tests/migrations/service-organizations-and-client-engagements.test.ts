@@ -462,13 +462,15 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   });
 
   it('rolls back cleanly, leaving no trace of any of the six new tables', async () => {
-    // `count: 3` undoes this migration and the two migrations applied after
-    // it (1786700000000_client-publication-and-work-logs.sql and
+    // `count: 4` undoes this migration and the three migrations applied
+    // after it (1786700000000_client-publication-and-work-logs.sql,
     // 1786800000000_engagement-publisher-grant-and-client-update-items.sql,
-    // nothing this file's own assertions below check) first, then this
-    // migration itself. Update this count when a later migration is added
-    // on top.
-    await migrate(databaseUrl, 'down', 3);
+    // and 1786900000000_client-invitation-token.sql — the last of which
+    // ALTERs `client_access_grant` itself and must therefore unwind before
+    // this migration's own `DROP TABLE` reaches it — nothing this file's
+    // own assertions below check) first, then this migration itself. Update
+    // this count when a later migration is added on top.
+    await migrate(databaseUrl, 'down', 4);
 
     const { rows } = await client.query<Row>(
       `SELECT table_name FROM information_schema.tables

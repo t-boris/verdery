@@ -29,16 +29,19 @@ import {
   KyselyWeatherRecordRepository,
   KyselyWeatherRefreshCandidateSource,
   RefreshGardenWeather,
+  ResendTransactionalEmailAdapter,
   RunWeatherRefreshSweep,
   WeatherProviderRegistry,
 } from './modules/integrations/public.js';
 import type {
   AiExplanationProviderAdapter,
+  TransactionalEmailAdapter,
   WeatherRefreshSweepRouteDependencies,
 } from './modules/integrations/public.js';
 import { KyselyGeoreferenceRepository } from './modules/gardens-mapping/public.js';
 import type {
   AiExplanationConfiguration,
+  TransactionalEmailConfiguration,
   WeatherConfiguration,
 } from './platform/configuration/configuration-schema.js';
 import type { DatabaseGateway } from './platform/database/database-gateway.js';
@@ -58,6 +61,8 @@ export interface IntegrationsComposition {
   /** Consumed by tasks-recommendations' `EmbellishRecommendationExplanations` (P7-AI-01) — same precedent. Typed `noProviderConfigured` whenever the adapter is null. */
   readonly generateAiExplanation: GenerateAiExplanation;
   readonly weatherRefreshSweepRouteDependencies: WeatherRefreshSweepRouteDependencies;
+  /** P9C-INVITE-01: consumed by collaboration's `CreateClientInvitation` — the cross-module use-case injection precedent, again. `null` whenever `RESEND_API_KEY` is unconfigured. */
+  readonly transactionalEmailAdapter: TransactionalEmailAdapter | null;
 }
 
 export function composeIntegrations(
@@ -66,6 +71,7 @@ export function composeIntegrations(
   weather: WeatherConfiguration,
   aiExplanation: AiExplanationConfiguration,
   aiExplanationAdapter: AiExplanationProviderAdapter | null,
+  transactionalEmail: TransactionalEmailConfiguration,
   cloudTasksInvocationVerifier: CloudTasksInvocationVerifier,
 ): IntegrationsComposition {
   // `globalThis.fetch` is the platform's own HTTP client (Node 24,
@@ -128,5 +134,28 @@ export function composeIntegrations(
     cloudTasksInvocationVerifier,
   };
 
-  return { getGardenWeather, generateAiExplanation, weatherRefreshSweepRouteDependencies };
+  // P9C-INVITE-01 (transactional email: Resend, decided 2026-07-26 —
+  // implementation-plan.md section 29.1.1). Built directly here, the same
+  // "plain fetch, no SDK" posture Open-Meteo's own registration above takes
+  // — unlike the Vertex AI adapter (an SDK client `main.ts` constructs),
+  // nothing about one REST endpoint needs external construction. `null`
+  // whenever `RESEND_API_KEY` is absent (every environment today): the
+  // honest degradation `CreateClientInvitation` answers with, never a
+  // silently-broken invitation.
+  const transactionalEmailAdapter: TransactionalEmailAdapter | null =
+    transactionalEmail.apiKey === null
+      ? null
+      : new ResendTransactionalEmailAdapter((url, init) => globalThis.fetch(url, init), {
+          apiKey: transactionalEmail.apiKey,
+          // The cross-field configuration check guarantees this is defined
+          // whenever `apiKey` is (`findTransactionalEmailIssues`).
+          fromEmail: transactionalEmail.fromEmail as string,
+        });
+
+  return {
+    getGardenWeather,
+    generateAiExplanation,
+    weatherRefreshSweepRouteDependencies,
+    transactionalEmailAdapter,
+  };
 }

@@ -312,13 +312,14 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   });
 
   it('rolls back cleanly, leaving no trace of any of the ten new tables', async () => {
-    // `count: 2` undoes this migration and the one migration applied after
+    // `count: 3` undoes this migration and the two migrations applied after
     // it (1786800000000_engagement-publisher-grant-and-client-update-items
-    // .sql, nothing this file's own assertions below check) first, then
-    // this migration itself. Update this count when a later migration is
-    // added on top — the same convention every earlier migration test in
-    // this suite already follows.
-    await migrate(databaseUrl, 'down', 2);
+    // .sql and 1786900000000_client-invitation-token.sql, nothing this
+    // file's own assertions below check) first, then this migration itself.
+    // Update this count when a later migration is added on top — the same
+    // convention every earlier migration test in this suite already
+    // follows.
+    await migrate(databaseUrl, 'down', 3);
 
     const { rows } = await client.query<Row>(
       `SELECT table_name FROM information_schema.tables

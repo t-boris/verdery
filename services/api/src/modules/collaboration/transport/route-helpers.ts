@@ -62,6 +62,10 @@ export function requireItemId(request: FastifyRequest): string {
   return requireUuidParam(request, 'itemId', 'itemId');
 }
 
+export function requireGrantId(request: FastifyRequest): string {
+  return requireUuidParam(request, 'grantId', 'grantId');
+}
+
 export function requireIdempotencyKey(request: FastifyRequest): string {
   const header = request.headers[IDEMPOTENCY_KEY_HEADER];
   const key = Array.isArray(header) ? header[0] : header;

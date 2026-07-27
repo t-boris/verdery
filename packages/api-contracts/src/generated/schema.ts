@@ -3209,6 +3209,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/client-engagements/{engagementId}/client-invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List an engagement's client access grants
+         * @description Every `client_access_grant` on this engagement in any state
+         *     (`pending`, `active`, `revoked`, `expired`), newest first. Authorized
+         *     the same dual gate as `createClientInvitation` — only whoever
+         *     administers the engagement may see who has been invited to it.
+         *
+         *     Source: implementation-plan.md work package P9C-INVITE-01.
+         */
+        get: operations["listClientInvitations"];
+        put?: never;
+        /**
+         * Invite a client to an engagement
+         * @description Authorized the SAME dual gate as `activateClientEngagement`/
+         *     `endClientEngagement` (`manageEngagement` for an organization-backed
+         *     engagement, `manageGarden` otherwise) — never a separate publisher-
+         *     style grant; see architecture/collaboration-and-client-sharing.md
+         *     section 9 and this operation's own tag description for why.
+         *     Refused when the engagement is `ended` or `revoked`; permitted from
+         *     `draft` (a pending invitation may satisfy section 8's own activation
+         *     precondition) or `active`.
+         *
+         *     Sends a transactional email carrying an opaque, expiring accept link
+         *     WITHOUT sensitive garden content, synchronously, as part of this
+         *     request — the invitation link is the client's very first
+         *     client-facing event, not a deferred notification. The raw token
+         *     itself is never returned in this response and never logged; the
+         *     email is its only distribution channel. Refused with `503` when no
+         *     transactional email provider is configured, or when the provider
+         *     call fails or times out — nothing is created in that case, and the
+         *     request may be safely retried. Refused with `409` when an
+         *     outstanding (pending or active) grant already exists for this email
+         *     on this engagement.
+         *
+         *     Source: implementation-plan.md work package P9C-INVITE-01;
+         *     architecture/collaboration-and-client-sharing.md, section
+         *     "9. Client Invitation and Session".
+         */
+        post: operations["createClientInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/client-engagements/{engagementId}/client-invitations/{grantId}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+                grantId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke a client access grant
+         * @description Same dual authorization gate as `createClientInvitation`. Works on a
+         *     PENDING or an ACTIVE grant — revokes a still-unaccepted invitation or
+         *     ends an accepted client's ongoing portal access, whichever the grant
+         *     currently is. Idempotent when already `revoked`. Refused with `422`
+         *     from `expired` — a different terminal state.
+         *
+         *     Source: implementation-plan.md work package P9C-INVITE-01.
+         */
+        post: operations["revokeClientInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/client-invitations/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept a client invitation
+         * @description Grants the AUTHENTICATED caller the invitation's client access grant.
+         *     Identified by the raw token plus the caller's own session, exactly
+         *     like `acceptInvitation` — never by the token alone, so a VERIFIED
+         *     email claim is available to check against and acceptance is always
+         *     attributable to a real account. Email magic link is the lowest-
+         *     friction default sign-in method this token's own email arrived
+         *     through, but any approved Firebase method the caller actually used is
+         *     accepted identically — this operation reads the same verified-email
+         *     claim `acceptInvitation` already reads, not a second one.
+         *
+         *     Idempotent and handles, each distinguishably:
+         *
+         *     - The caller already holds an ACTIVE grant from this exact token:
+         *       returns it unchanged, `200`, no error.
+         *     - The invitation is expired or revoked: `409`.
+         *     - The invitation was already accepted by a DIFFERENT caller: `409`.
+         *     - The invitation is bound to an email the caller's own verified
+         *       email does not match: `403`. Existence is never concealed here —
+         *       the caller already holds the token — but this response does not
+         *       disclose what the correct email is.
+         *     - The invitation's engagement is not currently `active` (never
+         *       activated, ended, or revoked): `409`.
+         *
+         *     Source: implementation-plan.md work package P9C-INVITE-01;
+         *     architecture/collaboration-and-client-sharing.md, section
+         *     "9. Client Invitation and Session".
+         */
+        post: operations["acceptClientInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/client-engagements/{engagementId}/work-logs": {
         parameters: {
             query?: never;
@@ -3869,6 +3997,45 @@ export interface components {
              *     membership (any role) on the engagement's own garden.
              */
             profileId: components["schemas"]["Uuid"];
+        };
+        /**
+         * @description Mirrors `collaboration.client_access_grant.state`. Unlike
+         *     `InvitationState`, this machine has an `active -> revoked` edge: this
+         *     one row is both the invitation and the client's ongoing portal-access
+         *     grant, so revoking an accepted client's access is the same
+         *     transition as revoking a still-pending invite.
+         * @enum {string}
+         */
+        ClientAccessGrantState: "pending" | "active" | "revoked" | "expired";
+        ClientAccessGrant: {
+            id: components["schemas"]["Uuid"];
+            engagementId: components["schemas"]["Uuid"];
+            /** @description Absent until a real invitation is accepted and binds a profile. */
+            clientProfileId?: components["schemas"]["Uuid"];
+            /**
+             * Format: email
+             * @description The email this invitation was bound to. Stays present even after acceptance.
+             */
+            invitedEmail?: string;
+            state: components["schemas"]["ClientAccessGrantState"];
+            grantedAt?: components["schemas"]["Timestamp"];
+            revokedAt?: components["schemas"]["Timestamp"];
+            expiresAt?: components["schemas"]["Timestamp"];
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        ClientAccessGrantListResult: {
+            items: components["schemas"]["ClientAccessGrant"][];
+        };
+        CreateClientInvitationRequest: {
+            /**
+             * Format: email
+             * @description Required — client invitations are always email-bound; no
+             *     anonymous, unbound link exists for this resource.
+             */
+            email: string;
+        };
+        AcceptClientInvitationRequest: {
+            token: string;
         };
         /**
          * @description Mirrors `collaboration.client_update.state`. Strictly linear
@@ -6372,6 +6539,19 @@ export interface components {
         };
         /** @description Unexpected internal failure. */
         InternalError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /**
+         * @description A required external dependency (for example the transactional email
+         *     provider) is temporarily unavailable or did not respond in time. The
+         *     request was not applied and may be retried.
+         */
+        ServiceUnavailable: {
             headers: {
                 [name: string]: unknown;
             };
@@ -10028,6 +10208,141 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listClientInvitations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The engagement's client access grants. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientAccessGrantListResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createClientInvitation: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateClientInvitationRequest"];
+            };
+        };
+        responses: {
+            /** @description The created, pending client access grant. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientAccessGrant"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    revokeClientInvitation: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                engagementId: components["schemas"]["Uuid"];
+                grantId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The revoked (or already revoked) client access grant. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientAccessGrant"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    acceptClientInvitation: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptClientInvitationRequest"];
+            };
+        };
+        responses: {
+            /** @description The caller's client access grant on the engagement the invitation named. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientAccessGrant"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     listEngagementWorkLogs: {

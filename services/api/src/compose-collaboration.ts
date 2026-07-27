@@ -24,11 +24,13 @@
  */
 
 import {
+  AcceptClientInvitation,
   ActivateClientEngagement,
   AddClientUpdateItem,
   AddOrganizationMember,
   ChangeOrganizationMemberRole,
   CreateClientEngagement,
+  CreateClientInvitation,
   CreateClientUpdate,
   CreateGardenAssignment,
   CreateServiceOrganization,
@@ -37,6 +39,7 @@ import {
   GetClientUpdate,
   GetOrganization,
   GrantPublisherAccess,
+  KyselyClientAccessGrantRepository,
   KyselyClientEngagementRepository,
   KyselyClientUpdateItemRepository,
   KyselyClientUpdateRepository,
@@ -48,6 +51,7 @@ import {
   KyselyWorkLogRepository,
   ListClientEngagementsForGarden,
   ListClientEngagementsForOrganization,
+  ListClientInvitationsForEngagement,
   ListClientUpdatesForEngagement,
   ListEngagementWorkLogs,
   ListGardenAssignmentsForGarden,
@@ -61,6 +65,7 @@ import {
   RemoveClientUpdateItem,
   RemoveOrganizationMember,
   RevokeClientEngagement,
+  RevokeClientInvitation,
   RevokeGardenAssignment,
   RevokePublisherAccess,
   SubmitClientUpdate,
@@ -69,6 +74,8 @@ import {
 } from './modules/collaboration/public.js';
 import type {
   ClientEngagementRoutesDependencies,
+  ClientInvitationEmailConfiguration,
+  ClientInvitationRoutesDependencies,
   ClientUpdateItemRoutesDependencies,
   ClientUpdateRoutesDependencies,
   GardenAssignmentRoutesDependencies,
@@ -101,6 +108,11 @@ export function composeCollaboration(
   clock: Clock,
   gardenAuthorization: GardenAuthorization,
   profileRepository: ProfileRepository,
+  // P9C-INVITE-01: the transactional-email adapter/config `compose-
+  // integrations.ts` built from `RESEND_*` configuration — `null` adapter
+  // whenever unconfigured, the honest `AiExplanationProviderAdapter | null`
+  // posture reused (see `create-client-invitation.ts`'s own header).
+  clientInvitationEmail: ClientInvitationEmailConfiguration,
 ): CollaborationComposition {
   const gardenRepository = new KyselyGardenRepository(database.queries);
   const organizationMembershipRepository = new KyselyOrganizationMembershipRepository(
@@ -124,6 +136,11 @@ export function composeCollaboration(
   const clientUpdateItemRepository = new KyselyClientUpdateItemRepository(database.queries);
   const workLogRepository = new KyselyWorkLogRepository(database.queries);
   const mediaRepository = new KyselyMediaRepository(database.queries);
+  // P9C-INVITE-01: a second independent reader over the same pool, the
+  // identical posture `gardenRepository`/`mediaRepository` above already
+  // take — `CreateClientInvitation`'s own pre-check must complete BEFORE it
+  // ever calls the email adapter, outside any transaction.
+  const clientAccessGrantRepository = new KyselyClientAccessGrantRepository(database.queries);
 
   const organizationRoutesDependencies: OrganizationRoutesDependencies = {
     createServiceOrganization: new CreateServiceOrganization(
@@ -263,6 +280,45 @@ export function composeCollaboration(
     ),
   };
 
+  // P9C-INVITE-01: email-bound, expiring client invitations — the SAME dual
+  // gate `publisherGrantRoutesDependencies` above reuses for grant/revoke
+  // (see `create-client-invitation.ts`'s own header for why this rides on
+  // `requireEngagementCapability` rather than a separate grant table);
+  // acceptance itself needs neither `organizationAuthorization` nor
+  // `gardenAuthorization` — the client's own token plus verified email is
+  // the entire authority, mirroring `acceptInvitation`'s identical posture.
+  const clientInvitationRoutesDependencies: ClientInvitationRoutesDependencies = {
+    listClientInvitations: new ListClientInvitationsForEngagement(
+      clientAccessGrantRepository,
+      organizationAuthorization,
+      gardenAuthorization,
+      clientEngagementRepository,
+    ),
+    createClientInvitation: new CreateClientInvitation(
+      collaborationIdempotency,
+      collaborationUnitOfWork,
+      organizationAuthorization,
+      gardenAuthorization,
+      clientEngagementRepository,
+      clientAccessGrantRepository,
+      clientInvitationEmail,
+      clock,
+    ),
+    revokeClientInvitation: new RevokeClientInvitation(
+      collaborationIdempotency,
+      collaborationUnitOfWork,
+      organizationAuthorization,
+      gardenAuthorization,
+      clientEngagementRepository,
+      clock,
+    ),
+    acceptClientInvitation: new AcceptClientInvitation(
+      collaborationIdempotency,
+      collaborationUnitOfWork,
+      clock,
+    ),
+  };
+
   const workLogRoutesDependencies: WorkLogRoutesDependencies = {
     listEngagementWorkLogs: new ListEngagementWorkLogs(
       clientEngagementRepository,
@@ -352,6 +408,7 @@ export function composeCollaboration(
     workLogRoutesDependencies,
     clientUpdateRoutesDependencies,
     clientUpdateItemRoutesDependencies,
+    clientInvitationRoutesDependencies,
   };
 
   return {

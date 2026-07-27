@@ -14,6 +14,7 @@ import {
   environmentSchema,
   findAiExplanationIssues,
   findDatabaseModeIssues,
+  findTransactionalEmailIssues,
   findWeatherProviderIssues,
   SECRET_VARIABLES,
   toApplicationConfiguration,
@@ -58,8 +59,8 @@ function describeConfigurationIssue(issue: ConfigurationIssue): string {
  * Validates the process environment and returns typed configuration.
  *
  * Combines zod's per-field validation with {@link findDatabaseModeIssues},
- * {@link findAiExplanationIssues}, and {@link findWeatherProviderIssues},
- * which check cross-field rules zod
+ * {@link findAiExplanationIssues}, {@link findWeatherProviderIssues}, and
+ * {@link findTransactionalEmailIssues}, which check cross-field rules zod
  * cannot express as per-field schemas. All run unconditionally and their
  * results are merged, so a deployment with several unrelated problems is
  * told about all of them at once rather than one at a time across repeated
@@ -75,6 +76,7 @@ export function loadConfiguration(
     ...findDatabaseModeIssues(source),
     ...findAiExplanationIssues(source),
     ...findWeatherProviderIssues(source),
+    ...findTransactionalEmailIssues(source),
   ];
 
   if (!result.success || modeIssues.length > 0) {

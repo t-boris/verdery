@@ -6262,8 +6262,22 @@ verdery_application` (proven behaviorally under `SET ROLE`, not just read from g
       for narrative text. Six-step publish transaction proven at the row level; two publishers
       racing the same update proven to resolve to exactly one surviving `publication_version`
       under real concurrent Postgres transactions.
-- [ ] P9C-INVITE-01 — email-bound, expiring client invitations, Firebase email magic-link,
-      engagement revocation; no anonymous public links.
+- [x] P9C-INVITE-01 — email-bound, expiring client invitations, Firebase email magic-link,
+      engagement revocation; no anonymous public links. Resend adapter's request/response shape
+      verified live against Resend's own docs, not memory — plain `fetch`, no SDK, matching the
+      Open-Meteo adapter's posture. Schema addition: `token_hash`/`expires_at` on
+      `client_access_grant`, hash-only per the operational-invitation precedent. "May invite a
+      client" rides on the existing `manageEngagement`/`manageGarden` gate, not a separate grant
+      (unlike publisher access — ADR-0012 names publisher access specifically as separate, says
+      nothing equivalent here). Delivery is synchronous at creation, before any DB write — an
+      unregistered invitee cannot flow through the notification-worker pipeline
+      (`recipient_profile_id` is `NOT NULL` there). Full test matrix: invite-mismatch (plus an
+      unverified-email variant not explicitly asked for), replay, expiry (lazy self-heal),
+      revocation, and session — the last one proving `AcceptClientInvitation` and
+      `GetClientMediaAccess` (P9C-MEDIA-01) genuinely compose: denied before acceptance, succeeds
+      immediately after. Resend webhook receiver (bounce/complaint) verified feasible but not
+      built — documented as a real follow-up, not silently dropped. 260 files / 2057 tests, all
+      green.
 - [ ] P9C-API-01 — publication-only client endpoints; a client cannot enumerate operational
       records or other engagements.
 - [ ] P9C-WEB-01 — deliberately read-only responsive client portal route group.

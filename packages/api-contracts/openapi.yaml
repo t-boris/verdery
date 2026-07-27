@@ -94,6 +94,26 @@ tags:
       section "Publication Boundary";
       architecture/collaboration-and-client-sharing.md, sections
       "4.4 Publisher", "10. Publication Workflow", "11. Publication Contents".
+  - name: ClientAccess
+    description: |
+      Email-bound, expiring client invitations and the resulting client
+      access grant (P9C-INVITE-01) — architecture/collaboration-and-client-
+      sharing.md section 9's six-step flow, end to end. Distinct from
+      `Organizations`/`Publications` deliberately: creating and revoking a
+      client invitation is gated by the SAME dual capability that
+      administers the engagement record (`manageEngagement`/`manageGarden`,
+      unlike publisher access, which ADR-0012 names as a genuinely separate
+      capability), while accepting one is the CLIENT's own action, gated by
+      nothing but the token itself plus a matching verified email — no
+      organization or garden authorization applies to that one operation, the
+      same posture the `Collaboration` tag's own `acceptInvitation` already
+      takes for the operational case. No anonymous public links: every
+      invitation is bound to a specific email address, checked against a real
+      verified Firebase claim at acceptance.
+
+      Source: implementation-plan.md work package P9C-INVITE-01;
+      architecture/collaboration-and-client-sharing.md, section
+      "9. Client Invitation and Session".
 
 paths:
   /health/live:
@@ -4943,6 +4963,199 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /client-engagements/{engagementId}/client-invitations:
+    parameters:
+      - name: engagementId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    get:
+      operationId: listClientInvitations
+      tags: [ClientAccess]
+      summary: List an engagement's client access grants
+      description: |
+        Every `client_access_grant` on this engagement in any state
+        (`pending`, `active`, `revoked`, `expired`), newest first. Authorized
+        the same dual gate as `createClientInvitation` — only whoever
+        administers the engagement may see who has been invited to it.
+
+        Source: implementation-plan.md work package P9C-INVITE-01.
+      responses:
+        '200':
+          description: The engagement's client access grants.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientAccessGrantListResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      operationId: createClientInvitation
+      tags: [ClientAccess]
+      summary: Invite a client to an engagement
+      description: |
+        Authorized the SAME dual gate as `activateClientEngagement`/
+        `endClientEngagement` (`manageEngagement` for an organization-backed
+        engagement, `manageGarden` otherwise) — never a separate publisher-
+        style grant; see architecture/collaboration-and-client-sharing.md
+        section 9 and this operation's own tag description for why.
+        Refused when the engagement is `ended` or `revoked`; permitted from
+        `draft` (a pending invitation may satisfy section 8's own activation
+        precondition) or `active`.
+
+        Sends a transactional email carrying an opaque, expiring accept link
+        WITHOUT sensitive garden content, synchronously, as part of this
+        request — the invitation link is the client's very first
+        client-facing event, not a deferred notification. The raw token
+        itself is never returned in this response and never logged; the
+        email is its only distribution channel. Refused with `503` when no
+        transactional email provider is configured, or when the provider
+        call fails or times out — nothing is created in that case, and the
+        request may be safely retried. Refused with `409` when an
+        outstanding (pending or active) grant already exists for this email
+        on this engagement.
+
+        Source: implementation-plan.md work package P9C-INVITE-01;
+        architecture/collaboration-and-client-sharing.md, section
+        "9. Client Invitation and Session".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateClientInvitationRequest'
+      responses:
+        '201':
+          description: The created, pending client access grant.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientAccessGrant'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /client-engagements/{engagementId}/client-invitations/{grantId}/revoke:
+    parameters:
+      - name: engagementId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: grantId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: revokeClientInvitation
+      tags: [ClientAccess]
+      summary: Revoke a client access grant
+      description: |
+        Same dual authorization gate as `createClientInvitation`. Works on a
+        PENDING or an ACTIVE grant — revokes a still-unaccepted invitation or
+        ends an accepted client's ongoing portal access, whichever the grant
+        currently is. Idempotent when already `revoked`. Refused with `422`
+        from `expired` — a different terminal state.
+
+        Source: implementation-plan.md work package P9C-INVITE-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: The revoked (or already revoked) client access grant.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientAccessGrant'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /client-invitations/accept:
+    post:
+      operationId: acceptClientInvitation
+      tags: [ClientAccess]
+      summary: Accept a client invitation
+      description: |
+        Grants the AUTHENTICATED caller the invitation's client access grant.
+        Identified by the raw token plus the caller's own session, exactly
+        like `acceptInvitation` — never by the token alone, so a VERIFIED
+        email claim is available to check against and acceptance is always
+        attributable to a real account. Email magic link is the lowest-
+        friction default sign-in method this token's own email arrived
+        through, but any approved Firebase method the caller actually used is
+        accepted identically — this operation reads the same verified-email
+        claim `acceptInvitation` already reads, not a second one.
+
+        Idempotent and handles, each distinguishably:
+
+        - The caller already holds an ACTIVE grant from this exact token:
+          returns it unchanged, `200`, no error.
+        - The invitation is expired or revoked: `409`.
+        - The invitation was already accepted by a DIFFERENT caller: `409`.
+        - The invitation is bound to an email the caller's own verified
+          email does not match: `403`. Existence is never concealed here —
+          the caller already holds the token — but this response does not
+          disclose what the correct email is.
+        - The invitation's engagement is not currently `active` (never
+          activated, ended, or revoked): `409`.
+
+        Source: implementation-plan.md work package P9C-INVITE-01;
+        architecture/collaboration-and-client-sharing.md, section
+        "9. Client Invitation and Session".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptClientInvitationRequest'
+      responses:
+        '200':
+          description: The caller's client access grant on the engagement the invitation named.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientAccessGrant'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
   /client-engagements/{engagementId}/work-logs:
     parameters:
       - name: engagementId
@@ -6212,6 +6425,78 @@ components:
             For an organization-backed engagement, must be an ACTIVE member of
             that same organization. Otherwise, must hold ACTIVE garden
             membership (any role) on the engagement's own garden.
+
+    # --- Client invitation and access grant (P9C-INVITE-01) ---
+
+    ClientAccessGrantState:
+      type: string
+      enum: [pending, active, revoked, expired]
+      description: |
+        Mirrors `collaboration.client_access_grant.state`. Unlike
+        `InvitationState`, this machine has an `active -> revoked` edge: this
+        one row is both the invitation and the client's ongoing portal-access
+        grant, so revoking an accepted client's access is the same
+        transition as revoking a still-pending invite.
+
+    ClientAccessGrant:
+      type: object
+      additionalProperties: false
+      required: [id, engagementId, state, createdAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        engagementId:
+          $ref: '#/components/schemas/Uuid'
+        clientProfileId:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: Absent until a real invitation is accepted and binds a profile.
+        invitedEmail:
+          type: string
+          format: email
+          description: The email this invitation was bound to. Stays present even after acceptance.
+        state:
+          $ref: '#/components/schemas/ClientAccessGrantState'
+        grantedAt:
+          $ref: '#/components/schemas/Timestamp'
+        revokedAt:
+          $ref: '#/components/schemas/Timestamp'
+        expiresAt:
+          $ref: '#/components/schemas/Timestamp'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+
+    ClientAccessGrantListResult:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClientAccessGrant'
+
+    CreateClientInvitationRequest:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          description: |
+            Required — client invitations are always email-bound; no
+            anonymous, unbound link exists for this resource.
+
+    AcceptClientInvitationRequest:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token:
+          type: string
+          minLength: 32
+          maxLength: 128
 
     ClientUpdateState:
       type: string
@@ -10978,6 +11263,16 @@ components:
 
     InternalError:
       description: Unexpected internal failure.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    ServiceUnavailable:
+      description: |
+        A required external dependency (for example the transactional email
+        provider) is temporarily unavailable or did not respond in time. The
+        request was not applied and may be retried.
       content:
         application/json:
           schema:

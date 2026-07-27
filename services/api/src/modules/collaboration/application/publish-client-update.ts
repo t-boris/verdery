@@ -76,7 +76,8 @@
  */
 
 import type { PublicationVersion as PublicationVersionResource } from '@verdery/api-contracts';
-import { ClientUpdateErrorCode } from '@verdery/api-contracts';
+import type { ClientUpdatePublishedEventPayload } from '@verdery/api-contracts';
+import { CLIENT_UPDATE_PUBLISHED_EVENT_TYPE, ClientUpdateErrorCode } from '@verdery/api-contracts';
 import { isValidPublicationTransition } from '../domain/publication-state.js';
 import {
   isUniqueViolation,
@@ -365,12 +366,22 @@ export class PublishClientUpdate {
       });
       // Step 6: this outbox event, appended in the SAME transaction, is the
       // "notification only after commit" mechanism — nothing here calls a
-      // notification provider synchronously.
+      // notification provider synchronously. Formalized (P9C-INVITE-01) as a
+      // real, versioned `@verdery/api-contracts` event contract — see
+      // `client-publication-events.ts`'s own header for why this is
+      // deliberately EMITTED UNCLAIMED, the identical `task.assigned`
+      // posture, rather than a silently dropped promise.
+      const eventPayload: ClientUpdatePublishedEventPayload = {
+        publicationVersionId: version.id,
+        engagementId,
+        clientUpdateId,
+        gardenId: clientUpdate.gardenId,
+      };
       await context.outbox.append({
-        eventType: 'client_update.published',
+        eventType: CLIENT_UPDATE_PUBLISHED_EVENT_TYPE,
         aggregateType: 'publication_version',
         aggregateId: version.id,
-        payload: { engagementId, clientUpdateId, gardenId: clientUpdate.gardenId },
+        payload: eventPayload,
       });
 
       return toPublicationVersionResource(version);

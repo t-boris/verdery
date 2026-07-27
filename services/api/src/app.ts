@@ -255,10 +255,8 @@ export async function buildApplication(
   );
 
   // gardens-mapping and the garden map (P3-BE-01, P3-BE-02): garden
-  // lifecycle and map-object dependency wiring, split into
-  // `compose-gardens-mapping.ts` purely to keep this file under the
-  // repository's 600-line source-file limit — see that file's own header
-  // comment. `gardenAuthorization` is reused by every module wired below.
+  // lifecycle and map-object dependency wiring. Split out for the same
+  // 600-line reason as its siblings. `gardenAuthorization` is reused below.
   const {
     gardenAuthorization,
     gardenRoutesDependencies,
@@ -269,11 +267,27 @@ export async function buildApplication(
     ownershipRoutesDependencies,
   } = composeGardensMapping(database, clock, cloudTasksInvocationVerifier);
 
-  // collaboration (P9B-API-01, P9C-PUBLISH-01): organizations, assignments,
-  // client engagements, the separate publisher capability, and the
-  // client-update publication workflow. Reuses `gardenAuthorization`/
-  // `profileRepository`. Split into `compose-collaboration.ts` for the same
-  // 600-line reason as its siblings.
+  // integrations (P7-ASYNC-01, P7-AI-01, P9C-INVITE-01): weather, bounded
+  // AI-explanation, and the (usually null) Resend adapter — moved ahead of
+  // `composeCollaboration`, its new consumer. Split out, same reason as above.
+  const {
+    getGardenWeather,
+    generateAiExplanation,
+    weatherRefreshSweepRouteDependencies,
+    transactionalEmailAdapter,
+  } = composeIntegrations(
+    database,
+    clock,
+    configuration.weather,
+    configuration.aiExplanation,
+    aiExplanationAdapter,
+    configuration.transactionalEmail,
+    cloudTasksInvocationVerifier,
+  );
+
+  // collaboration (P9B-API-01, P9C-PUBLISH-01, P9C-INVITE-01): organizations,
+  // assignments, engagements, publisher capability, and client invitations.
+  // Split out for the same 600-line reason as its siblings.
   const {
     organizationRoutesDependencies,
     organizationMemberRoutesDependencies,
@@ -281,7 +295,11 @@ export async function buildApplication(
     clientEngagementRoutesDependencies,
     gardenScopedRoutesDependencies,
     publicationRoutesDependencies,
-  } = composeCollaboration(database, clock, gardenAuthorization, profileRepository);
+  } = composeCollaboration(database, clock, gardenAuthorization, profileRepository, {
+    adapter: transactionalEmailAdapter,
+    clientPortalBaseUrl: configuration.transactionalEmail.clientPortalBaseUrl,
+    callTimeoutMs: configuration.transactionalEmail.callTimeoutMs,
+  });
 
   // media (P6-API-01): registration, authorized resumable upload sessions,
   // completion verification, status, and authorized short-lived access.
@@ -348,21 +366,6 @@ export async function buildApplication(
   // `compose-plants-inventory.ts` for the same 600-line reason as its
   // siblings.
   const plantRoutesDependencies = composePlantsInventory(database, clock, gardenAuthorization);
-  // integrations (P7-ASYNC-01, P7-AI-01): the weather registry (zero
-  // registrations — P0-PROV-01 undecided), both weather use cases, the
-  // scheduled weather-refresh sweep + internal route, and the bounded
-  // AI-explanation call machinery around the (usually null) Vertex
-  // adapter. Split into `compose-integrations.ts` for the same 600-line
-  // reason as its siblings.
-  const { getGardenWeather, generateAiExplanation, weatherRefreshSweepRouteDependencies } =
-    composeIntegrations(
-      database,
-      clock,
-      configuration.weather,
-      configuration.aiExplanation,
-      aiExplanationAdapter,
-      cloudTasksInvocationVerifier,
-    );
 
   // tasks-recommendations: task commands (tag `Tasks`), the scheduled
   // recommendation-evaluation sweep (P7-ASYNC-01), and the Today surface —

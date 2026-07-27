@@ -127,6 +127,19 @@ Firebase Cloud Messaging is the push provider. A transactional email provider is
 
 The application owns notification intent and preference logic; the provider owns only delivery transport.
 
+### 10.1 Selected Provider
+
+**Resend** (free tier, 3,000 messages/month, no monthly subscription) is the selected transactional email provider, decided July 26, 2026 — implementation-plan.md section 29.1.1. **Postmark** ($15/month, better-established deliverability) and **Amazon SES** (near-zero pay-per-use cost, but bounce/complaint delivery via Amazon SNS rather than a plain webhook) are the named fallback providers and are not implemented; adding either is one adapter class plus one registration, the identical "one adapter class plus one registration" shape section 5.1 already establishes for the weather decision.
+
+The decision was made on the owner's explicit no-monthly-cost constraint at launch, not on deliverability: Postmark scores better on independent inbox-placement benchmarks, and that trade-off is recorded as accepted, not overlooked. Resend uses the same plain-webhook integration shape Postmark does, so switching later does not require a redesign.
+
+**Verified live, July 26, 2026** (`https://resend.com/docs/api-reference/emails/send-email`; `https://resend.com/docs/dashboard/webhooks/verify-webhooks-requests`), not assumed from memory:
+
+- Sending is a plain `POST https://api.resend.com/emails`, authenticated with a bearer API key, JSON body (`from`, `to`, `subject`, `html`, `text`); success returns `200` with `{ "id": "<uuid>" }`. No SDK is required — the adapter calls `fetch` directly, the same "plain HTTPS/JSON, no new dependency" posture the Open-Meteo adapter already established.
+- Bounce/complaint/delivery webhooks are signed using Svix's convention (`svix-id`/`svix-timestamp`/`svix-signature` headers; HMAC-SHA256 over `{id}.{timestamp}.{rawBody}`), also implementable with `node:crypto` alone.
+
+**What P9C-INVITE-01 built, and what it deliberately did not.** The send path (`ResendTransactionalEmailAdapter`, `services/api/src/modules/integrations/persistence/`) is real and used by `CreateClientInvitation` to deliver the one email this package's own scope requires. Webhook signature verification was verified against the live docs above but has no receiving endpoint yet: no schema exists to record a delivery-status/bounce/complaint fact against an invitation, and building one is a genuinely separate capability (suppression handling, delivery-status telemetry), not a detail of sending. This is a clearly-flagged follow-up, not a silently skipped requirement — a later package that needs delivery-status visibility adds a receiver route plus the small schema it needs, on top of the signature-verification approach already confirmed here.
+
 ## 11. Reliability
 
 - Interactive provider calls use strict deadlines.

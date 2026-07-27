@@ -24,6 +24,7 @@
 import type { AuditLogger } from '../../../platform/audit/audit-logger.js';
 import type { IdempotencyStore } from '../../../platform/idempotency/idempotency-store.js';
 import type { OutboxAppender } from '../../../platform/outbox/outbox-appender.js';
+import type { ClientAccessGrantRepository } from './client-access-grant-repository.js';
 import type { ClientEngagementRepository } from './client-engagement-repository.js';
 import type { ClientUpdateItemRepository } from './client-update-item-repository.js';
 import type { ClientUpdateRepository } from './client-update-repository.js';
@@ -41,6 +42,8 @@ export interface CollaborationTransactionContext {
   readonly clientEngagements: ClientEngagementRepository;
   /** P9C-PUBLISH-01: the separate publisher capability, the client-update draft/staging tables, and the immutable publication writer — bound to the same transaction as every P9B repository above. */
   readonly publisherGrants: PublisherGrantRepository;
+  /** P9C-INVITE-01: the email-bound, expiring client-invitation/access-grant mechanism completing `client_access_grant`. */
+  readonly clientAccessGrants: ClientAccessGrantRepository;
   readonly clientUpdates: ClientUpdateRepository;
   readonly clientUpdateItems: ClientUpdateItemRepository;
   readonly workLogs: WorkLogRepository;

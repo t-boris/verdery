@@ -16,6 +16,8 @@ export type { GardenAssignmentState } from './domain/garden-assignment-state.js'
 export { isValidGardenAssignmentTransition } from './domain/garden-assignment-state.js';
 export type { ClientEngagementState } from './domain/client-engagement-state.js';
 export { isValidClientEngagementTransition } from './domain/client-engagement-state.js';
+export type { ClientAccessGrantState } from './domain/client-access-grant-state.js';
+export { isValidClientAccessGrantTransition } from './domain/client-access-grant-state.js';
 export type { PublicationState } from './domain/publication-state.js';
 export { isValidPublicationTransition } from './domain/publication-state.js';
 export type { ServiceOrganization } from './domain/service-organization.js';
@@ -113,6 +115,39 @@ export { ListPublisherGrantsForEngagement } from './application/list-publisher-g
 export { KyselyPublisherGrantRepository } from './persistence/kysely-publisher-grant-repository.js';
 export { registerPublisherGrantRoutes } from './transport/publisher-grant-routes.js';
 export type { PublisherGrantRoutesDependencies } from './transport/publisher-grant-routes.js';
+
+// Client invitation and access grant (P9C-INVITE-01, tag `ClientAccess`) —
+// email-bound, expiring invitations completing `client_access_grant`.
+export type { ClientAccessGrant } from './domain/client-access-grant.js';
+export {
+  assertClientAccessGrantAcceptable,
+  assertClientEmailBindingSatisfied,
+  createClientAccessGrantInvitation,
+  isClientAccessGrantExpired,
+  normalizeInvitedEmail,
+  revokeClientAccessGrant,
+} from './domain/client-access-grant.js';
+export type { ClientAccessGrantRepository } from './application/client-access-grant-repository.js';
+export {
+  generateClientInvitationToken,
+  hashClientInvitationToken,
+} from './application/client-invitation-token.js';
+export {
+  buildClientInvitationAcceptUrl,
+  buildClientInvitationEmailMessage,
+} from './application/client-invitation-email-content.js';
+export {
+  CreateClientInvitation,
+  CLIENT_INVITATION_TTL_MILLISECONDS,
+} from './application/create-client-invitation.js';
+export type { ClientInvitationEmailConfiguration } from './application/create-client-invitation.js';
+export { AcceptClientInvitation } from './application/accept-client-invitation.js';
+export type { AcceptClientInvitationActor } from './application/accept-client-invitation.js';
+export { RevokeClientInvitation } from './application/revoke-client-invitation.js';
+export { ListClientInvitationsForEngagement } from './application/list-client-invitations-for-engagement.js';
+export { KyselyClientAccessGrantRepository } from './persistence/kysely-client-access-grant-repository.js';
+export { registerClientInvitationRoutes } from './transport/client-invitation-routes.js';
+export type { ClientInvitationRoutesDependencies } from './transport/client-invitation-routes.js';
 
 export type { WorkLogDetail, WorkLogRepository } from './application/work-log-repository.js';
 export { KyselyWorkLogRepository } from './persistence/kysely-work-log-repository.js';

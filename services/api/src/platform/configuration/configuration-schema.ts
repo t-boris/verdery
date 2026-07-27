@@ -26,6 +26,8 @@ export const SECRET_VARIABLES: ReadonlySet<string> = new Set([
   // The Open-Meteo paid-plan key travels as a query parameter, so a
   // validator message quoting the offending value would print the credential.
   'WEATHER_OPEN_METEO_API_KEY',
+  // The Resend API key travels as a bearer header (P9C-INVITE-01).
+  'RESEND_API_KEY',
 ]);
 
 const positiveInteger = z.coerce.number().int().positive();
@@ -247,6 +249,18 @@ export const environmentSchema = z.object({
   RECOMMENDATION_AI_MAX_CALLS_PER_HOUR: positiveInteger.default(50),
   RECOMMENDATION_AI_MAX_CALLS_PER_DAY: positiveInteger.default(500),
 
+  // P9C-INVITE-01: transactional email (Resend, decided 2026-07-26 —
+  // section 29.1.1). Absent `RESEND_API_KEY` (every environment today) is
+  // the honest `noProviderConfigured`-style degradation
+  // `CreateClientInvitation` answers with. `RESEND_FROM_EMAIL`/
+  // `CLIENT_PORTAL_BASE_URL` are required TOGETHER with the key
+  // (`findTransactionalEmailIssues`, the `findWeatherProviderIssues` shape).
+  // 8 s matches `WEATHER_CALL_TIMEOUT_MS`'s own reasoning.
+  RESEND_API_KEY: z.string().min(1).optional(),
+  RESEND_FROM_EMAIL: z.string().min(1).optional(),
+  CLIENT_PORTAL_BASE_URL: z.string().min(1).optional(),
+  RESEND_CALL_TIMEOUT_MS: positiveInteger.default(8_000),
+
   // P8-SEC-02: the App Check enforcement switch — rollout stage 3 made
   // operational, in exactly the shape `RECOMMENDATION_AI_EXPLANATION_ENABLED`
   // above already established for a capability that is built before it is
@@ -353,6 +367,22 @@ export function findWeatherProviderIssues(
   ];
 }
 
+/** Cross-field rule for transactional email (P9C-INVITE-01), the `findWeatherProviderIssues` shape: a configured key with no sender/link base is a deployment mistake to name at startup. */
+export function findTransactionalEmailIssues(
+  source: Readonly<Record<string, string | undefined>>,
+): ConfigurationIssue[] {
+  if (source['RESEND_API_KEY'] === undefined) {
+    return [];
+  }
+
+  return (['RESEND_FROM_EMAIL', 'CLIENT_PORTAL_BASE_URL'] as const)
+    .filter((field) => source[field] === undefined)
+    .map((field) => ({
+      variable: field,
+      message: 'Required when RESEND_API_KEY is set',
+    }));
+}
+
 export interface HttpConfiguration {
   readonly host: string;
   readonly port: number;
@@ -451,6 +481,17 @@ export interface AppCheckConfiguration {
   readonly enforcement: AppCheckEnforcementMode;
 }
 
+/** P9C-INVITE-01 — see the schema's own comment on the `RESEND_*`/`CLIENT_PORTAL_BASE_URL` variables. */
+export interface TransactionalEmailConfiguration {
+  /** `null` everywhere today: no Resend account is provisioned yet. */
+  readonly apiKey: string | null;
+  /** Present whenever `apiKey` is (the cross-field check); `null` while absent. */
+  readonly fromEmail: string | null;
+  /** The client-portal origin an accept link is built against; present whenever `apiKey` is. */
+  readonly clientPortalBaseUrl: string | null;
+  readonly callTimeoutMs: number;
+}
+
 export interface ApplicationConfiguration {
   readonly environment: DeploymentEnvironment;
   readonly serviceVersion: string;
@@ -463,6 +504,7 @@ export interface ApplicationConfiguration {
   readonly weather: WeatherConfiguration;
   readonly aiExplanation: AiExplanationConfiguration;
   readonly appCheck: AppCheckConfiguration;
+  readonly transactionalEmail: TransactionalEmailConfiguration;
 }
 
 function toDatabaseConfiguration(raw: RawEnvironment): DatabaseConfiguration {
@@ -543,6 +585,12 @@ export function toApplicationConfiguration(raw: RawEnvironment): ApplicationConf
     },
     appCheck: {
       enforcement: raw.APP_CHECK_ENFORCEMENT,
+    },
+    transactionalEmail: {
+      apiKey: raw.RESEND_API_KEY ?? null,
+      fromEmail: raw.RESEND_FROM_EMAIL ?? null,
+      clientPortalBaseUrl: raw.CLIENT_PORTAL_BASE_URL ?? null,
+      callTimeoutMs: raw.RESEND_CALL_TIMEOUT_MS,
     },
   };
 }

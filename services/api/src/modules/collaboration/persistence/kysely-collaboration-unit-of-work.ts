@@ -8,6 +8,7 @@ import type {
   CollaborationTransactionContext,
   CollaborationUnitOfWork,
 } from '../application/collaboration-unit-of-work.js';
+import { KyselyClientAccessGrantRepository } from './kysely-client-access-grant-repository.js';
 import { KyselyClientEngagementRepository } from './kysely-client-engagement-repository.js';
 import { KyselyClientUpdateItemRepository } from './kysely-client-update-item-repository.js';
 import { KyselyClientUpdateRepository } from './kysely-client-update-repository.js';
@@ -32,6 +33,7 @@ export class KyselyCollaborationUnitOfWork implements CollaborationUnitOfWork {
         gardenAssignments: new KyselyGardenAssignmentRepository(trx),
         clientEngagements: new KyselyClientEngagementRepository(trx),
         publisherGrants: new KyselyPublisherGrantRepository(trx),
+        clientAccessGrants: new KyselyClientAccessGrantRepository(trx),
         clientUpdates: new KyselyClientUpdateRepository(trx),
         clientUpdateItems: new KyselyClientUpdateItemRepository(trx),
         workLogs: new KyselyWorkLogRepository(trx),

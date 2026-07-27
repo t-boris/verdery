@@ -286,6 +286,9 @@ export type AcceptInvitationRequest = Schemas['AcceptInvitationRequest'];
 export * from './organizations.js';
 /** The client-publication domain schemas/error codes (P9C-PUBLISH-01) live in `./publications.js` — same 600-line-rule posture as `./organizations.js` above. */
 export * from './publications.js';
+/** The client-invitation/access-grant schemas/error codes (P9C-INVITE-01) live in `./client-invitations.js`, and the `client_update.published` notification-event contract in `./client-publication-events.js` — same 600-line-rule posture. */
+export * from './client-invitations.js';
+export * from './client-publication-events.js';
 
 /** The ownership-administration schemas (P9A-OWNER-01): promote, demote, transfer, cancel. */
 export type OwnershipTransferState = Schemas['OwnershipTransferState'];
