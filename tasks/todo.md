@@ -6348,6 +6348,10 @@ May ship independently of B/C. Not started until B/C land (sequencing choice: fi
 access-plane phases first, since they are architecturally riskier; seasonal context is additive
 data/UX with no security surface).
 
+**Phase 9D is now fully complete** — every work package below is `[x]`, all personally verified
+(build, full test suite, all root gates, CI) and pushed. This closes all of Phase 9's own work
+packages except the cross-cutting `P9-QA-01` below.
+
 ## Work packages (§18.2)
 
 - [x] P9D-CONTEXT-01 — reviewed facts for sunlight, soil, drainage, irrigation, microclimate,
