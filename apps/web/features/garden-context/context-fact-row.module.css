@@ -1,0 +1,41 @@
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.kind {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.value {
+  font-size: var(--font-size-lg);
+}
+
+.meta {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.notDeclared {
+  color: var(--color-text-muted);
+  font-style: italic;
+}

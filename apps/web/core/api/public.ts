@@ -20,6 +20,7 @@ export { CORRELATION_ID_HEADER, createCorrelationId } from './correlation';
 export { CSRF_HEADER_NAME, csrfHeader } from './csrf';
 export { errorMessageKey } from './error-message';
 export { isConnectivityFailure } from './failure';
+export { createGardenContextGateway, type GardenContextGateway } from './garden-context-gateway';
 export { createGardenGateway, type GardenGateway } from './garden-gateway';
 export { createHealthGateway, type HealthGateway } from './health-gateway';
 export { generateIdempotencyKey } from './idempotency-key';
@@ -31,6 +32,7 @@ export { createOrganizationGateway, type OrganizationGateway } from './organizat
 export { createOwnershipGateway, type OwnershipGateway } from './ownership-gateway';
 export { createPlantGateway, type PlantGateway, type SearchPlantsParams } from './plant-gateway';
 export { createRecommendationGateway, type RecommendationGateway } from './recommendation-gateway';
+export { createSeasonalPlanGateway, type SeasonalPlanGateway } from './seasonal-plan-gateway';
 export { createTaskGateway, type TaskGateway } from './task-gateway';
 export type {
   WireCategoryDetails,

@@ -7,7 +7,13 @@
  * Source: architecture/web-application-design.md, section "20. Dependency Rules".
  */
 export type { MessageCatalogue, MessageKey } from './catalogue';
-export { formatCalendarDay, formatFixed, formatInstant, resolvedTimeZone } from './formatting';
+export {
+  formatCalendarDay,
+  formatFixed,
+  formatInstant,
+  formatMonthName,
+  resolvedTimeZone,
+} from './formatting';
 export {
   DEFAULT_LOCALE,
   SUPPORTED_LOCALES,

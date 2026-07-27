@@ -1,0 +1,11 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 24rem;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+}

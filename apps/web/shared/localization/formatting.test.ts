@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { formatCalendarDay, formatInstant, resolvedTimeZone } from './formatting';
+import { formatCalendarDay, formatInstant, formatMonthName, resolvedTimeZone } from './formatting';
 
 /**
  * The behaviours asserted here are the ones the previous `toLocaleString()`
@@ -88,6 +88,23 @@ describe('formatCalendarDay', () => {
   it('returns a value that is not a calendar day unchanged', () => {
     expect(formatCalendarDay('2026-03-14T09:00:00Z', 'en')).toBe('2026-03-14T09:00:00Z');
     expect(formatCalendarDay('', 'en')).toBe('');
+  });
+});
+
+describe('formatMonthName', () => {
+  it('renders in the passed locale', () => {
+    expect(formatMonthName(3, 'en')).toBe('March');
+    expect(formatMonthName(3, 'ru')).toMatch(/март/iu);
+  });
+
+  it('covers the full 1-12 range', () => {
+    expect(formatMonthName(1, 'en')).toBe('January');
+    expect(formatMonthName(12, 'en')).toBe('December');
+  });
+
+  it('returns the raw value unchanged for a number outside 1-12', () => {
+    expect(formatMonthName(0, 'en')).toBe('0');
+    expect(formatMonthName(13, 'en')).toBe('13');
   });
 });
 

@@ -27,7 +27,7 @@ export interface ApiClientOptions {
 }
 
 export interface RequestSpec {
-  readonly method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  readonly method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
   /** Path below the version prefix, for example `/health/live`. */
   readonly path: string;
   /** JSON-serialized and sent with `Content-Type: application/json`. Omit for a bodyless request. */

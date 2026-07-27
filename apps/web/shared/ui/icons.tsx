@@ -111,6 +111,16 @@ export function CheckCircleIcon(props: IconProps) {
   );
 }
 
+/** Seasonal plan: a calendar page with a bound-header. */
+export function CalendarIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M4.2 4.5h11.6a1 1 0 0 1 1 1v9.8a1 1 0 0 1-1 1H4.2a1 1 0 0 1-1-1V5.5a1 1 0 0 1 1-1Z" />
+      <path d="M3.2 8h13.6M7 3v3M13 3v3" />
+    </IconBase>
+  );
+}
+
 /** Sign out: a doorway with an outward arrow. */
 export function SignOutIcon(props: IconProps) {
   return (

@@ -6420,7 +6420,43 @@ data/UX with no security surface).
         package's own 600-line convention. 278 files / 2270 tests, all green; all four root gates
         (build, test, typecheck, lint, format:check, check:file-size) clean.
 - [ ] P9D-UX-01 — seasonal plan, context quality, shared responsibilities, conflicts, without
-      overwhelming Today.
+      overwhelming Today. Split into web first, then iOS mirroring the same information
+      architecture — see "P9D-UX-01 design decisions" below for the shared plan both draw from.
+  - [x] Web — new `features/seasonal-plan/` and `features/garden-context/` slices, a sibling
+        "Seasonal plan" garden route (`app/application/gardens/[gardenId]/seasonal-plan/`) with a
+        Calendar sub-view (reviewed windows rendered as month names via a new
+        `formatMonthName` in `shared/localization/formatting.ts`; `noSeasonalData` plants
+        de-emphasized, never hidden; an explicit hemisphere-unknown empty state linking into the
+        existing `map` calibration flow — scoped to the Calendar sub-view only, since Rotation's
+        `family`/`priorFamily` do not depend on hemisphere) and a Rotation sub-view
+        (`withinRestPeriod: true` entries shown prominently in plain language; the rest available
+        behind a `today-card.tsx`-style disclosure, unstyled). Context quality landed as a new
+        `ContextQuality` section composed as a sibling on the existing garden settings page
+        (`[gardenId]/page.tsx`, alongside `GardenSettings`/`Collaborators`), one row per
+        `GardenContextKind` including undeclared kinds, editable via the existing PUT route
+        (`source` always sent as `user_declared` — no picker; that value is reserved for a
+        review/import pipeline outside this UI-only package's scope), edit affordance gated on
+        `editGardenContent` (owner/editor) mirroring `garden-settings.tsx`'s own `isOwner` pattern
+        via a locally duplicated `useCallerRole` (per the Dependency Rules precedent
+        `collaboration/queries.ts` already sets). `recordedByProfileId` and a converted
+        recommendation's assignee both reuse the codebase's existing raw-profile-id display
+        convention (`tasks.assignedToDisplay`) rather than a resolved name — this codebase has no
+        member display-name field anywhere (`member-row.tsx`'s own header). Added `PUT` to
+        `core/api/client.ts`'s `RequestSpec.method` union (previously GET/POST/PATCH/DELETE only;
+        this package's context-fact upsert is the first PUT-based operation reaching the web
+        client). Real end-to-end browser check against a manually assembled local stack (throwaway
+        Postgres/PostGIS via Docker, the Firebase Auth emulator, a built API, `next dev`): signed
+        in, created a garden, declared a context fact through the real PUT and watched it persist
+        through the real GET, seeded a georeference and a reviewed `taxonomy_seasonal_fact` by SQL
+        (append-only tables the real commands would also populate) and confirmed the Calendar
+        rendered real month-name windows and correctly omitted an unconfigured window, and
+        confirmed the `noSeasonalData` de-emphasized row for a second, unidentified plant. Rotation
+        conflict/non-conflict rendering and the viewer-cannot-edit case were exercised only through
+        the automated suite (real generated contract types), not live — reproducing realistic
+        bed-occupancy history needs the full map/garden-object placement pipeline, out of scope for
+        this pass. 106 web test files / 934 tests, all green; all six root gates (build, test,
+        typecheck, lint, format:check, check:file-size) clean.
+  - [ ] iOS — not started; mirrors the same information architecture once dispatched.
 
 ## P9D-CONTEXT-01 design decisions (recorded before dispatch, per prior-phase practice)
 
@@ -6596,6 +6632,48 @@ plan" wording needs a genuine forward-looking view, not just today's fired cards
   task/assignment endpoints). P9D-UX-01 composes this client-side from data already served.
 - Authorization: `viewGarden`, the same read capability `GetGardenMap`/`ListGardenContextFacts`
   already use — no new capability.
+
+## P9D-UX-01 design decisions (recorded before dispatch)
+
+All four backend surfaces this package consumes already exist and are landed: `GET`/`PUT
+/gardens/{gardenId}/context/{contextKind}` (P9D-CONTEXT-01), `GET /gardens/{gardenId}/seasonal-plan`
+(P9D-SEASON-API-01), the existing Today/recommendation list (already surfaces the three new P9D
+rules' fired candidates), and the existing garden-membership list (P9A). This package is UI-only —
+no new backend work.
+
+Split into two dispatched work packages, web first (personally testable live in a browser via
+Claude-in-Chrome before iOS starts), then iOS mirroring the same information architecture:
+
+- **New "Seasonal plan" section**, a sibling of the existing `map`/`observations`/`plants`/
+  `tasks`/`today` garden-scoped route sections — NOT folded into Today (the brief's own "without
+  overwhelming Today" instruction). Two sub-views:
+  - **Calendar**: per plant with a `reviewed` seasonal fact, its configured windows (sow indoors/
+    outdoors, transplant, harvest) rendered as a simple month range list — plants with
+    `noSeasonalData` are shown but visually de-emphasized, not hidden (never silently drop a
+    plant). An explicit "we don't know your season yet" state when `hemisphere` is `null`, with a
+    path to the georeference/map-calibration flow that already exists, not a dead end.
+  - **Rotation**: the `rotationStatus[]` entries with `withinRestPeriod: true` surfaced as the
+    "conflicts" the brief names — prior family, elapsed days, threshold, plain language ("grown
+    here N days ago, recommended rest is M"). Entries with `withinRestPeriod: false` are available
+    but not alarmed over.
+- **Context quality**, most naturally as a section on the existing garden settings/details surface
+  (find the existing pattern for garden-level, non-map settings — mirror it) rather than a new
+  top-level route: one row per `GardenContextKind`, showing the declared value, `source`
+  (`user_declared`/`horticulturally_reviewed_default`/`imported`), and — when
+  `horticulturally_reviewed_default` — `reviewedBy`/`reviewedOn`, so a user can see AT A GLANCE
+  whether a fact is their own declaration or an operator default. Editable via the existing `PUT`
+  route, `editGardenContent`-gated (already enforced server-side; the UI should still hide/disable
+  the edit affordance for a caller who lacks it, matching this codebase's existing
+  capability-aware UI pattern elsewhere).
+- **Shared responsibilities**: light — no new aggregation. `garden_context_fact.recordedByProfileId`
+  resolved to a member display name via the existing member-list read (already fetched elsewhere in
+  the garden shell) shown next to each context row ("declared by Alex"); a seasonal recommendation
+  that has already been converted to a task (existing Today/task-conversion flow) shows its
+  existing assignee exactly as task cards already do elsewhere — no new "who's responsible" concept
+  invented, just surfacing data that already has a display convention.
+- Empty/loading/error states follow whatever convention `today-list.tsx`/`TodayView.swift`
+  (referenced throughout this session for the Today view) already establish — do not invent a new
+  one.
 
 ---
 

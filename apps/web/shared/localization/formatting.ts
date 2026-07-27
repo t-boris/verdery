@@ -107,3 +107,29 @@ export function formatFixed(value: number, fractionDigits: number, locale: Local
 export function resolvedTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
+
+const MONTH_OPTIONS: Intl.DateTimeFormatOptions = { month: 'long' };
+
+/**
+ * Formats a calendar month number (`1`-`12`, the raw integer
+ * `SeasonalPlanTaxonomyTiming` carries for every sow/transplant/harvest
+ * bound) as its name in the reader's locale.
+ *
+ * Uses `Intl` rather than twelve more catalogue keys per language: a month
+ * name is exactly the kind of locale-formattable value this file already
+ * owns (compare `formatCalendarDay`), not interface prose, so it does not
+ * need a translation key the way a full sentence would. A fixed reference
+ * year with no time-of-day component is used purely as an `Intl` input
+ * vehicle — nothing about that year is meaningful or displayed.
+ *
+ * Returns the input unchanged when it is not a valid month number, the same
+ * "degrade to something readable" posture `formatInstant`/`formatCalendarDay`
+ * take for an unexpected value.
+ */
+export function formatMonthName(month: number, locale: Locale): string {
+  if (!Number.isInteger(month) || month < 1 || month > 12) {
+    return String(month);
+  }
+
+  return new Intl.DateTimeFormat(locale, MONTH_OPTIONS).format(new Date(2000, month - 1, 1));
+}

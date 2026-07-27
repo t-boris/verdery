@@ -9,6 +9,7 @@ import { signOutOfFirebase } from '@/core/auth/public';
 import { useLocalization, type MessageKey } from '@/shared/localization/public';
 import {
   Button,
+  CalendarIcon,
   CheckCircleIcon,
   EyeIcon,
   HomeIcon,
@@ -41,6 +42,12 @@ function gardenSections(gardenId: string): readonly GardenSection[] {
   return [
     { href: base, labelKey: 'shell.overviewTab', icon: HomeIcon, exact: true },
     { href: `${base}/today`, labelKey: 'today.pageTitle', icon: SunIcon, exact: false },
+    {
+      href: `${base}/seasonal-plan`,
+      labelKey: 'seasonalPlan.pageTitle',
+      icon: CalendarIcon,
+      exact: false,
+    },
     { href: `${base}/map`, labelKey: 'shell.mapTab', icon: MapIcon, exact: false },
     { href: `${base}/plants`, labelKey: 'plants.pageTitle', icon: SproutIcon, exact: false },
     {

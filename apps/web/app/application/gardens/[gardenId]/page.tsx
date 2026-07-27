@@ -1,6 +1,7 @@
 import { getRequestTranslator } from '@/shared/localization/server';
 
 import { Collaborators } from '@/features/collaboration/public';
+import { ContextQuality } from '@/features/garden-context/public';
 import { GardenSettings } from '@/features/gardens/public';
 import { GardenPhotoUpload, GardenPlanUpload } from '@/features/media/public';
 import {
@@ -22,6 +23,10 @@ import styles from './page.module.css';
  * (`collaboration.garden_assignment`/`client_engagement`, the professional-
  * service tables, not `collaboration.membership`/`invitation`) through a
  * separate feature that does not import `features/collaboration`.
+ *
+ * `ContextQuality` (P9D-UX-01) is composed here for the identical reason —
+ * see that component's own header for why this page, rather than a new
+ * route or the Seasonal plan page, is where it belongs.
  */
 export default async function GardenSettingsPage({
   params,
@@ -42,6 +47,7 @@ export default async function GardenSettingsPage({
       <Collaborators gardenId={gardenId} />
       <GardenAssignmentsSection gardenId={gardenId} />
       <GardenEngagementsSection gardenId={gardenId} />
+      <ContextQuality gardenId={gardenId} />
     </div>
   );
 }

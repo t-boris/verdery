@@ -11,6 +11,7 @@ export { Button, type ButtonProps, type ButtonVariant } from './button';
 export { Card, type CardProps } from './card';
 export { FailureAlert } from './failure-alert';
 export {
+  CalendarIcon,
   CheckCircleIcon,
   EyeIcon,
   HomeIcon,
