@@ -7218,3 +7218,82 @@ categorized, and committed work already present in the working tree, with its ra
 against the code and existing documentation rather than reconstructed from memory. Local Node is
 22.22.3 against the pinned 24.x baseline (a pre-existing environment gap, unrelated to this work);
 CI runs on the pinned version.
+
+## ADR-0015: Phase 10 redirected — real plant identification over photo-based garden capture
+
+Extended discussion with the owner concluded that photo-based recognition of garden objects
+(fences, beds, paths) from casual photo/video — Phase 10's original scope — is not worth building:
+the already-shipped manual dimension editor and Phase 11's planned on-site AR marking are both a
+better fit than an unreliable photo-recognition step, for regular and irregular shapes
+respectively. `ADR-0015` records this and redirects Phase 10's AI-facing deliverable to two
+existing placeholder stubs the owner named as "probably the most important part of the
+application": `identify-plant-from-photo.ts` (species suggestion) and
+`image-analysis-result.ts`'s `analyzeObservationPhoto` (condition/health tracking).
+
+`ADR-0014` is marked Superseded for the photo-object-recognition use case it gated; its
+`P10-DATA-01`/`P10-ASYNC-01` approvals are not reopened by this. `implementation-plan.md` section
+19 is rewritten: `P10-RESEARCH-01`, `P10-IOS-01`/`02`, `P10-CV-01`/`02`, `P10-REVIEW-01`,
+`P10-RET-01`, `P10-COST-01` removed; two new work packages (`P10-PLANT-01`/`02`) added; downstream
+cross-references (FR-9/16/18/20 traceability, the forecast table, Phase 11's own dependency line,
+the risk register) corrected to match.
+
+### Implementation: real Vertex AI for both stubs
+
+Both stubs now call a real, bounded Vertex AI provider, mirroring the existing
+recommendation-explanation adapter's exact idiom (P7-AI-01) rather than inventing a new pattern:
+a provider-neutral port (`plant-species-identification-provider.ts`,
+`plant-condition-analysis-provider.ts`), a real `@google/genai` adapter per capability
+(`vertex-ai-plant-species-identification-adapter.ts`,
+`vertex-ai-plant-condition-analysis-adapter.ts` — JSON response schema constrains generation, a
+strict zod parse never trusts the raw output, photos are sent as `fileData` GCS references, never
+inline bytes), and a bounded call-policy wrapper per capability (`identify-plant-species.ts`,
+`analyze-plant-condition.ts` — budget, deadline, typed `noProviderConfigured`/`quotaExhausted`/
+`providerTimeout`/`providerFailed` degradation, the `GenerateAiExplanation` shape exactly).
+
+Two independent kill-switches, `PLANT_SPECIES_AI_ENABLED`/`PLANT_CONDITION_AI_ENABLED`, both
+`false` on every environment today — the same `RECOMMENDATION_AI_EXPLANATION_ENABLED` posture, not
+a new one. Both reuse the recommendation capability's Vertex project/location (one GCP project,
+ADR-0008); each still requires its own explicitly evaluated model, never a code default
+(`findPlantSpeciesAiIssues`/`findPlantConditionAiIssues`, split into the new
+`configuration-cross-field-issues.ts` alongside the pre-existing finders, for the 600-line limit).
+
+**Species identification** (`AddPlantFromPhoto`): a photo reference resolves to a name candidate
+from Gemini, then to a `taxonomyReferenceId` via the existing `TaxonomyReferenceRepository`'s
+trigram search — the model never invents a database identifier. Every non-candidate outcome
+(disabled, quota exhausted, timeout, failure, no confident candidate, schema-invalid,
+safety-blocked, or no catalog match) collapses to the same `{ suggestedTaxonomyId: null,
+confidenceScore: 0 }` the historical stub always returned; `AddPlantFromPhoto` needed no new
+branching. The suggestion feeds only the `plant_identification` proposal row — never the plant's
+own `displayName`/`taxonomyReferenceId` directly — identification's "never auto-confirms"
+invariant, unchanged.
+
+**Condition tracking** (`RecordObservation`/`CorrectObservation` via `attachObservationPhotos`): a
+photo of an already-known, user-selected plant (confirmed with the owner as the only supported
+flow — the user opens that plant's own record before adding the photo, so no location/GPS
+disambiguation among same-species plants is needed) is evaluated for stress/disease/pest signals.
+`requiresConfirmation` stays hardcoded `true`. Prior-photo history comparison is deliberately not
+wired yet — `attachObservationPhotos` calls with an empty history for now, documented in
+`image-analysis-result.ts`'s own header; the port already accepts a `priorPhotos` array, so wiring
+a real query later is a pure addition, not a breaking change.
+
+Neither port's request or response shape has a field for toxicity or edibility — ADR-0013's
+boundary is structural here (the type system won't allow it), not a runtime check a future prompt
+change could accidentally bypass.
+
+**What still gates enabling either capability outside development** (per ADR-0015, not resolved by
+this commit): a manual spot-check of the real adapter against a representative sample of real
+garden-plant photos, and the owner's own confirmation of Vertex AI's current data-training/
+retention terms for image content — `aiplatform.googleapis.com` is not enabled in any environment
+yet, and this codebase's own privacy-notice draft already flags this as unverified even for the
+existing text-only recommendation use.
+
+**Verification:** `pnpm --filter @verdery/api build` clean. `pnpm typecheck`, `pnpm lint`,
+`pnpm format:check`, `pnpm check:file-size` clean repo-wide. `pnpm --filter @verdery/api test`:
+295/295 files, 2357/2357 tests (up from 291/2316 before this change — new adapter/call-policy unit
+tests plus one real end-to-end species-match test and one real condition-observation test added
+alongside the disabled-path coverage every touched command's existing suite already had).
+
+**Not done in this pass, by design:** no live Vertex call was made (no API enabled, no owner
+terms-verification recorded); the "real" in this entry's title means real, callable, fully-tested
+integration code behind a default-off switch — not a live-traffic capability. Prior-photo history
+comparison for condition tracking remains unwired, as stated above.
