@@ -10,6 +10,14 @@ extension MediaUploadCoordinator {
     /// uploading but never confirmed completion for before a prior process
     /// ended.
     ///
+    /// `idempotencyKey` is `transferId` itself (a bare UUID, matching every
+    /// other `CoreNetworking` gateway call and the server's own
+    /// `requireIdempotencyKey` check — see `register`'s own doc comment for
+    /// why a prefixed string fails that check with a `400`). Safe to reuse
+    /// the same value `register` used: the server's idempotency store scopes
+    /// by `(actorProfileId, operation, idempotencyKey)`, and this is a
+    /// different operation.
+    ///
     /// Both of `CompleteMediaUpload`'s outcomes (`available`/`rejected`) are
     /// a successful `200` response, never a thrown `APIGatewayError` — see
     /// that endpoint's own `openapi.yaml` description. `available` advances
@@ -29,7 +37,7 @@ extension MediaUploadCoordinator {
                 gardenId: transfer.gardenId,
                 mediaId: mediaId,
                 expectedRevision: expectedRevision,
-                idempotencyKey: "media-complete-\(transferId)"
+                idempotencyKey: transferId
             )
 
             switch media.uploadState {

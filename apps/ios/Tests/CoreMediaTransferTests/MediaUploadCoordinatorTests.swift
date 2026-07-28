@@ -7,6 +7,29 @@ import Testing
 @testable import CoreMediaTransfer
 @testable import CorePersistence
 
+/// A `generateId` double for the one test that needs its second call to
+/// differ from its first — `makeCoordinator`'s own default (a constant
+/// closure) is right for every other test, where `generateId` is only ever
+/// called once per transfer.
+private final class SequentialTestIdGenerator: @unchecked Sendable {
+    private let firstId: String
+    private let subsequentId: String
+    private var callCount = 0
+    private let lock = NSLock()
+
+    init(firstId: String, subsequentId: String) {
+        self.firstId = firstId
+        self.subsequentId = subsequentId
+    }
+
+    func next() -> String {
+        lock.lock()
+        defer { lock.unlock() }
+        callCount += 1
+        return callCount == 1 ? firstId : subsequentId
+    }
+}
+
 @Suite("MediaUploadCoordinator", .serialized)
 struct MediaUploadCoordinatorTests {
     private func makeTransferStore() throws -> GRDBMediaTransferStore {
@@ -132,6 +155,16 @@ struct MediaUploadCoordinatorTests {
         let completeCalls = await gateway.completeCalls
         #expect(completeCalls.count == 1)
         #expect(completeCalls[0].expectedRevision == 1)
+
+        // The server's own `requireIdempotencyKey` (`media-routes.ts`)
+        // rejects anything but a bare UUID with a `400` — every other
+        // `CoreNetworking` gateway sends `UUIDv7.generate()` directly, never
+        // a prefixed string, and `transferId` is already a UUID
+        // (`UUIDv7.generate` under `enqueue`'s real default), so both calls
+        // reuse it as-is.
+        let registerCalls = await gateway.registerCalls
+        #expect(registerCalls[0].idempotencyKey == "local-1")
+        #expect(completeCalls[0].idempotencyKey == "local-1")
     }
 
     @Test("a rejected completion is a terminal, non-retryable failure")
@@ -228,7 +261,15 @@ struct MediaUploadCoordinatorTests {
         let transport = FakeBackgroundUploadTransport()
         let store = try makeTransferStore()
         let now = Date(timeIntervalSince1970: 1_000_000)
-        let coordinator = makeCoordinator(transferStore: store, gateway: gateway, transport: transport, now: { now })
+        // A real `generateId` (`UUIDv7.generate`) never repeats — distinct
+        // here from `makeCoordinator`'s default constant so the fresh
+        // session's re-registration below exercises a genuinely different
+        // idempotency key, the same way production does.
+        let ids = SequentialTestIdGenerator(firstId: "local-1", subsequentId: "local-1-retry")
+        let coordinator = makeCoordinator(
+            transferStore: store, gateway: gateway, transport: transport, now: { now },
+            generateId: ids.next
+        )
         await coordinator.start()
 
         // The very first registration returns a session that is ALREADY
