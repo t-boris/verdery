@@ -76,8 +76,18 @@ env_vars+="#MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL=${VERDERY_WORKER_SERV
 # capability here (ADR-0008) — never RECOMMENDATION_AI_VERTEX_PROJECT_ID
 # itself, since the recommendation-explanation capability's own kill-switch
 # can stay independently off while these are on.
+#
+# The Vertex AI LOCATION is deliberately its own variable, not
+# ${VERDERY_REGION}: Cloud Run's own region and the Vertex AI location a
+# given Gemini model is actually served from are two independent choices —
+# confirmed directly against this project's own Vertex AI endpoint that
+# `gemini-3.5-flash`/`gemini-3.6-flash` answer only under location `global`,
+# a plain 404 under a regional location like `us-central1`. Defaults to
+# ${VERDERY_REGION} (the prior, implicit behavior) when an environment does
+# not set VERDERY_AI_VERTEX_LOCATION, so this is additive, not a forced
+# change for every environment.
 env_vars+="#RECOMMENDATION_AI_VERTEX_PROJECT_ID=${VERDERY_PROJECT_ID}"
-env_vars+="#RECOMMENDATION_AI_VERTEX_LOCATION=${VERDERY_REGION}"
+env_vars+="#RECOMMENDATION_AI_VERTEX_LOCATION=${VERDERY_AI_VERTEX_LOCATION:-${VERDERY_REGION}}"
 env_vars+="#PLANT_SPECIES_AI_ENABLED=${VERDERY_PLANT_SPECIES_AI_ENABLED:-false}"
 env_vars+="#PLANT_SPECIES_AI_MODEL=${VERDERY_PLANT_SPECIES_AI_MODEL:-unset}"
 env_vars+="#PLANT_CONDITION_AI_ENABLED=${VERDERY_PLANT_CONDITION_AI_ENABLED:-false}"
