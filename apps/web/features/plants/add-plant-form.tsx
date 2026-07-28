@@ -5,7 +5,7 @@ import type { AddPlantRequest, PlantGroupingKind } from '@verdery/api-contracts'
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
+import { z } from '@/shared/validation/zod';
 
 import { useIsOnline } from '@/core/connectivity/public';
 import { useRecoverableDraft } from '@/core/drafts/public';

@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import type { CreateInvitationResult } from '@verdery/api-contracts';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
+import { z } from '@/shared/validation/zod';
 
 import { useLocalization } from '@/shared/localization/public';
 import { Alert, Button, Card, FailureAlert, Select, TextField } from '@/shared/ui/public';

@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import type { CreateManualTaskRequest, TaskTargetKind } from '@verdery/api-contracts';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
+import { z } from '@/shared/validation/zod';
 
 import { useIsOnline } from '@/core/connectivity/public';
 import { useRecoverableDraft } from '@/core/drafts/public';

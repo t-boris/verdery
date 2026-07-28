@@ -2,7 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
+import { z } from '@/shared/validation/zod';
 
 import { useLocalization } from '@/shared/localization/public';
 import { Button, Card, FailureAlert, Select, TextField } from '@/shared/ui/public';

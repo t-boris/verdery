@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { CorrectObservationRequest, ObservationCorrectionKind } from '@verdery/api-contracts';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
+import { z } from '@/shared/validation/zod';
 
 import { useLocalization } from '@/shared/localization/public';
 import { Button, FailureAlert, Select, TextField } from '@/shared/ui/public';
