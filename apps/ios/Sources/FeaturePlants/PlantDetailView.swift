@@ -106,6 +106,28 @@ public struct PlantDetailView: View {
                     onClose: { model.activeMapObjectField = nil }
                 )
             }
+            // Attached here, at the same level as the two `.sheet`s above,
+            // rather than nested inside `deleteSection` (a leaf computed
+            // property several levels down) — a live retest found the dialog
+            // itself would open but confirming it never reached the network,
+            // and this is the one structural difference from the two
+            // known-working presentations on this exact screen.
+            .confirmationDialog(
+                model.deleteActionTitle,
+                isPresented: $isDeleteConfirmationPresented,
+                titleVisibility: .visible
+            ) {
+                Button(model.deleteActionTitle, role: .destructive) {
+                    Task {
+                        await model.delete()
+                        if model.actionErrorMessage == nil {
+                            Haptics.play(.warning)
+                            dismiss()
+                        }
+                    }
+                }
+                Button(model.closeTitle, role: .cancel) {}
+            }
 
         case let .failed(message):
             FailureStateView(
@@ -539,22 +561,6 @@ public struct PlantDetailView: View {
                 .buttonStyle(SecondaryButtonStyle(tone: .negative))
                 .disabled(model.isSubmitting)
                 .accessibilityIdentifier("plants.detail.delete")
-                .confirmationDialog(
-                    model.deleteActionTitle,
-                    isPresented: $isDeleteConfirmationPresented,
-                    titleVisibility: .visible
-                ) {
-                    Button(model.deleteActionTitle, role: .destructive) {
-                        Task {
-                            await model.delete()
-                            if model.actionErrorMessage == nil {
-                                Haptics.play(.warning)
-                                dismiss()
-                            }
-                        }
-                    }
-                    Button(model.closeTitle, role: .cancel) {}
-                }
             }
         }
     }

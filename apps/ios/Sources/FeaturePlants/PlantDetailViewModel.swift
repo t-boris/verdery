@@ -503,7 +503,13 @@ public final class PlantDetailViewModel {
     }
 
     public func setStatus(_ status: PlantStatus) async {
-        guard let plant = currentPlant else { return }
+        guard let plant = currentPlant else {
+            // Was a silent no-op — indistinguishable from the tap itself not
+            // registering. Surfacing this converts "Delete does nothing" into
+            // a diagnosable, visible failure instead of quiet silence.
+            actionErrorMessage = strings(.serverUnexpected)
+            return
+        }
 
         await perform { [self] in
             try await setPlantStatus(gardenId: gardenId, plantId: plantId, status: status, expectedRevision: plant.revision)
