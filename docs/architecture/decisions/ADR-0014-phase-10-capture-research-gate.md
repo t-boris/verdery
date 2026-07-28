@@ -1,6 +1,10 @@
 # ADR-0014: Phase 10 Capture Research Gate
 
-> Status: Accepted
+> Status: Superseded by [ADR-0015](ADR-0015-phase10-redirect-plants-over-photo-capture.md) for the
+> photo-based garden-object recognition use case this ADR gated (`P10-RESEARCH-01`, `P10-CV-01`,
+> `P10-CV-02`, `P10-REVIEW-01` are removed from the plan, not merely blocked). This ADR's
+> `P10-DATA-01`/`P10-ASYNC-01` approvals and its general reasoning about consented evaluation data
+> remain valid and are not overturned.
 > Date: July 27, 2026
 > Approved: July 27, 2026, by the project owner, as proposed (see "Approval" under Decision)
 

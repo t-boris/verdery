@@ -206,7 +206,7 @@ P7 Weather, recommendations, Today, and notifications
 P8 Foundation beta, hardening, and US general availability
          │
          ├──────────────► P9 Team collaboration, client delivery, and seasonal context
-         ├──────────────► P10 Assisted photo/video capture and plan recognition
+         ├──────────────► P10 Real plant identification and property-plan OCR (redirected by ADR-0015)
          │                         │
          │                         ▼
          │                     P11 AR and LiDAR measurement
@@ -688,47 +688,84 @@ P9A does not depend on P9B or P9C. P9B is required before multi-person professio
 
 Operational collaboration and client delivery follow separate access planes, resources, queries, synchronization behavior, and test matrices. Seasonal/context work remains an independent proposed-next-scope stream. [Source: architecture/decisions/ADR-0012-separate-team-and-client-sharing.md; architecture/identity-and-authorization.md, sections "8. Garden Roles", "10. Invitations", and "11. Ownership Transfer"; architecture/offline-synchronization.md, sections "3. Non-Goals", "4. Authority Model", and "11. Authorization Changes"; technical-specification.md, sections "FR-21: Plant Lifecycle and Seasonal Planning", "FR-22: Garden Context", "FR-27: Shared Garden Team Care", and "FR-34: Professional Client Sharing"]
 
-## 19. Phase 10 — Assisted Photo/Video Capture and Plan Recognition
+## 19. Phase 10 — Real Plant Identification and Property-Plan OCR (redirected from photo-based garden capture)
 
 ### 19.1 Outcome
 
-The native client guides users through recoverable photo/video capture and the cloud produces reviewable object/line proposals. Property-plan processing gains assisted OCR and vectorization, while manual calibration and tracing remain complete fallbacks.
+Photo-based recognition of garden objects (fences, beds, paths) from a casually captured photo or
+video is **not pursued** — [ADR-0015](architecture/decisions/ADR-0015-phase10-redirect-plants-over-photo-capture.md)
+found the already-shipped manual dimension entry, and Phase 11's on-site AR marking, are both a
+better fit than an unreliable photo-recognition step, for regular and irregular shapes
+respectively. Property-plan OCR/vectorization (Stage 1: importing an existing plan document/image)
+is unaffected and remains in scope where already planned.
 
-### 19.2 Research Gate
+Phase 10's AI-facing deliverable is now real photo-based plant identification and condition
+tracking: a species suggestion when a user adds a plant from a photo, and a condition/health
+observation when a user photographs an already-known plant from its own record — replacing two
+existing placeholder stubs (`plants-inventory/application/identify-plant-from-photo.ts`,
+`observations-history/domain/image-analysis-result.ts`) with a real provider, never auto-confirmed,
+never touching human-authored toxicity/edibility data.
 
-Before production implementation, approve a consented evaluation set covering garden layouts, structures, lighting/weather, devices, vegetation, occlusion, surface texture, and reference measurements. Approve thresholds for capture abandonment, useful-proposal precision/recall, geometry error, correction time, processing time, privacy, and unit cost. [Source: architecture/garden-capture-and-scan.md, section "20. Evaluation"]
+### 19.2 Enablement Gate
 
-The concrete dataset plan and thresholds are recorded in [architecture/decisions/ADR-0014-phase-10-capture-research-gate.md](architecture/decisions/ADR-0014-phase-10-capture-research-gate.md), accepted July 27, 2026. That approval authorizes `P10-RESEARCH-01`, `P10-DATA-01`, and `P10-ASYNC-01` only; every other row in the table below remains blocked until `P10-RESEARCH-01` produces its dataset card and a further approval extends beyond schema and infrastructure plumbing.
+Unlike the abandoned photo-object-recognition use case, this does not require collecting a
+consented capture dataset — general plant recognition is broadly capable off the shelf and is not
+being trained or evaluated for a domain it has never seen. Before enabling either capability
+outside development:
+
+- A manual spot-check of the real adapter against a representative sample of real garden-plant
+  photos (owner-run, informal).
+- Confirmation of the provider's current data-training/retention terms for image content (an owner
+  action; `aiplatform.googleapis.com` is not yet enabled anywhere and this codebase's own
+  privacy-notice draft already flags this as unverified even for the existing text-only AI use).
+
+Until both are recorded, both capabilities ship real and callable, gated by a kill-switch flag
+defaulting to `false` — the same idiom already used for `RECOMMENDATION_AI_EXPLANATION_ENABLED`,
+not a placeholder implementation. See
+[architecture/decisions/ADR-0015-phase10-redirect-plants-over-photo-capture.md](architecture/decisions/ADR-0015-phase10-redirect-plants-over-photo-capture.md).
+
+[architecture/decisions/ADR-0014-phase-10-capture-research-gate.md](architecture/decisions/ADR-0014-phase-10-capture-research-gate.md)
+remains the historical record of the abandoned use case's dataset plan and draft thresholds; its
+`P10-DATA-01`/`P10-ASYNC-01` approvals are addressed below.
 
 ### 19.3 Work Packages
 
-| ID              | Work package                                                                                                                                                      | Primary                | Dependencies           | Completion evidence                      |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ---------------------- | ---------------------------------------- |
-| P10-RESEARCH-01 | Collect consented representative data, ground truth, annotation guide, privacy controls, and reproducible baseline                                                | WS-CV, WS-PROD, WS-SEC | Research Gate          | Dataset card and approval                |
-| P10-DATA-01     | Add capture session, capability class, media references, quality observations, calibration, processing state, and cancellation/recovery fields                    | WS-DATA                | P6 media               | Migration and lifecycle tests            |
-| P10-IOS-01      | Build capture coordinator over AVFoundation, Vision/Core ML where approved, location/motion metadata, local checkpoints, and explicit user confirmation           | WS-IOS, WS-MEDIA       | P10-DATA-01            | Lifecycle interruption tests             |
-| P10-IOS-02      | Implement safe movement guidance, coverage, blur, exposure, rotation, featureless surface, lost tracking, duration, storage, partial save, and recapture guidance | WS-IOS, WS-DESIGN      | P10-IOS-01             | Real-device safety/usability report      |
-| P10-ASYNC-01    | Add manifests, job state, Cloud Tasks initiation, Cloud Run Job execution, progress, cancellation, checkpoint, retry, and terminal failure                        | WS-BE, WS-PLAT         | P6 async               | Duplicate/cancel/retry tests             |
-| P10-CV-01       | Implement versioned frame/document normalization, sampling, perspective correction, OCR, line/candidate extraction, and quality diagnostics                       | WS-CV                  | P10-ASYNC-01           | Reproducibility and benchmark report     |
-| P10-CV-02       | Map extracted candidates into immutable typed proposal packages with confidence, provenance, alignment, previews, limitations, and processor versions             | WS-CV, WS-MAP          | P10-CV-01, P3 map      | Proposal schema and validation tests     |
-| P10-REVIEW-01   | Implement overlay comparison, per-object accept/edit/reject, bulk summary, stale-revision conflict, and problem reporting on supported clients                    | WS-IOS, WS-WEB, WS-BE  | P10-CV-02              | Review E2E preserving accepted geometry  |
-| P10-RET-01      | Enforce raw media consent, processing disclosure, 30-day successful-extraction default, earlier deletion where allowed, and training prohibition                  | WS-SEC, WS-MEDIA       | P10 capture            | Retention and deletion tests             |
-| P10-COST-01     | Enforce duration, file, concurrency, stage, retry, CPU-first, and user-confirmation limits                                                                        | WS-PLAT, WS-OPS        | P10 pipeline           | Cost per accepted/useful proposal report |
-| P10-QA-01       | Test permissions, interruption, partial upload, malformed media, duplicate processing, stale acceptance, rejection, and version replay                            | WS-QA                  | All P10 implementation | G10 assisted-capture evidence            |
+| ID           | Work package                                                                                                                                                                                                            | Primary         | Dependencies                               | Completion evidence                                                  |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- | ------------------------------------------ | -------------------------------------------------------------------- |
+| P10-DATA-01  | Add capture session, capability class, media references, quality observations, calibration, processing state, and cancellation/recovery fields — retained as Phase 11 AR groundwork, not for photo/video object capture | WS-DATA         | P6 media                                   | Migration and lifecycle tests                                        |
+| P10-PLANT-01 | Replace `identify-plant-from-photo.ts`'s stub with a real provider call: species candidate with confidence, never auto-confirmed, kill-switched until spot-check and provider-terms verification are recorded           | WS-BE, WS-GUIDE | P7 AI adapter pattern                      | Adapter tests (fake client) plus a recorded manual spot-check report |
+| P10-PLANT-02 | Replace `image-analysis-result.ts`'s stub with a real provider call: condition/health/pest/disease observation for an already-known, user-selected plant, evaluated against that plant's own photo history              | WS-BE, WS-GUIDE | P10-PLANT-01 (shared adapter/config idiom) | Adapter tests (fake client) plus a recorded manual spot-check report |
+| P10-QA-01    | Test kill-switch-off default, malformed/refused provider responses, never-auto-confirm invariant, and that no path can populate toxicity/edibility fields from a model                                                  | WS-QA           | P10-PLANT-01, P10-PLANT-02                 | Evidence report                                                      |
+
+`P10-ASYNC-01` (manifests, job state, Cloud Tasks/Cloud Run Job execution, checkpoint, retry) is
+**deferred, not built**: a single provider call for plant identification runs synchronously within
+an ordinary request, matching how the existing recommendation-explanation adapter already works.
+It returns to this table if Phase 11 or Phase 12 introduces genuinely long-running processing.
+`P10-RESEARCH-01`, `P10-IOS-01`, `P10-IOS-02`, `P10-CV-01`, `P10-CV-02`, `P10-REVIEW-01`,
+`P10-RET-01`, and `P10-COST-01` are removed from the plan (see ADR-0015) — they existed only to
+serve the abandoned photo-object-recognition use case.
 
 ### 19.4 Exit Criteria
 
-- Capture interruption preserves completed recoverable work.
-- On-device guidance communicates limitations without promising reconstruction.
-- Every proposal references exact inputs and processor/model versions.
-- Users can accept, edit, or reject each result; rejection preserves accepted geometry.
-- Manual plan calibration and tracing remain available when extraction fails.
-- Raw media retention and remote processing are explicit and enforced.
-- Evaluation shows lower user effort for the selected use cases at approved quality and cost.
+- Every plant-identification and condition-tracking suggestion is confidence-scored and requires
+  explicit user confirmation before affecting any record.
+- No path — model output, prompt, or otherwise — can populate toxicity/edibility fields; those
+  remain human-authored from a cited source per ADR-0013.
+- Both capabilities are disabled by default and stay disabled until their spot-check and
+  provider-terms verification are recorded.
+- Manual plant entry (unaffected) and manual garden-object entry (unaffected; AR remains Phase 11's
+  own separate exit criteria) remain complete fallbacks throughout.
 
 ### 19.5 Source Traceability
 
-This phase implements Stages 1 and 2 of the capture design and its proposal/review pipeline. [Source: architecture/garden-capture-and-scan.md, sections "3. Staged Capability Plan", "6. Capture Session", "7. Safety UX Requirements", "10. Video Capture Guidance", "11. Processing Pipeline", "13. Proposal Model", and "14. User Review"]
+Plant identification and condition tracking implement the photo-identification requirements
+already stated in the product specification. [Source: technical-specification.md, "Users should be
+able to add plants from a photo," "Photo identification results must show uncertainty and remain
+editable," "The application should prefill supported plant information after identification,"
+section 9 requirements around lines 517-521; ADR-0008 (Vertex AI use categories); ADR-0013
+(AI-assisted content authoring boundaries, excluding toxicity/edibility)]. The redirect away from
+photo-based garden-object capture, and its reasoning, is recorded in
+[ADR-0015](architecture/decisions/ADR-0015-phase10-redirect-plants-over-photo-capture.md).
 
 ## 20. Phase 11 — AR and LiDAR Measurement
 
@@ -742,17 +779,17 @@ Approve device capability tiers and use-case-specific error thresholds using phy
 
 ### 20.3 Work Packages
 
-| ID              | Work package                                                                                                                                                    | Primary               | Dependencies            | Completion evidence                     |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | ----------------------- | --------------------------------------- |
-| P11-RESEARCH-01 | Benchmark ARKit tracking, relocalization, segment length, accumulation error, alignment methods, depth, and LiDAR across launch device tiers                    | WS-IOS, WS-CV         | Research Gate           | Device/use-case capability matrix       |
-| P11-IOS-01      | Implement runtime capability detection, permission flow, AR session lifecycle, point/line/polygon marking, undo, close/cancel, partial save, and live quality   | WS-IOS                | P10 capture coordinator | Real-device interaction tests           |
-| P11-MEASURE-01  | Convert AR observations to application-owned SI measurements, transforms, quality, uncertainty, and calibration records                                         | WS-IOS, WS-MAP        | P11-IOS-01              | Reference-measurement fixtures          |
-| P11-ALIGN-01    | Implement first-segment local origin, two-control-point alignment, explicit later realignment, residual error, and versioned alignment record                   | WS-MAP, WS-IOS, WS-BE | P11-MEASURE-01          | Alignment and disagreement tests        |
-| P11-SEGMENT-01  | Support long-object segmented capture, shared control points, accumulated-error warning, and independent segment correction                                     | WS-IOS, WS-DESIGN     | P11-ALIGN-01            | Long fence/path field tests             |
-| P11-LIDAR-01    | Add optional depth and scene observations behind capability checks; evaluate plane, edge, obstacle, and scale improvement                                       | WS-IOS, WS-CV         | P11-RESEARCH-01         | Quality delta versus non-LiDAR baseline |
-| P11-PROPOSAL-01 | Convert accepted AR/depth results into ordinary editable map proposal commands with provenance and stale-revision protection                                    | WS-BE, WS-MAP         | P11-ALIGN-01            | Proposal acceptance E2E                 |
-| P11-SAFE-01     | Implement continuous recording state, tracking degradation pause, obstacle/private-property guidance, no backward-walking instruction, and estimate disclaimers | WS-DESIGN, WS-SEC     | P11-IOS-01              | Safety review and observed field study  |
-| P11-QA-01       | Test permission denial/regrant, interruption, poor tracking, relocalization failure, unsupported devices, alignment conflicts, and manual fallback              | WS-QA                 | All P11 implementation  | G10 AR/LiDAR evidence                   |
+| ID              | Work package                                                                                                                                                    | Primary               | Dependencies                                                                                                                            | Completion evidence                     |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| P11-RESEARCH-01 | Benchmark ARKit tracking, relocalization, segment length, accumulation error, alignment methods, depth, and LiDAR across launch device tiers                    | WS-IOS, WS-CV         | Research Gate                                                                                                                           | Device/use-case capability matrix       |
+| P11-IOS-01      | Implement runtime capability detection, permission flow, AR session lifecycle, point/line/polygon marking, undo, close/cancel, partial save, and live quality   | WS-IOS                | P10-DATA-01 (session schema; the AVFoundation capture-coordinator work package this row previously depended on was removed by ADR-0015) | Real-device interaction tests           |
+| P11-MEASURE-01  | Convert AR observations to application-owned SI measurements, transforms, quality, uncertainty, and calibration records                                         | WS-IOS, WS-MAP        | P11-IOS-01                                                                                                                              | Reference-measurement fixtures          |
+| P11-ALIGN-01    | Implement first-segment local origin, two-control-point alignment, explicit later realignment, residual error, and versioned alignment record                   | WS-MAP, WS-IOS, WS-BE | P11-MEASURE-01                                                                                                                          | Alignment and disagreement tests        |
+| P11-SEGMENT-01  | Support long-object segmented capture, shared control points, accumulated-error warning, and independent segment correction                                     | WS-IOS, WS-DESIGN     | P11-ALIGN-01                                                                                                                            | Long fence/path field tests             |
+| P11-LIDAR-01    | Add optional depth and scene observations behind capability checks; evaluate plane, edge, obstacle, and scale improvement                                       | WS-IOS, WS-CV         | P11-RESEARCH-01                                                                                                                         | Quality delta versus non-LiDAR baseline |
+| P11-PROPOSAL-01 | Convert accepted AR/depth results into ordinary editable map proposal commands with provenance and stale-revision protection                                    | WS-BE, WS-MAP         | P11-ALIGN-01                                                                                                                            | Proposal acceptance E2E                 |
+| P11-SAFE-01     | Implement continuous recording state, tracking degradation pause, obstacle/private-property guidance, no backward-walking instruction, and estimate disclaimers | WS-DESIGN, WS-SEC     | P11-IOS-01                                                                                                                              | Safety review and observed field study  |
+| P11-QA-01       | Test permission denial/regrant, interruption, poor tracking, relocalization failure, unsupported devices, alignment conflicts, and manual fallback              | WS-QA                 | All P11 implementation                                                                                                                  | G10 AR/LiDAR evidence                   |
 
 ### 20.4 Exit Criteria
 
@@ -971,18 +1008,18 @@ The client portal is a separate route group and query surface inside the existin
 | FR-6 Map Layers                             | P3              | Visibility, lock, order, and accessibility tests                                                      |
 | FR-7 Structural Map Objects                 | P3              | Required-object E2E garden                                                                            |
 | FR-8 Garden and Plant Map Objects           | P3, P4          | Bed/area/plant/group placement tests                                                                  |
-| FR-9 Progressive Map Creation               | P3, P6, P10–P12 | Blank, imagery, plan, manual, capture, proposal paths                                                 |
+| FR-9 Progressive Map Creation               | P3, P6, P11–P12 | Blank, imagery, plan, manual, capture, proposal paths (redirected from P10 to P11 AR by ADR-0015)     |
 | FR-10 Satellite or Map-Image Start          | P0, P3          | Provider/license decision, attribution, tracing, outage fallback                                      |
 | FR-11 Property Plan Import                  | P6, P10         | Import, calibration, tracing, optional proposal tests                                                 |
 | FR-12 Manual Map Editing                    | P3              | Creation/edit/dimensions/unknown-scale/undo tests                                                     |
 | FR-13 On-Site AR Marking                    | P11             | Device benchmark and real-world marking tests                                                         |
 | FR-14 AR-to-Map Alignment                   | P11             | Control-point, residual, relocalization, realignment tests                                            |
 | FR-15 GPS and Geographic Positioning        | P3, P11         | Optional location context and precision-warning tests                                                 |
-| FR-16 Guided Garden Scan                    | P10, P12        | Capture/pipeline/proposal/evaluation evidence                                                         |
+| FR-16 Guided Garden Scan                    | P12             | Capture/pipeline/proposal/evaluation evidence (P10 no longer contributes; see ADR-0015)               |
 | FR-17 Plot Area Estimate                    | P3              | Scaled/approximate area and uncertainty tests                                                         |
-| FR-18 Map Provenance and Accuracy           | P3, P6, P10–P12 | Provenance, accuracy state, verification, revision fixtures                                           |
+| FR-18 Map Provenance and Accuracy           | P3, P6, P11–P12 | Provenance, accuracy state, verification, revision fixtures                                           |
 | FR-19 Plant Records                         | P4, P6          | Plant details, photos, placement, lifecycle, history                                                  |
-| FR-20 Plant Addition                        | P4, P6          | Manual, unknown, individual/group, editable photo candidate                                           |
+| FR-20 Plant Addition                        | P4, P6, P10     | Manual, unknown, individual/group, editable photo candidate (real provider added by P10-PLANT-01)     |
 | FR-21 Plant Lifecycle and Seasonal Planning | P4, P9          | Lifecycle transitions and reviewed seasonal fixtures                                                  |
 | FR-22 Garden Context                        | P7, P9          | Weather/context freshness, source, quality, recommendation use                                        |
 | FR-23 Monitoring and Observations           | P4, P6, P10     | Append history, media, uncertain analysis suggestions                                                 |
@@ -1008,23 +1045,23 @@ The source documentation contains no staffing, funding, velocity, procurement le
 
 ### 27.2 Indicative Phase Ranges
 
-| Phase                      | Indicative elapsed range | Main uncertainty                                                                      | Parallelism note                                                  |
-| -------------------------- | -----------------------: | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| P0 Product closure         |                2–4 weeks | Decision and research access                                                          | Must start first                                                  |
-| P1 Engineering foundation  |                4–6 weeks | Cloud organization and CI access                                                      | Client/platform scaffolds parallelize                             |
-| P2 First garden            |                4–6 weeks | Firebase/provider setup and UX                                                        | Native/web parallelize after API contract                         |
-| P3 2D map                  |               8–12 weeks | Editor UX, geometry semantics, performance                                            | Native/web parallelize around shared fixtures                     |
-| P4 Care records            |                6–8 weeks | Domain scope and UX                                                                   | Can overlap late P3                                               |
-| P5 Offline synchronization |               8–12 weeks | Conflict UX, failure testing, migrations                                              | Backend/native parallelize after protocol                         |
-| P6 Media and plan import   |               8–12 weeks | resumable transfer, PDF security, calibration                                         | Workers and clients parallelize                                   |
-| P7 Care loop               |               8–12 weeks | horticultural rules, providers, safety review                                         | Today, integrations, notifications parallelize                    |
-| P8 Beta and GA hardening   |               6–10 weeks | legal, security, restore/load results, store review                                   | Begins incrementally before P7 ends                               |
-| P9 Team/client/seasonal    |              12–18 weeks | publication isolation, stewardship, portal UX, conflict behavior, and content breadth | P9A, P9C, and P9D can release separately after shared foundations |
-| P10 Assisted capture       |              10–16 weeks | dataset, model quality, device/media variability                                      | Research begins before production build                           |
-| P11 AR/LiDAR               |              10–16 weeks | outdoor accuracy and device diversity                                                 | Can overlap P10 research                                          |
-| P12 Garden Scan            |             16–28+ weeks | reconstruction feasibility and unit cost                                              | Research-gated; may stop                                          |
-| P13 Assistant              |               8–12 weeks | safety scope and evaluation quality                                                   | Independent after structured data stabilizes                      |
-| P14 3D/Time Machine        |             12–20+ weeks | validated value, rendering choice, content model                                      | Research-gated; may split into releases                           |
+| Phase                      | Indicative elapsed range | Main uncertainty                                                                      | Parallelism note                                                     |
+| -------------------------- | -----------------------: | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| P0 Product closure         |                2–4 weeks | Decision and research access                                                          | Must start first                                                     |
+| P1 Engineering foundation  |                4–6 weeks | Cloud organization and CI access                                                      | Client/platform scaffolds parallelize                                |
+| P2 First garden            |                4–6 weeks | Firebase/provider setup and UX                                                        | Native/web parallelize after API contract                            |
+| P3 2D map                  |               8–12 weeks | Editor UX, geometry semantics, performance                                            | Native/web parallelize around shared fixtures                        |
+| P4 Care records            |                6–8 weeks | Domain scope and UX                                                                   | Can overlap late P3                                                  |
+| P5 Offline synchronization |               8–12 weeks | Conflict UX, failure testing, migrations                                              | Backend/native parallelize after protocol                            |
+| P6 Media and plan import   |               8–12 weeks | resumable transfer, PDF security, calibration                                         | Workers and clients parallelize                                      |
+| P7 Care loop               |               8–12 weeks | horticultural rules, providers, safety review                                         | Today, integrations, notifications parallelize                       |
+| P8 Beta and GA hardening   |               6–10 weeks | legal, security, restore/load results, store review                                   | Begins incrementally before P7 ends                                  |
+| P9 Team/client/seasonal    |              12–18 weeks | publication isolation, stewardship, portal UX, conflict behavior, and content breadth | P9A, P9C, and P9D can release separately after shared foundations    |
+| P10 Plant identification   |                1–3 weeks | provider spot-check quality, terms verification                                       | Redirected from capture to two stub replacements by ADR-0015         |
+| P11 AR/LiDAR               |              10–16 weeks | outdoor accuracy and device diversity                                                 | No longer overlaps P10 research (P10 no longer has a research phase) |
+| P12 Garden Scan            |             16–28+ weeks | reconstruction feasibility and unit cost                                              | Research-gated; may stop                                             |
+| P13 Assistant              |               8–12 weeks | safety scope and evaluation quality                                                   | Independent after structured data stabilizes                         |
+| P14 3D/Time Machine        |             12–20+ weeks | validated value, rendering choice, content model                                      | Research-gated; may split into releases                              |
 
 The original reference-team estimate put the foundation planning envelope at approximately 9–12
 months because P3/P4 and several platform/client activities could overlap while P5 remained on the
@@ -1144,7 +1181,7 @@ The **plant-content half of `P0-PROV-01` remains open**, as do photo identificat
 | Launch quality thresholds remain incomplete | Quotas, performance budgets, SLOs, and alert thresholds remain implementation-time selections, while platform versions and geometry tolerances are already fixed by ADR-0009 and ADR-0010. [Source: technical-specification.md, section "14.2 Implementation-Time Selections"]            | Gates cannot be objectively passed                                               |                    High | Define initial hypotheses before their dependent phases and calibrate before GA                              |
 | Provider contracts absent                   | Commercial providers are not selected. [Source: architecture/README.md, section "7. Remaining Implementation-Time Selections"]                                                                                                                                                            | Licensing, privacy, coverage, and cost uncertainty                               |                    High | Run provider scorecards before dependent implementation                                                      |
 | Horticultural governance not defined        | Safety-sensitive recommendations require expert review. [Source: technical-specification.md, section "FR-24: Recommendations"]                                                                                                                                                            | Unsafe or low-trust guidance                                                     |                Critical | Name reviewers, sources, versioning, review cadence, escalation                                              |
-| Capture evaluation dataset absent           | Capture design requires a representative consented dataset. [Source: architecture/garden-capture-and-scan.md, section "20. Evaluation"]                                                                                                                                                   | AR/scan quality cannot be proven                                                 | High for advanced scope | Build dataset governance before P10/P11/P12 commitment                                                       |
+| Capture evaluation dataset absent           | Capture design requires a representative consented dataset. [Source: architecture/garden-capture-and-scan.md, section "20. Evaluation"]                                                                                                                                                   | AR/scan quality cannot be proven                                                 | High for advanced scope | Build dataset governance before P11/P12 commitment (P10 no longer needs one — see ADR-0015)                  |
 | Support organization not defined            | Runbooks are required, but people and rotation are not stated                                                                                                                                                                                                                             | Incidents cannot be owned                                                        |        High before beta | Define severity, on-call/support responsibility, escalation, hours                                           |
 | Monetization is open                        | Monetization is an explicit product question. [Source: technical-specification.md, section "18. Open Product Questions"]                                                                                                                                                                  | Quotas and expensive-feature economics may change                                |                  Medium | Decide before broad Scan/AI rollout; do not block foundation core loop                                       |
 | Client publication usability is unvalidated | Client sharing has an approved architecture but no recorded research evidence for update preparation, portal comprehension, or engagement-end handoff. [Source: architecture/decisions/ADR-0012-separate-team-and-client-sharing.md]                                                      | Professionals may avoid publishing or clients may misread the record             |         High before P9C | Prototype publisher preview, portal timeline, withdrawal, and handoff with professionals and clients         |
