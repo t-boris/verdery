@@ -7171,3 +7171,50 @@ clean repo-wide. `pnpm typecheck` and `pnpm format:check` are clean for every fi
 touched; both currently report issues ONLY inside Batch A's own still-in-progress files (not
 touched by this batch), expected since Batch A was still actively adding files at the time of this
 note.
+
+## Recovered pre-Phase-10 work: map editor UX, OAuth sign-in reliability, Zod CSP compatibility
+
+Before starting Phase 10, the working tree carried 73 files of finished, uncommitted changes from a
+prior session that were never logged here or referenced by any commit. None of it relates to Phase
+10 (Assisted Photo/Video Capture and Plan Recognition); this session verified and committed it as
+its own preparatory step so unrelated changes would not get mixed into Phase 10 work. A
+repository-wide `pnpm check:all` passed clean before committing: Prettier, ESLint, `tsc --noEmit`
+across all 6 workspace packages, the 600-line file-size gate, and the full test suite (3410/3410
+tests: apps/web 950, services/api 2314, services/workers 133, packages/geometry-contracts 113,
+packages/api-contracts 29, packages/test-fixtures 21). No `TODO`/`FIXME` markers were found in the
+diff. Landed as three commits by concern, each carrying its own documentation:
+
+- **`250a0e0` Wrap Zod behind a jitless config to satisfy the CSP.** Zod 4 probes `new Function`
+  (an eval-like capability check) even inside a try/catch, and browsers report the probe itself as a
+  CSP violation under this app's `unsafe-eval`-free policy. `apps/web/shared/validation/zod.ts`
+  calls `z.config({ jitless: true })` before re-exporting `z`; all 15 forms and auth screens that
+  previously imported `zod` directly now import this wrapper, with no stragglers left (confirmed by
+  grep).
+- **`bf224e3` Fix OAuth sign-in popup failures: COOP header and Cloud Run's two URL aliases.**
+  `security-headers.ts` adds `Cross-Origin-Opener-Policy: same-origin-allow-popups` so Firebase's
+  cross-origin OAuth popup can be observed closing. Separately, Cloud Run exposes two valid URL
+  aliases per service while `status.url` reports only one; provisioning had wired only that one
+  alias into Firebase Authentication's authorized domains, the reCAPTCHA/App Check key, and
+  `HTTP_ALLOWED_ORIGINS`, so sign-in and App Check worked on one alias and failed
+  (`auth/unauthorized-domain`, App Check `403`) on the other. The new `sync-web-auth-domains.sh`
+  idempotently synchronizes both allowlists from `run.googleapis.com/urls` and is wired into
+  `verify.sh --check`; `01-enable-apis.sh` now enables `firebaseappcheck.googleapis.com`, previously
+  missing from `verdery-dev`, which had made App Check attestation fail outright.
+- **`258a5c4` Redesign the map editor workspace: exact dimensions, category icons, creation-click
+  fix.** An exact dimension editor (`geometry-dimension-editor.tsx`, `geometry-dimensions.ts`) lets
+  the property inspector edit polygon width/depth or line length in metres, scaling the geometry
+  around its bounding-box centroid through one `replaceGeometry` command; explicitly labeled a
+  planning estimate, not survey-grade. A category-grouped icon toolbar, recolored category palette,
+  and three-region desktop layout (utilities / canvas / inspector) replace the old two-column
+  layout. `existingObjectsAreInteractive(tool)` removes existing objects from the Konva hit graph
+  while a creation tool is armed, so clicks on a filled lot/structure reach the drawing handler
+  instead of selecting the existing object — iOS already had this behavior in
+  `MapEditorViewModelEditing.swift`; this commit adds the iOS regression test
+  (`createInsideExistingLot`) and brings web to parity. Localization is in full en/ru +
+  accessibility parity.
+
+**Provenance note:** this session did not design or write the recovered code — it verified,
+categorized, and committed work already present in the working tree, with its rationale confirmed
+against the code and existing documentation rather than reconstructed from memory. Local Node is
+22.22.3 against the pinned 24.x baseline (a pre-existing environment gap, unrelated to this work);
+CI runs on the pinned version.
