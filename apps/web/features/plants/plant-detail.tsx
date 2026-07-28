@@ -1,6 +1,8 @@
 'use client';
 
 import type { PlantIdentificationSuggestion } from '@verdery/api-contracts';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
@@ -73,10 +75,22 @@ function DetailRow({ label, value }: { readonly label: string; readonly value: s
  */
 export function PlantDetail({ gardenId, plantId }: PlantDetailProps) {
   const { t } = useLocalization();
+  const router = useRouter();
   const query = usePlant(gardenId, plantId);
   const identification = usePlantIdentification(gardenId, plantId);
   const confirmIdentification = useConfirmPlantIdentification(gardenId);
   const recordObservation = useRecordObservationFromIdentification(gardenId);
+
+  // Redirects back to the garden's plant list once this plant is deleted
+  // (`SetPlantStatus('removed')`, `PlantDeleteSection`): a status chip
+  // quietly turning to "Removed" on the same screen read as "nothing
+  // happened" — the same redirect-on-terminal-lifecycle-state reasoning
+  // `garden-settings.tsx` already applies for a garden's own deletion.
+  useEffect(() => {
+    if (query.data?.status === 'removed') {
+      router.push(`/application/gardens/${gardenId}/plants`);
+    }
+  }, [query.data?.status, router, gardenId]);
 
   if (query.isPending) {
     return <p role="status">{t('plants.loading')}</p>;

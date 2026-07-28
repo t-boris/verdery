@@ -6,6 +6,8 @@ import { LocalizationProvider } from '@/shared/localization/public';
 
 import { PlantDetail } from './plant-detail';
 
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+
 const confirmMutateMock = vi.fn();
 const recordObservationMutateMock = vi.fn();
 

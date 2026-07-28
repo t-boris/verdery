@@ -23,6 +23,7 @@ public struct PlantDetailView: View {
     @State private var isDeleteConfirmationPresented = false
     @State private var isCameraPresented = false
     @State private var isCameraPermissionDeniedShown = false
+    @Environment(\.dismiss) private var dismiss
 
     public init(model: PlantDetailViewModel) {
         _model = State(wrappedValue: model)
@@ -529,27 +530,32 @@ public struct PlantDetailView: View {
     /// banner already establishes for `.accent`.
     private var deleteSection: some View {
         SurfaceCard(tone: .negative) {
-            Button {
-                isDeleteConfirmationPresented = true
-            } label: {
-                Label(model.deleteActionTitle, systemImage: "trash")
-            }
-            .buttonStyle(SecondaryButtonStyle(tone: .negative))
-            .disabled(model.isSubmitting)
-            .accessibilityIdentifier("plants.detail.delete")
-        }
-        .confirmationDialog(
-            model.deleteActionTitle,
-            isPresented: $isDeleteConfirmationPresented,
-            titleVisibility: .visible
-        ) {
-            Button(model.deleteActionTitle, role: .destructive) {
-                Task {
-                    await model.delete()
-                    Haptics.play(.warning)
+            VStack(alignment: .leading) {
+                Button {
+                    isDeleteConfirmationPresented = true
+                } label: {
+                    Label(model.deleteActionTitle, systemImage: "trash")
+                }
+                .buttonStyle(SecondaryButtonStyle(tone: .negative))
+                .disabled(model.isSubmitting)
+                .accessibilityIdentifier("plants.detail.delete")
+                .confirmationDialog(
+                    model.deleteActionTitle,
+                    isPresented: $isDeleteConfirmationPresented,
+                    titleVisibility: .visible
+                ) {
+                    Button(model.deleteActionTitle, role: .destructive) {
+                        Task {
+                            await model.delete()
+                            if model.actionErrorMessage == nil {
+                                Haptics.play(.warning)
+                                dismiss()
+                            }
+                        }
+                    }
+                    Button(model.closeTitle, role: .cancel) {}
                 }
             }
-            Button(model.closeTitle, role: .cancel) {}
         }
     }
 }
