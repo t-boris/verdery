@@ -22,9 +22,11 @@
  */
 
 import {
+  AnalyzePlantCondition,
   createOpenMeteoWeatherRegistration,
   GenerateAiExplanation,
   GetGardenWeather,
+  IdentifyPlantSpecies,
   KyselyProviderQuotaRepository,
   KyselyWeatherRecordRepository,
   KyselyWeatherRefreshCandidateSource,
@@ -35,12 +37,16 @@ import {
 } from './modules/integrations/public.js';
 import type {
   AiExplanationProviderAdapter,
+  PlantConditionAnalysisProviderAdapter,
+  PlantSpeciesIdentificationProviderAdapter,
   TransactionalEmailAdapter,
   WeatherRefreshSweepRouteDependencies,
 } from './modules/integrations/public.js';
 import { KyselyGeoreferenceRepository } from './modules/gardens-mapping/public.js';
 import type {
   AiExplanationConfiguration,
+  PlantConditionAiConfiguration,
+  PlantSpeciesAiConfiguration,
   TransactionalEmailConfiguration,
   WeatherConfiguration,
 } from './platform/configuration/configuration-schema.js';
@@ -54,12 +60,20 @@ import type { Clock } from './shared/time/clock.js';
  * `provider_key` provenance on every stored AI-explanation record.
  */
 export const AI_EXPLANATION_PROVIDER_KEY = 'vertex-ai-explanation';
+/** ADR-0015: the plant-species-identification adapter's quota-accounting key and stored-suggestion provenance. */
+export const PLANT_SPECIES_AI_PROVIDER_KEY = 'vertex-ai-plant-species';
+/** ADR-0015: the plant-condition-analysis adapter's quota-accounting key and stored-observation provenance. */
+export const PLANT_CONDITION_AI_PROVIDER_KEY = 'vertex-ai-plant-condition';
 
 export interface IntegrationsComposition {
   /** Consumed by tasks-recommendations' `EvaluateGardenRecommendations` — the cross-module use-case injection precedent. */
   readonly getGardenWeather: GetGardenWeather;
   /** Consumed by tasks-recommendations' `EmbellishRecommendationExplanations` (P7-AI-01) — same precedent. Typed `noProviderConfigured` whenever the adapter is null. */
   readonly generateAiExplanation: GenerateAiExplanation;
+  /** ADR-0015: consumed by plants-inventory's `AddPlantFromPhoto` — the same cross-module use-case injection precedent. Typed `noProviderConfigured` whenever the adapter is null (every environment today, pending the manual spot-check and provider-terms verification ADR-0015 names). */
+  readonly identifyPlantSpecies: IdentifyPlantSpecies;
+  /** ADR-0015: consumed by observations-history's `RecordObservation`/`CorrectObservation` — same precedent. */
+  readonly analyzePlantCondition: AnalyzePlantCondition;
   readonly weatherRefreshSweepRouteDependencies: WeatherRefreshSweepRouteDependencies;
   /** P9C-INVITE-01: consumed by collaboration's `CreateClientInvitation` — the cross-module use-case injection precedent, again. `null` whenever `RESEND_API_KEY` is unconfigured. */
   readonly transactionalEmailAdapter: TransactionalEmailAdapter | null;
@@ -71,6 +85,10 @@ export function composeIntegrations(
   weather: WeatherConfiguration,
   aiExplanation: AiExplanationConfiguration,
   aiExplanationAdapter: AiExplanationProviderAdapter | null,
+  plantSpeciesAi: PlantSpeciesAiConfiguration,
+  plantSpeciesIdentificationAdapter: PlantSpeciesIdentificationProviderAdapter | null,
+  plantConditionAi: PlantConditionAiConfiguration,
+  plantConditionAnalysisAdapter: PlantConditionAnalysisProviderAdapter | null,
   transactionalEmail: TransactionalEmailConfiguration,
   cloudTasksInvocationVerifier: CloudTasksInvocationVerifier,
 ): IntegrationsComposition {
@@ -124,6 +142,37 @@ export function composeIntegrations(
     clock,
   );
 
+  // ADR-0015: the bounded call machinery exists regardless of either
+  // switch — with a null adapter (both off, every environment today) each
+  // answers `noProviderConfigured`, the `generateAiExplanation` posture
+  // above exactly.
+  const identifyPlantSpecies = new IdentifyPlantSpecies(
+    plantSpeciesIdentificationAdapter,
+    {
+      providerKey: PLANT_SPECIES_AI_PROVIDER_KEY,
+      callTimeoutMs: plantSpeciesAi.callTimeoutMs,
+      quotaLimits: {
+        maxCallsPerHour: plantSpeciesAi.maxCallsPerHour,
+        maxCallsPerDay: plantSpeciesAi.maxCallsPerDay,
+      },
+    },
+    providerQuotas,
+    clock,
+  );
+  const analyzePlantCondition = new AnalyzePlantCondition(
+    plantConditionAnalysisAdapter,
+    {
+      providerKey: PLANT_CONDITION_AI_PROVIDER_KEY,
+      callTimeoutMs: plantConditionAi.callTimeoutMs,
+      quotaLimits: {
+        maxCallsPerHour: plantConditionAi.maxCallsPerHour,
+        maxCallsPerDay: plantConditionAi.maxCallsPerDay,
+      },
+    },
+    providerQuotas,
+    clock,
+  );
+
   const getGardenWeather = new GetGardenWeather(weatherRecords, freshnessPolicy, clock);
 
   const weatherRefreshSweepRouteDependencies: WeatherRefreshSweepRouteDependencies = {
@@ -155,6 +204,8 @@ export function composeIntegrations(
   return {
     getGardenWeather,
     generateAiExplanation,
+    identifyPlantSpecies,
+    analyzePlantCondition,
     weatherRefreshSweepRouteDependencies,
     transactionalEmailAdapter,
   };

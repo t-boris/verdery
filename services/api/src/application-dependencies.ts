@@ -16,7 +16,11 @@
  */
 
 import type { FastifyBaseLogger } from 'fastify';
-import type { AiExplanationProviderAdapter } from './modules/integrations/public.js';
+import type {
+  AiExplanationProviderAdapter,
+  PlantConditionAnalysisProviderAdapter,
+  PlantSpeciesIdentificationProviderAdapter,
+} from './modules/integrations/public.js';
 import type { MediaStorageGateway } from './modules/media/public.js';
 import type { PushMessageSender } from './modules/notifications/public.js';
 import type { AppCheckVerifier } from './platform/app-check/app-check-verifier.js';
@@ -58,6 +62,20 @@ export interface ApplicationDependencies {
    * Vertex at all — the strongest form of the rollback guarantee.
    */
   readonly aiExplanationAdapter: AiExplanationProviderAdapter | null;
+  /**
+   * ADR-0015: the Vertex AI plant-species-identification adapter, or `null`
+   * whenever `PLANT_SPECIES_AI_ENABLED` is off (every environment today,
+   * pending the manual spot-check and provider-terms verification ADR-0015
+   * names). Same "port arrives already constructed, `null` means no code
+   * path can reach Vertex at all" shape as `aiExplanationAdapter`.
+   */
+  readonly plantSpeciesIdentificationAdapter: PlantSpeciesIdentificationProviderAdapter | null;
+  /**
+   * ADR-0015: the Vertex AI plant-condition-analysis adapter, or `null`
+   * whenever `PLANT_CONDITION_AI_ENABLED` is off (every environment today).
+   * Same shape as `plantSpeciesIdentificationAdapter`.
+   */
+  readonly plantConditionAnalysisAdapter: PlantConditionAnalysisProviderAdapter | null;
   /**
    * P7-NOTIF-02: the FCM boundary — `main.ts` builds the real
    * `FcmPushMessageSender` over the same `firebase-admin` app the token

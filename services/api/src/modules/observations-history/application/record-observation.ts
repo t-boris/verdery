@@ -1,8 +1,8 @@
 /**
  * Records a new observation: a note, a condition summary, and/or photos
  * about a garden, a plant within it, or an area (`gardenObjectId`), plus one
- * stubbed `AnalyzeObservationPhoto` pass per attached photo — all in one
- * transaction.
+ * real `AnalyzeObservationPhoto` pass (ADR-0015) per attached photo — all in
+ * one transaction.
  *
  * Idempotency-guarded like every user-initiated command in this codebase,
  * even though `observation` itself carries no `expectedRevision` to check —
@@ -15,6 +15,7 @@ import { generateUuidV7 } from '../../../shared/identifiers/uuid.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import type { GardenAuthorization } from '../../gardens-mapping/public.js';
+import type { AnalyzePlantCondition } from '../../integrations/public.js';
 import { createObservation } from '../domain/observation.js';
 import { attachObservationPhotos } from './attach-observation-photos.js';
 import { plantNotInGardenError } from './observation-errors.js';
@@ -43,6 +44,7 @@ export class RecordObservation {
     private readonly unitOfWork: ObservationsHistoryUnitOfWork,
     private readonly authorization: GardenAuthorization,
     private readonly clock: Clock,
+    private readonly analyzePlantCondition: AnalyzePlantCondition,
   ) {}
 
   async execute(
@@ -102,6 +104,7 @@ export class RecordObservation {
 
         const photos = await attachObservationPhotos(
           context,
+          this.analyzePlantCondition,
           observation.gardenId,
           observation.id,
           input.photoMediaIds,

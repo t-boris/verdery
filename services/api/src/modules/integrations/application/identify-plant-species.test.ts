@@ -1,0 +1,131 @@
+import { describe, expect, it } from 'vitest';
+import { InMemoryProviderQuotaRepository, fixedClock } from './integrations-test-doubles.js';
+import { IdentifyPlantSpecies } from './identify-plant-species.js';
+import type { PlantSpeciesIdentificationCallPolicy } from './identify-plant-species.js';
+import {
+  FakePlantSpeciesIdentificationProviderAdapter,
+  testPlantPhotoReference,
+} from './plant-ai-test-doubles.js';
+import type { PlantSpeciesIdentificationRequest } from './plant-species-identification-provider.js';
+
+const NOW = new Date('2026-07-28T10:15:00Z');
+const PROVIDER_KEY = 'vertex-ai-plant-species';
+const REQUEST: PlantSpeciesIdentificationRequest = { photo: testPlantPhotoReference() };
+
+function policy(
+  overrides: Partial<PlantSpeciesIdentificationCallPolicy> = {},
+): PlantSpeciesIdentificationCallPolicy {
+  return {
+    providerKey: PROVIDER_KEY,
+    callTimeoutMs: 1_000,
+    quotaLimits: { maxCallsPerHour: null, maxCallsPerDay: null },
+    ...overrides,
+  };
+}
+
+describe('IdentifyPlantSpecies', () => {
+  it('with no adapter (the kill-switch off), answers noProviderConfigured without consuming budget', async () => {
+    const quotas = new InMemoryProviderQuotaRepository();
+    const identify = new IdentifyPlantSpecies(null, policy(), quotas, fixedClock(NOW));
+
+    const result = await identify.execute(REQUEST);
+
+    expect(result).toEqual({ outcome: 'unavailable', reason: 'noProviderConfigured' });
+    expect(quotas.countFor(PROVIDER_KEY, 'hour', NOW)).toBe(0);
+  });
+
+  it('passes a candidate through with the provenance a stored suggestion needs', async () => {
+    const adapter = new FakePlantSpeciesIdentificationProviderAdapter(
+      {
+        kind: 'outcome',
+        outcome: {
+          kind: 'candidate',
+          candidate: { commonName: 'Tomato', scientificNameGuess: null, confidenceScore: 0.8 },
+        },
+      },
+      { model: 'gemini-test', promptTemplateVersion: 2 },
+    );
+    const identify = new IdentifyPlantSpecies(
+      adapter,
+      policy(),
+      new InMemoryProviderQuotaRepository(),
+      fixedClock(NOW),
+    );
+
+    const result = await identify.execute(REQUEST);
+
+    expect(result).toEqual({
+      outcome: 'candidate',
+      candidate: { commonName: 'Tomato', scientificNameGuess: null, confidenceScore: 0.8 },
+      provenance: { providerKey: PROVIDER_KEY, model: 'gemini-test', promptTemplateVersion: 2 },
+    });
+    expect(adapter.callCount).toBe(1);
+  });
+
+  it('answers noConfidentCandidate without inventing a fake candidate', async () => {
+    const adapter = new FakePlantSpeciesIdentificationProviderAdapter({
+      kind: 'outcome',
+      outcome: { kind: 'noConfidentCandidate' },
+    });
+    const identify = new IdentifyPlantSpecies(
+      adapter,
+      policy(),
+      new InMemoryProviderQuotaRepository(),
+      fixedClock(NOW),
+    );
+
+    const result = await identify.execute(REQUEST);
+
+    expect(result.outcome).toBe('noConfidentCandidate');
+  });
+
+  it('answers quotaExhausted without calling the adapter', async () => {
+    const adapter = new FakePlantSpeciesIdentificationProviderAdapter({
+      kind: 'outcome',
+      outcome: { kind: 'noConfidentCandidate' },
+    });
+    const quotas = new InMemoryProviderQuotaRepository();
+    const identify = new IdentifyPlantSpecies(
+      adapter,
+      policy({ quotaLimits: { maxCallsPerHour: 0, maxCallsPerDay: null } }),
+      quotas,
+      fixedClock(NOW),
+    );
+
+    const result = await identify.execute(REQUEST);
+
+    expect(result).toEqual({ outcome: 'unavailable', reason: 'quotaExhausted' });
+    expect(adapter.callCount).toBe(0);
+  });
+
+  it('answers providerTimeout when the adapter hangs past the deadline', async () => {
+    const adapter = new FakePlantSpeciesIdentificationProviderAdapter({ kind: 'hang' });
+    const identify = new IdentifyPlantSpecies(
+      adapter,
+      policy({ callTimeoutMs: 5 }),
+      new InMemoryProviderQuotaRepository(),
+      fixedClock(NOW),
+    );
+
+    const result = await identify.execute(REQUEST);
+
+    expect(result).toEqual({ outcome: 'unavailable', reason: 'providerTimeout' });
+  });
+
+  it('answers providerFailed when the adapter rejects', async () => {
+    const adapter = new FakePlantSpeciesIdentificationProviderAdapter({
+      kind: 'fail',
+      error: new Error('provider down'),
+    });
+    const identify = new IdentifyPlantSpecies(
+      adapter,
+      policy(),
+      new InMemoryProviderQuotaRepository(),
+      fixedClock(NOW),
+    );
+
+    const result = await identify.execute(REQUEST);
+
+    expect(result).toEqual({ outcome: 'unavailable', reason: 'providerFailed' });
+  });
+});

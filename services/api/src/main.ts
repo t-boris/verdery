@@ -13,8 +13,16 @@ import { applicationDefault, initializeApp } from 'firebase-admin/app';
 import { getMessaging } from 'firebase-admin/messaging';
 import { buildApplication } from './app.js';
 import { registerGracefulShutdown } from './bootstrap/graceful-shutdown.js';
-import { VertexAiExplanationAdapter } from './modules/integrations/public.js';
-import type { AiExplanationProviderAdapter } from './modules/integrations/public.js';
+import {
+  VertexAiExplanationAdapter,
+  VertexAiPlantConditionAnalysisAdapter,
+  VertexAiPlantSpeciesIdentificationAdapter,
+} from './modules/integrations/public.js';
+import type {
+  AiExplanationProviderAdapter,
+  PlantConditionAnalysisProviderAdapter,
+  PlantSpeciesIdentificationProviderAdapter,
+} from './modules/integrations/public.js';
 import { GcsMediaStorageGateway } from './modules/media/public.js';
 import { FcmPushMessageSender } from './modules/notifications/public.js';
 import { FirebaseAppCheckVerifier } from './platform/app-check/firebase-app-check-verifier.js';
@@ -124,6 +132,49 @@ async function main(): Promise<void> {
         )
       : null;
 
+  // ADR-0015: same construction shape as `aiExplanationAdapter` above, one
+  // adapter per capability's own kill-switch. Both reuse the recommendation
+  // capability's Vertex project/location (`aiConfiguration.vertexProjectId`/
+  // `vertexLocation`) — one GCP project across all three AI capabilities —
+  // which `findPlantSpeciesAiIssues`/`findPlantConditionAiIssues` guarantee
+  // is present whenever either plant switch is on, independent of whether
+  // the recommendation-explanation switch itself is also on.
+  const plantSpeciesAiConfiguration = configuration.plantSpeciesAi;
+  const plantSpeciesIdentificationAdapter: PlantSpeciesIdentificationProviderAdapter | null =
+    plantSpeciesAiConfiguration.enabled &&
+    aiConfiguration.vertexProjectId !== null &&
+    plantSpeciesAiConfiguration.model !== null
+      ? new VertexAiPlantSpeciesIdentificationAdapter(
+          new GoogleGenAI({
+            vertexai: true,
+            project: aiConfiguration.vertexProjectId,
+            location: aiConfiguration.vertexLocation,
+          }),
+          {
+            model: plantSpeciesAiConfiguration.model,
+            maxOutputTokens: plantSpeciesAiConfiguration.maxOutputTokens,
+          },
+        )
+      : null;
+
+  const plantConditionAiConfiguration = configuration.plantConditionAi;
+  const plantConditionAnalysisAdapter: PlantConditionAnalysisProviderAdapter | null =
+    plantConditionAiConfiguration.enabled &&
+    aiConfiguration.vertexProjectId !== null &&
+    plantConditionAiConfiguration.model !== null
+      ? new VertexAiPlantConditionAnalysisAdapter(
+          new GoogleGenAI({
+            vertexai: true,
+            project: aiConfiguration.vertexProjectId,
+            location: aiConfiguration.vertexLocation,
+          }),
+          {
+            model: plantConditionAiConfiguration.model,
+            maxOutputTokens: plantConditionAiConfiguration.maxOutputTokens,
+          },
+        )
+      : null;
+
   const app = await buildApplication({
     configuration,
     logger,
@@ -134,6 +185,8 @@ async function main(): Promise<void> {
     mediaStorageGateway,
     cloudTasksInvocationVerifier,
     aiExplanationAdapter,
+    plantSpeciesIdentificationAdapter,
+    plantConditionAnalysisAdapter,
     pushMessageSender,
     identityProviderAccounts,
   });

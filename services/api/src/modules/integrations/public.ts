@@ -211,6 +211,65 @@ export type {
   VertexGenerativeClient,
 } from './persistence/vertex-ai-explanation-adapter.js';
 
+// ADR-0015: real plant photo identification and condition tracking,
+// replacing the plants-inventory/observations-history stubs. Two more
+// provider-neutral ports alongside AI-explanation, each with its own
+// bounded call machinery and its own real Vertex adapter — the
+// `AiExplanationProviderAdapter` shape, not a shared generic AI port
+// (each port's own header explains why). Both adapters are constructed
+// only by `main.ts`, and only when their own kill-switch
+// (`PLANT_SPECIES_AI_ENABLED` / `PLANT_CONDITION_AI_ENABLED`) is on — off
+// (every environment today) means no client, no adapter, zero Vertex
+// calls, the identical `AiExplanationProviderAdapter | null` posture.
+export type {
+  PlantIdentificationModelIdentity,
+  PlantPhotoReference,
+  PlantSpeciesCandidate,
+  PlantSpeciesIdentificationAdapterOutcome,
+  PlantSpeciesIdentificationProviderAdapter,
+  PlantSpeciesIdentificationRequest,
+} from './application/plant-species-identification-provider.js';
+export { IdentifyPlantSpecies } from './application/identify-plant-species.js';
+export type {
+  IdentifyPlantSpeciesResult,
+  PlantSpeciesIdentificationCallPolicy,
+  PlantSpeciesIdentificationProvenance,
+  PlantSpeciesIdentificationUnavailableReason,
+} from './application/identify-plant-species.js';
+export {
+  VERTEX_PLANT_SPECIES_PROMPT_TEMPLATE_VERSION,
+  VertexAiPlantSpeciesIdentificationAdapter,
+} from './persistence/vertex-ai-plant-species-identification-adapter.js';
+export type {
+  VertexAiPlantSpeciesIdentificationAdapterConfiguration,
+  VertexGenerativeClient as VertexAiPlantSpeciesIdentificationClient,
+} from './persistence/vertex-ai-plant-species-identification-adapter.js';
+
+export type {
+  PlantConditionAnalysisAdapterOutcome,
+  PlantConditionAnalysisProviderAdapter,
+  PlantConditionAnalysisRequest,
+  PlantConditionHistoryEntry,
+  PlantConditionKind,
+  PlantConditionModelIdentity,
+  PlantConditionObservation,
+} from './application/plant-condition-analysis-provider.js';
+export { AnalyzePlantCondition } from './application/analyze-plant-condition.js';
+export type {
+  AnalyzePlantConditionResult,
+  PlantConditionAnalysisCallPolicy,
+  PlantConditionAnalysisProvenance,
+  PlantConditionAnalysisUnavailableReason,
+} from './application/analyze-plant-condition.js';
+export {
+  VERTEX_PLANT_CONDITION_PROMPT_TEMPLATE_VERSION,
+  VertexAiPlantConditionAnalysisAdapter,
+} from './persistence/vertex-ai-plant-condition-analysis-adapter.js';
+export type {
+  VertexAiPlantConditionAnalysisAdapterConfiguration,
+  VertexGenerativeClient as VertexAiPlantConditionAnalysisClient,
+} from './persistence/vertex-ai-plant-condition-analysis-adapter.js';
+
 // P0-PROV-01 (weather half, decided 2026-07-26): the REAL Open-Meteo
 // adapter and its one registry entry. The composition root builds the
 // registration from configuration (`compose-integrations.ts`); which

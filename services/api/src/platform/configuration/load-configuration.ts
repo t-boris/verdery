@@ -9,13 +9,18 @@
  */
 
 import type { z } from 'zod';
-import type { ApplicationConfiguration, ConfigurationIssue } from './configuration-schema.js';
+import type { ConfigurationIssue } from './configuration-cross-field-issues.js';
 import {
-  environmentSchema,
   findAiExplanationIssues,
   findDatabaseModeIssues,
+  findPlantConditionAiIssues,
+  findPlantSpeciesAiIssues,
   findTransactionalEmailIssues,
   findWeatherProviderIssues,
+} from './configuration-cross-field-issues.js';
+import type { ApplicationConfiguration } from './configuration-schema.js';
+import {
+  environmentSchema,
   SECRET_VARIABLES,
   toApplicationConfiguration,
 } from './configuration-schema.js';
@@ -59,7 +64,8 @@ function describeConfigurationIssue(issue: ConfigurationIssue): string {
  * Validates the process environment and returns typed configuration.
  *
  * Combines zod's per-field validation with {@link findDatabaseModeIssues},
- * {@link findAiExplanationIssues}, {@link findWeatherProviderIssues}, and
+ * {@link findAiExplanationIssues}, {@link findPlantSpeciesAiIssues},
+ * {@link findPlantConditionAiIssues}, {@link findWeatherProviderIssues}, and
  * {@link findTransactionalEmailIssues}, which check cross-field rules zod
  * cannot express as per-field schemas. All run unconditionally and their
  * results are merged, so a deployment with several unrelated problems is
@@ -75,6 +81,8 @@ export function loadConfiguration(
   const modeIssues = [
     ...findDatabaseModeIssues(source),
     ...findAiExplanationIssues(source),
+    ...findPlantSpeciesAiIssues(source),
+    ...findPlantConditionAiIssues(source),
     ...findWeatherProviderIssues(source),
     ...findTransactionalEmailIssues(source),
   ];

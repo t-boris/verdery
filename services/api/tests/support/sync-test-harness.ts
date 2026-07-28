@@ -67,12 +67,14 @@ import {
   GetPlant,
   KyselyPlantRepository,
   KyselyPlantsInventoryUnitOfWork,
+  KyselyTaxonomyReferenceRepository,
   MovePlant,
   SetPlantStatus,
   SetPrimaryPlantPhoto,
   TransitionPlantLifecycleStage,
   UpdatePlantDetails,
 } from '../../src/modules/plants-inventory/public.js';
+import { disabledPlantAiCallPolicies } from './plant-ai-integration-test-doubles.js';
 import {
   AssignTask,
   AttachTaskFile,
@@ -269,11 +271,14 @@ export function buildSyncTestHarness(db: Kysely<DatabaseSchema>, clock: Clock) {
     gardenAuthorization,
     clock,
   );
+  const { identifyPlantSpecies, analyzePlantCondition } = disabledPlantAiCallPolicies(db, clock);
   const addPlantFromPhoto = new AddPlantFromPhoto(
     plantsInventoryIdempotency,
     plantsInventoryUnitOfWork,
     gardenAuthorization,
     clock,
+    identifyPlantSpecies,
+    new KyselyTaxonomyReferenceRepository(db),
   );
   const updatePlantDetails = new UpdatePlantDetails(
     plantRepository,
@@ -334,6 +339,7 @@ export function buildSyncTestHarness(db: Kysely<DatabaseSchema>, clock: Clock) {
     observationsHistoryUnitOfWork,
     gardenAuthorization,
     clock,
+    analyzePlantCondition,
   );
   const correctObservation = new CorrectObservation(
     observationsHistoryIdempotency,
@@ -341,6 +347,7 @@ export function buildSyncTestHarness(db: Kysely<DatabaseSchema>, clock: Clock) {
     gardenAuthorization,
     observationRepository,
     clock,
+    analyzePlantCondition,
   );
   const getObservation = new GetObservation(observationRepository);
 

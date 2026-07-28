@@ -19,6 +19,7 @@ import { generateUuidV7 } from '../../../shared/identifiers/uuid.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import type { GardenAuthorization } from '../../gardens-mapping/public.js';
+import type { AnalyzePlantCondition } from '../../integrations/public.js';
 import {
   createCorrectionObservation,
   type ObservationCorrectionKind,
@@ -50,6 +51,7 @@ export class CorrectObservation {
     /** Pooled, non-transactional lookup of the original — the same pattern `GetGarden` uses its pooled `GardenRepository` for. */
     private readonly observations: ObservationRepository,
     private readonly clock: Clock,
+    private readonly analyzePlantCondition: AnalyzePlantCondition,
   ) {}
 
   async execute(
@@ -108,6 +110,7 @@ export class CorrectObservation {
 
         const photos = await attachObservationPhotos(
           context,
+          this.analyzePlantCondition,
           correction.gardenId,
           correction.id,
           input.photoMediaIds,

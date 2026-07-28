@@ -39,6 +39,7 @@ import { AddPlantFromPhoto } from '../../src/modules/plants-inventory/applicatio
 import { AttachPlantPhoto } from '../../src/modules/plants-inventory/application/attach-plant-photo.js';
 import { KyselyPlantRepository } from '../../src/modules/plants-inventory/persistence/kysely-plant-repository.js';
 import { KyselyPlantsInventoryUnitOfWork } from '../../src/modules/plants-inventory/persistence/kysely-plants-inventory-unit-of-work.js';
+import { KyselyTaxonomyReferenceRepository } from '../../src/modules/plants-inventory/persistence/kysely-taxonomy-reference-repository.js';
 import { AttachTaskFile } from '../../src/modules/tasks-recommendations/application/attach-task-file.js';
 import { CreateManualTask } from '../../src/modules/tasks-recommendations/application/create-manual-task.js';
 import { KyselyTaskRepository } from '../../src/modules/tasks-recommendations/persistence/kysely-task-repository.js';
@@ -48,6 +49,7 @@ import { KyselyIdempotencyStore } from '../../src/platform/idempotency/kysely-id
 import { generateUuidV7 } from '../../src/shared/identifiers/uuid.js';
 import type { Clock } from '../../src/shared/time/clock.js';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
+import { disabledPlantAiCallPolicies } from '../support/plant-ai-integration-test-doubles.js';
 import { startPostgresTestContainer } from '../support/postgres-container.js';
 
 const SUITE_NAME = 'media attachment authorization integration';
@@ -148,10 +150,18 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const plantRepository = new KyselyPlantRepository(db);
     const plantsUnitOfWork = new KyselyPlantsInventoryUnitOfWork(db, clock);
     const taskRepository = new KyselyTaskRepository(db);
+    const { identifyPlantSpecies, analyzePlantCondition } = disabledPlantAiCallPolicies(db, clock);
 
     return {
       addPlant: new AddPlant(idempotency, plantsUnitOfWork, authorization, clock),
-      addPlantFromPhoto: new AddPlantFromPhoto(idempotency, plantsUnitOfWork, authorization, clock),
+      addPlantFromPhoto: new AddPlantFromPhoto(
+        idempotency,
+        plantsUnitOfWork,
+        authorization,
+        clock,
+        identifyPlantSpecies,
+        new KyselyTaxonomyReferenceRepository(db),
+      ),
       attachPlantPhoto: new AttachPlantPhoto(
         plantRepository,
         idempotency,
@@ -164,6 +174,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
         new KyselyObservationsHistoryUnitOfWork(db, clock),
         authorization,
         clock,
+        analyzePlantCondition,
       ),
       createManualTask: new CreateManualTask(
         idempotency,

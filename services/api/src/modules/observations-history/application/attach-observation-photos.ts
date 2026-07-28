@@ -1,14 +1,16 @@
 /**
  * Validates and attaches `photoMediaIds` to a just-inserted observation:
  * per entry, confirms the media record exists, inserts one
- * `observation_photo` row, and runs the stubbed `AnalyzeObservationPhoto`
- * pass to insert its `image_analysis_result` row — all in the caller's
- * transaction. Shared by `RecordObservation` and `CorrectObservation`, the
- * only two places this module ever writes these two tables.
+ * `observation_photo` row, and runs the real `AnalyzeObservationPhoto` pass
+ * (ADR-0015) to insert its `image_analysis_result` row — all in the
+ * caller's transaction. Shared by `RecordObservation` and
+ * `CorrectObservation`, the only two places this module ever writes these
+ * two tables.
  */
 
 import { generateUuidV7 } from '../../../shared/identifiers/uuid.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
+import type { AnalyzePlantCondition, PlantPhotoReference } from '../../integrations/public.js';
 import { createImageAnalysisResult } from '../domain/image-analysis-result.js';
 import { createObservationPhoto } from '../domain/observation-photo.js';
 import { photoMediaNotAvailableError, photoMediaNotFoundError } from './observation-errors.js';
@@ -17,6 +19,7 @@ import type { ObservationsHistoryTransactionContext } from './observations-histo
 
 export async function attachObservationPhotos(
   context: ObservationsHistoryTransactionContext,
+  analyzePlantCondition: AnalyzePlantCondition,
   gardenId: Uuid,
   observationId: Uuid,
   photoMediaIds: readonly Uuid[],
@@ -40,7 +43,20 @@ export async function attachObservationPhotos(
     const photo = createObservationPhoto(generateUuidV7(), observationId, mediaId, now);
     await context.observationPhotos.insert(photo);
 
-    const analysisResult = createImageAnalysisResult(generateUuidV7(), photo.id, mediaId, now);
+    // `uploadState === 'available'` guarantees both are set — the paired
+    // storage-target CHECK constraint media's own migration enforces.
+    const photoReference: PlantPhotoReference = {
+      bucketName: mediaRecord.bucketName as string,
+      objectKey: mediaRecord.objectKey as string,
+      mimeType: mediaRecord.verifiedContentType ?? mediaRecord.declaredContentType,
+    };
+    const analysisResult = await createImageAnalysisResult(
+      analyzePlantCondition,
+      generateUuidV7(),
+      photo.id,
+      photoReference,
+      now,
+    );
     await context.imageAnalysisResults.insert(analysisResult);
 
     photos.push({ photo, analysisResults: [analysisResult] });

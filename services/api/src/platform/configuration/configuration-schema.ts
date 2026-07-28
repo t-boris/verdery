@@ -249,6 +249,42 @@ export const environmentSchema = z.object({
   RECOMMENDATION_AI_MAX_CALLS_PER_HOUR: positiveInteger.default(50),
   RECOMMENDATION_AI_MAX_CALLS_PER_DAY: positiveInteger.default(500),
 
+  // ADR-0015: real plant photo identification and condition tracking,
+  // replacing the `identify-plant-from-photo.ts`/`image-analysis-result.ts`
+  // stubs. Two independent kill-switches (not one shared flag) because the
+  // two capabilities can clear their own manual spot-check and provider-
+  // terms verification at different times — flipping one must never imply
+  // the other is also validated. Both default to `false` on every
+  // environment today, the exact `RECOMMENDATION_AI_EXPLANATION_ENABLED`
+  // posture: no GenAI client constructed for either use case, both
+  // `identify-plant-from-photo.ts`/`analyzeObservationPhoto` answer with
+  // the honest `noProviderConfigured`-shaped degradation. Both reuse the
+  // same Vertex project/location as the recommendation-explanation
+  // capability (one GCP project, `RECOMMENDATION_AI_VERTEX_PROJECT_ID`/
+  // `_LOCATION`) since all three are the same provider commitment
+  // (ADR-0008); each still requires its OWN explicitly evaluated model
+  // identifier, never a shared default, matching `RECOMMENDATION_AI_MODEL`'s
+  // own reasoning.
+  PLANT_SPECIES_AI_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  PLANT_SPECIES_AI_MODEL: z.string().min(1).optional(),
+  PLANT_SPECIES_AI_CALL_TIMEOUT_MS: positiveInteger.default(10_000),
+  PLANT_SPECIES_AI_MAX_OUTPUT_TOKENS: positiveInteger.default(256),
+  PLANT_SPECIES_AI_MAX_CALLS_PER_HOUR: positiveInteger.default(50),
+  PLANT_SPECIES_AI_MAX_CALLS_PER_DAY: positiveInteger.default(500),
+
+  PLANT_CONDITION_AI_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  PLANT_CONDITION_AI_MODEL: z.string().min(1).optional(),
+  PLANT_CONDITION_AI_CALL_TIMEOUT_MS: positiveInteger.default(10_000),
+  PLANT_CONDITION_AI_MAX_OUTPUT_TOKENS: positiveInteger.default(256),
+  PLANT_CONDITION_AI_MAX_CALLS_PER_HOUR: positiveInteger.default(50),
+  PLANT_CONDITION_AI_MAX_CALLS_PER_DAY: positiveInteger.default(500),
+
   // P9C-INVITE-01: transactional email (Resend, decided 2026-07-26 —
   // section 29.1.1). Absent `RESEND_API_KEY` (every environment today) is
   // the honest `noProviderConfigured`-style degradation
@@ -289,99 +325,11 @@ export const environmentSchema = z.object({
 export type RawEnvironment = z.infer<typeof environmentSchema>;
 
 /** One configuration problem, in the shape `load-configuration.ts` merges with zod's own issues. */
-export interface ConfigurationIssue {
-  readonly variable: string;
-  readonly message: string;
-}
-
-/**
- * Finds "required in this connection mode" problems that a flat zod object
- * cannot express as a per-field rule.
- *
- * Deliberately reads the RAW, unparsed source rather than a zod-validated
- * result. A `superRefine` on the schema would only run once every other field
- * already parsed without issues, which would silently hide a missing
- * DATABASE_URL whenever an unrelated variable (say HTTP_PORT) was also
- * invalid — the opposite of this module's stated goal of naming every
- * offending variable together. Reading raw presence has no such dependency.
- */
-export function findDatabaseModeIssues(
-  source: Readonly<Record<string, string | undefined>>,
-): ConfigurationIssue[] {
-  const mode = source['DATABASE_CONNECTION_MODE'] === 'cloudSqlIam' ? 'cloudSqlIam' : 'url';
-
-  const requiredFields =
-    mode === 'url'
-      ? (['DATABASE_URL'] as const)
-      : (['DATABASE_INSTANCE_CONNECTION_NAME', 'DATABASE_IAM_USER', 'DATABASE_NAME'] as const);
-
-  return requiredFields
-    .filter((field) => source[field] === undefined)
-    .map((field) => ({
-      variable: field,
-      message: `Required when DATABASE_CONNECTION_MODE is "${mode}"`,
-    }));
-}
-
-/**
- * Cross-field rule for the AI-explanation switch, the
- * `findDatabaseModeIssues` shape (and its same raw-source reasoning):
- * enabling the capability requires the Vertex project and an explicitly
- * chosen model — neither has a value code may invent.
- */
-export function findAiExplanationIssues(
-  source: Readonly<Record<string, string | undefined>>,
-): ConfigurationIssue[] {
-  if (source['RECOMMENDATION_AI_EXPLANATION_ENABLED'] !== 'true') {
-    return [];
-  }
-
-  return (['RECOMMENDATION_AI_VERTEX_PROJECT_ID', 'RECOMMENDATION_AI_MODEL'] as const)
-    .filter((field) => source[field] === undefined)
-    .map((field) => ({
-      variable: field,
-      message: 'Required when RECOMMENDATION_AI_EXPLANATION_ENABLED is "true"',
-    }));
-}
-
-/**
- * Cross-field rule for the Open-Meteo tier, the `findDatabaseModeIssues`
- * shape (and its same raw-source reasoning): the paid host authenticates by
- * `apikey` and rejects every keyless request, so selecting it without a key
- * is a deployment mistake to name at startup, not at the first sweep.
- */
-export function findWeatherProviderIssues(
-  source: Readonly<Record<string, string | undefined>>,
-): ConfigurationIssue[] {
-  if (source['WEATHER_OPEN_METEO_TIER'] !== 'customer') {
-    return [];
-  }
-  if (source['WEATHER_OPEN_METEO_API_KEY'] !== undefined) {
-    return [];
-  }
-  return [
-    {
-      variable: 'WEATHER_OPEN_METEO_API_KEY',
-      message: 'Required when WEATHER_OPEN_METEO_TIER is "customer"',
-    },
-  ];
-}
-
-/** Cross-field rule for transactional email (P9C-INVITE-01), the `findWeatherProviderIssues` shape: a configured key with no sender/link base is a deployment mistake to name at startup. */
-export function findTransactionalEmailIssues(
-  source: Readonly<Record<string, string | undefined>>,
-): ConfigurationIssue[] {
-  if (source['RESEND_API_KEY'] === undefined) {
-    return [];
-  }
-
-  return (['RESEND_FROM_EMAIL', 'CLIENT_PORTAL_BASE_URL'] as const)
-    .filter((field) => source[field] === undefined)
-    .map((field) => ({
-      variable: field,
-      message: 'Required when RESEND_API_KEY is set',
-    }));
-}
+// Cross-field validation (`ConfigurationIssue`, `findDatabaseModeIssues`,
+// `findAiExplanationIssues`, `findPlantSpeciesAiIssues`,
+// `findPlantConditionAiIssues`, `findWeatherProviderIssues`,
+// `findTransactionalEmailIssues`) lives in
+// `configuration-cross-field-issues.ts` — split out for the 600-line limit.
 
 export interface HttpConfiguration {
   readonly host: string;
@@ -475,6 +423,29 @@ export interface AiExplanationConfiguration {
   readonly maxCallsPerDay: number;
 }
 
+/** ADR-0015 — see the schema's own comment on the `PLANT_SPECIES_AI_*` variables. */
+export interface PlantSpeciesAiConfiguration {
+  /** The kill-switch. `false` everywhere today: the stub's honest "no suggestion" answer, zero Vertex calls. */
+  readonly enabled: boolean;
+  /** Present whenever `enabled` (the cross-field check); `null` while disabled — an explicitly evaluated choice, never a code default. */
+  readonly model: string | null;
+  readonly callTimeoutMs: number;
+  readonly maxOutputTokens: number;
+  readonly maxCallsPerHour: number;
+  readonly maxCallsPerDay: number;
+}
+
+/** ADR-0015 — see the schema's own comment on the `PLANT_CONDITION_AI_*` variables. */
+export interface PlantConditionAiConfiguration {
+  /** The kill-switch. `false` everywhere today: the stub's honest placeholder answer, zero Vertex calls. */
+  readonly enabled: boolean;
+  readonly model: string | null;
+  readonly callTimeoutMs: number;
+  readonly maxOutputTokens: number;
+  readonly maxCallsPerHour: number;
+  readonly maxCallsPerDay: number;
+}
+
 /** P8-SEC-02 — see the schema's own comment on `APP_CHECK_ENFORCEMENT`. */
 export interface AppCheckConfiguration {
   /** `'monitor'` everywhere today: classify and log, reject nothing. */
@@ -503,6 +474,8 @@ export interface ApplicationConfiguration {
   readonly media: MediaConfiguration;
   readonly weather: WeatherConfiguration;
   readonly aiExplanation: AiExplanationConfiguration;
+  readonly plantSpeciesAi: PlantSpeciesAiConfiguration;
+  readonly plantConditionAi: PlantConditionAiConfiguration;
   readonly appCheck: AppCheckConfiguration;
   readonly transactionalEmail: TransactionalEmailConfiguration;
 }
@@ -582,6 +555,22 @@ export function toApplicationConfiguration(raw: RawEnvironment): ApplicationConf
       maxOutputTokens: raw.RECOMMENDATION_AI_MAX_OUTPUT_TOKENS,
       maxCallsPerHour: raw.RECOMMENDATION_AI_MAX_CALLS_PER_HOUR,
       maxCallsPerDay: raw.RECOMMENDATION_AI_MAX_CALLS_PER_DAY,
+    },
+    plantSpeciesAi: {
+      enabled: raw.PLANT_SPECIES_AI_ENABLED,
+      model: raw.PLANT_SPECIES_AI_MODEL ?? null,
+      callTimeoutMs: raw.PLANT_SPECIES_AI_CALL_TIMEOUT_MS,
+      maxOutputTokens: raw.PLANT_SPECIES_AI_MAX_OUTPUT_TOKENS,
+      maxCallsPerHour: raw.PLANT_SPECIES_AI_MAX_CALLS_PER_HOUR,
+      maxCallsPerDay: raw.PLANT_SPECIES_AI_MAX_CALLS_PER_DAY,
+    },
+    plantConditionAi: {
+      enabled: raw.PLANT_CONDITION_AI_ENABLED,
+      model: raw.PLANT_CONDITION_AI_MODEL ?? null,
+      callTimeoutMs: raw.PLANT_CONDITION_AI_CALL_TIMEOUT_MS,
+      maxOutputTokens: raw.PLANT_CONDITION_AI_MAX_OUTPUT_TOKENS,
+      maxCallsPerHour: raw.PLANT_CONDITION_AI_MAX_CALLS_PER_HOUR,
+      maxCallsPerDay: raw.PLANT_CONDITION_AI_MAX_CALLS_PER_DAY,
     },
     appCheck: {
       enforcement: raw.APP_CHECK_ENFORCEMENT,

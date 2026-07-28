@@ -1,20 +1,35 @@
 /**
- * The stubbed image-analysis pass `RecordObservation` runs once per attached
- * photo, and the row it produces.
+ * The image-analysis pass `RecordObservation`/`CorrectObservation` run
+ * once per attached photo, and the row it produces.
  *
- * `analyzeObservationPhoto` is an honest placeholder, not a disguised guess:
- * no real image-analysis service exists yet, so it returns fixed, clearly-
- * fake constants for every photo rather than fabricating a plausible-looking
- * diagnosis. `requiresConfirmation` is hardcoded `true` in
- * `createImageAnalysisResult` below (never a parameter anything can set to
- * `false`) — the schema's own default, and the one invariant this stub must
- * never violate: an automated diagnosis is never presented as a confirmed
- * fact without explicit user confirmation.
+ * `analyzeObservationPhoto` calls the real, bounded `AnalyzePlantCondition`
+ * machinery (ADR-0015), replacing the historical stub that returned fixed,
+ * clearly-fake constants for every photo. `requiresConfirmation` stays
+ * hardcoded `true` in `createImageAnalysisResult` below (never a parameter
+ * anything can set to `false`) — the schema's own default, and the one
+ * invariant this pass must never violate: an automated diagnosis is never
+ * presented as a confirmed fact without explicit user confirmation. Every
+ * non-observation outcome (disabled, quota exhausted, timeout, provider
+ * failure, schema-invalid, safety-blocked) collapses to the SAME
+ * `'other'`/zero-confidence/`requestedAdditionalEvidence: true` shape the
+ * historical stub always returned — callers need no new branching.
+ *
+ * Prior-photo history comparison (the port's own `priorPhotos` field) is
+ * not wired yet: `attachObservationPhotos` calls this with an empty history
+ * for now, so every analysis judges the new photo alone rather than change
+ * over time. The port already accepts history so this is a pure addition,
+ * not a breaking change, when a later pass wires a real prior-photo query.
  *
  * Source: migrations/1784900000000_plants-observations-tasks-baseline.sql,
- * `observations_history.image_analysis_result`.
+ * `observations_history.image_analysis_result`;
+ * architecture/decisions/ADR-0015-phase10-redirect-plants-over-photo-capture.md.
  */
 
+import type {
+  AnalyzePlantCondition,
+  PlantConditionHistoryEntry,
+  PlantPhotoReference,
+} from '../../integrations/public.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 
 export type ImageAnalysisKind = 'stress' | 'disease' | 'pest' | 'other';
@@ -37,33 +52,45 @@ interface AnalysisOutcome {
   readonly requestedAdditionalEvidence: boolean;
 }
 
-const PLACEHOLDER_SUGGESTED_LABEL = 'No automated analysis available yet.';
+/** The honest answer for every non-observation outcome — matches the historical stub's own constants exactly, so a disabled/unavailable capability is indistinguishable from "nothing notable was found." */
+const NO_ANALYSIS_OUTCOME: AnalysisOutcome = {
+  analysisKind: 'other',
+  suggestedLabel: 'No automated analysis available yet.',
+  confidenceScore: 0,
+  requestedAdditionalEvidence: true,
+};
 
 /**
- * Honest placeholder for the image-analysis pipeline this module does not
- * yet have — no real ML service exists to call. `mediaId` is accepted but
- * unused, only so the signature already matches what a real analyzer will
- * eventually need. `analysisKind: 'other'` and `requestedAdditionalEvidence:
- * true` both signal "nothing was actually determined here" to any caller
- * inspecting the result, not a real classification.
+ * Calls the real, bounded plant-condition-analysis machinery. See this
+ * file's own header for why `priorPhotos` is empty for now.
  */
-export function analyzeObservationPhoto(mediaId: Uuid): AnalysisOutcome {
-  void mediaId;
+export async function analyzeObservationPhoto(
+  analyzePlantCondition: AnalyzePlantCondition,
+  photo: PlantPhotoReference,
+): Promise<AnalysisOutcome> {
+  const priorPhotos: readonly PlantConditionHistoryEntry[] = [];
+  const result = await analyzePlantCondition.execute({ photo, priorPhotos });
+
+  if (result.outcome !== 'observation') {
+    return NO_ANALYSIS_OUTCOME;
+  }
+
   return {
-    analysisKind: 'other',
-    suggestedLabel: PLACEHOLDER_SUGGESTED_LABEL,
-    confidenceScore: 0,
-    requestedAdditionalEvidence: true,
+    analysisKind: result.observation.kind,
+    suggestedLabel: result.observation.suggestedLabel,
+    confidenceScore: result.observation.confidenceScore,
+    requestedAdditionalEvidence: result.observation.requestedAdditionalEvidence,
   };
 }
 
-export function createImageAnalysisResult(
+export async function createImageAnalysisResult(
+  analyzePlantCondition: AnalyzePlantCondition,
   id: Uuid,
   observationPhotoId: Uuid,
-  mediaId: Uuid,
+  photo: PlantPhotoReference,
   now: Date,
-): ImageAnalysisResult {
-  const outcome = analyzeObservationPhoto(mediaId);
+): Promise<ImageAnalysisResult> {
+  const outcome = await analyzeObservationPhoto(analyzePlantCondition, photo);
 
   return {
     id,

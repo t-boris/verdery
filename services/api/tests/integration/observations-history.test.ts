@@ -50,6 +50,7 @@ import {
 import { generateUuidV7 } from '../../src/shared/identifiers/uuid.js';
 import type { Clock } from '../../src/shared/time/clock.js';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
+import { disabledPlantAiCallPolicies } from '../support/plant-ai-integration-test-doubles.js';
 import { startPostgresTestContainer } from '../support/postgres-container.js';
 
 const SUITE_NAME = 'observations-history integration';
@@ -201,23 +202,29 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       .execute();
     return record.id;
   }
-
   function buildHandlers(clock: Clock) {
     const authorization = new GardenAuthorization(new KyselyMembershipRepository(db));
     const idempotency = new KyselyIdempotencyStore(db, clock);
     const unitOfWork = new KyselyObservationsHistoryUnitOfWork(db, clock);
     const observations = new KyselyObservationRepository(db);
-
+    const { analyzePlantCondition } = disabledPlantAiCallPolicies(db, clock);
     return {
       authorization,
       observations,
-      recordObservation: new RecordObservation(idempotency, unitOfWork, authorization, clock),
+      recordObservation: new RecordObservation(
+        idempotency,
+        unitOfWork,
+        authorization,
+        clock,
+        analyzePlantCondition,
+      ),
       correctObservation: new CorrectObservation(
         idempotency,
         unitOfWork,
         authorization,
         observations,
         clock,
+        analyzePlantCondition,
       ),
       listObservationsForGarden: new ListObservationsForGarden(observations, authorization),
       listObservationsForPlant: new ListObservationsForPlant(observations, authorization),

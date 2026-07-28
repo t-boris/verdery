@@ -37,6 +37,7 @@ import type {
   ObservationsHistoryTransactionContext,
   ObservationsHistoryUnitOfWork,
 } from './observations-history-unit-of-work.js';
+import { disabledAnalyzePlantCondition } from './plant-ai-test-doubles.js';
 import type { PlantOwnershipRepository } from './plant-ownership-repository.js';
 
 const GARDEN_ID = randomUUID();
@@ -387,6 +388,7 @@ function buildHarness(options: {
     authorizationWithRole(options.role ?? 'editor'),
     observations,
     fixedClock(),
+    disabledAnalyzePlantCondition(fixedClock()),
   );
 
   return { correctObservation, observations, original, syncChanges };

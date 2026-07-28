@@ -1,0 +1,138 @@
+/**
+ * `IdentifyPlantSpecies` — the bounded call machinery around the plant
+ * species identification port, mirroring `generate-ai-explanation.ts`'s
+ * own shape exactly (budget consumed before the call, strict per-call
+ * deadline, a typed outcome for every way the call can fail to produce a
+ * candidate). See that file's header for the full budget/failure-
+ * semantics reasoning, restated here only where it differs.
+ *
+ * `adapter` is `null` when the capability is disabled or unconfigured —
+ * the default on every environment until `PLANT_IDENTIFICATION_AI_ENABLED`
+ * is flipped, which itself requires the manual spot-check and provider-
+ * terms verification ADR-0015 names. The honest runtime outcome is then
+ * `noProviderConfigured` — the exact shape `identify-plant-from-photo.ts`
+ * already needs, since its historical stub answered every call with "no
+ * suggestion" regardless of cause.
+ *
+ * Source: architecture/decisions/ADR-0015-phase10-redirect-plants-over-photo-capture.md.
+ */
+
+import { InternalError } from '../../../platform/errors/application-error.js';
+import type { Clock } from '../../../shared/time/clock.js';
+import type {
+  PlantSpeciesCandidate,
+  PlantSpeciesIdentificationAdapterOutcome,
+  PlantSpeciesIdentificationProviderAdapter,
+  PlantSpeciesIdentificationRequest,
+} from './plant-species-identification-provider.js';
+import type { ProviderQuotaLimits, ProviderQuotaRepository } from './provider-quota-repository.js';
+import { withDeadline } from './with-deadline.js';
+
+export type PlantSpeciesIdentificationUnavailableReason =
+  'noProviderConfigured' | 'quotaExhausted' | 'providerTimeout' | 'providerFailed';
+
+export interface PlantSpeciesIdentificationProvenance {
+  readonly providerKey: string;
+  readonly model: string;
+  readonly promptTemplateVersion: number;
+}
+
+export type IdentifyPlantSpeciesResult =
+  | {
+      readonly outcome: 'candidate';
+      readonly candidate: PlantSpeciesCandidate;
+      readonly provenance: PlantSpeciesIdentificationProvenance;
+    }
+  | {
+      readonly outcome: 'noConfidentCandidate';
+      readonly provenance: PlantSpeciesIdentificationProvenance;
+    }
+  | {
+      readonly outcome: 'schemaInvalid';
+      readonly rawText: string | null;
+      readonly provenance: PlantSpeciesIdentificationProvenance;
+    }
+  | { readonly outcome: 'safetyBlocked'; readonly provenance: PlantSpeciesIdentificationProvenance }
+  | {
+      readonly outcome: 'unavailable';
+      readonly reason: PlantSpeciesIdentificationUnavailableReason;
+    };
+
+export interface PlantSpeciesIdentificationCallPolicy {
+  readonly providerKey: string;
+  readonly callTimeoutMs: number;
+  readonly quotaLimits: ProviderQuotaLimits;
+}
+
+export class IdentifyPlantSpecies {
+  constructor(
+    private readonly adapter: PlantSpeciesIdentificationProviderAdapter | null,
+    private readonly policy: PlantSpeciesIdentificationCallPolicy,
+    private readonly providerQuotas: ProviderQuotaRepository,
+    private readonly clock: Clock,
+  ) {
+    if (!Number.isInteger(policy.callTimeoutMs) || policy.callTimeoutMs <= 0) {
+      throw new InternalError(
+        'integrations.plant_species_identification.invalid_call_policy',
+        'callTimeoutMs must be a positive integer of milliseconds.',
+      );
+    }
+    if (policy.providerKey.trim().length === 0) {
+      throw new InternalError(
+        'integrations.plant_species_identification.invalid_call_policy',
+        'providerKey must not be blank.',
+      );
+    }
+  }
+
+  async execute(request: PlantSpeciesIdentificationRequest): Promise<IdentifyPlantSpeciesResult> {
+    if (this.adapter === null) {
+      return { outcome: 'unavailable', reason: 'noProviderConfigured' };
+    }
+    const adapter = this.adapter;
+
+    const quota = await this.providerQuotas.consumeCall(
+      this.policy.providerKey,
+      this.policy.quotaLimits,
+      this.clock.now(),
+    );
+    if (!quota.consumed) {
+      return { outcome: 'unavailable', reason: 'quotaExhausted' };
+    }
+
+    let call;
+    try {
+      call = await withDeadline(this.policy.callTimeoutMs, (signal) =>
+        adapter.identifySpecies(request, signal),
+      );
+    } catch {
+      return { outcome: 'unavailable', reason: 'providerFailed' };
+    }
+    if (call.kind === 'timedOut') {
+      return { outcome: 'unavailable', reason: 'providerTimeout' };
+    }
+
+    const provenance: PlantSpeciesIdentificationProvenance = {
+      providerKey: this.policy.providerKey,
+      model: adapter.identity.model,
+      promptTemplateVersion: adapter.identity.promptTemplateVersion,
+    };
+    return toResult(call.value, provenance);
+  }
+}
+
+function toResult(
+  outcome: PlantSpeciesIdentificationAdapterOutcome,
+  provenance: PlantSpeciesIdentificationProvenance,
+): IdentifyPlantSpeciesResult {
+  switch (outcome.kind) {
+    case 'candidate':
+      return { outcome: 'candidate', candidate: outcome.candidate, provenance };
+    case 'noConfidentCandidate':
+      return { outcome: 'noConfidentCandidate', provenance };
+    case 'schemaInvalid':
+      return { outcome: 'schemaInvalid', rawText: outcome.rawText, provenance };
+    case 'safetyBlocked':
+      return { outcome: 'safetyBlocked', provenance };
+  }
+}

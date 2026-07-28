@@ -123,6 +123,8 @@ export async function buildApplication(
     mediaStorageGateway,
     cloudTasksInvocationVerifier,
     aiExplanationAdapter,
+    plantSpeciesIdentificationAdapter,
+    plantConditionAnalysisAdapter,
     pushMessageSender,
     identityProviderAccounts,
   } = dependencies;
@@ -210,6 +212,8 @@ export async function buildApplication(
   const {
     getGardenWeather,
     generateAiExplanation,
+    identifyPlantSpecies,
+    analyzePlantCondition,
     weatherRefreshSweepRouteDependencies,
     transactionalEmailAdapter,
   } = composeIntegrations(
@@ -218,6 +222,10 @@ export async function buildApplication(
     configuration.weather,
     configuration.aiExplanation,
     aiExplanationAdapter,
+    configuration.plantSpeciesAi,
+    plantSpeciesIdentificationAdapter,
+    configuration.plantConditionAi,
+    plantConditionAnalysisAdapter,
     configuration.transactionalEmail,
     cloudTasksInvocationVerifier,
   );
@@ -272,6 +280,7 @@ export async function buildApplication(
     observationsHistoryUnitOfWork,
     gardenAuthorization,
     clock,
+    analyzePlantCondition,
   );
   const correctObservation = new CorrectObservation(
     observationsHistoryIdempotency,
@@ -279,6 +288,7 @@ export async function buildApplication(
     gardenAuthorization,
     observationRepository,
     clock,
+    analyzePlantCondition,
   );
   const listObservationsForGarden = new ListObservationsForGarden(
     observationRepository,
@@ -304,7 +314,12 @@ export async function buildApplication(
   // transport (`registerPlantRoutes`, tag `Plants`) wired below. Split into
   // `compose-plants-inventory.ts` for the same 600-line reason as its
   // siblings.
-  const plantRoutesDependencies = composePlantsInventory(database, clock, gardenAuthorization);
+  const plantRoutesDependencies = composePlantsInventory(
+    database,
+    clock,
+    gardenAuthorization,
+    identifyPlantSpecies,
+  );
 
   // tasks-recommendations: task commands (tag `Tasks`), the scheduled
   // recommendation-evaluation sweep (P7-ASYNC-01), and the Today surface —

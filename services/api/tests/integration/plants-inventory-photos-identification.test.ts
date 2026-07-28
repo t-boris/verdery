@@ -43,6 +43,7 @@ import {
 import { generateUuidV7 } from '../../src/shared/identifiers/uuid.js';
 import type { Clock } from '../../src/shared/time/clock.js';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
+import { disabledPlantAiCallPolicies } from '../support/plant-ai-integration-test-doubles.js';
 import { startPostgresTestContainer } from '../support/postgres-container.js';
 
 const SUITE_NAME = 'plants-inventory photos and identification integration';
@@ -158,10 +159,18 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const idempotency = new KyselyIdempotencyStore(db, clock);
     const unitOfWork = new KyselyPlantsInventoryUnitOfWork(db, clock);
     const plantRepository = new KyselyPlantRepository(db);
+    const { identifyPlantSpecies } = disabledPlantAiCallPolicies(db, clock);
 
     return {
       addPlant: new AddPlant(idempotency, unitOfWork, authorization, clock),
-      addPlantFromPhoto: new AddPlantFromPhoto(idempotency, unitOfWork, authorization, clock),
+      addPlantFromPhoto: new AddPlantFromPhoto(
+        idempotency,
+        unitOfWork,
+        authorization,
+        clock,
+        identifyPlantSpecies,
+        new KyselyTaxonomyReferenceRepository(db),
+      ),
       attachPlantPhoto: new AttachPlantPhoto(
         plantRepository,
         idempotency,

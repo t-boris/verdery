@@ -86,6 +86,26 @@ export const testConfiguration: ApplicationConfiguration = {
     maxCallsPerHour: 50,
     maxCallsPerDay: 500,
   },
+  // ADR-0015: both kill-switches off — every test-built application runs
+  // the honest `noProviderConfigured` degradation for plant identification
+  // and condition tracking, like every real environment today; the numbers
+  // are the schema's own documented defaults.
+  plantSpeciesAi: {
+    enabled: false,
+    model: null,
+    callTimeoutMs: 10_000,
+    maxOutputTokens: 256,
+    maxCallsPerHour: 50,
+    maxCallsPerDay: 500,
+  },
+  plantConditionAi: {
+    enabled: false,
+    model: null,
+    callTimeoutMs: 10_000,
+    maxOutputTokens: 256,
+    maxCallsPerHour: 50,
+    maxCallsPerDay: 500,
+  },
   // P8-SEC-02: the enforcement switch in its default position, like every
   // real environment today. This is load-bearing for the whole suite: it is
   // why 1,500-odd existing tests, most of which send no App Check header at
@@ -203,8 +223,11 @@ export async function buildTestApplication(
     mediaStorageGateway: options.mediaStorageGateway ?? stubMediaStorageGateway(),
     cloudTasksInvocationVerifier:
       options.cloudTasksInvocationVerifier ?? stubCloudTasksInvocationVerifier(),
-    // P7-AI-01: `null` exactly as main.ts passes with the kill-switch off.
+    // P7-AI-01 / ADR-0015: `null` exactly as main.ts passes with each
+    // kill-switch off.
     aiExplanationAdapter: null,
+    plantSpeciesIdentificationAdapter: null,
+    plantConditionAnalysisAdapter: null,
     pushMessageSender: options.pushMessageSender ?? stubPushMessageSender(),
     identityProviderAccounts:
       options.identityProviderAccounts ?? stubIdentityProviderAccountGateway(),

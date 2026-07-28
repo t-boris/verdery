@@ -17,6 +17,7 @@ import { generateUuidV7 } from '../../../shared/identifiers/uuid.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import type { GardenAuthorization } from '../../gardens-mapping/public.js';
+import type { IdentifyPlantSpecies, PlantPhotoReference } from '../../integrations/public.js';
 import { createPlant, type PlantPlacement } from '../domain/plant.js';
 import { createPlantIdentification } from '../domain/plant-identification.js';
 import { createPlantPhoto } from '../domain/plant-photo.js';
@@ -26,10 +27,11 @@ import { toPlantResource, type PlantResource } from './plant-view.js';
 import type { PlantsInventoryUnitOfWork } from './plants-inventory-unit-of-work.js';
 import { requirePlacementReferencesGardenObjects } from './require-plant-placement-in-garden.js';
 import { runIdempotentCommand } from './run-idempotent-command.js';
+import type { TaxonomyReferenceRepository } from './taxonomy-reference-repository.js';
 
 const OPERATION = 'plants.addPlantFromPhoto';
 
-/** The stub in `identify-plant-from-photo.ts` never returns a taxonomy suggestion, so this is always what a photo-created plant's `displayName` resolves to today. Kept as a named constant, not inlined, so a future real identification service only has to start returning a non-null `suggestedTaxonomyId` — resolving a real name from it becomes this command's one line to change, not a new code path to build. */
+/** Always this plant's `displayName`, unconditionally, even when identification (ADR-0015) DOES produce a confident, catalog-matched candidate: accepting a suggested name into the plant's own record requires the same separate `ConfirmPlantIdentification` call a low-confidence result would — the suggestion feeds only the `plant_identification` proposal row this command inserts, never the plant record directly, matching identification's own "never auto-confirms" invariant. */
 const UNIDENTIFIED_PLANT_DISPLAY_NAME = 'Unidentified plant';
 
 export interface AddPlantFromPhotoInput {
@@ -53,6 +55,8 @@ export class AddPlantFromPhoto {
     private readonly unitOfWork: PlantsInventoryUnitOfWork,
     private readonly authorization: GardenAuthorization,
     private readonly clock: Clock,
+    private readonly identifyPlantSpecies: IdentifyPlantSpecies,
+    private readonly taxonomyReferences: TaxonomyReferenceRepository,
   ) {}
 
   async execute(
@@ -110,7 +114,19 @@ export class AddPlantFromPhoto {
         const photo = createPlantPhoto(generateUuidV7(), plant.id, input.photoMediaId, true, now);
         await context.plantPhotos.insert(photo);
 
-        const suggestion = identifyPlantFromPhoto(input.photoMediaId);
+        // `uploadState === 'available'` (checked above) guarantees both are
+        // set — the paired storage-target CHECK constraint media's own
+        // migration enforces.
+        const photoReference: PlantPhotoReference = {
+          bucketName: media.bucketName as string,
+          objectKey: media.objectKey as string,
+          mimeType: media.verifiedContentType ?? media.declaredContentType,
+        };
+        const suggestion = await identifyPlantFromPhoto(
+          this.identifyPlantSpecies,
+          this.taxonomyReferences,
+          photoReference,
+        );
         const identification = createPlantIdentification(
           generateUuidV7(),
           plant.id,

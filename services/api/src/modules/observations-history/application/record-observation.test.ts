@@ -35,6 +35,7 @@ import type {
   ObservationsHistoryTransactionContext,
   ObservationsHistoryUnitOfWork,
 } from './observations-history-unit-of-work.js';
+import { disabledAnalyzePlantCondition } from './plant-ai-test-doubles.js';
 import type { PlantOwnershipRepository } from './plant-ownership-repository.js';
 import { RecordObservation, type RecordObservationInput } from './record-observation.js';
 
@@ -375,6 +376,7 @@ function buildHarness(options: {
     new FakeUnitOfWork(context),
     authorizationWithRole(options.role ?? 'editor', options.gardenLifecycleState ?? 'active'),
     fixedClock(),
+    disabledAnalyzePlantCondition(fixedClock()),
   );
 
   return { recordObservation, observations, observationPhotos, imageAnalysisResults, syncChanges };
