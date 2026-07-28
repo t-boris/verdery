@@ -179,9 +179,9 @@ public actor MediaUploadCoordinator {
         return transfer
     }
 
-    /// Explicit, user-initiated retry — bypasses `SyncBackoff`'s automatic
-    /// gate exactly the way `RemoteSyncEngine.retryNow()` bypasses it for
-    /// sync, per architecture/offline-synchronization.md, section
+    /// Explicit, user-initiated retry — bypasses both the error-category
+    /// gate AND `SyncBackoff`'s timing gate (see `driveUpload`'s own doc
+    /// comment), per architecture/offline-synchronization.md, section
     /// "20. Connectivity and Backoff": "User-initiated retry can wake
     /// eligible work..." names automatic retry specifically as what is
     /// restricted. A no-op (not an error) for a transfer already `.retained`

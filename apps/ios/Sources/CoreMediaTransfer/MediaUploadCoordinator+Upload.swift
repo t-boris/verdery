@@ -7,21 +7,20 @@ extension MediaUploadCoordinator {
     /// one transfer — the entry point `enqueue`, `retry(transferId:)`, and
     /// recovery-on-relaunch all funnel through.
     ///
-    /// `bypassingAutomaticRetryGate` mirrors `RemoteSyncEngine
-    /// .pushPending(bypassingAutomaticRetryGate:)` exactly: an AUTOMATIC
-    /// attempt (the default, `false`) is withheld when the most recent
-    /// failure classified as a category `SyncErrorCategory
+    /// An AUTOMATIC attempt (the default, `false`) is withheld when the most
+    /// recent failure classified as a category `SyncErrorCategory
     /// .isEligibleForAutomaticRetry` excludes (needs explicit user action,
     /// not more waiting) or when `SyncBackoff`'s timing window has not yet
-    /// elapsed; an explicit user-initiated retry (`true`) bypasses the
-    /// category gate but still respects the timing gate — the same
-    /// distinction that method's own doc comment draws.
+    /// elapsed. An explicit user-initiated retry (`true`) bypasses BOTH
+    /// gates — per `SyncBackoff`'s own doc comment, "explicit retry...
+    /// always bypasses this gate anyway": a real user tapping a Retry
+    /// affordance they can see is never held back by a timer meant only to
+    /// throttle silent, automatic re-attempts.
     func driveUpload(transferId: String, bypassingAutomaticRetryGate: Bool) async {
         guard let transfer = try? await transferStore.fetch(id: transferId) else { return }
 
-        if transfer.retryState.attemptCount > 0 {
-            if !bypassingAutomaticRetryGate,
-                let category = transfer.retryState.lastErrorCategory,
+        if transfer.retryState.attemptCount > 0, !bypassingAutomaticRetryGate {
+            if let category = transfer.retryState.lastErrorCategory,
                 !category.isEligibleForAutomaticRetry
             {
                 return
