@@ -130,6 +130,11 @@ export function buildGenerateContentParameters(
       temperature: 0.2,
       candidateCount: 1,
       maxOutputTokens: configuration.maxOutputTokens,
+      // See vertex-ai-plant-species-identification-adapter.ts's identical
+      // comment: a bounded classification task, not open-ended reasoning —
+      // extended thinking can exhaust maxOutputTokens on invisible
+      // reasoning tokens before any visible JSON answer is emitted.
+      thinkingConfig: { thinkingBudget: 0 },
       responseMimeType: 'application/json',
       responseSchema: {
         type: Type.OBJECT,

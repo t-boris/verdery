@@ -139,6 +139,13 @@ export function buildGenerateContentParameters(
       temperature: 0.2,
       candidateCount: 1,
       maxOutputTokens: configuration.maxOutputTokens,
+      // Species identification from one photo is a bounded classification
+      // task, not open-ended reasoning — extended thinking only spends
+      // `maxOutputTokens` on invisible reasoning tokens before the model
+      // ever reaches the visible JSON answer, and can exhaust the budget
+      // entirely on a thinking-enabled model (observed directly: the model
+      // cut off after "Here is the JSON requested:" with zero JSON emitted).
+      thinkingConfig: { thinkingBudget: 0 },
       responseMimeType: 'application/json',
       responseSchema: {
         type: Type.OBJECT,
