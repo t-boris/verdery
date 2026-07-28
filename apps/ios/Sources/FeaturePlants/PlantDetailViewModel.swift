@@ -72,7 +72,11 @@ public final class PlantDetailViewModel {
     // Map-object picker (garden area / placement) — see
     // `MapObjectPickerView`'s own doc comment for why this reimplements
     // `FeatureMap.MapGateFencePickerView`'s shape rather than importing it.
-    public private(set) var mapObjects: [GardenMapObject] = []
+    // `internal(set)`, not `private(set)`: `PlantDetailViewModel
+    // +MapObjectPicker.swift` (split out to keep this file under this
+    // repository's 600-line rule, the same `CollaboratorsViewModel
+    // +Actions.swift` reason) sets it from its own `openMapObjectPicker`.
+    public internal(set) var mapObjects: [GardenMapObject] = []
     public var activeMapObjectField: MapObjectPlacementField?
 
     public let gardenId: String
@@ -107,8 +111,10 @@ public final class PlantDetailViewModel {
     /// picker capability wired in — the same optional-capability shape
     /// `photoAttachment` already establishes, so every existing test double
     /// keeps working unchanged; `AppCompositionRoot.makePlantDetailViewModel`
-    /// supplies a real one.
-    private let listGardenMapObjects: ListGardenMapObjects?
+    /// supplies a real one. `internal`, not `private`: read by
+    /// `PlantDetailViewModel+MapObjectPicker.swift`'s own
+    /// `openMapObjectPicker`.
+    let listGardenMapObjects: ListGardenMapObjects?
     // `internal`, not `private`: `PlantDetailViewModel+Errors.swift` (split
     // out to keep this file under this repository's 600-line ceiling, the
     // same `CollaboratorsViewModel+Actions.swift` reason) reads this to
@@ -319,35 +325,6 @@ public final class PlantDetailViewModel {
     public func searchTaxonomy(query: String) async -> [TaxonomyReference] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         return (try? await searchTaxonomyReferences(gardenId: gardenId, query: trimmed.isEmpty ? nil : trimmed)) ?? []
-    }
-
-    /// This field's own current selection, resolved to its map object's
-    /// label when the picker has already loaded the garden's objects — see
-    /// `PlantsHomeViewModel.mapObjectSummary(for:)`'s identical shape.
-    public func mapObjectSummary(for field: MapObjectPlacementField) -> String? {
-        let rawId = field == .gardenArea ? editedGardenAreaMapObjectId : editedPlacementMapObjectId
-        guard !rawId.isEmpty else { return nil }
-        return mapObjects.first { $0.id == rawId }?.label ?? rawId
-    }
-
-    /// Absent entirely for a `PlantDetailViewModel` built with no
-    /// `listGardenMapObjects` — the same "real, working affordance or
-    /// nothing" rule `photoSection`'s own doc comment establishes.
-    public func openMapObjectPicker(for field: MapObjectPlacementField) async {
-        guard let listGardenMapObjects else { return }
-        if mapObjects.isEmpty {
-            mapObjects = (try? await listGardenMapObjects(gardenId: gardenId)) ?? []
-        }
-        activeMapObjectField = field
-    }
-
-    public func selectMapObject(_ objectId: String?) {
-        guard let field = activeMapObjectField else { return }
-        switch field {
-        case .gardenArea: editedGardenAreaMapObjectId = objectId ?? ""
-        case .placement: editedPlacementMapObjectId = objectId ?? ""
-        }
-        activeMapObjectField = nil
     }
 
     public func load() async {
