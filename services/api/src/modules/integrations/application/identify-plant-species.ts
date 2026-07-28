@@ -133,6 +133,11 @@ export class IdentifyPlantSpecies {
         event: 'plant_species_ai.result',
         outcome: result.outcome,
         model: adapter.identity.model,
+        // Truncated: this is the model's own plant-description text, not
+        // user PII or a credential, but a runaway response should not blow
+        // up a log line either.
+        rawText:
+          result.outcome === 'schemaInvalid' ? (result.rawText?.slice(0, 2000) ?? null) : undefined,
       },
       'Plant species identification call resolved.',
     );
