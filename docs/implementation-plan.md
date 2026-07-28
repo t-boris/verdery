@@ -698,6 +698,8 @@ The native client guides users through recoverable photo/video capture and the c
 
 Before production implementation, approve a consented evaluation set covering garden layouts, structures, lighting/weather, devices, vegetation, occlusion, surface texture, and reference measurements. Approve thresholds for capture abandonment, useful-proposal precision/recall, geometry error, correction time, processing time, privacy, and unit cost. [Source: architecture/garden-capture-and-scan.md, section "20. Evaluation"]
 
+A concrete dataset plan and draft thresholds are proposed in [architecture/decisions/ADR-0014-phase-10-capture-research-gate.md](architecture/decisions/ADR-0014-phase-10-capture-research-gate.md). `P10-RESEARCH-01` cannot start, and no other row in the table below may begin, until that ADR's status changes from Proposed to Accepted.
+
 ### 19.3 Work Packages
 
 | ID              | Work package                                                                                                                                                      | Primary                | Dependencies           | Completion evidence                      |
