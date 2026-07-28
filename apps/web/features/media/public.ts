@@ -13,3 +13,10 @@ export {
 } from './media-upload-controller';
 export { useMediaAccess } from './queries';
 export { useMediaUpload, type UseMediaUploadResult } from './use-media-upload';
+/**
+ * Exposed for `app/application/gardens/[gardenId]/plants/add-plant-from-photo-panel.tsx`
+ * (ADR-0015), which reuses this exact upload-phase display vocabulary rather
+ * than a second copy — the same page-composes-features reasoning that file's
+ * own doc comment gives for importing this feature directly.
+ */
+export { formatBytes, uploadFailureReasonLabel, uploadPhaseLabel } from './labels';

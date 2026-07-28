@@ -95,13 +95,19 @@ struct GardenTabView: View {
 
             Tab(strings(.shellTabPlants), systemImage: "leaf.fill", value: 2) {
                 stack {
-                    PlantsHomeView(model: composition.makePlantsHomeViewModel(gardenId: gardenId)) { plantId in
-                        AnyView(
-                            PlantDetailView(
-                                model: composition.makePlantDetailViewModel(gardenId: gardenId, plantId: plantId)
+                    PlantsHomeView(
+                        model: composition.makePlantsHomeViewModel(gardenId: gardenId),
+                        destination: { plantId in
+                            AnyView(
+                                PlantDetailView(
+                                    model: composition.makePlantDetailViewModel(gardenId: gardenId, plantId: plantId)
+                                )
                             )
-                        )
-                    }
+                        },
+                        makeAddFromPhotoModel: {
+                            composition.makePlantAddFromPhotoViewModel(gardenId: gardenId)
+                        }
+                    )
                 }
             }
 

@@ -76,6 +76,16 @@ public protocol PlantGateway: Sendable {
         idempotencyKey: String
     ) async throws -> Plant
 
+    /// The plant's still-pending photo-identification suggestion. Throws
+    /// with `plants_inventory.plant.identification_not_found` (`404`) both
+    /// when the plant has none at all and once one has already been
+    /// confirmed — see `FeaturePlants.FetchPlantIdentification`'s own doc
+    /// comment for why a dedicated use case narrows that specific case to
+    /// `nil` rather than every caller re-deriving the same check, the same
+    /// shape `fetchGardenOwnershipTransfer`/`FetchGardenOwnershipTransfer`
+    /// already establish for an identically-shaped "pending, or absent" read.
+    func getPlantIdentification(gardenId: String, plantId: String) async throws -> PlantIdentification
+
     func transitionLifecycleStage(
         gardenId: String,
         plantId: String,
@@ -267,6 +277,14 @@ public struct URLSessionPlantGateway: PlantGateway {
             method: "POST",
             operationPath: "gardens/\(gardenId)/plants/\(plantId)/identification/\(identificationId)/confirm",
             headers: revisionHeaders(expectedRevision: expectedRevision, idempotencyKey: idempotencyKey),
+            acceptedStatusCodes: [200]
+        )
+        return result.domainValue
+    }
+
+    public func getPlantIdentification(gardenId: String, plantId: String) async throws -> PlantIdentification {
+        let result: PlantIdentificationTransport = try await transport.get(
+            operationPath: "gardens/\(gardenId)/plants/\(plantId)/identification",
             acceptedStatusCodes: [200]
         )
         return result.domainValue

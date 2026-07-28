@@ -13,6 +13,18 @@ final class FakePlantGateway: PlantGateway, @unchecked Sendable {
     /// Set by a test to make `attachPlantPhoto` fail instead of succeeding
     /// — `AttachPlantPhotoTests`'s own "propagates a gateway failure" case.
     var attachPlantPhotoError: Error?
+    /// Set by a test to make `addPlantFromPhoto` fail instead of succeeding
+    /// — `AddPlantFromPhotoTests`'s own "propagates a gateway failure" case.
+    var addPlantFromPhotoError: Error?
+    /// `getPlantIdentification`'s scriptable result: `nil` (the default)
+    /// throws the same `plants_inventory.plant.identification_not_found`
+    /// `404` a real "nothing pending" answer would, matching
+    /// `FetchPlantIdentification`'s own doc comment on that shape.
+    var pendingIdentification: PlantIdentification?
+    /// Overrides `getPlantIdentification`'s error entirely, for a test that
+    /// needs a failure OTHER than the standard not-found — e.g. a transport
+    /// failure `FetchPlantIdentification` must let propagate, not swallow.
+    var getPlantIdentificationError: Error?
 
     init(plants: [Plant] = []) {
         self.plants = Dictionary(uniqueKeysWithValues: plants.map { ($0.id, $0) })
@@ -64,7 +76,8 @@ final class FakePlantGateway: PlantGateway, @unchecked Sendable {
         placementMapObjectId: String?,
         idempotencyKey: String
     ) async throws -> Plant {
-        try await addPlant(
+        if let addPlantFromPhotoError { throw addPlantFromPhotoError }
+        return try await addPlant(
             gardenId: gardenId,
             displayName: "From photo",
             taxonomyReferenceId: nil,
@@ -155,7 +168,36 @@ final class FakePlantGateway: PlantGateway, @unchecked Sendable {
         expectedRevision: Int,
         idempotencyKey: String
     ) async throws -> Plant {
-        try expectRevision(plantId, expectedRevision)
+        let plant = try expectRevision(plantId, expectedRevision)
+        let updated = Plant(
+            id: plant.id, gardenId: plant.gardenId, gardenAreaMapObjectId: plant.gardenAreaMapObjectId,
+            placementMapObjectId: plant.placementMapObjectId, displayName: plant.displayName,
+            taxonomyReferenceId: plant.taxonomyReferenceId, varietyLabel: plant.varietyLabel,
+            acceptedIdentificationId: identificationId, acquisitionDate: plant.acquisitionDate,
+            acquisitionDateType: plant.acquisitionDateType, groupingKind: plant.groupingKind, quantity: plant.quantity,
+            lifecycleStage: plant.lifecycleStage, status: plant.status, conditionNote: plant.conditionNote,
+            careGuidanceNote: plant.careGuidanceNote, revision: plant.revision + 1,
+            createdByProfileId: plant.createdByProfileId, createdAt: plant.createdAt, updatedAt: plant.updatedAt
+        )
+        plants[plant.id] = updated
+        return updated
+    }
+
+    func getPlantIdentification(gardenId: String, plantId: String) async throws -> PlantIdentification {
+        if let getPlantIdentificationError { throw getPlantIdentificationError }
+        guard let pendingIdentification else {
+            throw APIGatewayError.service(
+                APIErrorBody(
+                    code: "plants_inventory.plant.identification_not_found",
+                    message: "fake",
+                    correlationId: "fake",
+                    retryable: false
+                ),
+                statusCode: 404,
+                retryAfterSeconds: nil
+            )
+        }
+        return pendingIdentification
     }
 
     func transitionLifecycleStage(

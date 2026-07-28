@@ -14,6 +14,7 @@ import SwiftUI
 /// while the name is empty rather than accepted and refused afterwards.
 struct PlantAddSheetView: View {
     @Bindable var model: PlantsHomeViewModel
+    let onCancel: () -> Void
     let onFinish: (Bool) -> Void
 
     @FocusState private var isDisplayNameFocused: Bool
@@ -46,7 +47,7 @@ struct PlantAddSheetView: View {
             .screenBackground()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(model.closeTitle) { onFinish(false) }
+                    Button(model.closeTitle, action: onCancel)
                 }
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()

@@ -16,6 +16,8 @@ import {
   AttachPlantPhoto,
   ConfirmPlantIdentification,
   GetPlant,
+  GetPlantIdentification,
+  KyselyPlantIdentificationRepository,
   KyselyPlantRepository,
   KyselyPlantsInventoryUnitOfWork,
   KyselyTaxonomyReferenceRepository,
@@ -59,6 +61,13 @@ export function composePlantsInventory(
     taxonomyReferenceRepository,
   );
   const getPlant = new GetPlant(plantRepository, gardenAuthorization);
+  const plantIdentificationRepository = new KyselyPlantIdentificationRepository(database.queries);
+  const getPlantIdentification = new GetPlantIdentification(
+    plantRepository,
+    plantIdentificationRepository,
+    taxonomyReferenceRepository,
+    gardenAuthorization,
+  );
   const searchPlants = new SearchPlants(plantRepository, gardenAuthorization);
   const attachPlantPhoto = new AttachPlantPhoto(
     plantRepository,
@@ -114,6 +123,7 @@ export function composePlantsInventory(
     addPlant,
     addPlantFromPhoto,
     getPlant,
+    getPlantIdentification,
     searchPlants,
     updatePlantDetails,
     attachPlantPhoto,

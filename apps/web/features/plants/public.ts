@@ -9,8 +9,11 @@ export { PlantDetail } from './plant-detail';
 export { PlantList } from './plant-list';
 export {
   useAddPlant,
+  useAddPlantFromPhoto,
+  useConfirmPlantIdentification,
   useMovePlant,
   usePlant,
+  usePlantIdentification,
   useSearchPlants,
   useSetPlantStatus,
   useTaxonomyReferenceSearch,

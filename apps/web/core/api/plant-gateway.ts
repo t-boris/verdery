@@ -5,6 +5,7 @@ import type {
   MovePlantRequest,
   Plant,
   PlantGroupingKind,
+  PlantIdentification,
   PlantLifecycleStage,
   PlantListResult,
   PlantPhoto,
@@ -83,6 +84,19 @@ export interface PlantGateway {
     idempotencyKey: string,
     signal?: AbortSignal,
   ): Promise<ApiResult<Plant>>;
+  /**
+   * The plant's still-pending `AddPlantFromPhoto` suggestion, if any —
+   * `404` both when there is none and once one has already been confirmed.
+   * See `useFetchPlantIdentification` (`queries.ts`) for the narrowing of
+   * that specific `404` into `null`, the same "pending, or nothing to
+   * review" shape this contract's own `PlantIdentification` doc comment
+   * describes.
+   */
+  getIdentification(
+    gardenId: string,
+    plantId: string,
+    signal?: AbortSignal,
+  ): Promise<ApiResult<PlantIdentification>>;
   transitionLifecycleStage(
     gardenId: string,
     plantId: string,
@@ -170,16 +184,14 @@ function taxonomySearchQuery(query: string | null, limit: number | null): string
 /**
  * Gateway for the plants-inventory endpoints.
  *
- * `addFromPhoto`, `attachPhoto`, `setPrimaryPhoto`, and `confirmIdentification`
- * are implemented for contract completeness and are covered by
- * `plant-gateway.test.ts`, but no `features/plants` hook or component calls
- * them yet: each needs a real `media` record. A working browser upload flow
- * now exists (`features/media`, P6-WEB-01) and is wired to garden photos,
- * but reusing it for a plant photo specifically is a real, separate
- * follow-up not built in that same pass — see
- * `docs/development/deferred-capabilities.md`. Wiring a control that always
- * fails would be a silently-broken UI, so these stay gateway-only until
- * that follow-up lands.
+ * `addFromPhoto`, `confirmIdentification`, and `getIdentification` back the
+ * "Add plant from photo" flow (`add-plant-from-photo-form.tsx`, ADR-0015),
+ * reusing `features/media`'s existing browser upload flow (P6-WEB-01) the
+ * same way `garden-photo-upload.tsx` does for garden photos.
+ * `attachPhoto`/`setPrimaryPhoto` remain implemented for contract
+ * completeness only, covered by `plant-gateway.test.ts` but reachable from no
+ * `features/plants` component — a real, separate follow-up, not this one —
+ * see `docs/development/deferred-capabilities.md`.
  *
  * Source: packages/api-contracts/openapi.yaml, tag `Plants`;
  * architecture/web-application-design.md, section "8. API Access".
@@ -263,6 +275,14 @@ export function createPlantGateway(client: ApiClient): PlantGateway {
         method: 'POST',
         path: `/gardens/${gardenId}/plants/${plantId}/identification/${identificationId}/confirm`,
         headers: revisionHeaders(expectedRevision, idempotencyKey),
+        ...(signal === undefined ? {} : { signal }),
+      });
+    },
+
+    getIdentification(gardenId, plantId, signal) {
+      return client.request<PlantIdentification>({
+        method: 'GET',
+        path: `/gardens/${gardenId}/plants/${plantId}/identification`,
         ...(signal === undefined ? {} : { signal }),
       });
     },

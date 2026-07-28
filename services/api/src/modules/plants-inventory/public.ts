@@ -107,6 +107,7 @@ export type { PlantResource } from './application/plant-view.js';
 // header.
 export { toPlantResource } from './application/plant-view.js';
 export type { PlantPhotoResource } from './application/plant-photo-view.js';
+export type { PlantIdentificationResource } from './application/plant-identification-view.js';
 export type { TaxonomyReferenceResource } from './application/taxonomy-reference-view.js';
 export type { PhotoIdentificationSuggestion } from './application/identify-plant-from-photo.js';
 
@@ -125,6 +126,7 @@ export { MovePlant } from './application/move-plant.js';
 export type { MovePlantInput } from './application/move-plant.js';
 export { SearchTaxonomyReferences } from './application/search-taxonomy-references.js';
 export { GetPlant } from './application/get-plant.js';
+export { GetPlantIdentification } from './application/get-plant-identification.js';
 export { SearchPlants } from './application/search-plants.js';
 export type { SearchPlantsFilters, PlantSearchResult } from './application/search-plants.js';
 

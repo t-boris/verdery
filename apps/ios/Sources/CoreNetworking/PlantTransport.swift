@@ -103,6 +103,36 @@ struct TaxonomyReferenceListResultTransport: Decodable {
     let items: [TaxonomyReferenceTransport]
 }
 
+struct PlantIdentificationSuggestionTransport: Codable {
+    let id: String
+    let scientificName: String
+    let commonName: String?
+
+    var domainValue: PlantIdentificationSuggestion {
+        PlantIdentificationSuggestion(id: id, scientificName: scientificName, commonName: commonName)
+    }
+}
+
+struct PlantIdentificationTransport: Codable {
+    let id: String
+    let plantId: String
+    let plantPhotoId: String
+    let confidenceScore: Double
+    let createdAt: Date
+    let suggestedTaxonomy: PlantIdentificationSuggestionTransport?
+
+    var domainValue: PlantIdentification {
+        PlantIdentification(
+            id: id,
+            plantId: plantId,
+            plantPhotoId: plantPhotoId,
+            confidenceScore: confidenceScore,
+            createdAt: createdAt,
+            suggestedTaxonomy: suggestedTaxonomy?.domainValue
+        )
+    }
+}
+
 struct AddPlantRequestTransport: Encodable {
     let gardenAreaMapObjectId: String?
     let placementMapObjectId: String?

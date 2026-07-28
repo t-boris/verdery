@@ -196,6 +196,12 @@ export class FakePlantIdentificationRepository implements PlantIdentificationRep
     return Promise.resolve(this.identifications.get(identificationId) ?? null);
   }
 
+  findByPlantId(plantId: Uuid): Promise<PlantIdentification | null> {
+    const matches = [...this.identifications.values()].filter((i) => i.plantId === plantId);
+    matches.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return Promise.resolve(matches[0] ?? null);
+  }
+
   insert(identification: PlantIdentification): Promise<void> {
     this.identifications.set(identification.id, identification);
     return Promise.resolve();

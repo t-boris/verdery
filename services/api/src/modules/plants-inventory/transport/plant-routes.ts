@@ -32,6 +32,7 @@ import type { AddPlant } from '../application/add-plant.js';
 import type { AttachPlantPhoto } from '../application/attach-plant-photo.js';
 import type { ConfirmPlantIdentification } from '../application/confirm-plant-identification.js';
 import type { GetPlant } from '../application/get-plant.js';
+import type { GetPlantIdentification } from '../application/get-plant-identification.js';
 import type { MovePlant } from '../application/move-plant.js';
 import type { SearchPlants, SearchPlantsFilters } from '../application/search-plants.js';
 import type { SearchTaxonomyReferences } from '../application/search-taxonomy-references.js';
@@ -58,6 +59,7 @@ export interface PlantRoutesDependencies {
   readonly addPlant: AddPlant;
   readonly addPlantFromPhoto: AddPlantFromPhoto;
   readonly getPlant: GetPlant;
+  readonly getPlantIdentification: GetPlantIdentification;
   readonly searchPlants: SearchPlants;
   readonly updatePlantDetails: UpdatePlantDetails;
   readonly attachPlantPhoto: AttachPlantPhoto;
@@ -348,6 +350,19 @@ export function registerPlantRoutes(app: FastifyInstance, deps: PlantRoutesDepen
       return reply.status(200).send(photo);
     },
   );
+
+  app.get('/gardens/:gardenId/plants/:plantId/identification', async (request, reply) => {
+    const gardenId = requireGardenId(request);
+    const plantId = requirePlantId(request);
+
+    const identification = await deps.getPlantIdentification.execute(
+      gardenId,
+      plantId,
+      request.actorContext.profileId,
+    );
+
+    return reply.status(200).send(identification);
+  });
 
   app.post(
     '/gardens/:gardenId/plants/:plantId/identification/:identificationId/confirm',

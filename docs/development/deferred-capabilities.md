@@ -715,16 +715,27 @@ plant/task/observation photos do (registering the upload against a `gardenId` al
 attachment), which is exactly why it was chosen as the first, fully-working target rather than
 spreading thin across several partial ones.
 
-**Still open**: `plant-gateway.ts`'s `attachPhoto`/`setPrimaryPhoto`/`addFromPhoto`/
-`confirmIdentification` and `task-gateway.ts`'s `attachFile` remain implemented and unit-tested for
-contract completeness only, with no `features/plants`/`features/tasks` hook or component calling
-them — `features/plants/plant-detail.tsx` still shows its plain gap notice instead of a control that
-would only fail. `RecordObservation`'s photo support is still left off `RecordObservationForm` the
-same way, though the contract already lets a note and/or a condition summary stand on their own
-without a photo, so recording an observation itself is not blocked. Each of these can now reuse
-`features/media`'s upload machinery directly (the same `useMediaUpload` hook, parameterized by
-`mediaClass`, already returns the `mediaId` these commands need) — the remaining work is UI wiring
-per attachment point, not new upload infrastructure.
+**`addFromPhoto`/`confirmIdentification` — closed by ADR-0015's client wiring.**
+`app/application/gardens/[gardenId]/plants/add-plant-from-photo-panel.tsx` (a page-local component,
+not inside `features/plants`, since it needs `features/media`'s `useMediaUpload` directly — see that
+file's own doc comment on the dependency-rule reasoning) now drives the full real flow: upload → real
+`AddPlantFromPhoto` → real `GetPlantIdentification` read → review the AI's suggestion → real
+`ConfirmPlantIdentification`, or decide later. `features/plants/plant-detail.tsx` also gained a
+pending-identification banner (`usePlantIdentification`), so a suggestion left unconfirmed there
+stays reachable. `usePlantIdentification` folds the read's `plants_inventory.plant.
+identification_not_found` `404` into `null` the same way `useGardenOwnershipTransfer` already does
+for an identically-shaped "pending, or nothing to review" resource.
+
+**Still open**: `plant-gateway.ts`'s `attachPhoto`/`setPrimaryPhoto` and `task-gateway.ts`'s
+`attachFile` remain implemented and unit-tested for contract completeness only, with no
+`features/plants`/`features/tasks` hook or component calling them — `features/plants/plant-detail.tsx`
+still shows its plain gap notice (now scoped to just these two) instead of a control that would only
+fail. `RecordObservation`'s photo support is still left off `RecordObservationForm` the same way,
+though the contract already lets a note and/or a condition summary stand on their own without a
+photo, so recording an observation itself is not blocked. Each of these can now reuse `features/media`'s
+upload machinery directly (the same `useMediaUpload` hook, parameterized by `mediaClass`, already
+returns the `mediaId` these commands need) — the remaining work is UI wiring per attachment point, not
+new upload infrastructure.
 
 **Photo and file attachment on iOS — resolved by `P6-IOS-01`.** The iOS half of the same gap this
 section describes for web is now closed. `CoreMediaTransfer` (new Core module) provides: durable
@@ -753,10 +764,23 @@ tested `AttachPlantPhoto` once the upload reaches `available`) and `FeatureObser
 .ObservationsTimelineView`'s record-observation form (`RecordObservation`/`CorrectObservation` now
 accept real `photoMediaIds`, submit disabled while a picked photo is still mid-upload). Both use a
 shared `PhotoAttachmentController`/`PhotoAttachmentStatusLocalization` (English/Russian) rather than
-duplicating the same progress/retry/status UI glue twice. `AddPlantFromPhoto`/`SetPrimaryPlantPhoto`/
-`ConfirmPlantIdentification`/`AttachTaskFile` remain UI-unreached on iOS, the same "implemented and
-tested at the gateway layer, no real caller" gap this section already describes for their web
-counterparts — genuinely separate follow-ups, not attempted here.
+duplicating the same progress/retry/status UI glue twice. `SetPrimaryPlantPhoto`/`AttachTaskFile`
+remain UI-unreached on iOS, the same "implemented and tested at the gateway layer, no real caller"
+gap this section already describes for their web counterparts — genuinely separate follow-ups, not
+attempted here.
+
+**`AddPlantFromPhoto`/`ConfirmPlantIdentification` on iOS — closed by ADR-0015's client wiring.**
+`FeaturePlants.PlantAddFromPhotoSheetView` (a new screen reachable from `PlantsHomeView`'s "Add from
+photo" entry point) drives the same real flow web gained: pick/upload a photo (the same
+`PhotoAttachmentController`, `mediaClass: .gardenPhoto`) → real `AddPlantFromPhoto` → real
+`GetPlantIdentification` read (`FetchPlantIdentification`, narrowing the `404` "nothing pending" case
+to `nil` the same way `FetchGardenOwnershipTransfer` already does) → review the suggestion → real
+`ConfirmPlantIdentification`, or decide later. `PlantDetailView` also gained a pending-identification
+banner for a suggestion left unconfirmed there. Backend note: this closes the gap between the client
+and `AddPlantFromPhoto`/`ConfirmPlantIdentification` themselves, which were already real, tested
+commands — what was missing was a caller, plus (until this pass) any way for a client to read back
+what a suggestion actually named before deciding whether to confirm it (`GetPlantIdentification` is
+new).
 
 Known, deliberately scoped gaps this stage leaves open: (1) photo ACQUISITION is library selection
 (`PhotosPicker`) only — no live camera capture UI; architecture/ios-application-design.md section
@@ -779,12 +803,19 @@ narrower behavior, not a silent drop. (4) A `.retained` transfer whose `processi
 behavior (the app actually suspended or killed mid-upload, the OS relaunching it to deliver a finished
 transfer) could only be reasoned about, not executed, in this environment — see this stage's own report.
 
-**Photo-identification and photo-analysis ML services.** `plants-inventory`'s `identifyPlantFromPhoto`
-and `observations-history`'s `analyzeObservationPhoto` are honest, clearly-labeled placeholders —
-always "no suggestion, zero confidence" — not disguised guesses. `AddPlantFromPhoto` and
-`RecordObservation` both treat the stub result as exactly that: `plant.taxonomyReferenceId` never
-auto-confirms from a photo, and an observation's `suggestedLabel` never claims automated analysis
-happened. Building a real service is out of scope for Phase 4 and has no owning work package yet.
+**Photo-identification and photo-analysis ML services — replaced by real Vertex AI/Gemini calls,
+ADR-0015.** `plants-inventory`'s `identifyPlantFromPhoto` and `observations-history`'s
+`analyzeObservationPhoto` were previously honest, clearly-labeled placeholders — always "no
+suggestion, zero confidence." Both are now real: `VertexAiPlantSpeciesIdentificationAdapter`/
+`VertexAiPlantConditionAnalysisAdapter` call Gemini with a strict JSON `responseSchema` and a zod
+parse that never trusts raw model output, behind independent kill-switches
+(`PLANT_SPECIES_AI_ENABLED`/`PLANT_CONDITION_AI_ENABLED`, both default `false` in every environment
+except `verdery-dev`, per ADR-0015's own owner-confirmation gate for going further). `AddPlantFromPhoto`
+still never auto-confirms `plant.taxonomyReferenceId` from a photo — that invariant is architectural,
+not a stub artifact — a caller always calls `ConfirmPlantIdentification` separately, exactly as
+before. The client-side gap this used to name (no UI ever wired to either capability) is now also
+closed on both platforms — see "`addFromPhoto`/`confirmIdentification`" and its iOS counterpart
+above.
 
 **~~`GET /gardens/{gardenId}/plants` exists but no client calls it~~ — fixed for web, still open for
 iOS.** `P4-SEARCH-01` closed the backend gap both clients' Phase 4 code had documented (no way to

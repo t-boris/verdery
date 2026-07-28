@@ -69,6 +69,14 @@ public struct LocalizedStrings: Sendable {
         string(forKey: key.rawValue)
     }
 
+    /// The same resolution for the "Add plant from photo"/pending-
+    /// identification key set (ADR-0015's client wiring). See
+    /// ``PlantIdentificationLocalizationKey`` for why this is yet another key
+    /// set rather than more cases somewhere existing.
+    public func callAsFunction(_ key: PlantIdentificationLocalizationKey) -> String {
+        string(forKey: key.rawValue)
+    }
+
     /// Every key any of the application's key sets declares.
     ///
     /// Exposed so catalogue completeness stays one check over one list rather
@@ -81,6 +89,7 @@ public struct LocalizedStrings: Sendable {
         + CollaborationLocalizationKey.allCases.map(\.rawValue)
         + SeasonalPlanLocalizationKey.allCases.map(\.rawValue)
         + GardenContextLocalizationKey.allCases.map(\.rawValue)
+        + PlantIdentificationLocalizationKey.allCases.map(\.rawValue)
 
     /// Resolves an arbitrary key, used for codes that originate in Core.
     ///

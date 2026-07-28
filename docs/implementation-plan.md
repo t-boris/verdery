@@ -2,7 +2,7 @@
 
 > Status: Draft 0.2
 > Plan type: Product-wide delivery and implementation plan  
-> Last updated: July 27, 2026
+> Last updated: July 28, 2026
 > Architecture baseline: Approved  
 > Delivery approval: Required before committed staffing or dates
 
@@ -730,12 +730,13 @@ remains the historical record of the abandoned use case's dataset plan and draft
 
 ### 19.3 Work Packages
 
-| ID           | Work package                                                                                                                                                                                                            | Primary         | Dependencies                               | Completion evidence                                                  |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- | ------------------------------------------ | -------------------------------------------------------------------- |
-| P10-DATA-01  | Add capture session, capability class, media references, quality observations, calibration, processing state, and cancellation/recovery fields — retained as Phase 11 AR groundwork, not for photo/video object capture | WS-DATA         | P6 media                                   | Migration and lifecycle tests                                        |
-| P10-PLANT-01 | Replace `identify-plant-from-photo.ts`'s stub with a real provider call: species candidate with confidence, never auto-confirmed, kill-switched until spot-check and provider-terms verification are recorded           | WS-BE, WS-GUIDE | P7 AI adapter pattern                      | Adapter tests (fake client) plus a recorded manual spot-check report |
-| P10-PLANT-02 | Replace `image-analysis-result.ts`'s stub with a real provider call: condition/health/pest/disease observation for an already-known, user-selected plant, evaluated against that plant's own photo history              | WS-BE, WS-GUIDE | P10-PLANT-01 (shared adapter/config idiom) | Adapter tests (fake client) plus a recorded manual spot-check report |
-| P10-QA-01    | Test kill-switch-off default, malformed/refused provider responses, never-auto-confirm invariant, and that no path can populate toxicity/edibility fields from a model                                                  | WS-QA           | P10-PLANT-01, P10-PLANT-02                 | Evidence report                                                      |
+| ID           | Work package                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Primary               | Dependencies                               | Completion evidence                                                         |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------- | ------------------------------------------ | --------------------------------------------------------------------------- |
+| P10-DATA-01  | Add capture session, capability class, media references, quality observations, calibration, processing state, and cancellation/recovery fields — retained as Phase 11 AR groundwork, not for photo/video object capture                                                                                                                                                                                                                                      | WS-DATA               | P6 media                                   | Migration and lifecycle tests                                               |
+| P10-PLANT-01 | Replace `identify-plant-from-photo.ts`'s stub with a real provider call: species candidate with confidence, never auto-confirmed, kill-switched until spot-check and provider-terms verification are recorded                                                                                                                                                                                                                                                | WS-BE, WS-GUIDE       | P7 AI adapter pattern                      | Adapter tests (fake client) plus a recorded manual spot-check report        |
+| P10-PLANT-02 | Replace `image-analysis-result.ts`'s stub with a real provider call: condition/health/pest/disease observation for an already-known, user-selected plant, evaluated against that plant's own photo history                                                                                                                                                                                                                                                   | WS-BE, WS-GUIDE       | P10-PLANT-01 (shared adapter/config idiom) | Adapter tests (fake client) plus a recorded manual spot-check report        |
+| P10-QA-01    | Test kill-switch-off default, malformed/refused provider responses, never-auto-confirm invariant, and that no path can populate toxicity/edibility fields from a model                                                                                                                                                                                                                                                                                       | WS-QA                 | P10-PLANT-01, P10-PLANT-02                 | Evidence report                                                             |
+| P10-PLANT-03 | Wire `AddPlantFromPhoto`/`ConfirmPlantIdentification` to real UI on both clients (previously implemented and tested at the gateway/use-case layer only, reachable from no real screen — see `docs/development/deferred-capabilities.md`); add the read this needed and did not yet have, `GetPlantIdentification` (`GET /gardens/{gardenId}/plants/{plantId}/identification`), so a suggestion's name and confidence can actually be shown before confirming | WS-BE, WS-WEB, WS-IOS | P10-PLANT-01                               | HTTP/integration tests (backend), component/view-model tests (both clients) |
 
 `P10-ASYNC-01` (manifests, job state, Cloud Tasks/Cloud Run Job execution, checkpoint, retry) is
 **deferred, not built**: a single provider call for plant identification runs synchronously within
@@ -755,6 +756,9 @@ serve the abandoned photo-object-recognition use case.
   provider-terms verification are recorded.
 - Manual plant entry (unaffected) and manual garden-object entry (unaffected; AR remains Phase 11's
   own separate exit criteria) remain complete fallbacks throughout.
+- Plant-from-photo identification is reachable from a real screen on both clients, not only from the
+  backend command layer — a real user can add a plant from a photo, see the AI's suggestion with its
+  confidence, and confirm or defer it (P10-PLANT-03).
 
 ### 19.5 Source Traceability
 

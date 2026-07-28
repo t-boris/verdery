@@ -91,24 +91,8 @@ export type MapCommandResult = Schemas['MapCommandResult'];
 /** The garden context facts schemas (P9D-CONTEXT-01) live in `./garden-context.js` — same 600-line-rule posture as `./organizations.js` above. */
 export * from './garden-context.js';
 
-/** The plants-inventory schemas (P4-CONTRACT-01). */
-export type PlantGroupingKind = Schemas['PlantGroupingKind'];
-export type PlantAcquisitionDateType = Schemas['PlantAcquisitionDateType'];
-export type PlantLifecycleStage = Schemas['PlantLifecycleStage'];
-export type PlantStatus = Schemas['PlantStatus'];
-export type TaxonomySource = Schemas['TaxonomySource'];
-export type Plant = Schemas['Plant'];
-export type PlantListResult = Schemas['PlantListResult'];
-export type PlantPhoto = Schemas['PlantPhoto'];
-export type TaxonomyReference = Schemas['TaxonomyReference'];
-export type TaxonomyReferenceListResult = Schemas['TaxonomyReferenceListResult'];
-export type AddPlantRequest = Schemas['AddPlantRequest'];
-export type AddPlantFromPhotoRequest = Schemas['AddPlantFromPhotoRequest'];
-export type UpdatePlantDetailsRequest = Schemas['UpdatePlantDetailsRequest'];
-export type AttachPlantPhotoRequest = Schemas['AttachPlantPhotoRequest'];
-export type TransitionPlantLifecycleStageRequest = Schemas['TransitionPlantLifecycleStageRequest'];
-export type SetPlantStatusRequest = Schemas['SetPlantStatusRequest'];
-export type MovePlantRequest = Schemas['MovePlantRequest'];
+/** The plants-inventory schemas (P4-CONTRACT-01) live in `./plants.js` — same 600-line-rule posture as `./garden-context.js` above. */
+export * from './plants.js';
 
 /** The observations-history schemas (P4-CONTRACT-01). */
 export type ObservationActorType = Schemas['ObservationActorType'];
@@ -388,6 +372,8 @@ export const MapErrorCode = {
 } as const;
 
 export type MapErrorCode = (typeof MapErrorCode)[keyof typeof MapErrorCode];
+
+/** `PlantErrorCode` (ADR-0015) lives in `./plants.js` alongside the rest of the plants-inventory contract surface — same 600-line-rule posture as `./garden-context.js` above. */
 
 /** The synchronization endpoints' whole-request error codes (`SyncErrorCode`) live in `./sync-contracts.js` — same 600-line-rule posture as `./organizations.js` above. */
 export * from './sync-contracts.js';

@@ -81,6 +81,7 @@ public final class PlantsHomeViewModel {
     public var taxonomyPickerSearchLabel: String { strings(.plantsTaxonomyPickerSearchLabel) }
     public var taxonomyPickerEmptyMessage: String { strings(.plantsTaxonomyPickerEmpty) }
     public var closeTitle: String { strings(.plantsClose) }
+    public var addFromPhotoButtonTitle: String { strings(.plantsAddFromPhotoButton) }
 
     public func groupingKindName(_ kind: PlantGroupingKind) -> String {
         PlantsLocalization.groupingKindName(kind, strings: strings)

@@ -463,9 +463,20 @@ export const englishMessages = {
   'plants.moveTitle': 'Move',
   'plants.move': 'Save placement',
   'plants.moved': 'Placement saved.',
-  'plants.mediaGapTitle': 'Photos are not available yet',
+  'plants.mediaGapTitle': 'A photo gallery is not available yet',
   'plants.mediaGapDescription':
-    'Photo identification, photo galleries, and identification confirmation all need a real uploaded file. Uploading itself now works elsewhere in this application (a garden photo, from the garden settings page), but is not yet connected to a plant. These actions are intentionally left out of this page rather than shown as controls that would only fail.',
+    'Attaching additional photos to this plant, and choosing a primary one, both need a real uploaded file connected to a plant record — a step not yet built. This action is intentionally left out of this page rather than shown as a control that would only fail.',
+  'plants.addFromPhotoTitle': 'Add from a photo',
+  'plants.addFromPhotoDescription':
+    'Upload a photo of the plant. It is created for you, and the AI’s guess at its species is shown for you to confirm.',
+  'plants.addFromPhotoCreating': 'Creating the plant and identifying its species…',
+  'plants.identificationLoading': 'Loading the identification suggestion.',
+  'plants.identificationNoConfidentMatch': 'No confident match was found.',
+  'plants.identificationConfidenceLabel': 'Confidence',
+  'plants.identificationConfidenceValue': '{percent}%',
+  'plants.identificationConfirm': 'Confirm',
+  'plants.identificationLater': 'Decide later',
+  'plants.identificationPendingBanner': 'The AI suggested a species for this plant.',
 
   'plants.enum.groupingKind.individual': 'Individual',
   'plants.enum.groupingKind.row': 'Row',

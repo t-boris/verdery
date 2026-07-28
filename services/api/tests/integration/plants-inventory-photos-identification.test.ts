@@ -29,8 +29,10 @@ import { AddPlant } from '../../src/modules/plants-inventory/application/add-pla
 import { AddPlantFromPhoto } from '../../src/modules/plants-inventory/application/add-plant-from-photo.js';
 import { AttachPlantPhoto } from '../../src/modules/plants-inventory/application/attach-plant-photo.js';
 import { ConfirmPlantIdentification } from '../../src/modules/plants-inventory/application/confirm-plant-identification.js';
+import { GetPlantIdentification } from '../../src/modules/plants-inventory/application/get-plant-identification.js';
 import { SearchTaxonomyReferences } from '../../src/modules/plants-inventory/application/search-taxonomy-references.js';
 import { SetPrimaryPlantPhoto } from '../../src/modules/plants-inventory/application/set-primary-plant-photo.js';
+import { KyselyPlantIdentificationRepository } from '../../src/modules/plants-inventory/persistence/kysely-plant-identification-repository.js';
 import { KyselyPlantRepository } from '../../src/modules/plants-inventory/persistence/kysely-plant-repository.js';
 import { KyselyPlantsInventoryUnitOfWork } from '../../src/modules/plants-inventory/persistence/kysely-plants-inventory-unit-of-work.js';
 import { KyselyTaxonomyReferenceRepository } from '../../src/modules/plants-inventory/persistence/kysely-taxonomy-reference-repository.js';
@@ -190,6 +192,12 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
         unitOfWork,
         authorization,
         clock,
+      ),
+      getPlantIdentification: new GetPlantIdentification(
+        plantRepository,
+        new KyselyPlantIdentificationRepository(db),
+        new KyselyTaxonomyReferenceRepository(db),
+        authorization,
       ),
     };
   }
@@ -375,6 +383,77 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
         confirmed.revision,
         generateUuidV7(),
       ),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('reads a pending identification suggestion with its resolved taxonomy, then 404s once confirmed', async () => {
+    const now = new Date('2026-07-21T09:00:00Z');
+    const { ownerId, gardenId } = await createGardenWithOwner(now);
+    const handlers = buildHandlers(fixedClock(now));
+    const mediaId = await registerMedia(ownerId, gardenId, fixedClock(now));
+    const scientificName = `Ocimum basilicum ${uniqueSuffix()}`;
+    const taxonomyId = await insertTaxonomyReference(scientificName, 'Basil');
+
+    const plant = await handlers.addPlant.execute(
+      gardenId,
+      ownerId,
+      { displayName: 'Unidentified plant', groupingKind: 'individual' },
+      generateUuidV7(),
+    );
+    const photo = await handlers.attachPlantPhoto.execute(
+      plant.id,
+      ownerId,
+      { mediaId, isPrimary: true },
+      generateUuidV7(),
+    );
+    const identificationId = generateUuidV7();
+    await db
+      .insertInto('plants_inventory.plant_identification')
+      .values({
+        id: identificationId,
+        plant_id: plant.id,
+        plant_photo_id: photo.id,
+        suggested_taxonomy_id: taxonomyId,
+        confidence_score: 0.81,
+      })
+      .execute();
+
+    const pending = await handlers.getPlantIdentification.execute(gardenId, plant.id, ownerId);
+    expect(pending).toMatchObject({
+      id: identificationId,
+      plantId: plant.id,
+      plantPhotoId: photo.id,
+      confidenceScore: 0.81,
+      suggestedTaxonomy: { id: taxonomyId, scientificName, commonName: 'Basil' },
+    });
+
+    await handlers.confirmPlantIdentification.execute(
+      plant.id,
+      ownerId,
+      identificationId,
+      plant.revision,
+      generateUuidV7(),
+    );
+
+    await expect(
+      handlers.getPlantIdentification.execute(gardenId, plant.id, ownerId),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('404s a plant with no identification at all', async () => {
+    const now = new Date('2026-07-21T09:00:00Z');
+    const { ownerId, gardenId } = await createGardenWithOwner(now);
+    const handlers = buildHandlers(fixedClock(now));
+
+    const plant = await handlers.addPlant.execute(
+      gardenId,
+      ownerId,
+      { displayName: 'Basil', groupingKind: 'individual' },
+      generateUuidV7(),
+    );
+
+    await expect(
+      handlers.getPlantIdentification.execute(gardenId, plant.id, ownerId),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 

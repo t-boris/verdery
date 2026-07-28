@@ -756,3 +756,15 @@
 "contextQuality.enum.growingContext.openGround" = "Open ground";
 "contextQuality.enum.growingContext.container" = "Container";
 "contextQuality.enum.growingContext.greenhouse" = "Greenhouse";
+
+"plants.addFromPhoto.button" = "Add from photo";
+"plants.addFromPhoto.title" = "Add plant from photo";
+"plants.addFromPhoto.hint" = "Take or choose a photo of the plant to identify it.";
+"plants.addFromPhoto.submitting" = "Identifying species…";
+"plants.identification.suggestedLabel" = "Suggested species";
+"plants.identification.noConfidentMatch" = "No confident match found.";
+"plants.identification.confidenceLabel" = "Confidence";
+"plants.identification.confirmButton" = "Confirm";
+"plants.identification.laterButton" = "Decide later";
+"plants.identification.confirmedMessage" = "Identification confirmed.";
+"plants.identification.pendingBanner" = "The AI suggested a species for this plant.";

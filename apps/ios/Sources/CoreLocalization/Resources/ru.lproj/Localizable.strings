@@ -755,3 +755,15 @@
 "contextQuality.enum.growingContext.openGround" = "Открытый грунт";
 "contextQuality.enum.growingContext.container" = "Контейнер";
 "contextQuality.enum.growingContext.greenhouse" = "Теплица";
+
+"plants.addFromPhoto.button" = "Добавить по фото";
+"plants.addFromPhoto.title" = "Добавить растение по фото";
+"plants.addFromPhoto.hint" = "Сделайте или выберите фото растения, чтобы определить его вид.";
+"plants.addFromPhoto.submitting" = "Определяем вид…";
+"plants.identification.suggestedLabel" = "Предполагаемый вид";
+"plants.identification.noConfidentMatch" = "Уверенное совпадение не найдено.";
+"plants.identification.confidenceLabel" = "Уверенность";
+"plants.identification.confirmButton" = "Подтвердить";
+"plants.identification.laterButton" = "Решить позже";
+"plants.identification.confirmedMessage" = "Определение подтверждено.";
+"plants.identification.pendingBanner" = "ИИ предложил вид для этого растения.";

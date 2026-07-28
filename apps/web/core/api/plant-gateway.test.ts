@@ -1,4 +1,8 @@
-import type { Plant, TaxonomyReferenceListResult } from '@verdery/api-contracts';
+import type {
+  Plant,
+  PlantIdentification,
+  TaxonomyReferenceListResult,
+} from '@verdery/api-contracts';
 import { describe, expect, it } from 'vitest';
 
 import { createApiClient, type FetchLike } from './client';
@@ -209,6 +213,29 @@ describe('createPlantGateway', () => {
       `${ORIGIN}/v1/gardens/${GARDEN_ID}/plants/${PLANT_ID}/identification/${PLANT_ID}/confirm`,
     );
     expect(headersOf(recorded[0]!)['if-match']).toBe('"2"');
+  });
+
+  it('gets a plant identification suggestion by plant id', async () => {
+    const identification: PlantIdentification = {
+      id: PLANT_ID,
+      plantId: PLANT_ID,
+      plantPhotoId: PLANT_ID,
+      confidenceScore: 0.81,
+      createdAt: '2026-07-21T09:00:00Z',
+      suggestedTaxonomy: {
+        id: GARDEN_ID,
+        scientificName: 'Ocimum basilicum',
+        commonName: 'Basil',
+      },
+    };
+    const { gateway, recorded } = gatewayRecording(jsonResponse(identification, 200));
+
+    const result = await gateway.getIdentification(GARDEN_ID, PLANT_ID);
+
+    expect(recorded[0]?.url).toBe(
+      `${ORIGIN}/v1/gardens/${GARDEN_ID}/plants/${PLANT_ID}/identification`,
+    );
+    expect(result.ok && result.data.suggestedTaxonomy?.commonName).toBe('Basil');
   });
 
   it('sends the stage in the body on transitionLifecycleStage', async () => {

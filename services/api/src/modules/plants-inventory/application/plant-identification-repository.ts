@@ -12,5 +12,15 @@ export interface PlantIdentificationRepository {
    */
   findById(identificationId: Uuid): Promise<PlantIdentification | null>;
 
+  /**
+   * The most recent identification row for a plant, or `null` when none
+   * exists. Ordered `createdAt` descending in anticipation of a future
+   * re-identify command inserting more than one row per plant — today
+   * `AddPlantFromPhoto` is the only writer, so at most one row exists per
+   * plant in practice. Backs `GetPlantIdentification`'s read of a still-
+   * pending suggestion.
+   */
+  findByPlantId(plantId: Uuid): Promise<PlantIdentification | null>;
+
   insert(identification: PlantIdentification): Promise<void>;
 }

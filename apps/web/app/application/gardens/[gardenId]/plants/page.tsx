@@ -1,11 +1,12 @@
 import { AddPlantForm, OpenPlantByIdForm, PlantList } from '@/features/plants/public';
 import { getRequestTranslator } from '@/shared/localization/server';
 
+import { AddPlantFromPhotoPanel } from './add-plant-from-photo-panel';
 import styles from './page.module.css';
 
 /**
- * The plants entry point for a garden: browse the inventory, add a plant, or
- * open a known one directly.
+ * The plants entry point for a garden: browse the inventory, add a plant
+ * (manually or from a photo), or open a known one directly.
  *
  * `PlantList` (P4-SEARCH-01 follow-up) backs the inventory browse against
  * the real `SearchPlants` endpoint (`GET /gardens/{gardenId}/plants`), which
@@ -14,9 +15,12 @@ import styles from './page.module.css';
  * that gap. `OpenPlantByIdForm` stays alongside it as a direct-navigation
  * shortcut for a plant id already known from elsewhere (e.g. a link shared
  * outside the app); it is no longer this page's only way to reach a plant.
+ * `AddPlantFromPhotoPanel` (ADR-0015) is this page's third way in — see that
+ * component's own doc comment for why it lives beside this file rather than
+ * inside `features/plants`.
  *
  * Source: implementation-plan.md work packages P4-WEB-01, P4-SEARCH-01;
- * packages/api-contracts/openapi.yaml, tag `Plants`.
+ * packages/api-contracts/openapi.yaml, tag `Plants`; ADR-0015.
  */
 export default async function PlantsPage({
   params,
@@ -42,6 +46,11 @@ export default async function PlantsPage({
         <section className={styles['panel']}>
           <h2 className={styles['sectionTitle']}>{t('plants.addTitle')}</h2>
           <AddPlantForm gardenId={gardenId} />
+        </section>
+
+        <section className={styles['panel']}>
+          <h2 className={styles['sectionTitle']}>{t('plants.addFromPhotoTitle')}</h2>
+          <AddPlantFromPhotoPanel gardenId={gardenId} />
         </section>
 
         <section className={styles['panel']}>

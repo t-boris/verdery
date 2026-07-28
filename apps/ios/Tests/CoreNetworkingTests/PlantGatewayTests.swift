@@ -250,6 +250,57 @@ struct PlantGatewayTests {
         #expect(results.first?.commonName == "Tomato")
         #expect(results.first?.source == .systemCatalog)
     }
+
+    @Test("getPlantIdentification GETs the identification path and decodes the resolved suggestion")
+    func getPlantIdentificationDecodesResult() async throws {
+        let identifier = "get-plant-identification"
+        defer { StubURLProtocol.unregister(identifier) }
+
+        let identificationJSON = #"""
+            {
+              "id": "identification-1",
+              "plantId": "plant-1",
+              "plantPhotoId": "photo-1",
+              "confidenceScore": 0.81,
+              "createdAt": "2026-01-01T00:00:00.000Z",
+              "suggestedTaxonomy": {"id": "tax-1", "scientificName": "Ocimum basilicum", "commonName": "Basil"}
+            }
+            """#
+        let gateway = makeGateway(identifier: identifier, answer: .json(200, identificationJSON))
+
+        let identification = try await gateway.getPlantIdentification(gardenId: "garden-1", plantId: "plant-1")
+
+        let request = try #require(StubURLProtocol.requests(forSession: identifier).first)
+        #expect(request.url?.path == "/v1/gardens/garden-1/plants/plant-1/identification")
+        #expect(request.httpMethod == "GET")
+
+        #expect(identification.id == "identification-1")
+        #expect(identification.confidenceScore == 0.81)
+        #expect(identification.suggestedTaxonomy?.scientificName == "Ocimum basilicum")
+        #expect(identification.suggestedTaxonomy?.commonName == "Basil")
+    }
+
+    @Test("getPlantIdentification decodes a null suggestedTaxonomy as no confident candidate")
+    func getPlantIdentificationDecodesNoCandidateResult() async throws {
+        let identifier = "get-plant-identification-no-candidate"
+        defer { StubURLProtocol.unregister(identifier) }
+
+        let identificationJSON = #"""
+            {
+              "id": "identification-2",
+              "plantId": "plant-1",
+              "plantPhotoId": "photo-1",
+              "confidenceScore": 0,
+              "createdAt": "2026-01-01T00:00:00.000Z",
+              "suggestedTaxonomy": null
+            }
+            """#
+        let gateway = makeGateway(identifier: identifier, answer: .json(200, identificationJSON))
+
+        let identification = try await gateway.getPlantIdentification(gardenId: "garden-1", plantId: "plant-1")
+
+        #expect(identification.suggestedTaxonomy == nil)
+    }
 }
 
 private struct FixedCorrelationIdentifierProvider: CorrelationIdentifierProvider {

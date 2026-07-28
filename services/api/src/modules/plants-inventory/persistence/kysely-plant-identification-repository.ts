@@ -39,6 +39,17 @@ export class KyselyPlantIdentificationRepository implements PlantIdentificationR
     return row === undefined ? null : toPlantIdentification(row);
   }
 
+  async findByPlantId(plantId: Uuid): Promise<PlantIdentification | null> {
+    const row = await this.db
+      .selectFrom('plants_inventory.plant_identification')
+      .selectAll()
+      .where('plant_id', '=', plantId)
+      .orderBy('created_at', 'desc')
+      .executeTakeFirst();
+
+    return row === undefined ? null : toPlantIdentification(row);
+  }
+
   async insert(identification: PlantIdentification): Promise<void> {
     await this.db
       .insertInto('plants_inventory.plant_identification')

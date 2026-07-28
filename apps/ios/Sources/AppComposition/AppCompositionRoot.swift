@@ -38,7 +38,7 @@ public final class AppCompositionRoot {
     private let healthGateway: any HealthGateway
     let gardenGateway: any GardenGateway
     private let mapGateway: any MapGateway
-    private let plantGateway: any PlantGateway
+    let plantGateway: any PlantGateway
     private let observationGateway: any ObservationGateway
     private let taskGateway: any TaskGateway
     /// P9A-TASK-01's task-assignment picker is this instance's only consumer
@@ -384,7 +384,12 @@ public final class AppCompositionRoot {
             // "Attach Photo" affordance — see `makePhotoAttachmentController`'s
             // own doc comment.
             photoAttachment: makePhotoAttachmentController(gardenId: gardenId, mediaClass: .gardenPhoto),
-            attachPlantPhoto: AttachPlantPhoto(gateway: plantGateway)
+            attachPlantPhoto: AttachPlantPhoto(gateway: plantGateway),
+            // ADR-0015: the plant-detail screen's own pending-identification
+            // banner — see `PlantDetailViewModel.pendingIdentification`'s own
+            // doc comment.
+            fetchPlantIdentification: FetchPlantIdentification(gateway: plantGateway),
+            confirmPlantIdentification: ConfirmPlantIdentification(gateway: plantGateway)
         )
     }
 
@@ -428,7 +433,7 @@ public final class AppCompositionRoot {
     /// the single shared `mediaUploadCoordinator`, so every attachment
     /// still funnels through the one real background upload session
     /// regardless of which screen started it.
-    private func makePhotoAttachmentController(gardenId: String, mediaClass: MediaClass) -> PhotoAttachmentController {
+    func makePhotoAttachmentController(gardenId: String, mediaClass: MediaClass) -> PhotoAttachmentController {
         PhotoAttachmentController(
             coordinator: mediaUploadCoordinator,
             gardenId: gardenId,

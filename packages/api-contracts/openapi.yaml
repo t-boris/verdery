@@ -1876,6 +1876,43 @@ paths:
         '409':
           $ref: '#/components/responses/Conflict'
 
+  /gardens/{gardenId}/plants/{plantId}/identification:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: plantId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    get:
+      operationId: getPlantIdentification
+      tags: [Plants]
+      summary: Get a plant's pending photo-identification suggestion
+      description: |
+        Returns the plant's most recent `AddPlantFromPhoto` suggestion —
+        name and confidence, resolved from `suggestedTaxonomyId` — as long as
+        it is still pending. Once confirmed via `ConfirmPlantIdentification`,
+        or when the plant has no identification at all, this is `404`: there
+        is nothing left to review.
+
+        Source: ADR-0015.
+      responses:
+        '200':
+          description: The pending identification suggestion.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlantIdentification'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /gardens/{gardenId}/plants/{plantId}/identification/{identificationId}/confirm:
     parameters:
       - name: gardenId
@@ -9082,6 +9119,43 @@ components:
           type: boolean
         createdAt:
           $ref: '#/components/schemas/Timestamp'
+
+    PlantIdentification:
+      type: object
+      additionalProperties: false
+      required: [id, plantId, plantPhotoId, confidenceScore, createdAt, suggestedTaxonomy]
+      description: >
+        A photo-identification suggestion `AddPlantFromPhoto` created, as long
+        as it is still pending (not yet accepted via
+        `ConfirmPlantIdentification`). Source: plants-inventory/application/
+        get-plant-identification.ts, ADR-0015.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        plantId:
+          $ref: '#/components/schemas/Uuid'
+        plantPhotoId:
+          $ref: '#/components/schemas/Uuid'
+        confidenceScore:
+          type: number
+          minimum: 0
+          maximum: 1
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        suggestedTaxonomy:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required: [id, scientificName, commonName]
+              properties:
+                id:
+                  $ref: '#/components/schemas/Uuid'
+                scientificName:
+                  type: string
+                commonName:
+                  type: [string, 'null']
+            - type: 'null'
+          description: 'Null when the identification pass found no confident candidate.'
 
     TaxonomyReference:
       type: object

@@ -461,9 +461,20 @@ export const russianMessages: MessageCatalogue = {
   'plants.moveTitle': 'Перемещение',
   'plants.move': 'Сохранить размещение',
   'plants.moved': 'Размещение сохранено.',
-  'plants.mediaGapTitle': 'Фотографии пока недоступны',
+  'plants.mediaGapTitle': 'Галерея фотографий пока недоступна',
   'plants.mediaGapDescription':
-    'Идентификация по фото, галерея фотографий и подтверждение идентификации требуют реально загруженного файла. Загрузка файлов уже работает в другом месте приложения (фотография сада, на странице настроек сада), но пока не связана с растением. Эти действия намеренно не показаны на этой странице, а не представлены как неработающие элементы управления.',
+    'Добавление дополнительных фото к этому растению и выбор основного фото требуют реально загруженного файла, связанного с записью растения, — этот шаг ещё не реализован. Это действие намеренно не показано на этой странице, а не представлено как неработающий элемент управления.',
+  'plants.addFromPhotoTitle': 'Добавить по фото',
+  'plants.addFromPhotoDescription':
+    'Загрузите фото растения. Оно будет создано автоматически, а предположение ИИ о его виде будет показано вам для подтверждения.',
+  'plants.addFromPhotoCreating': 'Создаём растение и определяем его вид…',
+  'plants.identificationLoading': 'Загрузка предложения по определению вида.',
+  'plants.identificationNoConfidentMatch': 'Уверенное совпадение не найдено.',
+  'plants.identificationConfidenceLabel': 'Уверенность',
+  'plants.identificationConfidenceValue': '{percent}%',
+  'plants.identificationConfirm': 'Подтвердить',
+  'plants.identificationLater': 'Решить позже',
+  'plants.identificationPendingBanner': 'ИИ предложил вид для этого растения.',
 
   'plants.enum.groupingKind.individual': 'Отдельное растение',
   'plants.enum.groupingKind.row': 'Ряд',

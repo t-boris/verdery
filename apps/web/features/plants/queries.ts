@@ -1,15 +1,18 @@
 'use client';
 
 import type {
+  AddPlantFromPhotoRequest,
   AddPlantRequest,
   MovePlantRequest,
   Plant,
+  PlantIdentification,
   PlantLifecycleStage,
   PlantListResult,
   PlantStatus,
   TaxonomyReferenceListResult,
   UpdatePlantDetailsRequest,
 } from '@verdery/api-contracts';
+import { PlantErrorCode } from '@verdery/api-contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
@@ -39,6 +42,8 @@ import {
  */
 
 const plantQueryKey = (gardenId: string, plantId: string) => ['plants', gardenId, plantId] as const;
+const plantIdentificationQueryKey = (gardenId: string, plantId: string) =>
+  ['plants', gardenId, plantId, 'identification'] as const;
 const plantSearchQueryKey = (gardenId: string, params: SearchPlantsParams) =>
   ['plants', gardenId, 'search', params] as const;
 const taxonomySearchQueryKey = (gardenId: string, query: string) =>
@@ -90,6 +95,80 @@ export function useAddPlant(gardenId: string) {
     onSuccess: (plant) => {
       queryClient.setQueryData(plantQueryKey(gardenId, plant.id), plant);
     },
+  });
+}
+
+/** Backs `add-plant-from-photo-form.tsx` (ADR-0015). Same create-then-cache pattern as `useAddPlant`. */
+export function useAddPlantFromPhoto(gardenId: string) {
+  const gateway = usePlantGateway();
+  const queryClient = useQueryClient();
+
+  return useMutation<Plant, ApiFailureError, AddPlantFromPhotoRequest>({
+    mutationFn: async (input) =>
+      unwrap(await gateway.addFromPhoto(gardenId, input, generateIdempotencyKey())),
+    onSuccess: (plant) => {
+      queryClient.setQueryData(plantQueryKey(gardenId, plant.id), plant);
+    },
+  });
+}
+
+export interface ConfirmPlantIdentificationVariables {
+  readonly plantId: string;
+  readonly identificationId: string;
+  readonly expectedRevision: number;
+}
+
+/**
+ * Confirming clears the plant's pending suggestion, so this also removes the
+ * now-stale `usePlantIdentification` cache entry rather than leaving a
+ * confirmed suggestion still readable as "pending" until its own (much
+ * longer) staleness elapses.
+ */
+export function useConfirmPlantIdentification(gardenId: string) {
+  const gateway = usePlantGateway();
+  const queryClient = useQueryClient();
+
+  return useMutation<Plant, ApiFailureError, ConfirmPlantIdentificationVariables>({
+    mutationFn: async ({ plantId, identificationId, expectedRevision }) =>
+      unwrap(
+        await gateway.confirmIdentification(
+          gardenId,
+          plantId,
+          identificationId,
+          expectedRevision,
+          generateIdempotencyKey(),
+        ),
+      ),
+    onSuccess: (plant) => {
+      queryClient.setQueryData(plantQueryKey(gardenId, plant.id), plant);
+      queryClient.removeQueries({ queryKey: plantIdentificationQueryKey(gardenId, plant.id) });
+    },
+  });
+}
+
+/**
+ * The plant's still-pending photo-identification suggestion, if any — folds
+ * `plants_inventory.plant.identification_not_found` into a plain `null`
+ * success value rather than a query error, the same treatment
+ * `useGardenOwnershipTransfer` gives an identically-shaped "pending, or
+ * nothing to review" read (`features/collaboration/ownership-queries.ts`):
+ * "nothing pending" is an ordinary state of this resource, not a failure
+ * `FailureAlert` should ever render. Any OTHER failure (network, `401`,
+ * `5xx`) still surfaces as a real query error.
+ */
+export function usePlantIdentification(gardenId: string, plantId: string, enabled = true) {
+  const gateway = usePlantGateway();
+
+  return useQuery<PlantIdentification | null, ApiFailureError>({
+    queryKey: plantIdentificationQueryKey(gardenId, plantId),
+    queryFn: async ({ signal }) => {
+      const result = await gateway.getIdentification(gardenId, plantId, signal);
+      if (isFailure(result) && result.code === PlantErrorCode.IdentificationNotFound) {
+        return null;
+      }
+      return unwrap(result);
+    },
+    enabled,
   });
 }
 

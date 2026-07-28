@@ -101,6 +101,18 @@ public final class PlantDetailViewModel {
     private let movePlant: MovePlant
     private let searchTaxonomyReferences: SearchTaxonomyReferences
     private let strings: LocalizedStrings
+    private let fetchPlantIdentification: FetchPlantIdentification?
+    private let confirmPlantIdentification: ConfirmPlantIdentification?
+
+    /// A still-pending `AddPlantFromPhoto` suggestion for this plant (ADR-0015),
+    /// when one exists — `nil` both when there is none and when
+    /// `fetchPlantIdentification` was not wired in (every existing test double
+    /// and call site keeps working unchanged, the same optional-capability
+    /// shape `photoAttachment` already establishes). Populated best-effort by
+    /// `load()`: a failure fetching it never fails the plant load itself,
+    /// mirroring how leaving a plant unidentified is always a valid outcome
+    /// elsewhere in this feature.
+    public private(set) var pendingIdentification: PlantIdentification?
 
     private var currentPlant: Plant?
     /// Set once an edit/lifecycle-stage/status/move commits locally this
@@ -123,7 +135,9 @@ public final class PlantDetailViewModel {
         searchTaxonomyReferences: SearchTaxonomyReferences,
         strings: LocalizedStrings,
         photoAttachment: PhotoAttachmentController? = nil,
-        attachPlantPhoto: AttachPlantPhoto? = nil
+        attachPlantPhoto: AttachPlantPhoto? = nil,
+        fetchPlantIdentification: FetchPlantIdentification? = nil,
+        confirmPlantIdentification: ConfirmPlantIdentification? = nil
     ) {
         self.gardenId = gardenId
         self.plantId = plantId
@@ -136,6 +150,8 @@ public final class PlantDetailViewModel {
         self.strings = strings
         self.photoAttachment = photoAttachment
         self.attachPlantPhoto = attachPlantPhoto
+        self.fetchPlantIdentification = fetchPlantIdentification
+        self.confirmPlantIdentification = confirmPlantIdentification
     }
 
     public var photoSectionTitle: String { strings(.mediaAttachSectionTitle) }
@@ -150,6 +166,22 @@ public final class PlantDetailViewModel {
     /// other screen).
     public var photoStatusText: String {
         PhotoAttachmentStatusLocalization.text(for: photoAttachment?.status ?? .idle, strings: strings)
+    }
+
+    public var identificationPendingBanner: String { strings(.plantsIdentificationPendingBanner) }
+    public var identificationSuggestedLabel: String { strings(.plantsIdentificationSuggestedLabel) }
+    public var identificationConfidenceLabel: String { strings(.plantsIdentificationConfidenceLabel) }
+    public var identificationConfirmButtonTitle: String { strings(.plantsIdentificationConfirmButton) }
+
+    public func identificationSuggestionDisplayName(_ suggestion: PlantIdentificationSuggestion) -> String {
+        suggestion.commonName?.isEmpty == false ? suggestion.commonName! : suggestion.scientificName
+    }
+
+    public func identificationConfidenceText(_ confidenceScore: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .percent
+        formatter.maximumFractionDigits = 0
+        return formatter.string(from: NSNumber(value: confidenceScore)) ?? ""
     }
 
     public var title: String { strings(.plantsDetailTitle) }
@@ -258,6 +290,32 @@ public final class PlantDetailViewModel {
             if !hadCachedResult {
                 state = .failed(message: strings(.serverUnexpected))
             }
+        }
+
+        if let fetchPlantIdentification {
+            pendingIdentification = try? await fetchPlantIdentification(gardenId: gardenId, plantId: plantId)
+        }
+    }
+
+    /// Accepts the banner's suggestion — a no-op without both a fetched
+    /// suggestion and a loaded plant to confirm it against. Reuses `perform`,
+    /// the same submit/apply/error-handling shape every other mutating
+    /// action here already uses.
+    public func confirmPendingIdentification() async {
+        guard let confirmPlantIdentification, let identification = pendingIdentification, let plant = currentPlant else {
+            return
+        }
+
+        await perform {
+            try await confirmPlantIdentification(
+                gardenId: gardenId,
+                plantId: plantId,
+                identificationId: identification.id,
+                expectedRevision: plant.revision
+            )
+        }
+        if actionErrorMessage == nil {
+            pendingIdentification = nil
         }
     }
 

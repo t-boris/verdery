@@ -1117,6 +1117,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/gardens/{gardenId}/plants/{plantId}/identification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                plantId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get a plant's pending photo-identification suggestion
+         * @description Returns the plant's most recent `AddPlantFromPhoto` suggestion —
+         *     name and confidence, resolved from `suggestedTaxonomyId` — as long as
+         *     it is still pending. Once confirmed via `ConfirmPlantIdentification`,
+         *     or when the plant has no identification at all, this is `404`: there
+         *     is nothing left to review.
+         *
+         *     Source: ADR-0015.
+         */
+        get: operations["getPlantIdentification"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/gardens/{gardenId}/plants/{plantId}/identification/{identificationId}/confirm": {
         parameters: {
             query?: never;
@@ -5453,6 +5482,20 @@ export interface components {
             isPrimary: boolean;
             createdAt: components["schemas"]["Timestamp"];
         };
+        /** @description A photo-identification suggestion `AddPlantFromPhoto` created, as long as it is still pending (not yet accepted via `ConfirmPlantIdentification`). Source: plants-inventory/application/ get-plant-identification.ts, ADR-0015. */
+        PlantIdentification: {
+            id: components["schemas"]["Uuid"];
+            plantId: components["schemas"]["Uuid"];
+            plantPhotoId: components["schemas"]["Uuid"];
+            confidenceScore: number;
+            createdAt: components["schemas"]["Timestamp"];
+            /** @description Null when the identification pass found no confident candidate. */
+            suggestedTaxonomy: {
+                id: components["schemas"]["Uuid"];
+                scientificName: string;
+                commonName: string | null;
+            } | null;
+        };
         TaxonomyReference: {
             id: components["schemas"]["Uuid"];
             scientificName: string;
@@ -8516,6 +8559,31 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    getPlantIdentification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                plantId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The pending identification suggestion. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlantIdentification"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     confirmPlantIdentification: {

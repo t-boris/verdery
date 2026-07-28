@@ -19,10 +19,9 @@ import SwiftUI
 /// a recognisable shape rather than a `Picker` wheel. Optional fields stay
 /// collapsed behind their toggles.
 ///
-/// See `AddPlantFromPhotoRequest`/`AddPlantFromPhoto` in `PlantGateway.swift`
-/// for the second honest gap this screen leaves: identifying a plant from a
-/// photo needs a `photoMediaId` produced by an upload flow this screen does
-/// not have.
+/// `AddPlantFromPhoto` (ADR-0015) gets its own entry point below the manual
+/// `addCard` — see `makePlantAddFromPhotoViewModel`'s own doc comment for the
+/// upload capability this screen previously lacked.
 public struct PlantsHomeView: View {
     @State private var model: PlantsHomeViewModel
     /// The plant this screen pushed to, if any.
@@ -34,18 +33,26 @@ public struct PlantsHomeView: View {
     /// bar showing the wrong title.
     @State private var openedPlantId: String?
     @State private var isAddPresented = false
+    @State private var isAddFromPhotoPresented = false
     @FocusState private var isOpenIdFocused: Bool
     private let destination: (String) -> AnyView
+    private let makeAddFromPhotoModel: () -> PlantAddFromPhotoViewModel
 
-    public init(model: PlantsHomeViewModel, destination: @escaping (String) -> AnyView) {
+    public init(
+        model: PlantsHomeViewModel,
+        destination: @escaping (String) -> AnyView,
+        makeAddFromPhotoModel: @escaping () -> PlantAddFromPhotoViewModel
+    ) {
         _model = State(wrappedValue: model)
         self.destination = destination
+        self.makeAddFromPhotoModel = makeAddFromPhotoModel
     }
 
     public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.space5) {
                 addCard
+                addFromPhotoCard
                 openCard
 
                 if let message = model.errorMessage {
@@ -71,9 +78,18 @@ public struct PlantsHomeView: View {
             }
         }
         .sheet(isPresented: $isAddPresented) {
-            PlantAddSheetView(model: model) { didSucceed in
+            PlantAddSheetView(model: model, onCancel: { isAddPresented = false }) { didSucceed in
                 Haptics.play(didSucceed ? .success : .failure)
                 if didSucceed { isAddPresented = false }
+            }
+        }
+        .sheet(isPresented: $isAddFromPhotoPresented) {
+            PlantAddFromPhotoSheetView(model: makeAddFromPhotoModel()) { plantId in
+                isAddFromPhotoPresented = false
+                if let plantId {
+                    Haptics.play(.success)
+                    openedPlantId = plantId
+                }
             }
         }
         .onChange(of: model.navigateToPlantId) { _, newValue in
@@ -116,6 +132,30 @@ public struct PlantsHomeView: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("plants.add.card")
+    }
+
+    /// A secondary, quieter act next to `addCard`'s primary one — the same
+    /// visual demotion `openCard`'s plain `SurfaceCard` (no `.accent` tone)
+    /// already gives "open a known plant" relative to "add a plant".
+    private var addFromPhotoCard: some View {
+        Button {
+            isAddFromPhotoPresented = true
+        } label: {
+            SurfaceCard {
+                HStack(spacing: Metrics.space3) {
+                    IconMedallion(symbol: "camera.fill", label: model.addFromPhotoButtonTitle, tone: .neutral)
+                    Text(model.addFromPhotoButtonTitle)
+                        .font(Typography.body.weight(.medium))
+                        .foregroundStyle(Palette.text)
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(Palette.textMuted)
+                        .accessibilityHidden(true)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("plants.addFromPhoto.card")
     }
 
     private var openCard: some View {

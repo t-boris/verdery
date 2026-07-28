@@ -1,41 +1,52 @@
 'use client';
 
+import type { PlantIdentificationSuggestion } from '@verdery/api-contracts';
+
 import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Alert, Card, FailureAlert, StaleIndicator, StatusPill } from '@/shared/ui/public';
+import { Alert, Button, Card, FailureAlert, StaleIndicator, StatusPill } from '@/shared/ui/public';
 
 import { groupingKindLabel, lifecycleStageLabel, statusLabel, statusTone } from './labels';
 import styles from './plant-detail.module.css';
 import { PlantDetailsForm } from './plant-details-form';
 import { PlantLifecycleControls } from './plant-lifecycle-controls';
 import { PlantMoveForm } from './plant-move-form';
-import { usePlant } from './queries';
+import { useConfirmPlantIdentification, usePlant, usePlantIdentification } from './queries';
 
 export interface PlantDetailProps {
   readonly gardenId: string;
   readonly plantId: string;
 }
 
+/** Scientific name, with the common name parenthesized when known — mirrors `add-plant-from-photo-panel.tsx`'s own (unexported) identical helper. */
+function suggestionLabel(suggestion: PlantIdentificationSuggestion): string {
+  return suggestion.commonName === null
+    ? suggestion.scientificName
+    : `${suggestion.scientificName} (${suggestion.commonName})`;
+}
+
 /**
  * A single plant: its current facts, and every command this phase wires
  * against it.
  *
- * Photo identification (`AddPlantFromPhoto`), photo attachment
- * (`AttachPlantPhoto`/`SetPrimaryPlantPhoto`), and identification
- * confirmation (`ConfirmPlantIdentification`) are omitted from this UI: each
- * needs a real `media` record. A working upload flow now exists
- * (`features/media`, P6-WEB-01) and is wired to garden photos, but not yet
- * to a plant — that reuse is a real, separate follow-up, not built in this
- * pass. A disabled or always-failing control would be a silently-broken UI,
- * so this pass still surfaces the gap as a plain, honest notice instead.
- * See `docs/development/deferred-capabilities.md`.
+ * Photo attachment (`AttachPlantPhoto`/`SetPrimaryPlantPhoto`) is still
+ * omitted from this UI — each needs a real `media` record wired to a plant,
+ * a separate follow-up not built in this pass, see
+ * `docs/development/deferred-capabilities.md`. Photo identification
+ * (`AddPlantFromPhoto`) and its confirmation (`ConfirmPlantIdentification`)
+ * are no longer part of that gap: `add-plant-from-photo-panel.tsx`
+ * (ADR-0015) creates a plant from a photo, and this screen's own pending-
+ * identification banner below lets a suggestion left unconfirmed there be
+ * reviewed and accepted later.
  *
  * Source: implementation-plan.md work package P4-WEB-01;
- * packages/api-contracts/openapi.yaml, operation `getPlant`.
+ * packages/api-contracts/openapi.yaml, operation `getPlant`; ADR-0015.
  */
 export function PlantDetail({ gardenId, plantId }: PlantDetailProps) {
   const { t } = useLocalization();
   const query = usePlant(gardenId, plantId);
+  const identification = usePlantIdentification(gardenId, plantId);
+  const confirmIdentification = useConfirmPlantIdentification(gardenId);
 
   if (query.isPending) {
     return <p role="status">{t('plants.loading')}</p>;
@@ -52,6 +63,18 @@ export function PlantDetail({ gardenId, plantId }: PlantDetailProps) {
   }
 
   const plant = query.data;
+  const pendingSuggestion = identification.data?.suggestedTaxonomy ?? null;
+
+  const onConfirmPending = () => {
+    if (identification.data === null || identification.data === undefined || pendingSuggestion === null) {
+      return;
+    }
+    confirmIdentification.mutate({
+      plantId: plant.id,
+      identificationId: identification.data.id,
+      expectedRevision: plant.revision,
+    });
+  };
 
   return (
     <div className={styles['page']}>
@@ -73,6 +96,21 @@ export function PlantDetail({ gardenId, plantId }: PlantDetailProps) {
         )}
         {plant.taxonomyReferenceId === null && <span>{t('plants.taxonomyNone')}</span>}
       </div>
+
+      {pendingSuggestion !== null && identification.data !== null && identification.data !== undefined && (
+        <Alert tone="info" title={t('plants.identificationPendingBanner')}>
+          <p>{suggestionLabel(pendingSuggestion)}</p>
+          <p>
+            {`${t('plants.identificationConfidenceLabel')}: ${t('plants.identificationConfidenceValue', { percent: Math.round(identification.data.confidenceScore * 100) })}`}
+          </p>
+          <Button variant="primary" busy={confirmIdentification.isPending} onClick={onConfirmPending}>
+            {t('plants.identificationConfirm')}
+          </Button>
+          {confirmIdentification.isError && (
+            <FailureAlert failure={confirmIdentification.error.failure} />
+          )}
+        </Alert>
+      )}
 
       <Alert tone="info" title={t('plants.mediaGapTitle')}>
         <p>{t('plants.mediaGapDescription')}</p>

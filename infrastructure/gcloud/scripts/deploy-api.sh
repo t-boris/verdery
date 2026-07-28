@@ -69,6 +69,20 @@ env_vars+="#MEDIA_DERIVED_BUCKET=${VERDERY_DERIVED_BUCKET}"
 env_vars+="#MEDIA_EXPORTS_BUCKET=${VERDERY_EXPORTS_BUCKET}"
 env_vars+="#MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL=${VERDERY_WORKER_SERVICE_ACCOUNT_ID}@${VERDERY_PROJECT_ID}.iam.gserviceaccount.com"
 
+# ADR-0015: plant-species-identification and plant-condition-analysis, off
+# unless <environment>.env sets the two ENABLED flags (dev.env's own header
+# comment explains why only development does today). Both reuse this
+# project as the Vertex project/location — one GCP project across every AI
+# capability here (ADR-0008) — never RECOMMENDATION_AI_VERTEX_PROJECT_ID
+# itself, since the recommendation-explanation capability's own kill-switch
+# can stay independently off while these are on.
+env_vars+="#RECOMMENDATION_AI_VERTEX_PROJECT_ID=${VERDERY_PROJECT_ID}"
+env_vars+="#RECOMMENDATION_AI_VERTEX_LOCATION=${VERDERY_REGION}"
+env_vars+="#PLANT_SPECIES_AI_ENABLED=${VERDERY_PLANT_SPECIES_AI_ENABLED:-false}"
+env_vars+="#PLANT_SPECIES_AI_MODEL=${VERDERY_PLANT_SPECIES_AI_MODEL:-unset}"
+env_vars+="#PLANT_CONDITION_AI_ENABLED=${VERDERY_PLANT_CONDITION_AI_ENABLED:-false}"
+env_vars+="#PLANT_CONDITION_AI_MODEL=${VERDERY_PLANT_CONDITION_AI_MODEL:-unset}"
+
 # Browser CORS for the deployed web client (Phase 8 web deployment stage).
 #
 # P8-NET-01: an environment with a custom domain states its browser origin

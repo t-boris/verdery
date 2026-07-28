@@ -24,7 +24,15 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildTestApplication } from '../support/application.js';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
 import { startPostgresTestContainer } from '../support/postgres-container.js';
-import type { ApiError, Garden as GardenResource, Plant } from '@verdery/api-contracts';
+import { RegisterMediaRecord } from '../../src/modules/media/application/register-media-record.js';
+import { KyselyMediaUnitOfWork } from '../../src/modules/media/persistence/kysely-media-unit-of-work.js';
+import { KyselyIdempotencyStore } from '../../src/platform/idempotency/kysely-idempotency-store.js';
+import type {
+  ApiError,
+  Garden as GardenResource,
+  Plant,
+  PlantIdentification,
+} from '@verdery/api-contracts';
 import type {
   DatabaseGateway,
   DatabaseSchema,
@@ -42,6 +50,10 @@ function asGarden(response: InjectResponse): GardenResource {
 
 function asPlant(response: InjectResponse): Plant {
   return response.json<Plant>();
+}
+
+function asPlantIdentification(response: InjectResponse): PlantIdentification {
+  return response.json<PlantIdentification>();
 }
 
 function asError(response: InjectResponse): ApiError {
@@ -281,6 +293,112 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     expect(asPlant(transitioned)).toMatchObject({
       lifecycleStage: 'seedling',
       revision: updatedPlant.revision + 1,
+    });
+  });
+
+  it('404s a plant with no pending identification', async () => {
+    const { token, garden } = await createGardenAsOwner();
+    const added = await app.inject({
+      method: 'POST',
+      url: `/v1/gardens/${garden.id}/plants`,
+      headers: { ...bearer(token), 'idempotency-key': generateUuidV7() },
+      payload: { displayName: 'Basil', groupingKind: 'individual' },
+    });
+    const plant = asPlant(added);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/v1/gardens/${garden.id}/plants/${plant.id}/identification`,
+      headers: bearer(token),
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(asError(response).error.code).toBe('plants_inventory.plant.identification_not_found');
+  });
+
+  it('serves a pending identification suggestion over real HTTP, resolved taxonomy included', async () => {
+    const { token, garden } = await createGardenAsOwner();
+    const added = await app.inject({
+      method: 'POST',
+      url: `/v1/gardens/${garden.id}/plants`,
+      headers: { ...bearer(token), 'idempotency-key': generateUuidV7() },
+      payload: { displayName: 'Unidentified plant', groupingKind: 'individual' },
+    });
+    const plant = asPlant(added);
+
+    // No route exposes a media record's owning profile id, so this looks it
+    // up the same way `plants-inventory-photos-identification.test.ts`'s own
+    // `registerMedia` helper does: through the owner's real membership row.
+    const membership = await db
+      .selectFrom('collaboration.membership')
+      .select('profile_id')
+      .where('garden_id', '=', garden.id)
+      .where('role', '=', 'owner')
+      .executeTakeFirstOrThrow();
+    const clock = { now: () => new Date() };
+    const registerMediaRecord = new RegisterMediaRecord(
+      new KyselyIdempotencyStore(db, clock),
+      new KyselyMediaUnitOfWork(db, clock),
+      clock,
+    );
+    const media = await registerMediaRecord.execute(
+      membership.profile_id,
+      {
+        mediaClass: 'garden_photo',
+        displayFilename: 'plant.jpg',
+        declaredContentType: 'image/jpeg',
+        declaredByteSize: 123_456,
+      },
+      generateUuidV7(),
+    );
+    await db
+      .updateTable('media.media_record')
+      .set({ garden_id: garden.id, upload_state: 'available' })
+      .where('id', '=', media.id)
+      .execute();
+
+    const plantPhotoId = generateUuidV7();
+    await db
+      .insertInto('plants_inventory.plant_photo')
+      .values({ id: plantPhotoId, plant_id: plant.id, media_id: media.id, is_primary: true })
+      .execute();
+    const taxonomyId = generateUuidV7();
+    await db
+      .insertInto('plants_inventory.taxonomy_reference')
+      .values({
+        id: taxonomyId,
+        scientific_name: 'Ocimum basilicum',
+        common_name: 'Basil',
+        variety_name: null,
+        source: 'system_catalog',
+        created_by_profile_id: null,
+      })
+      .execute();
+    const identificationId = generateUuidV7();
+    await db
+      .insertInto('plants_inventory.plant_identification')
+      .values({
+        id: identificationId,
+        plant_id: plant.id,
+        plant_photo_id: plantPhotoId,
+        suggested_taxonomy_id: taxonomyId,
+        confidence_score: 0.81,
+      })
+      .execute();
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/v1/gardens/${garden.id}/plants/${plant.id}/identification`,
+      headers: bearer(token),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(asPlantIdentification(response)).toMatchObject({
+      id: identificationId,
+      plantId: plant.id,
+      plantPhotoId,
+      confidenceScore: 0.81,
+      suggestedTaxonomy: { id: taxonomyId, scientificName: 'Ocimum basilicum', commonName: 'Basil' },
     });
   });
 });

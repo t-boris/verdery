@@ -30,7 +30,8 @@ struct PlantDetailViewModelTests {
     private func makeModel(
         gateway: FakePlantGateway,
         localStore: any LocalPlantStore = InMemoryPlantStore(),
-        plantId: String = "plant-1"
+        plantId: String = "plant-1",
+        withIdentification: Bool = false
     ) -> PlantDetailViewModel {
         PlantDetailViewModel(
             gardenId: "garden-1",
@@ -42,7 +43,10 @@ struct PlantDetailViewModelTests {
             movePlant: MovePlant(localStore: localStore, profileId: "profile-1"),
             searchTaxonomyReferences: SearchTaxonomyReferences(gateway: gateway),
             strings: LocalizedStrings(locale: Locale(identifier: "en_GB")),
-            attachPlantPhoto: AttachPlantPhoto(gateway: gateway, generateIdempotencyKey: { "fixed-key" })
+            attachPlantPhoto: AttachPlantPhoto(gateway: gateway, generateIdempotencyKey: { "fixed-key" }),
+            fetchPlantIdentification: withIdentification ? FetchPlantIdentification(gateway: gateway) : nil,
+            confirmPlantIdentification: withIdentification
+                ? ConfirmPlantIdentification(gateway: gateway, generateIdempotencyKey: { "fixed-key" }) : nil
         )
     }
 
@@ -421,5 +425,85 @@ struct PlantDetailViewModelTests {
         let model = makeModel(gateway: gateway)
 
         #expect(model.photoAttachment == nil)
+    }
+
+    // MARK: - Pending photo identification (ADR-0015)
+
+    @Test("load populates pendingIdentification when the gateway has one")
+    func loadPopulatesPendingIdentification() async {
+        let gateway = FakePlantGateway(plants: [plant()])
+        gateway.pendingIdentification = PlantIdentification(
+            id: "identification-1",
+            plantId: "plant-1",
+            plantPhotoId: "photo-1",
+            confidenceScore: 0.81,
+            createdAt: Date(timeIntervalSince1970: 0),
+            suggestedTaxonomy: PlantIdentificationSuggestion(
+                id: "tax-1", scientificName: "Ocimum basilicum", commonName: "Basil"
+            )
+        )
+        let model = makeModel(gateway: gateway, withIdentification: true)
+
+        await model.load()
+
+        #expect(model.pendingIdentification?.suggestedTaxonomy?.commonName == "Basil")
+    }
+
+    @Test("load leaves pendingIdentification nil without the capability wired in")
+    func loadLeavesPendingIdentificationNilByDefault() async {
+        let gateway = FakePlantGateway(plants: [plant()])
+        gateway.pendingIdentification = PlantIdentification(
+            id: "identification-1",
+            plantId: "plant-1",
+            plantPhotoId: "photo-1",
+            confidenceScore: 0.81,
+            createdAt: Date(timeIntervalSince1970: 0),
+            suggestedTaxonomy: nil
+        )
+        let model = makeModel(gateway: gateway)
+
+        await model.load()
+
+        #expect(model.pendingIdentification == nil)
+    }
+
+    @Test("confirmPendingIdentification confirms against the gateway and clears the pending suggestion")
+    func confirmPendingIdentificationSucceeds() async {
+        let gateway = FakePlantGateway(plants: [plant()])
+        gateway.pendingIdentification = PlantIdentification(
+            id: "identification-1",
+            plantId: "plant-1",
+            plantPhotoId: "photo-1",
+            confidenceScore: 0.81,
+            createdAt: Date(timeIntervalSince1970: 0),
+            suggestedTaxonomy: PlantIdentificationSuggestion(
+                id: "tax-1", scientificName: "Ocimum basilicum", commonName: "Basil"
+            )
+        )
+        let model = makeModel(gateway: gateway, withIdentification: true)
+        await model.load()
+        #expect(model.pendingIdentification != nil)
+
+        await model.confirmPendingIdentification()
+
+        #expect(model.pendingIdentification == nil)
+        #expect(model.actionErrorMessage == nil)
+        guard case let .loaded(summary) = model.state else {
+            Issue.record("Expected loaded state")
+            return
+        }
+        #expect(summary.revision == 2)
+    }
+
+    @Test("confirmPendingIdentification is a no-op without the capability wired in")
+    func confirmPendingIdentificationNoOpWithoutCapability() async {
+        let gateway = FakePlantGateway(plants: [plant()])
+        let model = makeModel(gateway: gateway)
+        await model.load()
+
+        await model.confirmPendingIdentification()
+
+        #expect(model.pendingIdentification == nil)
+        #expect(model.actionErrorMessage == nil)
     }
 }

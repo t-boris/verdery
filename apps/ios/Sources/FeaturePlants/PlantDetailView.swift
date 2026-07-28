@@ -53,6 +53,7 @@ public struct PlantDetailView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Metrics.space5) {
                     summaryCard(summary)
+                    identificationSection
                     stageSection(summary)
                     photoSection
                     editSection(summary)
@@ -138,6 +139,45 @@ public struct PlantDetailView: View {
                     Spacer(minLength: 0)
                 }
                 .lineLimit(1)
+            }
+        }
+    }
+
+    /// Shown only when `AddPlantFromPhoto` (ADR-0015) left a suggestion this
+    /// plant has not yet confirmed or dismissed — absent entirely otherwise,
+    /// the same "real, working affordance or nothing" rule `photoSection`
+    /// already follows for a `PlantDetailViewModel` built with no
+    /// `photoAttachment`. Only shown for a suggestion that named a real
+    /// candidate: confirming a "no confident match" identification has
+    /// nothing for the reader to act on here.
+    @ViewBuilder
+    private var identificationSection: some View {
+        if let identification = model.pendingIdentification, let suggestion = identification.suggestedTaxonomy {
+            VStack(alignment: .leading, spacing: Metrics.space2) {
+                SectionEyebrow(symbol: PlantSymbols.taxonomy, title: model.identificationSuggestedLabel)
+
+                SurfaceCard(tone: .accent) {
+                    VStack(alignment: .leading, spacing: Metrics.space2) {
+                        Text(model.identificationPendingBanner)
+                            .font(Typography.detail)
+                            .foregroundStyle(Palette.textMuted)
+                        Text(model.identificationSuggestionDisplayName(suggestion))
+                            .font(Typography.body.weight(.semibold))
+                            .accessibilityIdentifier("plants.detail.identification.suggestion")
+                        Text(
+                            "\(model.identificationConfidenceLabel): "
+                                + model.identificationConfidenceText(identification.confidenceScore)
+                        )
+                        .font(Typography.detail)
+                        .foregroundStyle(Palette.textMuted)
+
+                        Button(model.identificationConfirmButtonTitle) {
+                            Task { await model.confirmPendingIdentification() }
+                        }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .accessibilityIdentifier("plants.detail.identification.confirm")
+                    }
+                }
             }
         }
     }
