@@ -1,3 +1,4 @@
+import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 import { InMemoryProviderQuotaRepository, fixedClock } from './integrations-test-doubles.js';
 import { IdentifyPlantSpecies } from './identify-plant-species.js';
@@ -11,6 +12,10 @@ import type { PlantSpeciesIdentificationRequest } from './plant-species-identifi
 const NOW = new Date('2026-07-28T10:15:00Z');
 const PROVIDER_KEY = 'vertex-ai-plant-species';
 const REQUEST: PlantSpeciesIdentificationRequest = { photo: testPlantPhotoReference() };
+
+function silentLogger() {
+  return pino({ level: 'silent' });
+}
 
 function policy(
   overrides: Partial<PlantSpeciesIdentificationCallPolicy> = {},
@@ -26,7 +31,7 @@ function policy(
 describe('IdentifyPlantSpecies', () => {
   it('with no adapter (the kill-switch off), answers noProviderConfigured without consuming budget', async () => {
     const quotas = new InMemoryProviderQuotaRepository();
-    const identify = new IdentifyPlantSpecies(null, policy(), quotas, fixedClock(NOW));
+    const identify = new IdentifyPlantSpecies(null, policy(), quotas, fixedClock(NOW), silentLogger());
 
     const result = await identify.execute(REQUEST);
 
@@ -50,6 +55,7 @@ describe('IdentifyPlantSpecies', () => {
       policy(),
       new InMemoryProviderQuotaRepository(),
       fixedClock(NOW),
+      silentLogger(),
     );
 
     const result = await identify.execute(REQUEST);
@@ -72,6 +78,7 @@ describe('IdentifyPlantSpecies', () => {
       policy(),
       new InMemoryProviderQuotaRepository(),
       fixedClock(NOW),
+      silentLogger(),
     );
 
     const result = await identify.execute(REQUEST);
@@ -90,6 +97,7 @@ describe('IdentifyPlantSpecies', () => {
       policy({ quotaLimits: { maxCallsPerHour: 0, maxCallsPerDay: null } }),
       quotas,
       fixedClock(NOW),
+      silentLogger(),
     );
 
     const result = await identify.execute(REQUEST);
@@ -105,6 +113,7 @@ describe('IdentifyPlantSpecies', () => {
       policy({ callTimeoutMs: 5 }),
       new InMemoryProviderQuotaRepository(),
       fixedClock(NOW),
+      silentLogger(),
     );
 
     const result = await identify.execute(REQUEST);
@@ -122,6 +131,7 @@ describe('IdentifyPlantSpecies', () => {
       policy(),
       new InMemoryProviderQuotaRepository(),
       fixedClock(NOW),
+      silentLogger(),
     );
 
     const result = await identify.execute(REQUEST);

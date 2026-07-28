@@ -50,6 +50,7 @@ import type {
   TransactionalEmailConfiguration,
   WeatherConfiguration,
 } from './platform/configuration/configuration-schema.js';
+import type { FastifyBaseLogger } from 'fastify';
 import type { DatabaseGateway } from './platform/database/database-gateway.js';
 import type { CloudTasksInvocationVerifier } from './platform/tasks/cloud-tasks-invocation-verifier.js';
 import type { Clock } from './shared/time/clock.js';
@@ -91,6 +92,7 @@ export function composeIntegrations(
   plantConditionAnalysisAdapter: PlantConditionAnalysisProviderAdapter | null,
   transactionalEmail: TransactionalEmailConfiguration,
   cloudTasksInvocationVerifier: CloudTasksInvocationVerifier,
+  logger: FastifyBaseLogger,
 ): IntegrationsComposition {
   // `globalThis.fetch` is the platform's own HTTP client (Node 24,
   // ADR-0009); no HTTP dependency is added for one REST provider.
@@ -158,6 +160,7 @@ export function composeIntegrations(
     },
     providerQuotas,
     clock,
+    logger,
   );
   const analyzePlantCondition = new AnalyzePlantCondition(
     plantConditionAnalysisAdapter,

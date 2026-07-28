@@ -9,6 +9,7 @@
  */
 
 import type { Kysely } from 'kysely';
+import { pino } from 'pino';
 import {
   AnalyzePlantCondition,
   IdentifyPlantSpecies,
@@ -32,6 +33,7 @@ export function disabledPlantAiCallPolicies(
       },
       providerQuotas,
       clock,
+      pino({ level: 'silent' }),
     ),
     analyzePlantCondition: new AnalyzePlantCondition(
       null,

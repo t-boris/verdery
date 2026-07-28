@@ -17,6 +17,7 @@
  * Source: architecture/decisions/ADR-0015-phase10-redirect-plants-over-photo-capture.md.
  */
 
+import type { FastifyBaseLogger } from 'fastify';
 import { InternalError } from '../../../platform/errors/application-error.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import type {
@@ -70,6 +71,7 @@ export class IdentifyPlantSpecies {
     private readonly policy: PlantSpeciesIdentificationCallPolicy,
     private readonly providerQuotas: ProviderQuotaRepository,
     private readonly clock: Clock,
+    private readonly logger: FastifyBaseLogger,
   ) {
     if (!Number.isInteger(policy.callTimeoutMs) || policy.callTimeoutMs <= 0) {
       throw new InternalError(
@@ -105,10 +107,18 @@ export class IdentifyPlantSpecies {
       call = await withDeadline(this.policy.callTimeoutMs, (signal) =>
         adapter.identifySpecies(request, signal),
       );
-    } catch {
+    } catch (error) {
+      this.logger.warn(
+        { event: 'plant_species_ai.provider_failed', providerKey: this.policy.providerKey, error },
+        'Plant species identification provider call threw.',
+      );
       return { outcome: 'unavailable', reason: 'providerFailed' };
     }
     if (call.kind === 'timedOut') {
+      this.logger.warn(
+        { event: 'plant_species_ai.provider_timeout', providerKey: this.policy.providerKey },
+        'Plant species identification provider call timed out.',
+      );
       return { outcome: 'unavailable', reason: 'providerTimeout' };
     }
 
@@ -117,7 +127,16 @@ export class IdentifyPlantSpecies {
       model: adapter.identity.model,
       promptTemplateVersion: adapter.identity.promptTemplateVersion,
     };
-    return toResult(call.value, provenance);
+    const result = toResult(call.value, provenance);
+    this.logger.info(
+      {
+        event: 'plant_species_ai.result',
+        outcome: result.outcome,
+        model: adapter.identity.model,
+      },
+      'Plant species identification call resolved.',
+    );
+    return result;
   }
 }
 

@@ -1,3 +1,4 @@
+import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 import { ValidationError } from '../../../platform/errors/application-error.js';
 import {
@@ -85,6 +86,7 @@ function identifyPlantSpeciesWith(
     },
     new AlwaysAllowProviderQuotaRepository(),
     fixedClock(NOW),
+    pino({ level: 'silent' }),
   );
 }
 

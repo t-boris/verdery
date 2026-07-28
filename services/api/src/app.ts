@@ -228,6 +228,7 @@ export async function buildApplication(
     plantConditionAnalysisAdapter,
     configuration.transactionalEmail,
     cloudTasksInvocationVerifier,
+    logger,
   );
 
   // collaboration (P9B-API-01, P9C-PUBLISH-01, P9C-INVITE-01): organizations,
