@@ -1,5 +1,6 @@
 import CoreDesignSystem
 import CoreDomain
+import CoreMediaTransfer
 import PhotosUI
 import SwiftUI
 
@@ -13,6 +14,8 @@ import SwiftUI
 public struct PlantAddFromPhotoSheetView: View {
     @State private var model: PlantAddFromPhotoViewModel
     @State private var pickedPhotoItem: PhotosPickerItem?
+    @State private var isCameraPresented = false
+    @State private var isCameraPermissionDeniedShown = false
     let onFinish: (String?) -> Void
 
     public init(model: PlantAddFromPhotoViewModel, onFinish: @escaping (String?) -> Void) {
@@ -49,6 +52,18 @@ public struct PlantAddFromPhotoSheetView: View {
                     onFinish(plantId)
                 }
             }
+            .cameraCapture(isPresented: $isCameraPresented) { data, contentType in
+                Task { await model.pickPhoto(data: data, contentType: contentType) }
+            }
+        }
+    }
+
+    private func takePhoto() {
+        if CameraCapture.authorizationStatus == .denied {
+            isCameraPermissionDeniedShown = true
+        } else {
+            isCameraPermissionDeniedShown = false
+            isCameraPresented = true
         }
     }
 
@@ -87,8 +102,29 @@ public struct PlantAddFromPhotoSheetView: View {
 
             SurfaceCard {
                 VStack(alignment: .leading, spacing: Metrics.space3) {
+                    if CameraCapture.isAvailable {
+                        Button(action: takePhoto) {
+                            Label(model.takePhotoButtonTitle, systemImage: "camera.viewfinder")
+                                .font(Typography.body.weight(.medium))
+                                .foregroundStyle(Palette.accent)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, Metrics.space3)
+                                .background(
+                                    RoundedRectangle(cornerRadius: Metrics.radiusMedium, style: .continuous)
+                                        .fill(Tone.accent.quietFill)
+                                )
+                        }
+                        .accessibilityIdentifier("plants.addFromPhoto.takePhoto")
+
+                        if isCameraPermissionDeniedShown {
+                            InlineMessage(model.cameraPermissionDeniedMessage, tone: .info)
+                            Button(model.openSettingsButtonTitle) { CameraCapture.openSettings() }
+                                .accessibilityIdentifier("plants.addFromPhoto.openSettings")
+                        }
+                    }
+
                     PhotosPicker(selection: $pickedPhotoItem, matching: .images) {
-                        Label(pickTitle, systemImage: "camera.fill")
+                        Label(pickTitle, systemImage: "photo.on.rectangle")
                             .font(Typography.body.weight(.medium))
                             .foregroundStyle(Palette.accent)
                             .frame(maxWidth: .infinity)

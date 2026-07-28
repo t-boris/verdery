@@ -768,3 +768,7 @@
 "plants.identification.laterButton" = "Decide later";
 "plants.identification.confirmedMessage" = "Identification confirmed.";
 "plants.identification.pendingBanner" = "The AI suggested a species for this plant.";
+
+"media.capture.takePhotoButton" = "Take a photo";
+"media.capture.permissionDenied" = "Camera access is turned off. Enable it in Settings to take a photo.";
+"media.capture.openSettingsButton" = "Open Settings";

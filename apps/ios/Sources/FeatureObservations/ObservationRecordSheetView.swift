@@ -22,6 +22,8 @@ struct ObservationRecordSheetView: View {
     let onFinish: (Bool) -> Void
 
     @State private var pickedPhotoItem: PhotosPickerItem?
+    @State private var isCameraPresented = false
+    @State private var isCameraPermissionDeniedShown = false
     @FocusState private var isNoteFocused: Bool
 
     var body: some View {
@@ -66,6 +68,18 @@ struct ObservationRecordSheetView: View {
                 guard let newItem else { return }
                 Task { await loadAndAttach(newItem) }
             }
+            .cameraCapture(isPresented: $isCameraPresented) { data, contentType in
+                Task { await model.pickRecordPhoto(data: data, contentType: contentType) }
+            }
+        }
+    }
+
+    private func takePhoto() {
+        if CameraCapture.authorizationStatus == .denied {
+            isCameraPermissionDeniedShown = true
+        } else {
+            isCameraPermissionDeniedShown = false
+            isCameraPresented = true
         }
     }
 
@@ -84,8 +98,31 @@ struct ObservationRecordSheetView: View {
 
                 SurfaceCard {
                     VStack(alignment: .leading, spacing: Metrics.space3) {
+                        if CameraCapture.isAvailable {
+                            Button(action: takePhoto) {
+                                Label(model.takePhotoButtonTitle, systemImage: "camera.viewfinder")
+                                    .font(Typography.body.weight(.medium))
+                                    .foregroundStyle(Palette.accent)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, Metrics.space3)
+                                    .background(
+                                        RoundedRectangle(
+                                            cornerRadius: Metrics.radiusMedium, style: .continuous
+                                        )
+                                        .fill(Tone.accent.quietFill)
+                                    )
+                            }
+                            .accessibilityIdentifier("observations.record.photo.takePhoto")
+
+                            if isCameraPermissionDeniedShown {
+                                InlineMessage(model.cameraPermissionDeniedMessage, tone: .info)
+                                Button(model.openSettingsButtonTitle) { CameraCapture.openSettings() }
+                                    .accessibilityIdentifier("observations.record.photo.openSettings")
+                            }
+                        }
+
                         PhotosPicker(selection: $pickedPhotoItem, matching: .images) {
-                            Label(pickTitle, systemImage: "camera.fill")
+                            Label(pickTitle, systemImage: "photo.on.rectangle")
                                 .font(Typography.body.weight(.medium))
                                 .foregroundStyle(Palette.accent)
                                 .frame(maxWidth: .infinity)

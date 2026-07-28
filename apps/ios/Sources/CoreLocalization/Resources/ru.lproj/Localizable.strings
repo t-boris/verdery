@@ -767,3 +767,7 @@
 "plants.identification.laterButton" = "Решить позже";
 "plants.identification.confirmedMessage" = "Определение подтверждено.";
 "plants.identification.pendingBanner" = "ИИ предложил вид для этого растения.";
+
+"media.capture.takePhotoButton" = "Сделать фото";
+"media.capture.permissionDenied" = "Доступ к камере отключён. Включите его в настройках, чтобы сделать фото.";
+"media.capture.openSettingsButton" = "Открыть настройки";

@@ -121,6 +121,9 @@ public final class ObservationsTimelineViewModel {
     public var photoPickButtonTitle: String { strings(.mediaAttachPickButton) }
     public var photoRetryButtonTitle: String { strings(.mediaAttachRetryButton) }
     public var photoRemoveButtonTitle: String { strings(.mediaAttachRemoveButton) }
+    public var takePhotoButtonTitle: String { strings(.mediaCaptureTakePhotoButton) }
+    public var cameraPermissionDeniedMessage: String { strings(.mediaCapturePermissionDeniedMessage) }
+    public var openSettingsButtonTitle: String { strings(.mediaCaptureOpenSettingsButton) }
     /// See `FeaturePlants.PlantDetailViewModel.photoStatusText`'s identical
     /// doc comment.
     public var photoStatusText: String {

@@ -73,6 +73,9 @@ public final class PlantAddFromPhotoViewModel {
     public var pickButtonTitle: String { strings(.mediaAttachPickButton) }
     public var retryButtonTitle: String { strings(.mediaAttachRetryButton) }
     public var removeButtonTitle: String { strings(.mediaAttachRemoveButton) }
+    public var takePhotoButtonTitle: String { strings(.mediaCaptureTakePhotoButton) }
+    public var cameraPermissionDeniedMessage: String { strings(.mediaCapturePermissionDeniedMessage) }
+    public var openSettingsButtonTitle: String { strings(.mediaCaptureOpenSettingsButton) }
     public var submittingMessage: String { strings(.plantsAddFromPhotoSubmitting) }
     public var suggestedLabel: String { strings(.plantsIdentificationSuggestedLabel) }
     public var noConfidentMatchMessage: String { strings(.plantsIdentificationNoConfidentMatch) }

@@ -88,14 +88,19 @@ targets:
         # here answers the export-compliance question once, at build time,
         # instead of prompting a human on every single TestFlight upload.
         ITSAppUsesNonExemptEncryption: false
-        # NOTE — deliberately absent: NSPhotoLibraryUsageDescription and
-        # NSCameraUsageDescription. Photo selection goes exclusively through
-        # SwiftUI's `PhotosPicker`, which runs out of process and grants this
-        # app no photo-library access at all, and no camera API is used
-        # anywhere (verified across Sources/). Declaring a purpose string for
-        # access the app never takes would be a false statement to the
-        # reviewer, so neither key is present. Add one the day a direct
-        # `Photos`/`AVCapture` path is introduced.
+        # NSPhotoLibraryUsageDescription stays absent: library selection goes
+        # exclusively through SwiftUI's `PhotosPicker`, which runs out of
+        # process and grants this app no photo-library access at all —
+        # declaring a purpose string for access the app never takes would be
+        # a false statement to the reviewer.
+        #
+        # NSCameraUsageDescription IS now required: `CoreMediaTransfer
+        # .CameraCapturePicker` (`UIImagePickerController(sourceType:
+        # .camera)`) lets a user photograph a plant directly instead of only
+        # picking an existing library photo, at all three photo-attach
+        # points (add-plant-from-photo, plant-detail attach-photo,
+        # observation-record photo).
+        NSCameraUsageDescription: "Verdery uses the camera so you can photograph a plant to identify it or add it to your garden records."
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         # All four, including upside-down. An iPad app that does not set

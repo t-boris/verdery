@@ -158,6 +158,9 @@ public final class PlantDetailViewModel {
     public var photoPickButtonTitle: String { strings(.mediaAttachPickButton) }
     public var photoRetryButtonTitle: String { strings(.mediaAttachRetryButton) }
     public var photoRemoveButtonTitle: String { strings(.mediaAttachRemoveButton) }
+    public var takePhotoButtonTitle: String { strings(.mediaCaptureTakePhotoButton) }
+    public var cameraPermissionDeniedMessage: String { strings(.mediaCapturePermissionDeniedMessage) }
+    public var openSettingsButtonTitle: String { strings(.mediaCaptureOpenSettingsButton) }
 
     /// Localized text for the current photo-attachment status — a thin
     /// wrapper over `CoreMediaTransfer.PhotoAttachmentStatusLocalization` so

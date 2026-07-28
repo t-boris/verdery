@@ -77,6 +77,14 @@ public struct LocalizedStrings: Sendable {
         string(forKey: key.rawValue)
     }
 
+    /// The same resolution for the live camera-capture affordance's own key
+    /// set, shared across every photo-attach point. See
+    /// ``MediaCaptureLocalizationKey`` for why this is yet another key set
+    /// rather than more cases somewhere existing.
+    public func callAsFunction(_ key: MediaCaptureLocalizationKey) -> String {
+        string(forKey: key.rawValue)
+    }
+
     /// Every key any of the application's key sets declares.
     ///
     /// Exposed so catalogue completeness stays one check over one list rather
@@ -90,6 +98,7 @@ public struct LocalizedStrings: Sendable {
         + SeasonalPlanLocalizationKey.allCases.map(\.rawValue)
         + GardenContextLocalizationKey.allCases.map(\.rawValue)
         + PlantIdentificationLocalizationKey.allCases.map(\.rawValue)
+        + MediaCaptureLocalizationKey.allCases.map(\.rawValue)
 
     /// Resolves an arbitrary key, used for codes that originate in Core.
     ///
