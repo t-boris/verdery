@@ -98,7 +98,11 @@ export class AnalyzePlantCondition {
       );
     } catch (error) {
       this.logger.warn(
-        { event: 'plant_condition_ai.provider_failed', providerKey: this.policy.providerKey, error },
+        {
+          event: 'plant_condition_ai.provider_failed',
+          providerKey: this.policy.providerKey,
+          error,
+        },
         'Plant condition analysis provider call threw.',
       );
       return { outcome: 'unavailable', reason: 'providerFailed' };
@@ -122,9 +126,12 @@ export class AnalyzePlantCondition {
         event: 'plant_condition_ai.result',
         outcome: result.outcome,
         model: adapter.identity.model,
-        suggestedLabel: result.outcome === 'observation' ? result.observation.suggestedLabel : undefined,
-        confidenceScore: result.outcome === 'observation' ? result.observation.confidenceScore : undefined,
-        rawText: result.outcome === 'schemaInvalid' ? (result.rawText?.slice(0, 2000) ?? null) : undefined,
+        suggestedLabel:
+          result.outcome === 'observation' ? result.observation.suggestedLabel : undefined,
+        confidenceScore:
+          result.outcome === 'observation' ? result.observation.confidenceScore : undefined,
+        rawText:
+          result.outcome === 'schemaInvalid' ? (result.rawText?.slice(0, 2000) ?? null) : undefined,
       },
       'Plant condition analysis call resolved.',
     );

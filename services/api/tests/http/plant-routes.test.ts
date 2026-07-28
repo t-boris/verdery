@@ -398,7 +398,11 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       plantId: plant.id,
       plantPhotoId,
       confidenceScore: 0.81,
-      suggestedTaxonomy: { id: taxonomyId, scientificName: 'Ocimum basilicum', commonName: 'Basil' },
+      suggestedTaxonomy: {
+        id: taxonomyId,
+        scientificName: 'Ocimum basilicum',
+        commonName: 'Basil',
+      },
     });
   });
 

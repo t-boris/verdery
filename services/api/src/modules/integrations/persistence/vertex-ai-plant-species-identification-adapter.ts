@@ -71,7 +71,7 @@ const SYSTEM_INSTRUCTION =
   '- If you can also identify a specific variety or cultivar distinct from the species itself' +
   ' (e.g. "Cherry Tomato" rather than plain "Tomato"), report it in varietyGuess — leave it empty' +
   ' when you see nothing more specific than the species.\n' +
-  '- If the photo clearly shows the plant\'s growth stage, set lifecycleStageConfident to true and' +
+  "- If the photo clearly shows the plant's growth stage, set lifecycleStageConfident to true and" +
   ' lifecycleStageGuess to the single best match. Set lifecycleStageConfident to false — and do not' +
   ' guess a stage — when the photo is unclear, or growth stage does not meaningfully apply to what' +
   ' you see (e.g. a mature tree or shrub).\n' +

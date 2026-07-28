@@ -77,7 +77,11 @@ export function PlantDetail({ gardenId, plantId }: PlantDetailProps) {
   const suggestedCareGuidanceNote = identification.data?.suggestedCareGuidanceNote ?? null;
 
   const onConfirmPending = () => {
-    if (identification.data === null || identification.data === undefined || !hasConfirmableSuggestion) {
+    if (
+      identification.data === null ||
+      identification.data === undefined ||
+      !hasConfirmableSuggestion
+    ) {
       return;
     }
     confirmIdentification.mutate({
@@ -108,39 +112,48 @@ export function PlantDetail({ gardenId, plantId }: PlantDetailProps) {
         {plant.taxonomyReferenceId === null && <span>{t('plants.taxonomyNone')}</span>}
       </div>
 
-      {hasConfirmableSuggestion && identification.data !== null && identification.data !== undefined && (
-        <Alert tone="info" title={t('plants.identificationPendingBanner')}>
-          <p>
-            {pendingSuggestion !== null
-              ? suggestionLabel(pendingSuggestion)
-              : rawSuggestionLabel(rawSuggestedCommonName as string, identification.data.suggestedScientificName)}
-          </p>
-          {pendingSuggestion === null && <p>{t('plants.identificationUnlistedNote')}</p>}
-          <p>
-            {`${t('plants.identificationConfidenceLabel')}: ${t('plants.identificationConfidenceValue', { percent: Math.round(identification.data.confidenceScore * 100) })}`}
-          </p>
-          {suggestedVarietyLabel !== null && (
-            <p>{`${t('plants.identificationVarietyLabel')}: ${suggestedVarietyLabel}`}</p>
-          )}
-          {suggestedLifecycleStage !== null && (
+      {hasConfirmableSuggestion &&
+        identification.data !== null &&
+        identification.data !== undefined && (
+          <Alert tone="info" title={t('plants.identificationPendingBanner')}>
             <p>
-              {`${t('plants.identificationGrowthStageLabel')}: ${t(lifecycleStageLabel(suggestedLifecycleStage))}`}
+              {pendingSuggestion !== null
+                ? suggestionLabel(pendingSuggestion)
+                : rawSuggestionLabel(
+                    rawSuggestedCommonName as string,
+                    identification.data.suggestedScientificName,
+                  )}
             </p>
-          )}
-          {suggestedConditionNote !== null && (
-            <p>{`${t('plants.identificationConditionLabel')}: ${suggestedConditionNote}`}</p>
-          )}
-          {suggestedCareGuidanceNote !== null && (
-            <p>{`${t('plants.identificationCareGuidanceLabel')}: ${suggestedCareGuidanceNote}`}</p>
-          )}
-          <Button variant="primary" busy={confirmIdentification.isPending} onClick={onConfirmPending}>
-            {t('plants.identificationConfirm')}
-          </Button>
-          {confirmIdentification.isError && (
-            <FailureAlert failure={confirmIdentification.error.failure} />
-          )}
-        </Alert>
-      )}
+            {pendingSuggestion === null && <p>{t('plants.identificationUnlistedNote')}</p>}
+            <p>
+              {`${t('plants.identificationConfidenceLabel')}: ${t('plants.identificationConfidenceValue', { percent: Math.round(identification.data.confidenceScore * 100) })}`}
+            </p>
+            {suggestedVarietyLabel !== null && (
+              <p>{`${t('plants.identificationVarietyLabel')}: ${suggestedVarietyLabel}`}</p>
+            )}
+            {suggestedLifecycleStage !== null && (
+              <p>
+                {`${t('plants.identificationGrowthStageLabel')}: ${t(lifecycleStageLabel(suggestedLifecycleStage))}`}
+              </p>
+            )}
+            {suggestedConditionNote !== null && (
+              <p>{`${t('plants.identificationConditionLabel')}: ${suggestedConditionNote}`}</p>
+            )}
+            {suggestedCareGuidanceNote !== null && (
+              <p>{`${t('plants.identificationCareGuidanceLabel')}: ${suggestedCareGuidanceNote}`}</p>
+            )}
+            <Button
+              variant="primary"
+              busy={confirmIdentification.isPending}
+              onClick={onConfirmPending}
+            >
+              {t('plants.identificationConfirm')}
+            </Button>
+            {confirmIdentification.isError && (
+              <FailureAlert failure={confirmIdentification.error.failure} />
+            )}
+          </Alert>
+        )}
 
       <Alert tone="info" title={t('plants.mediaGapTitle')}>
         <p>{t('plants.mediaGapDescription')}</p>

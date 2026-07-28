@@ -76,7 +76,9 @@ const PHOTO_LIFECYCLE_STAGE_GUESSES: ReadonlySet<string> = new Set([
 ]);
 
 function toLifecycleStage(guess: string | null): LifecycleStage | null {
-  return guess !== null && PHOTO_LIFECYCLE_STAGE_GUESSES.has(guess) ? (guess as LifecycleStage) : null;
+  return guess !== null && PHOTO_LIFECYCLE_STAGE_GUESSES.has(guess)
+    ? (guess as LifecycleStage)
+    : null;
 }
 
 /** The catalog is searched by only the top-1 trigram match — a further, lower-ranked match is never a better guess than the model's own top name candidate. */

@@ -220,7 +220,9 @@ describe('AddPlantFromPhotoPanel — reviewing', () => {
 
     expect(screen.getByText('Fraxinus pennsylvanica (Green ash)')).toBeTruthy();
     expect(
-      screen.getByText("Not in the plant catalog yet — confirming will use this as the plant's name."),
+      screen.getByText(
+        "Not in the plant catalog yet — confirming will use this as the plant's name.",
+      ),
     ).toBeTruthy();
     expect(screen.getByText('Confidence: 88%')).toBeTruthy();
 
@@ -244,7 +246,11 @@ describe('AddPlantFromPhotoPanel — reviewing', () => {
         plantPhotoId: 'photo-1',
         confidenceScore: 0.9,
         createdAt: '2026-07-21T09:00:00Z',
-        suggestedTaxonomy: { id: 'tax-1', scientificName: 'Solanum lycopersicum', commonName: 'Tomato' },
+        suggestedTaxonomy: {
+          id: 'tax-1',
+          scientificName: 'Solanum lycopersicum',
+          commonName: 'Tomato',
+        },
         suggestedVarietyLabel: 'Roma',
         suggestedLifecycleStage: 'flowering',
         suggestedConditionNote: 'Leaves show mild water stress',

@@ -139,7 +139,8 @@ export class IdentifyPlantSpecies {
         rawText:
           result.outcome === 'schemaInvalid' ? (result.rawText?.slice(0, 2000) ?? null) : undefined,
         commonName: result.outcome === 'candidate' ? result.candidate.commonName : undefined,
-        confidenceScore: result.outcome === 'candidate' ? result.candidate.confidenceScore : undefined,
+        confidenceScore:
+          result.outcome === 'candidate' ? result.candidate.confidenceScore : undefined,
       },
       'Plant species identification call resolved.',
     );

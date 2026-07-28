@@ -408,7 +408,17 @@ describe('confirmPlantIdentification', () => {
   it('rejects a blank raw name guess when there is no catalog row to link', () => {
     const plant = individualPlant();
     expect(() =>
-      confirmPlantIdentification(plant, null, '   ', null, null, null, null, IDENTIFICATION_ID, LATER),
+      confirmPlantIdentification(
+        plant,
+        null,
+        '   ',
+        null,
+        null,
+        null,
+        null,
+        IDENTIFICATION_ID,
+        LATER,
+      ),
     ).toThrow(ValidationError);
   });
 

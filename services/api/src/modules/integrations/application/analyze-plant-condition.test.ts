@@ -34,7 +34,13 @@ function silentLogger() {
 describe('AnalyzePlantCondition', () => {
   it('with no adapter (the kill-switch off), answers noProviderConfigured without consuming budget', async () => {
     const quotas = new InMemoryProviderQuotaRepository();
-    const analyze = new AnalyzePlantCondition(null, policy(), quotas, fixedClock(NOW), silentLogger());
+    const analyze = new AnalyzePlantCondition(
+      null,
+      policy(),
+      quotas,
+      fixedClock(NOW),
+      silentLogger(),
+    );
 
     const result = await analyze.execute(REQUEST);
 

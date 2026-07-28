@@ -31,7 +31,13 @@ function policy(
 describe('IdentifyPlantSpecies', () => {
   it('with no adapter (the kill-switch off), answers noProviderConfigured without consuming budget', async () => {
     const quotas = new InMemoryProviderQuotaRepository();
-    const identify = new IdentifyPlantSpecies(null, policy(), quotas, fixedClock(NOW), silentLogger());
+    const identify = new IdentifyPlantSpecies(
+      null,
+      policy(),
+      quotas,
+      fixedClock(NOW),
+      silentLogger(),
+    );
 
     const result = await identify.execute(REQUEST);
 
@@ -69,12 +75,12 @@ describe('IdentifyPlantSpecies', () => {
     expect(result).toEqual({
       outcome: 'candidate',
       candidate: {
-            commonName: 'Tomato',
-            scientificNameGuess: null,
-            confidenceScore: 0.8,
-            varietyGuess: null,
-            lifecycleStageGuess: null,
-          },
+        commonName: 'Tomato',
+        scientificNameGuess: null,
+        confidenceScore: 0.8,
+        varietyGuess: null,
+        lifecycleStageGuess: null,
+      },
       provenance: { providerKey: PROVIDER_KEY, model: 'gemini-test', promptTemplateVersion: 2 },
     });
     expect(adapter.callCount).toBe(1);

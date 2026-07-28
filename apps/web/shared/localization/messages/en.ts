@@ -477,7 +477,8 @@ export const englishMessages = {
   'plants.identificationConfirm': 'Confirm',
   'plants.identificationLater': 'Decide later',
   'plants.identificationPendingBanner': 'The AI suggested a species for this plant.',
-  'plants.identificationUnlistedNote': "Not in the plant catalog yet — confirming will use this as the plant's name.",
+  'plants.identificationUnlistedNote':
+    "Not in the plant catalog yet — confirming will use this as the plant's name.",
   'plants.identificationVarietyLabel': 'Variety',
   'plants.identificationGrowthStageLabel': 'Growth stage',
   'plants.identificationConditionLabel': 'Condition',

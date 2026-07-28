@@ -139,9 +139,11 @@ export class AddPlantFromPhoto {
           photo: photoReference,
           priorPhotos: [],
         });
-        const conditionNote = condition.outcome === 'observation' ? condition.observation.suggestedLabel : null;
+        const conditionNote =
+          condition.outcome === 'observation' ? condition.observation.suggestedLabel : null;
         const careGuidanceNote =
-          condition.outcome === 'observation' && condition.observation.careGuidanceSuggestion.length > 0
+          condition.outcome === 'observation' &&
+          condition.observation.careGuidanceSuggestion.length > 0
             ? condition.observation.careGuidanceSuggestion
             : null;
 

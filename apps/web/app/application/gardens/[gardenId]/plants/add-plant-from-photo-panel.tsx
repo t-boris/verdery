@@ -177,7 +177,9 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
                     : t('plants.identificationNoConfidentMatch')}
               </p>
               {suggestedTaxonomy === null && rawSuggestedCommonName !== null && (
-                <p className={styles['suggestionConfidence']}>{t('plants.identificationUnlistedNote')}</p>
+                <p className={styles['suggestionConfidence']}>
+                  {t('plants.identificationUnlistedNote')}
+                </p>
               )}
               {hasConfirmableSuggestion && identification.data !== null && (
                 <p className={styles['suggestionConfidence']}>
@@ -208,7 +210,11 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
 
             <div className={styles['actions']}>
               {hasConfirmableSuggestion && (
-                <Button variant="primary" busy={confirmIdentification.isPending} onClick={onConfirm}>
+                <Button
+                  variant="primary"
+                  busy={confirmIdentification.isPending}
+                  onClick={onConfirm}
+                >
                   {t('plants.identificationConfirm')}
                 </Button>
               )}
@@ -260,7 +266,9 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
             disabled={!isOnline}
             onChange={onFileChange}
           />
-          {validationError !== null && <p className={styles['validationError']}>{validationError}</p>}
+          {validationError !== null && (
+            <p className={styles['validationError']}>{validationError}</p>
+          )}
         </div>
       )}
 
@@ -305,7 +313,9 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
 
       {upload.phase === 'uploadFailed' && upload.uploadFailureReason !== null && (
         <div className={styles['failure']}>
-          <p className={styles['statusLine']}>{t(uploadFailureReasonLabel(upload.uploadFailureReason))}</p>
+          <p className={styles['statusLine']}>
+            {t(uploadFailureReasonLabel(upload.uploadFailureReason))}
+          </p>
           {upload.retryable && (
             <Button variant="primary" disabled={!isOnline} onClick={upload.retry}>
               {t('media.retry')}
