@@ -191,6 +191,10 @@ public struct PlantAddFromPhotoSheetView: View {
                             .foregroundStyle(Palette.textMuted)
                             .accessibilityIdentifier("plants.addFromPhoto.noMatch")
                     }
+
+                    if let identification {
+                        suggestionDetailRows(identification)
+                    }
                 }
             }
 
@@ -205,6 +209,38 @@ public struct PlantAddFromPhotoSheetView: View {
             Button(model.laterButtonTitle) { model.decideLater() }
                 .accessibilityIdentifier("plants.addFromPhoto.later")
         }
+    }
+
+    /// Variety, growth stage, condition, and care-guidance guesses, shown
+    /// alongside the name suggestion above when present — supplementary
+    /// display only, never a condition for whether Confirm is enabled
+    /// (`hasConfirmableSuggestion` stays keyed on taxonomy/common-name
+    /// presence).
+    @ViewBuilder
+    private func suggestionDetailRows(_ identification: PlantIdentification) -> some View {
+        if let variety = identification.suggestedVarietyLabel {
+            detailRow(model.varietyLabel, variety, identifier: "plants.addFromPhoto.variety")
+        }
+        if let stage = identification.suggestedLifecycleStage {
+            detailRow(model.growthStageLabel, model.growthStageName(stage), identifier: "plants.addFromPhoto.growthStage")
+        }
+        if let condition = identification.suggestedConditionNote {
+            detailRow(model.conditionLabel, condition, identifier: "plants.addFromPhoto.condition")
+        }
+        if let careGuidance = identification.suggestedCareGuidanceNote {
+            detailRow(model.careGuidanceLabel, careGuidance, identifier: "plants.addFromPhoto.careGuidance")
+        }
+    }
+
+    private func detailRow(_ label: String, _ value: String, identifier: String) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.space1) {
+            Text(label)
+                .font(Typography.detail)
+                .foregroundStyle(Palette.textMuted)
+            Text(value)
+                .font(Typography.body)
+        }
+        .accessibilityIdentifier(identifier)
     }
 
     private func loadAndAttach(_ item: PhotosPickerItem) async {

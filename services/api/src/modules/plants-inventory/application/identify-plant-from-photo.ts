@@ -36,6 +36,7 @@
 import type { FastifyBaseLogger } from 'fastify';
 import type { IdentifyPlantSpecies, PlantPhotoReference } from '../../integrations/public.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
+import type { LifecycleStage } from '../domain/plant-lifecycle.js';
 import type { TaxonomyReferenceRepository } from './taxonomy-reference-repository.js';
 
 export interface PhotoIdentificationSuggestion {
@@ -43,6 +44,8 @@ export interface PhotoIdentificationSuggestion {
   readonly confidenceScore: number;
   readonly suggestedCommonName: string | null;
   readonly suggestedScientificName: string | null;
+  readonly suggestedVarietyLabel: string | null;
+  readonly suggestedLifecycleStage: LifecycleStage | null;
 }
 
 const NO_SUGGESTION: PhotoIdentificationSuggestion = {
@@ -50,7 +53,31 @@ const NO_SUGGESTION: PhotoIdentificationSuggestion = {
   confidenceScore: 0,
   suggestedCommonName: null,
   suggestedScientificName: null,
+  suggestedVarietyLabel: null,
+  suggestedLifecycleStage: null,
 };
+
+/**
+ * `plants-inventory`'s own `LifecycleStage` values, excluding `'planned'` —
+ * the model's own response schema (`VertexAiPlantSpeciesIdentificationAdapter`)
+ * is separately constrained to never offer it, but this is the boundary
+ * where an untyped string from the `integrations` port (kept free of this
+ * module's types, see `PlantSpeciesCandidate`'s own doc comment) becomes a
+ * real, validated `LifecycleStage` — never trusted without this check.
+ */
+const PHOTO_LIFECYCLE_STAGE_GUESSES: ReadonlySet<string> = new Set([
+  'seed',
+  'seedling',
+  'transplanted',
+  'growing',
+  'flowering',
+  'fruiting',
+  'ready_to_harvest',
+]);
+
+function toLifecycleStage(guess: string | null): LifecycleStage | null {
+  return guess !== null && PHOTO_LIFECYCLE_STAGE_GUESSES.has(guess) ? (guess as LifecycleStage) : null;
+}
 
 /** The catalog is searched by only the top-1 trigram match — a further, lower-ranked match is never a better guess than the model's own top name candidate. */
 const TAXONOMY_MATCH_LIMIT = 1;
@@ -86,6 +113,8 @@ export async function identifyPlantFromPhoto(
       confidenceScore: result.candidate.confidenceScore,
       suggestedCommonName: result.candidate.commonName,
       suggestedScientificName: result.candidate.scientificNameGuess,
+      suggestedVarietyLabel: result.candidate.varietyGuess,
+      suggestedLifecycleStage: toLifecycleStage(result.candidate.lifecycleStageGuess),
     };
   }
 
@@ -94,5 +123,7 @@ export async function identifyPlantFromPhoto(
     confidenceScore: result.candidate.confidenceScore,
     suggestedCommonName: null,
     suggestedScientificName: null,
+    suggestedVarietyLabel: result.candidate.varietyGuess,
+    suggestedLifecycleStage: toLifecycleStage(result.candidate.lifecycleStageGuess),
   };
 }

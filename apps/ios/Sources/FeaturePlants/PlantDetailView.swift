@@ -200,6 +200,8 @@ public struct PlantDetailView: View {
                         .font(Typography.detail)
                         .foregroundStyle(Palette.textMuted)
 
+                        identificationDetailRows(identification)
+
                         Button(model.identificationConfirmButtonTitle) {
                             Task { await model.confirmPendingIdentification() }
                         }
@@ -209,6 +211,45 @@ public struct PlantDetailView: View {
                 }
             }
         }
+    }
+
+    /// Variety, growth stage, condition, and care-guidance guesses — the same
+    /// supplementary rows `PlantAddFromPhotoSheetView.suggestionDetailRows`
+    /// shows on the create-time review screen, so a suggestion left for
+    /// "later" reads identically here.
+    @ViewBuilder
+    private func identificationDetailRows(_ identification: PlantIdentification) -> some View {
+        if let variety = identification.suggestedVarietyLabel {
+            identificationDetailRow(model.identificationVarietyLabel, variety, identifier: "plants.detail.identification.variety")
+        }
+        if let stage = identification.suggestedLifecycleStage {
+            identificationDetailRow(
+                model.identificationGrowthStageLabel,
+                model.identificationGrowthStageName(stage),
+                identifier: "plants.detail.identification.growthStage"
+            )
+        }
+        if let condition = identification.suggestedConditionNote {
+            identificationDetailRow(model.identificationConditionLabel, condition, identifier: "plants.detail.identification.condition")
+        }
+        if let careGuidance = identification.suggestedCareGuidanceNote {
+            identificationDetailRow(
+                model.identificationCareGuidanceLabel,
+                careGuidance,
+                identifier: "plants.detail.identification.careGuidance"
+            )
+        }
+    }
+
+    private func identificationDetailRow(_ label: String, _ value: String, identifier: String) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.space1) {
+            Text(label)
+                .font(Typography.detail)
+                .foregroundStyle(Palette.textMuted)
+            Text(value)
+                .font(Typography.body)
+        }
+        .accessibilityIdentifier(identifier)
     }
 
     /// Lifecycle stage and status, as two rows of chips.

@@ -281,6 +281,7 @@ export function buildSyncTestHarness(db: Kysely<DatabaseSchema>, clock: Clock) {
     identifyPlantSpecies,
     new KyselyTaxonomyReferenceRepository(db),
     pino({ level: 'silent' }),
+    analyzePlantCondition,
   );
   const updatePlantDetails = new UpdatePlantDetails(
     plantRepository,

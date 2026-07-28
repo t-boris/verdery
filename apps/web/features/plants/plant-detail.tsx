@@ -71,6 +71,10 @@ export function PlantDetail({ gardenId, plantId }: PlantDetailProps) {
   const pendingSuggestion = identification.data?.suggestedTaxonomy ?? null;
   const rawSuggestedCommonName = identification.data?.suggestedCommonName ?? null;
   const hasConfirmableSuggestion = pendingSuggestion !== null || rawSuggestedCommonName !== null;
+  const suggestedVarietyLabel = identification.data?.suggestedVarietyLabel ?? null;
+  const suggestedLifecycleStage = identification.data?.suggestedLifecycleStage ?? null;
+  const suggestedConditionNote = identification.data?.suggestedConditionNote ?? null;
+  const suggestedCareGuidanceNote = identification.data?.suggestedCareGuidanceNote ?? null;
 
   const onConfirmPending = () => {
     if (identification.data === null || identification.data === undefined || !hasConfirmableSuggestion) {
@@ -115,6 +119,20 @@ export function PlantDetail({ gardenId, plantId }: PlantDetailProps) {
           <p>
             {`${t('plants.identificationConfidenceLabel')}: ${t('plants.identificationConfidenceValue', { percent: Math.round(identification.data.confidenceScore * 100) })}`}
           </p>
+          {suggestedVarietyLabel !== null && (
+            <p>{`${t('plants.identificationVarietyLabel')}: ${suggestedVarietyLabel}`}</p>
+          )}
+          {suggestedLifecycleStage !== null && (
+            <p>
+              {`${t('plants.identificationGrowthStageLabel')}: ${t(lifecycleStageLabel(suggestedLifecycleStage))}`}
+            </p>
+          )}
+          {suggestedConditionNote !== null && (
+            <p>{`${t('plants.identificationConditionLabel')}: ${suggestedConditionNote}`}</p>
+          )}
+          {suggestedCareGuidanceNote !== null && (
+            <p>{`${t('plants.identificationCareGuidanceLabel')}: ${suggestedCareGuidanceNote}`}</p>
+          )}
           <Button variant="primary" busy={confirmIdentification.isPending} onClick={onConfirmPending}>
             {t('plants.identificationConfirm')}
           </Button>

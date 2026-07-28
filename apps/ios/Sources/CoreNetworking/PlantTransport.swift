@@ -122,6 +122,10 @@ struct PlantIdentificationTransport: Codable {
     let suggestedTaxonomy: PlantIdentificationSuggestionTransport?
     let suggestedCommonName: String?
     let suggestedScientificName: String?
+    let suggestedVarietyLabel: String?
+    let suggestedLifecycleStage: PlantLifecycleStage?
+    let suggestedConditionNote: String?
+    let suggestedCareGuidanceNote: String?
 
     var domainValue: PlantIdentification {
         PlantIdentification(
@@ -132,7 +136,11 @@ struct PlantIdentificationTransport: Codable {
             createdAt: createdAt,
             suggestedTaxonomy: suggestedTaxonomy?.domainValue,
             suggestedCommonName: suggestedCommonName,
-            suggestedScientificName: suggestedScientificName
+            suggestedScientificName: suggestedScientificName,
+            suggestedVarietyLabel: suggestedVarietyLabel,
+            suggestedLifecycleStage: suggestedLifecycleStage,
+            suggestedConditionNote: suggestedConditionNote,
+            suggestedCareGuidanceNote: suggestedCareGuidanceNote
         )
     }
 }

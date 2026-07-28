@@ -769,6 +769,10 @@
 "plants.identification.confirmedMessage" = "Identification confirmed.";
 "plants.identification.pendingBanner" = "The AI suggested a species for this plant.";
 "plants.identification.unlistedNote" = "Not yet in the plant catalog — confirming will use this as the plant's name.";
+"plants.identification.varietyLabel" = "Variety";
+"plants.identification.growthStageLabel" = "Growth stage";
+"plants.identification.conditionLabel" = "Condition";
+"plants.identification.careGuidanceLabel" = "Care suggestion";
 
 "media.capture.takePhotoButton" = "Take a photo";
 "media.capture.permissionDenied" = "Camera access is turned off. Enable it in Settings to take a photo.";

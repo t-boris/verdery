@@ -11,6 +11,7 @@
  * mutual-exclusivity invariant with `suggestedTaxonomy`.
  */
 
+import type { LifecycleStage } from '../domain/plant-lifecycle.js';
 import type { PlantIdentification } from '../domain/plant-identification.js';
 import type { TaxonomyReference } from '../domain/taxonomy-reference.js';
 
@@ -27,6 +28,10 @@ export interface PlantIdentificationResource {
   } | null;
   readonly suggestedCommonName: string | null;
   readonly suggestedScientificName: string | null;
+  readonly suggestedVarietyLabel: string | null;
+  readonly suggestedLifecycleStage: LifecycleStage | null;
+  readonly suggestedConditionNote: string | null;
+  readonly suggestedCareGuidanceNote: string | null;
 }
 
 export function toPlantIdentificationResource(
@@ -49,5 +54,9 @@ export function toPlantIdentificationResource(
           },
     suggestedCommonName: identification.suggestedCommonName,
     suggestedScientificName: identification.suggestedScientificName,
+    suggestedVarietyLabel: identification.suggestedVarietyLabel,
+    suggestedLifecycleStage: identification.suggestedLifecycleStage,
+    suggestedConditionNote: identification.suggestedConditionNote,
+    suggestedCareGuidanceNote: identification.suggestedCareGuidanceNote,
   };
 }

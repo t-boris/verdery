@@ -328,6 +328,35 @@ struct PlantGatewayTests {
         #expect(identification.suggestedScientificName == "Fraxinus pennsylvanica")
         #expect(identification.hasConfirmableSuggestion)
     }
+
+    @Test("getPlantIdentification decodes the variety, growth-stage, condition, and care-guidance guesses")
+    func getPlantIdentificationDecodesDetailGuesses() async throws {
+        let identifier = "get-plant-identification-detail-guesses"
+        defer { StubURLProtocol.unregister(identifier) }
+
+        let identificationJSON = #"""
+            {
+              "id": "identification-4",
+              "plantId": "plant-1",
+              "plantPhotoId": "photo-1",
+              "confidenceScore": 0.9,
+              "createdAt": "2026-01-01T00:00:00.000Z",
+              "suggestedTaxonomy": {"id": "tax-1", "scientificName": "Solanum lycopersicum", "commonName": "Tomato"},
+              "suggestedVarietyLabel": "Roma",
+              "suggestedLifecycleStage": "flowering",
+              "suggestedConditionNote": "Leaves show mild water stress",
+              "suggestedCareGuidanceNote": "Water more consistently and check drainage."
+            }
+            """#
+        let gateway = makeGateway(identifier: identifier, answer: .json(200, identificationJSON))
+
+        let identification = try await gateway.getPlantIdentification(gardenId: "garden-1", plantId: "plant-1")
+
+        #expect(identification.suggestedVarietyLabel == "Roma")
+        #expect(identification.suggestedLifecycleStage == .flowering)
+        #expect(identification.suggestedConditionNote == "Leaves show mild water stress")
+        #expect(identification.suggestedCareGuidanceNote == "Water more consistently and check drainage.")
+    }
 }
 
 private struct FixedCorrelationIdentifierProvider: CorrelationIdentifierProvider {

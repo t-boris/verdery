@@ -61,7 +61,13 @@ describe('buildGenerateContentParameters', () => {
     expect(parameters.config?.responseMimeType).toBe('application/json');
     expect(parameters.config?.responseSchema).toMatchObject({
       type: Type.OBJECT,
-      required: ['kind', 'suggestedLabel', 'confidenceScore', 'requestedAdditionalEvidence'],
+      required: [
+        'kind',
+        'suggestedLabel',
+        'confidenceScore',
+        'requestedAdditionalEvidence',
+        'careGuidanceSuggestion',
+      ],
     });
   });
 
@@ -96,15 +102,17 @@ describe('buildGenerateContentParameters', () => {
     expect(instruction).toContain('"stress", "disease", "pest", or "other"');
     expect(instruction).toContain('Never state or imply whether the plant is edible, toxic');
     expect(instruction).toContain('Respond with JSON only');
-    expect(VERTEX_PLANT_CONDITION_PROMPT_TEMPLATE_VERSION).toBe(1);
+    expect(instruction).toContain('careGuidanceSuggestion');
+    expect(VERTEX_PLANT_CONDITION_PROMPT_TEMPLATE_VERSION).toBe(2);
   });
 });
 
 describe('parseResponse', () => {
-  it('parses a confident observation, trimming the label', () => {
+  it('parses a confident observation, trimming the label and the care guidance', () => {
     const outcome = parseResponse(
       textResponse(
-        '{"kind": "stress", "suggestedLabel": " Wilting leaves ", "confidenceScore": 0.7, "requestedAdditionalEvidence": false}',
+        '{"kind": "stress", "suggestedLabel": " Wilting leaves ", "confidenceScore": 0.7,' +
+          ' "requestedAdditionalEvidence": false, "careGuidanceSuggestion": " Water more consistently "}',
       ),
     );
     expect(outcome).toEqual({
@@ -114,6 +122,7 @@ describe('parseResponse', () => {
         suggestedLabel: 'Wilting leaves',
         confidenceScore: 0.7,
         requestedAdditionalEvidence: false,
+        careGuidanceSuggestion: 'Water more consistently',
       },
     });
   });
@@ -126,16 +135,16 @@ describe('parseResponse', () => {
   it.each([
     [
       'unknown kind',
-      '{"kind": "toxicity", "suggestedLabel": "x", "confidenceScore": 0.5, "requestedAdditionalEvidence": false}',
+      '{"kind": "toxicity", "suggestedLabel": "x", "confidenceScore": 0.5, "requestedAdditionalEvidence": false, "careGuidanceSuggestion": ""}',
     ],
     [
       'confidence out of range',
-      '{"kind": "pest", "suggestedLabel": "x", "confidenceScore": 2, "requestedAdditionalEvidence": false}',
+      '{"kind": "pest", "suggestedLabel": "x", "confidenceScore": 2, "requestedAdditionalEvidence": false, "careGuidanceSuggestion": ""}',
     ],
     ['missing fields', '{"kind": "pest"}'],
     [
       'unexpected extra field',
-      '{"kind": "pest", "suggestedLabel": "x", "confidenceScore": 0.5, "requestedAdditionalEvidence": false, "treatment": "spray"}',
+      '{"kind": "pest", "suggestedLabel": "x", "confidenceScore": 0.5, "requestedAdditionalEvidence": false, "careGuidanceSuggestion": "", "treatment": "spray"}',
     ],
   ])('rejects a schema violation — %s — as schemaInvalid', (_name, body) => {
     const outcome = parseResponse(textResponse(body));
@@ -165,7 +174,8 @@ describe('VertexAiPlantConditionAnalysisAdapter', () => {
           seen.push(params);
           return Promise.resolve(
             textResponse(
-              '{"kind": "disease", "suggestedLabel": "Leaf spot", "confidenceScore": 0.65, "requestedAdditionalEvidence": false}',
+              '{"kind": "disease", "suggestedLabel": "Leaf spot", "confidenceScore": 0.65,' +
+                ' "requestedAdditionalEvidence": false, "careGuidanceSuggestion": "Remove affected leaves"}',
             ),
           );
         },
@@ -182,6 +192,7 @@ describe('VertexAiPlantConditionAnalysisAdapter', () => {
         suggestedLabel: 'Leaf spot',
         confidenceScore: 0.65,
         requestedAdditionalEvidence: false,
+        careGuidanceSuggestion: 'Remove affected leaves',
       },
     });
     expect(seen[0]?.model).toBe('gemini-test-model');

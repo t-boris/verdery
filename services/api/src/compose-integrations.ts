@@ -174,6 +174,7 @@ export function composeIntegrations(
     },
     providerQuotas,
     clock,
+    logger,
   );
 
   const getGardenWeather = new GetGardenWeather(weatherRecords, freshnessPolicy, clock);

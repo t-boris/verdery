@@ -163,6 +163,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
         identifyPlantSpecies,
         new KyselyTaxonomyReferenceRepository(db),
         pino({ level: 'silent' }),
+        analyzePlantCondition,
       ),
       attachPlantPhoto: new AttachPlantPhoto(
         plantRepository,

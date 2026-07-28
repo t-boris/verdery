@@ -32,7 +32,7 @@ import type {
   PlantConditionModelIdentity,
 } from '../application/plant-condition-analysis-provider.js';
 
-export const VERTEX_PLANT_CONDITION_PROMPT_TEMPLATE_VERSION = 1;
+export const VERTEX_PLANT_CONDITION_PROMPT_TEMPLATE_VERSION = 2;
 
 const SYSTEM_INSTRUCTION =
   'You evaluate the condition of a garden plant across one or more photos of the SAME plant,' +
@@ -44,9 +44,12 @@ const SYSTEM_INSTRUCTION =
   ' nothing notable, or are not reasonably confident.\n' +
   '- Set requestedAdditionalEvidence to true when the photo is unclear, too far away, or does not' +
   ' show enough of the plant to judge — do not guess in that case.\n' +
+  '- If you have a general care suggestion (e.g. watering, light, pruning), report it in' +
+  ' careGuidanceSuggestion — leave it empty when you have nothing specific to add.\n' +
   '- Never state or imply whether the plant is edible, toxic, medicinal, or safe to touch or' +
   ' ingest, and never mention chemicals, pesticides, fertilizers, treatments, or dosages, even if' +
-  ' asked.\n' +
+  ' asked — this applies to careGuidanceSuggestion too, which may only ever suggest general' +
+  ' cultural care (watering, light, pruning), never a treatment or a dosage.\n' +
   '- Respond with JSON only, matching the response schema exactly.';
 
 const KNOWN_KINDS = ['stress', 'disease', 'pest', 'other'] as const;
@@ -57,6 +60,7 @@ const observationSchema = z
     suggestedLabel: z.string().transform((value) => value.trim()),
     confidenceScore: z.number().min(0).max(1),
     requestedAdditionalEvidence: z.boolean(),
+    careGuidanceSuggestion: z.string().transform((value) => value.trim()),
   })
   .strict();
 
@@ -138,12 +142,19 @@ export function buildGenerateContentParameters(
       responseMimeType: 'application/json',
       responseSchema: {
         type: Type.OBJECT,
-        required: ['kind', 'suggestedLabel', 'confidenceScore', 'requestedAdditionalEvidence'],
+        required: [
+          'kind',
+          'suggestedLabel',
+          'confidenceScore',
+          'requestedAdditionalEvidence',
+          'careGuidanceSuggestion',
+        ],
         properties: {
           kind: { type: Type.STRING, enum: [...KNOWN_KINDS] },
           suggestedLabel: { type: Type.STRING },
           confidenceScore: { type: Type.NUMBER },
           requestedAdditionalEvidence: { type: Type.BOOLEAN },
+          careGuidanceSuggestion: { type: Type.STRING },
         },
       },
       safetySettings: [
@@ -200,6 +211,7 @@ export function parseResponse(
       suggestedLabel: parsed.data.suggestedLabel,
       confidenceScore: parsed.data.confidenceScore,
       requestedAdditionalEvidence: parsed.data.requestedAdditionalEvidence,
+      careGuidanceSuggestion: parsed.data.careGuidanceSuggestion,
     },
   };
 }

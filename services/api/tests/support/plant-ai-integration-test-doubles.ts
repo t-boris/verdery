@@ -44,6 +44,7 @@ export function disabledPlantAiCallPolicies(
       },
       providerQuotas,
       clock,
+      pino({ level: 'silent' }),
     ),
   };
 }

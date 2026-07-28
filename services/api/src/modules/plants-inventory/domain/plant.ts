@@ -262,11 +262,24 @@ export function updatePlantDetails(plant: Plant, changes: PlantDetailsChanges, n
  * the only meaningful action confirming can take without a taxonomy row to
  * point to. A real catalog match (`taxonomyReferenceId !== null`) leaves
  * `displayName` untouched, exactly as before this capability existed.
+ *
+ * `suggestedVarietyLabel`/`suggestedConditionNote`/`suggestedCareGuidanceNote`/
+ * `suggestedLifecycleStage` each apply to the plant ONLY when it is still at
+ * its untouched creation default (`null`, or `'planned'` for lifecycle
+ * stage) — confirming fills in blanks, it never overwrites a value the
+ * owner already set by hand via `UpdatePlantDetails`/
+ * `TransitionPlantLifecycleStage` in the time since the plant was created
+ * (confirming a possibly-old pending suggestion must not clobber a manual
+ * edit made in the meantime).
  */
 export function confirmPlantIdentification(
   plant: Plant,
   taxonomyReferenceId: Uuid | null,
   suggestedCommonName: string | null,
+  suggestedVarietyLabel: string | null,
+  suggestedLifecycleStage: LifecycleStage | null,
+  suggestedConditionNote: string | null,
+  suggestedCareGuidanceNote: string | null,
   identificationId: Uuid,
   now: Date,
 ): Plant {
@@ -274,11 +287,31 @@ export function confirmPlantIdentification(
     taxonomyReferenceId === null && suggestedCommonName !== null
       ? validateDisplayName(suggestedCommonName)
       : plant.displayName;
+  const varietyLabel =
+    plant.varietyLabel === null && suggestedVarietyLabel !== null
+      ? suggestedVarietyLabel
+      : plant.varietyLabel;
+  const lifecycleStage =
+    plant.lifecycleStage === 'planned' && suggestedLifecycleStage !== null
+      ? suggestedLifecycleStage
+      : plant.lifecycleStage;
+  const conditionNote =
+    plant.conditionNote === null && suggestedConditionNote !== null
+      ? suggestedConditionNote
+      : plant.conditionNote;
+  const careGuidanceNote =
+    plant.careGuidanceNote === null && suggestedCareGuidanceNote !== null
+      ? suggestedCareGuidanceNote
+      : plant.careGuidanceNote;
 
   return {
     ...plant,
     displayName,
     taxonomyReferenceId,
+    varietyLabel,
+    lifecycleStage,
+    conditionNote,
+    careGuidanceNote,
     acceptedIdentificationId: identificationId,
     revision: plant.revision + 1,
     updatedAt: now,

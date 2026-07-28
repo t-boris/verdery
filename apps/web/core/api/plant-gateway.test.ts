@@ -229,6 +229,10 @@ describe('createPlantGateway', () => {
       },
       suggestedCommonName: null,
       suggestedScientificName: null,
+      suggestedVarietyLabel: null,
+      suggestedLifecycleStage: null,
+      suggestedConditionNote: null,
+      suggestedCareGuidanceNote: null,
     };
     const { gateway, recorded } = gatewayRecording(jsonResponse(identification, 200));
 
@@ -238,6 +242,37 @@ describe('createPlantGateway', () => {
       `${ORIGIN}/v1/gardens/${GARDEN_ID}/plants/${PLANT_ID}/identification`,
     );
     expect(result.ok && result.data.suggestedTaxonomy?.commonName).toBe('Basil');
+  });
+
+  it('gets a plant identification suggestion carrying the variety, growth-stage, condition, and care-guidance guesses', async () => {
+    const identification: PlantIdentification = {
+      id: PLANT_ID,
+      plantId: PLANT_ID,
+      plantPhotoId: PLANT_ID,
+      confidenceScore: 0.9,
+      createdAt: '2026-07-21T09:00:00Z',
+      suggestedTaxonomy: {
+        id: GARDEN_ID,
+        scientificName: 'Solanum lycopersicum',
+        commonName: 'Tomato',
+      },
+      suggestedCommonName: null,
+      suggestedScientificName: null,
+      suggestedVarietyLabel: 'Roma',
+      suggestedLifecycleStage: 'flowering',
+      suggestedConditionNote: 'Leaves show mild water stress',
+      suggestedCareGuidanceNote: 'Water more consistently and check drainage.',
+    };
+    const { gateway } = gatewayRecording(jsonResponse(identification, 200));
+
+    const result = await gateway.getIdentification(GARDEN_ID, PLANT_ID);
+
+    expect(result.ok && result.data.suggestedVarietyLabel).toBe('Roma');
+    expect(result.ok && result.data.suggestedLifecycleStage).toBe('flowering');
+    expect(result.ok && result.data.suggestedConditionNote).toBe('Leaves show mild water stress');
+    expect(result.ok && result.data.suggestedCareGuidanceNote).toBe(
+      'Water more consistently and check drainage.',
+    );
   });
 
   it('sends the stage in the body on transitionLifecycleStage', async () => {

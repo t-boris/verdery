@@ -12,6 +12,7 @@ import {
   uploadPhaseLabel,
 } from '@/features/media/public';
 import {
+  lifecycleStageLabel,
   useAddPlantFromPhoto,
   useConfirmPlantIdentification,
   usePlantIdentification,
@@ -147,6 +148,10 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
     const suggestedTaxonomy = identification.data?.suggestedTaxonomy ?? null;
     const rawSuggestedCommonName = identification.data?.suggestedCommonName ?? null;
     const hasConfirmableSuggestion = suggestedTaxonomy !== null || rawSuggestedCommonName !== null;
+    const suggestedVarietyLabel = identification.data?.suggestedVarietyLabel ?? null;
+    const suggestedLifecycleStage = identification.data?.suggestedLifecycleStage ?? null;
+    const suggestedConditionNote = identification.data?.suggestedConditionNote ?? null;
+    const suggestedCareGuidanceNote = identification.data?.suggestedCareGuidanceNote ?? null;
 
     return (
       <div>
@@ -177,6 +182,26 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
               {hasConfirmableSuggestion && identification.data !== null && (
                 <p className={styles['suggestionConfidence']}>
                   {`${t('plants.identificationConfidenceLabel')}: ${t('plants.identificationConfidenceValue', { percent: Math.round(identification.data.confidenceScore * 100) })}`}
+                </p>
+              )}
+              {suggestedVarietyLabel !== null && (
+                <p className={styles['suggestionDetailRow']}>
+                  {`${t('plants.identificationVarietyLabel')}: ${suggestedVarietyLabel}`}
+                </p>
+              )}
+              {suggestedLifecycleStage !== null && (
+                <p className={styles['suggestionDetailRow']}>
+                  {`${t('plants.identificationGrowthStageLabel')}: ${t(lifecycleStageLabel(suggestedLifecycleStage))}`}
+                </p>
+              )}
+              {suggestedConditionNote !== null && (
+                <p className={styles['suggestionDetailRow']}>
+                  {`${t('plants.identificationConditionLabel')}: ${suggestedConditionNote}`}
+                </p>
+              )}
+              {suggestedCareGuidanceNote !== null && (
+                <p className={styles['suggestionDetailRow']}>
+                  {`${t('plants.identificationCareGuidanceLabel')}: ${suggestedCareGuidanceNote}`}
                 </p>
               )}
             </div>

@@ -257,10 +257,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   });
 
   it('rolls back cleanly: the exports schema drops whole, garden_id NOT NULL returns, and re-migrating up succeeds', async () => {
-    // `count: 11` undoes this migration and every migration applied after it
-    // (currently through 1787300000000_plant-identification-raw-suggestion.sql).
+    // `count: 12` undoes this migration and every migration applied after it
+    // (currently through 1787400000000_plant-identification-variety-stage-condition.sql).
     // Update this count when a later migration is added on top.
-    await migrate(databaseUrl, 'down', 11);
+    await migrate(databaseUrl, 'down', 12);
 
     const schema = await client.query(
       `SELECT 1 FROM information_schema.schemata WHERE schema_name = 'exports'`,

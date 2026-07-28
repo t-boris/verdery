@@ -2,7 +2,12 @@ import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 import { ValidationError } from '../../../platform/errors/application-error.js';
 import {
+  AnalyzePlantCondition,
   IdentifyPlantSpecies,
+  type PlantConditionAnalysisAdapterOutcome,
+  type PlantConditionAnalysisProviderAdapter,
+  type PlantConditionAnalysisRequest,
+  type PlantConditionModelIdentity,
   type PlantIdentificationModelIdentity,
   type PlantSpeciesIdentificationAdapterOutcome,
   type PlantSpeciesIdentificationProviderAdapter,
@@ -90,6 +95,41 @@ function identifyPlantSpeciesWith(
   );
 }
 
+const CONDITION_PROVIDER_KEY = 'vertex-ai-plant-condition';
+
+/** A scriptable fake, local to this file per the same convention as `FakePlantSpeciesIdentificationProviderAdapter` above. */
+class FakePlantConditionAnalysisProviderAdapter implements PlantConditionAnalysisProviderAdapter {
+  readonly identity: PlantConditionModelIdentity = {
+    model: 'fake-plant-condition-model',
+    promptTemplateVersion: 1,
+  };
+
+  constructor(private readonly outcome: PlantConditionAnalysisAdapterOutcome) {}
+
+  analyzeCondition(
+    _request: PlantConditionAnalysisRequest,
+    _signal: AbortSignal,
+  ): Promise<PlantConditionAnalysisAdapterOutcome> {
+    return Promise.resolve(this.outcome);
+  }
+}
+
+function analyzePlantConditionWith(
+  adapter: PlantConditionAnalysisProviderAdapter | null,
+): AnalyzePlantCondition {
+  return new AnalyzePlantCondition(
+    adapter,
+    {
+      providerKey: CONDITION_PROVIDER_KEY,
+      callTimeoutMs: 1_000,
+      quotaLimits: { maxCallsPerHour: null, maxCallsPerDay: null },
+    },
+    new AlwaysAllowProviderQuotaRepository(),
+    fixedClock(NOW),
+    pino({ level: 'silent' }),
+  );
+}
+
 const OWNER_MEMBERSHIP = {
   id: 'membership-1',
   gardenId: GARDEN_ID,
@@ -132,6 +172,7 @@ describe('AddPlantFromPhoto', () => {
       identifyPlantSpeciesWith(null),
       new FakeTaxonomyReferenceRepository(),
       pino({ level: 'silent' }),
+      analyzePlantConditionWith(null),
     );
 
     const result = await addPlantFromPhoto.execute(
@@ -159,6 +200,11 @@ describe('AddPlantFromPhoto', () => {
     // honest "no suggestion" answer the historical stub always gave.
     expect(identification?.suggestedTaxonomyId).toBeNull();
     expect(identification?.confidenceScore).toBe(0);
+    // Same reasoning for the condition side: the adapter passed above is
+    // disabled, so `AnalyzePlantCondition` answers its own honest
+    // `unavailable`/`noProviderConfigured` outcome.
+    expect(identification?.suggestedConditionNote).toBeNull();
+    expect(identification?.suggestedCareGuidanceNote).toBeNull();
 
     expect(fakes.revisionJournal.entries).toEqual([
       {
@@ -183,6 +229,8 @@ describe('AddPlantFromPhoto', () => {
         commonName: 'Tomato',
         scientificNameGuess: 'Solanum lycopersicum',
         confidenceScore: 0.9,
+        varietyGuess: null,
+        lifecycleStageGuess: null,
       },
     });
     const identifyPlantSpecies = identifyPlantSpeciesWith(adapter);
@@ -205,6 +253,7 @@ describe('AddPlantFromPhoto', () => {
       identifyPlantSpecies,
       new FakeTaxonomyReferenceRepository([tomato]),
       pino({ level: 'silent' }),
+      analyzePlantConditionWith(null),
     );
 
     const result = await addPlantFromPhoto.execute(
@@ -231,6 +280,8 @@ describe('AddPlantFromPhoto', () => {
         commonName: 'Green ash',
         scientificNameGuess: 'Fraxinus pennsylvanica',
         confidenceScore: 0.88,
+        varietyGuess: null,
+        lifecycleStageGuess: null,
       },
     });
     const identifyPlantSpecies = identifyPlantSpeciesWith(adapter);
@@ -242,6 +293,7 @@ describe('AddPlantFromPhoto', () => {
       identifyPlantSpecies,
       new FakeTaxonomyReferenceRepository(),
       pino({ level: 'silent' }),
+      analyzePlantConditionWith(null),
     );
 
     await addPlantFromPhoto.execute(
@@ -258,6 +310,55 @@ describe('AddPlantFromPhoto', () => {
     expect(identification?.confidenceScore).toBe(0.88);
   });
 
+  it('carries the species variety/growth-stage guess and the condition/care-guidance analysis onto the identification row', async () => {
+    const fakes = fakesWithMedia();
+    const speciesAdapter = new FakePlantSpeciesIdentificationProviderAdapter({
+      kind: 'candidate',
+      candidate: {
+        commonName: 'Tomato',
+        scientificNameGuess: 'Solanum lycopersicum',
+        confidenceScore: 0.9,
+        varietyGuess: 'Roma',
+        lifecycleStageGuess: 'flowering',
+      },
+    });
+    const conditionAdapter = new FakePlantConditionAnalysisProviderAdapter({
+      kind: 'observation',
+      observation: {
+        kind: 'stress',
+        suggestedLabel: 'Leaves show mild water stress',
+        confidenceScore: 0.75,
+        requestedAdditionalEvidence: false,
+        careGuidanceSuggestion: 'Water more consistently and check drainage.',
+      },
+    });
+    const addPlantFromPhoto = new AddPlantFromPhoto(
+      fakes.idempotency,
+      new FakePlantsInventoryUnitOfWork(fakes),
+      authorizationGranting(OWNER_MEMBERSHIP),
+      fixedClock(NOW),
+      identifyPlantSpeciesWith(speciesAdapter),
+      new FakeTaxonomyReferenceRepository(),
+      pino({ level: 'silent' }),
+      analyzePlantConditionWith(conditionAdapter),
+    );
+
+    await addPlantFromPhoto.execute(
+      GARDEN_ID,
+      PROFILE_ID,
+      { photoMediaId: MEDIA_ID },
+      '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a1d',
+    );
+
+    const identification = [...fakes.plantIdentifications.identifications.values()][0];
+    expect(identification?.suggestedVarietyLabel).toBe('Roma');
+    expect(identification?.suggestedLifecycleStage).toBe('flowering');
+    expect(identification?.suggestedConditionNote).toBe('Leaves show mild water stress');
+    expect(identification?.suggestedCareGuidanceNote).toBe(
+      'Water more consistently and check drainage.',
+    );
+  });
+
   it('rejects a photoMediaId that MediaRepository.get does not return', async () => {
     const fakes = createPlantsInventoryFakes();
     const addPlantFromPhoto = new AddPlantFromPhoto(
@@ -268,6 +369,7 @@ describe('AddPlantFromPhoto', () => {
       identifyPlantSpeciesWith(null),
       new FakeTaxonomyReferenceRepository(),
       pino({ level: 'silent' }),
+      analyzePlantConditionWith(null),
     );
 
     await expect(

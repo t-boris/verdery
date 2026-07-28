@@ -13,6 +13,7 @@
  * Source: architecture/decisions/ADR-0015-phase10-redirect-plants-over-photo-capture.md.
  */
 
+import type { FastifyBaseLogger } from 'fastify';
 import { InternalError } from '../../../platform/errors/application-error.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import type {
@@ -59,6 +60,7 @@ export class AnalyzePlantCondition {
     private readonly policy: PlantConditionAnalysisCallPolicy,
     private readonly providerQuotas: ProviderQuotaRepository,
     private readonly clock: Clock,
+    private readonly logger: FastifyBaseLogger,
   ) {
     if (!Number.isInteger(policy.callTimeoutMs) || policy.callTimeoutMs <= 0) {
       throw new InternalError(
@@ -94,10 +96,18 @@ export class AnalyzePlantCondition {
       call = await withDeadline(this.policy.callTimeoutMs, (signal) =>
         adapter.analyzeCondition(request, signal),
       );
-    } catch {
+    } catch (error) {
+      this.logger.warn(
+        { event: 'plant_condition_ai.provider_failed', providerKey: this.policy.providerKey, error },
+        'Plant condition analysis provider call threw.',
+      );
       return { outcome: 'unavailable', reason: 'providerFailed' };
     }
     if (call.kind === 'timedOut') {
+      this.logger.warn(
+        { event: 'plant_condition_ai.provider_timeout', providerKey: this.policy.providerKey },
+        'Plant condition analysis provider call timed out.',
+      );
       return { outcome: 'unavailable', reason: 'providerTimeout' };
     }
 
@@ -106,7 +116,19 @@ export class AnalyzePlantCondition {
       model: adapter.identity.model,
       promptTemplateVersion: adapter.identity.promptTemplateVersion,
     };
-    return toResult(call.value, provenance);
+    const result = toResult(call.value, provenance);
+    this.logger.info(
+      {
+        event: 'plant_condition_ai.result',
+        outcome: result.outcome,
+        model: adapter.identity.model,
+        suggestedLabel: result.outcome === 'observation' ? result.observation.suggestedLabel : undefined,
+        confidenceScore: result.outcome === 'observation' ? result.observation.confidenceScore : undefined,
+        rawText: result.outcome === 'schemaInvalid' ? (result.rawText?.slice(0, 2000) ?? null) : undefined,
+      },
+      'Plant condition analysis call resolved.',
+    );
+    return result;
   }
 }
 

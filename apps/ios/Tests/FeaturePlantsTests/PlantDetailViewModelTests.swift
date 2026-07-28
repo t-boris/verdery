@@ -449,6 +449,34 @@ struct PlantDetailViewModelTests {
         #expect(model.pendingIdentification?.suggestedTaxonomy?.commonName == "Basil")
     }
 
+    @Test("load populates the variety, growth-stage, condition, and care-guidance guesses")
+    func loadPopulatesDetailGuesses() async {
+        let gateway = FakePlantGateway(plants: [plant()])
+        gateway.pendingIdentification = PlantIdentification(
+            id: "identification-1",
+            plantId: "plant-1",
+            plantPhotoId: "photo-1",
+            confidenceScore: 0.9,
+            createdAt: Date(timeIntervalSince1970: 0),
+            suggestedTaxonomy: PlantIdentificationSuggestion(
+                id: "tax-1", scientificName: "Solanum lycopersicum", commonName: "Tomato"
+            ),
+            suggestedVarietyLabel: "Roma",
+            suggestedLifecycleStage: .flowering,
+            suggestedConditionNote: "Leaves show mild water stress",
+            suggestedCareGuidanceNote: "Water more consistently and check drainage."
+        )
+        let model = makeModel(gateway: gateway, withIdentification: true)
+
+        await model.load()
+
+        #expect(model.pendingIdentification?.suggestedVarietyLabel == "Roma")
+        #expect(model.pendingIdentification?.suggestedLifecycleStage == .flowering)
+        #expect(model.identificationGrowthStageName(.flowering) == "Flowering")
+        #expect(model.pendingIdentification?.suggestedConditionNote == "Leaves show mild water stress")
+        #expect(model.pendingIdentification?.suggestedCareGuidanceNote == "Water more consistently and check drainage.")
+    }
+
     @Test("load leaves pendingIdentification nil without the capability wired in")
     func loadLeavesPendingIdentificationNilByDefault() async {
         let gateway = FakePlantGateway(plants: [plant()])

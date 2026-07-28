@@ -462,14 +462,14 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   });
 
   it('rolls back cleanly, leaving no trace of any of the six new tables', async () => {
-    // `count: 8` undoes every migration applied after this one (through
-    // 1787300000000_plant-identification-raw-suggestion.sql —
+    // `count: 9` undoes every migration applied after this one (through
+    // 1787400000000_plant-identification-variety-stage-condition.sql —
     // 1786900000000_client-invitation-token.sql in particular ALTERs
     // `client_access_grant` itself and must therefore unwind before this
     // migration's own `DROP TABLE` reaches it; nothing else this file's own
     // assertions below check) first, then this migration itself. Update
     // this count when a later migration is added on top.
-    await migrate(databaseUrl, 'down', 8);
+    await migrate(databaseUrl, 'down', 9);
 
     const { rows } = await client.query<Row>(
       `SELECT table_name FROM information_schema.tables

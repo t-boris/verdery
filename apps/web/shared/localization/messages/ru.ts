@@ -476,6 +476,10 @@ export const russianMessages: MessageCatalogue = {
   'plants.identificationLater': 'Решить позже',
   'plants.identificationPendingBanner': 'ИИ предложил вид для этого растения.',
   'plants.identificationUnlistedNote': 'Пока нет в каталоге растений — при подтверждении это станет именем растения.',
+  'plants.identificationVarietyLabel': 'Сорт',
+  'plants.identificationGrowthStageLabel': 'Стадия роста',
+  'plants.identificationConditionLabel': 'Состояние',
+  'plants.identificationCareGuidanceLabel': 'Рекомендация по уходу',
 
   'plants.enum.groupingKind.individual': 'Отдельное растение',
   'plants.enum.groupingKind.row': 'Ряд',

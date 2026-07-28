@@ -141,4 +141,30 @@ describe('PlantDetail — pending identification banner (ADR-0015)', () => {
       expectedRevision: 3,
     });
   });
+
+  it('shows the variety, growth stage, condition, and care-guidance guesses when present', () => {
+    identificationState = {
+      data: {
+        id: 'identification-1',
+        plantId: 'plant-1',
+        plantPhotoId: 'photo-1',
+        confidenceScore: 0.9,
+        createdAt: '2026-07-21T09:00:00Z',
+        suggestedTaxonomy: { id: 'tax-1', scientificName: 'Solanum lycopersicum', commonName: 'Tomato' },
+        suggestedVarietyLabel: 'Roma',
+        suggestedLifecycleStage: 'flowering',
+        suggestedConditionNote: 'Leaves show mild water stress',
+        suggestedCareGuidanceNote: 'Water more consistently and check drainage.',
+      },
+    };
+
+    renderDetail();
+
+    expect(screen.getByText('Variety: Roma')).toBeTruthy();
+    expect(screen.getByText('Growth stage: Flowering')).toBeTruthy();
+    expect(screen.getByText('Condition: Leaves show mild water stress')).toBeTruthy();
+    expect(
+      screen.getByText('Care suggestion: Water more consistently and check drainage.'),
+    ).toBeTruthy();
+  });
 });

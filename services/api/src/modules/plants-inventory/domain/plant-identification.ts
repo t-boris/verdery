@@ -12,6 +12,7 @@
 import { SharedErrorCode } from '@verdery/api-contracts';
 import { ValidationError } from '../../../platform/errors/application-error.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
+import type { LifecycleStage } from './plant-lifecycle.js';
 
 export interface PlantIdentification {
   readonly id: Uuid;
@@ -31,6 +32,14 @@ export interface PlantIdentification {
    */
   readonly suggestedCommonName: string | null;
   readonly suggestedScientificName: string | null;
+  /** The AI's own variety/cultivar guess (e.g. "Cherry Tomato"), independent of whether the species itself resolved against the catalog. `null` when the model saw nothing more specific than the species. */
+  readonly suggestedVarietyLabel: string | null;
+  /** The AI's own growth-stage guess, excluding `'planned'` (never a photographed plant's stage) — `null` when not confident or not applicable. */
+  readonly suggestedLifecycleStage: LifecycleStage | null;
+  /** A one-line condition observation (e.g. "Wilting leaves") from `AnalyzePlantCondition`, or `null` when that pass produced nothing notable/unavailable. */
+  readonly suggestedConditionNote: string | null;
+  /** A general care suggestion (watering, light, pruning — never chemicals/dosages) from the same pass, or `null`. */
+  readonly suggestedCareGuidanceNote: string | null;
   /** Conceptually 0..1, matching `gardens_mapping.garden_object.confidence`'s own documented range, though the migration itself only constrains this column's shape (`numeric(4,3)`), not its range. */
   readonly confidenceScore: number;
   readonly createdAt: Date;
@@ -63,6 +72,10 @@ export function createPlantIdentification(
   rawConfidenceScore: number,
   suggestedCommonName: string | null,
   suggestedScientificName: string | null,
+  suggestedVarietyLabel: string | null,
+  suggestedLifecycleStage: LifecycleStage | null,
+  suggestedConditionNote: string | null,
+  suggestedCareGuidanceNote: string | null,
   now: Date,
 ): PlantIdentification {
   return {
@@ -72,6 +85,10 @@ export function createPlantIdentification(
     suggestedTaxonomyId,
     suggestedCommonName,
     suggestedScientificName,
+    suggestedVarietyLabel,
+    suggestedLifecycleStage,
+    suggestedConditionNote,
+    suggestedCareGuidanceNote,
     confidenceScore: validateConfidenceScore(rawConfidenceScore),
     createdAt: now,
   };

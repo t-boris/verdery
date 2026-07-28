@@ -38,6 +38,10 @@ function fakesWithPlantAndIdentification() {
     suggestedTaxonomyId: TAXONOMY_ID,
     suggestedCommonName: null,
     suggestedScientificName: null,
+    suggestedVarietyLabel: null,
+    suggestedLifecycleStage: null,
+    suggestedConditionNote: null,
+    suggestedCareGuidanceNote: null,
     confidenceScore: 0.8,
     createdAt: NOW,
   });
@@ -91,6 +95,10 @@ describe('ConfirmPlantIdentification', () => {
       suggestedTaxonomyId: null,
       suggestedCommonName: 'Green ash',
       suggestedScientificName: 'Fraxinus pennsylvanica',
+      suggestedVarietyLabel: null,
+      suggestedLifecycleStage: null,
+      suggestedConditionNote: null,
+      suggestedCareGuidanceNote: null,
       confidenceScore: 0.88,
       createdAt: NOW,
     });
@@ -113,6 +121,94 @@ describe('ConfirmPlantIdentification', () => {
     expect(result.taxonomyReferenceId).toBeNull();
     expect(result.displayName).toBe('Green ash');
     expect(result.acceptedIdentificationId).toBe(IDENTIFICATION_ID);
+  });
+
+  it('fills variety, growth stage, condition, and care guidance when the plant is still at its creation defaults', async () => {
+    const fakes = createPlantsInventoryFakes();
+    fakes.plants.plants.set(PLANT_ID, buildPlant({ id: PLANT_ID, gardenId: GARDEN_ID }));
+    fakes.plantIdentifications.identifications.set(IDENTIFICATION_ID, {
+      id: IDENTIFICATION_ID,
+      plantId: PLANT_ID,
+      plantPhotoId: PHOTO_ID,
+      suggestedTaxonomyId: TAXONOMY_ID,
+      suggestedCommonName: null,
+      suggestedScientificName: null,
+      suggestedVarietyLabel: 'Roma',
+      suggestedLifecycleStage: 'flowering',
+      suggestedConditionNote: 'Leaves show mild water stress',
+      suggestedCareGuidanceNote: 'Water more consistently and check drainage.',
+      confidenceScore: 0.9,
+      createdAt: NOW,
+    });
+    const confirmPlantIdentification = new ConfirmPlantIdentification(
+      fakes.plants,
+      fakes.idempotency,
+      new FakePlantsInventoryUnitOfWork(fakes),
+      authorizationGranting(OWNER_MEMBERSHIP),
+      fixedClock(NOW),
+    );
+
+    const result = await confirmPlantIdentification.execute(
+      PLANT_ID,
+      PROFILE_ID,
+      IDENTIFICATION_ID,
+      1,
+      '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a16',
+    );
+
+    expect(result.varietyLabel).toBe('Roma');
+    expect(result.lifecycleStage).toBe('flowering');
+    expect(result.conditionNote).toBe('Leaves show mild water stress');
+    expect(result.careGuidanceNote).toBe('Water more consistently and check drainage.');
+  });
+
+  it('never overwrites variety, growth stage, condition, or care guidance the owner already set by hand', async () => {
+    const fakes = createPlantsInventoryFakes();
+    fakes.plants.plants.set(
+      PLANT_ID,
+      buildPlant({
+        id: PLANT_ID,
+        gardenId: GARDEN_ID,
+        varietyLabel: 'Cherokee Purple',
+        lifecycleStage: 'fruiting',
+        conditionNote: 'Looking healthy',
+        careGuidanceNote: 'Keep as is',
+      }),
+    );
+    fakes.plantIdentifications.identifications.set(IDENTIFICATION_ID, {
+      id: IDENTIFICATION_ID,
+      plantId: PLANT_ID,
+      plantPhotoId: PHOTO_ID,
+      suggestedTaxonomyId: TAXONOMY_ID,
+      suggestedCommonName: null,
+      suggestedScientificName: null,
+      suggestedVarietyLabel: 'Roma',
+      suggestedLifecycleStage: 'seedling',
+      suggestedConditionNote: 'Leaves show mild water stress',
+      suggestedCareGuidanceNote: 'Water more consistently and check drainage.',
+      confidenceScore: 0.9,
+      createdAt: NOW,
+    });
+    const confirmPlantIdentification = new ConfirmPlantIdentification(
+      fakes.plants,
+      fakes.idempotency,
+      new FakePlantsInventoryUnitOfWork(fakes),
+      authorizationGranting(OWNER_MEMBERSHIP),
+      fixedClock(NOW),
+    );
+
+    const result = await confirmPlantIdentification.execute(
+      PLANT_ID,
+      PROFILE_ID,
+      IDENTIFICATION_ID,
+      1,
+      '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a17',
+    );
+
+    expect(result.varietyLabel).toBe('Cherokee Purple');
+    expect(result.lifecycleStage).toBe('fruiting');
+    expect(result.conditionNote).toBe('Looking healthy');
+    expect(result.careGuidanceNote).toBe('Keep as is');
   });
 
   it('rejects an identificationId that does not exist', async () => {

@@ -5492,6 +5492,7 @@ export interface components {
         /**
          * @description A photo-identification suggestion `AddPlantFromPhoto` created, as long as it is still pending (not yet accepted via `ConfirmPlantIdentification`). Source: plants-inventory/application/ get-plant-identification.ts, ADR-0015.
          *     `suggestedTaxonomy`, and the `(suggestedCommonName, suggestedScientificName)` pair, are mutually exclusive: never both non-null. Either the AI's name matched this application's own taxonomy catalog (`suggestedTaxonomy` set, the raw pair null), or it didn't (`suggestedTaxonomy` null, the raw pair carries the AI's own name guess so it is not silently discarded), or the AI was not confident/available at all (everything null).
+         *     `suggestedVarietyLabel`/`suggestedLifecycleStage` come from the same species-identification pass; `suggestedConditionNote`/ `suggestedCareGuidanceNote` come from a separate condition-analysis pass over the same photo. All four are independent of the taxonomy/name mutual-exclusivity above and of each other — any subset may be non-null. `ConfirmPlantIdentification` only applies each one to the plant when the plant's own corresponding field is still at its creation default, never overwriting a manual edit.
          */
         PlantIdentification: {
             id: components["schemas"]["Uuid"];
@@ -5509,6 +5510,14 @@ export interface components {
             suggestedCommonName: string | null;
             /** @description The AI's own raw scientific-name guess, alongside suggestedCommonName under the same condition. */
             suggestedScientificName: string | null;
+            /** @description The AI's own variety guess (e.g. 'Roma' for a tomato), when visually confident. */
+            suggestedVarietyLabel: string | null;
+            /** @description The AI's own growth-stage guess, when visually confident. Never `planned` — that stage describes a plant not yet started, which a photo cannot show. */
+            suggestedLifecycleStage: components["schemas"]["PlantLifecycleStage"] | null;
+            /** @description A stress/disease/pest observation from a separate condition-analysis pass over the same photo, or null when unavailable. */
+            suggestedConditionNote: string | null;
+            /** @description A general care suggestion (watering, light, pruning) from the same condition-analysis pass, or null when it had nothing specific to add. Never chemicals, pesticides, fertilizers, or dosages. */
+            suggestedCareGuidanceNote: string | null;
         };
         TaxonomyReference: {
             id: components["schemas"]["Uuid"];

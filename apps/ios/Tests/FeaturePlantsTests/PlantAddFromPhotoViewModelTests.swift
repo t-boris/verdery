@@ -43,6 +43,38 @@ struct PlantAddFromPhotoViewModelTests {
         #expect(identification?.suggestedTaxonomy?.commonName == "Basil")
     }
 
+    @Test("photoReady surfaces the variety, growth-stage, condition, and care-guidance guesses")
+    func photoReadySurfacesDetailGuesses() async {
+        let gateway = FakePlantGateway(plants: [])
+        gateway.pendingIdentification = PlantIdentification(
+            id: "identification-1",
+            plantId: "plant-1",
+            plantPhotoId: "photo-1",
+            confidenceScore: 0.9,
+            createdAt: Date(timeIntervalSince1970: 0),
+            suggestedTaxonomy: PlantIdentificationSuggestion(
+                id: "tax-1", scientificName: "Solanum lycopersicum", commonName: "Tomato"
+            ),
+            suggestedVarietyLabel: "Roma",
+            suggestedLifecycleStage: .flowering,
+            suggestedConditionNote: "Leaves show mild water stress",
+            suggestedCareGuidanceNote: "Water more consistently and check drainage."
+        )
+        let model = makeModel(gateway: gateway)
+
+        await model.photoReady(mediaId: "media-1")
+
+        guard case let .reviewing(_, identification) = model.state else {
+            Issue.record("Expected reviewing state")
+            return
+        }
+        #expect(identification?.suggestedVarietyLabel == "Roma")
+        #expect(identification?.suggestedLifecycleStage == .flowering)
+        #expect(model.growthStageName(.flowering) == "Flowering")
+        #expect(identification?.suggestedConditionNote == "Leaves show mild water stress")
+        #expect(identification?.suggestedCareGuidanceNote == "Water more consistently and check drainage.")
+    }
+
     @Test("photoReady surfaces a gateway failure as .failed")
     func photoReadySurfacesFailure() async {
         let gateway = FakePlantGateway(plants: [])

@@ -18,6 +18,10 @@ describe('createPlantIdentification', () => {
       0.75,
       null,
       null,
+      null,
+      null,
+      null,
+      null,
       NOW,
     );
 
@@ -28,6 +32,10 @@ describe('createPlantIdentification', () => {
       suggestedTaxonomyId: TAXONOMY_ID,
       suggestedCommonName: null,
       suggestedScientificName: null,
+      suggestedVarietyLabel: null,
+      suggestedLifecycleStage: null,
+      suggestedConditionNote: null,
+      suggestedCareGuidanceNote: null,
       confidenceScore: 0.75,
       createdAt: NOW,
     });
@@ -40,6 +48,10 @@ describe('createPlantIdentification', () => {
       PHOTO_ID,
       null,
       0,
+      null,
+      null,
+      null,
+      null,
       null,
       null,
       NOW,
@@ -57,6 +69,10 @@ describe('createPlantIdentification', () => {
       0.88,
       'Green ash',
       'Fraxinus pennsylvanica',
+      null,
+      null,
+      null,
+      null,
       NOW,
     );
 
@@ -67,8 +83,36 @@ describe('createPlantIdentification', () => {
       suggestedTaxonomyId: null,
       suggestedCommonName: 'Green ash',
       suggestedScientificName: 'Fraxinus pennsylvanica',
+      suggestedVarietyLabel: null,
+      suggestedLifecycleStage: null,
+      suggestedConditionNote: null,
+      suggestedCareGuidanceNote: null,
       confidenceScore: 0.88,
       createdAt: NOW,
+    });
+  });
+
+  it('preserves the AI variety, growth-stage, condition, and care-guidance guesses', () => {
+    const identification = createPlantIdentification(
+      IDENTIFICATION_ID,
+      PLANT_ID,
+      PHOTO_ID,
+      TAXONOMY_ID,
+      0.9,
+      null,
+      null,
+      'Cherry Tomato',
+      'flowering',
+      'Wilting leaves',
+      'Water more consistently',
+      NOW,
+    );
+
+    expect(identification).toMatchObject({
+      suggestedVarietyLabel: 'Cherry Tomato',
+      suggestedLifecycleStage: 'flowering',
+      suggestedConditionNote: 'Wilting leaves',
+      suggestedCareGuidanceNote: 'Water more consistently',
     });
   });
 
@@ -82,6 +126,10 @@ describe('createPlantIdentification', () => {
         1.5,
         null,
         null,
+        null,
+        null,
+        null,
+        null,
         NOW,
       ),
     ).toThrow(ValidationError);
@@ -92,6 +140,10 @@ describe('createPlantIdentification', () => {
         PHOTO_ID,
         TAXONOMY_ID,
         -0.1,
+        null,
+        null,
+        null,
+        null,
         null,
         null,
         NOW,

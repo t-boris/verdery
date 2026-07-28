@@ -45,7 +45,13 @@ describe('IdentifyPlantSpecies', () => {
         kind: 'outcome',
         outcome: {
           kind: 'candidate',
-          candidate: { commonName: 'Tomato', scientificNameGuess: null, confidenceScore: 0.8 },
+          candidate: {
+            commonName: 'Tomato',
+            scientificNameGuess: null,
+            confidenceScore: 0.8,
+            varietyGuess: null,
+            lifecycleStageGuess: null,
+          },
         },
       },
       { model: 'gemini-test', promptTemplateVersion: 2 },
@@ -62,7 +68,13 @@ describe('IdentifyPlantSpecies', () => {
 
     expect(result).toEqual({
       outcome: 'candidate',
-      candidate: { commonName: 'Tomato', scientificNameGuess: null, confidenceScore: 0.8 },
+      candidate: {
+            commonName: 'Tomato',
+            scientificNameGuess: null,
+            confidenceScore: 0.8,
+            varietyGuess: null,
+            lifecycleStageGuess: null,
+          },
       provenance: { providerKey: PROVIDER_KEY, model: 'gemini-test', promptTemplateVersion: 2 },
     });
     expect(adapter.callCount).toBe(1);

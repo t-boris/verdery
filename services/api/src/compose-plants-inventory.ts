@@ -32,7 +32,7 @@ import {
 import type { PlantRoutesDependencies } from './modules/plants-inventory/public.js';
 import type { FastifyBaseLogger } from 'fastify';
 import type { GardenAuthorization } from './modules/gardens-mapping/public.js';
-import type { IdentifyPlantSpecies } from './modules/integrations/public.js';
+import type { AnalyzePlantCondition, IdentifyPlantSpecies } from './modules/integrations/public.js';
 import type { DatabaseGateway } from './platform/database/database-gateway.js';
 import { KyselyIdempotencyStore } from './platform/idempotency/kysely-idempotency-store.js';
 import type { Clock } from './shared/time/clock.js';
@@ -43,6 +43,7 @@ export function composePlantsInventory(
   gardenAuthorization: GardenAuthorization,
   identifyPlantSpecies: IdentifyPlantSpecies,
   logger: FastifyBaseLogger,
+  analyzePlantCondition: AnalyzePlantCondition,
 ): PlantRoutesDependencies {
   const plantRepository = new KyselyPlantRepository(database.queries);
   const taxonomyReferenceRepository = new KyselyTaxonomyReferenceRepository(database.queries);
@@ -62,6 +63,7 @@ export function composePlantsInventory(
     identifyPlantSpecies,
     taxonomyReferenceRepository,
     logger,
+    analyzePlantCondition,
   );
   const getPlant = new GetPlant(plantRepository, gardenAuthorization);
   const plantIdentificationRepository = new KyselyPlantIdentificationRepository(database.queries);

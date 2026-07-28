@@ -83,6 +83,14 @@ public final class PlantAddFromPhotoViewModel {
     public var confirmButtonTitle: String { strings(.plantsIdentificationConfirmButton) }
     public var laterButtonTitle: String { strings(.plantsIdentificationLaterButton) }
     public var closeTitle: String { strings(.plantsClose) }
+    public var varietyLabel: String { strings(.plantsIdentificationVarietyLabel) }
+    public var growthStageLabel: String { strings(.plantsIdentificationGrowthStageLabel) }
+    public var conditionLabel: String { strings(.plantsIdentificationConditionLabel) }
+    public var careGuidanceLabel: String { strings(.plantsIdentificationCareGuidanceLabel) }
+
+    public func growthStageName(_ stage: PlantLifecycleStage) -> String {
+        PlantsLocalization.lifecycleStageName(stage, strings: strings)
+    }
 
     public var photoStatusText: String {
         PhotoAttachmentStatusLocalization.text(for: photoAttachment?.status ?? .idle, strings: strings)

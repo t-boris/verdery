@@ -176,6 +176,14 @@ public final class PlantDetailViewModel {
     public var identificationConfidenceLabel: String { strings(.plantsIdentificationConfidenceLabel) }
     public var identificationConfirmButtonTitle: String { strings(.plantsIdentificationConfirmButton) }
     public var identificationUnlistedNote: String { strings(.plantsIdentificationUnlistedNote) }
+    public var identificationVarietyLabel: String { strings(.plantsIdentificationVarietyLabel) }
+    public var identificationGrowthStageLabel: String { strings(.plantsIdentificationGrowthStageLabel) }
+    public var identificationConditionLabel: String { strings(.plantsIdentificationConditionLabel) }
+    public var identificationCareGuidanceLabel: String { strings(.plantsIdentificationCareGuidanceLabel) }
+
+    public func identificationGrowthStageName(_ stage: PlantLifecycleStage) -> String {
+        PlantsLocalization.lifecycleStageName(stage, strings: strings)
+    }
 
     public func identificationSuggestionDisplayName(_ suggestion: PlantIdentificationSuggestion) -> String {
         suggestion.commonName?.isEmpty == false ? suggestion.commonName! : suggestion.scientificName

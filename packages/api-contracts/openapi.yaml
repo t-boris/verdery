@@ -9140,6 +9140,10 @@ components:
           suggestedTaxonomy,
           suggestedCommonName,
           suggestedScientificName,
+          suggestedVarietyLabel,
+          suggestedLifecycleStage,
+          suggestedConditionNote,
+          suggestedCareGuidanceNote,
         ]
       description: >
         A photo-identification suggestion `AddPlantFromPhoto` created, as long
@@ -9154,6 +9158,15 @@ components:
         didn't (`suggestedTaxonomy` null, the raw pair carries the AI's own
         name guess so it is not silently discarded), or the AI was not
         confident/available at all (everything null).
+
+        `suggestedVarietyLabel`/`suggestedLifecycleStage` come from the same
+        species-identification pass; `suggestedConditionNote`/
+        `suggestedCareGuidanceNote` come from a separate condition-analysis
+        pass over the same photo. All four are independent of the
+        taxonomy/name mutual-exclusivity above and of each other — any
+        subset may be non-null. `ConfirmPlantIdentification` only applies
+        each one to the plant when the plant's own corresponding field is
+        still at its creation default, never overwriting a manual edit.
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -9191,6 +9204,20 @@ components:
         suggestedScientificName:
           type: [string, 'null']
           description: "The AI's own raw scientific-name guess, alongside suggestedCommonName under the same condition."
+        suggestedVarietyLabel:
+          type: [string, 'null']
+          description: "The AI's own variety guess (e.g. 'Roma' for a tomato), when visually confident."
+        suggestedLifecycleStage:
+          oneOf:
+            - $ref: '#/components/schemas/PlantLifecycleStage'
+            - type: 'null'
+          description: "The AI's own growth-stage guess, when visually confident. Never `planned` — that stage describes a plant not yet started, which a photo cannot show."
+        suggestedConditionNote:
+          type: [string, 'null']
+          description: 'A stress/disease/pest observation from a separate condition-analysis pass over the same photo, or null when unavailable.'
+        suggestedCareGuidanceNote:
+          type: [string, 'null']
+          description: 'A general care suggestion (watering, light, pruning) from the same condition-analysis pass, or null when it had nothing specific to add. Never chemicals, pesticides, fertilizers, or dosages.'
 
     TaxonomyReference:
       type: object

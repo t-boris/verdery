@@ -1,3 +1,4 @@
+import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 import { InMemoryProviderQuotaRepository, fixedClock } from './integrations-test-doubles.js';
 import { AnalyzePlantCondition } from './analyze-plant-condition.js';
@@ -26,10 +27,14 @@ function policy(
   };
 }
 
+function silentLogger() {
+  return pino({ level: 'silent' });
+}
+
 describe('AnalyzePlantCondition', () => {
   it('with no adapter (the kill-switch off), answers noProviderConfigured without consuming budget', async () => {
     const quotas = new InMemoryProviderQuotaRepository();
-    const analyze = new AnalyzePlantCondition(null, policy(), quotas, fixedClock(NOW));
+    const analyze = new AnalyzePlantCondition(null, policy(), quotas, fixedClock(NOW), silentLogger());
 
     const result = await analyze.execute(REQUEST);
 
@@ -48,6 +53,7 @@ describe('AnalyzePlantCondition', () => {
             suggestedLabel: 'Aphids',
             confidenceScore: 0.55,
             requestedAdditionalEvidence: false,
+            careGuidanceSuggestion: 'Inspect the undersides of leaves regularly',
           },
         },
       },
@@ -58,6 +64,7 @@ describe('AnalyzePlantCondition', () => {
       policy(),
       new InMemoryProviderQuotaRepository(),
       fixedClock(NOW),
+      silentLogger(),
     );
 
     const result = await analyze.execute(REQUEST);
@@ -69,6 +76,7 @@ describe('AnalyzePlantCondition', () => {
         suggestedLabel: 'Aphids',
         confidenceScore: 0.55,
         requestedAdditionalEvidence: false,
+        careGuidanceSuggestion: 'Inspect the undersides of leaves regularly',
       },
       provenance: { providerKey: PROVIDER_KEY, model: 'gemini-test', promptTemplateVersion: 2 },
     });
@@ -85,6 +93,7 @@ describe('AnalyzePlantCondition', () => {
           suggestedLabel: 'x',
           confidenceScore: 0,
           requestedAdditionalEvidence: true,
+          careGuidanceSuggestion: '',
         },
       },
     });
@@ -94,6 +103,7 @@ describe('AnalyzePlantCondition', () => {
       policy({ quotaLimits: { maxCallsPerHour: 0, maxCallsPerDay: null } }),
       quotas,
       fixedClock(NOW),
+      silentLogger(),
     );
 
     const result = await analyze.execute(REQUEST);
@@ -109,6 +119,7 @@ describe('AnalyzePlantCondition', () => {
       policy({ callTimeoutMs: 5 }),
       new InMemoryProviderQuotaRepository(),
       fixedClock(NOW),
+      silentLogger(),
     );
 
     const result = await analyze.execute(REQUEST);
@@ -126,6 +137,7 @@ describe('AnalyzePlantCondition', () => {
       policy(),
       new InMemoryProviderQuotaRepository(),
       fixedClock(NOW),
+      silentLogger(),
     );
 
     const result = await analyze.execute(REQUEST);

@@ -321,6 +321,7 @@ export async function buildApplication(
     gardenAuthorization,
     identifyPlantSpecies,
     logger,
+    analyzePlantCondition,
   );
 
   // tasks-recommendations: task commands (tag `Tasks`), the scheduled

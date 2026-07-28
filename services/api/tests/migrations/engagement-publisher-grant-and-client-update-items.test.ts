@@ -289,12 +289,12 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   });
 
   it('rolls back cleanly, leaving no trace of either new table', async () => {
-    // `count: 6` undoes every newer migration (through
-    // 1787300000000_plant-identification-raw-suggestion.sql, nothing this
+    // `count: 7` undoes every newer migration (through
+    // 1787400000000_plant-identification-variety-stage-condition.sql, nothing this
     // file's own assertions below check) first, then this migration itself.
     // Update this count when a later migration is added on top, the same
     // convention every earlier migration test here already follows.
-    await migrate(databaseUrl, 'down', 6);
+    await migrate(databaseUrl, 'down', 7);
 
     const { rows } = await client.query<Row>(
       `SELECT table_name FROM information_schema.tables

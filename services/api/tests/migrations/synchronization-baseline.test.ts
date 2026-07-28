@@ -140,8 +140,8 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving the search-indexes schemas and tables otherwise intact', async () => {
     await client.end();
 
-    // `count: 24` undoes this migration and every migration applied after it
-    // (currently through 1787300000000_plant-identification-raw-suggestion.sql,
+    // `count: 25` undoes this migration and every migration applied after it
+    // (currently through 1787400000000_plant-identification-variety-stage-condition.sql,
     // none of which depends on `platform.sync_client_installation` but all
     // of which were applied later and must unwind first). Update this count
     // when a later migration is added on top.
@@ -150,7 +150,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 24,
+      count: 25,
       log: () => {},
     });
 

@@ -18,7 +18,11 @@ import { generateUuidV7 } from '../../../shared/identifiers/uuid.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import type { GardenAuthorization } from '../../gardens-mapping/public.js';
-import type { IdentifyPlantSpecies, PlantPhotoReference } from '../../integrations/public.js';
+import type {
+  AnalyzePlantCondition,
+  IdentifyPlantSpecies,
+  PlantPhotoReference,
+} from '../../integrations/public.js';
 import { createPlant, type PlantPlacement } from '../domain/plant.js';
 import { createPlantIdentification } from '../domain/plant-identification.js';
 import { createPlantPhoto } from '../domain/plant-photo.js';
@@ -59,6 +63,7 @@ export class AddPlantFromPhoto {
     private readonly identifyPlantSpecies: IdentifyPlantSpecies,
     private readonly taxonomyReferences: TaxonomyReferenceRepository,
     private readonly logger: FastifyBaseLogger,
+    private readonly analyzePlantCondition: AnalyzePlantCondition,
   ) {}
 
   async execute(
@@ -130,6 +135,16 @@ export class AddPlantFromPhoto {
           photoReference,
           this.logger,
         );
+        const condition = await this.analyzePlantCondition.execute({
+          photo: photoReference,
+          priorPhotos: [],
+        });
+        const conditionNote = condition.outcome === 'observation' ? condition.observation.suggestedLabel : null;
+        const careGuidanceNote =
+          condition.outcome === 'observation' && condition.observation.careGuidanceSuggestion.length > 0
+            ? condition.observation.careGuidanceSuggestion
+            : null;
+
         const identification = createPlantIdentification(
           generateUuidV7(),
           plant.id,
@@ -138,6 +153,10 @@ export class AddPlantFromPhoto {
           suggestion.confidenceScore,
           suggestion.suggestedCommonName,
           suggestion.suggestedScientificName,
+          suggestion.suggestedVarietyLabel,
+          suggestion.suggestedLifecycleStage,
+          conditionNote,
+          careGuidanceNote,
           now,
         );
         await context.plantIdentifications.insert(identification);

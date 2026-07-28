@@ -7,6 +7,7 @@
  * cross-module-boundary convention (test doubles stay module-internal).
  */
 
+import { pino } from 'pino';
 import {
   AnalyzePlantCondition,
   type ProviderQuotaConsumeResult,
@@ -36,5 +37,6 @@ export function disabledAnalyzePlantCondition(clock: Clock): AnalyzePlantConditi
     },
     new AlwaysAllowProviderQuotaRepository(),
     clock,
+    pino({ level: 'silent' }),
   );
 }

@@ -478,6 +478,10 @@ export const englishMessages = {
   'plants.identificationLater': 'Decide later',
   'plants.identificationPendingBanner': 'The AI suggested a species for this plant.',
   'plants.identificationUnlistedNote': "Not in the plant catalog yet — confirming will use this as the plant's name.",
+  'plants.identificationVarietyLabel': 'Variety',
+  'plants.identificationGrowthStageLabel': 'Growth stage',
+  'plants.identificationConditionLabel': 'Condition',
+  'plants.identificationCareGuidanceLabel': 'Care suggestion',
 
   'plants.enum.groupingKind.individual': 'Individual',
   'plants.enum.groupingKind.row': 'Row',

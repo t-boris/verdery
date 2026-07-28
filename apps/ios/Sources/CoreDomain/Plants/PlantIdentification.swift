@@ -30,6 +30,12 @@ public struct PlantIdentificationSuggestion: Equatable, Sendable {
 /// carries the AI's own name guess instead of silently discarding it), or
 /// the AI was not confident/available at all (everything `nil`).
 ///
+/// `suggestedVarietyLabel`/`suggestedLifecycleStage` come from the same
+/// species-identification pass; `suggestedConditionNote`/
+/// `suggestedCareGuidanceNote` come from a separate condition-analysis pass
+/// over the same photo. All four are independent of the taxonomy/name
+/// mutual-exclusivity above and of each other — any subset may be non-nil.
+///
 /// Source: packages/api-contracts/openapi.yaml, `PlantIdentification`.
 public struct PlantIdentification: Equatable, Sendable, Identifiable {
     public let id: String
@@ -40,6 +46,10 @@ public struct PlantIdentification: Equatable, Sendable, Identifiable {
     public let suggestedTaxonomy: PlantIdentificationSuggestion?
     public let suggestedCommonName: String?
     public let suggestedScientificName: String?
+    public let suggestedVarietyLabel: String?
+    public let suggestedLifecycleStage: PlantLifecycleStage?
+    public let suggestedConditionNote: String?
+    public let suggestedCareGuidanceNote: String?
 
     public init(
         id: String,
@@ -49,7 +59,11 @@ public struct PlantIdentification: Equatable, Sendable, Identifiable {
         createdAt: Date,
         suggestedTaxonomy: PlantIdentificationSuggestion?,
         suggestedCommonName: String? = nil,
-        suggestedScientificName: String? = nil
+        suggestedScientificName: String? = nil,
+        suggestedVarietyLabel: String? = nil,
+        suggestedLifecycleStage: PlantLifecycleStage? = nil,
+        suggestedConditionNote: String? = nil,
+        suggestedCareGuidanceNote: String? = nil
     ) {
         self.id = id
         self.plantId = plantId
@@ -59,6 +73,10 @@ public struct PlantIdentification: Equatable, Sendable, Identifiable {
         self.suggestedTaxonomy = suggestedTaxonomy
         self.suggestedCommonName = suggestedCommonName
         self.suggestedScientificName = suggestedScientificName
+        self.suggestedVarietyLabel = suggestedVarietyLabel
+        self.suggestedLifecycleStage = suggestedLifecycleStage
+        self.suggestedConditionNote = suggestedConditionNote
+        self.suggestedCareGuidanceNote = suggestedCareGuidanceNote
     }
 
     /// Whether `PlantIdentificationUseCases.ConfirmPlantIdentification` is a

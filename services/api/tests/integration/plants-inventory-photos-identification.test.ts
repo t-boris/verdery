@@ -162,7 +162,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const idempotency = new KyselyIdempotencyStore(db, clock);
     const unitOfWork = new KyselyPlantsInventoryUnitOfWork(db, clock);
     const plantRepository = new KyselyPlantRepository(db);
-    const { identifyPlantSpecies } = disabledPlantAiCallPolicies(db, clock);
+    const { identifyPlantSpecies, analyzePlantCondition } = disabledPlantAiCallPolicies(db, clock);
 
     return {
       addPlant: new AddPlant(idempotency, unitOfWork, authorization, clock),
@@ -174,6 +174,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
         identifyPlantSpecies,
         new KyselyTaxonomyReferenceRepository(db),
         pino({ level: 'silent' }),
+        analyzePlantCondition,
       ),
       attachPlantPhoto: new AttachPlantPhoto(
         plantRepository,

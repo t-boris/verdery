@@ -339,6 +339,10 @@ describe('confirmPlantIdentification', () => {
       plant,
       TAXONOMY_ID,
       null,
+      null,
+      null,
+      null,
+      null,
       IDENTIFICATION_ID,
       LATER,
     );
@@ -356,6 +360,10 @@ describe('confirmPlantIdentification', () => {
       plant,
       TAXONOMY_ID,
       'Green ash',
+      null,
+      null,
+      null,
+      null,
       IDENTIFICATION_ID,
       LATER,
     );
@@ -364,7 +372,17 @@ describe('confirmPlantIdentification', () => {
 
   it('accepts a null taxonomyReferenceId for a confirmed "no confident match" identification', () => {
     const plant = individualPlant();
-    const confirmed = confirmPlantIdentification(plant, null, null, IDENTIFICATION_ID, LATER);
+    const confirmed = confirmPlantIdentification(
+      plant,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      IDENTIFICATION_ID,
+      LATER,
+    );
     expect(confirmed.taxonomyReferenceId).toBeNull();
     expect(confirmed.displayName).toBe('Tomato #1');
     expect(confirmed.acceptedIdentificationId).toBe(IDENTIFICATION_ID);
@@ -376,6 +394,10 @@ describe('confirmPlantIdentification', () => {
       plant,
       null,
       'Green ash',
+      null,
+      null,
+      null,
+      null,
       IDENTIFICATION_ID,
       LATER,
     );
@@ -386,8 +408,60 @@ describe('confirmPlantIdentification', () => {
   it('rejects a blank raw name guess when there is no catalog row to link', () => {
     const plant = individualPlant();
     expect(() =>
-      confirmPlantIdentification(plant, null, '   ', IDENTIFICATION_ID, LATER),
+      confirmPlantIdentification(plant, null, '   ', null, null, null, null, IDENTIFICATION_ID, LATER),
     ).toThrow(ValidationError);
+  });
+
+  it('fills in variety, growth stage, condition, and care guidance when the plant is still at its creation defaults', () => {
+    const plant = individualPlant();
+    expect(plant.varietyLabel).toBeNull();
+    expect(plant.lifecycleStage).toBe('planned');
+    expect(plant.conditionNote).toBeNull();
+    expect(plant.careGuidanceNote).toBeNull();
+
+    const confirmed = confirmPlantIdentification(
+      plant,
+      TAXONOMY_ID,
+      null,
+      'Cherry Tomato',
+      'flowering',
+      'Wilting leaves',
+      'Water more consistently',
+      IDENTIFICATION_ID,
+      LATER,
+    );
+
+    expect(confirmed.varietyLabel).toBe('Cherry Tomato');
+    expect(confirmed.lifecycleStage).toBe('flowering');
+    expect(confirmed.conditionNote).toBe('Wilting leaves');
+    expect(confirmed.careGuidanceNote).toBe('Water more consistently');
+  });
+
+  it('never overwrites variety, growth stage, condition, or care guidance the owner already set by hand', () => {
+    const plant = {
+      ...individualPlant(),
+      varietyLabel: 'Roma Tomato',
+      lifecycleStage: 'fruiting' as const,
+      conditionNote: 'Looking healthy',
+      careGuidanceNote: 'Keep as is',
+    };
+
+    const confirmed = confirmPlantIdentification(
+      plant,
+      TAXONOMY_ID,
+      null,
+      'Cherry Tomato',
+      'flowering',
+      'Wilting leaves',
+      'Water more consistently',
+      IDENTIFICATION_ID,
+      LATER,
+    );
+
+    expect(confirmed.varietyLabel).toBe('Roma Tomato');
+    expect(confirmed.lifecycleStage).toBe('fruiting');
+    expect(confirmed.conditionNote).toBe('Looking healthy');
+    expect(confirmed.careGuidanceNote).toBe('Keep as is');
   });
 });
 

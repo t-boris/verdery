@@ -41,7 +41,24 @@ import type {
 } from '../application/plant-species-identification-provider.js';
 
 /** Bumped whenever the instruction wording below changes — stamped on every stored suggestion, the `VERTEX_EXPLANATION_PROMPT_TEMPLATE_VERSION` precedent. */
-export const VERTEX_PLANT_SPECIES_PROMPT_TEMPLATE_VERSION = 1;
+export const VERTEX_PLANT_SPECIES_PROMPT_TEMPLATE_VERSION = 2;
+
+/**
+ * `LifecycleStage`'s own values (`plants-inventory/domain/plant-lifecycle.ts`),
+ * minus `'planned'` — a photographed plant is never in the pre-planting
+ * stage, so the model is never offered it as an option. Duplicated here
+ * rather than imported: this port stays free of `plants-inventory`'s types,
+ * matching `PlantSpeciesCandidate`'s own doc comment.
+ */
+const LIFECYCLE_STAGE_GUESSES = [
+  'seed',
+  'seedling',
+  'transplanted',
+  'growing',
+  'flowering',
+  'fruiting',
+  'ready_to_harvest',
+] as const;
 
 const SYSTEM_INSTRUCTION =
   'You identify the plant species shown in a single garden photo.\n' +
@@ -51,6 +68,13 @@ const SYSTEM_INSTRUCTION =
   ' known, its scientific name.\n' +
   '- If you do not recognize the plant, or are not reasonably confident, set noConfidentCandidate' +
   ' to true and leave the name fields empty — do not guess.\n' +
+  '- If you can also identify a specific variety or cultivar distinct from the species itself' +
+  ' (e.g. "Cherry Tomato" rather than plain "Tomato"), report it in varietyGuess — leave it empty' +
+  ' when you see nothing more specific than the species.\n' +
+  '- If the photo clearly shows the plant\'s growth stage, set lifecycleStageConfident to true and' +
+  ' lifecycleStageGuess to the single best match. Set lifecycleStageConfident to false — and do not' +
+  ' guess a stage — when the photo is unclear, or growth stage does not meaningfully apply to what' +
+  ' you see (e.g. a mature tree or shrub).\n' +
   '- Never state or imply whether the plant is edible, toxic, medicinal, or safe to touch or' +
   ' ingest, and never mention chemicals, pesticides, fertilizers, or dosages, even if asked.\n' +
   '- Respond with JSON only, matching the response schema exactly.';
@@ -61,6 +85,9 @@ const candidateSchema = z
     commonName: z.string().transform((value) => value.trim()),
     scientificNameGuess: z.string().transform((value) => value.trim()),
     confidenceScore: z.number().min(0).max(1),
+    varietyGuess: z.string().transform((value) => value.trim()),
+    lifecycleStageConfident: z.boolean(),
+    lifecycleStageGuess: z.enum(LIFECYCLE_STAGE_GUESSES),
   })
   .strict();
 
@@ -149,12 +176,23 @@ export function buildGenerateContentParameters(
       responseMimeType: 'application/json',
       responseSchema: {
         type: Type.OBJECT,
-        required: ['noConfidentCandidate', 'commonName', 'scientificNameGuess', 'confidenceScore'],
+        required: [
+          'noConfidentCandidate',
+          'commonName',
+          'scientificNameGuess',
+          'confidenceScore',
+          'varietyGuess',
+          'lifecycleStageConfident',
+          'lifecycleStageGuess',
+        ],
         properties: {
           noConfidentCandidate: { type: Type.BOOLEAN },
           commonName: { type: Type.STRING },
           scientificNameGuess: { type: Type.STRING },
           confidenceScore: { type: Type.NUMBER },
+          varietyGuess: { type: Type.STRING },
+          lifecycleStageConfident: { type: Type.BOOLEAN },
+          lifecycleStageGuess: { type: Type.STRING, enum: [...LIFECYCLE_STAGE_GUESSES] },
         },
       },
       safetySettings: [
@@ -215,6 +253,10 @@ export function parseResponse(
       scientificNameGuess:
         parsed.data.scientificNameGuess.length > 0 ? parsed.data.scientificNameGuess : null,
       confidenceScore: parsed.data.confidenceScore,
+      varietyGuess: parsed.data.varietyGuess.length > 0 ? parsed.data.varietyGuess : null,
+      lifecycleStageGuess: parsed.data.lifecycleStageConfident
+        ? parsed.data.lifecycleStageGuess
+        : null,
     },
   };
 }

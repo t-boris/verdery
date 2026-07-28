@@ -44,6 +44,8 @@ export interface PlantConditionObservation {
   readonly suggestedLabel: string;
   readonly confidenceScore: number;
   readonly requestedAdditionalEvidence: boolean;
+  /** A general care suggestion (watering, light, pruning) — empty when the model has nothing specific to add. Never chemicals, pesticides, fertilizers, or dosages, matching this port's own structural exclusion. */
+  readonly careGuidanceSuggestion: string;
 }
 
 export interface PlantConditionModelIdentity {

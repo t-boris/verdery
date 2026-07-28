@@ -45,6 +45,18 @@ export interface PlantSpeciesCandidate {
   readonly commonName: string;
   readonly scientificNameGuess: string | null;
   readonly confidenceScore: number;
+  /** e.g. "Cherry Tomato" vs the plain `commonName` "Tomato" — `null` when the model saw nothing distinct from the species itself. */
+  readonly varietyGuess: string | null;
+  /**
+   * One of `LifecycleStage`'s own values (`plants-inventory`'s domain
+   * vocabulary — this port stays free of that module's types, so this is a
+   * plain string the caller validates), excluding `'planned'`: a
+   * photographed plant is never in the pre-planting stage. `null` when the
+   * model was not confident, or the concept does not apply to what it saw
+   * (e.g. a mature tree) — the same "do not guess" posture
+   * `noConfidentCandidate` already establishes for the species guess itself.
+   */
+  readonly lifecycleStageGuess: string | null;
 }
 
 export interface PlantIdentificationModelIdentity {

@@ -1,3 +1,4 @@
+import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 import {
   AnalyzePlantCondition,
@@ -49,6 +50,7 @@ function analyzePlantConditionWith(
     },
     new AlwaysAllowProviderQuotaRepository(),
     { now: () => NOW },
+    pino({ level: 'silent' }),
   );
 }
 
@@ -72,6 +74,7 @@ describe('analyzeObservationPhoto', () => {
         suggestedLabel: 'Wilting leaves',
         confidenceScore: 0.7,
         requestedAdditionalEvidence: false,
+        careGuidanceSuggestion: '',
       },
     });
 

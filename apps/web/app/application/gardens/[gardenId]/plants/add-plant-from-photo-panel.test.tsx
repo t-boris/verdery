@@ -2,6 +2,7 @@ import type { Plant } from '@verdery/api-contracts';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { lifecycleStageLabel } from '@/features/plants/labels';
 import { LocalizationProvider } from '@/shared/localization/public';
 
 import { AddPlantFromPhotoPanel } from './add-plant-from-photo-panel';
@@ -59,6 +60,7 @@ vi.mock('@/features/media/public', () => ({
 }));
 
 vi.mock('@/features/plants/public', () => ({
+  lifecycleStageLabel,
   useAddPlantFromPhoto: () => ({
     ...addFromPhotoState,
     mutate: addFromPhotoMutateMock,
@@ -231,5 +233,35 @@ describe('AddPlantFromPhotoPanel — reviewing', () => {
       expectedRevision: 1,
     });
     expect(typeof options?.onSuccess).toBe('function');
+  });
+
+  it('shows the variety, growth stage, condition, and care-guidance guesses when present', () => {
+    addFromPhotoState.data = PLANT;
+    identificationState = {
+      data: {
+        id: 'identification-1',
+        plantId: 'plant-1',
+        plantPhotoId: 'photo-1',
+        confidenceScore: 0.9,
+        createdAt: '2026-07-21T09:00:00Z',
+        suggestedTaxonomy: { id: 'tax-1', scientificName: 'Solanum lycopersicum', commonName: 'Tomato' },
+        suggestedVarietyLabel: 'Roma',
+        suggestedLifecycleStage: 'flowering',
+        suggestedConditionNote: 'Leaves show mild water stress',
+        suggestedCareGuidanceNote: 'Water more consistently and check drainage.',
+      },
+      isPending: false,
+      isError: false,
+      isSuccess: true,
+    };
+
+    renderPanel();
+
+    expect(screen.getByText('Variety: Roma')).toBeTruthy();
+    expect(screen.getByText('Growth stage: Flowering')).toBeTruthy();
+    expect(screen.getByText('Condition: Leaves show mild water stress')).toBeTruthy();
+    expect(
+      screen.getByText('Care suggestion: Water more consistently and check drainage.'),
+    ).toBeTruthy();
   });
 });
