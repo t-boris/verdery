@@ -33,19 +33,17 @@ for why). Concretely:
   verifies a live response — using the same `infrastructure/gcloud/scripts/deploy-api.sh` a human
   runs locally, not a separate CI-only path.
 
-Phase 2 is now in progress in the repository. The implemented foundations include:
+Implementation through Phase 9 is now present in the repository. The foundation covers identity,
+gardens, the cross-platform 2D editor, plants, observations, tasks, native synchronization, web
+continuity, media and plan import, recommendations and Today, notifications, export, deletion, and
+hardening. Phase 9 adds operational collaboration, professional-service organizations and garden
+assignments, explicit client publication and a read-only portal, client-scoped media/export, and
+seasonal/context features on web and iOS.
 
-- A migration for profiles, provider links, account state, gardens, operational memberships, an
-  invitation skeleton, consent, audit, revisions, idempotency, sync changes, and the outbox.
-- Identity/profile provisioning and Firebase-token/web-session infrastructure in the API.
-- Garden create, list, get, rename, archive, and deletion-request contracts and backend behavior,
-  with current-membership authorization, revisions, idempotency, and tests.
-- Web sign-in/session and garden list/create/settings flows.
-- Native authentication, garden gateway, and local garden-store foundations.
-
-This is implementation evidence, not G2 completion evidence. Provider configuration, complete
-cross-client integration, App Check monitoring, and the full authentication/authorization/E2E
-matrix remain open.
+This is implementation evidence, not a claim that every release approval has passed. G2–G8 remain
+owner-controlled gates; G9 is approved. Only `verdery-dev` is live, the worker service is still not
+deployed, staging and production do not exist, App Check enforcement remains off, and the provider,
+privacy, support, legal, store, and real-device items documented below remain open.
 
 Run `infrastructure/gcloud/README.md` before touching any of this by hand; several steps are only
 safe in the order the numbered scripts encode.

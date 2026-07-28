@@ -25,22 +25,33 @@ The authoritative sources are:
 
 ## Current state
 
-Phase 1, "Engineering and Cloud Foundation", is complete, and Phase 2, "Identity and First-Garden
-Vertical Slice", is in progress. In addition to the foundation, the repository now contains the
-identity-and-gardens migration, profile provisioning, Firebase token and web-session
-infrastructure, garden authorization and lifecycle APIs, web sign-in/garden screens, and native
-authentication, garden-networking, and local-store foundations.
+As of July 27, 2026, the implementation through Phase 9 is delivered. Phase 1 is complete; Phases
+2–8 are implementation-complete with their owner-controlled release approvals still pending; and
+Phase 9 passed its recorded G9 review. This is implementation evidence, not a claim that Verdery is
+generally available.
 
-Phase 2 is not complete merely because these files exist. Provider configuration, complete
-native/web integration, App Check evidence, the full authorization/E2E matrix, and explicit G2
-approval remain open. Maps, plants, observations, tasks, synchronization, media, recommendations,
-team sharing, and the client portal are not implemented product releases yet.
+The repository now contains the implemented foundation capabilities across the API, web, and native
+Apple client: authentication and gardens; the canonical editable 2D garden map; plants,
+observations, history, and tasks; native offline synchronization and recoverable web drafts; private
+media upload, validation, derivatives, retention, plan import, and calibration; deterministic
+recommendations, Today, notifications, export, and recoverable deletion. Phase 9 adds household/team
+collaboration, professional organizations and garden assignments, a publication-only client portal
+with factual timeline and client export, plus reviewed seasonal and garden-context surfaces.
 
-Infrastructure is provisioned with versioned gcloud scripts rather than Terraform; only a
-development environment exists, not staging or production. The development Cloud Run service may
-not yet contain every uncommitted Phase 2 change visible in a local checkout. See
-[docs/development/deferred-capabilities.md](docs/development/deferred-capabilities.md) for what is
-still missing and why.
+The development API and web application are deployed to `verdery-dev`, and the automatic
+post-CI deployment verifies database migrations plus live API and web responses. Verdery 1.0 build
+192 was uploaded successfully to TestFlight and entered Apple processing. CI is operational, but
+`master` currently has no branch protection or repository ruleset requiring the aggregate
+`All gates` check.
+
+The product is not GA-ready. Only the development environment exists; staging and production remain
+unprovisioned. App Check enforcement and optional AI/notification providers remain disabled pending
+their evidence and owner decisions. The media workers are implemented but not deployed, several
+real provider and horticultural-review decisions remain open, and App Store submission still needs
+owner, privacy, account-deletion, screenshot, and real-device evidence. See
+[docs/development/deferred-capabilities.md](docs/development/deferred-capabilities.md) and
+[docs/development/ios-distribution.md](docs/development/ios-distribution.md) for the precise
+boundaries.
 
 ## Repository layout
 
@@ -51,7 +62,7 @@ apps/
 
 services/
 ├── api/        Fastify modular monolith over PostgreSQL and PostGIS
-└── workers/    Independently deployed background workers
+└── workers/    Async media, export, notification, and scheduled-processing workers
 
 packages/
 ├── api-contracts/       OpenAPI document and the TypeScript client generated from it
@@ -139,7 +150,7 @@ Full detail, including the environment variables each surface reads, is in
 | ------------ | -------------------------------------------------------------------- | ----------------------------------------------------- |
 | Web          | `pnpm --filter @verdery/web dev`                                     | Next.js development server on <http://localhost:3000> |
 | API          | `pnpm --filter @verdery/api build && pnpm --filter @verdery/api dev` | Runs compiled output; requires `DATABASE_URL`         |
-| Workers      | `pnpm --filter @verdery/workers build`                               | No long-running entry point yet                       |
+| Workers      | `pnpm --filter @verdery/workers build`                               | Builds worker targets; live rollout remains deferred  |
 | Apple client | `cd apps/ios && swift build`                                         | Requires Xcode 26.6; `swift test` runs the suite      |
 
 The API validates its configuration at startup and refuses to run with an invalid environment, so
@@ -171,7 +182,8 @@ pnpm --filter @verdery/api-contracts generate:check   # generated client matches
 
 Every gate above also runs in CI, plus a secret scan and the Swift build.
 [docs/development/ci-gates.md](docs/development/ci-gates.md) maps each CI job to the command that
-reproduces it locally.
+reproduces it locally. CI reports `All gates`, but that check is not yet enforced by branch
+protection on `master`.
 
 ## Developer documentation
 

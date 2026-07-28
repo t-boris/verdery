@@ -4,23 +4,23 @@ How a Verdery build gets from this repository onto a device, and everything App 
 asks for that a human has to paste in. Work package `P8-STORE-01`.
 
 The build mechanics, the store copy, and the privacy declarations are all finished and checked in.
-What is **not** finished is the set of actions only the repository owner's Apple account can
-perform. Those are enumerated once, in [1. Owner action checklist](#1-owner-action-checklist), and
-nothing else in this document is blocked on anything except them.
+Verdery 1.0 build 192 was accepted for TestFlight processing on July 27, 2026. The remaining
+owner-account actions are enumerated once in
+[1. Owner action checklist](#1-owner-action-checklist).
 
 ## 0. Where things stand
 
-| Piece                                                 | State                                                                            |
-| ----------------------------------------------------- | -------------------------------------------------------------------------------- |
-| An iOS app target that compiles for a real device     | Done — `xcodebuild archive` succeeds                                             |
-| App icon, launch screen, privacy manifest, Info.plist | Done — `apps/ios/Resources/`, `apps/ios/project.yml`                             |
-| A signed, distribution-ready `.ipa`                   | **Produced and verified locally** — see [2](#2-what-has-actually-been-run)       |
-| TestFlight upload automation                          | Written and run to the edge of upload — `apps/ios/scripts/archive-and-upload.sh` |
-| Store listing copy, English and Russian               | Done — [6](#6-store-listing-english) and [7](#7-store-listing-russian)           |
-| App Privacy declarations                              | Done, derived from the code — [8](#8-app-privacy-declarations)                   |
-| Review notes and demo account                         | Drafted — [9](#9-app-review-notes); the account itself is an owner action        |
-| In-app account deletion                               | **Blocked** on `P8-DELETE-01` — [10](#10-account-deletion-a-hard-blocker)        |
-| Screenshots                                           | **Not captured** — [11](#11-screenshots)                                         |
+| Piece                                                 | State                                                                      |
+| ----------------------------------------------------- | -------------------------------------------------------------------------- |
+| An iOS app target that compiles for a real device     | Done — `xcodebuild archive` succeeds                                       |
+| App icon, launch screen, privacy manifest, Info.plist | Done — `apps/ios/Resources/`, `apps/ios/project.yml`                       |
+| A signed, distribution-ready `.ipa`                   | **Produced and verified locally** — see [2](#2-what-has-actually-been-run) |
+| TestFlight upload                                     | **Build 192 uploaded successfully; Apple processing started**              |
+| Store listing copy, English and Russian               | Done — [6](#6-store-listing-english) and [7](#7-store-listing-russian)     |
+| App Privacy declarations                              | Done, derived from the code — [8](#8-app-privacy-declarations)             |
+| Review notes and demo account                         | Drafted — [9](#9-app-review-notes); the account itself is an owner action  |
+| In-app account deletion                               | **Blocked** on `P8-DELETE-01` — [10](#10-account-deletion-a-hard-blocker)  |
+| Screenshots                                           | **Not captured** — [11](#11-screenshots)                                   |
 
 Bundle identifier `com.verdery.app`. Apple Developer team `3M68DG8S7N`. Deployment target iOS 18.0,
 iPhone and iPad.
@@ -39,40 +39,33 @@ the signing path locally proved that several prerequisites are already satisfied
 - The App ID `com.verdery.app` exists in the developer portal with the **Sign in with Apple**
   capability enabled, and it carries the `beta-reports-active` entitlement — the entitlement that
   exists specifically to permit TestFlight distribution.
+- The App Store Connect app record exists. App Store Connect accepted Verdery 1.0 build 192 and
+  started processing it.
 - A distribution signing certificate and a matching provisioning profile exist.
+- The signed upload path through the Xcode account is operational.
 
 **Still required, in order:**
 
-1. **Create the App Store Connect app record** — App Store Connect → Apps → `+`. Platform iOS, bundle
-   ID `com.verdery.app`, SKU `verdery-ios-01`, primary language English (U.S.). For the app **name**
-   see [6](#6-store-listing-english) — it must be globally unique across the entire App Store, so
-   have the fallback in that section ready. _Unblocks uploading: without a record, an upload for this
-   bundle ID is rejected after the whole binary has transferred._
-2. **Confirm the Agreements, Tax, and Banking status** — App Store Connect → Business. The Free
+1. **Confirm the Agreements, Tax, and Banking status** — App Store Connect → Business. The Free
    Applications agreement must read "Active". _A pending agreement leaves an uploaded build stuck in
    "Processing" forever with no error shown anywhere._ (The Program License Agreement is separately
    confirmed accepted, above; this is the paid/free applications one, which is not exercised by
    signing and so could not be verified here.)
-3. **Create an App Store Connect API key** — App Store Connect → Users and Access → Integrations →
-   App Store Connect API → Team Keys → `+`. Name it `verdery-ci`, access role **App Manager**.
-   Download the `AuthKey_<KeyID>.p8` **once**; Apple never shows it again. Then note three values:
-   - the **Key ID** (10 characters, beside the key),
-   - the **Issuer ID** (a UUID above the key list, one per team),
-   - the path you saved the `.p8` to — keep it outside this repository; it is a real credential.
-
-   _Unblocks the automated upload in [4](#4-uploading-to-testflight). Without it, an upload is still
-   possible by opening the archive in Xcode's Organizer and clicking through Distribute App._
-
-4. **Add the first TestFlight internal testers** — App Store Connect → your app → TestFlight →
+2. **Add the first TestFlight internal testers after build 192 finishes processing** — App Store
+   Connect → your app → TestFlight →
    Internal Testing. Internal testers need only an App Store Connect user account, and receive builds
    with no Apple review of any kind. _This is the step that puts the app on the owner's phone._
 
-Those four are the entire path to a build in the owner's hands. Everything below is App Store
+For unattended CI uploads, preserve the App Store Connect team key's Issuer ID alongside the existing
+Key ID and private `.p8` file. The July 27 upload did not need that missing value because it used the
+authenticated Xcode account. This is operational hardening, not a blocker for the accepted build.
+
+Those two actions are the entire remaining path to a build in the owner's hands. Everything below is App Store
 submission only, and none of it blocks TestFlight:
 
-5. **Create the reviewer demo account** — see [9](#9-app-review-notes).
-6. **Decide the support and privacy-policy URLs** — see [5](#5-named-decisions-still-open).
-7. **Ship in-app account deletion** — see [10](#10-account-deletion-a-hard-blocker). This is
+3. **Create the reviewer demo account** — see [9](#9-app-review-notes).
+4. **Decide the support and privacy-policy URLs** — see [5](#5-named-decisions-still-open).
+5. **Ship in-app account deletion** — see [10](#10-account-deletion-a-hard-blocker). This is
    engineering work, not an account action, and it is the largest remaining item.
 
 ## 2. What has actually been run
@@ -82,23 +75,27 @@ difference.
 
 **Verified on this machine:**
 
-- `swift build` and `swift test` — 808 tests in 114 suites, all passing.
+- `swift build` and `swift test` — 934 tests in 129 suites, all passing.
+- `xcodebuild -scheme Verdery -destination 'generic/platform=iOS Simulator' build` — the complete
+  SwiftUI application, including `FeatureMap`, compiles and links for both simulator architectures.
 - `xcodebuild -target Verdery -sdk iphoneos -arch arm64 build` — the shipped app compiles for a real
   device. This had **never been run before**, and it failed the first time; see
   [12. Known gaps](#12-known-gaps) for what it found.
 - `xcodebuild archive -destination 'generic/platform=iOS'` — a real `.xcarchive` with a dSYM.
-- `./scripts/archive-and-upload.sh --validate-only` — end to end, producing a **signed 7.5 MB
+- `./scripts/archive-and-upload.sh --validate-only` — end to end, producing a **signed 8.7 MB
   `Verdery.ipa`** with:
   - certificate type `Cloud Managed Apple Distribution`,
   - `application-identifier` `3M68DG8S7N.com.verdery.app`,
   - `beta-reports-active: true`, `get-task-allow: false`,
   - `com.apple.developer.applesignin: [Default]`,
-  - `CFBundleVersion 138` (from `git rev-list --count HEAD`), `CFBundleShortVersionString 1.0`,
+  - `CFBundleVersion 192`, `CFBundleShortVersionString 1.0`,
   - `Assets.car` carrying all 17 icon slots including the 1024×1024 marketing icon,
   - `GoogleService-Info.plist`, `PrivacyInfo.xcprivacy`, `embedded.mobileprovision`,
     `_CodeSignature`.
 
-**Not run, and why:** the upload itself, which needs the App Store Connect API key from owner action 3. That single step is the entire remaining distance to TestFlight.
+**Uploaded:** Xcode reported `Upload succeeded` for Verdery 1.0 build 192 on July 27, 2026, and App
+Store Connect started processing the package. Availability to testers follows Apple's processing and
+the internal-group assignment in owner action 2.
 
 **Not verifiable anywhere but a real device:** Sign in with Apple, Google sign-in, and App Attest.
 See [12](#12-known-gaps).
@@ -109,7 +106,7 @@ Everything below runs today, with no Apple credentials.
 
 ```sh
 cd apps/ios
-swift build && swift test           # the package: 808 tests, 114 suites
+swift build && swift test           # the package: 934 tests, 129 suites
 xcodegen generate                   # regenerate Verdery.xcodeproj from project.yml
 xcodebuild -project Verdery.xcodeproj -target Verdery \
   -configuration Release -sdk iphoneos -arch arm64 \
@@ -141,18 +138,22 @@ cd apps/ios
 # Dry run: archive, sign, export a local .ipa, upload nothing.
 ./scripts/archive-and-upload.sh --validate-only
 
-# The real upload, after owner action 5.
+# The unattended CLI upload, after recording the team key's Issuer ID.
 VERDERY_ASC_KEY_ID=XXXXXXXXXX \
 VERDERY_ASC_ISSUER_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx \
 VERDERY_ASC_KEY_PATH=~/private_keys/AuthKey_XXXXXXXXXX.p8 \
   ./scripts/archive-and-upload.sh
 ```
 
-The script archives with `xcodebuild archive` and then exports **and uploads** in one step with
-`xcodebuild -exportArchive`, authenticating with the App Store Connect API key. It chooses plain
-`xcodebuild` over fastlane deliberately — the reasoning is in the script's own header, and the short
-version is that fastlane would be the only Ruby in this repository to wrap three commands Apple now
-supports first-party.
+The script archives with `xcodebuild archive`, exports a signed IPA, and uploads it with `altool`
+using the App Store Connect API key. It chooses plain `xcodebuild` over fastlane deliberately — the
+reasoning is in the script's own header, and the short version is that fastlane would be the only
+Ruby in this repository to wrap three commands Apple now supports first-party.
+
+Build 192 used the equivalent authenticated-Xcode fallback: the same archive was exported with
+`destination=upload` and App Store Connect reported `Upload succeeded`. This path is appropriate for
+an attended developer machine; the API-key script remains the reproducible CI path once the Issuer ID
+is stored securely.
 
 The build number defaults to `git rev-list --count HEAD`, which is monotonic and needs no state
 file. Override with `VERDERY_BUILD_NUMBER` when re-uploading the same commit — App Store Connect
@@ -460,13 +461,13 @@ Ordered by how much they matter.
    app has no `aps-environment` entitlement, correctly. When the client half is built, the entitlement
    and a `UIBackgroundModes` entry must be added to `project.yml` and the App ID's push capability
    enabled in the developer portal.
-6. **App Check is not provisioned for `verdery-dev` at all.** `firebaseappcheck.googleapis.com` is
-   not an enabled service on the project, so neither the DEBUG debug-provider nor the Release App
-   Attest provider can complete an attestation exchange — both fail with `SERVICE_DISABLED`. That is
-   tolerable only because App Check is monitor-only and the header is optional; the client now sends
-   requests without it rather than failing them (see [what build 156 found](#what-build-156-found)).
-   Enabling the API and registering the App Attest provider is a prerequisite of enforcement
-   (rollout stage 3), not of today's monitoring.
+6. **App Check was not provisioned for `verdery-dev` during this inventory.**
+   `firebaseappcheck.googleapis.com` was enabled on July 27, 2026, and the web
+   reCAPTCHA provider was registered. Native enforcement is still blocked:
+   the App Attest provider for `com.verdery.app` and a real-device `valid`
+   classification have not been verified. App Check remains monitor-only and
+   the client correctly sends requests without the header when attestation
+   fails (see [what build 156 found](#what-build-156-found)).
 7. **An emailed sign-in link cannot return to the app.** It now points at the deployed web handler
    (`/auth/email-link`), which completes the sign-in in a browser. Capturing it in the app instead
    needs three things that do not exist: the `ASSOCIATED_DOMAINS` capability on the `com.verdery.app`
@@ -521,9 +522,12 @@ test environment has.
 
 1. **Every authenticated screen reported "Something went wrong on our side."**
    `HTTPTransport.makeRequest` awaited the App Check token with `try`, so a failure to obtain one
-   aborted the request before it was built. `verdery-dev` has never had
-   `firebaseappcheck.googleapis.com` enabled, so obtaining one always failed — in Release via App
-   Attest, in DEBUG via the debug provider, both refused at the exchange with `SERVICE_DISABLED`.
+   aborted the request before it was built. At the time, `verdery-dev` did not
+   have `firebaseappcheck.googleapis.com` enabled, so obtaining one always
+   failed — in Release via App Attest and in DEBUG via the debug provider,
+   both refused at the exchange with `SERVICE_DISABLED`. The API was enabled
+   on July 27, 2026; this paragraph records the build-156 incident, not current
+   project state.
    The thrown error was not an `APIGatewayError`, so it fell into each view model's generic `catch`,
    which reports `error.server.unexpected`.
 

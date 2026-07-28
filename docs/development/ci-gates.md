@@ -93,6 +93,10 @@ fails only when a dependency failed or was cancelled — a skipped gate is a cor
 
 **Configure branch protection to require `All gates` and nothing else.**
 
+Current repository state, verified July 27, 2026: `master` has neither branch protection nor a
+repository ruleset, so `All gates` reports correctly but is not enforced before a direct push or
+merge.
+
 ## Reproducing a failure locally
 
 ```bash
@@ -112,13 +116,13 @@ runner provides. Locally the same tests need a running Docker daemon.
 
 ## Gates the architecture requires that do not exist yet
 
-| Required gate                           | Status                                                                                                   |
-| --------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Provisioning-script validation          | `infrastructure/gcloud/scripts/` is authoritative, but CI has no dedicated shell/static/idempotency gate |
-| Container vulnerability scan            | Images build and publish to Artifact Registry, but no blocking image scan is configured                  |
-| End-to-end tests for release candidates | `verdery-dev` exists, but the complete Phase 2 native/web E2E matrix is not implemented                  |
-| Dependency vulnerability scan           | Dependabot proposes updates; no blocking audit gate is configured                                        |
-| Documentation link checking             | Formatting is gated; nothing yet verifies that links resolve                                             |
+| Required gate                           | Status                                                                                                                             |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Provisioning-script validation          | `infrastructure/gcloud/scripts/` is authoritative, but CI has no dedicated shell/static/idempotency gate                           |
+| Container vulnerability scan            | Images build and publish to Artifact Registry, but no blocking image scan is configured                                            |
+| End-to-end tests for release candidates | Feature-specific browser suites exist, but they are not a blocking release-candidate gate; real-device iOS evidence remains manual |
+| Dependency vulnerability scan           | Dependabot proposes updates; no blocking audit gate is configured                                                                  |
+| Documentation link checking             | Formatting is gated; nothing yet verifies that links resolve                                                                       |
 
 The first three are follow-up quality work rather than missing infrastructure — see
 [deferred-capabilities.md](deferred-capabilities.md). The fourth is a deliberate choice: a blocking
