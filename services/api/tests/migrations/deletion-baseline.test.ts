@@ -333,11 +333,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   });
 
   it('rolls back cleanly: the deletion schema drops whole, the membership foreign key and the narrow lifecycle CHECK return, and re-migrating up succeeds', async () => {
-    // `count: 8` undoes this migration and every migration applied after it
-    // (currently collaboration-operations-and-attribution through
-    // taxonomy-seasonal-facts-and-bed-history). Update this
-    // count when a later migration is added on top.
-    await migrate(databaseUrl, 'down', 9);
+    // `count: 10` undoes this migration and every migration applied after it
+    // (currently through 1787300000000_plant-identification-raw-suggestion.sql).
+    // Update this count when a later migration is added on top.
+    await migrate(databaseUrl, 'down', 10);
 
     const schema = await client.query(
       `SELECT 1 FROM information_schema.schemata WHERE schema_name = 'deletion'`,

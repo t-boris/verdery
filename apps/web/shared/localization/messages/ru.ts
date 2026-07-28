@@ -475,6 +475,7 @@ export const russianMessages: MessageCatalogue = {
   'plants.identificationConfirm': 'Подтвердить',
   'plants.identificationLater': 'Решить позже',
   'plants.identificationPendingBanner': 'ИИ предложил вид для этого растения.',
+  'plants.identificationUnlistedNote': 'Пока нет в каталоге растений — при подтверждении это станет именем растения.',
 
   'plants.enum.groupingKind.individual': 'Отдельное растение',
   'plants.enum.groupingKind.row': 'Ряд',

@@ -9,6 +9,8 @@ interface PlantIdentificationRowLike {
   plant_id: string;
   plant_photo_id: string;
   suggested_taxonomy_id: string | null;
+  suggested_common_name: string | null;
+  suggested_scientific_name: string | null;
   confidence_score: string;
   created_at: Date;
 }
@@ -19,6 +21,8 @@ function toPlantIdentification(row: PlantIdentificationRowLike): PlantIdentifica
     plantId: row.plant_id,
     plantPhotoId: row.plant_photo_id,
     suggestedTaxonomyId: row.suggested_taxonomy_id,
+    suggestedCommonName: row.suggested_common_name,
+    suggestedScientificName: row.suggested_scientific_name,
     // `numeric(4,3)` reads back as a string — see the row type's own doc
     // comment in persistence/schema.ts.
     confidenceScore: Number(row.confidence_score),
@@ -58,6 +62,8 @@ export class KyselyPlantIdentificationRepository implements PlantIdentificationR
         plant_id: identification.plantId,
         plant_photo_id: identification.plantPhotoId,
         suggested_taxonomy_id: identification.suggestedTaxonomyId,
+        suggested_common_name: identification.suggestedCommonName,
+        suggested_scientific_name: identification.suggestedScientificName,
         confidence_score: identification.confidenceScore,
         created_at: identification.createdAt,
       })

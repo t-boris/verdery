@@ -4,6 +4,11 @@
  * matching `plant-view.ts`'s own convention of a dedicated view file per
  * resource, and `PlantResource`'s reasoning for carrying every field
  * directly, including nulls.
+ *
+ * `suggestedCommonName`/`suggestedScientificName` carry the AI's own raw
+ * name guess when it was confident but found no catalog match —
+ * `domain/plant-identification.ts`'s own doc comment covers the full
+ * mutual-exclusivity invariant with `suggestedTaxonomy`.
  */
 
 import type { PlantIdentification } from '../domain/plant-identification.js';
@@ -20,6 +25,8 @@ export interface PlantIdentificationResource {
     readonly scientificName: string;
     readonly commonName: string | null;
   } | null;
+  readonly suggestedCommonName: string | null;
+  readonly suggestedScientificName: string | null;
 }
 
 export function toPlantIdentificationResource(
@@ -40,5 +47,7 @@ export function toPlantIdentificationResource(
             scientificName: suggestedTaxonomy.scientificName,
             commonName: suggestedTaxonomy.commonName,
           },
+    suggestedCommonName: identification.suggestedCommonName,
+    suggestedScientificName: identification.suggestedScientificName,
   };
 }

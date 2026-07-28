@@ -223,6 +223,41 @@ describe('AddPlantFromPhoto', () => {
     expect(identification?.confidenceScore).toBe(0.9);
   });
 
+  it('preserves the AI raw name guess when a confident candidate has no catalog match', async () => {
+    const fakes = fakesWithMedia();
+    const adapter = new FakePlantSpeciesIdentificationProviderAdapter({
+      kind: 'candidate',
+      candidate: {
+        commonName: 'Green ash',
+        scientificNameGuess: 'Fraxinus pennsylvanica',
+        confidenceScore: 0.88,
+      },
+    });
+    const identifyPlantSpecies = identifyPlantSpeciesWith(adapter);
+    const addPlantFromPhoto = new AddPlantFromPhoto(
+      fakes.idempotency,
+      new FakePlantsInventoryUnitOfWork(fakes),
+      authorizationGranting(OWNER_MEMBERSHIP),
+      fixedClock(NOW),
+      identifyPlantSpecies,
+      new FakeTaxonomyReferenceRepository(),
+      pino({ level: 'silent' }),
+    );
+
+    await addPlantFromPhoto.execute(
+      GARDEN_ID,
+      PROFILE_ID,
+      { photoMediaId: MEDIA_ID },
+      '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a1c',
+    );
+
+    const identification = [...fakes.plantIdentifications.identifications.values()][0];
+    expect(identification?.suggestedTaxonomyId).toBeNull();
+    expect(identification?.suggestedCommonName).toBe('Green ash');
+    expect(identification?.suggestedScientificName).toBe('Fraxinus pennsylvanica');
+    expect(identification?.confidenceScore).toBe(0.88);
+  });
+
   it('rejects a photoMediaId that MediaRepository.get does not return', async () => {
     const fakes = createPlantsInventoryFakes();
     const addPlantFromPhoto = new AddPlantFromPhoto(

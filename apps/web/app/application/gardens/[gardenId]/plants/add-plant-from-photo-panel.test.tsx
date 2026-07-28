@@ -195,4 +195,41 @@ describe('AddPlantFromPhotoPanel — reviewing', () => {
 
     expect(pushMock).toHaveBeenCalledWith('/application/gardens/garden-1/plants/plant-1');
   });
+
+  it('shows the AI raw name guess and offers Confirm when a confident candidate has no catalog match', () => {
+    addFromPhotoState.data = PLANT;
+    identificationState = {
+      data: {
+        id: 'identification-1',
+        plantId: 'plant-1',
+        plantPhotoId: 'photo-1',
+        confidenceScore: 0.88,
+        createdAt: '2026-07-21T09:00:00Z',
+        suggestedTaxonomy: null,
+        suggestedCommonName: 'Green ash',
+        suggestedScientificName: 'Fraxinus pennsylvanica',
+      },
+      isPending: false,
+      isError: false,
+      isSuccess: true,
+    };
+
+    renderPanel();
+
+    expect(screen.getByText('Fraxinus pennsylvanica (Green ash)')).toBeTruthy();
+    expect(
+      screen.getByText("Not in the plant catalog yet — confirming will use this as the plant's name."),
+    ).toBeTruthy();
+    expect(screen.getByText('Confidence: 88%')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    const [variables, options] = confirmMutateMock.mock.calls[0] ?? [];
+    expect(variables).toEqual({
+      plantId: 'plant-1',
+      identificationId: 'identification-1',
+      expectedRevision: 1,
+    });
+    expect(typeof options?.onSuccess).toBe('function');
+  });
 });

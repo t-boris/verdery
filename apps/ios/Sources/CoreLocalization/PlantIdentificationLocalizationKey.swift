@@ -20,4 +20,5 @@ public enum PlantIdentificationLocalizationKey: String, Sendable, CaseIterable {
     case plantsIdentificationConfirmedMessage = "plants.identification.confirmedMessage"
 
     case plantsIdentificationPendingBanner = "plants.identification.pendingBanner"
+    case plantsIdentificationUnlistedNote = "plants.identification.unlistedNote"
 }

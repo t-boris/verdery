@@ -10,12 +10,24 @@
  * model never supplies a `taxonomyReferenceId` itself, only a common/
  * scientific name guess. `AddPlantFromPhoto` is the only caller.
  *
- * Every non-candidate outcome — the capability disabled or unconfigured,
- * quota exhausted, provider timeout or failure, no confident candidate, a
- * schema-invalid response, a safety-blocked response, or no catalog match
- * for whatever name the model did suggest — collapses to the SAME
- * `{ suggestedTaxonomyId: null, confidenceScore: 0 }` shape the historical
- * stub always returned. `AddPlantFromPhoto` needs no new branching, and a
+ * `suggestedTaxonomyId`, and the `(suggestedCommonName, suggestedScientificName)`
+ * pair, are mutually exclusive — never both non-null:
+ * - A genuinely non-candidate outcome (the capability disabled or
+ *   unconfigured, quota exhausted, provider timeout or failure, no
+ *   confident candidate, a schema-invalid response, a safety-blocked
+ *   response) collapses to `NO_SUGGESTION` — everything null, the same
+ *   shape the historical stub always returned.
+ * - A confident candidate whose `commonName` MATCHES the catalog resolves
+ *   `suggestedTaxonomyId`, with the raw fields left null.
+ * - A confident candidate with NO catalog match (this application's own
+ *   catalog is unseeded today, so this is common for any real species) now
+ *   PRESERVES the model's raw `commonName`/`scientificNameGuess` instead of
+ *   discarding it — the catalog being unseeded is not the model's fault,
+ *   and the raw guess is still useful: see `domain/plant.ts`'s
+ *   `confirmPlantIdentification`, which uses it to name the plant directly
+ *   when there is no taxonomy row to link.
+ *
+ * `AddPlantFromPhoto` needs no new branching either way, and a
  * photo-created plant's `taxonomyReferenceId` stays null exactly as before
  * whenever identification cannot produce a confident, catalog-matched
  * answer — identification never auto-confirms, unchanged by this pass.
@@ -29,11 +41,15 @@ import type { TaxonomyReferenceRepository } from './taxonomy-reference-repositor
 export interface PhotoIdentificationSuggestion {
   readonly suggestedTaxonomyId: Uuid | null;
   readonly confidenceScore: number;
+  readonly suggestedCommonName: string | null;
+  readonly suggestedScientificName: string | null;
 }
 
 const NO_SUGGESTION: PhotoIdentificationSuggestion = {
   suggestedTaxonomyId: null,
   confidenceScore: 0,
+  suggestedCommonName: null,
+  suggestedScientificName: null,
 };
 
 /** The catalog is searched by only the top-1 trigram match — a further, lower-ranked match is never a better guess than the model's own top name candidate. */
@@ -65,11 +81,18 @@ export async function identifyPlantFromPhoto(
       },
       'Model produced a confident candidate with no matching taxonomy catalog entry.',
     );
-    return NO_SUGGESTION;
+    return {
+      suggestedTaxonomyId: null,
+      confidenceScore: result.candidate.confidenceScore,
+      suggestedCommonName: result.candidate.commonName,
+      suggestedScientificName: result.candidate.scientificNameGuess,
+    };
   }
 
   return {
     suggestedTaxonomyId: bestMatch.id,
     confidenceScore: result.candidate.confidenceScore,
+    suggestedCommonName: null,
+    suggestedScientificName: null,
   };
 }

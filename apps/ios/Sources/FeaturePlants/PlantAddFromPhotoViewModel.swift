@@ -101,6 +101,23 @@ public final class PlantAddFromPhotoViewModel {
         suggestion.commonName?.isEmpty == false ? suggestion.commonName! : suggestion.scientificName
     }
 
+    /// The AI's own raw name guess, when it was confident but the catalog
+    /// had no match for it (`PlantIdentification.suggestedTaxonomy == nil`,
+    /// `suggestedCommonName != nil`) — same "common name if present,
+    /// scientific name otherwise" choice as `suggestionDisplayName(_:)`.
+    public func rawSuggestionDisplayName(
+        commonName: String,
+        scientificName: String?
+    ) -> String {
+        commonName.isEmpty == false ? commonName : (scientificName ?? "")
+    }
+
+    /// A short note distinguishing "confirming will link an existing catalog
+    /// entry" from "confirming will name the plant from the AI's own guess,
+    /// since nothing in the catalog matches it" — the two have materially
+    /// different effects behind the identical "Confirm" affordance.
+    public var unlistedSuggestionNote: String { strings(.plantsIdentificationUnlistedNote) }
+
     public func confidenceText(_ confidenceScore: Double) -> String {
         Self.percentFormatter().string(from: NSNumber(value: confidenceScore)) ?? ""
     }
@@ -146,7 +163,7 @@ public final class PlantAddFromPhotoViewModel {
     /// to accept when the pass found no confident candidate).
     public func confirmSuggestion() async {
         guard case let .reviewing(plant, identification) = state,
-            let identification, identification.suggestedTaxonomy != nil
+            let identification, identification.hasConfirmableSuggestion
         else { return }
 
         state = .confirming

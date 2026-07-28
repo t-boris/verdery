@@ -193,13 +193,12 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     await client.end();
 
-    // `count: 3` undoes this migration and the two migrations applied after
-    // it (1787000000000_garden-context-facts.sql and
-    // 1787100000000_taxonomy-seasonal-facts-and-bed-history.sql, nothing
-    // this file's own assertions below check) first, then this migration
-    // itself. Update this count when a later migration is added on top, the
-    // same convention every earlier migration test here follows.
-    await migrate(databaseUrl, 'down', 4);
+    // `count: 5` undoes every migration applied after this one (through
+    // 1787300000000_plant-identification-raw-suggestion.sql, nothing this
+    // file's own assertions below check) first, then this migration itself.
+    // Update this count when a later migration is added on top, the same
+    // convention every earlier migration test here follows.
+    await migrate(databaseUrl, 'down', 5);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

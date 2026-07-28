@@ -60,6 +60,8 @@ export interface PlantIdentificationRow {
   plant_id: string;
   plant_photo_id: string;
   suggested_taxonomy_id: string | null;
+  suggested_common_name: string | null;
+  suggested_scientific_name: string | null;
   /**
    * `numeric(4,3)` — node-postgres returns this OID (1700) as a string by
    * default, unlike `double precision` (which every other fractional column

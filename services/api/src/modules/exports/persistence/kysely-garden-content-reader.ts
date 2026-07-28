@@ -159,6 +159,8 @@ export class KyselyGardenContentReader {
           'plants_inventory.plant_identification.plant_id as plant_id',
           'plants_inventory.plant_identification.plant_photo_id as plant_photo_id',
           'plants_inventory.plant_identification.suggested_taxonomy_id as suggested_taxonomy_id',
+          'plants_inventory.plant_identification.suggested_common_name as suggested_common_name',
+          'plants_inventory.plant_identification.suggested_scientific_name as suggested_scientific_name',
           'plants_inventory.plant_identification.confidence_score as confidence_score',
           'plants_inventory.plant_identification.created_at as created_at',
         ])

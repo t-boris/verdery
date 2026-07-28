@@ -301,6 +301,33 @@ struct PlantGatewayTests {
 
         #expect(identification.suggestedTaxonomy == nil)
     }
+
+    @Test("getPlantIdentification decodes the AI's raw name guess when it has no catalog match")
+    func getPlantIdentificationDecodesRawGuessResult() async throws {
+        let identifier = "get-plant-identification-raw-guess"
+        defer { StubURLProtocol.unregister(identifier) }
+
+        let identificationJSON = #"""
+            {
+              "id": "identification-3",
+              "plantId": "plant-1",
+              "plantPhotoId": "photo-1",
+              "confidenceScore": 0.88,
+              "createdAt": "2026-01-01T00:00:00.000Z",
+              "suggestedTaxonomy": null,
+              "suggestedCommonName": "Green ash",
+              "suggestedScientificName": "Fraxinus pennsylvanica"
+            }
+            """#
+        let gateway = makeGateway(identifier: identifier, answer: .json(200, identificationJSON))
+
+        let identification = try await gateway.getPlantIdentification(gardenId: "garden-1", plantId: "plant-1")
+
+        #expect(identification.suggestedTaxonomy == nil)
+        #expect(identification.suggestedCommonName == "Green ash")
+        #expect(identification.suggestedScientificName == "Fraxinus pennsylvanica")
+        #expect(identification.hasConfirmableSuggestion)
+    }
 }
 
 private struct FixedCorrelationIdentifierProvider: CorrelationIdentifierProvider {

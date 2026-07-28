@@ -136,6 +136,8 @@ export class AddPlantFromPhoto {
           photo.id,
           suggestion.suggestedTaxonomyId,
           suggestion.confidenceScore,
+          suggestion.suggestedCommonName,
+          suggestion.suggestedScientificName,
           now,
         );
         await context.plantIdentifications.insert(identification);

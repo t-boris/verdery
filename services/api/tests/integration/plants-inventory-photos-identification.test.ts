@@ -442,6 +442,60 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 
+  it('reads and confirms a raw AI name guess that has no catalog match, naming the plant from it', async () => {
+    const now = new Date('2026-07-21T09:00:00Z');
+    const { ownerId, gardenId } = await createGardenWithOwner(now);
+    const handlers = buildHandlers(fixedClock(now));
+    const mediaId = await registerMedia(ownerId, gardenId, fixedClock(now));
+
+    const plant = await handlers.addPlant.execute(
+      gardenId,
+      ownerId,
+      { displayName: 'Unidentified plant', groupingKind: 'individual' },
+      generateUuidV7(),
+    );
+    const photo = await handlers.attachPlantPhoto.execute(
+      plant.id,
+      ownerId,
+      { mediaId, isPrimary: true },
+      generateUuidV7(),
+    );
+    const identificationId = generateUuidV7();
+    await db
+      .insertInto('plants_inventory.plant_identification')
+      .values({
+        id: identificationId,
+        plant_id: plant.id,
+        plant_photo_id: photo.id,
+        suggested_taxonomy_id: null,
+        suggested_common_name: 'Green ash',
+        suggested_scientific_name: 'Fraxinus pennsylvanica',
+        confidence_score: 0.88,
+      })
+      .execute();
+
+    const pending = await handlers.getPlantIdentification.execute(gardenId, plant.id, ownerId);
+    expect(pending).toMatchObject({
+      id: identificationId,
+      plantId: plant.id,
+      plantPhotoId: photo.id,
+      confidenceScore: 0.88,
+      suggestedTaxonomy: null,
+      suggestedCommonName: 'Green ash',
+      suggestedScientificName: 'Fraxinus pennsylvanica',
+    });
+
+    const confirmed = await handlers.confirmPlantIdentification.execute(
+      plant.id,
+      ownerId,
+      identificationId,
+      plant.revision,
+      generateUuidV7(),
+    );
+    expect(confirmed.taxonomyReferenceId).toBeNull();
+    expect(confirmed.displayName).toBe('Green ash');
+  });
+
   it('404s a plant with no identification at all', async () => {
     const now = new Date('2026-07-21T09:00:00Z');
     const { ownerId, gardenId } = await createGardenWithOwner(now);

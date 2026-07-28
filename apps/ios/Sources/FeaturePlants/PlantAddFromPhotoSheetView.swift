@@ -171,6 +171,20 @@ public struct PlantAddFromPhotoSheetView: View {
                         Text("\(model.confidenceLabel): \(model.confidenceText(identification.confidenceScore))")
                             .font(Typography.detail)
                             .foregroundStyle(Palette.textMuted)
+                    } else if let identification, let commonName = identification.suggestedCommonName {
+                        Text(model.rawSuggestionDisplayName(
+                            commonName: commonName,
+                            scientificName: identification.suggestedScientificName
+                        ))
+                            .font(Typography.body.weight(.semibold))
+                            .accessibilityIdentifier("plants.addFromPhoto.suggestion")
+                        Text("\(model.confidenceLabel): \(model.confidenceText(identification.confidenceScore))")
+                            .font(Typography.detail)
+                            .foregroundStyle(Palette.textMuted)
+                        Text(model.unlistedSuggestionNote)
+                            .font(Typography.detail)
+                            .foregroundStyle(Palette.textMuted)
+                            .accessibilityIdentifier("plants.addFromPhoto.unlistedNote")
                     } else {
                         Text(model.noConfidentMatchMessage)
                             .font(Typography.body)
@@ -180,7 +194,7 @@ public struct PlantAddFromPhotoSheetView: View {
                 }
             }
 
-            if identification?.suggestedTaxonomy != nil {
+            if identification?.hasConfirmableSuggestion == true {
                 Button(model.confirmButtonTitle) {
                     Task { await model.confirmSuggestion() }
                 }

@@ -120,6 +120,8 @@ struct PlantIdentificationTransport: Codable {
     let confidenceScore: Double
     let createdAt: Date
     let suggestedTaxonomy: PlantIdentificationSuggestionTransport?
+    let suggestedCommonName: String?
+    let suggestedScientificName: String?
 
     var domainValue: PlantIdentification {
         PlantIdentification(
@@ -128,7 +130,9 @@ struct PlantIdentificationTransport: Codable {
             plantPhotoId: plantPhotoId,
             confidenceScore: confidenceScore,
             createdAt: createdAt,
-            suggestedTaxonomy: suggestedTaxonomy?.domainValue
+            suggestedTaxonomy: suggestedTaxonomy?.domainValue,
+            suggestedCommonName: suggestedCommonName,
+            suggestedScientificName: suggestedScientificName
         )
     }
 }

@@ -161,12 +161,14 @@ public struct PlantDetailView: View {
     /// plant has not yet confirmed or dismissed — absent entirely otherwise,
     /// the same "real, working affordance or nothing" rule `photoSection`
     /// already follows for a `PlantDetailViewModel` built with no
-    /// `photoAttachment`. Only shown for a suggestion that named a real
-    /// candidate: confirming a "no confident match" identification has
-    /// nothing for the reader to act on here.
+    /// `photoAttachment`. Shown both for a suggestion that resolved a real
+    /// catalog entry and for the AI's own raw name guess when it found no
+    /// catalog match (`suggestedCommonName`) — confirming a genuine "no
+    /// confident match" identification (neither present) has nothing for
+    /// the reader to act on here.
     @ViewBuilder
     private var identificationSection: some View {
-        if let identification = model.pendingIdentification, let suggestion = identification.suggestedTaxonomy {
+        if let identification = model.pendingIdentification, identification.hasConfirmableSuggestion {
             VStack(alignment: .leading, spacing: Metrics.space2) {
                 SectionEyebrow(symbol: PlantSymbols.taxonomy, title: model.identificationSuggestedLabel)
 
@@ -175,9 +177,22 @@ public struct PlantDetailView: View {
                         Text(model.identificationPendingBanner)
                             .font(Typography.detail)
                             .foregroundStyle(Palette.textMuted)
-                        Text(model.identificationSuggestionDisplayName(suggestion))
-                            .font(Typography.body.weight(.semibold))
-                            .accessibilityIdentifier("plants.detail.identification.suggestion")
+                        if let suggestion = identification.suggestedTaxonomy {
+                            Text(model.identificationSuggestionDisplayName(suggestion))
+                                .font(Typography.body.weight(.semibold))
+                                .accessibilityIdentifier("plants.detail.identification.suggestion")
+                        } else if let commonName = identification.suggestedCommonName {
+                            Text(model.rawIdentificationSuggestionDisplayName(
+                                commonName: commonName,
+                                scientificName: identification.suggestedScientificName
+                            ))
+                                .font(Typography.body.weight(.semibold))
+                                .accessibilityIdentifier("plants.detail.identification.suggestion")
+                            Text(model.identificationUnlistedNote)
+                                .font(Typography.detail)
+                                .foregroundStyle(Palette.textMuted)
+                                .accessibilityIdentifier("plants.detail.identification.unlistedNote")
+                        }
                         Text(
                             "\(model.identificationConfidenceLabel): "
                                 + model.identificationConfidenceText(identification.confidenceScore)

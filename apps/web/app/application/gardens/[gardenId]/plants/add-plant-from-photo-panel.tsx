@@ -51,6 +51,11 @@ function suggestionLabel(suggestion: PlantIdentificationSuggestion): string {
     : `${suggestion.scientificName} (${suggestion.commonName})`;
 }
 
+/** The AI's own raw name guess, when it was confident but the catalog had no match for it — mirrors `suggestionLabel`'s own convention, and `plant-detail.tsx`'s own identical (unexported) helper. */
+function rawSuggestionLabel(commonName: string, scientificName: string | null): string {
+  return scientificName === null ? commonName : `${scientificName} (${commonName})`;
+}
+
 /**
  * Creates a plant identified from a photo (ADR-0015): upload → `AddPlantFromPhoto`
  * → review the AI's suggestion → confirm it, or decide later — then hand off
@@ -140,6 +145,8 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
     // edge case immediately after creation, treated the same honest way:
     // nothing left to review here).
     const suggestedTaxonomy = identification.data?.suggestedTaxonomy ?? null;
+    const rawSuggestedCommonName = identification.data?.suggestedCommonName ?? null;
+    const hasConfirmableSuggestion = suggestedTaxonomy !== null || rawSuggestedCommonName !== null;
 
     return (
       <div>
@@ -155,11 +162,19 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
           <>
             <div className={styles['suggestion']}>
               <p className={styles['suggestionName']}>
-                {suggestedTaxonomy === null
-                  ? t('plants.identificationNoConfidentMatch')
-                  : suggestionLabel(suggestedTaxonomy)}
+                {suggestedTaxonomy !== null
+                  ? suggestionLabel(suggestedTaxonomy)
+                  : rawSuggestedCommonName !== null
+                    ? rawSuggestionLabel(
+                        rawSuggestedCommonName,
+                        identification.data?.suggestedScientificName ?? null,
+                      )
+                    : t('plants.identificationNoConfidentMatch')}
               </p>
-              {suggestedTaxonomy !== null && identification.data !== null && (
+              {suggestedTaxonomy === null && rawSuggestedCommonName !== null && (
+                <p className={styles['suggestionConfidence']}>{t('plants.identificationUnlistedNote')}</p>
+              )}
+              {hasConfirmableSuggestion && identification.data !== null && (
                 <p className={styles['suggestionConfidence']}>
                   {`${t('plants.identificationConfidenceLabel')}: ${t('plants.identificationConfidenceValue', { percent: Math.round(identification.data.confidenceScore * 100) })}`}
                 </p>
@@ -167,7 +182,7 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
             </div>
 
             <div className={styles['actions']}>
-              {suggestedTaxonomy !== null && (
+              {hasConfirmableSuggestion && (
                 <Button variant="primary" busy={confirmIdentification.isPending} onClick={onConfirm}>
                   {t('plants.identificationConfirm')}
                 </Button>

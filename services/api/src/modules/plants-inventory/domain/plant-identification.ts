@@ -19,6 +19,18 @@ export interface PlantIdentification {
   readonly plantPhotoId: Uuid;
   /** `null` when the identification pass found no confident candidate. */
   readonly suggestedTaxonomyId: Uuid | null;
+  /**
+   * The AI's own raw name guess, preserved when it was confident but its
+   * `commonName` matched no row in the `taxonomy_reference` catalog —
+   * `application/identify-plant-from-photo.ts`'s own doc comment covers why
+   * this can happen for any real species while the catalog remains
+   * unseeded. Mutually exclusive with `suggestedTaxonomyId`: never both
+   * non-null. Either the AI's name matched the catalog (id set, these two
+   * null), or it didn't (id null, these two carry the AI's own guess), or
+   * the AI was not confident/available at all (everything null).
+   */
+  readonly suggestedCommonName: string | null;
+  readonly suggestedScientificName: string | null;
   /** Conceptually 0..1, matching `gardens_mapping.garden_object.confidence`'s own documented range, though the migration itself only constrains this column's shape (`numeric(4,3)`), not its range. */
   readonly confidenceScore: number;
   readonly createdAt: Date;
@@ -49,6 +61,8 @@ export function createPlantIdentification(
   plantPhotoId: Uuid,
   suggestedTaxonomyId: Uuid | null,
   rawConfidenceScore: number,
+  suggestedCommonName: string | null,
+  suggestedScientificName: string | null,
   now: Date,
 ): PlantIdentification {
   return {
@@ -56,6 +70,8 @@ export function createPlantIdentification(
     plantId,
     plantPhotoId,
     suggestedTaxonomyId,
+    suggestedCommonName,
+    suggestedScientificName,
     confidenceScore: validateConfidenceScore(rawConfidenceScore),
     createdAt: now,
   };

@@ -242,14 +242,11 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, dropping the table while the candidate and its explanation survive', async () => {
     await client.end();
 
-    // `count: 11` undoes the ten newer migrations
-    // (1786200000000_notification-delivery.sql through
-    // 1787100000000_taxonomy-seasonal-facts-and-bed-history.sql —
-    // notification-delivery tables, intent alterations, and everything
-    // after, nothing this file's own assertions check) first, then this
-    // migration itself. Update again the next time a migration is added on
-    // top of that one.
-    await migrate(databaseUrl, 'down', 12);
+    // `count: 13` undoes every newer migration (through
+    // 1787300000000_plant-identification-raw-suggestion.sql, nothing this
+    // file's own assertions check) first, then this migration itself.
+    // Update again the next time a migration is added on top of that one.
+    await migrate(databaseUrl, 'down', 13);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

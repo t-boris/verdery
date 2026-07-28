@@ -227,6 +227,8 @@ describe('createPlantGateway', () => {
         scientificName: 'Ocimum basilicum',
         commonName: 'Basil',
       },
+      suggestedCommonName: null,
+      suggestedScientificName: null,
     };
     const { gateway, recorded } = gatewayRecording(jsonResponse(identification, 200));
 

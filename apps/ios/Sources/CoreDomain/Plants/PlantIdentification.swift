@@ -23,6 +23,13 @@ public struct PlantIdentificationSuggestion: Equatable, Sendable {
 /// once accepted via `ConfirmPlantIdentification`, the read this came from
 /// reports `404` instead (see `FetchPlantIdentification`'s own doc comment).
 ///
+/// `suggestedTaxonomy`, and the `(suggestedCommonName, suggestedScientificName)`
+/// pair, are mutually exclusive — never both non-nil. Either the AI's name
+/// matched this application's own taxonomy catalog (`suggestedTaxonomy` set,
+/// the raw pair `nil`), or it didn't (`suggestedTaxonomy` nil, the raw pair
+/// carries the AI's own name guess instead of silently discarding it), or
+/// the AI was not confident/available at all (everything `nil`).
+///
 /// Source: packages/api-contracts/openapi.yaml, `PlantIdentification`.
 public struct PlantIdentification: Equatable, Sendable, Identifiable {
     public let id: String
@@ -31,6 +38,8 @@ public struct PlantIdentification: Equatable, Sendable, Identifiable {
     public let confidenceScore: Double
     public let createdAt: Date
     public let suggestedTaxonomy: PlantIdentificationSuggestion?
+    public let suggestedCommonName: String?
+    public let suggestedScientificName: String?
 
     public init(
         id: String,
@@ -38,7 +47,9 @@ public struct PlantIdentification: Equatable, Sendable, Identifiable {
         plantPhotoId: String,
         confidenceScore: Double,
         createdAt: Date,
-        suggestedTaxonomy: PlantIdentificationSuggestion?
+        suggestedTaxonomy: PlantIdentificationSuggestion?,
+        suggestedCommonName: String? = nil,
+        suggestedScientificName: String? = nil
     ) {
         self.id = id
         self.plantId = plantId
@@ -46,5 +57,14 @@ public struct PlantIdentification: Equatable, Sendable, Identifiable {
         self.confidenceScore = confidenceScore
         self.createdAt = createdAt
         self.suggestedTaxonomy = suggestedTaxonomy
+        self.suggestedCommonName = suggestedCommonName
+        self.suggestedScientificName = suggestedScientificName
+    }
+
+    /// Whether `PlantIdentificationUseCases.ConfirmPlantIdentification` is a
+    /// meaningful next action — either a resolved catalog match, or the AI's
+    /// own raw name guess to name the plant from directly.
+    public var hasConfirmableSuggestion: Bool {
+        suggestedTaxonomy != nil || suggestedCommonName != nil
     }
 }

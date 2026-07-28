@@ -287,16 +287,11 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, dropping both plant-content tables while the weather tables and the schema survive', async () => {
     await client.end();
 
-    // `count: 13` undoes the twelve newer migrations
-    // (1786000000000_notifications-baseline.sql through
-    // 1787100000000_taxonomy-seasonal-facts-and-bed-history.sql —
-    // notification, AI-explanation, notification-delivery, service-
-    // organization, client-publication, publisher-grant,
-    // client-invitation-token, garden-context-facts, and
-    // taxonomy-seasonal-facts-and-bed-history tables, nothing this file's
-    // own assertions below check) first, then this migration itself.
+    // `count: 15` undoes every newer migration (through
+    // 1787300000000_plant-identification-raw-suggestion.sql, nothing this
+    // file's own assertions below check) first, then this migration itself.
     // Update again the next time a migration is added on top of that one.
-    await migrate(databaseUrl, 'down', 14);
+    await migrate(databaseUrl, 'down', 15);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

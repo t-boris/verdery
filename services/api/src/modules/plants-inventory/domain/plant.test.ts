@@ -333,21 +333,61 @@ describe('updatePlantDetails', () => {
 });
 
 describe('confirmPlantIdentification', () => {
-  it('sets taxonomyReferenceId and acceptedIdentificationId and bumps the revision', () => {
+  it('sets taxonomyReferenceId and acceptedIdentificationId and bumps the revision, leaving displayName untouched for a real catalog match', () => {
     const plant = individualPlant();
-    const confirmed = confirmPlantIdentification(plant, TAXONOMY_ID, IDENTIFICATION_ID, LATER);
+    const confirmed = confirmPlantIdentification(
+      plant,
+      TAXONOMY_ID,
+      null,
+      IDENTIFICATION_ID,
+      LATER,
+    );
 
     expect(confirmed.taxonomyReferenceId).toBe(TAXONOMY_ID);
+    expect(confirmed.displayName).toBe('Tomato #1');
     expect(confirmed.acceptedIdentificationId).toBe(IDENTIFICATION_ID);
     expect(confirmed.revision).toBe(2);
     expect(confirmed.updatedAt).toBe(LATER);
   });
 
+  it('leaves displayName untouched for a real catalog match even if a raw name were also (defensively) present', () => {
+    const plant = individualPlant();
+    const confirmed = confirmPlantIdentification(
+      plant,
+      TAXONOMY_ID,
+      'Green ash',
+      IDENTIFICATION_ID,
+      LATER,
+    );
+    expect(confirmed.displayName).toBe('Tomato #1');
+  });
+
   it('accepts a null taxonomyReferenceId for a confirmed "no confident match" identification', () => {
     const plant = individualPlant();
-    const confirmed = confirmPlantIdentification(plant, null, IDENTIFICATION_ID, LATER);
+    const confirmed = confirmPlantIdentification(plant, null, null, IDENTIFICATION_ID, LATER);
     expect(confirmed.taxonomyReferenceId).toBeNull();
+    expect(confirmed.displayName).toBe('Tomato #1');
     expect(confirmed.acceptedIdentificationId).toBe(IDENTIFICATION_ID);
+  });
+
+  it('sets displayName from the raw AI name guess when there is no catalog row to link', () => {
+    const plant = individualPlant();
+    const confirmed = confirmPlantIdentification(
+      plant,
+      null,
+      'Green ash',
+      IDENTIFICATION_ID,
+      LATER,
+    );
+    expect(confirmed.taxonomyReferenceId).toBeNull();
+    expect(confirmed.displayName).toBe('Green ash');
+  });
+
+  it('rejects a blank raw name guess when there is no catalog row to link', () => {
+    const plant = individualPlant();
+    expect(() =>
+      confirmPlantIdentification(plant, null, '   ', IDENTIFICATION_ID, LATER),
+    ).toThrow(ValidationError);
   });
 });
 

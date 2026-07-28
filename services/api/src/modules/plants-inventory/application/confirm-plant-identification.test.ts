@@ -36,6 +36,8 @@ function fakesWithPlantAndIdentification() {
     plantId: PLANT_ID,
     plantPhotoId: PHOTO_ID,
     suggestedTaxonomyId: TAXONOMY_ID,
+    suggestedCommonName: null,
+    suggestedScientificName: null,
     confidenceScore: 0.8,
     createdAt: NOW,
   });
@@ -77,6 +79,40 @@ describe('ConfirmPlantIdentification', () => {
         actorProfileId: PROFILE_ID,
       },
     ]);
+  });
+
+  it('sets displayName from the raw AI name guess when there is no catalog row to link', async () => {
+    const fakes = createPlantsInventoryFakes();
+    fakes.plants.plants.set(PLANT_ID, buildPlant({ id: PLANT_ID, gardenId: GARDEN_ID }));
+    fakes.plantIdentifications.identifications.set(IDENTIFICATION_ID, {
+      id: IDENTIFICATION_ID,
+      plantId: PLANT_ID,
+      plantPhotoId: PHOTO_ID,
+      suggestedTaxonomyId: null,
+      suggestedCommonName: 'Green ash',
+      suggestedScientificName: 'Fraxinus pennsylvanica',
+      confidenceScore: 0.88,
+      createdAt: NOW,
+    });
+    const confirmPlantIdentification = new ConfirmPlantIdentification(
+      fakes.plants,
+      fakes.idempotency,
+      new FakePlantsInventoryUnitOfWork(fakes),
+      authorizationGranting(OWNER_MEMBERSHIP),
+      fixedClock(NOW),
+    );
+
+    const result = await confirmPlantIdentification.execute(
+      PLANT_ID,
+      PROFILE_ID,
+      IDENTIFICATION_ID,
+      1,
+      '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a15',
+    );
+
+    expect(result.taxonomyReferenceId).toBeNull();
+    expect(result.displayName).toBe('Green ash');
+    expect(result.acceptedIdentificationId).toBe(IDENTIFICATION_ID);
   });
 
   it('rejects an identificationId that does not exist', async () => {

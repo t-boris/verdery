@@ -495,6 +495,29 @@ struct PlantDetailViewModelTests {
         #expect(summary.revision == 2)
     }
 
+    @Test("confirmPendingIdentification names the plant from the AI's raw guess when it has no catalog match")
+    func confirmPendingIdentificationSucceedsForRawGuess() async {
+        let gateway = FakePlantGateway(plants: [plant()])
+        gateway.pendingIdentification = PlantIdentification(
+            id: "identification-1",
+            plantId: "plant-1",
+            plantPhotoId: "photo-1",
+            confidenceScore: 0.88,
+            createdAt: Date(timeIntervalSince1970: 0),
+            suggestedTaxonomy: nil,
+            suggestedCommonName: "Green ash",
+            suggestedScientificName: "Fraxinus pennsylvanica"
+        )
+        let model = makeModel(gateway: gateway, withIdentification: true)
+        await model.load()
+        #expect(model.pendingIdentification?.hasConfirmableSuggestion == true)
+
+        await model.confirmPendingIdentification()
+
+        #expect(model.pendingIdentification == nil)
+        #expect(model.actionErrorMessage == nil)
+    }
+
     @Test("confirmPendingIdentification is a no-op without the capability wired in")
     func confirmPendingIdentificationNoOpWithoutCapability() async {
         let gateway = FakePlantGateway(plants: [plant()])

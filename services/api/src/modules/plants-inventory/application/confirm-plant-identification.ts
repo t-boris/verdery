@@ -64,6 +64,7 @@ export class ConfirmPlantIdentification {
             confirmPlantIdentification(
               plant,
               identification.suggestedTaxonomyId,
+              identification.suggestedCommonName,
               identification.id,
               now,
             ),

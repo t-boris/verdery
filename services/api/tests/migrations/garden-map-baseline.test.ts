@@ -351,18 +351,17 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving the identity-and-gardens-baseline schemas and tables otherwise intact', async () => {
     await client.end();
 
-    // `count: 25` undoes this migration and every migration applied after it
-    // (currently plants-observations-tasks-baseline through
-    // taxonomy-seasonal-facts-and-bed-history, each of which
-    // depends, directly or transitively, on tables this one creates and must
-    // come down first). Update this count when a later migration is added on
-    // top.
+    // `count: 27` undoes this migration and every migration applied after it
+    // (currently through 1787300000000_plant-identification-raw-suggestion.sql,
+    // each of which depends, directly or transitively, on tables this one
+    // creates and must come down first). Update this count when a later
+    // migration is added on top.
     await runner({
       databaseUrl,
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 26,
+      count: 27,
       log: () => {},
     });
 

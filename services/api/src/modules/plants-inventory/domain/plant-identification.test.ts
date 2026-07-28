@@ -16,6 +16,8 @@ describe('createPlantIdentification', () => {
       PHOTO_ID,
       TAXONOMY_ID,
       0.75,
+      null,
+      null,
       NOW,
     );
 
@@ -24,6 +26,8 @@ describe('createPlantIdentification', () => {
       plantId: PLANT_ID,
       plantPhotoId: PHOTO_ID,
       suggestedTaxonomyId: TAXONOMY_ID,
+      suggestedCommonName: null,
+      suggestedScientificName: null,
       confidenceScore: 0.75,
       createdAt: NOW,
     });
@@ -36,18 +40,62 @@ describe('createPlantIdentification', () => {
       PHOTO_ID,
       null,
       0,
+      null,
+      null,
       NOW,
     );
     expect(identification.suggestedTaxonomyId).toBeNull();
     expect(identification.confidenceScore).toBe(0);
   });
 
+  it('preserves the AI raw name guess when it has no catalog match', () => {
+    const identification = createPlantIdentification(
+      IDENTIFICATION_ID,
+      PLANT_ID,
+      PHOTO_ID,
+      null,
+      0.88,
+      'Green ash',
+      'Fraxinus pennsylvanica',
+      NOW,
+    );
+
+    expect(identification).toEqual({
+      id: IDENTIFICATION_ID,
+      plantId: PLANT_ID,
+      plantPhotoId: PHOTO_ID,
+      suggestedTaxonomyId: null,
+      suggestedCommonName: 'Green ash',
+      suggestedScientificName: 'Fraxinus pennsylvanica',
+      confidenceScore: 0.88,
+      createdAt: NOW,
+    });
+  });
+
   it('rejects a confidence score outside 0..1', () => {
     expect(() =>
-      createPlantIdentification(IDENTIFICATION_ID, PLANT_ID, PHOTO_ID, TAXONOMY_ID, 1.5, NOW),
+      createPlantIdentification(
+        IDENTIFICATION_ID,
+        PLANT_ID,
+        PHOTO_ID,
+        TAXONOMY_ID,
+        1.5,
+        null,
+        null,
+        NOW,
+      ),
     ).toThrow(ValidationError);
     expect(() =>
-      createPlantIdentification(IDENTIFICATION_ID, PLANT_ID, PHOTO_ID, TAXONOMY_ID, -0.1, NOW),
+      createPlantIdentification(
+        IDENTIFICATION_ID,
+        PLANT_ID,
+        PHOTO_ID,
+        TAXONOMY_ID,
+        -0.1,
+        null,
+        null,
+        NOW,
+      ),
     ).toThrow(ValidationError);
   });
 });

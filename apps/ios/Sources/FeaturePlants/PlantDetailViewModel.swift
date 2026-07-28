@@ -175,9 +175,21 @@ public final class PlantDetailViewModel {
     public var identificationSuggestedLabel: String { strings(.plantsIdentificationSuggestedLabel) }
     public var identificationConfidenceLabel: String { strings(.plantsIdentificationConfidenceLabel) }
     public var identificationConfirmButtonTitle: String { strings(.plantsIdentificationConfirmButton) }
+    public var identificationUnlistedNote: String { strings(.plantsIdentificationUnlistedNote) }
 
     public func identificationSuggestionDisplayName(_ suggestion: PlantIdentificationSuggestion) -> String {
         suggestion.commonName?.isEmpty == false ? suggestion.commonName! : suggestion.scientificName
+    }
+
+    /// The AI's own raw name guess, when it was confident but the catalog
+    /// had no match for it — see `PlantAddFromPhotoViewModel
+    /// .rawSuggestionDisplayName(commonName:scientificName:)`'s identical
+    /// doc comment.
+    public func rawIdentificationSuggestionDisplayName(
+        commonName: String,
+        scientificName: String?
+    ) -> String {
+        commonName.isEmpty == false ? commonName : (scientificName ?? "")
     }
 
     public func identificationConfidenceText(_ confidenceScore: Double) -> String {

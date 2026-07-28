@@ -401,4 +401,79 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       suggestedTaxonomy: { id: taxonomyId, scientificName: 'Ocimum basilicum', commonName: 'Basil' },
     });
   });
+
+  it('serves the AI raw name guess over real HTTP when a confident candidate has no catalog match', async () => {
+    const { token, garden } = await createGardenAsOwner();
+    const added = await app.inject({
+      method: 'POST',
+      url: `/v1/gardens/${garden.id}/plants`,
+      headers: { ...bearer(token), 'idempotency-key': generateUuidV7() },
+      payload: { displayName: 'Unidentified plant', groupingKind: 'individual' },
+    });
+    const plant = asPlant(added);
+
+    const membership = await db
+      .selectFrom('collaboration.membership')
+      .select('profile_id')
+      .where('garden_id', '=', garden.id)
+      .where('role', '=', 'owner')
+      .executeTakeFirstOrThrow();
+    const clock = { now: () => new Date() };
+    const registerMediaRecord = new RegisterMediaRecord(
+      new KyselyIdempotencyStore(db, clock),
+      new KyselyMediaUnitOfWork(db, clock),
+      clock,
+    );
+    const media = await registerMediaRecord.execute(
+      membership.profile_id,
+      {
+        mediaClass: 'garden_photo',
+        displayFilename: 'plant.jpg',
+        declaredContentType: 'image/jpeg',
+        declaredByteSize: 123_456,
+      },
+      generateUuidV7(),
+    );
+    await db
+      .updateTable('media.media_record')
+      .set({ garden_id: garden.id, upload_state: 'available' })
+      .where('id', '=', media.id)
+      .execute();
+
+    const plantPhotoId = generateUuidV7();
+    await db
+      .insertInto('plants_inventory.plant_photo')
+      .values({ id: plantPhotoId, plant_id: plant.id, media_id: media.id, is_primary: true })
+      .execute();
+    const identificationId = generateUuidV7();
+    await db
+      .insertInto('plants_inventory.plant_identification')
+      .values({
+        id: identificationId,
+        plant_id: plant.id,
+        plant_photo_id: plantPhotoId,
+        suggested_taxonomy_id: null,
+        suggested_common_name: 'Green ash',
+        suggested_scientific_name: 'Fraxinus pennsylvanica',
+        confidence_score: 0.88,
+      })
+      .execute();
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/v1/gardens/${garden.id}/plants/${plant.id}/identification`,
+      headers: bearer(token),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(asPlantIdentification(response)).toMatchObject({
+      id: identificationId,
+      plantId: plant.id,
+      plantPhotoId,
+      confidenceScore: 0.88,
+      suggestedTaxonomy: null,
+      suggestedCommonName: 'Green ash',
+      suggestedScientificName: 'Fraxinus pennsylvanica',
+    });
+  });
 });

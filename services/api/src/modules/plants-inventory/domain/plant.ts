@@ -249,15 +249,35 @@ export function updatePlantDetails(plant: Plant, changes: PlantDetailsChanges, n
   };
 }
 
-/** Sets the plant's identity from a prior `plant_identification` row already verified (by the application layer, see `application/confirm-plant-identification.ts`) to belong to this plant. `taxonomyReferenceId` may end up `null` here — a confirmed "no confident match" identification is still a legitimate accepted state. */
+/**
+ * Sets the plant's identity from a prior `plant_identification` row already
+ * verified (by the application layer, see
+ * `application/confirm-plant-identification.ts`) to belong to this plant.
+ * `taxonomyReferenceId` may end up `null` here — a confirmed "no confident
+ * match" identification is still a legitimate accepted state.
+ *
+ * When there is no catalog row to link (`taxonomyReferenceId === null`) but
+ * the identification carried the AI's own raw name guess
+ * (`suggestedCommonName`), that name is applied to `displayName` instead —
+ * the only meaningful action confirming can take without a taxonomy row to
+ * point to. A real catalog match (`taxonomyReferenceId !== null`) leaves
+ * `displayName` untouched, exactly as before this capability existed.
+ */
 export function confirmPlantIdentification(
   plant: Plant,
   taxonomyReferenceId: Uuid | null,
+  suggestedCommonName: string | null,
   identificationId: Uuid,
   now: Date,
 ): Plant {
+  const displayName =
+    taxonomyReferenceId === null && suggestedCommonName !== null
+      ? validateDisplayName(suggestedCommonName)
+      : plant.displayName;
+
   return {
     ...plant,
+    displayName,
     taxonomyReferenceId,
     acceptedIdentificationId: identificationId,
     revision: plant.revision + 1,

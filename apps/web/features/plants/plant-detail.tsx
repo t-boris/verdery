@@ -25,6 +25,11 @@ function suggestionLabel(suggestion: PlantIdentificationSuggestion): string {
     : `${suggestion.scientificName} (${suggestion.commonName})`;
 }
 
+/** The AI's own raw name guess, when it was confident but the catalog had no match for it — mirrors `suggestionLabel`'s own "scientific name, common name parenthesized" convention, and `add-plant-from-photo-panel.tsx`'s own identical (unexported) helper. */
+function rawSuggestionLabel(commonName: string, scientificName: string | null): string {
+  return scientificName === null ? commonName : `${scientificName} (${commonName})`;
+}
+
 /**
  * A single plant: its current facts, and every command this phase wires
  * against it.
@@ -64,9 +69,11 @@ export function PlantDetail({ gardenId, plantId }: PlantDetailProps) {
 
   const plant = query.data;
   const pendingSuggestion = identification.data?.suggestedTaxonomy ?? null;
+  const rawSuggestedCommonName = identification.data?.suggestedCommonName ?? null;
+  const hasConfirmableSuggestion = pendingSuggestion !== null || rawSuggestedCommonName !== null;
 
   const onConfirmPending = () => {
-    if (identification.data === null || identification.data === undefined || pendingSuggestion === null) {
+    if (identification.data === null || identification.data === undefined || !hasConfirmableSuggestion) {
       return;
     }
     confirmIdentification.mutate({
@@ -97,9 +104,14 @@ export function PlantDetail({ gardenId, plantId }: PlantDetailProps) {
         {plant.taxonomyReferenceId === null && <span>{t('plants.taxonomyNone')}</span>}
       </div>
 
-      {pendingSuggestion !== null && identification.data !== null && identification.data !== undefined && (
+      {hasConfirmableSuggestion && identification.data !== null && identification.data !== undefined && (
         <Alert tone="info" title={t('plants.identificationPendingBanner')}>
-          <p>{suggestionLabel(pendingSuggestion)}</p>
+          <p>
+            {pendingSuggestion !== null
+              ? suggestionLabel(pendingSuggestion)
+              : rawSuggestionLabel(rawSuggestedCommonName as string, identification.data.suggestedScientificName)}
+          </p>
+          {pendingSuggestion === null && <p>{t('plants.identificationUnlistedNote')}</p>}
           <p>
             {`${t('plants.identificationConfidenceLabel')}: ${t('plants.identificationConfidenceValue', { percent: Math.round(identification.data.confidenceScore * 100) })}`}
           </p>

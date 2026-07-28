@@ -111,4 +111,34 @@ describe('PlantDetail — pending identification banner (ADR-0015)', () => {
 
     expect(screen.queryByText('The AI suggested a species for this plant.')).toBeNull();
   });
+
+  it('shows the AI raw name guess and confirms it when a confident candidate has no catalog match', () => {
+    identificationState = {
+      data: {
+        id: 'identification-1',
+        plantId: 'plant-1',
+        plantPhotoId: 'photo-1',
+        confidenceScore: 0.88,
+        createdAt: '2026-07-21T09:00:00Z',
+        suggestedTaxonomy: null,
+        suggestedCommonName: 'Green ash',
+        suggestedScientificName: 'Fraxinus pennsylvanica',
+      },
+    };
+
+    renderDetail();
+
+    expect(screen.getByText('The AI suggested a species for this plant.')).toBeTruthy();
+    expect(screen.getByText('Fraxinus pennsylvanica (Green ash)')).toBeTruthy();
+    expect(screen.getByText("Not in the plant catalog yet — confirming will use this as the plant's name.")).toBeTruthy();
+    expect(screen.getByText('Confidence: 88%')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    expect(confirmMutateMock).toHaveBeenCalledWith({
+      plantId: 'plant-1',
+      identificationId: 'identification-1',
+      expectedRevision: 3,
+    });
+  });
 });

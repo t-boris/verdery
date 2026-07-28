@@ -103,6 +103,30 @@ struct PlantAddFromPhotoViewModelTests {
         }
     }
 
+    @Test("confirmSuggestion proceeds for the AI's raw name guess when it has no catalog match")
+    func confirmSuggestionReachesDoneForRawGuess() async {
+        let gateway = FakePlantGateway(plants: [])
+        gateway.pendingIdentification = PlantIdentification(
+            id: "identification-1",
+            plantId: "plant-1",
+            plantPhotoId: "photo-1",
+            confidenceScore: 0.88,
+            createdAt: Date(timeIntervalSince1970: 0),
+            suggestedTaxonomy: nil,
+            suggestedCommonName: "Green ash",
+            suggestedScientificName: "Fraxinus pennsylvanica"
+        )
+        let model = makeModel(gateway: gateway)
+        await model.photoReady(mediaId: "media-1")
+
+        await model.confirmSuggestion()
+
+        guard case .done = model.state else {
+            Issue.record("Expected done state")
+            return
+        }
+    }
+
     @Test("decideLater reaches done without confirming")
     func decideLaterReachesDone() async {
         let gateway = FakePlantGateway(plants: [])

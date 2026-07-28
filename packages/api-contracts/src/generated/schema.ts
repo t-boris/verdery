@@ -1130,10 +1130,13 @@ export interface paths {
         /**
          * Get a plant's pending photo-identification suggestion
          * @description Returns the plant's most recent `AddPlantFromPhoto` suggestion —
-         *     name and confidence, resolved from `suggestedTaxonomyId` — as long as
-         *     it is still pending. Once confirmed via `ConfirmPlantIdentification`,
-         *     or when the plant has no identification at all, this is `404`: there
-         *     is nothing left to review.
+         *     name and confidence, resolved from `suggestedTaxonomyId` when it
+         *     matched this application's own taxonomy catalog, or carried raw as
+         *     `suggestedCommonName`/`suggestedScientificName` when the AI was
+         *     confident but the catalog had no match — as long as it is still
+         *     pending. Once confirmed via `ConfirmPlantIdentification`, or when
+         *     the plant has no identification at all, this is `404`: there is
+         *     nothing left to review.
          *
          *     Source: ADR-0015.
          */
@@ -1162,11 +1165,15 @@ export interface paths {
         /**
          * Confirm a photo-identification suggestion
          * @description Accepts a prior `plant_identification` suggestion, setting the
-         *     plant's `taxonomyReferenceId` and `acceptedIdentificationId`. The
-         *     named identification must belong to the named plant, or the request
-         *     is rejected.
+         *     plant's `taxonomyReferenceId` and `acceptedIdentificationId`. When
+         *     the suggestion has no catalog row to link (a confident AI guess with
+         *     no taxonomy match), this also sets the plant's own `displayName`
+         *     from that raw name guess — the only meaningful action confirming
+         *     can take without a taxonomy row to point to. The named
+         *     identification must belong to the named plant, or the request is
+         *     rejected.
          *
-         *     Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
+         *     Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01; ADR-0015.
          */
         post: operations["confirmPlantIdentification"];
         delete?: never;
@@ -5482,19 +5489,26 @@ export interface components {
             isPrimary: boolean;
             createdAt: components["schemas"]["Timestamp"];
         };
-        /** @description A photo-identification suggestion `AddPlantFromPhoto` created, as long as it is still pending (not yet accepted via `ConfirmPlantIdentification`). Source: plants-inventory/application/ get-plant-identification.ts, ADR-0015. */
+        /**
+         * @description A photo-identification suggestion `AddPlantFromPhoto` created, as long as it is still pending (not yet accepted via `ConfirmPlantIdentification`). Source: plants-inventory/application/ get-plant-identification.ts, ADR-0015.
+         *     `suggestedTaxonomy`, and the `(suggestedCommonName, suggestedScientificName)` pair, are mutually exclusive: never both non-null. Either the AI's name matched this application's own taxonomy catalog (`suggestedTaxonomy` set, the raw pair null), or it didn't (`suggestedTaxonomy` null, the raw pair carries the AI's own name guess so it is not silently discarded), or the AI was not confident/available at all (everything null).
+         */
         PlantIdentification: {
             id: components["schemas"]["Uuid"];
             plantId: components["schemas"]["Uuid"];
             plantPhotoId: components["schemas"]["Uuid"];
             confidenceScore: number;
             createdAt: components["schemas"]["Timestamp"];
-            /** @description Null when the identification pass found no confident candidate. */
+            /** @description Null when the identification pass found no confident candidate, or a confident candidate had no catalog match (see suggestedCommonName in that case). */
             suggestedTaxonomy: {
                 id: components["schemas"]["Uuid"];
                 scientificName: string;
                 commonName: string | null;
             } | null;
+            /** @description The AI's own raw common-name guess, when it was confident but `suggestedTaxonomy` is null because the catalog has no matching entry. `ConfirmPlantIdentification` uses this to name the plant directly when there is no taxonomy row to link. */
+            suggestedCommonName: string | null;
+            /** @description The AI's own raw scientific-name guess, alongside suggestedCommonName under the same condition. */
+            suggestedScientificName: string | null;
         };
         TaxonomyReference: {
             id: components["schemas"]["Uuid"];

@@ -312,16 +312,12 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   });
 
   it('rolls back cleanly, leaving no trace of any of the ten new tables', async () => {
-    // `count: 5` undoes this migration and the four migrations applied
-    // after it (1786800000000_engagement-publisher-grant-and-client-update-items
-    // .sql, 1786900000000_client-invitation-token.sql,
-    // 1787000000000_garden-context-facts.sql, and
-    // 1787100000000_taxonomy-seasonal-facts-and-bed-history.sql, nothing
-    // this file's own assertions below check) first, then this migration
-    // itself. Update this count when a later migration is added on top —
-    // the same convention every earlier migration test in this suite
-    // already follows.
-    await migrate(databaseUrl, 'down', 6);
+    // `count: 7` undoes every migration applied after this one (through
+    // 1787300000000_plant-identification-raw-suggestion.sql, nothing this
+    // file's own assertions below check) first, then this migration itself.
+    // Update this count when a later migration is added on top — the same
+    // convention every earlier migration test in this suite already follows.
+    await migrate(databaseUrl, 'down', 7);
 
     const { rows } = await client.query<Row>(
       `SELECT table_name FROM information_schema.tables
