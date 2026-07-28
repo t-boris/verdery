@@ -21,6 +21,7 @@
  * answer — identification never auto-confirms, unchanged by this pass.
  */
 
+import type { FastifyBaseLogger } from 'fastify';
 import type { IdentifyPlantSpecies, PlantPhotoReference } from '../../integrations/public.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { TaxonomyReferenceRepository } from './taxonomy-reference-repository.js';
@@ -42,6 +43,7 @@ export async function identifyPlantFromPhoto(
   identifyPlantSpecies: IdentifyPlantSpecies,
   taxonomyReferences: TaxonomyReferenceRepository,
   photo: PlantPhotoReference,
+  logger: FastifyBaseLogger,
 ): Promise<PhotoIdentificationSuggestion> {
   const result = await identifyPlantSpecies.execute({ photo });
 
@@ -55,6 +57,14 @@ export async function identifyPlantFromPhoto(
   );
   const bestMatch = matches[0];
   if (bestMatch === undefined) {
+    logger.info(
+      {
+        event: 'plant_species_ai.no_catalog_match',
+        commonName: result.candidate.commonName,
+        confidenceScore: result.candidate.confidenceScore,
+      },
+      'Model produced a confident candidate with no matching taxonomy catalog entry.',
+    );
     return NO_SUGGESTION;
   }
 

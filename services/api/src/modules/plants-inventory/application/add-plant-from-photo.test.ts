@@ -131,6 +131,7 @@ describe('AddPlantFromPhoto', () => {
       fixedClock(NOW),
       identifyPlantSpeciesWith(null),
       new FakeTaxonomyReferenceRepository(),
+      pino({ level: 'silent' }),
     );
 
     const result = await addPlantFromPhoto.execute(
@@ -203,6 +204,7 @@ describe('AddPlantFromPhoto', () => {
       fixedClock(NOW),
       identifyPlantSpecies,
       new FakeTaxonomyReferenceRepository([tomato]),
+      pino({ level: 'silent' }),
     );
 
     const result = await addPlantFromPhoto.execute(
@@ -230,6 +232,7 @@ describe('AddPlantFromPhoto', () => {
       fixedClock(NOW),
       identifyPlantSpeciesWith(null),
       new FakeTaxonomyReferenceRepository(),
+      pino({ level: 'silent' }),
     );
 
     await expect(

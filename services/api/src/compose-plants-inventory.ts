@@ -30,6 +30,7 @@ import {
   UpdatePlantDetails,
 } from './modules/plants-inventory/public.js';
 import type { PlantRoutesDependencies } from './modules/plants-inventory/public.js';
+import type { FastifyBaseLogger } from 'fastify';
 import type { GardenAuthorization } from './modules/gardens-mapping/public.js';
 import type { IdentifyPlantSpecies } from './modules/integrations/public.js';
 import type { DatabaseGateway } from './platform/database/database-gateway.js';
@@ -41,6 +42,7 @@ export function composePlantsInventory(
   clock: Clock,
   gardenAuthorization: GardenAuthorization,
   identifyPlantSpecies: IdentifyPlantSpecies,
+  logger: FastifyBaseLogger,
 ): PlantRoutesDependencies {
   const plantRepository = new KyselyPlantRepository(database.queries);
   const taxonomyReferenceRepository = new KyselyTaxonomyReferenceRepository(database.queries);
@@ -59,6 +61,7 @@ export function composePlantsInventory(
     clock,
     identifyPlantSpecies,
     taxonomyReferenceRepository,
+    logger,
   );
   const getPlant = new GetPlant(plantRepository, gardenAuthorization);
   const plantIdentificationRepository = new KyselyPlantIdentificationRepository(database.queries);

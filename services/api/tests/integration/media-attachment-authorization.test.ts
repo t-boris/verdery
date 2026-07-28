@@ -21,6 +21,7 @@ import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { Kysely, PostgresDialect } from 'kysely';
 import { runner } from 'node-pg-migrate';
 import pg from 'pg';
+import { pino } from 'pino';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import '../../src/platform/database/pg-bigint-parser.js';
 import '../../src/platform/database/pg-date-parser.js';
@@ -161,6 +162,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
         clock,
         identifyPlantSpecies,
         new KyselyTaxonomyReferenceRepository(db),
+        pino({ level: 'silent' }),
       ),
       attachPlantPhoto: new AttachPlantPhoto(
         plantRepository,

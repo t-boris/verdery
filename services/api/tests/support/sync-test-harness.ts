@@ -103,6 +103,7 @@ import type { DatabaseSchema } from '../../src/platform/database/database-gatewa
 import { KyselyIdempotencyStore } from '../../src/platform/idempotency/kysely-idempotency-store.js';
 import type { Clock } from '../../src/shared/time/clock.js';
 import type { Kysely } from 'kysely';
+import { pino } from 'pino';
 
 /**
  * The narrow `{ profileId, authenticatedAt }` every deletion-gated command
@@ -279,6 +280,7 @@ export function buildSyncTestHarness(db: Kysely<DatabaseSchema>, clock: Clock) {
     clock,
     identifyPlantSpecies,
     new KyselyTaxonomyReferenceRepository(db),
+    pino({ level: 'silent' }),
   );
   const updatePlantDetails = new UpdatePlantDetails(
     plantRepository,

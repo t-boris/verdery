@@ -320,6 +320,7 @@ export async function buildApplication(
     clock,
     gardenAuthorization,
     identifyPlantSpecies,
+    logger,
   );
 
   // tasks-recommendations: task commands (tag `Tasks`), the scheduled

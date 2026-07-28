@@ -12,6 +12,7 @@
  * auto-confirms; a caller must separately call `ConfirmPlantIdentification`.
  */
 
+import type { FastifyBaseLogger } from 'fastify';
 import type { IdempotencyStore } from '../../../platform/idempotency/idempotency-store.js';
 import { generateUuidV7 } from '../../../shared/identifiers/uuid.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
@@ -57,6 +58,7 @@ export class AddPlantFromPhoto {
     private readonly clock: Clock,
     private readonly identifyPlantSpecies: IdentifyPlantSpecies,
     private readonly taxonomyReferences: TaxonomyReferenceRepository,
+    private readonly logger: FastifyBaseLogger,
   ) {}
 
   async execute(
@@ -126,6 +128,7 @@ export class AddPlantFromPhoto {
           this.identifyPlantSpecies,
           this.taxonomyReferences,
           photoReference,
+          this.logger,
         );
         const identification = createPlantIdentification(
           generateUuidV7(),
