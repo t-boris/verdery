@@ -67,7 +67,25 @@ struct PlantAddSheetView: View {
                     onClose: { model.isTaxonomyPickerPresented = false }
                 )
             }
+            .sheet(isPresented: mapObjectPickerPresented) {
+                MapObjectPickerView(
+                    title: model.mapObjectPickerTitle,
+                    clearTitle: model.mapObjectPickerClearTitle,
+                    closeTitle: model.closeTitle,
+                    emptyMessage: model.mapObjectPickerEmptyMessage,
+                    objects: model.mapObjects,
+                    onSelect: { model.selectMapObject($0) },
+                    onClose: { model.activeMapObjectField = nil }
+                )
+            }
         }
+    }
+
+    private var mapObjectPickerPresented: Binding<Bool> {
+        Binding(
+            get: { model.activeMapObjectField != nil },
+            set: { if !$0 { model.activeMapObjectField = nil } }
+        )
     }
 
     private var identitySection: some View {
@@ -205,16 +223,31 @@ struct PlantAddSheetView: View {
 
             SurfaceCard {
                 VStack(alignment: .leading, spacing: Metrics.space2) {
-                    TextField(model.gardenAreaLabel, text: $model.gardenAreaMapObjectId)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityIdentifier("plants.add.gardenAreaField")
-                    TextField(model.placementLabel, text: $model.placementMapObjectId)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityIdentifier("plants.add.placementField")
+                    mapObjectRow(model.gardenAreaLabel, field: .gardenArea)
+                    mapObjectRow(model.placementLabel, field: .placement)
                     InlineMessage(model.mapObjectIdHint, tone: .info)
                 }
             }
         }
+    }
+
+    private func mapObjectRow(_ label: String, field: MapObjectPlacementField) -> some View {
+        Button {
+            Task { await model.openMapObjectPicker(for: field) }
+        } label: {
+            HStack {
+                Text(label)
+                    .foregroundStyle(Palette.text)
+                Spacer(minLength: 0)
+                Text(model.mapObjectSummary(for: field) ?? model.mapObjectPickerClearTitle)
+                    .foregroundStyle(Palette.textMuted)
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(Palette.textMuted)
+                    .accessibilityHidden(true)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(field == .gardenArea ? "plants.add.gardenAreaField" : "plants.add.placementField")
     }
 
     private var isSubmitDisabled: Bool {

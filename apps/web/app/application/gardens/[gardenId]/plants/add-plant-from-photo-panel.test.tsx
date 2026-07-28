@@ -17,6 +17,7 @@ const pushMock = vi.fn();
 const addFromPhotoMutateMock = vi.fn();
 const confirmMutateMock =
   vi.fn<(variables: ConfirmIdentificationVariables, options?: { onSuccess: () => void }) => void>();
+const recordObservationMutateMock = vi.fn();
 
 let uploadState: {
   phase: string;
@@ -71,6 +72,12 @@ vi.mock('@/features/plants/public', () => ({
     isError: false,
   }),
   usePlantIdentification: () => identificationState,
+  useRecordObservationFromIdentification: () => ({
+    mutate: recordObservationMutateMock,
+    isPending: false,
+    isError: false,
+    isSuccess: false,
+  }),
 }));
 
 const PLANT: Plant = {
@@ -108,6 +115,7 @@ beforeEach(() => {
   pushMock.mockClear();
   addFromPhotoMutateMock.mockClear();
   confirmMutateMock.mockClear();
+  recordObservationMutateMock.mockClear();
   uploadState = {
     phase: 'idle',
     mediaId: null,
@@ -255,6 +263,7 @@ describe('AddPlantFromPhotoPanel — reviewing', () => {
         suggestedLifecycleStage: 'flowering',
         suggestedConditionNote: 'Leaves show mild water stress',
         suggestedCareGuidanceNote: 'Water more consistently and check drainage.',
+        suggestedAcquisitionDate: '2026-05-01',
       },
       isPending: false,
       isError: false,
@@ -263,11 +272,47 @@ describe('AddPlantFromPhotoPanel — reviewing', () => {
 
     renderPanel();
 
-    expect(screen.getByText('Variety: Roma')).toBeTruthy();
-    expect(screen.getByText('Growth stage: Flowering')).toBeTruthy();
-    expect(screen.getByText('Condition: Leaves show mild water stress')).toBeTruthy();
-    expect(
-      screen.getByText('Care suggestion: Water more consistently and check drainage.'),
-    ).toBeTruthy();
+    expect(screen.getByText('Variety')).toBeTruthy();
+    expect(screen.getByText('Roma')).toBeTruthy();
+    expect(screen.getByText('Growth stage')).toBeTruthy();
+    expect(screen.getByText('Flowering')).toBeTruthy();
+    expect(screen.getByText('Condition')).toBeTruthy();
+    expect(screen.getByText('Leaves show mild water stress')).toBeTruthy();
+    expect(screen.getByText('Care suggestion')).toBeTruthy();
+    expect(screen.getByText('Water more consistently and check drainage.')).toBeTruthy();
+    expect(screen.getByText('Estimated acquisition date')).toBeTruthy();
+    expect(screen.getByText('2026-05-01')).toBeTruthy();
+  });
+
+  it('records the condition guess as an observation, independent of confirming the species', () => {
+    addFromPhotoState.data = PLANT;
+    identificationState = {
+      data: {
+        id: 'identification-1',
+        plantId: 'plant-1',
+        plantPhotoId: 'photo-1',
+        confidenceScore: 0.9,
+        createdAt: '2026-07-21T09:00:00Z',
+        suggestedTaxonomy: {
+          id: 'tax-1',
+          scientificName: 'Solanum lycopersicum',
+          commonName: 'Tomato',
+        },
+        suggestedConditionNote: 'Leaves show mild water stress',
+      },
+      isPending: false,
+      isError: false,
+      isSuccess: true,
+    };
+
+    renderPanel();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Record as observation' }));
+
+    expect(recordObservationMutateMock).toHaveBeenCalledWith({
+      plantId: 'plant-1',
+      identificationId: 'identification-1',
+    });
+    expect(confirmMutateMock).not.toHaveBeenCalled();
   });
 });

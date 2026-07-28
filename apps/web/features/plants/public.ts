@@ -15,6 +15,7 @@ export {
   useMovePlant,
   usePlant,
   usePlantIdentification,
+  useRecordObservationFromIdentification,
   useSearchPlants,
   useSetPlantStatus,
   useTaxonomyReferenceSearch,

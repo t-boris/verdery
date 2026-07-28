@@ -66,11 +66,14 @@ public final class PlantDetailViewModel {
     // `MovePlantRequest`'s two fields are not nullable on the wire, so there
     // is no way to explicitly clear a placement through this operation, only
     // to set a new one.
-    /// TODO(P4-IOS-01): see `PlantsHomeViewModel`'s doc comment on the same
-    /// TODO — a real map-object picker is out of scope this pass for the
-    /// same cross-feature-dependency reason.
     public var editedGardenAreaMapObjectId: String = ""
     public var editedPlacementMapObjectId: String = ""
+
+    // Map-object picker (garden area / placement) — see
+    // `MapObjectPickerView`'s own doc comment for why this reimplements
+    // `FeatureMap.MapGateFencePickerView`'s shape rather than importing it.
+    public private(set) var mapObjects: [GardenMapObject] = []
+    public var activeMapObjectField: MapObjectPlacementField?
 
     public let gardenId: String
     public let plantId: String
@@ -100,9 +103,32 @@ public final class PlantDetailViewModel {
     private let setPlantStatus: SetPlantStatus
     private let movePlant: MovePlant
     private let searchTaxonomyReferences: SearchTaxonomyReferences
-    private let strings: LocalizedStrings
+    /// `nil` only for a `PlantDetailViewModel` built with no map-object
+    /// picker capability wired in — the same optional-capability shape
+    /// `photoAttachment` already establishes, so every existing test double
+    /// keeps working unchanged; `AppCompositionRoot.makePlantDetailViewModel`
+    /// supplies a real one.
+    private let listGardenMapObjects: ListGardenMapObjects?
+    // `internal`, not `private`: `PlantDetailViewModel+Errors.swift` (split
+    // out to keep this file under this repository's 600-line ceiling, the
+    // same `CollaboratorsViewModel+Actions.swift` reason) reads this to
+    // resolve its own localized failure messages.
+    let strings: LocalizedStrings
     private let fetchPlantIdentification: FetchPlantIdentification?
     private let confirmPlantIdentification: ConfirmPlantIdentification?
+    /// Absent entirely for a `PlantDetailViewModel` built with no photo-
+    /// gallery capability wired in — the same optional-capability shape
+    /// `photoAttachment`/`listGardenMapObjects` already establish; every
+    /// existing test double and call site keeps working unchanged.
+    /// `PlantDetailView` reads this directly (it is itself `@Observable`),
+    /// the same nested-read pattern it already uses for `photoAttachment`.
+    public let photoGallery: PlantPhotoGalleryController?
+    /// Absent entirely for a `PlantDetailViewModel` built with no observation-
+    /// suggestion capability wired in — the same optional-capability shape
+    /// every other capability here establishes. See
+    /// `ObservationSuggestionController`'s own doc comment for why this is a
+    /// shared controller rather than a method here.
+    public let observationSuggestion: ObservationSuggestionController?
 
     /// A still-pending `AddPlantFromPhoto` suggestion for this plant (ADR-0015),
     /// when one exists — `nil` both when there is none and when
@@ -137,7 +163,10 @@ public final class PlantDetailViewModel {
         photoAttachment: PhotoAttachmentController? = nil,
         attachPlantPhoto: AttachPlantPhoto? = nil,
         fetchPlantIdentification: FetchPlantIdentification? = nil,
-        confirmPlantIdentification: ConfirmPlantIdentification? = nil
+        confirmPlantIdentification: ConfirmPlantIdentification? = nil,
+        listGardenMapObjects: ListGardenMapObjects? = nil,
+        photoGallery: PlantPhotoGalleryController? = nil,
+        observationSuggestion: ObservationSuggestionController? = nil
     ) {
         self.gardenId = gardenId
         self.plantId = plantId
@@ -147,13 +176,17 @@ public final class PlantDetailViewModel {
         self.setPlantStatus = setPlantStatus
         self.movePlant = movePlant
         self.searchTaxonomyReferences = searchTaxonomyReferences
+        self.listGardenMapObjects = listGardenMapObjects
         self.strings = strings
         self.photoAttachment = photoAttachment
         self.attachPlantPhoto = attachPlantPhoto
         self.fetchPlantIdentification = fetchPlantIdentification
         self.confirmPlantIdentification = confirmPlantIdentification
+        self.photoGallery = photoGallery
+        self.observationSuggestion = observationSuggestion
     }
 
+    public var photoGalleryTitle: String { strings(.plantsPhotoGalleryTitle) }
     public var photoSectionTitle: String { strings(.mediaAttachSectionTitle) }
     public var photoPickButtonTitle: String { strings(.mediaAttachPickButton) }
     public var photoRetryButtonTitle: String { strings(.mediaAttachRetryButton) }
@@ -228,6 +261,9 @@ public final class PlantDetailViewModel {
     public var gardenAreaLabel: String { strings(.plantsGardenAreaLabel) }
     public var placementLabel: String { strings(.plantsPlacementLabel) }
     public var mapObjectIdHint: String { strings(.plantsMapObjectIdHint) }
+    public var mapObjectPickerTitle: String { strings(.plantsMapObjectPickerTitle) }
+    public var mapObjectPickerClearTitle: String { strings(.plantsMapObjectPickerClear) }
+    public var mapObjectPickerEmptyMessage: String { strings(.plantsMapObjectPickerEmpty) }
     public var taxonomyLabel: String { strings(.plantsTaxonomyLabel) }
     public var taxonomyNoneLabel: String { strings(.plantsTaxonomyNone) }
     public var taxonomyClearLabel: String { strings(.plantsTaxonomyClear) }
@@ -285,6 +321,35 @@ public final class PlantDetailViewModel {
         return (try? await searchTaxonomyReferences(gardenId: gardenId, query: trimmed.isEmpty ? nil : trimmed)) ?? []
     }
 
+    /// This field's own current selection, resolved to its map object's
+    /// label when the picker has already loaded the garden's objects — see
+    /// `PlantsHomeViewModel.mapObjectSummary(for:)`'s identical shape.
+    public func mapObjectSummary(for field: MapObjectPlacementField) -> String? {
+        let rawId = field == .gardenArea ? editedGardenAreaMapObjectId : editedPlacementMapObjectId
+        guard !rawId.isEmpty else { return nil }
+        return mapObjects.first { $0.id == rawId }?.label ?? rawId
+    }
+
+    /// Absent entirely for a `PlantDetailViewModel` built with no
+    /// `listGardenMapObjects` — the same "real, working affordance or
+    /// nothing" rule `photoSection`'s own doc comment establishes.
+    public func openMapObjectPicker(for field: MapObjectPlacementField) async {
+        guard let listGardenMapObjects else { return }
+        if mapObjects.isEmpty {
+            mapObjects = (try? await listGardenMapObjects(gardenId: gardenId)) ?? []
+        }
+        activeMapObjectField = field
+    }
+
+    public func selectMapObject(_ objectId: String?) {
+        guard let field = activeMapObjectField else { return }
+        switch field {
+        case .gardenArea: editedGardenAreaMapObjectId = objectId ?? ""
+        case .placement: editedPlacementMapObjectId = objectId ?? ""
+        }
+        activeMapObjectField = nil
+    }
+
     public func load() async {
         actionErrorMessage = nil
         var hadCachedResult = false
@@ -318,6 +383,8 @@ public final class PlantDetailViewModel {
         if let fetchPlantIdentification {
             pendingIdentification = try? await fetchPlantIdentification(gardenId: gardenId, plantId: plantId)
         }
+
+        await photoGallery?.load(gardenId: gardenId, plantId: plantId)
     }
 
     /// Accepts the banner's suggestion — a no-op without both a fetched
@@ -475,6 +542,7 @@ public final class PlantDetailViewModel {
             _ = try await attachPlantPhoto(gardenId: gardenId, plantId: plantId, mediaId: mediaId)
             photoAttachedConfirmation = true
             photoAttachErrorMessage = nil
+            await photoGallery?.load(gardenId: gardenId, plantId: plantId)
         } catch let error as APIGatewayError {
             photoAttachErrorMessage = message(for: error)
         } catch {
@@ -529,29 +597,4 @@ public final class PlantDetailViewModel {
         }
     }
 
-    private func message(for failure: APIGatewayError) -> String {
-        switch failure {
-        case .transport:
-            strings(.networkUnreachable)
-        case .service, .undecodableResponse, .unexpectedStatus:
-            strings(.serverUnexpected)
-        }
-    }
-
-    private func message(for failure: AddPlantFormValidation.Failure) -> String {
-        switch failure {
-        case .displayNameRequired: strings(.plantsDisplayNameRequired)
-        case .quantityRequired: strings(.plantsQuantityRequired)
-        case .quantityMustBePositive: strings(.plantsQuantityMustBePositive)
-        }
-    }
-
-    private func message(for failure: PlantCommandError) -> String {
-        switch failure {
-        case .invalidDisplayName:
-            strings(.plantsDisplayNameRequired)
-        case .localRecordNotFound, .payloadEncodingFailed, .conflictResolutionPayloadMalformed:
-            strings(.serverUnexpected)
-        }
-    }
 }

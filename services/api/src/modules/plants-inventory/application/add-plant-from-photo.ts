@@ -159,6 +159,7 @@ export class AddPlantFromPhoto {
           suggestion.suggestedLifecycleStage,
           conditionNote,
           careGuidanceNote,
+          suggestion.suggestedAcquisitionDate,
           now,
         );
         await context.plantIdentifications.insert(identification);

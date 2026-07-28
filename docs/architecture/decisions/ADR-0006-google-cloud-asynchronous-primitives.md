@@ -2,10 +2,14 @@
 
 > Status: Accepted  
 > Date: July 21, 2026
+> Roadmap clarification: July 28, 2026
 
 ## Context
 
-Media processing, scan reconstruction, exports, notifications, and recommendation batches cannot execute reliably inside interactive API requests. Commands and fan-out events have different delivery needs.
+Media processing, exports, notifications, and recommendation batches cannot execute reliably inside
+interactive API requests. Commands and fan-out events have different delivery needs. Automated
+reconstruction is no longer a committed workload, but must use these primitives if a future ADR
+promotes it into a numbered delivery phase.
 
 ## Decision
 

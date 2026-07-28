@@ -1,8 +1,8 @@
 # Google Cloud Networking Design
 
-> Status: Draft 0.2
+> Status: Draft 0.3
 > Decision status: Approved baseline  
-> Last updated: July 22, 2026
+> Last updated: July 28, 2026
 
 ## 1. Purpose
 
@@ -78,7 +78,8 @@ Non-production may use direct Cloud Run URLs with IAM or controlled public acces
 Baseline policy includes:
 
 - Allow expected HTTP methods and normal traffic.
-- Rate limits for authentication, upload-session, scan, AI, and export endpoints.
+- Rate limits for authentication, upload-session, approved media-processing, AI, and export
+  endpoints. Future reconstruction endpoints require separate limits before exposure.
 - Managed threat rules introduced in preview mode before enforcement.
 - Geographic rules only when a documented product or legal requirement exists.
 - Emergency block capability.

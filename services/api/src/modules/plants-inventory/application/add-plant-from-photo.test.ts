@@ -231,6 +231,7 @@ describe('AddPlantFromPhoto', () => {
         confidenceScore: 0.9,
         varietyGuess: null,
         lifecycleStageGuess: null,
+        acquisitionDateGuess: null,
       },
     });
     const identifyPlantSpecies = identifyPlantSpeciesWith(adapter);
@@ -282,6 +283,7 @@ describe('AddPlantFromPhoto', () => {
         confidenceScore: 0.88,
         varietyGuess: null,
         lifecycleStageGuess: null,
+        acquisitionDateGuess: null,
       },
     });
     const identifyPlantSpecies = identifyPlantSpeciesWith(adapter);
@@ -320,6 +322,7 @@ describe('AddPlantFromPhoto', () => {
         confidenceScore: 0.9,
         varietyGuess: 'Roma',
         lifecycleStageGuess: 'flowering',
+        acquisitionDateGuess: '2026-05-01',
       },
     });
     const conditionAdapter = new FakePlantConditionAnalysisProviderAdapter({
@@ -357,6 +360,7 @@ describe('AddPlantFromPhoto', () => {
     expect(identification?.suggestedCareGuidanceNote).toBe(
       'Water more consistently and check drainage.',
     );
+    expect(identification?.suggestedAcquisitionDate).toBe('2026-05-01');
   });
 
   it('rejects a photoMediaId that MediaRepository.get does not return', async () => {

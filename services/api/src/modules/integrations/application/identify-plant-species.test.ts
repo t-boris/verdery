@@ -57,6 +57,7 @@ describe('IdentifyPlantSpecies', () => {
             confidenceScore: 0.8,
             varietyGuess: null,
             lifecycleStageGuess: null,
+            acquisitionDateGuess: null,
           },
         },
       },
@@ -80,6 +81,7 @@ describe('IdentifyPlantSpecies', () => {
         confidenceScore: 0.8,
         varietyGuess: null,
         lifecycleStageGuess: null,
+        acquisitionDateGuess: null,
       },
       provenance: { providerKey: PROVIDER_KEY, model: 'gemini-test', promptTemplateVersion: 2 },
     });

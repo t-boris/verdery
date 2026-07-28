@@ -343,6 +343,7 @@ describe('confirmPlantIdentification', () => {
       null,
       null,
       null,
+      null,
       IDENTIFICATION_ID,
       LATER,
     );
@@ -364,6 +365,7 @@ describe('confirmPlantIdentification', () => {
       null,
       null,
       null,
+      null,
       IDENTIFICATION_ID,
       LATER,
     );
@@ -374,6 +376,7 @@ describe('confirmPlantIdentification', () => {
     const plant = individualPlant();
     const confirmed = confirmPlantIdentification(
       plant,
+      null,
       null,
       null,
       null,
@@ -398,6 +401,7 @@ describe('confirmPlantIdentification', () => {
       null,
       null,
       null,
+      null,
       IDENTIFICATION_ID,
       LATER,
     );
@@ -412,6 +416,7 @@ describe('confirmPlantIdentification', () => {
         plant,
         null,
         '   ',
+        null,
         null,
         null,
         null,
@@ -437,6 +442,7 @@ describe('confirmPlantIdentification', () => {
       'flowering',
       'Wilting leaves',
       'Water more consistently',
+      null,
       IDENTIFICATION_ID,
       LATER,
     );
@@ -464,6 +470,7 @@ describe('confirmPlantIdentification', () => {
       'flowering',
       'Wilting leaves',
       'Water more consistently',
+      null,
       IDENTIFICATION_ID,
       LATER,
     );
@@ -472,6 +479,52 @@ describe('confirmPlantIdentification', () => {
     expect(confirmed.lifecycleStage).toBe('fruiting');
     expect(confirmed.conditionNote).toBe('Looking healthy');
     expect(confirmed.careGuidanceNote).toBe('Keep as is');
+  });
+
+  it('fills in an AI-guessed acquisition date and defaults acquisitionDateType to acquired when the plant is still at its creation defaults', () => {
+    const plant = individualPlant();
+    expect(plant.acquisitionDate).toBeNull();
+    expect(plant.acquisitionDateType).toBeNull();
+
+    const confirmed = confirmPlantIdentification(
+      plant,
+      TAXONOMY_ID,
+      null,
+      null,
+      null,
+      null,
+      null,
+      '2026-05-01',
+      IDENTIFICATION_ID,
+      LATER,
+    );
+
+    expect(confirmed.acquisitionDate).toBe('2026-05-01');
+    expect(confirmed.acquisitionDateType).toBe('acquired');
+  });
+
+  it('never overwrites an acquisition date the owner already set by hand', () => {
+    const plant = {
+      ...individualPlant(),
+      acquisitionDate: '2026-01-15',
+      acquisitionDateType: 'planted' as const,
+    };
+
+    const confirmed = confirmPlantIdentification(
+      plant,
+      TAXONOMY_ID,
+      null,
+      null,
+      null,
+      null,
+      null,
+      '2026-05-01',
+      IDENTIFICATION_ID,
+      LATER,
+    );
+
+    expect(confirmed.acquisitionDate).toBe('2026-01-15');
+    expect(confirmed.acquisitionDateType).toBe('planted');
   });
 });
 

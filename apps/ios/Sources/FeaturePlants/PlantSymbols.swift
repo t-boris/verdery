@@ -70,4 +70,7 @@ enum PlantSymbols {
     static let placement = "mappin.and.ellipse"
     static let photo = "photo"
     static let pendingSync = "arrow.triangle.2.circlepath"
+    static let condition = "waveform.path.ecg"
+    static let careGuidance = "lightbulb.fill"
+    static let acquisitionDateGuess = "calendar"
 }

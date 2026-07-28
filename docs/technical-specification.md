@@ -1,8 +1,8 @@
 # Grow Garden Technical Specification
 
-> Status: Draft 0.7
+> Status: Draft 1.0
 > Document type: Product and functional requirements specification  
-> Last updated: July 22, 2026  
+> Last updated: July 28, 2026
 > Architecture status: Approved high-level and detailed baseline; see [high-level-architecture.md](high-level-architecture.md) and [architecture/README.md](architecture/README.md)
 
 ## 1. Document Purpose
@@ -160,8 +160,7 @@ The following sequence is a proposal and requires validation before becoming a r
 
 ### 6.3 Future Scope
 
-- Guided Garden Scan with object suggestions.
-- Automatic multi-zone scan merging.
+- Research into automated multi-capture garden reconstruction, without a committed delivery phase.
 - Full 3D garden view.
 - AR garden overlays.
 - Time Machine growth visualization.
@@ -210,7 +209,8 @@ A planned, suggested, completed, skipped, or dismissed unit of garden work.
 
 ### 7.10 Capture Source
 
-The origin of map geometry or other information, such as manual entry, satellite imagery, an imported plan, AR, LiDAR, GPS, or an AI-assisted scan.
+The origin of map geometry or other information, such as manual entry, satellite imagery, an
+imported plan, AR, LiDAR, GPS, or a future automated reconstruction proposal.
 
 ### 7.11 Service Organization
 
@@ -395,9 +395,13 @@ The user must not be required to map every individual plant when a row or group 
 
 - The user should be able to search for or center on the garden location.
 - The application should display available aerial or satellite imagery.
+- When location permission is granted, the native application should offer to center the garden from
+  the device location and resolve an approximate human-readable address for user confirmation.
 - The user should be able to trace lot boundaries and visible structures.
 - The imagery must be treated as a visual reference, not an authoritative property survey.
 - The application must tolerate imagery that is outdated, obscured, low resolution, or unavailable.
+- Shadows visible in source imagery must be treated only as capture-time visual evidence. They must
+  not be represented as a current or seasonal sunlight forecast.
 - MapLibre is the selected web geographic-context engine, MapKit supplies native Apple context, and the editable garden remains provider-independent. The initial commercial tile/imagery provider, licensing terms, and permitted caching require implementation-time review.
 
 ### FR-11: Property Plan Import
@@ -425,14 +429,34 @@ The user must not be required to map every individual plant when a row or group 
 
 AR marking is proposed after the core 2D editor is validated.
 
-- The user must select the semantic object type before capture.
+- Voice-guided AR marking should be the primary on-site flow. The user names the semantic object,
+  while explicit taps or equivalent accessible actions select physical points visible through the
+  camera.
+- The user must explicitly select the semantic object type before geometry is accepted. Selection
+  may occur through a bounded voice command or the equivalent touch control.
+- The bounded voice vocabulary must cover starting and naming an object, adding or correcting a
+  point, continuing a line, closing a polygon, undo, pause, resume, finish, save, and discard.
+- Voice interpretation must resolve to deterministic capture commands rather than permit free-form
+  model output to mutate garden geometry. Low-confidence recognition requires confirmation.
+- A visible microphone state, contextual permission request, push-to-talk or an equivalently clear
+  recording boundary, spoken and visual feedback, and a complete non-voice fallback are required.
 - The application should support marking line endpoints and polygon corners in the real environment.
-- The application should show live dimensions, area, tracking quality, and capture progress.
+- The initial object set must support a lot boundary, house or other structure, deck or veranda,
+  fence, gate, path, garden zone, bed, water feature, utility exclusion, tree, plant, and annotation.
+- The application should show live segment length, cumulative length, perimeter, area, tracking
+  quality, estimated uncertainty, active object type, and capture progress.
+- Completing a scaled polygon should report its dimensions, perimeter, area, and uncertainty both
+  visually and, when voice feedback is enabled, audibly.
 - The user must be able to undo the last point and close or cancel the capture.
+- Capture progress must be persisted locally after every committed point and survive interruption,
+  process termination, and temporary loss of connectivity.
 - LiDAR should improve capture on supported devices but must not be required for core mapping.
 - Captured geometry must be converted into editable 2D map objects.
 - AR measurements must be described as estimates unless independently verified.
-- Long objects should be capturable in segments to limit accumulated tracking error.
+- Long objects and boundaries should be capturable as checkpointed segments with shared control
+  points, independent correction, accumulated-error warnings, pause/resume, and later realignment.
+- The product must not claim that one uninterrupted AR track is reliable for a long boundary such as
+  a 200 m lot edge. Supported distance and error thresholds are device- and condition-specific.
 
 ### FR-14: AR-to-Map Alignment
 
@@ -441,32 +465,70 @@ AR marking is proposed after the core 2D editor is validated.
 - A proposed alignment flow uses two known real-world points also visible on the map.
 - If the map has no reference points, the first captured segment may define a local origin and direction.
 - A later session must support explicit realignment when automatic relocalization fails.
+- Garden orientation must be represented relative to true north, with source, accuracy, and revision.
+- Device heading may propose the initial orientation but must not silently replace the garden-level
+  orientation. Manual adjustment and control-point alignment remain available because magnetic
+  interference and device conditions can degrade heading accuracy.
 - The architecture uses a garden-local planar coordinate space with optional WGS84 georeferencing, persisted capture sessions, and explicit alignment records. Exact tracking and alignment algorithms remain subject to device evaluation.
 
 ### FR-15: GPS and Geographic Positioning
 
-- GPS may be used to locate the garden and center background imagery.
+- With contextual permission, GPS should locate the garden, initialize a WGS84 geographic anchor,
+  support true-north orientation, and center available background imagery.
+- The native application should resolve an approximate address for user confirmation. The user must
+  be able to edit, replace, or omit the address and geographic anchor.
+- Location, address, heading, accuracy, observation time, provenance, and revision must be stored
+  separately from accepted local geometry.
 - GPS may support approximate boundaries for large properties.
 - GPS must not be presented as sufficiently precise for decks, building footprints, narrow beds, or legal lot boundaries.
 - Geographic AR features must have a fallback because availability and accuracy vary by device and location.
+- Exact address and coordinates are sensitive. They must not enter client publications, public
+  sharing, analytics, logs, or exported presentation views without an explicit applicable policy
+  and user action.
 
-### FR-16: Guided Garden Scan
+### FR-15A: Solar and Shadow Context
 
-Guided Garden Scan is a future capability and must not block earlier releases.
+- When a garden has a geographic anchor and true-north orientation, the application should calculate
+  solar position for a selected date and time.
+- A calculated shadow layer should use available obstacle footprints and heights for structures,
+  fences, trees, and terrain. Unknown heights must remain explicit and reduce result confidence.
+- Nearby obstacle heights may be entered manually or estimated through supported AR or depth
+  capture, with provenance and uncertainty retained.
+- The map experience should support a time-of-day control, representative seasonal dates, and a
+  direct-sun-duration view where input quality supports it.
+- Calculated shadows must be visually distinct from shadows visible in aerial or satellite imagery.
+- The result must identify included and missing obstacles and must not claim precision beyond the
+  location, orientation, geometry, height, terrain, and solar-model inputs.
+- Both iOS and web should render the same versioned solar-analysis result; platform presentation may
+  differ while calculations and uncertainty semantics remain consistent.
 
-- Capture should occur inside the application rather than rely only on an ordinary uploaded video.
-- The application should provide real-time movement, coverage, and quality guidance.
-- Large gardens should be capturable as smaller zones.
-- The scan may collect imagery, camera motion, depth, and surface information when available.
-- Processing should propose semantic objects rather than silently replace the garden map.
-- Every proposed object must support accept, edit, label, or ignore actions.
-- The scan must clearly communicate incomplete coverage and uncertainty.
-- Capture uses hybrid processing: device guidance and capability-specific observations are combined with cloud processing for heavy analysis. Successful raw scan media defaults to deletion 30 days after extraction, and all processing output remains a proposal until user acceptance.
+### FR-16: Automated Garden Reconstruction Research
+
+Automated multi-capture reconstruction is not a committed product capability or numbered release
+phase. Phase 12 owns user-guided field mapping, checkpoints, alignment, validation, proposal
+acceptance, synchronization, and web editing.
+
+- Research may begin only after Phase 12 field evidence identifies a material mapping problem that
+  user-guided capture does not solve efficiently.
+- The benchmark must compare total user effort after correction, not only automated object
+  detection or reconstruction quality.
+- Any evaluated capture must be deliberately guided and must not silently reintroduce the rejected
+  casual photo/video-to-garden-object workflow.
+- Research must evaluate object precision/recall, geometry error, correction effort, completion
+  rate, failure transparency, privacy, provider rights, reproducibility, and unit economics.
+- Research artifacts must not become production geometry, APIs, client surfaces, or retained raw
+  media by default.
+- A new owner-approved ADR must define the modality, reconcile or supersede ADR-0015 in scope, and
+  authorize a newly numbered delivery phase before implementation begins.
+- Failure to meet an approved threshold closes or pauses the research without affecting manual,
+  plan, or Phase 12 mapping.
 
 ### FR-17: Plot Area Estimate
 
 - The application may calculate area from a scaled boundary polygon.
 - The application may provide an approximate area from map imagery or supported capture methods.
+- Completion of a voice-guided AR boundary should present perimeter, area, source, and estimated
+  uncertainty without requiring typed input.
 - Approximate estimates must not be displayed as exact measurements.
 - Calculations that depend on area must disclose the source and accuracy level.
 
@@ -482,7 +544,7 @@ Proposed sources include:
 - AR marking.
 - LiDAR-enhanced marking.
 - GPS.
-- AI-assisted scan.
+- Future automated reconstruction proposal.
 - User correction.
 
 Proposed accuracy states include:
@@ -499,6 +561,8 @@ User verification must not be treated as professional surveying.
 
 Each plant record should support:
 
+- An explicit distinction between an actual plant that exists in the garden and a candidate being
+  considered for the garden.
 - One or more photos.
 - User-defined name.
 - Species and variety when available.
@@ -511,6 +575,12 @@ Each plant record should support:
 - Observation and activity history.
 - Archived, removed, dead, or dormant states.
 
+An actual plant may represent an individual, row, or tracked group. A candidate may have a proposed
+location, desired quantity, suitability assessment, alternatives, price, purchase source, and user
+decision notes, but it must not be counted as present or receive current-care tasks. Candidate
+conversion to an actual plant must be explicit and must preserve the evaluation and decision
+history.
+
 ### FR-20: Plant Addition
 
 - Users must be able to add plants manually.
@@ -519,6 +589,10 @@ Each plant record should support:
 - The application should prefill supported plant information after identification.
 - Users should be able to add individual plants, rows, or groups.
 - Unknown plants must be allowed and identifiable later.
+- Every plant-add flow must require or inherit an unambiguous choice between an actual plant and a
+  candidate.
+- Users must be able to search a shared plant catalog or create a garden-specific unknown entry.
+- Addition must complete without waiting for optional external enrichment.
 
 ### FR-21: Plant Lifecycle and Seasonal Planning
 
@@ -559,6 +633,14 @@ The source and quality of each context type must be understood before it influen
 
 - Users must be able to add a condition update and photos at any time.
 - The application may request periodic photos of selected plants or beds.
+- Repeated photographs of the same plant must attach to its stable garden plant identity.
+- A photographic observation should support whole-plant, leaf-front, leaf-back, stem/bark, flower,
+  fruit, symptom-detail, and context shot purposes without requiring every view.
+- Observations should support typed measurements, phenological stage, condition, symptoms, notes,
+  and relevant weather, watering, treatment, or task context.
+- Native capture must support durable offline drafts and resumable background upload.
+- Users should be able to compare observations chronologically, side by side, with a before/after
+  control, and as a selected-image time-lapse.
 - Image analysis may suggest visible stress, disease, or pests.
 - Automated analysis must not present uncertain diagnoses as confirmed facts.
 - The application should ask for additional views or context when evidence is insufficient.
@@ -678,7 +760,9 @@ The 3D view is a future representation of the same accepted garden information.
 - Client access must be limited to an active engagement and explicitly published resources.
 - The initial client experience must be responsive web and should use email magic link as the lowest-friction sign-in method.
 - Anonymous public garden links must not be part of the baseline.
-- Internal tasks, assignments, notes, unaccepted geometry, recommendations, drafts, sync conflicts, raw scans, processor diagnostics, and unpublished media must remain hidden from clients.
+- Internal tasks, assignments, notes, unaccepted geometry, recommendations, drafts, sync conflicts,
+  sensitive raw capture artifacts, processor diagnostics, and unpublished media must remain hidden
+  from clients.
 - Completing an internal task must not publish it automatically by default.
 - An authorized team member must be able to prepare, review, publish, and withdraw a client update.
 - Client publishing must be a separate capability: an organization administrator grants it for an organization-backed engagement, or a garden owner grants it when no service organization is attached. Operational role alone must not imply publication access.
@@ -689,6 +773,55 @@ The 3D view is a future representation of the same accepted garden information.
 - Client invitation, access, publication, withdrawal, sensitive-media access, export, and engagement revocation must be audited.
 - The default residential-service stewardship policy must make the accepted garden model and published deliverables client-exportable while excluding provider-internal operational records.
 - Ending an engagement must revoke portal access immediately at the server and apply the recorded export/handoff policy.
+
+### FR-35: Plant Knowledge and Candidate Suitability
+
+- The product must maintain stable application taxon identifiers separately from provider
+  identifiers and user-authored garden facts.
+- The product should aggregate accepted names, synonyms, common names, distribution, life cycle,
+  horticultural requirements, phenology, regulatory context, and representative media from approved
+  sources.
+- Every material external assertion must retain source, jurisdiction, license, attribution,
+  retrieval time, geographic applicability, confidence or review state, and provider record
+  identity.
+- Conflicting assertions must remain traceable and must not be resolved by silently overwriting one
+  source with another.
+- Plant profiles may be partial and must expose missing, uncertain, stale, or conflicting
+  information.
+- Representative media should cover useful organs and stages, including seed, seedling, juvenile,
+  mature habit, leaf, stem or bark, bud, flowering, fruiting, seed production, senescent, dormant,
+  and natural-habitat views when licensed media exist.
+- Annual, biennial, and perennial must be represented as potentially climate-dependent life-cycle
+  facts, not as mandatory photo categories.
+- Candidate suitability should evaluate available hardiness, sun, water, soil, drainage, mature
+  space, placement conflicts, regulatory restrictions, and user preferences.
+- Suitability must distinguish matches, cautions, blockers, unknowns, and assumptions and must not
+  promise that a plant will thrive.
+- Enrichment and suitability recalculation must run without blocking accepted plant or candidate
+  creation.
+
+### FR-36: Plant Library, Search, and Visual Journal Experience
+
+- Native and web plant experiences must support actual plants, candidates, and combined views.
+- Search must cover accepted scientific names, synonyms, localized common names, cultivar names,
+  and user-defined names and must show why a result matched.
+- Filters must cover actual/candidate kind, tracking granularity, garden area, placement, identity
+  completeness, lifecycle, phenology, health, native/introduced/regulatory state, life cycle, care
+  requirements, hardiness compatibility, bloom or fruit period, profile completeness, and journal
+  recency.
+- Plant lists should prioritize large representative images, clear icons, concise state badges,
+  location, health or suitability summary, and the next meaningful action.
+- The add flow must offer search, photo identification, existing-image selection, and unknown entry
+  while requesting only fields relevant to actual or candidate intent.
+- The detail experience must provide an image-led overview, icon fact strip, suitability or
+  condition summary, care, journal, tasks, distribution, and sources.
+- Icons must have accessible names or adjacent labels, tooltips where useful, visible selected and
+  disabled states, and non-color status cues.
+- Images must have useful alternative text and must not be the only carrier of meaning.
+- Empty, loading, partial-data, failed-enrichment, unknown-plant, no-photo, offline, upload-recovery,
+  and provider-unavailable states must be designed and tested.
+- Selected journal observations and progress media may be published to a client only through the
+  explicit client-publication and media-entitlement workflow.
 
 ## 10. Garden Map Validation Rules
 
@@ -718,6 +851,10 @@ Validation should warn rather than block when uncertainty is acceptable for gard
 - Users must not be required to walk backward while looking at the screen.
 - Long operations must show progress and allow safe cancellation or recovery.
 - The client portal must present a deliberately simpler, read-only result experience rather than expose disabled operational controls.
+- Plant workflows must be image-led and icon-led while retaining accessible text for ambiguous
+  meaning, assistive technology, and localization.
+- The plant library, add flow, detail view, candidate suitability, journal capture, progress
+  comparison, search, and filters must have equivalent product meaning on native and web.
 - Russian and English interfaces, guidance, and notifications are required.
 - Metric and imperial units should be supported.
 - Accessibility requirements must be defined and tested before release.
@@ -743,7 +880,9 @@ These requirements describe expected qualities. Their approved high-level alloca
 - Camera, photo, microphone, location, and notification permissions must be requested only with clear contextual explanations.
 - Property plans, addresses, garden video, and nearby private property must be treated as sensitive.
 - Users must understand whether analysis occurs locally or remotely.
-- Raw scan retention must be explicit and controllable.
+- Retention for approved raw AR capture artifacts must be explicit and controllable.
+- Future automated reconstruction must define and disclose raw-media retention before the feature
+  can collect any such data.
 
 ### 12.4 Security
 
@@ -823,6 +962,7 @@ The architecture must support:
 - Provenance and uncertainty.
 - Offline on-site work.
 - Media-rich plant history.
+- Source-attributed plant knowledge, candidate suitability, and repeatable visual observations.
 - Multiple capability levels across devices.
 - Consistent product meaning across mobile and web surfaces.
 - Future sharing and collaboration.
@@ -914,7 +1054,9 @@ Numerical targets must be established through product validation rather than inv
 - Which devices receive AR marking or LiDAR enhancements?
 - What error is acceptable for each garden-care use case?
 - How should separate AR captures be aligned and reconciled?
-- Should users be able to shorten the default 30-day raw scan retention for each capture?
+- What retention choices should apply to raw AR capture artifacts?
+- If automated reconstruction is promoted later, what is the shortest viable raw-media retention
+  and must users be able to shorten it per capture?
 - Which offline actions beyond viewing, map editing, task completion, notes, and photo capture are mandatory in the first release?
 - Should publisher grants be time-bounded or require periodic review after the initial explicit-grant model is validated?
 - Which completed-work categories may opt into reviewed automatic publication later?

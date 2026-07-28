@@ -26,4 +26,11 @@ public enum PlantIdentificationLocalizationKey: String, Sendable, CaseIterable {
     case plantsIdentificationGrowthStageLabel = "plants.identification.growthStageLabel"
     case plantsIdentificationConditionLabel = "plants.identification.conditionLabel"
     case plantsIdentificationCareGuidanceLabel = "plants.identification.careGuidanceLabel"
+    case plantsIdentificationAcquisitionDateLabel = "plants.identification.acquisitionDateLabel"
+
+    /// `RecordObservationFromIdentification` (ADR-0015's own "AddPlantFromPhoto
+    /// suggests an observation too" extension) — independent of, and shown
+    /// alongside, the species-confirmation button above.
+    case plantsIdentificationRecordObservationButton = "plants.identification.recordObservationButton"
+    case plantsIdentificationObservationRecordedMessage = "plants.identification.observationRecordedMessage"
 }

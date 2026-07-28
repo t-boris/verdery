@@ -349,8 +349,8 @@ self-minted OIDC token (hop 2); **the API alone** makes the revision-guarded sta
   `video_validation_deferred` result **before** any object source is touched (pinned by a
   `NeverCalledObjectSource` that throws if invoked), preserving the declared-metadata-trusted level
   exactly. Deep validation needs `ffprobe`, a native binary dependency deliberately kept out of the
-  stack. The exposure is bounded by the fact that Garden Scan (Phase 10) is unbuilt, so nothing
-  produces `raw_capture` today.
+  stack. The exposure is bounded by the fact that automated reconstruction has no committed delivery
+  phase, so nothing produces `raw_capture` today.
 - `T-UPL-12` **(high, owner decision)** — **No malware scanner exists.** `UnavailableMalwareScanner`
   always reports `unavailable`, and for the one class that requires a scan (`imported_plan` PDFs)
   that becomes a **retryable** worker failure rather than a fabricated "clean" — the honest posture,
@@ -897,7 +897,7 @@ compatible with all three still being open — it is what makes them explicit.
 1. Replace the status banner in this document's header with
    `**Signature status: SIGNED by <name>, <date>, against commit <sha>.**`
 2. Record, per `accepted-risk-pending-signature` row, the acceptance date and any condition attached
-   to it (for example, "revisit `T-UPL-11` when Garden Scan ships").
+   to it (for example, "revisit `T-UPL-11` only if a future ADR authorizes production raw capture").
 3. Record the owner decisions this model asks for, each in one line: membership revocation
    (`T-AUTHZ-11`), storage-quota numbers (`T-COST-03`), rate-limit numbers (`T-COST-01`), the
    malware-scanning provider (`T-UPL-12`), and the support-access mechanism (`T-SUPPORT-01`).

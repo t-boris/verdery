@@ -46,6 +46,7 @@ export interface PhotoIdentificationSuggestion {
   readonly suggestedScientificName: string | null;
   readonly suggestedVarietyLabel: string | null;
   readonly suggestedLifecycleStage: LifecycleStage | null;
+  readonly suggestedAcquisitionDate: string | null;
 }
 
 const NO_SUGGESTION: PhotoIdentificationSuggestion = {
@@ -55,6 +56,7 @@ const NO_SUGGESTION: PhotoIdentificationSuggestion = {
   suggestedScientificName: null,
   suggestedVarietyLabel: null,
   suggestedLifecycleStage: null,
+  suggestedAcquisitionDate: null,
 };
 
 /**
@@ -117,6 +119,7 @@ export async function identifyPlantFromPhoto(
       suggestedScientificName: result.candidate.scientificNameGuess,
       suggestedVarietyLabel: result.candidate.varietyGuess,
       suggestedLifecycleStage: toLifecycleStage(result.candidate.lifecycleStageGuess),
+      suggestedAcquisitionDate: result.candidate.acquisitionDateGuess,
     };
   }
 
@@ -127,5 +130,6 @@ export async function identifyPlantFromPhoto(
     suggestedScientificName: null,
     suggestedVarietyLabel: result.candidate.varietyGuess,
     suggestedLifecycleStage: toLifecycleStage(result.candidate.lifecycleStageGuess),
+    suggestedAcquisitionDate: result.candidate.acquisitionDateGuess,
   };
 }

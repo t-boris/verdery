@@ -150,3 +150,30 @@ struct FetchPlantIdentificationTests {
         }
     }
 }
+
+@Suite("Record observation from identification")
+struct RecordObservationFromIdentificationTests {
+    @Test("calls the gateway with the given identificationId and a generated idempotency key")
+    func callsGatewayWithIdentification() async throws {
+        let gateway = FakePlantGateway(plants: [])
+        let recordObservation = RecordObservationFromIdentification(gateway: gateway, generateIdempotencyKey: { "fixed-key" })
+
+        let observation = try await recordObservation(
+            gardenId: "garden-1", plantId: "plant-1", identificationId: "identification-1"
+        )
+
+        #expect(observation.conditionSummary == gateway.recordedObservation.conditionSummary)
+        #expect(gateway.recordObservationFromIdentificationCalls.map(\.identificationId) == ["identification-1"])
+    }
+
+    @Test("propagates a gateway failure")
+    func propagatesGatewayFailure() async throws {
+        let gateway = FakePlantGateway(plants: [])
+        gateway.recordObservationFromIdentificationError = APIGatewayError.unexpectedStatus(500, correlationId: "fake-failure")
+        let recordObservation = RecordObservationFromIdentification(gateway: gateway)
+
+        await #expect(throws: Error.self) {
+            _ = try await recordObservation(gardenId: "garden-1", plantId: "plant-1", identificationId: "identification-1")
+        }
+    }
+}

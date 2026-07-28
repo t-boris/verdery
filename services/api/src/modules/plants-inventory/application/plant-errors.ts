@@ -32,6 +32,9 @@ export const PlantErrorCode = {
   IdentificationNotFound: 'plants_inventory.plant.identification_not_found',
   /** A `plant_identification` row exists but belongs to a different plant. */
   IdentificationMismatch: 'plants_inventory.plant.identification_mismatch',
+  /** A `plant_identification` row exists but carries no condition analysis to record as an observation. */
+  IdentificationNoObservationSuggestion:
+    'plants_inventory.plant.identification_no_observation_suggestion',
 } as const;
 
 export type PlantErrorCode = (typeof PlantErrorCode)[keyof typeof PlantErrorCode];
@@ -63,6 +66,13 @@ export function plantIdentificationMismatchError(): DomainRuleViolatedError {
   return new DomainRuleViolatedError(
     PlantErrorCode.IdentificationMismatch,
     'This identification does not belong to the specified plant.',
+  );
+}
+
+export function plantIdentificationNoObservationSuggestionError(): DomainRuleViolatedError {
+  return new DomainRuleViolatedError(
+    PlantErrorCode.IdentificationNoObservationSuggestion,
+    'This identification carries no condition analysis to record as an observation.',
   );
 }
 

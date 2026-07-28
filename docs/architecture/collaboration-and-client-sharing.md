@@ -1,8 +1,8 @@
 # Collaboration and Client Sharing Design
 
-> Status: Draft 0.1
+> Status: Draft 0.2
 > Decision status: Approved baseline
-> Last updated: July 22, 2026
+> Last updated: July 28, 2026
 
 ## 1. Purpose
 
@@ -186,7 +186,9 @@ A publication version may contain:
 - Staff display attribution explicitly selected for publication.
 - A future Time Machine scenario only when that separate artifact has been explicitly published.
 
-It must not contain internal tasks, assignments, notes, estimates, recommendations, unaccepted geometry, drafts, synchronization conflicts, capture proposals, raw scans, processor diagnostics, or unpublished media.
+It must not contain internal tasks, assignments, notes, estimates, recommendations, unaccepted
+geometry, drafts, synchronization conflicts, capture proposals, sensitive raw capture artifacts,
+processor diagnostics, or unpublished media.
 
 Snapshots preserve what the client saw at publication time. A later operational edit cannot silently rewrite an older publication.
 

@@ -1,8 +1,8 @@
 # Grow Garden High-Level Architecture
 
-> Status: Draft 0.4
+> Status: Draft 0.6
 > Decision status: Approved detailed-design baseline  
-> Last updated: July 22, 2026  
+> Last updated: July 28, 2026
 > Cloud platform: Firebase and Google Cloud
 
 ## 1. Purpose
@@ -86,7 +86,8 @@ The architecture must accept incomplete, approximate, imported, measured, and de
 
 ### 4.3 User-Controlled Automation
 
-Imported, scanned, inferred, or AI-generated objects are proposals until accepted by the user. Automated processing must not silently replace accepted garden geometry or horticultural facts.
+Imported, measured, inferred, or AI-generated objects are proposals until accepted by the user.
+Automated processing must not silently replace accepted garden geometry or horticultural facts.
 
 ### 4.4 Offline Safety
 
@@ -94,7 +95,10 @@ Loss of connectivity must not discard acknowledged mobile changes. Offline work 
 
 ### 4.5 Asynchronous Heavy Work
 
-Media analysis, plan extraction, video processing, scan reconstruction, recommendation batches, exports, and other long-running operations must not run in interactive API requests. They execute through durable queues and workers.
+Media analysis, plan extraction, video processing, recommendation batches, exports, and other
+approved long-running operations must not run in interactive API requests. They execute through
+durable queues and workers. Future automated reconstruction must follow the same boundary if a new
+ADR promotes it into delivery.
 
 ### 4.6 Replaceable External Providers
 
@@ -151,7 +155,8 @@ The Apple application is a native Swift and SwiftUI client for iPhone and iPad. 
 
 - ARKit and device tracking.
 - Camera, photos, video, depth, and supported LiDAR capabilities.
-- Location and motion sensors.
+- Location, true-heading, and motion sensors.
+- Bounded speech recognition and optional spoken field feedback.
 - Background uploads and platform lifecycle behavior.
 - Local persistence and offline workflows.
 - Push notifications.
@@ -214,7 +219,9 @@ Initial logical modules are:
 - **Observations and History**: notes, photos, events, measurements, and provenance.
 - **Tasks and Recommendations**: planned work, completion, postponement, rejection, explanations, and recommendation history.
 - **Media**: upload authorization, metadata, processing state, derivatives, and retention state.
-- **Capture and Import**: plans, imagery, AR sessions, scans, extraction proposals, calibration, and reconciliation.
+- **Capture and Import**: plans, imagery, voice-guided AR field sessions, geographic initialization,
+  long-boundary checkpoints, capture artifacts, extraction proposals, calibration, and
+  reconciliation.
 - **Collaboration**: operational invitations and memberships, lightweight service organizations, garden assignments, client engagements, publication workflow, attribution, and collaboration notifications.
 - **Integrations**: weather, maps, imagery, geocoding, plant content, AI, and messaging adapters.
 - **Administration and Operations**: feature configuration, support diagnostics, audit access, and operational controls.
@@ -250,11 +257,14 @@ Initial job categories include:
 - Image derivative generation.
 - Property-plan extraction.
 - Video frame sampling and analysis.
-- Scan reconstruction and geometry extraction.
 - Bulk recommendation generation.
 - Data import and export.
 - Deletion and retention workflows.
 - Search or projection rebuilding.
+
+Automated reconstruction and its geometry extraction are not initial job categories. If a future
+ADR and numbered delivery phase promote that research, those jobs must use the same durable,
+bounded execution model.
 
 Every job must be idempotent, observable, retry-aware, cancellable where practical, and safe against duplicate delivery.
 
@@ -290,10 +300,13 @@ Cloud Storage holds binary objects such as:
 
 - Original photos and videos.
 - Imported plans and documents.
-- AR and scan artifacts.
+- AR capture artifacts.
 - Generated thumbnails and previews.
 - Processing inputs and outputs.
 - Export packages.
+
+Future raw reconstruction artifacts may be added only after a promoted delivery phase defines
+their privacy, retention, access, and cost controls.
 
 PostgreSQL stores object references, ownership, checksums, content types, sizes, provenance, processing status, and retention state. Storage object paths are infrastructure identifiers, not public API contracts.
 
@@ -360,7 +373,8 @@ Expected categories are:
 - Reject stale edits to the same geometry revision and request review.
 - Preserve append-only observations and history events.
 - Treat task status transitions as explicit commands.
-- Prevent generated scan results from overwriting accepted geometry.
+- Prevent plan-extraction and AR proposals from overwriting accepted geometry. Future
+  reconstruction proposals must preserve the same invariant if promoted into delivery.
 
 Real-time simultaneous geometry collaboration is not required for the initial release. A detailed synchronization design must be approved before implementation.
 
@@ -370,7 +384,7 @@ The initial web application is online-first. It may cache query results and save
 
 Operational team members use the ordinary authorized garden query and synchronization semantics. Client portal sessions query a separate publication projection containing only explicitly published updates, completed-work snapshots, selected media, accepted snapshots, and published Time Machine scenarios. A client does not receive the full garden synchronization partition.
 
-## 10. Media and Garden Scan Pipeline
+## 10. Media Processing and Future Reconstruction Boundary
 
 ```text
 Capture or import
@@ -400,7 +414,11 @@ Cloud Run Job / specialized processor
                   Accepted garden revision
 ```
 
-On-device processing should handle immediate interaction, capture guidance, basic quality checks, device-specific AR tracking, and lightweight transformations. Cloud processing should handle workloads that need larger models, more memory, longer execution, cross-capture reconciliation, or reproducibility independent of device capability.
+On-device processing handles immediate interaction, capture guidance, basic quality checks,
+device-specific AR tracking, and lightweight transformations. Existing cloud processing handles
+approved media validation and derivatives. Cross-capture reconstruction is not a committed
+capability; the diagram's proposal stages apply to plan extraction and to any future reconstruction
+only after a new ADR authorizes a delivery phase.
 
 Processing output must include:
 
@@ -571,7 +589,10 @@ A module may be extracted from the monolith when at least one of these condition
 - It has a separate release cadence and clear ownership.
 - It cannot meet reliability objectives inside the shared deployment.
 
-Garden Scan processing is already separated as worker and job deployments because its resource and execution profile differs from the interactive API.
+Existing media processing is separated into worker and job deployments where its resource and
+execution profile differs from the interactive API. A future automated-reconstruction pipeline would
+also require separate compute and scaling evaluation, but no such production deployment is currently
+authorized.
 
 ### 17.3 Portability
 
@@ -630,7 +651,9 @@ The architecture strategy, initial toolchain/platform versions, and geometry rep
 The following alternatives were evaluated and are not the selected baseline:
 
 - **Firestore-only backend:** rejected as the authoritative model because the product requires relational integrity, explicit revisions, and advanced spatial operations.
-- **Vercel as the complete platform:** rejected because long-running media and scan processing requires a separate compute platform; Vercel remains a possible future web-hosting alternative.
+- **Vercel as the complete platform:** rejected because approved long-running media processing and
+  any future promoted reconstruction require a separate compute platform; Vercel remains a
+  possible future web-hosting alternative.
 - **Supabase-first:** viable, but not selected because Firebase and Google Cloud provide the preferred integrated mobile, security, diagnostics, web, API, storage, and job ecosystem.
 - **CloudKit-first:** rejected because the web application is a first-class product surface and the backend must remain platform-neutral.
 - **AWS or Azure baseline:** technically viable, but not selected due to higher initial operational complexity without a current enterprise constraint requiring them.

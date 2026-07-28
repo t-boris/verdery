@@ -66,6 +66,6 @@ section "22. CI Gates"] TypeScript is revisited when `typescript-eslint` support
   image and Cloud SQL.
 - Targeting iOS 18 rather than iOS 26 requires availability checks around iOS 26-only APIs. This
   cost is accepted in exchange for beta reach, and it is revisited before the AR and LiDAR work in
-  Phase 11, where device capability tiers matter more than operating-system reach.
+  Phase 12, where device capability tiers matter more than operating-system reach.
 - Dropping below the declared browser baseline requires a new decision, because the Konva map editor
   in Phase 3 depends on Canvas behavior available in that baseline.

@@ -1,8 +1,8 @@
 # Environments and Delivery Design
 
-> Status: Draft 0.2
+> Status: Draft 0.3
 > Decision status: Approved baseline  
-> Last updated: July 22, 2026
+> Last updated: July 28, 2026
 
 ## 1. Purpose
 
@@ -188,7 +188,9 @@ Mobile release lag is considered before removing fields, commands, sync payload 
 
 ## 14. Feature Flags
 
-Feature flags separate deployment from release for risky capabilities such as Garden Scan, model versions, App Check enforcement, new sync operations, or map-provider changes.
+Feature flags separate deployment from release for risky capabilities such as model versions, App
+Check enforcement, new sync operations, or map-provider changes. Automated reconstruction is not a
+flagged dormant feature; it has no delivery phase and would require a new ADR before implementation.
 
 Flags have:
 

@@ -1,8 +1,8 @@
 # Data and Geospatial Design
 
-> Status: Draft 0.2
+> Status: Draft 0.3
 > Decision status: Approved baseline  
-> Last updated: July 22, 2026
+> Last updated: July 28, 2026
 
 ## 1. Purpose
 
@@ -63,7 +63,7 @@ Actor references distinguish user, system worker, administrator, migration, and 
 A garden contains:
 
 - Identity and ownership metadata.
-- Locale, time zone, and optional location.
+- Locale, time zone, optional geographic location, and an optional user-confirmed address.
 - Local coordinate space.
 - Optional georeferencing transform.
 - Map objects.
@@ -162,10 +162,21 @@ An optional georeference record maps local coordinates to WGS84 and contains:
 - Rotation.
 - Scale correction if applicable.
 - Accuracy or residual error.
-- Provenance and method.
+- Provenance and method, including whether location, heading, control points, imagery, or manual
+  adjustment contributed.
+- True-north reference, orientation accuracy, and observation time.
 - Revision and validity interval.
 
 Spatial queries that need geography transform explicitly into the approved geographic representation.
+
+A confirmed display address is garden metadata rather than geometric authority. It records the
+formatted address, provider or manual source, confirmation state, precision class, observation time,
+and revision. Changing an address does not move accepted local geometry; changing the geographic
+anchor creates a new georeference revision.
+
+Device heading belongs to a capture or alignment record until the user accepts or adjusts a
+garden-level orientation. Magnetic or low-accuracy heading evidence must not silently replace an
+accepted true-north rotation.
 
 ## 10. Geometry Types and Validation
 

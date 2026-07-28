@@ -86,6 +86,20 @@ public protocol PlantGateway: Sendable {
     /// already establish for an identically-shaped "pending, or absent" read.
     func getPlantIdentification(gardenId: String, plantId: String) async throws -> PlantIdentification
 
+    /// Records the identification's already-computed condition analysis
+    /// (`suggestedConditionNote`/`suggestedCareGuidanceNote`) as a real
+    /// `GardenObservation` — independent of, and combinable with,
+    /// `confirmPlantIdentification` on the same row (ADR-0015's own
+    /// "AddPlantFromPhoto suggests an observation too" extension). No
+    /// `expectedRevision`: this never touches the plant's own row, only
+    /// creates a child observation record.
+    func recordObservationFromIdentification(
+        gardenId: String,
+        plantId: String,
+        identificationId: String,
+        idempotencyKey: String
+    ) async throws -> GardenObservation
+
     func transitionLifecycleStage(
         gardenId: String,
         plantId: String,
@@ -114,6 +128,25 @@ public protocol PlantGateway: Sendable {
     /// `query` omitted lists the catalog, most recent first — the contract's
     /// own default.
     func searchTaxonomyReferences(gardenId: String, query: String?, limit: Int?) async throws -> [TaxonomyReference]
+
+    /// `query`/`cursor` omitted lists every plant in the garden, most recent
+    /// first — the contract's own default. `cursor` is opaque, from a prior
+    /// page's own `PlantSearchPage.nextCursor`.
+    func searchPlants(gardenId: String, query: String?, cursor: String?, limit: Int?) async throws -> PlantSearchPage
+
+    func listPlantPhotos(gardenId: String, plantId: String) async throws -> [PlantPhoto]
+}
+
+/// One page of `SearchPlants` results — mirrors `GardenPage`'s own shape.
+public struct PlantSearchPage: Equatable, Sendable {
+    public let items: [Plant]
+    /// Opaque. `nil` means no further page exists.
+    public let nextCursor: String?
+
+    public init(items: [Plant], nextCursor: String?) {
+        self.items = items
+        self.nextCursor = nextCursor
+    }
 }
 
 /// URLSession-backed implementation of the plant inventory operations.
@@ -290,6 +323,21 @@ public struct URLSessionPlantGateway: PlantGateway {
         return result.domainValue
     }
 
+    public func recordObservationFromIdentification(
+        gardenId: String,
+        plantId: String,
+        identificationId: String,
+        idempotencyKey: String
+    ) async throws -> GardenObservation {
+        let result: ObservationTransport = try await transport.send(
+            method: "POST",
+            operationPath: "gardens/\(gardenId)/plants/\(plantId)/identification/\(identificationId)/record-observation",
+            headers: [APIConfiguration.idempotencyKeyHeader: idempotencyKey],
+            acceptedStatusCodes: [201]
+        )
+        return result.domainValue
+    }
+
     public func transitionLifecycleStage(
         gardenId: String,
         plantId: String,
@@ -365,6 +413,46 @@ public struct URLSessionPlantGateway: PlantGateway {
 
         let result: TaxonomyReferenceListResultTransport = try await transport.get(
             operationPath: path,
+            acceptedStatusCodes: [200]
+        )
+        return result.items.map(\.domainValue)
+    }
+
+    public func searchPlants(
+        gardenId: String,
+        query: String?,
+        cursor: String?,
+        limit: Int?
+    ) async throws -> PlantSearchPage {
+        var queryItems: [String] = []
+        if let query, let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            queryItems.append("query=\(encoded)")
+        }
+        if let cursor, let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            queryItems.append("cursor=\(encoded)")
+        }
+        if let limit {
+            queryItems.append("limit=\(limit)")
+        }
+
+        var path = "gardens/\(gardenId)/plants"
+        if !queryItems.isEmpty {
+            path += "?" + queryItems.joined(separator: "&")
+        }
+
+        let result: PlantSearchPageTransport = try await transport.get(
+            operationPath: path,
+            acceptedStatusCodes: [200]
+        )
+        return PlantSearchPage(
+            items: result.items.map(\.domainValue),
+            nextCursor: result.nextCursor
+        )
+    }
+
+    public func listPlantPhotos(gardenId: String, plantId: String) async throws -> [PlantPhoto] {
+        let result: PlantPhotoListResultTransport = try await transport.get(
+            operationPath: "gardens/\(gardenId)/plants/\(plantId)/photos",
             acceptedStatusCodes: [200]
         )
         return result.items.map(\.domainValue)

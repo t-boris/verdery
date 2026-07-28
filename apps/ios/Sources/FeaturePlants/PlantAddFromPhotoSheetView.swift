@@ -198,12 +198,25 @@ public struct PlantAddFromPhotoSheetView: View {
                 }
             }
 
-            if identification?.hasConfirmableSuggestion == true {
-                Button(model.confirmButtonTitle) {
-                    Task { await model.confirmSuggestion() }
+            HStack(spacing: Metrics.space2) {
+                if identification?.hasConfirmableSuggestion == true {
+                    Button(model.confirmButtonTitle) {
+                        Task { await model.confirmSuggestion() }
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .accessibilityIdentifier("plants.addFromPhoto.confirm")
                 }
-                .buttonStyle(PrimaryButtonStyle())
-                .accessibilityIdentifier("plants.addFromPhoto.confirm")
+
+                recordObservationButton(identification)
+            }
+
+            if model.observationSuggestion?.recordedConfirmation == true {
+                InlineMessage(model.observationRecordedMessage, tone: .positive)
+                    .accessibilityIdentifier("plants.addFromPhoto.observationRecorded")
+            }
+            if let message = model.observationSuggestion?.errorMessage {
+                InlineMessage(message)
+                    .accessibilityIdentifier("plants.addFromPhoto.observationFailure")
             }
 
             Button(model.laterButtonTitle) { model.decideLater() }
@@ -211,34 +224,82 @@ public struct PlantAddFromPhotoSheetView: View {
         }
     }
 
-    /// Variety, growth stage, condition, and care-guidance guesses, shown
-    /// alongside the name suggestion above when present — supplementary
-    /// display only, never a condition for whether Confirm is enabled
-    /// (`hasConfirmableSuggestion` stays keyed on taxonomy/common-name
-    /// presence).
+    /// Independent of `hasConfirmableSuggestion` — a condition/care guess is
+    /// meaningful on its own even when the species guess had no confident
+    /// catalog match. `plant` comes from `model.state`'s own `.reviewing`
+    /// case, which owns the plant id `RecordObservationFromIdentification`
+    /// needs.
     @ViewBuilder
-    private func suggestionDetailRows(_ identification: PlantIdentification) -> some View {
-        if let variety = identification.suggestedVarietyLabel {
-            detailRow(model.varietyLabel, variety, identifier: "plants.addFromPhoto.variety")
-        }
-        if let stage = identification.suggestedLifecycleStage {
-            detailRow(model.growthStageLabel, model.growthStageName(stage), identifier: "plants.addFromPhoto.growthStage")
-        }
-        if let condition = identification.suggestedConditionNote {
-            detailRow(model.conditionLabel, condition, identifier: "plants.addFromPhoto.condition")
-        }
-        if let careGuidance = identification.suggestedCareGuidanceNote {
-            detailRow(model.careGuidanceLabel, careGuidance, identifier: "plants.addFromPhoto.careGuidance")
+    private func recordObservationButton(_ identification: PlantIdentification?) -> some View {
+        if let observationSuggestion = model.observationSuggestion,
+            let identification, identification.suggestedConditionNote != nil,
+            case let .reviewing(plant, _) = model.state
+        {
+            Button(model.recordObservationButtonTitle) {
+                Task {
+                    await observationSuggestion.record(
+                        gardenId: model.gardenId, plantId: plant.id, identificationId: identification.id
+                    )
+                }
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .disabled(observationSuggestion.isRecording)
+            .accessibilityIdentifier("plants.addFromPhoto.recordObservation")
         }
     }
 
-    private func detailRow(_ label: String, _ value: String, identifier: String) -> some View {
-        VStack(alignment: .leading, spacing: Metrics.space1) {
-            Text(label)
-                .font(Typography.detail)
-                .foregroundStyle(Palette.textMuted)
-            Text(value)
+    /// Variety, growth stage, condition, care-guidance, and acquisition-date
+    /// guesses, shown alongside the name suggestion above when present —
+    /// supplementary display only, never a condition for whether Confirm is
+    /// enabled (`hasConfirmableSuggestion` stays keyed on taxonomy/common-name
+    /// presence). Each an icon + label + value row, the same treatment
+    /// `PlantIdentificationBannerView.detailRows` gives the identical rows on
+    /// the plant detail screen's own banner.
+    @ViewBuilder
+    private func suggestionDetailRows(_ identification: PlantIdentification) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.space3) {
+            if let variety = identification.suggestedVarietyLabel {
+                detailRow(PlantSymbols.variety, model.varietyLabel, variety, identifier: "plants.addFromPhoto.variety")
+            }
+            if let stage = identification.suggestedLifecycleStage {
+                detailRow(
+                    PlantSymbols.lifecycleStage(stage), model.growthStageLabel, model.growthStageName(stage),
+                    identifier: "plants.addFromPhoto.growthStage"
+                )
+            }
+            if let condition = identification.suggestedConditionNote {
+                detailRow(PlantSymbols.condition, model.conditionLabel, condition, identifier: "plants.addFromPhoto.condition")
+            }
+            if let careGuidance = identification.suggestedCareGuidanceNote {
+                detailRow(
+                    PlantSymbols.careGuidance, model.careGuidanceLabel, careGuidance,
+                    identifier: "plants.addFromPhoto.careGuidance"
+                )
+            }
+            if let acquisitionDate = identification.suggestedAcquisitionDate {
+                detailRow(
+                    PlantSymbols.acquisitionDateGuess, model.acquisitionDateLabel, acquisitionDate,
+                    identifier: "plants.addFromPhoto.acquisitionDate"
+                )
+            }
+        }
+    }
+
+    private func detailRow(_ symbol: String, _ label: String, _ value: String, identifier: String) -> some View {
+        HStack(alignment: .top, spacing: Metrics.space2) {
+            Image(systemName: symbol)
                 .font(Typography.body)
+                .foregroundStyle(Palette.accent)
+                .frame(width: Metrics.space5)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: Metrics.space1) {
+                Text(label)
+                    .font(Typography.detail)
+                    .foregroundStyle(Palette.textMuted)
+                Text(value)
+                    .font(Typography.body)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .accessibilityIdentifier(identifier)
     }

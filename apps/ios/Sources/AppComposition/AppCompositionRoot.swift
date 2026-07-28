@@ -37,7 +37,11 @@ public final class AppCompositionRoot {
     let strings: LocalizedStrings
     private let healthGateway: any HealthGateway
     let gardenGateway: any GardenGateway
-    private let mapGateway: any MapGateway
+    // `let`, not `private let`: read by `AppCompositionRoot+Plants.swift`'s
+    // factories, a same-type extension in another file, which `private` (a
+    // file scope, not a type scope) would exclude — the same reason
+    // `seasonalPlanGateway` below is `let`.
+    let mapGateway: any MapGateway
     let plantGateway: any PlantGateway
     private let observationGateway: any ObservationGateway
     private let taskGateway: any TaskGateway
@@ -60,7 +64,9 @@ public final class AppCompositionRoot {
     let seasonalPlanGateway: any SeasonalPlanGateway
     let gardenContextGateway: any GardenContextGateway
     private let syncGateway: any SyncGateway
-    private let mediaGateway: any MediaGateway
+    // `let`, not `private let`: read by `AppCompositionRoot+Plants.swift`'s
+    // `makePlantDetailViewModel`, the same reason `mapGateway` above is `let`.
+    let mediaGateway: any MediaGateway
     private let clientInstallationStore: any ClientInstallationIdentityStore
     // Module-internal, not `private`: read by the per-profile store
     // factories in `AppCompositionRoot+LocalStores.swift`, and — for the two
@@ -351,45 +357,6 @@ public final class AppCompositionRoot {
             listGardenPlanMedia: ListGardenPlanMedia(gateway: mediaGateway),
             loadPlanBackgroundImage: LoadPlanBackgroundImage(gateway: mediaGateway),
             strings: strings
-        )
-    }
-
-    public func makePlantsHomeViewModel(gardenId: String) -> PlantsHomeViewModel {
-        let store = localPlantStore()
-        let profileId = currentProfileIdentifier()
-
-        return PlantsHomeViewModel(
-            gardenId: gardenId,
-            addPlant: AddPlant(localStore: store, profileId: profileId),
-            searchTaxonomyReferences: SearchTaxonomyReferences(gateway: plantGateway),
-            strings: strings
-        )
-    }
-
-    public func makePlantDetailViewModel(gardenId: String, plantId: String) -> PlantDetailViewModel {
-        let store = localPlantStore()
-        let profileId = currentProfileIdentifier()
-
-        return PlantDetailViewModel(
-            gardenId: gardenId,
-            plantId: plantId,
-            getPlant: GetPlant(gateway: plantGateway, localStore: store),
-            updatePlantDetails: UpdatePlantDetails(localStore: store, profileId: profileId),
-            transitionPlantLifecycleStage: TransitionPlantLifecycleStage(localStore: store, profileId: profileId),
-            setPlantStatus: SetPlantStatus(localStore: store, profileId: profileId),
-            movePlant: MovePlant(localStore: store, profileId: profileId),
-            searchTaxonomyReferences: SearchTaxonomyReferences(gateway: plantGateway),
-            strings: strings,
-            // P6-IOS-01: real background-capable upload capability for the
-            // "Attach Photo" affordance — see `makePhotoAttachmentController`'s
-            // own doc comment.
-            photoAttachment: makePhotoAttachmentController(gardenId: gardenId, mediaClass: .gardenPhoto),
-            attachPlantPhoto: AttachPlantPhoto(gateway: plantGateway),
-            // ADR-0015: the plant-detail screen's own pending-identification
-            // banner — see `PlantDetailViewModel.pendingIdentification`'s own
-            // doc comment.
-            fetchPlantIdentification: FetchPlantIdentification(gateway: plantGateway),
-            confirmPlantIdentification: ConfirmPlantIdentification(gateway: plantGateway)
         )
     }
 

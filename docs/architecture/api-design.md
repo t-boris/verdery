@@ -1,8 +1,8 @@
 # REST API and Contract Design
 
-> Status: Draft 0.2
+> Status: Draft 0.3
 > Decision status: Approved baseline  
-> Last updated: July 22, 2026
+> Last updated: July 28, 2026
 
 ## 1. Purpose
 
@@ -290,7 +290,7 @@ Limits are classified by operation cost:
 - Ordinary mutations.
 - Authentication-sensitive operations.
 - Media session creation.
-- Garden Scan and AI processing.
+- AI processing and any future ADR-approved automated-reconstruction processing.
 - Export and deletion.
 
 Quota responses include a stable code and retry guidance without disclosing system-wide capacity.

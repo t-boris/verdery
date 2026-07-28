@@ -3148,9 +3148,10 @@ every race the work package names is guarded and proven against real PostgreSQL.
   ENFORCED (`registerMediaRecord` stamps `retention_deadline_at`; the figure is
   `09-media-storage.sh`'s own already-live exports-bucket rule, reconciled exactly as that
   script's comment demanded). `raw_capture` = 30 days after successful extraction, DECLARED but
-  `enforced: false` — the anchoring event has no producer until Garden Scan (Phase 10); declaring
-  without claiming enforcement is the "user-visible raw-capture policy foundation" scoped
-  honestly. No other class gets an invented number.
+  `enforced: false` — the anchoring event has no producer; automated reconstruction is research-only
+  and does not authorize production raw capture. Declaring without claiming enforcement is the
+  "user-visible raw-capture policy foundation" scoped honestly. No other class gets an invented
+  number.
 - **Orphan reconciliation: pre-`available` records stale past 7 days** (grounded: a GCS resumable
   session is only resumable for one week, so an older registration can never complete; matches the
   exports 7-day precedent) are routed through the REAL deletion workflow via a new documented
@@ -3312,7 +3313,7 @@ metric, or alert policy was created — documented, not deployed, per the same p
   documented in the runbook, the auto-re-drive is recorded as its own future decision.
 - **Bucket-side orphan metrics** — still no listing reconciler exists to produce a signal
   (P6-RET-01's own standing deferral); honestly nothing to chart.
-- **Raw-capture deadline signals** — `enforced: false` until Garden Scan (Phase 10) produces the
+- **Raw-capture deadline signals** — `enforced: false` because no committed feature produces the
   anchoring event; the documented query returns `export_package` rows only, stated as such.
 
 ### Verified evidence
@@ -7223,7 +7224,8 @@ CI runs on the pinned version.
 
 Extended discussion with the owner concluded that photo-based recognition of garden objects
 (fences, beds, paths) from casual photo/video — Phase 10's original scope — is not worth building:
-the already-shipped manual dimension editor and Phase 11's planned on-site AR marking are both a
+the already-shipped manual dimension editor and the now-renumbered Phase 12 on-site AR marking are
+both a
 better fit than an unreliable photo-recognition step, for regular and irregular shapes
 respectively. `ADR-0015` records this and redirects Phase 10's AI-facing deliverable to two
 existing placeholder stubs the owner named as "probably the most important part of the
@@ -7234,8 +7236,19 @@ application": `identify-plant-from-photo.ts` (species suggestion) and
 `P10-DATA-01`/`P10-ASYNC-01` approvals are not reopened by this. `implementation-plan.md` section
 19 is rewritten: `P10-RESEARCH-01`, `P10-IOS-01`/`02`, `P10-CV-01`/`02`, `P10-REVIEW-01`,
 `P10-RET-01`, `P10-COST-01` removed; two new work packages (`P10-PLANT-01`/`02`) added; downstream
-cross-references (FR-9/16/18/20 traceability, the forecast table, Phase 11's own dependency line,
+cross-references (FR-9/16/18/20 traceability, the forecast table, Phase 12's own dependency line,
 the risk register) corrected to match.
+
+On July 28, 2026, the owner inserted a new Phase 11 after the active Phase 10. The new phase covers
+actual-versus-candidate plant semantics, licensed source-attributed plant knowledge, garden-specific
+suitability, complete plant search and filters, an image-led and icon-led native/web experience,
+repeated photographic observations, progress comparison, and uncertainty-first health review. The
+former AR, Garden Scan, assistant, and 3D/Time Machine phases were initially renumbered to P12–P15.
+Later on July 28, the owner removed automated reconstruction from the committed release sequence
+because its capture, alignment, review, and web mechanics were already covered by P12 and its
+remaining automatic-reconstruction value was unproven. The assistant is now P13, 3D/Time Machine is
+P14, and automated reconstruction is an unestimated research track that requires a new ADR and newly
+numbered phase before implementation. Neither planning change alters ADR-0015's Phase 10 decision.
 
 ### Implementation: real Vertex AI for both stubs
 

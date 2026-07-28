@@ -1,8 +1,8 @@
 # Data Export and Deletion Design
 
-> Status: Draft 0.2
+> Status: Draft 0.3
 > Decision status: Approved baseline  
-> Last updated: July 22, 2026
+> Last updated: July 28, 2026
 
 ## 1. Purpose
 
@@ -36,7 +36,9 @@ PDF reports and GeoPackage are future optional formats. Shapefile is not a basel
 - Account export covers the requesting user's owned personal data and authorized garden data according to collaboration policy.
 - Garden owner can export the full shared garden subject to collaborator privacy rules.
 - Editor and viewer export rights are controlled by garden capability.
-- Raw scan artifacts require separate sensitive-media permission and retention availability.
+- Raw AR capture artifacts require separate sensitive-media permission and retention availability.
+- Any future raw reconstruction artifacts require an explicit export policy before collection; no
+  committed feature currently produces them.
 - Support personnel cannot generate user exports without an audited approved process.
 - A client engagement export includes only data entitled by its recorded stewardship policy.
 - The default residential-service policy includes the accepted garden model, client publications, published completed-work snapshots derived from work logs, and entitled published media; it does not expose raw internal work logs.

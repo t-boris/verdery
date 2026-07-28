@@ -9,12 +9,16 @@ import Testing
 @MainActor
 @Suite("Plants home view model")
 struct PlantsHomeViewModelTests {
-    private func makeModel(gateway: FakePlantGateway) -> PlantsHomeViewModel {
+    private func makeModel(
+        gateway: FakePlantGateway,
+        mapGateway: FakePlantsMapGateway? = nil
+    ) -> PlantsHomeViewModel {
         PlantsHomeViewModel(
             gardenId: "garden-1",
             addPlant: AddPlant(localStore: InMemoryPlantStore(), profileId: "profile-1"),
             searchTaxonomyReferences: SearchTaxonomyReferences(gateway: gateway),
-            strings: LocalizedStrings(locale: Locale(identifier: "en_GB"))
+            strings: LocalizedStrings(locale: Locale(identifier: "en_GB")),
+            listGardenMapObjects: mapGateway.map { ListGardenMapObjects(gateway: $0) }
         )
     }
 
@@ -148,5 +152,52 @@ struct PlantsHomeViewModelTests {
         model.consumeNavigation()
 
         #expect(model.navigateToPlantId == nil)
+    }
+
+    @Test("openMapObjectPicker loads the garden's active objects and selectMapObject sets the chosen field")
+    func mapObjectPickerSelectsField() async {
+        let gateway = FakePlantGateway()
+        let mapGateway = FakePlantsMapGateway()
+        mapGateway.objects = [
+            makeMapObject(id: "zone-1", label: "Front bed"),
+            makeMapObject(id: "zone-2", label: "Back bed"),
+        ]
+        let model = makeModel(gateway: gateway, mapGateway: mapGateway)
+
+        await model.openMapObjectPicker(for: .gardenArea)
+        #expect(model.mapObjects.map(\.id) == ["zone-1", "zone-2"])
+
+        model.selectMapObject("zone-1")
+
+        #expect(model.gardenAreaMapObjectId == "zone-1")
+        #expect(model.mapObjectSummary(for: .gardenArea) == "Front bed")
+        #expect(model.placementMapObjectId.isEmpty)
+    }
+
+    @Test("selectMapObject with nil clears the field back to empty")
+    func mapObjectPickerClearsField() async {
+        let gateway = FakePlantGateway()
+        let mapGateway = FakePlantsMapGateway()
+        mapGateway.objects = [makeMapObject(id: "zone-1", label: "Front bed")]
+        let model = makeModel(gateway: gateway, mapGateway: mapGateway)
+        await model.openMapObjectPicker(for: .placement)
+        model.selectMapObject("zone-1")
+
+        await model.openMapObjectPicker(for: .placement)
+        model.selectMapObject(nil)
+
+        #expect(model.placementMapObjectId.isEmpty)
+        #expect(model.mapObjectSummary(for: .placement) == nil)
+    }
+
+    @Test("openMapObjectPicker with no map-object capability wired in is a no-op")
+    func mapObjectPickerNoOpWithoutCapability() async {
+        let gateway = FakePlantGateway()
+        let model = makeModel(gateway: gateway)
+
+        await model.openMapObjectPicker(for: .gardenArea)
+
+        #expect(model.mapObjects.isEmpty)
+        #expect(model.activeMapObjectField == nil)
     }
 }

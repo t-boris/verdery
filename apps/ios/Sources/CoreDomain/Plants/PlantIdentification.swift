@@ -33,8 +33,14 @@ public struct PlantIdentificationSuggestion: Equatable, Sendable {
 /// `suggestedVarietyLabel`/`suggestedLifecycleStage` come from the same
 /// species-identification pass; `suggestedConditionNote`/
 /// `suggestedCareGuidanceNote` come from a separate condition-analysis pass
-/// over the same photo. All four are independent of the taxonomy/name
-/// mutual-exclusivity above and of each other — any subset may be non-nil.
+/// over the same photo. `suggestedAcquisitionDate` (a calendar date,
+/// `YYYY-MM-DD`, matching `Plant.acquisitionDate`'s own `String?` shape) is
+/// the AI's estimate of when this plant was likely acquired/planted, from
+/// visible maturity — applied by `ConfirmPlantIdentification` only when the
+/// plant's own `acquisitionDate` is still unset, the same fill-blanks-never-
+/// overwrite policy every other suggested field here follows. All five are
+/// independent of the taxonomy/name mutual-exclusivity above and of each
+/// other — any subset may be non-nil.
 ///
 /// Source: packages/api-contracts/openapi.yaml, `PlantIdentification`.
 public struct PlantIdentification: Equatable, Sendable, Identifiable {
@@ -50,6 +56,7 @@ public struct PlantIdentification: Equatable, Sendable, Identifiable {
     public let suggestedLifecycleStage: PlantLifecycleStage?
     public let suggestedConditionNote: String?
     public let suggestedCareGuidanceNote: String?
+    public let suggestedAcquisitionDate: String?
 
     public init(
         id: String,
@@ -63,7 +70,8 @@ public struct PlantIdentification: Equatable, Sendable, Identifiable {
         suggestedVarietyLabel: String? = nil,
         suggestedLifecycleStage: PlantLifecycleStage? = nil,
         suggestedConditionNote: String? = nil,
-        suggestedCareGuidanceNote: String? = nil
+        suggestedCareGuidanceNote: String? = nil,
+        suggestedAcquisitionDate: String? = nil
     ) {
         self.id = id
         self.plantId = plantId
@@ -77,6 +85,7 @@ public struct PlantIdentification: Equatable, Sendable, Identifiable {
         self.suggestedLifecycleStage = suggestedLifecycleStage
         self.suggestedConditionNote = suggestedConditionNote
         self.suggestedCareGuidanceNote = suggestedCareGuidanceNote
+        self.suggestedAcquisitionDate = suggestedAcquisitionDate
     }
 
     /// Whether `PlantIdentificationUseCases.ConfirmPlantIdentification` is a

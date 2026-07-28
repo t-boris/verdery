@@ -3,12 +3,14 @@ import type {
   AddPlantRequest,
   AttachPlantPhotoRequest,
   MovePlantRequest,
+  Observation,
   Plant,
   PlantGroupingKind,
   PlantIdentification,
   PlantLifecycleStage,
   PlantListResult,
   PlantPhoto,
+  PlantPhotoListResult,
   PlantStatus,
   TaxonomyReferenceListResult,
   UpdatePlantDetailsRequest,
@@ -76,6 +78,11 @@ export interface PlantGateway {
     idempotencyKey: string,
     signal?: AbortSignal,
   ): Promise<ApiResult<PlantPhoto>>;
+  listPhotos(
+    gardenId: string,
+    plantId: string,
+    signal?: AbortSignal,
+  ): Promise<ApiResult<PlantPhotoListResult>>;
   confirmIdentification(
     gardenId: string,
     plantId: string,
@@ -97,6 +104,20 @@ export interface PlantGateway {
     plantId: string,
     signal?: AbortSignal,
   ): Promise<ApiResult<PlantIdentification>>;
+  /**
+   * Records the identification's already-computed condition analysis as a
+   * real observation — independent of, and combinable with,
+   * `confirmIdentification` over the same row (ADR-0015's own
+   * "AddPlantFromPhoto suggests an observation too" extension). No
+   * `expectedRevision`: this never touches the plant's own row.
+   */
+  recordObservationFromIdentification(
+    gardenId: string,
+    plantId: string,
+    identificationId: string,
+    idempotencyKey: string,
+    signal?: AbortSignal,
+  ): Promise<ApiResult<Observation>>;
   transitionLifecycleStage(
     gardenId: string,
     plantId: string,
@@ -191,7 +212,8 @@ function taxonomySearchQuery(query: string | null, limit: number | null): string
  * `attachPhoto`/`setPrimaryPhoto` remain implemented for contract
  * completeness only, covered by `plant-gateway.test.ts` but reachable from no
  * `features/plants` component — a real, separate follow-up, not this one —
- * see `docs/development/deferred-capabilities.md`.
+ * see `docs/development/deferred-capabilities.md`. `listPhotos` backs the
+ * plant detail page's own photo gallery (`plant-photo-gallery.tsx`).
  *
  * Source: packages/api-contracts/openapi.yaml, tag `Plants`;
  * architecture/web-application-design.md, section "8. API Access".
@@ -263,6 +285,14 @@ export function createPlantGateway(client: ApiClient): PlantGateway {
       });
     },
 
+    listPhotos(gardenId, plantId, signal) {
+      return client.request<PlantPhotoListResult>({
+        method: 'GET',
+        path: `/gardens/${gardenId}/plants/${plantId}/photos`,
+        ...(signal === undefined ? {} : { signal }),
+      });
+    },
+
     confirmIdentification(
       gardenId,
       plantId,
@@ -283,6 +313,21 @@ export function createPlantGateway(client: ApiClient): PlantGateway {
       return client.request<PlantIdentification>({
         method: 'GET',
         path: `/gardens/${gardenId}/plants/${plantId}/identification`,
+        ...(signal === undefined ? {} : { signal }),
+      });
+    },
+
+    recordObservationFromIdentification(
+      gardenId,
+      plantId,
+      identificationId,
+      idempotencyKey,
+      signal,
+    ) {
+      return client.request<Observation>({
+        method: 'POST',
+        path: `/gardens/${gardenId}/plants/${plantId}/identification/${identificationId}/record-observation`,
+        headers: { [IDEMPOTENCY_KEY_HEADER]: idempotencyKey, ...csrfHeader() },
         ...(signal === undefined ? {} : { signal }),
       });
     },

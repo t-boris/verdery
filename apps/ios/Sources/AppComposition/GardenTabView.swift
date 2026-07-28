@@ -97,6 +97,7 @@ struct GardenTabView: View {
                 stack {
                     PlantsHomeView(
                         model: composition.makePlantsHomeViewModel(gardenId: gardenId),
+                        listModel: composition.makePlantsListViewModel(gardenId: gardenId),
                         destination: { plantId in
                             AnyView(
                                 PlantDetailView(

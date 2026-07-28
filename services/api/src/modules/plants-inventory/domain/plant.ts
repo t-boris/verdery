@@ -264,13 +264,16 @@ export function updatePlantDetails(plant: Plant, changes: PlantDetailsChanges, n
  * `displayName` untouched, exactly as before this capability existed.
  *
  * `suggestedVarietyLabel`/`suggestedConditionNote`/`suggestedCareGuidanceNote`/
- * `suggestedLifecycleStage` each apply to the plant ONLY when it is still at
- * its untouched creation default (`null`, or `'planned'` for lifecycle
- * stage) — confirming fills in blanks, it never overwrites a value the
- * owner already set by hand via `UpdatePlantDetails`/
+ * `suggestedLifecycleStage`/`suggestedAcquisitionDate` each apply to the
+ * plant ONLY when it is still at its untouched creation default (`null`, or
+ * `'planned'` for lifecycle stage) — confirming fills in blanks, it never
+ * overwrites a value the owner already set by hand via `UpdatePlantDetails`/
  * `TransitionPlantLifecycleStage` in the time since the plant was created
  * (confirming a possibly-old pending suggestion must not clobber a manual
- * edit made in the meantime).
+ * edit made in the meantime). When `suggestedAcquisitionDate` is applied and
+ * `acquisitionDateType` is still unset too, it defaults to `'acquired'` — the
+ * closest of the three enum values to "the AI is guessing when this entered
+ * the garden," not "the day it was planted from seed."
  */
 export function confirmPlantIdentification(
   plant: Plant,
@@ -280,6 +283,7 @@ export function confirmPlantIdentification(
   suggestedLifecycleStage: LifecycleStage | null,
   suggestedConditionNote: string | null,
   suggestedCareGuidanceNote: string | null,
+  suggestedAcquisitionDate: string | null,
   identificationId: Uuid,
   now: Date,
 ): Plant {
@@ -303,6 +307,14 @@ export function confirmPlantIdentification(
     plant.careGuidanceNote === null && suggestedCareGuidanceNote !== null
       ? suggestedCareGuidanceNote
       : plant.careGuidanceNote;
+  const acquisitionDate =
+    plant.acquisitionDate === null && suggestedAcquisitionDate !== null
+      ? validateAcquisitionDate(suggestedAcquisitionDate)
+      : plant.acquisitionDate;
+  const acquisitionDateType =
+    plant.acquisitionDate === null && suggestedAcquisitionDate !== null
+      ? (plant.acquisitionDateType ?? 'acquired')
+      : plant.acquisitionDateType;
 
   return {
     ...plant,
@@ -312,6 +324,8 @@ export function confirmPlantIdentification(
     lifecycleStage,
     conditionNote,
     careGuidanceNote,
+    acquisitionDate,
+    acquisitionDateType,
     acceptedIdentificationId: identificationId,
     revision: plant.revision + 1,
     updatedAt: now,

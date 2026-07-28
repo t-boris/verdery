@@ -1,8 +1,8 @@
 # Reliability and Disaster Recovery Design
 
-> Status: Draft 0.2
+> Status: Draft 0.3
 > Decision status: Approved baseline  
-> Last updated: July 22, 2026
+> Last updated: July 28, 2026
 
 ## 1. Purpose
 
@@ -212,7 +212,8 @@ Monitor and limit:
 - Queue oldest age.
 - Bucket growth.
 - Provider quotas.
-- Vertex AI and scan concurrency.
+- Vertex AI and approved media-processing concurrency. Future automated reconstruction receives a
+  separate capacity budget only after promotion through a new ADR and numbered phase.
 
 Capacity alerts fire before hard exhaustion.
 

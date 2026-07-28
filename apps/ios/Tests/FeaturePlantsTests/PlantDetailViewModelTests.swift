@@ -31,7 +31,8 @@ struct PlantDetailViewModelTests {
         gateway: FakePlantGateway,
         localStore: any LocalPlantStore = InMemoryPlantStore(),
         plantId: String = "plant-1",
-        withIdentification: Bool = false
+        withIdentification: Bool = false,
+        mapGateway: FakePlantsMapGateway? = nil
     ) -> PlantDetailViewModel {
         PlantDetailViewModel(
             gardenId: "garden-1",
@@ -46,7 +47,8 @@ struct PlantDetailViewModelTests {
             attachPlantPhoto: AttachPlantPhoto(gateway: gateway, generateIdempotencyKey: { "fixed-key" }),
             fetchPlantIdentification: withIdentification ? FetchPlantIdentification(gateway: gateway) : nil,
             confirmPlantIdentification: withIdentification
-                ? ConfirmPlantIdentification(gateway: gateway, generateIdempotencyKey: { "fixed-key" }) : nil
+                ? ConfirmPlantIdentification(gateway: gateway, generateIdempotencyKey: { "fixed-key" }) : nil,
+            listGardenMapObjects: mapGateway.map { ListGardenMapObjects(gateway: $0) }
         )
     }
 

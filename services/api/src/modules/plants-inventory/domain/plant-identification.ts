@@ -40,6 +40,8 @@ export interface PlantIdentification {
   readonly suggestedConditionNote: string | null;
   /** A general care suggestion (watering, light, pruning — never chemicals/dosages) from the same pass, or `null`. */
   readonly suggestedCareGuidanceNote: string | null;
+  /** The AI's own approximate acquisition-date guess (`YYYY-MM-DD`), estimated from visible maturity — `null` when not confident. Matches `Plant.acquisitionDate`'s own calendar-date shape. */
+  readonly suggestedAcquisitionDate: string | null;
   /** Conceptually 0..1, matching `gardens_mapping.garden_object.confidence`'s own documented range, though the migration itself only constrains this column's shape (`numeric(4,3)`), not its range. */
   readonly confidenceScore: number;
   readonly createdAt: Date;
@@ -76,6 +78,7 @@ export function createPlantIdentification(
   suggestedLifecycleStage: LifecycleStage | null,
   suggestedConditionNote: string | null,
   suggestedCareGuidanceNote: string | null,
+  suggestedAcquisitionDate: string | null,
   now: Date,
 ): PlantIdentification {
   return {
@@ -89,6 +92,7 @@ export function createPlantIdentification(
     suggestedLifecycleStage,
     suggestedConditionNote,
     suggestedCareGuidanceNote,
+    suggestedAcquisitionDate,
     confidenceScore: validateConfidenceScore(rawConfidenceScore),
     createdAt: now,
   };

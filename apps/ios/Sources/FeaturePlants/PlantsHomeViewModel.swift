@@ -24,16 +24,15 @@ public final class PlantsHomeViewModel {
     public var acquisitionDate: Date = .now
     public var acquisitionDateType: PlantAcquisitionDateType = .planted
     public private(set) var selectedTaxonomyReference: TaxonomyReference?
-    /// TODO(P4-IOS-01): a real map-object picker, reusing `FeatureMap`'s
-    /// object list read-only, is out of scope this pass — `FeaturePlants`
-    /// cannot depend on `FeatureMap` at all (`DependencyRuleTests`: "No
-    /// feature depends on another feature"), and bridging one through
-    /// `AppComposition` for a single text field is disproportionate here.
-    /// These stay plain object-id fields until a follow-up pass wires a
-    /// real picker through the composition root.
     public var gardenAreaMapObjectId: String = ""
     public var placementMapObjectId: String = ""
     public var isTaxonomyPickerPresented: Bool = false
+
+    // Map-object picker (garden area / placement) — see
+    // `MapObjectPickerView`'s own doc comment for why this reimplements
+    // `FeatureMap.MapGateFencePickerView`'s shape rather than importing it.
+    public private(set) var mapObjects: [GardenMapObject] = []
+    public var activeMapObjectField: MapObjectPlacementField?
 
     // "Open a plant" field.
     public var openPlantId: String = ""
@@ -42,6 +41,12 @@ public final class PlantsHomeViewModel {
 
     private let addPlant: AddPlant
     private let searchTaxonomyReferences: SearchTaxonomyReferences
+    /// `nil` only for a `PlantsHomeViewModel` built with no map-object
+    /// picker capability wired in — the same optional-capability shape
+    /// `PlantDetailViewModel.photoAttachment` already establishes, so every
+    /// existing test double keeps working unchanged;
+    /// `AppCompositionRoot.makePlantsHomeViewModel` supplies a real one.
+    private let listGardenMapObjects: ListGardenMapObjects?
     private let strings: LocalizedStrings
     let gardenId: String
 
@@ -49,11 +54,13 @@ public final class PlantsHomeViewModel {
         gardenId: String,
         addPlant: AddPlant,
         searchTaxonomyReferences: SearchTaxonomyReferences,
-        strings: LocalizedStrings
+        strings: LocalizedStrings,
+        listGardenMapObjects: ListGardenMapObjects? = nil
     ) {
         self.gardenId = gardenId
         self.addPlant = addPlant
         self.searchTaxonomyReferences = searchTaxonomyReferences
+        self.listGardenMapObjects = listGardenMapObjects
         self.strings = strings
     }
 
@@ -72,6 +79,9 @@ public final class PlantsHomeViewModel {
     public var gardenAreaLabel: String { strings(.plantsGardenAreaLabel) }
     public var placementLabel: String { strings(.plantsPlacementLabel) }
     public var mapObjectIdHint: String { strings(.plantsMapObjectIdHint) }
+    public var mapObjectPickerTitle: String { strings(.plantsMapObjectPickerTitle) }
+    public var mapObjectPickerClearTitle: String { strings(.plantsMapObjectPickerClear) }
+    public var mapObjectPickerEmptyMessage: String { strings(.plantsMapObjectPickerEmpty) }
     public var addSubmitTitle: String { strings(.plantsAddSubmit) }
     public var openSectionTitle: String { strings(.plantsOpenSectionTitle) }
     public var openIdLabel: String { strings(.plantsOpenIdLabel) }
@@ -119,6 +129,36 @@ public final class PlantsHomeViewModel {
     public func searchTaxonomy(query: String) async -> [TaxonomyReference] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         return (try? await searchTaxonomyReferences(gardenId: gardenId, query: trimmed.isEmpty ? nil : trimmed)) ?? []
+    }
+
+    /// This field's own current selection, resolved to its map object's
+    /// label when the picker has already loaded the garden's objects —
+    /// falls back to the raw id (still meaningful, if unfriendly) before
+    /// that first load completes.
+    public func mapObjectSummary(for field: MapObjectPlacementField) -> String? {
+        let rawId = field == .gardenArea ? gardenAreaMapObjectId : placementMapObjectId
+        guard !rawId.isEmpty else { return nil }
+        return mapObjects.first { $0.id == rawId }?.label ?? rawId
+    }
+
+    /// Opens the picker for this field, loading the garden's active map
+    /// objects on first use — never thrown to the sheet, the same "a search
+    /// failure just shows no results" posture `searchTaxonomy` above uses.
+    public func openMapObjectPicker(for field: MapObjectPlacementField) async {
+        guard let listGardenMapObjects else { return }
+        if mapObjects.isEmpty {
+            mapObjects = (try? await listGardenMapObjects(gardenId: gardenId)) ?? []
+        }
+        activeMapObjectField = field
+    }
+
+    public func selectMapObject(_ objectId: String?) {
+        guard let field = activeMapObjectField else { return }
+        switch field {
+        case .gardenArea: gardenAreaMapObjectId = objectId ?? ""
+        case .placement: placementMapObjectId = objectId ?? ""
+        }
+        activeMapObjectField = nil
     }
 
     public func submitAddPlant() async {

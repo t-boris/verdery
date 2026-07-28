@@ -204,6 +204,68 @@ describe('createPlantGateway', () => {
     );
   });
 
+  it('gets the plant photo list', async () => {
+    const { gateway, recorded } = gatewayRecording(
+      jsonResponse(
+        {
+          items: [
+            {
+              id: PLANT_ID,
+              plantId: PLANT_ID,
+              mediaId: PLANT_ID,
+              isPrimary: true,
+              createdAt: PLANT.createdAt,
+            },
+          ],
+        },
+        200,
+      ),
+    );
+
+    await gateway.listPhotos(GARDEN_ID, PLANT_ID);
+
+    expect(recorded[0]?.url).toBe(`${ORIGIN}/v1/gardens/${GARDEN_ID}/plants/${PLANT_ID}/photos`);
+    expect(recorded[0]?.init.method).toBe('GET');
+  });
+
+  it('posts to the record-observation sub-resource without an If-Match header', async () => {
+    const { gateway, recorded } = gatewayRecording(
+      jsonResponse(
+        {
+          id: PLANT_ID,
+          gardenId: GARDEN_ID,
+          plantId: PLANT_ID,
+          gardenObjectId: null,
+          actorType: 'user',
+          createdByProfileId: null,
+          noteText: null,
+          conditionSummary: 'Leaves show mild water stress',
+          correctionKind: null,
+          correctsObservationId: null,
+          isCorrected: false,
+          observedAt: PLANT.createdAt,
+          recordedAt: PLANT.createdAt,
+          photos: [],
+        },
+        201,
+      ),
+    );
+
+    const result = await gateway.recordObservationFromIdentification(
+      GARDEN_ID,
+      PLANT_ID,
+      PLANT_ID,
+      IDEMPOTENCY_KEY,
+    );
+
+    expect(recorded[0]?.url).toBe(
+      `${ORIGIN}/v1/gardens/${GARDEN_ID}/plants/${PLANT_ID}/identification/${PLANT_ID}/record-observation`,
+    );
+    expect(recorded[0]?.init.method).toBe('POST');
+    expect(headersOf(recorded[0]!)['if-match']).toBeUndefined();
+    expect(result.ok && result.data.conditionSummary).toBe('Leaves show mild water stress');
+  });
+
   it('sends the quoted revision on confirmIdentification', async () => {
     const { gateway, recorded } = gatewayRecording(jsonResponse(PLANT, 200));
 
@@ -233,6 +295,7 @@ describe('createPlantGateway', () => {
       suggestedLifecycleStage: null,
       suggestedConditionNote: null,
       suggestedCareGuidanceNote: null,
+      suggestedAcquisitionDate: null,
     };
     const { gateway, recorded } = gatewayRecording(jsonResponse(identification, 200));
 
@@ -262,6 +325,7 @@ describe('createPlantGateway', () => {
       suggestedLifecycleStage: 'flowering',
       suggestedConditionNote: 'Leaves show mild water stress',
       suggestedCareGuidanceNote: 'Water more consistently and check drainage.',
+      suggestedAcquisitionDate: '2026-05-01',
     };
     const { gateway } = gatewayRecording(jsonResponse(identification, 200));
 
@@ -273,6 +337,7 @@ describe('createPlantGateway', () => {
     expect(result.ok && result.data.suggestedCareGuidanceNote).toBe(
       'Water more consistently and check drainage.',
     );
+    expect(result.ok && result.data.suggestedAcquisitionDate).toBe('2026-05-01');
   });
 
   it('sends the stage in the body on transitionLifecycleStage', async () => {

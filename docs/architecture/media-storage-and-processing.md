@@ -1,12 +1,14 @@
 # Media Storage and Processing Design
 
-> Status: Draft 0.3
+> Status: Draft 0.4
 > Decision status: Approved baseline  
-> Last updated: July 24, 2026
+> Last updated: July 28, 2026
 
 ## 1. Purpose
 
-This document defines photo, video, plan, scan artifact, derivative, upload, download, processing, retention, and deletion architecture using PostgreSQL metadata and private Google Cloud Storage objects.
+This document defines photo, video, plan, capture artifact, derivative, upload, download,
+processing, retention, and deletion architecture using PostgreSQL metadata and private Google Cloud
+Storage objects.
 
 ## 2. Principles
 
@@ -20,14 +22,14 @@ This document defines photo, video, plan, scan artifact, derivative, upload, dow
 
 ## 3. Media Classes
 
-| Class             | Examples                                    | Baseline retention                             |
-| ----------------- | ------------------------------------------- | ---------------------------------------------- |
-| Garden photo      | Plant and observation photos                | Until user or garden deletion                  |
-| Imported plan     | PDF, scan, raster plan                      | Until user or garden deletion                  |
-| Raw capture       | Garden Scan video, AR artifacts, depth data | 30 days after successful extraction by default |
-| Derived preview   | Thumbnail, optimized image, plan tiles      | Rebuildable; lifecycle-managed                 |
-| Processing output | Masks, point clouds, diagnostics            | Policy by output type; raw diagnostics limited |
-| Export package    | User-requested ZIP                          | Short-lived automatic expiration               |
+| Class             | Examples                                                                           | Baseline retention                                                                  |
+| ----------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Garden photo      | Plant and observation photos                                                       | Until user or garden deletion                                                       |
+| Imported plan     | PDF, scan, raster plan                                                             | Until user or garden deletion                                                       |
+| Raw capture       | Reserved future reconstruction source; AR/depth artifacts when explicitly retained | Not produced today; any future approved extraction-based default is at most 30 days |
+| Derived preview   | Thumbnail, optimized image, plan tiles                                             | Rebuildable; lifecycle-managed                                                      |
+| Processing output | Masks, point clouds, diagnostics                                                   | Policy by output type; raw diagnostics limited                                      |
+| Export package    | User-requested ZIP                                                                 | Short-lived automatic expiration                                                    |
 
 Retention can be shortened by the user or legal/privacy policy. Failed raw capture is retained only long enough for recovery and support policy.
 
@@ -127,11 +129,11 @@ Unverified objects are isolated from normal downloads and processors.
 
 ### 8.1 Implemented validation profile (P6-WORKER-01)
 
-Images and PDF/documents only. Raw capture (Garden Scan video, AR artifacts) is explicitly out of
-scope for this stage — video duration/codec/frame-rate validation needs `ffprobe`, a native binary
-dependency not yet in this stack, deliberately deferred to a later stage. A `raw_capture` manifest is
-accepted at today's declared-metadata-trusted level without deep byte inspection; no video parser
-exists anywhere in this pipeline.
+Images and PDF/documents only. Raw reconstruction capture and retained AR artifacts are explicitly
+out of scope — video duration/codec/frame-rate validation needs `ffprobe`, a native binary dependency
+not present in this stack. A `raw_capture` manifest is accepted at today's
+declared-metadata-trusted level without deep byte inspection; no committed feature produces it and no
+video parser exists anywhere in this pipeline. Research does not authorize production ingestion.
 
 | Media class       | Accepted types                    | Maximum bytes                              |
 | ----------------- | --------------------------------- | ------------------------------------------ |
@@ -274,7 +276,9 @@ The client requests access by stable media ID. The API:
 4. Returns a short-lived signed or authorized download mechanism.
 5. Records sensitive raw-access audit information where policy requires it.
 
-Operational viewer role may access ordinary accepted photos according to garden capability but not raw scan artifacts unless explicitly allowed.
+Operational viewer role may access ordinary accepted photos according to garden capability but not
+sensitive raw AR capture artifacts unless explicitly allowed. Any future reconstruction artifacts
+inherit this denial until a promoted delivery phase defines a narrower policy.
 
 Client access is different from viewer access. A client may download only a safe derivative or entitled original explicitly attached to a published client version, while the engagement is active and the publication remains visible. Garden ownership or media association alone does not make media client-visible.
 
@@ -358,11 +362,11 @@ and the enforcing sweep read, so display and enforcement cannot drift. Honesty r
   reconcile with it — `registerMediaRecord` now stamps `retention_deadline_at = registration + 7
 days` on exactly this class, using the same constant.
 - **`raw_capture` — 30 days after successful extraction, DECLARED but `enforced: false`.** The
-  anchoring event (successful extraction) has no producer until Garden Scan (Phase 10), so no
-  raw-capture deadline is ever computed yet. The policy endpoint states the rule with an explicit
-  `enforced` flag rather than claiming an enforcement that does not run — this is the work
-  package's "user-visible raw-capture policy foundation", scoped honestly. The sweep MECHANISM
-  already processes any record whose deadline passes, whichever future stage sets it.
+  anchoring event has no producer because automated reconstruction is research-only and no committed
+  feature collects production raw capture, so no raw-capture deadline is ever computed. The policy
+  endpoint states the rule with an explicit `enforced` flag rather than claiming enforcement that
+  does not run. The sweep mechanism already processes any record whose deadline passes if a future
+  ADR and delivery phase authorize a producer.
 - **Every other class** carries no duration-based rule (`retentionDays: null`, section 3's own
   "Until user or garden deletion" / "Rebuildable; lifecycle-managed" language), and nothing is
   invented.
@@ -562,7 +566,9 @@ observability" bar.
 - Media bytes never pass through the interactive API.
 - Unverified uploads cannot be processed or downloaded normally.
 - Original and derivative identities are distinct and traceable.
-- Raw scan retention is enforced and user-visible.
+- Approved raw AR capture retention is enforced and user-visible.
+- No raw reconstruction artifact producer exists; any promoted feature must enforce and disclose
+  retention before collecting such media.
 - Signed access cannot bypass garden authorization.
 - Client media access requires both publication entitlement and current engagement authorization.
 - Deletion reaches every derivative and processing artifact.

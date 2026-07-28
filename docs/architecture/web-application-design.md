@@ -1,8 +1,8 @@
 # Web Application Design
 
-> Status: Draft 0.2
+> Status: Draft 0.3
 > Decision status: Approved baseline  
-> Last updated: July 22, 2026
+> Last updated: July 28, 2026
 
 ## 1. Purpose
 
@@ -17,7 +17,9 @@ The web application is a first-class authenticated product surface. It is optimi
 - Plant, observation, task, recommendation, and history management.
 - Media review.
 - Collaboration and account administration.
-- Viewing results produced by mobile-only AR and capture flows.
+- Viewing and editing synchronized results produced by mobile-only AR and capture flows.
+- Authoring and reviewing garden location, confirmed address, true-north orientation, geographic
+  context, and versioned solar/shadow analysis.
 - A responsive client portal for explicitly published results, completed work, selected media, actual garden history, and published future Time Machine scenarios.
 
 The initial web release is online-first. It may preserve recoverable drafts but does not claim a successful server save while disconnected.

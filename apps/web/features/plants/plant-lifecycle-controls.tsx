@@ -22,20 +22,15 @@ export interface PlantLifecycleControlsProps {
   readonly plant: Plant;
 }
 
-const DELETE_STATUS: PlantStatus = 'removed';
-
 /**
  * The plant's two independent axes: `lifecycleStage` (biological progress,
  * no enforced ordering between the eight stages) and `status`
- * (active/dormant/archived/removed/dead). There is no hard-delete command
- * for a plant — the "Delete" button here calls `SetPlantStatus('removed')`,
- * the same status-transition-as-delete pattern
- * `features/gardens/garden-settings.tsx` uses for archive/deletion, labeled
- * "Delete" regardless of the underlying transition, per this work package's
- * own instruction.
+ * (active/dormant/archived/removed/dead). Deleting is `PlantDeleteSection`'s
+ * own concern now — see that component's doc comment for why it moved out
+ * of this panel.
  *
- * The save-stage/save-status/delete actions are additionally disabled while
- * the browser is offline (P5-WEB-01 follow-up), the same `disabled={!isOnline}`
+ * The save-stage/save-status actions are additionally disabled while the
+ * browser is offline (P5-WEB-01 follow-up), the same `disabled={!isOnline}`
  * pattern `create-manual-task-form.tsx` uses: each is a simple
  * state-transition command, not free-text input a user could lose, so a
  * disabled button is sufficient without local-draft persistence — see
@@ -69,12 +64,6 @@ export function PlantLifecycleControls({ gardenId, plant }: PlantLifecycleContro
       return;
     }
     statusMutation.mutate({ status, expectedRevision: plant.revision });
-  };
-
-  const onDelete = () => {
-    if (globalThis.confirm(t('plants.deleteConfirm'))) {
-      statusMutation.mutate({ status: DELETE_STATUS, expectedRevision: plant.revision });
-    }
   };
 
   return (
@@ -117,14 +106,6 @@ export function PlantLifecycleControls({ gardenId, plant }: PlantLifecycleContro
         </Button>
         <StatusPill tone={statusTone(plant.status)} label={t(statusLabel(plant.status))} />
       </div>
-      <Button
-        variant="secondary"
-        busy={statusMutation.isPending}
-        disabled={!isOnline}
-        onClick={onDelete}
-      >
-        {t('plants.delete')}
-      </Button>
       {statusMutation.isError && <FailureAlert failure={statusMutation.error.failure} />}
     </div>
   );

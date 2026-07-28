@@ -103,3 +103,26 @@ public struct FetchPlantIdentification: Sendable {
         }
     }
 }
+
+/// Records an identification's already-computed condition analysis as a real
+/// observation — independent of `ConfirmPlantIdentification`, callable
+/// before, after, or instead of it on the same suggestion (ADR-0015's own
+/// "AddPlantFromPhoto suggests an observation too" extension).
+public struct RecordObservationFromIdentification: Sendable {
+    private let gateway: any PlantGateway
+    private let generateIdempotencyKey: @Sendable () -> String
+
+    public init(gateway: any PlantGateway, generateIdempotencyKey: @escaping @Sendable () -> String = UUIDv7.generate) {
+        self.gateway = gateway
+        self.generateIdempotencyKey = generateIdempotencyKey
+    }
+
+    public func callAsFunction(gardenId: String, plantId: String, identificationId: String) async throws -> GardenObservation {
+        try await gateway.recordObservationFromIdentification(
+            gardenId: gardenId,
+            plantId: plantId,
+            identificationId: identificationId,
+            idempotencyKey: generateIdempotencyKey()
+        )
+    }
+}

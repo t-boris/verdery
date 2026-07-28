@@ -1,7 +1,7 @@
 # US privacy notice — DRAFT FOR REVIEW (P8-PRIV-01)
 
 > Status: DRAFT. Not reviewed by a lawyer, not approved, not published.
-> Last updated: July 25, 2026
+> Last updated: July 28, 2026
 
 This document contains a complete draft of the user-facing US privacy notice for Verdery, plus the
 reviewer-facing evidence behind every factual claim in it.
@@ -291,13 +291,13 @@ not saved, and the state of any upload in progress, so a reload does not lose th
 | Server technical logs                                     | 30 days                                                                  |
 | Backup copies                                             | Up to 7 days after deletion — see section 10                             |
 
-**Raw scan recordings.** Verdery is designed to include a "Garden Scan" feature that records video
-and depth data of your property, and the policy for it is that the raw recording is deleted 30 days
-after Verdery finishes extracting your map from it. **We want to be exact about this: that feature
-does not exist yet, nothing in Verdery can create such a recording, and the automatic deletion is
-not implemented.** It is a stated policy, not something the system currently does. If the feature
-ships, this notice will be updated to say whether the deletion is enforced, and it will not claim
-enforcement that does not exist.
+**Reserved raw reconstruction capture.** Verdery does not have a committed automated-reconstruction
+feature. The data model reserves a raw-capture class and declares that, if a future
+ADR authorizes such a capability, successful source recordings default to deletion 30 days after
+extraction. **Nothing in Verdery can create such a recording today, and the automatic deletion is
+not implemented.** Research planning is not permission to collect this data. If a future delivery
+phase ships, this notice must be reviewed before collection and must state whether deletion is
+actually enforced.
 
 **Records that outlive your data on purpose.** Some records survive because deleting them would
 break something a user depends on or would destroy proof that we did what we said:
@@ -464,15 +464,15 @@ cannot put a real-world coordinate into the database at all. See section 14 belo
 
 ### 3.4 Photos, plans, and scan media
 
-| Data                                                                                         | Purpose              | Basis framing                | Where it lives                   | Retention                                                               | Evidence                                                         |
-| -------------------------------------------------------------------------------------------- | -------------------- | ---------------------------- | -------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `garden_photo` originals (bytes, unmodified, EXIF intact)                                    | The product          | Necessary to provide service | `verdery-dev-user-media` bucket  | Until deleted (ENFORCED via deletion workflow); **no bucket lifecycle** | `media-retention.ts:66-72`; `09-media-storage.sh:183-197`        |
-| `imported_plan` originals — property plans, surveys, drawings; classified `sensitive`        | Map background       | Necessary to provide service | `verdery-dev-user-media` bucket  | Until deleted (ENFORCED)                                                | `media-retention.ts:73-79`; sensitivity in `media-record.ts`     |
-| `raw_capture` — Garden Scan video, depth data; classified `restricted`                       | Map extraction       | Necessary to provide service | `verdery-dev-raw-capture` bucket | **DECLARED 30 days after extraction; `enforced: false`; no producer**   | `media-retention.ts:80-87`; section 8 below                      |
-| `derived_preview` / `processing_output` — thumbnails, previews, tiles, all metadata stripped | Display              | Necessary to provide service | `verdery-dev-derived` bucket     | Deleted with the original (ENFORCED); Nearline at 30 days               | `config/lifecycle/derived-lifecycle.json`                        |
-| `export_package` — a ZIP concentrating everything above for one requester                    | Data portability     | Necessary to provide service | `verdery-dev-exports` bucket     | **7 days, ENFORCED twice** (deadline + bucket lifecycle)                | `media-retention.ts:102-108`; `exports-lifecycle.json`           |
-| `display_filename` — the file name you chose                                                 | Showing you the file | Necessary to provide service | `media.media_record`             | With the media record (ENFORCED)                                        | `migrations/1785100000000_…sql:96`                               |
-| Object keys                                                                                  | Storage addressing   | —                            | `media.media_record.object_key`  | With the record                                                         | `media-storage-target.ts:72-91` — opaque `<shard>/<uuid>/<uuid>` |
+| Data                                                                                         | Purpose              | Basis framing                | Where it lives                   | Retention                                                                                       | Evidence                                                         |
+| -------------------------------------------------------------------------------------------- | -------------------- | ---------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `garden_photo` originals (bytes, unmodified, EXIF intact)                                    | The product          | Necessary to provide service | `verdery-dev-user-media` bucket  | Until deleted (ENFORCED via deletion workflow); **no bucket lifecycle**                         | `media-retention.ts:66-72`; `09-media-storage.sh:183-197`        |
+| `imported_plan` originals — property plans, surveys, drawings; classified `sensitive`        | Map background       | Necessary to provide service | `verdery-dev-user-media` bucket  | Until deleted (ENFORCED)                                                                        | `media-retention.ts:73-79`; sensitivity in `media-record.ts`     |
+| `raw_capture` — reserved future reconstruction source; classified `restricted`               | Not used today       | Not applicable today         | `verdery-dev-raw-capture` bucket | **DECLARED future maximum default of 30 days after extraction; `enforced: false`; no producer** | `media-retention.ts:80-87`; section 8 below                      |
+| `derived_preview` / `processing_output` — thumbnails, previews, tiles, all metadata stripped | Display              | Necessary to provide service | `verdery-dev-derived` bucket     | Deleted with the original (ENFORCED); Nearline at 30 days                                       | `config/lifecycle/derived-lifecycle.json`                        |
+| `export_package` — a ZIP concentrating everything above for one requester                    | Data portability     | Necessary to provide service | `verdery-dev-exports` bucket     | **7 days, ENFORCED twice** (deadline + bucket lifecycle)                                        | `media-retention.ts:102-108`; `exports-lifecycle.json`           |
+| `display_filename` — the file name you chose                                                 | Showing you the file | Necessary to provide service | `media.media_record`             | With the media record (ENFORCED)                                                                | `migrations/1785100000000_…sql:96`                               |
+| Object keys                                                                                  | Storage addressing   | —                            | `media.media_record.object_key`  | With the record                                                                                 | `media-storage-target.ts:72-91` — opaque `<shard>/<uuid>/<uuid>` |
 
 Object keys contain no personal data: they are a SHA-256-derived shard plus two UUIDs, never the
 filename. That is a verified fact, not an aspiration.
@@ -674,11 +674,11 @@ banner in the target jurisdictions is a counsel decision.
 
 ### 5.4 Copy that would have to be written if a permission is ever added
 
-Not needed today, recorded so the next author does not have to rediscover it: the moment Garden Scan
-(camera + depth), push notifications, or a location-picker for the georeference lands, each needs a
-usage string in **both** `en` and `ru` (`CFBundleLocalizations` declares both), a matching notice
-paragraph, and — for camera capture of neighbouring property — the sensitivity handling
-`garden-capture-and-scan.md` §17 already specifies.
+Not needed today, recorded so the next author does not have to rediscover it: the moment a future ADR
+authorizes automated-reconstruction capture (camera + depth), push notifications, or a
+location-picker for the georeference, each needs a usage string in **both** `en` and `ru`
+(`CFBundleLocalizations` declares both), a matching notice paragraph, and — for camera capture of
+neighbouring property — the sensitivity handling `garden-capture-and-scan.md` §10.8 specifies.
 
 ## 6. Consent posture
 
@@ -736,16 +736,16 @@ This is the single most dangerous sentence in the whole notice, because the natu
   **`enforced: false`** (`media-retention.ts:80-87`).
 - `deriveDefaultRetentionDeadline` returns `null` for every media class except `export_package`
   (`media-retention.ts:119-125`), so **no raw-capture deadline is ever computed**.
-- The anchoring event has no producer: Garden Scan is Phase 10 and there is no camera, ARKit,
-  RealityKit, or capture code anywhere in `apps/ios/Sources`.
+- The anchoring event has no producer: automated reconstruction is research-only and no committed
+  delivery phase creates production raw capture.
 - The `verdery-dev-raw-capture` bucket has **no lifecycle rule** (`09-media-storage.sh:199-227`).
 
 So a raw capture cannot currently be created, and if one existed nothing would delete it.
 
-**The chosen notice language** (§8 of the notice) states three things separately: the policy, that
-the feature does not exist, and that the deletion is not implemented. `service-levels.md` §8.1 asks
-for exactly this — "state it in the privacy notice in exactly those words" — and the alternative it
-offers is a bucket lifecycle rule as a backstop that does not depend on the missing anchoring event.
+**The chosen notice language** states separately that the class is reserved, the feature is not
+committed, research does not authorize collection, and deletion is not implemented.
+`service-levels.md` §8.1 requires the same honesty; its alternative is a bucket lifecycle rule as a
+backstop that does not depend on the missing anchoring event.
 **That alternative is the better outcome and is on the decision list**: a lifecycle rule would let a
 future version of the notice say "deleted after 30 days" truthfully.
 
@@ -901,7 +901,7 @@ files it names.**
 | 2   | `threat-model.md` §3 lists the media class as `user_photo`                                                                                | The class is **`garden_photo`** (`media-record.ts:39`; migration CHECK constraint). Cosmetic, but a reviewer grepping for `user_photo` finds nothing                                                         |
 | 3   | "Analytics uses consent" (`security-and-privacy.md` §18)                                                                                  | No consent mechanism exists at all; `consent_record` has **no writer**. The notice makes no consent claim                                                                                                    |
 | 4   | "Support access is time-limited and audited" (`security-and-privacy.md` §18)                                                              | No support mechanism of any kind exists. Publishing this sentence would be a false statement                                                                                                                 |
-| 5   | Natural phrasing: "raw scan recordings are deleted after 30 days"                                                                         | `enforced: false`, no deadline is ever computed, no bucket lifecycle rule, and no feature can create one. Section 8                                                                                          |
+| 5   | Natural phrasing: "raw reconstruction recordings are deleted after 30 days"                                                               | `enforced: false`, no deadline is ever computed, no bucket lifecycle rule, and no feature can create one. Section 8                                                                                          |
 | 6   | Natural phrasing: "photos are stripped of location data"                                                                                  | **Only derivatives are.** Originals are stored byte-identical with EXIF intact, on both clients                                                                                                              |
 | 7   | Natural phrasing: "we do not collect IP addresses"                                                                                        | Application logs genuinely do not. **Cloud Run request logs record `httpRequest.remoteIp`** and RB-08 queries it                                                                                             |
 | 8   | Assumption that Cloud Tasks payloads carry only identifiers                                                                               | They also carry `validation.displayFilename` — the user's own file name                                                                                                                                      |

@@ -4,10 +4,12 @@ import type {
   AddPlantFromPhotoRequest,
   AddPlantRequest,
   MovePlantRequest,
+  Observation,
   Plant,
   PlantIdentification,
   PlantLifecycleStage,
   PlantListResult,
+  PlantPhoto,
   PlantStatus,
   TaxonomyReferenceListResult,
   UpdatePlantDetailsRequest,
@@ -44,6 +46,8 @@ import {
 const plantQueryKey = (gardenId: string, plantId: string) => ['plants', gardenId, plantId] as const;
 const plantIdentificationQueryKey = (gardenId: string, plantId: string) =>
   ['plants', gardenId, plantId, 'identification'] as const;
+const plantPhotosQueryKey = (gardenId: string, plantId: string) =>
+  ['plants', gardenId, plantId, 'photos'] as const;
 const plantSearchQueryKey = (gardenId: string, params: SearchPlantsParams) =>
   ['plants', gardenId, 'search', params] as const;
 const taxonomySearchQueryKey = (gardenId: string, query: string) =>
@@ -143,6 +147,34 @@ export function useConfirmPlantIdentification(gardenId: string) {
       queryClient.setQueryData(plantQueryKey(gardenId, plant.id), plant);
       queryClient.removeQueries({ queryKey: plantIdentificationQueryKey(gardenId, plant.id) });
     },
+  });
+}
+
+export interface RecordObservationFromIdentificationVariables {
+  readonly plantId: string;
+  readonly identificationId: string;
+}
+
+/**
+ * Records the identification's already-computed condition analysis as a real
+ * observation — independent of, and combinable with,
+ * `useConfirmPlantIdentification` over the same row (ADR-0015's own
+ * "AddPlantFromPhoto suggests an observation too" extension). Does not touch
+ * the plant or identification query caches: this never changes either.
+ */
+export function useRecordObservationFromIdentification(gardenId: string) {
+  const gateway = usePlantGateway();
+
+  return useMutation<Observation, ApiFailureError, RecordObservationFromIdentificationVariables>({
+    mutationFn: async ({ plantId, identificationId }) =>
+      unwrap(
+        await gateway.recordObservationFromIdentification(
+          gardenId,
+          plantId,
+          identificationId,
+          generateIdempotencyKey(),
+        ),
+      ),
   });
 }
 
@@ -267,6 +299,17 @@ export function useMovePlant(gardenId: string, plantId: string) {
     onSuccess: (plant) => {
       queryClient.setQueryData(plantQueryKey(gardenId, plantId), plant);
     },
+  });
+}
+
+/** Backs `plant-photo-gallery.tsx`. Unpaginated — a plant's photo count is always small. */
+export function usePlantPhotos(gardenId: string, plantId: string) {
+  const gateway = usePlantGateway();
+
+  return useQuery<readonly PlantPhoto[], ApiFailureError>({
+    queryKey: plantPhotosQueryKey(gardenId, plantId),
+    queryFn: async ({ signal }) =>
+      unwrap(await gateway.listPhotos(gardenId, plantId, signal)).items,
   });
 }
 

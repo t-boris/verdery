@@ -1,8 +1,8 @@
 # Grow Garden Architecture Documentation
 
-> Status: Draft 0.3
+> Status: Draft 0.5
 > Decision status: Approved detailed-design baseline  
-> Last updated: July 22, 2026
+> Last updated: July 28, 2026
 
 ## 1. Purpose
 
@@ -17,7 +17,8 @@ The architecture is based on the following approved product-level choices:
 - The Apple application is native Swift and SwiftUI.
 - The web application uses TypeScript, React, and Next.js.
 - The backend is a TypeScript modular monolith using Fastify.
-- Computer-vision and scan workers use Python where its ecosystem is advantageous.
+- Approved computer-vision workers use Python where its ecosystem is advantageous; automated
+  reconstruction remains research-only.
 - The external application API is REST described by OpenAPI.
 - Cloud SQL for PostgreSQL with PostGIS is the synchronized source of truth.
 - Native offline persistence uses SQLite through GRDB and an application-owned synchronization protocol.
@@ -27,31 +28,32 @@ The architecture is based on the following approved product-level choices:
 
 ## 2. Document Map
 
-| Area                                       | Detailed design                                                              |
-| ------------------------------------------ | ---------------------------------------------------------------------------- |
-| Native Apple client                        | [ios-application-design.md](ios-application-design.md)                       |
-| Web client                                 | [web-application-design.md](web-application-design.md)                       |
-| Garden map rendering and editing           | [map-rendering-and-editing.md](map-rendering-and-editing.md)                 |
-| Backend modular monolith                   | [backend-modular-monolith.md](backend-modular-monolith.md)                   |
-| REST API and contracts                     | [api-design.md](api-design.md)                                               |
-| PostgreSQL and geospatial model            | [data-and-geospatial-design.md](data-and-geospatial-design.md)               |
-| Offline synchronization                    | [offline-synchronization.md](offline-synchronization.md)                     |
-| Identity and authorization                 | [identity-and-authorization.md](identity-and-authorization.md)               |
-| Collaboration and client sharing           | [collaboration-and-client-sharing.md](collaboration-and-client-sharing.md)   |
-| Media storage and processing               | [media-storage-and-processing.md](media-storage-and-processing.md)           |
-| Garden capture and scan                    | [garden-capture-and-scan.md](garden-capture-and-scan.md)                     |
-| Queues, events, jobs, and workflows        | [asynchronous-processing.md](asynchronous-processing.md)                     |
-| Recommendations and AI                     | [recommendations-and-ai.md](recommendations-and-ai.md)                       |
-| Third-party providers                      | [external-integrations.md](external-integrations.md)                         |
-| Push and in-app notifications              | [notifications.md](notifications.md)                                         |
-| Security and privacy                       | [security-and-privacy.md](security-and-privacy.md)                           |
-| Cloud networking                           | [networking.md](networking.md)                                               |
-| Technical and product telemetry            | [observability-and-analytics.md](observability-and-analytics.md)             |
-| Environments, infrastructure, and delivery | [environments-and-delivery.md](environments-and-delivery.md)                 |
-| Availability, backup, and recovery         | [reliability-and-disaster-recovery.md](reliability-and-disaster-recovery.md) |
-| Automated quality strategy                 | [testing-strategy.md](testing-strategy.md)                                   |
-| Cost controls and scaling                  | [cost-and-scaling.md](cost-and-scaling.md)                                   |
-| Data export, ownership, and deletion       | [data-export-and-deletion.md](data-export-and-deletion.md)                   |
+| Area                                       | Detailed design                                                                      |
+| ------------------------------------------ | ------------------------------------------------------------------------------------ |
+| Native Apple client                        | [ios-application-design.md](ios-application-design.md)                               |
+| Web client                                 | [web-application-design.md](web-application-design.md)                               |
+| Garden map rendering and editing           | [map-rendering-and-editing.md](map-rendering-and-editing.md)                         |
+| Backend modular monolith                   | [backend-modular-monolith.md](backend-modular-monolith.md)                           |
+| REST API and contracts                     | [api-design.md](api-design.md)                                                       |
+| PostgreSQL and geospatial model            | [data-and-geospatial-design.md](data-and-geospatial-design.md)                       |
+| Offline synchronization                    | [offline-synchronization.md](offline-synchronization.md)                             |
+| Identity and authorization                 | [identity-and-authorization.md](identity-and-authorization.md)                       |
+| Collaboration and client sharing           | [collaboration-and-client-sharing.md](collaboration-and-client-sharing.md)           |
+| Plant intelligence and visual journal      | [plant-intelligence-and-visual-journal.md](plant-intelligence-and-visual-journal.md) |
+| Media storage and processing               | [media-storage-and-processing.md](media-storage-and-processing.md)                   |
+| Garden capture and reconstruction research | [garden-capture-and-scan.md](garden-capture-and-scan.md)                             |
+| Queues, events, jobs, and workflows        | [asynchronous-processing.md](asynchronous-processing.md)                             |
+| Recommendations and AI                     | [recommendations-and-ai.md](recommendations-and-ai.md)                               |
+| Third-party providers                      | [external-integrations.md](external-integrations.md)                                 |
+| Push and in-app notifications              | [notifications.md](notifications.md)                                                 |
+| Security and privacy                       | [security-and-privacy.md](security-and-privacy.md)                                   |
+| Cloud networking                           | [networking.md](networking.md)                                                       |
+| Technical and product telemetry            | [observability-and-analytics.md](observability-and-analytics.md)                     |
+| Environments, infrastructure, and delivery | [environments-and-delivery.md](environments-and-delivery.md)                         |
+| Availability, backup, and recovery         | [reliability-and-disaster-recovery.md](reliability-and-disaster-recovery.md)         |
+| Automated quality strategy                 | [testing-strategy.md](testing-strategy.md)                                           |
+| Cost controls and scaling                  | [cost-and-scaling.md](cost-and-scaling.md)                                           |
+| Data export, ownership, and deletion       | [data-export-and-deletion.md](data-export-and-deletion.md)                           |
 
 ## 3. Decision Records
 
@@ -75,7 +77,7 @@ Material decisions and their rationale are recorded under [decisions/](decisions
 | Backend runtime                  | TypeScript on Node.js                                                              |
 | Runtime baseline                 | Node.js 24 and TypeScript 5.9.x                                                    |
 | Backend HTTP framework           | Fastify                                                                            |
-| Scan runtime                     | Python workers where required                                                      |
+| Computer-vision runtime          | Python workers where required                                                      |
 | External API                     | REST and OpenAPI                                                                   |
 | Database access                  | Kysely with reviewed SQL migrations and explicit PostGIS SQL                       |
 | Database baseline                | PostgreSQL 17 and PostGIS 3.5                                                      |

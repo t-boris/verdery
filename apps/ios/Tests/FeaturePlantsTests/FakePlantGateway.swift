@@ -25,6 +25,22 @@ final class FakePlantGateway: PlantGateway, @unchecked Sendable {
     /// needs a failure OTHER than the standard not-found — e.g. a transport
     /// failure `FetchPlantIdentification` must let propagate, not swallow.
     var getPlantIdentificationError: Error?
+    /// `searchPlants`'s scriptable result — one page at a time, keyed by
+    /// whatever `cursor` the test expects to see requested next; `nil`
+    /// entries answer with an empty, terminal page.
+    var searchPlantsPages: [String?: PlantSearchPage] = [:]
+    var searchPlantsQueries: [(query: String?, cursor: String?)] = []
+    var searchPlantsError: Error?
+    var plantPhotos: [PlantPhoto] = []
+    var listPlantPhotosError: Error?
+    var recordedObservation = GardenObservation(
+        id: "observation-1", gardenId: "garden-1", plantId: "plant-1", gardenObjectId: nil,
+        actorType: .user, createdByProfileId: "profile-1", noteText: nil, conditionSummary: "Leaves look healthy",
+        correctionKind: nil, correctsObservationId: nil, isCorrected: false,
+        observedAt: Date(timeIntervalSince1970: 0), recordedAt: Date(timeIntervalSince1970: 0), photos: []
+    )
+    var recordObservationFromIdentificationError: Error?
+    private(set) var recordObservationFromIdentificationCalls: [(plantId: String, identificationId: String)] = []
 
     init(plants: [Plant] = []) {
         self.plants = Dictionary(uniqueKeysWithValues: plants.map { ($0.id, $0) })
@@ -200,6 +216,17 @@ final class FakePlantGateway: PlantGateway, @unchecked Sendable {
         return pendingIdentification
     }
 
+    func recordObservationFromIdentification(
+        gardenId: String,
+        plantId: String,
+        identificationId: String,
+        idempotencyKey: String
+    ) async throws -> GardenObservation {
+        if let recordObservationFromIdentificationError { throw recordObservationFromIdentificationError }
+        recordObservationFromIdentificationCalls.append((plantId: plantId, identificationId: identificationId))
+        return recordedObservation
+    }
+
     func transitionLifecycleStage(
         gardenId: String,
         plantId: String,
@@ -264,6 +291,17 @@ final class FakePlantGateway: PlantGateway, @unchecked Sendable {
     func searchTaxonomyReferences(gardenId: String, query: String?, limit: Int?) async throws -> [TaxonomyReference] {
         searchQueries.append(query)
         return taxonomyResults
+    }
+
+    func searchPlants(gardenId: String, query: String?, cursor: String?, limit: Int?) async throws -> PlantSearchPage {
+        if let searchPlantsError { throw searchPlantsError }
+        searchPlantsQueries.append((query: query, cursor: cursor))
+        return searchPlantsPages[cursor] ?? PlantSearchPage(items: [], nextCursor: nil)
+    }
+
+    func listPlantPhotos(gardenId: String, plantId: String) async throws -> [PlantPhoto] {
+        if let listPlantPhotosError { throw listPlantPhotosError }
+        return plantPhotos
     }
 
     private func resolved<Value>(_ fieldUpdate: FieldUpdate<Value>, current: Value?) -> Value? {

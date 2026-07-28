@@ -1793,6 +1793,27 @@ paths:
         schema:
           $ref: '#/components/schemas/Uuid'
 
+    get:
+      operationId: listPlantPhotos
+      tags: [Plants]
+      summary: List a plant's attached photos
+      description: |
+        Every photo attached to this plant, primary first, then oldest
+        first. No pagination — a plant's photo count is always small.
+
+        Source: ADR-0015.
+      responses:
+        '200':
+          description: The plant's attached photos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlantPhotoListResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
     post:
       operationId: attachPlantPhoto
       tags: [Plants]
@@ -1969,6 +1990,54 @@ paths:
           $ref: '#/components/responses/Conflict'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
+
+  /gardens/{gardenId}/plants/{plantId}/identification/{identificationId}/record-observation:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: plantId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: identificationId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: recordObservationFromIdentification
+      tags: [Plants]
+      summary: Record an identification's condition analysis as a real observation
+      description: |
+        Turns a pending `plant_identification` row's already-computed
+        `suggestedConditionNote`/`suggestedCareGuidanceNote` into a real,
+        dated `Observation` — independent of, and separately callable from,
+        `ConfirmPlantIdentification` over the same row. Rejects with `409`
+        when the identification carries no condition analysis to record.
+
+        Source: ADR-0015.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201':
+          description: The recorded observation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Observation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
 
   /gardens/{gardenId}/plants/{plantId}/lifecycle-stage:
     parameters:
@@ -9144,6 +9213,7 @@ components:
           suggestedLifecycleStage,
           suggestedConditionNote,
           suggestedCareGuidanceNote,
+          suggestedAcquisitionDate,
         ]
       description: >
         A photo-identification suggestion `AddPlantFromPhoto` created, as long
@@ -9218,6 +9288,10 @@ components:
         suggestedCareGuidanceNote:
           type: [string, 'null']
           description: 'A general care suggestion (watering, light, pruning) from the same condition-analysis pass, or null when it had nothing specific to add. Never chemicals, pesticides, fertilizers, or dosages.'
+        suggestedAcquisitionDate:
+          type: [string, 'null']
+          format: date
+          description: "The AI's own approximate acquisition-date guess, estimated from visible maturity, when confident. `ConfirmPlantIdentification` only applies it when the plant's own acquisitionDate is still null, defaulting acquisitionDateType to 'acquired' when that is also still unset."
 
     TaxonomyReference:
       type: object
@@ -9250,6 +9324,17 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TaxonomyReference'
+
+    PlantPhotoListResult:
+      type: object
+      additionalProperties: false
+      required: [items]
+      description: "Every photo attached to a plant, primary first, then oldest first. No pagination — a plant's photo count is always small, matching TaxonomyReferenceListResult's own unpaginated shape."
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlantPhoto'
 
     AddPlantRequest:
       type: object

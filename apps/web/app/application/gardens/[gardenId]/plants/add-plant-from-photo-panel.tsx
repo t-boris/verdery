@@ -16,6 +16,7 @@ import {
   useAddPlantFromPhoto,
   useConfirmPlantIdentification,
   usePlantIdentification,
+  useRecordObservationFromIdentification,
 } from '@/features/plants/public';
 import { useLocalization } from '@/shared/localization/public';
 import { Button, FailureAlert, ProgressBar, StaleIndicator } from '@/shared/ui/public';
@@ -57,6 +58,16 @@ function rawSuggestionLabel(commonName: string, scientificName: string | null): 
   return scientificName === null ? commonName : `${scientificName} (${commonName})`;
 }
 
+/** Label above, value below, with real line height — mirrors `plant-detail.tsx`'s own identical (unexported) `DetailRow` helper. */
+function DetailRow({ label, value }: { readonly label: string; readonly value: string }) {
+  return (
+    <div>
+      <span className={styles['suggestionDetailLabel']}>{label}</span>
+      <p className={styles['suggestionDetailValue']}>{value}</p>
+    </div>
+  );
+}
+
 /**
  * Creates a plant identified from a photo (ADR-0015): upload → `AddPlantFromPhoto`
  * → review the AI's suggestion → confirm it, or decide later — then hand off
@@ -89,6 +100,7 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
   const upload = useMediaUpload(gardenId, 'garden_photo');
   const addFromPhoto = useAddPlantFromPhoto(gardenId);
   const confirmIdentification = useConfirmPlantIdentification(gardenId);
+  const recordObservation = useRecordObservationFromIdentification(gardenId);
   const [validationError, setValidationError] = useState<string | null>(null);
   const inputId = useId();
 
@@ -140,6 +152,13 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
     );
   };
 
+  const onRecordObservation = () => {
+    if (plant === null || identification.data === null || identification.data === undefined) {
+      return;
+    }
+    recordObservation.mutate({ plantId: plant.id, identificationId: identification.data.id });
+  };
+
   if (plant !== null) {
     // `undefined` before the query resolves, `null` once resolved with
     // nothing pending (already confirmed, or no row at all — an unexpected
@@ -152,6 +171,7 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
     const suggestedLifecycleStage = identification.data?.suggestedLifecycleStage ?? null;
     const suggestedConditionNote = identification.data?.suggestedConditionNote ?? null;
     const suggestedCareGuidanceNote = identification.data?.suggestedCareGuidanceNote ?? null;
+    const suggestedAcquisitionDate = identification.data?.suggestedAcquisitionDate ?? null;
 
     return (
       <div>
@@ -186,26 +206,38 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
                   {`${t('plants.identificationConfidenceLabel')}: ${t('plants.identificationConfidenceValue', { percent: Math.round(identification.data.confidenceScore * 100) })}`}
                 </p>
               )}
-              {suggestedVarietyLabel !== null && (
-                <p className={styles['suggestionDetailRow']}>
-                  {`${t('plants.identificationVarietyLabel')}: ${suggestedVarietyLabel}`}
-                </p>
-              )}
-              {suggestedLifecycleStage !== null && (
-                <p className={styles['suggestionDetailRow']}>
-                  {`${t('plants.identificationGrowthStageLabel')}: ${t(lifecycleStageLabel(suggestedLifecycleStage))}`}
-                </p>
-              )}
-              {suggestedConditionNote !== null && (
-                <p className={styles['suggestionDetailRow']}>
-                  {`${t('plants.identificationConditionLabel')}: ${suggestedConditionNote}`}
-                </p>
-              )}
-              {suggestedCareGuidanceNote !== null && (
-                <p className={styles['suggestionDetailRow']}>
-                  {`${t('plants.identificationCareGuidanceLabel')}: ${suggestedCareGuidanceNote}`}
-                </p>
-              )}
+              <div className={styles['suggestionDetails']}>
+                {suggestedVarietyLabel !== null && (
+                  <DetailRow
+                    label={t('plants.identificationVarietyLabel')}
+                    value={suggestedVarietyLabel}
+                  />
+                )}
+                {suggestedLifecycleStage !== null && (
+                  <DetailRow
+                    label={t('plants.identificationGrowthStageLabel')}
+                    value={t(lifecycleStageLabel(suggestedLifecycleStage))}
+                  />
+                )}
+                {suggestedConditionNote !== null && (
+                  <DetailRow
+                    label={t('plants.identificationConditionLabel')}
+                    value={suggestedConditionNote}
+                  />
+                )}
+                {suggestedCareGuidanceNote !== null && (
+                  <DetailRow
+                    label={t('plants.identificationCareGuidanceLabel')}
+                    value={suggestedCareGuidanceNote}
+                  />
+                )}
+                {suggestedAcquisitionDate !== null && (
+                  <DetailRow
+                    label={t('plants.identificationAcquisitionDateLabel')}
+                    value={suggestedAcquisitionDate}
+                  />
+                )}
+              </div>
             </div>
 
             <div className={styles['actions']}>
@@ -218,12 +250,27 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
                   {t('plants.identificationConfirm')}
                 </Button>
               )}
+              {suggestedConditionNote !== null && (
+                <Button
+                  variant="secondary"
+                  busy={recordObservation.isPending}
+                  onClick={onRecordObservation}
+                >
+                  {t('plants.identificationRecordObservationButton')}
+                </Button>
+              )}
               <Button variant="secondary" onClick={goToPlant}>
                 {t('plants.identificationLater')}
               </Button>
             </div>
             {confirmIdentification.isError && (
               <FailureAlert failure={confirmIdentification.error.failure} />
+            )}
+            {recordObservation.isSuccess && (
+              <p role="status">{t('plants.identificationObservationRecordedMessage')}</p>
+            )}
+            {recordObservation.isError && (
+              <FailureAlert failure={recordObservation.error.failure} />
             )}
           </>
         )}

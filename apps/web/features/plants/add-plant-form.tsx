@@ -25,6 +25,7 @@ import {
   acquisitionDateTypeLabel,
   groupingKindLabel,
 } from './labels';
+import { useGardenMapObjects } from './map-object-queries';
 import { useAddPlant } from './queries';
 import styles from './add-plant-form.module.css';
 import { TaxonomyReferenceField } from './taxonomy-reference-field';
@@ -79,13 +80,15 @@ const ADD_PLANT_DRAFT_SCHEMA_VERSION = 1;
  * detail page — the same create-then-navigate pattern
  * `features/gardens/create-garden-form.tsx` uses.
  *
- * `gardenAreaMapObjectId`/`placementMapObjectId` are plain map-object-id text
- * fields rather than a picker: `features/map` exposes `useGardenMap` that
- * could read the garden's objects, but a feature importing another feature
- * violates `architecture/web-application-design.md`, section "20. Dependency
- * Rules" ("Features import public Core and Shared interfaces only"), so this
- * pass leaves the field as a documented, honest fallback rather than
- * reaching across that boundary.
+ * `gardenAreaMapObjectId`/`placementMapObjectId` are `Select`s populated by
+ * `useGardenMapObjects` (`map-object-queries.ts`) rather than a raw text
+ * field — that hook is built directly on `core/api`'s `createMapGateway`
+ * rather than importing `features/map`, since a feature importing another
+ * feature violates `architecture/web-application-design.md`, section
+ * "20. Dependency Rules" ("Features import public Core and Shared
+ * interfaces only"). No category filter: the backend places none on either
+ * field (`requirePlacementReferencesGardenObjects`), so both selects offer
+ * the same full list of this garden's active objects.
  *
  * Wired to `core/drafts`' recoverable-draft mechanism (P5-WEB-01): every
  * field, plus `taxonomyReferenceId` (which React Hook Form does not own —
@@ -105,6 +108,14 @@ export function AddPlantForm({ gardenId }: { readonly gardenId: string }) {
   const mutation = useAddPlant(gardenId);
   const isOnline = useIsOnline();
   const [taxonomyReferenceId, setTaxonomyReferenceId] = useState<string | null>(null);
+  const mapObjectsQuery = useGardenMapObjects(gardenId);
+  const mapObjectOptions = [
+    { value: NONE_VALUE, label: t('plants.mapObjectNone') },
+    ...(mapObjectsQuery.data ?? []).map((object) => ({
+      value: object.id,
+      label: object.label ? `${object.label} (${object.category})` : object.category,
+    })),
+  ];
 
   const { register, handleSubmit, formState, watch, reset } = useForm<AddPlantValues>({
     resolver: zodResolver(addPlantSchema),
@@ -247,13 +258,15 @@ export function AddPlantForm({ gardenId }: { readonly gardenId: string }) {
         />
       )}
 
-      <TextField
+      <Select
         label={t('plants.gardenAreaMapObjectIdLabel')}
+        options={mapObjectOptions}
         {...register('gardenAreaMapObjectId')}
         aria-describedby="add-plant-map-object-hint"
       />
-      <TextField
+      <Select
         label={t('plants.placementMapObjectIdLabel')}
+        options={mapObjectOptions}
         {...register('placementMapObjectId')}
       />
       <p id="add-plant-map-object-hint" className={styles['hint']}>

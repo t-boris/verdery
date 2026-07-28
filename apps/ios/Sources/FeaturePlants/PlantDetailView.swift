@@ -67,8 +67,9 @@ public struct PlantDetailView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Metrics.space5) {
                     summaryCard(summary)
-                    identificationSection
+                    PlantIdentificationBannerView(model: model)
                     stageSection(summary)
+                    photoGallerySection
                     photoSection
                     editSection(summary)
                     moveSection
@@ -91,6 +92,17 @@ public struct PlantDetailView: View {
                     search: { await model.searchTaxonomy(query: $0) },
                     onSelect: { model.selectTaxonomy($0) },
                     onClose: { model.isTaxonomyPickerPresented = false }
+                )
+            }
+            .sheet(isPresented: mapObjectPickerPresented) {
+                MapObjectPickerView(
+                    title: model.mapObjectPickerTitle,
+                    clearTitle: model.mapObjectPickerClearTitle,
+                    closeTitle: model.closeTitle,
+                    emptyMessage: model.mapObjectPickerEmptyMessage,
+                    objects: model.mapObjects,
+                    onSelect: { model.selectMapObject($0) },
+                    onClose: { model.activeMapObjectField = nil }
                 )
             }
 
@@ -157,101 +169,6 @@ public struct PlantDetailView: View {
         }
     }
 
-    /// Shown only when `AddPlantFromPhoto` (ADR-0015) left a suggestion this
-    /// plant has not yet confirmed or dismissed — absent entirely otherwise,
-    /// the same "real, working affordance or nothing" rule `photoSection`
-    /// already follows for a `PlantDetailViewModel` built with no
-    /// `photoAttachment`. Shown both for a suggestion that resolved a real
-    /// catalog entry and for the AI's own raw name guess when it found no
-    /// catalog match (`suggestedCommonName`) — confirming a genuine "no
-    /// confident match" identification (neither present) has nothing for
-    /// the reader to act on here.
-    @ViewBuilder
-    private var identificationSection: some View {
-        if let identification = model.pendingIdentification, identification.hasConfirmableSuggestion {
-            VStack(alignment: .leading, spacing: Metrics.space2) {
-                SectionEyebrow(symbol: PlantSymbols.taxonomy, title: model.identificationSuggestedLabel)
-
-                SurfaceCard(tone: .accent) {
-                    VStack(alignment: .leading, spacing: Metrics.space2) {
-                        Text(model.identificationPendingBanner)
-                            .font(Typography.detail)
-                            .foregroundStyle(Palette.textMuted)
-                        if let suggestion = identification.suggestedTaxonomy {
-                            Text(model.identificationSuggestionDisplayName(suggestion))
-                                .font(Typography.body.weight(.semibold))
-                                .accessibilityIdentifier("plants.detail.identification.suggestion")
-                        } else if let commonName = identification.suggestedCommonName {
-                            Text(model.rawIdentificationSuggestionDisplayName(
-                                commonName: commonName,
-                                scientificName: identification.suggestedScientificName
-                            ))
-                                .font(Typography.body.weight(.semibold))
-                                .accessibilityIdentifier("plants.detail.identification.suggestion")
-                            Text(model.identificationUnlistedNote)
-                                .font(Typography.detail)
-                                .foregroundStyle(Palette.textMuted)
-                                .accessibilityIdentifier("plants.detail.identification.unlistedNote")
-                        }
-                        Text(
-                            "\(model.identificationConfidenceLabel): "
-                                + model.identificationConfidenceText(identification.confidenceScore)
-                        )
-                        .font(Typography.detail)
-                        .foregroundStyle(Palette.textMuted)
-
-                        identificationDetailRows(identification)
-
-                        Button(model.identificationConfirmButtonTitle) {
-                            Task { await model.confirmPendingIdentification() }
-                        }
-                        .buttonStyle(PrimaryButtonStyle())
-                        .accessibilityIdentifier("plants.detail.identification.confirm")
-                    }
-                }
-            }
-        }
-    }
-
-    /// Variety, growth stage, condition, and care-guidance guesses — the same
-    /// supplementary rows `PlantAddFromPhotoSheetView.suggestionDetailRows`
-    /// shows on the create-time review screen, so a suggestion left for
-    /// "later" reads identically here.
-    @ViewBuilder
-    private func identificationDetailRows(_ identification: PlantIdentification) -> some View {
-        if let variety = identification.suggestedVarietyLabel {
-            identificationDetailRow(model.identificationVarietyLabel, variety, identifier: "plants.detail.identification.variety")
-        }
-        if let stage = identification.suggestedLifecycleStage {
-            identificationDetailRow(
-                model.identificationGrowthStageLabel,
-                model.identificationGrowthStageName(stage),
-                identifier: "plants.detail.identification.growthStage"
-            )
-        }
-        if let condition = identification.suggestedConditionNote {
-            identificationDetailRow(model.identificationConditionLabel, condition, identifier: "plants.detail.identification.condition")
-        }
-        if let careGuidance = identification.suggestedCareGuidanceNote {
-            identificationDetailRow(
-                model.identificationCareGuidanceLabel,
-                careGuidance,
-                identifier: "plants.detail.identification.careGuidance"
-            )
-        }
-    }
-
-    private func identificationDetailRow(_ label: String, _ value: String, identifier: String) -> some View {
-        VStack(alignment: .leading, spacing: Metrics.space1) {
-            Text(label)
-                .font(Typography.detail)
-                .foregroundStyle(Palette.textMuted)
-            Text(value)
-                .font(Typography.body)
-        }
-        .accessibilityIdentifier(identifier)
-    }
-
     /// Lifecycle stage and status, as two rows of chips.
     ///
     /// These were `Picker`s bound to a `set` that fired a command. They still
@@ -307,6 +224,17 @@ public struct PlantDetailView: View {
                 ForEach(data, id: id, content: content)
             }
             .padding(.vertical, Metrics.space1)
+        }
+    }
+
+    /// Absent entirely for a `PlantDetailViewModel` built with no
+    /// `photoGallery` (see that property's own doc comment) — the same
+    /// "real, working affordance or nothing" rule `photoSection` itself
+    /// follows.
+    @ViewBuilder
+    private var photoGallerySection: some View {
+        if let photoGallery = model.photoGallery {
+            PlantPhotoGalleryView(photos: photoGallery.photos, title: model.photoGalleryTitle)
         }
     }
 
@@ -541,18 +469,40 @@ public struct PlantDetailView: View {
         }
     }
 
+    private var mapObjectPickerPresented: Binding<Bool> {
+        Binding(
+            get: { model.activeMapObjectField != nil },
+            set: { if !$0 { model.activeMapObjectField = nil } }
+        )
+    }
+
+    private func mapObjectRow(_ label: String, field: MapObjectPlacementField) -> some View {
+        Button {
+            Task { await model.openMapObjectPicker(for: field) }
+        } label: {
+            HStack {
+                Text(label)
+                    .foregroundStyle(Palette.text)
+                Spacer(minLength: 0)
+                Text(model.mapObjectSummary(for: field) ?? model.mapObjectPickerClearTitle)
+                    .foregroundStyle(Palette.textMuted)
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(Palette.textMuted)
+                    .accessibilityHidden(true)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(field == .gardenArea ? "plants.detail.gardenAreaField" : "plants.detail.placementField")
+    }
+
     private var moveSection: some View {
         VStack(alignment: .leading, spacing: Metrics.space2) {
             SectionEyebrow(symbol: PlantSymbols.placement, title: model.moveSectionTitle)
 
             SurfaceCard {
                 VStack(alignment: .leading, spacing: Metrics.space3) {
-                    TextField(model.gardenAreaLabel, text: $model.editedGardenAreaMapObjectId)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityIdentifier("plants.detail.gardenAreaField")
-                    TextField(model.placementLabel, text: $model.editedPlacementMapObjectId)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityIdentifier("plants.detail.placementField")
+                    mapObjectRow(model.gardenAreaLabel, field: .gardenArea)
+                    mapObjectRow(model.placementLabel, field: .placement)
                     InlineMessage(model.mapObjectIdHint, tone: .info)
 
                     Button {
@@ -572,16 +522,22 @@ public struct PlantDetailView: View {
     }
 
     /// Deleting a plant is irreversible from here, so it confirms — it used to
-    /// be a bare destructive row inside the same section as two pickers.
+    /// be a bare destructive row inside the same section as two pickers, easy
+    /// to miss. Its own negative-tone card now gives it the visual weight a
+    /// destructive, screen-ending action deserves, the same `SurfaceCard
+    /// (tone:)`/`SecondaryButtonStyle(tone:)` red treatment the identification
+    /// banner already establishes for `.accent`.
     private var deleteSection: some View {
-        Button {
-            isDeleteConfirmationPresented = true
-        } label: {
-            Label(model.deleteActionTitle, systemImage: "trash")
+        SurfaceCard(tone: .negative) {
+            Button {
+                isDeleteConfirmationPresented = true
+            } label: {
+                Label(model.deleteActionTitle, systemImage: "trash")
+            }
+            .buttonStyle(SecondaryButtonStyle(tone: .negative))
+            .disabled(model.isSubmitting)
+            .accessibilityIdentifier("plants.detail.delete")
         }
-        .buttonStyle(SecondaryButtonStyle())
-        .disabled(model.isSubmitting)
-        .accessibilityIdentifier("plants.detail.delete")
         .confirmationDialog(
             model.deleteActionTitle,
             isPresented: $isDeleteConfirmationPresented,

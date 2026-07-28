@@ -1,8 +1,8 @@
 # Observability and Analytics Design
 
-> Status: Draft 0.2
+> Status: Draft 0.3
 > Decision status: Approved baseline  
-> Last updated: July 25, 2026
+> Last updated: July 28, 2026
 
 ## 1. Purpose
 
@@ -173,7 +173,8 @@ Client analytics excludes publication text, media names, client identity, staff 
 
 - Errors and high-latency traces receive elevated sampling.
 - Ordinary successful requests use bounded head sampling.
-- Expensive media and scan workflow traces are sampled at a useful higher rate without including content.
+- Expensive approved media-processing traces are sampled at a useful higher rate without including
+  content. A future promoted reconstruction workflow inherits this policy.
 - Sampling decisions and cost are reviewed as volume grows.
 - Security audit events are not probabilistically sampled.
 
@@ -185,7 +186,7 @@ Required dashboards:
 - Authentication and authorization.
 - Mobile synchronization health.
 - Media upload and processing.
-- Garden Scan pipeline.
+- Automated reconstruction pipeline only if a future ADR promotes it into a delivery phase.
 - Recommendations and AI.
 - Cloud SQL and connection pool.
 - Queue and job health.
@@ -378,7 +379,8 @@ GROUP BY media_class, upload_state;
 
 -- Raw media approaching its retention deadline (honest today: only
 -- export_package rows carry deadlines; raw_capture is declared but has no
--- producer for its anchoring event until Garden Scan — enforced: false):
+-- producer for its anchoring event; automated reconstruction is research-only
+-- and has no committed delivery phase — enforced: false):
 SELECT media_class, count(*)
 FROM media.media_record
 WHERE retention_deadline_at IS NOT NULL
@@ -603,11 +605,12 @@ policy has been created against any environment (the P5-OBS-01/App-Check precede
 infrastructure actions need their own approval). The bucket-side orphan direction (objects with no
 row) still has no producer of a signal — its listing reconciler itself is the deferred capability,
 so there is honestly nothing to chart yet. Raw-capture deadline enforcement is declared
-`enforced: false` and its "approaching deadline" query returns only `export_package` rows until
-Garden Scan (Phase 10) stamps real deadlines. And `media.processing_job` rows that exhaust Cloud
-Tasks retries have no automatic re-drive — the runbook's manual re-emit is the documented
-remediation, and an automated re-drive is recorded in deferred-capabilities.md as a future
-decision, not silently promised here.
+`enforced: false` and its "approaching deadline" query returns only `export_package` rows because no
+committed feature produces the successful-extraction anchor for `raw_capture`. Automated
+reconstruction research does not change that fact. And `media.processing_job` rows that exhaust
+Cloud Tasks retries have no automatic re-drive — the runbook's manual re-emit is the documented
+remediation, and an automated re-drive is recorded in deferred-capabilities.md as a future decision,
+not silently promised here.
 
 ### Care-loop quality measurement and dashboards (P7-ANALYTICS-01)
 

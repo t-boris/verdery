@@ -69,6 +69,7 @@ export class ConfirmPlantIdentification {
               identification.suggestedLifecycleStage,
               identification.suggestedConditionNote,
               identification.suggestedCareGuidanceNote,
+              identification.suggestedAcquisitionDate,
               identification.id,
               now,
             ),

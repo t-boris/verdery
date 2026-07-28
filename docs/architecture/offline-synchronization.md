@@ -1,8 +1,8 @@
 # Offline Synchronization Design
 
-> Status: Draft 0.2
+> Status: Draft 0.3
 > Decision status: Approved baseline  
-> Last updated: July 22, 2026
+> Last updated: July 28, 2026
 
 ## 1. Purpose
 
@@ -272,7 +272,9 @@ Record sync contains media IDs and state, not binary data.
 An operation that references media declares whether it may be accepted before upload completion. For example:
 
 - A new observation may sync with `mediaPending` and attach the media after verification.
-- A scan-processing command requires verified source media and remains dependency-blocked until then.
+- A property-plan or video-processing command requires verified source media and remains
+  dependency-blocked until then. Future reconstruction commands must preserve this rule if the
+  research is promoted into delivery.
 
 Media upload retry and sync retry are separately observable.
 

@@ -8,6 +8,15 @@
 > Date: July 27, 2026
 > Approved: July 27, 2026, by the project owner, as proposed (see "Approval" under Decision)
 
+## Current Roadmap Alignment
+
+ADR-0015 redirected Phase 10 and the current implementation plan removed automated reconstruction
+from numbered release phases. Consequently, this historical approval does not authorize a current
+production pipeline or new raw-media collection. Its reusable capture-session data work belongs to
+Phase 12; its async patterns are architectural groundwork; and reconstruction may return only
+through the implementation plan's research promotion criteria, a new ADR, and a newly numbered
+phase.
+
 ## Context
 
 `docs/implementation-plan.md` section 19.2 requires a Research Gate before any Phase 10
@@ -17,7 +26,7 @@ vegetation, occlusion, surface texture, and reference measurements. Approve thre
 abandonment, useful-proposal precision/recall, geometry error, correction time, processing time,
 privacy, and unit cost." Assumption A-5 states the same requirement independently: "AR, LiDAR,
 reconstruction, and model-based recognition receive evaluation milestones before production
-implementation is committed," with confidence "High." `garden-capture-and-scan.md` section 20
+implementation is committed," with confidence "High." `garden-capture-and-scan.md` section 10.11
 ("Evaluation") states the dataset requirement architecturally but does not itself propose a
 concrete dataset plan or numeric thresholds — that proposal is this document.
 
@@ -45,7 +54,7 @@ ADR does not make — see "Open Decisions" below.
 
 ### Representativeness axes
 
-Following `garden-capture-and-scan.md` section 20 verbatim, the pilot set should span:
+Following `garden-capture-and-scan.md` section 10.11, the pilot set should span:
 
 | Axis                      | Minimum pilot coverage                                                                                                        |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
@@ -84,8 +93,9 @@ cost" — not an absolute number invented in isolation.
 ## Proposed Thresholds (draft — requires explicit owner approval or amendment)
 
 These are directional starting points reasoned from this product's own already-shipped positioning
-(the map editor's dimension entry is explicitly labeled "a planning aid, not a legal survey"; Garden
-Scan is explicitly "not a cadastral survey, engineering measurement, or construction-layout tool")
+(the map editor's dimension entry is explicitly labeled "a planning aid, not a legal survey"; the
+proposed automated reconstruction was explicitly "not a cadastral survey, engineering measurement,
+or construction-layout tool")
 and from the plan's own cost-control principles (CPU before GPU, stage-level early rejection). None
 of them are measured yet — no pipeline exists to measure. They are proposed so the owner has
 something concrete to accept, amend, or reject, not because they are already validated.
@@ -111,9 +121,9 @@ it would be a guess dressed as one.
 
 No new privacy category is introduced. Pilot capture media is Sensitive User Data under
 `security-and-privacy.md` section 3 (original media and property-plan-adjacent imagery), the same
-classification `garden-capture-and-scan.md` section 17 already assigns to Garden Scan raw media.
+classification `garden-capture-and-scan.md` section 10.8 assigns to candidate reconstruction media.
 
-- The existing 30-day raw-retention default (`garden-capture-and-scan.md` section 17;
+- The existing reserved 30-day raw-retention default (`garden-capture-and-scan.md` section 10.8;
   `security-and-privacy.md` section 19) applies to pilot media unless this ADR's approval explicitly
   grants an exception.
 - **Proposed bounded exception:** pilot raw media may be retained up to 90 days, solely to allow
@@ -122,7 +132,7 @@ classification `garden-capture-and-scan.md` section 17 already assigns to Garden
   time-boxed deviation from the general default and requires the owner's sign-off as part of
   accepting this ADR, not a standing policy change.
 - No training use of pilot data, ever, without separate explicit consent and governance — the
-  existing prohibition (`garden-capture-and-scan.md` section 17; `security-and-privacy.md` section 18) is not weakened by this pilot.
+  existing prohibition (`garden-capture-and-scan.md` section 10.8; `security-and-privacy.md` section 18) is not weakened by this pilot.
 - Round 2 participants (if approved) receive the same consent, disclosure, and deletion rights as
   any other capture, plus the evaluation-specific disclosure named above.
 

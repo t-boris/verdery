@@ -16,6 +16,7 @@ interface PlantIdentificationRowLike {
   suggested_lifecycle_stage: string | null;
   suggested_condition_note: string | null;
   suggested_care_guidance_note: string | null;
+  suggested_acquisition_date: string | null;
   confidence_score: string;
   created_at: Date;
 }
@@ -35,6 +36,7 @@ function toPlantIdentification(row: PlantIdentificationRowLike): PlantIdentifica
     suggestedLifecycleStage: row.suggested_lifecycle_stage as LifecycleStage | null,
     suggestedConditionNote: row.suggested_condition_note,
     suggestedCareGuidanceNote: row.suggested_care_guidance_note,
+    suggestedAcquisitionDate: row.suggested_acquisition_date,
     // `numeric(4,3)` reads back as a string — see the row type's own doc
     // comment in persistence/schema.ts.
     confidenceScore: Number(row.confidence_score),
@@ -80,6 +82,7 @@ export class KyselyPlantIdentificationRepository implements PlantIdentificationR
         suggested_lifecycle_stage: identification.suggestedLifecycleStage,
         suggested_condition_note: identification.suggestedConditionNote,
         suggested_care_guidance_note: identification.suggestedCareGuidanceNote,
+        suggested_acquisition_date: identification.suggestedAcquisitionDate,
         confidence_score: identification.confidenceScore,
         created_at: identification.createdAt,
       })

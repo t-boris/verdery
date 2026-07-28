@@ -431,11 +431,11 @@ grants no publisher capability (G2-G4 stay denied).
 
 `identity-and-authorization.md:158` denies restricted raw artifacts to the viewer specifically, and
 `media-storage-and-processing.md:277` repeats it as a viewer rule. Neither denies the editor, and
-denying them would break the capture workflow: the person who captured a scan is normally an editor
-and must be able to re-inspect the source when a proposal looks wrong. Every restricted access is
-audited regardless of role (`get-media-access.ts:101-110`). The narrow reading — viewer denied,
-others audited — is deliberate, but it rests on a role literal rather than a capability, which is
-gap G-5.
+denying them would break an approved capture workflow: the editor who created a retained AR capture
+must be able to re-inspect the source when a proposal looks wrong. Every restricted access is
+audited regardless of role (`get-media-access.ts:101-110`). Future reconstruction receives no
+additional permission from this rule. The narrow reading — viewer denied, others audited — is
+deliberate, but it rests on a role literal rather than a capability, which is gap G-5.
 
 ### 5.10 Nobody may publish by virtue of an operational role (G2-G4)
 

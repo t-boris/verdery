@@ -345,7 +345,8 @@ struct PlantGatewayTests {
               "suggestedVarietyLabel": "Roma",
               "suggestedLifecycleStage": "flowering",
               "suggestedConditionNote": "Leaves show mild water stress",
-              "suggestedCareGuidanceNote": "Water more consistently and check drainage."
+              "suggestedCareGuidanceNote": "Water more consistently and check drainage.",
+              "suggestedAcquisitionDate": "2026-05-01"
             }
             """#
         let gateway = makeGateway(identifier: identifier, answer: .json(200, identificationJSON))
@@ -356,6 +357,110 @@ struct PlantGatewayTests {
         #expect(identification.suggestedLifecycleStage == .flowering)
         #expect(identification.suggestedConditionNote == "Leaves show mild water stress")
         #expect(identification.suggestedCareGuidanceNote == "Water more consistently and check drainage.")
+        #expect(identification.suggestedAcquisitionDate == "2026-05-01")
+    }
+
+    @Test("recordObservationFromIdentification posts to the record-observation sub-resource and decodes the created observation")
+    func recordObservationFromIdentificationDecodesResult() async throws {
+        let identifier = "record-observation-from-identification"
+        defer { StubURLProtocol.unregister(identifier) }
+
+        let observationJSON = #"""
+            {
+              "id": "observation-1",
+              "gardenId": "garden-1",
+              "plantId": "plant-1",
+              "gardenObjectId": null,
+              "actorType": "user",
+              "createdByProfileId": "profile-1",
+              "noteText": "Water more consistently and check drainage.",
+              "conditionSummary": "Leaves show mild water stress",
+              "correctionKind": null,
+              "correctsObservationId": null,
+              "isCorrected": false,
+              "observedAt": "2026-01-01T00:00:00.000Z",
+              "recordedAt": "2026-01-01T00:00:00.000Z",
+              "photos": []
+            }
+            """#
+        let gateway = makeGateway(identifier: identifier, answer: .json(201, observationJSON))
+
+        let observation = try await gateway.recordObservationFromIdentification(
+            gardenId: "garden-1",
+            plantId: "plant-1",
+            identificationId: "identification-1",
+            idempotencyKey: "idem-1"
+        )
+
+        let request = try #require(StubURLProtocol.requests(forSession: identifier).first)
+        #expect(request.url?.path == "/v1/gardens/garden-1/plants/plant-1/identification/identification-1/record-observation")
+        #expect(request.httpMethod == "POST")
+        #expect(observation.conditionSummary == "Leaves show mild water stress")
+    }
+
+    @Test("searchPlants builds query/cursor/limit parameters and decodes the page")
+    func searchPlantsBuildsQueryAndDecodesPage() async throws {
+        let identifier = "search-plants"
+        defer { StubURLProtocol.unregister(identifier) }
+
+        let resultJSON = #"""
+            {"items": [\#(Self.plantJSON)], "nextCursor": "cursor-2"}
+            """#
+        let gateway = makeGateway(identifier: identifier, answer: .json(200, resultJSON))
+
+        let page = try await gateway.searchPlants(gardenId: "garden-1", query: "tomato", cursor: "cursor-1", limit: 10)
+
+        let request = try #require(StubURLProtocol.requests(forSession: identifier).first)
+        #expect(request.url?.path == "/v1/gardens/garden-1/plants")
+        #expect(request.url?.query?.contains("query=tomato") == true)
+        #expect(request.url?.query?.contains("cursor=cursor-1") == true)
+        #expect(request.url?.query?.contains("limit=10") == true)
+
+        #expect(page.items.count == 1)
+        #expect(page.items.first?.id == "plant-1")
+        #expect(page.nextCursor == "cursor-2")
+    }
+
+    @Test("searchPlants decodes a nil nextCursor as the last page")
+    func searchPlantsDecodesTerminalPage() async throws {
+        let identifier = "search-plants-terminal"
+        defer { StubURLProtocol.unregister(identifier) }
+
+        let resultJSON = #"""
+            {"items": [], "nextCursor": null}
+            """#
+        let gateway = makeGateway(identifier: identifier, answer: .json(200, resultJSON))
+
+        let page = try await gateway.searchPlants(gardenId: "garden-1", query: nil, cursor: nil, limit: nil)
+
+        let request = try #require(StubURLProtocol.requests(forSession: identifier).first)
+        #expect(request.url?.query == nil)
+        #expect(page.items.isEmpty)
+        #expect(page.nextCursor == nil)
+    }
+
+    @Test("listPlantPhotos GETs the photos path and decodes the items")
+    func listPlantPhotosDecodesResult() async throws {
+        let identifier = "list-plant-photos"
+        defer { StubURLProtocol.unregister(identifier) }
+
+        let resultJSON = #"""
+            {"items": [
+              {"id": "photo-1", "plantId": "plant-1", "mediaId": "media-1", "isPrimary": true, "createdAt": "2026-01-01T00:00:00.000Z"},
+              {"id": "photo-2", "plantId": "plant-1", "mediaId": "media-2", "isPrimary": false, "createdAt": "2026-01-02T00:00:00.000Z"}
+            ]}
+            """#
+        let gateway = makeGateway(identifier: identifier, answer: .json(200, resultJSON))
+
+        let photos = try await gateway.listPlantPhotos(gardenId: "garden-1", plantId: "plant-1")
+
+        let request = try #require(StubURLProtocol.requests(forSession: identifier).first)
+        #expect(request.url?.path == "/v1/gardens/garden-1/plants/plant-1/photos")
+        #expect(request.httpMethod == "GET")
+
+        #expect(photos.count == 2)
+        #expect(photos.first?.isPrimary == true)
+        #expect(photos.last?.mediaId == "media-2")
     }
 }
 

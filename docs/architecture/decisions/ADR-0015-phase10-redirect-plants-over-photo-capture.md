@@ -16,12 +16,13 @@ candidates (fences, beds, paths). Two problems surfaced in discussion with the o
    waiting for cloud processing, and reviewing/correcting an AI proposal — the opposite of Phase
    10's own stated goal (`implementation-plan.md` section 19.4: "Evaluation shows lower user effort
    for the selected use cases at approved quality and cost").
-2. **A better mechanism already exists in the plan.** Phase 11 ("AR and LiDAR Measurement") lets a
-   user mark points/lines/polygons on site, in real time, via ARKit — giving live, on-device
-   measurement without photographing anything or waiting on server-side recognition. For an
-   irregular bed or a complex lot boundary specifically (the cases where manual entry is genuinely
-   tedious), AR marking is a closer fit than photo-based recognition: it produces a real geometric
-   trace at the actual scale, not a 2D image an AI model has to reinterpret.
+2. **A better mechanism already exists in the plan.** Phase 12 ("Voice-Guided AR Garden Mapping and
+   Solar Context"; renumbered from Phase 11 when plant intelligence and the visual journal were
+   inserted on July 28, 2026) lets a user mark points/lines/polygons on site, in real time, via ARKit
+   — giving live, on-device measurement without photographing anything or waiting on server-side
+   recognition. For an irregular bed or a complex lot boundary specifically (the cases where manual
+   entry is genuinely tedious), AR marking is a closer fit than photo-based recognition: it produces
+   a real geometric trace at the actual scale, not a 2D image an AI model has to reinterpret.
 
 Separately, the owner identified that this codebase already has a real, higher-value, lower-risk
 place for photo-based AI that was sitting on a placeholder: `plants-inventory/application/
@@ -45,19 +46,21 @@ deferred. The consented-capture-dataset gate ADR-0014 built for exactly this use
 longer needed for it. Garden-layout capture is served instead by:
 
 - **Manual dimension entry** (shipped), for regular shapes a user can measure or estimate directly.
-- **Phase 11 AR marking** (planned, unchanged), for irregular shapes and complex boundaries, via
+- **Phase 12 AR marking** (planned, unchanged), for irregular shapes and complex boundaries, via
   on-site, real-time measurement rather than photograph-and-recognize.
 
 `P10-DATA-01`'s capture-session schema is **not discarded** — its fields (device capability class,
 coordinate-space reference, session/processing state, cancellation/recovery) were already designed
 generically enough to serve an AR capture session, not only a photo/video one (see
 `garden-capture-and-scan.md` section 6, which describes the capture-session concept across all
-capture stages, not Stage 2 specifically). It is retained as Phase 11 groundwork.
+capture stages, not Stage 2 specifically). It is retained as Phase 12 groundwork.
 `P10-ASYNC-01`'s job-queue plumbing is **not currently needed**: a single Gemini call for plant
 identification runs synchronously within an ordinary request (matching how the existing
 recommendation-explanation adapter already works — a direct call, no queue), and nothing else in
 the retained scope produces long-running background work. It is deferred, not deleted from the
-architecture; it returns if Phase 11 or Phase 12 introduces genuinely long-running processing.
+architecture; it returns for Phase 11 plant enrichment. Automated reconstruction has been removed
+from numbered release phases; long-running processing for that use case can return only after the
+future research track produces a new owner-approved ADR and delivery phase.
 
 Property-plan OCR/vectorization (Stage 1: importing an existing plan document/image, distinct from
 photographing the live garden) is unaffected by this decision and remains in scope where already
@@ -112,10 +115,10 @@ process:
   `P10-CV-02`, `P10-REVIEW-01`, `P10-RET-01`, `P10-COST-01` removed (they existed only to serve the
   abandoned use case); `P10-RESEARCH-01` removed (no dataset collection is required for what
   remains); `P10-IOS-01`/`P10-IOS-02` removed (AVFoundation-based guided photo/video capture UI —
-  Phase 11's own AR session lifecycle work package supersedes this need); `P10-DATA-01` retained,
-  reattributed as Phase 11 groundwork; `P10-ASYNC-01` deferred; two new work packages added for
+  Phase 12's own AR session lifecycle work package supersedes this need); `P10-DATA-01` retained,
+  reattributed as Phase 12 groundwork; `P10-ASYNC-01` deferred; two new work packages added for
   plant identification/condition tracking.
-- Phase 11's `P11-IOS-01` dependency on "P10 capture coordinator" is corrected to depend on
+- Phase 12's `P12-IOS-01` dependency on "P10 capture coordinator" is corrected to depend on
   `P10-DATA-01`'s session schema directly, since the AVFoundation capture-coordinator work package
   it previously named no longer exists.
 - `ADR-0014`'s status becomes Superseded by this ADR for the photo-object-recognition use case it
@@ -137,3 +140,7 @@ process:
   document's working vocabulary for "the AI-assisted capture work in progress," and the underlying
   work (replacing two already-identified stubs) is small enough not to need its own phase
   apparatus (research gate, exit criteria, forecast range).
+  The later Phase 11 insertion does not reverse this decision: Phase 10 still owns the bounded real
+  identification adapter and confirmation UI. Phase 11 owns the materially broader actual-versus-
+  candidate model, licensed multi-source knowledge, suitability, search and filters, repeated
+  visual journal, and complete native/web plant experience.

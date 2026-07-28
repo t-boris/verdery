@@ -19,6 +19,7 @@ export type TaxonomySource = Schemas['TaxonomySource'];
 export type Plant = Schemas['Plant'];
 export type PlantListResult = Schemas['PlantListResult'];
 export type PlantPhoto = Schemas['PlantPhoto'];
+export type PlantPhotoListResult = Schemas['PlantPhotoListResult'];
 export type PlantIdentification = Schemas['PlantIdentification'];
 /** `PlantIdentification.suggestedTaxonomy`, non-null — the openapi.yaml schema inlines this shape rather than naming a component for it (only this one field ever needs it), so it is derived here instead of duplicated. */
 export type PlantIdentificationSuggestion = NonNullable<PlantIdentification['suggestedTaxonomy']>;

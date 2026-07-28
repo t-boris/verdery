@@ -57,6 +57,14 @@ export interface PlantSpeciesCandidate {
    * `noConfidentCandidate` already establishes for the species guess itself.
    */
   readonly lifecycleStageGuess: string | null;
+  /**
+   * An approximate calendar date (`YYYY-MM-DD`) this plant was likely
+   * planted/acquired, estimated from visible maturity — never a bare guess
+   * with no grounding in what the photo actually shows. `null` when the
+   * model was not confident, the same "do not guess" posture every other
+   * suggested field here already establishes.
+   */
+  readonly acquisitionDateGuess: string | null;
 }
 
 export interface PlantIdentificationModelIdentity {

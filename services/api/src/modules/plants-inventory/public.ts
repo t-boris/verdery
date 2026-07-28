@@ -120,6 +120,7 @@ export type { AttachPlantPhotoInput } from './application/attach-plant-photo.js'
 export { SetPrimaryPlantPhoto } from './application/set-primary-plant-photo.js';
 export { UpdatePlantDetails } from './application/update-plant-details.js';
 export { ConfirmPlantIdentification } from './application/confirm-plant-identification.js';
+export { RecordObservationFromIdentification } from './application/record-observation-from-identification.js';
 export { TransitionPlantLifecycleStage } from './application/transition-plant-lifecycle-stage.js';
 export { SetPlantStatus } from './application/set-plant-status.js';
 export { MovePlant } from './application/move-plant.js';
@@ -127,6 +128,7 @@ export type { MovePlantInput } from './application/move-plant.js';
 export { SearchTaxonomyReferences } from './application/search-taxonomy-references.js';
 export { GetPlant } from './application/get-plant.js';
 export { GetPlantIdentification } from './application/get-plant-identification.js';
+export { ListPlantPhotos } from './application/list-plant-photos.js';
 export { SearchPlants } from './application/search-plants.js';
 export type { SearchPlantsFilters, PlantSearchResult } from './application/search-plants.js';
 

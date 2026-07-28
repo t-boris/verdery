@@ -5,6 +5,9 @@ export interface PlantPhotoRepository {
   /** Scoped to `plantId`, the same convention `MapObjectRepository.findById(gardenId, objectId)` follows: a photo id naming a real row that belongs to a different plant reads back as `null` here, not a separate mismatch case. */
   findById(plantId: Uuid, plantPhotoId: Uuid): Promise<PlantPhoto | null>;
 
+  /** Every photo attached to this plant, primary first, then oldest first — matches `ListPlantPhotos`'s own ordering contract. */
+  findAllForPlant(plantId: Uuid): Promise<PlantPhoto[]>;
+
   insert(photo: PlantPhoto): Promise<void>;
 
   /** Clears `is_primary` on every photo of this plant. `SetPrimaryPlantPhoto` and `AttachPlantPhoto` (when attaching a new primary) call this before setting the new primary, satisfying the migration's partial unique index (`plant_photo_plant_primary_idx`) themselves rather than relying on the database to reject a second `true` row. */

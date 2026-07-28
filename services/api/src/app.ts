@@ -322,6 +322,7 @@ export async function buildApplication(
     identifyPlantSpecies,
     logger,
     analyzePlantCondition,
+    recordObservation,
   );
 
   // tasks-recommendations: task commands (tag `Tasks`), the scheduled

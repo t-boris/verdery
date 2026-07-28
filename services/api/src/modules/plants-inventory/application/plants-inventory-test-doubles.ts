@@ -166,6 +166,18 @@ export class FakePlantPhotoRepository implements PlantPhotoRepository {
     return Promise.resolve(photo !== undefined && photo.plantId === plantId ? photo : null);
   }
 
+  findAllForPlant(plantId: Uuid): Promise<PlantPhoto[]> {
+    const photos = [...this.photos.values()]
+      .filter((photo) => photo.plantId === plantId)
+      .sort((a, b) => {
+        if (a.isPrimary !== b.isPrimary) {
+          return a.isPrimary ? -1 : 1;
+        }
+        return a.createdAt.getTime() - b.createdAt.getTime();
+      });
+    return Promise.resolve(photos);
+  }
+
   insert(photo: PlantPhoto): Promise<void> {
     this.photos.set(photo.id, photo);
     return Promise.resolve();

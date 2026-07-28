@@ -1,8 +1,8 @@
 # Cost and Scaling Design
 
-> Status: Draft 0.2
+> Status: Draft 0.3
 > Decision status: Approved baseline  
-> Last updated: July 22, 2026
+> Last updated: July 28, 2026
 
 ## 1. Purpose
 
@@ -109,24 +109,28 @@ Scaling order is:
 - Direct resumable uploads.
 - File-size, dimension, and duration limits.
 - Derivatives sized for actual UI needs.
-- 30-day raw successful scan retention.
+- Explicit retention for approved raw AR captures.
 - Short-lived exports.
 - Rebuildable derivative lifecycle.
 - Orphan cleanup.
 - Quotas by account and garden.
 - No duplicate derivative generation for same input/version.
 
-## 11. Scan Processing Controls
+Future automated reconstruction has no storage budget or retention promise. If promoted, its ADR
+must define lifecycle rules before raw reconstruction media is collected.
 
-- Validate and sample before expensive stages.
-- CPU before GPU when quality permits.
-- Explicit per-account concurrency.
-- Daily/monthly processing allowance.
-- User confirmation before high-cost pipeline.
-- Stage checkpointing.
-- Cancellation checks.
+## 11. Future Reconstruction Cost Gate
+
+Automated reconstruction remains research-only. A promotion decision must show a viable unit-cost
+model and define:
+
+- Validation and sampling before expensive stages.
+- CPU-before-GPU policy where quality permits.
+- Explicit per-account concurrency and processing allowances.
+- User confirmation before any high-cost pipeline.
+- Stage checkpointing and cancellation checks.
 - Time, memory, and retry limits.
-- Cost estimate and actual usage metrics by pipeline version.
+- Estimated and actual usage metrics by pipeline version.
 
 ## 12. Vertex AI Controls
 
@@ -173,7 +177,8 @@ Potential quota dimensions are:
 - Stored media bytes.
 - Individual upload size and video duration.
 - Concurrent uploads.
-- Scan runs and retained raw artifacts.
+- Approved AR capture storage. Future reconstruction runs and retained artifacts become quota
+  dimensions only after promotion.
 - AI explanations or assistant usage.
 - Export frequency.
 - Notification rate.
@@ -213,7 +218,8 @@ PostgreSQL search cannot meet measured relevance or latency needs.
 
 ### Add GPU/Specialist Compute
 
-Evaluated scan quality requires it and unit economics are approved.
+An approved media or future reconstruction workload demonstrates that it requires specialist
+compute and its unit economics are accepted.
 
 ### Extract Service
 
@@ -231,10 +237,12 @@ Load tests model:
 - Morning/evening task bursts.
 - Large sync backlog after outage.
 - Media upload completion burst.
-- Scan job submissions.
+- Approved plan, video, and AR processing submissions.
 - Recommendation batches.
 - Provider slowdown.
 - Database failover and connection recovery.
+
+Future reconstruction submissions join the model only after the research is promoted.
 
 Tests measure user latency, connection pressure, queue age, error rate, and unit cost.
 
@@ -246,7 +254,9 @@ Tests measure user latency, connection pressure, queue age, error rate, and unit
 - Monthly in steady operation.
 - Immediately after anomaly alert.
 
-Review compares actual cost per active garden, stored GB, processed scan, AI call, and synchronized operation where measurable.
+Review compares actual cost per active garden, stored GB, approved processing job, AI call, and
+synchronized operation where measurable. A promoted reconstruction pipeline must add its own unit
+cost.
 
 ## 21. Completion Criteria
 

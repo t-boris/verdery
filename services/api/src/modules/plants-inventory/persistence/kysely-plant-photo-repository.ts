@@ -36,6 +36,18 @@ export class KyselyPlantPhotoRepository implements PlantPhotoRepository {
     return row === undefined ? null : toPlantPhoto(row);
   }
 
+  async findAllForPlant(plantId: Uuid): Promise<PlantPhoto[]> {
+    const rows = await this.db
+      .selectFrom('plants_inventory.plant_photo')
+      .selectAll()
+      .where('plant_id', '=', plantId)
+      .orderBy('is_primary', 'desc')
+      .orderBy('created_at', 'asc')
+      .execute();
+
+    return rows.map(toPlantPhoto);
+  }
+
   async insert(photo: PlantPhoto): Promise<void> {
     await this.db
       .insertInto('plants_inventory.plant_photo')

@@ -1,5 +1,5 @@
 import type { Plant } from '@verdery/api-contracts';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LocalizationProvider } from '@/shared/localization/public';
@@ -7,6 +7,7 @@ import { LocalizationProvider } from '@/shared/localization/public';
 import { PlantDetail } from './plant-detail';
 
 const confirmMutateMock = vi.fn();
+const recordObservationMutateMock = vi.fn();
 
 let identificationState: { data: unknown };
 
@@ -23,6 +24,17 @@ vi.mock('./queries', () => ({
   useTransitionPlantLifecycleStage: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
   useMovePlant: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
   useTaxonomyReferenceSearch: () => ({ data: { items: [] }, isError: false }),
+  usePlantPhotos: () => ({ data: [], isPending: false, isError: false }),
+  useRecordObservationFromIdentification: () => ({
+    mutate: recordObservationMutateMock,
+    isPending: false,
+    isError: false,
+    isSuccess: false,
+  }),
+}));
+
+vi.mock('./map-object-queries', () => ({
+  useGardenMapObjects: () => ({ data: [], isPending: false, isError: false }),
 }));
 
 const PLANT: Plant = {
@@ -58,6 +70,7 @@ function renderDetail() {
 
 beforeEach(() => {
   confirmMutateMock.mockClear();
+  recordObservationMutateMock.mockClear();
   identificationState = { data: null };
 });
 
@@ -163,16 +176,74 @@ describe('PlantDetail — pending identification banner (ADR-0015)', () => {
         suggestedLifecycleStage: 'flowering',
         suggestedConditionNote: 'Leaves show mild water stress',
         suggestedCareGuidanceNote: 'Water more consistently and check drainage.',
+        suggestedAcquisitionDate: '2026-05-01',
       },
     };
 
     renderDetail();
 
-    expect(screen.getByText('Variety: Roma')).toBeTruthy();
-    expect(screen.getByText('Growth stage: Flowering')).toBeTruthy();
-    expect(screen.getByText('Condition: Leaves show mild water stress')).toBeTruthy();
-    expect(
-      screen.getByText('Care suggestion: Water more consistently and check drainage.'),
-    ).toBeTruthy();
+    const banner = within(
+      screen.getByText('The AI suggested a species for this plant.').closest('div')!,
+    );
+    expect(banner.getByText('Variety')).toBeTruthy();
+    expect(banner.getByText('Roma')).toBeTruthy();
+    expect(banner.getByText('Growth stage')).toBeTruthy();
+    expect(banner.getByText('Flowering')).toBeTruthy();
+    expect(banner.getByText('Condition')).toBeTruthy();
+    expect(banner.getByText('Leaves show mild water stress')).toBeTruthy();
+    expect(banner.getByText('Care suggestion')).toBeTruthy();
+    expect(banner.getByText('Water more consistently and check drainage.')).toBeTruthy();
+    expect(banner.getByText('Estimated acquisition date')).toBeTruthy();
+    expect(banner.getByText('2026-05-01')).toBeTruthy();
+  });
+
+  it('shows a "Record as observation" button and records it independently of confirming the species', () => {
+    identificationState = {
+      data: {
+        id: 'identification-1',
+        plantId: 'plant-1',
+        plantPhotoId: 'photo-1',
+        confidenceScore: 0.9,
+        createdAt: '2026-07-21T09:00:00Z',
+        suggestedTaxonomy: {
+          id: 'tax-1',
+          scientificName: 'Solanum lycopersicum',
+          commonName: 'Tomato',
+        },
+        suggestedConditionNote: 'Leaves show mild water stress',
+      },
+    };
+
+    renderDetail();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Record as observation' }));
+
+    expect(recordObservationMutateMock).toHaveBeenCalledWith({
+      plantId: 'plant-1',
+      identificationId: 'identification-1',
+    });
+    expect(confirmMutateMock).not.toHaveBeenCalled();
+  });
+
+  it('shows the banner for a condition guess alone, with no confirmable species suggestion', () => {
+    identificationState = {
+      data: {
+        id: 'identification-1',
+        plantId: 'plant-1',
+        plantPhotoId: 'photo-1',
+        confidenceScore: 0,
+        createdAt: '2026-07-21T09:00:00Z',
+        suggestedTaxonomy: null,
+        suggestedConditionNote: 'Leaves show mild water stress',
+      },
+    };
+
+    renderDetail();
+
+    expect(screen.getByText('The AI suggested a species for this plant.')).toBeTruthy();
+    expect(screen.getByText('Condition')).toBeTruthy();
+    expect(screen.getByText('Leaves show mild water stress')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Record as observation' })).toBeTruthy();
   });
 });

@@ -42,6 +42,7 @@ function fakesWithPlantAndIdentification() {
     suggestedLifecycleStage: null,
     suggestedConditionNote: null,
     suggestedCareGuidanceNote: null,
+    suggestedAcquisitionDate: null,
     confidenceScore: 0.8,
     createdAt: NOW,
   });
@@ -99,6 +100,7 @@ describe('ConfirmPlantIdentification', () => {
       suggestedLifecycleStage: null,
       suggestedConditionNote: null,
       suggestedCareGuidanceNote: null,
+      suggestedAcquisitionDate: null,
       confidenceScore: 0.88,
       createdAt: NOW,
     });
@@ -137,6 +139,7 @@ describe('ConfirmPlantIdentification', () => {
       suggestedLifecycleStage: 'flowering',
       suggestedConditionNote: 'Leaves show mild water stress',
       suggestedCareGuidanceNote: 'Water more consistently and check drainage.',
+      suggestedAcquisitionDate: '2026-05-01',
       confidenceScore: 0.9,
       createdAt: NOW,
     });
@@ -160,6 +163,8 @@ describe('ConfirmPlantIdentification', () => {
     expect(result.lifecycleStage).toBe('flowering');
     expect(result.conditionNote).toBe('Leaves show mild water stress');
     expect(result.careGuidanceNote).toBe('Water more consistently and check drainage.');
+    expect(result.acquisitionDate).toBe('2026-05-01');
+    expect(result.acquisitionDateType).toBe('acquired');
   });
 
   it('never overwrites variety, growth stage, condition, or care guidance the owner already set by hand', async () => {
@@ -186,6 +191,7 @@ describe('ConfirmPlantIdentification', () => {
       suggestedLifecycleStage: 'seedling',
       suggestedConditionNote: 'Leaves show mild water stress',
       suggestedCareGuidanceNote: 'Water more consistently and check drainage.',
+      suggestedAcquisitionDate: null,
       confidenceScore: 0.9,
       createdAt: NOW,
     });

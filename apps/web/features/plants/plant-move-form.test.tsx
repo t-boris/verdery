@@ -13,6 +13,10 @@ vi.mock('./queries', () => ({
   useMovePlant: () => idleMutation,
 }));
 
+vi.mock('./map-object-queries', () => ({
+  useGardenMapObjects: () => ({ data: [], isPending: false, isError: false }),
+}));
+
 const PLANT: Plant = {
   id: 'plant-1',
   gardenId: 'garden-1',

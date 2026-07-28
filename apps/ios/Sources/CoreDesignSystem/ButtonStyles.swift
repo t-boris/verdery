@@ -24,16 +24,23 @@ public struct PrimaryButtonStyle: ButtonStyle {
 }
 
 /// The outlined button: everything else that is a full-width commitment.
+///
+/// `tone` defaults to `.accent` (every existing call site's unchanged look);
+/// pass `.negative` for a destructive action like a plant's Delete, so its
+/// label reads red without a second button style to maintain.
 public struct SecondaryButtonStyle: ButtonStyle {
     @ScaledSize(Metrics.minimumTouchTarget) private var minimumHeight
     @Environment(\.isEnabled) private var isEnabled
+    private let tone: Tone
 
-    public init() {}
+    public init(tone: Tone = .accent) {
+        self.tone = tone
+    }
 
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(Typography.body.weight(.medium))
-            .foregroundStyle(Palette.accent)
+            .foregroundStyle(tone.foreground)
             .padding(.horizontal, Metrics.space4)
             .frame(minHeight: minimumHeight)
             .frame(maxWidth: .infinity)
@@ -43,7 +50,7 @@ public struct SecondaryButtonStyle: ButtonStyle {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: Metrics.radiusMedium, style: .continuous)
-                    .strokeBorder(Palette.controlBorder, lineWidth: Metrics.hairline)
+                    .strokeBorder(tone == .accent ? Palette.controlBorder : tone.foreground, lineWidth: Metrics.hairline)
             )
             .opacity(isEnabled ? (configuration.isPressed ? 0.82 : 1) : 0.45)
     }

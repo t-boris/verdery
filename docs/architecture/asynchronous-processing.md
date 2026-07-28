@@ -1,8 +1,8 @@
 # Asynchronous Processing Design
 
-> Status: Draft 0.2
+> Status: Draft 0.3
 > Decision status: Approved baseline  
-> Last updated: July 22, 2026
+> Last updated: July 28, 2026
 
 ## 1. Purpose
 
@@ -88,11 +88,13 @@ Cloud Run Jobs execute:
 
 - Video frame extraction.
 - Property-plan processing.
-- Scan reconstruction.
 - Large imports and exports.
 - Bulk recommendation computation.
 - Data repair and projection rebuild.
 - Retention and reconciliation batches.
+
+Automated reconstruction is not a current job category. If research is promoted through a new ADR
+and numbered delivery phase, its bounded reconstruction jobs may reuse this execution model.
 
 Each execution uses a versioned container and manifest. Large jobs checkpoint progress in PostgreSQL or Cloud Storage so retries do not restart all successful work unnecessarily.
 
@@ -109,7 +111,8 @@ Google Cloud Workflows is introduced when a process has multiple long-running re
 
 Candidate use cases are:
 
-- Garden Scan pipeline with multiple job stages.
+- A future automated-reconstruction pipeline, but only after a new ADR promotes the research into a
+  numbered delivery phase.
 - Account deletion across providers.
 - Cross-region recovery automation.
 - Complex export assembly.

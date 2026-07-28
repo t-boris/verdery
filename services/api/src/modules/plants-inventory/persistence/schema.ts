@@ -66,6 +66,7 @@ export interface PlantIdentificationRow {
   suggested_lifecycle_stage: string | null;
   suggested_condition_note: string | null;
   suggested_care_guidance_note: string | null;
+  suggested_acquisition_date: string | null;
   /**
    * `numeric(4,3)` — node-postgres returns this OID (1700) as a string by
    * default, unlike `double precision` (which every other fractional column

@@ -1,8 +1,8 @@
 # Security and Privacy Design
 
-> Status: Draft 0.2
+> Status: Draft 0.3
 > Decision status: Approved baseline  
-> Last updated: July 22, 2026
+> Last updated: July 28, 2026
 
 ## 1. Purpose
 
@@ -38,7 +38,8 @@ Client publications remain confidential user data even when intentionally shared
 
 ### Sensitive User Data
 
-Precise address/location, property plan, original media, raw Garden Scan video, depth data, private neighboring-property imagery, invitation tokens, and detailed support records.
+Precise address/location, property plan, original media, reserved raw reconstruction capture,
+AR/depth data, private neighboring-property imagery, invitation tokens, and detailed support records.
 
 ### Secrets
 
@@ -96,7 +97,9 @@ Cross-engagement and operational-versus-client isolation tests are mandatory for
 
 ## 7. App Check and Abuse Protection
 
-App Check rollout is monitor-first and progressively enforced. It is mandatory for expensive upload-session, scan, AI, and abuse-sensitive endpoints after compatibility validation.
+App Check rollout is monitor-first and progressively enforced. It is mandatory for expensive
+upload-session, approved media-processing, AI, and abuse-sensitive endpoints after compatibility
+validation. Any future reconstruction endpoint inherits this requirement before exposure.
 
 Additional controls include:
 
@@ -173,9 +176,12 @@ Each deployment unit has a dedicated Google Cloud service account:
 - Outbox relay.
 - Notification worker.
 - Media verifier.
-- Scan job.
+- Property-plan and video-processing jobs.
 - Export/deletion job.
 - CI deployment identity.
+
+Future automated reconstruction receives a dedicated identity only after a new ADR and numbered
+delivery phase authorize the workload.
 
 Broad default compute identities are not used. IAM roles are resource-scoped and reviewed through versioned provisioning scripts and environment configuration.
 
@@ -230,15 +236,15 @@ PDF, image, video, and archive parsing occurs in constrained workers:
 
 ## 19. Retention Baseline
 
-| Data                               | Baseline                             |
-| ---------------------------------- | ------------------------------------ |
-| Ordinary garden records and photos | Until user/garden deletion           |
-| Raw successful Garden Scan media   | 30 days after successful extraction  |
-| Failed capture recovery media      | Limited operational recovery period  |
-| Export packages                    | Short-lived automatic expiration     |
-| Security audit records             | Policy-defined limited retention     |
-| Operational logs                   | Shortest useful diagnostic retention |
-| Deleted account recovery           | 30 days before purge by default      |
+| Data                               | Baseline                                                                                            |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Ordinary garden records and photos | Until user/garden deletion                                                                          |
+| Future raw reconstruction capture  | Not collected; any future approved policy may be no longer than 30 days after extraction by default |
+| Failed capture recovery media      | Limited operational recovery period                                                                 |
+| Export packages                    | Short-lived automatic expiration                                                                    |
+| Security audit records             | Policy-defined limited retention                                                                    |
+| Operational logs                   | Shortest useful diagnostic retention                                                                |
+| Deleted account recovery           | 30 days before purge by default                                                                     |
 
 Exact legal and operational periods are recorded in a retention schedule before launch.
 

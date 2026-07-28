@@ -22,6 +22,7 @@ describe('createPlantIdentification', () => {
       null,
       null,
       null,
+      null,
       NOW,
     );
 
@@ -36,6 +37,7 @@ describe('createPlantIdentification', () => {
       suggestedLifecycleStage: null,
       suggestedConditionNote: null,
       suggestedCareGuidanceNote: null,
+      suggestedAcquisitionDate: null,
       confidenceScore: 0.75,
       createdAt: NOW,
     });
@@ -48,6 +50,7 @@ describe('createPlantIdentification', () => {
       PHOTO_ID,
       null,
       0,
+      null,
       null,
       null,
       null,
@@ -73,6 +76,7 @@ describe('createPlantIdentification', () => {
       null,
       null,
       null,
+      null,
       NOW,
     );
 
@@ -87,6 +91,7 @@ describe('createPlantIdentification', () => {
       suggestedLifecycleStage: null,
       suggestedConditionNote: null,
       suggestedCareGuidanceNote: null,
+      suggestedAcquisitionDate: null,
       confidenceScore: 0.88,
       createdAt: NOW,
     });
@@ -105,6 +110,7 @@ describe('createPlantIdentification', () => {
       'flowering',
       'Wilting leaves',
       'Water more consistently',
+      null,
       NOW,
     );
 
@@ -114,6 +120,26 @@ describe('createPlantIdentification', () => {
       suggestedConditionNote: 'Wilting leaves',
       suggestedCareGuidanceNote: 'Water more consistently',
     });
+  });
+
+  it('preserves the AI acquisition-date guess', () => {
+    const identification = createPlantIdentification(
+      IDENTIFICATION_ID,
+      PLANT_ID,
+      PHOTO_ID,
+      TAXONOMY_ID,
+      0.9,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      '2026-05-01',
+      NOW,
+    );
+
+    expect(identification.suggestedAcquisitionDate).toBe('2026-05-01');
   });
 
   it('rejects a confidence score outside 0..1', () => {
@@ -130,6 +156,7 @@ describe('createPlantIdentification', () => {
         null,
         null,
         null,
+        null,
         NOW,
       ),
     ).toThrow(ValidationError);
@@ -140,6 +167,7 @@ describe('createPlantIdentification', () => {
         PHOTO_ID,
         TAXONOMY_ID,
         -0.1,
+        null,
         null,
         null,
         null,

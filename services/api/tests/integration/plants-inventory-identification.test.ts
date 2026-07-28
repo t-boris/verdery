@@ -1,12 +1,15 @@
 /**
- * Full-stack integration tests for the plants-inventory module's photo,
- * photo-identification, and taxonomy-search commands against real
- * PostgreSQL/PostGIS — the sibling half of
- * `plants-inventory.test.ts`, split for the same 600-line reason
- * `map-objects.test.ts`/`map-objects-relationships.test.ts` are.
+ * Full-stack integration tests for the plants-inventory module's
+ * identification, observation-suggestion, and taxonomy-search commands
+ * against real PostgreSQL/PostGIS — split out of
+ * `plants-inventory-photos-identification.test.ts` (itself already split
+ * once, per that file's own doc comment) for the same 600-line reason
+ * `map-objects.test.ts`/`map-objects-relationships.test.ts` are; the photo
+ * half stays in `plants-inventory-photos.test.ts`.
  *
- * Covers `AddPlantFromPhoto`, `AttachPlantPhoto`, `SetPrimaryPlantPhoto`,
- * `ConfirmPlantIdentification`, and `SearchTaxonomyReferences`.
+ * Covers `ConfirmPlantIdentification`, `GetPlantIdentification`,
+ * `RecordObservationFromIdentification` (ADR-0015's own "AddPlantFromPhoto
+ * suggests an observation too" extension), and `SearchTaxonomyReferences`.
  *
  * Source: migrations/1784900000000_plants-observations-tasks-baseline.sql;
  * architecture/testing-strategy.md, section "6. Backend Integration Tests".
@@ -16,7 +19,6 @@ import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { Kysely, PostgresDialect } from 'kysely';
 import { runner } from 'node-pg-migrate';
 import pg from 'pg';
-import { pino } from 'pino';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import '../../src/platform/database/pg-bigint-parser.js';
 import '../../src/platform/database/pg-date-parser.js';
@@ -26,13 +28,16 @@ import { KyselyGardensMappingUnitOfWork } from '../../src/modules/gardens-mappin
 import { KyselyMembershipRepository } from '../../src/modules/gardens-mapping/persistence/kysely-membership-repository.js';
 import { RegisterMediaRecord } from '../../src/modules/media/application/register-media-record.js';
 import { KyselyMediaUnitOfWork } from '../../src/modules/media/persistence/kysely-media-unit-of-work.js';
+import {
+  KyselyObservationsHistoryUnitOfWork,
+  RecordObservation,
+} from '../../src/modules/observations-history/public.js';
 import { AddPlant } from '../../src/modules/plants-inventory/application/add-plant.js';
-import { AddPlantFromPhoto } from '../../src/modules/plants-inventory/application/add-plant-from-photo.js';
 import { AttachPlantPhoto } from '../../src/modules/plants-inventory/application/attach-plant-photo.js';
 import { ConfirmPlantIdentification } from '../../src/modules/plants-inventory/application/confirm-plant-identification.js';
 import { GetPlantIdentification } from '../../src/modules/plants-inventory/application/get-plant-identification.js';
+import { RecordObservationFromIdentification } from '../../src/modules/plants-inventory/application/record-observation-from-identification.js';
 import { SearchTaxonomyReferences } from '../../src/modules/plants-inventory/application/search-taxonomy-references.js';
-import { SetPrimaryPlantPhoto } from '../../src/modules/plants-inventory/application/set-primary-plant-photo.js';
 import { KyselyPlantIdentificationRepository } from '../../src/modules/plants-inventory/persistence/kysely-plant-identification-repository.js';
 import { KyselyPlantRepository } from '../../src/modules/plants-inventory/persistence/kysely-plant-repository.js';
 import { KyselyPlantsInventoryUnitOfWork } from '../../src/modules/plants-inventory/persistence/kysely-plants-inventory-unit-of-work.js';
@@ -49,7 +54,7 @@ import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
 import { disabledPlantAiCallPolicies } from '../support/plant-ai-integration-test-doubles.js';
 import { startPostgresTestContainer } from '../support/postgres-container.js';
 
-const SUITE_NAME = 'plants-inventory photos and identification integration';
+const SUITE_NAME = 'plants-inventory identification integration';
 const MIGRATIONS_DIRECTORY = new URL('../../migrations', import.meta.url).pathname;
 
 const dockerAvailable = await isDockerAvailable();
@@ -162,32 +167,16 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const idempotency = new KyselyIdempotencyStore(db, clock);
     const unitOfWork = new KyselyPlantsInventoryUnitOfWork(db, clock);
     const plantRepository = new KyselyPlantRepository(db);
-    const { identifyPlantSpecies, analyzePlantCondition } = disabledPlantAiCallPolicies(db, clock);
+    const { analyzePlantCondition } = disabledPlantAiCallPolicies(db, clock);
 
     return {
       addPlant: new AddPlant(idempotency, unitOfWork, authorization, clock),
-      addPlantFromPhoto: new AddPlantFromPhoto(
-        idempotency,
-        unitOfWork,
-        authorization,
-        clock,
-        identifyPlantSpecies,
-        new KyselyTaxonomyReferenceRepository(db),
-        pino({ level: 'silent' }),
-        analyzePlantCondition,
-      ),
       attachPlantPhoto: new AttachPlantPhoto(
         plantRepository,
         idempotency,
         unitOfWork,
         authorization,
         clock,
-      ),
-      setPrimaryPlantPhoto: new SetPrimaryPlantPhoto(
-        plantRepository,
-        idempotency,
-        unitOfWork,
-        authorization,
       ),
       confirmPlantIdentification: new ConfirmPlantIdentification(
         plantRepository,
@@ -202,115 +191,30 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
         new KyselyTaxonomyReferenceRepository(db),
         authorization,
       ),
+      recordObservationFromIdentification: new RecordObservationFromIdentification(
+        plantRepository,
+        new KyselyPlantIdentificationRepository(db),
+        authorization,
+        new RecordObservation(
+          idempotency,
+          new KyselyObservationsHistoryUnitOfWork(db, clock),
+          authorization,
+          clock,
+          analyzePlantCondition,
+        ),
+      ),
     };
   }
 
-  it('creates a plant from a photo with one plant_photo and one plant_identification row, taxonomyReferenceId staying null', async () => {
-    const now = new Date('2026-07-21T09:00:00Z');
-    const { ownerId, gardenId } = await createGardenWithOwner(now);
-    const handlers = buildHandlers(fixedClock(now));
-    const mediaId = await registerMedia(ownerId, gardenId, fixedClock(now));
-
-    const plant = await handlers.addPlantFromPhoto.execute(
-      gardenId,
-      ownerId,
-      { photoMediaId: mediaId },
-      generateUuidV7(),
-    );
-
-    expect(plant.taxonomyReferenceId).toBeNull();
-    expect(plant.groupingKind).toBe('individual');
-
-    const photoRow = await db
-      .selectFrom('plants_inventory.plant_photo')
-      .selectAll()
-      .where('plant_id', '=', plant.id)
-      .executeTakeFirstOrThrow();
-    expect(photoRow).toMatchObject({ media_id: mediaId, is_primary: true });
-
-    const identificationRow = await db
-      .selectFrom('plants_inventory.plant_identification')
-      .selectAll()
-      .where('plant_id', '=', plant.id)
-      .executeTakeFirstOrThrow();
-    expect(identificationRow).toMatchObject({
-      plant_photo_id: photoRow.id,
-      suggested_taxonomy_id: null,
-    });
-    expect(Number(identificationRow.confidence_score)).toBe(0);
-  });
-
-  it('attaches a second photo and moves primary between photos without violating the partial unique index', async () => {
-    const now = new Date('2026-07-21T09:00:00Z');
-    const { ownerId, gardenId } = await createGardenWithOwner(now);
-    const handlers = buildHandlers(fixedClock(now));
-    const firstMediaId = await registerMedia(ownerId, gardenId, fixedClock(now));
-    const secondMediaId = await registerMedia(ownerId, gardenId, fixedClock(now));
-
-    const plant = await handlers.addPlant.execute(
-      gardenId,
-      ownerId,
-      { displayName: 'Tomato', groupingKind: 'individual' },
-      generateUuidV7(),
-    );
-
-    const firstPhoto = await handlers.attachPlantPhoto.execute(
-      plant.id,
-      ownerId,
-      { mediaId: firstMediaId, isPrimary: true },
-      generateUuidV7(),
-    );
-    const secondPhoto = await handlers.attachPlantPhoto.execute(
-      plant.id,
-      ownerId,
-      { mediaId: secondMediaId, isPrimary: true },
-      generateUuidV7(),
-    );
-
-    const primaryRows = await db
-      .selectFrom('plants_inventory.plant_photo')
-      .select(['id', 'is_primary'])
-      .where('plant_id', '=', plant.id)
-      .where('is_primary', '=', true)
-      .execute();
-    expect(primaryRows).toEqual([{ id: secondPhoto.id, is_primary: true }]);
-
-    const flipped = await handlers.setPrimaryPlantPhoto.execute(
-      plant.id,
-      ownerId,
-      firstPhoto.id,
-      generateUuidV7(),
-    );
-    expect(flipped.isPrimary).toBe(true);
-
-    const primaryAfterFlip = await db
-      .selectFrom('plants_inventory.plant_photo')
-      .select(['id'])
-      .where('plant_id', '=', plant.id)
-      .where('is_primary', '=', true)
-      .execute();
-    expect(primaryAfterFlip).toEqual([{ id: firstPhoto.id }]);
-
-    // Neither AttachPlantPhoto nor SetPrimaryPlantPhoto bumps plant.revision
-    // (see both commands' own doc comments), but each still writes its own
-    // sync_change row for the *plant* — a puller must learn its photos
-    // changed even though the plant's own revision stayed put. Four
-    // sync_change rows total, all at revision 1: addPlant, the two
-    // AttachPlantPhoto calls, and the SetPrimaryPlantPhoto flip.
-    const syncChangeRows = await db
-      .selectFrom('platform.sync_change')
-      .select(['record_revision', 'operation'])
-      .where('record_id', '=', plant.id)
-      .where('record_type', '=', 'plant')
-      .orderBy('sequence', 'asc')
-      .execute();
-    expect(syncChangeRows).toEqual([
-      { record_revision: 1, operation: 'upsert' },
-      { record_revision: 1, operation: 'upsert' },
-      { record_revision: 1, operation: 'upsert' },
-      { record_revision: 1, operation: 'upsert' },
-    ]);
-  });
+  // A short, high-entropy suffix distinct from the one an earlier version of
+  // this test used (`generateUuidV7().slice(0, 8)`): a UUIDv7's *leading*
+  // characters are its millisecond timestamp, not random — two calls made
+  // moments apart within the same test run share most of that prefix, which
+  // is exactly the collision this helper exists to avoid. The *trailing*
+  // characters fall entirely within UUIDv7's random bits instead.
+  function uniqueSuffix(): string {
+    return generateUuidV7().slice(-8);
+  }
 
   it('confirms an identification, resolving the accepted_identification_id circular FK, and rejects a mismatched plant', async () => {
     const now = new Date('2026-07-21T09:00:00Z');
@@ -387,6 +291,110 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
         generateUuidV7(),
       ),
     ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("records the identification's condition analysis as a real observation, independent of confirming the identification", async () => {
+    const now = new Date('2026-07-21T09:00:00Z');
+    const { ownerId, gardenId } = await createGardenWithOwner(now);
+    const handlers = buildHandlers(fixedClock(now));
+    const mediaId = await registerMedia(ownerId, gardenId, fixedClock(now));
+
+    const plant = await handlers.addPlant.execute(
+      gardenId,
+      ownerId,
+      { displayName: 'Unidentified plant', groupingKind: 'individual' },
+      generateUuidV7(),
+    );
+    const photo = await handlers.attachPlantPhoto.execute(
+      plant.id,
+      ownerId,
+      { mediaId, isPrimary: true },
+      generateUuidV7(),
+    );
+    const identificationId = generateUuidV7();
+    await db
+      .insertInto('plants_inventory.plant_identification')
+      .values({
+        id: identificationId,
+        plant_id: plant.id,
+        plant_photo_id: photo.id,
+        suggested_condition_note: 'Leaves show mild water stress',
+        suggested_care_guidance_note: 'Water more consistently and check drainage.',
+        confidence_score: 0,
+        created_at: now,
+      })
+      .execute();
+
+    const observation = await handlers.recordObservationFromIdentification.execute(
+      plant.id,
+      ownerId,
+      identificationId,
+      generateUuidV7(),
+    );
+
+    expect(observation.plantId).toBe(plant.id);
+    expect(observation.conditionSummary).toBe('Leaves show mild water stress');
+    expect(observation.noteText).toBe('Water more consistently and check drainage.');
+    expect(observation.observedAt).toBe(now.toISOString());
+
+    // Confirming the same identification afterward still works — recording
+    // an observation neither consumes nor invalidates the row.
+    const confirmed = await handlers.confirmPlantIdentification.execute(
+      plant.id,
+      ownerId,
+      identificationId,
+      plant.revision,
+      generateUuidV7(),
+    );
+    expect(confirmed.acceptedIdentificationId).toBe(identificationId);
+
+    await expect(
+      handlers.recordObservationFromIdentification.execute(
+        plant.id,
+        ownerId,
+        generateUuidV7(),
+        generateUuidV7(),
+      ),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('rejects recording an observation from an identification with no condition analysis', async () => {
+    const now = new Date('2026-07-21T09:00:00Z');
+    const { ownerId, gardenId } = await createGardenWithOwner(now);
+    const handlers = buildHandlers(fixedClock(now));
+    const mediaId = await registerMedia(ownerId, gardenId, fixedClock(now));
+
+    const plant = await handlers.addPlant.execute(
+      gardenId,
+      ownerId,
+      { displayName: 'Unidentified plant', groupingKind: 'individual' },
+      generateUuidV7(),
+    );
+    const photo = await handlers.attachPlantPhoto.execute(
+      plant.id,
+      ownerId,
+      { mediaId, isPrimary: true },
+      generateUuidV7(),
+    );
+    const identificationId = generateUuidV7();
+    await db
+      .insertInto('plants_inventory.plant_identification')
+      .values({
+        id: identificationId,
+        plant_id: plant.id,
+        plant_photo_id: photo.id,
+        confidence_score: 0,
+      })
+      .execute();
+
+    await expect(
+      handlers.recordObservationFromIdentification.execute(
+        plant.id,
+        ownerId,
+        identificationId,
+        generateUuidV7(),
+      ),
+    ).rejects.toBeInstanceOf(DomainRuleViolatedError);
   });
 
   it('reads a pending identification suggestion with its resolved taxonomy, then 404s once confirmed', async () => {
@@ -513,16 +521,6 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       handlers.getPlantIdentification.execute(gardenId, plant.id, ownerId),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
-
-  // A short, high-entropy suffix distinct from the one an earlier version of
-  // this test used (`generateUuidV7().slice(0, 8)`): a UUIDv7's *leading*
-  // characters are its millisecond timestamp, not random — two calls made
-  // moments apart within the same test run share most of that prefix, which
-  // is exactly the collision this helper exists to avoid. The *trailing*
-  // characters fall entirely within UUIDv7's random bits instead.
-  function uniqueSuffix(): string {
-    return generateUuidV7().slice(-8);
-  }
 
   it('searches the taxonomy catalog by scientific and common name, case-insensitively', async () => {
     // Species unrelated to 'Solanum lycopersicum'/'Tomato' — the pair the

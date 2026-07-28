@@ -45,6 +45,11 @@ public final class PlantAddFromPhotoViewModel {
     /// existing test double keeps working unchanged;
     /// `AppCompositionRoot.makePlantAddFromPhotoViewModel` supplies a real one.
     public let photoAttachment: PhotoAttachmentController?
+    /// `nil` only for a `PlantAddFromPhotoViewModel` built with no
+    /// observation-suggestion capability wired in — see
+    /// `ObservationSuggestionController`'s own doc comment for why this is a
+    /// shared controller rather than a method here.
+    public let observationSuggestion: ObservationSuggestionController?
 
     public let gardenId: String
     private let addPlantFromPhoto: AddPlantFromPhoto
@@ -58,7 +63,8 @@ public final class PlantAddFromPhotoViewModel {
         fetchPlantIdentification: FetchPlantIdentification,
         confirmPlantIdentification: ConfirmPlantIdentification,
         strings: LocalizedStrings,
-        photoAttachment: PhotoAttachmentController? = nil
+        photoAttachment: PhotoAttachmentController? = nil,
+        observationSuggestion: ObservationSuggestionController? = nil
     ) {
         self.gardenId = gardenId
         self.addPlantFromPhoto = addPlantFromPhoto
@@ -66,6 +72,7 @@ public final class PlantAddFromPhotoViewModel {
         self.confirmPlantIdentification = confirmPlantIdentification
         self.strings = strings
         self.photoAttachment = photoAttachment
+        self.observationSuggestion = observationSuggestion
     }
 
     public var title: String { strings(.plantsAddFromPhotoTitle) }
@@ -87,6 +94,9 @@ public final class PlantAddFromPhotoViewModel {
     public var growthStageLabel: String { strings(.plantsIdentificationGrowthStageLabel) }
     public var conditionLabel: String { strings(.plantsIdentificationConditionLabel) }
     public var careGuidanceLabel: String { strings(.plantsIdentificationCareGuidanceLabel) }
+    public var acquisitionDateLabel: String { strings(.plantsIdentificationAcquisitionDateLabel) }
+    public var recordObservationButtonTitle: String { strings(.plantsIdentificationRecordObservationButton) }
+    public var observationRecordedMessage: String { strings(.plantsIdentificationObservationRecordedMessage) }
 
     public func growthStageName(_ stage: PlantLifecycleStage) -> String {
         PlantsLocalization.lifecycleStageName(stage, strings: strings)

@@ -1,8 +1,8 @@
 # Native Apple Application Design
 
-> Status: Draft 0.2
+> Status: Draft 0.3
 > Decision status: Approved baseline  
-> Last updated: July 22, 2026
+> Last updated: July 28, 2026
 
 ## 1. Purpose
 
@@ -233,6 +233,7 @@ Expensive geometry calculations run outside the main actor. Render snapshots are
 Device capture uses adapters around:
 
 - AVFoundation.
+- Speech for bounded, localized field commands.
 - PhotosUI.
 - Vision.
 - ARKit.
@@ -243,6 +244,13 @@ Device capture uses adapters around:
 The capture coordinator owns the session lifecycle and emits application-owned capture observations. Platform framework objects do not cross into persistent domain records.
 
 A capture flow persists a recoverable session record before collecting large media. The result is a proposal that requires user review before it modifies accepted garden geometry.
+
+Voice-guided AR mapping keeps speech recognition outside the domain layer. A deterministic command
+adapter maps approved phrases to capture-state intents; low-confidence interpretations require
+confirmation, and equivalent touch and accessibility intents use the same state machine. Raw audio
+is not retained by default. Core Location supplies session location and heading evidence, while
+accepted address and true-north orientation remain revisioned garden data rather than mutable sensor
+state.
 
 ## 13. Media Transfer
 

@@ -50,7 +50,7 @@ afterEach(() => {
 });
 
 describe('PlantLifecycleControls — offline gate (P5-WEB-01 follow-up)', () => {
-  it('disables save-stage/save-status/delete while offline and re-enables them on reconnect', () => {
+  it('disables save-stage/save-status while offline and re-enables them on reconnect', () => {
     renderControls();
 
     act(() => onlineManager.setOnline(false));
@@ -61,9 +61,6 @@ describe('PlantLifecycleControls — offline gate (P5-WEB-01 follow-up)', () => 
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save status' }).disabled).toBe(
       true,
     );
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Delete plant' }).disabled).toBe(
-      true,
-    );
 
     act(() => onlineManager.setOnline(true));
 
@@ -71,9 +68,6 @@ describe('PlantLifecycleControls — offline gate (P5-WEB-01 follow-up)', () => 
       false,
     );
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save status' }).disabled).toBe(
-      false,
-    );
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Delete plant' }).disabled).toBe(
       false,
     );
   });

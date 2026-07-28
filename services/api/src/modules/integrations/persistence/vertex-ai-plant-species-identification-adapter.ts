@@ -41,7 +41,7 @@ import type {
 } from '../application/plant-species-identification-provider.js';
 
 /** Bumped whenever the instruction wording below changes — stamped on every stored suggestion, the `VERTEX_EXPLANATION_PROMPT_TEMPLATE_VERSION` precedent. */
-export const VERTEX_PLANT_SPECIES_PROMPT_TEMPLATE_VERSION = 2;
+export const VERTEX_PLANT_SPECIES_PROMPT_TEMPLATE_VERSION = 3;
 
 /**
  * `LifecycleStage`'s own values (`plants-inventory/domain/plant-lifecycle.ts`),
@@ -77,7 +77,15 @@ const SYSTEM_INSTRUCTION =
   ' you see (e.g. a mature tree or shrub).\n' +
   '- Never state or imply whether the plant is edible, toxic, medicinal, or safe to touch or' +
   ' ingest, and never mention chemicals, pesticides, fertilizers, or dosages, even if asked.\n' +
+  '- If you can estimate, from visible maturity (stem/trunk thickness, leaf count, canopy size for' +
+  ' the species you named), approximately when this plant was likely planted or acquired, set' +
+  ' acquisitionDateConfident to true and acquisitionDateGuess to that calendar date' +
+  ' (YYYY-MM-DD, today minus your estimated age). Set acquisitionDateConfident to false — and do' +
+  ' not guess a date — when you cannot ground the estimate in what the photo actually shows.\n' +
   '- Respond with JSON only, matching the response schema exactly.';
+
+/** `YYYY-MM-DD` — the same calendar-date shape `plant.acquisition_date`'s own `date` column requires; anything else collapses to "no guess" in `parseResponse` rather than reaching the database. */
+const ACQUISITION_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const candidateSchema = z
   .object({
@@ -88,6 +96,8 @@ const candidateSchema = z
     varietyGuess: z.string().transform((value) => value.trim()),
     lifecycleStageConfident: z.boolean(),
     lifecycleStageGuess: z.enum(LIFECYCLE_STAGE_GUESSES),
+    acquisitionDateConfident: z.boolean(),
+    acquisitionDateGuess: z.string().transform((value) => value.trim()),
   })
   .strict();
 
@@ -184,6 +194,8 @@ export function buildGenerateContentParameters(
           'varietyGuess',
           'lifecycleStageConfident',
           'lifecycleStageGuess',
+          'acquisitionDateConfident',
+          'acquisitionDateGuess',
         ],
         properties: {
           noConfidentCandidate: { type: Type.BOOLEAN },
@@ -193,6 +205,8 @@ export function buildGenerateContentParameters(
           varietyGuess: { type: Type.STRING },
           lifecycleStageConfident: { type: Type.BOOLEAN },
           lifecycleStageGuess: { type: Type.STRING, enum: [...LIFECYCLE_STAGE_GUESSES] },
+          acquisitionDateConfident: { type: Type.BOOLEAN },
+          acquisitionDateGuess: { type: Type.STRING },
         },
       },
       safetySettings: [
@@ -257,6 +271,11 @@ export function parseResponse(
       lifecycleStageGuess: parsed.data.lifecycleStageConfident
         ? parsed.data.lifecycleStageGuess
         : null,
+      acquisitionDateGuess:
+        parsed.data.acquisitionDateConfident &&
+        ACQUISITION_DATE_PATTERN.test(parsed.data.acquisitionDateGuess)
+          ? parsed.data.acquisitionDateGuess
+          : null,
     },
   };
 }

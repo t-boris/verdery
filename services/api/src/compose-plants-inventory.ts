@@ -18,10 +18,13 @@ import {
   GetPlant,
   GetPlantIdentification,
   KyselyPlantIdentificationRepository,
+  KyselyPlantPhotoRepository,
   KyselyPlantRepository,
   KyselyPlantsInventoryUnitOfWork,
   KyselyTaxonomyReferenceRepository,
+  ListPlantPhotos,
   MovePlant,
+  RecordObservationFromIdentification,
   SearchPlants,
   SearchTaxonomyReferences,
   SetPlantStatus,
@@ -33,6 +36,7 @@ import type { PlantRoutesDependencies } from './modules/plants-inventory/public.
 import type { FastifyBaseLogger } from 'fastify';
 import type { GardenAuthorization } from './modules/gardens-mapping/public.js';
 import type { AnalyzePlantCondition, IdentifyPlantSpecies } from './modules/integrations/public.js';
+import type { RecordObservation } from './modules/observations-history/public.js';
 import type { DatabaseGateway } from './platform/database/database-gateway.js';
 import { KyselyIdempotencyStore } from './platform/idempotency/kysely-idempotency-store.js';
 import type { Clock } from './shared/time/clock.js';
@@ -44,6 +48,7 @@ export function composePlantsInventory(
   identifyPlantSpecies: IdentifyPlantSpecies,
   logger: FastifyBaseLogger,
   analyzePlantCondition: AnalyzePlantCondition,
+  recordObservation: RecordObservation,
 ): PlantRoutesDependencies {
   const plantRepository = new KyselyPlantRepository(database.queries);
   const taxonomyReferenceRepository = new KyselyTaxonomyReferenceRepository(database.queries);
@@ -71,6 +76,12 @@ export function composePlantsInventory(
     plantRepository,
     plantIdentificationRepository,
     taxonomyReferenceRepository,
+    gardenAuthorization,
+  );
+  const plantPhotoRepository = new KyselyPlantPhotoRepository(database.queries);
+  const listPlantPhotos = new ListPlantPhotos(
+    plantRepository,
+    plantPhotoRepository,
     gardenAuthorization,
   );
   const searchPlants = new SearchPlants(plantRepository, gardenAuthorization);
@@ -123,17 +134,25 @@ export function composePlantsInventory(
     clock,
   );
   const searchTaxonomyReferences = new SearchTaxonomyReferences(taxonomyReferenceRepository);
+  const recordObservationFromIdentification = new RecordObservationFromIdentification(
+    plantRepository,
+    plantIdentificationRepository,
+    gardenAuthorization,
+    recordObservation,
+  );
 
   return {
     addPlant,
     addPlantFromPhoto,
     getPlant,
     getPlantIdentification,
+    listPlantPhotos,
     searchPlants,
     updatePlantDetails,
     attachPlantPhoto,
     setPrimaryPlantPhoto,
     confirmPlantIdentification,
+    recordObservationFromIdentification,
     transitionPlantLifecycleStage,
     setPlantStatus,
     movePlant,

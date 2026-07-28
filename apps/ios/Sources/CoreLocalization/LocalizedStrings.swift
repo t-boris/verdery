@@ -85,6 +85,27 @@ public struct LocalizedStrings: Sendable {
         string(forKey: key.rawValue)
     }
 
+    /// The same resolution for the browsable plant-inventory list screen's
+    /// own key set. See ``PlantsListLocalizationKey`` for why this is yet
+    /// another key set rather than more cases somewhere existing.
+    public func callAsFunction(_ key: PlantsListLocalizationKey) -> String {
+        string(forKey: key.rawValue)
+    }
+
+    /// The same resolution for the map-object picker sheet's own key set.
+    /// See ``PlantMapObjectPickerLocalizationKey`` for why this is yet
+    /// another key set rather than more cases somewhere existing.
+    public func callAsFunction(_ key: PlantMapObjectPickerLocalizationKey) -> String {
+        string(forKey: key.rawValue)
+    }
+
+    /// The same resolution for the plant detail screen's photo gallery
+    /// section. See ``PlantPhotoGalleryLocalizationKey`` for why this is yet
+    /// another key set rather than more cases somewhere existing.
+    public func callAsFunction(_ key: PlantPhotoGalleryLocalizationKey) -> String {
+        string(forKey: key.rawValue)
+    }
+
     /// Every key any of the application's key sets declares.
     ///
     /// Exposed so catalogue completeness stays one check over one list rather
@@ -99,6 +120,9 @@ public struct LocalizedStrings: Sendable {
         + GardenContextLocalizationKey.allCases.map(\.rawValue)
         + PlantIdentificationLocalizationKey.allCases.map(\.rawValue)
         + MediaCaptureLocalizationKey.allCases.map(\.rawValue)
+        + PlantsListLocalizationKey.allCases.map(\.rawValue)
+        + PlantMapObjectPickerLocalizationKey.allCases.map(\.rawValue)
+        + PlantPhotoGalleryLocalizationKey.allCases.map(\.rawValue)
 
     /// Resolves an arbitrary key, used for codes that originate in Core.
     ///

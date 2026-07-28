@@ -508,18 +508,6 @@ public struct MovePlant: Sendable {
     }
 }
 
-public struct SearchTaxonomyReferences: Sendable {
-    private let gateway: any PlantGateway
-
-    public init(gateway: any PlantGateway) {
-        self.gateway = gateway
-    }
-
-    public func callAsFunction(gardenId: String, query: String? = nil, limit: Int? = nil) async throws -> [TaxonomyReference] {
-        try await gateway.searchTaxonomyReferences(gardenId: gardenId, query: query, limit: limit)
-    }
-}
-
 /// A plant created offline has no server-assigned revision yet. `0` is below
 /// the contract's `Revision` minimum of `1`
 /// (`packages/api-contracts/openapi.yaml`), so it can never be mistaken for a

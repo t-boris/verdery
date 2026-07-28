@@ -2,28 +2,21 @@ import CoreDesignSystem
 import CoreDomain
 import SwiftUI
 
-/// The plant inventory's entry point.
+/// The plant inventory's entry point: a browsable, searchable list
+/// (`PlantsListView`/`PlantsListView`, backed by `SearchPlants`), with
+/// "Add a plant" and "Add from photo" folded into a toolbar menu rather than
+/// competing with the list for screen space, plus a compact "open by ID"
+/// fallback below it for a plant this device's own search has not yet
+/// caught up to (e.g. one just created and not yet indexed elsewhere).
 ///
-/// There is still no `GET /gardens/{gardenId}/plants` list operation in the
-/// contract — only a single-plant `GET` — so this screen still cannot show an
-/// inventory, and this pass deliberately did not invent one: a client-side
-/// aggregation no endpoint backs would go stale or incomplete the moment a
-/// plant were added from another client. That constraint is what shapes the
-/// screen: it leads with the act it *can* perform, adding a plant, and keeps
-/// opening a known plant as a secondary affordance below it.
-///
-/// What changed is how the adding reads. It was thirteen labelled `Form` rows
-/// in one column; grouping kind, acquisition-date type, and — on the detail
-/// screen — lifecycle stage and status are now chip rows, each led by the
-/// symbol that stands for that value, so choosing one is a single tap against
-/// a recognisable shape rather than a `Picker` wheel. Optional fields stay
+/// Grouping kind, acquisition-date type, and — on the detail screen —
+/// lifecycle stage and status are chip rows, each led by the symbol that
+/// stands for that value, so choosing one is a single tap against a
+/// recognisable shape rather than a `Picker` wheel. Optional fields stay
 /// collapsed behind their toggles.
-///
-/// `AddPlantFromPhoto` (ADR-0015) gets its own entry point below the manual
-/// `addCard` — see `makePlantAddFromPhotoViewModel`'s own doc comment for the
-/// upload capability this screen previously lacked.
 public struct PlantsHomeView: View {
     @State private var model: PlantsHomeViewModel
+    @State private var listModel: PlantsListViewModel
     /// The plant this screen pushed to, if any.
     ///
     /// A local `@State` driving `.navigationDestination(item:)` rather than a
@@ -34,16 +27,18 @@ public struct PlantsHomeView: View {
     @State private var openedPlantId: String?
     @State private var isAddPresented = false
     @State private var isAddFromPhotoPresented = false
-    @FocusState private var isOpenIdFocused: Bool
+    @State private var isOpenByIdExpanded = false
     private let destination: (String) -> AnyView
     private let makeAddFromPhotoModel: () -> PlantAddFromPhotoViewModel
 
     public init(
         model: PlantsHomeViewModel,
+        listModel: PlantsListViewModel,
         destination: @escaping (String) -> AnyView,
         makeAddFromPhotoModel: @escaping () -> PlantAddFromPhotoViewModel
     ) {
         _model = State(wrappedValue: model)
+        _listModel = State(wrappedValue: listModel)
         self.destination = destination
         self.makeAddFromPhotoModel = makeAddFromPhotoModel
     }
@@ -51,9 +46,11 @@ public struct PlantsHomeView: View {
     public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.space5) {
-                addCard
-                addFromPhotoCard
-                openCard
+                PlantsListView(model: listModel) { plant in
+                    openedPlantId = plant.id
+                }
+
+                openByIdSection
 
                 if let message = model.errorMessage {
                     InlineMessage(message)
@@ -69,12 +66,24 @@ public struct PlantsHomeView: View {
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button {
-                    isAddPresented = true
+                Menu {
+                    Button {
+                        isAddPresented = true
+                    } label: {
+                        Label(model.addSectionTitle, systemImage: "plus")
+                    }
+                    .accessibilityIdentifier("plants.add.open")
+
+                    Button {
+                        isAddFromPhotoPresented = true
+                    } label: {
+                        Label(model.addFromPhotoButtonTitle, systemImage: "camera.fill")
+                    }
+                    .accessibilityIdentifier("plants.addFromPhoto.open")
                 } label: {
                     Label(model.addSectionTitle, systemImage: "plus")
                 }
-                .accessibilityIdentifier("plants.add.open")
+                .accessibilityIdentifier("plants.add.menu")
             }
         }
         .sheet(isPresented: $isAddPresented) {
@@ -98,93 +107,58 @@ public struct PlantsHomeView: View {
                 model.consumeNavigation()
             }
         }
-    }
-
-    /// The screen's primary act, as a large invitation rather than a form
-    /// section — this is what the empty inventory offers, and there is nothing
-    /// else for it to show.
-    private var addCard: some View {
-        Button {
-            isAddPresented = true
-        } label: {
-            SurfaceCard(tone: .accent) {
-                HStack(spacing: Metrics.space3) {
-                    IconMedallion(
-                        symbol: "leaf.fill",
-                        label: model.addSectionTitle,
-                        tone: .accent,
-                        isLarge: true
-                    )
-                    VStack(alignment: .leading, spacing: Metrics.space1) {
-                        Text(model.addSectionTitle)
-                            .font(Typography.title)
-                            .foregroundStyle(Palette.text)
-                        Text(model.displayNameLabel)
-                            .font(Typography.detail)
-                            .foregroundStyle(Palette.textMuted)
-                    }
-                    Spacer(minLength: 0)
-                    Image(systemName: "plus.circle.fill")
-                        .foregroundStyle(Palette.accent)
-                        .accessibilityHidden(true)
-                }
+        .onChange(of: openedPlantId) { _, newValue in
+            // A plant added or confirmed from either sheet should show up in
+            // the list without the reader having to pull to refresh — the
+            // list reloads once the pushed detail screen is dismissed back
+            // to this one.
+            if newValue == nil {
+                Task { await listModel.load() }
             }
         }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("plants.add.card")
     }
 
-    /// A secondary, quieter act next to `addCard`'s primary one — the same
-    /// visual demotion `openCard`'s plain `SurfaceCard` (no `.accent` tone)
-    /// already gives "open a known plant" relative to "add a plant".
-    private var addFromPhotoCard: some View {
-        Button {
-            isAddFromPhotoPresented = true
-        } label: {
-            SurfaceCard {
-                HStack(spacing: Metrics.space3) {
-                    IconMedallion(symbol: "camera.fill", label: model.addFromPhotoButtonTitle, tone: .neutral)
-                    Text(model.addFromPhotoButtonTitle)
-                        .font(Typography.body.weight(.medium))
-                        .foregroundStyle(Palette.text)
-                    Spacer(minLength: 0)
-                    Image(systemName: "chevron.right")
-                        .foregroundStyle(Palette.textMuted)
-                        .accessibilityHidden(true)
-                }
-            }
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("plants.addFromPhoto.card")
-    }
-
-    private var openCard: some View {
+    private var openByIdSection: some View {
         VStack(alignment: .leading, spacing: Metrics.space2) {
-            SectionEyebrow(symbol: "magnifyingglass", title: model.openSectionTitle)
+            Button {
+                isOpenByIdExpanded.toggle()
+            } label: {
+                HStack {
+                    Text(model.openSectionTitle)
+                        .font(Typography.detail.weight(.medium))
+                        .foregroundStyle(Palette.textMuted)
+                    Spacer(minLength: 0)
+                    Image(systemName: isOpenByIdExpanded ? "chevron.up" : "chevron.down")
+                        .foregroundStyle(Palette.textMuted)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("plants.open.toggle")
 
-            SurfaceCard {
-                VStack(alignment: .leading, spacing: Metrics.space3) {
-                    InlineMessage(model.openHint, tone: .info)
+            if isOpenByIdExpanded {
+                SurfaceCard {
+                    VStack(alignment: .leading, spacing: Metrics.space3) {
+                        InlineMessage(model.openHint, tone: .info)
 
-                    HStack(spacing: Metrics.space2) {
-                        TextField(model.openIdLabel, text: $model.openPlantId)
-                            .textFieldStyle(.roundedBorder)
-                            .focused($isOpenIdFocused)
-                            .submitLabel(.go)
-                            .onSubmit { model.openPlant() }
-                            .accessibilityIdentifier("plants.open.idField")
+                        HStack(spacing: Metrics.space2) {
+                            TextField(model.openIdLabel, text: $model.openPlantId)
+                                .textFieldStyle(.roundedBorder)
+                                .submitLabel(.go)
+                                .onSubmit { model.openPlant() }
+                                .accessibilityIdentifier("plants.open.idField")
 
-                        Button {
-                            model.openPlant()
-                        } label: {
-                            Label(model.openSubmitTitle, systemImage: "arrow.right.circle.fill")
-                                .labelStyle(.iconOnly)
-                                .font(Typography.title)
+                            Button {
+                                model.openPlant()
+                            } label: {
+                                Label(model.openSubmitTitle, systemImage: "arrow.right.circle.fill")
+                                    .labelStyle(.iconOnly)
+                                    .font(Typography.title)
+                            }
+                            .tint(Palette.accent)
+                            .disabled(model.openPlantId.trimmingCharacters(in: .whitespaces).isEmpty)
+                            .accessibilityLabel(model.openSubmitTitle)
+                            .accessibilityIdentifier("plants.open.submit")
                         }
-                        .tint(Palette.accent)
-                        .disabled(model.openPlantId.trimmingCharacters(in: .whitespaces).isEmpty)
-                        .accessibilityLabel(model.openSubmitTitle)
-                        .accessibilityIdentifier("plants.open.submit")
                     }
                 }
             }

@@ -1,8 +1,8 @@
 # Garden Map Rendering and Editing Design
 
-> Status: Draft 0.1  
+> Status: Draft 0.3
 > Decision status: Approved baseline  
-> Last updated: July 27, 2026
+> Last updated: July 28, 2026
 
 ## 1. Purpose
 
@@ -38,10 +38,15 @@ A garden may have an optional transformation to WGS84. The transformation includ
 - Local anchor.
 - Rotation.
 - Scale when derived from uncertain imagery.
-- Accuracy and provenance.
+- Location and true-north-orientation accuracy and provenance.
 - Revision.
 
 Changing georeferencing updates the transform, not every accepted local coordinate.
+
+When a georeference exists, the editor displays a true-north indicator. Authorized editors can
+revise the geographic anchor or north rotation through location search, map pinning, manual rotation,
+or approved control-point alignment. Device heading is only proposed evidence and never silently
+changes an accepted map orientation.
 
 ### 3.3 Screen Space
 
@@ -158,7 +163,9 @@ Undo and redo are local editor-session capabilities operating on committed local
 - Undo creates the inverse domain command; it does not rewind the database.
 - Once synchronized, undo remains a new explicit change.
 - Remote changes that invalidate the local stack clear or rebase affected entries with a user-visible explanation.
-- Accepted scan proposals can be undone through revision restoration, not by deleting processing history.
+- Accepted plan-extraction and AR proposals can be undone through revision restoration, not by
+  deleting processing history. The same rule applies to future reconstruction proposals only if
+  that research is promoted into delivery.
 
 ## 10. Snapping and Constraints
 
@@ -331,8 +338,20 @@ placement is the separate `georeference` table.
   geometry, non-listening, and the ordinary drawing tools (P3) draw over it unchanged; the one
   added affordance is a client-local underlay-opacity control for dimming a dense plan while
   tracing. Geographic anchors remain deferred with reasoning
-  (`docs/development/deferred-capabilities.md`): they require the not-yet-existing
-  georeference-authoring capability, after which plan→geographic composes for free.
+  (`docs/development/deferred-capabilities.md`) until `P12-GEO-01` supplies georeference authoring,
+  after which plan→geographic composes for free.
+
+### 16.2 Geographic and Solar Context
+
+Geographic imagery remains a replaceable contextual layer behind accepted garden-local geometry.
+The editor distinguishes imagery shadows from a calculated shadow overlay. A calculated overlay is
+versioned against the georeference, selected date/time, obstacle geometry, height facts, terrain
+inputs, and solar-model version.
+
+The renderer exposes a north indicator, input-quality summary, date/time controls, representative
+season shortcuts, and direct-sun-duration view where the analysis supports it. Missing obstacle
+heights or terrain reduce the visible confidence and never produce false precision. Web and iOS use
+the same analysis contract while retaining platform-appropriate interaction.
 
 ## 17. Generated Proposals
 

@@ -1071,7 +1071,14 @@ export interface paths {
             };
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List a plant's attached photos
+         * @description Every photo attached to this plant, primary first, then oldest
+         *     first. No pagination — a plant's photo count is always small.
+         *
+         *     Source: ADR-0015.
+         */
+        get: operations["listPlantPhotos"];
         put?: never;
         /**
          * Attach a photo to a plant
@@ -1176,6 +1183,36 @@ export interface paths {
          *     Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01; ADR-0015.
          */
         post: operations["confirmPlantIdentification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/plants/{plantId}/identification/{identificationId}/record-observation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                plantId: components["schemas"]["Uuid"];
+                identificationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record an identification's condition analysis as a real observation
+         * @description Turns a pending `plant_identification` row's already-computed
+         *     `suggestedConditionNote`/`suggestedCareGuidanceNote` into a real,
+         *     dated `Observation` — independent of, and separately callable from,
+         *     `ConfirmPlantIdentification` over the same row. Rejects with `409`
+         *     when the identification carries no condition analysis to record.
+         *
+         *     Source: ADR-0015.
+         */
+        post: operations["recordObservationFromIdentification"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5518,6 +5555,11 @@ export interface components {
             suggestedConditionNote: string | null;
             /** @description A general care suggestion (watering, light, pruning) from the same condition-analysis pass, or null when it had nothing specific to add. Never chemicals, pesticides, fertilizers, or dosages. */
             suggestedCareGuidanceNote: string | null;
+            /**
+             * Format: date
+             * @description The AI's own approximate acquisition-date guess, estimated from visible maturity, when confident. `ConfirmPlantIdentification` only applies it when the plant's own acquisitionDate is still null, defaulting acquisitionDateType to 'acquired' when that is also still unset.
+             */
+            suggestedAcquisitionDate: string | null;
         };
         TaxonomyReference: {
             id: components["schemas"]["Uuid"];
@@ -5530,6 +5572,10 @@ export interface components {
         };
         TaxonomyReferenceListResult: {
             items: components["schemas"]["TaxonomyReference"][];
+        };
+        /** @description Every photo attached to a plant, primary first, then oldest first. No pagination — a plant's photo count is always small, matching TaxonomyReferenceListResult's own unpaginated shape. */
+        PlantPhotoListResult: {
+            items: components["schemas"]["PlantPhoto"][];
         };
         /** @description Mirrors `AddPlantInput`. Source: plants-inventory/application/add-plant.ts. */
         AddPlantRequest: {
@@ -8510,6 +8556,31 @@ export interface operations {
             412: components["responses"]["PreconditionFailed"];
         };
     };
+    listPlantPhotos: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                plantId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The plant's attached photos. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlantPhotoListResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     attachPlantPhoto: {
         parameters: {
             query?: never;
@@ -8648,6 +8719,41 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    recordObservationFromIdentification: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                plantId: components["schemas"]["Uuid"];
+                identificationId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The recorded observation. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Observation"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     transitionPlantLifecycleStage: {

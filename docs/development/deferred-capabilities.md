@@ -270,14 +270,15 @@ state.
 
 **Raw-capture retention enforcement (P6-RET-01 scope boundary).** The 30-days-after-successful-
 extraction rule (architecture/media-storage-and-processing.md section 15; garden-capture-and-scan.md
-section 17) is DECLARED through `GET /media/retention-policy` with an explicit `enforced: false`
+section 10.8) is DECLARED through `GET /media/retention-policy` with an explicit `enforced: false`
 flag, and the sweep already processes any record whose `retention_deadline_at` passes — but nothing
-sets a raw-capture deadline yet, because the anchoring event (successful extraction) has no producer
-until Garden Scan lands (Phase 10). When that stage records an extraction outcome, its one remaining
-job here is to stamp `retention_deadline_at = extraction + 30 days` (the constant already exists in
-`domain/media-retention.ts`) and flip the policy entry to `enforced: true`; the sweep and deletion
-workflow need no further change. "Users may delete raw media sooner" already works: `DeleteGardenMedia`
-accepts any `available` original, raw capture included.
+sets a raw-capture deadline yet, because the anchoring event (successful extraction) has no producer.
+Automated reconstruction is research-only and does not authorize one. If a future ADR and newly
+numbered delivery phase introduce production raw capture, that work must stamp
+`retention_deadline_at = extraction + 30 days` (or an approved shorter duration) and flip the policy
+entry to `enforced: true`; the sweep and deletion workflow need no further change. "Users may delete
+raw media sooner" already works: `DeleteGardenMedia` accepts any `available` original, raw capture
+included.
 
 **Rejected-upload byte cleanup (P6-RET-01 scope boundary).** A `rejected` record (declared/actual
 mismatch at completion, or a failed validation) may hold real bytes, and the deletion workflow never
@@ -372,7 +373,10 @@ anywhere in the system (`georeference-repository.ts` documents the read-only pos
 history-preserving `gardens_mapping.georeference` table has no writer). Once a garden CAN be
 georeferenced, plan→geographic placement already composes for free — plan→local is this stage's
 calibration transform and local→WGS84 is the georeference — so the missing piece is the
-georeference-authoring capability, its own future work package, not more calibration modeling.
+georeference-authoring capability, now assigned explicitly to `P12-GEO-01`, not more calibration
+modeling. That work package also owns confirmed reverse-geocoded address metadata, true-north
+orientation and manual fallback, accuracy/provenance, privacy, revisioned authoring, and the API and
+client flows needed to make the existing read-only model writable.
 
 **Care-category vocabulary (P7-DATA-01 scope boundary).** The recommendation data model
 (`1785600000000_recommendations-baseline.sql`) carries a required `care_category` on every
@@ -728,14 +732,48 @@ for an identically-shaped "pending, or nothing to review" resource.
 
 **Still open**: `plant-gateway.ts`'s `attachPhoto`/`setPrimaryPhoto` and `task-gateway.ts`'s
 `attachFile` remain implemented and unit-tested for contract completeness only, with no
-`features/plants`/`features/tasks` hook or component calling them — `features/plants/plant-detail.tsx`
-still shows its plain gap notice (now scoped to just these two) instead of a control that would only
-fail. `RecordObservation`'s photo support is still left off `RecordObservationForm` the same way,
-though the contract already lets a note and/or a condition summary stand on their own without a
-photo, so recording an observation itself is not blocked. Each of these can now reuse `features/media`'s
-upload machinery directly (the same `useMediaUpload` hook, parameterized by `mediaClass`, already
-returns the `mediaId` these commands need) — the remaining work is UI wiring per attachment point, not
-new upload infrastructure.
+`features/plants`/`features/tasks` hook or component calling them to attach an ADDITIONAL photo to
+an EXISTING plant/task — `features/plants/plant-detail.tsx`'s gap notice (`plants.mediaGapTitle`)
+is now scoped to just this ("adding more photos is not available yet"), not to viewing what is
+already attached — see "Plant photo gallery, observation-suggestion, and acquisition-date guess
+client wiring" below for why. `RecordObservation`'s photo support is still left off
+`RecordObservationForm` the same way, though the contract already lets a note and/or a condition
+summary stand on their own without a photo, so recording an observation itself is not blocked. Each
+of these can now reuse `features/media`'s upload machinery directly (the same `useMediaUpload` hook,
+parameterized by `mediaClass`, already returns the `mediaId` these commands need) — the remaining
+work is UI wiring per attachment point, not new upload infrastructure. iOS has no such gap:
+`PlantDetailView`'s "Attach Photo" (`P6-IOS-01`, described above) already attaches an additional
+photo to an existing plant on that platform.
+
+**Plant photo gallery, observation-suggestion, and acquisition-date guess client wiring
+(ADR-0015 extension).** Following up on live use of the identification/condition-tracking work
+above, three related gaps closed together across both clients. (1) **Photo gallery**: a plant's
+attached photos (from `AddPlantFromPhoto` or, on iOS, `AttachPlantPhoto`) were never rendered back
+anywhere — `listPlantPhotos` (`GET /gardens/{gardenId}/plants/{plantId}/photos`, unpaginated) is a
+new read backing a real gallery on both platforms: web's `PlantPhotoGallery`
+(`features/plants/plant-photo-gallery.tsx`, resolving each photo's `mediaId` through a
+plants-owned `usePlantPhotoAccess`, mirroring `features/map/media-queries.ts`'s "rebuild the read
+directly on `core/api`" convention rather than importing `features/media`) and iOS's
+`PlantPhotoGalleryController`/`PlantPhotoGalleryView` (resolving each photo's signed URL eagerly via
+the existing `MediaGateway.getMediaAccess`, an `AsyncImage` thumbnail row). (2) **Observation
+suggestion**: `RecordObservationFromIdentification` (`POST .../identification/{id}/
+record-observation`) turns a pending identification's already-computed `suggestedConditionNote`/
+`suggestedCareGuidanceNote` into a real `Observation`, independent of and combinable with
+`ConfirmPlantIdentification` over the same row — a second "Record as observation" action alongside
+"Confirm" on both the add-from-photo review screen and the plant detail page's own pending-
+identification banner, shown whenever a condition guess exists regardless of whether the species
+guess itself was confident enough to confirm. (3) **Acquisition-date guess**:
+`PlantIdentification.suggestedAcquisitionDate` (a calendar date, confidence-gated the same way as
+every other suggested field, `VERTEX_PLANT_SPECIES_PROMPT_TEMPLATE_VERSION` bumped to 3) is applied
+by `ConfirmPlantIdentification` only when the plant's own `acquisitionDate` is still unset (fill-
+blanks-never-overwrite, defaulting `acquisitionDateType` to `'acquired'` when that is also unset),
+and shown as a suggestion-detail row on both clients. All three ship alongside a plant-detail-page
+visual pass on both platforms: icon-plus-label-plus-value suggestion rows (`PlantSymbols.condition`/
+`.careGuidance`/`.acquisitionDateGuess` on iOS; label-above-value-below blocks on web) instead of
+single colon-joined lines, and Delete moved into its own clearly-destructive-styled section
+(`SecondaryButtonStyle(tone:)`/`SurfaceCard(tone: .negative)` on iOS; `Button variant="destructive"`
+inside `Alert tone="danger"`, in a new `PlantDeleteSection`, on web) instead of a plain button at the
+bottom of the same panel as unrelated stage/status controls.
 
 **Photo and file attachment on iOS — resolved by `P6-IOS-01`.** The iOS half of the same gap this
 section describes for web is now closed. `CoreMediaTransfer` (new Core module) provides: durable
@@ -817,19 +855,22 @@ before. The client-side gap this used to name (no UI ever wired to either capabi
 closed on both platforms — see "`addFromPhoto`/`confirmIdentification`" and its iOS counterpart
 above.
 
-**~~`GET /gardens/{gardenId}/plants` exists but no client calls it~~ — fixed for web, still open for
-iOS.** `P4-SEARCH-01` closed the backend gap both clients' Phase 4 code had documented (no way to
-list a garden's plant inventory — each fell back to create-then-navigate or open-by-id). The web
-client's half is now closed: `plant-gateway.ts` gained a `search` method against `SearchPlants`,
+**~~`GET /gardens/{gardenId}/plants` exists but no client calls it~~ — now fixed on both platforms.**
+`P4-SEARCH-01` closed the backend gap both clients' Phase 4 code had documented (no way to list a
+garden's plant inventory — each fell back to create-then-navigate or open-by-id). The web client's
+half closed first: `plant-gateway.ts` gained a `search` method against `SearchPlants`,
 `features/plants/queries.ts` gained `useSearchPlants`, and a new `plant-list.tsx` (free-text
 `displayName` search plus "Load more" cursor pagination, the same stale/loading/error-state
 conventions `garden-list.tsx`/`task-list.tsx` use) is wired into the plants page alongside the
-existing add/open-by-id forms — a user can now actually browse a garden's inventory, not only create
-or navigate to a known id. Structured filters (`lifecycleStage`/`status`/`groupingKind`) were left
-out of this pass as a deliberate, documented scope call — the endpoint accepts them, but no filter UI
-was built beyond the text search box. `apps/ios/Sources/FeaturePlants/PlantsHomeView.swift` still
-carries the now-stale "no list operation" comment and was explicitly out of scope for this (web-only)
-follow-up; the iOS half of this gap remains open.
+existing add/open-by-id forms. Structured filters (`lifecycleStage`/`status`/`groupingKind`) were
+left out of this pass as a deliberate, documented scope call — the endpoint accepts them, but no
+filter UI was built beyond the text search box. iOS closed the same gap subsequently:
+`CoreNetworking.PlantGateway.searchPlants` (mirroring `GardenGateway`'s own cursor-page shape),
+`FeaturePlants.SearchPlants`, and a new `PlantsListViewModel`/`PlantsListView` (a manual "Load more"
+button, matching the web client's own choice over inventing infinite scroll) are now wired into
+`PlantsHomeView`, whose stale "no list operation" comment this closure also corrected — a user can
+now actually browse a garden's inventory on either platform, not only create or navigate to a known
+id.
 
 **Fixed (Phase 6).** `1784710800000_platform-baseline.sql`'s `CREATE EXTENSION postgis` needs real
 elevated privilege (not a Postgres "trusted" extension, unlike `pg_trgm`), which the automated deploy

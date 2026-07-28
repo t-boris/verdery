@@ -103,6 +103,15 @@ struct TaxonomyReferenceListResultTransport: Decodable {
     let items: [TaxonomyReferenceTransport]
 }
 
+struct PlantSearchPageTransport: Decodable {
+    let items: [PlantTransport]
+    let nextCursor: String?
+}
+
+struct PlantPhotoListResultTransport: Decodable {
+    let items: [PlantPhotoTransport]
+}
+
 struct PlantIdentificationSuggestionTransport: Codable {
     let id: String
     let scientificName: String
@@ -126,6 +135,7 @@ struct PlantIdentificationTransport: Codable {
     let suggestedLifecycleStage: PlantLifecycleStage?
     let suggestedConditionNote: String?
     let suggestedCareGuidanceNote: String?
+    let suggestedAcquisitionDate: String?
 
     var domainValue: PlantIdentification {
         PlantIdentification(
@@ -140,7 +150,8 @@ struct PlantIdentificationTransport: Codable {
             suggestedVarietyLabel: suggestedVarietyLabel,
             suggestedLifecycleStage: suggestedLifecycleStage,
             suggestedConditionNote: suggestedConditionNote,
-            suggestedCareGuidanceNote: suggestedCareGuidanceNote
+            suggestedCareGuidanceNote: suggestedCareGuidanceNote,
+            suggestedAcquisitionDate: suggestedAcquisitionDate
         )
     }
 }

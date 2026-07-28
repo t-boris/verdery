@@ -32,6 +32,7 @@ export interface PlantIdentificationResource {
   readonly suggestedLifecycleStage: LifecycleStage | null;
   readonly suggestedConditionNote: string | null;
   readonly suggestedCareGuidanceNote: string | null;
+  readonly suggestedAcquisitionDate: string | null;
 }
 
 export function toPlantIdentificationResource(
@@ -58,5 +59,6 @@ export function toPlantIdentificationResource(
     suggestedLifecycleStage: identification.suggestedLifecycleStage,
     suggestedConditionNote: identification.suggestedConditionNote,
     suggestedCareGuidanceNote: identification.suggestedCareGuidanceNote,
+    suggestedAcquisitionDate: identification.suggestedAcquisitionDate,
   };
 }

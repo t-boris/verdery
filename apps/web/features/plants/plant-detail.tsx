@@ -8,10 +8,17 @@ import { Alert, Button, Card, FailureAlert, StaleIndicator, StatusPill } from '@
 
 import { groupingKindLabel, lifecycleStageLabel, statusLabel, statusTone } from './labels';
 import styles from './plant-detail.module.css';
+import { PlantDeleteSection } from './plant-delete-section';
 import { PlantDetailsForm } from './plant-details-form';
 import { PlantLifecycleControls } from './plant-lifecycle-controls';
 import { PlantMoveForm } from './plant-move-form';
-import { useConfirmPlantIdentification, usePlant, usePlantIdentification } from './queries';
+import { PlantPhotoGallery } from './plant-photo-gallery';
+import {
+  useConfirmPlantIdentification,
+  usePlant,
+  usePlantIdentification,
+  useRecordObservationFromIdentification,
+} from './queries';
 
 export interface PlantDetailProps {
   readonly gardenId: string;
@@ -31,12 +38,29 @@ function rawSuggestionLabel(commonName: string, scientificName: string | null): 
 }
 
 /**
+ * One identification-suggestion fact: label above, value below, with real
+ * line height — not a single `${label}: ${value}` line, which crushed a full
+ * sentence (a condition/care guess) onto one crowded row. Mirrors
+ * `PlantIdentificationBannerView.detailRow`'s identical iOS redesign.
+ */
+function DetailRow({ label, value }: { readonly label: string; readonly value: string }) {
+  return (
+    <div>
+      <span className={styles['detailLabel']}>{label}</span>
+      <p className={styles['detailValue']}>{value}</p>
+    </div>
+  );
+}
+
+/**
  * A single plant: its current facts, and every command this phase wires
  * against it.
  *
- * Photo attachment (`AttachPlantPhoto`/`SetPrimaryPlantPhoto`) is still
- * omitted from this UI — each needs a real `media` record wired to a plant,
- * a separate follow-up not built in this pass, see
+ * This plant's attached photos are shown via `PlantPhotoGallery`
+ * (`listPlantPhotos`). Attaching an ADDITIONAL photo after creation
+ * (`AttachPlantPhoto`/`SetPrimaryPlantPhoto`) is still omitted from this UI
+ * — that needs a real upload flow wired to an existing plant, a separate
+ * follow-up not built in this pass, see
  * `docs/development/deferred-capabilities.md`. Photo identification
  * (`AddPlantFromPhoto`) and its confirmation (`ConfirmPlantIdentification`)
  * are no longer part of that gap: `add-plant-from-photo-panel.tsx`
@@ -52,6 +76,7 @@ export function PlantDetail({ gardenId, plantId }: PlantDetailProps) {
   const query = usePlant(gardenId, plantId);
   const identification = usePlantIdentification(gardenId, plantId);
   const confirmIdentification = useConfirmPlantIdentification(gardenId);
+  const recordObservation = useRecordObservationFromIdentification(gardenId);
 
   if (query.isPending) {
     return <p role="status">{t('plants.loading')}</p>;
@@ -75,6 +100,7 @@ export function PlantDetail({ gardenId, plantId }: PlantDetailProps) {
   const suggestedLifecycleStage = identification.data?.suggestedLifecycleStage ?? null;
   const suggestedConditionNote = identification.data?.suggestedConditionNote ?? null;
   const suggestedCareGuidanceNote = identification.data?.suggestedCareGuidanceNote ?? null;
+  const suggestedAcquisitionDate = identification.data?.suggestedAcquisitionDate ?? null;
 
   const onConfirmPending = () => {
     if (
@@ -89,6 +115,13 @@ export function PlantDetail({ gardenId, plantId }: PlantDetailProps) {
       identificationId: identification.data.id,
       expectedRevision: plant.revision,
     });
+  };
+
+  const onRecordObservation = () => {
+    if (identification.data === null || identification.data === undefined) {
+      return;
+    }
+    recordObservation.mutate({ plantId: plant.id, identificationId: identification.data.id });
   };
 
   return (
@@ -112,45 +145,88 @@ export function PlantDetail({ gardenId, plantId }: PlantDetailProps) {
         {plant.taxonomyReferenceId === null && <span>{t('plants.taxonomyNone')}</span>}
       </div>
 
-      {hasConfirmableSuggestion &&
+      <PlantPhotoGallery gardenId={gardenId} plantId={plant.id} />
+
+      {(hasConfirmableSuggestion || suggestedConditionNote !== null) &&
         identification.data !== null &&
         identification.data !== undefined && (
           <Alert tone="info" title={t('plants.identificationPendingBanner')}>
-            <p>
-              {pendingSuggestion !== null
-                ? suggestionLabel(pendingSuggestion)
-                : rawSuggestionLabel(
-                    rawSuggestedCommonName as string,
-                    identification.data.suggestedScientificName,
-                  )}
-            </p>
-            {pendingSuggestion === null && <p>{t('plants.identificationUnlistedNote')}</p>}
-            <p>
-              {`${t('plants.identificationConfidenceLabel')}: ${t('plants.identificationConfidenceValue', { percent: Math.round(identification.data.confidenceScore * 100) })}`}
-            </p>
-            {suggestedVarietyLabel !== null && (
-              <p>{`${t('plants.identificationVarietyLabel')}: ${suggestedVarietyLabel}`}</p>
-            )}
-            {suggestedLifecycleStage !== null && (
+            {hasConfirmableSuggestion && (
               <p>
-                {`${t('plants.identificationGrowthStageLabel')}: ${t(lifecycleStageLabel(suggestedLifecycleStage))}`}
+                {pendingSuggestion !== null
+                  ? suggestionLabel(pendingSuggestion)
+                  : rawSuggestionLabel(
+                      rawSuggestedCommonName as string,
+                      identification.data.suggestedScientificName,
+                    )}
               </p>
             )}
+            {pendingSuggestion === null && rawSuggestedCommonName !== null && (
+              <p>{t('plants.identificationUnlistedNote')}</p>
+            )}
+            {hasConfirmableSuggestion && (
+              <p>
+                {`${t('plants.identificationConfidenceLabel')}: ${t('plants.identificationConfidenceValue', { percent: Math.round(identification.data.confidenceScore * 100) })}`}
+              </p>
+            )}
+            <div className={styles['identificationDetails']}>
+              {suggestedVarietyLabel !== null && (
+                <DetailRow
+                  label={t('plants.identificationVarietyLabel')}
+                  value={suggestedVarietyLabel}
+                />
+              )}
+              {suggestedLifecycleStage !== null && (
+                <DetailRow
+                  label={t('plants.identificationGrowthStageLabel')}
+                  value={t(lifecycleStageLabel(suggestedLifecycleStage))}
+                />
+              )}
+              {suggestedConditionNote !== null && (
+                <DetailRow
+                  label={t('plants.identificationConditionLabel')}
+                  value={suggestedConditionNote}
+                />
+              )}
+              {suggestedCareGuidanceNote !== null && (
+                <DetailRow
+                  label={t('plants.identificationCareGuidanceLabel')}
+                  value={suggestedCareGuidanceNote}
+                />
+              )}
+              {suggestedAcquisitionDate !== null && (
+                <DetailRow
+                  label={t('plants.identificationAcquisitionDateLabel')}
+                  value={suggestedAcquisitionDate}
+                />
+              )}
+            </div>
+            {hasConfirmableSuggestion && (
+              <Button
+                variant="primary"
+                busy={confirmIdentification.isPending}
+                onClick={onConfirmPending}
+              >
+                {t('plants.identificationConfirm')}
+              </Button>
+            )}
             {suggestedConditionNote !== null && (
-              <p>{`${t('plants.identificationConditionLabel')}: ${suggestedConditionNote}`}</p>
+              <Button
+                variant="secondary"
+                busy={recordObservation.isPending}
+                onClick={onRecordObservation}
+              >
+                {t('plants.identificationRecordObservationButton')}
+              </Button>
             )}
-            {suggestedCareGuidanceNote !== null && (
-              <p>{`${t('plants.identificationCareGuidanceLabel')}: ${suggestedCareGuidanceNote}`}</p>
-            )}
-            <Button
-              variant="primary"
-              busy={confirmIdentification.isPending}
-              onClick={onConfirmPending}
-            >
-              {t('plants.identificationConfirm')}
-            </Button>
             {confirmIdentification.isError && (
               <FailureAlert failure={confirmIdentification.error.failure} />
+            )}
+            {recordObservation.isSuccess && (
+              <p role="status">{t('plants.identificationObservationRecordedMessage')}</p>
+            )}
+            {recordObservation.isError && (
+              <FailureAlert failure={recordObservation.error.failure} />
             )}
           </Alert>
         )}
@@ -170,6 +246,8 @@ export function PlantDetail({ gardenId, plantId }: PlantDetailProps) {
       <Card title={t('plants.moveTitle')}>
         <PlantMoveForm gardenId={gardenId} plant={plant} />
       </Card>
+
+      <PlantDeleteSection gardenId={gardenId} plant={plant} />
     </div>
   );
 }

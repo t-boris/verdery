@@ -5,8 +5,9 @@ import { useEffect, useState, type FormEvent } from 'react';
 
 import { useIsOnline } from '@/core/connectivity/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Button, FailureAlert, TextField } from '@/shared/ui/public';
+import { Button, FailureAlert, Select } from '@/shared/ui/public';
 
+import { useGardenMapObjects } from './map-object-queries';
 import styles from './plant-move-form.module.css';
 import { useMovePlant } from './queries';
 
@@ -16,13 +17,13 @@ export interface PlantMoveFormProps {
 }
 
 /**
- * `MovePlantRequest`'s two placement fields as plain map-object-id text
- * fields — the same documented picker fallback `add-plant-form.tsx` uses,
- * for the same dependency-rule reason (see that file's doc comment). Unlike
- * `UpdatePlantDetailsRequest`, neither field here is nullable on the wire,
- * so a blank field is omitted from the request rather than sent as an
- * explicit `null` — there is no "clear the placement" affordance in this
- * command.
+ * `MovePlantRequest`'s two placement fields as `Select`s populated by
+ * `useGardenMapObjects` — see `add-plant-form.tsx`'s identical doc comment
+ * for why that hook is built directly on `core/api` rather than importing
+ * `features/map`. Unlike `UpdatePlantDetailsRequest`, neither field here is
+ * nullable on the wire, so a blank field is omitted from the request rather
+ * than sent as an explicit `null` — there is no "clear the placement"
+ * affordance in this command.
  *
  * Submission is additionally disabled while the browser is offline
  * (P5-WEB-01 follow-up), the same `disabled={!isOnline}` pattern
@@ -45,6 +46,14 @@ export function PlantMoveForm({ gardenId, plant }: PlantMoveFormProps) {
   const [placementMapObjectId, setPlacementMapObjectId] = useState(
     plant.placementMapObjectId ?? '',
   );
+  const mapObjectsQuery = useGardenMapObjects(gardenId);
+  const mapObjectOptions = [
+    { value: '', label: t('plants.mapObjectNone') },
+    ...(mapObjectsQuery.data ?? []).map((object) => ({
+      value: object.id,
+      label: object.label ? `${object.label} (${object.category})` : object.category,
+    })),
+  ];
 
   useEffect(
     () => setGardenAreaMapObjectId(plant.gardenAreaMapObjectId ?? ''),
@@ -70,13 +79,15 @@ export function PlantMoveForm({ gardenId, plant }: PlantMoveFormProps) {
 
   return (
     <form className={styles['form']} onSubmit={onSubmit} noValidate>
-      <TextField
+      <Select
         label={t('plants.gardenAreaMapObjectIdLabel')}
+        options={mapObjectOptions}
         value={gardenAreaMapObjectId}
         onChange={(event) => setGardenAreaMapObjectId(event.target.value)}
       />
-      <TextField
+      <Select
         label={t('plants.placementMapObjectIdLabel')}
+        options={mapObjectOptions}
         value={placementMapObjectId}
         onChange={(event) => setPlacementMapObjectId(event.target.value)}
       />

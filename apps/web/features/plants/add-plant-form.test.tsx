@@ -32,6 +32,10 @@ vi.mock('./queries', () => ({
   }),
 }));
 
+vi.mock('./map-object-queries', () => ({
+  useGardenMapObjects: () => ({ data: [], isPending: false, isError: false }),
+}));
+
 function renderForm() {
   return render(
     <LocalizationProvider locale="en">
