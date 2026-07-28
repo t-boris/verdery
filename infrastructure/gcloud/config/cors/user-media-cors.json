@@ -1,6 +1,10 @@
 [
   {
-    "origin": ["http://localhost:3000", "https://verdery-web-dev-t6amsr5o6a-uc.a.run.app"],
+    "origin": [
+      "http://localhost:3000",
+      "https://verdery-web-dev-417008876420.us-central1.run.app",
+      "https://verdery-web-dev-t6amsr5o6a-uc.a.run.app"
+    ],
     "method": ["PUT", "OPTIONS"],
     "responseHeader": ["Content-Type", "Content-Range", "Range", "X-Goog-Resumable"],
     "maxAgeSeconds": 3600

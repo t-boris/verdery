@@ -29,7 +29,8 @@ scripts/
   05-service-accounts.sh               Deploy and runtime service accounts, least privilege.
   06-workload-identity-federation.sh   Keyless GitHub Actions trust.
   07-iam-database-bootstrap.sh         One-time: grants a service account database access.
-  08-app-check-recaptcha.sh            reCAPTCHA Enterprise key for web App Check.
+  08-app-check-recaptcha.sh            reCAPTCHA key + Firebase web App Check registration.
+  sync-web-auth-domains.sh             Auth/App Check domains + provider registration.
   09-media-storage.sh                  Media buckets: user-media, raw-capture, derived, exports.
   10-media-processing-queue.sh         Cloud Tasks queue and worker service account.
   11-load-balancer.sh                  P8-NET-01: global HTTPS LB, serverless NEGs, managed TLS.
@@ -58,6 +59,26 @@ bash scripts/provision.sh dev
 bash scripts/07-iam-database-bootstrap.sh dev verdery-dev-api-runtime@verdery-dev.iam.gserviceaccount.com
 bash scripts/verify.sh dev
 ```
+
+After the first web deployment, synchronize every official Cloud Run URL
+alias with Firebase Authentication and the reCAPTCHA Enterprise key, and
+verify the key is registered on the configured Firebase web app:
+
+```bash
+bash scripts/sync-web-auth-domains.sh dev
+```
+
+Cloud Run exposes two valid URLs for one service. The script reads both from
+the service annotation instead of trusting `status.url`, which reports only
+one. It also includes `VERDERY_WEB_DOMAIN` when the environment has a custom
+domain. Re-run it after adding or changing that domain. `verify.sh` invokes
+the script's read-only `--check` mode so domain or provider-registration drift
+fails infrastructure verification instead of waiting for a user to find it.
+
+`deploy-api.sh` uses the same complete URL set for `HTTP_ALLOWED_ORIGINS`.
+`deploy-web.sh` checks that value after deploying and updates the API only
+when it differs, which covers the first deployment where the API necessarily
+exists before the web service has URLs to discover.
 
 `07-iam-database-bootstrap.sh` is deliberately not part of `provision.sh`: it briefly assigns Cloud
 SQL a public IP, restricted to the caller's own address, to grant a role membership no other API

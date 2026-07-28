@@ -26,7 +26,7 @@
 /**
  * Response headers that do not vary per request.
  *
- * The CSP is deliberately absent: see this file's header. These four are
+ * The CSP is deliberately absent: see this file's header. These headers are
  * served from `next.config.ts` for every path, including static assets, which
  * the proxy does not run on.
  */
@@ -34,6 +34,11 @@ export const STATIC_SECURITY_HEADERS: readonly { key: string; value: string }[] 
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   { key: 'X-Frame-Options', value: 'DENY' },
+  // Firebase Authentication opens a cross-origin OAuth popup and must be able
+  // to observe when that popup closes. This mode isolates unrelated top-level
+  // windows while preserving the opener relationship for windows this app
+  // deliberately opened.
+  { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
   // helmet's own default, which the API already sends (`app.ts` disables only
   // its CSP). Since the web client became the front door that carries the
   // session cookie and proxies `/v1/*`, it asserts the same transport

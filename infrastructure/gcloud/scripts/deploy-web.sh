@@ -57,12 +57,51 @@ gcloud run deploy "${VERDERY_WEB_SERVICE_NAME}" \
 service_url="$(gcloud run services describe "${VERDERY_WEB_SERVICE_NAME}" \
   --project="${VERDERY_PROJECT_ID}" --region="${VERDERY_REGION}" --format="value(status.url)")"
 
+# The API deploy normally discovers the web origins itself. On the first-ever
+# environment deployment, however, the API necessarily deploys before the web
+# service exists, so there are no origins to discover yet. Close that bootstrap
+# gap here, and repair later drift, without creating an API revision when the
+# value is already correct.
+if resource_exists gcloud run services describe "${VERDERY_CLOUD_RUN_SERVICE_NAME}" \
+  --project="${VERDERY_PROJECT_ID}" --region="${VERDERY_REGION}"; then
+  command -v jq >/dev/null || fail "Required command is not installed: jq"
+  if [[ -n "${VERDERY_WEB_DOMAIN:-}" ]]; then
+    desired_api_origins="https://${VERDERY_WEB_DOMAIN}"
+  else
+    desired_api_origins="$(cloud_run_service_origins_csv "${VERDERY_WEB_SERVICE_NAME}")"
+  fi
+
+  api_description="$(gcloud run services describe "${VERDERY_CLOUD_RUN_SERVICE_NAME}" \
+    --project="${VERDERY_PROJECT_ID}" \
+    --region="${VERDERY_REGION}" \
+    --format=json)"
+  current_api_origins="$(jq -r '
+    .spec.template.spec.containers[0].env
+    | map(select(.name == "HTTP_ALLOWED_ORIGINS"))
+    | first
+    | .value // ""
+  ' <<<"${api_description}")"
+
+  if [[ "${current_api_origins}" == "${desired_api_origins}" ]]; then
+    log "API browser origins already match every deployed web origin"
+  else
+    log "Synchronizing API browser origins: ${desired_api_origins}"
+    gcloud run services update "${VERDERY_CLOUD_RUN_SERVICE_NAME}" \
+      --project="${VERDERY_PROJECT_ID}" \
+      --region="${VERDERY_REGION}" \
+      --update-env-vars="^#^HTTP_ALLOWED_ORIGINS=${desired_api_origins}" \
+      --quiet \
+      >/dev/null
+  fi
+fi
+
 log "Deployed. Web URL: ${service_url}"
 log ""
 log "Reminders for a FIRST deployment (each is a separate, deliberate action):"
-log " - The API must allow this origin: set HTTP_ALLOWED_ORIGINS on ${VERDERY_CLOUD_RUN_SERVICE_NAME}"
-log "   to include ${service_url} (deploy-api.sh carries it once configured)."
-log " - The user-media bucket CORS must include ${service_url} for browser uploads"
+log " - API CORS is synchronized automatically above and on every API deploy."
+log " - The user-media bucket CORS must include every web origin for browser uploads"
 log "   (infrastructure/gcloud/config/cors/user-media-cors.json + 09-media-storage.sh)."
-log " - Firebase Authentication must list the host of ${service_url} in its"
-log "   authorized domains, or sign-in will fail."
+log " - Synchronize BOTH official Cloud Run aliases with Firebase Auth and"
+log "   reCAPTCHA App Check, or OAuth sign-in works on one alias and fails on"
+log "   the other:"
+log "   bash sync-web-auth-domains.sh ${ENVIRONMENT}"

@@ -33,17 +33,91 @@ exports}`), each with uniform bucket-level access and public access prevention e
   See `infrastructure/gcloud/scripts/09-media-storage.sh` for the per-bucket lifecycle policy and its
   reasoning.
 - A CORS policy on `verdery-dev-user-media` only (P6-WEB-01): `PUT`/`OPTIONS` from
-  `http://localhost:3000` and the deployed web origin, response headers limited to the
+  `http://localhost:3000` and both deployed Cloud Run web aliases, response headers limited to the
   resumable-upload protocol's own (`Content-Type`, `Content-Range`, `Range`, `X-Goog-Resumable`).
   Required because browsers PUT upload bytes directly to resumable session URLs, which is
   cross-origin — `infrastructure/gcloud/config/cors/user-media-cors.json` is the source of truth.
 - The web client as its own Cloud Run service (`verdery-web-dev`,
   https://verdery-web-dev-t6amsr5o6a-uc.a.run.app), running as a dedicated ZERO-permission service
-  account (`verdery-dev-web-runtime` — the Next.js server calls no Google API). Its stable origin
-  is wired live into the API's `HTTP_ALLOWED_ORIGINS` (contributed automatically by
-  `deploy-api.sh` whenever the service exists), the user-media bucket's CORS, and Firebase
-  Authentication's authorized domains — each applied and read back live. The deploy workflow
-  builds the web image after the API verifies healthy and verifies the web serves a real page.
+  account (`verdery-dev-web-runtime` — the Next.js server calls no Google API). Both service
+  origins are wired live into the API's `HTTP_ALLOWED_ORIGINS` (contributed automatically by
+  `deploy-api.sh` whenever the service exists), the user-media bucket's CORS, Firebase
+  Authentication's authorized domains, the App Check key domains, and the
+  Firebase App Check web-provider registration — each applied and read back live.
+  Cloud Run also exposes
+  `https://verdery-web-dev-417008876420.us-central1.run.app`; both aliases are authorized in
+  Firebase Authentication and in the reCAPTCHA Enterprise key used by App Check. The deploy
+  workflow builds the web image after the API verifies healthy and verifies the web serves a real
+  page.
+
+### Web authentication domains
+
+OAuth popup authorization is based on the hostname visible in the browser. Cloud Run exposes two
+official URL aliases for one service, but `status.url` reports only one. On July 27, 2026, Google
+sign-in failed on the project-number alias because only the hashed alias had been added to Firebase
+Authentication. The browser never reached `POST /v1/auth/session`, which distinguished the popup
+failure from a session-cookie or API failure. The reCAPTCHA Enterprise key had the same drift: it
+still allowed only `localhost`, while API and user-media CORS allowed only the hashed alias.
+
+The idempotent synchronization command is:
+
+```bash
+infrastructure/gcloud/scripts/sync-web-auth-domains.sh dev
+```
+
+It discovers both aliases from the `run.googleapis.com/urls` service annotation, adds the optional
+`VERDERY_WEB_DOMAIN`, preserves unrelated domains in both allowlists, and reads both resulting
+configurations back before succeeding. It also verifies and, in synchronization
+mode, repairs the Firebase web app's association with the expected reCAPTCHA
+site key. Run it after the first web deployment and after any
+custom-domain change. It requires an operator identity allowed to update Identity Platform
+configuration and reCAPTCHA Enterprise keys; the CI deploy service account deliberately retains
+only image and Cloud Run deployment permissions. `verify.sh` calls the same script with `--check`,
+which performs no writes and fails if either allowlist or the provider
+registration drifts.
+
+On July 27, 2026, browser App Check returned `403` because the App Check API had
+not been enabled and the existing reCAPTCHA key had not been registered on the
+Firebase web app. The live project was repaired that day.
+`01-enable-apis.sh`, `08-app-check-recaptcha.sh`, and
+`sync-web-auth-domains.sh` now make both conditions reproducible. After such a
+repair, an already-open tab must be reloaded because the Firebase browser SDK
+throttles the failed provider instance after the first `403`.
+
+API CORS and direct-upload bucket CORS are owned by their existing deployment paths rather than the
+authentication synchronization script. `deploy-api.sh` reads the same complete Cloud Run alias
+annotation and uses a non-comma gcloud dictionary delimiter so the comma-separated
+`HTTP_ALLOWED_ORIGINS` value remains one environment variable. `deploy-web.sh` performs the same
+comparison and updates the API only when needed, closing the first-deployment ordering gap where
+the API exists before the web service has any URLs to discover. Development bucket CORS lists both
+aliases in `config/cors/user-media-cors.json`; an environment with `VERDERY_WEB_DOMAIN` renders the
+custom-domain policy in `09-media-storage.sh`.
+
+### Browser console triage from July 27, 2026
+
+The live incident contained unrelated messages that must not be treated as one
+failure:
+
+- App Check token exchange returned `403` and the Firebase SDK throttled that
+  provider instance for 24 hours. The project API and web provider registration
+  were repaired; reloading the page creates a new provider instance and clears
+  the in-memory throttle.
+- Zod 4's caught `Function("")` capability probe produced the report-only CSP
+  warning. The web validation adapter now enables `jitless` mode; the CSP
+  remains strict and does not add `unsafe-eval`.
+- Firebase Auth popup bookkeeping produced COOP warnings. The web front door
+  now sends `Cross-Origin-Opener-Policy: same-origin-allow-popups`, the mode
+  intended for deliberate cross-origin OAuth popups.
+- `GET /ownership-transfer` returning the contract's concealed `404` means no
+  pending transfer is visible to that caller. The query adapter converts that
+  exact code to `null`; changing the endpoint to `200` would weaken an
+  intentional existence-concealment contract.
+- The task list produced one `503` between July 26 and the time of review.
+  Cloud Logging attributes it to `@fastify/under-pressure` event-loop shedding;
+  later reads succeeded and TanStack Query retries failed reads. One isolated
+  shed is the availability control working, not evidence for removing it.
+- The `unload` Permissions Policy message came from `Grammarly-check.js`, a
+  browser extension script outside the application.
 
 ## Deploying
 

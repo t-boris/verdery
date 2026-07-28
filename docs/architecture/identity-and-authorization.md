@@ -290,17 +290,25 @@ client that cannot obtain a token therefore omits the header, records the fact
 as a diagnostic, and sends the request anyway.
 
 This is a rule learned from a live defect rather than a precaution. The iOS
-transport used to treat token acquisition as mandatory. `verdery-dev` has never
-had `firebaseappcheck.googleapis.com` enabled, so the SDK's attestation
-exchange could never succeed and always threw — which meant that in the shipped
-TestFlight build every authenticated request died before it was sent. Nothing
-reached the API (`verdery-api-dev`'s request log contains no iOS user agent at
-all), no transport error was raised, and the escaping error surfaced to readers
-as `error.server.unexpected` — a server-side apology for a server that had
-never been asked anything.
+transport used to treat token acquisition as mandatory. At the time,
+`verdery-dev` did not have `firebaseappcheck.googleapis.com` enabled, so the
+SDK's attestation exchange always threw — which meant that every authenticated
+request in the affected TestFlight build died before it was sent. Nothing
+reached the API, and the escaping error surfaced as `error.server.unexpected`.
+The API was enabled on July 27, 2026, but token acquisition remains
+best-effort: a cloud configuration regression must not remove the application
+API's monitor-mode availability.
 
-Enabling App Check for a project is therefore a prerequisite of rollout stage 3
-(enforcement), not of stage 1: no client may depend on it before then.
+For web clients, every browser-visible hostname must appear in both Firebase
+Authentication's authorized domains and the reCAPTCHA Enterprise key's allowed
+domains. Cloud Run exposes two official URL aliases for a service, while
+`status.url` reports only one; configuration therefore discovers the complete
+alias list from `run.googleapis.com/urls` and adds any custom application
+domain. `infrastructure/gcloud/scripts/sync-web-auth-domains.sh` owns this
+synchronization, preserves unrelated domains in both allowlists, and verifies
+that the reCAPTCHA site key is registered on the configured Firebase web app.
+`08-app-check-recaptcha.sh` enables both required APIs and creates or repairs
+that provider registration during initial provisioning.
 
 ## 13. Administrative and Support Access
 

@@ -63,6 +63,12 @@ check "Cloud Run service exists" gcloud run services describe "${VERDERY_CLOUD_R
 check "App Check reCAPTCHA Enterprise key exists" bash -c \
   "[[ -n \$(gcloud recaptcha keys list --project='${VERDERY_PROJECT_ID}' --filter='displayName=${VERDERY_PROJECT_ID}-web-app-check' --format='value(name)') ]]"
 
+if resource_exists gcloud run services describe "${VERDERY_WEB_SERVICE_NAME}" \
+  --project="${VERDERY_PROJECT_ID}" --region="${VERDERY_REGION}"; then
+  check "every web hostname is authorized for Firebase Auth and App Check" \
+    bash sync-web-auth-domains.sh "${ENVIRONMENT}" --check
+fi
+
 # Media buckets: existence, uniform bucket-level access, and public access
 # prevention, for all four. Lifecycle configuration is not re-verified here
 # by content (bucket-level checks confirm presence, not the exact JSON) —

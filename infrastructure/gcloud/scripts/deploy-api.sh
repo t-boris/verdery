@@ -21,12 +21,15 @@ IMAGE="${2:?usage: deploy-api.sh <environment> <image>}"
 load_environment_config "${ENVIRONMENT}"
 require_active_project
 
+# `#` is the gcloud dictionary delimiter for this command (see
+# `--set-env-vars` below). HTTP_ALLOWED_ORIGINS is itself comma-separated, so
+# the default comma delimiter cannot represent more than one web origin.
 env_vars="VERDERY_ENVIRONMENT=${VERDERY_ENVIRONMENT}"
-env_vars+=",DATABASE_CONNECTION_MODE=cloudSqlIam"
-env_vars+=",DATABASE_INSTANCE_CONNECTION_NAME=${VERDERY_PROJECT_ID}:${VERDERY_REGION}:${VERDERY_SQL_INSTANCE_NAME}"
-env_vars+=",DATABASE_IAM_USER=${VERDERY_RUNTIME_SERVICE_ACCOUNT_ID}@${VERDERY_PROJECT_ID}.iam"
-env_vars+=",DATABASE_NAME=${VERDERY_SQL_DATABASE_NAME}"
-env_vars+=",TRACING_ENABLED=${VERDERY_TRACING_ENABLED:-false}"
+env_vars+="#DATABASE_CONNECTION_MODE=cloudSqlIam"
+env_vars+="#DATABASE_INSTANCE_CONNECTION_NAME=${VERDERY_PROJECT_ID}:${VERDERY_REGION}:${VERDERY_SQL_INSTANCE_NAME}"
+env_vars+="#DATABASE_IAM_USER=${VERDERY_RUNTIME_SERVICE_ACCOUNT_ID}@${VERDERY_PROJECT_ID}.iam"
+env_vars+="#DATABASE_NAME=${VERDERY_SQL_DATABASE_NAME}"
+env_vars+="#TRACING_ENABLED=${VERDERY_TRACING_ENABLED:-false}"
 # The 5 second default (configuration-schema.ts) times a plain TCP connect
 # attempt, sized for a local or Testcontainers Postgres on the same machine.
 # The Cloud SQL connector does more before a connection exists at all — an
@@ -35,7 +38,7 @@ env_vars+=",TRACING_ENABLED=${VERDERY_TRACING_ENABLED:-false}"
 # window here, failing the startup ping and taking the revision down before
 # it ever served a request. 15 seconds is generous for that handshake without
 # meaningfully delaying a real failure's detection.
-env_vars+=",DATABASE_CONNECTION_TIMEOUT_MS=15000"
+env_vars+="#DATABASE_CONNECTION_TIMEOUT_MS=15000"
 # P8-DB-01: the per-instance pool size, which is one half of the connection
 # budget `max_connections` is set from (14-cloud-sql-hardening.sh). It is
 # configuration rather than a literal so the deployed service and the database
@@ -44,7 +47,7 @@ env_vars+=",DATABASE_CONNECTION_TIMEOUT_MS=15000"
 # The default matches configuration-schema.ts's own default, so an environment
 # that does not set it (dev) deploys exactly as before.
 # Source: architecture/networking.md section 11 ("Connection Pooling").
-env_vars+=",DATABASE_POOL_MAX_CONNECTIONS=${VERDERY_DATABASE_POOL_MAX_CONNECTIONS:-10}"
+env_vars+="#DATABASE_POOL_MAX_CONNECTIONS=${VERDERY_DATABASE_POOL_MAX_CONNECTIONS:-10}"
 # Required since Phase 2: the service verifies Firebase ID tokens and session
 # cookies against this exact project. Missing this fails startup
 # configuration validation immediately (loadConfiguration()), the same
@@ -52,7 +55,7 @@ env_vars+=",DATABASE_POOL_MAX_CONNECTIONS=${VERDERY_DATABASE_POOL_MAX_CONNECTION
 #
 # Source: architecture/identity-and-authorization.md, section
 # "2. Identity Authority".
-env_vars+=",FIREBASE_PROJECT_ID=${VERDERY_PROJECT_ID}"
+env_vars+="#FIREBASE_PROJECT_ID=${VERDERY_PROJECT_ID}"
 # The four private media buckets P6-PLAT-01 provisions
 # (09-media-storage.sh) and P6-API-01's endpoints require at startup
 # (configuration-schema.ts: MEDIA_*_BUCKET are non-optional). Discovered
@@ -60,11 +63,11 @@ env_vars+=",FIREBASE_PROJECT_ID=${VERDERY_PROJECT_ID}"
 # required variables below — a real gap predating this stage, fixed here
 # rather than left alongside new variables that would otherwise sit next to
 # a startup-config failure this script was never actually completing.
-env_vars+=",MEDIA_USER_MEDIA_BUCKET=${VERDERY_USER_MEDIA_BUCKET}"
-env_vars+=",MEDIA_RAW_CAPTURE_BUCKET=${VERDERY_RAW_CAPTURE_BUCKET}"
-env_vars+=",MEDIA_DERIVED_BUCKET=${VERDERY_DERIVED_BUCKET}"
-env_vars+=",MEDIA_EXPORTS_BUCKET=${VERDERY_EXPORTS_BUCKET}"
-env_vars+=",MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL=${VERDERY_WORKER_SERVICE_ACCOUNT_ID}@${VERDERY_PROJECT_ID}.iam.gserviceaccount.com"
+env_vars+="#MEDIA_USER_MEDIA_BUCKET=${VERDERY_USER_MEDIA_BUCKET}"
+env_vars+="#MEDIA_RAW_CAPTURE_BUCKET=${VERDERY_RAW_CAPTURE_BUCKET}"
+env_vars+="#MEDIA_DERIVED_BUCKET=${VERDERY_DERIVED_BUCKET}"
+env_vars+="#MEDIA_EXPORTS_BUCKET=${VERDERY_EXPORTS_BUCKET}"
+env_vars+="#MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL=${VERDERY_WORKER_SERVICE_ACCOUNT_ID}@${VERDERY_PROJECT_ID}.iam.gserviceaccount.com"
 
 # Browser CORS for the deployed web client (Phase 8 web deployment stage).
 #
@@ -82,18 +85,21 @@ env_vars+=",MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL=${VERDERY_WORKER_SERV
 # This allowlist is the defensive statement of who WOULD be allowed if a
 # cross-origin request ever occurred, and it is exactly one host.
 #
-# Without VERDERY_WEB_DOMAIN (dev), the pre-existing behavior is unchanged: the
-# web service URL is stable across revisions, so an already-existing web
-# service contributes its origin here on every API deploy. Before the web
-# service's own first deployment this stays empty, which the API treats as "no
-# cross-origin browser client is allowed" — the safe, pre-existing default.
+# Without VERDERY_WEB_DOMAIN (dev), every official Cloud Run alias is read from
+# the service annotation. `status.url` exposes only one of the two valid
+# browser-visible URLs; using it alone caused Google popup authorization to be
+# fixed on one alias while `POST /v1/auth/session` still failed CORS on the
+# other. Before the web service's first deployment this stays empty, which the
+# API treats as "no cross-origin browser client is allowed" — the safe default.
+http_allowed_origins=""
 if [[ -n "${VERDERY_WEB_DOMAIN:-}" ]]; then
-  env_vars+=",HTTP_ALLOWED_ORIGINS=https://${VERDERY_WEB_DOMAIN}"
+  http_allowed_origins="https://${VERDERY_WEB_DOMAIN}"
 elif resource_exists gcloud run services describe "${VERDERY_WEB_SERVICE_NAME}" \
   --project="${VERDERY_PROJECT_ID}" --region="${VERDERY_REGION}"; then
-  web_origin="$(gcloud run services describe "${VERDERY_WEB_SERVICE_NAME}" \
-    --project="${VERDERY_PROJECT_ID}" --region="${VERDERY_REGION}" --format="value(status.url)")"
-  env_vars+=",HTTP_ALLOWED_ORIGINS=${web_origin}"
+  http_allowed_origins="$(cloud_run_service_origins_csv "${VERDERY_WEB_SERVICE_NAME}")"
+fi
+if [[ -n "${http_allowed_origins}" ]]; then
+  env_vars+="#HTTP_ALLOWED_ORIGINS=${http_allowed_origins}"
 fi
 
 # `MEDIA_PROCESSING_CALLBACK_AUDIENCE` is the callback route's own OIDC
@@ -120,11 +126,11 @@ if resource_exists gcloud run services describe "${VERDERY_CLOUD_RUN_SERVICE_NAM
   --project="${VERDERY_PROJECT_ID}" --region="${VERDERY_REGION}"; then
   existing_service_url="$(gcloud run services describe "${VERDERY_CLOUD_RUN_SERVICE_NAME}" \
     --project="${VERDERY_PROJECT_ID}" --region="${VERDERY_REGION}" --format="value(status.url)")"
-  env_vars+=",MEDIA_PROCESSING_CALLBACK_AUDIENCE=${existing_service_url}/v1/internal/media-processing-jobs"
+  env_vars+="#MEDIA_PROCESSING_CALLBACK_AUDIENCE=${existing_service_url}/v1/internal/media-processing-jobs"
 else
   log "${VERDERY_CLOUD_RUN_SERVICE_NAME} does not exist yet — deploying once with a placeholder"
   log "MEDIA_PROCESSING_CALLBACK_AUDIENCE (corrected below once a real URL exists)."
-  env_vars+=",MEDIA_PROCESSING_CALLBACK_AUDIENCE=pending-first-deploy"
+  env_vars+="#MEDIA_PROCESSING_CALLBACK_AUDIENCE=pending-first-deploy"
 fi
 
 log "Deploying ${IMAGE} to ${VERDERY_CLOUD_RUN_SERVICE_NAME}"
@@ -157,7 +163,7 @@ gcloud run deploy "${VERDERY_CLOUD_RUN_SERVICE_NAME}" \
   --subnet="${VERDERY_SUBNET_NAME}" \
   --vpc-egress=private-ranges-only \
   --service-account="${VERDERY_RUNTIME_SERVICE_ACCOUNT_ID}@${VERDERY_PROJECT_ID}.iam.gserviceaccount.com" \
-  --set-env-vars="${env_vars}" \
+  --set-env-vars="^#^${env_vars}" \
   --min-instances=0 \
   --max-instances="${VERDERY_API_MAX_INSTANCES:-2}" \
   --concurrency="${VERDERY_API_CONCURRENCY:-80}" \

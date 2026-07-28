@@ -152,7 +152,9 @@ The decisions inside it that are not obvious:
   proxied by the web server itself, so `'self'` covers it. The policy names a cross-origin API host
   only in local development and the E2E harness, where the browser genuinely calls one.
 - **`'unsafe-eval'` and `ws:` exist only under `next dev`**, for React Refresh and hot reload. A
-  production build never takes that branch, and both unit tests and the E2E pin the delta.
+  production build never takes that branch, and both unit tests and the E2E pin the delta. Web form
+  schemas import `shared/validation/zod.ts`, which enables Zod's `jitless` mode so Zod 4 does not
+  emit a caught `new Function` capability probe into the report-only CSP console.
 
 ### 1.4 The reporting endpoint decision
 
@@ -328,27 +330,28 @@ which endpoint and by `jsonPayload.classification` to see whether clients are fa
 (`invalid`) or not attempting it (`missing`) — those have different fixes. Flip only when the count
 is attributable to abuse rather than to the iOS or web client.
 
-#### Hard prerequisite: the iOS client currently sends no App Check header at all
+#### Hard prerequisite: iOS App Attest remains unverified
 
 **Flipping enforcement today would reject every authenticated iOS request.** This is not a
-prediction from the telemetry — it follows from two facts that must both be fixed first.
+prediction from the telemetry: no real-device App Attest success has been
+recorded yet.
 
-`firebaseappcheck.googleapis.com` **is not an enabled service** on `verdery-dev`; verify with
-`gcloud services list --enabled --project=verdery-dev | grep appcheck`, which returns nothing. The
-SDK's attestation exchange is therefore refused with `SERVICE_DISABLED` before App Attest is
-reached, so `AppCheck.appCheck().token(forcingRefresh:)` cannot succeed for any device.
+The project-level prerequisite changed on July 27, 2026:
+`firebaseappcheck.googleapis.com` is now enabled, and the web app's reCAPTCHA
+Enterprise provider is registered. Those changes repair web attestation but do
+not register or prove the native App Attest provider for `com.verdery.app`.
 
 Since the fix described in `CoreNetworking.HTTPTransport.appCheckToken(from:correlationId:)`, that
 failure omits the header instead of destroying the request — which is correct while the mode is
-`monitor`, because the header is optional on every route. It also means iOS traffic classifies as
-`missing`, permanently and invisibly, and enforcement is deliberately fail-closed. The telemetry
-above will show iOS under `classification="missing"`; that is the client being unable to attest,
-**not** abuse, and it must not be read as a signal to flip.
+`monitor`, because the header is optional on every route. Until a real device
+proves the native provider, iOS traffic may classify as `missing`; that is a
+client attestation gap, **not** abuse, and must not be read as a signal to flip.
 
 Before `APP_CHECK_ENFORCEMENT=enforce`, all three must hold:
 
-1. `firebaseappcheck.googleapis.com` enabled on the project.
-2. The App Attest provider registered for `com.verdery.app` in the Firebase console.
+1. `firebaseappcheck.googleapis.com` remains enabled on the project. **Done and
+   checked by provisioning on July 27, 2026.**
+2. The App Attest provider is registered for `com.verdery.app` in Firebase.
 3. A build in which a real device is observed classifying as `valid` — not merely one where the
    token call stops throwing.
 

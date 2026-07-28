@@ -176,7 +176,11 @@ DNS changes are managed by versioned provisioning scripts where supported. Produ
 
 ## 15. CORS and Browser Boundaries
 
-The API allowlists exact deployed web origins. Wildcard credentialed CORS is prohibited. Preview environments use controlled origin registration or a non-cookie test authentication path.
+The API allowlists exact deployed web origins. Wildcard credentialed CORS is prohibited. Before a
+custom domain exists, every platform-issued Cloud Run URL alias is a deployed origin and must be
+discovered from `run.googleapis.com/urls`; `status.url` alone is incomplete. The same exact-origin
+set applies to direct-upload bucket CORS. Preview environments use controlled origin registration
+or a non-cookie test authentication path.
 
 Preflight caching is configured deliberately and does not widen methods or headers beyond the OpenAPI contract.
 

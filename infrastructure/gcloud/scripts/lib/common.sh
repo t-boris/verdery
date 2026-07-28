@@ -72,6 +72,30 @@ resource_exists() {
   "$@" >/dev/null 2>&1
 }
 
+# Prints the complete JSON array of public URLs Cloud Run assigns to a service.
+# `status.url` exposes only one valid alias and is therefore insufficient for
+# browser-origin allowlists.
+cloud_run_service_urls_json() {
+  local service_name="${1:?usage: cloud_run_service_urls_json <service-name>}"
+  local urls_json
+
+  command -v jq >/dev/null || fail "Required command is not installed: jq"
+  urls_json="$(gcloud run services describe "${service_name}" \
+    --project="${VERDERY_PROJECT_ID}" \
+    --region="${VERDERY_REGION}" \
+    --format='value(metadata.annotations."run.googleapis.com/urls")')"
+
+  jq -e 'type == "array" and length > 0' >/dev/null <<<"${urls_json}" ||
+    fail "Cloud Run returned no URL aliases for ${service_name}"
+  printf '%s' "${urls_json}"
+}
+
+# Prints the complete Cloud Run URL set as the comma-separated origin format
+# expected by HTTP_ALLOWED_ORIGINS.
+cloud_run_service_origins_csv() {
+  cloud_run_service_urls_json "${1}" | jq -er 'unique | join(",")'
+}
+
 # Fails, naming the variable, unless every argument is a set and non-empty
 # variable name.
 #
