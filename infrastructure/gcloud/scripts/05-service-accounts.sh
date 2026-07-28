@@ -103,6 +103,17 @@ grant_project_role "serviceAccount:${runtime_email}" "roles/cloudsql.instanceUse
 # Source: architecture/identity-and-authorization.md, section
 # "4. Native Authentication Flow".
 grant_project_role "serviceAccount:${runtime_email}" "roles/firebaseauth.admin"
+# Lets the running service call Vertex AI's generative models (Gemini) —
+# ADR-0015 plant species identification and condition analysis, and the
+# pre-existing AI-explanation capability. Enabling aiplatform.googleapis.com
+# (01-enable-apis.sh) only makes the API reachable in the project; without
+# this role every call fails with PERMISSION_DENIED, which the application
+# catches generically and turns into an ordinary "no confident candidate"
+# outcome — indistinguishable from a real low-confidence result with no
+# error logged anywhere. Observed directly: the first genuine end-to-end
+# photo identification test on a real device silently never called Gemini
+# at all until this grant was added.
+grant_project_role "serviceAccount:${runtime_email}" "roles/aiplatform.user"
 # Secret access is granted per-secret in 07-iam-database-bootstrap.sh, not at project scope,
 # so the runtime SA reads exactly the secrets it is given and no others.
 
