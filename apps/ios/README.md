@@ -77,14 +77,14 @@ would change the committed project.
 
 The iOS **device platform** component is not installed on this development machine, so
 `-destination 'generic/platform=iOS'` and therefore `xcodebuild archive` cannot run here; the
-`-sdk iphoneos` build above can, and does. Separately, `actool` refuses to compile the app icon
-unless an iOS *simulator runtime* matching the active `iphonesimulator` SDK is installed, which is
-why an icon-bearing build additionally needs that download. Both are
-`xcodebuild -downloadPlatform iOS`, not project problems.
+`-sdk iphoneos` build above can, and does. The iOS Simulator platform and matching runtime are
+installed: an icon-bearing `generic/platform=iOS Simulator` build succeeds. Installing a missing
+platform on another machine is an Xcode setup action (`xcodebuild -downloadPlatform iOS`), not a
+project change.
 
 Earlier revisions of this file reported that `xcrun simctl` failed or hung and that a full,
 unfiltered `swift test` crashed nondeterministically with SIGBUS. **Neither reproduces as of Phase
-8**: `simctl` responds normally, and the complete suite — 808 tests in 114 suites, every target
+8**: `simctl` responds normally, and the complete suite — 934 tests in 129 suites, every target
 together — passes locally in one run. The historical note is preserved in the Phase 4/5 stage
 records rather than here; if either symptom returns, characterize it again rather than assuming this
 paragraph is still accurate.
@@ -236,6 +236,13 @@ precondition its create-toolbar button enforces up front: it cannot be created u
 itself is category-agnostic (`MapObjectRenderKind` derives fill/stroke/marker from the geometry's own
 GeoJSON type, not from a category switch), so this was always true independent of which categories the
 create toolbar offered.
+
+Creation is a tap-to-place workflow: the app places a valid default area, line, or point at the
+tapped local-metre position, selects it, and opens its properties; precise reshaping follows through
+Edit Shape. Because all geometry is drawn into one SwiftUI `Canvas`, existing filled polygons are not
+independent gesture targets. `MapEditorViewModel.handleCanvasTap` resolves an armed creation before
+selection hit-testing, so a house, bed, fence, plant, or other object can be placed directly inside an
+existing lot instead of accidentally selecting the lot.
 
 **Commands wired up**: all 12 command types with real data to operate against —
 `createObject`, `moveObject`, `replaceGeometry`, `editVertex`, `splitLinework`, `joinLinework`,

@@ -130,3 +130,83 @@ export function SignOutIcon(props: IconProps) {
     </IconBase>
   );
 }
+
+/** Selection cursor. */
+export function CursorIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="m4 3 11 7-5 .9-2.7 4.3Z" />
+    </IconBase>
+  );
+}
+
+/** History step backward. */
+export function UndoIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="m7 5-4 4 4 4" />
+      <path d="M3 9h7.5a5 5 0 0 1 5 5v1" />
+    </IconBase>
+  );
+}
+
+/** History step forward. */
+export function RedoIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="m13 5 4 4-4 4" />
+      <path d="M17 9H9.5a5 5 0 0 0-5 5v1" />
+    </IconBase>
+  );
+}
+
+/** Hidden visibility state. */
+export function EyeOffIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M3 3 17 17" />
+      <path d="M7.2 5C8.1 4.4 9 4 10 4c2.9 0 5.5 2 7.5 6a13 13 0 0 1-2 3" />
+      <path d="M12.6 15.5c-.8.3-1.7.5-2.6.5-2.9 0-5.5-2-7.5-6a13.5 13.5 0 0 1 2-3" />
+    </IconBase>
+  );
+}
+
+/** Locked state. */
+export function LockIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <rect x="4.2" y="8.5" width="11.6" height="8" rx="1.2" />
+      <path d="M6.8 8.5V6.7a3.2 3.2 0 0 1 6.4 0v1.8" />
+    </IconBase>
+  );
+}
+
+/** Unlocked state. */
+export function UnlockIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <rect x="4.2" y="8.5" width="11.6" height="8" rx="1.2" />
+      <path d="M7 8.5V6.7a3.2 3.2 0 0 1 6-1.6" />
+    </IconBase>
+  );
+}
+
+/** Destructive remove action. */
+export function TrashIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M4 6h12M7 6V3.8h6V6M6 6l.7 10h6.6L14 6" />
+      <path d="M8.5 9v4.5M11.5 9v4.5" />
+    </IconBase>
+  );
+}
+
+/** Physical dimensions and measurements. */
+export function RulerIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="m4 14.5 10.5-10.5 2 2L6 16.5H4Z" />
+      <path d="m10 8.5 1.5 1.5M12 6.5 13.5 8M8 10.5l1.5 1.5" />
+    </IconBase>
+  );
+}

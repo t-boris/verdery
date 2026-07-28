@@ -7,11 +7,13 @@ import {
 } from 'react';
 
 import { useLocalization } from '@/shared/localization/public';
-import { Button, classNames } from '@/shared/ui/public';
+import { Button, TrashIcon, classNames } from '@/shared/ui/public';
 
+import { styleForCategory } from './category-style';
 import { useMapEditorStore } from './editor-store';
 import { categoryLabelKey } from './labels';
 import { isCategoryHidden, isCategoryLocked } from './map-layers';
+import { MapCategoryIcon } from './map-category-icon';
 import styles from './map-object-list.module.css';
 import type { MapObjectRecord } from './types';
 import type { MapEditorActions } from './use-map-editor-actions';
@@ -234,6 +236,12 @@ function ObjectListRow({
         onKeyDown={onKeyDown}
         {...lockedTitleProp}
       >
+        <span
+          className={styles['categoryIcon']}
+          style={{ color: styleForCategory(record.category).stroke }}
+        >
+          <MapCategoryIcon category={record.category} />
+        </span>
         <span className={styles['marker']} aria-hidden="true">
           {selected ? '▸' : ''}
         </span>
@@ -248,7 +256,7 @@ function ObjectListRow({
         onClick={onDelete}
         {...lockedTitleProp}
       >
-        {t('map.objectList.delete')}
+        <TrashIcon />
       </button>
     </li>
   );

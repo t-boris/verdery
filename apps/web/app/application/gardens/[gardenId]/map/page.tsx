@@ -13,7 +13,10 @@ export default async function GardenMapPage({
 
   return (
     <div className={styles['page']}>
-      <h1 className={styles['title']}>{t('map.page.title')}</h1>
+      <div className={styles['heading']}>
+        <h1 className={styles['title']}>{t('map.page.title')}</h1>
+        <p className={styles['description']}>{t('map.page.description')}</p>
+      </div>
       <MapEditor gardenId={gardenId} />
     </div>
   );

@@ -14,6 +14,7 @@ export interface ObjectShapeProps {
   readonly camera: MapCamera;
   readonly size: CanvasSize;
   readonly selected: boolean;
+  readonly interactive: boolean;
   readonly draggable: boolean;
   readonly onSelect: (objectId: string) => void;
   /**
@@ -45,6 +46,7 @@ export function ObjectShape({
   camera,
   size,
   selected,
+  interactive,
   draggable,
   onSelect,
   onMoveEnd,
@@ -62,7 +64,8 @@ export function ObjectShape({
     <Group
       x={0}
       y={0}
-      draggable={draggable}
+      listening={interactive}
+      draggable={interactive && draggable}
       onClick={() => onSelect(record.id)}
       onTap={() => onSelect(record.id)}
       onDragEnd={handleDragEnd}

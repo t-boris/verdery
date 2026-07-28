@@ -50,3 +50,8 @@
   flex-wrap: wrap;
   gap: var(--space-1);
 }
+
+.actions button {
+  inline-size: var(--control-min-size);
+  padding: var(--space-2);
+}

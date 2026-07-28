@@ -177,6 +177,32 @@ struct MapEditorViewModelTests {
         #expect(renderedIds(model).count == 1)
     }
 
+    @Test("A creation tap inside an existing lot creates the new object instead of selecting the lot")
+    func createInsideExistingLot() async {
+        let model = makeModel(gateway: FakeMapGateway(objects: [
+            square(id: "lot-1", category: .lot),
+        ]))
+        await model.load()
+        model.updateViewportSize(CGSize(width: 400, height: 400))
+
+        let pointInsideLot = model.transform.screenPoint(for: Position(x: 5, y: 5))
+        model.beginCreatePlacement(.structure)
+        await model.handleCanvasTap(atScreen: pointInsideLot)
+
+        guard case let .loaded(snapshot) = model.state,
+            let created = snapshot.objects.first(where: { $0.id != "lot-1" })
+        else {
+            Issue.record("Expected a new object inside the existing lot")
+            return
+        }
+
+        #expect(snapshot.objects.count == 2)
+        #expect(created.category == .structure)
+        #expect(model.selectedObjectId == created.id)
+        #expect(model.propertySheetObjectId == created.id)
+        #expect(model.armedCreateCategory == nil)
+    }
+
     @Test("A completed object drag commits locally and updates the object's position, with no gateway call")
     func dragCommitsMove() async {
         let gateway = FakeMapGateway(objects: [tree()])

@@ -142,11 +142,16 @@ export const englishMessages = {
     'Upload a photo of this garden. Uploading happens directly to storage, with real progress, pause, and resume.',
 
   'map.page.title': 'Garden map',
+  'map.page.description':
+    'Draw the garden, then select an object to enter its size and edit its properties.',
   'map.page.backToSettings': 'Garden settings',
   'map.page.openMap': 'Open map',
   'map.loading': 'Loading the garden map.',
 
   'map.toolbar.groupLabel': 'Editing tools',
+  'map.toolbar.groupBoundaries': 'Boundaries & structures',
+  'map.toolbar.groupGarden': 'Garden areas',
+  'map.toolbar.groupLiving': 'Plants & notes',
   'map.toolbar.select': 'Select',
   'map.toolbar.createLot': 'Draw lot boundary',
   'map.toolbar.createStructure': 'Draw structure',
@@ -230,6 +235,17 @@ export const englishMessages = {
   'map.properties.measurementAcquisitionMethod': 'How measured',
   'map.properties.measurementUncertainty': 'Uncertainty',
   'map.properties.measurementOriginalEntry': 'Original entry',
+  'map.properties.dimensionsTitle': 'Size & measurements',
+  'map.properties.dimensionsDescription':
+    'Enter a known size here. The shape is resized around its current centre; displayed values remain planning estimates.',
+  'map.properties.approximateBadge': 'Planning estimate',
+  'map.properties.overallWidthMetres': 'Overall width (m)',
+  'map.properties.overallDepthMetres': 'Overall depth (m)',
+  'map.properties.totalLengthMetres': 'Total length (m)',
+  'map.properties.area': 'Area',
+  'map.properties.perimeter': 'Perimeter',
+  'map.properties.applyDimensions': 'Apply size',
+  'map.properties.dimensionsInvalid': 'Enter dimensions greater than zero.',
 
   'map.enum.structureKind.house': 'House',
   'map.enum.structureKind.shed': 'Shed',
@@ -317,6 +333,8 @@ export const englishMessages = {
   'map.layers.hideAriaLabel': 'Hide {layer} layer',
   'map.layers.lockAriaLabel': 'Lock {layer} layer',
   'map.layers.unlockAriaLabel': 'Unlock {layer} layer',
+  'map.inspector.ariaLabel': 'Objects and properties',
+  'map.utilities.ariaLabel': 'Map layers, plans, calibration, and validation',
 
   'map.background.title': 'Plan backgrounds',
   'map.background.onMapTitle': 'On the map',

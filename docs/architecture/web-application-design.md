@@ -149,6 +149,19 @@ The map editor is a bounded subsystem containing:
 
 The editor receives immutable map snapshots and emits typed edit commands. It does not issue API mutations for every pointer movement. Commands are committed at stable interaction boundaries.
 
+On desktop, the route uses a wide three-region workspace: utility controls, a flexible canvas, and a
+dedicated object/property inspector. The object list and selected-object properties remain adjacent
+and visible independently of the utility-panel height. Responsive layouts preserve canvas priority,
+move utilities below the canvas and inspector at intermediate widths, and stack all regions on
+narrow screens.
+
+Drawing tools use category-specific icons, short labels, and stable category colors. Common actions
+with established symbols may be icon-only when accessible names and tooltips are present. Exact
+geometry dimensions are edited from the selected-object inspector: polygons use overall
+map-axis-aligned width and depth, lines use total length, and derived area or perimeter remains
+read-only. These controls update canonical local-metre geometry through a single typed command and
+retain the planning-only accuracy disclosure.
+
 ### 10.1 Client Portal Boundary
 
 The client portal is a separate route and feature boundary with a deliberately simpler read-only experience.
@@ -169,6 +182,10 @@ Actual historical timeline and future Time Machine are distinct views. Historica
 ## 11. Forms and Validation
 
 Zod schemas validate user input at the client boundary and may be generated or aligned with OpenAPI schemas. Server validation remains authoritative.
+Browser code imports Zod through `shared/validation/zod.ts`, which enables
+Zod's `jitless` mode. This avoids its `new Function` capability probe and
+keeps production validation compatible with the CSP prohibition on
+`unsafe-eval`; adding `unsafe-eval` is not an acceptable workaround.
 
 Forms must:
 
@@ -312,6 +329,9 @@ Dates, time zones, seasons, units, and decimal formatting use the user's locale 
 - User-authored text renders as text, not raw HTML.
 - Third-party scripts require privacy and security review.
 - Secrets never use `NEXT_PUBLIC_` variables.
+- `Cross-Origin-Opener-Policy: same-origin-allow-popups` preserves the
+  deliberate Firebase OAuth popup relationship without opting unrelated
+  windows out of opener isolation.
 - App Check is integrated for supported browser flows.
 - Upload and download access is short lived.
 - Precise location and media URLs are excluded from browser telemetry.

@@ -1,7 +1,7 @@
 'use client';
 
 import { useLocalization } from '@/shared/localization/public';
-import { Button } from '@/shared/ui/public';
+import { Button, EyeIcon, EyeOffIcon, LockIcon, UnlockIcon } from '@/shared/ui/public';
 
 import { useMapEditorStore } from './editor-store';
 import {
@@ -91,9 +91,10 @@ export function MapLayerPanel({ actions }: MapLayerPanelProps) {
                   aria-label={t(hidden ? 'map.layers.showAriaLabel' : 'map.layers.hideAriaLabel', {
                     layer: label,
                   })}
+                  title={t(hidden ? 'map.layers.show' : 'map.layers.hide')}
                   onClick={() => store.toggleLayerVisibility(layer)}
                 >
-                  {hidden ? t('map.layers.show') : t('map.layers.hide')}
+                  {hidden ? <EyeOffIcon /> : <EyeIcon />}
                 </Button>
                 <Button
                   type="button"
@@ -105,9 +106,10 @@ export function MapLayerPanel({ actions }: MapLayerPanelProps) {
                       layer: label,
                     },
                   )}
+                  title={t(locked ? 'map.layers.unlock' : 'map.layers.lock')}
                   onClick={() => handleToggleLock(layer)}
                 >
-                  {locked ? t('map.layers.unlock') : t('map.layers.lock')}
+                  {locked ? <LockIcon /> : <UnlockIcon />}
                 </Button>
               </div>
             </li>

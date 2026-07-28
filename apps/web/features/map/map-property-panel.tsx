@@ -8,6 +8,7 @@ import { Button, TextField } from '@/shared/ui/public';
 
 import { CategoryDetailFields } from './category-detail-fields';
 import { useMapEditorStore } from './editor-store';
+import { GeometryDimensionEditor } from './geometry-dimension-editor';
 import { categoryLabelKey } from './labels';
 import styles from './map-property-panel.module.css';
 import { PlantAssignmentField } from './plant-assignment-field';
@@ -86,12 +87,21 @@ function PropertyForm({
 
   return (
     <div className={styles['panel']}>
-      <h2 className={styles['title']}>{t('map.properties.title')}</h2>
+      <div className={styles['heading']}>
+        <div>
+          <h2 className={styles['title']}>{t('map.properties.title')}</h2>
+          <p className={styles['meta']}>
+            {t(categoryLabelKey(record.category))} ·{' '}
+            {t('map.properties.revision', { revision: record.revision })}
+          </p>
+        </div>
+      </div>
+      <GeometryDimensionEditor
+        key={`${record.id}:${record.revision}`}
+        actions={actions}
+        record={record}
+      />
       <form className={styles['form']} onSubmit={(event) => void onSave(event)} noValidate>
-        <p className={styles['meta']}>
-          {t(categoryLabelKey(record.category))} ·{' '}
-          {t('map.properties.revision', { revision: record.revision })}
-        </p>
         <TextField
           label={t('map.properties.label')}
           maxLength={200}

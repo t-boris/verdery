@@ -2,7 +2,7 @@
 
 > Status: Draft 0.1  
 > Decision status: Approved baseline  
-> Last updated: July 21, 2026
+> Last updated: July 27, 2026
 
 ## 1. Purpose
 
@@ -143,6 +143,13 @@ durable local transaction or server mutation
 ```
 
 Gesture previews are never synchronized directly. Only committed commands enter durable state.
+
+While a creation tool is active, accepted garden objects remain visible, but they must never consume
+the placement gesture. On web, accepted objects leave the Konva hit graph while remaining snapping
+candidates, so pointer events reach the stage even over a filled lot, house, zone, or bed. On iOS,
+all geometry is pixels in one SwiftUI `Canvas`; the view model handles an armed creation before any
+selection hit test. Object selection and dragging are restored when creation ends or the select tool
+becomes active.
 
 ## 9. Undo and Redo
 
@@ -345,6 +352,54 @@ The user may accept, edit-and-accept, partially accept, or reject proposals. Acc
 Selection is identified by object ID, never by renderer node reference. The property panel reads the canonical object draft and exposes semantic fields, measurements, provenance, and uncertainty.
 
 Multi-selection is allowed only for operations with clearly defined domain behavior. Bulk transformations must preserve each object's expected revision.
+
+### 18.1 Web Editor Workspace
+
+The desktop web editor uses three persistent workspace regions:
+
+1. Utilities for layers, imported plans, calibration, and validation warnings.
+2. The canvas as the flexible primary work area.
+3. An inspector containing the object list followed immediately by properties.
+
+Objects and properties must remain visible without scrolling past utility panels. The object list has
+its own bounded scroll region, while the inspector and utility regions may scroll independently of
+the canvas. At intermediate widths, the canvas and inspector remain adjacent and utilities move
+below them. On narrow screens, the order becomes canvas, inspector, then utilities.
+
+The workspace uses the available page width rather than the standard reading-column width. Drawing
+tools are grouped by task, use a category icon plus a short category name, and preserve the full
+action description in accessible labels and tooltips. Familiar reversible controls such as undo,
+redo, layer visibility, and layer locking may be icon-only when they have accessible names.
+Destructive or uncommon commands retain visible text when an icon alone could be ambiguous.
+
+### 18.2 Exact Dimension Entry
+
+The property inspector exposes editable geometry dimensions directly after object selection:
+
+- Polygon and multipolygon objects expose overall map-axis-aligned width and depth in metres.
+- Line and multiline objects expose total length in metres.
+- Area and perimeter are derived read-only values for polygonal geometry.
+- Point objects continue to use category-specific semantic size fields where applicable.
+
+Applying polygon dimensions scales X and Y independently around the geometry bounding-box center.
+Applying a line length scales the complete linework uniformly around its center. The client submits
+one revision-guarded `replaceGeometry` command; canonical coordinates remain in garden-local metres.
+Dimension entry is a planning aid, not a legal survey, and the interface must state that the result
+is approximate. Rotated polygons therefore show their overall map-axis envelope, not an inferred
+edge length.
+
+### 18.3 Category Recognition
+
+Every object category has a stable visual identity composed of:
+
+- A distinct category color used by the drawing tool, object list, and canvas.
+- A category-specific icon or glyph that remains meaningful without color.
+- A high-contrast outline or halo so geometry remains legible over dark canvases and light imported
+  plans.
+- Selection styling layered on top of the category style without erasing category identity.
+
+Color is never the only means of identifying a category. Labels, icons, line patterns, and geometry
+shapes provide redundant cues for accessibility and dense gardens.
 
 ## 19. Accessibility
 

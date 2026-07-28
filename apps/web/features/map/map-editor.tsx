@@ -116,22 +116,24 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
           <MapCanvas actions={actions} />
           <MapScaleBadge georeference={mapQuery.data.georeference} />
         </div>
-        <div className={styles['sidebar']}>
-          <MapLayerPanel actions={actions} />
-          <ImportedBackgroundPanel gardenId={gardenId} actions={actions} />
-          <CalibrationPanel gardenId={gardenId} actions={actions} />
+        <aside className={styles['inspector']} aria-label={t('map.inspector.ariaLabel')}>
           <MapObjectList
             actions={actions}
             selectedObjectId={store.state.selectedObjectId}
             onSelect={store.select}
           />
+          <MapPropertyPanel actions={actions} selectedRecord={actions.selectedRecord} />
+        </aside>
+        <aside className={styles['utilities']} aria-label={t('map.utilities.ariaLabel')}>
+          <MapLayerPanel actions={actions} />
+          <ImportedBackgroundPanel gardenId={gardenId} actions={actions} />
+          <CalibrationPanel gardenId={gardenId} actions={actions} />
           <MapWarningsPanel
             warnings={mapQuery.data.validationSummary}
             findRecord={actions.findRecord}
             onSelectObject={store.select}
           />
-          <MapPropertyPanel actions={actions} selectedRecord={actions.selectedRecord} />
-        </div>
+        </aside>
       </div>
       {store.state.status !== null && store.state.status.tone === 'alert' ? (
         <Alert tone="danger" title={t(store.state.status.key, store.state.status.args)} />

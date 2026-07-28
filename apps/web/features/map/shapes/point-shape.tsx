@@ -29,7 +29,10 @@ export function PointShape({ record, camera, size, selected }: PointShapeProps) 
         radius={radiusPx}
         fill={style.fill}
         stroke={selected ? SELECTION_STROKE : style.stroke}
-        strokeWidth={selected ? 3 : 1.5}
+        strokeWidth={selected ? 4 : 2.5}
+        shadowColor="#000000"
+        shadowBlur={2}
+        shadowOpacity={0.65}
       />
       <Text
         text={style.glyph}

@@ -37,8 +37,11 @@ export function LineShape({ record, camera, size, selected }: LineShapeProps) {
           key={index}
           points={ringToPoints(line, camera, size)}
           stroke={selected ? SELECTION_STROKE : style.stroke}
-          strokeWidth={selected ? 3 : 2}
+          strokeWidth={selected ? 4 : 3}
           lineCap="round"
+          shadowColor="#000000"
+          shadowBlur={1}
+          shadowOpacity={0.65}
           {...dashProp}
         />
       ))}
@@ -49,6 +52,9 @@ export function LineShape({ record, camera, size, selected }: LineShapeProps) {
         fontSize={10}
         fontStyle="bold"
         fill={style.stroke}
+        shadowColor="#000000"
+        shadowBlur={2}
+        shadowOpacity={0.8}
         offsetX={(style.glyph.length * 10) / 3.2}
         offsetY={13}
         listening={false}

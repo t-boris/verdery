@@ -32,6 +32,7 @@ export const englishAccessibilityMessages = {
    */
   'map.units.centimetres': '{value} cm',
   'map.units.metres': '{value} m',
+  'map.units.squareMetres': '{value} m²',
 
   /**
    * WCAG 2.2 SC 3.3.1 asks that an input error be *described* in text. The

@@ -134,11 +134,16 @@ export const russianMessages: MessageCatalogue = {
     'Загрузите фотографию этого сада. Загрузка идёт напрямую в хранилище, с реальным прогрессом, паузой и возобновлением.',
 
   'map.page.title': 'Карта сада',
+  'map.page.description':
+    'Нарисуйте сад, затем выберите объект, чтобы задать его размеры и изменить свойства.',
   'map.page.backToSettings': 'Настройки сада',
   'map.page.openMap': 'Открыть карту',
   'map.loading': 'Загрузка карты сада.',
 
   'map.toolbar.groupLabel': 'Инструменты редактирования',
+  'map.toolbar.groupBoundaries': 'Границы и строения',
+  'map.toolbar.groupGarden': 'Зоны сада',
+  'map.toolbar.groupLiving': 'Растения и заметки',
   'map.toolbar.select': 'Выбор',
   'map.toolbar.createLot': 'Нарисовать границу участка',
   'map.toolbar.createStructure': 'Нарисовать строение',
@@ -225,6 +230,17 @@ export const russianMessages: MessageCatalogue = {
   'map.properties.measurementAcquisitionMethod': 'Способ измерения',
   'map.properties.measurementUncertainty': 'Погрешность',
   'map.properties.measurementOriginalEntry': 'Исходное значение',
+  'map.properties.dimensionsTitle': 'Размеры и измерения',
+  'map.properties.dimensionsDescription':
+    'Введите известный размер. Фигура изменится относительно текущего центра; значения остаются приблизительными и предназначены для планирования.',
+  'map.properties.approximateBadge': 'Оценка для планирования',
+  'map.properties.overallWidthMetres': 'Общая ширина (м)',
+  'map.properties.overallDepthMetres': 'Общая глубина (м)',
+  'map.properties.totalLengthMetres': 'Общая длина (м)',
+  'map.properties.area': 'Площадь',
+  'map.properties.perimeter': 'Периметр',
+  'map.properties.applyDimensions': 'Применить размер',
+  'map.properties.dimensionsInvalid': 'Введите размеры больше нуля.',
 
   'map.enum.structureKind.house': 'Дом',
   'map.enum.structureKind.shed': 'Сарай',
@@ -315,6 +331,8 @@ export const russianMessages: MessageCatalogue = {
   'map.layers.hideAriaLabel': 'Скрыть слой «{layer}»',
   'map.layers.lockAriaLabel': 'Заблокировать слой «{layer}»',
   'map.layers.unlockAriaLabel': 'Разблокировать слой «{layer}»',
+  'map.inspector.ariaLabel': 'Объекты и свойства',
+  'map.utilities.ariaLabel': 'Слои, планы, калибровка и проверка карты',
 
   'map.background.title': 'Подложки плана',
   'map.background.onMapTitle': 'На карте',

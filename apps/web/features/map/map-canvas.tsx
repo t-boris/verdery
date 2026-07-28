@@ -31,7 +31,12 @@ import { TransformHandles } from './shapes/transform-handles';
 import { VertexHandles } from './shapes/vertex-handles';
 import styles from './map-canvas.module.css';
 import { snapPosition, type SnapContext, type SnapResult } from './snapping';
-import { CREATABLE_GEOMETRY_KIND, creatableCategoryOfTool, type CanvasSize } from './types';
+import {
+  CREATABLE_GEOMETRY_KIND,
+  creatableCategoryOfTool,
+  existingObjectsAreInteractive,
+  type CanvasSize,
+} from './types';
 import type { MapEditorActions } from './use-map-editor-actions';
 import { editableRingOf, isRingClosureVertex, movedRingClosureGeometry } from './vertex-ring';
 import { initialCameraFor, isRecordInViewport, panCamera, toLocal, zoomCamera } from './viewport';
@@ -412,6 +417,7 @@ export function MapCanvas({ actions }: MapCanvasProps) {
                     camera={camera}
                     size={size}
                     selected={record.id === store.state.selectedObjectId}
+                    interactive={existingObjectsAreInteractive(tool)}
                     draggable={tool === 'select' && !isEditingThisObject && !isLocked}
                     onSelect={(objectId) => {
                       if (isLocked) {

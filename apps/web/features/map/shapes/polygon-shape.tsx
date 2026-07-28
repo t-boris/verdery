@@ -51,7 +51,10 @@ export function PolygonShape({ record, camera, size, selected }: PolygonShapePro
             points={ringToPoints(ring, camera, size)}
             closed
             stroke={selected ? SELECTION_STROKE : style.stroke}
-            strokeWidth={selected ? 3 : 1.5}
+            strokeWidth={selected ? 4 : 2.5}
+            shadowColor="#000000"
+            shadowBlur={1}
+            shadowOpacity={0.55}
             {...fillProp}
             {...dashProp}
           />
@@ -64,6 +67,9 @@ export function PolygonShape({ record, camera, size, selected }: PolygonShapePro
         fontSize={11}
         fontStyle="bold"
         fill={style.stroke}
+        shadowColor="#000000"
+        shadowBlur={2}
+        shadowOpacity={0.8}
         offsetX={(style.glyph.length * 11) / 3.2}
         offsetY={5.5}
         listening={false}

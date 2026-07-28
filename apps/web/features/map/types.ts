@@ -109,6 +109,15 @@ export function creatableCategoryOfTool(tool: ToolMode): CreatableCategory | nul
   return tool.slice('create:'.length) as CreatableCategory;
 }
 
+/**
+ * Existing geometry must leave the Konva hit graph while a creation tool is
+ * active. It remains visible and available for snapping, but clicks pass
+ * through filled polygons such as the lot to the stage drawing handler.
+ */
+export function existingObjectsAreInteractive(tool: ToolMode): boolean {
+  return tool === 'select';
+}
+
 /** Screen-space camera: the local point at the canvas center, and pixels per metre. */
 export interface MapCamera {
   readonly centerX: number;

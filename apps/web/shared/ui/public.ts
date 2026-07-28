@@ -13,13 +13,21 @@ export { FailureAlert } from './failure-alert';
 export {
   CalendarIcon,
   CheckCircleIcon,
+  CursorIcon,
   EyeIcon,
+  EyeOffIcon,
   HomeIcon,
   LeafIcon,
+  LockIcon,
   MapIcon,
+  RedoIcon,
+  RulerIcon,
   SignOutIcon,
   SproutIcon,
   SunIcon,
+  TrashIcon,
+  UndoIcon,
+  UnlockIcon,
   type IconProps,
 } from './icons';
 export { ProgressBar, type ProgressBarProps } from './progress-bar';
