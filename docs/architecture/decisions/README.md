@@ -31,7 +31,7 @@ Architecture decision records preserve the context, choice, consequences, and su
 | [ADR-0011](ADR-0011-gcloud-scripts-instead-of-terraform.md)            | Idempotent gcloud scripts instead of Terraform for initial infrastructure | Accepted |
 | [ADR-0012](ADR-0012-separate-team-and-client-sharing.md)               | Separate operational team access from client publications                 | Accepted |
 | [ADR-0013](ADR-0013-ai-assisted-care-content-authoring.md)             | AI-assisted care content authoring, never runtime care authority          | Accepted |
-| [ADR-0014](ADR-0014-phase-10-capture-research-gate.md)                 | Phase 10 capture research gate: dataset plan and draft thresholds         | Proposed |
+| [ADR-0014](ADR-0014-phase-10-capture-research-gate.md)                 | Phase 10 capture research gate: dataset plan and draft thresholds         | Accepted |
 
 ## Naming
 

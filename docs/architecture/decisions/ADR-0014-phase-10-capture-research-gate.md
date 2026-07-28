@@ -1,7 +1,8 @@
 # ADR-0014: Phase 10 Capture Research Gate
 
-> Status: Proposed
+> Status: Accepted
 > Date: July 27, 2026
+> Approved: July 27, 2026, by the project owner, as proposed (see "Approval" under Decision)
 
 ## Context
 
@@ -123,39 +124,64 @@ classification `garden-capture-and-scan.md` section 17 already assigns to Garden
 
 ## Decision
 
-**This ADR proposes; it does not decide.** Its Status remains `Proposed` until the owner records
-explicit approval of:
+### Approval
 
-1. The consent and recruitment approach (Round 1 only, or Round 1 + Round 2).
-2. The numeric thresholds above, as proposed or amended.
-3. The bounded 90-day pilot retention exception.
-4. A compute budget ceiling for the pilot's processing runs.
+Approved as proposed on July 27, 2026:
 
-Until Status changes to `Accepted`, `P10-RESEARCH-01` has not started and no other Phase 10 work
-package may begin — the table in `implementation-plan.md` section 19.3 lists "Research Gate" as
-every downstream package's transitive dependency. Accepting this ADR authorizes **starting**
-`P10-RESEARCH-01` (real consented data collection under the plan above); it does not by itself
-authorize writing CV/ML pipeline code, since that code would have no real annotated data to be
-evaluated against until `P10-RESEARCH-01` actually produces one.
+1. **Consent and recruitment:** Round 1 (internal team, own gardens) only, for now. Round 2 stays
+   gated behind its own future privacy-review sign-off, as this ADR already specified — approving
+   this ADR does not itself approve Round 2.
+2. **Numeric thresholds:** accepted as drafted (the table above), unamended.
+3. **Retention exception:** the bounded 90-day pilot retention exception is approved, scoped only to
+   Round 1 pilot media, per the "Privacy and Retention" section above.
+4. **Compute budget:** no ceiling number was proposed for unit cost, deliberately (see "Proposed
+   Thresholds"), so none is approved here either. What is approved is the _process_: Round 1's
+   processing runs proceed under ordinary cost-control engineering practice (the existing duration/
+   file-size/concurrency limits this repository already applies elsewhere), and a real per-unit cost
+   ceiling is set from Round 1's actual measurement before any expansion past the pilot cohort.
+
+### Scope this approval unlocks now
+
+This approval authorizes starting `P10-RESEARCH-01` (real consented data collection under the plan
+above) and, because they do not depend on the collected dataset existing yet, the two "production
+implementation" work packages that only require schema and infrastructure plumbing:
+
+- `P10-DATA-01` — capture session, capability class, media reference, quality observation,
+  calibration, processing state, and cancellation/recovery schema.
+- `P10-ASYNC-01` — manifest, job state, Cloud Tasks initiation, Cloud Run Job execution, progress,
+  cancellation, checkpoint, retry, and terminal-failure plumbing, with no CV/ML content.
+
+It does **not** unlock `P10-IOS-01`/`P10-IOS-02` (capture UI depends on `P10-DATA-01` existing, but
+was not part of this approval round), `P10-CV-01`/`P10-CV-02` (would have no real annotated data to
+run against), `P10-REVIEW-01`, `P10-RET-01`, `P10-COST-01`, or `P10-QA-01`. Those remain blocked
+until `P10-RESEARCH-01` has actually produced its dataset card, or until a separate, explicit
+approval extends this one.
 
 ## Consequences
 
-- Approval unlocks `P10-RESEARCH-01` and, once its dataset card exists, the schema and pipeline
-  packages that depend on it.
-- The 90-day pilot retention exception, if approved, must be enforced the same way the 30-day
-  default is enforced elsewhere — an explicit, tested deletion job, not a documented intention.
+- `P10-DATA-01` and `P10-ASYNC-01` may proceed now; once `P10-RESEARCH-01` produces a real dataset
+  card, the packages that depend on it (`P10-IOS-01` onward) can be brought back for their own
+  approval.
+- The 90-day pilot retention exception must be enforced the same way the 30-day default is enforced
+  elsewhere — an explicit, tested deletion job, not a documented intention.
 - Every subsequent Phase 10 evaluation report should be checked against these thresholds by name, so
   a later change to them is visible as a deliberate amendment to this ADR rather than silent drift.
 - The unit-cost ceiling remains genuinely unknown until Round 1 produces a real cost measurement;
   planning beyond the pilot should not assume a number that does not exist yet.
 
-## Open Decisions Requiring the Owner
+## Open Decisions Still Requiring the Owner
+
+These were not resolved by this approval and remain open:
 
 - Approve or reject Round 2 recruitment (opted-in beta users) versus staying at Round 1
-  (internal-only) until later.
-- Legal/privacy review sign-off for capturing neighboring private property, even incidentally.
-- Final numeric thresholds: accept, tighten, loosen, or replace each draft value above.
-- Compute budget ceiling for the pilot's processing runs.
+  (internal-only) — a later decision, not required before `P10-RESEARCH-01`/`P10-DATA-01`/
+  `P10-ASYNC-01` begin.
+- Legal/privacy review sign-off for capturing neighboring private property, even incidentally —
+  required before any actual capture session runs, i.e., before `P10-RESEARCH-01` collects real
+  media, even though schema/plumbing work may proceed in parallel.
+- The final per-unit cost ceiling, once Round 1 produces a real measurement.
+- Approval to proceed past `P10-DATA-01`/`P10-ASYNC-01` into `P10-IOS-01` and later packages, once
+  `P10-RESEARCH-01`'s dataset card exists.
 
 ## Rejected Alternatives
 
