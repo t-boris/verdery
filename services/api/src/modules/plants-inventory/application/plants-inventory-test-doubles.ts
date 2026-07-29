@@ -178,6 +178,16 @@ export class FakePlantPhotoRepository implements PlantPhotoRepository {
     return Promise.resolve(photos);
   }
 
+  async findCoverMediaIdsForPlants(plantIds: readonly Uuid[]): Promise<ReadonlyMap<Uuid, Uuid>> {
+    const entries = await Promise.all(
+      plantIds.map(async (plantId): Promise<[Uuid, Uuid] | null> => {
+        const [cover] = await this.findAllForPlant(plantId);
+        return cover === undefined ? null : [plantId, cover.mediaId];
+      }),
+    );
+    return new Map(entries.filter((entry): entry is [Uuid, Uuid] => entry !== null));
+  }
+
   insert(photo: PlantPhoto): Promise<void> {
     this.photos.set(photo.id, photo);
     return Promise.resolve();

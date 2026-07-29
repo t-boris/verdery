@@ -84,7 +84,7 @@ export function composePlantsInventory(
     plantPhotoRepository,
     gardenAuthorization,
   );
-  const searchPlants = new SearchPlants(plantRepository, gardenAuthorization);
+  const searchPlants = new SearchPlants(plantRepository, gardenAuthorization, plantPhotoRepository);
   const attachPlantPhoto = new AttachPlantPhoto(
     plantRepository,
     plantsInventoryIdempotency,

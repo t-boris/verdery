@@ -9102,6 +9102,7 @@ components:
           status,
           conditionNote,
           careGuidanceNote,
+          coverMediaId,
           revision,
           createdByProfileId,
           createdAt,
@@ -9158,6 +9159,18 @@ components:
           type: [string, 'null']
         careGuidanceNote:
           type: [string, 'null']
+        coverMediaId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: >
+            The plant's cover photo for list/summary display: its primary
+            photo's media id if one is set, else its oldest photo's, else
+            null when it has none. Only `searchPlants` populates this
+            (a bulk lookup done for the whole result page); every other
+            operation returning a Plant leaves it null, matching that
+            operation's `toPlantResource` call with no cover-lookup argument
+            — resolve the full gallery via `listPlantPhotos` instead.
         revision:
           $ref: '#/components/schemas/Revision'
         createdByProfileId:

@@ -14,12 +14,7 @@
 }
 
 .item {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-3);
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-md);
   background-color: var(--color-surface);
@@ -35,8 +30,9 @@
 }
 
 /*
- * The row's own link is the only way into the record, so it is a standalone
- * navigation target and carries the same minimum hit area as a button —
+ * The row's own link is the only way into the record — it now wraps the
+ * cover photo and the text together, one bigger touch target rather than
+ * two siblings — and carries the same minimum hit area as a button:
  * `technical-specification.md` section 11's outdoor-use requirement, asserted
  * at 360px by `e2e/responsive.spec.ts`. `inline-flex` is what lets a
  * `min-height` apply to an anchor at all.
@@ -44,14 +40,49 @@
 .link {
   display: inline-flex;
   align-items: center;
+  gap: var(--space-3);
+  width: 100%;
   min-height: var(--control-min-size);
-  font-weight: var(--font-weight-semibold);
   color: var(--color-text);
   text-decoration: none;
 }
 
-.link:hover {
+.link:hover .name {
   color: var(--color-accent);
+}
+
+/*
+ * Deliberately bigger than a decorative icon: `Plant.coverMediaId` is meant
+ * to read as a real photo of the plant, the primary visual anchor of the
+ * row, not a small badge next to the name — see this feature's own standing
+ * "UI should be built around this concept" direction.
+ */
+.cover,
+.coverFallback {
+  flex: 0 0 auto;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+}
+
+.coverFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+}
+
+.itemBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.name {
+  font-weight: var(--font-weight-semibold);
 }
 
 .meta {

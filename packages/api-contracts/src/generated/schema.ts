@@ -5509,6 +5509,8 @@ export interface components {
             status: components["schemas"]["PlantStatus"];
             conditionNote: string | null;
             careGuidanceNote: string | null;
+            /** @description The plant's cover photo for list/summary display: its primary photo's media id if one is set, else its oldest photo's, else null when it has none. Only `searchPlants` populates this (a bulk lookup done for the whole result page); every other operation returning a Plant leaves it null, matching that operation's `toPlantResource` call with no cover-lookup argument — resolve the full gallery via `listPlantPhotos` instead. */
+            coverMediaId: components["schemas"]["Uuid"] | null;
             revision: components["schemas"]["Revision"];
             createdByProfileId: components["schemas"]["Uuid"];
             createdAt: components["schemas"]["Timestamp"];

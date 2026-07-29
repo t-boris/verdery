@@ -6,7 +6,14 @@ import { useState } from 'react';
 
 import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Button, FailureAlert, StaleIndicator, StatusPill, TextField } from '@/shared/ui/public';
+import {
+  Button,
+  FailureAlert,
+  LeafIcon,
+  StaleIndicator,
+  StatusPill,
+  TextField,
+} from '@/shared/ui/public';
 
 import {
   PLANT_STATUSES,
@@ -15,6 +22,7 @@ import {
   statusLabel,
   statusTone,
 } from './labels';
+import { usePlantPhotoAccess } from './plant-media-queries';
 import styles from './plant-list.module.css';
 import { useSearchPlants } from './queries';
 
@@ -162,22 +170,57 @@ export function PlantList({ gardenId }: PlantListProps) {
   );
 }
 
+/** `Plant.coverMediaId`'s own resolved photo — see that field's doc comment in the contract: `searchPlants` is the only operation that ever populates it. */
+function PlantCoverPhoto({
+  gardenId,
+  mediaId,
+}: {
+  readonly gardenId: string;
+  readonly mediaId: string;
+}) {
+  const query = usePlantPhotoAccess(gardenId, mediaId);
+
+  if (query.isPending || query.isError) {
+    return <PlantCoverFallback />;
+  }
+
+  // A plain `<img>`, not `next/image` — see `plant-photo-gallery.tsx`'s own
+  // doc comment: the source is a short-lived signed Cloud Storage URL.
+  return <img className={styles['cover']} src={query.data.url} alt="" />;
+}
+
+/** Shown in place of a cover photo: no `coverMediaId` yet, or its signed URL failed to resolve (including the documented dev-environment media-processing gap). */
+function PlantCoverFallback() {
+  return (
+    <span className={styles['coverFallback']}>
+      <LeafIcon size={24} />
+    </span>
+  );
+}
+
 function PlantListItem({ gardenId, plant }: { readonly gardenId: string; readonly plant: Plant }) {
   const { t } = useLocalization();
 
   return (
     <li className={styles['item']}>
       <Link className={styles['link']} href={`/application/gardens/${gardenId}/plants/${plant.id}`}>
-        {plant.displayName}
-      </Link>
-      <span className={styles['meta']}>
-        <StatusPill tone={statusTone(plant.status)} label={t(statusLabel(plant.status))} />
-        <span>{t(lifecycleStageLabel(plant.lifecycleStage))}</span>
-        <span>{t(groupingKindLabel(plant.groupingKind))}</span>
-        {plant.quantity !== null && (
-          <span>{t('plants.quantityDisplay', { quantity: plant.quantity })}</span>
+        {plant.coverMediaId !== null ? (
+          <PlantCoverPhoto gardenId={gardenId} mediaId={plant.coverMediaId} />
+        ) : (
+          <PlantCoverFallback />
         )}
-      </span>
+        <span className={styles['itemBody']}>
+          <span className={styles['name']}>{plant.displayName}</span>
+          <span className={styles['meta']}>
+            <StatusPill tone={statusTone(plant.status)} label={t(statusLabel(plant.status))} />
+            <span>{t(lifecycleStageLabel(plant.lifecycleStage))}</span>
+            <span>{t(groupingKindLabel(plant.groupingKind))}</span>
+            {plant.quantity !== null && (
+              <span>{t('plants.quantityDisplay', { quantity: plant.quantity })}</span>
+            )}
+          </span>
+        </span>
+      </Link>
     </li>
   );
 }

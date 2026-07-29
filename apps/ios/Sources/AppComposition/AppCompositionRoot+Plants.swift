@@ -23,7 +23,8 @@ extension AppCompositionRoot {
         PlantsListViewModel(
             gardenId: gardenId,
             searchPlants: SearchPlants(gateway: plantGateway),
-            strings: strings
+            strings: strings,
+            mediaGateway: mediaGateway
         )
     }
 

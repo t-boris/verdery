@@ -27,6 +27,7 @@ import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { GardenAuthorization } from '../../gardens-mapping/public.js';
 import type { GroupingKind } from '../domain/plant.js';
 import type { LifecycleStage, PlantStatus } from '../domain/plant-lifecycle.js';
+import type { PlantPhotoRepository } from './plant-photo-repository.js';
 import type { PlantRepository, PlantSearchFilters } from './plant-repository.js';
 import { toPlantResource, type PlantResource } from './plant-view.js';
 
@@ -57,6 +58,7 @@ export class SearchPlants {
   constructor(
     private readonly plants: PlantRepository,
     private readonly authorization: GardenAuthorization,
+    private readonly plantPhotos: PlantPhotoRepository,
   ) {}
 
   async execute(
@@ -78,9 +80,12 @@ export class SearchPlants {
     };
 
     const page = await this.plants.search(gardenId, repositoryFilters, cursor, limit);
+    const coverMediaIds = await this.plantPhotos.findCoverMediaIdsForPlants(
+      page.items.map((plant) => plant.id),
+    );
 
     return {
-      items: page.items.map(toPlantResource),
+      items: page.items.map((plant) => toPlantResource(plant, coverMediaIds.get(plant.id) ?? null)),
       nextCursor: page.nextCursor,
     };
   }

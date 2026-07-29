@@ -48,6 +48,24 @@ export class KyselyPlantPhotoRepository implements PlantPhotoRepository {
     return rows.map(toPlantPhoto);
   }
 
+  async findCoverMediaIdsForPlants(plantIds: readonly Uuid[]): Promise<ReadonlyMap<Uuid, Uuid>> {
+    if (plantIds.length === 0) {
+      return new Map();
+    }
+
+    const rows = await this.db
+      .selectFrom('plants_inventory.plant_photo')
+      .select(['plant_id', 'media_id'])
+      .distinctOn('plant_id')
+      .where('plant_id', 'in', plantIds)
+      .orderBy('plant_id')
+      .orderBy('is_primary', 'desc')
+      .orderBy('created_at', 'asc')
+      .execute();
+
+    return new Map(rows.map((row) => [row.plant_id, row.media_id]));
+  }
+
   async insert(photo: PlantPhoto): Promise<void> {
     await this.db
       .insertInto('plants_inventory.plant_photo')

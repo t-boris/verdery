@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { NotFoundError } from '../../../platform/errors/application-error.js';
+import { createPlantPhoto } from '../domain/plant-photo.js';
 import { SearchPlants } from './search-plants.js';
 import {
   authorizationDenying,
@@ -25,7 +26,11 @@ describe('SearchPlants', () => {
     const fakes = createPlantsInventoryFakes();
     fakes.plants.plants.set(PLANT_ID_1, buildPlant({ id: PLANT_ID_1, gardenId: GARDEN_ID }));
     fakes.plants.plants.set(PLANT_ID_2, buildPlant({ id: PLANT_ID_2, gardenId: GARDEN_ID }));
-    const searchPlants = new SearchPlants(fakes.plants, authorizationGranting(VIEWER_MEMBERSHIP));
+    const searchPlants = new SearchPlants(
+      fakes.plants,
+      authorizationGranting(VIEWER_MEMBERSHIP),
+      fakes.plantPhotos,
+    );
 
     const result = await searchPlants.execute(GARDEN_ID, PROFILE_ID, {}, null, 50);
 
@@ -33,9 +38,42 @@ describe('SearchPlants', () => {
     expect(result.nextCursor).toBeNull();
   });
 
+  it("carries each plant's cover photo (primary if set, else oldest) and null for a plant with none", async () => {
+    const fakes = createPlantsInventoryFakes();
+    fakes.plants.plants.set(PLANT_ID_1, buildPlant({ id: PLANT_ID_1, gardenId: GARDEN_ID }));
+    fakes.plants.plants.set(PLANT_ID_2, buildPlant({ id: PLANT_ID_2, gardenId: GARDEN_ID }));
+    const oldest = createPlantPhoto(
+      'photo-1',
+      PLANT_ID_1,
+      'media-oldest',
+      false,
+      new Date('2026-01-01T00:00:00Z'),
+    );
+    const primary = createPlantPhoto(
+      'photo-2',
+      PLANT_ID_1,
+      'media-primary',
+      true,
+      new Date('2026-01-02T00:00:00Z'),
+    );
+    fakes.plantPhotos.photos.set(oldest.id, oldest);
+    fakes.plantPhotos.photos.set(primary.id, primary);
+    const searchPlants = new SearchPlants(
+      fakes.plants,
+      authorizationGranting(VIEWER_MEMBERSHIP),
+      fakes.plantPhotos,
+    );
+
+    const result = await searchPlants.execute(GARDEN_ID, PROFILE_ID, {}, null, 50);
+
+    const byId = new Map(result.items.map((item) => [item.id, item]));
+    expect(byId.get(PLANT_ID_1)?.coverMediaId).toBe('media-primary');
+    expect(byId.get(PLANT_ID_2)?.coverMediaId).toBeNull();
+  });
+
   it('rejects a caller with no membership on the garden, concealing it as not found', async () => {
     const fakes = createPlantsInventoryFakes();
-    const searchPlants = new SearchPlants(fakes.plants, authorizationDenying());
+    const searchPlants = new SearchPlants(fakes.plants, authorizationDenying(), fakes.plantPhotos);
 
     await expect(searchPlants.execute(GARDEN_ID, PROFILE_ID, {}, null, 50)).rejects.toBeInstanceOf(
       NotFoundError,
@@ -48,7 +86,11 @@ describe('SearchPlants', () => {
       PLANT_ID_1,
       buildPlant({ id: PLANT_ID_1, gardenId: GARDEN_ID, displayName: 'Roma Tomato' }),
     );
-    const searchPlants = new SearchPlants(fakes.plants, authorizationGranting(VIEWER_MEMBERSHIP));
+    const searchPlants = new SearchPlants(
+      fakes.plants,
+      authorizationGranting(VIEWER_MEMBERSHIP),
+      fakes.plantPhotos,
+    );
 
     const trimmed = await searchPlants.execute(
       GARDEN_ID,
@@ -85,7 +127,11 @@ describe('SearchPlants', () => {
         groupingKind: 'row',
       }),
     );
-    const searchPlants = new SearchPlants(fakes.plants, authorizationGranting(VIEWER_MEMBERSHIP));
+    const searchPlants = new SearchPlants(
+      fakes.plants,
+      authorizationGranting(VIEWER_MEMBERSHIP),
+      fakes.plantPhotos,
+    );
 
     const byLifecycleStage = await searchPlants.execute(
       GARDEN_ID,
@@ -136,7 +182,11 @@ describe('SearchPlants', () => {
   it('treats an empty filter array the same as an omitted filter', async () => {
     const fakes = createPlantsInventoryFakes();
     fakes.plants.plants.set(PLANT_ID_1, buildPlant({ id: PLANT_ID_1, gardenId: GARDEN_ID }));
-    const searchPlants = new SearchPlants(fakes.plants, authorizationGranting(VIEWER_MEMBERSHIP));
+    const searchPlants = new SearchPlants(
+      fakes.plants,
+      authorizationGranting(VIEWER_MEMBERSHIP),
+      fakes.plantPhotos,
+    );
 
     const result = await searchPlants.execute(
       GARDEN_ID,
@@ -160,7 +210,11 @@ describe('SearchPlants', () => {
         }),
       );
     }
-    const searchPlants = new SearchPlants(fakes.plants, authorizationGranting(VIEWER_MEMBERSHIP));
+    const searchPlants = new SearchPlants(
+      fakes.plants,
+      authorizationGranting(VIEWER_MEMBERSHIP),
+      fakes.plantPhotos,
+    );
 
     const first = await searchPlants.execute(GARDEN_ID, PROFILE_ID, {}, null, 2);
     expect(first.items).toHaveLength(2);
@@ -176,7 +230,11 @@ describe('SearchPlants', () => {
     const fakes = createPlantsInventoryFakes();
     fakes.plants.plants.set(PLANT_ID_1, buildPlant({ id: PLANT_ID_1, gardenId: GARDEN_ID }));
     fakes.plants.plants.set(PLANT_ID_2, buildPlant({ id: PLANT_ID_2, gardenId: otherGardenId }));
-    const searchPlants = new SearchPlants(fakes.plants, authorizationGranting(VIEWER_MEMBERSHIP));
+    const searchPlants = new SearchPlants(
+      fakes.plants,
+      authorizationGranting(VIEWER_MEMBERSHIP),
+      fakes.plantPhotos,
+    );
 
     const result = await searchPlants.execute(GARDEN_ID, PROFILE_ID, {}, null, 50);
     expect(result.items.map((p) => p.id)).toEqual([PLANT_ID_1]);

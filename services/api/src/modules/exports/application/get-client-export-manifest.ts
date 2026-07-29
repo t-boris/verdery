@@ -257,7 +257,7 @@ export class GetClientExportManifest {
       coordinateSpaceId: coordinateSpace.id,
       ...(georeference === null ? {} : { georeference: toGeoreferenceResource(georeference) }),
       mapObjects: objects.map(toGardenObjectResource),
-      plants: plants.map(toPlantResource),
+      plants: plants.map((plant) => toPlantResource(plant)),
     };
   }
 

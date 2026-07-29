@@ -82,6 +82,7 @@ const PLANT_1 = {
   status: 'active' as const,
   conditionNote: null,
   careGuidanceNote: null,
+  coverMediaId: null,
   revision: 1,
   createdByProfileId: 'profile-1',
   createdAt: '2026-01-01T00:00:00Z',

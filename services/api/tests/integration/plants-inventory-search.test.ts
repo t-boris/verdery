@@ -24,8 +24,14 @@ import { CreateGarden } from '../../src/modules/gardens-mapping/application/crea
 import { GardenAuthorization } from '../../src/modules/gardens-mapping/application/garden-authorization.js';
 import { KyselyGardensMappingUnitOfWork } from '../../src/modules/gardens-mapping/persistence/kysely-gardens-mapping-unit-of-work.js';
 import { KyselyMembershipRepository } from '../../src/modules/gardens-mapping/persistence/kysely-membership-repository.js';
+import { RegisterMediaRecord } from '../../src/modules/media/application/register-media-record.js';
+import { KyselyMediaUnitOfWork } from '../../src/modules/media/persistence/kysely-media-unit-of-work.js';
+import { AttachPlantPhoto } from '../../src/modules/plants-inventory/application/attach-plant-photo.js';
 import { SearchPlants } from '../../src/modules/plants-inventory/application/search-plants.js';
+import { SetPrimaryPlantPhoto } from '../../src/modules/plants-inventory/application/set-primary-plant-photo.js';
+import { KyselyPlantPhotoRepository } from '../../src/modules/plants-inventory/persistence/kysely-plant-photo-repository.js';
 import { KyselyPlantRepository } from '../../src/modules/plants-inventory/persistence/kysely-plant-repository.js';
+import { KyselyPlantsInventoryUnitOfWork } from '../../src/modules/plants-inventory/persistence/kysely-plants-inventory-unit-of-work.js';
 import type { DatabaseSchema } from '../../src/platform/database/database-gateway.js';
 import { KyselyIdempotencyStore } from '../../src/platform/idempotency/kysely-idempotency-store.js';
 import { NotFoundError } from '../../src/platform/errors/application-error.js';
@@ -139,7 +145,55 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     return new SearchPlants(
       new KyselyPlantRepository(db),
       new GardenAuthorization(new KyselyMembershipRepository(db)),
+      new KyselyPlantPhotoRepository(db),
     );
+  }
+
+  /** Mirrors `plants-inventory-photos.test.ts`'s own `registerMedia` helper. */
+  async function registerMedia(ownerId: string, gardenId: string, clock: Clock): Promise<string> {
+    const registerMediaRecord = new RegisterMediaRecord(
+      new KyselyIdempotencyStore(db, clock),
+      new KyselyMediaUnitOfWork(db, clock),
+      clock,
+    );
+    const media = await registerMediaRecord.execute(
+      ownerId,
+      {
+        mediaClass: 'garden_photo',
+        displayFilename: 'plant.jpg',
+        declaredContentType: 'image/jpeg',
+        declaredByteSize: 123_456,
+      },
+      generateUuidV7(),
+    );
+    await db
+      .updateTable('media.media_record')
+      .set({ garden_id: gardenId, upload_state: 'available' })
+      .where('id', '=', media.id)
+      .execute();
+    return media.id;
+  }
+
+  function buildPhotoHandlers(clock: Clock) {
+    const authorization = new GardenAuthorization(new KyselyMembershipRepository(db));
+    const idempotency = new KyselyIdempotencyStore(db, clock);
+    const unitOfWork = new KyselyPlantsInventoryUnitOfWork(db, clock);
+    const plantRepository = new KyselyPlantRepository(db);
+    return {
+      attachPlantPhoto: new AttachPlantPhoto(
+        plantRepository,
+        idempotency,
+        unitOfWork,
+        authorization,
+        clock,
+      ),
+      setPrimaryPlantPhoto: new SetPrimaryPlantPhoto(
+        plantRepository,
+        idempotency,
+        unitOfWork,
+        authorization,
+      ),
+    };
   }
 
   it('rejects a caller with no membership on the garden, concealing it as not found', async () => {
@@ -267,6 +321,44 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       50,
     );
     expect(combinedWithQuery.items.map((p) => p.id)).toEqual([dormantRow]);
+  });
+
+  it("carries each plant's cover photo (the primary one, else the oldest), null for a plant with none", async () => {
+    const now = new Date('2026-07-21T09:00:00Z');
+    const { ownerId, gardenId } = await createGardenWithOwner(now);
+    const clock = fixedClock(now);
+    const withPhotos = await insertPlant({
+      gardenId,
+      createdByProfileId: ownerId,
+      displayName: 'Basil',
+    });
+    const withoutPhotos = await insertPlant({
+      gardenId,
+      createdByProfileId: ownerId,
+      displayName: 'Sage',
+    });
+
+    const { attachPlantPhoto, setPrimaryPlantPhoto } = buildPhotoHandlers(clock);
+    const oldestMediaId = await registerMedia(ownerId, gardenId, clock);
+    await attachPlantPhoto.execute(
+      withPhotos,
+      ownerId,
+      { mediaId: oldestMediaId },
+      generateUuidV7(),
+    );
+    const primaryMediaId = await registerMedia(ownerId, gardenId, clock);
+    const primaryPhoto = await attachPlantPhoto.execute(
+      withPhotos,
+      ownerId,
+      { mediaId: primaryMediaId },
+      generateUuidV7(),
+    );
+    await setPrimaryPlantPhoto.execute(withPhotos, ownerId, primaryPhoto.id, generateUuidV7());
+
+    const result = await buildSearchPlants().execute(gardenId, ownerId, {}, null, 50);
+    const byId = new Map(result.items.map((p) => [p.id, p]));
+    expect(byId.get(withPhotos)?.coverMediaId).toBe(primaryMediaId);
+    expect(byId.get(withoutPhotos)?.coverMediaId).toBeNull();
   });
 
   it('paginates the no-query listing by cursor, most recently created first, covering every plant exactly once', async () => {

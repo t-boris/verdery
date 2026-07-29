@@ -42,11 +42,22 @@ public final class PlantsListViewModel {
     private let searchPlants: SearchPlants
     private let strings: LocalizedStrings
     public let gardenId: String
+    /// Resolves each row's `Plant.coverMediaId` to a signed thumbnail URL —
+    /// see `PlantCoverThumbnailView`'s own doc comment. Optional-capability:
+    /// `nil` at a call site (e.g. a test double with no media capability)
+    /// just means every row falls back to its lifecycle-stage icon.
+    public let mediaGateway: (any MediaGateway)?
 
-    public init(gardenId: String, searchPlants: SearchPlants, strings: LocalizedStrings) {
+    public init(
+        gardenId: String,
+        searchPlants: SearchPlants,
+        strings: LocalizedStrings,
+        mediaGateway: (any MediaGateway)? = nil
+    ) {
         self.gardenId = gardenId
         self.searchPlants = searchPlants
         self.strings = strings
+        self.mediaGateway = mediaGateway
     }
 
     public var loadingMessage: String { strings(.plantsListLoading) }

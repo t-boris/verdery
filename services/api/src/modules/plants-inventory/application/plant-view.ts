@@ -40,9 +40,19 @@ export interface PlantResource {
   readonly createdByProfileId: string;
   readonly createdAt: string;
   readonly updatedAt: string;
+  /**
+   * The plant's cover photo, as a `mediaId` a client resolves to a signed
+   * URL via `GetMediaAccess` — `null` when the plant has no photo, or when
+   * this resource was not built from a context that looked one up (photos
+   * are a separate aggregate, `plant_photo`, not part of the domain `Plant`
+   * itself; only `SearchPlants` currently populates this, via
+   * `PlantPhotoRepository.findCoverMediaIdsForPlants`'s own bulk lookup, so
+   * a garden's whole plant list needs one query rather than one per row).
+   */
+  readonly coverMediaId: string | null;
 }
 
-export function toPlantResource(plant: Plant): PlantResource {
+export function toPlantResource(plant: Plant, coverMediaId: string | null = null): PlantResource {
   return {
     id: plant.id,
     gardenId: plant.gardenId,
@@ -64,5 +74,6 @@ export function toPlantResource(plant: Plant): PlantResource {
     createdByProfileId: plant.createdByProfileId,
     createdAt: plant.createdAt.toISOString(),
     updatedAt: plant.updatedAt.toISOString(),
+    coverMediaId,
   };
 }

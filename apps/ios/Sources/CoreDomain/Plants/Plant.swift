@@ -78,6 +78,13 @@ public struct Plant: Equatable, Sendable, Identifiable {
     public let status: PlantStatus
     public let conditionNote: String?
     public let careGuidanceNote: String?
+    /// The plant's cover photo for list/summary display: its primary photo's
+    /// media id if one is set, else its oldest photo's, else `nil` when it
+    /// has none. Only `searchPlants` populates this — see the contract's own
+    /// `Plant.coverMediaId` doc comment; every other operation leaves it
+    /// `nil`, so resolve the full gallery via `listPlantPhotos` instead of
+    /// relying on this for a detail screen.
+    public let coverMediaId: String?
     public let revision: Int
     public let createdByProfileId: String
     public let createdAt: Date
@@ -103,7 +110,8 @@ public struct Plant: Equatable, Sendable, Identifiable {
         revision: Int,
         createdByProfileId: String,
         createdAt: Date,
-        updatedAt: Date
+        updatedAt: Date,
+        coverMediaId: String? = nil
     ) {
         self.id = id
         self.gardenId = gardenId
@@ -125,5 +133,6 @@ public struct Plant: Equatable, Sendable, Identifiable {
         self.createdByProfileId = createdByProfileId
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.coverMediaId = coverMediaId
     }
 }

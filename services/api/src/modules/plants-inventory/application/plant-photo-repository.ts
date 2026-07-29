@@ -8,6 +8,16 @@ export interface PlantPhotoRepository {
   /** Every photo attached to this plant, primary first, then oldest first — matches `ListPlantPhotos`'s own ordering contract. */
   findAllForPlant(plantId: Uuid): Promise<PlantPhoto[]>;
 
+  /**
+   * The cover photo `SearchPlants` shows per row: one query for a whole page
+   * of plants rather than N, picking each plant's primary photo when one is
+   * marked, else its oldest — the same "primary first, then oldest first"
+   * choice `findAllForPlant`'s own first row already makes, just without
+   * loading every other photo to get there. A plant with no photos at all is
+   * absent from the returned map, not a `null` entry.
+   */
+  findCoverMediaIdsForPlants(plantIds: readonly Uuid[]): Promise<ReadonlyMap<Uuid, Uuid>>;
+
   insert(photo: PlantPhoto): Promise<void>;
 
   /** Clears `is_primary` on every photo of this plant. `SetPrimaryPlantPhoto` and `AttachPlantPhoto` (when attaching a new primary) call this before setting the new primary, satisfying the migration's partial unique index (`plant_photo_plant_primary_idx`) themselves rather than relying on the database to reject a second `true` row. */

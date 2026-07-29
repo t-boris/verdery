@@ -32,6 +32,7 @@ struct PlantTransport: Codable {
     let status: PlantStatus
     let conditionNote: String?
     let careGuidanceNote: String?
+    let coverMediaId: String?
     let revision: Int
     let createdByProfileId: String
     let createdAt: Date
@@ -60,7 +61,8 @@ extension PlantTransport {
             revision: revision,
             createdByProfileId: createdByProfileId,
             createdAt: createdAt,
-            updatedAt: updatedAt
+            updatedAt: updatedAt,
+            coverMediaId: coverMediaId
         )
     }
 }

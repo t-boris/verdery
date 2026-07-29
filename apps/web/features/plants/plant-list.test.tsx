@@ -5,11 +5,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LocalizationProvider } from '@/shared/localization/public';
 
 import { PlantList } from './plant-list';
+import { usePlantPhotoAccess } from './plant-media-queries';
 import { useSearchPlants } from './queries';
 
 vi.mock('./queries', () => ({ useSearchPlants: vi.fn() }));
+vi.mock('./plant-media-queries', () => ({ usePlantPhotoAccess: vi.fn() }));
 
 const mockedUseSearchPlants = vi.mocked(useSearchPlants);
+const mockedUsePlantPhotoAccess = vi.mocked(usePlantPhotoAccess);
 
 /**
  * Only the fields `plant-list.tsx` actually reads are supplied — this is not
@@ -50,6 +53,7 @@ function plant(id: string, displayName: string): Plant {
     status: 'active',
     conditionNote: null,
     careGuidanceNote: null,
+    coverMediaId: null,
     revision: 1,
     createdByProfileId: 'profile-1',
     createdAt: '2026-07-21T09:00:00Z',
@@ -59,6 +63,7 @@ function plant(id: string, displayName: string): Plant {
 
 const PLANT_A = plant('plant-a', 'Tomato row');
 const PLANT_B = plant('plant-b', 'Basil pot');
+const PLANT_WITH_COVER: Plant = { ...plant('plant-c', 'Roma Tomato'), coverMediaId: 'media-1' };
 
 function queryResult(
   data: PlantListResult | undefined,
@@ -85,6 +90,7 @@ function renderList() {
 
 afterEach(() => {
   mockedUseSearchPlants.mockReset();
+  mockedUsePlantPhotoAccess.mockReset();
 });
 
 describe('PlantList — loading and failure states', () => {
@@ -182,5 +188,48 @@ describe('PlantList — search and pagination', () => {
     expect(screen.getByText('Basil pot')).toBeTruthy();
     // The second page has no `nextCursor` — the button must not persist.
     expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull();
+  });
+});
+
+describe('PlantList — cover photo', () => {
+  // The `<img>` carries `alt=""` (the plant's name is already shown as
+  // visible text right beside it, so a redundant accessible name would just
+  // be announced twice) — that makes it presentational, not `role="img"`, so
+  // these queries go through the container rather than `getByRole`.
+  it('shows the fallback icon, without resolving a media URL, for a plant with no cover photo', () => {
+    mockSearchResult(queryResult({ items: [PLANT_A] }));
+
+    const { container } = renderList();
+
+    expect(mockedUsePlantPhotoAccess).not.toHaveBeenCalled();
+    expect(container.querySelector('img')).toBeNull();
+  });
+
+  it("renders the plant's resolved cover photo when coverMediaId is set", () => {
+    mockSearchResult(queryResult({ items: [PLANT_WITH_COVER] }));
+    mockedUsePlantPhotoAccess.mockReturnValue({
+      isPending: false,
+      isError: false,
+      data: { url: 'https://signed.example/media-1', expiresAt: '2026-01-01T00:00:00Z' },
+    } as never);
+
+    const { container } = renderList();
+
+    expect(mockedUsePlantPhotoAccess).toHaveBeenCalledWith('garden-1', 'media-1');
+    expect(container.querySelector('img')?.getAttribute('src')).toBe(
+      'https://signed.example/media-1',
+    );
+  });
+
+  it('falls back to the icon when the cover photo fails to resolve', () => {
+    mockSearchResult(queryResult({ items: [PLANT_WITH_COVER] }));
+    mockedUsePlantPhotoAccess.mockReturnValue({
+      isPending: false,
+      isError: true,
+    } as never);
+
+    const { container } = renderList();
+
+    expect(container.querySelector('img')).toBeNull();
   });
 });

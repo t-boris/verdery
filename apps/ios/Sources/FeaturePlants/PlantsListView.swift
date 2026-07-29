@@ -85,7 +85,13 @@ struct PlantsListView: View {
     private func row(_ plant: Plant) -> some View {
         SurfaceCard {
             HStack(spacing: Metrics.space3) {
-                IconMedallion(symbol: "leaf.fill", label: plant.displayName, tone: .neutral)
+                PlantCoverThumbnailView(
+                    gardenId: plant.gardenId,
+                    mediaId: plant.coverMediaId,
+                    displayName: plant.displayName,
+                    lifecycleStage: plant.lifecycleStage,
+                    mediaGateway: model.mediaGateway
+                )
                 VStack(alignment: .leading, spacing: Metrics.space1) {
                     Text(plant.displayName)
                         .font(Typography.body.weight(.medium))
