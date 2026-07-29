@@ -1,6 +1,8 @@
 # Plant Intelligence, Candidates, and Visual Journal Design
 
-> Status: Draft 0.1; product direction requested by the owner; provider contracts remain implementation-time decisions  
+> Status: Draft 0.1; product direction requested by the owner. Provider selection, the
+> actual/candidate/health-suggestion glossary, and the existing-schema mapping are frozen by
+> [ADR-0016](decisions/ADR-0016-phase-11-plant-intelligence-domain-and-providers.md).  
 > Last updated: July 28, 2026
 
 ## 1. Purpose

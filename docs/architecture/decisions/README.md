@@ -1,7 +1,7 @@
 # Architecture Decision Records
 
 > Status: Active  
-> Last updated: July 28, 2026
+> Last updated: July 29, 2026
 
 ## Purpose
 
@@ -33,6 +33,7 @@ Architecture decision records preserve the context, choice, consequences, and su
 | [ADR-0013](ADR-0013-ai-assisted-care-content-authoring.md)             | AI-assisted care content authoring, never runtime care authority                    | Accepted                            |
 | [ADR-0014](ADR-0014-phase-10-capture-research-gate.md)                 | Phase 10 capture research gate: dataset plan and draft thresholds                   | Superseded (partially, by ADR-0015) |
 | [ADR-0015](ADR-0015-phase10-redirect-plants-over-photo-capture.md)     | Redirect Phase 10: real plant identification over photo-based garden-object capture | Accepted                            |
+| [ADR-0016](ADR-0016-phase-11-plant-intelligence-domain-and-providers.md) | Phase 11 domain freeze: actual/candidate semantics, health-suggestion safety, provider mapping | Accepted                            |
 
 ## Naming
 

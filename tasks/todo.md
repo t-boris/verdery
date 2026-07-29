@@ -7360,3 +7360,70 @@ P11-PROD-01) is satisfied: the identification/condition-tracking vertical slice 
 tested, and reachable end-to-end on both clients, even while switched off.
 
 ---
+
+# Phase 11 — Plant Intelligence, Candidates, and Visual Journal, planning
+
+Source: [docs/implementation-plan.md](../docs/implementation-plan.md) section 20 (16 work packages,
+`P11-PROD-01`..`P11-QA-01`); [architecture/plant-intelligence-and-visual-journal.md](../docs/architecture/plant-intelligence-and-visual-journal.md)
+(Draft 0.1, owner-directed product design, written before this session).
+
+## Domain freeze: ADR-0016
+
+Before touching schema, this session mapped the design doc's logical model against what Phases 4,
+7, 9D, and 10 already built, to avoid forking architecture that already exists:
+
+- `plants_inventory.plant`/`plant_photo`/`plant_identification`/`plant_revision` (P4) already are
+  the design doc's "Actual Plant" — unrenamed, extended with new sibling candidate tables rather
+  than a status flag.
+- `integrations.plant_taxonomy_mapping`/`plant_content_record` (P7-INT-02) already are the design
+  doc's provider-crosswalk and source-record concepts, live schema with a working provider-neutral
+  port and registry, but **zero registered adapters** — `activeProviderKey: null` everywhere.
+- **ADR-0013 (2026-07-26) already selected** free-only content sources — World Flora Online, USDA
+  PLANTS, USDA Characteristics, Wikidata, USDA GRIN, self-hosted hardiness rasters — eleven days
+  before this session; no adapter implementing any of them exists yet. `P11-PROV-01` is therefore
+  real adapter-writing work against an already-decided list, not a new selection to make or a gate
+  to wait on.
+- `plants_inventory.taxonomy_seasonal_fact` (P9D) already has the `authoring_method`/
+  `review_status` gate Phase 11's structured fact assertions need, generalized rather than
+  reinvented.
+- `observations_history.image_analysis_result` (P4, real Vertex adapter since P10/ADR-0015)
+  already is the design doc's "health suggestion" — extended additively (model/prompt version,
+  evidence, alternatives, safety class, disposition), not replaced by a parallel table.
+
+[ADR-0016](../docs/architecture/decisions/ADR-0016-phase-11-plant-intelligence-domain-and-providers.md)
+records the full concept-to-table mapping, the four net-new provider selections this phase adds
+beyond ADR-0013's scope (GBIF for occurrence, USA-NPN for phenology, USDA NRCS for soil, USDA APHIS
+for regulatory — all free/public, no commercial license needed), the frozen media license allowlist
+(Public Domain/CC0/CC BY now; CC BY-SA needs a compliance design; NC/ND/unknown/withdrawn never
+eligible), and what remains a genuine owner-only gate: a commercial care-content vendor beyond the
+free baseline (undecided, unbuilt, ships as a visible partial-coverage gap, not a blocker), and the
+same two owner actions ADR-0015 already deferred for Phase 10 (real-photo health-suggestion
+evaluation, Vertex AI image data-retention confirmation) — not re-litigated per capability. Every
+provider this phase builds is free/public and buildable without an owner sign-off gate; enrichment
+adapters ship real and kill-switched by default, the ADR-0015 posture applied to a new phase.
+
+This closes `P11-PROD-01` (glossary/state diagrams/safety policy — frozen, citing the pre-existing
+design doc plus ADR-0016's extensions) and the provider-selection half of `P11-PROV-01` (source
+scoring — inherited from ADR-0013 plus four additions; only real adapter implementation remains).
+
+## Work-package sequencing for this phase
+
+Implementation proceeds in the dependency order `implementation-plan.md` section 20.3 already
+specifies, tracked in-session via the task list (`P11-DATA-01` through `P11-QA-01`), each landing
+as its own commit with real migrations/tests, matching every prior phase's discipline:
+
+1. `P11-DATA-01` (candidate/conversion schema) and `P11-DATA-02` (taxon crosswalk/profile schema
+   extensions) — foundation, in parallel conceptually but committed sequentially.
+2. `P11-PROV-01` (real adapters for the ADR-0016 source list) and `P11-ASYNC-01` (enrichment job
+   pipeline) — depend on `P11-DATA-02`.
+3. `P11-SUIT-01` (suitability engine) — depends on `P11-DATA-01`/`02`.
+4. `P11-API-01` (contracts) and `P11-SEARCH-01` (search/filters) — depend on `P11-DATA-01`/`02`.
+5. `P11-MEDIA-01` (visual journal) — depends on `P11-API-01`.
+6. `P11-HEALTH-01` (health suggestions) — depends on `P11-MEDIA-01` and the existing P10 adapter
+   idiom.
+7. `P11-WEB-01` and `P11-IOS-01` (client rewrites) — depend on `P11-API-01`/`SEARCH-01`/`MEDIA-01`.
+8. `P11-SHARE-01` (publication) and `P11-OBS-01` (telemetry) — depend on the clients.
+9. `P11-QA-01` (cross-platform evidence matrix) — closes the phase, mirroring Phase 8/10's
+   evidence-table review format.
+
+---
