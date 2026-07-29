@@ -90,6 +90,21 @@ struct PlantsListViewModelTests {
         #expect(gateway.searchPlantsQueries.last?.query == nil)
     }
 
+    @Test("load() and loadMore() both exclude removed plants by default, since there is no filter UI yet")
+    func loadExcludesRemovedByDefault() async {
+        let gateway = FakePlantGateway()
+        gateway.searchPlantsPages[nil] = PlantSearchPage(items: [], nextCursor: "cursor-2")
+        gateway.searchPlantsPages["cursor-2"] = PlantSearchPage(items: [], nextCursor: nil)
+        let model = makeModel(gateway: gateway)
+
+        await model.load()
+        await model.loadMore()
+
+        for query in gateway.searchPlantsQueries {
+            #expect(query.status?.contains(.removed) == false)
+        }
+    }
+
     @Test("loadMore() appends the next page and advances nextCursor")
     func loadMoreAppendsNextPage() async {
         let gateway = FakePlantGateway()

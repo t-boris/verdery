@@ -408,11 +408,14 @@ struct PlantGatewayTests {
             """#
         let gateway = makeGateway(identifier: identifier, answer: .json(200, resultJSON))
 
-        let page = try await gateway.searchPlants(gardenId: "garden-1", query: "tomato", cursor: "cursor-1", limit: 10)
+        let page = try await gateway.searchPlants(
+            gardenId: "garden-1", query: "tomato", status: [.active, .dormant], cursor: "cursor-1", limit: 10
+        )
 
         let request = try #require(StubURLProtocol.requests(forSession: identifier).first)
         #expect(request.url?.path == "/v1/gardens/garden-1/plants")
         #expect(request.url?.query?.contains("query=tomato") == true)
+        #expect(request.url?.query?.contains("status=active,dormant") == true)
         #expect(request.url?.query?.contains("cursor=cursor-1") == true)
         #expect(request.url?.query?.contains("limit=10") == true)
 
@@ -431,7 +434,7 @@ struct PlantGatewayTests {
             """#
         let gateway = makeGateway(identifier: identifier, answer: .json(200, resultJSON))
 
-        let page = try await gateway.searchPlants(gardenId: "garden-1", query: nil, cursor: nil, limit: nil)
+        let page = try await gateway.searchPlants(gardenId: "garden-1", query: nil, status: nil, cursor: nil, limit: nil)
 
         let request = try #require(StubURLProtocol.requests(forSession: identifier).first)
         #expect(request.url?.query == nil)

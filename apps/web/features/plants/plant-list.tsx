@@ -8,7 +8,13 @@ import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
 import { Button, FailureAlert, StaleIndicator, StatusPill, TextField } from '@/shared/ui/public';
 
-import { groupingKindLabel, lifecycleStageLabel, statusLabel, statusTone } from './labels';
+import {
+  PLANT_STATUSES,
+  groupingKindLabel,
+  lifecycleStageLabel,
+  statusLabel,
+  statusTone,
+} from './labels';
 import styles from './plant-list.module.css';
 import { useSearchPlants } from './queries';
 
@@ -19,6 +25,15 @@ export interface PlantListProps {
 const PAGE_LIMIT = 20;
 
 /**
+ * Every status except `removed` — there is no filter UI yet (a deliberate,
+ * documented scope call, see this component's own doc comment), so the one
+ * thing this list must not do by default is keep showing a plant the reader
+ * just deleted (`SetPlantStatus('removed')`, `PlantDeleteSection`) as if
+ * nothing happened.
+ */
+const VISIBLE_STATUSES = PLANT_STATUSES.filter((status) => status !== 'removed');
+
+/**
  * A garden's plant inventory, searchable by `displayName` via `SearchPlants`
  * (`GET /gardens/{gardenId}/plants`, P4-SEARCH-01). Closes a real,
  * documented gap: before this endpoint existed, this feature had no way to
@@ -27,10 +42,14 @@ const PAGE_LIMIT = 20;
  * `docs/development/deferred-capabilities.md` for the now-closed history.
  *
  * The structured filters `SearchPlants` also accepts (`lifecycleStage`/
- * `status`/`groupingKind`) are deliberately left out of this pass — only the
- * free-text `query` (matched trigram-fuzzy against `displayName`) is wired,
- * per this follow-up's own explicit scope: a real, working list takes
- * priority over exhaustive filter UI.
+ * `groupingKind`, and `status` beyond the fixed default below) are
+ * deliberately left out of this pass — only the free-text `query` (matched
+ * trigram-fuzzy against `displayName`) is user-facing, per this follow-up's
+ * own explicit scope: a real, working list takes priority over exhaustive
+ * filter UI. `status` itself is always sent, fixed to `VISIBLE_STATUSES`
+ * (every status except `removed`), so a plant the reader just deleted does
+ * not keep appearing here as if nothing happened — see that constant's own
+ * doc comment.
  *
  * Pagination is a plain "Load more" button over the contract's own
  * `nextCursor` convention (`ListGardens`/`SearchPlants` share it). Earlier
@@ -55,6 +74,7 @@ export function PlantList({ gardenId }: PlantListProps) {
 
   const query = useSearchPlants(gardenId, {
     query: searchText.trim() === '' ? null : searchText.trim(),
+    status: VISIBLE_STATUSES,
     cursor,
     limit: PAGE_LIMIT,
   });

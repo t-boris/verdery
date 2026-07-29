@@ -152,6 +152,7 @@ describe('PlantList — search and pagination', () => {
 
     expect(mockedUseSearchPlants).toHaveBeenLastCalledWith('garden-1', {
       query: 'tomato',
+      status: ['active', 'dormant', 'archived', 'dead'],
       cursor: null,
       limit: 20,
     });

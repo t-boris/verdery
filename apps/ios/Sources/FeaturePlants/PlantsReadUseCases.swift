@@ -33,10 +33,11 @@ public struct SearchPlants: Sendable {
     public func callAsFunction(
         gardenId: String,
         query: String? = nil,
+        status: [PlantStatus]? = nil,
         cursor: String? = nil,
         limit: Int? = nil
     ) async throws -> PlantSearchPage {
-        try await gateway.searchPlants(gardenId: gardenId, query: query, cursor: cursor, limit: limit)
+        try await gateway.searchPlants(gardenId: gardenId, query: query, status: status, cursor: cursor, limit: limit)
     }
 }
 

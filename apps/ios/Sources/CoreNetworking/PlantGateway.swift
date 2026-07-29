@@ -131,8 +131,15 @@ public protocol PlantGateway: Sendable {
 
     /// `query`/`cursor` omitted lists every plant in the garden, most recent
     /// first — the contract's own default. `cursor` is opaque, from a prior
-    /// page's own `PlantSearchPage.nextCursor`.
-    func searchPlants(gardenId: String, query: String?, cursor: String?, limit: Int?) async throws -> PlantSearchPage
+    /// page's own `PlantSearchPage.nextCursor`. `status` omitted or empty
+    /// matches every status; the contract accepts more than one value.
+    func searchPlants(
+        gardenId: String,
+        query: String?,
+        status: [PlantStatus]?,
+        cursor: String?,
+        limit: Int?
+    ) async throws -> PlantSearchPage
 
     func listPlantPhotos(gardenId: String, plantId: String) async throws -> [PlantPhoto]
 }
@@ -421,12 +428,16 @@ public struct URLSessionPlantGateway: PlantGateway {
     public func searchPlants(
         gardenId: String,
         query: String?,
+        status: [PlantStatus]?,
         cursor: String?,
         limit: Int?
     ) async throws -> PlantSearchPage {
         var queryItems: [String] = []
         if let query, let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
             queryItems.append("query=\(encoded)")
+        }
+        if let status, !status.isEmpty {
+            queryItems.append("status=\(status.map(\.rawValue).joined(separator: ","))")
         }
         if let cursor, let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
             queryItems.append("cursor=\(encoded)")

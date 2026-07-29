@@ -61,10 +61,18 @@ public final class PlantsListViewModel {
         return trimmed.isEmpty ? nil : trimmed
     }
 
+    /// Every status except `removed` — there is no filter UI yet (a
+    /// deliberate, documented scope call, `docs/development/
+    /// deferred-capabilities.md`), so the one thing this list must not do by
+    /// default is keep showing a plant the reader just deleted
+    /// (`SetPlantStatus('removed')`, `PlantDetailViewModel.delete()`) as if
+    /// nothing happened.
+    private static let visibleStatuses: [PlantStatus] = PlantStatus.allCases.filter { $0 != .removed }
+
     public func load() async {
         state = .loading
         do {
-            let page = try await searchPlants(gardenId: gardenId, query: trimmedQuery)
+            let page = try await searchPlants(gardenId: gardenId, query: trimmedQuery, status: Self.visibleStatuses)
             state = .loaded(items: page.items, nextCursor: page.nextCursor)
         } catch let error as APIGatewayError {
             state = .failed(message: message(for: error))
@@ -80,7 +88,9 @@ public final class PlantsListViewModel {
         defer { isLoadingMore = false }
 
         do {
-            let page = try await searchPlants(gardenId: gardenId, query: trimmedQuery, cursor: nextCursor)
+            let page = try await searchPlants(
+                gardenId: gardenId, query: trimmedQuery, status: Self.visibleStatuses, cursor: nextCursor
+            )
             state = .loaded(items: items + page.items, nextCursor: page.nextCursor)
         } catch {
             // A failed "load more" leaves the already-loaded page displayed
