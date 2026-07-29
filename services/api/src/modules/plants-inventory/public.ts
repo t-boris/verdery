@@ -97,6 +97,37 @@ export { RebuildPlantProfileVersion } from './application/rebuild-plant-profile-
 export type { RebuildPlantProfileVersionResult } from './application/rebuild-plant-profile-version.js';
 export { KyselyPlantProfileVersionRepository } from './persistence/kysely-plant-profile-version-repository.js';
 
+// Candidate suitability engine (P11-SUIT-01). No HTTP transport, no
+// persistence-backed recalculation command yet if not listed below — see
+// `suitability-rule-catalog-instance.ts`'s own header for which design-doc
+// axes have no rule yet and why.
+export type {
+  SuitabilityAssessmentResult,
+  SuitabilityAxis,
+  SuitabilityEvidence,
+  SuitabilityFinding,
+  SuitabilityUnknownReason,
+} from './domain/suitability-finding.js';
+export { findingsOfCategory, SUITABILITY_AXES } from './domain/suitability-finding.js';
+export type {
+  CandidateDistributionFact,
+  CandidateProfileFact,
+  CandidateSuitabilityFacts,
+  GardenSuitabilityFacts,
+} from './domain/suitability-facts.js';
+export type {
+  SuitabilityRuleDefinition,
+  SuitabilityRuleEvaluator,
+  SuitabilityRuleReviewMetadata,
+} from './domain/suitability-rule-definition.js';
+export { validateSuitabilityRuleDefinition } from './domain/suitability-rule-definition.js';
+export { SuitabilityRuleCatalog } from './domain/suitability-rule-catalog.js';
+export { createSuitabilityRuleCatalog } from './domain/suitability-rules/suitability-rule-catalog-instance.js';
+export { evaluateCandidateSuitability } from './domain/evaluate-candidate-suitability.js';
+export { RecalculateCandidateSuitability } from './application/recalculate-candidate-suitability.js';
+export type { CandidateSuitabilityAssessmentRepository } from './application/candidate-suitability-assessment-repository.js';
+export { KyselyCandidateSuitabilityAssessmentRepository } from './persistence/kysely-candidate-suitability-assessment-repository.js';
+
 // Seasonal facts and bed-occupancy history (P9D-SEASON-DATA-01). Exported
 // narrowly — the read ports and the domain provenance shape, no HTTP
 // transport, the same "export a narrow read port, don't build the consumer

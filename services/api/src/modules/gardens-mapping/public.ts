@@ -133,12 +133,16 @@ export type { MapRoutesDependencies } from './transport/map-routes.js';
 // this pass) will need, the same narrow-read-port posture
 // `GardenAssignmentAccessSource` already establishes in this module.
 export type {
+  DrainageValue,
   GardenContextFact,
   GardenContextFactProvenance,
   GardenContextFactValue,
   GardenContextKind,
   GardenContextSource,
+  GrowingContextValue,
+  IrrigationMethodValue,
   RecordGardenContextFactInput,
+  SunExposureValue,
 } from './domain/garden-context-fact.js';
 export {
   GARDEN_CONTEXT_KINDS,

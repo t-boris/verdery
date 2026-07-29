@@ -217,6 +217,8 @@ export {
 } from './domain/plant-media-asset.js';
 export type { PlantFactAssertionRepository } from './application/plant-fact-assertion-repository.js';
 export { KyselyPlantFactAssertionRepository } from './persistence/kysely-plant-fact-assertion-repository.js';
+export type { PlantDistributionAssertionRepository } from './application/plant-distribution-assertion-repository.js';
+export { KyselyPlantDistributionAssertionRepository } from './persistence/kysely-plant-distribution-assertion-repository.js';
 
 // P7-AI-01: the AI-explanation capability — the provider-neutral port,
 // the bounded call machinery (budget + deadline + typed degradations),

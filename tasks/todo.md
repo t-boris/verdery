@@ -7570,4 +7570,51 @@ Two items remain genuine owner-only gates (recorded in the runbook's own §7, no
 a commercial care-content vendor beyond the free baseline, and confirming the exact hardiness-map
 attribution placement before that adapter is enabled outside development.
 
+## P11-SUIT-01 — garden-specific candidate suitability engine, complete
+
+Mirrors `tasks-recommendations`'s rule-engine shape exactly (data plus one pure evaluator function
+per rule, no condition-DSL interpreter), independently — the same "no shared cross-module
+vocabulary despite an identical shape" convention `Hemisphere`/`RuleReviewMetadata` already
+established. `SuitabilityFinding` gives design doc section 10's own named vocabulary
+(match/caution/blocker/unknown/assumption) a typed shape where "missing context never becomes a
+positive match" is enforced by construction: no variant lets a match carry an absent value.
+
+Three real, independently-evaluated rules ship: sun-exposure compatibility, drainage compatibility
+(both an ordinal-distance comparison between a `garden_context_fact` value and a resolved plant-
+profile fact — exact match, adjacent mismatch is a caution, opposite ends is a blocker), and
+regulatory/invasive status (reads reviewed `plant_distribution_assertion` rows; degrades honestly
+today to a garden-region-independent caution/assumption, since no garden-to-US-region resolution
+exists yet — the region-matched real-verdict branch is already implemented and fixture-tested for
+when that resolution ships). Three of section 10's axes (hardiness, mature space, user preference)
+have no rule yet, each for an honest, recorded reason in `suitability-rule-catalog-instance.ts`'s
+own header, not an oversight: hardiness has no data source wired yet (P11-PROV-01's runbook
+recorded the real one), mature space needs placement-area geometry math this pass does not build,
+and user preferences have no storage anywhere yet.
+
+`RecalculateCandidateSuitability` connects the pure engine to real storage: assembles garden
+context via `gardens-mapping`'s exported `GardenContextFactRepository`, the candidate's latest
+`PlantProfileVersion`, and reviewed distribution assertions gathered the same way
+`RebuildPlantProfileVersion` gathers fact assertions, then always persists a new assessment row —
+unlike profile rebuilds, an all-`unknown` assessment is itself a meaningful result, never skipped.
+A candidate with no identified taxon still gets a real, fully-`unknown` assessment rather than an
+error.
+
+**Found by testing**: the fixture suite's first version ran every scenario against the FULL
+three-rule catalog (mirroring the recommendation engine's own convention), and every single
+fixture failed — not from wrong rule logic, but because the other two (irrelevant) rules'
+`unknown` findings also appeared in the real result and were never listed in `expected`. Since
+these three axes are genuinely independent (no cross-rule suppression, unlike recommendations),
+the fix was architectural, not a fixture patch: each fixture group now runs against a catalog
+containing only its own rule, with the full-catalog concatenation behavior covered once, directly,
+by `evaluate-candidate-suitability.test.ts`.
+
+**Verification**: fresh `pnpm check:all` — format, lint, typecheck, 600-line gate, and the full
+test suite all clean: `services/api` 2560/2560 (up from 2535), `apps/web` 977/977,
+`services/workers` 133/133. New: a reviewable fixture suite
+(`tests/suitability-fixtures/`, 16 scenarios across three rule files plus its own README following
+`tests/rule-fixtures/`'s review protocol exactly), a catalog test pinning a content hash per rule
+version, domain/engine unit tests, and a real-Postgres integration test
+(`candidate-suitability.test.ts`) covering both the fully-resolved and the no-identified-taxon
+paths.
+
 ---
