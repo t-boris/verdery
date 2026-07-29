@@ -1337,6 +1337,198 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/gardens/{gardenId}/plant-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List a garden's plant candidates
+         * @description Every candidate matching the optional `status` filter, cursor-
+         *     paginated most recently created first. Full-text/relevance search
+         *     over candidates is a separate, later capability
+         *     (implementation-plan.md work package P11-SEARCH-01) — this is a
+         *     listing, not a search.
+         *
+         *     Source: implementation-plan.md work package P11-API-01.
+         */
+        get: operations["listCandidates"];
+        put?: never;
+        /**
+         * Add a plant candidate
+         * @description Adds a plant being CONSIDERED for the garden — excluded from
+         *     inventory counts, current-care tasks, and "what grows here" claims
+         *     by construction (a separate table, never a status value on
+         *     `Plant`). See ADR-0016 section 1.
+         *
+         *     Source: implementation-plan.md work package P11-DATA-01, P11-API-01.
+         */
+        post: operations["addCandidate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/plant-candidates/{candidateId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                candidateId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get a single plant candidate
+         * @description Source: implementation-plan.md work package P11-API-01.
+         */
+        get: operations["getCandidate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update a plant candidate's details
+         * @description Mirrors `UpdatePlantDetails`: every property optional, an omitted
+         *     property leaves the current value unchanged, an explicit `null` on
+         *     a nullable property clears it. `groupingKind` is immutable and not
+         *     included.
+         *
+         *     Source: implementation-plan.md work package P11-API-01.
+         */
+        patch: operations["updateCandidateDetails"];
+        trace?: never;
+    };
+    "/gardens/{gardenId}/plant-candidates/{candidateId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                candidateId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a plant candidate's status
+         * @description Sets `status` to `active`, `archived`, or `rejected` — never
+         *     `converted`, which only `convertCandidate` may reach. This is how
+         *     "delete a candidate" is modeled: a transition, never a hard delete.
+         *
+         *     Source: implementation-plan.md work package P11-API-01.
+         */
+        post: operations["setCandidateStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/plant-candidates/{candidateId}/convert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                candidateId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Convert a candidate into an actual plant
+         * @description An explicit, idempotent, revision-aware command — never a status
+         *     flag flip. `candidate_conversion`'s `UNIQUE (candidateId)` is the
+         *     authoritative at-most-once guard structurally, beneath this
+         *     command's own revision check. Preserves the original candidate,
+         *     linked as converted, never deleted.
+         *
+         *     Source: implementation-plan.md work package P11-API-01.
+         */
+        post: operations["convertCandidate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/plant-candidates/{candidateId}/suitability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                candidateId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get a candidate's latest suitability assessment
+         * @description An honest 404 when no assessment has ever been computed — never a
+         *     fabricated empty one. `recalculateCandidateSuitability` is what a
+         *     client calls first.
+         *
+         *     Source: implementation-plan.md work package P11-SUIT-01, P11-API-01.
+         */
+        get: operations["getCandidateSuitability"];
+        put?: never;
+        /**
+         * Recalculate a candidate's suitability assessment
+         * @description Assembles current garden context, the candidate's resolved plant
+         *     profile, and reviewed distribution/regulatory facts, then always
+         *     persists a new append-only assessment — even an all-`unknown`
+         *     result is itself a meaningful, real result for a candidate with no
+         *     identified taxon yet, so it is never skipped. No `Idempotency-Key`:
+         *     recalculation is naturally safe to call repeatedly, each call
+         *     producing its own fresh, equally valid assessment rather than
+         *     needing at-most-once semantics.
+         *
+         *     Source: implementation-plan.md work package P11-SUIT-01, P11-API-01.
+         */
+        post: operations["recalculateCandidateSuitability"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/plant-catalog/taxa/{taxonomyReferenceId}/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taxonomyReferenceId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get a taxon's materialized knowledge profile
+         * @description A shared reference resource, not garden-scoped — the same "no
+         *     per-garden authorization" posture `searchTaxonomyReferences` takes
+         *     for the identical reason. An honest 404 when no profile version has
+         *     ever been assembled for this taxon.
+         *
+         *     Source: implementation-plan.md work package P11-DATA-02, P11-API-01.
+         */
+        get: operations["getTaxonProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/gardens/{gardenId}/observations": {
         parameters: {
             query?: never;
@@ -5630,6 +5822,163 @@ export interface components {
             gardenAreaMapObjectId?: components["schemas"]["Uuid"];
             placementMapObjectId?: components["schemas"]["Uuid"];
         };
+        /**
+         * @description `converted` is reachable only through `convertCandidate` — never
+         *     through `setCandidateStatus`, whose own request schema excludes it.
+         * @enum {string}
+         */
+        PlantCandidateStatus: "active" | "converted" | "archived" | "rejected";
+        /** @enum {string} */
+        PlantCandidatePriority: "low" | "medium" | "high";
+        PlantCandidate: {
+            id: components["schemas"]["Uuid"];
+            gardenId: components["schemas"]["Uuid"];
+            proposedGardenAreaMapObjectId: components["schemas"]["Uuid"] | null;
+            proposedPlacementMapObjectId: components["schemas"]["Uuid"] | null;
+            displayName: string;
+            taxonomyReferenceId: components["schemas"]["Uuid"] | null;
+            varietyLabel: string | null;
+            groupingKind: components["schemas"]["PlantGroupingKind"];
+            quantity: number | null;
+            status: components["schemas"]["PlantCandidateStatus"];
+            rationaleNote: string | null;
+            priority: components["schemas"]["PlantCandidatePriority"] | null;
+            priceAmount: number | null;
+            priceCurrency: string | null;
+            purchaseSource: string | null;
+            /** @description A single, deliberately narrow self-reference — not a full alternatives-set model. */
+            alternativeToCandidateId: components["schemas"]["Uuid"] | null;
+            revision: components["schemas"]["Revision"];
+            createdByProfileId: components["schemas"]["Uuid"];
+            createdAt: components["schemas"]["Timestamp"];
+            updatedAt: components["schemas"]["Timestamp"];
+        };
+        PlantCandidateListResult: {
+            items: components["schemas"]["PlantCandidate"][];
+            /** @description Opaque continuation token. Absent when no further page exists. */
+            nextCursor?: string;
+        };
+        /** @description Mirrors `AddCandidateInput`. Source: plants-inventory/application/add-candidate.ts. */
+        AddCandidateRequest: {
+            proposedGardenAreaMapObjectId?: components["schemas"]["Uuid"];
+            proposedPlacementMapObjectId?: components["schemas"]["Uuid"];
+            displayName: string;
+            taxonomyReferenceId?: components["schemas"]["Uuid"] | null;
+            varietyLabel?: string | null;
+            groupingKind: components["schemas"]["PlantGroupingKind"];
+            quantity?: number | null;
+            rationaleNote?: string | null;
+            priority?: components["schemas"]["PlantCandidatePriority"] | null;
+            priceAmount?: number | null;
+            priceCurrency?: string | null;
+            purchaseSource?: string | null;
+            alternativeToCandidateId?: components["schemas"]["Uuid"] | null;
+        };
+        /**
+         * @description Mirrors `CandidateDetailsChanges`. Every property is optional; an
+         *     omitted property leaves the current value unchanged, and an
+         *     explicit `null` on a nullable property clears it. `groupingKind` is
+         *     immutable and not included. Source:
+         *     plants-inventory/domain/plant-candidate.ts.
+         */
+        UpdateCandidateDetailsRequest: {
+            displayName?: string;
+            taxonomyReferenceId?: components["schemas"]["Uuid"] | null;
+            varietyLabel?: string | null;
+            quantity?: number | null;
+            rationaleNote?: string | null;
+            priority?: components["schemas"]["PlantCandidatePriority"] | null;
+            priceAmount?: number | null;
+            priceCurrency?: string | null;
+            purchaseSource?: string | null;
+        };
+        SetCandidateStatusRequest: {
+            /**
+             * @description Never `converted` — reachable only through `convertCandidate`.
+             * @enum {string}
+             */
+            status: "active" | "archived" | "rejected";
+        };
+        /**
+         * @description Mirrors `ConvertCandidateInput`. `gardenAreaMapObjectId`/
+         *     `placementMapObjectId`, when omitted, default to the candidate's
+         *     own proposed placement. Source:
+         *     plants-inventory/application/convert-candidate.ts.
+         */
+        ConvertCandidateRequest: {
+            gardenAreaMapObjectId?: components["schemas"]["Uuid"] | null;
+            placementMapObjectId?: components["schemas"]["Uuid"] | null;
+            acquisitionDate?: string | null;
+            acquisitionDateType?: components["schemas"]["PlantAcquisitionDateType"] | null;
+        };
+        CandidateConversion: {
+            id: components["schemas"]["Uuid"];
+            candidateId: components["schemas"]["Uuid"];
+            plantId: components["schemas"]["Uuid"];
+            convertedByProfileId: components["schemas"]["Uuid"];
+            convertedAt: components["schemas"]["Timestamp"];
+        };
+        ConvertCandidateResult: {
+            plant: components["schemas"]["Plant"];
+            candidate: components["schemas"]["PlantCandidate"];
+            conversion: components["schemas"]["CandidateConversion"];
+        };
+        /**
+         * @description Three axes (hardiness, mature_space, user_preference) have no rule
+         *     producing findings yet, each for a recorded reason — see
+         *     plants-inventory/domain/suitability-rules/suitability-rule-catalog-instance.ts.
+         * @enum {string}
+         */
+        SuitabilityAxis: "hardiness" | "sun_exposure" | "soil_ph" | "drainage" | "mature_space" | "growing_context" | "structural_conflict" | "regulatory_status" | "user_preference";
+        SuitabilityEvidence: {
+            factKey: string;
+            value: unknown;
+            sourceCitation: string | null;
+        };
+        /**
+         * @description A discriminated union over `category`, encoded as one open object
+         *     so client code branches on `category` before reading the fields
+         *     that apply to it — `explanation`/`evidence` for match/caution/
+         *     blocker, `reason` for unknown, `explanation`/`assumedValue` for
+         *     assumption. "Missing context never becomes a positive match": a
+         *     `category: unknown` finding never carries `explanation`/`evidence`.
+         */
+        SuitabilityFinding: {
+            /** @enum {string} */
+            category: "match" | "caution" | "blocker" | "unknown" | "assumption";
+            axis: components["schemas"]["SuitabilityAxis"];
+            explanation?: string;
+            evidence?: components["schemas"]["SuitabilityEvidence"][];
+            /** @enum {string} */
+            reason?: "garden_context_missing" | "plant_fact_missing" | "placement_missing";
+            assumedValue?: unknown;
+        };
+        SuitabilityAssessment: {
+            candidateId: components["schemas"]["Uuid"];
+            findings: components["schemas"]["SuitabilityFinding"][];
+        };
+        ResolvedFact: {
+            factKey: string;
+            value: unknown;
+            unit: string | null;
+            geographicScope: string | null;
+            providerKey: string;
+            confidence: number | null;
+            sourceCitation: string | null;
+        };
+        /**
+         * @description The materialized, source-priority-resolved profile
+         *     (plants-inventory/domain/plant-profile-version.ts). Only
+         *     `horticulturally_reviewed` facts ever appear in `resolvedFacts`.
+         */
+        PlantProfileVersion: {
+            id: components["schemas"]["Uuid"];
+            taxonomyReferenceId: components["schemas"]["Uuid"];
+            resolvedFacts: components["schemas"]["ResolvedFact"][];
+            /** @description True when at least one fact key seen among candidate assertions never resolved (missing, or only unreviewed). */
+            isPartial: boolean;
+            createdAt: components["schemas"]["Timestamp"];
+        };
         /** @enum {string} */
         ObservationActorType: "user" | "system";
         /** @enum {string} */
@@ -8919,6 +9268,311 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    listCandidates: {
+        parameters: {
+            query?: {
+                /** @description Comma-separated statuses to include. Omit to include every status. */
+                status?: components["schemas"]["PlantCandidateStatus"][];
+                /** @description Opaque continuation token from a previous page. Clients must not parse it. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum items to return. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Matching candidates. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlantCandidateListResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    addCandidate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddCandidateRequest"];
+            };
+        };
+        responses: {
+            /** @description The created candidate. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlantCandidate"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getCandidate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                candidateId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The candidate. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlantCandidate"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateCandidateDetails: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                candidateId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCandidateDetailsRequest"];
+            };
+        };
+        responses: {
+            /** @description The candidate with its changes applied. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlantCandidate"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    setCandidateStatus: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                candidateId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetCandidateStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description The candidate at its new status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlantCandidate"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    convertCandidate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                candidateId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConvertCandidateRequest"];
+            };
+        };
+        responses: {
+            /** @description The new plant, the converted candidate, and the conversion record. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConvertCandidateResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getCandidateSuitability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                candidateId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The latest assessment. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuitabilityAssessment"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    recalculateCandidateSuitability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                candidateId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The freshly computed assessment. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuitabilityAssessment"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getTaxonProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taxonomyReferenceId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The latest materialized profile. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlantProfileVersion"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     listObservationsForGarden: {

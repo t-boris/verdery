@@ -49,9 +49,11 @@ export type { PlantPhoto } from './domain/plant-photo.js';
 export type { PlantIdentification } from './domain/plant-identification.js';
 export type { TaxonomyReference, TaxonomySource } from './domain/taxonomy-reference.js';
 
-// Plant candidates and conversion (P11-DATA-01). No HTTP transport yet — see
-// this module's own P4-CONTRACT-01 precedent above: schema, domain, and
-// commands land first, `P11-API-01` adds the contract and routes.
+// Plant candidates and conversion (P11-DATA-01). HTTP transport
+// (`registerCandidateRoutes`, tags `PlantCandidates`/`PlantCatalog`) and
+// four read-only queries (`GetCandidate`, `ListCandidates`,
+// `GetCandidateSuitability`, `GetTaxonProfile`) land in `P11-API-01`, the
+// same staging this module's own P4-CONTRACT-01 precedent above followed.
 export type {
   CandidateDetailsChanges,
   CandidatePlacement,
@@ -68,6 +70,8 @@ export type {
 } from './application/plant-candidate-repository.js';
 export type { CandidateConversionRepository } from './application/candidate-conversion-repository.js';
 export { CandidateErrorCode } from './application/candidate-errors.js';
+export type { CandidateResource } from './application/candidate-view.js';
+export { toCandidateResource } from './application/candidate-view.js';
 export { AddCandidate } from './application/add-candidate.js';
 export type { AddCandidateInput } from './application/add-candidate.js';
 export { UpdateCandidateDetails } from './application/update-candidate-details.js';
@@ -76,7 +80,14 @@ export { ConvertCandidate } from './application/convert-candidate.js';
 export type {
   ConvertCandidateInput,
   ConvertCandidateResult,
+  CandidateConversionResource,
 } from './application/convert-candidate.js';
+export { GetCandidate } from './application/get-candidate.js';
+export { ListCandidates } from './application/list-candidates.js';
+export type {
+  ListCandidatesFilters,
+  CandidateListResourcePage,
+} from './application/list-candidates.js';
 export { KyselyPlantCandidateRepository } from './persistence/kysely-plant-candidate-repository.js';
 export { KyselyCandidateConversionRepository } from './persistence/kysely-candidate-conversion-repository.js';
 
@@ -96,11 +107,12 @@ export type { PlantProfileVersionRepository } from './application/plant-profile-
 export { RebuildPlantProfileVersion } from './application/rebuild-plant-profile-version.js';
 export type { RebuildPlantProfileVersionResult } from './application/rebuild-plant-profile-version.js';
 export { KyselyPlantProfileVersionRepository } from './persistence/kysely-plant-profile-version-repository.js';
+export { GetTaxonProfile } from './application/get-taxon-profile.js';
 
-// Candidate suitability engine (P11-SUIT-01). No HTTP transport, no
-// persistence-backed recalculation command yet if not listed below — see
-// `suitability-rule-catalog-instance.ts`'s own header for which design-doc
-// axes have no rule yet and why.
+// Candidate suitability engine (P11-SUIT-01). Reachable over HTTP as of
+// P11-API-01 (`GetCandidateSuitability`, `recalculateCandidateSuitability`
+// route) — see `suitability-rule-catalog-instance.ts`'s own header for which
+// design-doc axes have no rule yet and why.
 export type {
   SuitabilityAssessmentResult,
   SuitabilityAxis,
@@ -125,6 +137,7 @@ export { SuitabilityRuleCatalog } from './domain/suitability-rule-catalog.js';
 export { createSuitabilityRuleCatalog } from './domain/suitability-rules/suitability-rule-catalog-instance.js';
 export { evaluateCandidateSuitability } from './domain/evaluate-candidate-suitability.js';
 export { RecalculateCandidateSuitability } from './application/recalculate-candidate-suitability.js';
+export { GetCandidateSuitability } from './application/get-candidate-suitability.js';
 export type { CandidateSuitabilityAssessmentRepository } from './application/candidate-suitability-assessment-repository.js';
 export { KyselyCandidateSuitabilityAssessmentRepository } from './persistence/kysely-candidate-suitability-assessment-repository.js';
 
@@ -213,6 +226,8 @@ export type { SearchPlantsFilters, PlantSearchResult } from './application/searc
 
 export { registerPlantRoutes } from './transport/plant-routes.js';
 export type { PlantRoutesDependencies } from './transport/plant-routes.js';
+export { registerCandidateRoutes } from './transport/candidate-routes.js';
+export type { CandidateRoutesDependencies } from './transport/candidate-routes.js';
 
 export { KyselyPlantRepository } from './persistence/kysely-plant-repository.js';
 export { KyselyPlantPhotoRepository } from './persistence/kysely-plant-photo-repository.js';

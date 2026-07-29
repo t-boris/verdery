@@ -44,6 +44,10 @@ tags:
     description: Reviewed or declared facts about a garden's physical growing environment — sun exposure, soil type, drainage, irrigation method, growing context (open ground / container / greenhouse), and microclimate — each with its own source and quality (FR-22).
   - name: Plants
     description: Plant inventory within a garden — placement on the map, photos, taxonomy identification, lifecycle stage, and status.
+  - name: PlantCandidates
+    description: Plants being CONSIDERED for a garden — excluded from inventory counts, current-care tasks, and "what grows here" claims by construction. Covers candidate CRUD, explicit revision-aware conversion into an actual plant, and garden-specific suitability assessment (matches, cautions, blockers, unknowns, assumptions — never a positive match from missing context).
+  - name: PlantCatalog
+    description: Shared, source-attributed plant knowledge — not garden-owned data. Today covers a taxon's materialized knowledge profile (resolved, cited facts); catalog search and filtering land with P11-SEARCH-01.
   - name: Observations
     description: The append-only garden and plant observation history, including per-photo image-analysis results and immutable corrections.
   - name: Tasks
@@ -2246,6 +2250,361 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+
+  /gardens/{gardenId}/plant-candidates:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: addCandidate
+      tags: [PlantCandidates]
+      summary: Add a plant candidate
+      description: |
+        Adds a plant being CONSIDERED for the garden — excluded from
+        inventory counts, current-care tasks, and "what grows here" claims
+        by construction (a separate table, never a status value on
+        `Plant`). See ADR-0016 section 1.
+
+        Source: implementation-plan.md work package P11-DATA-01, P11-API-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddCandidateRequest'
+      responses:
+        '201':
+          description: The created candidate.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlantCandidate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    get:
+      operationId: listCandidates
+      tags: [PlantCandidates]
+      summary: List a garden's plant candidates
+      description: |
+        Every candidate matching the optional `status` filter, cursor-
+        paginated most recently created first. Full-text/relevance search
+        over candidates is a separate, later capability
+        (implementation-plan.md work package P11-SEARCH-01) — this is a
+        listing, not a search.
+
+        Source: implementation-plan.md work package P11-API-01.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Comma-separated statuses to include. Omit to include every status.
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/PlantCandidateStatus'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Matching candidates.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlantCandidateListResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /gardens/{gardenId}/plant-candidates/{candidateId}:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: candidateId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    get:
+      operationId: getCandidate
+      tags: [PlantCandidates]
+      summary: Get a single plant candidate
+      description: 'Source: implementation-plan.md work package P11-API-01.'
+      responses:
+        '200':
+          description: The candidate.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlantCandidate'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      operationId: updateCandidateDetails
+      tags: [PlantCandidates]
+      summary: Update a plant candidate's details
+      description: |
+        Mirrors `UpdatePlantDetails`: every property optional, an omitted
+        property leaves the current value unchanged, an explicit `null` on
+        a nullable property clears it. `groupingKind` is immutable and not
+        included.
+
+        Source: implementation-plan.md work package P11-API-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCandidateDetailsRequest'
+      responses:
+        '200':
+          description: The candidate with its changes applied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlantCandidate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+
+  /gardens/{gardenId}/plant-candidates/{candidateId}/status:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: candidateId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: setCandidateStatus
+      tags: [PlantCandidates]
+      summary: Set a plant candidate's status
+      description: |
+        Sets `status` to `active`, `archived`, or `rejected` — never
+        `converted`, which only `convertCandidate` may reach. This is how
+        "delete a candidate" is modeled: a transition, never a hard delete.
+
+        Source: implementation-plan.md work package P11-API-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetCandidateStatusRequest'
+      responses:
+        '200':
+          description: The candidate at its new status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlantCandidate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+
+  /gardens/{gardenId}/plant-candidates/{candidateId}/convert:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: candidateId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: convertCandidate
+      tags: [PlantCandidates]
+      summary: Convert a candidate into an actual plant
+      description: |
+        An explicit, idempotent, revision-aware command — never a status
+        flag flip. `candidate_conversion`'s `UNIQUE (candidateId)` is the
+        authoritative at-most-once guard structurally, beneath this
+        command's own revision check. Preserves the original candidate,
+        linked as converted, never deleted.
+
+        Source: implementation-plan.md work package P11-API-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConvertCandidateRequest'
+      responses:
+        '201':
+          description: The new plant, the converted candidate, and the conversion record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConvertCandidateResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /gardens/{gardenId}/plant-candidates/{candidateId}/suitability:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: candidateId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    get:
+      operationId: getCandidateSuitability
+      tags: [PlantCandidates]
+      summary: Get a candidate's latest suitability assessment
+      description: |
+        An honest 404 when no assessment has ever been computed — never a
+        fabricated empty one. `recalculateCandidateSuitability` is what a
+        client calls first.
+
+        Source: implementation-plan.md work package P11-SUIT-01, P11-API-01.
+      responses:
+        '200':
+          description: The latest assessment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuitabilityAssessment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      operationId: recalculateCandidateSuitability
+      tags: [PlantCandidates]
+      summary: Recalculate a candidate's suitability assessment
+      description: |
+        Assembles current garden context, the candidate's resolved plant
+        profile, and reviewed distribution/regulatory facts, then always
+        persists a new append-only assessment — even an all-`unknown`
+        result is itself a meaningful, real result for a candidate with no
+        identified taxon yet, so it is never skipped. No `Idempotency-Key`:
+        recalculation is naturally safe to call repeatedly, each call
+        producing its own fresh, equally valid assessment rather than
+        needing at-most-once semantics.
+
+        Source: implementation-plan.md work package P11-SUIT-01, P11-API-01.
+      responses:
+        '201':
+          description: The freshly computed assessment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuitabilityAssessment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /plant-catalog/taxa/{taxonomyReferenceId}/profile:
+    parameters:
+      - name: taxonomyReferenceId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    get:
+      operationId: getTaxonProfile
+      tags: [PlantCatalog]
+      summary: Get a taxon's materialized knowledge profile
+      description: |
+        A shared reference resource, not garden-scoped — the same "no
+        per-garden authorization" posture `searchTaxonomyReferences` takes
+        for the identical reason. An honest 404 when no profile version has
+        ever been assembled for this taxon.
+
+        Source: implementation-plan.md work package P11-DATA-02, P11-API-01.
+      responses:
+        '200':
+          description: The latest materialized profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlantProfileVersion'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /gardens/{gardenId}/observations:
     parameters:
@@ -9474,6 +9833,384 @@ components:
           $ref: '#/components/schemas/Uuid'
         placementMapObjectId:
           $ref: '#/components/schemas/Uuid'
+
+    PlantCandidateStatus:
+      type: string
+      enum: [active, converted, archived, rejected]
+      description: |
+        `converted` is reachable only through `convertCandidate` — never
+        through `setCandidateStatus`, whose own request schema excludes it.
+
+    PlantCandidatePriority:
+      type: string
+      enum: [low, medium, high]
+
+    PlantCandidate:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          gardenId,
+          proposedGardenAreaMapObjectId,
+          proposedPlacementMapObjectId,
+          displayName,
+          taxonomyReferenceId,
+          varietyLabel,
+          groupingKind,
+          quantity,
+          status,
+          rationaleNote,
+          priority,
+          priceAmount,
+          priceCurrency,
+          purchaseSource,
+          alternativeToCandidateId,
+          revision,
+          createdByProfileId,
+          createdAt,
+          updatedAt,
+        ]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        gardenId:
+          $ref: '#/components/schemas/Uuid'
+        proposedGardenAreaMapObjectId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        proposedPlacementMapObjectId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        taxonomyReferenceId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        varietyLabel:
+          type: [string, 'null']
+        groupingKind:
+          $ref: '#/components/schemas/PlantGroupingKind'
+        quantity:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+        status:
+          $ref: '#/components/schemas/PlantCandidateStatus'
+        rationaleNote:
+          type: [string, 'null']
+        priority:
+          oneOf:
+            - $ref: '#/components/schemas/PlantCandidatePriority'
+            - type: 'null'
+        priceAmount:
+          oneOf:
+            - type: number
+              minimum: 0
+            - type: 'null'
+        priceCurrency:
+          type: [string, 'null']
+        purchaseSource:
+          type: [string, 'null']
+        alternativeToCandidateId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: A single, deliberately narrow self-reference — not a full alternatives-set model.
+        revision:
+          $ref: '#/components/schemas/Revision'
+        createdByProfileId:
+          $ref: '#/components/schemas/Uuid'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+
+    PlantCandidateListResult:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlantCandidate'
+        nextCursor:
+          type: string
+          description: Opaque continuation token. Absent when no further page exists.
+
+    AddCandidateRequest:
+      type: object
+      additionalProperties: false
+      required: [displayName, groupingKind]
+      description: 'Mirrors `AddCandidateInput`. Source: plants-inventory/application/add-candidate.ts.'
+      properties:
+        proposedGardenAreaMapObjectId:
+          $ref: '#/components/schemas/Uuid'
+        proposedPlacementMapObjectId:
+          $ref: '#/components/schemas/Uuid'
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        taxonomyReferenceId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        varietyLabel:
+          type: [string, 'null']
+        groupingKind:
+          $ref: '#/components/schemas/PlantGroupingKind'
+        quantity:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+        rationaleNote:
+          type: [string, 'null']
+        priority:
+          oneOf:
+            - $ref: '#/components/schemas/PlantCandidatePriority'
+            - type: 'null'
+        priceAmount:
+          oneOf:
+            - type: number
+              minimum: 0
+            - type: 'null'
+        priceCurrency:
+          type: [string, 'null']
+        purchaseSource:
+          type: [string, 'null']
+        alternativeToCandidateId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+
+    UpdateCandidateDetailsRequest:
+      type: object
+      additionalProperties: false
+      description: |
+        Mirrors `CandidateDetailsChanges`. Every property is optional; an
+        omitted property leaves the current value unchanged, and an
+        explicit `null` on a nullable property clears it. `groupingKind` is
+        immutable and not included. Source:
+        plants-inventory/domain/plant-candidate.ts.
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        taxonomyReferenceId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        varietyLabel:
+          type: [string, 'null']
+        quantity:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+        rationaleNote:
+          type: [string, 'null']
+        priority:
+          oneOf:
+            - $ref: '#/components/schemas/PlantCandidatePriority'
+            - type: 'null'
+        priceAmount:
+          oneOf:
+            - type: number
+              minimum: 0
+            - type: 'null'
+        priceCurrency:
+          type: [string, 'null']
+        purchaseSource:
+          type: [string, 'null']
+
+    SetCandidateStatusRequest:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [active, archived, rejected]
+          description: Never `converted` — reachable only through `convertCandidate`.
+
+    ConvertCandidateRequest:
+      type: object
+      additionalProperties: false
+      description: |
+        Mirrors `ConvertCandidateInput`. `gardenAreaMapObjectId`/
+        `placementMapObjectId`, when omitted, default to the candidate's
+        own proposed placement. Source:
+        plants-inventory/application/convert-candidate.ts.
+      properties:
+        gardenAreaMapObjectId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        placementMapObjectId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        acquisitionDate:
+          oneOf:
+            - type: string
+              format: date
+            - type: 'null'
+        acquisitionDateType:
+          oneOf:
+            - $ref: '#/components/schemas/PlantAcquisitionDateType'
+            - type: 'null'
+
+    CandidateConversion:
+      type: object
+      additionalProperties: false
+      required: [id, candidateId, plantId, convertedByProfileId, convertedAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        candidateId:
+          $ref: '#/components/schemas/Uuid'
+        plantId:
+          $ref: '#/components/schemas/Uuid'
+        convertedByProfileId:
+          $ref: '#/components/schemas/Uuid'
+        convertedAt:
+          $ref: '#/components/schemas/Timestamp'
+
+    ConvertCandidateResult:
+      type: object
+      additionalProperties: false
+      required: [plant, candidate, conversion]
+      properties:
+        plant:
+          $ref: '#/components/schemas/Plant'
+        candidate:
+          $ref: '#/components/schemas/PlantCandidate'
+        conversion:
+          $ref: '#/components/schemas/CandidateConversion'
+
+    SuitabilityAxis:
+      type: string
+      enum:
+        - hardiness
+        - sun_exposure
+        - soil_ph
+        - drainage
+        - mature_space
+        - growing_context
+        - structural_conflict
+        - regulatory_status
+        - user_preference
+      description: |
+        Three axes (hardiness, mature_space, user_preference) have no rule
+        producing findings yet, each for a recorded reason — see
+        plants-inventory/domain/suitability-rules/suitability-rule-catalog-instance.ts.
+
+    SuitabilityEvidence:
+      type: object
+      additionalProperties: false
+      required: [factKey, value, sourceCitation]
+      properties:
+        factKey:
+          type: string
+        value: {}
+        sourceCitation:
+          type: [string, 'null']
+
+    SuitabilityFinding:
+      type: object
+      additionalProperties: false
+      required: [category, axis]
+      description: |
+        A discriminated union over `category`, encoded as one open object
+        so client code branches on `category` before reading the fields
+        that apply to it — `explanation`/`evidence` for match/caution/
+        blocker, `reason` for unknown, `explanation`/`assumedValue` for
+        assumption. "Missing context never becomes a positive match": a
+        `category: unknown` finding never carries `explanation`/`evidence`.
+      properties:
+        category:
+          type: string
+          enum: [match, caution, blocker, unknown, assumption]
+        axis:
+          $ref: '#/components/schemas/SuitabilityAxis'
+        explanation:
+          type: string
+        evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/SuitabilityEvidence'
+        reason:
+          type: string
+          enum: [garden_context_missing, plant_fact_missing, placement_missing]
+        assumedValue: {}
+
+    SuitabilityAssessment:
+      type: object
+      additionalProperties: false
+      required: [candidateId, findings]
+      properties:
+        candidateId:
+          $ref: '#/components/schemas/Uuid'
+        findings:
+          type: array
+          items:
+            $ref: '#/components/schemas/SuitabilityFinding'
+
+    ResolvedFact:
+      type: object
+      additionalProperties: false
+      required: [factKey, value, unit, geographicScope, providerKey, confidence, sourceCitation]
+      properties:
+        factKey:
+          type: string
+        value: {}
+        unit:
+          type: [string, 'null']
+        geographicScope:
+          type: [string, 'null']
+        providerKey:
+          type: string
+        confidence:
+          oneOf:
+            - type: number
+              minimum: 0
+              maximum: 1
+            - type: 'null'
+        sourceCitation:
+          type: [string, 'null']
+
+    PlantProfileVersion:
+      type: object
+      additionalProperties: false
+      required: [id, taxonomyReferenceId, resolvedFacts, isPartial, createdAt]
+      description: |
+        The materialized, source-priority-resolved profile
+        (plants-inventory/domain/plant-profile-version.ts). Only
+        `horticulturally_reviewed` facts ever appear in `resolvedFacts`.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        taxonomyReferenceId:
+          $ref: '#/components/schemas/Uuid'
+        resolvedFacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResolvedFact'
+        isPartial:
+          type: boolean
+          description: True when at least one fact key seen among candidate assertions never resolved (missing, or only unreviewed).
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
 
     ObservationActorType:
       type: string

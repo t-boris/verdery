@@ -11,35 +11,77 @@
  */
 
 import {
+  AddCandidate,
   AddPlant,
   AddPlantFromPhoto,
   AttachPlantPhoto,
   ConfirmPlantIdentification,
+  ConvertCandidate,
+  createSuitabilityRuleCatalog,
+  GetCandidate,
+  GetCandidateSuitability,
   GetPlant,
   GetPlantIdentification,
+  GetTaxonProfile,
+  KyselyCandidateSuitabilityAssessmentRepository,
+  KyselyPlantCandidateRepository,
   KyselyPlantIdentificationRepository,
   KyselyPlantPhotoRepository,
+  KyselyPlantProfileVersionRepository,
   KyselyPlantRepository,
   KyselyPlantsInventoryUnitOfWork,
   KyselyTaxonomyReferenceRepository,
+  ListCandidates,
   ListPlantPhotos,
   MovePlant,
+  RecalculateCandidateSuitability,
   RecordObservationFromIdentification,
   SearchPlants,
   SearchTaxonomyReferences,
+  SetCandidateStatus,
   SetPlantStatus,
   SetPrimaryPlantPhoto,
   TransitionPlantLifecycleStage,
+  UpdateCandidateDetails,
   UpdatePlantDetails,
 } from './modules/plants-inventory/public.js';
-import type { PlantRoutesDependencies } from './modules/plants-inventory/public.js';
+import type {
+  CandidateRoutesDependencies,
+  PlantRoutesDependencies,
+} from './modules/plants-inventory/public.js';
 import type { FastifyBaseLogger } from 'fastify';
-import type { GardenAuthorization } from './modules/gardens-mapping/public.js';
-import type { AnalyzePlantCondition, IdentifyPlantSpecies } from './modules/integrations/public.js';
+import {
+  KyselyGardenContextFactRepository,
+  type GardenAuthorization,
+} from './modules/gardens-mapping/public.js';
+import {
+  KyselyPlantDistributionAssertionRepository,
+  KyselyPlantTaxonomyMappingRepository,
+  type AnalyzePlantCondition,
+  type IdentifyPlantSpecies,
+} from './modules/integrations/public.js';
 import type { RecordObservation } from './modules/observations-history/public.js';
 import type { DatabaseGateway } from './platform/database/database-gateway.js';
 import { KyselyIdempotencyStore } from './platform/idempotency/kysely-idempotency-store.js';
+import { generateUuidV7 } from './shared/identifiers/uuid.js';
 import type { Clock } from './shared/time/clock.js';
+
+/**
+ * Tie-break ordering `RecalculateCandidateSuitability`'s `pickWinner`-style
+ * conflict resolution consults when more than one `horticulturally_reviewed`
+ * source covers the same fact — deliberately empty today. ADR-0013/ADR-0016
+ * already selected a source per knowledge class (World Flora Online, USDA
+ * PLANTS, USDA Characteristics, Wikidata, GBIF, USA-NPN, USDA NRCS, USDA
+ * APHIS), but zero adapters are registered in any environment yet
+ * (`P11-ASYNC-01` builds them) — the same honest "no provider configured"
+ * state `RefreshPlantContentConfiguration.activeProviderKey: null` already
+ * carries for text content. An empty list is not a stub: every provider
+ * absent from it still resolves deterministically via confidence, then
+ * freshness, then alphabetical order (`plant-profile-version.ts`'s own
+ * `pickWinner`) — this becomes a real, non-empty, ADR-ordered list once
+ * `P11-ASYNC-01` registers real provider keys.
+ */
+const PLANT_KNOWLEDGE_SOURCE_PRIORITY: readonly string[] = [];
 
 export function composePlantsInventory(
   database: DatabaseGateway,
@@ -49,7 +91,10 @@ export function composePlantsInventory(
   logger: FastifyBaseLogger,
   analyzePlantCondition: AnalyzePlantCondition,
   recordObservation: RecordObservation,
-): PlantRoutesDependencies {
+): {
+  plantRoutesDependencies: PlantRoutesDependencies;
+  candidateRoutesDependencies: CandidateRoutesDependencies;
+} {
   const plantRepository = new KyselyPlantRepository(database.queries);
   const taxonomyReferenceRepository = new KyselyTaxonomyReferenceRepository(database.queries);
   const plantsInventoryIdempotency = new KyselyIdempotencyStore(database.queries, clock);
@@ -141,21 +186,97 @@ export function composePlantsInventory(
     recordObservation,
   );
 
+  // Plant candidates, conversion, suitability, and the taxon knowledge
+  // profile (P11-DATA-01/02, P11-SUIT-01) reach HTTP here for the first
+  // time (P11-API-01). `plantCandidateRepository` is shared outside the
+  // unit-of-work by every read/status-guarded command, the same way
+  // `plantRepository` already is above.
+  const plantCandidateRepository = new KyselyPlantCandidateRepository(database.queries);
+  const addCandidate = new AddCandidate(
+    plantsInventoryIdempotency,
+    plantsInventoryUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
+  const listCandidates = new ListCandidates(plantCandidateRepository, gardenAuthorization);
+  const getCandidate = new GetCandidate(plantCandidateRepository, gardenAuthorization);
+  const updateCandidateDetails = new UpdateCandidateDetails(
+    plantCandidateRepository,
+    plantsInventoryIdempotency,
+    plantsInventoryUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
+  const setCandidateStatus = new SetCandidateStatus(
+    plantCandidateRepository,
+    plantsInventoryIdempotency,
+    plantsInventoryUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
+  const convertCandidate = new ConvertCandidate(
+    plantCandidateRepository,
+    plantsInventoryIdempotency,
+    plantsInventoryUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
+
+  const gardenContextFactRepository = new KyselyGardenContextFactRepository(database.queries);
+  const plantProfileVersionRepository = new KyselyPlantProfileVersionRepository(database.queries);
+  const plantTaxonomyMappingRepository = new KyselyPlantTaxonomyMappingRepository(database.queries);
+  const plantDistributionAssertionRepository = new KyselyPlantDistributionAssertionRepository(
+    database.queries,
+  );
+  const candidateSuitabilityAssessmentRepository =
+    new KyselyCandidateSuitabilityAssessmentRepository(database.queries);
+  const getCandidateSuitability = new GetCandidateSuitability(
+    plantCandidateRepository,
+    candidateSuitabilityAssessmentRepository,
+    gardenAuthorization,
+  );
+  const recalculateCandidateSuitability = new RecalculateCandidateSuitability(
+    plantCandidateRepository,
+    gardenContextFactRepository,
+    plantProfileVersionRepository,
+    plantTaxonomyMappingRepository,
+    plantDistributionAssertionRepository,
+    candidateSuitabilityAssessmentRepository,
+    createSuitabilityRuleCatalog(),
+    gardenAuthorization,
+    generateUuidV7,
+    PLANT_KNOWLEDGE_SOURCE_PRIORITY,
+  );
+  const getTaxonProfile = new GetTaxonProfile(plantProfileVersionRepository);
+
   return {
-    addPlant,
-    addPlantFromPhoto,
-    getPlant,
-    getPlantIdentification,
-    listPlantPhotos,
-    searchPlants,
-    updatePlantDetails,
-    attachPlantPhoto,
-    setPrimaryPlantPhoto,
-    confirmPlantIdentification,
-    recordObservationFromIdentification,
-    transitionPlantLifecycleStage,
-    setPlantStatus,
-    movePlant,
-    searchTaxonomyReferences,
+    plantRoutesDependencies: {
+      addPlant,
+      addPlantFromPhoto,
+      getPlant,
+      getPlantIdentification,
+      listPlantPhotos,
+      searchPlants,
+      updatePlantDetails,
+      attachPlantPhoto,
+      setPrimaryPlantPhoto,
+      confirmPlantIdentification,
+      recordObservationFromIdentification,
+      transitionPlantLifecycleStage,
+      setPlantStatus,
+      movePlant,
+      searchTaxonomyReferences,
+    },
+    candidateRoutesDependencies: {
+      addCandidate,
+      listCandidates,
+      getCandidate,
+      updateCandidateDetails,
+      setCandidateStatus,
+      convertCandidate,
+      getCandidateSuitability,
+      recalculateCandidateSuitability,
+      getTaxonProfile,
+    },
   };
 }

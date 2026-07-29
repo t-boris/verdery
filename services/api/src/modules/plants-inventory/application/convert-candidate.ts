@@ -24,11 +24,12 @@ import type { GardenAuthorization } from '../../gardens-mapping/public.js';
 import type { AcquisitionDateType, PlantPlacement } from '../domain/plant.js';
 import { convertCandidateToPlant, markCandidateConverted } from '../domain/candidate-conversion.js';
 import type { CandidateConversion } from '../domain/candidate-conversion.js';
-import type { Plant } from '../domain/plant.js';
 import type { PlantCandidate } from '../domain/plant-candidate.js';
 import { candidateAlreadyConvertedError, candidateStaleRevisionError } from './candidate-errors.js';
+import { toCandidateResource, type CandidateResource } from './candidate-view.js';
 import type { PlantCandidateRepository } from './plant-candidate-repository.js';
 import type { PlantsInventoryUnitOfWork } from './plants-inventory-unit-of-work.js';
+import { toPlantResource, type PlantResource } from './plant-view.js';
 import { requireCandidateAndAuthorize } from './require-candidate-and-authorize.js';
 import { requirePlacementReferencesGardenObjects } from './require-plant-placement-in-garden.js';
 import { runIdempotentCommand } from './run-idempotent-command.js';
@@ -46,10 +47,29 @@ export interface ConvertCandidateInput {
   readonly acquisitionDateType?: AcquisitionDateType | null;
 }
 
+/** `convertedAt` as an ISO string — mirrors every other resource view's `Date -> string` mapping. */
+export interface CandidateConversionResource {
+  readonly id: string;
+  readonly candidateId: string;
+  readonly plantId: string;
+  readonly convertedByProfileId: string;
+  readonly convertedAt: string;
+}
+
 export interface ConvertCandidateResult {
-  readonly plant: Plant;
-  readonly candidate: PlantCandidate;
-  readonly conversion: CandidateConversion;
+  readonly plant: PlantResource;
+  readonly candidate: CandidateResource;
+  readonly conversion: CandidateConversionResource;
+}
+
+function toConversionResource(conversion: CandidateConversion): CandidateConversionResource {
+  return {
+    id: conversion.id,
+    candidateId: conversion.candidateId,
+    plantId: conversion.plantId,
+    convertedByProfileId: conversion.convertedByProfileId,
+    convertedAt: conversion.convertedAt.toISOString(),
+  };
 }
 
 function finalPlacement(candidate: PlantCandidate, input: ConvertCandidateInput): PlantPlacement {
@@ -163,7 +183,7 @@ export class ConvertCandidate {
         // its own push/pull sync works today. The CANDIDATE side of this
         // command does not sync yet — see `add-candidate.ts`'s note; a
         // client cannot observe another client's conversion of a shared
-        // candidate until `P11-API-01` extends `SyncRecordType`.
+        // candidate until candidate sync is built.
         await context.syncChanges.record({
           gardenId: plant.gardenId,
           recordId: plant.id,
@@ -172,7 +192,11 @@ export class ConvertCandidate {
           recordRevision: plant.revision,
         });
 
-        return { plant, candidate: convertedCandidate, conversion };
+        return {
+          plant: toPlantResource(plant),
+          candidate: toCandidateResource(convertedCandidate),
+          conversion: toConversionResource(conversion),
+        };
       },
     );
   }

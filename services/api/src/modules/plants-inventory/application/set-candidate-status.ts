@@ -12,6 +12,7 @@ import type { GardenAuthorization } from '../../gardens-mapping/public.js';
 import type { CandidateStatus } from '../domain/plant-candidate.js';
 import { setCandidateStatus } from '../domain/plant-candidate.js';
 import { applyCandidateRevisionGuardedUpdate } from './apply-candidate-revision-guarded-update.js';
+import { toCandidateResource, type CandidateResource } from './candidate-view.js';
 import type { PlantCandidateRepository } from './plant-candidate-repository.js';
 import type { PlantsInventoryUnitOfWork } from './plants-inventory-unit-of-work.js';
 import { requireCandidateAndAuthorize } from './require-candidate-and-authorize.js';
@@ -34,7 +35,7 @@ export class SetCandidateStatus {
     expectedRevision: number,
     newStatus: Exclude<CandidateStatus, 'converted'>,
     idempotencyKey: string,
-  ) {
+  ): Promise<CandidateResource> {
     await requireCandidateAndAuthorize(this.candidates, this.authorization, candidateId, profileId);
 
     const idempotencyInput = {
@@ -58,10 +59,10 @@ export class SetCandidateStatus {
           (candidate) => setCandidateStatus(candidate, newStatus, now),
         );
 
-        // Sync push/pull for candidates is deferred to `P11-API-01` — see
+        // Sync push/pull for candidates remains deferred — see
         // `add-candidate.ts`'s identical note.
 
-        return transitioned;
+        return toCandidateResource(transitioned);
       },
     );
   }

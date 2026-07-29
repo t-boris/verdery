@@ -80,7 +80,7 @@ import {
   RecordObservation,
   registerObservationRoutes,
 } from './modules/observations-history/public.js';
-import { registerPlantRoutes } from './modules/plants-inventory/public.js';
+import { registerCandidateRoutes, registerPlantRoutes } from './modules/plants-inventory/public.js';
 import {
   DatabaseDependencyProbe,
   registerHealthRoutes,
@@ -315,7 +315,7 @@ export async function buildApplication(
   // transport (`registerPlantRoutes`, tag `Plants`) wired below. Split into
   // `compose-plants-inventory.ts` for the same 600-line reason as its
   // siblings.
-  const plantRoutesDependencies = composePlantsInventory(
+  const { plantRoutesDependencies, candidateRoutesDependencies } = composePlantsInventory(
     database,
     clock,
     gardenAuthorization,
@@ -528,6 +528,12 @@ export async function buildApplication(
       // P9C-PUBLISH-01: publisher capability and client-update workflow.
       registerPublicationRoutes(instance, publicationRoutesDependencies);
       registerPlantRoutes(instance, plantRoutesDependencies);
+      // P11-API-01: plant candidates, conversion, suitability, and the
+      // shared taxon knowledge profile (tags `PlantCandidates`,
+      // `PlantCatalog`). `getTaxonProfile`'s own route is not garden-scoped
+      // but still requires authentication — the same posture
+      // `searchTaxonomyReferences` (just above) already takes.
+      registerCandidateRoutes(instance, candidateRoutesDependencies);
       registerObservationRoutes(instance, observationRoutesDependencies);
       registerTaskRoutes(instance, taskRoutesDependencies);
       registerRecommendationRoutes(instance, recommendationRoutesDependencies);

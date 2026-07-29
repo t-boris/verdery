@@ -94,6 +94,9 @@ export * from './garden-context.js';
 /** The plants-inventory schemas (P4-CONTRACT-01) live in `./plants.js` — same 600-line-rule posture as `./garden-context.js` above. */
 export * from './plants.js';
 
+/** The plant-candidate/conversion/suitability/taxon-profile schemas (P11-API-01) live in `./plant-candidates.js` — same 600-line-rule posture. */
+export * from './plant-candidates.js';
+
 /** The observations-history schemas (P4-CONTRACT-01). */
 export type ObservationActorType = Schemas['ObservationActorType'];
 export type ObservationCorrectionKind = Schemas['ObservationCorrectionKind'];

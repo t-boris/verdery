@@ -1,8 +1,10 @@
 /**
  * Typed errors this module raises for candidate commands. Mirrors
- * `plant-errors.ts`'s own file structure and its reasoning for keeping
- * codes module-local rather than in `@verdery/api-contracts`: candidates
- * have no landed OpenAPI contract yet (that is `P11-API-01`'s job).
+ * `plant-errors.ts`'s own file structure; codes stay module-local rather
+ * than in `@verdery/api-contracts`, the same reasoning `PlantErrorCode`'s
+ * own header gives for `plants_inventory` generally — a future contract
+ * pass can promote these the same way `garden.geometry.stale_revision`
+ * was promoted for gardens-mapping's map endpoints.
  */
 
 import { SharedErrorCode } from '@verdery/api-contracts';
@@ -18,6 +20,8 @@ export const CandidateErrorCode = {
   NotFound: 'plants_inventory.plant_candidate.not_found',
   /** The supplied `expectedRevision` no longer matches the candidate's stored revision. */
   StaleRevision: 'plants_inventory.plant_candidate.stale_revision',
+  /** No suitability assessment has ever been computed for this candidate. */
+  SuitabilityNotFound: 'plants_inventory.plant_candidate.suitability_not_found',
 } as const;
 
 export type CandidateErrorCode = (typeof CandidateErrorCode)[keyof typeof CandidateErrorCode];
@@ -52,5 +56,13 @@ export function candidateAlreadyConvertedError(): DomainRuleViolatedError {
   return new DomainRuleViolatedError(
     'plants_inventory.plant_candidate.already_converted',
     'This candidate has already been converted to a plant.',
+  );
+}
+
+/** `GetCandidateSuitability`'s honest 404 when `RecalculateCandidateSuitability` has never run for this candidate — never a fabricated empty assessment. */
+export function candidateSuitabilityNotFoundError(): NotFoundError {
+  return new NotFoundError(
+    CandidateErrorCode.SuitabilityNotFound,
+    'No suitability assessment has been computed for this candidate yet.',
   );
 }

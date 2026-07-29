@@ -6,6 +6,7 @@ import type { GardenAuthorization } from '../../gardens-mapping/public.js';
 import type { GroupingKind } from '../domain/plant.js';
 import type { CandidatePlacement, CandidatePriority } from '../domain/plant-candidate.js';
 import { createCandidate } from '../domain/plant-candidate.js';
+import { toCandidateResource, type CandidateResource } from './candidate-view.js';
 import type { PlantsInventoryUnitOfWork } from './plants-inventory-unit-of-work.js';
 import { requireCandidatePlacementReferencesGardenObjects } from './require-candidate-placement-in-garden.js';
 import { runIdempotentCommand } from './run-idempotent-command.js';
@@ -45,7 +46,12 @@ export class AddCandidate {
     private readonly clock: Clock,
   ) {}
 
-  async execute(gardenId: Uuid, profileId: Uuid, input: AddCandidateInput, idempotencyKey: string) {
+  async execute(
+    gardenId: Uuid,
+    profileId: Uuid,
+    input: AddCandidateInput,
+    idempotencyKey: string,
+  ): Promise<CandidateResource> {
     await this.authorization.requireCapability(gardenId, profileId, 'editGardenContent');
 
     const idempotencyInput = {
@@ -94,13 +100,18 @@ export class AddCandidate {
         // No `syncChanges.record` call yet: `SyncRecordType` is a closed union
         // shared with the generated OpenAPI sync-pull contract
         // (`sync-record-pull-capability.ts`, `get-sync-changes.ts`'s
-        // exhaustive switch) — adding `'plantCandidate'` to it is contract
-        // work that belongs to `P11-API-01` ("contract-first... sync
-        // semantics"), not this schema/domain work package. The candidate
-        // row itself is fully durable now; only cross-client push/pull sync
-        // is deferred.
+        // exhaustive switch), and wiring it needs a real native offline-write
+        // path to exercise (none exists yet — `P11-IOS-01` is where a
+        // candidate is first created offline). The REST API this same work
+        // package (`P11-API-01`) adds is a complete, real, interactive
+        // surface on its own; candidate sync is a deliberate, tracked
+        // deferral until a client actually needs it, the same "build what
+        // has a real consumer" discipline `RefreshPlantContent`'s own
+        // undecided-provider posture already follows for a different gap.
+        // The candidate row itself is fully durable now; only cross-client
+        // push/pull sync is deferred.
 
-        return candidate;
+        return toCandidateResource(candidate);
       },
     );
   }

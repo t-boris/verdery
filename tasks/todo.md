@@ -7618,3 +7618,86 @@ version, domain/engine unit tests, and a real-Postgres integration test
 paths.
 
 ---
+
+## P11-API-01 — contract-first plant candidate, conversion, suitability, and taxon-profile APIs, complete
+
+Lands the OpenAPI contract, four new read-only queries, and the HTTP transport layer over
+`P11-DATA-01`/`02`'s schema and `P11-SUIT-01`'s engine — the same staging `P4-CONTRACT-01` used for
+the original `Plants` tag (schema/domain/commands land first, the contract pass adds the contract
+and routes on top). Scoped to exactly what those three prior work packages made ready: candidate
+CRUD, conversion, suitability read/recalculate, and the shared taxon knowledge profile read.
+`implementation-plan.md`'s own P11-API-01 row also names journal, comparison, media-association, and
+health-review APIs — those stay out of this pass on purpose, since their own schemas
+(`P11-MEDIA-01`, `P11-HEALTH-01`) do not exist yet and the plan's own dependency graph lists
+`P11-MEDIA-01` as depending on `P11-API-01`, not the reverse.
+
+Two new tags in `packages/api-contracts/openapi.yaml`: `PlantCandidates` (9 paths — candidate
+add/list/get/update/status/convert, suitability get/recalculate) and `PlantCatalog` (1 path — taxon
+profile get). New component schemas mirror every domain/application type field-for-field the same
+way the `Plants` tag's own schemas already do (`PlantCandidate`, `AddCandidateRequest`,
+`UpdateCandidateDetailsRequest`, `SetCandidateStatusRequest`, `ConvertCandidateRequest`,
+`ConvertCandidateResult`, `SuitabilityAssessment`, `SuitabilityFinding`, `PlantProfileVersion`,
+`ResolvedFact`, etc.), narrowed and re-exported from a new `packages/api-contracts/src/plant-
+candidates.ts` (the same 600-line-driven split `plants.ts` already established).
+
+Four new read-only queries (`GetCandidate`, `ListCandidates`, `GetCandidateSuitability`,
+`GetTaxonProfile`) mirror `GetPlant`/`SearchPlants`/`GetPlantIdentification`'s existing shapes
+exactly: authorize against the path's own `gardenId` before any repository read, conceal "does not
+exist" and "belongs to a different garden" as the identical 404, and an honest 404 — never a
+fabricated empty result — when nothing has ever been computed
+(`GetCandidateSuitability`/`GetTaxonProfile`). `GetTaxonProfile` takes no `profileId` and is not
+`gardenId`-scoped: it lives under `/plant-catalog/taxa/{taxonomyReferenceId}/profile`, a shared
+reference resource, the same "no per-garden authorization" posture `SearchTaxonomyReferences`
+already takes for the identical reason — still authenticated (registered inside the same Fastify
+encapsulation context as every other garden route), just not capability-checked.
+
+`candidate-routes.ts` and `parse-candidate-request.ts` (new transport files) mirror `plant-
+routes.ts`/`parse-plant-request.ts`'s exact hand-written-validation convention, reusing `garden-
+routes.ts`'s exported `UUID_PATTERN`/`invalid`/`requireGardenId`/`requireIdempotencyKey`/
+`requireExpectedRevision` rather than a second copy. `recalculateCandidateSuitability`'s POST route
+carries no `Idempotency-Key`: recalculation is naturally safe to call repeatedly, each call
+producing its own fresh, equally valid assessment, not requiring at-most-once semantics — the
+contract and the command agree on this by construction, not by omission.
+
+`compose-plants-inventory.ts`'s return shape changed from a flat `PlantRoutesDependencies` to
+`{ plantRoutesDependencies, candidateRoutesDependencies }` (matching `compose-tasks-recommendations.
+ts`'s existing destructured-return convention) to carry both route-registration dependency bags
+without merging two logically separate transport surfaces into one object. Wires four new
+repositories the suitability engine needs across module boundaries through their exported ports,
+never a direct repository import: `gardens-mapping`'s `KyselyGardenContextFactRepository` and
+`integrations`' `KyselyPlantTaxonomyMappingRepository`/`KyselyPlantDistributionAssertionRepository`
+— each a fresh instance over the same `database.queries`, the same "stateless Kysely wrapper,
+instantiate per composition function" posture the module already follows for
+`KyselyTaxonomyReferenceRepository`.
+
+**Design decision recorded in code**: `RecalculateCandidateSuitability`'s `sourcePriority` parameter
+(the tie-break order among competing `horticulturally_reviewed` sources for the same fact) is wired
+to an empty array today, with a doc comment citing why: ADR-0013/ADR-0016 already selected a source
+per knowledge class, but zero adapters are registered in any environment yet (`P11-ASYNC-01` builds
+them) — the same honest "no provider configured" state `RefreshPlantContentConfiguration.
+activeProviderKey: null` already carries for text content elsewhere in this module. Not a stub: an
+empty list still resolves every tie deterministically through `pickWinner`'s own confidence-then-
+freshness-then-alphabetical fallback; it becomes a real, ADR-ordered, non-empty list once
+`P11-ASYNC-01` registers real provider keys.
+
+**Found during contract validation**: `convertCandidate`'s only domain-rule error
+(`candidateAlreadyConvertedError`, the `candidate_conversion` unique-violation surfaced as a typed
+`DomainRuleViolatedError`) maps to HTTP 422 per `platform/errors/error-response.ts`'s category
+table, not 409 — the endpoint's response list originally declared only up to `409`/`412`. Fixed by
+adding the already-established `'422': $ref: '#/components/responses/UnprocessableEntity'` (the
+same response every other domain-rule-violation endpoint in the contract already declares) before
+regenerating types and re-linting.
+
+**Verification**: fresh `pnpm check:all` — format, lint, typecheck, 600-line gate, and the full test
+suite all clean: `services/api` 2579/2579 (up from 2560), `apps/web` 977/977, `services/workers`
+133/133; `pnpm --filter @verdery/api-contracts lint:contract` (redocly) valid. New:
+`tests/http/candidate-routes.test.ts` (11 real-HTTP-Fastify-plus-real-Postgres tests covering add/
+list/get/update/status/convert/suitability/taxon-profile, the missing-Idempotency-Key and missing-
+If-Match 400s, the cross-garden-concealment 404, the stale-revision 412 on a convert retry, and a
+directly-seeded taxon profile read), plus the four read commands' own unit tests
+(`get-candidate.test.ts`, `list-candidates.test.ts`, `get-candidate-suitability.test.ts`,
+`get-taxon-profile.test.ts`) — mirrors `plant-routes.test.ts`'s own "transport-layer coverage only"
+scope exactly, since the business logic each command implements, including the concurrent-
+conversion race, is already covered by the `P11-DATA-01`/`SUIT-01`/`DATA-02` integration tests.
+
+---
