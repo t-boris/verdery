@@ -250,7 +250,12 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   });
 
   it('down reverses up: dropping and reapplying this migration leaves the schema intact', async () => {
-    await migrate('down', 1);
+    // `count: 2` undoes every newer migration (through
+    // 1787700000000_plant-taxon-knowledge-profile.sql) first, then this
+    // migration itself — the same "update this count when a later
+    // migration is added on top" discipline every other rollback test in
+    // this suite follows.
+    await migrate('down', 2);
 
     const afterDown = await client.query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.tables
@@ -260,7 +265,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     );
     expect(afterDown.rows).toHaveLength(0);
 
-    await migrate('up', 1);
+    await migrate('up', 2);
 
     const afterReapply = await client.query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.tables

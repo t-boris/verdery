@@ -528,8 +528,8 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving the garden-map-baseline schemas and tables otherwise intact', async () => {
     await client.end();
 
-    // `count: 29` undoes this migration and every migration applied after
-    // it (currently through 1787600000000_plant-candidates-and-conversion.sql
+    // `count: 30` undoes this migration and every migration applied after
+    // it (currently through 1787700000000_plant-taxon-knowledge-profile.sql
     // — several of which extend or reference tables this one creates, e.g.
     // the media migrations grow `media.media_record`,
     // recommendations-baseline adds `task.origin_recommendation_id`,
@@ -548,7 +548,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 29,
+      count: 30,
       log: () => {},
     });
 

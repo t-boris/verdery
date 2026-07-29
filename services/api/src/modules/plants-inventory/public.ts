@@ -80,6 +80,23 @@ export type {
 export { KyselyPlantCandidateRepository } from './persistence/kysely-plant-candidate-repository.js';
 export { KyselyCandidateConversionRepository } from './persistence/kysely-candidate-conversion-repository.js';
 
+// Taxon knowledge profile crosswalk and materialized version (P11-DATA-02).
+// `plant_fact_assertion`/`plant_distribution_assertion`/`plant_media_asset`
+// live in `integrations` (see that module's own public.ts) — this module
+// owns the name crosswalk and the assembled profile that reads them.
+export type { TaxonomyName, TaxonomyNameKind, TaxonomyNameSource } from './domain/taxonomy-name.js';
+export { createTaxonomyName } from './domain/taxonomy-name.js';
+export type {
+  FactCandidate,
+  PlantProfileVersion,
+  ResolvedFact,
+} from './domain/plant-profile-version.js';
+export { assemblePlantProfileVersion } from './domain/plant-profile-version.js';
+export type { PlantProfileVersionRepository } from './application/plant-profile-version-repository.js';
+export { RebuildPlantProfileVersion } from './application/rebuild-plant-profile-version.js';
+export type { RebuildPlantProfileVersionResult } from './application/rebuild-plant-profile-version.js';
+export { KyselyPlantProfileVersionRepository } from './persistence/kysely-plant-profile-version-repository.js';
+
 // Seasonal facts and bed-occupancy history (P9D-SEASON-DATA-01). Exported
 // narrowly — the read ports and the domain provenance shape, no HTTP
 // transport, the same "export a narrow read port, don't build the consumer

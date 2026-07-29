@@ -7475,4 +7475,66 @@ integration suite including the genuine concurrency test), `apps/web` 977/977, `
 `tests/migrations/plant-candidates-and-conversion.test.ts` are new; every previously-passing
 migration and deletion test still passes.
 
+## P11-DATA-02 — taxon crosswalk, source, and profile schema, complete
+
+Migration `1787700000000_plant-taxon-knowledge-profile.sql` extends the P7-INT-02 provider-agnostic
+machinery rather than forking it — `integrations.plant_taxonomy_mapping`/`plant_content_record`
+already are ADR-0016's "external identifier"/"source record" concepts. Adds the STRUCTURED
+counterpart of `plant_content_record` (`integrations.plant_fact_assertion`,
+`plant_distribution_assertion` — typed facts and native/introduced/invasive/regulated status,
+reusing `taxonomy_seasonal_fact`'s exact `authoringMethod`/`reviewStatus` provenance shape),
+licensed media metadata (`integrations.plant_media_asset` — the gap `plant_content_record`'s own
+header named as a documented deferral), a synonym/localized-name crosswalk
+(`plants_inventory.taxonomy_name`, since `taxonomy_reference` carries only one `common_name`
+column), and the materialized read projection (`plants_inventory.plant_profile_version`).
+
+ADR-0013's toxicity/edibility exclusion is enforced twice for facts: the migration's own
+`plant_fact_assertion_toxicity_edibility_human_only_check` and a matching runtime check in
+`createPlantFactAssertion` before the row is even built. Human-authored assertions (no provider
+involved) use a reserved `provider_key = 'human'` sentinel with the taxon's own
+`taxonomyReferenceId` as their `providerTaxonId` — there is no live provider mapping to resolve
+identity through for content this project authored itself.
+
+The centerpiece is `assemblePlantProfileVersion` (`domain/plant-profile-version.ts`): a pure
+conflict-resolution function taking a caller-supplied, ordered `sourcePriority` provider-key list
+(a policy parameter, not a hardcoded table — provider selection stays ADR-0016's job) plus every
+candidate fact, and producing one deterministic, cited, versioned result. Only
+`horticulturally_reviewed` facts are eligible — an awaiting-review fact counts as not existing yet,
+the same "not yet reviewed cannot be read as known" rule ADR-0013 states for care-attribute
+proposals, generalized here to every knowledge class. Ties resolve by source priority, then
+confidence, then freshness, then provider key alphabetically — fully deterministic, unit-tested
+against every tier including the pure-tiebreak case.
+
+`RebuildPlantProfileVersion` (application layer) connects this to real storage: gathers reviewed
+facts across every provider named in `sourcePriority` with a live taxonomy mapping, plus the
+`'human'` sentinel unconditionally, assembles a version, and persists it only when at least one
+fact actually resolved — `plant_profile_version_resolved_not_empty_check` would reject an empty one
+anyway, and "nothing to persist yet" is itself useful, honestly reported information. No HTTP
+transport, no scheduling, and no provider adapters yet — `P11-API-01`/`P11-ASYNC-01`/`P11-PROV-01`'s
+jobs; this is the pure "given what is stored today, produce one version" operation those later
+packages will call.
+
+**Found by building**: `assemblePlantProfileVersion`'s tiebreak had a real bug caught by its own
+test — subtracting two `-Infinity` fetch timestamps produces `NaN`, and `Array.prototype.sort`
+treats a `NaN` comparator result as "no defined order" rather than "equal," silently leaving
+elements in their original order instead of falling through to the alphabetical tiebreak. Fixed
+with an explicit null-aware comparison. Also: a fourth migration on top of the session's growing
+chain broke the same 24 hardcoded migration-rollback counts P11-DATA-01 already fixed once — each
+needed another `+1`, exactly as their own comments anticipated — and the garden-deletion purge
+catalog test flagged `integrations.plant_media_asset` as transitively garden-referencing (its
+nullable `media_id` can point at `media.media_record`, which CAN carry a `garden_id`). Documented
+as a plan exception: an ingested catalog image's own media record is expected to always carry
+`garden_id = NULL` — shared reference content, never owned by one garden — so it is never actually
+reachable from a specific garden's purge, even though the schema's FK graph cannot express that as
+a static fact.
+
+**Verification**: fresh `pnpm check:all` — format, lint, typecheck, 600-line gate, and the full
+test suite all clean: `services/api` 2535/2535 (up from 2454), `apps/web` 977/977,
+`services/workers` 133/133, packages 113+29+21. New migration test
+(`plant-taxon-knowledge-profile.test.ts`, 25 cases including the down/up round-trip), new domain
+unit tests across six files (fact/distribution assertions, media assets, taxonomy names, the
+provenance helper, and profile-version assembly), and a real-Postgres integration test
+(`plant-profile-version.test.ts`) covering the two-provider conflict, the human-authored path with
+no mapping at all, and the nothing-to-resolve outcome.
+
 ---

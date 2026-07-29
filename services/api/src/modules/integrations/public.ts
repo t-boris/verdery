@@ -178,6 +178,46 @@ export type {
   PlantContentAbsenceReason,
 } from './application/get-plant-content.js';
 
+// Taxon knowledge profile (P11-DATA-02): structured facts, distribution/
+// regulatory assertions, and licensed media metadata — the structured
+// counterpart to plant-content-record.ts's free-text sections. No provider
+// adapters or enrichment pipeline yet (P11-PROV-01/P11-ASYNC-01); schema,
+// domain validation, and storage only, the same staging this module's own
+// weather/plant-content capabilities went through first.
+export type {
+  PlantAssertionAuthoring,
+  PlantAssertionAuthoringCandidate,
+  PlantAssertionReview,
+  PlantAssertionReviewCandidate,
+} from './domain/plant-assertion-provenance.js';
+export {
+  validatePlantAssertionAuthoring,
+  validatePlantAssertionReview,
+} from './domain/plant-assertion-provenance.js';
+export type {
+  PlantFactAssertion,
+  PlantFactAssertionProvenance,
+} from './domain/plant-fact-assertion.js';
+export { createPlantFactAssertion } from './domain/plant-fact-assertion.js';
+export type {
+  DistributionStatus,
+  PlantDistributionAssertion,
+  PlantDistributionAssertionProvenance,
+} from './domain/plant-distribution-assertion.js';
+export { createPlantDistributionAssertion } from './domain/plant-distribution-assertion.js';
+export type {
+  PlantMediaAsset,
+  PlantMediaIngestionState,
+  PlantMediaLicense,
+  PlantMediaOrgan,
+} from './domain/plant-media-asset.js';
+export {
+  createPlantMediaAsset,
+  isLicenseEligibleForPresentation,
+} from './domain/plant-media-asset.js';
+export type { PlantFactAssertionRepository } from './application/plant-fact-assertion-repository.js';
+export { KyselyPlantFactAssertionRepository } from './persistence/kysely-plant-fact-assertion-repository.js';
+
 // P7-AI-01: the AI-explanation capability — the provider-neutral port,
 // the bounded call machinery (budget + deadline + typed degradations),
 // and the real Vertex adapter. `GenerateAiExplanation` is consumed by

@@ -115,6 +115,19 @@ const DOCUMENTED_PLAN_EXCEPTIONS = new Set([
   'gardens_mapping.imported_background_details',
   'notifications.notification_delivery_attempt',
   'exports.export_section_checkpoint',
+  // P11-DATA-02's licensed catalog image metadata — shared taxon reference
+  // content, the same "containing nothing about any garden" reasoning
+  // purge-plan.ts's own header already gives for `plants_inventory.
+  // taxonomy_reference` and `integrations.plant_content_*`, applied here to
+  // a table the catalog scan flags only because `media_id` is a nullable
+  // FK to `media.media_record` — a table that CAN carry a garden_id.
+  // `media_record.garden_id` is nullable precisely so a catalog image's own
+  // ingested record can carry `garden_id = NULL` (shared reference content,
+  // never owned by any one garden's account), which is what an ingested
+  // `plant_media_asset` row is expected to always resolve to — so it is
+  // never actually reachable from a specific garden's purge, even though
+  // the schema's FK graph cannot express that as a static fact.
+  'integrations.plant_media_asset',
 ]);
 
 const dockerAvailable = await isDockerAvailable();

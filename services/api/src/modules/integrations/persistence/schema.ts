@@ -72,9 +72,65 @@ export interface PlantContentRecordRow {
   created_at: Generated<Date>;
 }
 
+/** P11-DATA-02 — see migrations/1787700000000_plant-taxon-knowledge-profile.sql's own header. */
+export interface PlantFactAssertionRow {
+  id: string;
+  provider_key: string;
+  provider_taxon_id: string;
+  fact_key: string;
+  fact_value: unknown;
+  unit: string | null;
+  confidence: number | null;
+  geographic_scope: string | null;
+  authoring_method: string;
+  source_citation: string | null;
+  review_status: string;
+  reviewed_by: string | null;
+  reviewed_on: string | null;
+  fetched_at: Date | null;
+  created_at: Generated<Date>;
+}
+
+export interface PlantDistributionAssertionRow {
+  id: string;
+  provider_key: string;
+  provider_taxon_id: string;
+  region: string;
+  status: string;
+  confidence: number | null;
+  authoring_method: string;
+  source_citation: string | null;
+  review_status: string;
+  reviewed_by: string | null;
+  reviewed_on: string | null;
+  fetched_at: Date | null;
+  created_at: Generated<Date>;
+}
+
+export interface PlantMediaAssetRow {
+  id: string;
+  provider_key: string;
+  provider_taxon_id: string;
+  media_id: string | null;
+  source_url: string | null;
+  organ: string | null;
+  inferred_organ: Generated<boolean>;
+  license: string;
+  attribution_text: string | null;
+  creator: string | null;
+  rights_holder: string | null;
+  observed_at: Date | null;
+  generalized_location: string | null;
+  ingestion_state: Generated<string>;
+  created_at: Generated<Date>;
+}
+
 export interface IntegrationsDatabaseSchema {
   'integrations.weather_record': WeatherRecordRow;
   'integrations.provider_quota_usage': ProviderQuotaUsageRow;
   'integrations.plant_taxonomy_mapping': PlantTaxonomyMappingRow;
   'integrations.plant_content_record': PlantContentRecordRow;
+  'integrations.plant_fact_assertion': PlantFactAssertionRow;
+  'integrations.plant_distribution_assertion': PlantDistributionAssertionRow;
+  'integrations.plant_media_asset': PlantMediaAssetRow;
 }

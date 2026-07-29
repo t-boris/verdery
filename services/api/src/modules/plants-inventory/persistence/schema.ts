@@ -189,6 +189,27 @@ export interface CandidateSuitabilityAssessmentRow {
   created_at: Generated<Date>;
 }
 
+/** P11-DATA-02 — see migrations/1787700000000_plant-taxon-knowledge-profile.sql's own header. */
+export interface TaxonomyNameRow {
+  id: string;
+  taxonomy_reference_id: string;
+  name_kind: string;
+  locale: string | null;
+  name_text: string;
+  source: string;
+  provider_key: string | null;
+  created_at: Generated<Date>;
+}
+
+/** `resolved`'s internal shape is defined and validated by this module's own `plant-profile-version.ts`, not here — see the migration's own header. */
+export interface PlantProfileVersionRow {
+  id: string;
+  taxonomy_reference_id: string;
+  resolved: unknown;
+  is_partial: Generated<boolean>;
+  created_at: Generated<Date>;
+}
+
 export interface PlantsInventoryDatabaseSchema {
   'plants_inventory.taxonomy_reference': TaxonomyReferenceRow;
   'plants_inventory.taxonomy_seasonal_fact': TaxonomySeasonalFactRow;
@@ -199,4 +220,6 @@ export interface PlantsInventoryDatabaseSchema {
   'plants_inventory.plant_candidate': PlantCandidateRow;
   'plants_inventory.candidate_conversion': CandidateConversionRow;
   'plants_inventory.candidate_suitability_assessment': CandidateSuitabilityAssessmentRow;
+  'plants_inventory.taxonomy_name': TaxonomyNameRow;
+  'plants_inventory.plant_profile_version': PlantProfileVersionRow;
 }
