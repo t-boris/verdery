@@ -7320,13 +7320,13 @@ the ADR-0015 redirect entry above and one follow-up commit responding to the own
 This entry closes that gap: every §19.3 work package is accounted for, verified against a fresh
 full-suite run rather than assumed from prior notes.
 
-| Work package | Delivered                                                                                                                                        | Gate that remains                                     |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| P10-DATA-01  | Capture session, capability class, media reference, and processing-state fields — retained as Phase 12 AR groundwork                              | —                                                        |
-| P10-PLANT-01 | Real `VertexAiPlantSpeciesIdentificationAdapter` behind `identifyPlantSpecies`, kill-switched (`PLANT_SPECIES_AI_ENABLED=false` every environment) | Owner spot-check + Vertex AI data-retention confirmation |
-| P10-PLANT-02 | Real `VertexAiPlantConditionAnalysisAdapter` behind `analyzePlantCondition`, kill-switched (`PLANT_CONDITION_AI_ENABLED=false` every environment)  | Same two owner actions, shared adapter/config idiom      |
-| P10-PLANT-03 | `GetPlantIdentification`/`ConfirmPlantIdentification`/`RecordObservationFromIdentification` reachable from real screens on iOS and web, not only the command layer — pending-identification banner, photo gallery, map-object picker, AI-guessed acquisition date | —                                        |
-| P10-QA-01    | Dedicated adapter and call-policy test files for both capabilities, covering kill-switch-off default, malformed/refused/timeout provider responses, and the never-auto-confirm path; toxicity/edibility fields are structurally absent from both ports' types, not just runtime-guarded | —                          |
+| Work package | Delivered                                                                                                                                                                                                                                                                               | Gate that remains                                        |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| P10-DATA-01  | Capture session, capability class, media reference, and processing-state fields — retained as Phase 12 AR groundwork                                                                                                                                                                    | —                                                        |
+| P10-PLANT-01 | Real `VertexAiPlantSpeciesIdentificationAdapter` behind `identifyPlantSpecies`, kill-switched (`PLANT_SPECIES_AI_ENABLED=false` every environment)                                                                                                                                      | Owner spot-check + Vertex AI data-retention confirmation |
+| P10-PLANT-02 | Real `VertexAiPlantConditionAnalysisAdapter` behind `analyzePlantCondition`, kill-switched (`PLANT_CONDITION_AI_ENABLED=false` every environment)                                                                                                                                       | Same two owner actions, shared adapter/config idiom      |
+| P10-PLANT-03 | `GetPlantIdentification`/`ConfirmPlantIdentification`/`RecordObservationFromIdentification` reachable from real screens on iOS and web, not only the command layer — pending-identification banner, photo gallery, map-object picker, AI-guessed acquisition date                       | —                                                        |
+| P10-QA-01    | Dedicated adapter and call-policy test files for both capabilities, covering kill-switch-off default, malformed/refused/timeout provider responses, and the never-auto-confirm path; toxicity/edibility fields are structurally absent from both ports' types, not just runtime-guarded | —                                                        |
 
 `P10-ASYNC-01` stays deferred by design (§19.3): a single synchronous provider call, matching the
 existing recommendation-explanation adapter, not a job pipeline. It returns for Phase 11 enrichment.
@@ -7425,5 +7425,54 @@ as its own commit with real migrations/tests, matching every prior phase's disci
 8. `P11-SHARE-01` (publication) and `P11-OBS-01` (telemetry) — depend on the clients.
 9. `P11-QA-01` (cross-platform evidence matrix) — closes the phase, mirroring Phase 8/10's
    evidence-table review format.
+
+## P11-DATA-01 — actual/candidate plant schema and conversion, complete
+
+Migration `1787600000000_plant-candidates-and-conversion.sql` adds three tables to
+`plants_inventory`, per ADR-0016's mapping: `plant_candidate` (a candidate's own aggregate —
+proposed placement, identity fields mirroring `plant`, purchase facts, a single narrow
+`alternative_to_candidate_id` self-reference, its own small status vocabulary
+`active`/`converted`/`archived`/`rejected`, its own `revision` for optimistic concurrency but no
+separate revision-journal table — a deliberate, documented scope call, not an oversight),
+`candidate_conversion` (`UNIQUE (candidate_id)` — the structural, at-most-once-per-candidate
+guard), and `candidate_suitability_assessment` (append-only, storage only this pass — `P11-SUIT-01`
+owns the scoring engine that writes to it, the same schema-before-rules staging
+`taxonomy_seasonal_fact` used for P9D).
+
+Domain (`domain/plant-candidate.ts`, `domain/candidate-conversion.ts`) mirrors `domain/plant.ts`'s
+factory/validation shape closely: `createCandidate`, `updateCandidateDetails`, `setCandidateStatus`
+(explicitly excludes `'converted'` from its own target type), `convertCandidateToPlant` (builds the
+new actual plant from the candidate's original, pre-conversion fields — calling it after marking
+the candidate converted would trip its own `requireConvertibleCandidate` guard), and
+`markCandidateConverted` (the only function that may produce `status: 'converted'`).
+
+Application layer adds four commands — `AddCandidate`, `UpdateCandidateDetails`,
+`SetCandidateStatus`, `ConvertCandidate` — following the exact `runIdempotentCommand` +
+`applyCandidateRevisionGuardedUpdate` shape every other plants-inventory command already uses.
+`ConvertCandidate` translates a `candidate_conversion` unique-violation race into a clean
+`candidateAlreadyConvertedError()`, verified against a REAL concurrent race in the integration
+suite (`Promise.allSettled` against two independent handler instances sharing one Postgres
+connection pool — exactly one of two simultaneous conversions succeeds). No HTTP transport and no
+`SyncRecordType` extension yet — both are `P11-API-01`'s contract-first work, not this package's;
+each command's own file documents the deferral inline.
+
+**Found by building, not by reading**: adding three new garden-referencing tables broke 24
+migration tests' hardcoded rollback `count: N` (each `N` encodes "how many migrations exist after
+this one," and every one needed `N+1` once this migration landed on top — each file's own comment
+already said "update this count when a later migration is added on top," so this is expected
+discipline, not a defect) and `tests/integration/deletion-garden-purge.test.ts`'s live-catalog
+completeness check, which caught that a garden's candidates would have survived its own deletion.
+`purge-plan.ts` now purges `candidate_suitability_assessment` and `candidate_conversion` (which
+references both `plant_candidate` and `plant`, so it must clear before either) ahead of
+`plant_candidate`, positioned before the existing plant-purge steps; `deletion-fixtures.ts` seeds
+one active and one converted candidate so the purge is exercised for real, not just listed.
+
+**Verification**: fresh `pnpm check:all` — format, lint, typecheck, 600-line gate, and the full
+test suite all clean: `services/api` 2454/2454 (up from 2387 before this work: new domain/command
+unit tests, a dedicated migration test with a real down/up round-trip, and a real-Postgres
+integration suite including the genuine concurrency test), `apps/web` 977/977, `services/workers`
+133/133, packages 113+29+21. `tests/integration/plant-candidates.test.ts` and
+`tests/migrations/plant-candidates-and-conversion.test.ts` are new; every previously-passing
+migration and deletion test still passes.
 
 ---

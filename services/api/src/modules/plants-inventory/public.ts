@@ -49,6 +49,37 @@ export type { PlantPhoto } from './domain/plant-photo.js';
 export type { PlantIdentification } from './domain/plant-identification.js';
 export type { TaxonomyReference, TaxonomySource } from './domain/taxonomy-reference.js';
 
+// Plant candidates and conversion (P11-DATA-01). No HTTP transport yet — see
+// this module's own P4-CONTRACT-01 precedent above: schema, domain, and
+// commands land first, `P11-API-01` adds the contract and routes.
+export type {
+  CandidateDetailsChanges,
+  CandidatePlacement,
+  CandidatePriority,
+  CandidatePurchaseFacts,
+  CandidateStatus,
+  PlantCandidate,
+} from './domain/plant-candidate.js';
+export type { CandidateConversion } from './domain/candidate-conversion.js';
+export type {
+  CandidateListFilters,
+  CandidateListPage,
+  PlantCandidateRepository,
+} from './application/plant-candidate-repository.js';
+export type { CandidateConversionRepository } from './application/candidate-conversion-repository.js';
+export { CandidateErrorCode } from './application/candidate-errors.js';
+export { AddCandidate } from './application/add-candidate.js';
+export type { AddCandidateInput } from './application/add-candidate.js';
+export { UpdateCandidateDetails } from './application/update-candidate-details.js';
+export { SetCandidateStatus } from './application/set-candidate-status.js';
+export { ConvertCandidate } from './application/convert-candidate.js';
+export type {
+  ConvertCandidateInput,
+  ConvertCandidateResult,
+} from './application/convert-candidate.js';
+export { KyselyPlantCandidateRepository } from './persistence/kysely-plant-candidate-repository.js';
+export { KyselyCandidateConversionRepository } from './persistence/kysely-candidate-conversion-repository.js';
+
 // Seasonal facts and bed-occupancy history (P9D-SEASON-DATA-01). Exported
 // narrowly — the read ports and the domain provenance shape, no HTTP
 // transport, the same "export a narrow read port, don't build the consumer

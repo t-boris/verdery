@@ -528,8 +528,8 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving the garden-map-baseline schemas and tables otherwise intact', async () => {
     await client.end();
 
-    // `count: 27` undoes this migration and every migration applied after
-    // it (currently through 1787500000000_plant-identification-acquisition-date.sql
+    // `count: 29` undoes this migration and every migration applied after
+    // it (currently through 1787600000000_plant-candidates-and-conversion.sql
     // — several of which extend or reference tables this one creates, e.g.
     // the media migrations grow `media.media_record`,
     // recommendations-baseline adds `task.origin_recommendation_id`,
@@ -538,16 +538,17 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     // notifications-baseline references `profile` and `garden`,
     // recommendation-ai-explanation references `recommendation_candidate`,
     // taxonomy-seasonal-facts-and-bed-history itself extends
-    // `taxonomy_reference` and `plant_revision`, and
-    // plant-identification-raw-suggestion extends `plant_identification` —
-    // so all must unwind first). Update this count when a later migration
-    // is added on top.
+    // `taxonomy_reference` and `plant_revision`,
+    // plant-identification-raw-suggestion extends `plant_identification`,
+    // and plant-candidates-and-conversion references `plant` from
+    // `plant_candidate`/`candidate_conversion` — so all must unwind first).
+    // Update this count when a later migration is added on top.
     await runner({
       databaseUrl,
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 28,
+      count: 29,
       log: () => {},
     });
 

@@ -144,6 +144,51 @@ export interface TaxonomySeasonalFactRow {
   created_at: Generated<Date>;
 }
 
+/**
+ * P11-DATA-01 — see migrations/1787600000000_plant-candidates-and-
+ * conversion.sql's own header for the full field-by-field reasoning.
+ */
+export interface PlantCandidateRow {
+  id: string;
+  garden_id: string;
+  proposed_garden_area_map_object_id: string | null;
+  proposed_placement_map_object_id: string | null;
+  display_name: string;
+  taxonomy_reference_id: string | null;
+  variety_label: string | null;
+  grouping_kind: Generated<string>;
+  quantity: number | null;
+  status: Generated<string>;
+  rationale_note: string | null;
+  priority: string | null;
+  /** `numeric(10,2)` — read as the string node-postgres returns for `numeric`, mirroring `PlantIdentificationRow.confidence_score`'s own note; converted to/from a JS number at the repository boundary, never a global type parser. */
+  price_amount: ColumnType<string | null, number | null, number | null>;
+  price_currency: string | null;
+  purchase_source: string | null;
+  alternative_to_candidate_id: string | null;
+  revision: Generated<number>;
+  created_by_profile_id: string;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface CandidateConversionRow {
+  id: string;
+  candidate_id: string;
+  plant_id: string;
+  converted_by_profile_id: string;
+  converted_at: Generated<Date>;
+  created_at: Generated<Date>;
+}
+
+/** `result`'s internal shape is defined and validated by `P11-SUIT-01`'s own application-layer schema, not here — see the migration's own header. */
+export interface CandidateSuitabilityAssessmentRow {
+  id: string;
+  candidate_id: string;
+  result: unknown;
+  created_at: Generated<Date>;
+}
+
 export interface PlantsInventoryDatabaseSchema {
   'plants_inventory.taxonomy_reference': TaxonomyReferenceRow;
   'plants_inventory.taxonomy_seasonal_fact': TaxonomySeasonalFactRow;
@@ -151,4 +196,7 @@ export interface PlantsInventoryDatabaseSchema {
   'plants_inventory.plant_photo': PlantPhotoRow;
   'plants_inventory.plant_identification': PlantIdentificationRow;
   'plants_inventory.plant_revision': PlantRevisionRow;
+  'plants_inventory.plant_candidate': PlantCandidateRow;
+  'plants_inventory.candidate_conversion': CandidateConversionRow;
+  'plants_inventory.candidate_suitability_assessment': CandidateSuitabilityAssessmentRow;
 }

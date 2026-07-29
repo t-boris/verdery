@@ -3,13 +3,16 @@ import type { LifecycleStage, PlantStatus } from '../domain/plant-lifecycle.js';
 
 /**
  * The plant commands that write a `plant_revision` row — every command that
- * changes `plant` (all nine minus `AttachPlantPhoto` and
+ * changes `plant` (all ten minus `AttachPlantPhoto` and
  * `SetPrimaryPlantPhoto`, which only touch `plant_photo` and never bump
- * `plant.revision`).
+ * `plant.revision`). `convertCandidate` is `ConvertCandidate`'s own creation
+ * path (`application/convert-candidate.ts`) — a third way a `plant` row
+ * comes to exist, alongside `addPlant`/`addPlantFromPhoto`.
  */
 export type PlantCommandType =
   | 'addPlant'
   | 'addPlantFromPhoto'
+  | 'convertCandidate'
   | 'updateDetails'
   | 'confirmIdentification'
   | 'transitionLifecycleStage'

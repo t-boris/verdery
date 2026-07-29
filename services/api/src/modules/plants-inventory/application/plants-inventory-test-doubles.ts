@@ -37,6 +37,10 @@ import type { MediaRecord, MediaRepository } from '../../media/public.js';
 import type { PlantIdentification } from '../domain/plant-identification.js';
 import type { PlantPhoto } from '../domain/plant-photo.js';
 import type { Plant } from '../domain/plant.js';
+import {
+  FakeCandidateConversionRepository,
+  FakePlantCandidateRepository,
+} from './plant-candidate-test-doubles.js';
 import type { PlantIdentificationRepository } from './plant-identification-repository.js';
 import type { PlantPhotoRepository } from './plant-photo-repository.js';
 import type { PlantRepository, PlantSearchFilters, PlantSearchPage } from './plant-repository.js';
@@ -488,6 +492,8 @@ export interface PlantsInventoryFakes {
   readonly plantPhotos: FakePlantPhotoRepository;
   readonly plantIdentifications: FakePlantIdentificationRepository;
   readonly revisionJournal: FakePlantRevisionJournalWriter;
+  readonly candidates: FakePlantCandidateRepository;
+  readonly candidateConversions: FakeCandidateConversionRepository;
   readonly idempotency: FakeIdempotencyStore;
   readonly mapObjects: FakeMapObjectRepository;
   readonly media: FakeMediaRepository;
@@ -502,6 +508,8 @@ export function createPlantsInventoryFakes(
     plantPhotos: new FakePlantPhotoRepository(),
     plantIdentifications: new FakePlantIdentificationRepository(),
     revisionJournal: new FakePlantRevisionJournalWriter(),
+    candidates: new FakePlantCandidateRepository(),
+    candidateConversions: new FakeCandidateConversionRepository(),
     idempotency: new FakeIdempotencyStore(),
     mapObjects: new FakeMapObjectRepository(mapObjectSummaries),
     media: new FakeMediaRepository(),

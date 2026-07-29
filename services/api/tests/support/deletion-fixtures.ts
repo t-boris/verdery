@@ -181,6 +181,29 @@ export async function seedGardenContent(
     VALUES (${plantId}, 1, 'addPlant', 'growing', 'active', ${ownerId})
   `.execute(db);
 
+  // --- plant candidates and conversion (P11-DATA-01)
+  const plantCandidateId = randomUUID();
+  const convertedCandidateId = randomUUID();
+  await sql`
+    INSERT INTO plants_inventory.plant_candidate
+      (id, garden_id, display_name, grouping_kind, status, created_by_profile_id)
+    VALUES (${plantCandidateId}, ${gardenId}, 'Maybe a fig tree', 'individual', 'active', ${ownerId})
+  `.execute(db);
+  await sql`
+    INSERT INTO plants_inventory.candidate_suitability_assessment (id, candidate_id, result)
+    VALUES (${randomUUID()}, ${plantCandidateId}, ${JSON.stringify({ matches: [], cautions: [], blockers: [] })}::jsonb)
+  `.execute(db);
+  await sql`
+    INSERT INTO plants_inventory.plant_candidate
+      (id, garden_id, display_name, grouping_kind, status, created_by_profile_id)
+    VALUES (${convertedCandidateId}, ${gardenId}, 'Lemon tree', 'individual', 'converted', ${ownerId})
+  `.execute(db);
+  await sql`
+    INSERT INTO plants_inventory.candidate_conversion
+      (id, candidate_id, plant_id, converted_by_profile_id)
+    VALUES (${randomUUID()}, ${convertedCandidateId}, ${plantId}, ${ownerId})
+  `.execute(db);
+
   // --- observations
   const observationId = randomUUID();
   const observationPhotoId = randomUUID();

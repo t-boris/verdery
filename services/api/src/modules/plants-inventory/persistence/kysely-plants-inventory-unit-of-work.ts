@@ -9,6 +9,8 @@ import type {
   PlantsInventoryTransactionContext,
   PlantsInventoryUnitOfWork,
 } from '../application/plants-inventory-unit-of-work.js';
+import { KyselyCandidateConversionRepository } from './kysely-candidate-conversion-repository.js';
+import { KyselyPlantCandidateRepository } from './kysely-plant-candidate-repository.js';
 import { KyselyPlantIdentificationRepository } from './kysely-plant-identification-repository.js';
 import { KyselyPlantPhotoRepository } from './kysely-plant-photo-repository.js';
 import { KyselyPlantRepository } from './kysely-plant-repository.js';
@@ -27,6 +29,8 @@ export class KyselyPlantsInventoryUnitOfWork implements PlantsInventoryUnitOfWor
         plantPhotos: new KyselyPlantPhotoRepository(trx),
         plantIdentifications: new KyselyPlantIdentificationRepository(trx),
         revisionJournal: new KyselyPlantRevisionJournalWriter(trx),
+        candidates: new KyselyPlantCandidateRepository(trx),
+        candidateConversions: new KyselyCandidateConversionRepository(trx),
         idempotency: new KyselyIdempotencyStore(trx, this.clock),
         mapObjects: new KyselyMapObjectRepository(trx),
         media: new KyselyMediaRepository(trx),

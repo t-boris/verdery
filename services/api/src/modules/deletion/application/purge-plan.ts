@@ -236,6 +236,33 @@ export const GARDEN_PURGE_STEPS: readonly PurgeStep[] = [
     rows: (gardenId) => sql`garden_id = ${gardenId}`,
   },
 
+  // Plant candidates (P11-DATA-01), before plants: `candidate_conversion`
+  // references BOTH `plant_candidate` and `plant`, so it must clear before
+  // either. `candidate_suitability_assessment` only references
+  // `plant_candidate`. `plant_candidate.alternative_to_candidate_id` is a
+  // self-reference resolved within its own DELETE statement — the same
+  // "Postgres queues referential checks to the end of the statement" note
+  // `observation.corrects_observation_id` relies on below.
+  {
+    name: 'plants_inventory.candidate_suitability_assessment',
+    table: 'plants_inventory.candidate_suitability_assessment',
+    rows: (gardenId) =>
+      sql`candidate_id IN (SELECT id FROM plants_inventory.plant_candidate WHERE garden_id = ${gardenId})`,
+  },
+  {
+    name: 'plants_inventory.candidate_conversion',
+    table: 'plants_inventory.candidate_conversion',
+    rows: (gardenId) => sql`
+      candidate_id IN (SELECT id FROM plants_inventory.plant_candidate WHERE garden_id = ${gardenId})
+      OR plant_id IN (SELECT id FROM plants_inventory.plant WHERE garden_id = ${gardenId})
+    `,
+  },
+  {
+    name: 'plants_inventory.plant_candidate',
+    table: 'plants_inventory.plant_candidate',
+    rows: (gardenId) => sql`garden_id = ${gardenId}`,
+  },
+
   // Plants. The forward link from `plant` to `plant_identification` was
   // already released by the preparation above.
   {
