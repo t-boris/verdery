@@ -368,37 +368,66 @@ public struct PlantDetailView: View {
         await model.pickPhoto(data: data, contentType: contentType)
     }
 
+    /// A small icon caption above a field's own control — the edit form's
+    /// counterpart to `SectionEyebrow` (which labels a whole group, not one
+    /// field) and to the web client's `DetailRow` (icon + label above value).
+    /// The caption is hidden from VoiceOver: it is decorative reinforcement
+    /// of the control's own accessible name (its placeholder or label text),
+    /// never the sole source of that name — the same rule
+    /// `taxonomyRow`/`mapObjectRow`'s own trailing chevrons already follow.
+    private func iconField<Content: View>(
+        _ symbol: String,
+        _ label: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.space1) {
+            Label(label, systemImage: symbol)
+                .font(Typography.detail)
+                .foregroundStyle(Palette.textMuted)
+                .accessibilityHidden(true)
+            content()
+        }
+    }
+
     private func editSection(_ summary: PlantDetailSummary) -> some View {
         VStack(alignment: .leading, spacing: Metrics.space2) {
             SectionEyebrow(symbol: "pencil", title: model.editSectionTitle)
 
             SurfaceCard {
                 VStack(alignment: .leading, spacing: Metrics.space3) {
-                    TextField(model.displayNameLabel, text: $model.editedDisplayName)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityIdentifier("plants.detail.displayNameField")
+                    iconField(PlantSymbols.displayName, model.displayNameLabel) {
+                        TextField(model.displayNameLabel, text: $model.editedDisplayName)
+                            .textFieldStyle(.roundedBorder)
+                            .accessibilityIdentifier("plants.detail.displayNameField")
+                    }
 
                     taxonomyRow
 
-                    TextField(model.varietyLabelLabel, text: $model.editedVarietyLabel)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityIdentifier("plants.detail.varietyLabelField")
+                    iconField(PlantSymbols.variety, model.varietyLabelLabel) {
+                        TextField(model.varietyLabelLabel, text: $model.editedVarietyLabel)
+                            .textFieldStyle(.roundedBorder)
+                            .accessibilityIdentifier("plants.detail.varietyLabelField")
+                    }
 
                     // Only a row or a group tracks a quantity — an
                     // `.individual` plant's server-side domain model rejects
                     // one outright (`quantity.not_allowed`), the same gate the
                     // add form already applies on creation.
                     if summary.groupingKind != .individual {
-                        TextField(model.quantityLabel, text: $model.editedQuantityText)
-                            .textFieldStyle(.roundedBorder)
-                            #if os(iOS)
-                                .keyboardType(.numberPad)
-                            #endif
-                            .accessibilityIdentifier("plants.detail.quantityField")
+                        iconField(PlantSymbols.quantity, model.quantityLabel) {
+                            TextField(model.quantityLabel, text: $model.editedQuantityText)
+                                .textFieldStyle(.roundedBorder)
+                                #if os(iOS)
+                                    .keyboardType(.numberPad)
+                                #endif
+                                .accessibilityIdentifier("plants.detail.quantityField")
+                        }
                     }
 
-                    Toggle(model.acquisitionDateToggleLabel, isOn: $model.editedHasAcquisitionDate)
-                        .accessibilityIdentifier("plants.detail.acquisitionDateToggle")
+                    Toggle(isOn: $model.editedHasAcquisitionDate) {
+                        Label(model.acquisitionDateToggleLabel, systemImage: PlantSymbols.acquisitionDateGuess)
+                    }
+                    .accessibilityIdentifier("plants.detail.acquisitionDateToggle")
                     if model.editedHasAcquisitionDate {
                         DatePicker(
                             model.acquisitionDateLabel,
@@ -422,21 +451,25 @@ public struct PlantDetailView: View {
                         .accessibilityIdentifier("plants.detail.acquisitionDateTypePicker")
                     }
 
-                    TextField(
-                        model.conditionNoteLabel, text: $model.editedConditionNote, axis: .vertical
-                    )
-                    .textFieldStyle(.roundedBorder)
-                    .lineLimit(2...4)
-                    .accessibilityIdentifier("plants.detail.conditionNoteField")
+                    iconField(PlantSymbols.condition, model.conditionNoteLabel) {
+                        TextField(
+                            model.conditionNoteLabel, text: $model.editedConditionNote, axis: .vertical
+                        )
+                        .textFieldStyle(.roundedBorder)
+                        .lineLimit(2...4)
+                        .accessibilityIdentifier("plants.detail.conditionNoteField")
+                    }
 
-                    TextField(
-                        model.careGuidanceNoteLabel,
-                        text: $model.editedCareGuidanceNote,
-                        axis: .vertical
-                    )
-                    .textFieldStyle(.roundedBorder)
-                    .lineLimit(2...4)
-                    .accessibilityIdentifier("plants.detail.careGuidanceNoteField")
+                    iconField(PlantSymbols.careGuidance, model.careGuidanceNoteLabel) {
+                        TextField(
+                            model.careGuidanceNoteLabel,
+                            text: $model.editedCareGuidanceNote,
+                            axis: .vertical
+                        )
+                        .textFieldStyle(.roundedBorder)
+                        .lineLimit(2...4)
+                        .accessibilityIdentifier("plants.detail.careGuidanceNoteField")
+                    }
 
                     Button {
                         Task {

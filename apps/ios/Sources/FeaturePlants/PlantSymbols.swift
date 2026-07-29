@@ -65,6 +65,7 @@ enum PlantSymbols {
     }
 
     static let quantity = "number"
+    static let displayName = "textformat"
     static let variety = "tag.fill"
     static let taxonomy = "text.book.closed.fill"
     static let placement = "mappin.and.ellipse"
