@@ -18,8 +18,20 @@ import {
   usePlantIdentification,
   useRecordObservationFromIdentification,
 } from '@/features/plants/public';
+import type { ReactNode } from 'react';
+
 import { useLocalization } from '@/shared/localization/public';
-import { Button, FailureAlert, ProgressBar, StaleIndicator } from '@/shared/ui/public';
+import {
+  Button,
+  CalendarIcon,
+  FailureAlert,
+  LightbulbIcon,
+  ProgressBar,
+  PulseIcon,
+  SproutIcon,
+  StaleIndicator,
+  TagIcon,
+} from '@/shared/ui/public';
 
 import styles from './add-plant-from-photo-panel.module.css';
 
@@ -58,12 +70,23 @@ function rawSuggestionLabel(commonName: string, scientificName: string | null): 
   return scientificName === null ? commonName : `${scientificName} (${commonName})`;
 }
 
-/** Label above, value below, with real line height — mirrors `plant-detail.tsx`'s own identical (unexported) `DetailRow` helper. */
-function DetailRow({ label, value }: { readonly label: string; readonly value: string }) {
+/** Icon, label above, value below, with real line height — mirrors `plant-detail.tsx`'s own identical (unexported) `DetailRow` helper. */
+function DetailRow({
+  icon,
+  label,
+  value,
+}: {
+  readonly icon: ReactNode;
+  readonly label: string;
+  readonly value: string;
+}) {
   return (
-    <div>
-      <span className={styles['suggestionDetailLabel']}>{label}</span>
-      <p className={styles['suggestionDetailValue']}>{value}</p>
+    <div className={styles['suggestionDetailRow']}>
+      <span className={styles['suggestionDetailIcon']}>{icon}</span>
+      <div>
+        <span className={styles['suggestionDetailLabel']}>{label}</span>
+        <p className={styles['suggestionDetailValue']}>{value}</p>
+      </div>
     </div>
   );
 }
@@ -209,30 +232,35 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
               <div className={styles['suggestionDetails']}>
                 {suggestedVarietyLabel !== null && (
                   <DetailRow
+                    icon={<TagIcon />}
                     label={t('plants.identificationVarietyLabel')}
                     value={suggestedVarietyLabel}
                   />
                 )}
                 {suggestedLifecycleStage !== null && (
                   <DetailRow
+                    icon={<SproutIcon />}
                     label={t('plants.identificationGrowthStageLabel')}
                     value={t(lifecycleStageLabel(suggestedLifecycleStage))}
                   />
                 )}
                 {suggestedConditionNote !== null && (
                   <DetailRow
+                    icon={<PulseIcon />}
                     label={t('plants.identificationConditionLabel')}
                     value={suggestedConditionNote}
                   />
                 )}
                 {suggestedCareGuidanceNote !== null && (
                   <DetailRow
+                    icon={<LightbulbIcon />}
                     label={t('plants.identificationCareGuidanceLabel')}
                     value={suggestedCareGuidanceNote}
                   />
                 )}
                 {suggestedAcquisitionDate !== null && (
                   <DetailRow
+                    icon={<CalendarIcon />}
                     label={t('plants.identificationAcquisitionDateLabel')}
                     value={suggestedAcquisitionDate}
                   />

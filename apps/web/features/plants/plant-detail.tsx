@@ -4,9 +4,23 @@ import type { PlantIdentificationSuggestion } from '@verdery/api-contracts';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
+import type { ReactNode } from 'react';
+
 import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Alert, Button, Card, FailureAlert, StaleIndicator, StatusPill } from '@/shared/ui/public';
+import {
+  Alert,
+  Button,
+  CalendarIcon,
+  Card,
+  FailureAlert,
+  LightbulbIcon,
+  PulseIcon,
+  SproutIcon,
+  StaleIndicator,
+  StatusPill,
+  TagIcon,
+} from '@/shared/ui/public';
 
 import { groupingKindLabel, lifecycleStageLabel, statusLabel, statusTone } from './labels';
 import styles from './plant-detail.module.css';
@@ -40,16 +54,27 @@ function rawSuggestionLabel(commonName: string, scientificName: string | null): 
 }
 
 /**
- * One identification-suggestion fact: label above, value below, with real
- * line height — not a single `${label}: ${value}` line, which crushed a full
- * sentence (a condition/care guess) onto one crowded row. Mirrors
+ * One identification-suggestion fact: icon, label above, value below, with
+ * real line height — not a single `${label}: ${value}` line, which crushed a
+ * full sentence (a condition/care guess) onto one crowded row. Mirrors
  * `PlantIdentificationBannerView.detailRow`'s identical iOS redesign.
  */
-function DetailRow({ label, value }: { readonly label: string; readonly value: string }) {
+function DetailRow({
+  icon,
+  label,
+  value,
+}: {
+  readonly icon: ReactNode;
+  readonly label: string;
+  readonly value: string;
+}) {
   return (
-    <div>
-      <span className={styles['detailLabel']}>{label}</span>
-      <p className={styles['detailValue']}>{value}</p>
+    <div className={styles['detailRow']}>
+      <span className={styles['detailIcon']}>{icon}</span>
+      <div>
+        <span className={styles['detailLabel']}>{label}</span>
+        <p className={styles['detailValue']}>{value}</p>
+      </div>
     </div>
   );
 }
@@ -186,30 +211,35 @@ export function PlantDetail({ gardenId, plantId }: PlantDetailProps) {
             <div className={styles['identificationDetails']}>
               {suggestedVarietyLabel !== null && (
                 <DetailRow
+                  icon={<TagIcon />}
                   label={t('plants.identificationVarietyLabel')}
                   value={suggestedVarietyLabel}
                 />
               )}
               {suggestedLifecycleStage !== null && (
                 <DetailRow
+                  icon={<SproutIcon />}
                   label={t('plants.identificationGrowthStageLabel')}
                   value={t(lifecycleStageLabel(suggestedLifecycleStage))}
                 />
               )}
               {suggestedConditionNote !== null && (
                 <DetailRow
+                  icon={<PulseIcon />}
                   label={t('plants.identificationConditionLabel')}
                   value={suggestedConditionNote}
                 />
               )}
               {suggestedCareGuidanceNote !== null && (
                 <DetailRow
+                  icon={<LightbulbIcon />}
                   label={t('plants.identificationCareGuidanceLabel')}
                   value={suggestedCareGuidanceNote}
                 />
               )}
               {suggestedAcquisitionDate !== null && (
                 <DetailRow
+                  icon={<CalendarIcon />}
                   label={t('plants.identificationAcquisitionDateLabel')}
                   value={suggestedAcquisitionDate}
                 />

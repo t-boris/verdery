@@ -15,6 +15,8 @@ export interface SelectProps extends Omit<
   readonly options: readonly SelectOption[];
   /** Shown and announced when present; absence means the field is currently valid. */
   readonly error?: string | undefined;
+  /** Decorative reinforcement of `label` — see `TextField`'s identical prop. */
+  readonly icon?: ReactNode;
 }
 
 /**
@@ -27,13 +29,14 @@ export interface SelectProps extends Omit<
  *
  * Source: architecture/web-application-design.md, section "11. Forms and Validation".
  */
-export function Select({ label, options, error, ...selectProps }: SelectProps): ReactNode {
+export function Select({ label, options, error, icon, ...selectProps }: SelectProps): ReactNode {
   const selectId = useId();
   const errorId = useId();
 
   return (
     <div className={styles['field']}>
       <label className={styles['label']} htmlFor={selectId}>
+        {icon !== undefined && <span className={styles['labelIcon']}>{icon}</span>}
         {label}
       </label>
       <select

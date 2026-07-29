@@ -1,4 +1,4 @@
-import { useId, type InputHTMLAttributes } from 'react';
+import { useId, type InputHTMLAttributes, type ReactNode } from 'react';
 
 import styles from './text-field.module.css';
 
@@ -9,6 +9,8 @@ export interface TextFieldProps extends Omit<
   readonly label: string;
   /** Shown and announced when present; absence means the field is currently valid. */
   readonly error?: string | undefined;
+  /** Decorative reinforcement of `label`, e.g. one of `shared/ui/icons.tsx`'s icons — never the field's only name, since every icon there is already `aria-hidden`. */
+  readonly icon?: ReactNode;
 }
 
 /**
@@ -20,13 +22,14 @@ export interface TextFieldProps extends Omit<
  *
  * Source: architecture/web-application-design.md, section "11. Forms and Validation".
  */
-export function TextField({ label, error, ...inputProps }: TextFieldProps) {
+export function TextField({ label, error, icon, ...inputProps }: TextFieldProps) {
   const inputId = useId();
   const errorId = useId();
 
   return (
     <div className={styles['field']}>
       <label className={styles['label']} htmlFor={inputId}>
+        {icon !== undefined && <span className={styles['labelIcon']}>{icon}</span>}
         {label}
       </label>
       <input

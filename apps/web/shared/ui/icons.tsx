@@ -210,3 +210,50 @@ export function RulerIcon(props: IconProps) {
     </IconBase>
   );
 }
+
+/** A plant's name/title field. */
+export function TypeIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M5 5h10M10 5v10" />
+    </IconBase>
+  );
+}
+
+/** Variety: a price/identification tag. */
+export function TagIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M4.5 4.5h5.6L16 10.4l-5.9 5.9L4.5 10.7V4.5Z" />
+      <circle cx="7.3" cy="7.3" r="1" />
+    </IconBase>
+  );
+}
+
+/** A count of individual plants in a row or group. */
+export function HashIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M7.5 3.5 5.5 16.5M14.5 3.5l-2 13M3.5 8h13M2.7 12.5h13" />
+    </IconBase>
+  );
+}
+
+/** Condition: a pulse/ECG line. */
+export function PulseIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M2.5 10.5h3l1.5-4 3 8 1.5-4h3" />
+    </IconBase>
+  );
+}
+
+/** Care guidance: a lit lightbulb. */
+export function LightbulbIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M10 3.5a5 5 0 0 0-2.8 9.1c.5.35.8.9.8 1.5v.4h4v-.4c0-.6.3-1.15.8-1.5A5 5 0 0 0 10 3.5Z" />
+      <path d="M8.2 16.5h3.6M8.7 18h2.6" />
+    </IconBase>
+  );
+}

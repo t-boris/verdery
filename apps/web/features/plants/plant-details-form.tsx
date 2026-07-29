@@ -7,7 +7,18 @@ import { useForm } from 'react-hook-form';
 import { z } from '@/shared/validation/zod';
 
 import { useLocalization } from '@/shared/localization/public';
-import { Button, FailureAlert, Select, TextField } from '@/shared/ui/public';
+import {
+  Button,
+  CalendarIcon,
+  FailureAlert,
+  HashIcon,
+  LightbulbIcon,
+  PulseIcon,
+  Select,
+  TagIcon,
+  TextField,
+  TypeIcon,
+} from '@/shared/ui/public';
 
 import { PLANT_ACQUISITION_DATE_TYPES, acquisitionDateTypeLabel } from './labels';
 import styles from './plant-details-form.module.css';
@@ -134,6 +145,7 @@ export function PlantDetailsForm({ gardenId, plant }: PlantDetailsFormProps) {
     <form className={styles['form']} onSubmit={(event) => void onSubmit(event)} noValidate>
       <TextField
         label={t('plants.displayNameLabel')}
+        icon={<TypeIcon />}
         maxLength={200}
         error={
           formState.errors.displayName === undefined ? undefined : t('plants.displayNameRequired')
@@ -147,17 +159,20 @@ export function PlantDetailsForm({ gardenId, plant }: PlantDetailsFormProps) {
       />
       <TextField
         label={t('plants.varietyLabelLabel')}
+        icon={<TagIcon />}
         maxLength={200}
         {...register('varietyLabel')}
       />
       <div className={styles['row']}>
         <TextField
           label={t('plants.acquisitionDateLabel')}
+          icon={<CalendarIcon />}
           type="date"
           {...register('acquisitionDate')}
         />
         <Select
           label={t('plants.acquisitionDateTypeLabel')}
+          icon={<CalendarIcon />}
           options={[
             { value: NONE_VALUE, label: t('plants.acquisitionDateTypeNone') },
             ...PLANT_ACQUISITION_DATE_TYPES.map((type) => ({
@@ -171,13 +186,22 @@ export function PlantDetailsForm({ gardenId, plant }: PlantDetailsFormProps) {
       {plant.groupingKind !== 'individual' && (
         <TextField
           label={t('plants.quantityLabel')}
+          icon={<HashIcon />}
           type="number"
           min={1}
           {...register('quantity')}
         />
       )}
-      <TextField label={t('plants.conditionNoteLabel')} {...register('conditionNote')} />
-      <TextField label={t('plants.careGuidanceNoteLabel')} {...register('careGuidanceNote')} />
+      <TextField
+        label={t('plants.conditionNoteLabel')}
+        icon={<PulseIcon />}
+        {...register('conditionNote')}
+      />
+      <TextField
+        label={t('plants.careGuidanceNoteLabel')}
+        icon={<LightbulbIcon />}
+        {...register('careGuidanceNote')}
+      />
       <Button type="submit" variant="primary" busy={mutation.isPending}>
         {t('plants.saveDetails')}
       </Button>
