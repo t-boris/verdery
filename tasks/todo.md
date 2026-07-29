@@ -7537,4 +7537,37 @@ provenance helper, and profile-version assembly), and a real-Postgres integratio
 (`plant-profile-version.test.ts`) covering the two-provider conflict, the human-authored path with
 no mapping at all, and the nothing-to-resolve outcome.
 
+## P11-PROV-01 — plant-knowledge source runbooks, complete
+
+Per its own work-package definition (implementation-plan.md section 20.3), P11-PROV-01's deliverable
+is "provider decisions, legal/privacy inventory, source runbooks, and fixtures" — documentation and
+verification, not adapter code (`P11-ASYNC-01` builds the "source adapters" themselves, per that
+package's own scope line). ADR-0016 already made the selection decision; this work package verified
+every selected source's real, current access mechanism by making live requests against each one, and
+recorded the results in
+[docs/development/plant-knowledge-provider-runbooks.md](../docs/development/plant-knowledge-provider-runbooks.md).
+
+All ten sources (World Flora Online, USDA PLANTS + Characteristics, Wikidata, USDA GRIN, the USDA
+hardiness-zone map, GBIF, USA-NPN, USDA NRCS Soil Data Access, and the federal noxious-weed list) were
+checked live rather than assumed from documentation. Real, working, key-free APIs were found and
+verified end-to-end for eight of them, each with example requests/responses now recorded for
+`P11-ASYNC-01`'s fixtures. Two findings changed what was previously assumed:
+
+- **USDA GRIN has no usable public API** — only a search UI with no documented export or automation
+  terms. GBIF republishes GRIN's _taxonomy_ (not accession data) as a real bulk download; true
+  germplasm/cultivar-accession data is recorded as a deferred gap, not silently dropped or scraped
+  against undocumented terms.
+- **The USDA Plant Hardiness Zone Map is not simple public domain.** It is jointly produced with
+  Oregon State University's PRISM group, which retains rights requiring both USDA-ARS and OSU logos
+  on any derived display, plus a disclaimer if altered. ADR-0013's "self-hosted hardiness rasters"
+  decision stands, but self-hosting now carries a recorded UI attribution obligation that was not
+  previously written down anywhere in this repository.
+- For federal regulatory status, APHIS itself publishes only PDFs (its own legacy API endpoint is
+  dead); the eCFR API serving 7 CFR §360.200 as structured, versioned XML is the real integration
+  path, verified live against real listed species.
+
+Two items remain genuine owner-only gates (recorded in the runbook's own §7, not silently resolved):
+a commercial care-content vendor beyond the free baseline, and confirming the exact hardiness-map
+attribution placement before that adapter is enabled outside development.
+
 ---

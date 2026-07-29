@@ -121,7 +121,14 @@ Vertex AI adapter (`identify-plant-species.ts`) — no new provider decision.
 
 Every adapter above is buildable today without a commercial contract: all eight sources (World
 Flora Online, USDA PLANTS, USDA Characteristics, Wikidata, USDA GRIN, hardiness rasters, GBIF,
-USA-NPN, USDA NRCS, USDA APHIS) are free, public, or public-domain. `P11-PROV-01` and
+USA-NPN, USDA NRCS, USDA APHIS) are free, public, or public-domain. Every real endpoint, its
+auth/rate-limit posture, its license, and its bulk-download fallback are verified and recorded in
+[development/plant-knowledge-provider-runbooks.md](../../development/plant-knowledge-provider-runbooks.md)
+(`P11-PROV-01`) — including one finding that changes a detail of this ADR's own list: the USDA
+hardiness-zone map carries a real attribution obligation (USDA-ARS and Oregon State University
+logos on any derived display), not simple public domain, and USDA GRIN has no usable public API at
+all (Wikidata already covers cultivar names, so GRIN is deferred rather than scraped). `P11-PROV-01`
+and
 `P11-ASYNC-01` build real adapters against the existing `PlantContentProviderAdapter` port (text
 content) and a new equivalent port for structured fact/distribution assertions, registered in the
 existing registry, each behind its own default-`false` kill-switch — the same
