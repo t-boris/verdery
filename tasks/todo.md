@@ -7310,3 +7310,53 @@ alongside the disabled-path coverage every touched command's existing suite alre
 terms-verification recorded); the "real" in this entry's title means real, callable, fully-tested
 integration code behind a default-off switch — not a live-traffic capability. Prior-photo history
 comparison for condition tracking remains unwired, as stated above.
+
+---
+
+# Phase 10 — Real Plant Identification and Property-Plan OCR, review
+
+Phase 10 never received its own planning/review headers like Phases 1-9 — its work landed across
+the ADR-0015 redirect entry above and one follow-up commit responding to the owner's live retest.
+This entry closes that gap: every §19.3 work package is accounted for, verified against a fresh
+full-suite run rather than assumed from prior notes.
+
+| Work package | Delivered                                                                                                                                        | Gate that remains                                     |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| P10-DATA-01  | Capture session, capability class, media reference, and processing-state fields — retained as Phase 12 AR groundwork                              | —                                                        |
+| P10-PLANT-01 | Real `VertexAiPlantSpeciesIdentificationAdapter` behind `identifyPlantSpecies`, kill-switched (`PLANT_SPECIES_AI_ENABLED=false` every environment) | Owner spot-check + Vertex AI data-retention confirmation |
+| P10-PLANT-02 | Real `VertexAiPlantConditionAnalysisAdapter` behind `analyzePlantCondition`, kill-switched (`PLANT_CONDITION_AI_ENABLED=false` every environment)  | Same two owner actions, shared adapter/config idiom      |
+| P10-PLANT-03 | `GetPlantIdentification`/`ConfirmPlantIdentification`/`RecordObservationFromIdentification` reachable from real screens on iOS and web, not only the command layer — pending-identification banner, photo gallery, map-object picker, AI-guessed acquisition date | —                                        |
+| P10-QA-01    | Dedicated adapter and call-policy test files for both capabilities, covering kill-switch-off default, malformed/refused/timeout provider responses, and the never-auto-confirm path; toxicity/edibility fields are structurally absent from both ports' types, not just runtime-guarded | —                          |
+
+`P10-ASYNC-01` stays deferred by design (§19.3): a single synchronous provider call, matching the
+existing recommendation-explanation adapter, not a job pipeline. It returns for Phase 11 enrichment.
+
+## Exit criteria (§19.4)
+
+- Every suggestion is confidence-scored and requires explicit confirmation before touching a record — yes, unchanged since the ADR-0015 implementation, exercised by the new adapter/call-policy tests.
+- No path can populate toxicity/edibility fields — yes, structural: neither port's request or response type carries those fields.
+- Both capabilities stay disabled by default until spot-check and provider-terms verification are recorded — yes, both kill-switches remain `false` in every environment; neither owner action is recorded yet, so this criterion is met by staying off, not by being resolved.
+- Manual plant and garden-object entry remain complete fallbacks — yes, unaffected by this phase.
+- Plant-from-photo identification is reachable from a real screen on both clients — yes, closed by the iOS follow-up commit (`a833cd1`) and its earlier web counterpart; a user can add from a photo, see the suggestion and its confidence, and confirm or defer.
+
+## Verification run for this review
+
+Fresh run, not carried over from prior session notes: `pnpm check:all` — format, lint, typecheck,
+600-line file-size gate, and the full test suite all clean (packages: 113+29+21 passed; `apps/web`
+977/977; `services/workers` 133/133; `services/api` 2383/2387, 4 intentionally skipped — the one
+failing suite, `tests/dst/p9-qa-dst-client-invitation-expiry.test.ts`, timed out waiting on a
+Testcontainers Postgres start under concurrent Docker load from the same `pnpm -r test` run and
+passed cleanly, 4/4, re-run alone immediately after — the same transient-contention pattern already
+documented above, not a regression). `swift build` and `swift test` in `apps/ios`: clean, 986/986
+tests passed.
+
+## Assessment
+
+Phase 10 is implementation-complete. What remains — the manual photo spot-check and the Vertex AI
+image data-retention confirmation — are both owner-only actions explicitly named in §19.2, not
+unbuilt work; the phase's own exit criteria treat "both disabled by default until recorded" as the
+passing state, not a blocker. Phase 11's dependency on "P10 identification behavior" (§20.3,
+P11-PROD-01) is satisfied: the identification/condition-tracking vertical slice it builds on is real,
+tested, and reachable end-to-end on both clients, even while switched off.
+
+---
