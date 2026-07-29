@@ -137,7 +137,7 @@ video parser exists anywhere in this pipeline. Research does not authorize produ
 
 | Media class       | Accepted types                    | Maximum bytes                              |
 | ----------------- | --------------------------------- | ------------------------------------------ |
-| Garden photo      | JPEG, PNG, WebP, HEIC, HEIF       | 25 MiB                                     |
+| Garden photo      | JPEG, PNG, WebP, HEIC, HEIF       | 50 MiB                                     |
 | Imported plan     | Garden-photo raster types, PDF    | 50 MiB                                     |
 | Raw capture       | Not deeply validated (see above)  | Declared byte size only, no worker ceiling |
 | Derived preview   | Garden-photo raster types         | 50 MiB                                     |

@@ -69,7 +69,7 @@ Images are limited to 40 megapixels and 16,384 pixels on either axis, read from 
 (never a full pixel decode — see `src/validation/image-metadata-parser.ts`'s own header comment for
 why that is sufficient). PDFs are limited to 100 pages and reject encryption, JavaScript, launch
 actions, embedded files, rich media, XFA, excessive object cardinality, and malformed envelopes.
-Class byte limits are 25 MiB for garden photos, 50 MiB for imported plans, 50 MiB for derived
+Class byte limits are 50 MiB for garden photos, 50 MiB for imported plans, 50 MiB for derived
 previews, and 1 GiB for processing output.
 
 **Video/raw-capture is explicitly out of scope for this stage.** Duration, codec, and frame-rate

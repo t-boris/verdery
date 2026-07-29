@@ -18,7 +18,7 @@ export interface GardenPhotoUploadProps {
 /** Section 8.1's accepted garden-photo raster types. */
 const ACCEPTED_TYPES = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
 /** Section 8.1's declared garden-photo ceiling — checked client-side for fast feedback; the server enforces it authoritatively. */
-const MAX_GARDEN_PHOTO_BYTES = 25 * 1024 * 1024;
+const MAX_GARDEN_PHOTO_BYTES = 50 * 1024 * 1024;
 
 function percentOf(uploadedBytes: number, totalBytes: number): number {
   return totalBytes <= 0 ? 0 : (uploadedBytes / totalBytes) * 100;

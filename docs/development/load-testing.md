@@ -177,7 +177,7 @@ outage.
 
 **Two behaviours it is built to surface.** Registration performs **no size or MIME check** — the API
 requires only a non-empty `declaredContentType` and a positive `declaredByteSize`, while the real
-ceilings (25 MiB for `garden_photo`, 50 MiB for `imported_plan`) live in the worker's validation
+ceilings (50 MiB for `garden_photo`, 50 MiB for `imported_plan`) live in the worker's validation
 policy and apply _after_ the bytes are stored. And the quota ledger reserves bytes at registration
 and compares them to nothing (`T-COST-03`). `VERDERY_UPLOAD_OVERSIZE=true` demonstrates both in one
 run.

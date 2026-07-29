@@ -34,7 +34,7 @@ const POLICIES: Readonly<Record<string, ValidationPolicy>> = {
   garden_photo: {
     ...BASE,
     allowedContentTypes: IMAGE_TYPES,
-    maxBytes: 25 * MIB,
+    maxBytes: 50 * MIB,
     malwareScanRequired: false,
   },
   imported_plan: {

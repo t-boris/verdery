@@ -29,7 +29,7 @@ export interface AddPlantFromPhotoPanelProps {
 
 /** Section 8.1's accepted garden-photo raster types — reused as-is: the photo backing an identification is stored the same way a garden photo is (`media_class: 'garden_photo'`). */
 const ACCEPTED_TYPES = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
-const MAX_PHOTO_BYTES = 25 * 1024 * 1024;
+const MAX_PHOTO_BYTES = 50 * 1024 * 1024;
 
 const PICKER_PHASES = new Set(['idle', 'processed', 'rejected', 'processingFailed']);
 const CANCELLABLE_PHASES = new Set([
