@@ -338,10 +338,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     await client.end();
 
-    // `count: 16` undoes every newer migration (through
-    // 1787700000000_plant-taxon-knowledge-profile.sql) first, then
+    // `count: 17` undoes every newer migration (through
+    // 1787800000000_plant-search-extensions.sql) first, then
     // this one. Update the count the next time a migration is added on top.
-    await migrate(databaseUrl, 'down', 16);
+    await migrate(databaseUrl, 'down', 17);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

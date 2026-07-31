@@ -244,6 +244,9 @@ export class KyselyPlantRepository implements PlantRepository {
     if (filters.groupingKind !== null) {
       q = q.where('grouping_kind', 'in', [...filters.groupingKind]);
     }
+    if (filters.identified !== null) {
+      q = q.where('taxonomy_reference_id', filters.identified ? 'is not' : 'is', null);
+    }
     return q;
   }
 

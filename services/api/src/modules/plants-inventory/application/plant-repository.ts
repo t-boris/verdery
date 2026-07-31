@@ -14,6 +14,8 @@ export interface PlantSearchFilters {
   readonly lifecycleStage: readonly LifecycleStage[] | null;
   readonly status: readonly PlantStatus[] | null;
   readonly groupingKind: readonly GroupingKind[] | null;
+  /** `true` = has a resolved `taxonomyReferenceId`; `false` = does not; `null` = no restriction (P11-SEARCH-01's "identity" filter). */
+  readonly identified: boolean | null;
 }
 
 export interface PlantSearchPage {

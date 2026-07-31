@@ -149,6 +149,11 @@ export class FakePlantRepository implements PlantRepository {
         (plant) =>
           filters.groupingKind === null || filters.groupingKind.includes(plant.groupingKind),
       )
+      .filter(
+        (plant) =>
+          filters.identified === null ||
+          filters.identified === (plant.taxonomyReferenceId !== null),
+      )
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || (a.id < b.id ? 1 : -1));
 
     const start = cursor === null ? 0 : Number(cursor);

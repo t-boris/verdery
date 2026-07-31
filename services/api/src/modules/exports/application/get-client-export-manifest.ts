@@ -150,6 +150,7 @@ const PLANT_SEARCH_FILTERS: PlantSearchFilters = {
   lifecycleStage: null,
   status: null,
   groupingKind: null,
+  identified: null,
 };
 
 /** Comfortably above any real garden's plant count; bounds one page's memory without needing more than a handful of round trips for the gardens this route serves. */

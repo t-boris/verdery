@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { TaxonomyReference } from '../domain/taxonomy-reference.js';
-import type { TaxonomyReferenceRepository } from './taxonomy-reference-repository.js';
+import type {
+  TaxonomyReferenceRepository,
+  TaxonomySearchResult,
+} from './taxonomy-reference-repository.js';
 import { SearchTaxonomyReferences } from './search-taxonomy-references.js';
 
 const TOMATO: TaxonomyReference = {
@@ -23,15 +26,21 @@ class FakeTaxonomyReferenceRepository implements TaxonomyReferenceRepository {
     throw new Error('not used by this test');
   }
 
-  search(query: string | null, limit: number): Promise<TaxonomyReference[]> {
+  search(): Promise<TaxonomyReference[]> {
+    throw new Error('not used by this test');
+  }
+
+  searchAcrossNames(query: string | null, limit: number): Promise<TaxonomySearchResult[]> {
     this.lastQuery = query;
     this.lastLimit = limit;
-    return Promise.resolve([TOMATO]);
+    return Promise.resolve([
+      { reference: TOMATO, matchedName: { nameKind: 'common', nameText: 'Tomato', locale: null } },
+    ]);
   }
 }
 
 describe('SearchTaxonomyReferences', () => {
-  it('maps repository results to resources', async () => {
+  it('maps repository results to resources, including which name matched', async () => {
     const repository = new FakeTaxonomyReferenceRepository();
     const search = new SearchTaxonomyReferences(repository);
 
@@ -46,6 +55,7 @@ describe('SearchTaxonomyReferences', () => {
         source: 'system_catalog',
         createdByProfileId: null,
         createdAt: TOMATO.createdAt.toISOString(),
+        matchedName: { nameKind: 'common', nameText: 'Tomato', locale: null },
       },
     ]);
     expect(repository.lastQuery).toBe('tomato');

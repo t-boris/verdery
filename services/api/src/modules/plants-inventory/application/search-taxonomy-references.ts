@@ -28,11 +28,13 @@ export class SearchTaxonomyReferences {
 
   async execute(query: string | null, limit?: number): Promise<TaxonomyReferenceResource[]> {
     const trimmedQuery = query === null ? null : query.trim();
-    const results = await this.taxonomyReferences.search(
+    const results = await this.taxonomyReferences.searchAcrossNames(
       trimmedQuery === '' ? null : trimmedQuery,
       boundedLimit(limit),
     );
 
-    return results.map(toTaxonomyReferenceResource);
+    return results.map((result) =>
+      toTaxonomyReferenceResource(result.reference, result.matchedName),
+    );
   }
 }

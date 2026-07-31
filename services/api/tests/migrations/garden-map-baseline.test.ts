@@ -351,8 +351,8 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving the identity-and-gardens-baseline schemas and tables otherwise intact', async () => {
     await client.end();
 
-    // `count: 31` undoes this migration and every migration applied after it
-    // (currently through 1787700000000_plant-taxon-knowledge-profile.sql,
+    // `count: 32` undoes this migration and every migration applied after it
+    // (currently through 1787800000000_plant-search-extensions.sql,
     // each of which depends, directly or transitively, on tables this one
     // creates and must come down first). Update this count when a later
     // migration is added on top.
@@ -361,7 +361,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 31,
+      count: 32,
       log: () => {},
     });
 

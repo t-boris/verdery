@@ -179,6 +179,45 @@ describe('SearchPlants', () => {
     expect(noMatch.items).toHaveLength(0);
   });
 
+  it('filters by identified state (P11-SEARCH-01)', async () => {
+    const fakes = createPlantsInventoryFakes();
+    fakes.plants.plants.set(
+      PLANT_ID_1,
+      buildPlant({
+        id: PLANT_ID_1,
+        gardenId: GARDEN_ID,
+        taxonomyReferenceId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a10',
+      }),
+    );
+    fakes.plants.plants.set(
+      PLANT_ID_2,
+      buildPlant({ id: PLANT_ID_2, gardenId: GARDEN_ID, taxonomyReferenceId: null }),
+    );
+    const searchPlants = new SearchPlants(
+      fakes.plants,
+      authorizationGranting(VIEWER_MEMBERSHIP),
+      fakes.plantPhotos,
+    );
+
+    const identified = await searchPlants.execute(
+      GARDEN_ID,
+      PROFILE_ID,
+      { identified: true },
+      null,
+      50,
+    );
+    expect(identified.items.map((p) => p.id)).toEqual([PLANT_ID_1]);
+
+    const unidentified = await searchPlants.execute(
+      GARDEN_ID,
+      PROFILE_ID,
+      { identified: false },
+      null,
+      50,
+    );
+    expect(unidentified.items.map((p) => p.id)).toEqual([PLANT_ID_2]);
+  });
+
   it('treats an empty filter array the same as an omitted filter', async () => {
     const fakes = createPlantsInventoryFakes();
     fakes.plants.plants.set(PLANT_ID_1, buildPlant({ id: PLANT_ID_1, gardenId: GARDEN_ID }));

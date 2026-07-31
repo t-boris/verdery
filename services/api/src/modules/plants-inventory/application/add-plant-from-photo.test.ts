@@ -49,6 +49,10 @@ class FakeTaxonomyReferenceRepository implements TaxonomyReferenceRepository {
       this.catalog.filter((entry) => entry.commonName?.toLowerCase() === query.toLowerCase()),
     );
   }
+
+  searchAcrossNames(): ReturnType<TaxonomyReferenceRepository['searchAcrossNames']> {
+    throw new Error('not used by this test');
+  }
 }
 
 /** Always succeeds, unlimited — these tests exercise the identification outcome, not quota accounting. */

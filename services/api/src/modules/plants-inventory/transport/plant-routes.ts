@@ -168,6 +168,17 @@ function parseCommaSeparatedEnum<T extends string>(
   });
 }
 
+/** Mirrors `candidate-routes.ts`'s own `parseIdentifiedFilter` — kept local since it is this file's only caller. */
+function parseIdentifiedFilter(raw: unknown): boolean | undefined {
+  if (raw === undefined) {
+    return undefined;
+  }
+  if (raw !== 'true' && raw !== 'false') {
+    throw invalid('/identified must be "true" or "false".', 'request.invalid', '/identified');
+  }
+  return raw === 'true';
+}
+
 function parseSearchPlantsQuery(request: FastifyRequest): {
   filters: SearchPlantsFilters;
   cursor: string | null;
@@ -178,6 +189,7 @@ function parseSearchPlantsQuery(request: FastifyRequest): {
     lifecycleStage?: unknown;
     status?: unknown;
     groupingKind?: unknown;
+    identified?: unknown;
     cursor?: unknown;
     limit?: unknown;
   };
@@ -196,6 +208,7 @@ function parseSearchPlantsQuery(request: FastifyRequest): {
     GROUPING_KINDS,
     '/groupingKind',
   );
+  const identified = parseIdentifiedFilter(raw.identified);
 
   let limit = DEFAULT_SEARCH_PLANTS_LIMIT;
   if (raw.limit !== undefined) {
@@ -220,6 +233,7 @@ function parseSearchPlantsQuery(request: FastifyRequest): {
       ...(lifecycleStage === undefined ? {} : { lifecycleStage }),
       ...(status === undefined ? {} : { status }),
       ...(groupingKind === undefined ? {} : { groupingKind }),
+      ...(identified === undefined ? {} : { identified }),
     },
     cursor,
     limit,

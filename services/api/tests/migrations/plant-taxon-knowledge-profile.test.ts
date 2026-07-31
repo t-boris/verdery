@@ -374,7 +374,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   });
 
   it('down reverses up: dropping and reapplying this migration leaves the schema intact', async () => {
-    await migrate('down', 1);
+    // `count: 2` undoes 1787800000000_plant-search-extensions.sql (now the
+    // topmost migration) and this migration itself. Update this count when
+    // a later migration is added on top.
+    await migrate('down', 2);
 
     const afterDown = await client.query<{ qualified: string }>(
       `SELECT table_schema || '.' || table_name AS qualified
@@ -389,7 +392,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     );
     expect(afterDown.rows).toHaveLength(0);
 
-    await migrate('up', 1);
+    await migrate('up', 2);
 
     const afterReapply = await client.query<{ qualified: string }>(
       `SELECT table_schema || '.' || table_name AS qualified

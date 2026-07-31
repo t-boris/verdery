@@ -65,7 +65,14 @@ export class FakePlantCandidateRepository implements PlantCandidateRepository {
     return Promise.resolve(true);
   }
 
-  /** A simple index-into-the-sorted-array cursor, the same fidelity `FakePlantRepository.search` uses — real keyset-cursor behavior is exercised only against real PostgreSQL. */
+  /**
+   * Not a real trigram implementation — `query` here is a plain
+   * case-insensitive substring test against `displayName`, sufficient for
+   * `ListCandidates`'s own unit tests, the same `FakePlantRepository.search`
+   * precedent. A simple index-into-the-sorted-array cursor, the same
+   * fidelity that fake uses — real keyset-cursor and trigram-ranking
+   * behavior is exercised only against real PostgreSQL.
+   */
   list(
     gardenId: Uuid,
     filters: CandidateListFilters,
@@ -74,7 +81,22 @@ export class FakePlantCandidateRepository implements PlantCandidateRepository {
   ): Promise<CandidateListPage> {
     const matches = [...this.candidates.values()]
       .filter((candidate) => candidate.gardenId === gardenId)
+      .filter(
+        (candidate) =>
+          filters.query === null ||
+          candidate.displayName.toLowerCase().includes(filters.query.toLowerCase()),
+      )
       .filter((candidate) => filters.status === null || filters.status.includes(candidate.status))
+      .filter(
+        (candidate) =>
+          filters.priority === null ||
+          (candidate.priority !== null && filters.priority.includes(candidate.priority)),
+      )
+      .filter(
+        (candidate) =>
+          filters.identified === null ||
+          filters.identified === (candidate.taxonomyReferenceId !== null),
+      )
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || (a.id < b.id ? 1 : -1));
 
     const start = cursor === null ? 0 : Number(cursor);

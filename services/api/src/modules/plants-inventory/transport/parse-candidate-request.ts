@@ -18,7 +18,8 @@ import type {
 } from '../domain/plant-candidate.js';
 import { GROUPING_KINDS } from './parse-plant-request.js';
 
-const CANDIDATE_PRIORITIES: readonly CandidatePriority[] = ['low', 'medium', 'high'];
+// Exported for reuse by `candidate-routes.ts`'s own query-filter parsing — the `GROUPING_KINDS` precedent.
+export const CANDIDATE_PRIORITIES: readonly CandidatePriority[] = ['low', 'medium', 'high'];
 const SETTABLE_CANDIDATE_STATUSES: readonly Exclude<CandidateStatus, 'converted'>[] = [
   'active',
   'archived',

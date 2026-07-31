@@ -181,7 +181,11 @@ export type {
 } from './application/plant-repository.js';
 export type { PlantPhotoRepository } from './application/plant-photo-repository.js';
 export type { PlantIdentificationRepository } from './application/plant-identification-repository.js';
-export type { TaxonomyReferenceRepository } from './application/taxonomy-reference-repository.js';
+export type {
+  TaxonomyNameMatch,
+  TaxonomyReferenceRepository,
+  TaxonomySearchResult,
+} from './application/taxonomy-reference-repository.js';
 export type {
   PlantRevisionJournalEntry,
   PlantRevisionJournalWriter,

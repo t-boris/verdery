@@ -309,7 +309,13 @@ export class GetGardenSeasonalPlan {
     do {
       const page = await this.plants.search(
         gardenId,
-        { query: null, lifecycleStage: null, status: ['active'], groupingKind: null },
+        {
+          query: null,
+          lifecycleStage: null,
+          status: ['active'],
+          groupingKind: null,
+          identified: null,
+        },
         cursor,
         PLANT_PAGE_SIZE,
       );

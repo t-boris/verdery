@@ -261,6 +261,42 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     expect(page.items.map((item) => item.id)).toEqual([active.id]);
   });
 
+  it('searches candidates by text query and the identified filter (P11-SEARCH-01)', async () => {
+    const { token, garden } = await createGardenAsOwner();
+    const fig = await addCandidate(token, garden.id, { displayName: 'Fig Tree' });
+    const basil = await addCandidate(token, garden.id, { displayName: 'Basil' });
+
+    const byQuery = await app.inject({
+      method: 'GET',
+      url: `/v1/gardens/${garden.id}/plant-candidates?query=fyg+tree`,
+      headers: bearer(token),
+    });
+    expect(byQuery.statusCode).toBe(200);
+    expect(asCandidateList(byQuery).items.map((item) => item.id)).toEqual([fig.id]);
+
+    // Neither candidate was added with a taxonomyReferenceId — both are
+    // unidentified.
+    const unidentified = await app.inject({
+      method: 'GET',
+      url: `/v1/gardens/${garden.id}/plant-candidates?identified=false`,
+      headers: bearer(token),
+    });
+    expect(unidentified.statusCode).toBe(200);
+    expect(
+      asCandidateList(unidentified)
+        .items.map((item) => item.id)
+        .sort(),
+    ).toEqual([fig.id, basil.id].sort());
+
+    const identified = await app.inject({
+      method: 'GET',
+      url: `/v1/gardens/${garden.id}/plant-candidates?identified=true`,
+      headers: bearer(token),
+    });
+    expect(identified.statusCode).toBe(200);
+    expect(asCandidateList(identified).items).toHaveLength(0);
+  });
+
   it('rejects updating candidate details with a missing If-Match header with 400', async () => {
     const { token, garden } = await createGardenAsOwner();
     const candidate = await addCandidate(token, garden.id);

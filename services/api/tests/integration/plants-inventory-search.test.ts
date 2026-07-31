@@ -323,6 +323,55 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     expect(combinedWithQuery.items.map((p) => p.id)).toEqual([dormantRow]);
   });
 
+  it('filters by identified state (P11-SEARCH-01)', async () => {
+    const now = new Date('2026-07-31T09:00:00Z');
+    const { ownerId, gardenId } = await createGardenWithOwner(now);
+    const taxonomyReferenceId = generateUuidV7();
+    await db
+      .insertInto('plants_inventory.taxonomy_reference')
+      .values({
+        id: taxonomyReferenceId,
+        scientific_name: 'Ocimum basilicum',
+        source: 'system_catalog',
+      })
+      .execute();
+    const identifiedPlantId = await insertPlant({
+      gardenId,
+      createdByProfileId: ownerId,
+      displayName: 'Basil',
+    });
+    await db
+      .updateTable('plants_inventory.plant')
+      .set({ taxonomy_reference_id: taxonomyReferenceId })
+      .where('id', '=', identifiedPlantId)
+      .execute();
+    const unidentifiedPlantId = await insertPlant({
+      gardenId,
+      createdByProfileId: ownerId,
+      displayName: 'Mystery seedling',
+    });
+
+    const searchPlants = buildSearchPlants();
+
+    const identified = await searchPlants.execute(
+      gardenId,
+      ownerId,
+      { identified: true },
+      null,
+      50,
+    );
+    expect(identified.items.map((p) => p.id)).toEqual([identifiedPlantId]);
+
+    const unidentified = await searchPlants.execute(
+      gardenId,
+      ownerId,
+      { identified: false },
+      null,
+      50,
+    );
+    expect(unidentified.items.map((p) => p.id)).toEqual([unidentifiedPlantId]);
+  });
+
   it("carries each plant's cover photo (the primary one, else the oldest), null for a plant with none", async () => {
     const now = new Date('2026-07-21T09:00:00Z');
     const { ownerId, gardenId } = await createGardenWithOwner(now);

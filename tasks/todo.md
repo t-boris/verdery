@@ -7827,3 +7827,92 @@ review` assertions to `horticulturally_reviewed` — without which this pipeline
 invisible to profiles and suitability findings by design, not by accident.
 
 ---
+
+## P11-SEARCH-01 — extended plant search and filters, first real pass (scoped, documented remainder)
+
+**Scope decision, made explicit up front**: implementation-plan.md's own row for this work package
+names roughly fifteen filter dimensions (kind, granularity, location, identity, lifecycle,
+phenology, health, native/regulatory state, care requirements, compatibility, bloom/fruit period,
+completeness, enrichment, journal recency) plus search-projection extensions (synonyms, localized
+names, cultivars, user names, match explanation). A research pass confirmed most of the harder
+filters — compatibility (suitability assessments), phenology/bloom-fruit period (seasonal facts),
+health (observation/image-analysis-result), completeness/enrichment (profile versions),
+native/regulatory state (distribution assertions) — have NO existing batch-join read path at all;
+each needs its own new cross-table query, and several (health's richer disposition/model columns,
+P11-ASYNC-01's own review-gated data) depend on data this phase either hasn't landed yet or is still
+entirely `awaiting_horticultural_review` in production. This pass instead closes the two items
+existing code already explicitly named as blocked on this work package by file — `taxonomy_name`
+search (`taxonomy_name_taxonomy_reference_id_idx`'s own migration comment: "with pg_trgm... when
+P11-SEARCH-01 builds the query") and candidate text search (`plant-candidate-repository.ts`'s own
+header: "Full-text/relevance search over candidates is P11-SEARCH-01's job") — plus the cheap,
+real `identified` filter on both plants and candidates. The remaining batch-join filters are
+tracked, documented follow-up below, not silently dropped.
+
+**Migration** (`1787800000000_plant-search-extensions.sql`): two GIN trigram indexes —
+`plant_candidate_display_name_trgm_idx` (candidates gain the same relevance search plants already
+had since P4-SEARCH-01) and `taxonomy_name_name_text_trgm_idx` (closing the exact gap P11-DATA-02's
+own migration comment forward-pointed at this stage). 34th migration on top of 33 — every migration
+test's hardcoded rollback `count`/`'down', N` bumped by one via a throwaway Node script (the same
+mechanical maintenance this session has now hit three times), plus a fix `plant-taxon-knowledge-
+profile.test.ts`'s own "down reverses up" test needed: `count: 1` (undo just the most recent
+migration) silently started undoing THIS new migration instead of itself once it landed on top —
+caught by running the test, not by inspection, and fixed to `count: 2` (undo both, reapply both).
+
+**Taxonomy name search** (`TaxonomyReferenceRepository.searchAcrossNames`, new — `search()` itself
+is UNCHANGED, kept for `identify-plant-from-photo.ts`'s own narrower need, matching a scientific/
+common name a model guessed, which gains nothing from synonym/cultivar matching): one UNION ALL of
+every name form a taxon has — its own `scientificName`/`commonName` (kinds `accepted_scientific`/
+`common`, matching `search()`'s original two fields) plus every `taxonomy_name` row (synonyms,
+cultivars, localized common names) — ranked by trigram score, deduplicated per taxon via
+`ROW_NUMBER() OVER (PARTITION BY taxonomy_reference_id ORDER BY score DESC)` keeping only each
+taxon's single best match. A taxon with three matching name forms still appears exactly once, never
+three times. `TaxonomyReference`'s own contract schema gained an additive `matchedName` field
+(`{nameKind, nameText, locale} | null`) — `null` for a plain listing and for the one other caller of
+this same schema, `PlantIdentification.suggestedTaxonomy` (confirmed via its own INLINE, narrower
+schema in the contract — genuinely unaffected, not just assumed).
+
+**Candidate search** (`ListCandidates`/`PlantCandidateRepository.list`): the exact dual-mode
+(`query === null` ? chronological : trigram-ranked) shape `SearchPlants`/`KyselyPlantRepository.search`
+already established, applied to `plant_candidate.display_name` — same keyset-cursor encoding, same
+0.25 similarity threshold and its own empirical justification, reused by reference not rederived.
+`CandidateListFilters` gained `query`, `priority` (candidates' own field plants don't have), and
+`identified`.
+
+**`identified` filter** (both `SearchPlantsFilters`/`PlantSearchFilters` and
+`ListCandidatesFilters`/`CandidateListFilters`): `true`/`false`/omitted over
+`taxonomy_reference_id IS [NOT] NULL` — cheap, real, and immediately useful once P11-ASYNC-01's own
+enrichment pipeline and a future review workflow start resolving more taxa.
+
+**Found during typecheck, not guessed**: extending `PlantSearchFilters` with a new required field
+surfaced three existing callers building a filter object by hand rather than through
+`SearchPlants`'s own normalization boundary — `get-client-export-manifest.ts`'s "every plant,
+unfiltered" export-manifest constant, and two `tasks-recommendations` internal paging loops
+(`evaluate-garden-recommendations.ts`, `get-garden-seasonal-plan.ts`). All three fixed by adding
+`identified: null`, the same "no restriction" value every other untouched filter in those same
+object literals already carried — confirms nothing about those three read paths' own behavior
+changed, only that the compiler caught every place the new field needed to be threaded through.
+
+**Verification**: fresh `pnpm check:all` — format, lint, typecheck, 600-line gate all clean.
+`pnpm --filter @verdery/api-contracts lint:contract` (redocly) valid. New:
+`tests/migrations/plant-search-extensions.test.ts` (4 scenarios mirroring `search-indexes.test.ts`'s
+own shape), `tests/integration/plant-search-extensions.test.ts` (3 real-Postgres scenarios: candidate
+trigram search tolerating a misspelling, candidate priority/identified filters, and the
+synonym/cultivar/localized-common-name/own-common-name four-way match-and-dedupe proof), a
+real-Postgres `identified` scenario added to `plants-inventory-search.test.ts`, unit tests for
+`SearchPlants`/`ListCandidates`/`SearchTaxonomyReferences` covering every new filter and the
+match-explanation mapping, and one new HTTP contract test on `candidate-routes.test.ts` proving the
+`query`/`identified` query parameters parse and reach the application layer over real HTTP.
+
+**What remains, tracked as real follow-up, not dropped**: the batch-join filters implementation-
+plan.md's own row also names — compatibility (`candidate_suitability_assessment`), phenology/
+bloom-fruit period (`taxonomy_seasonal_fact`, already a real, readable table — the cheapest of the
+remaining group), native/regulatory state (`plant_distribution_assertion`, sharing P11-ASYNC-01's
+own new tables), completeness/enrichment (`plant_profile_version`), health (`image_analysis_result`,
+partially blocked on P11-HEALTH-01's own not-yet-landed disposition/model columns), and journal
+recency (a new "latest observation per plant" batch read, `observations_history` has no such query
+today) — each is real, scoped, buildable work, not a stub; none share this pass's own join
+infrastructure closely enough to bundle in without diluting review quality. `location`
+(`gardenAreaMapObjectId`) and "user names" (a profile-scoped alias table, which does not exist)
+are two more named-but-unbuilt filter dimensions from the same row, for the same reason.
+
+---

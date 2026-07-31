@@ -1,5 +1,6 @@
 import { SharedErrorCode } from '@verdery/api-contracts';
-import type { Kysely } from 'kysely';
+import type { Kysely, SelectQueryBuilder } from 'kysely';
+import { sql } from 'kysely';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
 import { ValidationError } from '../../../platform/errors/application-error.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
@@ -16,6 +17,14 @@ import type {
 } from '../domain/plant-candidate.js';
 import { translateCheckViolation } from './translate-check-violation.js';
 
+/** Shares `plant.display_name`'s own threshold and empirical justification — see `kysely-plant-repository.ts`'s identical constant. */
+const SIMILARITY_THRESHOLD = 0.25;
+
+interface CandidateRankedCursor {
+  readonly rank: number;
+  readonly id: string;
+}
+
 interface CandidateChronologicalCursor {
   readonly createdAt: string;
   readonly id: string;
@@ -25,6 +34,27 @@ function invalidCursor(): ValidationError {
   return new ValidationError(SharedErrorCode.RequestInvalid, 'The cursor is invalid.', {
     details: [{ code: 'request.cursor.invalid', pointer: '/cursor' }],
   });
+}
+
+function encodeRankedCursor(rank: number, id: string): string {
+  return Buffer.from(JSON.stringify({ rank, id })).toString('base64url');
+}
+
+function decodeRankedCursor(cursor: string): CandidateRankedCursor {
+  try {
+    const parsed: unknown = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      typeof (parsed as Record<string, unknown>)['rank'] === 'number' &&
+      typeof (parsed as Record<string, unknown>)['id'] === 'string'
+    ) {
+      return parsed as CandidateRankedCursor;
+    }
+  } catch {
+    // Falls through to the thrown ValidationError below.
+  }
+  throw invalidCursor();
 }
 
 function encodeCursor(createdAt: Date, id: string): string {
@@ -187,14 +217,86 @@ export class KyselyPlantCandidateRepository implements PlantCandidateRepository 
     cursor: string | null,
     limit: number,
   ): Promise<CandidateListPage> {
-    let query = this.db
-      .selectFrom('plants_inventory.plant_candidate')
-      .selectAll()
-      .where('garden_id', '=', gardenId);
+    return filters.query === null
+      ? this.listChronological(gardenId, filters, cursor, limit)
+      : this.listByRelevance(gardenId, filters, filters.query, cursor, limit);
+  }
 
+  /** Applies the three structured filters shared by both list modes below, mutating neither the passed-in builder nor `filters` — mirrors `KyselyPlantRepository.applyStructuredFilters`. */
+  private applyStructuredFilters<O>(
+    query: SelectQueryBuilder<DatabaseSchema, 'plants_inventory.plant_candidate', O>,
+    filters: CandidateListFilters,
+  ): SelectQueryBuilder<DatabaseSchema, 'plants_inventory.plant_candidate', O> {
+    let q = query;
     if (filters.status !== null) {
-      query = query.where('status', 'in', filters.status);
+      q = q.where('status', 'in', [...filters.status]);
     }
+    if (filters.priority !== null) {
+      q = q.where('priority', 'in', [...filters.priority]);
+    }
+    if (filters.identified !== null) {
+      q = q.where('taxonomy_reference_id', filters.identified ? 'is not' : 'is', null);
+    }
+    return q;
+  }
+
+  /** `filters.query` given: trigram-ranked, most-similar-first — mirrors `KyselyPlantRepository.searchByRelevance`. */
+  private async listByRelevance(
+    gardenId: Uuid,
+    filters: CandidateListFilters,
+    queryText: string,
+    cursor: string | null,
+    limit: number,
+  ): Promise<CandidateListPage> {
+    let query = this.applyStructuredFilters(
+      this.db
+        .selectFrom('plants_inventory.plant_candidate')
+        .selectAll()
+        .select(sql<number>`similarity(display_name, ${queryText})`.as('rank_score'))
+        .where('garden_id', '=', gardenId)
+        .where(sql<boolean>`similarity(display_name, ${queryText}) > ${SIMILARITY_THRESHOLD}`),
+      filters,
+    );
+
+    if (cursor !== null) {
+      const decoded = decodeRankedCursor(cursor);
+      query = query.where(
+        sql<boolean>`(similarity(display_name, ${queryText}) < ${decoded.rank}
+          OR (similarity(display_name, ${queryText}) = ${decoded.rank} AND id < ${decoded.id}))`,
+      );
+    }
+
+    const rows = await query
+      .orderBy(sql`similarity(display_name, ${queryText})`, 'desc')
+      .orderBy('id', 'desc')
+      .limit(limit + 1)
+      .execute();
+
+    const hasMore = rows.length > limit;
+    const pageRows = hasMore ? rows.slice(0, limit) : rows;
+    const items = pageRows.map(toCandidate);
+
+    const last = pageRows[pageRows.length - 1];
+    const nextCursor =
+      hasMore && last !== undefined ? encodeRankedCursor(last.rank_score, last.id) : null;
+
+    return { items, nextCursor };
+  }
+
+  /** `filters.query` is `null`: plain listing, most-recently-created-first. */
+  private async listChronological(
+    gardenId: Uuid,
+    filters: CandidateListFilters,
+    cursor: string | null,
+    limit: number,
+  ): Promise<CandidateListPage> {
+    let query = this.applyStructuredFilters(
+      this.db
+        .selectFrom('plants_inventory.plant_candidate')
+        .selectAll()
+        .where('garden_id', '=', gardenId),
+      filters,
+    );
 
     if (cursor !== null) {
       const decoded = decodeCursor(cursor);

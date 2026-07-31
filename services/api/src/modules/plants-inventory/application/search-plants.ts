@@ -43,6 +43,8 @@ export interface SearchPlantsFilters {
   readonly lifecycleStage?: readonly LifecycleStage[];
   readonly status?: readonly PlantStatus[];
   readonly groupingKind?: readonly GroupingKind[];
+  /** `true` = has a resolved `taxonomyReferenceId`; `false` = does not; omitted = no restriction (P11-SEARCH-01's "identity" filter). */
+  readonly identified?: boolean | null;
 }
 
 export interface PlantSearchResult {
@@ -77,6 +79,7 @@ export class SearchPlants {
       lifecycleStage: normalizeMultiValue(filters.lifecycleStage),
       status: normalizeMultiValue(filters.status),
       groupingKind: normalizeMultiValue(filters.groupingKind),
+      identified: filters.identified ?? null,
     };
 
     const page = await this.plants.search(gardenId, repositoryFilters, cursor, limit);

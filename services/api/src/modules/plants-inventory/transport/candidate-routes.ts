@@ -31,13 +31,15 @@ import type { ListCandidates } from '../application/list-candidates.js';
 import type { RecalculateCandidateSuitability } from '../application/recalculate-candidate-suitability.js';
 import type { SetCandidateStatus } from '../application/set-candidate-status.js';
 import type { UpdateCandidateDetails } from '../application/update-candidate-details.js';
-import type { CandidateStatus } from '../domain/plant-candidate.js';
+import type { CandidatePriority, CandidateStatus } from '../domain/plant-candidate.js';
 import {
+  CANDIDATE_PRIORITIES,
   parseAddCandidateRequest,
   parseConvertCandidateRequest,
   parseSetCandidateStatusRequest,
   parseUpdateCandidateDetailsRequest,
 } from './parse-candidate-request.js';
+import type { ListCandidatesFilters } from '../application/list-candidates.js';
 
 export interface CandidateRoutesDependencies {
   readonly addCandidate: AddCandidate;
@@ -85,34 +87,66 @@ function requireTaxonomyReferenceId(request: FastifyRequest): string {
 }
 
 /** Mirrors `plant-routes.ts`'s own `parseCommaSeparatedEnum`, kept local since it is this file's only caller. */
-function parseStatusFilter(request: FastifyRequest): readonly CandidateStatus[] | null {
-  const raw = (request.query as { status?: unknown }).status;
+function parseCommaSeparatedEnum<T extends string>(
+  raw: unknown,
+  allowed: readonly T[],
+  pointer: string,
+): readonly T[] | undefined {
   if (raw === undefined) {
-    return null;
+    return undefined;
   }
   if (typeof raw !== 'string' || raw.length === 0) {
-    throw invalid('/status must be a comma-separated list.', 'request.invalid', '/status');
+    throw invalid(`${pointer} must be a comma-separated list.`, 'request.invalid', pointer);
   }
 
   return raw.split(',').map((candidate) => {
-    if (!(CANDIDATE_STATUSES as readonly string[]).includes(candidate)) {
+    if (!(allowed as readonly string[]).includes(candidate)) {
       throw invalid(
-        `/status must be one of: ${CANDIDATE_STATUSES.join(', ')}.`,
+        `${pointer} must be one of: ${allowed.join(', ')}.`,
         'request.enum.invalid',
-        '/status',
+        pointer,
       );
     }
-    return candidate as CandidateStatus;
+    return candidate as T;
   });
 }
 
+function parseIdentifiedFilter(raw: unknown): boolean | undefined {
+  if (raw === undefined) {
+    return undefined;
+  }
+  if (raw !== 'true' && raw !== 'false') {
+    throw invalid('/identified must be "true" or "false".', 'request.invalid', '/identified');
+  }
+  return raw === 'true';
+}
+
 function parseListCandidatesQuery(request: FastifyRequest): {
-  status: readonly CandidateStatus[] | null;
+  filters: ListCandidatesFilters;
   cursor: string | null;
   limit: number;
 } {
-  const status = parseStatusFilter(request);
-  const raw = request.query as { cursor?: unknown; limit?: unknown };
+  const raw = request.query as {
+    query?: unknown;
+    status?: unknown;
+    priority?: unknown;
+    identified?: unknown;
+    cursor?: unknown;
+    limit?: unknown;
+  };
+
+  const query = typeof raw.query === 'string' && raw.query.length > 0 ? raw.query : null;
+  const status = parseCommaSeparatedEnum<CandidateStatus>(
+    raw.status,
+    CANDIDATE_STATUSES,
+    '/status',
+  );
+  const priority = parseCommaSeparatedEnum<CandidatePriority>(
+    raw.priority,
+    CANDIDATE_PRIORITIES,
+    '/priority',
+  );
+  const identified = parseIdentifiedFilter(raw.identified);
   const cursor = typeof raw.cursor === 'string' && raw.cursor.length > 0 ? raw.cursor : null;
 
   let limit = DEFAULT_LIST_CANDIDATES_LIMIT;
@@ -132,7 +166,16 @@ function parseListCandidatesQuery(request: FastifyRequest): {
     limit = parsedLimit;
   }
 
-  return { status, cursor, limit };
+  return {
+    filters: {
+      query,
+      ...(status === undefined ? {} : { status }),
+      ...(priority === undefined ? {} : { priority }),
+      ...(identified === undefined ? {} : { identified }),
+    },
+    cursor,
+    limit,
+  };
 }
 
 export function registerCandidateRoutes(
@@ -156,12 +199,12 @@ export function registerCandidateRoutes(
 
   app.get('/gardens/:gardenId/plant-candidates', async (request, reply) => {
     const gardenId = requireGardenId(request);
-    const { status, cursor, limit } = parseListCandidatesQuery(request);
+    const { filters, cursor, limit } = parseListCandidatesQuery(request);
 
     const page = await deps.listCandidates.execute(
       gardenId,
       request.actorContext.profileId,
-      { status },
+      filters,
       cursor,
       limit,
     );

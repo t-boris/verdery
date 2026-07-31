@@ -1347,14 +1347,16 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List a garden's plant candidates
-         * @description Every candidate matching the optional `status` filter, cursor-
-         *     paginated most recently created first. Full-text/relevance search
-         *     over candidates is a separate, later capability
-         *     (implementation-plan.md work package P11-SEARCH-01) — this is a
-         *     listing, not a search.
+         * Search a garden's plant candidates
+         * @description Trigram-fuzzy match against `displayName` when `query` is given,
+         *     combined with optional structured filters (`status`, `priority`,
+         *     `identified`), cursor-paginated the same way `searchPlants`
+         *     paginates. Ranked most-similar first when `query` is given, most
+         *     recently created first otherwise (P11-SEARCH-01, closing the gap
+         *     this operation's own description used to name: "full-text/relevance
+         *     search over candidates is a separate, later capability").
          *
-         *     Source: implementation-plan.md work package P11-API-01.
+         *     Source: implementation-plan.md work package P11-API-01, P11-SEARCH-01.
          */
         get: operations["listCandidates"];
         put?: never;
@@ -5684,6 +5686,20 @@ export interface components {
          * @enum {string}
          */
         TaxonomySource: "system_catalog" | "user_defined";
+        /**
+         * @description Which name form matched a search query (P11-SEARCH-01). `accepted_scientific`/
+         *     `common` represent a match against the taxonomy reference's own
+         *     `scientificName`/`commonName`; `synonym_scientific`/`cultivar` represent a
+         *     match against a `plants_inventory.taxonomy_name` row.
+         * @enum {string}
+         */
+        TaxonomyNameKind: "accepted_scientific" | "synonym_scientific" | "common" | "cultivar";
+        /** @description Which name form a search query actually matched, and its own text — never fabricated for a plain (query-less) listing, where `matchedName` is `null` instead. */
+        TaxonomyNameMatch: {
+            nameKind: components["schemas"]["TaxonomyNameKind"];
+            nameText: string;
+            locale: string | null;
+        };
         Plant: {
             id: components["schemas"]["Uuid"];
             gardenId: components["schemas"]["Uuid"];
@@ -5763,6 +5779,16 @@ export interface components {
             source: components["schemas"]["TaxonomySource"];
             createdByProfileId: components["schemas"]["Uuid"] | null;
             createdAt: components["schemas"]["Timestamp"];
+            /**
+             * @description Which name form a text search query matched (P11-SEARCH-01) — a
+             *     synonym, cultivar, or localized common name from
+             *     `plants_inventory.taxonomy_name`, or the reference's own
+             *     `scientificName`/`commonName`. `null` for a plain (query-less)
+             *     listing, and for every OTHER caller of this schema (e.g.
+             *     `PlantIdentification.suggestedTaxonomy`), which is not itself a
+             *     search result.
+             */
+            matchedName: components["schemas"]["TaxonomyNameMatch"] | null;
         };
         TaxonomyReferenceListResult: {
             items: components["schemas"]["TaxonomyReference"][];
@@ -8734,6 +8760,12 @@ export interface operations {
                 status?: components["schemas"]["PlantStatus"][];
                 /** @description Comma-separated grouping kinds to include. Omit to include every kind. */
                 groupingKind?: components["schemas"]["PlantGroupingKind"][];
+                /**
+                 * @description `true` restricts to plants with a resolved `taxonomyReferenceId`;
+                 *     `false` restricts to those without one. Omit for no restriction
+                 *     (P11-SEARCH-01).
+                 */
+                identified?: boolean;
                 /** @description Opaque continuation token from a previous page. Clients must not parse it. */
                 cursor?: components["parameters"]["Cursor"];
                 /** @description Maximum items to return. */
@@ -9273,8 +9305,18 @@ export interface operations {
     listCandidates: {
         parameters: {
             query?: {
+                /** @description Trigram-fuzzy match against displayName. Omit to list every candidate matching the other filters. */
+                query?: string;
                 /** @description Comma-separated statuses to include. Omit to include every status. */
                 status?: components["schemas"]["PlantCandidateStatus"][];
+                /** @description Comma-separated priorities to include. Omit to include every priority (including candidates with no priority set). */
+                priority?: components["schemas"]["PlantCandidatePriority"][];
+                /**
+                 * @description `true` restricts to candidates with a resolved
+                 *     `taxonomyReferenceId`; `false` restricts to those without one.
+                 *     Omit for no restriction.
+                 */
+                identified?: boolean;
                 /** @description Opaque continuation token from a previous page. Clients must not parse it. */
                 cursor?: components["parameters"]["Cursor"];
                 /** @description Maximum items to return. */

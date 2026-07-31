@@ -402,7 +402,7 @@ async function gatherGardenFacts(
   do {
     const page = await context.plants.search(
       gardenId,
-      { query: null, lifecycleStage: null, status: null, groupingKind: null },
+      { query: null, lifecycleStage: null, status: null, groupingKind: null, identified: null },
       cursor,
       PLANT_PAGE_SIZE,
     );
