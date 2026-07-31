@@ -52,9 +52,10 @@ export function ObservationCorrectionForm({
   const onSubmit = handleSubmit((values) => {
     const input: CorrectObservationRequest = {
       correctionKind: values.correctionKind,
-      // No photo-upload flow exists yet; `photoMediaIds` carries a schema
-      // `default: []`, which the generated type surfaces as required.
-      photoMediaIds: [],
+      // No photo-upload flow exists yet; `photos`/`measurements` carry a
+      // schema `default: []`, which the generated type surfaces as required.
+      photos: [],
+      measurements: [],
       ...(values.noteText === undefined || values.noteText === ''
         ? {}
         : { noteText: values.noteText }),

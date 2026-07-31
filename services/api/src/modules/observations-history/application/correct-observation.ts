@@ -24,11 +24,17 @@ import {
   createCorrectionObservation,
   type ObservationCorrectionKind,
 } from '../domain/observation.js';
-import { attachObservationPhotos } from './attach-observation-photos.js';
+import { createObservationMeasurement } from '../domain/observation-measurement.js';
+import {
+  attachObservationPhotos,
+  type ObservationPhotoAttachmentInput,
+} from './attach-observation-photos.js';
 import { observationNotFoundError } from './observation-errors.js';
+import type { ObservationMeasurementInput } from './record-observation.js';
 import type { ObservationRepository } from './observation-repository.js';
 import { toObservationResource, type ObservationResource } from './observation-view.js';
 import type { ObservationsHistoryUnitOfWork } from './observations-history-unit-of-work.js';
+import { resolveObservedContextSnapshot } from './resolve-observed-context-snapshot.js';
 import { runIdempotentCommand } from './run-idempotent-command.js';
 
 export interface CorrectObservationInput {
@@ -37,7 +43,9 @@ export interface CorrectObservationInput {
   readonly correctionKind: ObservationCorrectionKind;
   readonly noteText: string | null;
   readonly conditionSummary: string | null;
-  readonly photoMediaIds: readonly Uuid[];
+  readonly photos: readonly ObservationPhotoAttachmentInput[];
+  readonly measurements: readonly ObservationMeasurementInput[];
+  readonly observedPhenologicalStage: string | null;
 }
 
 const OPERATION = 'observations.correct';
@@ -82,6 +90,8 @@ export class CorrectObservation {
       async (context) => {
         const now = this.clock.now();
 
+        const contextFacts = await context.gardenContextFacts.listForGarden(original.gardenId);
+
         const correction = createCorrectionObservation({
           id: input.observationId ?? generateUuidV7(),
           original,
@@ -89,8 +99,10 @@ export class CorrectObservation {
           actorProfileId: profileId,
           rawNoteText: input.noteText,
           rawConditionSummary: input.conditionSummary,
+          rawObservedPhenologicalStage: input.observedPhenologicalStage,
+          contextSnapshot: resolveObservedContextSnapshot(contextFacts),
           observedAt: now,
-          photoCount: input.photoMediaIds.length,
+          photoCount: input.photos.length,
           now,
         });
         await context.observations.insert(correction);
@@ -113,11 +125,30 @@ export class CorrectObservation {
           this.analyzePlantCondition,
           correction.gardenId,
           correction.id,
-          input.photoMediaIds,
+          input.photos,
           now,
         );
 
-        return toObservationResource({ observation: correction, isCorrected: false, photos });
+        const measurements = [];
+        for (const measurementInput of input.measurements) {
+          const measurement = createObservationMeasurement(
+            generateUuidV7(),
+            correction.id,
+            measurementInput.kind,
+            measurementInput.value,
+            measurementInput.unit,
+            now,
+          );
+          await context.observationMeasurements.insert(measurement);
+          measurements.push(measurement);
+        }
+
+        return toObservationResource({
+          observation: correction,
+          isCorrected: false,
+          photos,
+          measurements,
+        });
       },
     );
   }

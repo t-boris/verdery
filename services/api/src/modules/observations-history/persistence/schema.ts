@@ -6,6 +6,10 @@ import type { Generated } from 'kysely';
  * are DB-defaulted (`now()`), but every constructor in this module always
  * supplies them explicitly, the same way `Garden.revision`
  * is always supplied despite being `Generated`.
+ *
+ * `observed_phenological_stage`/`observed_sun_exposure`/`observed_drainage`/
+ * `observed_growing_context` (P11-MEDIA-01) — see
+ * migrations/1787900000000_visual-journal-observation-extensions.sql.
  */
 export interface ObservationRow {
   id: string;
@@ -18,14 +22,34 @@ export interface ObservationRow {
   condition_summary: string | null;
   correction_kind: string | null;
   corrects_observation_id: string | null;
+  observed_phenological_stage: string | null;
+  observed_sun_exposure: string | null;
+  observed_drainage: string | null;
+  observed_growing_context: string | null;
   observed_at: Generated<Date>;
   recorded_at: Generated<Date>;
 }
 
+/** `purpose` (P11-MEDIA-01) is nullable at the schema level for rows recorded before this capability existed — see `domain/observation-photo.ts`. */
 export interface ObservationPhotoRow {
   id: string;
   observation_id: string;
   media_id: string;
+  purpose: string | null;
+  created_at: Generated<Date>;
+}
+
+/**
+ * `value` is `numeric(10,2)`, returned as a string by node-postgres — the
+ * same `numeric` handling `ImageAnalysisResultRow.confidence_score` already
+ * documents below.
+ */
+export interface ObservationMeasurementRow {
+  id: string;
+  observation_id: string;
+  kind: string;
+  value: string;
+  unit: string;
   created_at: Generated<Date>;
 }
 
@@ -71,5 +95,6 @@ export interface ObservationsHistoryDatabaseSchema {
   'observations_history.observation': ObservationRow;
   'observations_history.observation_photo': ObservationPhotoRow;
   'observations_history.image_analysis_result': ImageAnalysisResultRow;
+  'observations_history.observation_measurement': ObservationMeasurementRow;
   'plants_inventory.plant': PlantOwnershipRow;
 }

@@ -1,11 +1,12 @@
+/**
+ * Shared fakes and harness builder for `record-observation.test.ts` and
+ * `record-observation-media.test.ts` — split out of one file once it crossed
+ * the 600-line limit (P11-MEDIA-01 added the measurement/phenology/context-
+ * snapshot coverage). Not itself a test file — no `describe`/`it` here.
+ */
+
 import { randomUUID } from 'node:crypto';
-import { describe, expect, it } from 'vitest';
-import {
-  ConflictError,
-  ForbiddenError,
-  NotFoundError,
-  ValidationError,
-} from '../../../platform/errors/application-error.js';
+import { ConflictError } from '../../../platform/errors/application-error.js';
 import type {
   IdempotencyCheck,
   IdempotencyLookupResult,
@@ -27,12 +28,10 @@ import type {
 } from '../../gardens-mapping/public.js';
 import { registerMediaRecord } from '../../media/public.js';
 import type { MediaRecord, MediaRepository } from '../../media/public.js';
-import { createObservation } from '../domain/observation.js';
 import type { ImageAnalysisResult } from '../domain/image-analysis-result.js';
 import type { Observation } from '../domain/observation.js';
 import type { ObservationMeasurement } from '../domain/observation-measurement.js';
 import type { ObservationPhoto } from '../domain/observation-photo.js';
-import { CorrectObservation, type CorrectObservationInput } from './correct-observation.js';
 import type { ImageAnalysisResultRepository } from './image-analysis-result-repository.js';
 import type { ObservationMeasurementRepository } from './observation-measurement-repository.js';
 import type { ObservationPhotoRepository } from './observation-photo-repository.js';
@@ -43,14 +42,17 @@ import type {
 } from './observations-history-unit-of-work.js';
 import { disabledAnalyzePlantCondition } from './plant-ai-test-doubles.js';
 import type { PlantOwnershipRepository } from './plant-ownership-repository.js';
+import { RecordObservation, type RecordObservationInput } from './record-observation.js';
 
-const GARDEN_ID = randomUUID();
-const PROFILE_ID = randomUUID();
-const PLANT_ID = randomUUID();
-const MEDIA_ID = randomUUID();
-const NOW = new Date('2026-07-22T09:00:00Z');
+export const GARDEN_ID = randomUUID();
+export const OTHER_GARDEN_ID = randomUUID();
+export const PROFILE_ID = randomUUID();
+export const PLANT_ID = randomUUID();
+export const GARDEN_OBJECT_ID = randomUUID();
+export const MEDIA_ID = randomUUID();
+export const NOW = new Date('2026-07-21T09:00:00Z');
 
-function fixedClock(): Clock {
+export function fixedClock(): Clock {
   return { now: () => NOW };
 }
 
@@ -128,16 +130,15 @@ class FakeMembershipRepository implements MembershipRepository {
   }
 }
 
-function authorizationWithRole(role: GardenRole | null): GardenAuthorization {
-  return new GardenAuthorization(new FakeMembershipRepository(role));
+function authorizationWithRole(
+  role: GardenRole | null,
+  gardenLifecycleState: GardenLifecycleState = 'active',
+): GardenAuthorization {
+  return new GardenAuthorization(new FakeMembershipRepository(role, gardenLifecycleState));
 }
 
 class FakeObservationRepository implements ObservationRepository {
   readonly rows: Observation[] = [];
-
-  constructor(seed: readonly Observation[] = []) {
-    this.rows.push(...seed);
-  }
 
   insert(observation: Observation): Promise<void> {
     this.rows.push(observation);
@@ -201,8 +202,10 @@ class FakeGardenContextFactRepository implements GardenContextFactRepository {
 }
 
 class FakePlantOwnershipRepository implements PlantOwnershipRepository {
-  findGardenId(): Promise<string | null> {
-    throw new Error('not used by this test');
+  constructor(private readonly gardenIdByPlantId: ReadonlyMap<string, string>) {}
+
+  findGardenId(plantId: string): Promise<string | null> {
+    return Promise.resolve(this.gardenIdByPlantId.get(plantId) ?? null);
   }
 }
 
@@ -289,6 +292,7 @@ interface StoredIdempotencyRecord {
   readonly responseBody: unknown;
 }
 
+/** In-memory stand-in for `KyselyIdempotencyStore`'s real check/save/conflict semantics — mirrors `media/application/register-media-record.test.ts`'s own fake. */
 class FakeIdempotencyStore implements IdempotencyStore {
   readonly saved: StoredIdempotencyRecord[] = [];
 
@@ -364,228 +368,56 @@ class FakeUnitOfWork implements ObservationsHistoryUnitOfWork {
   }
 }
 
-function originalObservation(): Observation {
-  return createObservation({
-    id: randomUUID(),
-    gardenId: GARDEN_ID,
-    plantId: PLANT_ID,
-    gardenObjectId: null,
-    actorProfileId: PROFILE_ID,
-    rawNoteText: 'Leaves look wilted.',
-    rawConditionSummary: null,
-    rawObservedPhenologicalStage: null,
-    contextSnapshot: { sunExposure: null, drainage: null, growingContext: null },
-    observedAt: new Date('2026-07-20T08:00:00Z'),
-    photoCount: 0,
-    now: new Date('2026-07-20T08:00:00Z'),
-  });
-}
-
-interface Harness {
-  readonly correctObservation: CorrectObservation;
+export interface Harness {
+  readonly recordObservation: RecordObservation;
   readonly observations: FakeObservationRepository;
-  readonly original: Observation;
+  readonly observationPhotos: FakeObservationPhotoRepository;
+  readonly imageAnalysisResults: FakeImageAnalysisResultRepository;
   readonly syncChanges: FakeSyncChangeRecorder;
 }
 
-function buildHarness(options: {
+export function buildHarness(options: {
   role?: GardenRole | null;
+  gardenLifecycleState?: GardenLifecycleState;
+  plantGardenIds?: ReadonlyMap<string, string>;
   mediaIds?: ReadonlySet<string>;
-  seedOriginal?: boolean;
   contextFacts?: readonly GardenContextFact[];
 }): Harness {
-  const original = originalObservation();
-  const observations = new FakeObservationRepository(
-    options.seedOriginal === false ? [] : [original],
-  );
+  const observations = new FakeObservationRepository();
+  const observationPhotos = new FakeObservationPhotoRepository();
+  const imageAnalysisResults = new FakeImageAnalysisResultRepository();
+  const idempotency = new FakeIdempotencyStore();
   const syncChanges = new FakeSyncChangeRecorder();
   const context: ObservationsHistoryTransactionContext = {
     observations,
-    observationPhotos: new FakeObservationPhotoRepository(),
-    imageAnalysisResults: new FakeImageAnalysisResultRepository(),
+    observationPhotos,
+    imageAnalysisResults,
     observationMeasurements: new FakeObservationMeasurementRepository(),
-    plants: new FakePlantOwnershipRepository(),
+    plants: new FakePlantOwnershipRepository(options.plantGardenIds ?? new Map()),
     media: new FakeMediaRepository(options.mediaIds ?? new Set()),
     gardenContextFacts: new FakeGardenContextFactRepository(options.contextFacts ?? []),
-    idempotency: new FakeIdempotencyStore(),
+    idempotency,
     syncChanges,
   };
-  const idempotency = context.idempotency;
 
-  const correctObservation = new CorrectObservation(
+  const recordObservation = new RecordObservation(
     idempotency,
     new FakeUnitOfWork(context),
-    authorizationWithRole(options.role ?? 'editor'),
-    observations,
+    authorizationWithRole(options.role ?? 'editor', options.gardenLifecycleState ?? 'active'),
     fixedClock(),
     disabledAnalyzePlantCondition(fixedClock()),
   );
 
-  return { correctObservation, observations, original, syncChanges };
+  return { recordObservation, observations, observationPhotos, imageAnalysisResults, syncChanges };
 }
 
-const AMENDMENT_INPUT: CorrectObservationInput = {
-  correctionKind: 'amendment',
-  noteText: 'Leaves recovered after watering.',
+export const NOTE_ONLY_INPUT: RecordObservationInput = {
+  plantId: null,
+  gardenObjectId: null,
+  noteText: 'Leaves look wilted.',
   conditionSummary: null,
+  observedAt: null,
   photos: [],
   measurements: [],
   observedPhenologicalStage: null,
 };
-
-describe('CorrectObservation', () => {
-  it('inserts a new row pointing back to the original, leaving the original row in the repository unchanged', async () => {
-    const { correctObservation, observations, original } = buildHarness({});
-    const originalSnapshot = { ...original };
-
-    const resource = await correctObservation.execute(
-      original.id,
-      PROFILE_ID,
-      AMENDMENT_INPUT,
-      randomUUID(),
-    );
-
-    expect(resource).toMatchObject({
-      gardenId: original.gardenId,
-      plantId: original.plantId,
-      correctionKind: 'amendment',
-      correctsObservationId: original.id,
-      noteText: 'Leaves recovered after watering.',
-    });
-    expect(observations.rows).toHaveLength(2);
-    expect(observations.rows[0]).toEqual(originalSnapshot);
-  });
-
-  it("records its own sync-change entry, at the new row's recordId, not the original observation's", async () => {
-    const { correctObservation, original, syncChanges } = buildHarness({});
-
-    const resource = await correctObservation.execute(
-      original.id,
-      PROFILE_ID,
-      AMENDMENT_INPUT,
-      randomUUID(),
-    );
-
-    expect(syncChanges.entries).toEqual([
-      {
-        gardenId: original.gardenId,
-        recordId: resource.id,
-        recordType: 'observation',
-        operation: 'upsert',
-        recordRevision: 1,
-      },
-    ]);
-    expect(resource.id).not.toBe(original.id);
-  });
-
-  it('supports the supersede correction kind', async () => {
-    const { correctObservation, original } = buildHarness({});
-
-    const resource = await correctObservation.execute(
-      original.id,
-      PROFILE_ID,
-      { ...AMENDMENT_INPUT, correctionKind: 'supersede' },
-      randomUUID(),
-    );
-
-    expect(resource.correctionKind).toBe('supersede');
-  });
-
-  it('rejects correcting an observation that does not exist', async () => {
-    const { correctObservation } = buildHarness({ seedOriginal: false });
-
-    await expect(
-      correctObservation.execute(randomUUID(), PROFILE_ID, AMENDMENT_INPUT, randomUUID()),
-    ).rejects.toBeInstanceOf(NotFoundError);
-  });
-
-  it('rejects a correction with no note, no summary, and no photos', async () => {
-    const { correctObservation, original, observations } = buildHarness({});
-
-    await expect(
-      correctObservation.execute(
-        original.id,
-        PROFILE_ID,
-        { ...AMENDMENT_INPUT, noteText: null },
-        randomUUID(),
-      ),
-    ).rejects.toBeInstanceOf(ValidationError);
-    expect(observations.rows).toHaveLength(1);
-  });
-
-  it('attaches photos, each with a stubbed, requires-confirmation analysis result', async () => {
-    const { correctObservation, original } = buildHarness({ mediaIds: new Set([MEDIA_ID]) });
-
-    const resource = await correctObservation.execute(
-      original.id,
-      PROFILE_ID,
-      { ...AMENDMENT_INPUT, photos: [{ mediaId: MEDIA_ID, rawPurpose: 'leaf_front' }] },
-      randomUUID(),
-    );
-
-    expect(resource.photos).toHaveLength(1);
-    expect(resource.photos[0]?.analysisResults[0]?.requiresConfirmation).toBe(true);
-  });
-
-  it("rejects a caller who lacks editGardenContent on the original observation's garden", async () => {
-    const { correctObservation, original } = buildHarness({ role: 'viewer' });
-
-    await expect(
-      correctObservation.execute(original.id, PROFILE_ID, AMENDMENT_INPUT, randomUUID()),
-    ).rejects.toBeInstanceOf(ForbiddenError);
-  });
-
-  it('replays the same idempotency key without inserting a second correction', async () => {
-    const { correctObservation, original, observations } = buildHarness({});
-    const key = randomUUID();
-
-    const first = await correctObservation.execute(original.id, PROFILE_ID, AMENDMENT_INPUT, key);
-    const replay = await correctObservation.execute(original.id, PROFILE_ID, AMENDMENT_INPUT, key);
-    expect(replay).toEqual(first);
-    expect(observations.rows).toHaveLength(2);
-  });
-
-  it('records measurements on the new correction row', async () => {
-    const { correctObservation, original } = buildHarness({});
-
-    const resource = await correctObservation.execute(
-      original.id,
-      PROFILE_ID,
-      { ...AMENDMENT_INPUT, measurements: [{ kind: 'width', value: 12, unit: 'cm' }] },
-      randomUUID(),
-    );
-
-    expect(resource.measurements).toEqual([
-      expect.objectContaining({ kind: 'width', value: 12, unit: 'cm' }),
-    ]);
-  });
-
-  it("re-resolves the garden's context snapshot fresh at correction time, not from the original", async () => {
-    const { correctObservation, original } = buildHarness({
-      contextFacts: [
-        {
-          id: randomUUID(),
-          gardenId: GARDEN_ID,
-          contextKind: 'drainage',
-          value: 'poor_drainage',
-          source: 'user_declared',
-          recordedByProfileId: PROFILE_ID,
-          recordedAt: NOW,
-          revision: 1,
-          createdAt: NOW,
-          updatedAt: NOW,
-        },
-      ],
-    });
-
-    const resource = await correctObservation.execute(
-      original.id,
-      PROFILE_ID,
-      AMENDMENT_INPUT,
-      randomUUID(),
-    );
-
-    expect(resource.observedDrainage).toBe('poor_drainage');
-    expect(original.observedDrainage).toBeNull();
-  });
-});

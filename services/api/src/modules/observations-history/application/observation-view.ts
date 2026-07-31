@@ -9,13 +9,14 @@
  * one fixed shape, not something a later transport-layer mapping step could
  * let drift.
  *
- * This module has no HTTP route this pass (see `public.ts` — deliberately
- * absent), so there is no `@verdery/api-contracts` schema to conform to yet.
- * This resource shape is this module's own for now, ready for that contract
- * to adopt once a route exists.
+ * This resource is built to match the `Observation` schema in
+ * `packages/api-contracts/openapi.yaml` (tag `Observations`, P4-CONTRACT-01)
+ * field-for-field — see `transport/observation-routes.ts`'s own header
+ * comment.
  */
 
 import type { ImageAnalysisResult } from '../domain/image-analysis-result.js';
+import type { ObservationMeasurement } from '../domain/observation-measurement.js';
 import type {
   ObservationHistoryEntry,
   ObservationPhotoWithAnalysis,
@@ -34,8 +35,17 @@ export interface ImageAnalysisResultResource {
 export interface ObservationPhotoResource {
   readonly id: string;
   readonly mediaId: string;
+  readonly purpose: string | null;
   readonly createdAt: string;
   readonly analysisResults: readonly ImageAnalysisResultResource[];
+}
+
+export interface ObservationMeasurementResource {
+  readonly id: string;
+  readonly kind: string;
+  readonly value: number;
+  readonly unit: string;
+  readonly createdAt: string;
 }
 
 export interface ObservationResource {
@@ -50,9 +60,14 @@ export interface ObservationResource {
   readonly correctionKind: string | null;
   readonly correctsObservationId: string | null;
   readonly isCorrected: boolean;
+  readonly observedPhenologicalStage: string | null;
+  readonly observedSunExposure: string | null;
+  readonly observedDrainage: string | null;
+  readonly observedGrowingContext: string | null;
   readonly observedAt: string;
   readonly recordedAt: string;
   readonly photos: readonly ObservationPhotoResource[];
+  readonly measurements: readonly ObservationMeasurementResource[];
 }
 
 function toImageAnalysisResultResource(result: ImageAnalysisResult): ImageAnalysisResultResource {
@@ -71,8 +86,21 @@ function toObservationPhotoResource(entry: ObservationPhotoWithAnalysis): Observ
   return {
     id: entry.photo.id,
     mediaId: entry.photo.mediaId,
+    purpose: entry.photo.purpose,
     createdAt: entry.photo.createdAt.toISOString(),
     analysisResults: entry.analysisResults.map(toImageAnalysisResultResource),
+  };
+}
+
+function toObservationMeasurementResource(
+  measurement: ObservationMeasurement,
+): ObservationMeasurementResource {
+  return {
+    id: measurement.id,
+    kind: measurement.kind,
+    value: measurement.value,
+    unit: measurement.unit,
+    createdAt: measurement.createdAt.toISOString(),
   };
 }
 
@@ -91,8 +119,13 @@ export function toObservationResource(entry: ObservationHistoryEntry): Observati
     correctionKind: observation.correctionKind,
     correctsObservationId: observation.correctsObservationId,
     isCorrected: entry.isCorrected,
+    observedPhenologicalStage: observation.observedPhenologicalStage,
+    observedSunExposure: observation.observedSunExposure,
+    observedDrainage: observation.observedDrainage,
+    observedGrowingContext: observation.observedGrowingContext,
     observedAt: observation.observedAt.toISOString(),
     recordedAt: observation.recordedAt.toISOString(),
     photos: entry.photos.map(toObservationPhotoResource),
+    measurements: entry.measurements.map(toObservationMeasurementResource),
   };
 }

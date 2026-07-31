@@ -114,12 +114,15 @@ describe('ListObservationsForPlant', () => {
         actorProfileId: PROFILE_ID,
         rawNoteText: 'Note',
         rawConditionSummary: null,
+        rawObservedPhenologicalStage: null,
+        contextSnapshot: { sunExposure: null, drainage: null, growingContext: null },
         observedAt: new Date('2026-07-21T09:00:00Z'),
         photoCount: 0,
         now: new Date('2026-07-21T09:00:00Z'),
       }),
       isCorrected: true,
       photos: [],
+      measurements: [],
     };
     const observations = new FakeObservationRepository([entry]);
     const listObservationsForPlant = new ListObservationsForPlant(

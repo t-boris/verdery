@@ -235,6 +235,10 @@ describe('CreateManualTask', () => {
       conditionSummary: null,
       correctionKind: null,
       correctsObservationId: null,
+      observedPhenologicalStage: null,
+      observedSunExposure: null,
+      observedDrainage: null,
+      observedGrowingContext: null,
       observedAt: NOW,
       recordedAt: NOW,
     };
@@ -269,6 +273,10 @@ describe('CreateManualTask', () => {
       conditionSummary: null,
       correctionKind: null,
       correctsObservationId: null,
+      observedPhenologicalStage: null,
+      observedSunExposure: null,
+      observedDrainage: null,
+      observedGrowingContext: null,
       observedAt: NOW,
       recordedAt: NOW,
     };

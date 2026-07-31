@@ -1,6 +1,7 @@
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { ImageAnalysisResult } from '../domain/image-analysis-result.js';
 import type { Observation } from '../domain/observation.js';
+import type { ObservationMeasurement } from '../domain/observation-measurement.js';
 import type { ObservationPhoto } from '../domain/observation-photo.js';
 
 export interface ObservationPhotoWithAnalysis {
@@ -20,6 +21,7 @@ export interface ObservationHistoryEntry {
    */
   readonly isCorrected: boolean;
   readonly photos: readonly ObservationPhotoWithAnalysis[];
+  readonly measurements: readonly ObservationMeasurement[];
 }
 
 /**

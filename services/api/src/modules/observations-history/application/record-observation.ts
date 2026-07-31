@@ -17,11 +17,23 @@ import type { Clock } from '../../../shared/time/clock.js';
 import type { GardenAuthorization } from '../../gardens-mapping/public.js';
 import type { AnalyzePlantCondition } from '../../integrations/public.js';
 import { createObservation } from '../domain/observation.js';
-import { attachObservationPhotos } from './attach-observation-photos.js';
+import { createObservationMeasurement } from '../domain/observation-measurement.js';
+import {
+  attachObservationPhotos,
+  type ObservationPhotoAttachmentInput,
+} from './attach-observation-photos.js';
 import { plantNotInGardenError } from './observation-errors.js';
 import { toObservationResource, type ObservationResource } from './observation-view.js';
 import type { ObservationsHistoryUnitOfWork } from './observations-history-unit-of-work.js';
+import { resolveObservedContextSnapshot } from './resolve-observed-context-snapshot.js';
 import { runIdempotentCommand } from './run-idempotent-command.js';
+
+/** One requested measurement, mirroring `createObservationMeasurement`'s raw (unvalidated) inputs. */
+export interface ObservationMeasurementInput {
+  readonly kind: string;
+  readonly value: number;
+  readonly unit: string;
+}
 
 export interface RecordObservationInput {
   /** Client-generated id for the new observation, when supplied. See `AddPlantInput.plantId`'s own doc comment (plants-inventory/application/add-plant.ts) for why this is optional and additive — matches `SyncRecordObservationCommand.observationId`. */
@@ -32,7 +44,10 @@ export interface RecordObservationInput {
   readonly conditionSummary: string | null;
   /** `null` means "use the command's own timestamp" — see `execute` below. */
   readonly observedAt: Date | null;
-  readonly photoMediaIds: readonly Uuid[];
+  readonly photos: readonly ObservationPhotoAttachmentInput[];
+  readonly measurements: readonly ObservationMeasurementInput[];
+  /** What the observer reported seeing, distinct from the plant's own current `lifecycleStage` — see `domain/observation.ts`'s header comment. */
+  readonly observedPhenologicalStage: string | null;
 }
 
 const OPERATION = 'observations.record';
@@ -77,6 +92,8 @@ export class RecordObservation {
           }
         }
 
+        const contextFacts = await context.gardenContextFacts.listForGarden(gardenId);
+
         const observation = createObservation({
           id: input.observationId ?? generateUuidV7(),
           gardenId,
@@ -85,8 +102,10 @@ export class RecordObservation {
           actorProfileId: profileId,
           rawNoteText: input.noteText,
           rawConditionSummary: input.conditionSummary,
+          rawObservedPhenologicalStage: input.observedPhenologicalStage,
+          contextSnapshot: resolveObservedContextSnapshot(contextFacts),
           observedAt: input.observedAt ?? now,
-          photoCount: input.photoMediaIds.length,
+          photoCount: input.photos.length,
           now,
         });
         await context.observations.insert(observation);
@@ -107,11 +126,25 @@ export class RecordObservation {
           this.analyzePlantCondition,
           observation.gardenId,
           observation.id,
-          input.photoMediaIds,
+          input.photos,
           now,
         );
 
-        return toObservationResource({ observation, isCorrected: false, photos });
+        const measurements = [];
+        for (const measurementInput of input.measurements) {
+          const measurement = createObservationMeasurement(
+            generateUuidV7(),
+            observation.id,
+            measurementInput.kind,
+            measurementInput.value,
+            measurementInput.unit,
+            now,
+          );
+          await context.observationMeasurements.insert(measurement);
+          measurements.push(measurement);
+        }
+
+        return toObservationResource({ observation, isCorrected: false, photos, measurements });
       },
     );
   }

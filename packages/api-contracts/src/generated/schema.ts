@@ -6009,6 +6009,29 @@ export interface components {
         ObservationActorType: "user" | "system";
         /** @enum {string} */
         ObservationCorrectionKind: "amendment" | "supersede";
+        /**
+         * @description Visual Plant Journal purpose label (P11-MEDIA-01).
+         *     Source: architecture/plant-intelligence-and-visual-journal.md §8.2.
+         * @enum {string}
+         */
+        ObservationPhotoPurpose: "whole_plant" | "leaf_front" | "leaf_back" | "stem_or_bark" | "flower" | "fruit" | "symptom_close_up" | "context_or_free_form";
+        /** @enum {string} */
+        ObservationMeasurementKind: "height" | "width" | "count";
+        /**
+         * @description Reuses `GardenContextFact`'s `sun_exposure` vocabulary verbatim.
+         * @enum {string}
+         */
+        ObservedSunExposure: "full_sun" | "partial_sun" | "partial_shade" | "full_shade";
+        /**
+         * @description Reuses `GardenContextFact`'s `drainage` vocabulary verbatim.
+         * @enum {string}
+         */
+        ObservedDrainage: "well_drained" | "poor_drainage" | "waterlogged";
+        /**
+         * @description Reuses `GardenContextFact`'s `growing_context` vocabulary verbatim.
+         * @enum {string}
+         */
+        ObservedGrowingContext: "open_ground" | "container" | "greenhouse";
         /** @enum {string} */
         ImageAnalysisKind: "stress" | "disease" | "pest" | "other";
         /**
@@ -6028,8 +6051,18 @@ export interface components {
         ObservationPhoto: {
             id: components["schemas"]["Uuid"];
             mediaId: components["schemas"]["Uuid"];
+            /** @description Null only for a photo attached before P11-MEDIA-01 introduced this label. */
+            purpose: components["schemas"]["ObservationPhotoPurpose"] | null;
             createdAt: components["schemas"]["Timestamp"];
             analysisResults: components["schemas"]["ImageAnalysisResult"][];
+        };
+        /** @description One typed measurement (height, width, or count) attached to an observation. */
+        ObservationMeasurement: {
+            id: components["schemas"]["Uuid"];
+            kind: components["schemas"]["ObservationMeasurementKind"];
+            value: number;
+            unit: string;
+            createdAt: components["schemas"]["Timestamp"];
         };
         /**
          * @description Immutable and append-only — no revision, no update path. A
@@ -6049,16 +6082,36 @@ export interface components {
             correctsObservationId: components["schemas"]["Uuid"] | null;
             /** @description Whether a later observation names this one in its own `correctsObservationId`. */
             isCorrected: boolean;
+            /**
+             * @description What the observer reported seeing, independent of the plant's own
+             *     current `lifecycleStage` (which only advances via
+             *     `transitionLifecycleStage`). Null when not reported.
+             */
+            observedPhenologicalStage: components["schemas"]["PlantLifecycleStage"] | null;
+            /** @description Ambient snapshot of the garden's declared context at record time. Null when the garden has not declared this context kind. */
+            observedSunExposure: components["schemas"]["ObservedSunExposure"] | null;
+            observedDrainage: components["schemas"]["ObservedDrainage"] | null;
+            observedGrowingContext: components["schemas"]["ObservedGrowingContext"] | null;
             observedAt: components["schemas"]["Timestamp"];
             recordedAt: components["schemas"]["Timestamp"];
             photos: components["schemas"]["ObservationPhoto"][];
+            measurements: components["schemas"]["ObservationMeasurement"][];
         };
         ObservationListResult: {
             items: components["schemas"]["Observation"][];
         };
+        ObservationPhotoAttachmentRequest: {
+            mediaId: components["schemas"]["Uuid"];
+            purpose: components["schemas"]["ObservationPhotoPurpose"];
+        };
+        ObservationMeasurementInput: {
+            kind: components["schemas"]["ObservationMeasurementKind"];
+            value: number;
+            unit: string;
+        };
         /**
          * @description Mirrors `RecordObservationInput`. At least one of `noteText`,
-         *     `conditionSummary`, or a `photoMediaIds` entry is required, enforced
+         *     `conditionSummary`, or a `photos` entry is required, enforced
          *     server-side. Source: observations-history/application/record-observation.ts.
          */
         RecordObservationRequest: {
@@ -6069,7 +6122,11 @@ export interface components {
             /** @description `null` or omitted means "use the server's own timestamp." */
             observedAt?: components["schemas"]["Timestamp"] | null;
             /** @default [] */
-            photoMediaIds: components["schemas"]["Uuid"][];
+            photos: components["schemas"]["ObservationPhotoAttachmentRequest"][];
+            /** @default [] */
+            measurements: components["schemas"]["ObservationMeasurementInput"][];
+            /** @description `null` or omitted means the observer did not report a stage. */
+            observedPhenologicalStage?: components["schemas"]["PlantLifecycleStage"] | null;
         };
         /** @description Mirrors `CorrectObservationInput`. Source: observations-history/application/correct-observation.ts. */
         CorrectObservationRequest: {
@@ -6077,7 +6134,10 @@ export interface components {
             noteText?: string | null;
             conditionSummary?: string | null;
             /** @default [] */
-            photoMediaIds: components["schemas"]["Uuid"][];
+            photos: components["schemas"]["ObservationPhotoAttachmentRequest"][];
+            /** @default [] */
+            measurements: components["schemas"]["ObservationMeasurementInput"][];
+            observedPhenologicalStage?: components["schemas"]["PlantLifecycleStage"] | null;
         };
         /** @enum {string} */
         TaskTargetKind: "garden" | "garden_area" | "plant";

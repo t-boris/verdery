@@ -7916,3 +7916,129 @@ infrastructure closely enough to bundle in without diluting review quality. `loc
 are two more named-but-unbuilt filter dimensions from the same row, for the same reason.
 
 ---
+
+## P11-MEDIA-01 — visual journal media pipeline, first real pass (scoped, documented remainder)
+
+Implementation-plan.md's own row for this work package names eleven distinct capabilities:
+purpose-labeled multi-photo capture, typed measurements, phenology, symptoms, context snapshots,
+resumable upload, verification, safe EXIF handling, responsive derivatives, duplicate detection,
+comparison sets, and generated time-lapse derivatives. Resumable upload, verification, safe EXIF
+handling, and responsive derivatives are already real and shipped — they are `media` module
+capabilities Phase 6 built generically for every attachment kind, not something this pass needed to
+build or could meaningfully redo. This pass adds the four genuinely new, observation-specific
+capabilities on top of that existing pipeline — purpose-labeled photos, typed measurements,
+phenology, and an automatic garden-context snapshot — end to end (domain through contract through
+transport, both request- and response-side), and explicitly defers symptoms, duplicate detection,
+comparison sets, and time-lapse (see "What remains" below).
+
+**Domain mapping**: ADR-0016 (written earlier this phase) had already decided the design doc's
+`plant_observation*` concept extends the EXISTING `observations_history.observation`/
+`observation_photo`/`image_analysis_result` tables additively, never forking a parallel family — a
+fresh research pass during this work package flagged this as an apparently-open gap without
+visibility into that prior decision; it was not actually open.
+
+**Migration** (`1787900000000_visual-journal-observation-extensions.sql`, 35th on top of 34):
+`observation_photo.purpose` (nullable, CHECK-constrained to the design doc's own 8-value vocabulary
+— whole plant, leaf front/back, stem/bark, flower, fruit, symptom close-up, context/free-form — §8.2);
+a new `observation_measurement` table (`kind` closed to `height`/`width`/`count`, `value numeric(10,2)
+
+> = 0`, non-blank `unit`, unique per `(observation_id, kind)`); four new `observation.observed_*`columns reusing`plant.lifecycle_stage`'s 8-value vocabulary for the client-reported phenology field
+and `garden_context_fact`'s `sun_exposure`/`drainage`/`growing_context`vocabularies verbatim for the
+three context-snapshot fields — deliberate vocabulary reuse over invention, matching this phase's own
+established discipline.`purpose` stays nullable at the schema level for rows recorded before this
+> capability existed; every NEW attachment always supplies one (enforced at the domain constructor).
+
+**Domain** (`observation-photo.ts`, new `observation-measurement.ts`, `observation.ts`): `purpose`
+required-but-validated on `createObservationPhoto` (nullable on the entity itself, for the same
+pre-existing-row reason the column is nullable); `createObservationMeasurement` validates kind/value/
+unit; `observedPhenologicalStage`/`observedSunExposure`/`observedDrainage`/`observedGrowingContext`
+added to `Observation` using LOCALLY-DEFINED vocabulary type aliases, not cross-module domain imports
+— the same `Hemisphere`/`taxonomy-seasonal-fact.ts` non-sharing precedent this phase has followed
+throughout. The context snapshot is resolved fresh at record time from `GardenContextFactRepository`
+and, for a correction, resolved fresh AGAIN at correction time (not copied from the original) — a
+correction recorded well after the original may reflect a garden whose declared context has since
+changed, proven by both a unit test and a real-Postgres integration test that changes the context
+between recording and correcting.
+
+**Application/persistence**: new `ObservationMeasurementRepository` port + Kysely impl (`numeric(10,2)`
+string coercion, the same pattern `image_analysis_result.confidence_score` already established);
+`observations-history-unit-of-work.ts`'s transaction context gained `observationMeasurements` and a
+`gardenContextFacts` binding (read-only, resolved inside the same transaction the writes commit into);
+`attachObservationPhotos` now takes `{mediaId, rawPurpose}` pairs instead of bare media ids;
+`RecordObservation`/`CorrectObservation` both gained `measurements`/`observedPhenologicalStage` inputs
+and resolve the context snapshot via a new small `resolveObservedContextSnapshot` helper;
+`observation-history-details.ts` batches measurement rows the same way it already batched photos.
+
+**Contract**: `ObservationPhotoPurpose`, `ObservationMeasurementKind`, `ObservedSunExposure`/
+`ObservedDrainage`/`ObservedGrowingContext` (small dedicated enums, not `GardenContextFact.value`'s
+looser free-string convention, since these are single-purpose properties rather than one polymorphic
+field) added to openapi.yaml; `Observation`/`ObservationPhoto` extended additively; `observedPhenologicalStage`
+reuses the EXISTING `PlantLifecycleStage` schema by `$ref` rather than duplicating its enum under a new
+name — schema reuse across an OpenAPI document has none of the domain-layer coupling cost the
+`Hemisphere` precedent guards against, since the contract is already one shared namespace.
+`RecordObservationRequest`/`CorrectObservationRequest`'s `photoMediaIds: Uuid[]` became `photos:
+ObservationPhotoAttachmentRequest[]` (`{mediaId, purpose}`, purpose required per entry) — a genuine
+breaking wire-shape change, not additive, because a flat id list cannot carry a per-photo label.
+
+**Breaking-change fallout, found and fixed before it could ship broken**: grepping for `photoMediaIds`
+after the contract change surfaced two real production callers of the OLD flat shape that a schema-only
+review would have missed. `apps/web`'s `record-observation-form.tsx`/`observation-correction-form.tsx`
+never actually populate it (no photo-upload UI exists there yet) — a one-line rename. `apps/ios` was the
+real find: `FeatureObservations` has had a genuinely working photo-attach flow since P6-IOS-01
+(`ObservationsTimelineViewModel.pickRecordPhoto` → `PhotoAttachmentController` → a real `mediaId`
+threaded into the offline outbox's `ObservationSyncCommandPayload`), which would have silently stopped
+attaching photos — a 201 success response with no photo, no visible error — the moment this contract
+shipped, since `photoMediaIds` would simply be an ignored, unrecognized JSON key server-side. Fixed by
+wrapping every media id this client sends in the design doc's catch-all `context_or_free_form` purpose
+label, at the transport-construction boundary only (`ObservationSyncCommandPayload.swift`,
+`ObservationGateway.swift`) — the public Swift API (`RecordObservation.callAsFunction(photoMediaIds:)`,
+`ObservationGateway.recordObservation(photoMediaIds:)`) is untouched, so no calling code needed to
+change; only the wire encoding did. Response-side new fields (`purpose`, `measurements`, phenology/
+context) are deliberately NOT added to the iOS domain model yet — Swift's `Decodable` safely ignores
+unknown JSON keys, so nothing breaks by omission, and surfacing them in the UI is P11-IOS-01's own job.
+Full `swift build`/`swift test` (986 tests) and `pnpm --filter web typecheck`/`vitest` both verified clean
+after the fix — this is the kind of client-breaking wire change global CLAUDE.md's "never break the
+architecture without approval" rule exists for; fixing both clients to conform (not redesigning either
+one) keeps the architecture intact rather than skipping the check because a `/goal` directive was
+active.
+
+**Deletion-purge coverage, found by the existing completeness test, not by inspection**: the full
+`services/api` suite run after this work package's core changes landed caught
+`tests/integration/deletion-garden-purge.test.ts`'s own "covers every garden-referencing table the live
+catalog knows about" test failing — the new `observation_measurement` table had no purge-plan entry.
+Fixed by adding it to `GARDEN_PURGE_STEPS` (`purge-plan.ts`) immediately alongside `observation_photo`,
+same shape, same ordering guarantee, plus the matching `before(...)` ordering assertion in
+`purge-plan.test.ts`. Re-verified passing.
+
+**Verification**: `pnpm check:all` (format, lint, typecheck, 600-line gate) clean;
+`pnpm --filter @verdery/api-contracts lint:contract` valid; full `services/api` suite (2644 tests)
+green; full iOS package (`swift build` + `swift test`, 986 tests) green; `apps/web` typecheck and the
+observation-gateway/feature test files green. New/extended tests: `observation-photo.test.ts`,
+`observation.test.ts` (phenology validation, context-snapshot pass-through and fresh-resolution-at-
+correction-time), `record-observation.test.ts` split into itself plus a new sibling
+`record-observation-media.test.ts` (600-line split, both sharing a new `record-observation-test-
+support.ts`), `correct-observation.test.ts` extended in place, `tests/migrations/visual-journal-
+observation-extensions.test.ts` (13 scenarios), `tests/integration/observations-history.test.ts` split
+into itself plus `observations-history-corrections.test.ts` and `observations-history-media.test.ts`
+(same 600-line discipline, each with its own real-Postgres container) covering the full
+measurement-uniqueness and context-snapshot-resolution/re-resolution behavior against real Postgres.
+
+**Two pre-existing latent migration-test bugs found and fixed as a side effect of the routine
+rollback-count bump** (`plant-taxon-knowledge-profile.test.ts`, `plant-candidates-and-conversion.test.ts`):
+both files' "down N, reapply up N" round-trip pattern had drifted — the bump process had only ever kept
+the "down" occurrence in sync across 1-2 prior migrations, silently leaving the "up" count stale, which
+left later migrations un-reapplied at test end without either test's own narrow table-existence
+assertions ever catching it. Fixed both, plus this pass's own `plant-search-extensions.test.ts` for the
+identical reason now that it is no longer the topmost migration. Root cause documented inline in all
+three files so a future bump does not reintroduce it.
+
+**What remains, tracked as real follow-up, not dropped**: symptoms (the design doc names the concept
+but gives it zero concrete vocabulary anywhere — needs its own design pass before any schema or domain
+work is possible, not a gap this pass could close honestly); duplicate detection and generated
+time-lapse derivatives (both need an actual image-similarity/frame-generation algorithm and dependency
+this codebase does not have — genuinely new infrastructure, not additive schema work); comparison sets
+(a product-intent concept with no technical specification in the design doc, same category as
+symptoms). None of the three has any existing code comment forward-pointing at this work package the
+way P11-SEARCH-01's predecessors did, so none was silently expected to land here.
+
+---

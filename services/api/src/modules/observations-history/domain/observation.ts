@@ -24,6 +24,49 @@ import type { Uuid } from '../../../shared/identifiers/uuid.js';
 export type ObservationActorType = 'user' | 'system';
 export type ObservationCorrectionKind = 'amendment' | 'supersede';
 
+/**
+ * Client-reported phenological stage (P11-MEDIA-01) — what the observer saw
+ * at the moment of observation, which may legitimately diverge from the
+ * plant's own current `lifecycleStage` (that field only advances when
+ * someone explicitly runs `TransitionPlantLifecycleStage`). Reuses
+ * `plants_inventory.plant.lifecycle_stage`'s exact 8-value vocabulary
+ * verbatim rather than importing `LifecycleStage` from that module's domain
+ * layer — the same cross-module non-sharing precedent `Hemisphere` already
+ * set in `taxonomy-seasonal-fact.ts`.
+ */
+export type ObservedPhenologicalStage =
+  | 'planned'
+  | 'seed'
+  | 'seedling'
+  | 'transplanted'
+  | 'growing'
+  | 'flowering'
+  | 'fruiting'
+  | 'ready_to_harvest';
+
+export const OBSERVED_PHENOLOGICAL_STAGES: readonly ObservedPhenologicalStage[] = [
+  'planned',
+  'seed',
+  'seedling',
+  'transplanted',
+  'growing',
+  'flowering',
+  'fruiting',
+  'ready_to_harvest',
+];
+
+/**
+ * Ambient garden-context snapshot (P11-MEDIA-01) — captured automatically
+ * from `GardenContextFactRepository.listForGarden()` at record time, never
+ * supplied directly by the client. Reuses `gardens_mapping.garden_context_fact`'s
+ * `SunExposureValue`/`DrainageValue`/`GrowingContextValue` vocabularies
+ * verbatim, again as local type aliases rather than a domain-to-domain
+ * import.
+ */
+export type ObservedSunExposure = 'full_sun' | 'partial_sun' | 'partial_shade' | 'full_shade';
+export type ObservedDrainage = 'well_drained' | 'poor_drainage' | 'waterlogged';
+export type ObservedGrowingContext = 'open_ground' | 'container' | 'greenhouse';
+
 export interface Observation {
   readonly id: Uuid;
   readonly gardenId: Uuid;
@@ -39,6 +82,12 @@ export interface Observation {
   readonly correctionKind: ObservationCorrectionKind | null;
   /** Self-reference, set only when `correctionKind` is set; points backward to the corrected record. */
   readonly correctsObservationId: Uuid | null;
+  /** Client-reported; null when the observer did not report a stage. */
+  readonly observedPhenologicalStage: ObservedPhenologicalStage | null;
+  /** The four fields below are an ambient snapshot of the garden's declared context facts at record time — null when the garden has never declared that context kind, not client-supplied. */
+  readonly observedSunExposure: ObservedSunExposure | null;
+  readonly observedDrainage: ObservedDrainage | null;
+  readonly observedGrowingContext: ObservedGrowingContext | null;
   readonly observedAt: Date;
   readonly recordedAt: Date;
 }
@@ -75,6 +124,34 @@ export function requireObservationContent(
   }
 }
 
+/** The ambient context snapshot, resolved by the caller from `GardenContextFactRepository.listForGarden()` before construction — a plain data bag, not itself validated here (there is nothing to validate: it is application-populated, never client-supplied). */
+export interface ObservedContextSnapshot {
+  readonly sunExposure: ObservedSunExposure | null;
+  readonly drainage: ObservedDrainage | null;
+  readonly growingContext: ObservedGrowingContext | null;
+}
+
+function validatePhenologicalStage(raw: string | null): ObservedPhenologicalStage | null {
+  if (raw === null) {
+    return null;
+  }
+  if (!OBSERVED_PHENOLOGICAL_STAGES.includes(raw as ObservedPhenologicalStage)) {
+    throw new ValidationError(
+      SharedErrorCode.RequestInvalid,
+      `observedPhenologicalStage must be one of: ${OBSERVED_PHENOLOGICAL_STAGES.join(', ')}.`,
+      {
+        details: [
+          {
+            code: 'observation.observedPhenologicalStage.invalid',
+            pointer: '/observedPhenologicalStage',
+          },
+        ],
+      },
+    );
+  }
+  return raw as ObservedPhenologicalStage;
+}
+
 export interface CreateObservationInput {
   readonly id: Uuid;
   readonly gardenId: Uuid;
@@ -83,8 +160,10 @@ export interface CreateObservationInput {
   readonly actorProfileId: Uuid;
   readonly rawNoteText: string | null;
   readonly rawConditionSummary: string | null;
+  readonly rawObservedPhenologicalStage: string | null;
+  readonly contextSnapshot: ObservedContextSnapshot;
   readonly observedAt: Date;
-  /** `photoMediaIds.length` from the command — the entity itself carries no photo rows, but the content invariant needs the count. */
+  /** `photos.length` from the command — the entity itself carries no photo rows, but the content invariant needs the count. */
   readonly photoCount: number;
   readonly now: Date;
 }
@@ -93,6 +172,7 @@ export function createObservation(input: CreateObservationInput): Observation {
   const noteText = normalizeOptionalText(input.rawNoteText);
   const conditionSummary = normalizeOptionalText(input.rawConditionSummary);
   requireObservationContent(noteText, conditionSummary, input.photoCount);
+  const observedPhenologicalStage = validatePhenologicalStage(input.rawObservedPhenologicalStage);
 
   return {
     id: input.id,
@@ -105,6 +185,10 @@ export function createObservation(input: CreateObservationInput): Observation {
     conditionSummary,
     correctionKind: null,
     correctsObservationId: null,
+    observedPhenologicalStage,
+    observedSunExposure: input.contextSnapshot.sunExposure,
+    observedDrainage: input.contextSnapshot.drainage,
+    observedGrowingContext: input.contextSnapshot.growingContext,
     observedAt: input.observedAt,
     recordedAt: input.now,
   };
@@ -118,6 +202,8 @@ export interface CreateCorrectionObservationInput {
   readonly actorProfileId: Uuid;
   readonly rawNoteText: string | null;
   readonly rawConditionSummary: string | null;
+  readonly rawObservedPhenologicalStage: string | null;
+  readonly contextSnapshot: ObservedContextSnapshot;
   readonly observedAt: Date;
   readonly photoCount: number;
   readonly now: Date;
@@ -128,12 +214,16 @@ export interface CreateCorrectionObservationInput {
  * and `gardenObjectId` are copied from `input.original`; `input.original`
  * itself is read-only data here, never written back — the caller must not
  * (and in this module, never does) issue an UPDATE against the row it came
- * from.
+ * from. The context snapshot is re-resolved fresh at correction time (it is
+ * NOT copied from `input.original`) — a correction may be recorded well
+ * after the original, by which point the garden's declared context may have
+ * changed.
  */
 export function createCorrectionObservation(input: CreateCorrectionObservationInput): Observation {
   const noteText = normalizeOptionalText(input.rawNoteText);
   const conditionSummary = normalizeOptionalText(input.rawConditionSummary);
   requireObservationContent(noteText, conditionSummary, input.photoCount);
+  const observedPhenologicalStage = validatePhenologicalStage(input.rawObservedPhenologicalStage);
 
   return {
     id: input.id,
@@ -146,6 +236,10 @@ export function createCorrectionObservation(input: CreateCorrectionObservationIn
     conditionSummary,
     correctionKind: input.correctionKind,
     correctsObservationId: input.original.id,
+    observedPhenologicalStage,
+    observedSunExposure: input.contextSnapshot.sunExposure,
+    observedDrainage: input.contextSnapshot.drainage,
+    observedGrowingContext: input.contextSnapshot.growingContext,
     observedAt: input.observedAt,
     recordedAt: input.now,
   };

@@ -122,12 +122,15 @@ function entryFor(observedAt: Date): ObservationHistoryEntry {
       actorProfileId: PROFILE_ID,
       rawNoteText: 'Note',
       rawConditionSummary: null,
+      rawObservedPhenologicalStage: null,
+      contextSnapshot: { sunExposure: null, drainage: null, growingContext: null },
       observedAt,
       photoCount: 0,
       now: observedAt,
     }),
     isCorrected: false,
     photos: [],
+    measurements: [],
   };
 }
 

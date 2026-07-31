@@ -9,6 +9,10 @@ import type {
   Observation,
   ObservationActorType,
   ObservationCorrectionKind,
+  ObservedDrainage,
+  ObservedGrowingContext,
+  ObservedPhenologicalStage,
+  ObservedSunExposure,
 } from '../domain/observation.js';
 import { attachHistoryDetails } from './observation-history-details.js';
 
@@ -23,6 +27,10 @@ interface ObservationRowLike {
   condition_summary: string | null;
   correction_kind: string | null;
   corrects_observation_id: string | null;
+  observed_phenological_stage: string | null;
+  observed_sun_exposure: string | null;
+  observed_drainage: string | null;
+  observed_growing_context: string | null;
   observed_at: Date;
   recorded_at: Date;
 }
@@ -39,6 +47,10 @@ function toObservation(row: ObservationRowLike): Observation {
     conditionSummary: row.condition_summary,
     correctionKind: row.correction_kind as ObservationCorrectionKind | null,
     correctsObservationId: row.corrects_observation_id,
+    observedPhenologicalStage: row.observed_phenological_stage as ObservedPhenologicalStage | null,
+    observedSunExposure: row.observed_sun_exposure as ObservedSunExposure | null,
+    observedDrainage: row.observed_drainage as ObservedDrainage | null,
+    observedGrowingContext: row.observed_growing_context as ObservedGrowingContext | null,
     observedAt: row.observed_at,
     recordedAt: row.recorded_at,
   };
@@ -61,6 +73,10 @@ export class KyselyObservationRepository implements ObservationRepository {
         condition_summary: observation.conditionSummary,
         correction_kind: observation.correctionKind,
         corrects_observation_id: observation.correctsObservationId,
+        observed_phenological_stage: observation.observedPhenologicalStage,
+        observed_sun_exposure: observation.observedSunExposure,
+        observed_drainage: observation.observedDrainage,
+        observed_growing_context: observation.observedGrowingContext,
         observed_at: observation.observedAt,
         recorded_at: observation.recordedAt,
       })

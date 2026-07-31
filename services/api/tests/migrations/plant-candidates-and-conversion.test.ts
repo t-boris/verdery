@@ -250,12 +250,16 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   });
 
   it('down reverses up: dropping and reapplying this migration leaves the schema intact', async () => {
-    // `count: 3` undoes every newer migration (through
-    // 1787800000000_plant-search-extensions.sql) first, then this
-    // migration itself — the same "update this count when a later
+    // `count: 4` undoes every newer migration (through
+    // 1787900000000_visual-journal-observation-extensions.sql) first, then
+    // this migration itself — the same "update this count when a later
     // migration is added on top" discipline every other rollback test in
-    // this suite follows.
-    await migrate('down', 3);
+    // this suite follows. The reapply below must use the SAME count: a
+    // stale, smaller "up" count (found and fixed during P11-MEDIA-01 —
+    // this pair had drifted out of sync since P11-DATA-02) leaves later
+    // migrations un-reapplied without this test's own narrow table-name
+    // assertion ever catching it.
+    await migrate('down', 4);
 
     const afterDown = await client.query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.tables
@@ -265,7 +269,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     );
     expect(afterDown.rows).toHaveLength(0);
 
-    await migrate('up', 2);
+    await migrate('up', 4);
 
     const afterReapply = await client.query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.tables

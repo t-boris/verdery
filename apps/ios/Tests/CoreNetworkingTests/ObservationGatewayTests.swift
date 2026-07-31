@@ -67,7 +67,7 @@ struct ObservationGatewayTests {
 
         let body = try #require(request.bodyStreamJSON ?? request.httpBodyJSON)
         #expect(body["noteText"] as? String == "Looking healthy")
-        #expect(body["photoMediaIds"] as? [String] == [])
+        #expect(body["photos"] as? [[String: String]] == [])
         #expect(body["observedAt"] == nil)
 
         #expect(observation.id == "obs-1")

@@ -47,6 +47,10 @@ import Foundation
 /// UI itself (the submit action stays disabled until the photo is ready),
 /// not by this command.
 ///
+/// On the wire (P11-MEDIA-01), each `photoMediaIds` entry is now wrapped
+/// with a purpose label — see `observationPhotoAttachmentPayload(mediaId:)`
+/// below.
+///
 /// Source: implementation-plan.md work package P4-IOS-01, P5-IOS-02;
 /// packages/api-contracts/openapi.yaml, tag `Observations`, `Synchronization`.
 public struct RecordObservation: Sendable {
@@ -128,7 +132,7 @@ public struct RecordObservation: Sendable {
                         noteText: normalizedNote,
                         conditionSummary: normalizedCondition,
                         observedAt: observedAt.map(ObservationTimestampFormatting.string(from:)),
-                        photoMediaIds: photoMediaIds
+                        photos: photoMediaIds.map(observationPhotoAttachmentPayload(mediaId:))
                     )
                 )
             ),
@@ -278,7 +282,7 @@ public struct CorrectObservation: Sendable {
                         correctionKind: correctionKind,
                         noteText: normalizedNote,
                         conditionSummary: normalizedCondition,
-                        photoMediaIds: photoMediaIds
+                        photos: photoMediaIds.map(observationPhotoAttachmentPayload(mediaId:))
                     )
                 )
             ),
@@ -314,4 +318,11 @@ private func normalizedText(_ text: String?) -> String? {
         return nil
     }
     return trimmed
+}
+
+/// Every photo this client attaches is stamped `context_or_free_form` — see
+/// `RecordObservationRequestPayload`'s own doc comment (P11-MEDIA-01) for why
+/// (no purpose-picker UI yet, deferred to P11-IOS-01).
+private func observationPhotoAttachmentPayload(mediaId: String) -> ObservationPhotoAttachmentRequestPayload {
+    ObservationPhotoAttachmentRequestPayload(mediaId: mediaId, purpose: "context_or_free_form")
 }

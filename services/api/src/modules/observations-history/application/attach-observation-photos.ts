@@ -1,5 +1,5 @@
 /**
- * Validates and attaches `photoMediaIds` to a just-inserted observation:
+ * Validates and attaches `photos` (media id plus purpose label) to a just-inserted observation:
  * per entry, confirms the media record exists, inserts one
  * `observation_photo` row, and runs the real `AnalyzeObservationPhoto` pass
  * (ADR-0015) to insert its `image_analysis_result` row — all in the
@@ -17,17 +17,23 @@ import { photoMediaNotAvailableError, photoMediaNotFoundError } from './observat
 import type { ObservationPhotoWithAnalysis } from './observation-repository.js';
 import type { ObservationsHistoryTransactionContext } from './observations-history-unit-of-work.js';
 
+/** One requested photo attachment: which media, and which of the design doc's purpose labels (§8.2) it fills. `rawPurpose` is validated by `createObservationPhoto` against `OBSERVATION_PHOTO_PURPOSES` — not re-validated here. */
+export interface ObservationPhotoAttachmentInput {
+  readonly mediaId: Uuid;
+  readonly rawPurpose: string;
+}
+
 export async function attachObservationPhotos(
   context: ObservationsHistoryTransactionContext,
   analyzePlantCondition: AnalyzePlantCondition,
   gardenId: Uuid,
   observationId: Uuid,
-  photoMediaIds: readonly Uuid[],
+  photoInputs: readonly ObservationPhotoAttachmentInput[],
   now: Date,
 ): Promise<ObservationPhotoWithAnalysis[]> {
   const photos: ObservationPhotoWithAnalysis[] = [];
 
-  for (const mediaId of photoMediaIds) {
+  for (const { mediaId, rawPurpose } of photoInputs) {
     // P6-RET-01's attach-side guard — same shape and reasoning as
     // AttachPlantPhoto's own comment on this identical block (garden
     // scoping, availability, and the `FOR SHARE` lock the
@@ -40,7 +46,7 @@ export async function attachObservationPhotos(
       throw photoMediaNotAvailableError(mediaId);
     }
 
-    const photo = createObservationPhoto(generateUuidV7(), observationId, mediaId, now);
+    const photo = createObservationPhoto(generateUuidV7(), observationId, mediaId, rawPurpose, now);
     await context.observationPhotos.insert(photo);
 
     // `uploadState === 'available'` guarantees both are set — the paired

@@ -13,6 +13,7 @@ export class KyselyObservationPhotoRepository implements ObservationPhotoReposit
         id: photo.id,
         observation_id: photo.observationId,
         media_id: photo.mediaId,
+        purpose: photo.purpose,
         created_at: photo.createdAt,
       })
       .execute();

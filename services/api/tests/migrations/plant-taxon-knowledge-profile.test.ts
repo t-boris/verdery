@@ -374,10 +374,14 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   });
 
   it('down reverses up: dropping and reapplying this migration leaves the schema intact', async () => {
-    // `count: 2` undoes 1787800000000_plant-search-extensions.sql (now the
-    // topmost migration) and this migration itself. Update this count when
-    // a later migration is added on top.
-    await migrate('down', 2);
+    // `count: 3` undoes 1787800000000_plant-search-extensions.sql and
+    // 1787900000000_visual-journal-observation-extensions.sql (now the
+    // topmost migration), then this migration itself. The reapply below
+    // must use the SAME count — a stale, smaller "up" count (found and
+    // fixed during P11-MEDIA-01) leaves later migrations un-reapplied
+    // without this test's own narrow table-name assertion ever catching
+    // it. Update this count when a later migration is added on top.
+    await migrate('down', 3);
 
     const afterDown = await client.query<{ qualified: string }>(
       `SELECT table_schema || '.' || table_name AS qualified
@@ -392,7 +396,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     );
     expect(afterDown.rows).toHaveLength(0);
 
-    await migrate('up', 2);
+    await migrate('up', 3);
 
     const afterReapply = await client.query<{ qualified: string }>(
       `SELECT table_schema || '.' || table_name AS qualified

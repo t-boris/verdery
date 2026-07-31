@@ -1,10 +1,10 @@
 /**
  * Batches the child-table reads `KyselyObservationRepository.listForGarden`/
- * `listForPlant` need — photos, their stub analysis results, and the "has
- * this been corrected" flag — across every fetched observation at once,
- * instead of one query per row. The same judgment `map-object-details.ts`
- * makes for `garden_object`'s category-detail tables, applied here to
- * `observation`'s child tables instead.
+ * `listForPlant` need — photos, their stub analysis results, measurements,
+ * and the "has this been corrected" flag — across every fetched observation
+ * at once, instead of one query per row. The same judgment
+ * `map-object-details.ts` makes for `garden_object`'s category-detail
+ * tables, applied here to `observation`'s child tables instead.
  */
 
 import type { Kysely } from 'kysely';
@@ -15,7 +15,11 @@ import type {
 } from '../application/observation-repository.js';
 import type { ImageAnalysisKind, ImageAnalysisResult } from '../domain/image-analysis-result.js';
 import type { Observation } from '../domain/observation.js';
-import type { ObservationPhoto } from '../domain/observation-photo.js';
+import type {
+  ObservationMeasurement,
+  ObservationMeasurementKind,
+} from '../domain/observation-measurement.js';
+import type { ObservationPhoto, ObservationPhotoPurpose } from '../domain/observation-photo.js';
 
 interface ImageAnalysisResultRowLike {
   id: string;
@@ -45,6 +49,7 @@ interface ObservationPhotoRowLike {
   id: string;
   observation_id: string;
   media_id: string;
+  purpose: string | null;
   created_at: Date;
 }
 
@@ -53,6 +58,29 @@ function toObservationPhoto(row: ObservationPhotoRowLike): ObservationPhoto {
     id: row.id,
     observationId: row.observation_id,
     mediaId: row.media_id,
+    purpose: row.purpose as ObservationPhotoPurpose | null,
+    createdAt: row.created_at,
+  };
+}
+
+interface ObservationMeasurementRowLike {
+  id: string;
+  observation_id: string;
+  kind: string;
+  value: string;
+  unit: string;
+  created_at: Date;
+}
+
+function toObservationMeasurement(row: ObservationMeasurementRowLike): ObservationMeasurement {
+  return {
+    id: row.id,
+    observationId: row.observation_id,
+    kind: row.kind as ObservationMeasurementKind,
+    // `numeric(10,2)` — see persistence/schema.ts's doc comment on
+    // ObservationMeasurementRow.
+    value: Number.parseFloat(row.value),
+    unit: row.unit,
     createdAt: row.created_at,
   };
 }
@@ -120,9 +148,27 @@ export async function attachHistoryDetails(
     }
   }
 
+  const measurementRows = await db
+    .selectFrom('observations_history.observation_measurement')
+    .selectAll()
+    .where('observation_id', 'in', observationIds)
+    .execute();
+
+  const measurementsByObservationId = new Map<string, ObservationMeasurement[]>();
+  for (const row of measurementRows) {
+    const measurement = toObservationMeasurement(row);
+    const existing = measurementsByObservationId.get(measurement.observationId);
+    if (existing === undefined) {
+      measurementsByObservationId.set(measurement.observationId, [measurement]);
+    } else {
+      existing.push(measurement);
+    }
+  }
+
   return observations.map((observation) => ({
     observation,
     isCorrected: correctedIds.has(observation.id),
     photos: photosByObservationId.get(observation.id) ?? [],
+    measurements: measurementsByObservationId.get(observation.id) ?? [],
   }));
 }

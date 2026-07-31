@@ -89,6 +89,18 @@ enum ObservationSyncCommand: Encodable {
     }
 }
 
+/// Mirrors `packages/api-contracts/openapi.yaml`'s
+/// `ObservationPhotoAttachmentRequest` exactly (P11-MEDIA-01): each attached
+/// photo now names a purpose label alongside its media id. This client has
+/// no purpose-picker UI yet (that is P11-IOS-01's job), so every photo this
+/// client ever attaches is stamped `context_or_free_form` — the design
+/// doc's own catch-all label for a photo the observer did not classify more
+/// specifically (architecture/plant-intelligence-and-visual-journal.md §8.2).
+struct ObservationPhotoAttachmentRequestPayload: Encodable {
+    let mediaId: String
+    let purpose: String
+}
+
 /// Mirrors `packages/api-contracts/openapi.yaml`'s `RecordObservationRequest`
 /// exactly. `observedAt` is a pre-formatted RFC 3339 string, not a raw
 /// `Date`: nothing else in this codebase's outbox payloads has needed to
@@ -98,13 +110,23 @@ enum ObservationSyncCommand: Encodable {
 /// that already has the real `Date` value, keeping this struct itself a
 /// plain, default-`Encodable`-friendly shape like every other feature's
 /// payload structs.
+///
+/// `measurements`/`observedPhenologicalStage` (P11-MEDIA-01) are always
+/// empty/`nil` from this client — no typed-measurement or phenology-picker
+/// UI exists yet, the same documented gap `photos`' fixed purpose label
+/// above carries, deferred to P11-IOS-01.
 struct RecordObservationRequestPayload: Encodable {
     let plantId: String?
     let gardenObjectId: String?
     let noteText: String?
     let conditionSummary: String?
     let observedAt: String?
-    let photoMediaIds: [String]
+    let photos: [ObservationPhotoAttachmentRequestPayload]
+    // Always empty — see the doc comment above. `[String]` is an arbitrary
+    // but harmless element type: the array is never populated, so its
+    // encoded JSON is `[]` regardless of what `Element` is.
+    let measurements: [String] = []
+    let observedPhenologicalStage: String? = nil
 }
 
 /// Mirrors `packages/api-contracts/openapi.yaml`'s `CorrectObservationRequest`
@@ -114,11 +136,16 @@ struct RecordObservationRequestPayload: Encodable {
 /// both from the observation `correctedObservationId` names
 /// (`observations-history/application/correct-observation.ts`,
 /// `createCorrectionObservation`).
+///
+/// `measurements`/`observedPhenologicalStage` — see
+/// `RecordObservationRequestPayload`'s identical doc comment.
 struct CorrectObservationRequestPayload: Encodable {
     let correctionKind: ObservationCorrectionKind
     let noteText: String?
     let conditionSummary: String?
-    let photoMediaIds: [String]
+    let photos: [ObservationPhotoAttachmentRequestPayload]
+    let measurements: [String] = []
+    let observedPhenologicalStage: String? = nil
 }
 
 enum ObservationSyncCommandPayload {

@@ -17,8 +17,12 @@
  */
 
 import { UUID_PATTERN, invalid } from '../../gardens-mapping/transport/garden-routes.js';
+import type { ObservationPhotoAttachmentInput } from '../application/attach-observation-photos.js';
 import type { CorrectObservationInput } from '../application/correct-observation.js';
-import type { RecordObservationInput } from '../application/record-observation.js';
+import type {
+  ObservationMeasurementInput,
+  RecordObservationInput,
+} from '../application/record-observation.js';
 import type { ObservationCorrectionKind } from '../domain/observation.js';
 
 const CORRECTION_KINDS: readonly ObservationCorrectionKind[] = ['amendment', 'supersede'];
@@ -81,12 +85,48 @@ function requireEnum<T extends string>(value: unknown, allowed: readonly T[], po
   return candidate as T;
 }
 
-function photoMediaIds(value: unknown, pointer: string): readonly string[] {
+function requireNumber(value: unknown, pointer: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw invalid(`${pointer} must be a finite number.`, 'request.invalid', pointer);
+  }
+  return value;
+}
+
+function photoAttachments(
+  value: unknown,
+  pointer: string,
+): readonly ObservationPhotoAttachmentInput[] {
   if (value === undefined) return [];
   if (!Array.isArray(value)) {
     throw invalid(`${pointer} must be an array.`, 'request.invalid', pointer);
   }
-  return value.map((entry, index) => requireUuid(entry, `${pointer}/${String(index)}`));
+  return value.map((entry, index) => {
+    const entryPointer = `${pointer}/${String(index)}`;
+    const entryRecord = requireRecord(entry, entryPointer);
+    return {
+      mediaId: requireUuid(entryRecord['mediaId'], `${entryPointer}/mediaId`),
+      rawPurpose: requireString(entryRecord['purpose'], `${entryPointer}/purpose`),
+    };
+  });
+}
+
+function measurementInputs(
+  value: unknown,
+  pointer: string,
+): readonly ObservationMeasurementInput[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    throw invalid(`${pointer} must be an array.`, 'request.invalid', pointer);
+  }
+  return value.map((entry, index) => {
+    const entryPointer = `${pointer}/${String(index)}`;
+    const entryRecord = requireRecord(entry, entryPointer);
+    return {
+      kind: requireString(entryRecord['kind'], `${entryPointer}/kind`),
+      value: requireNumber(entryRecord['value'], `${entryPointer}/value`),
+      unit: requireString(entryRecord['unit'], `${entryPointer}/unit`),
+    };
+  });
 }
 
 export function parseRecordObservationRequest(body: unknown): RecordObservationInput {
@@ -98,7 +138,12 @@ export function parseRecordObservationRequest(body: unknown): RecordObservationI
     noteText: nullableString(record['noteText'], '/noteText'),
     conditionSummary: nullableString(record['conditionSummary'], '/conditionSummary'),
     observedAt: nullableTimestamp(record['observedAt'], '/observedAt'),
-    photoMediaIds: photoMediaIds(record['photoMediaIds'], '/photoMediaIds'),
+    photos: photoAttachments(record['photos'], '/photos'),
+    measurements: measurementInputs(record['measurements'], '/measurements'),
+    observedPhenologicalStage: nullableString(
+      record['observedPhenologicalStage'],
+      '/observedPhenologicalStage',
+    ),
   };
 }
 
@@ -110,6 +155,11 @@ export function parseCorrectObservationRequest(body: unknown): CorrectObservatio
     correctionKind,
     noteText: nullableString(record['noteText'], '/noteText'),
     conditionSummary: nullableString(record['conditionSummary'], '/conditionSummary'),
-    photoMediaIds: photoMediaIds(record['photoMediaIds'], '/photoMediaIds'),
+    photos: photoAttachments(record['photos'], '/photos'),
+    measurements: measurementInputs(record['measurements'], '/measurements'),
+    observedPhenologicalStage: nullableString(
+      record['observedPhenologicalStage'],
+      '/observedPhenologicalStage',
+    ),
   };
 }

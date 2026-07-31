@@ -270,13 +270,15 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       noteText: 'Leaves look healthy.',
       conditionSummary: null,
       observedAt: null,
+      measurements: [],
+      observedPhenologicalStage: null,
     };
 
     await expect(
       handlers.recordObservation.execute(
         gardenId,
         ownerId,
-        { ...baseInput, photoMediaIds: [foreignMediaId] },
+        { ...baseInput, photos: [{ mediaId: foreignMediaId, rawPurpose: 'leaf_front' }] },
         generateUuidV7(),
       ),
     ).rejects.toMatchObject({
@@ -287,7 +289,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       handlers.recordObservation.execute(
         gardenId,
         ownerId,
-        { ...baseInput, photoMediaIds: [unavailableMediaId] },
+        { ...baseInput, photos: [{ mediaId: unavailableMediaId, rawPurpose: 'leaf_front' }] },
         generateUuidV7(),
       ),
     ).rejects.toMatchObject({

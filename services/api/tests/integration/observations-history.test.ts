@@ -6,6 +6,11 @@
  * tests/integration/gardens-mapping.test.ts's rationale for why this must
  * run against a real transaction, not an in-memory fake.
  *
+ * P11-MEDIA-01's measurement and garden-context-snapshot coverage lives in
+ * the sibling `observations-history-media.test.ts` instead of here, split
+ * out for the same 600-line reason `plants-inventory-photos.test.ts` was
+ * split out of `plants-inventory-photos-identification.test.ts`.
+ *
  * Source: implementation-plan.md work package P4-DATA-02;
  * architecture/testing-strategy.md, section "6. Backend Integration Tests".
  */
@@ -24,10 +29,6 @@ import { KyselyGardensMappingUnitOfWork } from '../../src/modules/gardens-mappin
 import { KyselyMembershipRepository } from '../../src/modules/gardens-mapping/persistence/kysely-membership-repository.js';
 import { RegisterMediaRecord } from '../../src/modules/media/application/register-media-record.js';
 import { KyselyMediaUnitOfWork } from '../../src/modules/media/persistence/kysely-media-unit-of-work.js';
-import {
-  CorrectObservation,
-  type CorrectObservationInput,
-} from '../../src/modules/observations-history/application/correct-observation.js';
 import { GetObservation } from '../../src/modules/observations-history/application/get-observation.js';
 import { ListObservationsForGarden } from '../../src/modules/observations-history/application/list-observations-for-garden.js';
 import { ListObservationsForPlant } from '../../src/modules/observations-history/application/list-observations-for-plant.js';
@@ -44,7 +45,6 @@ import { KyselyIdempotencyStore } from '../../src/platform/idempotency/kysely-id
 import {
   ConflictError,
   ForbiddenError,
-  NotFoundError,
   ValidationError,
 } from '../../src/platform/errors/application-error.js';
 import { generateUuidV7 } from '../../src/shared/identifiers/uuid.js';
@@ -84,7 +84,9 @@ const BASE_INPUT: RecordObservationInput = {
   noteText: 'Leaves look healthy.',
   conditionSummary: null,
   observedAt: null,
-  photoMediaIds: [],
+  photos: [],
+  measurements: [],
+  observedPhenologicalStage: null,
 };
 
 describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
@@ -218,14 +220,6 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
         clock,
         analyzePlantCondition,
       ),
-      correctObservation: new CorrectObservation(
-        idempotency,
-        unitOfWork,
-        authorization,
-        observations,
-        clock,
-        analyzePlantCondition,
-      ),
       listObservationsForGarden: new ListObservationsForGarden(observations, authorization),
       listObservationsForPlant: new ListObservationsForPlant(observations, authorization),
       getObservation: new GetObservation(observations),
@@ -308,14 +302,14 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const resource = await handlers.recordObservation.execute(
       gardenId,
       ownerId,
-      { ...BASE_INPUT, noteText: null, photoMediaIds: [mediaId] },
+      { ...BASE_INPUT, noteText: null, photos: [{ mediaId, rawPurpose: 'leaf_front' }] },
       generateUuidV7(),
     );
 
     expect(resource.noteText).toBeNull();
     expect(resource.conditionSummary).toBeNull();
     expect(resource.photos).toHaveLength(1);
-    expect(resource.photos[0]).toMatchObject({ mediaId });
+    expect(resource.photos[0]).toMatchObject({ mediaId, purpose: 'leaf_front' });
     expect(resource.photos[0]?.analysisResults).toHaveLength(1);
     expect(resource.photos[0]?.analysisResults[0]).toMatchObject({
       analysisKind: 'other',
@@ -385,7 +379,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       handlers.recordObservation.execute(
         gardenId,
         ownerId,
-        { ...BASE_INPUT, photoMediaIds: [generateUuidV7()] },
+        { ...BASE_INPUT, photos: [{ mediaId: generateUuidV7(), rawPurpose: 'leaf_front' }] },
         generateUuidV7(),
       ),
     ).rejects.toBeInstanceOf(ValidationError);
@@ -442,130 +436,6 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       .where('garden_id', '=', gardenId)
       .executeTakeFirstOrThrow();
     expect(Number(count.count)).toBe(1);
-  });
-
-  it('corrects an observation with an amendment, leaving the original row in the database completely unchanged', async () => {
-    const now = new Date('2026-07-21T09:00:00Z');
-    const laterNow = new Date('2026-07-22T09:00:00Z');
-    const { ownerId, gardenId } = await createGardenWithOwner(now);
-    const handlers = buildHandlers(fixedClock(now));
-    const original = await handlers.recordObservation.execute(
-      gardenId,
-      ownerId,
-      BASE_INPUT,
-      generateUuidV7(),
-    );
-
-    const originalRowBefore = await db
-      .selectFrom('observations_history.observation')
-      .selectAll()
-      .where('id', '=', original.id)
-      .executeTakeFirstOrThrow();
-
-    const laterHandlers = buildHandlers(fixedClock(laterNow));
-    const correctionInput: CorrectObservationInput = {
-      correctionKind: 'amendment',
-      noteText: 'Leaves recovered after watering.',
-      conditionSummary: null,
-      photoMediaIds: [],
-    };
-    const correction = await laterHandlers.correctObservation.execute(
-      original.id,
-      ownerId,
-      correctionInput,
-      generateUuidV7(),
-    );
-
-    expect(correction).toMatchObject({
-      gardenId,
-      correctionKind: 'amendment',
-      correctsObservationId: original.id,
-      noteText: 'Leaves recovered after watering.',
-    });
-
-    const originalRowAfter = await db
-      .selectFrom('observations_history.observation')
-      .selectAll()
-      .where('id', '=', original.id)
-      .executeTakeFirstOrThrow();
-    expect(originalRowAfter).toEqual(originalRowBefore);
-
-    // A correction is its own separate sync_change insert, at the new row's
-    // own recordId, never an update to the original observation's row —
-    // matching "the original row in the database completely unchanged"
-    // this test's own title already asserts for the observation row itself.
-    const originalSyncChange = await db
-      .selectFrom('platform.sync_change')
-      .selectAll()
-      .where('record_id', '=', original.id)
-      .where('record_type', '=', 'observation')
-      .execute();
-    expect(originalSyncChange).toHaveLength(1);
-
-    const correctionSyncChange = await db
-      .selectFrom('platform.sync_change')
-      .selectAll()
-      .where('record_id', '=', correction.id)
-      .where('record_type', '=', 'observation')
-      .executeTakeFirst();
-    expect(correctionSyncChange).toMatchObject({
-      garden_id: gardenId,
-      operation: 'upsert',
-      record_revision: 1,
-    });
-  });
-
-  it('corrects an observation with a supersede, and the original now reports as corrected while the correction itself does not', async () => {
-    const now = new Date('2026-07-21T09:00:00Z');
-    const { ownerId, gardenId } = await createGardenWithOwner(now);
-    const handlers = buildHandlers(fixedClock(now));
-    const original = await handlers.recordObservation.execute(
-      gardenId,
-      ownerId,
-      BASE_INPUT,
-      generateUuidV7(),
-    );
-
-    const correctionInput: CorrectObservationInput = {
-      correctionKind: 'supersede',
-      noteText: 'This was actually a different plant.',
-      conditionSummary: null,
-      photoMediaIds: [],
-    };
-    const correction = await handlers.correctObservation.execute(
-      original.id,
-      ownerId,
-      correctionInput,
-      generateUuidV7(),
-    );
-
-    const history = await handlers.listObservationsForGarden.execute(gardenId, ownerId);
-    const originalEntry = history.find((entry) => entry.id === original.id);
-    const correctionEntry = history.find((entry) => entry.id === correction.id);
-    expect(originalEntry?.isCorrected).toBe(true);
-    expect(correctionEntry?.isCorrected).toBe(false);
-  });
-
-  it('rejects correcting an observation that does not exist', async () => {
-    const now = new Date('2026-07-21T09:00:00Z');
-    const { ownerId, gardenId } = await createGardenWithOwner(now);
-    const handlers = buildHandlers(fixedClock(now));
-    void gardenId;
-
-    const correctionInput: CorrectObservationInput = {
-      correctionKind: 'amendment',
-      noteText: 'Note.',
-      conditionSummary: null,
-      photoMediaIds: [],
-    };
-    await expect(
-      handlers.correctObservation.execute(
-        generateUuidV7(),
-        ownerId,
-        correctionInput,
-        generateUuidV7(),
-      ),
-    ).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it("lists a plant's observation history, most recently observed first, via GetObservation and ListObservationsForPlant", async () => {

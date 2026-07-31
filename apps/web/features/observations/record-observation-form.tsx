@@ -127,9 +127,10 @@ export function RecordObservationForm({ gardenId, fixedPlantId }: RecordObservat
   const onSubmit = handleSubmit((values) => {
     const input: RecordObservationRequest = {
       // No photo-upload flow exists yet (see this component's doc comment);
-      // `photoMediaIds` carries a schema `default: []`, which the generated
-      // type surfaces as required rather than optional.
-      photoMediaIds: [],
+      // `photos`/`measurements` carry a schema `default: []`, which the
+      // generated type surfaces as required rather than optional.
+      photos: [],
+      measurements: [],
       ...(values.noteText === undefined || values.noteText === ''
         ? {}
         : { noteText: values.noteText }),

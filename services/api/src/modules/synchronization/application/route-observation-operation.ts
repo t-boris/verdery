@@ -50,7 +50,12 @@ export async function routeObservationOperation(
               command.request.observedAt === undefined || command.request.observedAt === null
                 ? null
                 : new Date(command.request.observedAt),
-            photoMediaIds: command.request.photoMediaIds ?? [],
+            photos: (command.request.photos ?? []).map((photo) => ({
+              mediaId: photo.mediaId,
+              rawPurpose: photo.purpose,
+            })),
+            measurements: command.request.measurements ?? [],
+            observedPhenologicalStage: command.request.observedPhenologicalStage ?? null,
             observationId: command.observationId,
           },
           operationId,
@@ -67,7 +72,12 @@ export async function routeObservationOperation(
             correctionKind: command.request.correctionKind,
             noteText: command.request.noteText ?? null,
             conditionSummary: command.request.conditionSummary ?? null,
-            photoMediaIds: command.request.photoMediaIds ?? [],
+            photos: (command.request.photos ?? []).map((photo) => ({
+              mediaId: photo.mediaId,
+              rawPurpose: photo.purpose,
+            })),
+            measurements: command.request.measurements ?? [],
+            observedPhenologicalStage: command.request.observedPhenologicalStage ?? null,
             observationId: command.observationId,
           },
           operationId,

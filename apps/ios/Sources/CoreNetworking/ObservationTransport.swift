@@ -83,21 +83,33 @@ struct ObservationListResultTransport: Decodable {
     let items: [ObservationTransport]
 }
 
-/// `photoMediaIds` defaults to `[]` on the wire when omitted — see
-/// `FeatureObservations`'s doc comment on why this client never populates it
-/// (no media-upload flow exists yet to produce a `mediaId` from).
+/// Mirrors `packages/api-contracts/openapi.yaml`'s
+/// `ObservationPhotoAttachmentRequest` (P11-MEDIA-01).
+struct ObservationPhotoAttachmentRequestTransport: Encodable {
+    let mediaId: String
+    let purpose: String
+}
+
+/// This gateway's write methods (`recordObservation`/`correctObservation`)
+/// are not on the app's production path — `FeatureObservations` routes
+/// through the offline outbox instead (see `ObservationSyncCommandPayload`'s
+/// own doc comment) — but stay wired and tested for direct/online use.
 struct RecordObservationRequestTransport: Encodable {
     let plantId: String?
     let gardenObjectId: String?
     let noteText: String?
     let conditionSummary: String?
     let observedAt: Date?
-    let photoMediaIds: [String]
+    let photos: [ObservationPhotoAttachmentRequestTransport]
+    let measurements: [String] = []
+    let observedPhenologicalStage: String? = nil
 }
 
 struct CorrectObservationRequestTransport: Encodable {
     let correctionKind: ObservationCorrectionKind
     let noteText: String?
     let conditionSummary: String?
-    let photoMediaIds: [String]
+    let photos: [ObservationPhotoAttachmentRequestTransport]
+    let measurements: [String] = []
+    let observedPhenologicalStage: String? = nil
 }

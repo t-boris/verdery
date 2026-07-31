@@ -11,8 +11,9 @@ import Foundation
 /// Source: architecture/ios-application-design.md, section "9. Networking";
 /// packages/api-contracts/openapi.yaml, tag `Observations`.
 public protocol ObservationGateway: Sendable {
-    /// `photoMediaIds` is always empty this pass — see
-    /// `FeatureObservations`'s doc comment for why.
+    /// Each `photoMediaIds` entry is wrapped with a fixed
+    /// `context_or_free_form` purpose label on the wire (P11-MEDIA-01) — see
+    /// `observationPhotoAttachmentTransport(mediaId:)` below.
     func recordObservation(
         gardenId: String,
         plantId: String?,
@@ -28,8 +29,7 @@ public protocol ObservationGateway: Sendable {
 
     func listObservationsForPlant(gardenId: String, plantId: String) async throws -> [GardenObservation]
 
-    /// `photoMediaIds` is always empty this pass — the same gap
-    /// `recordObservation` documents.
+    /// See `recordObservation`'s identical doc comment.
     func correctObservation(
         observationId: String,
         correctionKind: ObservationCorrectionKind,
@@ -82,7 +82,7 @@ public struct URLSessionObservationGateway: ObservationGateway {
                 noteText: noteText,
                 conditionSummary: conditionSummary,
                 observedAt: observedAt,
-                photoMediaIds: photoMediaIds
+                photos: photoMediaIds.map(observationPhotoAttachmentTransport(mediaId:))
             ),
             headers: [APIConfiguration.idempotencyKeyHeader: idempotencyKey],
             acceptedStatusCodes: [201]
@@ -121,11 +121,18 @@ public struct URLSessionObservationGateway: ObservationGateway {
                 correctionKind: correctionKind,
                 noteText: noteText,
                 conditionSummary: conditionSummary,
-                photoMediaIds: photoMediaIds
+                photos: photoMediaIds.map(observationPhotoAttachmentTransport(mediaId:))
             ),
             headers: [APIConfiguration.idempotencyKeyHeader: idempotencyKey],
             acceptedStatusCodes: [201]
         )
         return result.domainValue
     }
+}
+
+/// See `ObservationGateway.recordObservation`'s doc comment: no
+/// purpose-picker UI exists on this client yet (deferred to P11-IOS-01), so
+/// every photo it attaches is stamped with the design doc's catch-all label.
+private func observationPhotoAttachmentTransport(mediaId: String) -> ObservationPhotoAttachmentRequestTransport {
+    ObservationPhotoAttachmentRequestTransport(mediaId: mediaId, purpose: "context_or_free_form")
 }

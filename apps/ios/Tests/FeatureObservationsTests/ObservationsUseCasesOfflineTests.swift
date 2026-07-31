@@ -111,7 +111,9 @@ struct ObservationsUseCasesOfflineTests {
         #expect(request["noteText"] as? String == "New growth this week")
         #expect(request.keys.contains("conditionSummary") == false)
         #expect(request["observedAt"] as? String == "1970-01-01T00:33:20.000Z")
-        #expect(request["photoMediaIds"] as? [String] == [])
+        #expect(request["photos"] as? [[String: String]] == [])
+        #expect(request["measurements"] as? [String] == [])
+        #expect(request.keys.contains("observedPhenologicalStage") == false)
     }
 
     @Test("RecordObservation omits observedAt on the wire when the caller did not supply one")
@@ -170,7 +172,7 @@ struct ObservationsUseCasesOfflineTests {
         #expect(result.conditionSummary == "Wilting leaves")
     }
 
-    @Test("RecordObservation threads a real mediaId through to the outbox payload's photoMediaIds (P6-IOS-01)")
+    @Test("RecordObservation threads a real mediaId through to the outbox payload's photos, with a fixed purpose (P6-IOS-01, P11-MEDIA-01)")
     func recordObservationThreadsPhotoMediaIds() async throws {
         let dbQueue = try makeDatabase()
         let store = GRDBObservationStore(dbQueue: dbQueue)
@@ -197,7 +199,8 @@ struct ObservationsUseCasesOfflineTests {
         let json = try decodedPayloadJSON(operation)
         let command = try #require(json["command"] as? [String: Any])
         let request = try #require(command["request"] as? [String: Any])
-        #expect(request["photoMediaIds"] as? [String] == ["media-42"])
+        let photos = try #require(request["photos"] as? [[String: String]])
+        #expect(photos == [["mediaId": "media-42", "purpose": "context_or_free_form"]])
     }
 
     // MARK: - CorrectObservation
@@ -260,7 +263,8 @@ struct ObservationsUseCasesOfflineTests {
         #expect(request["correctionKind"] as? String == "supersede")
         #expect(request["noteText"] as? String == "Actually this was misidentified")
         #expect(request.keys.contains("conditionSummary") == false)
-        #expect(request["photoMediaIds"] as? [String] == [])
+        #expect(request["photos"] as? [[String: String]] == [])
+        #expect(request["measurements"] as? [String] == [])
         // The wire request carries no plant/garden-object association at
         // all — the server derives both from `correctedObservationId`.
         #expect(request.keys.contains("plantId") == false)

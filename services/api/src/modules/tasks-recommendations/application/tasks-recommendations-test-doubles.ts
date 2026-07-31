@@ -280,6 +280,7 @@ export class FakeObservationRepository implements ObservationRepository {
         observation,
         isCorrected: all.some((later) => later.correctsObservationId === observation.id),
         photos: [],
+        measurements: [],
       }));
     return Promise.resolve(entries);
   }

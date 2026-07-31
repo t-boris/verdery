@@ -49,9 +49,14 @@ const OBSERVATION: Observation = {
   correctionKind: null,
   correctsObservationId: null,
   isCorrected: false,
+  observedPhenologicalStage: null,
+  observedSunExposure: null,
+  observedDrainage: null,
+  observedGrowingContext: null,
   observedAt: '2026-07-21T09:00:00Z',
   recordedAt: '2026-07-21T09:00:00Z',
   photos: [],
+  measurements: [],
 };
 
 describe('createObservationGateway', () => {
@@ -60,7 +65,7 @@ describe('createObservationGateway', () => {
 
     await gateway.record(
       GARDEN_ID,
-      { noteText: 'Leaves looking healthy', photoMediaIds: [] },
+      { noteText: 'Leaves looking healthy', photos: [], measurements: [] },
       IDEMPOTENCY_KEY,
     );
 
@@ -69,7 +74,8 @@ describe('createObservationGateway', () => {
     expect(headersOf(recorded[0]!)['idempotency-key']).toBe(IDEMPOTENCY_KEY);
     expect(JSON.parse(recorded[0]?.init.body as string)).toEqual({
       noteText: 'Leaves looking healthy',
-      photoMediaIds: [],
+      photos: [],
+      measurements: [],
     });
   });
 
@@ -100,7 +106,7 @@ describe('createObservationGateway', () => {
 
     await gateway.correct(
       OBSERVATION_ID,
-      { correctionKind: 'amendment', photoMediaIds: [] },
+      { correctionKind: 'amendment', photos: [], measurements: [] },
       IDEMPOTENCY_KEY,
     );
 

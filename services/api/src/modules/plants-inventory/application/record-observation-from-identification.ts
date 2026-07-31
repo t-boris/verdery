@@ -72,7 +72,9 @@ export class RecordObservationFromIdentification {
         noteText: identification.suggestedCareGuidanceNote,
         conditionSummary: identification.suggestedConditionNote,
         observedAt: identification.createdAt,
-        photoMediaIds: [],
+        photos: [],
+        measurements: [],
+        observedPhenologicalStage: null,
       },
       idempotencyKey,
     );

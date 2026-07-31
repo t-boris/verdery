@@ -230,6 +230,14 @@ export const GARDEN_PURGE_STEPS: readonly PurgeStep[] = [
     rows: (gardenId) =>
       sql`observation_id IN (SELECT id FROM observations_history.observation WHERE garden_id = ${gardenId})`,
   },
+  // P11-MEDIA-01: another `observation`-scoped child table, the same shape
+  // as `observation_photo` immediately above.
+  {
+    name: 'observations_history.observation_measurement',
+    table: 'observations_history.observation_measurement',
+    rows: (gardenId) =>
+      sql`observation_id IN (SELECT id FROM observations_history.observation WHERE garden_id = ${gardenId})`,
+  },
   {
     name: 'observations_history.observation',
     table: 'observations_history.observation',
