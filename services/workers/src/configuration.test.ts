@@ -25,6 +25,7 @@ const VALID_ENVIRONMENT = {
     'https://verdery-api-dev.example/v1/internal/notification-delivery/sweep',
   EXPORT_PROCESSING_API_URL: 'https://verdery-api-dev.example/v1/internal/exports',
   DELETION_SWEEP_URL: 'https://verdery-api-dev.example/v1/internal/deletion/sweep',
+  TAXON_ENRICHMENT_SWEEP_URL: 'https://verdery-api-dev.example/v1/internal/taxon-enrichment/sweep',
 } as const;
 
 describe('loadConfiguration', () => {
@@ -76,6 +77,10 @@ describe('loadConfiguration', () => {
         sweepUrl: VALID_ENVIRONMENT.DELETION_SWEEP_URL,
         intervalMs: 3_600_000,
       },
+      taxonEnrichmentSweep: {
+        sweepUrl: VALID_ENVIRONMENT.TAXON_ENRICHMENT_SWEEP_URL,
+        intervalMs: 21_600_000,
+      },
     });
   });
 
@@ -88,6 +93,20 @@ describe('loadConfiguration', () => {
       expect(error).toBeInstanceOf(ConfigurationError);
       expect((error as ConfigurationError).variables).toEqual(
         expect.arrayContaining(['DELETION_SWEEP_URL']),
+      );
+    }
+  });
+
+  it('rejects a missing TAXON_ENRICHMENT_SWEEP_URL — the enrichment sweep fails loudly at configuration load (P11-ASYNC-01)', () => {
+    const { TAXON_ENRICHMENT_SWEEP_URL: _omit, ...withoutTaxonEnrichmentSweepUrl } =
+      VALID_ENVIRONMENT;
+    try {
+      loadConfiguration(withoutTaxonEnrichmentSweepUrl);
+      expect.unreachable('A missing TAXON_ENRICHMENT_SWEEP_URL must be rejected');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ConfigurationError);
+      expect((error as ConfigurationError).variables).toEqual(
+        expect.arrayContaining(['TAXON_ENRICHMENT_SWEEP_URL']),
       );
     }
   });

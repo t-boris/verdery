@@ -180,10 +180,7 @@ export type {
 
 // Taxon knowledge profile (P11-DATA-02): structured facts, distribution/
 // regulatory assertions, and licensed media metadata — the structured
-// counterpart to plant-content-record.ts's free-text sections. No provider
-// adapters or enrichment pipeline yet (P11-PROV-01/P11-ASYNC-01); schema,
-// domain validation, and storage only, the same staging this module's own
-// weather/plant-content capabilities went through first.
+// counterpart to plant-content-record.ts's free-text sections.
 export type {
   PlantAssertionAuthoring,
   PlantAssertionAuthoringCandidate,
@@ -219,6 +216,65 @@ export type { PlantFactAssertionRepository } from './application/plant-fact-asse
 export { KyselyPlantFactAssertionRepository } from './persistence/kysely-plant-fact-assertion-repository.js';
 export type { PlantDistributionAssertionRepository } from './application/plant-distribution-assertion-repository.js';
 export { KyselyPlantDistributionAssertionRepository } from './persistence/kysely-plant-distribution-assertion-repository.js';
+
+// P11-ASYNC-01: the taxon enrichment pipeline — a second provider-neutral
+// port for STRUCTURED facts/distribution (alongside `PlantContentProviderAdapter`'s
+// licensed prose), its own registry (more than one provider active at
+// once — see that file's own header), the fetch-and-store use case
+// (`RefreshTaxonAssertions`), the scheduled sweep that drives it across
+// every referenced taxon and then materializes `plant_profile_version`, and
+// ONE real, live-verified adapter (USDA PLANTS — public domain, no key, no
+// documented rate limit). Every fetched assertion lands
+// `awaiting_horticultural_review`: this pipeline is real and produces real,
+// correctly-provenanced data, but nothing it writes is visible to
+// `RebuildPlantProfileVersion`/`RecalculateCandidateSuitability` until a
+// human reviewer promotes it — a deliberately deferred later stage, see
+// `refresh-taxon-assertions.ts`'s own header. The remaining eight sources
+// ADR-0016 names (World Flora Online, USDA Characteristics as a distinct
+// registration, Wikidata, hardiness rasters, GBIF, USA-NPN, USDA NRCS SDA,
+// USDA APHIS/state regulatory) are a tracked, documented follow-up, not a
+// stub — see tasks/todo.md's own P11-ASYNC-01 review section.
+export type {
+  NormalizedDistributionCandidate,
+  NormalizedFactCandidate,
+  PlantAssertionProviderAdapter,
+} from './application/plant-assertion-provider.js';
+export { PlantAssertionProviderRegistry } from './application/plant-assertion-provider-registry.js';
+export type {
+  PlantAssertionProviderMetadata,
+  PlantAssertionProviderRegistration,
+} from './application/plant-assertion-provider-registry.js';
+export { RefreshTaxonAssertions } from './application/refresh-taxon-assertions.js';
+export type {
+  RefreshTaxonAssertionsInput,
+  RefreshTaxonAssertionsResult,
+  TaxonAssertionsUnavailableReason,
+} from './application/refresh-taxon-assertions.js';
+export type { TaxonEnrichmentCandidateSource } from './application/taxon-enrichment-candidate-source.js';
+export { KyselyTaxonEnrichmentCandidateSource } from './persistence/kysely-taxon-enrichment-candidate-source.js';
+export {
+  RunTaxonEnrichmentSweep,
+  TAXON_ENRICHMENT_SWEEP_BATCH_LIMIT,
+} from './application/run-taxon-enrichment-sweep.js';
+export type {
+  PlantProfileVersionRebuilder,
+  TaxonAssertionsRefresher,
+  TaxonEnrichmentSweepResult,
+} from './application/run-taxon-enrichment-sweep.js';
+export { registerTaxonEnrichmentSweepRoute } from './transport/taxon-enrichment-sweep-route.js';
+export type { TaxonEnrichmentSweepRouteDependencies } from './transport/taxon-enrichment-sweep-route.js';
+export { UsdaPlantsAdapter } from './persistence/usda-plants-adapter.js';
+export type {
+  UsdaPlantsHttpFetch,
+  UsdaPlantsHttpResponse,
+} from './persistence/usda-plants-adapter.js';
+export {
+  createUsdaPlantsRegistration,
+  USDA_PLANTS_CITATION,
+  USDA_PLANTS_DISPLAY_NAME,
+  USDA_PLANTS_PROVIDER_KEY,
+} from './persistence/usda-plants-registration.js';
+export type { UsdaPlantsRegistrationOptions } from './persistence/usda-plants-registration.js';
 
 // P7-AI-01: the AI-explanation capability — the provider-neutral port,
 // the bounded call machinery (budget + deadline + typed degradations),

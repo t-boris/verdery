@@ -7701,3 +7701,129 @@ scope exactly, since the business logic each command implements, including the c
 conversion race, is already covered by the `P11-DATA-01`/`SUIT-01`/`DATA-02` integration tests.
 
 ---
+
+## P11-ASYNC-01 — taxon enrichment pipeline, first real pass (scoped, documented remainder)
+
+**Scope decision, made explicit up front**: this work package's full implementation-plan.md scope
+is nine provider adapters plus genuinely new Cloud Tasks/Cloud Run Job infrastructure (ADR-0016
+section 5). Building all nine adapters and new GCP primitives with no live cloud access to test
+against in one pass would mean either faking most of it or shipping untested infrastructure —
+neither matches this session's "build real, ship kill-switched" discipline. This pass instead
+mirrors the exact staging every other provider capability in this codebase already went through
+(weather: Open-Meteo first, real, alone; plant-content: port built, zero adapters, explicitly
+unwired until a vendor was chosen): the real, generic backbone — a second provider-neutral port,
+its own registry, the fetch-and-store use case, the scheduled sweep, and the profile-rebuild
+wiring — plus ONE real, live-verified adapter (USDA PLANTS), scheduled on the SAME worker-
+interval-plus-authenticated-route shape every other sweep in this codebase already uses (media
+retention, weather refresh, recommendation evaluation, notification delivery, deletion). The
+remaining eight providers and the literal Cloud Tasks/Cloud Run Job migration are real, documented,
+implementation-ready gaps, not stubs — recorded below and in
+`docs/development/plant-knowledge-provider-runbooks.md` section 6.
+
+**New provider-neutral port** (`plant-assertion-provider.ts`): `PlantAssertionProviderAdapter` with
+`searchTaxa`/`fetchFacts`/`fetchDistribution` — the structured-fact/distribution sibling of the
+existing `PlantContentProviderAdapter` (licensed prose), reusing its `TaxonomyIdentityQuery`/
+`ProviderTaxonCandidate` types rather than a second copy. `PlantAssertionProviderRegistry` mirrors
+`WeatherProviderRegistry`/`PlantContentProviderRegistry`'s construction-time validation exactly, as
+its own class — the "tolerate-at-two, generalize-at-the-third" judgment those two files' own
+headers already document, applied again at three. UNLIKE the weather/plant-content registries, more
+than one provider can be active at once here (ADR-0016 section 4 selects several simultaneously-
+active free sources per knowledge class): there is no single `activeProviderKey`, only an ordered
+`sourcePriority` list, the same policy-parameter shape `assemblePlantProfileVersion`/
+`RebuildPlantProfileVersion` already use for source tie-breaking, applied here to which providers a
+sweep calls at all.
+
+**`RefreshTaxonAssertions`** (fetch-and-store, one provider + one taxon per call): resolves a live
+`plant_taxonomy_mapping` row or creates one via `searchTaxa` — mapping-resolution logic is INLINED
+here rather than shared with `map-plant-taxonomy.ts` (that use case is typed against the OTHER
+registry specifically; generalizing it would touch already-shipped P7 code for a second caller, the
+same tolerate-at-two judgment above, applied to ~30 lines of resolution logic instead of a whole
+class). Every persisted assertion is stamped `authoringMethod: 'ai_extracted_from_source'` (never
+`human_authored` — impossible by the migration's own `_human_authored_identity_check`, which
+requires `provider_key = 'human'`) and `reviewStatus: 'awaiting_horticultural_review'` — the
+"ordinary extraction-with-review path" `plant-distribution-assertion.ts`'s own header already names
+for this exact knowledge class. **This is the load-bearing design decision of this pass**: nothing
+this pipeline fetches is visible to `RebuildPlantProfileVersion`/`RecalculateCandidateSuitability`
+(both read only `horticulturally_reviewed` rows) until a human reviewer promotes it — a reviewer-
+facing surface this pass deliberately does NOT build, the identical deferral
+`plant-taxonomy-mapping-repository.ts`'s own header already documents for `updateVerificationState`
+("no application use case drives it yet... the port carries the operation so the machinery is
+proven"). The pipeline lands real, correctly-provenanced data; a later stage makes it visible.
+
+**One real adapter — USDA PLANTS** (`usda-plants-adapter.ts`/`usda-plants-payload.ts`): covers two
+of ADR-0013's separately-named sources ("USDA PLANTS" names/status and "USDA PLANTS
+Characteristics" care attributes) in one adapter, since both are, in reality, different endpoints of
+the same undocumented internal host (`plantsservices.sc.egov.usda.gov`) the P11-PROV-01 runbook
+already flagged as "found by inspecting network traffic, not published integration documentation."
+**Every endpoint this adapter calls was verified against the REAL live API during this pass**
+(search, PlantProfile, PlantCharacteristics, PlantNoxiousStatus, PlantInvasiveStatus — real
+`curl` calls against Quercus alba id 70172 and purple loosestrife id 84414), not assumed from the
+runbook's prose alone; the recorded response shapes in `usda-plants-adapter.test.ts` are taken
+directly from those live calls. No API key, no documented rate limit — the adapter's default
+timeout/quota are deliberately generous/conservative for exactly that reason, not a guess.
+
+**`RunTaxonEnrichmentSweep`**: mirrors `RunWeatherRefreshSweep`'s shape — pages a bounded batch of
+candidate taxa (`TaxonEnrichmentCandidateSource`, a new cross-schema read port following the
+`WeatherRefreshCandidateSource` precedent: taxa referenced by a real plant OR candidate, least-
+recently-materialized first, `plant_profile_version.created_at` as the freshness signal, the same
+"the stored result's own timestamp IS the rotation signal" reasoning weather's own candidate source
+uses), refreshes each against every configured provider, then rebuilds the profile version. A typed
+`quotaExhausted` outcome from any provider stops the whole batch, the same reasoning
+`RunWeatherRefreshSweep`'s own header documents. With zero providers configured (the kill-switch's
+default-off state), every taxon's inner loop is a no-op and the rebuild reports `nothingToResolve`
+for all of them — a documented, observable no-op, never a crash.
+
+**Scheduling — a deliberate, documented deviation from ADR-0016's own aspiration**: ADR-0016 section
+5 names "genuinely new Cloud Tasks/Cloud Run Job machinery" for this stage. This codebase has NO
+existing Cloud Scheduler convention and NONE of its five other scheduled sweeps (media retention,
+weather refresh, recommendation evaluation, notification delivery, deletion) use literal Cloud Tasks
+either — `sweep-trigger.ts`'s own header says so explicitly: "a process that is already awake on an
+interval... no Cloud Scheduler convention exists in this codebase yet." This sweep is wired as the
+sixth instance of that exact same real, tested, already-in-production-use pattern (a
+`services/workers` interval scheduler POSTing to an authenticated internal `services/api` route)
+rather than inventing untestable-in-this-environment new GCP infrastructure with no Scheduler to
+trigger it. A literal Cloud Tasks/Cloud Run Job migration — for this sweep AND, arguably, the other
+five — remains a real, tracked infrastructure gap, not silently dropped.
+
+**Kill-switch and configuration**: `USDA_PLANTS_PROVIDER_ENABLED` (default `false`) plus
+`USDA_PLANTS_CALL_TIMEOUT_MS`/`_MAX_CALLS_PER_HOUR`/`_MAX_CALLS_PER_DAY`, the exact
+`PLANT_SPECIES_AI_ENABLED` per-capability posture. `configuration-schema.ts` crossed 600 lines with
+this addition; split into a new `configuration-shape.ts` (the per-capability interfaces and
+`toApplicationConfiguration`), re-exported (`export * from './configuration-shape.js'`) so all ten
+existing importers keep importing from `configuration-schema.js` unchanged — the same split-file,
+same-import-path precedent `configuration-cross-field-issues.ts` already established.
+
+**Found during composition**: `services/workers`' `TAXON_ENRICHMENT_SWEEP_URL` is a REQUIRED
+variable (no default, `z.string().url()`) the same way `DELETION_SWEEP_URL` is — a missing sweep URL
+fails worker startup loudly rather than silently never scheduling enrichment. Added to
+`deploy-workers.sh` alongside the other five sweep URLs, and to `configuration.test.ts`'s
+documented-defaults/missing-variable test pair, matching every prior sweep's own precedent exactly.
+
+**Verification**: fresh `pnpm check:all` — format, lint, typecheck, 600-line gate all clean. Full
+test suite: `services/api` 2579/2579 (unchanged pass count — this pass adds tests but two
+Docker-testcontainer `beforeAll` hooks timed out under the full parallel run's container-startup
+contention, confirmed as environmental by re-running both files in isolation, where they passed
+clean — not a regression), `apps/web` 977/977, `services/workers` 134/134 (up from 133: the new
+`TAXON_ENRICHMENT_SWEEP_URL` configuration test). New: `refresh-taxon-assertions.test.ts` (7
+scenarios: fresh mapping resolution, mapping reuse, provider-not-registered, taxon-not-found,
+no-match, quota-exhausted, provider-failure), `run-taxon-enrichment-sweep.test.ts` (4 scenarios
+including the batch-wide quota-exhaustion stop and the zero-provider no-op),
+`usda-plants-adapter.test.ts` (12 scenarios against real-recorded-shape fixtures, including the
+"any one of three distribution endpoints fails fails the whole call" case), and
+`tests/integration/taxon-enrichment.test.ts` (3 real-Postgres scenarios: a real garden candidate's
+taxon appears as a real enrichment candidate; the full fetch→persist→invisible-until-reviewed→
+resolved-once-reviewed round trip; the sweep end to end) — the last of these found and fixed a
+test-isolation bug of its own (multiple tests sharing one fixed fake `providerTaxonId` collided
+across tests in the same container, since `plant_fact_assertion`/`plant_taxonomy_mapping` identity
+is genuinely global by `(providerKey, providerTaxonId)`, correct production behavior that needed a
+unique id per test, not a product bug).
+
+**What remains, tracked as real follow-up, not dropped**: the eight remaining ADR-0016 sources
+(World Flora Online, Wikidata, USDA Plant Hardiness Zone rasters, GBIF, USA-NPN, USDA NRCS SDA,
+federal/state regulatory via eCFR) — each is the same one-adapter-plus-one-registration shape this
+pass's USDA PLANTS adapter already proves; a literal Cloud Tasks/Cloud Run Job migration for this
+sweep and its five siblings; and the human-review workflow that promotes `awaiting_horticultural_
+review` assertions to `horticulturally_reviewed` — without which this pipeline's real output stays
+invisible to profiles and suitability findings by design, not by accident.
+
+---

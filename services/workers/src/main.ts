@@ -38,6 +38,7 @@ import type {
   NotificationDeliverySweepSummary,
   RecommendationEvaluationSweepSummary,
   RetentionSweepSummary,
+  TaxonEnrichmentSweepSummary,
   WeatherRefreshSweepSummary,
 } from './sweeps/sweep-trigger.js';
 import { GcsMediaObjectSource } from './validation/gcs-media-object-source.js';
@@ -267,6 +268,30 @@ async function main(): Promise<void> {
   );
   deletionSweepScheduler.start();
 
+  // P11-ASYNC-01: the taxon-enrichment sweep — the sixth scheduled sweep,
+  // same shape and same audience. The enrichment fetch-and-materialize
+  // cycle (provider calls, assertion storage, profile-version rebuild)
+  // runs in services/api; this process contributes only the six-hour tick.
+  const taxonEnrichmentSweepScheduler = createIntervalSweepScheduler(
+    new GoogleApiSweepTrigger<TaxonEnrichmentSweepSummary>(
+      configuration.taxonEnrichmentSweep.sweepUrl,
+      sweepAudience,
+      {
+        completedEvent: 'taxon_enrichment.sweep_completed',
+        completedMessage: 'Taxon enrichment sweep completed',
+      },
+      logger,
+    ),
+    configuration.taxonEnrichmentSweep.intervalMs,
+    {
+      failedEvent: 'taxon_enrichment.sweep_failed',
+      failedMessage:
+        'Taxon enrichment sweep trigger failed; it will be retried on the next interval',
+    },
+    logger,
+  );
+  taxonEnrichmentSweepScheduler.start();
+
   logger.info(
     {
       event: 'service.started',
@@ -278,6 +303,7 @@ async function main(): Promise<void> {
         configuration.recommendationEvaluationSweep.intervalMs,
       notificationDeliverySweepIntervalMs: configuration.notificationDeliverySweep.intervalMs,
       deletionSweepIntervalMs: configuration.deletionSweep.intervalMs,
+      taxonEnrichmentSweepIntervalMs: configuration.taxonEnrichmentSweep.intervalMs,
       httpPort: configuration.httpPort,
     },
     'Worker started',
@@ -291,6 +317,7 @@ async function main(): Promise<void> {
       await recommendationEvaluationSweepScheduler.stop();
       await notificationDeliverySweepScheduler.stop();
       await deletionSweepScheduler.stop();
+      await taxonEnrichmentSweepScheduler.stop();
       await validationServer.close();
       await relayDatabase.close();
       await cloudTasksClient.close();

@@ -92,3 +92,13 @@ export interface NotificationDeliverySweepSummary {
   readonly devicesDisabled: number;
   readonly lostRaces: number;
 }
+
+/** Mirrors `services/api`'s `TaxonEnrichmentSweepResult` (P11-ASYNC-01) — the sixth scheduled sweep. */
+export interface TaxonEnrichmentSweepSummary {
+  readonly taxaConsidered: number;
+  readonly refreshed: number;
+  readonly profilesRebuilt: number;
+  readonly profilesWithNothingToResolve: number;
+  readonly degradationReasons: Readonly<Record<string, number>>;
+  readonly stoppedOnQuotaExhaustion: boolean;
+}

@@ -34,7 +34,10 @@ import { composeNotifications } from './compose-notifications.js';
 import { composePlantsInventory } from './compose-plants-inventory.js';
 import { composeSynchronization } from './compose-synchronization.js';
 import { composeTasksRecommendations } from './compose-tasks-recommendations.js';
-import { registerWeatherRefreshSweepRoute } from './modules/integrations/public.js';
+import {
+  registerTaxonEnrichmentSweepRoute,
+  registerWeatherRefreshSweepRoute,
+} from './modules/integrations/public.js';
 import {
   registerGardenContextRoutes,
   registerGardenRoutes,
@@ -207,14 +210,16 @@ export async function buildApplication(
     gardenContextRoutesDependencies,
   } = composeGardensMapping(database, clock, cloudTasksInvocationVerifier);
 
-  // integrations (P7-ASYNC-01, P7-AI-01, P9C-INVITE-01): weather, bounded
-  // AI-explanation, and the (usually null) Resend adapter.
+  // integrations (P7-ASYNC-01, P7-AI-01, P9C-INVITE-01, P11-ASYNC-01):
+  // weather, bounded AI-explanation, the (usually null) Resend adapter, and
+  // the taxon-enrichment pipeline.
   const {
     getGardenWeather,
     generateAiExplanation,
     identifyPlantSpecies,
     analyzePlantCondition,
     weatherRefreshSweepRouteDependencies,
+    taxonEnrichmentSweepRouteDependencies,
     transactionalEmailAdapter,
   } = composeIntegrations(
     database,
@@ -226,6 +231,7 @@ export async function buildApplication(
     plantSpeciesIdentificationAdapter,
     configuration.plantConditionAi,
     plantConditionAnalysisAdapter,
+    configuration.taxonKnowledge,
     configuration.transactionalEmail,
     cloudTasksInvocationVerifier,
     logger,
@@ -485,6 +491,9 @@ export async function buildApplication(
       // sixth sweep. Not yet scheduled by a worker (see that route's own
       // header for why) but callable the same way every sibling sweep is.
       registerInvitationExpirySweepRoute(instance, invitationExpirySweepRouteDependencies);
+      // P11-ASYNC-01: the taxon-enrichment sweep — same identity check,
+      // seventh sweep.
+      registerTaxonEnrichmentSweepRoute(instance, taxonEnrichmentSweepRouteDependencies);
       done();
     },
     { prefix: API_BASE_PATH },

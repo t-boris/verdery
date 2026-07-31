@@ -123,6 +123,12 @@ env_vars+=",EXPORT_PROCESSING_API_URL=${api_service_url}/v1/internal/exports"
 # interval keeps its configuration default (one hour) unless overridden
 # here.
 env_vars+=",DELETION_SWEEP_URL=${api_service_url}/v1/internal/deletion/sweep"
+# P11-ASYNC-01: the API's internal taxon-enrichment-sweep endpoint — the
+# sixth scheduled sweep, same derivation and same audience;
+# services/workers' configuration load fails loudly without it. The
+# interval keeps its configuration default (six hours) unless overridden
+# here.
+env_vars+=",TAXON_ENRICHMENT_SWEEP_URL=${api_service_url}/v1/internal/taxon-enrichment/sweep"
 
 # `MEDIA_PROCESSING_TASK_URL` is self-referential (this service's own
 # validation-job route) — the exact same "look up the already-existing

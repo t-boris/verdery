@@ -106,6 +106,18 @@ export const testConfiguration: ApplicationConfiguration = {
     maxCallsPerHour: 50,
     maxCallsPerDay: 500,
   },
+  // P11-ASYNC-01: the kill-switch off — every test-built application runs
+  // with an empty assertion-provider registry and a no-op enrichment sweep,
+  // like every real environment today; the numbers are the schema's own
+  // documented defaults.
+  taxonKnowledge: {
+    usdaPlants: {
+      enabled: false,
+      callTimeoutMs: 15_000,
+      maxCallsPerHour: 120,
+      maxCallsPerDay: 1_000,
+    },
+  },
   // P8-SEC-02: the enforcement switch in its default position, like every
   // real environment today. This is load-bearing for the whole suite: it is
   // why 1,500-odd existing tests, most of which send no App Check header at

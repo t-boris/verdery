@@ -228,9 +228,24 @@ gets one real adapter behind the existing `PlantContentProviderRegistry`-style
 adapter-plus-registry-entry pattern (text/characteristics sources) or a new equivalent
 structured-fact port (§3's sources, which return typed facts/distribution claims, not prose) —
 each adapter kill-switched by its own default-`false` flag, the same posture
-`PLANT_SPECIES_AI_ENABLED` already established for Phase 10. Building the adapters themselves,
-their fixtures (captured from the real example responses recorded above), and their tests is
-`P11-ASYNC-01`'s own work package, not this one's.
+`PLANT_SPECIES_AI_ENABLED` already established for Phase 10.
+
+**Status as of P11-ASYNC-01's first pass (2026-07-31):** the structured-fact/distribution port
+(`plant-assertion-provider.ts`), its registry, the fetch-and-store use case
+(`refresh-taxon-assertions.ts`), and the scheduled sweep (`run-taxon-enrichment-sweep.ts`) are
+built and real — plus ONE real, adapter: §2.2's USDA PLANTS (names/status and characteristics
+combined, since both are the same host). Every fetched assertion lands
+`awaiting_horticultural_review`; nothing is visible in a materialized profile or a suitability
+finding until a human reviewer promotes it (no reviewer-facing surface exists yet — a tracked,
+deliberate deferral, not this pass's job). The remaining seven sources (World Flora Online,
+USDA Characteristics as its own registration if ever split from USDA PLANTS, Wikidata, hardiness
+rasters, GBIF, USA-NPN, USDA NRCS SDA, federal/state regulatory) are real, documented,
+implementation-ready gaps — each is the same one-adapter-plus-one-registration shape this pass's
+USDA PLANTS adapter already proves, not a stub. See `tasks/todo.md`'s own P11-ASYNC-01 review
+section for the fuller accounting, including why literal Cloud Tasks/Cloud Run Job machinery
+(ADR-0016's own aspiration) was deliberately NOT built this pass in favor of the same worker-
+interval-plus-authenticated-route shape every other scheduled sweep in this codebase already
+uses.
 
 ## 7. What remains an owner decision
 

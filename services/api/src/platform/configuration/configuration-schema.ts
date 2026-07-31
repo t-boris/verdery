@@ -9,7 +9,6 @@
  */
 
 import { z } from 'zod';
-import type { AppCheckEnforcementMode } from '../app-check/app-check-enforcement.js';
 
 /** Deployment environments the service is built for. */
 export type DeploymentEnvironment = 'development' | 'staging' | 'production';
@@ -285,6 +284,25 @@ export const environmentSchema = z.object({
   PLANT_CONDITION_AI_MAX_CALLS_PER_HOUR: positiveInteger.default(50),
   PLANT_CONDITION_AI_MAX_CALLS_PER_DAY: positiveInteger.default(500),
 
+  // P11-ASYNC-01: the taxon-enrichment pipeline's first real structured-
+  // assertion provider, USDA PLANTS — the same per-capability, default-off
+  // kill-switch posture `PLANT_SPECIES_AI_ENABLED` already established,
+  // applied to a source that needs no API key at all. Off (the default,
+  // and every environment today): the registry is empty, `sourcePriority`
+  // is `[]`, and `RunTaxonEnrichmentSweep` runs as a documented no-op — see
+  // `run-taxon-enrichment-sweep.ts`'s own header. Generous timeout and
+  // conservative quota defaults reflect `docs/development/plant-knowledge-
+  // provider-runbooks.md` section 2.2's own flag: this is an undocumented
+  // internal API with no published rate limit, so the defensive posture is
+  // deliberate, not a guess at a real published number.
+  USDA_PLANTS_PROVIDER_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  USDA_PLANTS_CALL_TIMEOUT_MS: positiveInteger.default(15_000),
+  USDA_PLANTS_MAX_CALLS_PER_HOUR: positiveInteger.default(120),
+  USDA_PLANTS_MAX_CALLS_PER_DAY: positiveInteger.default(1_000),
+
   // P9C-INVITE-01: transactional email (Resend, decided 2026-07-26 —
   // section 29.1.1). Absent `RESEND_API_KEY` (every environment today) is
   // the honest `noProviderConfigured`-style degradation
@@ -324,262 +342,14 @@ export const environmentSchema = z.object({
 
 export type RawEnvironment = z.infer<typeof environmentSchema>;
 
-/** One configuration problem, in the shape `load-configuration.ts` merges with zod's own issues. */
 // Cross-field validation (`ConfigurationIssue`, `findDatabaseModeIssues`,
 // `findAiExplanationIssues`, `findPlantSpeciesAiIssues`,
 // `findPlantConditionAiIssues`, `findWeatherProviderIssues`,
 // `findTransactionalEmailIssues`) lives in
 // `configuration-cross-field-issues.ts` — split out for the 600-line limit.
-
-export interface HttpConfiguration {
-  readonly host: string;
-  readonly port: number;
-  readonly bodyLimitBytes: number;
-  readonly allowedOrigins: readonly string[];
-}
-
-interface DatabasePoolTuning {
-  readonly maxConnections: number;
-  readonly connectionTimeoutMs: number;
-  /**
-   * Server-side statement timeout. Required so that a slow query cannot hold a
-   * pooled connection for the lifetime of a Cloud Run instance.
-   *
-   * Source: architecture/backend-modular-monolith.md, section "17. Database Access".
-   */
-  readonly statementTimeoutMs: number;
-}
-
-export interface UrlDatabaseConfiguration extends DatabasePoolTuning {
-  readonly mode: 'url';
-  /** Connection string. Treated as a secret and never logged. */
-  readonly url: string;
-}
-
-export interface CloudSqlIamDatabaseConfiguration extends DatabasePoolTuning {
-  readonly mode: 'cloudSqlIam';
-  /** `PROJECT_ID:REGION:INSTANCE`. Not a secret — it names a resource, not a credential. */
-  readonly instanceConnectionName: string;
-  /** The service's own Cloud SQL IAM database username. No password accompanies it. */
-  readonly iamUser: string;
-  readonly databaseName: string;
-}
-
-export type DatabaseConfiguration = UrlDatabaseConfiguration | CloudSqlIamDatabaseConfiguration;
-
-/** Bucket names and access-TTL tuning for `MediaStorageGateway`. */
-export interface MediaConfiguration {
-  readonly buckets: {
-    readonly userMedia: string;
-    readonly rawCapture: string;
-    readonly derived: string;
-    readonly exports: string;
-  };
-  readonly uploadSessionTtlMs: number;
-  readonly signedDownloadTtlMs: number;
-  /** P6-ASYNC-01: the media-processing callback's own OIDC verification target. */
-  readonly processingCallback: {
-    readonly audience: string;
-    readonly invokerServiceAccountEmail: string;
-  };
-}
-
-/** The Open-Meteo host tier — a licensing choice, not only a routing one. */
-export type OpenMeteoTierSetting = RawEnvironment['WEATHER_OPEN_METEO_TIER'];
-
-/** P0-PROV-01 (weather half) — see the schema's own comment on the `WEATHER_OPEN_METEO_*` variables. */
-export interface OpenMeteoConfiguration {
-  readonly tier: OpenMeteoTierSetting;
-  /** `null` on the keyless free tier; present whenever the tier is `customer` (the cross-field check). */
-  readonly apiKey: string | null;
-  readonly pastDays: number;
-  readonly forecastDays: number;
-}
-
-/** P7-ASYNC-01 and P0-PROV-01 — see the schema's own comments on the `WEATHER_*` variables. */
-export interface WeatherConfiguration {
-  /** `'open-meteo'` selects the registered adapter; `null` keeps the honest `noProviderConfigured` degradation. */
-  readonly activeProviderKey: string | null;
-  readonly observationFreshForMs: number;
-  readonly forecastFreshForMs: number;
-  readonly callTimeoutMs: number;
-  readonly maxCallsPerHour: number;
-  readonly maxCallsPerDay: number;
-  readonly openMeteo: OpenMeteoConfiguration;
-}
-
-/** P7-AI-01 — see the schema's own comment on the `RECOMMENDATION_AI_*` variables. */
-export interface AiExplanationConfiguration {
-  /** The kill-switch. `false` everywhere today: pure deterministic explanations, zero Vertex calls. */
-  readonly enabled: boolean;
-  /** Present whenever `enabled` (the cross-field check); `null` while disabled. */
-  readonly vertexProjectId: string | null;
-  readonly vertexLocation: string;
-  /** Present whenever `enabled`; `null` while disabled — an explicitly evaluated choice, never a code default. */
-  readonly model: string | null;
-  readonly callTimeoutMs: number;
-  readonly maxOutputTokens: number;
-  readonly maxCallsPerHour: number;
-  readonly maxCallsPerDay: number;
-}
-
-/** ADR-0015 — see the schema's own comment on the `PLANT_SPECIES_AI_*` variables. */
-export interface PlantSpeciesAiConfiguration {
-  /** The kill-switch. `false` everywhere today: the stub's honest "no suggestion" answer, zero Vertex calls. */
-  readonly enabled: boolean;
-  /** Present whenever `enabled` (the cross-field check); `null` while disabled — an explicitly evaluated choice, never a code default. */
-  readonly model: string | null;
-  readonly callTimeoutMs: number;
-  readonly maxOutputTokens: number;
-  readonly maxCallsPerHour: number;
-  readonly maxCallsPerDay: number;
-}
-
-/** ADR-0015 — see the schema's own comment on the `PLANT_CONDITION_AI_*` variables. */
-export interface PlantConditionAiConfiguration {
-  /** The kill-switch. `false` everywhere today: the stub's honest placeholder answer, zero Vertex calls. */
-  readonly enabled: boolean;
-  readonly model: string | null;
-  readonly callTimeoutMs: number;
-  readonly maxOutputTokens: number;
-  readonly maxCallsPerHour: number;
-  readonly maxCallsPerDay: number;
-}
-
-/** P8-SEC-02 — see the schema's own comment on `APP_CHECK_ENFORCEMENT`. */
-export interface AppCheckConfiguration {
-  /** `'monitor'` everywhere today: classify and log, reject nothing. */
-  readonly enforcement: AppCheckEnforcementMode;
-}
-
-/** P9C-INVITE-01 — see the schema's own comment on the `RESEND_*`/`CLIENT_PORTAL_BASE_URL` variables. */
-export interface TransactionalEmailConfiguration {
-  /** `null` everywhere today: no Resend account is provisioned yet. */
-  readonly apiKey: string | null;
-  /** Present whenever `apiKey` is (the cross-field check); `null` while absent. */
-  readonly fromEmail: string | null;
-  /** The client-portal origin an accept link is built against; present whenever `apiKey` is. */
-  readonly clientPortalBaseUrl: string | null;
-  readonly callTimeoutMs: number;
-}
-
-export interface ApplicationConfiguration {
-  readonly environment: DeploymentEnvironment;
-  readonly serviceVersion: string;
-  readonly logLevel: RawEnvironment['LOG_LEVEL'];
-  readonly http: HttpConfiguration;
-  readonly database: DatabaseConfiguration;
-  readonly shutdownGracePeriodMs: number;
-  readonly firebaseProjectId: string;
-  readonly media: MediaConfiguration;
-  readonly weather: WeatherConfiguration;
-  readonly aiExplanation: AiExplanationConfiguration;
-  readonly plantSpeciesAi: PlantSpeciesAiConfiguration;
-  readonly plantConditionAi: PlantConditionAiConfiguration;
-  readonly appCheck: AppCheckConfiguration;
-  readonly transactionalEmail: TransactionalEmailConfiguration;
-}
-
-function toDatabaseConfiguration(raw: RawEnvironment): DatabaseConfiguration {
-  const tuning: DatabasePoolTuning = {
-    maxConnections: raw.DATABASE_POOL_MAX_CONNECTIONS,
-    connectionTimeoutMs: raw.DATABASE_CONNECTION_TIMEOUT_MS,
-    statementTimeoutMs: raw.DATABASE_STATEMENT_TIMEOUT_MS,
-  };
-
-  if (raw.DATABASE_CONNECTION_MODE === 'url') {
-    // The superRefine above guarantees this is defined whenever mode is 'url'.
-    return { mode: 'url', url: raw.DATABASE_URL as string, ...tuning };
-  }
-
-  return {
-    mode: 'cloudSqlIam',
-    // The superRefine above guarantees these three are defined whenever mode
-    // is 'cloudSqlIam'.
-    instanceConnectionName: raw.DATABASE_INSTANCE_CONNECTION_NAME as string,
-    iamUser: raw.DATABASE_IAM_USER as string,
-    databaseName: raw.DATABASE_NAME as string,
-    ...tuning,
-  };
-}
-
-/** Shapes validated variables into the structure the composition root consumes. */
-export function toApplicationConfiguration(raw: RawEnvironment): ApplicationConfiguration {
-  return {
-    environment: raw.VERDERY_ENVIRONMENT,
-    serviceVersion: raw.SERVICE_VERSION,
-    logLevel: raw.LOG_LEVEL,
-    http: {
-      host: raw.HTTP_HOST,
-      port: raw.HTTP_PORT,
-      bodyLimitBytes: raw.HTTP_BODY_LIMIT_BYTES,
-      allowedOrigins: raw.HTTP_ALLOWED_ORIGINS,
-    },
-    database: toDatabaseConfiguration(raw),
-    shutdownGracePeriodMs: raw.SHUTDOWN_GRACE_PERIOD_MS,
-    firebaseProjectId: raw.FIREBASE_PROJECT_ID,
-    media: {
-      buckets: {
-        userMedia: raw.MEDIA_USER_MEDIA_BUCKET,
-        rawCapture: raw.MEDIA_RAW_CAPTURE_BUCKET,
-        derived: raw.MEDIA_DERIVED_BUCKET,
-        exports: raw.MEDIA_EXPORTS_BUCKET,
-      },
-      uploadSessionTtlMs: raw.MEDIA_UPLOAD_SESSION_TTL_MS,
-      signedDownloadTtlMs: raw.MEDIA_SIGNED_DOWNLOAD_TTL_MS,
-      processingCallback: {
-        audience: raw.MEDIA_PROCESSING_CALLBACK_AUDIENCE,
-        invokerServiceAccountEmail: raw.MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL,
-      },
-    },
-    weather: {
-      activeProviderKey: raw.WEATHER_ACTIVE_PROVIDER_KEY ?? null,
-      observationFreshForMs: raw.WEATHER_OBSERVATION_FRESH_FOR_MS,
-      forecastFreshForMs: raw.WEATHER_FORECAST_FRESH_FOR_MS,
-      callTimeoutMs: raw.WEATHER_CALL_TIMEOUT_MS,
-      maxCallsPerHour: raw.WEATHER_MAX_CALLS_PER_HOUR,
-      maxCallsPerDay: raw.WEATHER_MAX_CALLS_PER_DAY,
-      openMeteo: {
-        tier: raw.WEATHER_OPEN_METEO_TIER,
-        apiKey: raw.WEATHER_OPEN_METEO_API_KEY ?? null,
-        pastDays: raw.WEATHER_OPEN_METEO_PAST_DAYS,
-        forecastDays: raw.WEATHER_OPEN_METEO_FORECAST_DAYS,
-      },
-    },
-    aiExplanation: {
-      enabled: raw.RECOMMENDATION_AI_EXPLANATION_ENABLED,
-      vertexProjectId: raw.RECOMMENDATION_AI_VERTEX_PROJECT_ID ?? null,
-      vertexLocation: raw.RECOMMENDATION_AI_VERTEX_LOCATION,
-      model: raw.RECOMMENDATION_AI_MODEL ?? null,
-      callTimeoutMs: raw.RECOMMENDATION_AI_CALL_TIMEOUT_MS,
-      maxOutputTokens: raw.RECOMMENDATION_AI_MAX_OUTPUT_TOKENS,
-      maxCallsPerHour: raw.RECOMMENDATION_AI_MAX_CALLS_PER_HOUR,
-      maxCallsPerDay: raw.RECOMMENDATION_AI_MAX_CALLS_PER_DAY,
-    },
-    plantSpeciesAi: {
-      enabled: raw.PLANT_SPECIES_AI_ENABLED,
-      model: raw.PLANT_SPECIES_AI_MODEL ?? null,
-      callTimeoutMs: raw.PLANT_SPECIES_AI_CALL_TIMEOUT_MS,
-      maxOutputTokens: raw.PLANT_SPECIES_AI_MAX_OUTPUT_TOKENS,
-      maxCallsPerHour: raw.PLANT_SPECIES_AI_MAX_CALLS_PER_HOUR,
-      maxCallsPerDay: raw.PLANT_SPECIES_AI_MAX_CALLS_PER_DAY,
-    },
-    plantConditionAi: {
-      enabled: raw.PLANT_CONDITION_AI_ENABLED,
-      model: raw.PLANT_CONDITION_AI_MODEL ?? null,
-      callTimeoutMs: raw.PLANT_CONDITION_AI_CALL_TIMEOUT_MS,
-      maxOutputTokens: raw.PLANT_CONDITION_AI_MAX_OUTPUT_TOKENS,
-      maxCallsPerHour: raw.PLANT_CONDITION_AI_MAX_CALLS_PER_HOUR,
-      maxCallsPerDay: raw.PLANT_CONDITION_AI_MAX_CALLS_PER_DAY,
-    },
-    appCheck: {
-      enforcement: raw.APP_CHECK_ENFORCEMENT,
-    },
-    transactionalEmail: {
-      apiKey: raw.RESEND_API_KEY ?? null,
-      fromEmail: raw.RESEND_FROM_EMAIL ?? null,
-      clientPortalBaseUrl: raw.CLIENT_PORTAL_BASE_URL ?? null,
-      callTimeoutMs: raw.RESEND_CALL_TIMEOUT_MS,
-    },
-  };
-}
+//
+// The per-capability configuration interfaces and `toApplicationConfiguration`
+// (the assembly function) live in `configuration-shape.ts` — same reason,
+// re-exported here so every existing importer keeps importing from this one
+// file unchanged.
+export * from './configuration-shape.js';

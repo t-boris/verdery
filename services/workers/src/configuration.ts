@@ -152,6 +152,18 @@ export const environmentSchema = z.object({
   // deferred on media byte deletion moving without a long stall.
   DELETION_SWEEP_URL: z.string().url(),
   DELETION_SWEEP_INTERVAL_MS: durationMilliseconds.default(3_600_000),
+
+  // P11-ASYNC-01: the API's internal taxon-enrichment-sweep endpoint — the
+  // sixth sweep, same shape and same audience as the five above. Six hours
+  // is a reasoned default in the same documented posture: with zero
+  // providers configured (every environment today) every tick is a typed,
+  // logged no-op the same way the weather sweep's own tick is; once a
+  // provider IS enabled, the per-provider quota (daily/hourly call budgets)
+  // is what actually bounds spend, not the tick rate, so a slower cadence
+  // than weather's hourly tick is deliberate — taxon knowledge changes far
+  // less often than weather does.
+  TAXON_ENRICHMENT_SWEEP_URL: z.string().url(),
+  TAXON_ENRICHMENT_SWEEP_INTERVAL_MS: durationMilliseconds.default(21_600_000),
 });
 
 export type RawEnvironment = z.infer<typeof environmentSchema>;
@@ -204,6 +216,8 @@ export interface WorkerConfiguration {
   readonly exportProcessingApiUrl: string;
   /** P8-DELETE-01 — see the schema's own comment on `DELETION_SWEEP_URL`. */
   readonly deletionSweep: SweepScheduleConfiguration;
+  /** P11-ASYNC-01 — see the schema's own comment on `TAXON_ENRICHMENT_SWEEP_URL`. */
+  readonly taxonEnrichmentSweep: SweepScheduleConfiguration;
 }
 
 /** Raised when the process environment cannot produce a valid configuration. */
@@ -264,6 +278,10 @@ function toWorkerConfiguration(raw: RawEnvironment): WorkerConfiguration {
     deletionSweep: {
       sweepUrl: raw.DELETION_SWEEP_URL,
       intervalMs: raw.DELETION_SWEEP_INTERVAL_MS,
+    },
+    taxonEnrichmentSweep: {
+      sweepUrl: raw.TAXON_ENRICHMENT_SWEEP_URL,
+      intervalMs: raw.TAXON_ENRICHMENT_SWEEP_INTERVAL_MS,
     },
   };
 }

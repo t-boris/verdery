@@ -24,35 +24,52 @@
 import {
   AnalyzePlantCondition,
   createOpenMeteoWeatherRegistration,
+  createUsdaPlantsRegistration,
   GenerateAiExplanation,
   GetGardenWeather,
   IdentifyPlantSpecies,
+  KyselyPlantDistributionAssertionRepository,
+  KyselyPlantFactAssertionRepository,
+  KyselyPlantTaxonomyMappingRepository,
   KyselyProviderQuotaRepository,
+  KyselyTaxonEnrichmentCandidateSource,
+  KyselyTaxonomyIdentitySource,
   KyselyWeatherRecordRepository,
   KyselyWeatherRefreshCandidateSource,
+  PlantAssertionProviderRegistry,
   RefreshGardenWeather,
+  RefreshTaxonAssertions,
   ResendTransactionalEmailAdapter,
+  RunTaxonEnrichmentSweep,
   RunWeatherRefreshSweep,
+  USDA_PLANTS_PROVIDER_KEY,
   WeatherProviderRegistry,
 } from './modules/integrations/public.js';
 import type {
   AiExplanationProviderAdapter,
   PlantConditionAnalysisProviderAdapter,
   PlantSpeciesIdentificationProviderAdapter,
+  TaxonEnrichmentSweepRouteDependencies,
   TransactionalEmailAdapter,
   WeatherRefreshSweepRouteDependencies,
 } from './modules/integrations/public.js';
 import { KyselyGeoreferenceRepository } from './modules/gardens-mapping/public.js';
+import {
+  KyselyPlantProfileVersionRepository,
+  RebuildPlantProfileVersion,
+} from './modules/plants-inventory/public.js';
 import type {
   AiExplanationConfiguration,
   PlantConditionAiConfiguration,
   PlantSpeciesAiConfiguration,
+  TaxonKnowledgeConfiguration,
   TransactionalEmailConfiguration,
   WeatherConfiguration,
 } from './platform/configuration/configuration-schema.js';
 import type { FastifyBaseLogger } from 'fastify';
 import type { DatabaseGateway } from './platform/database/database-gateway.js';
 import type { CloudTasksInvocationVerifier } from './platform/tasks/cloud-tasks-invocation-verifier.js';
+import { generateUuidV7 } from './shared/identifiers/uuid.js';
 import type { Clock } from './shared/time/clock.js';
 
 /**
@@ -76,6 +93,8 @@ export interface IntegrationsComposition {
   /** ADR-0015: consumed by observations-history's `RecordObservation`/`CorrectObservation` — same precedent. */
   readonly analyzePlantCondition: AnalyzePlantCondition;
   readonly weatherRefreshSweepRouteDependencies: WeatherRefreshSweepRouteDependencies;
+  /** P11-ASYNC-01: the scheduled taxon-enrichment sweep's internal route dependencies — the `weatherRefreshSweepRouteDependencies` precedent, second instance. */
+  readonly taxonEnrichmentSweepRouteDependencies: TaxonEnrichmentSweepRouteDependencies;
   /** P9C-INVITE-01: consumed by collaboration's `CreateClientInvitation` — the cross-module use-case injection precedent, again. `null` whenever `RESEND_API_KEY` is unconfigured. */
   readonly transactionalEmailAdapter: TransactionalEmailAdapter | null;
 }
@@ -90,6 +109,7 @@ export function composeIntegrations(
   plantSpeciesIdentificationAdapter: PlantSpeciesIdentificationProviderAdapter | null,
   plantConditionAi: PlantConditionAiConfiguration,
   plantConditionAnalysisAdapter: PlantConditionAnalysisProviderAdapter | null,
+  taxonKnowledge: TaxonKnowledgeConfiguration,
   transactionalEmail: TransactionalEmailConfiguration,
   cloudTasksInvocationVerifier: CloudTasksInvocationVerifier,
   logger: FastifyBaseLogger,
@@ -187,6 +207,60 @@ export function composeIntegrations(
     cloudTasksInvocationVerifier,
   };
 
+  // P11-ASYNC-01: the taxon-enrichment pipeline. The registry holds exactly
+  // ONE registration today — USDA PLANTS, kill-switched off by default,
+  // needing no API key — the exact "one real adapter first" staging
+  // `composeIntegrations`'s own weather registry above went through with
+  // Open-Meteo. `sourcePriority` is the list of ENABLED provider keys, in
+  // ADR-0016's own selection order (a one-provider order today, but the
+  // shape a second registration extends without a signature change) — the
+  // same list drives both which providers `RunTaxonEnrichmentSweep` calls
+  // and `RebuildPlantProfileVersion`'s own tie-break, per that sweep's own
+  // header.
+  const assertionRegistrations = taxonKnowledge.usdaPlants.enabled
+    ? [
+        createUsdaPlantsRegistration(
+          {
+            fetchTimeoutMs: taxonKnowledge.usdaPlants.callTimeoutMs,
+            quotaLimits: {
+              maxCallsPerHour: taxonKnowledge.usdaPlants.maxCallsPerHour,
+              maxCallsPerDay: taxonKnowledge.usdaPlants.maxCallsPerDay,
+            },
+          },
+          (url, init) => globalThis.fetch(url, init),
+        ),
+      ]
+    : [];
+  const assertionRegistry = new PlantAssertionProviderRegistry(assertionRegistrations);
+  const taxonSourcePriority = taxonKnowledge.usdaPlants.enabled ? [USDA_PLANTS_PROVIDER_KEY] : [];
+
+  const refreshTaxonAssertions = new RefreshTaxonAssertions(
+    assertionRegistry,
+    new KyselyPlantTaxonomyMappingRepository(database.queries),
+    new KyselyTaxonomyIdentitySource(database.queries),
+    new KyselyPlantFactAssertionRepository(database.queries),
+    new KyselyPlantDistributionAssertionRepository(database.queries),
+    providerQuotas,
+    generateUuidV7,
+    clock,
+  );
+  const rebuildPlantProfileVersion = new RebuildPlantProfileVersion(
+    new KyselyPlantTaxonomyMappingRepository(database.queries),
+    new KyselyPlantFactAssertionRepository(database.queries),
+    new KyselyPlantProfileVersionRepository(database.queries),
+    generateUuidV7,
+    clock,
+  );
+  const taxonEnrichmentSweepRouteDependencies: TaxonEnrichmentSweepRouteDependencies = {
+    runTaxonEnrichmentSweep: new RunTaxonEnrichmentSweep(
+      new KyselyTaxonEnrichmentCandidateSource(database.queries),
+      refreshTaxonAssertions,
+      rebuildPlantProfileVersion,
+      taxonSourcePriority,
+    ),
+    cloudTasksInvocationVerifier,
+  };
+
   // P9C-INVITE-01 (transactional email: Resend, decided 2026-07-26 —
   // implementation-plan.md section 29.1.1). Built directly here, the same
   // "plain fetch, no SDK" posture Open-Meteo's own registration above takes
@@ -211,6 +285,7 @@ export function composeIntegrations(
     identifyPlantSpecies,
     analyzePlantCondition,
     weatherRefreshSweepRouteDependencies,
+    taxonEnrichmentSweepRouteDependencies,
     transactionalEmailAdapter,
   };
 }
