@@ -337,6 +337,10 @@ describe('AddPlantFromPhoto', () => {
         confidenceScore: 0.75,
         requestedAdditionalEvidence: false,
         careGuidanceSuggestion: 'Water more consistently and check drainage.',
+        evidenceSummary: 'Slight leaf curl visible',
+        alternativeExplanations: [],
+        safetyClass: 'informational',
+        requestedViewPurposes: [],
       },
     });
     const addPlantFromPhoto = new AddPlantFromPhoto(

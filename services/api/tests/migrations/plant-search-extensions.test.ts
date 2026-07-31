@@ -159,11 +159,11 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving plant_candidate and taxonomy_name otherwise intact', async () => {
     await client.end();
 
-    // `count: 2` undoes 1787900000000_visual-journal-observation-extensions.sql
+    // `count: 3` undoes 1787900000000_visual-journal-observation-extensions.sql
     // (now the topmost migration), then this migration itself. The reapply
     // below must use the SAME count. Update this count when a later
     // migration is added on top.
-    await migrate(databaseUrl, 'down', 2);
+    await migrate(databaseUrl, 'down', 3);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();
@@ -184,6 +184,6 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     );
     expect(survivingTables.rows).toHaveLength(2);
 
-    await migrate(databaseUrl, 'up', 2);
+    await migrate(databaseUrl, 'up', 3);
   });
 });

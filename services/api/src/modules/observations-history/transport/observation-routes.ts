@@ -10,13 +10,15 @@
  * `observation` carries no revision — see `domain/observation.ts`'s own
  * header comment.
  *
- * Every command here already returns its own `ObservationResource`, built to
- * match this tag's `Observation` schema field-for-field (see
- * `application/observation-view.ts`'s own doc comment), so no per-response
- * mapping step is needed beyond wrapping a list in `{ items }`.
+ * Every command here already returns its own resource shape, built to match
+ * the corresponding contract schema field-for-field (see
+ * `application/observation-view.ts`'s own doc comment) — `ObservationResource`
+ * for every route but the disposition one, which returns
+ * `ImageAnalysisResultResource` (P11-HEALTH-01) — so no per-response mapping
+ * step is needed beyond wrapping a list in `{ items }`.
  *
  * Source: packages/api-contracts/openapi.yaml, tag `Observations`;
- * implementation-plan.md work package P4-CONTRACT-01.
+ * implementation-plan.md work packages P4-CONTRACT-01, P11-HEALTH-01.
  */
 
 import type { FastifyInstance, FastifyRequest } from 'fastify';
@@ -30,9 +32,11 @@ import type { CorrectObservation } from '../application/correct-observation.js';
 import type { ListObservationsForGarden } from '../application/list-observations-for-garden.js';
 import type { ListObservationsForPlant } from '../application/list-observations-for-plant.js';
 import type { RecordObservation } from '../application/record-observation.js';
+import type { SetHealthSuggestionDisposition } from '../application/set-health-suggestion-disposition.js';
 import {
   parseCorrectObservationRequest,
   parseRecordObservationRequest,
+  parseSetHealthSuggestionDispositionRequest,
 } from './parse-observation-request.js';
 
 export interface ObservationRoutesDependencies {
@@ -40,6 +44,7 @@ export interface ObservationRoutesDependencies {
   readonly correctObservation: CorrectObservation;
   readonly listObservationsForGarden: ListObservationsForGarden;
   readonly listObservationsForPlant: ListObservationsForPlant;
+  readonly setHealthSuggestionDisposition: SetHealthSuggestionDisposition;
 }
 
 function requirePlantId(request: FastifyRequest): string {
@@ -64,6 +69,20 @@ function requireObservationId(request: FastifyRequest): string {
   }
 
   return observationId;
+}
+
+function requireAnalysisResultId(request: FastifyRequest): string {
+  const { analysisResultId } = request.params as { analysisResultId?: unknown };
+
+  if (typeof analysisResultId !== 'string' || !UUID_PATTERN.test(analysisResultId)) {
+    throw invalid(
+      'analysisResultId must be a UUID.',
+      'request.analysis_result_id.invalid',
+      '/analysisResultId',
+    );
+  }
+
+  return analysisResultId;
 }
 
 /**
@@ -133,4 +152,22 @@ export function registerObservationRoutes(
 
     return reply.status(200).send(toItemsResult(items));
   });
+
+  app.post(
+    '/observations/analysis-results/:analysisResultId/disposition',
+    async (request, reply) => {
+      const analysisResultId = requireAnalysisResultId(request);
+      const idempotencyKey = requireIdempotencyKey(request);
+      const { disposition } = parseSetHealthSuggestionDispositionRequest(request.body);
+
+      const result = await deps.setHealthSuggestionDisposition.execute(
+        analysisResultId,
+        request.actorContext.profileId,
+        disposition,
+        idempotencyKey,
+      );
+
+      return reply.status(200).send(result);
+    },
+  );
 }

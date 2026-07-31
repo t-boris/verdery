@@ -340,13 +340,13 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, dropping the notifications schema whole while every earlier table survives', async () => {
     await client.end();
 
-    // `count: 20` undoes every newer migration (through
+    // `count: 21` undoes every newer migration (through
     // 1787800000000_plant-search-extensions.sql — this schema's
     // OWN delivery tables and intent alterations must leave before the
     // baseline can, nothing this file's own assertions check) first, then
     // this migration itself. Update again the next time a migration is
     // added on top of those.
-    await migrate(databaseUrl, 'down', 20);
+    await migrate(databaseUrl, 'down', 21);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

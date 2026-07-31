@@ -6,11 +6,22 @@
  * caller's transaction. Shared by `RecordObservation` and
  * `CorrectObservation`, the only two places this module ever writes these
  * two tables.
+ *
+ * When `plantId` is not null (P11-HEALTH-01), each analysis is compared
+ * against the plant's own prior analyzed photos — every OTHER observation
+ * of the SAME plant's attached photos, oldest first, capped at
+ * `MAX_PRIOR_PHOTOS_FOR_ANALYSIS` — resolved once per call (shared across
+ * every photo attached in this same call, since they all belong to the
+ * same observation and therefore the same "history so far").
  */
 
 import { generateUuidV7 } from '../../../shared/identifiers/uuid.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
-import type { AnalyzePlantCondition, PlantPhotoReference } from '../../integrations/public.js';
+import type {
+  AnalyzePlantCondition,
+  PlantConditionHistoryEntry,
+  PlantPhotoReference,
+} from '../../integrations/public.js';
 import { createImageAnalysisResult } from '../domain/image-analysis-result.js';
 import { createObservationPhoto } from '../domain/observation-photo.js';
 import { photoMediaNotAvailableError, photoMediaNotFoundError } from './observation-errors.js';
@@ -23,14 +34,70 @@ export interface ObservationPhotoAttachmentInput {
   readonly rawPurpose: string;
 }
 
+/** A bounded history window: enough for the model to judge a real trend without an unbounded multi-image call. */
+const MAX_PRIOR_PHOTOS_FOR_ANALYSIS = 5;
+
+function toPhotoReference(mediaRecord: {
+  bucketName: unknown;
+  objectKey: unknown;
+  verifiedContentType: string | null;
+  declaredContentType: string;
+}): PlantPhotoReference {
+  return {
+    bucketName: mediaRecord.bucketName as string,
+    objectKey: mediaRecord.objectKey as string,
+    mimeType: mediaRecord.verifiedContentType ?? mediaRecord.declaredContentType,
+  };
+}
+
+async function resolvePriorPhotos(
+  context: ObservationsHistoryTransactionContext,
+  plantId: Uuid | null,
+  observationId: Uuid,
+): Promise<readonly PlantConditionHistoryEntry[]> {
+  if (plantId === null) {
+    return [];
+  }
+
+  const history = await context.observationPhotos.listAnalysisHistoryForPlant(
+    plantId,
+    observationId,
+    MAX_PRIOR_PHOTOS_FOR_ANALYSIS,
+  );
+
+  const entries: PlantConditionHistoryEntry[] = [];
+  for (const entry of history) {
+    // Defensive, not expected: every prior photo was already attached
+    // through this same guarded path, so its media record should always
+    // still resolve. A media record this module can no longer find or
+    // trust is simply left out of the comparison set rather than failing
+    // the CURRENT observation's own analysis over a past photo's state.
+    const mediaRecord = await context.media.get(entry.mediaId);
+    if (mediaRecord === null || mediaRecord.uploadState !== 'available') {
+      continue;
+    }
+    entries.push({
+      photo: toPhotoReference(mediaRecord),
+      observedAt: entry.observedAt.toISOString(),
+    });
+  }
+  return entries;
+}
+
 export async function attachObservationPhotos(
   context: ObservationsHistoryTransactionContext,
   analyzePlantCondition: AnalyzePlantCondition,
   gardenId: Uuid,
   observationId: Uuid,
+  plantId: Uuid | null,
   photoInputs: readonly ObservationPhotoAttachmentInput[],
   now: Date,
 ): Promise<ObservationPhotoWithAnalysis[]> {
+  if (photoInputs.length === 0) {
+    return [];
+  }
+
+  const priorPhotos = await resolvePriorPhotos(context, plantId, observationId);
   const photos: ObservationPhotoWithAnalysis[] = [];
 
   for (const { mediaId, rawPurpose } of photoInputs) {
@@ -51,16 +118,13 @@ export async function attachObservationPhotos(
 
     // `uploadState === 'available'` guarantees both are set — the paired
     // storage-target CHECK constraint media's own migration enforces.
-    const photoReference: PlantPhotoReference = {
-      bucketName: mediaRecord.bucketName as string,
-      objectKey: mediaRecord.objectKey as string,
-      mimeType: mediaRecord.verifiedContentType ?? mediaRecord.declaredContentType,
-    };
+    const photoReference = toPhotoReference(mediaRecord);
     const analysisResult = await createImageAnalysisResult(
       analyzePlantCondition,
       generateUuidV7(),
       photo.id,
       photoReference,
+      priorPhotos,
       now,
     );
     await context.imageAnalysisResults.insert(analysisResult);

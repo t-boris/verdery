@@ -18,9 +18,10 @@
  *
  * P4-CONTRACT-01 additionally lands this module's HTTP transport
  * (`registerObservationRoutes`, `ObservationRoutesDependencies`) against the
- * `Observations` tag `packages/api-contracts/openapi.yaml` now declares. No
- * new query or command was needed — every route maps onto a command or
- * query this module already had.
+ * `Observations` tag `packages/api-contracts/openapi.yaml` now declares.
+ *
+ * P11-HEALTH-01 adds one new command, `SetHealthSuggestionDisposition`, and
+ * the vocabulary/repository types it and its route need.
  *
  * Source: architecture/backend-modular-monolith.md, section "5.5 Public Interface".
  */
@@ -43,15 +44,26 @@ export type {
   ObservationMeasurementKind,
 } from './domain/observation-measurement.js';
 export { OBSERVATION_MEASUREMENT_KINDS } from './domain/observation-measurement.js';
-export type { ImageAnalysisKind, ImageAnalysisResult } from './domain/image-analysis-result.js';
+export type {
+  HealthSuggestionDisposition,
+  ImageAnalysisKind,
+  ImageAnalysisResult,
+} from './domain/image-analysis-result.js';
+export { HEALTH_SUGGESTION_DISPOSITIONS } from './domain/image-analysis-result.js';
 export type {
   ObservationHistoryEntry,
   ObservationPhotoWithAnalysis,
   ObservationRepository,
 } from './application/observation-repository.js';
-export type { ObservationPhotoRepository } from './application/observation-photo-repository.js';
+export type {
+  ObservationPhotoRepository,
+  PlantPhotoHistoryEntry,
+} from './application/observation-photo-repository.js';
 export type { ObservationMeasurementRepository } from './application/observation-measurement-repository.js';
-export type { ImageAnalysisResultRepository } from './application/image-analysis-result-repository.js';
+export type {
+  ImageAnalysisResultRepository,
+  ImageAnalysisResultWithGardenContext,
+} from './application/image-analysis-result-repository.js';
 export type { PlantOwnershipRepository } from './application/plant-ownership-repository.js';
 export type {
   ObservationsHistoryTransactionContext,
@@ -76,6 +88,7 @@ export { ListObservationsForGarden } from './application/list-observations-for-g
 export { ListObservationsForPlant } from './application/list-observations-for-plant.js';
 export { GetObservation } from './application/get-observation.js';
 export { GetObservationForSync } from './application/get-observation-for-sync.js';
+export { SetHealthSuggestionDisposition } from './application/set-health-suggestion-disposition.js';
 
 export { registerObservationRoutes } from './transport/observation-routes.js';
 export type { ObservationRoutesDependencies } from './transport/observation-routes.js';

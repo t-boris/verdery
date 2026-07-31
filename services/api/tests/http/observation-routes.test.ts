@@ -139,9 +139,14 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     return { authorization: `Bearer ${token}` };
   }
 
-  async function createGardenAsOwner(): Promise<{ token: string; garden: GardenResource }> {
+  async function createGardenAsOwner(): Promise<{
+    token: string;
+    garden: GardenResource;
+    firebaseUid: string;
+  }> {
     const token = randomUUID();
-    tokenVerifier.registerIdToken(token, randomUUID());
+    const firebaseUid = randomUUID();
+    tokenVerifier.registerIdToken(token, firebaseUid);
 
     const created = await app.inject({
       method: 'POST',
@@ -150,7 +155,17 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       payload: { name: 'Observation Test Garden' },
     });
 
-    return { token, garden: asGarden(created) };
+    return { token, garden: asGarden(created), firebaseUid };
+  }
+
+  /** The owner's profile row, created by the authentication middleware on that first authenticated request — needed to satisfy `media.media_record.uploaded_by_profile_id NOT NULL` when this suite provisions a photo directly via `db`, bypassing the (not-yet-built) upload HTTP flow. */
+  async function profileIdFor(firebaseUid: string): Promise<string> {
+    const row = await db
+      .selectFrom('identity_access.profile')
+      .select('id')
+      .where('firebase_uid', '=', firebaseUid)
+      .executeTakeFirstOrThrow();
+    return row.id;
   }
 
   it('rejects recording an observation missing the Idempotency-Key header with 400', async () => {
@@ -223,5 +238,129 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       correctionKind: 'amendment',
       correctsObservationId: observation.id,
     });
+  });
+
+  it('reports setting a disposition on an analysis result that does not exist as 404', async () => {
+    const token = randomUUID();
+    tokenVerifier.registerIdToken(token, randomUUID());
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/v1/observations/analysis-results/${generateUuidV7()}/disposition`,
+      headers: { ...bearer(token), 'idempotency-key': generateUuidV7() },
+      payload: { disposition: 'accepted_as_observation' },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(asError(response).error.code).toBe('observation.analysis_result_not_found');
+  });
+
+  it('rejects setting a disposition missing the Idempotency-Key header with 400', async () => {
+    const { token, garden } = await createGardenAsOwner();
+    void garden;
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/v1/observations/analysis-results/${generateUuidV7()}/disposition`,
+      headers: bearer(token),
+      payload: { disposition: 'rejected' },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("sets a photo's health suggestion disposition over real HTTP", async () => {
+    const { token, garden, firebaseUid } = await createGardenAsOwner();
+    const profileId = await profileIdFor(firebaseUid);
+
+    const mediaId = generateUuidV7();
+    await db
+      .insertInto('media.media_record')
+      .values({
+        id: mediaId,
+        garden_id: garden.id,
+        uploaded_by_profile_id: profileId,
+        media_class: 'garden_photo',
+        display_filename: 'leaf.jpg',
+        declared_content_type: 'image/jpeg',
+        declared_byte_size: 100,
+        bucket_name: 'test-user-media',
+        object_key: `ab/${mediaId}/${generateUuidV7()}`,
+        upload_state: 'available',
+        sensitivity_classification: 'sensitive',
+      })
+      .execute();
+
+    const recorded = await app.inject({
+      method: 'POST',
+      url: `/v1/gardens/${garden.id}/observations`,
+      headers: { ...bearer(token), 'idempotency-key': generateUuidV7() },
+      payload: { photos: [{ mediaId, purpose: 'whole_plant' }] },
+    });
+    expect(recorded.statusCode).toBe(201);
+    const observation = asObservation(recorded);
+    const analysisResultId = observation.photos[0]?.analysisResults[0]?.id;
+    expect(analysisResultId).toBeDefined();
+    expect(observation.photos[0]?.analysisResults[0]?.disposition).toBe('unresolved');
+
+    const disposed = await app.inject({
+      method: 'POST',
+      url: `/v1/observations/analysis-results/${analysisResultId}/disposition`,
+      headers: { ...bearer(token), 'idempotency-key': generateUuidV7() },
+      payload: { disposition: 'accepted_as_observation' },
+    });
+
+    expect(disposed.statusCode).toBe(200);
+    const result = disposed.json<{
+      disposition: string;
+      dispositionSetAt: string | null;
+      dispositionSetByProfileId: string | null;
+    }>();
+    expect(result.disposition).toBe('accepted_as_observation');
+    expect(result.dispositionSetAt).not.toBeNull();
+    expect(result.dispositionSetByProfileId).not.toBeNull();
+  });
+
+  it("conceals another garden owner's health suggestion as 404 for a caller with no membership on that garden", async () => {
+    const { token: ownerToken, garden, firebaseUid } = await createGardenAsOwner();
+    const profileId = await profileIdFor(firebaseUid);
+    const strangerToken = randomUUID();
+    tokenVerifier.registerIdToken(strangerToken, randomUUID());
+
+    const mediaId = generateUuidV7();
+    await db
+      .insertInto('media.media_record')
+      .values({
+        id: mediaId,
+        garden_id: garden.id,
+        uploaded_by_profile_id: profileId,
+        media_class: 'garden_photo',
+        display_filename: 'leaf.jpg',
+        declared_content_type: 'image/jpeg',
+        declared_byte_size: 100,
+        bucket_name: 'test-user-media',
+        object_key: `ab/${mediaId}/${generateUuidV7()}`,
+        upload_state: 'available',
+        sensitivity_classification: 'sensitive',
+      })
+      .execute();
+
+    const recorded = await app.inject({
+      method: 'POST',
+      url: `/v1/gardens/${garden.id}/observations`,
+      headers: { ...bearer(ownerToken), 'idempotency-key': generateUuidV7() },
+      payload: { photos: [{ mediaId, purpose: 'whole_plant' }] },
+    });
+    const observation = asObservation(recorded);
+    const analysisResultId = observation.photos[0]?.analysisResults[0]?.id;
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/v1/observations/analysis-results/${analysisResultId}/disposition`,
+      headers: { ...bearer(strangerToken), 'idempotency-key': generateUuidV7() },
+      payload: { disposition: 'rejected' },
+    });
+
+    expect(response.statusCode).toBe(404);
   });
 });

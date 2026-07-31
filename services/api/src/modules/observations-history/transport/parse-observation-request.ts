@@ -163,3 +163,15 @@ export function parseCorrectObservationRequest(body: unknown): CorrectObservatio
     ),
   };
 }
+
+/** The raw disposition string is validated by `applyHealthSuggestionDisposition` (domain layer) against `HEALTH_SUGGESTION_DISPOSITIONS` — not re-validated here, the same "pass the raw string through" posture `photoAttachments`' own `rawPurpose` already takes. */
+export interface SetHealthSuggestionDispositionRequest {
+  readonly disposition: string;
+}
+
+export function parseSetHealthSuggestionDispositionRequest(
+  body: unknown,
+): SetHealthSuggestionDispositionRequest {
+  const record = requireRecord(body, '');
+  return { disposition: requireString(record['disposition'], '/disposition') };
+}

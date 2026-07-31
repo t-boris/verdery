@@ -126,6 +126,7 @@ export class RecordObservation {
           this.analyzePlantCondition,
           observation.gardenId,
           observation.id,
+          observation.plantId,
           input.photos,
           now,
         );

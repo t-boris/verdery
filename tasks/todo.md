@@ -8042,3 +8042,120 @@ symptoms). None of the three has any existing code comment forward-pointing at t
 way P11-SEARCH-01's predecessors did, so none was silently expected to land here.
 
 ---
+
+## P11-HEALTH-01 — uncertain health suggestions, first real pass (scoped, documented remainder)
+
+ADR-0016 section 2 ("Health-suggestion safety") had already frozen the central design decision before
+this work package started: `observations_history.image_analysis_result` (real since P10/ADR-0015) IS
+the design doc's "health suggestion" (§9) — extend it additively, never fork a parallel
+`plant_health_suggestion` table. This pass builds every field that decision named: model/prompt
+version, evidence summary, alternative explanations, safety class, requested view purposes, and the
+design doc's own four-state disposition (`confirmed_externally | accepted_as_observation | rejected |
+unresolved`) — plus wires the "and its history" half of the work package's own one-line description,
+which the domain file's own header had explicitly flagged as "not wired yet" since P10.
+
+**Migration** (`1788000000000_health-suggestion-disposition.sql`, 36th on top of 35): nine additive
+columns on `image_analysis_result`. `alternative_explanations`/`requested_view_purposes` are `jsonb`
+string arrays, not native Postgres arrays — no table anywhere in this codebase uses one;
+`tasks_recommendations.recommendation_ai_explanation.packet_fact_keys` is the established `jsonb`
+precedent, reused by reference. `requested_view_purposes` reuses `observation_photo.purpose`'s own
+8-value vocabulary verbatim (P11-MEDIA-01) via jsonb containment (`<@`) rather than a per-element
+subquery — Postgres CHECK constraints cannot contain a subquery at all (found by the migration
+genuinely failing every OTHER migration test in the suite once this one landed on top, not by
+inspection); containment is the correct, subquery-free equivalent. `disposition_set_at`/
+`disposition_set_by_profile_id` are linked to `disposition` by two implication CHECKs (both null
+exactly when `disposition = 'unresolved'`, both set otherwise) — the same idiom
+`garden_context_fact_source_reviewed_linkage_check` already established. `safety_class` is a genuinely
+new, three-value vocabulary (`informational | monitor | expert_review_recommended`) neither the design
+doc nor the ADR defines — chosen and documented as a distinct axis from
+`tasks_recommendations.rule_version`'s `RecommendationSafetyTier`, which classifies care ACTIONS a
+rule may recommend, not the urgency of an unconfirmed AI diagnosis.
+
+**Found and fixed while writing THIS migration's own file**: a `RESET ROLE;` omission at the end of
+both the up and down migration bodies — every other migration in this codebase pairs `SET ROLE
+verdery_migration;` with a trailing `RESET ROLE;`, and skipping it here left the connection's role
+still elevated when node-pg-migrate went to record its own bookkeeping row afterward, failing with
+"permission denied for table pgmigrations" — a failure that (before the fix) cascaded across every
+OTHER migration test in the suite too, since each applies the full chain from scratch in its own
+`beforeAll`. Root-caused by a throwaway direct-runner script bypassing the test harness to see the
+real per-statement SQL log, not by guessing. Fixed; full 43-file, 391-test migration suite reverified
+green afterward.
+
+**Integrations layer** (`plant-condition-analysis-provider.ts`, `vertex-ai-plant-condition-analysis
+-adapter.ts`): `PlantConditionObservation` gains `evidenceSummary`, `alternativeExplanations`,
+`safetyClass`, `requestedViewPurposes` — a LOCAL copy of the view-purpose vocabulary (`PlantConditionViewPurpose`),
+not an import of `observations-history`'s own type, since `integrations` sits below that module and
+the dependency cannot run the other way; the same `Hemisphere` non-sharing precedent this phase has
+used throughout. Prompt template version bumped 2 → 3; the system instruction gains explicit
+`safetyClass`/`requestedViewPurposes` authoring rules and — closing a real gap the design doc's own
+five-item exclusion list named but the EXISTING instruction never mentioned — an explicit "never state
+or imply a regulatory, invasive, or restricted-species status" line alongside the pre-existing
+edibility/toxicity/chemical exclusions. Both the Gemini `responseSchema` and the `zod` `.strict()`
+validator gained the four new fields, preserving the existing two-independent-layers-agree posture.
+
+**Domain** (`image-analysis-result.ts`): `ImageAnalysisResult` gains all nine new fields plus
+`HealthSuggestionDisposition`; `analyzeObservationPhoto`/`createImageAnalysisResult` now take a real
+`priorPhotos` parameter (previously hardcoded `[]`) and capture `modelName`/`promptVersion` for EVERY
+outcome the provider was actually reached for (not just a successful observation — a schema-invalid or
+safety-blocked response still proves which model/version was called). New
+`applyHealthSuggestionDisposition` pure function: no transition ordering enforced, mirroring
+`LifecycleStage`'s own "any transition is a legitimate, if inert, command" posture — a user may
+reconsider a disposition freely.
+
+**Prior-photo history, wired for real**: new `ObservationPhotoRepository.listAnalysisHistoryForPlant`
+(every OTHER observation's photos for the same plant, oldest first, capped at 5, excluding the
+observation currently being recorded/corrected — sibling photos in the SAME observation event are
+concurrent, not prior) plus `attachObservationPhotos` resolving each entry's real media reference and
+threading the result into `AnalyzePlantCondition`'s own `priorPhotos` field, once per call (shared
+across every photo attached in that call). `RecordObservation`/`CorrectObservation` now pass
+`observation.plantId`/`correction.plantId` through. An area-level observation (`plantId: null`) still
+skips history resolution entirely, matching the design's own "already-known, user-selected plant" scope
+from ADR-0015.
+
+**Application/persistence**: `ImageAnalysisResultRepository` gains `getWithGardenContext` (a JOIN
+through `observation_photo` -> `observation`, since the row itself carries no `garden_id`) and a narrow
+`update` (disposition fields only — every other field stays write-once). New
+`SetHealthSuggestionDisposition` command: looks up and authorizes BEFORE the idempotency-guarded
+transaction, the same ordering `CorrectObservation` already uses for its own original-observation
+lookup — an authorization failure must not depend on idempotency-cache state. No `expectedRevision`:
+`image_analysis_result` carries no revision, and a disposition write is last-writer-wins, the same
+posture `RecordGardenContextFact` already takes for a different aggregate.
+
+**Contract and transport**: `ImageAnalysisResult` schema extended (its own description corrected from a
+stale "stubbed, honest placeholder" left over from before P10's real adapter landed); new
+`HealthSuggestionSafetyClass`/`HealthSuggestionDisposition` enums; new
+`POST /observations/analysis-results/{analysisResultId}/disposition` route and
+`SetHealthSuggestionDispositionRequest` schema, `Observations`-tagged alongside its siblings. No
+existing request/response shape broke — this is the first Phase 11 API change this session that did
+NOT need a web/iOS client fix, since the new capability is purely additive (a new route, new
+response fields) rather than a changed request shape.
+
+**Verification**: fresh `pnpm check:all` (format, lint, typecheck, 600-line gate) clean;
+`pnpm --filter @verdery/api-contracts lint:contract` valid; full `services/api` suite green. New/
+extended tests: `tests/migrations/health-suggestion-disposition.test.ts` (15 scenarios, including every
+new CHECK constraint and the disposition/linkage-field implication pair);
+`vertex-ai-plant-condition-analysis-adapter.test.ts` extended for the new schema fields and the
+regulatory-exclusion instruction text; `image-analysis-result.test.ts` extended for `priorPhotos`
+threading, provenance-on-non-observation-outcomes, and `applyHealthSuggestionDisposition`;
+`correct-observation.test.ts` split into itself plus a new `correct-observation-media.test.ts` sharing
+a new `correct-observation-test-support.ts` (the same 600-line split `record-observation.test.ts`
+already went through in P11-MEDIA-01); `tests/http/observation-routes.test.ts` extended with the real
+HTTP disposition-setting round trip and its 404/400/concealed-404 cases; new
+`tests/integration/observations-history-health.test.ts` (7 real-Postgres scenarios) proving prior-photo
+history actually threads through in request order, an area-level observation skips it, and
+`SetHealthSuggestionDisposition`'s idempotency/reset/not-found behavior — this file's own media-record
+setup helper also found and fixed a second, unrelated latent test-fixture gap: `RegisterMediaRecord`
+alone leaves `bucketName`/`objectKey` null (a real upload-confirmation step sets them later), and
+existing sibling integration tests' own "drive straight to available" helpers silently never noticed
+because nothing inspected those fields' content before now — fixed locally in this file's own helper,
+not touched elsewhere since it caused no failure there.
+
+**What remains, tracked as real follow-up, not dropped**: additional-view-request UI/consumption
+(client-side — the field exists and is populated server-side; a client actually prompting "take
+another flower photo" from it is P11-WEB-01/P11-IOS-01's job); a real-world evaluation of the adapter
+against actual garden photos and confirmation of Vertex's current image data-retention terms — both
+ADR-0015's own pre-existing, still-open owner gates, not re-litigated per capability per ADR-0016
+section 5's own instruction; and `PLANT_CONDITION_AI_ENABLED` stays `false` in every environment today,
+unchanged by this pass — this ships real and kill-switched, not real and turned on.
+
+---

@@ -2791,6 +2791,56 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /observations/analysis-results/{analysisResultId}/disposition:
+    parameters:
+      - name: analysisResultId
+        in: path
+        required: true
+        description: The health suggestion (`image_analysis_result`) being reviewed.
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: setHealthSuggestionDisposition
+      tags: [Observations]
+      summary: Set a health suggestion's disposition
+      description: |
+        Records the caller's disposition on an already-produced health
+        suggestion — `confirmed_externally`, `accepted_as_observation`,
+        `rejected`, or back to `unresolved`. No ordering is enforced: a
+        disposition may be reconsidered freely, matching `PlantLifecycleStage`'s
+        own "any transition is a legitimate, if inert, command" posture. No
+        `If-Match`: `image_analysis_result` carries no revision.
+
+        Source: implementation-plan.md work package P11-HEALTH-01;
+        architecture/plant-intelligence-and-visual-journal.md, section
+        "9. Health Suggestions".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetHealthSuggestionDispositionRequest'
+      responses:
+        '200':
+          description: The health suggestion with its updated disposition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageAnalysisResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
   /gardens/{gardenId}/tasks:
     parameters:
       - name: gardenId
@@ -10339,6 +10389,23 @@ components:
       type: string
       enum: [stress, disease, pest, other]
 
+    HealthSuggestionSafetyClass:
+      type: string
+      enum: [informational, monitor, expert_review_recommended]
+      description: |
+        How urgently a health suggestion should prompt a human follow-up
+        (P11-HEALTH-01) — NOT a treatment recommendation. High-impact
+        treatment recommendations remain rules-first, under the separate
+        recommendation safety policy, regardless of this value.
+
+    HealthSuggestionDisposition:
+      type: string
+      enum: [confirmed_externally, accepted_as_observation, rejected, unresolved]
+      description: |
+        The design doc's own four-state vocabulary
+        (plant-intelligence-and-visual-journal.md §9). `unresolved` is the
+        default — no disposition has been recorded yet.
+
     ImageAnalysisResult:
       type: object
       additionalProperties: false
@@ -10350,12 +10417,23 @@ components:
           confidenceScore,
           requiresConfirmation,
           requestedAdditionalEvidence,
+          evidenceSummary,
+          alternativeExplanations,
+          safetyClass,
+          requestedViewPurposes,
+          modelName,
+          promptVersion,
+          disposition,
+          dispositionSetAt,
+          dispositionSetByProfileId,
           createdAt,
         ]
       description: |
-        A stubbed, honest placeholder: `requiresConfirmation` is always
-        `true` — an automated diagnosis is never presented as a confirmed
-        fact without explicit user confirmation.
+        The design doc's own "health suggestion" (§9) — an unconfirmed
+        automated observation, never a diagnosis: `requiresConfirmation` is
+        always `true`, and the model cannot directly populate toxicity,
+        edibility, pesticide/treatment, or regulatory facts (structurally —
+        no such field exists here or anywhere this is produced).
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -10371,6 +10449,37 @@ components:
           type: boolean
         requestedAdditionalEvidence:
           type: boolean
+        evidenceSummary:
+          type: string
+          description: What is visibly supporting `suggestedLabel` — empty when nothing notable is visible.
+        alternativeExplanations:
+          type: array
+          items:
+            type: string
+          description: Other plausible causes besides `suggestedLabel`, short labels not full sentences.
+        safetyClass:
+          $ref: '#/components/schemas/HealthSuggestionSafetyClass'
+        requestedViewPurposes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ObservationPhotoPurpose'
+          description: Populated only when `requestedAdditionalEvidence` is true.
+        modelName:
+          type: [string, 'null']
+          description: Null when no provider was ever reached (disabled, quota exhausted, timed out).
+        promptVersion:
+          type: [integer, 'null']
+        disposition:
+          $ref: '#/components/schemas/HealthSuggestionDisposition'
+        dispositionSetAt:
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+          description: Null exactly when `disposition` is `unresolved`, set together with `dispositionSetByProfileId` otherwise.
+        dispositionSetByProfileId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
         createdAt:
           $ref: '#/components/schemas/Timestamp'
 
@@ -10612,6 +10721,15 @@ components:
           oneOf:
             - $ref: '#/components/schemas/PlantLifecycleStage'
             - type: 'null'
+
+    SetHealthSuggestionDispositionRequest:
+      type: object
+      additionalProperties: false
+      required: [disposition]
+      description: "Mirrors `SetHealthSuggestionDisposition`'s own input. Source: observations-history/application/set-health-suggestion-disposition.ts."
+      properties:
+        disposition:
+          $ref: '#/components/schemas/HealthSuggestionDisposition'
 
     TaskTargetKind:
       type: string

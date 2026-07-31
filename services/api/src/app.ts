@@ -76,12 +76,14 @@ import {
 import {
   CorrectObservation,
   GetObservation,
+  KyselyImageAnalysisResultRepository,
   KyselyObservationRepository,
   KyselyObservationsHistoryUnitOfWork,
   ListObservationsForGarden,
   ListObservationsForPlant,
   RecordObservation,
   registerObservationRoutes,
+  SetHealthSuggestionDisposition,
 } from './modules/observations-history/public.js';
 import { registerCandidateRoutes, registerPlantRoutes } from './modules/plants-inventory/public.js';
 import {
@@ -277,6 +279,7 @@ export async function buildApplication(
   // and `image_analysis_result` tables. Reuses `gardenAuthorization`. HTTP
   // transport (`registerObservationRoutes`, tag `Observations`) wired below.
   const observationRepository = new KyselyObservationRepository(database.queries);
+  const imageAnalysisResultRepository = new KyselyImageAnalysisResultRepository(database.queries);
   const observationsHistoryIdempotency = new KyselyIdempotencyStore(database.queries, clock);
   const observationsHistoryUnitOfWork = new KyselyObservationsHistoryUnitOfWork(
     database.queries,
@@ -307,12 +310,21 @@ export async function buildApplication(
   );
   // Used below by tasks-recommendations' `CreateManualTask`.
   const getObservation = new GetObservation(observationRepository);
+  // P11-HEALTH-01: reviewing a health suggestion's disposition.
+  const setHealthSuggestionDisposition = new SetHealthSuggestionDisposition(
+    observationsHistoryIdempotency,
+    observationsHistoryUnitOfWork,
+    gardenAuthorization,
+    imageAnalysisResultRepository,
+    clock,
+  );
 
   const observationRoutesDependencies = {
     recordObservation,
     correctObservation,
     listObservationsForGarden,
     listObservationsForPlant,
+    setHealthSuggestionDisposition,
   };
 
   // plants-inventory: owns the mutable `plant` aggregate root, its

@@ -1621,6 +1621,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/observations/analysis-results/{analysisResultId}/disposition": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The health suggestion (`image_analysis_result`) being reviewed. */
+                analysisResultId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a health suggestion's disposition
+         * @description Records the caller's disposition on an already-produced health
+         *     suggestion — `confirmed_externally`, `accepted_as_observation`,
+         *     `rejected`, or back to `unresolved`. No ordering is enforced: a
+         *     disposition may be reconsidered freely, matching `PlantLifecycleStage`'s
+         *     own "any transition is a legitimate, if inert, command" posture. No
+         *     `If-Match`: `image_analysis_result` carries no revision.
+         *
+         *     Source: implementation-plan.md work package P11-HEALTH-01;
+         *     architecture/plant-intelligence-and-visual-journal.md, section
+         *     "9. Health Suggestions".
+         */
+        post: operations["setHealthSuggestionDisposition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/gardens/{gardenId}/tasks": {
         parameters: {
             query?: never;
@@ -6035,9 +6067,26 @@ export interface components {
         /** @enum {string} */
         ImageAnalysisKind: "stress" | "disease" | "pest" | "other";
         /**
-         * @description A stubbed, honest placeholder: `requiresConfirmation` is always
-         *     `true` — an automated diagnosis is never presented as a confirmed
-         *     fact without explicit user confirmation.
+         * @description How urgently a health suggestion should prompt a human follow-up
+         *     (P11-HEALTH-01) — NOT a treatment recommendation. High-impact
+         *     treatment recommendations remain rules-first, under the separate
+         *     recommendation safety policy, regardless of this value.
+         * @enum {string}
+         */
+        HealthSuggestionSafetyClass: "informational" | "monitor" | "expert_review_recommended";
+        /**
+         * @description The design doc's own four-state vocabulary
+         *     (plant-intelligence-and-visual-journal.md §9). `unresolved` is the
+         *     default — no disposition has been recorded yet.
+         * @enum {string}
+         */
+        HealthSuggestionDisposition: "confirmed_externally" | "accepted_as_observation" | "rejected" | "unresolved";
+        /**
+         * @description The design doc's own "health suggestion" (§9) — an unconfirmed
+         *     automated observation, never a diagnosis: `requiresConfirmation` is
+         *     always `true`, and the model cannot directly populate toxicity,
+         *     edibility, pesticide/treatment, or regulatory facts (structurally —
+         *     no such field exists here or anywhere this is produced).
          */
         ImageAnalysisResult: {
             id: components["schemas"]["Uuid"];
@@ -6046,6 +6095,20 @@ export interface components {
             confidenceScore: number;
             requiresConfirmation: boolean;
             requestedAdditionalEvidence: boolean;
+            /** @description What is visibly supporting `suggestedLabel` — empty when nothing notable is visible. */
+            evidenceSummary: string;
+            /** @description Other plausible causes besides `suggestedLabel`, short labels not full sentences. */
+            alternativeExplanations: string[];
+            safetyClass: components["schemas"]["HealthSuggestionSafetyClass"];
+            /** @description Populated only when `requestedAdditionalEvidence` is true. */
+            requestedViewPurposes: components["schemas"]["ObservationPhotoPurpose"][];
+            /** @description Null when no provider was ever reached (disabled, quota exhausted, timed out). */
+            modelName: string | null;
+            promptVersion: number | null;
+            disposition: components["schemas"]["HealthSuggestionDisposition"];
+            /** @description Null exactly when `disposition` is `unresolved`, set together with `dispositionSetByProfileId` otherwise. */
+            dispositionSetAt: components["schemas"]["Timestamp"] | null;
+            dispositionSetByProfileId: components["schemas"]["Uuid"] | null;
             createdAt: components["schemas"]["Timestamp"];
         };
         ObservationPhoto: {
@@ -6138,6 +6201,10 @@ export interface components {
             /** @default [] */
             measurements: components["schemas"]["ObservationMeasurementInput"][];
             observedPhenologicalStage?: components["schemas"]["PlantLifecycleStage"] | null;
+        };
+        /** @description Mirrors `SetHealthSuggestionDisposition`'s own input. Source: observations-history/application/set-health-suggestion-disposition.ts. */
+        SetHealthSuggestionDispositionRequest: {
+            disposition: components["schemas"]["HealthSuggestionDisposition"];
         };
         /** @enum {string} */
         TaskTargetKind: "garden" | "garden_area" | "plant";
@@ -9801,6 +9868,45 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    setHealthSuggestionDisposition: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description The health suggestion (`image_analysis_result`) being reviewed. */
+                analysisResultId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetHealthSuggestionDispositionRequest"];
+            };
+        };
+        responses: {
+            /** @description The health suggestion with its updated disposition. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageAnalysisResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     listTasksForGarden: {

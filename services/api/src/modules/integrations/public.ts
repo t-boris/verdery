@@ -351,6 +351,12 @@ export type {
   PlantConditionKind,
   PlantConditionModelIdentity,
   PlantConditionObservation,
+  PlantConditionSafetyClass,
+  PlantConditionViewPurpose,
+} from './application/plant-condition-analysis-provider.js';
+export {
+  PLANT_CONDITION_SAFETY_CLASSES,
+  PLANT_CONDITION_VIEW_PURPOSES,
 } from './application/plant-condition-analysis-provider.js';
 export { AnalyzePlantCondition } from './application/analyze-plant-condition.js';
 export type {

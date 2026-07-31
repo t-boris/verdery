@@ -3,16 +3,16 @@
  *
  * `ObservationErrorCode` is colocated here rather than added to
  * `@verdery/api-contracts` (`GardenErrorCode`'s and `MapErrorCode`'s home):
- * this module has no transport layer or OpenAPI operation this pass — see
- * `public.ts`'s doc comment — mirroring `media`'s own "no
- * `@verdery/api-contracts` schema to conform to yet" reasoning
- * (`media/application/media-record-view.ts`). There is no contract document
- * for a shared, dotted code to live next to yet; promote this into the
- * shared catalogue if and when a route is added. `SharedErrorCode.
- * RequestInvalid` is reused as-is for the two validation cases below, the
- * same way `map/application/assign-plant-to-target.ts`'s `invalidTarget()`
- * and `notAPlant()` do — a module-specific `details[].code` carries the
- * precise reason, not the top-level `code`.
+ * mirroring `media`'s own "no `@verdery/api-contracts` schema to conform to
+ * yet" reasoning (`media/application/media-record-view.ts`) from when this
+ * module first had no transport layer at all — P4-CONTRACT-01 later landed
+ * real HTTP routes (`transport/observation-routes.ts`) without migrating
+ * these codes into the shared catalogue; promote them there if a future
+ * pass needs cross-module reuse. `SharedErrorCode.RequestInvalid` is reused
+ * as-is for the validation cases below, the same way `map/application/
+ * assign-plant-to-target.ts`'s `invalidTarget()` and `notAPlant()` do — a
+ * module-specific `details[].code` carries the precise reason, not the
+ * top-level `code`.
  */
 
 import { SharedErrorCode } from '@verdery/api-contracts';
@@ -22,12 +22,21 @@ import type { Uuid } from '../../../shared/identifiers/uuid.js';
 export const ObservationErrorCode = {
   /** No observation exists at this ID. */
   NotFound: 'observation.not_found',
+  /** No image-analysis (health-suggestion) result exists at this ID (P11-HEALTH-01). */
+  AnalysisResultNotFound: 'observation.analysis_result_not_found',
 } as const;
 
 export type ObservationErrorCode = (typeof ObservationErrorCode)[keyof typeof ObservationErrorCode];
 
 export function observationNotFoundError(): NotFoundError {
   return new NotFoundError(ObservationErrorCode.NotFound, 'Observation not found.');
+}
+
+export function imageAnalysisResultNotFoundError(): NotFoundError {
+  return new NotFoundError(
+    ObservationErrorCode.AnalysisResultNotFound,
+    'Health suggestion (image analysis result) not found.',
+  );
 }
 
 export function plantNotInGardenError(): ValidationError {

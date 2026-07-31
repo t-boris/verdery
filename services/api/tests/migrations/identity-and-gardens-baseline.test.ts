@@ -213,7 +213,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving the platform-baseline schemas and roles otherwise intact', async () => {
     await client.end();
 
-    // `count: 34` undoes this migration and every migration applied after it
+    // `count: 35` undoes this migration and every migration applied after it
     // (currently through 1787800000000_plant-search-extensions.sql,
     // each of which depends, directly or transitively, on tables this one
     // creates and must come down first). The shared `migrate()` helper runs
@@ -225,7 +225,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 34,
+      count: 35,
       log: () => {},
     });
 

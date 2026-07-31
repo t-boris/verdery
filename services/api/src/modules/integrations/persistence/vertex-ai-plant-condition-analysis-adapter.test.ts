@@ -67,6 +67,10 @@ describe('buildGenerateContentParameters', () => {
         'confidenceScore',
         'requestedAdditionalEvidence',
         'careGuidanceSuggestion',
+        'evidenceSummary',
+        'alternativeExplanations',
+        'safetyClass',
+        'requestedViewPurposes',
       ],
     });
   });
@@ -95,26 +99,32 @@ describe('buildGenerateContentParameters', () => {
     expect(content?.parts).toHaveLength(1);
   });
 
-  it('instructs the versioned bounds: compare over time, known kinds only, never toxicity/edibility, JSON-only', () => {
+  it('instructs the versioned bounds: compare over time, known kinds only, never toxicity/edibility/regulatory, JSON-only', () => {
     expect(typeof parameters.config?.systemInstruction).toBe('string');
     const instruction = parameters.config?.systemInstruction as string;
     expect(instruction).toContain('ordered oldest to newest');
     expect(instruction).toContain('"stress", "disease", "pest", or "other"');
     expect(instruction).toContain('Never state or imply whether the plant is edible, toxic');
+    expect(instruction).toContain('regulatory, invasive, or restricted-species status');
     expect(instruction).toContain('Respond with JSON only');
     expect(instruction).toContain('careGuidanceSuggestion');
-    expect(VERTEX_PLANT_CONDITION_PROMPT_TEMPLATE_VERSION).toBe(2);
+    expect(instruction).toContain('evidenceSummary');
+    expect(instruction).toContain('alternativeExplanations');
+    expect(instruction).toContain('safetyClass');
+    expect(instruction).toContain('requestedViewPurposes');
+    expect(VERTEX_PLANT_CONDITION_PROMPT_TEMPLATE_VERSION).toBe(3);
   });
 });
 
+const FULL_OBSERVATION_JSON =
+  '{"kind": "stress", "suggestedLabel": " Wilting leaves ", "confidenceScore": 0.7,' +
+  ' "requestedAdditionalEvidence": false, "careGuidanceSuggestion": " Water more consistently ",' +
+  ' "evidenceSummary": " Lower leaves yellowing ", "alternativeExplanations": ["Nutrient deficiency"],' +
+  ' "safetyClass": "monitor", "requestedViewPurposes": []}';
+
 describe('parseResponse', () => {
-  it('parses a confident observation, trimming the label and the care guidance', () => {
-    const outcome = parseResponse(
-      textResponse(
-        '{"kind": "stress", "suggestedLabel": " Wilting leaves ", "confidenceScore": 0.7,' +
-          ' "requestedAdditionalEvidence": false, "careGuidanceSuggestion": " Water more consistently "}',
-      ),
-    );
+  it('parses a confident observation, trimming string fields', () => {
+    const outcome = parseResponse(textResponse(FULL_OBSERVATION_JSON));
     expect(outcome).toEqual({
       kind: 'observation',
       observation: {
@@ -123,7 +133,26 @@ describe('parseResponse', () => {
         confidenceScore: 0.7,
         requestedAdditionalEvidence: false,
         careGuidanceSuggestion: 'Water more consistently',
+        evidenceSummary: 'Lower leaves yellowing',
+        alternativeExplanations: ['Nutrient deficiency'],
+        safetyClass: 'monitor',
+        requestedViewPurposes: [],
       },
+    });
+  });
+
+  it('parses requestedViewPurposes when non-empty', () => {
+    const outcome = parseResponse(
+      textResponse(
+        '{"kind": "other", "suggestedLabel": "", "confidenceScore": 0,' +
+          ' "requestedAdditionalEvidence": true, "careGuidanceSuggestion": "",' +
+          ' "evidenceSummary": "", "alternativeExplanations": [], "safetyClass": "informational",' +
+          ' "requestedViewPurposes": ["leaf_back", "symptom_close_up"]}',
+      ),
+    );
+    expect(outcome).toMatchObject({
+      kind: 'observation',
+      observation: { requestedViewPurposes: ['leaf_back', 'symptom_close_up'] },
     });
   });
 
@@ -135,16 +164,24 @@ describe('parseResponse', () => {
   it.each([
     [
       'unknown kind',
-      '{"kind": "toxicity", "suggestedLabel": "x", "confidenceScore": 0.5, "requestedAdditionalEvidence": false, "careGuidanceSuggestion": ""}',
+      '{"kind": "toxicity", "suggestedLabel": "x", "confidenceScore": 0.5, "requestedAdditionalEvidence": false, "careGuidanceSuggestion": "", "evidenceSummary": "", "alternativeExplanations": [], "safetyClass": "informational", "requestedViewPurposes": []}',
     ],
     [
       'confidence out of range',
-      '{"kind": "pest", "suggestedLabel": "x", "confidenceScore": 2, "requestedAdditionalEvidence": false, "careGuidanceSuggestion": ""}',
+      '{"kind": "pest", "suggestedLabel": "x", "confidenceScore": 2, "requestedAdditionalEvidence": false, "careGuidanceSuggestion": "", "evidenceSummary": "", "alternativeExplanations": [], "safetyClass": "informational", "requestedViewPurposes": []}',
     ],
     ['missing fields', '{"kind": "pest"}'],
     [
       'unexpected extra field',
-      '{"kind": "pest", "suggestedLabel": "x", "confidenceScore": 0.5, "requestedAdditionalEvidence": false, "careGuidanceSuggestion": "", "treatment": "spray"}',
+      '{"kind": "pest", "suggestedLabel": "x", "confidenceScore": 0.5, "requestedAdditionalEvidence": false, "careGuidanceSuggestion": "", "evidenceSummary": "", "alternativeExplanations": [], "safetyClass": "informational", "requestedViewPurposes": [], "treatment": "spray"}',
+    ],
+    [
+      'unrecognized safetyClass',
+      '{"kind": "pest", "suggestedLabel": "x", "confidenceScore": 0.5, "requestedAdditionalEvidence": false, "careGuidanceSuggestion": "", "evidenceSummary": "", "alternativeExplanations": [], "safetyClass": "urgent", "requestedViewPurposes": []}',
+    ],
+    [
+      'unrecognized requestedViewPurposes entry',
+      '{"kind": "pest", "suggestedLabel": "x", "confidenceScore": 0.5, "requestedAdditionalEvidence": false, "careGuidanceSuggestion": "", "evidenceSummary": "", "alternativeExplanations": [], "safetyClass": "informational", "requestedViewPurposes": ["close_up"]}',
     ],
   ])('rejects a schema violation — %s — as schemaInvalid', (_name, body) => {
     const outcome = parseResponse(textResponse(body));
@@ -175,7 +212,9 @@ describe('VertexAiPlantConditionAnalysisAdapter', () => {
           return Promise.resolve(
             textResponse(
               '{"kind": "disease", "suggestedLabel": "Leaf spot", "confidenceScore": 0.65,' +
-                ' "requestedAdditionalEvidence": false, "careGuidanceSuggestion": "Remove affected leaves"}',
+                ' "requestedAdditionalEvidence": false, "careGuidanceSuggestion": "Remove affected leaves",' +
+                ' "evidenceSummary": "Dark spots on leaves", "alternativeExplanations": [],' +
+                ' "safetyClass": "expert_review_recommended", "requestedViewPurposes": []}',
             ),
           );
         },
@@ -193,6 +232,10 @@ describe('VertexAiPlantConditionAnalysisAdapter', () => {
         confidenceScore: 0.65,
         requestedAdditionalEvidence: false,
         careGuidanceSuggestion: 'Remove affected leaves',
+        evidenceSummary: 'Dark spots on leaves',
+        alternativeExplanations: [],
+        safetyClass: 'expert_review_recommended',
+        requestedViewPurposes: [],
       },
     });
     expect(seen[0]?.model).toBe('gemini-test-model');

@@ -63,6 +63,12 @@ export interface ObservationMeasurementRow {
  * scoped fix is a local row type plus explicit conversion in
  * `kysely-image-analysis-result-repository.ts`, not a second process-wide
  * type-parser registration alongside the bigint one.
+ *
+ * `alternative_explanations`/`requested_view_purposes` are `jsonb` string
+ * arrays (P11-HEALTH-01), returned already-parsed by node-postgres — typed
+ * `unknown` here, the same posture
+ * `tasks_recommendations.persistence.schema.ts`'s `packet_fact_keys` row
+ * field already takes, validated in the repository, not trusted blindly.
  */
 export interface ImageAnalysisResultRow {
   id: string;
@@ -72,6 +78,15 @@ export interface ImageAnalysisResultRow {
   confidence_score: string;
   requires_confirmation: Generated<boolean>;
   requested_additional_evidence: Generated<boolean>;
+  model_name: string | null;
+  prompt_version: number | null;
+  evidence_summary: Generated<string>;
+  alternative_explanations: unknown;
+  requested_view_purposes: unknown;
+  safety_class: Generated<string>;
+  disposition: Generated<string>;
+  disposition_set_at: Date | null;
+  disposition_set_by_profile_id: string | null;
   created_at: Generated<Date>;
 }
 

@@ -32,7 +32,7 @@ import type {
   PlantConditionModelIdentity,
 } from '../application/plant-condition-analysis-provider.js';
 
-export const VERTEX_PLANT_CONDITION_PROMPT_TEMPLATE_VERSION = 2;
+export const VERTEX_PLANT_CONDITION_PROMPT_TEMPLATE_VERSION = 3;
 
 const SYSTEM_INSTRUCTION =
   'You evaluate the condition of a garden plant across one or more photos of the SAME plant,' +
@@ -42,17 +42,45 @@ const SYSTEM_INSTRUCTION =
   ' Compare the most recent photo against any earlier ones to judge change over time.\n' +
   '- kind must be exactly one of "stress", "disease", "pest", or "other". Use "other" when you see' +
   ' nothing notable, or are not reasonably confident.\n' +
+  '- In evidenceSummary, describe what is visibly supporting your suggestion — leave it empty when' +
+  ' kind is "other".\n' +
+  '- In alternativeExplanations, list other plausible causes as short labels, not full sentences —' +
+  ' an empty list when you have no meaningful alternative to name.\n' +
+  '- safetyClass must be exactly one of "informational" (routine, cosmetic, or nothing notable),' +
+  ' "monitor" (worth watching, no urgent action), or "expert_review_recommended" (potentially' +
+  ' serious — suggest the grower consult a nursery or expert). This never authorizes or implies a' +
+  ' specific treatment.\n' +
   '- Set requestedAdditionalEvidence to true when the photo is unclear, too far away, or does not' +
-  ' show enough of the plant to judge — do not guess in that case.\n' +
+  ' show enough of the plant to judge — do not guess in that case. When true, list which of these' +
+  ' views would help most in requestedViewPurposes: "whole_plant", "leaf_front", "leaf_back",' +
+  ' "stem_or_bark", "flower", "fruit", "symptom_close_up", "context_or_free_form". Leave' +
+  ' requestedViewPurposes empty when requestedAdditionalEvidence is false.\n' +
   '- If you have a general care suggestion (e.g. watering, light, pruning), report it in' +
   ' careGuidanceSuggestion — leave it empty when you have nothing specific to add.\n' +
   '- Never state or imply whether the plant is edible, toxic, medicinal, or safe to touch or' +
-  ' ingest, and never mention chemicals, pesticides, fertilizers, treatments, or dosages, even if' +
-  ' asked — this applies to careGuidanceSuggestion too, which may only ever suggest general' +
-  ' cultural care (watering, light, pruning), never a treatment or a dosage.\n' +
+  ' ingest, never mention chemicals, pesticides, fertilizers, treatments, or dosages, and never' +
+  ' state or imply a regulatory, invasive, or restricted-species status, even if asked — this' +
+  ' applies to every field, including careGuidanceSuggestion (which may only ever suggest general' +
+  ' cultural care, never a treatment or a dosage) and evidenceSummary/alternativeExplanations.\n' +
   '- Respond with JSON only, matching the response schema exactly.';
 
 const KNOWN_KINDS = ['stress', 'disease', 'pest', 'other'] as const;
+// Mirror `PLANT_CONDITION_SAFETY_CLASSES`/`PLANT_CONDITION_VIEW_PURPOSES`
+// (plant-condition-analysis-provider.ts) as local literal tuples — `zod`'s
+// `.enum()` needs a tuple type, and those two are plain `readonly T[]`
+// (built for iteration, not for this), so this file keeps its own
+// `as const` copies rather than reshaping the port's own exported type.
+const KNOWN_SAFETY_CLASSES = ['informational', 'monitor', 'expert_review_recommended'] as const;
+const KNOWN_VIEW_PURPOSES = [
+  'whole_plant',
+  'leaf_front',
+  'leaf_back',
+  'stem_or_bark',
+  'flower',
+  'fruit',
+  'symptom_close_up',
+  'context_or_free_form',
+] as const;
 
 const observationSchema = z
   .object({
@@ -61,6 +89,10 @@ const observationSchema = z
     confidenceScore: z.number().min(0).max(1),
     requestedAdditionalEvidence: z.boolean(),
     careGuidanceSuggestion: z.string().transform((value) => value.trim()),
+    evidenceSummary: z.string().transform((value) => value.trim()),
+    alternativeExplanations: z.array(z.string().transform((value) => value.trim())),
+    safetyClass: z.enum(KNOWN_SAFETY_CLASSES),
+    requestedViewPurposes: z.array(z.enum(KNOWN_VIEW_PURPOSES)),
   })
   .strict();
 
@@ -148,6 +180,10 @@ export function buildGenerateContentParameters(
           'confidenceScore',
           'requestedAdditionalEvidence',
           'careGuidanceSuggestion',
+          'evidenceSummary',
+          'alternativeExplanations',
+          'safetyClass',
+          'requestedViewPurposes',
         ],
         properties: {
           kind: { type: Type.STRING, enum: [...KNOWN_KINDS] },
@@ -155,6 +191,13 @@ export function buildGenerateContentParameters(
           confidenceScore: { type: Type.NUMBER },
           requestedAdditionalEvidence: { type: Type.BOOLEAN },
           careGuidanceSuggestion: { type: Type.STRING },
+          evidenceSummary: { type: Type.STRING },
+          alternativeExplanations: { type: Type.ARRAY, items: { type: Type.STRING } },
+          safetyClass: { type: Type.STRING, enum: [...KNOWN_SAFETY_CLASSES] },
+          requestedViewPurposes: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING, enum: [...KNOWN_VIEW_PURPOSES] },
+          },
         },
       },
       safetySettings: [
@@ -212,6 +255,10 @@ export function parseResponse(
       confidenceScore: parsed.data.confidenceScore,
       requestedAdditionalEvidence: parsed.data.requestedAdditionalEvidence,
       careGuidanceSuggestion: parsed.data.careGuidanceSuggestion,
+      evidenceSummary: parsed.data.evidenceSummary,
+      alternativeExplanations: parsed.data.alternativeExplanations,
+      safetyClass: parsed.data.safetyClass,
+      requestedViewPurposes: parsed.data.requestedViewPurposes,
     },
   };
 }

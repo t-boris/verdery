@@ -29,6 +29,15 @@ export interface ImageAnalysisResultResource {
   readonly confidenceScore: number;
   readonly requiresConfirmation: boolean;
   readonly requestedAdditionalEvidence: boolean;
+  readonly evidenceSummary: string;
+  readonly alternativeExplanations: readonly string[];
+  readonly safetyClass: string;
+  readonly requestedViewPurposes: readonly string[];
+  readonly modelName: string | null;
+  readonly promptVersion: number | null;
+  readonly disposition: string;
+  readonly dispositionSetAt: string | null;
+  readonly dispositionSetByProfileId: string | null;
   readonly createdAt: string;
 }
 
@@ -70,7 +79,9 @@ export interface ObservationResource {
   readonly measurements: readonly ObservationMeasurementResource[];
 }
 
-function toImageAnalysisResultResource(result: ImageAnalysisResult): ImageAnalysisResultResource {
+export function toImageAnalysisResultResource(
+  result: ImageAnalysisResult,
+): ImageAnalysisResultResource {
   return {
     id: result.id,
     analysisKind: result.analysisKind,
@@ -78,6 +89,15 @@ function toImageAnalysisResultResource(result: ImageAnalysisResult): ImageAnalys
     confidenceScore: result.confidenceScore,
     requiresConfirmation: result.requiresConfirmation,
     requestedAdditionalEvidence: result.requestedAdditionalEvidence,
+    evidenceSummary: result.evidenceSummary,
+    alternativeExplanations: result.alternativeExplanations,
+    safetyClass: result.safetyClass,
+    requestedViewPurposes: result.requestedViewPurposes,
+    modelName: result.modelName,
+    promptVersion: result.promptVersion,
+    disposition: result.disposition,
+    dispositionSetAt: result.dispositionSetAt?.toISOString() ?? null,
+    dispositionSetByProfileId: result.dispositionSetByProfileId,
     createdAt: result.createdAt.toISOString(),
   };
 }

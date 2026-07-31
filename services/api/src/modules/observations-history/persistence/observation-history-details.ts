@@ -9,11 +9,17 @@
 
 import type { Kysely } from 'kysely';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
+import { InternalError } from '../../../platform/errors/application-error.js';
+import type { PlantConditionSafetyClass } from '../../integrations/public.js';
 import type {
   ObservationHistoryEntry,
   ObservationPhotoWithAnalysis,
 } from '../application/observation-repository.js';
-import type { ImageAnalysisKind, ImageAnalysisResult } from '../domain/image-analysis-result.js';
+import type {
+  HealthSuggestionDisposition,
+  ImageAnalysisKind,
+  ImageAnalysisResult,
+} from '../domain/image-analysis-result.js';
 import type { Observation } from '../domain/observation.js';
 import type {
   ObservationMeasurement,
@@ -29,7 +35,26 @@ interface ImageAnalysisResultRowLike {
   confidence_score: string;
   requires_confirmation: boolean;
   requested_additional_evidence: boolean;
+  model_name: string | null;
+  prompt_version: number | null;
+  evidence_summary: string;
+  alternative_explanations: unknown;
+  requested_view_purposes: unknown;
+  safety_class: string;
+  disposition: string;
+  disposition_set_at: Date | null;
+  disposition_set_by_profile_id: string | null;
   created_at: Date;
+}
+
+function toStringArray(value: unknown, columnName: string, id: string): readonly string[] {
+  if (!Array.isArray(value)) {
+    throw new InternalError(
+      'observations_history.image_analysis_result.invalid_row',
+      `image_analysis_result '${id}' carries a non-array ${columnName} value.`,
+    );
+  }
+  return value.map((entry) => String(entry));
 }
 
 function toImageAnalysisResult(row: ImageAnalysisResultRowLike): ImageAnalysisResult {
@@ -41,6 +66,23 @@ function toImageAnalysisResult(row: ImageAnalysisResultRowLike): ImageAnalysisRe
     confidenceScore: Number.parseFloat(row.confidence_score),
     requiresConfirmation: row.requires_confirmation,
     requestedAdditionalEvidence: row.requested_additional_evidence,
+    evidenceSummary: row.evidence_summary,
+    alternativeExplanations: toStringArray(
+      row.alternative_explanations,
+      'alternative_explanations',
+      row.id,
+    ),
+    safetyClass: row.safety_class as PlantConditionSafetyClass,
+    requestedViewPurposes: toStringArray(
+      row.requested_view_purposes,
+      'requested_view_purposes',
+      row.id,
+    ) as readonly ObservationPhotoPurpose[],
+    modelName: row.model_name,
+    promptVersion: row.prompt_version,
+    disposition: row.disposition as HealthSuggestionDisposition,
+    dispositionSetAt: row.disposition_set_at,
+    dispositionSetByProfileId: row.disposition_set_by_profile_id,
     createdAt: row.created_at,
   };
 }
