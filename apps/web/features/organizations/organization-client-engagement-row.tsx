@@ -1,6 +1,7 @@
 'use client';
 
 import type { ClientEngagement } from '@verdery/api-contracts';
+import Link from 'next/link';
 import { useState } from 'react';
 
 import { useLocalization } from '@/shared/localization/public';
@@ -81,6 +82,9 @@ export function OrganizationClientEngagementRow({
               : 'engagements.notificationsDisabled',
           )}
         />
+        <Link href={`/application/engagements/${engagement.id}`}>
+          {t('engagements.openUpdates')}
+        </Link>
       </div>
 
       {callerIsAdmin && (engagement.state === 'draft' || canRevoke) && (

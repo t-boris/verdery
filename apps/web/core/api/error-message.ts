@@ -2,10 +2,12 @@ import {
   ClientAccessGrantErrorCode,
   ClientEngagementErrorCode,
   ClientPortalErrorCode,
+  ClientUpdateErrorCode,
   CollaborationErrorCode,
   GardenErrorCode,
   MapErrorCode,
   OrganizationErrorCode,
+  PublisherGrantErrorCode,
   SharedErrorCode,
 } from '@verdery/api-contracts';
 
@@ -77,6 +79,20 @@ const MESSAGE_KEYS: Readonly<Record<string, MessageKey>> = {
   [ClientAccessGrantErrorCode.EngagementNotActive]: 'error.clientAccessGrantEngagementNotActive',
   [ClientAccessGrantErrorCode.InvalidTransition]: 'error.clientAccessGrantInvalidTransition',
   [ClientPortalErrorCode.NotFound]: 'error.clientGardenNotFound',
+  [ClientUpdateErrorCode.NotFound]: 'error.clientUpdateNotFound',
+  [ClientUpdateErrorCode.PublisherAccessRequired]: 'error.clientUpdatePublisherAccessRequired',
+  [ClientUpdateErrorCode.EngagementNotActive]: 'error.clientUpdateEngagementNotActive',
+  [ClientUpdateErrorCode.InvalidTransition]: 'error.clientUpdateInvalidTransition',
+  [ClientUpdateErrorCode.SummaryRequired]: 'error.clientUpdateSummaryRequired',
+  [ClientUpdateErrorCode.ItemNotFound]: 'error.clientUpdateItemNotFound',
+  [ClientUpdateErrorCode.SelectedItemInvalid]: 'error.clientUpdateSelectedItemInvalid',
+  [ClientUpdateErrorCode.StaffProfileNotFound]: 'error.clientUpdateStaffProfileNotFound',
+  [ClientUpdateErrorCode.StaleRevision]: 'error.clientUpdateStaleRevision',
+  [PublisherGrantErrorCode.NotFound]: 'error.publisherGrantNotFound',
+  [PublisherGrantErrorCode.AlreadyActive]: 'error.publisherGrantAlreadyActive',
+  [PublisherGrantErrorCode.GranteeNotOrganizationMember]:
+    'error.publisherGrantGranteeNotOrganizationMember',
+  [PublisherGrantErrorCode.GranteeNotGardenMember]: 'error.publisherGrantGranteeNotGardenMember',
 };
 
 /** Returns the message identifier for an error code, or the generic one. */

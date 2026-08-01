@@ -111,6 +111,7 @@ export const russianOrganizationsMessages: Readonly<
   'engagements.stewardshipResidential': 'Бытовое обслуживание',
   'engagements.notificationsEnabled': 'Уведомления клиента включены',
   'engagements.notificationsDisabled': 'Уведомления клиента выключены',
+  'engagements.openUpdates': 'Обновления для клиента',
 
   'engagements.gardenSectionTitle': 'Обслуживание клиентов',
   'engagements.gardenSectionDescription':

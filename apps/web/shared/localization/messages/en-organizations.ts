@@ -117,6 +117,7 @@ export const englishOrganizationsMessages = {
   'engagements.stewardshipResidential': 'Residential stewardship',
   'engagements.notificationsEnabled': 'Client notifications on',
   'engagements.notificationsDisabled': 'Client notifications off',
+  'engagements.openUpdates': 'Client updates',
 
   'engagements.gardenSectionTitle': 'Client engagements',
   'engagements.gardenSectionDescription':

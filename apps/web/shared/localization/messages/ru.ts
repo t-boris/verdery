@@ -9,6 +9,7 @@ import { russianMediaMessages } from './ru-media';
 import { russianObservationsMessages } from './ru-observations';
 import { russianOrganizationsMessages } from './ru-organizations';
 import { russianPlantsMessages } from './ru-plants';
+import { russianPublicationsMessages } from './ru-publications';
 import { russianSeasonalPlanMessages } from './ru-seasonal-plan';
 import { russianTaskCollaborationMessages } from './ru-task-collaboration';
 import { russianTodayMessages } from './ru-today';
@@ -24,6 +25,7 @@ export const russianMessages: MessageCatalogue = {
   ...russianSeasonalPlanMessages,
   ...russianCandidatesMessages,
   ...russianObservationsMessages,
+  ...russianPublicationsMessages,
   ...russianGardenContextMessages,
   'app.name': 'Verdery',
   'app.tagline': 'Живая карта настоящего сада.',

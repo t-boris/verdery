@@ -60,6 +60,7 @@ apps/web/
 │   ├── imports/
 │   ├── collaboration/
 │   ├── organizations/
+│   ├── publications/
 │   ├── client-portal/
 │   └── settings/
 ├── core/

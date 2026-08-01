@@ -41,6 +41,7 @@ export { RecoveredDraftNotice, type RecoveredDraftNoticeProps } from './recovere
 export { Select, type SelectOption, type SelectProps } from './select';
 export { StaleIndicator, type StaleIndicatorProps } from './stale-indicator';
 export { StatusPill, type StatusPillProps, type StatusTone } from './status-pill';
+export { TextArea, type TextAreaProps } from './text-area';
 export { TextField, type TextFieldProps } from './text-field';
 export { VisuallyHidden, type VisuallyHiddenProps } from './visually-hidden';
 export { classNames } from './class-names';

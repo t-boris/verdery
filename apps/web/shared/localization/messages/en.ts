@@ -17,6 +17,7 @@ import { englishMediaMessages } from './en-media';
 import { englishObservationsMessages } from './en-observations';
 import { englishOrganizationsMessages } from './en-organizations';
 import { englishPlantsMessages } from './en-plants';
+import { englishPublicationsMessages } from './en-publications';
 import { englishSeasonalPlanMessages } from './en-seasonal-plan';
 import { englishTaskCollaborationMessages } from './en-task-collaboration';
 import { englishTodayMessages } from './en-today';
@@ -32,6 +33,7 @@ export const englishMessages = {
   ...englishGardenContextMessages,
   ...englishCandidatesMessages,
   ...englishObservationsMessages,
+  ...englishPublicationsMessages,
   'app.name': 'Verdery',
   'app.tagline': 'A living map of a real garden.',
   'app.skipToContent': 'Skip to content',

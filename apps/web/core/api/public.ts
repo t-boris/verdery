@@ -20,6 +20,7 @@ export {
   type ListCandidatesParams,
 } from './candidate-gateway';
 export { createClientPortalGateway, type ClientPortalGateway } from './client-portal-gateway';
+export { createClientUpdateGateway, type ClientUpdateGateway } from './client-update-gateway';
 export { createCollaborationGateway, type CollaborationGateway } from './collaboration-gateway';
 export { CORRELATION_ID_HEADER, createCorrelationId } from './correlation';
 export { CSRF_HEADER_NAME, csrfHeader } from './csrf';
@@ -36,6 +37,7 @@ export { createObservationGateway, type ObservationGateway } from './observation
 export { createOrganizationGateway, type OrganizationGateway } from './organization-gateway';
 export { createOwnershipGateway, type OwnershipGateway } from './ownership-gateway';
 export { createPlantGateway, type PlantGateway, type SearchPlantsParams } from './plant-gateway';
+export { createPublisherGrantGateway, type PublisherGrantGateway } from './publisher-grant-gateway';
 export { createRecommendationGateway, type RecommendationGateway } from './recommendation-gateway';
 export { createSeasonalPlanGateway, type SeasonalPlanGateway } from './seasonal-plan-gateway';
 export { createTaskGateway, type TaskGateway } from './task-gateway';

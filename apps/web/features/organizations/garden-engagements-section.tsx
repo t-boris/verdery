@@ -1,6 +1,7 @@
 'use client';
 
 import type { ClientEngagement } from '@verdery/api-contracts';
+import Link from 'next/link';
 
 import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
@@ -89,6 +90,7 @@ function GardenEngagementReadRow({ engagement }: { readonly engagement: ClientEn
         tone={engagementStateTone(engagement.state)}
         label={t(engagementStateLabel(engagement.state))}
       />
+      <Link href={`/application/engagements/${engagement.id}`}>{t('engagements.openUpdates')}</Link>
     </li>
   );
 }
