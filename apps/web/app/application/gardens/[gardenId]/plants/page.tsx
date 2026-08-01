@@ -38,14 +38,17 @@ export default async function PlantsPage({
         <h1 className={styles['title']}>{t('plants.pageTitle')}</h1>
         <p className={styles['description']}>{t('plants.pageDescription')}</p>
 
-        <section className={styles['panel']}>
-          <h2 className={styles['sectionTitle']}>{t('plants.addTitle')}</h2>
-          <AddPlantForm gardenId={gardenId} />
-        </section>
-
+        {/* Photo first: it is the primary way in — the whole point of ADR-0015
+            is that a photo identifies the plant for you, so the manual form is
+            the fallback, not the default. */}
         <section className={styles['panel']}>
           <h2 className={styles['sectionTitle']}>{t('plants.addFromPhotoTitle')}</h2>
           <AddPlantFromPhotoPanel gardenId={gardenId} />
+        </section>
+
+        <section className={styles['panel']}>
+          <h2 className={styles['sectionTitle']}>{t('plants.addTitle')}</h2>
+          <AddPlantForm gardenId={gardenId} />
         </section>
 
         <section className={styles['panel']}>

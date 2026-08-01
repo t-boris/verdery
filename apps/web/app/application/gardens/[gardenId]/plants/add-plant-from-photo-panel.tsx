@@ -130,11 +130,27 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
   const plant = addFromPhoto.data ?? null;
   const identification = usePlantIdentification(gardenId, plant?.id ?? '', plant !== null);
 
+  /*
+   * The id alone is NOT the signal to create the plant. `mediaId` is set the
+   * moment the upload is REGISTERED — before a single byte is stored — so
+   * firing on it called `AddPlantFromPhoto` against a media record that was
+   * still `pending`, and the server correctly refused it with
+   * `plants_inventory.plant.media_not_available`. Observed in production as a
+   * 400 arriving 93ms after the registration's own 201.
+   *
+   * `uploadState === 'available'` is the server's own precondition, so gating
+   * on the same value is what makes the two agree. Deliberately not
+   * `phase === 'processed'`: derivative processing is irrelevant to
+   * identifying a plant, and in development it can stay `processing`
+   * indefinitely, which would strand the flow.
+   */
+  const uploadedMediaId = upload.media?.uploadState === 'available' ? upload.mediaId : null;
+
   useEffect(() => {
-    if (upload.mediaId !== null && plant === null && addFromPhoto.isIdle) {
-      addFromPhoto.mutate({ photoMediaId: upload.mediaId });
+    if (uploadedMediaId !== null && plant === null && addFromPhoto.isIdle) {
+      addFromPhoto.mutate({ photoMediaId: uploadedMediaId });
     }
-  }, [upload.mediaId, plant, addFromPhoto]);
+  }, [uploadedMediaId, plant, addFromPhoto]);
 
   const percent = percentOf(upload.uploadedBytes, upload.totalBytes);
   const inProgress =
@@ -422,7 +438,7 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
         </Button>
       )}
 
-      {upload.mediaId !== null && addFromPhoto.isPending && (
+      {uploadedMediaId !== null && addFromPhoto.isPending && (
         <p className={styles['statusLine']}>{t('plants.addFromPhotoCreating')}</p>
       )}
       {addFromPhoto.isError && <FailureAlert failure={addFromPhoto.error.failure} />}

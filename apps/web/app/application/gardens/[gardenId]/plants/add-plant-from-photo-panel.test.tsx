@@ -22,6 +22,8 @@ const recordObservationMutateMock = vi.fn();
 let uploadState: {
   phase: string;
   mediaId: string | null;
+  /** Mirrors the controller's own `media`, whose `uploadState` gates creation. */
+  media: { uploadState: string } | null;
   uploadedBytes: number;
   totalBytes: number;
   displayFilename: string | null;
@@ -120,6 +122,7 @@ beforeEach(() => {
   uploadState = {
     phase: 'idle',
     mediaId: null,
+    media: null,
     uploadedBytes: 0,
     totalBytes: 0,
     displayFilename: null,
@@ -139,13 +142,30 @@ describe('AddPlantFromPhotoPanel — picking', () => {
     expect(screen.getByLabelText('Choose a photo')).toBeTruthy();
   });
 
-  it('creates the plant once the upload produces a mediaId', () => {
+  it('creates the plant once the uploaded media is available', () => {
     uploadState.mediaId = 'media-1';
-    uploadState.phase = 'processed';
+    uploadState.media = { uploadState: 'available' };
+    uploadState.phase = 'processing';
 
     renderPanel();
 
     expect(addFromPhotoMutateMock).toHaveBeenCalledWith({ photoMediaId: 'media-1' });
+  });
+
+  /*
+   * Regression. `mediaId` is set the moment the upload is REGISTERED, before
+   * any byte is stored, so creating on the id alone called the API against a
+   * still-`pending` media record and was refused with a 400 — seen in
+   * production 93ms after the registration's own 201.
+   */
+  it('does not create the plant while the registered media is still pending', () => {
+    uploadState.mediaId = 'media-1';
+    uploadState.media = { uploadState: 'pending' };
+    uploadState.phase = 'uploading';
+
+    renderPanel();
+
+    expect(addFromPhotoMutateMock).not.toHaveBeenCalled();
   });
 });
 

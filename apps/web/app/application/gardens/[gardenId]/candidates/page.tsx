@@ -43,11 +43,12 @@ export default async function CandidatesPage({
           </RoutePanel>
         </RouteBody>
         <RouteBody>
-          <RoutePanel title={t('candidates.addTitle')}>
-            <AddCandidateForm gardenId={gardenId} />
-          </RoutePanel>
+          {/* Photo first — the same reasoning as the plants route. */}
           <RoutePanel title={t('candidates.addFromPhotoTitle')}>
             <AddCandidateFromPhotoPanel gardenId={gardenId} />
+          </RoutePanel>
+          <RoutePanel title={t('candidates.addTitle')}>
+            <AddCandidateForm gardenId={gardenId} />
           </RoutePanel>
         </RouteBody>
       </RouteSplit>

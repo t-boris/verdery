@@ -67,10 +67,15 @@ export function AddCandidateFromPhotoPanel({ gardenId }: AddCandidateFromPhotoPa
   const [validationError, setValidationError] = useState<string | null>(null);
   const inputId = useId();
 
+  /* Same gate, same reason as `add-plant-from-photo-panel.tsx` — see its own
+     comment: `mediaId` exists from registration, `uploadState === 'available'`
+     is the server's actual precondition. */
+  const uploadedMediaId = upload.media?.uploadState === 'available' ? upload.mediaId : null;
+
   useEffect(() => {
-    if (upload.mediaId !== null && addFromPhoto.isIdle) {
+    if (uploadedMediaId !== null && addFromPhoto.isIdle) {
       addFromPhoto.mutate(
-        { photoMediaId: upload.mediaId },
+        { photoMediaId: uploadedMediaId },
         {
           onSuccess: (candidate) => {
             router.push(`/application/gardens/${gardenId}/candidates/${candidate.id}`);
@@ -78,7 +83,7 @@ export function AddCandidateFromPhotoPanel({ gardenId }: AddCandidateFromPhotoPa
         },
       );
     }
-  }, [upload.mediaId, addFromPhoto, gardenId, router]);
+  }, [uploadedMediaId, addFromPhoto, gardenId, router]);
 
   const percent = percentOf(upload.uploadedBytes, upload.totalBytes);
   const inProgress =
@@ -215,7 +220,7 @@ export function AddCandidateFromPhotoPanel({ gardenId }: AddCandidateFromPhotoPa
         </Button>
       )}
 
-      {upload.mediaId !== null && addFromPhoto.isPending && (
+      {uploadedMediaId !== null && addFromPhoto.isPending && (
         <p className={styles['statusLine']}>{t('candidates.addFromPhotoCreating')}</p>
       )}
       {addFromPhoto.isError && <FailureAlert failure={addFromPhoto.error.failure} />}
