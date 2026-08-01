@@ -4,9 +4,9 @@ Both families ship from this directory rather than a font CDN, because the
 Content Security Policy allows no remote font origin — see
 `e2e/content-security-policy.spec.ts`, which fails if one is introduced.
 
-| Family | Files | Copyright | Licence |
-| --- | --- | --- | --- |
-| Archivo | `archivo-variable-latin.woff2` | The Archivo Project Authors | SIL OFL 1.1 — `OFL-Archivo.txt` |
+| Family        | Files                                     | Copyright                            | Licence                             |
+| ------------- | ----------------------------------------- | ------------------------------------ | ----------------------------------- |
+| Archivo       | `archivo-variable-latin.woff2`            | The Archivo Project Authors          | SIL OFL 1.1 — `OFL-Archivo.txt`     |
 | IBM Plex Mono | `ibm-plex-mono-{400,500,600}-latin.woff2` | IBM Corp., Reserved Font Name "Plex" | SIL OFL 1.1 — `OFL-IBMPlexMono.txt` |
 
 Both licences permit redistribution, including bundled inside a product, so
