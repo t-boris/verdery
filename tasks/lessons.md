@@ -23,3 +23,26 @@ functional depth was invisible behind a primitive-looking surface.
   in future tests too (no class-based selectors).
 - Navigation chrome must never use list markup (`<ul>/<li>`): end-to-end assertions
   count `listitem` roles on pages, and chrome must not leak into content queries.
+
+## 2026-08-01 — invented a work-package identifier (self-caught, post-push)
+
+**What happened**: The candidate-photo feature was written with `Source:
+implementation-plan.md work package P11-CAND-PHOTO-01` in 13 places, including two
+operation descriptions in the OpenAPI contract. No such work package exists —
+it was invented to label the increment. Caught only during the docs-sync check
+after the commit was already pushed, requiring a second corrective commit.
+
+**Rules for next time**:
+
+- This repository's comments carry `Source: implementation-plan.md work package X`
+  as a load-bearing convention. Never write one of those lines without first
+  confirming `X` is a real row: `grep -c "| X " docs/implementation-plan.md`.
+- New work usually belongs to an EXISTING package whose stated scope already
+  covers it — read the package's scope text before concluding otherwise. Here the
+  scope was already covered by P11-API-01 ("candidate ... media-association ...
+  APIs") and P11-WEB-01 ("catalog/add/unknown flows").
+- Adding a row to the plan of record is a bigger, owner-facing decision than
+  labelling work under a package that already covers it. Prefer the latter; raise
+  the former rather than doing it silently.
+- Run the docs-sync obligation (repository rule: keep `docs/` accurate and
+  synchronized in the SAME task) BEFORE committing, not after pushing.
