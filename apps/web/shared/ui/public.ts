@@ -26,6 +26,7 @@ export {
   LightbulbIcon,
   LockIcon,
   MapIcon,
+  PauseIcon,
   PlusIcon,
   PulseIcon,
   RefreshIcon,

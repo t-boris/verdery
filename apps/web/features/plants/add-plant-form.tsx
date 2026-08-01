@@ -275,9 +275,16 @@ export function AddPlantForm({ gardenId }: { readonly gardenId: string }) {
       </p>
 
       <StaleIndicator />
-      <Button type="submit" variant="primary" busy={mutation.isPending} disabled={!isOnline}>
+      <Button
+        type="submit"
+        variant="primary"
+        busy={mutation.isPending}
+        disabled={!isOnline}
+        iconOnly
+        aria-label={t('plants.addSubmit')}
+        title={t('plants.addSubmit')}
+      >
         <PlusIcon />
-        {t('plants.addSubmit')}
       </Button>
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}
     </form>

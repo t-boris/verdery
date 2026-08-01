@@ -313,6 +313,18 @@ export function UploadIcon(props: IconProps) {
   );
 }
 
+/**
+ * Suspend an upload: the two-bar transport symbol, drawn as strokes on the
+ * same grid rather than filled bars, so it carries the set's single weight.
+ */
+export function PauseIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M8 4.5v11M12 4.5v11" />
+    </IconBase>
+  );
+}
+
 /** Load the next page of a list: a downward chevron. */
 export function ChevronDownIcon(props: IconProps) {
   return (

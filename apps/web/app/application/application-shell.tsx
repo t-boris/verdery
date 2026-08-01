@@ -164,9 +164,15 @@ export function ApplicationShell({ children }: { readonly children: ReactNode })
           </nav>
 
           <div className={styles['headerEnd']}>
-            <Button variant="secondary" busy={signingOut} onClick={() => void onSignOut()}>
+            <Button
+              variant="secondary"
+              busy={signingOut}
+              onClick={() => void onSignOut()}
+              iconOnly
+              aria-label={t('shell.signOut')}
+              title={t('shell.signOut')}
+            >
               <SignOutIcon />
-              {t('shell.signOut')}
             </Button>
           </div>
         </header>

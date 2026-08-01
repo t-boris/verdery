@@ -27,6 +27,7 @@ import {
   CloseIcon,
   FailureAlert,
   LightbulbIcon,
+  PauseIcon,
   ProgressBar,
   PulseIcon,
   RefreshIcon,
@@ -337,11 +338,24 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
             })}
           </p>
           <div className={styles['actions']}>
-            <Button variant="primary" disabled={!isOnline} onClick={upload.resumeRecovered}>
-              {t('media.resumeRecovered')}
+            <Button
+              variant="primary"
+              disabled={!isOnline}
+              onClick={upload.resumeRecovered}
+              iconOnly
+              aria-label={t('media.resumeRecovered')}
+              title={t('media.resumeRecovered')}
+            >
+              <RefreshIcon />
             </Button>
-            <Button variant="secondary" onClick={upload.discardRecovered}>
-              {t('media.discardRecovered')}
+            <Button
+              variant="secondary"
+              onClick={upload.discardRecovered}
+              iconOnly
+              aria-label={t('media.discardRecovered')}
+              title={t('media.discardRecovered')}
+            >
+              <CloseIcon />
             </Button>
           </div>
         </div>
@@ -380,15 +394,28 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
       )}
 
       {upload.phase === 'uploading' && (
-        <Button variant="secondary" onClick={upload.pause}>
-          {t('media.pause')}
+        <Button
+          variant="secondary"
+          onClick={upload.pause}
+          iconOnly
+          aria-label={t('media.pause')}
+          title={t('media.pause')}
+        >
+          <PauseIcon />
         </Button>
       )}
 
       {upload.phase === 'paused' && (
         <div className={styles['actions']}>
-          <Button variant="primary" disabled={!isOnline} onClick={upload.retry}>
-            {t('media.resume')}
+          <Button
+            variant="primary"
+            disabled={!isOnline}
+            onClick={upload.retry}
+            iconOnly
+            aria-label={t('media.resume')}
+            title={t('media.resume')}
+          >
+            <RefreshIcon />
           </Button>
         </div>
       )}

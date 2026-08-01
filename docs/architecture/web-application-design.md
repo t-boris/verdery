@@ -78,7 +78,11 @@ apps/web/
 
 Feature folders own their route-level orchestration, queries, commands, forms, presentation components, and tests. Shared UI must remain domain-neutral.
 
-Visual styling uses CSS modules over a single design-token stylesheet (`shared/ui/tokens.css`): the palette (light and dark, WCAG AA-clearing pairs), typography scale (a locally resolved serif display stack for headings, system sans for body), spacing, radii, shadows, focus, and motion tokens. Components never hard-code visual values. Icons are a small set of hand-authored inline SVGs in `shared/ui/icons.tsx`. No UI framework, icon font, or externally hosted font is used; every visual asset resolves locally, consistent with the Content Security Policy posture.
+Visual styling uses CSS modules over a single design-token stylesheet (`shared/ui/tokens.css`): the palette (light and dark, WCAG AA-clearing pairs), typography scale, spacing, radii, shadows, focus, and motion tokens. Components never hard-code visual values. Icons are a small set of hand-authored inline SVGs in `shared/ui/icons.tsx`. No UI framework, icon font, or externally hosted font is used; every visual asset resolves locally, consistent with the Content Security Policy posture.
+
+Type is one locally hosted family for text (headings and body alike, differentiated by size and weight rather than by a second face) plus a monospace family reserved for labels and other machine-ish text. Corner radii are zero and the elevation tokens `--shadow-xs`/`--shadow-sm` are `none`: separation is carried by hairline rules, so a hairline is load-bearing wherever it appears and must not be removed as decoration.
+
+Buttons size to their own content and never stretch to fill a container, so a submit inside a form column stays the width of its label rather than becoming a full-width bar. Actions whose meaning is carried by an established symbol — retry, load more, save, pause, resume, discard, cancel, add, open — are icon-only squares exactly one touch-target across, declared through the `Button` primitive's `iconOnly` prop rather than inferred from the button's children; every such control carries both an accessible name and a tooltip, because the icons themselves are hidden from assistive technology. Controls that exist to distinguish one option from its siblings — filter segments and other mutually exclusive choices — keep visible text, since the distinction between them lives in the words and no symbol set encodes it.
 
 ## 6. State Ownership
 

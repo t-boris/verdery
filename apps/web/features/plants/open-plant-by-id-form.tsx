@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 
 import { useLocalization } from '@/shared/localization/public';
-import { Button, TextField } from '@/shared/ui/public';
+import { Button, EyeIcon, TextField } from '@/shared/ui/public';
 
 import styles from './open-plant-by-id-form.module.css';
 
@@ -42,8 +42,14 @@ export function OpenPlantByIdForm({ gardenId }: { readonly gardenId: string }) {
         value={plantId}
         onChange={(event) => setPlantId(event.target.value)}
       />
-      <Button type="submit" variant="secondary">
-        {t('plants.openByIdSubmit')}
+      <Button
+        type="submit"
+        variant="secondary"
+        iconOnly
+        aria-label={t('plants.openByIdSubmit')}
+        title={t('plants.openByIdSubmit')}
+      >
+        <EyeIcon />
       </Button>
     </form>
   );
