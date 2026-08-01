@@ -276,6 +276,43 @@ export {
 } from './persistence/usda-plants-registration.js';
 export type { UsdaPlantsRegistrationOptions } from './persistence/usda-plants-registration.js';
 
+// P11-PROV-01: three more real, kill-switched structured-assertion
+// adapters — GBIF (occurrence evidence), USA-NPN (phenology), World Flora
+// Online (taxonomy spine) — the exact "one adapter class plus one
+// registration" shape the USDA PLANTS export block above already proves.
+export { GbifAdapter } from './persistence/gbif-adapter.js';
+export type { GbifHttpFetch, GbifHttpResponse } from './persistence/gbif-adapter.js';
+export {
+  createGbifRegistration,
+  GBIF_CITATION,
+  GBIF_DISPLAY_NAME,
+  GBIF_PROVIDER_KEY,
+} from './persistence/gbif-registration.js';
+export type { GbifRegistrationOptions } from './persistence/gbif-registration.js';
+
+export { UsaNpnAdapter, lastCompletedCalendarYear } from './persistence/usa-npn-adapter.js';
+export type { UsaNpnHttpFetch, UsaNpnHttpResponse } from './persistence/usa-npn-adapter.js';
+export {
+  createUsaNpnRegistration,
+  USA_NPN_CITATION,
+  USA_NPN_DISPLAY_NAME,
+  USA_NPN_PROVIDER_KEY,
+} from './persistence/usa-npn-registration.js';
+export type { UsaNpnRegistrationOptions } from './persistence/usa-npn-registration.js';
+
+export { WorldFloraOnlineAdapter } from './persistence/world-flora-online-adapter.js';
+export type {
+  WorldFloraOnlineHttpFetch,
+  WorldFloraOnlineHttpResponse,
+} from './persistence/world-flora-online-adapter.js';
+export {
+  createWorldFloraOnlineRegistration,
+  WORLD_FLORA_ONLINE_CITATION,
+  WORLD_FLORA_ONLINE_DISPLAY_NAME,
+  WORLD_FLORA_ONLINE_PROVIDER_KEY,
+} from './persistence/world-flora-online-registration.js';
+export type { WorldFloraOnlineRegistrationOptions } from './persistence/world-flora-online-registration.js';
+
 // P7-AI-01: the AI-explanation capability — the provider-neutral port,
 // the bounded call machinery (budget + deadline + typed degradations),
 // and the real Vertex adapter. `GenerateAiExplanation` is consumed by

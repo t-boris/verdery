@@ -47,7 +47,13 @@ Knowledge classes and their ADR-0013/ADR-0016-selected source, per
   (`https://files.worldfloraonline.org/files/WFO_Backbone/_WFOCompleteBackbone/archive/WFOTaxonomicBackbone_v.2.1_20240309.zip`,
   also mirrored on Zenodo), useful for a one-time or periodic full-checklist seed independent
   of live per-taxon calls.
-- **License: CC0** (public domain dedication), confirmed on the site's own download page.
+- **License: CC BY 4.0 — corrected 2026-08-01, not CC0.** The site's own footer
+  (`worldfloraonline.org`, every page) states "Unless otherwise noted, text and images are
+  licenced: CC BY 4.0" and gives a recommended citation form: _"WFO (2026): World Flora Online.
+  Published on the Internet; http://www.worldfloraonline.org. Accessed on: \[date]."_ This
+  earlier CC0 reading (originally "confirmed on the site's own download page") is superseded by
+  the live footer; CC BY 4.0 requires attribution, unlike CC0. `world-flora-online-registration.ts`
+  (P11-PROV-01) is built against this corrected reading and carries a non-null `attributionText`.
 
 ### 2.2 USDA PLANTS (US names/status) and USDA PLANTS Characteristics (care attributes)
 
@@ -233,19 +239,32 @@ each adapter kill-switched by its own default-`false` flag, the same posture
 **Status as of P11-ASYNC-01's first pass (2026-07-31):** the structured-fact/distribution port
 (`plant-assertion-provider.ts`), its registry, the fetch-and-store use case
 (`refresh-taxon-assertions.ts`), and the scheduled sweep (`run-taxon-enrichment-sweep.ts`) are
-built and real — plus ONE real, adapter: §2.2's USDA PLANTS (names/status and characteristics
-combined, since both are the same host). Every fetched assertion lands
+built and real — plus ONE real adapter: §2.2's USDA PLANTS (names/status and characteristics
+combined, since both are the same host).
+
+**Status as of P11-PROV-01 (2026-08-01):** three more real adapters — §2.1 World Flora Online
+(`world-flora-online-adapter.ts`, taxonomy-spine identity only: `searchTaxa` real,
+`fetchFacts`/`fetchDistribution` structurally empty, since WFO's own GraphQL endpoint proved
+undocumented and unverifiable this pass), §3.1 GBIF (`gbif-adapter.ts`, occurrence-evidence
+facts only — `fetchDistribution` structurally empty per ADR-0016 §4's "never used to infer
+garden suitability directly"), and §3.2 USA-NPN (`usa-npn-adapter.ts`, phenology facts for the
+most recently completed calendar year; `searchTaxa` matches client-side against the full species
+catalog, since the provider offers no server-side name search). All four registrations are
+pushed into `composeIntegrations`'s `sourcePriority` in this order — World Flora Online, USDA
+PLANTS, GBIF, USA-NPN — each still kill-switched off by default (`GBIF_PROVIDER_ENABLED`,
+`USA_NPN_PROVIDER_ENABLED`, `WORLD_FLORA_ONLINE_PROVIDER_ENABLED`, all default `false`, no
+environment enables any of the four today). Every fetched assertion still lands
 `awaiting_horticultural_review`; nothing is visible in a materialized profile or a suitability
-finding until a human reviewer promotes it (no reviewer-facing surface exists yet — a tracked,
-deliberate deferral, not this pass's job). The remaining seven sources (World Flora Online,
-USDA Characteristics as its own registration if ever split from USDA PLANTS, Wikidata, hardiness
-rasters, GBIF, USA-NPN, USDA NRCS SDA, federal/state regulatory) are real, documented,
-implementation-ready gaps — each is the same one-adapter-plus-one-registration shape this pass's
-USDA PLANTS adapter already proves, not a stub. See `tasks/todo.md`'s own P11-ASYNC-01 review
-section for the fuller accounting, including why literal Cloud Tasks/Cloud Run Job machinery
-(ADR-0016's own aspiration) was deliberately NOT built this pass in favor of the same worker-
-interval-plus-authenticated-route shape every other scheduled sweep in this codebase already
-uses.
+finding until a human reviewer promotes it.
+
+The remaining four sources (USDA Characteristics as its own registration if ever split from USDA
+PLANTS, Wikidata, hardiness rasters, USDA NRCS SDA, federal/state regulatory — five names, one
+already folded into USDA PLANTS) are real, documented, implementation-ready gaps — each is the
+same one-adapter-plus-one-registration shape USDA PLANTS/GBIF/USA-NPN/World Flora Online already
+prove, not a stub. See `tasks/todo.md`'s own P11-ASYNC-01 review section for the fuller
+accounting, including why literal Cloud Tasks/Cloud Run Job machinery (ADR-0016's own aspiration)
+was deliberately NOT built this pass in favor of the same worker-interval-plus-authenticated-route
+shape every other scheduled sweep in this codebase already uses.
 
 ## 7. What remains an owner decision
 

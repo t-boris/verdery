@@ -303,6 +303,36 @@ export const environmentSchema = z.object({
   USDA_PLANTS_MAX_CALLS_PER_HOUR: positiveInteger.default(120),
   USDA_PLANTS_MAX_CALLS_PER_DAY: positiveInteger.default(1_000),
 
+  // P11-PROV-01: three more taxon-knowledge providers, the identical
+  // per-capability default-off kill-switch posture as USDA PLANTS above.
+  // Each needs no API key; timeout/quota defaults are generous/conservative
+  // for the same "no documented rate limit, treat defensively" reasoning
+  // docs/development/plant-knowledge-provider-runbooks.md records for every
+  // source in this file.
+  GBIF_PROVIDER_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  GBIF_CALL_TIMEOUT_MS: positiveInteger.default(15_000),
+  GBIF_MAX_CALLS_PER_HOUR: positiveInteger.default(120),
+  GBIF_MAX_CALLS_PER_DAY: positiveInteger.default(1_000),
+
+  USA_NPN_PROVIDER_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  USA_NPN_CALL_TIMEOUT_MS: positiveInteger.default(15_000),
+  USA_NPN_MAX_CALLS_PER_HOUR: positiveInteger.default(60),
+  USA_NPN_MAX_CALLS_PER_DAY: positiveInteger.default(500),
+
+  WORLD_FLORA_ONLINE_PROVIDER_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  WORLD_FLORA_ONLINE_CALL_TIMEOUT_MS: positiveInteger.default(15_000),
+  WORLD_FLORA_ONLINE_MAX_CALLS_PER_HOUR: positiveInteger.default(120),
+  WORLD_FLORA_ONLINE_MAX_CALLS_PER_DAY: positiveInteger.default(1_000),
+
   // P9C-INVITE-01: transactional email (Resend, decided 2026-07-26 —
   // section 29.1.1). Absent `RESEND_API_KEY` (every environment today) is
   // the honest `noProviderConfigured`-style degradation

@@ -23,8 +23,12 @@
 
 import {
   AnalyzePlantCondition,
+  createGbifRegistration,
   createOpenMeteoWeatherRegistration,
+  createUsaNpnRegistration,
   createUsdaPlantsRegistration,
+  createWorldFloraOnlineRegistration,
+  GBIF_PROVIDER_KEY,
   GenerateAiExplanation,
   GetGardenWeather,
   IdentifyPlantSpecies,
@@ -42,11 +46,14 @@ import {
   ResendTransactionalEmailAdapter,
   RunTaxonEnrichmentSweep,
   RunWeatherRefreshSweep,
+  USA_NPN_PROVIDER_KEY,
   USDA_PLANTS_PROVIDER_KEY,
   WeatherProviderRegistry,
+  WORLD_FLORA_ONLINE_PROVIDER_KEY,
 } from './modules/integrations/public.js';
 import type {
   AiExplanationProviderAdapter,
+  PlantAssertionProviderRegistration,
   PlantConditionAnalysisProviderAdapter,
   PlantSpeciesIdentificationProviderAdapter,
   TaxonEnrichmentSweepRouteDependencies,
@@ -207,32 +214,81 @@ export function composeIntegrations(
     cloudTasksInvocationVerifier,
   };
 
-  // P11-ASYNC-01: the taxon-enrichment pipeline. The registry holds exactly
-  // ONE registration today — USDA PLANTS, kill-switched off by default,
-  // needing no API key — the exact "one real adapter first" staging
-  // `composeIntegrations`'s own weather registry above went through with
-  // Open-Meteo. `sourcePriority` is the list of ENABLED provider keys, in
-  // ADR-0016's own selection order (a one-provider order today, but the
-  // shape a second registration extends without a signature change) — the
-  // same list drives both which providers `RunTaxonEnrichmentSweep` calls
-  // and `RebuildPlantProfileVersion`'s own tie-break, per that sweep's own
-  // header.
-  const assertionRegistrations = taxonKnowledge.usdaPlants.enabled
-    ? [
-        createUsdaPlantsRegistration(
-          {
-            fetchTimeoutMs: taxonKnowledge.usdaPlants.callTimeoutMs,
-            quotaLimits: {
-              maxCallsPerHour: taxonKnowledge.usdaPlants.maxCallsPerHour,
-              maxCallsPerDay: taxonKnowledge.usdaPlants.maxCallsPerDay,
-            },
+  // P11-ASYNC-01/P11-PROV-01: the taxon-enrichment pipeline. Four
+  // registrations today — USDA PLANTS (P11-ASYNC-01's first pass) plus
+  // GBIF, USA-NPN, and World Flora Online (P11-PROV-01) — each
+  // kill-switched off by default, needing no API key, pushed in ADR-0016's
+  // own selection order (taxonomy spine first, then US names/status, then
+  // the two net-new evidence sources). `sourcePriority` is the list of
+  // ENABLED provider keys in that same order — the list both
+  // `RunTaxonEnrichmentSweep` calls against and `RebuildPlantProfileVersion`
+  // ties-break with, per that sweep's own header.
+  const assertionRegistrations: PlantAssertionProviderRegistration[] = [];
+  const taxonSourcePriority: string[] = [];
+
+  if (taxonKnowledge.worldFloraOnline.enabled) {
+    assertionRegistrations.push(
+      createWorldFloraOnlineRegistration(
+        {
+          fetchTimeoutMs: taxonKnowledge.worldFloraOnline.callTimeoutMs,
+          quotaLimits: {
+            maxCallsPerHour: taxonKnowledge.worldFloraOnline.maxCallsPerHour,
+            maxCallsPerDay: taxonKnowledge.worldFloraOnline.maxCallsPerDay,
           },
-          (url, init) => globalThis.fetch(url, init),
-        ),
-      ]
-    : [];
+        },
+        (url, init) => globalThis.fetch(url, init),
+      ),
+    );
+    taxonSourcePriority.push(WORLD_FLORA_ONLINE_PROVIDER_KEY);
+  }
+  if (taxonKnowledge.usdaPlants.enabled) {
+    assertionRegistrations.push(
+      createUsdaPlantsRegistration(
+        {
+          fetchTimeoutMs: taxonKnowledge.usdaPlants.callTimeoutMs,
+          quotaLimits: {
+            maxCallsPerHour: taxonKnowledge.usdaPlants.maxCallsPerHour,
+            maxCallsPerDay: taxonKnowledge.usdaPlants.maxCallsPerDay,
+          },
+        },
+        (url, init) => globalThis.fetch(url, init),
+      ),
+    );
+    taxonSourcePriority.push(USDA_PLANTS_PROVIDER_KEY);
+  }
+  if (taxonKnowledge.gbif.enabled) {
+    assertionRegistrations.push(
+      createGbifRegistration(
+        {
+          fetchTimeoutMs: taxonKnowledge.gbif.callTimeoutMs,
+          quotaLimits: {
+            maxCallsPerHour: taxonKnowledge.gbif.maxCallsPerHour,
+            maxCallsPerDay: taxonKnowledge.gbif.maxCallsPerDay,
+          },
+        },
+        (url, init) => globalThis.fetch(url, init),
+      ),
+    );
+    taxonSourcePriority.push(GBIF_PROVIDER_KEY);
+  }
+  if (taxonKnowledge.usaNpn.enabled) {
+    assertionRegistrations.push(
+      createUsaNpnRegistration(
+        {
+          fetchTimeoutMs: taxonKnowledge.usaNpn.callTimeoutMs,
+          quotaLimits: {
+            maxCallsPerHour: taxonKnowledge.usaNpn.maxCallsPerHour,
+            maxCallsPerDay: taxonKnowledge.usaNpn.maxCallsPerDay,
+          },
+        },
+        (url, init) => globalThis.fetch(url, init),
+        clock,
+      ),
+    );
+    taxonSourcePriority.push(USA_NPN_PROVIDER_KEY);
+  }
+
   const assertionRegistry = new PlantAssertionProviderRegistry(assertionRegistrations);
-  const taxonSourcePriority = taxonKnowledge.usdaPlants.enabled ? [USDA_PLANTS_PROVIDER_KEY] : [];
 
   const refreshTaxonAssertions = new RefreshTaxonAssertions(
     assertionRegistry,

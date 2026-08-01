@@ -117,6 +117,24 @@ export const testConfiguration: ApplicationConfiguration = {
       maxCallsPerHour: 120,
       maxCallsPerDay: 1_000,
     },
+    gbif: {
+      enabled: false,
+      callTimeoutMs: 15_000,
+      maxCallsPerHour: 120,
+      maxCallsPerDay: 1_000,
+    },
+    usaNpn: {
+      enabled: false,
+      callTimeoutMs: 15_000,
+      maxCallsPerHour: 60,
+      maxCallsPerDay: 500,
+    },
+    worldFloraOnline: {
+      enabled: false,
+      callTimeoutMs: 15_000,
+      maxCallsPerHour: 120,
+      maxCallsPerDay: 1_000,
+    },
   },
   // P8-SEC-02: the enforcement switch in its default position, like every
   // real environment today. This is load-bearing for the whole suite: it is

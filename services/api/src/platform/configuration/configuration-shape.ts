@@ -128,15 +128,20 @@ export interface PlantConditionAiConfiguration {
   readonly maxCallsPerDay: number;
 }
 
-/** P11-ASYNC-01 — see the schema's own comment on the `USDA_PLANTS_*` variables. */
+interface TaxonKnowledgeProviderConfiguration {
+  /** The kill-switch. `false` everywhere today: the registry has no registration for this provider, and it is absent from `sourcePriority`. */
+  readonly enabled: boolean;
+  readonly callTimeoutMs: number;
+  readonly maxCallsPerHour: number;
+  readonly maxCallsPerDay: number;
+}
+
+/** P11-ASYNC-01/P11-PROV-01 — see the schema's own comments on the `USDA_PLANTS_*`/`GBIF_*`/`USA_NPN_*`/`WORLD_FLORA_ONLINE_*` variables. */
 export interface TaxonKnowledgeConfiguration {
-  readonly usdaPlants: {
-    /** The kill-switch. `false` everywhere today: the registry is empty, the sweep is a documented no-op. */
-    readonly enabled: boolean;
-    readonly callTimeoutMs: number;
-    readonly maxCallsPerHour: number;
-    readonly maxCallsPerDay: number;
-  };
+  readonly usdaPlants: TaxonKnowledgeProviderConfiguration;
+  readonly gbif: TaxonKnowledgeProviderConfiguration;
+  readonly usaNpn: TaxonKnowledgeProviderConfiguration;
+  readonly worldFloraOnline: TaxonKnowledgeProviderConfiguration;
 }
 
 /** P8-SEC-02 — see the schema's own comment on `APP_CHECK_ENFORCEMENT`. */
@@ -272,6 +277,24 @@ export function toApplicationConfiguration(raw: RawEnvironment): ApplicationConf
         callTimeoutMs: raw.USDA_PLANTS_CALL_TIMEOUT_MS,
         maxCallsPerHour: raw.USDA_PLANTS_MAX_CALLS_PER_HOUR,
         maxCallsPerDay: raw.USDA_PLANTS_MAX_CALLS_PER_DAY,
+      },
+      gbif: {
+        enabled: raw.GBIF_PROVIDER_ENABLED,
+        callTimeoutMs: raw.GBIF_CALL_TIMEOUT_MS,
+        maxCallsPerHour: raw.GBIF_MAX_CALLS_PER_HOUR,
+        maxCallsPerDay: raw.GBIF_MAX_CALLS_PER_DAY,
+      },
+      usaNpn: {
+        enabled: raw.USA_NPN_PROVIDER_ENABLED,
+        callTimeoutMs: raw.USA_NPN_CALL_TIMEOUT_MS,
+        maxCallsPerHour: raw.USA_NPN_MAX_CALLS_PER_HOUR,
+        maxCallsPerDay: raw.USA_NPN_MAX_CALLS_PER_DAY,
+      },
+      worldFloraOnline: {
+        enabled: raw.WORLD_FLORA_ONLINE_PROVIDER_ENABLED,
+        callTimeoutMs: raw.WORLD_FLORA_ONLINE_CALL_TIMEOUT_MS,
+        maxCallsPerHour: raw.WORLD_FLORA_ONLINE_MAX_CALLS_PER_HOUR,
+        maxCallsPerDay: raw.WORLD_FLORA_ONLINE_MAX_CALLS_PER_DAY,
       },
     },
     appCheck: {
