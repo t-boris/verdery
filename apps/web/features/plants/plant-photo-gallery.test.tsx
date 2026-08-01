@@ -61,7 +61,7 @@ describe('PlantPhotoGallery', () => {
       isPending: false,
       isError: false,
       data: { url: 'https://signed.example/media-1', expiresAt: '2026-01-01T00:00:00Z' },
-    } as never);
+    });
 
     renderGallery();
 

@@ -1,6 +1,6 @@
 'use client';
 
-import type { MediaAccess } from '@verdery/api-contracts';
+import type { Media, MediaAccess } from '@verdery/api-contracts';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
@@ -24,6 +24,9 @@ import {
  * plants feature is not fetched a second time.
  */
 
+/** How often to re-ask while validation is still outstanding. */
+const PROCESSING_POLL_INTERVAL_MS = 5000;
+
 function useMediaGateway() {
   return useMemo(() => createMediaGateway(createBrowserApiClient()), []);
 }
@@ -35,13 +38,51 @@ function unwrap<TData>(result: ApiResult<TData>): TData {
   return result.data;
 }
 
-/** A candidate photo's own `mediaId` is always already `processed` — a photo row only exists once its upload confirmed — so this is always `enabled`, unlike `features/media`'s own conditional `useMediaAccess`. */
+/**
+ * A photo's signed URL, gated on that photo actually being processed.
+ *
+ * This used to call `getAccess` unconditionally, on the stated reasoning that
+ * "a photo row only exists once its upload confirmed, so it is always
+ * processed." Confirmation and processing are different steps: the row is
+ * written when the upload completes (section 7 step 6) and validation runs
+ * afterwards (step 7), so between the two `GetMediaAccess` correctly refuses
+ * with a `409` — and because that reached `unwrap`, every thumbnail fired the
+ * request four times over as TanStack Query retried a refusal that retrying
+ * cannot fix.
+ *
+ * Reads the status first and enables the access read only at `processed`, the
+ * same two-step `features/map/use-background-image.ts` already uses. The
+ * status query keeps polling while processing is outstanding, so a photo
+ * appears on its own once it is ready rather than needing a reload.
+ */
 export function useCandidatePhotoAccess(gardenId: string, mediaId: string) {
   const gateway = useMediaGateway();
 
-  return useQuery<MediaAccess, ApiFailureError>({
+  const statusQuery = useQuery<Media, ApiFailureError>({
+    queryKey: ['media', gardenId, mediaId, 'status'] as const,
+    queryFn: async ({ signal }) => unwrap(await gateway.getStatus(gardenId, mediaId, signal)),
+    // Processing is asynchronous and has no push channel here; stop asking
+    // once it has reached a terminal state.
+    refetchInterval: (query) =>
+      query.state.data?.processingState === 'processed' ||
+      query.state.data?.processingState === 'processing_failed'
+        ? false
+        : PROCESSING_POLL_INTERVAL_MS,
+  });
+
+  const isProcessed = statusQuery.data?.processingState === 'processed';
+
+  const accessQuery = useQuery<MediaAccess, ApiFailureError>({
     queryKey: ['media', gardenId, mediaId, 'access'] as const,
     queryFn: async ({ signal }) => unwrap(await gateway.getAccess(gardenId, mediaId, signal)),
+    enabled: isProcessed,
     staleTime: 5 * 60 * 1000,
   });
+
+  return {
+    data: accessQuery.data,
+    // Still processing is a pending state, not an error — the photo is coming.
+    isPending: statusQuery.isPending || (!isProcessed && !statusQuery.isError),
+    isError: statusQuery.isError || accessQuery.isError,
+  };
 }

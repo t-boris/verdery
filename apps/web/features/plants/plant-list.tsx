@@ -255,7 +255,10 @@ function PlantCoverPhoto({
 }) {
   const query = usePlantPhotoAccess(gardenId, mediaId);
 
-  if (query.isPending || query.isError) {
+  // `data` is absent both while the photo is still being validated and when
+  // the read failed; the fallback covers each, and the status poll behind the
+  // hook swaps in the cover once it is ready.
+  if (query.data === undefined) {
     return <PlantCoverFallback />;
   }
 

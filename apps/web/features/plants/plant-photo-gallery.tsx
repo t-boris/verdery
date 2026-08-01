@@ -22,7 +22,10 @@ interface PlantPhotoThumbnailProps {
 function PlantPhotoThumbnail({ gardenId, mediaId, alt }: PlantPhotoThumbnailProps) {
   const query = usePlantPhotoAccess(gardenId, mediaId);
 
-  if (query.isPending || query.isError) {
+  // `data` is absent both while the photo is still being validated and when
+  // the read failed; the placeholder covers each, and the status poll behind
+  // the hook swaps in the image once it is ready.
+  if (query.data === undefined) {
     return <div className={styles['placeholder']} />;
   }
 
