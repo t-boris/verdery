@@ -1,8 +1,9 @@
 import { AddCandidateForm, CandidateList } from '@/features/candidates/public';
 import { getRequestTranslator } from '@/shared/localization/server';
 
+import { RouteBody, RouteHeader, RoutePage, RoutePanel, RouteSplit } from '@/shared/ui/public';
+
 import { AddCandidateFromPhotoPanel } from './add-candidate-from-photo-panel';
-import styles from './page.module.css';
 
 /**
  * The candidates entry point for a garden: browse plants under
@@ -30,27 +31,26 @@ export default async function CandidatesPage({
   const t = await getRequestTranslator();
 
   return (
-    <div className={styles['page']}>
-      <div className={styles['header']}>
-        <h1 className={styles['title']}>{t('candidates.pageTitle')}</h1>
-        <p className={styles['description']}>{t('candidates.pageDescription')}</p>
-      </div>
-
-      <div className={styles['section']}>
-        <CandidateList gardenId={gardenId} />
-      </div>
-
-      <div className={styles['panelGrid']}>
-        <section className={styles['panel']}>
-          <h2 className={styles['sectionTitle']}>{t('candidates.addTitle')}</h2>
-          <AddCandidateForm gardenId={gardenId} />
-        </section>
-
-        <section className={styles['panel']}>
-          <h2 className={styles['sectionTitle']}>{t('candidates.addFromPhotoTitle')}</h2>
-          <AddCandidateFromPhotoPanel gardenId={gardenId} />
-        </section>
-      </div>
-    </div>
+    <RoutePage>
+      <RouteHeader
+        title={t('candidates.pageTitle')}
+        description={t('candidates.pageDescription')}
+      />
+      <RouteSplit>
+        <RouteBody>
+          <RoutePanel>
+            <CandidateList gardenId={gardenId} />
+          </RoutePanel>
+        </RouteBody>
+        <RouteBody>
+          <RoutePanel title={t('candidates.addTitle')}>
+            <AddCandidateForm gardenId={gardenId} />
+          </RoutePanel>
+          <RoutePanel title={t('candidates.addFromPhotoTitle')}>
+            <AddCandidateFromPhotoPanel gardenId={gardenId} />
+          </RoutePanel>
+        </RouteBody>
+      </RouteSplit>
+    </RoutePage>
   );
 }

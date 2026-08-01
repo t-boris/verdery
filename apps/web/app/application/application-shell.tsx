@@ -73,16 +73,19 @@ function gardenSections(gardenId: string): readonly GardenSection[] {
 /**
  * Navigation, status, and sign-out for every authenticated route.
  *
- * KERN SHELL. Three rows — a 48px header, one scrolling content region, and a
- * permanent 24px `<StatusBar>` — filling exactly `100dvh` with `overflow:
- * hidden`, so the page itself never scrolls and only the content region does.
- * This is also why the root layout's own brand header is suppressed beneath an
- * application route (`app/layout.module.css`): Kern has ONE header, and it is
- * this one, which is why the wordmark moved here.
+ * KERN SHELL. Three rows — a 48px header, a workspace row, and a permanent
+ * 24px `<StatusBar>` — filling exactly `100dvh` with `overflow: hidden`, so
+ * the page itself never scrolls and only the content pane does. This is also
+ * why the root layout's own brand header is suppressed beneath an application
+ * route (`app/layout.module.css`): Kern has ONE header, and it is this one,
+ * which is why the wordmark moved here.
  *
- * The root links and the garden tabs are now one strip rather than two rows —
- * a 48px header has no room for two, and merging them means one horizontal
- * scroll on a phone instead of a stacked bar that would eat the content area.
+ * TWO NAVIGATION LEVELS, KEPT APART. The header holds only what sits ABOVE a
+ * garden: the wordmark, Gardens, Organizations, sign-out. A garden's own
+ * sections are one level down, in the workspace row's vertical menu, and
+ * appear only once a route names a garden. An earlier pass merged both into
+ * the header strip; that read as ten flat peers and lost the containment the
+ * routes actually have.
  *
  * The bar is purely structural: the garden identifier is read from the route
  * parameters, and no data is fetched here — the shell must render instantly
@@ -158,41 +161,6 @@ export function ApplicationShell({ children }: { readonly children: ReactNode })
             >
               {t('organizations.title')}
             </Link>
-
-            {/*
-              The garden tabs keep their own labelled grouping even though the
-              two navigation rows merged into one strip: without it a screen
-              reader would hear ten undifferentiated links, where before it
-              heard "primary" and "garden sections" as separate landmarks. A
-              `role="group"` rather than a nested `<nav>` — one navigation
-              landmark per shell — and it adds no `listitem`, which several
-              end-to-end assertions count on pages.
-            */}
-            {gardenId !== null && (
-              <span
-                className={styles['tabGroup']}
-                role="group"
-                aria-label={t('shell.gardenNavLabel')}
-              >
-                {gardenSections(gardenId).map((section) => {
-                  const active = section.exact
-                    ? pathname === section.href
-                    : pathname.startsWith(section.href);
-                  const Icon = section.icon;
-                  return (
-                    <Link
-                      key={section.href}
-                      className={classNames(styles['tab'], active && styles['tabActive'])}
-                      href={section.href}
-                      aria-current={active ? 'page' : undefined}
-                    >
-                      <Icon />
-                      <span>{t(section.labelKey)}</span>
-                    </Link>
-                  );
-                })}
-              </span>
-            )}
           </nav>
 
           <div className={styles['headerEnd']}>
@@ -203,7 +171,36 @@ export function ApplicationShell({ children }: { readonly children: ReactNode })
           </div>
         </header>
 
-        <div className={styles['content']}>{children}</div>
+        <div className={styles['workspace']}>
+          {gardenId === null ? (
+            <span />
+          ) : (
+            <nav className={styles['sectionMenu']} aria-label={t('shell.gardenNavLabel')}>
+              {gardenSections(gardenId).map((section) => {
+                const active = section.exact
+                  ? pathname === section.href
+                  : pathname.startsWith(section.href);
+                const Icon = section.icon;
+                return (
+                  <Link
+                    key={section.href}
+                    className={classNames(
+                      styles['sectionLink'],
+                      active && styles['sectionLinkActive'],
+                    )}
+                    href={section.href}
+                    aria-current={active ? 'page' : undefined}
+                  >
+                    <Icon />
+                    <span className={styles['sectionLabel']}>{t(section.labelKey)}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          )}
+
+          <div className={styles['content']}>{children}</div>
+        </div>
 
         <StatusBar />
       </div>

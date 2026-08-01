@@ -184,6 +184,24 @@
   --shell-header-size: 48px;
   --shell-status-size: 24px;
 
+  /*
+   * Pane widths, all FLUID. The direction quotes fixed pixels (252px index,
+   * 326px inspector, 296px context) but those were drawn against one canvas
+   * width: held literally they leave a 2560px display mostly empty and crush
+   * the content pane on a 1280px laptop. Each is a `clamp()` instead — a floor
+   * that keeps the pane usable, a viewport-relative middle that lets it grow,
+   * and a ceiling so a wide display gives its extra space to the content
+   * rather than to chrome. The direction's own number sits inside each range.
+   *
+   * The one width that is NOT fluid is the map's tool rail: it is
+   * `--control-min-size`, a touch-target minimum, and scaling it would break
+   * the guarantee it exists to make.
+   */
+  --pane-menu: clamp(11rem, 13vw, 15rem);
+  --pane-index: clamp(13rem, 16vw, 19rem);
+  --pane-inspector: clamp(18rem, 21vw, 25rem);
+  --pane-context: clamp(16rem, 19vw, 23rem);
+
   --duration-fast: 120ms;
   --duration-medium: 220ms;
   --ease-out: cubic-bezier(0.2, 0, 0, 1);

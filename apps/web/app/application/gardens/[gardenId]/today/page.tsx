@@ -1,7 +1,6 @@
 import { TodayList } from '@/features/recommendations/public';
 import { getRequestTranslator } from '@/shared/localization/server';
-
-import styles from './page.module.css';
+import { RouteBody, RouteHeader, RoutePage, RoutePanel } from '@/shared/ui/public';
 
 /**
  * The garden's Today view: the small prioritized set of actionable
@@ -20,13 +19,14 @@ export default async function TodayPage({
   const t = await getRequestTranslator();
 
   return (
-    <div className={styles['page']}>
-      <div className={styles['header']}>
-        <h1 className={styles['title']}>{t('today.pageTitle')}</h1>
-        <p className={styles['description']}>{t('today.pageDescription')}</p>
-      </div>
-
-      <TodayList gardenId={gardenId} />
-    </div>
+    <RoutePage>
+      <RouteHeader title={t('today.pageTitle')} description={t('today.pageDescription')} />
+      <RouteBody>
+        {/* No band heading: it would repeat the route title verbatim. */}
+        <RoutePanel fill>
+          <TodayList gardenId={gardenId} />
+        </RoutePanel>
+      </RouteBody>
+    </RoutePage>
   );
 }

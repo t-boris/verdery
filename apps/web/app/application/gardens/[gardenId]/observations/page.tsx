@@ -1,7 +1,6 @@
 import { ObservationTimeline, RecordObservationForm } from '@/features/observations/public';
 import { getRequestTranslator } from '@/shared/localization/server';
-
-import styles from './page.module.css';
+import { RouteBody, RouteHeader, RoutePage, RoutePanel, RouteSplit } from '@/shared/ui/public';
 
 /**
  * The garden-wide observation history: record a new one, and see the full
@@ -19,21 +18,23 @@ export default async function ObservationsPage({
   const t = await getRequestTranslator();
 
   return (
-    <div className={styles['page']}>
-      <div className={styles['header']}>
-        <h1 className={styles['title']}>{t('observations.pageTitle')}</h1>
-        <p className={styles['description']}>{t('observations.pageDescription')}</p>
-      </div>
-
-      <section className={styles['panel']}>
-        <h2 className={styles['sectionTitle']}>{t('observations.recordTitle')}</h2>
-        <RecordObservationForm gardenId={gardenId} />
-      </section>
-
-      <div className={styles['section']}>
-        <h2 className={styles['sectionTitle']}>{t('observations.historyTitle')}</h2>
-        <ObservationTimeline gardenId={gardenId} />
-      </div>
-    </div>
+    <RoutePage>
+      <RouteHeader
+        title={t('observations.pageTitle')}
+        description={t('observations.pageDescription')}
+      />
+      <RouteSplit>
+        <RouteBody>
+          <RoutePanel title={t('observations.historyTitle')}>
+            <ObservationTimeline gardenId={gardenId} />
+          </RoutePanel>
+        </RouteBody>
+        <RouteBody>
+          <RoutePanel title={t('observations.recordTitle')}>
+            <RecordObservationForm gardenId={gardenId} />
+          </RoutePanel>
+        </RouteBody>
+      </RouteSplit>
+    </RoutePage>
   );
 }

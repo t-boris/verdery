@@ -3,8 +3,10 @@
  * border-coloured background — the gap IS the rule, so no region draws a
  * border of its own.
  *
- * The widths are the direction's: a 44px tool rail, a 252px object index, the
- * canvas taking the rest, and a 326px inspector.
+ * A 44px tool rail (fixed — it is a touch-target minimum), then a fluid
+ * object index, the canvas taking the rest, and a fluid inspector. The pane
+ * widths are `clamp()` tokens; see `shared/ui/tokens.css` for why the
+ * direction's fixed pixels were not taken literally.
  *
  * `flex: 1` inside the route's own column, not a `calc(100vh - Xrem)`: the
  * editor sits inside the application shell's single scrolling region, which is
@@ -23,7 +25,9 @@
 .body {
   display: grid;
   grid-template-areas: 'rail index canvas inspector';
-  grid-template-columns: var(--control-min-size) 252px minmax(0, 1fr) 326px;
+  grid-template-columns: var(--control-min-size) var(--pane-index) minmax(0, 1fr) var(
+      --pane-inspector
+    );
   gap: var(--border-width);
   flex: 1;
   min-block-size: 0;

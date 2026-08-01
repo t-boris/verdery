@@ -1,5 +1,5 @@
 /*
- * Kern's inspector: 326px of borderless `104px 1fr` table.
+ * Kern's inspector: a fluid column of borderless label/value table.
  *
  * The row layout is set ONCE here, as inherited `--field-*` custom properties
  * that every nested `TextField`/`Select` picks up (see
@@ -64,7 +64,7 @@
 /* The table itself: one inherited declaration block, every nested field obeys. */
 .form {
   --field-display: grid;
-  --field-columns: 104px minmax(0, 1fr);
+  --field-columns: clamp(5rem, 7vw, 7rem) minmax(0, 1fr);
   --field-align: center;
   --field-gap: 0;
   --field-label-family: var(--font-family-mono);

@@ -8,8 +8,8 @@
  * width rather than a compromise on it.
  *
  * Below the tablet breakpoint the rail turns horizontal and scrolls: a 44px
- * column plus a 252px index plus a 326px inspector cannot coexist with a
- * usable canvas on a phone.
+ * column plus the index plus the inspector cannot coexist with a usable
+ * canvas on a phone.
  */
 .rail {
   display: flex;

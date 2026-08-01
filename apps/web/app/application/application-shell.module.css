@@ -1,6 +1,14 @@
 /*
- * Kern's application shell: a fixed header, a status footer, and exactly one
- * scrolling region between them.
+ * Kern's application shell: a fixed header, a status footer, and between them
+ * a row of a vertical section menu plus exactly one scrolling region.
+ *
+ * TWO NAVIGATION LEVELS, KEPT APART. The header carries only what is ABOVE a
+ * garden — the wordmark, Gardens, Organizations, sign-out. A garden's own
+ * sections (overview, today, seasonal plan, map, plants, candidates,
+ * observations, tasks) are one level down and live in their own vertical
+ * menu beside the content, appearing only once a route actually names a
+ * garden. Putting both in one strip, as an earlier pass did, read as a single
+ * flat set of ten peers and lost the containment the routes actually have.
  *
  * `--shell-header-size` is 48px, not the 46px the direction's mock uses. Tab
  * buttons fill the header's full height, so the header height IS the tab hit
@@ -13,6 +21,91 @@
   grid-template-rows: var(--shell-header-size) 1fr var(--shell-status-size);
   block-size: 100dvh;
   overflow: hidden;
+}
+
+/* The middle row: section menu (when inside a garden) beside the content. */
+.workspace {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-block-size: 0;
+}
+
+/*
+ * The garden's own sections. A vertical rail rather than a second horizontal
+ * strip: it reads as subordinate to the header rather than as a peer of it,
+ * it matches the map editor's own tool rail, and it leaves the full width to
+ * the content it governs.
+ */
+.sectionMenu {
+  display: flex;
+  flex-direction: column;
+  inline-size: var(--pane-menu);
+  min-block-size: 0;
+  overflow-y: auto;
+  border-inline-end: var(--border-width) solid var(--color-border);
+  background-color: var(--color-surface);
+  scrollbar-width: none;
+}
+
+.sectionMenu::-webkit-scrollbar {
+  display: none;
+}
+
+.sectionLink {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+  min-block-size: var(--control-min-size);
+  padding-inline: var(--space-3);
+  border-block-end: var(--border-width) solid var(--color-border);
+  /* Reserved so the active rule never shifts the label. */
+  border-inline-start: 3px solid transparent;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.sectionLink:hover {
+  background-color: var(--color-surface-sunken);
+  color: var(--color-text);
+}
+
+.sectionLink:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+/* Active carries a 3px rule, a wash, and weight — never colour alone. */
+.sectionLinkActive {
+  border-inline-start-color: var(--color-accent);
+  background-color: var(--color-accent-quiet);
+  color: var(--color-accent);
+  font-weight: var(--font-weight-semibold);
+}
+
+/*
+ * Below the tablet breakpoint the rail collapses to icons. It stays vertical
+ * and stays a separate level — turning it back into a horizontal strip would
+ * reintroduce exactly the flattening this layout exists to avoid.
+ */
+@media (max-width: 60rem) {
+  .sectionMenu {
+    inline-size: var(--control-min-size);
+  }
+
+  .sectionLink {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .sectionLabel {
+    display: none;
+  }
 }
 
 .header {
@@ -64,18 +157,6 @@
 
 .nav::-webkit-scrollbar {
   display: none;
-}
-
-/*
- * A real flex row, deliberately NOT `display: contents`: an element with
- * `display: contents` has a long history of being dropped from the
- * accessibility tree, which would silently defeat the `role="group"` and
- * `aria-label` this wrapper exists to carry.
- */
-.tabGroup {
-  display: flex;
-  align-items: stretch;
-  flex: none;
 }
 
 .tab {

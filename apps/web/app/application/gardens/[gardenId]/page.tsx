@@ -9,7 +9,7 @@ import {
   GardenEngagementsSection,
 } from '@/features/organizations/public';
 
-import styles from './page.module.css';
+import { RouteBody, RouteHeader, RoutePage, RoutePanel } from '@/shared/ui/public';
 
 /**
  * The garden's overview and settings. Cross-section navigation lives in the
@@ -37,17 +37,34 @@ export default async function GardenSettingsPage({
   const t = await getRequestTranslator();
 
   return (
-    <div className={styles['page']}>
-      <div className={styles['header']}>
-        <h1 className={styles['title']}>{t('gardens.settingsTitle')}</h1>
-      </div>
-      <GardenSettings gardenId={gardenId} />
-      <GardenPhotoUpload gardenId={gardenId} />
-      <GardenPlanUpload gardenId={gardenId} />
-      <Collaborators gardenId={gardenId} />
-      <GardenAssignmentsSection gardenId={gardenId} />
-      <GardenEngagementsSection gardenId={gardenId} />
-      <ContextQuality gardenId={gardenId} />
-    </div>
+    <RoutePage>
+      <RouteHeader title={t('gardens.settingsTitle')} />
+      <RouteBody>
+        {/* Each section is its own band. No band headings here: every one of
+            these components already renders its own heading, and a second
+            would duplicate it. */}
+        <RoutePanel>
+          <GardenSettings gardenId={gardenId} />
+        </RoutePanel>
+        <RoutePanel>
+          <GardenPhotoUpload gardenId={gardenId} />
+        </RoutePanel>
+        <RoutePanel>
+          <GardenPlanUpload gardenId={gardenId} />
+        </RoutePanel>
+        <RoutePanel>
+          <Collaborators gardenId={gardenId} />
+        </RoutePanel>
+        <RoutePanel>
+          <GardenAssignmentsSection gardenId={gardenId} />
+        </RoutePanel>
+        <RoutePanel>
+          <GardenEngagementsSection gardenId={gardenId} />
+        </RoutePanel>
+        <RoutePanel>
+          <ContextQuality gardenId={gardenId} />
+        </RoutePanel>
+      </RouteBody>
+    </RoutePage>
   );
 }

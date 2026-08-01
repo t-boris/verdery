@@ -1,7 +1,6 @@
 import { SeasonalPlanView } from '@/features/seasonal-plan/public';
 import { getRequestTranslator } from '@/shared/localization/server';
-
-import styles from './page.module.css';
+import { RouteBody, RouteHeader, RoutePage, RoutePanel } from '@/shared/ui/public';
 
 /**
  * The garden's Seasonal plan section: configured sow/transplant/harvest
@@ -21,13 +20,16 @@ export default async function SeasonalPlanPage({
   const t = await getRequestTranslator();
 
   return (
-    <div className={styles['page']}>
-      <div className={styles['header']}>
-        <h1 className={styles['title']}>{t('seasonalPlan.pageTitle')}</h1>
-        <p className={styles['description']}>{t('seasonalPlan.pageDescription')}</p>
-      </div>
-
-      <SeasonalPlanView gardenId={gardenId} />
-    </div>
+    <RoutePage>
+      <RouteHeader
+        title={t('seasonalPlan.pageTitle')}
+        description={t('seasonalPlan.pageDescription')}
+      />
+      <RouteBody>
+        <RoutePanel fill>
+          <SeasonalPlanView gardenId={gardenId} />
+        </RoutePanel>
+      </RouteBody>
+    </RoutePage>
   );
 }

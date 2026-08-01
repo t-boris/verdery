@@ -100,9 +100,19 @@
   font-weight: var(--font-weight-semibold);
 }
 
+/*
+ * `auto-fill` against a minimum tile, not the direction's literal
+ * `repeat(6, 1fr)` and not a ladder of breakpoints: the column count follows
+ * the pane's ACTUAL width, which here is whatever the fluid context column
+ * leaves. Six columns is what this produces at the width the direction was
+ * drawn for, and it keeps producing a sensible count either side of it
+ * without a media query per step — the pane can also be resized by the
+ * context column's own `clamp()`, which no breakpoint on the viewport could
+ * have tracked.
+ */
 .list {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(clamp(9rem, 12vw, 12rem), 1fr));
   gap: var(--border-width);
   padding: 0;
   margin: 0;
@@ -110,24 +120,6 @@
   background-color: var(--color-border);
   /* The outer rules, so the grid is boxed by the same hairline as its cells. */
   border: var(--border-width) solid var(--color-border);
-}
-
-@media (max-width: 90rem) {
-  .list {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 60rem) {
-  .list {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 40rem) {
-  .list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 .item {
