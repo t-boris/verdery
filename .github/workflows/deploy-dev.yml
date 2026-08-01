@@ -115,6 +115,26 @@ jobs:
             --project="${PROJECT_ID}" --region="${REGION}" --format="value(status.url)")
           curl --fail --silent --show-error "${SERVICE_URL}/v1/health/ready"
 
+      # The workers service: the transactional-outbox relay plus the media
+      # validation target Cloud Tasks delivers to. Deployed after the API is
+      # verified healthy, because deploy-workers.sh reads the API's live URL to
+      # build its own result-callback target and a worker that cannot call back
+      # can never finish a job.
+      #
+      # min-instances comes from VERDERY_WORKER_MIN_INSTANCES in dev.env rather
+      # than being hardcoded, so an environment deliberately put to sleep with
+      # dev-down.sh is not silently woken by the next push to master.
+      - name: Build and push the workers image
+        id: workers_image
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/workers:${GITHUB_SHA}"
+          docker build -f services/workers/Dockerfile -t "${IMAGE}" .
+          docker push "${IMAGE}"
+          echo "image=${IMAGE}" >> "${GITHUB_OUTPUT}"
+
+      - name: Deploy the workers service
+        run: infrastructure/gcloud/scripts/deploy-workers.sh dev "${{ steps.workers_image.outputs.image }}"
+
       # The web client. NEXT_PUBLIC_* values are baked at BUILD time (that is
       # what the prefix means) from the committed, non-secret .env.example
       # values plus the live API origin — see apps/web/Dockerfile's own header.

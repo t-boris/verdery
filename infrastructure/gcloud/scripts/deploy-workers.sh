@@ -36,6 +36,19 @@
 #      this script reads its live URL to build the hop-2 result-callback
 #      target; it does not deploy or wait for services/api itself.
 #
+# MIN INSTANCES IS CONFIGURABLE, and it must stay that way. The relay is an
+# internal timer, not an HTTP entry point, so one warm instance is what makes
+# the outbox drain at all — but a dev environment that is only used in bursts
+# has every reason to switch that off between sessions, and hardcoding it here
+# would mean every deploy silently switched it back on. `dev-down.sh` sets it
+# to zero and `dev-up.sh` restores it; VERDERY_WORKER_MIN_INSTANCES in the
+# environment config is what makes a deploy honour whichever state you left.
+#
+# `--no-cpu-throttling` is NOT configurable and must not become so: Cloud Run
+# freezes an idle instance's CPU by default, which stops the relay's timer as
+# surely as switching the service off, except that you keep paying for it.
+# One warm instance without always-allocated CPU is the worst of both.
+#
 # Source: implementation-plan.md work package P6-WORKER-01;
 # architecture/asynchronous-processing.md, section "5. Cloud Tasks";
 # architecture/media-storage-and-processing.md, section "18. Security".
@@ -158,7 +171,7 @@ gcloud run deploy "${VERDERY_WORKERS_CLOUD_RUN_SERVICE_NAME}" \
   --service-account="${worker_email}" \
   --set-env-vars="${env_vars}" \
   --set-secrets="DATABASE_URL=${VERDERY_WORKER_DATABASE_URL_SECRET_NAME}:latest" \
-  --min-instances=1 \
+  --min-instances="${VERDERY_WORKER_MIN_INSTANCES:-1}" \
   --max-instances=2 \
   --no-cpu-throttling \
   --cpu=1 \

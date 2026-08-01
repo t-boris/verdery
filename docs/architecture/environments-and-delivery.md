@@ -30,6 +30,24 @@ Local development uses local containers, test Firebase projects/emulators where 
 - Synthetic or disposable data.
 - Lower availability and cost.
 - Safe provider sandbox credentials.
+- Suspendable between working sessions.
+
+Development is used in bursts, and two of its resources bill for existing rather than for being
+used: the database, which runs continuously, and the workers service, which holds one always-warm
+instance because its outbox relay is an internal timer rather than an HTTP entry point. The API and
+web services already scale to zero and need no attention. `dev-down.sh` suspends the first two and
+`dev-up.sh` restores them, in that order — the workers service is only started against a database
+that has already reached `RUNNABLE`.
+
+Suspending loses no work. The outbox is transactional and an event is marked published only after
+its task is successfully enqueued, so a stopped relay leaves rows waiting rather than dropping them,
+and the first tick after resuming drains them. The one exception is narrow and worth knowing: a task
+already enqueued when the environment goes down, with the worker then unavailable for longer than
+the queue's retry window, exhausts its attempts, and nothing re-creates it because its outbox row is
+already published.
+
+Minimum instance counts are configuration, not constants in the deploy scripts, so that a deliberate
+suspension survives the next deploy instead of being silently undone by it.
 
 ### Staging
 
