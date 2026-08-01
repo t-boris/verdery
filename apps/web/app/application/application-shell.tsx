@@ -159,24 +159,40 @@ export function ApplicationShell({ children }: { readonly children: ReactNode })
               {t('organizations.title')}
             </Link>
 
-            {gardenId !== null &&
-              gardenSections(gardenId).map((section) => {
-                const active = section.exact
-                  ? pathname === section.href
-                  : pathname.startsWith(section.href);
-                const Icon = section.icon;
-                return (
-                  <Link
-                    key={section.href}
-                    className={classNames(styles['tab'], active && styles['tabActive'])}
-                    href={section.href}
-                    aria-current={active ? 'page' : undefined}
-                  >
-                    <Icon />
-                    <span>{t(section.labelKey)}</span>
-                  </Link>
-                );
-              })}
+            {/*
+              The garden tabs keep their own labelled grouping even though the
+              two navigation rows merged into one strip: without it a screen
+              reader would hear ten undifferentiated links, where before it
+              heard "primary" and "garden sections" as separate landmarks. A
+              `role="group"` rather than a nested `<nav>` — one navigation
+              landmark per shell — and it adds no `listitem`, which several
+              end-to-end assertions count on pages.
+            */}
+            {gardenId !== null && (
+              <span
+                className={styles['tabGroup']}
+                role="group"
+                aria-label={t('shell.gardenNavLabel')}
+              >
+                {gardenSections(gardenId).map((section) => {
+                  const active = section.exact
+                    ? pathname === section.href
+                    : pathname.startsWith(section.href);
+                  const Icon = section.icon;
+                  return (
+                    <Link
+                      key={section.href}
+                      className={classNames(styles['tab'], active && styles['tabActive'])}
+                      href={section.href}
+                      aria-current={active ? 'page' : undefined}
+                    >
+                      <Icon />
+                      <span>{t(section.labelKey)}</span>
+                    </Link>
+                  );
+                })}
+              </span>
+            )}
           </nav>
 
           <div className={styles['headerEnd']}>

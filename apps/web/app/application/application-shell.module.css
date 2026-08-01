@@ -66,6 +66,18 @@
   display: none;
 }
 
+/*
+ * A real flex row, deliberately NOT `display: contents`: an element with
+ * `display: contents` has a long history of being dropped from the
+ * accessibility tree, which would silently defeat the `role="group"` and
+ * `aria-label` this wrapper exists to carry.
+ */
+.tabGroup {
+  display: flex;
+  align-items: stretch;
+  flex: none;
+}
+
 .tab {
   display: inline-flex;
   align-items: center;

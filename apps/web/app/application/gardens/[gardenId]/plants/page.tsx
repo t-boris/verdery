@@ -55,6 +55,7 @@ export default async function PlantsPage({
       </div>
 
       <div className={styles['library']}>
+        <h2 className={styles['libraryHeading']}>{t('plants.inventoryTitle')}</h2>
         <PlantList gardenId={gardenId} />
       </div>
     </div>
