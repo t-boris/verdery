@@ -66,3 +66,21 @@ locally and failed CI on column padding alone.
 - When untracked tooling directories make a repo-wide check noisy, filter to
   tracked files (`git ls-files`) rather than narrowing the file types — the
   extension list is the part that must stay complete.
+
+## Re-run the size gate after editing, not before
+
+`check-file-size.mjs` was run before adding a comment to `services/api/src/app.ts`
+and not after. The comment took the file from 596 to 610 lines and CI failed.
+
+This is the same shape as the earlier Prettier lesson: a gate was run against
+the wrong moment rather than the wrong file set. Running a gate before the edit
+proves nothing about the edit.
+
+**Rule:** run every CI gate as the last step before `git commit`, after all edits
+are final — never mid-task. For this repo that is `pnpm typecheck`, `pnpm lint`,
+`prettier --check` over tracked files, and `node scripts/check-file-size.mjs`.
+
+**Second rule, from the same failure:** a file already within ~20 lines of the
+600 limit is over the limit the repo actually states, which is "split before
+exceeding". Split it instead of shrinking a comment to fit — shrinking hides
+that the file needed splitting and guarantees the next edit fails the same way.
