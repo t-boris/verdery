@@ -12,5 +12,9 @@ export default defineConfig({
     // One authoritative Docker probe per run, handed to every fork —
     // see tests/support/global-setup.ts (P7-QA-01).
     globalSetup: ['tests/support/global-setup.ts'],
+    // Runs inside every fork, before any test module is imported, so each
+    // `new pg.Pool(...)` carries an 'error' listener — see
+    // tests/support/pool-shutdown-guard.ts for the teardown race it closes.
+    setupFiles: ['tests/support/pool-shutdown-guard.ts'],
   },
 });
