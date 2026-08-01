@@ -8286,3 +8286,151 @@ state, bulk actions, full journal capture UI, taxon catalog browse) remain open,
 session's own prior Phase 11 web-adjacent passes already documented as deferred rather than dropped.
 
 ---
+
+## P11-IOS-01 — iOS plant library/add/detail/journal redesign
+
+The iOS counterpart of P11-WEB-01, scoped identically for the same reasons: a real, working
+candidates surface built from scratch (list/filter/search, add, detail/edit/status, suitability
+review, convert-to-plant) against a backend fully ready since P11-API-01, plus the same two smaller
+already-wired gaps closed on the same pass — `SearchPlants`'s `identified` filter, and the observation
+timeline's health-suggestion rendering (P11-HEALTH-01's real shape, in place of the old stubbed one).
+A research pass (dispatched before writing any Swift) confirmed iOS candidates were entirely unbuilt
+— matching web's own prior state exactly — and, separately, that iOS's `ImageAnalysisResult` was
+*still* on the pre-P11-HEALTH-01 stubbed shape (`suggestedLabel`/`confidenceScore`/
+`requiresConfirmation`/`requestedAdditionalEvidence` only), unlike web, which already carried the real
+shape into this session from earlier in it.
+
+**Architecture decision, made explicit rather than silently assumed**: candidates are built
+ONLINE-ONLY — no GRDB, no `CorePersistence`, no `CoreSynchronization` — because `plant_candidate` is
+absent from the backend's own `SyncRecordType` list (`services/api/src/platform/sync/
+sync-record-type.ts`: only `garden`/`gardenObject`/`calibration`/`plant`/`observation`/`task`), so
+there is nothing on the server side for a local outbox to push to or pull from. `FeatureCandidates` is
+shaped exactly like the already-built `FeatureRecommendations` (P7-IOS-01), the one existing precedent
+for "a resource family with revision-guarded commands that stays deliberately online-only" — its own
+doc comment gives almost word-for-word the same reasoning. Flagged to the user as the one place this
+research inferred a pattern rather than reporting one already applied to this exact resource; no
+objection raised.
+
+**`CoreDomain`**: new `PlantCandidates/` (`PlantCandidate`, `PlantCandidateStatus`,
+`PlantCandidatePriority`, `SuitabilityAxis`, `SuitabilityFindingCategory`, `SuitabilityUnknownReason`,
+`SuitabilityEvidence`, `SuitabilityFinding`, `SuitabilityAssessment`, `CandidateConversion`,
+`ConvertCandidateResult`) — `SuitabilityFinding` mirrors the contract's own flat-object shape (not a
+true tagged union) exactly the way the web `SuitabilityFinding` type does, and reuses the
+already-existing `JSONValue` (moved to `CoreDomain` in P7-IOS-01 for this exact "open-shaped contract
+field" problem) for `SuitabilityEvidence.value`/`SuitabilityFinding.assumedValue` rather than adding a
+second JSON wrapper type. New `Observations/HealthSuggestion.swift`
+(`ObservationPhotoPurpose`, `HealthSuggestionSafetyClass`, `HealthSuggestionDisposition`) and
+`ImageAnalysisResult` rewritten with the full P11-HEALTH-01 shape (9 new fields); `ObservationPhoto`
+itself still does not model `purpose` — a real, separate, explicitly-deferred gap (P11-MEDIA-01's own
+photo-capture UI parity), matching web's identical scope line.
+
+**`CoreNetworking`**: new `PlantCandidateTransport.swift`/`PlantCandidateGateway.swift`
+(`URLSessionPlantCandidateGateway`, `PlantCandidateListPage`), mirroring `PlantGateway.swift`'s
+conventions exactly — `FieldUpdate<Value>` for `UpdateCandidateDetailsRequestTransport`'s
+omit/null/value fields, `ConvertCandidateRequestTransport`'s placement fields left as plain optionals
+(not `FieldUpdate`: omitted means "default to the candidate's own proposed placement," not "leave
+unchanged"). `ImageAnalysisResultTransport` extended for the new fields; new
+`SetHealthSuggestionDispositionRequestTransport`; `ObservationGateway` gained
+`setHealthSuggestionDisposition` (no `If-Match` — `image_analysis_result` carries no revision).
+`PlantGateway.searchPlants` gained `identified: Bool?`.
+
+**Closing the `identified`-filter gap**: `PlantsListViewModel` gained `PlantsIdentifiedFilter` (a
+3-state `all`/`identified`/`unidentified` enum over the nullable wire parameter) and
+`identifiedFilterDidChange()` (re-searches immediately — a `Picker` selection is a single discrete
+action, unlike free-text `searchText`'s explicit-submit shape); `PlantsListView` gained a segmented
+`Picker` beside the search field.
+
+**Closing the health-suggestion-review gap**: `AnalysisResultNotice`'s iOS equivalent
+(`ObservationsTimelineView.analysisView`) extended to render evidence summary, alternative
+explanations (both only when non-empty), a `safetyClass` `Chip` (`expertReviewRecommended` the only
+tone read as `.negative`; `monitor`/`informational` both `.neutral`), an honest "no AI model reached"
+`InlineMessage` in place of the suggestion line when `modelName == nil`, and a disposition `Picker` +
+save button wired to a new `SetHealthSuggestionDisposition` use case (online-only, the same reasoning
+as candidates) — `ObservationsTimelineViewModel` gained `selectedDisposition`/`isSavingDisposition`/
+`dispositionErrorMessage`/`dispositionSavedIds` (all keyed by analysis-result id) and
+`saveDisposition(for:)`, invalidating via a full `load()` on success (mirrors web's identical choice:
+the updated result is nested too deep inside `Observation.photos[].analysisResults[]` for a targeted
+cache patch to be worth it).
+
+**`FeatureCandidates`** (new module): `CandidatesUseCases.swift` (`AddCandidate`, `ListCandidates`,
+`GetCandidate`, `UpdateCandidateDetails`, `SetCandidateStatus`, `ConvertCandidate`,
+`GetCandidateSuitability` — narrows a generic `404` into `nil`, mirroring
+`FeaturePlants.FetchPlantIdentification`'s identical "absent means `nil`, not thrown" precedent,
+unlike that type there is no resource-specific error code to also check, so this narrows on status
+code alone — `RecalculateCandidateSuitability`, `SearchCandidateTaxonomyReferences` — a local rebuild
+directly on `CoreNetworking.PlantGateway`, the same "duplicate rather than cross-import" precedent
+`FeaturePlants.ListGardenMapObjects` already set); `CandidatesLocalization.swift` (enum labels/tones,
+plus a duplicated `JSONValue` `displayText` renderer mirroring `FeatureRecommendations
+.TodayLocalization.displayText`'s identical rule for the identical "open-shaped field" problem);
+`CandidatesListViewModel`/`CandidatesListView` (search + status/priority `Menu` multi-select filters +
+cursor pagination — nothing hidden by a fixed default, matching web's own "every status including
+converted/rejected is worth browsing" choice, unlike `PlantsListViewModel`'s fixed exclusion);
+`AddCandidateViewModel`/`AddCandidateSheetView` (mirrors `PlantAddSheetView`'s chip-row shape;
+deliberately omits the proposed-placement and `alternativeToCandidateId` fields — both would need a
+picker this pass does not build, the same scope line web already drew); `CandidateDetailViewModel`/
+`CandidateDetailView` (edit form + status control + suitability panel + convert form combined in one
+screen, since a candidate carries no photo gallery or identification banner to also coordinate; once
+`status == .converted` the mutating sections are replaced with a plain notice, matching web's identical
+gating); `CandidateTaxonomyReferencePickerView`/`CandidateChoiceChip` duplicate
+`FeaturePlants.TaxonomyReferencePickerView`/`PlantChoiceChip` verbatim, the same precedent as
+`CandidatesLocalization`'s own duplicated enum-label functions.
+
+**Localization**: new `PlantCandidatesLocalizationKey.swift` (86 keys) and
+`ObservationsHealthSuggestionLocalizationKey.swift` (14 keys) — both satellite key sets, the
+established pattern once `LocalizationKey.swift` itself is at its own 600-line ceiling (confirmed
+still exactly 600, untouched this pass); full English/Russian `.strings` coverage for both plus
+`PlantsListLocalizationKey`'s 4 new `identifiedFilter` keys.
+`LocalizationCatalogueTests.declarationListIsComplete` (a pre-existing, already-partial assertion
+list — 6 of 11 key sets, unrelated to this pass) had all 3 new/touched key sets added to it for
+completeness, without attempting to backfill its other pre-existing gaps.
+
+**Navigation**: `GardenTabView`'s Plants tab gained a `.secondaryAction` toolbar button pushing
+`CandidatesScreenView` onto the SAME `NavigationStack` `PlantsHomeView` already owns (`.navigationDestination(isPresented:)`)
+— wired at the composition layer specifically so `FeaturePlants` never has to import `FeatureCandidates`;
+`AppCompositionRoot+Candidates.swift` (3 factories) mirrors `AppCompositionRoot+Plants.swift`'s shape,
+and `AppCompositionRoot` gained a `plantCandidateGateway` stored property (`let`, not `private let`,
+matching `plantGateway`'s own documented reasoning for cross-file extension access). Converting a
+candidate dismisses back to the candidate list on success (`@Environment(\.dismiss)`, the same
+"pop after a successful irreversible action" shape `PlantDetailView.delete()` already uses) rather than
+deep-linking to the newly created plant across feature stacks — a real, separate follow-up, not
+attempted this pass.
+
+**A real accessibility-architecture violation, found and fixed by this repo's own automated check**:
+`ArchitectureTests`'s "No fixed frame dimension escapes `@ScaledMetric`" scan caught a literal
+`.frame(width: 40, height: 40)` icon badge in the first draft of `CandidatesListView`'s row — fixed by
+using the existing `CoreDesignSystem.IconMedallion` component (already `@ScaledMetric`-correct)
+instead of a hand-rolled badge, the same component `FeatureGardens.GardensListView`'s own identically-
+shaped list row already uses.
+
+**A real, owner-decided exception, not a silent rule violation**: registering `FeatureCandidates`
+in `Package.swift` (SwiftUI manifests cannot be split across files the way an ordinary 600-line-limited
+source file can) pushed that file from exactly 600 lines to 615 even after trimming the new target's
+own comment to the tersest style already used elsewhere in the file. Asked the user directly rather
+than either silently exceeding the rule or trimming unrelated pre-existing documentation to compensate;
+the user chose to accept the file at 615 lines as a deliberate, documented exception (now recorded
+inline in `Package.swift` itself, beside the new target).
+
+**Verification**: `swift build` (whole package, including the `VerderyApp` executable) clean; full
+`swift test` (every target, not just the touched ones) — **1008 tests, 142 suites, all green**,
+including `ArchitectureTests` (dependency rules — `FeatureCandidates` never imports another feature —
+and the accessibility-convention scans) and `CoreLocalizationTests`'s full catalogue-completeness
+suite (13/13, including "no orphaned entry," "both languages agree," "no untranslated-placeholder
+Russian text," run against all 3 new/touched key sets). New/extended test files: `Tests/
+FeatureCandidatesTests/` (new — `FakePlantCandidateGateway.swift`, `CandidatesListViewModelTests.swift`,
+`AddCandidateViewModelTests.swift`, `CandidateDetailViewModelTests.swift`, 17 tests); `Tests/
+FeatureObservationsTests/ObservationsTimelineViewModelTests.swift` extended (5 new disposition/
+model-unavailable tests) plus `FakeObservationGateway.swift`'s new `setHealthSuggestionDisposition`
+(a real, deeply-nested in-memory mutation, not a stub); `Tests/FeaturePlantsTests/
+PlantsListViewModelTests.swift` extended (1 new `identifiedFilterDidChange` test) plus
+`FakePlantGateway.swift`'s `searchPlantsQueries` tuple widened; `Tests/CoreNetworkingTests/
+PlantGatewayTests.swift` extended for `identified` query-string encoding.
+
+**What was NOT done, tracked as real follow-up, not dropped**: no live-device/simulator click-through
+— this sandbox has no way to launch the iOS Simulator, so verification here is `swift build`/`swift
+test` (headless macOS, per `Package.swift`'s own documented reason for the `.macOS(.v15)` platform
+entry) rather than an actual on-device run; every item this pass explicitly scoped out — candidate
+proposed-placement/`alternativeToCandidateId` fields, `ObservationPhoto.purpose` modeling, deep-linking
+from a converted candidate to its new plant — remains open, matching the identical scope lines already
+drawn (and left open) on the web side in P11-WEB-01.
+
+---

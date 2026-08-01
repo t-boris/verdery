@@ -90,6 +90,27 @@ struct PlantsListViewModelTests {
         #expect(gateway.searchPlantsQueries.last?.query == nil)
     }
 
+    @Test("identifiedFilterDidChange() re-searches immediately with the selected filter's query value")
+    func identifiedFilterDidChangeReSearches() async {
+        let gateway = FakePlantGateway()
+        gateway.searchPlantsPages[nil] = PlantSearchPage(items: [], nextCursor: nil)
+        let model = makeModel(gateway: gateway)
+        await model.load()
+        #expect(gateway.searchPlantsQueries.last?.identified == nil)
+
+        model.identifiedFilter = .identified
+        await model.identifiedFilterDidChange()
+        #expect(gateway.searchPlantsQueries.last?.identified == true)
+
+        model.identifiedFilter = .unidentified
+        await model.identifiedFilterDidChange()
+        #expect(gateway.searchPlantsQueries.last?.identified == false)
+
+        model.identifiedFilter = .all
+        await model.identifiedFilterDidChange()
+        #expect(gateway.searchPlantsQueries.last?.identified == nil)
+    }
+
     @Test("load() and loadMore() both exclude removed plants by default, since there is no filter UI yet")
     func loadExcludesRemovedByDefault() async {
         let gateway = FakePlantGateway()

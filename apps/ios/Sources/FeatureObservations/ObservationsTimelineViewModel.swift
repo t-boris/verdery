@@ -76,7 +76,24 @@ public final class ObservationsTimelineViewModel {
     private let listObservationsForGarden: ListObservationsForGarden
     private let listObservationsForPlant: ListObservationsForPlant
     private let correctObservation: CorrectObservation
+    private let setHealthSuggestionDisposition: SetHealthSuggestionDisposition
     private let strings: LocalizedStrings
+
+    /// A disposition the reader has picked but not yet saved, keyed by
+    /// `ImageAnalysisResult.id` — the `Picker` binding falls back to that
+    /// result's own currently-saved `disposition` until an entry appears
+    /// here, the same "selection defaults to the current value" shape a
+    /// plain `Picker(selection:)` needs since `ObservationRow`/
+    /// `ObservationAnalysisSummary` are immutable projections, not bindable
+    /// state themselves.
+    public var selectedDisposition: [String: HealthSuggestionDisposition] = [:]
+    public private(set) var isSavingDisposition: Set<String> = []
+    public private(set) var dispositionErrorMessage: [String: String] = [:]
+    /// Set right after a successful save, for a transient "Review saved."
+    /// confirmation — cleared on the next `load()`, the same way
+    /// `dispositionErrorMessage`/`selectedDisposition` are implicitly
+    /// superseded by the freshly re-fetched row.
+    public private(set) var dispositionSavedIds: Set<String> = []
 
     public init(
         gardenId: String,
@@ -84,6 +101,7 @@ public final class ObservationsTimelineViewModel {
         listObservationsForGarden: ListObservationsForGarden,
         listObservationsForPlant: ListObservationsForPlant,
         correctObservation: CorrectObservation,
+        setHealthSuggestionDisposition: SetHealthSuggestionDisposition,
         strings: LocalizedStrings,
         photoAttachment: PhotoAttachmentController? = nil
     ) {
@@ -92,6 +110,7 @@ public final class ObservationsTimelineViewModel {
         self.listObservationsForGarden = listObservationsForGarden
         self.listObservationsForPlant = listObservationsForPlant
         self.correctObservation = correctObservation
+        self.setHealthSuggestionDisposition = setHealthSuggestionDisposition
         self.strings = strings
         self.photoAttachment = photoAttachment
     }
@@ -117,6 +136,25 @@ public final class ObservationsTimelineViewModel {
     public var correctActionTitle: String { strings(.observationsCorrectAction) }
     public var analysisDisclaimer: String { strings(.observationsAnalysisDisclaimer) }
     public var additionalEvidenceRequested: String { strings(.observationsAdditionalEvidenceRequested) }
+    public var analysisModelUnavailableMessage: String { strings(.observationsAnalysisModelUnavailable) }
+    public var analysisAlternativeExplanationsLabel: String {
+        strings(.observationsAnalysisAlternativeExplanationsLabel)
+    }
+    public var analysisDispositionLabel: String { strings(.observationsAnalysisDispositionLabel) }
+    public var analysisSaveDispositionTitle: String { strings(.observationsAnalysisSaveDisposition) }
+    public var analysisDispositionSavedMessage: String { strings(.observationsAnalysisDispositionSaved) }
+
+    public func analysisEvidenceSummaryText(_ summary: String) -> String {
+        strings.string(.observationsAnalysisEvidenceSummary, parameters: ["summary": summary])
+    }
+
+    public func analysisDispositionSetByText(_ date: String) -> String {
+        strings.string(.observationsAnalysisDispositionSetBy, parameters: ["date": date])
+    }
+
+    public func dispositionName(_ disposition: HealthSuggestionDisposition) -> String {
+        ObservationsLocalization.dispositionName(disposition, strings: strings)
+    }
     public var photoSectionTitle: String { strings(.mediaAttachSectionTitle) }
     public var photoPickButtonTitle: String { strings(.mediaAttachPickButton) }
     public var photoRetryButtonTitle: String { strings(.mediaAttachRetryButton) }
@@ -326,6 +364,40 @@ public final class ObservationsTimelineViewModel {
         }
     }
 
+    /// The reader's currently-picked (not yet saved) disposition for one
+    /// analysis result, falling back to that result's own currently-saved
+    /// value — the `Picker` binding's `get`.
+    public func disposition(for summary: ObservationAnalysisSummary) -> HealthSuggestionDisposition {
+        selectedDisposition[summary.id] ?? summary.disposition
+    }
+
+    /// Saves the reader's picked disposition — a no-op when it matches what
+    /// is already saved, the same "does not submit an unchanged selection"
+    /// guard `apps/web/features/observations/observation-analysis-result.tsx`
+    /// applies. `SetHealthSuggestionDisposition` carries no
+    /// `expectedRevision`: `image_analysis_result` has none, and a
+    /// disposition may be reconsidered freely.
+    public func saveDisposition(for summary: ObservationAnalysisSummary) async {
+        let picked = disposition(for: summary)
+        guard picked != summary.disposition else { return }
+
+        isSavingDisposition.insert(summary.id)
+        dispositionErrorMessage[summary.id] = nil
+        dispositionSavedIds.remove(summary.id)
+        defer { isSavingDisposition.remove(summary.id) }
+
+        do {
+            _ = try await setHealthSuggestionDisposition(analysisResultId: summary.id, disposition: picked)
+            selectedDisposition[summary.id] = nil
+            dispositionSavedIds.insert(summary.id)
+            await load()
+        } catch let error as APIGatewayError {
+            dispositionErrorMessage[summary.id] = message(for: error)
+        } catch {
+            dispositionErrorMessage[summary.id] = strings(.serverUnexpected)
+        }
+    }
+
     private func resetRecordForm() {
         recordNoteText = ""
         recordConditionSummary = ""
@@ -406,7 +478,16 @@ public final class ObservationsTimelineViewModel {
                 suggestedLabel: result.suggestedLabel,
                 confidenceText: Self.percentFormatter().string(from: NSNumber(value: result.confidenceScore)) ?? "",
                 requiresConfirmation: result.requiresConfirmation,
-                requestedAdditionalEvidence: result.requestedAdditionalEvidence
+                requestedAdditionalEvidence: result.requestedAdditionalEvidence,
+                modelUnavailable: result.modelName == nil,
+                evidenceSummary: result.evidenceSummary,
+                alternativeExplanations: result.alternativeExplanations,
+                safetyClassLabel: ObservationsLocalization.safetyClassName(result.safetyClass, strings: strings),
+                safetyClassTone: ObservationsLocalization.tone(for: result.safetyClass),
+                disposition: result.disposition,
+                dispositionSetAtText: result.dispositionSetAt.map {
+                    analysisDispositionSetByText(ObservationsLocalization.formattedObservedAt($0))
+                }
             )
         }
     }

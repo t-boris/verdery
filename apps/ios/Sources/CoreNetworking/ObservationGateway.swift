@@ -38,6 +38,16 @@ public protocol ObservationGateway: Sendable {
         photoMediaIds: [String],
         idempotencyKey: String
     ) async throws -> GardenObservation
+
+    /// `SetHealthSuggestionDisposition` (P11-HEALTH-01): records the
+    /// caller's disposition on an already-produced health suggestion. No
+    /// `expectedRevision`/`If-Match` — `image_analysis_result` carries no
+    /// revision, and a disposition may be reconsidered freely.
+    func setHealthSuggestionDisposition(
+        analysisResultId: String,
+        disposition: HealthSuggestionDisposition,
+        idempotencyKey: String
+    ) async throws -> ImageAnalysisResult
 }
 
 /// URLSession-backed implementation of the observation history operations.
@@ -128,11 +138,30 @@ public struct URLSessionObservationGateway: ObservationGateway {
         )
         return result.domainValue
     }
+
+    public func setHealthSuggestionDisposition(
+        analysisResultId: String,
+        disposition: HealthSuggestionDisposition,
+        idempotencyKey: String
+    ) async throws -> ImageAnalysisResult {
+        let result: ImageAnalysisResultTransport = try await transport.send(
+            method: "POST",
+            operationPath: "observations/analysis-results/\(analysisResultId)/disposition",
+            body: SetHealthSuggestionDispositionRequestTransport(disposition: disposition),
+            headers: [APIConfiguration.idempotencyKeyHeader: idempotencyKey],
+            acceptedStatusCodes: [200]
+        )
+        return result.domainValue
+    }
 }
 
 /// See `ObservationGateway.recordObservation`'s doc comment: no
-/// purpose-picker UI exists on this client yet (deferred to P11-IOS-01), so
-/// every photo it attaches is stamped with the design doc's catch-all label.
+/// purpose-picker UI exists on this client yet. This pass (P11-IOS-01)
+/// still does not build one — a real, separate follow-up, matching the
+/// identical scope decision already made in the web client's own P11-WEB-01
+/// pass (`record-observation-form.tsx` also still hardcodes an empty photo
+/// list) — so every photo attached here continues to be stamped with the
+/// design doc's catch-all label.
 private func observationPhotoAttachmentTransport(mediaId: String) -> ObservationPhotoAttachmentRequestTransport {
     ObservationPhotoAttachmentRequestTransport(mediaId: mediaId, purpose: "context_or_free_form")
 }

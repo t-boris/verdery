@@ -106,6 +106,21 @@ public struct LocalizedStrings: Sendable {
         string(forKey: key.rawValue)
     }
 
+    /// The same resolution for the observation timeline's health-suggestion
+    /// review key set (P11-HEALTH-01). See
+    /// ``ObservationsHealthSuggestionLocalizationKey`` for why this is yet
+    /// another key set rather than more cases somewhere existing.
+    public func callAsFunction(_ key: ObservationsHealthSuggestionLocalizationKey) -> String {
+        string(forKey: key.rawValue)
+    }
+
+    /// The same resolution for the plant-candidates feature's own key set
+    /// (P11-IOS-01). See ``PlantCandidatesLocalizationKey`` for why this is
+    /// yet another key set rather than more cases somewhere existing.
+    public func callAsFunction(_ key: PlantCandidatesLocalizationKey) -> String {
+        string(forKey: key.rawValue)
+    }
+
     /// Every key any of the application's key sets declares.
     ///
     /// Exposed so catalogue completeness stays one check over one list rather
@@ -123,6 +138,8 @@ public struct LocalizedStrings: Sendable {
         + PlantsListLocalizationKey.allCases.map(\.rawValue)
         + PlantMapObjectPickerLocalizationKey.allCases.map(\.rawValue)
         + PlantPhotoGalleryLocalizationKey.allCases.map(\.rawValue)
+        + ObservationsHealthSuggestionLocalizationKey.allCases.map(\.rawValue)
+        + PlantCandidatesLocalizationKey.allCases.map(\.rawValue)
 
     /// Resolves an arbitrary key, used for codes that originate in Core.
     ///
@@ -190,6 +207,20 @@ public struct LocalizedStrings: Sendable {
     /// The same parameterized resolution for ``GardenContextLocalizationKey``'s
     /// own templated entries (a recorded-by profile id, a reviewed-by/on pair).
     public func string(_ key: GardenContextLocalizationKey, parameters: [String: String]) -> String {
+        string(forKey: key.rawValue, parameters: parameters)
+    }
+
+    /// The same parameterized resolution for
+    /// ``ObservationsHealthSuggestionLocalizationKey``'s own templated
+    /// entries (the evidence summary text, the disposition reviewed-at date).
+    public func string(_ key: ObservationsHealthSuggestionLocalizationKey, parameters: [String: String]) -> String {
+        string(forKey: key.rawValue, parameters: parameters)
+    }
+
+    /// The same parameterized resolution for
+    /// ``PlantCandidatesLocalizationKey``'s own templated entry (a
+    /// suitability finding's assumed value).
+    public func string(_ key: PlantCandidatesLocalizationKey, parameters: [String: String]) -> String {
         string(forKey: key.rawValue, parameters: parameters)
     }
 

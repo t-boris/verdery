@@ -12,6 +12,15 @@ struct ImageAnalysisResultTransport: Codable {
     let confidenceScore: Double
     let requiresConfirmation: Bool
     let requestedAdditionalEvidence: Bool
+    let evidenceSummary: String
+    let alternativeExplanations: [String]
+    let safetyClass: HealthSuggestionSafetyClass
+    let requestedViewPurposes: [ObservationPhotoPurpose]
+    let modelName: String?
+    let promptVersion: Int?
+    let disposition: HealthSuggestionDisposition
+    let dispositionSetAt: Date?
+    let dispositionSetByProfileId: String?
     let createdAt: Date
 
     var domainValue: ImageAnalysisResult {
@@ -22,6 +31,15 @@ struct ImageAnalysisResultTransport: Codable {
             confidenceScore: confidenceScore,
             requiresConfirmation: requiresConfirmation,
             requestedAdditionalEvidence: requestedAdditionalEvidence,
+            evidenceSummary: evidenceSummary,
+            alternativeExplanations: alternativeExplanations,
+            safetyClass: safetyClass,
+            requestedViewPurposes: requestedViewPurposes,
+            modelName: modelName,
+            promptVersion: promptVersion,
+            disposition: disposition,
+            dispositionSetAt: dispositionSetAt,
+            dispositionSetByProfileId: dispositionSetByProfileId,
             createdAt: createdAt
         )
     }
@@ -112,4 +130,10 @@ struct CorrectObservationRequestTransport: Encodable {
     let photos: [ObservationPhotoAttachmentRequestTransport]
     let measurements: [String] = []
     let observedPhenologicalStage: String? = nil
+}
+
+/// Mirrors `packages/api-contracts/openapi.yaml`'s
+/// `SetHealthSuggestionDispositionRequest` (P11-HEALTH-01).
+struct SetHealthSuggestionDispositionRequestTransport: Encodable {
+    let disposition: HealthSuggestionDisposition
 }

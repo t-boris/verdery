@@ -12,4 +12,8 @@ public enum PlantsListLocalizationKey: String, Sendable, CaseIterable {
     case plantsListSearchLabel = "plants.list.searchLabel"
     case plantsListLoadMore = "plants.list.loadMore"
     case plantsListLoadingMore = "plants.list.loadingMore"
+    case plantsIdentifiedFilterLabel = "plants.identifiedFilter.label"
+    case plantsIdentifiedFilterAll = "plants.identifiedFilter.all"
+    case plantsIdentifiedFilterIdentified = "plants.identifiedFilter.identified"
+    case plantsIdentifiedFilterUnidentified = "plants.identifiedFilter.unidentified"
 }

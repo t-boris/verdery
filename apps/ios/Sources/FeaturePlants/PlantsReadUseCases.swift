@@ -34,10 +34,18 @@ public struct SearchPlants: Sendable {
         gardenId: String,
         query: String? = nil,
         status: [PlantStatus]? = nil,
+        identified: Bool? = nil,
         cursor: String? = nil,
         limit: Int? = nil
     ) async throws -> PlantSearchPage {
-        try await gateway.searchPlants(gardenId: gardenId, query: query, status: status, cursor: cursor, limit: limit)
+        try await gateway.searchPlants(
+            gardenId: gardenId,
+            query: query,
+            status: status,
+            identified: identified,
+            cursor: cursor,
+            limit: limit
+        )
     }
 }
 

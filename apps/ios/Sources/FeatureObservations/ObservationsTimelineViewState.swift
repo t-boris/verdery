@@ -1,6 +1,19 @@
-/// One photo's stubbed analysis pass, surfaced plainly — never as a
-/// confirmed diagnosis. `requiresConfirmation` is always `true` on the real
-/// API; this row shows it anyway rather than assuming that invariant holds.
+import CoreDesignSystem
+import CoreDomain
+
+/// One photo's health-suggestion analysis pass (P11-HEALTH-01), surfaced
+/// plainly — never as a confirmed diagnosis. `requiresConfirmation` is
+/// always `true` on the real API; this row shows it anyway rather than
+/// assuming that invariant holds.
+///
+/// `modelUnavailable` (`ImageAnalysisResult.modelName == nil`) means no
+/// provider was ever reached — `suggestedLabel`/`confidenceText` are a fixed
+/// placeholder in that case, so the view renders an honest "no model
+/// reached" notice instead of a suggestion line that would otherwise read
+/// as a real, if low-confidence, analysis. `evidenceSummary` empty and
+/// `alternativeExplanations` empty both mean "nothing to show," not
+/// "unknown" — a genuine analysis with nothing notable visible.
+/// `dispositionSetAtText` is `nil` exactly when `disposition == .unresolved`.
 public struct ObservationAnalysisSummary: Equatable, Sendable, Identifiable {
     public let id: String
     public let kindLabel: String
@@ -8,6 +21,13 @@ public struct ObservationAnalysisSummary: Equatable, Sendable, Identifiable {
     public let confidenceText: String
     public let requiresConfirmation: Bool
     public let requestedAdditionalEvidence: Bool
+    public let modelUnavailable: Bool
+    public let evidenceSummary: String
+    public let alternativeExplanations: [String]
+    public let safetyClassLabel: String
+    public let safetyClassTone: Tone
+    public let disposition: HealthSuggestionDisposition
+    public let dispositionSetAtText: String?
 }
 
 /// One row of the observation timeline, already localized.

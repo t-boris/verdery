@@ -133,10 +133,14 @@ public protocol PlantGateway: Sendable {
     /// first — the contract's own default. `cursor` is opaque, from a prior
     /// page's own `PlantSearchPage.nextCursor`. `status` omitted or empty
     /// matches every status; the contract accepts more than one value.
+    /// `identified` (P11-SEARCH-01) restricts to plants with (`true`) or
+    /// without (`false`) a resolved `taxonomyReferenceId`, matches every
+    /// plant when `nil`.
     func searchPlants(
         gardenId: String,
         query: String?,
         status: [PlantStatus]?,
+        identified: Bool?,
         cursor: String?,
         limit: Int?
     ) async throws -> PlantSearchPage
@@ -429,6 +433,7 @@ public struct URLSessionPlantGateway: PlantGateway {
         gardenId: String,
         query: String?,
         status: [PlantStatus]?,
+        identified: Bool?,
         cursor: String?,
         limit: Int?
     ) async throws -> PlantSearchPage {
@@ -438,6 +443,9 @@ public struct URLSessionPlantGateway: PlantGateway {
         }
         if let status, !status.isEmpty {
             queryItems.append("status=\(status.map(\.rawValue).joined(separator: ","))")
+        }
+        if let identified {
+            queryItems.append("identified=\(identified)")
         }
         if let cursor, let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
             queryItems.append("cursor=\(encoded)")

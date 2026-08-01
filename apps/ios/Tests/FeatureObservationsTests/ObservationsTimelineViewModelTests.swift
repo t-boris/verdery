@@ -18,6 +18,39 @@ struct ObservationsTimelineViewModelTests {
         )
     }
 
+    private func observationWithAnalysisResult(
+        analysisResultId: String = "analysis-1",
+        disposition: HealthSuggestionDisposition = .unresolved
+    ) -> GardenObservation {
+        let result = ImageAnalysisResult(
+            id: analysisResultId,
+            analysisKind: .disease,
+            suggestedLabel: "Possible leaf spot",
+            confidenceScore: 0.6,
+            requiresConfirmation: true,
+            requestedAdditionalEvidence: false,
+            evidenceSummary: "Brown spotting on lower leaves.",
+            alternativeExplanations: ["Nutrient deficiency"],
+            safetyClass: .monitor,
+            requestedViewPurposes: [],
+            modelName: "gemini-test",
+            promptVersion: 3,
+            disposition: disposition,
+            dispositionSetAt: nil,
+            dispositionSetByProfileId: nil,
+            createdAt: Date(timeIntervalSince1970: 0)
+        )
+        let photo = ObservationPhoto(
+            id: "photo-1", mediaId: "media-1", createdAt: Date(timeIntervalSince1970: 0), analysisResults: [result]
+        )
+        return GardenObservation(
+            id: "obs-1", gardenId: "garden-1", plantId: "plant-1", gardenObjectId: nil, actorType: .user,
+            createdByProfileId: "profile-1", noteText: nil, conditionSummary: "Leaves look off",
+            correctionKind: nil, correctsObservationId: nil, isCorrected: false,
+            observedAt: Date(timeIntervalSince1970: 0), recordedAt: Date(timeIntervalSince1970: 0), photos: [photo]
+        )
+    }
+
     private func makeModel(
         gateway: FakeObservationGateway,
         localStore: any LocalObservationStore = InMemoryObservationStore()
@@ -28,6 +61,7 @@ struct ObservationsTimelineViewModelTests {
             listObservationsForGarden: ListObservationsForGarden(gateway: gateway, localStore: localStore),
             listObservationsForPlant: ListObservationsForPlant(gateway: gateway),
             correctObservation: CorrectObservation(localStore: localStore, profileId: "profile-1"),
+            setHealthSuggestionDisposition: SetHealthSuggestionDisposition(gateway: gateway),
             strings: LocalizedStrings(locale: Locale(identifier: "en_GB"))
         )
     }
@@ -323,5 +357,95 @@ struct ObservationsTimelineViewModelTests {
         await model.submitRecordObservation()
 
         #expect(model.recordErrorMessage == nil)
+    }
+
+    // MARK: - Health-suggestion disposition (P11-HEALTH-01)
+
+    @Test("saveDisposition(for:) saves a changed selection and reloads, showing the update")
+    func saveDispositionSavesChangedSelection() async {
+        let gateway = FakeObservationGateway(observations: [observationWithAnalysisResult()])
+        let model = makeModel(gateway: gateway)
+        await model.load()
+        guard case let .loaded(rows) = model.state, let summary = rows.first?.analysisSummaries.first else {
+            Issue.record("Expected a loaded row with one analysis summary")
+            return
+        }
+
+        model.selectedDisposition[summary.id] = .acceptedAsObservation
+        await model.saveDisposition(for: summary)
+
+        #expect(model.dispositionErrorMessage[summary.id] == nil)
+        #expect(model.dispositionSavedIds.contains(summary.id))
+        guard case let .loaded(reloadedRows) = model.state,
+            let reloadedSummary = reloadedRows.first?.analysisSummaries.first
+        else {
+            Issue.record("Expected a reloaded row with one analysis summary")
+            return
+        }
+        #expect(reloadedSummary.disposition == .acceptedAsObservation)
+        #expect(reloadedSummary.dispositionSetAtText != nil)
+    }
+
+    @Test("saveDisposition(for:) is a no-op when the selection did not change")
+    func saveDispositionNoOpWhenUnchanged() async {
+        let gateway = FakeObservationGateway(observations: [observationWithAnalysisResult(disposition: .rejected)])
+        let model = makeModel(gateway: gateway)
+        await model.load()
+        guard case let .loaded(rows) = model.state, let summary = rows.first?.analysisSummaries.first else {
+            Issue.record("Expected a loaded row with one analysis summary")
+            return
+        }
+
+        await model.saveDisposition(for: summary)
+
+        #expect(model.dispositionSavedIds.isEmpty)
+    }
+
+    @Test("saveDisposition(for:) surfaces a gateway failure keyed by the analysis result id")
+    func saveDispositionSurfacesFailure() async {
+        let gateway = FakeObservationGateway(observations: [observationWithAnalysisResult()])
+        let model = makeModel(gateway: gateway)
+        await model.load()
+        guard case let .loaded(rows) = model.state, let summary = rows.first?.analysisSummaries.first else {
+            Issue.record("Expected a loaded row with one analysis summary")
+            return
+        }
+
+        gateway.nextDispositionFailure = APIGatewayError.unexpectedStatus(500, correlationId: "fake-failure")
+        model.selectedDisposition[summary.id] = .rejected
+        await model.saveDisposition(for: summary)
+
+        #expect(model.dispositionErrorMessage[summary.id] != nil)
+        #expect(model.dispositionSavedIds.contains(summary.id) == false)
+    }
+
+    @Test("modelUnavailable renders when modelName is nil, matching NO_ANALYSIS_OUTCOME's placeholder shape")
+    func modelUnavailableReflectsMissingModelName() async {
+        let result = ImageAnalysisResult(
+            id: "analysis-1", analysisKind: .other, suggestedLabel: "No automated analysis available yet.",
+            confidenceScore: 0, requiresConfirmation: true, requestedAdditionalEvidence: true,
+            evidenceSummary: "", alternativeExplanations: [], safetyClass: .informational,
+            requestedViewPurposes: [], modelName: nil, promptVersion: nil, disposition: .unresolved,
+            dispositionSetAt: nil, dispositionSetByProfileId: nil, createdAt: Date(timeIntervalSince1970: 0)
+        )
+        let photo = ObservationPhoto(
+            id: "photo-1", mediaId: "media-1", createdAt: Date(timeIntervalSince1970: 0), analysisResults: [result]
+        )
+        let observationWithUnavailableModel = GardenObservation(
+            id: "obs-1", gardenId: "garden-1", plantId: "plant-1", gardenObjectId: nil, actorType: .user,
+            createdByProfileId: "profile-1", noteText: nil, conditionSummary: nil,
+            correctionKind: nil, correctsObservationId: nil, isCorrected: false,
+            observedAt: Date(timeIntervalSince1970: 0), recordedAt: Date(timeIntervalSince1970: 0), photos: [photo]
+        )
+        let gateway = FakeObservationGateway(observations: [observationWithUnavailableModel])
+        let model = makeModel(gateway: gateway)
+
+        await model.load()
+
+        guard case let .loaded(rows) = model.state, let summary = rows.first?.analysisSummaries.first else {
+            Issue.record("Expected a loaded row with one analysis summary")
+            return
+        }
+        #expect(summary.modelUnavailable)
     }
 }

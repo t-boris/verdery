@@ -17,6 +17,7 @@ final class FakeObservationGateway: ObservationGateway, @unchecked Sendable {
     /// test typically wants every subsequent list call in the same test to
     /// keep failing, not just the first.
     var nextListFailure: Error?
+    var nextDispositionFailure: Error?
 
     init(observations: [GardenObservation] = []) {
         self.observations = observations
@@ -121,5 +122,67 @@ final class FakeObservationGateway: ObservationGateway, @unchecked Sendable {
         )
         observations.append(correction)
         return correction
+    }
+
+    /// Finds the named `ImageAnalysisResult` inside whichever observation's
+    /// photo carries it and rewrites its disposition fields — a real, if
+    /// deeply nested, in-memory update, matching the real server's own
+    /// "narrow, disposition-only" mutation (`image_analysis_result` is
+    /// otherwise append-only).
+    func setHealthSuggestionDisposition(
+        analysisResultId: String,
+        disposition: HealthSuggestionDisposition,
+        idempotencyKey: String
+    ) async throws -> ImageAnalysisResult {
+        if let nextDispositionFailure {
+            self.nextDispositionFailure = nil
+            throw nextDispositionFailure
+        }
+
+        for (observationIndex, observation) in observations.enumerated() {
+            for (photoIndex, photo) in observation.photos.enumerated() {
+                guard let resultIndex = photo.analysisResults.firstIndex(where: { $0.id == analysisResultId })
+                else { continue }
+
+                let original = photo.analysisResults[resultIndex]
+                let updated = ImageAnalysisResult(
+                    id: original.id,
+                    analysisKind: original.analysisKind,
+                    suggestedLabel: original.suggestedLabel,
+                    confidenceScore: original.confidenceScore,
+                    requiresConfirmation: original.requiresConfirmation,
+                    requestedAdditionalEvidence: original.requestedAdditionalEvidence,
+                    evidenceSummary: original.evidenceSummary,
+                    alternativeExplanations: original.alternativeExplanations,
+                    safetyClass: original.safetyClass,
+                    requestedViewPurposes: original.requestedViewPurposes,
+                    modelName: original.modelName,
+                    promptVersion: original.promptVersion,
+                    disposition: disposition,
+                    dispositionSetAt: Date(timeIntervalSince1970: 2),
+                    dispositionSetByProfileId: "profile-1",
+                    createdAt: original.createdAt
+                )
+
+                var updatedResults = photo.analysisResults
+                updatedResults[resultIndex] = updated
+                let updatedPhoto = ObservationPhoto(
+                    id: photo.id, mediaId: photo.mediaId, createdAt: photo.createdAt, analysisResults: updatedResults
+                )
+                var updatedPhotos = observation.photos
+                updatedPhotos[photoIndex] = updatedPhoto
+                observations[observationIndex] = GardenObservation(
+                    id: observation.id, gardenId: observation.gardenId, plantId: observation.plantId,
+                    gardenObjectId: observation.gardenObjectId, actorType: observation.actorType,
+                    createdByProfileId: observation.createdByProfileId, noteText: observation.noteText,
+                    conditionSummary: observation.conditionSummary, correctionKind: observation.correctionKind,
+                    correctsObservationId: observation.correctsObservationId, isCorrected: observation.isCorrected,
+                    observedAt: observation.observedAt, recordedAt: observation.recordedAt, photos: updatedPhotos
+                )
+                return updated
+            }
+        }
+
+        throw APIGatewayError.unexpectedStatus(404, correlationId: "fake-missing-analysis-result")
     }
 }

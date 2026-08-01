@@ -260,33 +260,67 @@ public struct ObservationsTimelineView: View {
         .accessibilityIdentifier("observations.row.\(row.id)")
     }
 
-    /// A photo-analysis result, always alongside its disclaimer.
+    /// A health suggestion (P11-HEALTH-01), always alongside its disclaimer.
     ///
     /// The disclaimer is a warning-toned `InlineMessage` with its own symbol,
     /// so "this is a suggestion, not a diagnosis" reads at the same glance as
     /// the suggestion itself rather than as a footnote below it.
+    /// `modelUnavailable` replaces the suggestion line with an honest
+    /// "no model reached" notice instead — see `ObservationAnalysisSummary`'s
+    /// own doc comment.
     private func analysisView(_ summary: ObservationAnalysisSummary) -> some View {
-        VStack(alignment: .leading, spacing: Metrics.space1) {
+        VStack(alignment: .leading, spacing: Metrics.space2) {
             HStack(spacing: Metrics.space2) {
                 Chip(
                     symbol: ObservationSymbols.analysis,
                     label: summary.kindLabel,
                     tone: .accent
                 )
-                Text(summary.suggestedLabel)
-                    .font(Typography.detail)
-                    .foregroundStyle(Palette.text)
-                Text(summary.confidenceText)
-                    .font(Typography.micro)
-                    .foregroundStyle(Palette.textMuted)
+                Chip(
+                    symbol: ObservationSymbols.safetyClass,
+                    label: summary.safetyClassLabel,
+                    tone: summary.safetyClassTone
+                )
             }
 
-            if summary.requiresConfirmation {
-                InlineMessage(model.analysisDisclaimer, tone: .warning)
+            if summary.modelUnavailable {
+                InlineMessage(model.analysisModelUnavailableMessage, tone: .info)
+            } else {
+                HStack(spacing: Metrics.space2) {
+                    Text(summary.suggestedLabel)
+                        .font(Typography.detail)
+                        .foregroundStyle(Palette.text)
+                    Text(summary.confidenceText)
+                        .font(Typography.micro)
+                        .foregroundStyle(Palette.textMuted)
+                }
+
+                if summary.requiresConfirmation {
+                    InlineMessage(model.analysisDisclaimer, tone: .warning)
+                }
+                if summary.requestedAdditionalEvidence {
+                    InlineMessage(model.additionalEvidenceRequested, tone: .warning)
+                }
+                if !summary.evidenceSummary.isEmpty {
+                    Text(model.analysisEvidenceSummaryText(summary.evidenceSummary))
+                        .font(Typography.detail)
+                        .foregroundStyle(Palette.textMuted)
+                }
+                if !summary.alternativeExplanations.isEmpty {
+                    VStack(alignment: .leading, spacing: Metrics.space1) {
+                        Text(model.analysisAlternativeExplanationsLabel)
+                            .font(Typography.micro)
+                            .foregroundStyle(Palette.textMuted)
+                        ForEach(summary.alternativeExplanations, id: \.self) { explanation in
+                            Text("• \(explanation)")
+                                .font(Typography.detail)
+                                .foregroundStyle(Palette.textMuted)
+                        }
+                    }
+                }
             }
-            if summary.requestedAdditionalEvidence {
-                InlineMessage(model.additionalEvidenceRequested, tone: .warning)
-            }
+
+            dispositionControl(summary)
         }
         .padding(Metrics.space2)
         .background(
@@ -294,5 +328,49 @@ public struct ObservationsTimelineView: View {
                 .fill(Palette.surfaceSunken)
         )
         .accessibilityIdentifier("observations.analysis.\(summary.id)")
+    }
+
+    /// A reviewer's disposition on this health suggestion — reconsiderable
+    /// freely, so this is always an active `Picker` plus a "Save" action,
+    /// never a one-shot confirmation.
+    private func dispositionControl(_ summary: ObservationAnalysisSummary) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.space1) {
+            HStack(spacing: Metrics.space2) {
+                Picker(
+                    model.analysisDispositionLabel,
+                    selection: Binding(
+                        get: { model.disposition(for: summary) },
+                        set: { model.selectedDisposition[summary.id] = $0 }
+                    )
+                ) {
+                    ForEach(HealthSuggestionDisposition.allCases, id: \.self) { disposition in
+                        Text(model.dispositionName(disposition)).tag(disposition)
+                    }
+                }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("observations.analysis.\(summary.id).dispositionPicker")
+
+                Button(model.analysisSaveDispositionTitle) {
+                    Task { await model.saveDisposition(for: summary) }
+                }
+                .disabled(
+                    model.isSavingDisposition.contains(summary.id)
+                        || model.disposition(for: summary) == summary.disposition
+                )
+                .accessibilityIdentifier("observations.analysis.\(summary.id).saveDisposition")
+            }
+
+            if let dispositionSetAtText = summary.dispositionSetAtText {
+                Text(dispositionSetAtText)
+                    .font(Typography.micro)
+                    .foregroundStyle(Palette.textMuted)
+            }
+            if model.dispositionSavedIds.contains(summary.id) {
+                InlineMessage(model.analysisDispositionSavedMessage, tone: .positive)
+            }
+            if let errorMessage = model.dispositionErrorMessage[summary.id] {
+                InlineMessage(errorMessage, tone: .negative)
+            }
+        }
     }
 }

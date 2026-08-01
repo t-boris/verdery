@@ -17,4 +17,9 @@ enum ObservationSymbols {
     static let analysis = "sparkle.magnifyingglass"
     static let pendingSync = "arrow.triangle.2.circlepath"
     static let photo = "photo"
+    /// A health suggestion's own safety-class badge (P11-HEALTH-01) — a
+    /// heart-shaped check, distinct from `analysis`'s magnifying glass, so
+    /// the reader can tell "what kind of finding" from "how urgent" at a
+    /// glance even before reading either label.
+    static let safetyClass = "heart.text.square"
 }

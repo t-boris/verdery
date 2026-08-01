@@ -1,5 +1,6 @@
 import CoreDesignSystem
 import CoreLocalization
+import FeatureCandidates
 import FeatureGardens
 import FeatureMap
 import FeatureObservations
@@ -41,6 +42,9 @@ struct GardenTabView: View {
     private let onSwitchGarden: () -> Void
 
     @State private var isSettingsPresented = false
+    /// Whether the Plants tab's own candidates section is pushed — see the
+    /// Plants `Tab`'s own `.navigationDestination(isPresented:)` below.
+    @State private var isCandidatesPresented = false
     /// Which tab is showing.
     ///
     /// Held here rather than left to `TabView`'s own default so the shell —
@@ -109,6 +113,37 @@ struct GardenTabView: View {
                             composition.makePlantAddFromPhotoViewModel(gardenId: gardenId)
                         }
                     )
+                    // Plant candidates (P11-IOS-01) — a peer section of the
+                    // Plants tab, not a sixth tab of its own, pushed onto
+                    // this same `NavigationStack`. Wired here rather than
+                    // inside `PlantsHomeView` itself so `FeaturePlants`
+                    // never has to name `FeatureCandidates` — only this
+                    // composition layer is allowed to import both.
+                    .toolbar {
+                        ToolbarItem(placement: .secondaryAction) {
+                            Button {
+                                isCandidatesPresented = true
+                            } label: {
+                                Label(strings(.candidatesTitle), systemImage: "lightbulb")
+                            }
+                            .accessibilityIdentifier("candidates.tab.open")
+                        }
+                    }
+                    .navigationDestination(isPresented: $isCandidatesPresented) {
+                        CandidatesScreenView(
+                            model: composition.makeCandidatesListViewModel(gardenId: gardenId),
+                            makeAddModel: { composition.makeAddCandidateViewModel(gardenId: gardenId) },
+                            destination: { candidateId in
+                                AnyView(
+                                    CandidateDetailView(
+                                        model: composition.makeCandidateDetailViewModel(
+                                            gardenId: gardenId, candidateId: candidateId
+                                        )
+                                    )
+                                )
+                            }
+                        )
+                    }
                 }
             }
 

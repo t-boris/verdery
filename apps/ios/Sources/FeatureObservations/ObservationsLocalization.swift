@@ -1,3 +1,4 @@
+import CoreDesignSystem
 import CoreDomain
 import CoreLocalization
 import Foundation
@@ -38,5 +39,42 @@ public enum ObservationsLocalization {
         formatter.timeStyle = .short
         formatter.locale = .autoupdatingCurrent
         return formatter.string(from: date)
+    }
+
+    public static func key(for safetyClass: HealthSuggestionSafetyClass) -> ObservationsHealthSuggestionLocalizationKey {
+        switch safetyClass {
+        case .informational: .observationsSafetyClassInformational
+        case .monitor: .observationsSafetyClassMonitor
+        case .expertReviewRecommended: .observationsSafetyClassExpertReviewRecommended
+        }
+    }
+
+    public static func safetyClassName(_ safetyClass: HealthSuggestionSafetyClass, strings: LocalizedStrings) -> String {
+        strings(key(for: safetyClass))
+    }
+
+    /// `expertReviewRecommended` reads as the most urgent tone available
+    /// (`.negative`, not a literal error); `monitor`/`informational` both
+    /// read as `.neutral`, never `.positive` — an AI suggestion is never a
+    /// confirmed good result. Mirrors `apps/web/features/observations/
+    /// labels.ts`'s `safetyClassTone`.
+    public static func tone(for safetyClass: HealthSuggestionSafetyClass) -> Tone {
+        switch safetyClass {
+        case .informational, .monitor: .neutral
+        case .expertReviewRecommended: .negative
+        }
+    }
+
+    public static func key(for disposition: HealthSuggestionDisposition) -> ObservationsHealthSuggestionLocalizationKey {
+        switch disposition {
+        case .unresolved: .observationsDispositionUnresolved
+        case .confirmedExternally: .observationsDispositionConfirmedExternally
+        case .acceptedAsObservation: .observationsDispositionAcceptedAsObservation
+        case .rejected: .observationsDispositionRejected
+        }
+    }
+
+    public static func dispositionName(_ disposition: HealthSuggestionDisposition, strings: LocalizedStrings) -> String {
+        strings(key(for: disposition))
     }
 }

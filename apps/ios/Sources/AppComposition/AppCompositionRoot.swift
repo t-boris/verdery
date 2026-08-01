@@ -44,6 +44,9 @@ public final class AppCompositionRoot {
     let mapGateway: any MapGateway
     let plantGateway: any PlantGateway
     private let observationGateway: any ObservationGateway
+    // `let`, not `private let`: read by `AppCompositionRoot+Candidates.swift`'s
+    // factories, the same reason `plantGateway` above is `let`.
+    let plantCandidateGateway: any PlantCandidateGateway
     private let taskGateway: any TaskGateway
     /// P9A-TASK-01's task-assignment picker is this instance's only consumer
     /// today — see `makeTasksListViewModel(gardenId:)`'s own construction of
@@ -182,6 +185,16 @@ public final class AppCompositionRoot {
             log: log
         )
         self.observationGateway = URLSessionObservationGateway(
+            configuration: configuration,
+            session: session,
+            authTokenProvider: tokenProvider,
+            appCheckTokenProvider: appCheckTokenProvider,
+            log: log
+        )
+        // Plant candidates (P11-IOS-01) — same scope as every Phase 4/5
+        // gateway above, and deliberately online-only: see
+        // `CoreNetworking.PlantCandidateGateway`'s own doc comment.
+        self.plantCandidateGateway = URLSessionPlantCandidateGateway(
             configuration: configuration,
             session: session,
             authTokenProvider: tokenProvider,
@@ -370,6 +383,7 @@ public final class AppCompositionRoot {
             listObservationsForGarden: ListObservationsForGarden(gateway: observationGateway, localStore: store),
             listObservationsForPlant: ListObservationsForPlant(gateway: observationGateway),
             correctObservation: CorrectObservation(localStore: store, profileId: profileId),
+            setHealthSuggestionDisposition: SetHealthSuggestionDisposition(gateway: observationGateway),
             strings: strings,
             // P6-IOS-01: real background-capable upload capability for the
             // record-observation form's photo attachment — see

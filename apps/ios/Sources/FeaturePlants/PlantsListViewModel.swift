@@ -3,6 +3,23 @@ import CoreLocalization
 import CoreNetworking
 import Observation
 
+/// The list's own `identified` filter — three states over `SearchPlants`'s
+/// nullable `identified: Bool?` parameter (P11-SEARCH-01), mirroring the web
+/// client's own identical `IdentifiedFilter` in `plant-list.tsx`.
+public enum PlantsIdentifiedFilter: String, CaseIterable, Equatable, Sendable {
+    case all
+    case identified
+    case unidentified
+
+    var queryValue: Bool? {
+        switch self {
+        case .all: nil
+        case .identified: true
+        case .unidentified: false
+        }
+    }
+}
+
 /// The list's own load state — a plain enum, the same shape
 /// `TasksListViewState`/`GardensListViewState` already establish. `loaded`
 /// carries `nextCursor` alongside the rows: `nil` once the last page has
@@ -38,6 +55,12 @@ public final class PlantsListViewModel {
     /// same explicit-submit shape `TaxonomyReferencePickerView`'s own search
     /// field uses, rather than a per-keystroke network call.
     public var searchText: String = ""
+    /// Unlike `searchText`, applying this immediately re-searches — see
+    /// `identifiedFilterDidChange()`, called from the view's `Picker`
+    /// `onChange`. A picker selection is a single discrete action, not
+    /// per-keystroke typing, so there is no reason to defer it to a manual
+    /// submit the way free-text search is.
+    public var identifiedFilter: PlantsIdentifiedFilter = .all
 
     private let searchPlants: SearchPlants
     private let strings: LocalizedStrings
@@ -66,6 +89,15 @@ public final class PlantsListViewModel {
     public var searchLabel: String { strings(.plantsListSearchLabel) }
     public var loadMoreTitle: String { strings(.plantsListLoadMore) }
     public var loadingMoreMessage: String { strings(.plantsListLoadingMore) }
+    public var identifiedFilterLabel: String { strings(.plantsIdentifiedFilterLabel) }
+
+    public func identifiedFilterOptionTitle(_ filter: PlantsIdentifiedFilter) -> String {
+        switch filter {
+        case .all: strings(.plantsIdentifiedFilterAll)
+        case .identified: strings(.plantsIdentifiedFilterIdentified)
+        case .unidentified: strings(.plantsIdentifiedFilterUnidentified)
+        }
+    }
 
     private var trimmedQuery: String? {
         let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -83,13 +115,24 @@ public final class PlantsListViewModel {
     public func load() async {
         state = .loading
         do {
-            let page = try await searchPlants(gardenId: gardenId, query: trimmedQuery, status: Self.visibleStatuses)
+            let page = try await searchPlants(
+                gardenId: gardenId,
+                query: trimmedQuery,
+                status: Self.visibleStatuses,
+                identified: identifiedFilter.queryValue
+            )
             state = .loaded(items: page.items, nextCursor: page.nextCursor)
         } catch let error as APIGatewayError {
             state = .failed(message: message(for: error))
         } catch {
             state = .failed(message: strings(.serverUnexpected))
         }
+    }
+
+    /// A `Picker` selection is a single discrete action — re-searches
+    /// immediately, unlike free-text `searchText`'s explicit-submit shape.
+    public func identifiedFilterDidChange() async {
+        await load()
     }
 
     public func loadMore() async {
@@ -100,7 +143,11 @@ public final class PlantsListViewModel {
 
         do {
             let page = try await searchPlants(
-                gardenId: gardenId, query: trimmedQuery, status: Self.visibleStatuses, cursor: nextCursor
+                gardenId: gardenId,
+                query: trimmedQuery,
+                status: Self.visibleStatuses,
+                identified: identifiedFilter.queryValue,
+                cursor: nextCursor
             )
             state = .loaded(items: items + page.items, nextCursor: page.nextCursor)
         } catch {

@@ -184,6 +184,33 @@ public struct ListObservationsForPlant: Sendable {
     }
 }
 
+/// Records the caller's disposition on an already-produced health suggestion
+/// (P11-HEALTH-01). Online-only, direct-to-gateway — like `ListObservations
+/// ForGarden`/`ListObservationsForPlant` above and unlike `RecordObservation`/
+/// `CorrectObservation`: `image_analysis_result` is not a synced record
+/// family (absent from the backend's `SyncRecordType` list, the same
+/// reasoning `FeatureRecommendations.RecommendationGateway`'s doc comment
+/// gives for its own online-only commands), so there is no local table for
+/// this to route through.
+public struct SetHealthSuggestionDisposition: Sendable {
+    private let gateway: any ObservationGateway
+
+    public init(gateway: any ObservationGateway) {
+        self.gateway = gateway
+    }
+
+    public func callAsFunction(
+        analysisResultId: String,
+        disposition: HealthSuggestionDisposition
+    ) async throws -> ImageAnalysisResult {
+        try await gateway.setHealthSuggestionDisposition(
+            analysisResultId: analysisResultId,
+            disposition: disposition,
+            idempotencyKey: UUIDv7.generate()
+        )
+    }
+}
+
 /// An "amend" or "supersede" action on an existing timeline entry — never an
 /// edit of the original, which stays visible and unmodified. See
 /// `RecordObservation`'s doc comment for the shared offline-routing

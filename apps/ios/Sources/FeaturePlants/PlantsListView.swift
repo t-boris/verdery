@@ -15,6 +15,7 @@ struct PlantsListView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.space3) {
             searchField
+            identifiedFilterPicker
 
             switch model.state {
             case .loading:
@@ -79,6 +80,22 @@ struct PlantsListView: View {
             }
             .accessibilityLabel(model.searchLabel)
             .accessibilityIdentifier("plants.list.searchSubmit")
+        }
+    }
+
+    /// A `Picker` re-searches immediately on selection — see
+    /// `PlantsListViewModel.identifiedFilterDidChange()`'s own doc comment
+    /// for why this differs from `searchField`'s explicit-submit shape.
+    private var identifiedFilterPicker: some View {
+        Picker(model.identifiedFilterLabel, selection: $model.identifiedFilter) {
+            ForEach(PlantsIdentifiedFilter.allCases, id: \.self) { filter in
+                Text(model.identifiedFilterOptionTitle(filter)).tag(filter)
+            }
+        }
+        .pickerStyle(.segmented)
+        .accessibilityIdentifier("plants.list.identifiedFilter")
+        .onChange(of: model.identifiedFilter) {
+            Task { await model.identifiedFilterDidChange() }
         }
     }
 

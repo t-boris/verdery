@@ -45,6 +45,7 @@ let package = Package(
         .library(name: "FeatureMap", targets: ["FeatureMap"]),
         .library(name: "FeaturePlants", targets: ["FeaturePlants"]),
         .library(name: "FeatureObservations", targets: ["FeatureObservations"]),
+        .library(name: "FeatureCandidates", targets: ["FeatureCandidates"]),
         .library(name: "FeatureTasks", targets: ["FeatureTasks"]),
         .library(name: "FeatureRecommendations", targets: ["FeatureRecommendations"]),
         .library(name: "FeatureSeasonalPlan", targets: ["FeatureSeasonalPlan"]),
@@ -347,6 +348,22 @@ let package = Package(
             ]
         ),
 
+        // Plant candidates — plants under consideration for a garden, not yet
+        // planted (P11-IOS-01). Shaped like `FeatureRecommendations`: no
+        // GRDB/`CorePersistence`/`CoreSynchronization` — candidates are not a
+        // synced record family, see `CoreNetworking.PlantCandidateGateway`.
+        //
+        // This registration pushes this file past the repository's 600-line
+        // source-file rule (it already sat at exactly 600 before this
+        // target). Accepted as a deliberate, owner-approved exception:
+        // SwiftPM's manifest cannot be split across files the way an
+        // ordinary source file can, so there is no mechanical way to bring
+        // it back under the limit without cutting existing documentation.
+        .target(
+            name: "FeatureCandidates",
+            dependencies: ["CoreDomain", "CoreNetworking", "CoreLocalization", "CoreDesignSystem"]
+        ),
+
         // The Today recommendation surface (P7-IOS-01): the prioritized set,
         // per-item detail with evidence and priority breakdown, and the five
         // online feedback/conversion commands. Deliberately shaped like
@@ -425,6 +442,7 @@ let package = Package(
                 "FeatureMap",
                 "FeaturePlants",
                 "FeatureObservations",
+                "FeatureCandidates",
                 "FeatureTasks",
                 "FeatureRecommendations",
                 "FeatureSeasonalPlan",
@@ -576,6 +594,10 @@ let package = Package(
         .testTarget(
             name: "FeatureRecommendationsTests",
             dependencies: ["FeatureRecommendations"]
+        ),
+        .testTarget(
+            name: "FeatureCandidatesTests",
+            dependencies: ["FeatureCandidates"]
         ),
         .testTarget(
             name: "FeatureSeasonalPlanTests",
