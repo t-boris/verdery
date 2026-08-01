@@ -34,6 +34,9 @@ export function toClientUpdateItemResource(item: ClientUpdateItemDetail): Client
   if (item.caption !== null) {
     resource.caption = item.caption;
   }
+  if (item.sourceObservationId !== null) {
+    resource.sourceObservationId = item.sourceObservationId;
+  }
 
   return resource;
 }

@@ -19,6 +19,7 @@ interface ClientUpdateItemRowShape {
   media_record_id: string | null;
   media_role: string | null;
   caption: string | null;
+  source_observation_id: string | null;
   created_at: Date;
 }
 
@@ -33,6 +34,7 @@ function toDetail(row: ClientUpdateItemRowShape): ClientUpdateItemDetail {
     mediaRecordId: row.media_record_id,
     mediaRole: row.media_role as PublicationMediaRole | null,
     caption: row.caption,
+    sourceObservationId: row.source_observation_id,
     createdAt: row.created_at,
   };
 }
@@ -47,6 +49,7 @@ const SELECTED_COLUMNS = [
   'media_record_id',
   'media_role',
   'caption',
+  'source_observation_id',
   'created_at',
 ] as const;
 
@@ -54,8 +57,6 @@ export class KyselyClientUpdateItemRepository implements ClientUpdateItemReposit
   constructor(private readonly db: Kysely<DatabaseSchema>) {}
 
   async insert(input: ClientUpdateItemInsertInput): Promise<void> {
-    const isWorkLog = input.kind === 'work_log';
-
     await this.db
       .insertInto('collaboration.client_update_item')
       .values({
@@ -63,11 +64,12 @@ export class KyselyClientUpdateItemRepository implements ClientUpdateItemReposit
         client_update_id: input.clientUpdateId,
         kind: input.kind,
         occurred_at: input.occurredAt,
-        source_work_log_id: isWorkLog ? input.sourceWorkLogId : null,
-        description: isWorkLog ? input.description : null,
-        media_record_id: isWorkLog ? null : input.mediaRecordId,
-        media_role: isWorkLog ? null : input.mediaRole,
-        caption: isWorkLog ? null : input.caption,
+        source_work_log_id: input.kind === 'work_log' ? input.sourceWorkLogId : null,
+        description: input.kind === 'media' ? null : input.description,
+        media_record_id: input.kind === 'media' ? input.mediaRecordId : null,
+        media_role: input.kind === 'media' ? input.mediaRole : null,
+        caption: input.kind === 'media' ? input.caption : null,
+        source_observation_id: input.kind === 'observation' ? input.sourceObservationId : null,
         created_at: input.now,
       })
       .execute();

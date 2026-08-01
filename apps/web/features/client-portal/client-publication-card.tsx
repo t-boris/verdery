@@ -71,6 +71,7 @@ export function ClientPublicationCard({
                 overviewText={item.overviewText}
                 snapshotData={item.snapshotData}
                 entryText={item.entryText}
+                narrativeText={item.narrativeText}
               />
             </li>
           ))}

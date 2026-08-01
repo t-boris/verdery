@@ -23,6 +23,8 @@ export function itemKindLabel(kind: PublicationItemKind): MessageKey {
       return 'clientPortal.kindGardenSnapshot';
     case 'timeline_entry':
       return 'clientPortal.kindTimelineEntry';
+    case 'observation':
+      return 'clientPortal.kindObservation';
   }
 }
 

@@ -226,6 +226,13 @@ export interface PublicationTimelineEntryDetailRow {
   entry_text: string;
 }
 
+/** Mirrors `collaboration.publication_observation_detail` — the `kind = 'observation'` snapshot. `sourceObservationId` is provenance only; never read to render client content — see 1788100000000's own migration header. */
+export interface PublicationObservationDetailRow {
+  item_id: string;
+  narrative_text: string;
+  source_observation_id: string | null;
+}
+
 /**
  * Mirrors `collaboration.publication_staff_attribution` — explicitly
  * selected staff display attribution, deliberately NOT a `publication_item`
@@ -291,6 +298,7 @@ export interface ClientUpdateItemRow {
   media_record_id: string | null;
   media_role: string | null;
   caption: string | null;
+  source_observation_id: string | null;
   created_at: Generated<Date>;
 }
 
@@ -309,6 +317,7 @@ export interface CollaborationDatabaseSchema {
   'collaboration.publication_media_detail': PublicationMediaDetailRow;
   'collaboration.publication_garden_snapshot_detail': PublicationGardenSnapshotDetailRow;
   'collaboration.publication_timeline_entry_detail': PublicationTimelineEntryDetailRow;
+  'collaboration.publication_observation_detail': PublicationObservationDetailRow;
   'collaboration.publication_staff_attribution': PublicationStaffAttributionRow;
   'collaboration.media_entitlement': MediaEntitlementRow;
   'collaboration.publisher_grant': PublisherGrantRow;

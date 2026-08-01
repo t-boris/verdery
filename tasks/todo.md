@@ -8296,7 +8296,7 @@ already-wired gaps closed on the same pass — `SearchPlants`'s `identified` fil
 timeline's health-suggestion rendering (P11-HEALTH-01's real shape, in place of the old stubbed one).
 A research pass (dispatched before writing any Swift) confirmed iOS candidates were entirely unbuilt
 — matching web's own prior state exactly — and, separately, that iOS's `ImageAnalysisResult` was
-*still* on the pre-P11-HEALTH-01 stubbed shape (`suggestedLabel`/`confidenceScore`/
+_still_ on the pre-P11-HEALTH-01 stubbed shape (`suggestedLabel`/`confidenceScore`/
 `requiresConfirmation`/`requestedAdditionalEvidence` only), unlike web, which already carried the real
 shape into this session from earlier in it.
 
@@ -8432,5 +8432,142 @@ entry) rather than an actual on-device run; every item this pass explicitly scop
 proposed-placement/`alternativeToCandidateId` fields, `ObservationPhoto.purpose` modeling, deep-linking
 from a converted candidate to its new plant — remains open, matching the identical scope lines already
 drawn (and left open) on the web side in P11-WEB-01.
+
+---
+
+## P11-SHARE-01 — publish progress/before-after/time-lapse
+
+The AC (implementation-plan.md row) reads: "Allow explicit publication of selected progress
+observations, before/after media, and time-lapse derivatives while excluding candidates, internal
+suitability notes, health suggestions, precise EXIF/location, rejected analysis, and unpublished
+media," with "Entitlement, withdrawal, export, and cross-client isolation tests" as its own named
+completion evidence. A research pass before writing any code found: before/after media is already
+fully built (`PublicationMediaRole = before | after | general`, schema and logic complete, both on
+staging and published sides) — nothing new needed there; candidates/internal suitability
+notes/health suggestions/rejected analysis are structurally excluded already (none of them is a
+stageable `client_update_item` kind, so there is no code path that could leak them); time-lapse
+derivative generation has been explicitly, deliberately deferred TWICE already in this exact
+codebase (P11-MEDIA-01's own migration header and its own todo.md review), for the identical reason
+each time — no video/GIF-encoding worker exists anywhere in the repo, and
+`media_record.derived_from_media_id` is a single-parent FK, structurally incompatible with a
+multi-source-photo-sequence derivative without a new join table; "progress observations" has no
+existing publication path at all; and — the one genuinely new finding — `isMediaClientSafe()`
+(duplicated in `add-client-update-item.ts`/`publish-client-update.ts`) checked only
+`gardenId`/`uploadState`, never derivative-ness, so a publisher could currently stage/publish an
+ORIGINAL `garden_photo` whose Cloud Storage bytes may carry embedded EXIF/GPS — directly
+contradicting the AC's own "excluding ... precise EXIF/location" clause.
+
+**Scope decision, made explicit rather than re-litigated**: build the EXIF/GPS fix and the
+observation-kind extension for real, end to end (migration → domain → application → persistence →
+routes → contract → client-portal rendering → integration tests); re-confirm time-lapse's deferral
+rather than re-opening it; and treat a publisher-facing web UI (draft creation, item staging, a
+publish button) as a genuinely separate, explicitly deferred gap — not silently skipped. The AC text
+itself is entirely about backend allow/exclude semantics and its own named test deliverable
+(entitlement/withdrawal/export/isolation), never about a screen; `apps/web` has ZERO publisher-facing
+UI today for ANY kind (work_log/media/garden_snapshot/timeline_entry included, not just
+observation) — confirmed by an exhaustive search of `apps/web/features/`, `apps/web/app/`, and
+`apps/web/core/api/collaboration-gateway.ts` (invitation/membership only). Building a full publisher
+app from nothing would be a package of its own, not an extension of anything this pass touched, and
+was never named by the AC.
+
+**The EXIF/GPS fix**: `isMediaClientSafe(media, gardenId)` in both files now additionally requires
+`media.derivedFromMediaId !== null` — derivative-only, never an original. `MediaClass` already
+distinguishes `'garden_photo'`/`'raw_capture'` (originals) from `'derived_preview'` (the one
+derivative class), and `derivedFromMediaId` is already the media module's own definition of "this
+row is a derivative" (its own doc comment: "Set only on a derivative row"), so no new vocabulary was
+needed, only the missing check. Both staging-time (`add-client-update-item.ts`) and publish-time
+re-validation (`publish-client-update.ts`) got the identical fix, matching how those two functions
+were already kept as intentional duplicates rather than a shared import (see `publish-client-update
+.ts`'s own comment on this).
+
+**The `observation` publication kind**: a THIRD staged/publishable kind, alongside `work_log`/
+`media`, chosen over inline-composing it like `garden_snapshot`/`timeline_entry` for the same reason
+those two are inline-composed and `work_log`/`media` are staged — only `work_log`/`media`/now
+`observation` have a genuine SOURCE RECORD a publisher selects FROM. Migration
+(`1788100000000_client-update-observation-kind.sql`): `client_update_item` gains
+`source_observation_id uuid REFERENCES observations_history.observation (id) ON DELETE SET NULL`
+(reusing the existing `description` column for the publisher-authored narrative, exactly mirroring
+`work_log`'s own provenance/content split — `source_observation_id` proves the observation is real
+and same-garden, `description` is independently authored, never a live copy of the observation's own
+`note_text`); `publication_item.kind` CHECK widened; new
+`collaboration.publication_observation_detail` table (`narrative_text` required non-blank,
+`source_observation_id` nullable provenance-only), following the established "SNAPSHOTS ARE VALUES,
+NOT LIVE REACHES" convention verbatim. Domain/application: `ClientUpdateItemKind`/
+`PublicationItemKind` widened, `AddClientUpdateItemInput`/`PublicationItemDetail`/
+`CreatePublicationVersionInput` extended with an `observation` variant,
+`PublishClientUpdate`'s re-validation loop re-fetches via the newly-injected `ObservationRepository`
+(the first cross-module wiring of `observations-history` into `collaboration` —
+`compose-collaboration.ts` gained an `observationRepository`, following the exact
+"third independent reader over the same pool" posture `mediaRepository` already documents).
+Persistence: both Kysely repositories extended (`KyselyClientUpdateItemRepository.insert()`,
+`KyselyPublicationRepository.create()`), `DatabaseSchema` gained the new row/column shapes. Routes:
+`client-update-item-routes.ts`'s hand-rolled validation gained a third `kind` branch. Contract:
+`ClientUpdateItemKind`/`PublicationItemKind` enums widened; `ClientUpdateItem`/
+`AddClientUpdateItemRequest`/`PublicationItem` (staff-facing, carries `narrativeText` AND
+`sourceObservationId`) and `ClientPublicationItem`/`ClientTimelineEntry` (client-facing, carries
+`narrativeText` only — provenance stays staff-only, matching how `sourceWorkLogId` is already absent
+from those two schemas) all extended; `@verdery/api-contracts` rebuilt cleanly. Client-portal web:
+`publication-item-content.tsx` renders the narrative text, `client-timeline-entry.tsx`/
+`client-publication-card.tsx` pass it through, new `clientPortal.kindObservation` message key in both
+languages.
+
+**A real bug found and fixed before it could ship, not merely a test-coverage gap**: extending the
+purge-completeness test (`deletion-garden-purge.test.ts`) surfaced that
+`source_observation_id` is the FIRST foreign key either `client_update_item` or
+`publication_observation_detail` has ever carried that resolves all the way to
+`gardens_mapping.garden` — unlike `work_log`/`client_update`/`publication_version`/`publication_item`,
+whose `garden_id` columns are deliberately FK-less specifically so the whole P9C chain survives a
+garden purge for audit/dispute/legal retention (`DOCUMENTED_PLAN_EXCEPTIONS`'s own established
+reasoning). `observations_history.observation`, by contrast, genuinely IS purged with its garden
+(`GARDEN_PURGE_STEPS`). Without `ON DELETE SET NULL`, purging any garden with a staged or published
+observation-kind item would have failed the ENTIRE garden purge outright with a foreign-key
+violation — a real, previously-nonexistent failure mode this migration itself would have introduced.
+Fixed in the same migration (not a follow-up) with `ON DELETE SET NULL` on both FKs, and the
+`client_update_item_observation_shape_check` CHECK relaxed to not require `source_observation_id
+IS NOT NULL` (it may legitimately go null after the source is purged; the displayed text never
+depended on it). `client_update_item`/`publication_observation_detail` were added to
+`deletion-garden-purge.test.ts`'s own `DOCUMENTED_PLAN_EXCEPTIONS`, with the reasoning recorded
+inline. A new integration test proves the fix directly, by running the exact `DELETE ... WHERE
+garden_id = $1` the purge step itself issues against a garden with a staged observation-kind item,
+then asserting the row survives with `source_observation_id = NULL` and its `description` untouched.
+
+**Ripple from adding one migration on top of the stack**: `insertMediaRecord` (the shared
+integration-test fixture, `publication-integration-harness.ts`) previously returned an ORIGINAL
+`garden_photo` id directly — now, correctly, every existing caller wanting "a media record safe to
+stage/publish" needs a derivative, so the fixture was changed to insert a real original PLUS a real
+`derived_preview` row pointing at it, returning the derivative's id; a new sibling
+`insertOriginalMediaRecord` export exists for the one place a genuinely unsafe original is needed on
+purpose (the new rejection test). Five existing test files that construct `AddClientUpdateItem`/
+`PublishClientUpdate` directly needed the new `observations: ObservationRepository` constructor
+argument threaded through. Separately, adding the 1788100000000 migration shifted every OTHER
+migration test's own hardcoded rollback `count` (each test's own documented convention: "update this
+count when a later migration is added on top") — 27 migration test files needed their count bumped
+by exactly one; verified mechanically (each file's own prior count matched its position in the
+migration list precisely) and confirmed by running the full `tests/migrations/` suite (43 files, 391
+tests, all green) rather than trusting the arithmetic alone.
+
+**New integration test file**: `collaboration-publications-observation-and-safety.test.ts` (sibling
+to `collaboration-publications.test.ts`, not more lines in it, matching this directory's own
+size-discipline convention several other suites already state explicitly) — five tests: the EXIF
+rejection (staging an original fails, staging its derivative succeeds); the full observation-kind
+stage → publish → row-level snapshot → client read (`ListClientPublications`/`GetClientTimeline`,
+asserting the client-facing shape never carries `sourceObservationId`) → withdrawal-hides →
+cross-client-isolation (`client_portal.not_found`, the same concealed code
+`p9-qa-cross-client-concealment-sweep.test.ts` already proves for every other kind) chain, all in one
+seeded flow; and the garden-purge FK-survival proof described above.
+
+**Verification**: `pnpm --filter @verdery/api-contracts build` clean (openapi-typescript + tsc);
+`pnpm --filter @verdery/api typecheck` clean; `pnpm --filter @verdery/web typecheck` clean; full
+`services/api` unit suite (`src/`) — 177 files, 1518 tests, all green; full `tests/migrations/` — 43
+files, 391 tests, all green; the new sibling file plus every directly-affected integration/HTTP/DST
+file re-run individually — all green; a full `tests/migrations/ tests/integration/ tests/http/
+tests/dst/` sweep run as final confirmation.
+
+**What was NOT done, tracked as real follow-up, not dropped**: no publisher-facing web UI (draft
+creation, item staging screen, before/after drafting layout, a publish button) — genuinely greenfield
+for EVERY kind, not just observation, and out of this AC's own backend-focused wording; no iOS
+client-portal work — the client portal is web-only today, no iOS equivalent exists anywhere to
+extend; real time-lapse derivative generation remains deferred a third time, same infrastructure gap
+as both prior deferrals (no video/GIF-encoding worker, no multi-source derivative join table).
 
 ---

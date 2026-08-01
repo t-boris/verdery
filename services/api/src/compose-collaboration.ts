@@ -97,6 +97,7 @@ import type { GardenAuthorization } from './modules/gardens-mapping/public.js';
 import { KyselyGardenRepository } from './modules/gardens-mapping/public.js';
 import type { ProfileRepository } from './modules/identity-access/public.js';
 import { KyselyMediaRepository } from './modules/media/public.js';
+import { KyselyObservationRepository } from './modules/observations-history/public.js';
 import type { DatabaseGateway } from './platform/database/database-gateway.js';
 import { KyselyIdempotencyStore } from './platform/idempotency/kysely-idempotency-store.js';
 import type { Clock } from './shared/time/clock.js';
@@ -144,6 +145,12 @@ export function composeCollaboration(
   const clientUpdateItemRepository = new KyselyClientUpdateItemRepository(database.queries);
   const workLogRepository = new KyselyWorkLogRepository(database.queries);
   const mediaRepository = new KyselyMediaRepository(database.queries);
+  // P11-SHARE-01: a third independent reader over the same pool, the
+  // identical "this module's own narrow read-only wrapper" posture
+  // `mediaRepository` above already documents — validates a selected
+  // observation's existence/garden at staging and publish time only, never
+  // builds observation authorization of its own.
+  const observationRepository = new KyselyObservationRepository(database.queries);
   // P9C-INVITE-01: a second independent reader over the same pool, the
   // identical posture `gardenRepository`/`mediaRepository` above already
   // take — `CreateClientInvitation`'s own pre-check must complete BEFORE it
@@ -378,6 +385,7 @@ export function composeCollaboration(
       clientEngagementRepository,
       clientUpdateRepository,
       mediaRepository,
+      observationRepository,
       profileRepository,
       clock,
     ),
@@ -400,6 +408,7 @@ export function composeCollaboration(
       clientUpdateRepository,
       workLogRepository,
       mediaRepository,
+      observationRepository,
       clock,
     ),
     removeClientUpdateItem: new RemoveClientUpdateItem(

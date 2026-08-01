@@ -27,14 +27,18 @@ export interface ClientUpdateItemRoutesDependencies {
   readonly removeClientUpdateItem: RemoveClientUpdateItem;
 }
 
-const ITEM_KINDS = new Set(['work_log', 'media']);
+const ITEM_KINDS = new Set(['work_log', 'media', 'observation']);
 const MEDIA_ROLES = new Set(['before', 'after', 'general']);
 
 function requireAddItemBody(request: FastifyRequest): AddClientUpdateItemInput {
   const body = request.body as Partial<AddClientUpdateItemRequest> | undefined;
 
   if (typeof body?.kind !== 'string' || !ITEM_KINDS.has(body.kind)) {
-    throw invalid('kind must be "work_log" or "media".', 'request.invalid', '/kind');
+    throw invalid(
+      'kind must be "work_log", "media", or "observation".',
+      'request.invalid',
+      '/kind',
+    );
   }
   if (typeof body.occurredAt !== 'string' || Number.isNaN(Date.parse(body.occurredAt))) {
     throw invalid('occurredAt must be a valid timestamp.', 'request.invalid', '/occurredAt');
@@ -52,6 +56,28 @@ function requireAddItemBody(request: FastifyRequest): AddClientUpdateItemInput {
       kind: 'work_log',
       occurredAt,
       sourceWorkLogId: body.sourceWorkLogId,
+      description: body.description,
+    };
+  }
+
+  if (body.kind === 'observation') {
+    if (
+      typeof body.sourceObservationId !== 'string' ||
+      !UUID_PATTERN.test(body.sourceObservationId)
+    ) {
+      throw invalid(
+        'sourceObservationId must be a UUID.',
+        'request.invalid',
+        '/sourceObservationId',
+      );
+    }
+    if (typeof body.description !== 'string' || body.description.trim().length === 0) {
+      throw invalid('description must be a non-empty string.', 'request.invalid', '/description');
+    }
+    return {
+      kind: 'observation',
+      occurredAt,
+      sourceObservationId: body.sourceObservationId,
       description: body.description,
     };
   }

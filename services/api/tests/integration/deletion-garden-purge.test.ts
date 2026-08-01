@@ -102,6 +102,26 @@ const DOCUMENTED_PLAN_EXCEPTIONS = new Set([
   'collaboration.client_update',
   'collaboration.publication_version',
   'collaboration.publication_item',
+  // P11-SHARE-01's own `client_update_item.source_observation_id`/
+  // `publication_observation_detail.source_observation_id` — the first FK
+  // either table has ever carried that resolves all the way to
+  // `gardens_mapping.garden` (`observation.garden_id` IS a real FK, unlike
+  // `work_log.garden_id`/`client_update.garden_id` immediately above), which
+  // is why the catalog sweep sees these two now and did not before. Both are
+  // CHILDREN of the already-retained chain directly above —
+  // `client_update_item` stages what `publication_item` later snapshots, and
+  // `publication_observation_detail` IS one kind's snapshot content for
+  // `publication_item` — so the identical audit/dispute/legal/stewardship-
+  // retention reasoning applies transitively: a retained `publication_item`
+  // row with `kind = 'observation'` and no matching detail row would be the
+  // exact data corruption `KyselyClientPublicationReadRepository.toItemDetail`
+  // already treats as a thrown invariant violation, not an absence to paper
+  // over. Purging `source_observation_id`'s own target
+  // (`observations_history.observation`) is unaffected — that step runs
+  // long before these two collaboration-schema tables would ever be reached,
+  // and neither participates in the observation purge query itself.
+  'collaboration.client_update_item',
+  'collaboration.publication_observation_detail',
   // Deleted by `ON DELETE CASCADE` from a table the plan DOES name.
   'gardens_mapping.structure_details',
   'gardens_mapping.fence_details',

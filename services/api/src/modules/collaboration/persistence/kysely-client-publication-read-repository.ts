@@ -77,26 +77,33 @@ export class KyselyClientPublicationReadRepository implements ClientPublicationR
       itemIdsByKind.set(item.kind, bucket);
     }
 
-    const [workLogDetails, mediaDetails, gardenSnapshotDetails, timelineEntryDetails, staffRows] =
-      await Promise.all([
-        this.selectWorkLogDetails(itemIdsByKind.get('work_log') ?? []),
-        this.selectMediaDetails(itemIdsByKind.get('media') ?? []),
-        this.selectGardenSnapshotDetails(itemIdsByKind.get('garden_snapshot') ?? []),
-        this.selectTimelineEntryDetails(itemIdsByKind.get('timeline_entry') ?? []),
-        this.db
-          .selectFrom('collaboration.publication_staff_attribution')
-          .select([
-            'id',
-            'publication_version_id',
-            'staff_profile_id',
-            'display_name',
-            'role_label',
-            'created_at',
-          ])
-          .where('publication_version_id', 'in', versionIds)
-          .orderBy('created_at', 'asc')
-          .execute(),
-      ]);
+    const [
+      workLogDetails,
+      mediaDetails,
+      gardenSnapshotDetails,
+      timelineEntryDetails,
+      observationDetails,
+      staffRows,
+    ] = await Promise.all([
+      this.selectWorkLogDetails(itemIdsByKind.get('work_log') ?? []),
+      this.selectMediaDetails(itemIdsByKind.get('media') ?? []),
+      this.selectGardenSnapshotDetails(itemIdsByKind.get('garden_snapshot') ?? []),
+      this.selectTimelineEntryDetails(itemIdsByKind.get('timeline_entry') ?? []),
+      this.selectObservationDetails(itemIdsByKind.get('observation') ?? []),
+      this.db
+        .selectFrom('collaboration.publication_staff_attribution')
+        .select([
+          'id',
+          'publication_version_id',
+          'staff_profile_id',
+          'display_name',
+          'role_label',
+          'created_at',
+        ])
+        .where('publication_version_id', 'in', versionIds)
+        .orderBy('created_at', 'asc')
+        .execute(),
+    ]);
 
     const itemsByVersionId = new Map<string, PublicationItemDetail[]>();
     for (const item of itemRows) {
@@ -106,6 +113,7 @@ export class KyselyClientPublicationReadRepository implements ClientPublicationR
         mediaDetails,
         gardenSnapshotDetails,
         timelineEntryDetails,
+        observationDetails,
       );
       const bucket = itemsByVersionId.get(item.publication_version_id) ?? [];
       bucket.push(detail);
@@ -208,12 +216,30 @@ export class KyselyClientPublicationReadRepository implements ClientPublicationR
     return new Map(rows.map((row) => [row.item_id, { entryText: row.entry_text }]));
   }
 
+  private async selectObservationDetails(itemIds: readonly string[]) {
+    if (itemIds.length === 0) {
+      return new Map<string, { narrativeText: string; sourceObservationId: string | null }>();
+    }
+    const rows = await this.db
+      .selectFrom('collaboration.publication_observation_detail')
+      .select(['item_id', 'narrative_text', 'source_observation_id'])
+      .where('item_id', 'in', itemIds)
+      .execute();
+    return new Map(
+      rows.map((row) => [
+        row.item_id,
+        { narrativeText: row.narrative_text, sourceObservationId: row.source_observation_id },
+      ]),
+    );
+  }
+
   private toItemDetail(
     item: { id: string; publication_version_id: string; kind: string; occurred_at: Date },
     workLogDetails: Map<string, { description: string; sourceWorkLogId: string | null }>,
     mediaDetails: Map<string, { mediaRecordId: string; mediaRole: string; caption: string | null }>,
     gardenSnapshotDetails: Map<string, { overviewText: string; snapshotData: unknown }>,
     timelineEntryDetails: Map<string, { entryText: string }>,
+    observationDetails: Map<string, { narrativeText: string; sourceObservationId: string | null }>,
   ): PublicationItemDetail {
     switch (item.kind) {
       case 'work_log': {
@@ -271,6 +297,19 @@ export class KyselyClientPublicationReadRepository implements ClientPublicationR
           kind: 'timeline_entry',
           occurredAt: item.occurred_at,
           entryText: detail.entryText,
+        };
+      }
+      case 'observation': {
+        const detail = observationDetails.get(item.id);
+        if (detail === undefined) {
+          throw new Error(`Missing publication_observation_detail for item ${item.id}`);
+        }
+        return {
+          id: item.id,
+          kind: 'observation',
+          occurredAt: item.occurred_at,
+          narrativeText: detail.narrativeText,
+          sourceObservationId: detail.sourceObservationId,
         };
       }
       default:

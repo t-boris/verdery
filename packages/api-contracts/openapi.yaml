@@ -7504,8 +7504,8 @@ components:
 
     ClientUpdateItemKind:
       type: string
-      enum: [work_log, media]
-      description: The two kinds a staged `client_update_item` may be — see `addClientUpdateItem`'s own description for why the other two publication-item kinds are not staged.
+      enum: [work_log, media, observation]
+      description: The three kinds a staged `client_update_item` may be — see `addClientUpdateItem`'s own description for why `garden_snapshot`/`timeline_entry` (the remaining two `PublicationItemKind` values) are never staged.
 
     PublicationMediaRole:
       type: string
@@ -7531,7 +7531,7 @@ components:
           description: Present only when `kind` is `work_log`.
         description:
           type: string
-          description: Present only when `kind` is `work_log` — curated, client-safe text, independent of the source work log's own words.
+          description: Present when `kind` is `work_log` (curated, client-safe text, independent of the source work log's own words) or `observation` (curated, client-safe narrative, independent of the source observation's own note text).
         mediaRecordId:
           allOf:
             - $ref: '#/components/schemas/Uuid'
@@ -7543,6 +7543,10 @@ components:
         caption:
           type: string
           description: Optional, `kind media` only.
+        sourceObservationId:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: Present only when `kind` is `observation`.
         createdAt:
           $ref: '#/components/schemas/Timestamp'
 
@@ -7651,7 +7655,7 @@ components:
         description:
           type: string
           minLength: 1
-          description: Required when `kind` is `work_log`.
+          description: Required when `kind` is `work_log` or `observation`.
         mediaRecordId:
           allOf:
             - $ref: '#/components/schemas/Uuid'
@@ -7664,6 +7668,10 @@ components:
           type: string
           minLength: 1
           description: Optional, `kind media` only.
+        sourceObservationId:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: Required when `kind` is `observation`.
 
     WithdrawClientUpdateRequest:
       type: object
@@ -7707,7 +7715,7 @@ components:
 
     PublicationItemKind:
       type: string
-      enum: [work_log, media, garden_snapshot, timeline_entry]
+      enum: [work_log, media, garden_snapshot, timeline_entry, observation]
       description: Mirrors `collaboration.publication_item.kind` — every published item kind, a strict superset of `ClientUpdateItemKind`.
 
     PublicationItem:
@@ -7751,6 +7759,13 @@ components:
         entryText:
           type: string
           description: Present only when `kind` is `timeline_entry`.
+        narrativeText:
+          type: string
+          description: Present only when `kind` is `observation` — curated, client-safe text, independent of the source observation's own note text.
+        sourceObservationId:
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+          description: Present only when `kind` is `observation`. Provenance only — never re-read to render client content.
         createdAt:
           $ref: '#/components/schemas/Timestamp'
 
@@ -7979,6 +7994,9 @@ components:
         entryText:
           type: string
           description: Present only when `kind` is `timeline_entry`.
+        narrativeText:
+          type: string
+          description: Present only when `kind` is `observation` — curated, client-safe text.
 
     ClientPublicationStaffAttribution:
       type: object
@@ -8067,6 +8085,9 @@ components:
         entryText:
           type: string
           description: Present only when `kind` is `timeline_entry`.
+        narrativeText:
+          type: string
+          description: Present only when `kind` is `observation` — curated, client-safe text.
       description: No version grouping and no title/summary, deliberately — see `getClientTimeline`'s own description for why this differs from `ClientPublicationSummary`.
 
     ClientTimelineResult:

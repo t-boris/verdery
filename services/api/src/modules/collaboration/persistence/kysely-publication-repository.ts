@@ -93,6 +93,14 @@ export class KyselyPublicationRepository implements PublicationRepository {
         occurred_at: item.occurredAt,
         created_at: input.publishedAt,
       })),
+      ...input.observationItems.map((item) => ({
+        id: item.id,
+        publication_version_id: input.id,
+        garden_id: input.gardenId,
+        kind: 'observation',
+        occurred_at: item.occurredAt,
+        created_at: input.publishedAt,
+      })),
     ];
     if (itemRows.length > 0) {
       await this.db.insertInto('collaboration.publication_item').values(itemRows).execute();
@@ -167,6 +175,19 @@ export class KyselyPublicationRepository implements PublicationRepository {
         .execute();
     }
 
+    if (input.observationItems.length > 0) {
+      await this.db
+        .insertInto('collaboration.publication_observation_detail')
+        .values(
+          input.observationItems.map((item) => ({
+            item_id: item.id,
+            narrative_text: item.narrativeText,
+            source_observation_id: item.sourceObservationId,
+          })),
+        )
+        .execute();
+    }
+
     if (input.staffAttributions.length > 0) {
       await this.db
         .insertInto('collaboration.publication_staff_attribution')
@@ -215,6 +236,13 @@ export class KyselyPublicationRepository implements PublicationRepository {
         kind: 'timeline_entry',
         occurredAt: item.occurredAt,
         entryText: item.entryText,
+      })),
+      ...input.observationItems.map((item): PublicationItemDetail => ({
+        id: item.id,
+        kind: 'observation',
+        occurredAt: item.occurredAt,
+        narrativeText: item.narrativeText,
+        sourceObservationId: item.sourceObservationId,
       })),
     ];
 

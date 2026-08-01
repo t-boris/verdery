@@ -53,6 +53,12 @@ function toPublicationItemResource(
     case 'timeline_entry':
       resource.entryText = item.entryText;
       break;
+    case 'observation':
+      resource.narrativeText = item.narrativeText;
+      if (item.sourceObservationId !== null) {
+        resource.sourceObservationId = item.sourceObservationId;
+      }
+      break;
   }
 
   return resource;

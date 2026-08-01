@@ -27,6 +27,7 @@ export interface PublicationItemContentProps {
   readonly overviewText?: string | undefined;
   readonly snapshotData?: Readonly<Record<string, unknown>> | undefined;
   readonly entryText?: string | undefined;
+  readonly narrativeText?: string | undefined;
 }
 
 /**
@@ -53,6 +54,7 @@ export function PublicationItemContent({
   overviewText,
   snapshotData,
   entryText,
+  narrativeText,
 }: PublicationItemContentProps) {
   const { t } = useLocalization();
 
@@ -88,6 +90,10 @@ export function PublicationItemContent({
     );
   }
 
-  // kind === 'timeline_entry'
-  return entryText === undefined ? null : <p className={styles['text']}>{entryText}</p>;
+  if (kind === 'timeline_entry') {
+    return entryText === undefined ? null : <p className={styles['text']}>{entryText}</p>;
+  }
+
+  // kind === 'observation'
+  return narrativeText === undefined ? null : <p className={styles['text']}>{narrativeText}</p>;
 }

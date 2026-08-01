@@ -67,6 +67,9 @@ function toClientPublicationItemResource(item: PublicationItemDetail): ClientPub
     case 'timeline_entry':
       resource.entryText = item.entryText;
       break;
+    case 'observation':
+      resource.narrativeText = item.narrativeText;
+      break;
   }
 
   return resource;
@@ -101,6 +104,9 @@ function toClientTimelineEntryResource(
       break;
     case 'timeline_entry':
       resource.entryText = item.entryText;
+      break;
+    case 'observation':
+      resource.narrativeText = item.narrativeText;
       break;
   }
 

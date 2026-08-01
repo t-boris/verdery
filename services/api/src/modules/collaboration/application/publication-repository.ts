@@ -29,6 +29,13 @@ export interface PublicationTimelineEntryItemInput {
   readonly entryText: string;
 }
 
+export interface PublicationObservationItemInput {
+  readonly id: Uuid;
+  readonly occurredAt: Date;
+  readonly narrativeText: string;
+  readonly sourceObservationId: Uuid | null;
+}
+
 export interface PublicationStaffAttributionInput {
   readonly id: Uuid;
   readonly staffProfileId: Uuid;
@@ -59,6 +66,7 @@ export interface CreatePublicationVersionInput {
   readonly mediaItems: readonly PublicationMediaItemInput[];
   readonly gardenSnapshotItem: PublicationGardenSnapshotItemInput | null;
   readonly timelineEntryItems: readonly PublicationTimelineEntryItemInput[];
+  readonly observationItems: readonly PublicationObservationItemInput[];
   readonly staffAttributions: readonly PublicationStaffAttributionInput[];
 }
 
@@ -90,6 +98,13 @@ export type PublicationItemDetail =
       readonly kind: 'timeline_entry';
       readonly occurredAt: Date;
       readonly entryText: string;
+    }
+  | {
+      readonly id: Uuid;
+      readonly kind: 'observation';
+      readonly occurredAt: Date;
+      readonly narrativeText: string;
+      readonly sourceObservationId: Uuid | null;
     };
 
 export interface PublicationStaffAttributionDetail {

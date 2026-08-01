@@ -10,12 +10,16 @@
  * `sourceWorkLogId` to resolve to a real work log belonging to the SAME
  * garden as the client update (`work_log.garden_id === clientUpdate
  * .gardenId`); `kind: media` requires `mediaRecordId` to resolve to a real,
- * `available` media record in the same garden. Both existence/garden checks
- * run again at publish time (`PublishClientUpdate` step 2) since staged
- * content can go stale between selection and publication (media deleted,
- * work log... though `work_log` carries no delete path today, so only the
- * media half is genuinely at risk of going stale between staging and
- * publish).
+ * `available`, DERIVATIVE (never original) media record in the same garden
+ * — see `isMediaClientSafe`'s own comment; `kind: observation` requires
+ * `sourceObservationId` to resolve to a real observation in the same garden
+ * — see 1788100000000's own migration header for why `description` carries
+ * the publisher's own narrative rather than a copy of the observation's raw
+ * note text. All three existence/garden checks run again at publish time
+ * (`PublishClientUpdate` step 2) since staged content can go stale between
+ * selection and publication (media deleted, work log/observation... though
+ * neither carries a delete path today, so only the media half is genuinely
+ * at risk of going stale between staging and publish).
  *
  * NO REVISION GUARD AGAINST `client_update.revision`. Items live in a
  * separate, independently mutable table — adding one does not itself
@@ -46,13 +50,17 @@ import { generateUuidV7 } from '../../../shared/identifiers/uuid.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import type { MediaRecord, MediaRepository } from '../../media/public.js';
+import type { ObservationRepository } from '../../observations-history/public.js';
 import {
   clientUpdateContentLockedError,
   selectedItemInvalidError,
 } from './client-update-errors.js';
 import { toClientUpdateItemResource } from './client-update-view.js';
 import type { ClientEngagementRepository } from './client-engagement-repository.js';
-import type { PublicationMediaRole } from './client-update-item-repository.js';
+import type {
+  ClientUpdateItemDetail,
+  PublicationMediaRole,
+} from './client-update-item-repository.js';
 import type { ClientUpdateRepository } from './client-update-repository.js';
 import type { CollaborationUnitOfWork } from './collaboration-unit-of-work.js';
 import type { PublisherAuthorization } from './publisher-authorization.js';
@@ -63,6 +71,7 @@ import type { WorkLogRepository } from './work-log-repository.js';
 const OPERATION = 'client_engagements.updates.items.add';
 const WORK_LOG_ITEM_CONSTRAINT = 'client_update_item_work_log_key';
 const MEDIA_ITEM_CONSTRAINT = 'client_update_item_media_key';
+const OBSERVATION_ITEM_CONSTRAINT = 'client_update_item_observation_key';
 
 export type AddClientUpdateItemInput =
   | {
@@ -77,10 +86,26 @@ export type AddClientUpdateItemInput =
       readonly mediaRecordId: Uuid;
       readonly mediaRole: PublicationMediaRole;
       readonly caption: string | null;
+    }
+  | {
+      readonly kind: 'observation';
+      readonly occurredAt: Date;
+      readonly sourceObservationId: Uuid;
+      readonly description: string;
     };
 
 function isMediaClientSafe(media: MediaRecord, gardenId: Uuid): boolean {
-  return media.gardenId === gardenId && media.uploadState === 'available';
+  // Derivative-only, never an original: an original `garden_photo`/
+  // `raw_capture` row's Cloud Storage bytes can carry embedded EXIF/GPS the
+  // client must never receive (P11-SHARE-01's own "excluding ... precise
+  // EXIF/location" exclusion). `derivedFromMediaId !== null` is exactly the
+  // media module's own definition of "this row is a derivative" — see
+  // `MediaRecord`'s doc comment: "Set only on a derivative row."
+  return (
+    media.gardenId === gardenId &&
+    media.uploadState === 'available' &&
+    media.derivedFromMediaId !== null
+  );
 }
 
 function alreadyStaged(cause?: unknown): ConflictError {
@@ -100,6 +125,7 @@ export class AddClientUpdateItem {
     private readonly clientUpdates: ClientUpdateRepository,
     private readonly workLogs: WorkLogRepository,
     private readonly media: MediaRepository,
+    private readonly observations: ObservationRepository,
     private readonly clock: Clock,
   ) {}
 
@@ -130,11 +156,18 @@ export class AddClientUpdateItem {
           { code: 'client_update.selected_item_invalid', pointer: '/sourceWorkLogId' },
         ]);
       }
-    } else {
+    } else if (request.kind === 'media') {
       const media = await this.media.get(request.mediaRecordId);
       if (media === null || !isMediaClientSafe(media, clientUpdate.gardenId)) {
         throw selectedItemInvalidError([
           { code: 'client_update.selected_item_invalid', pointer: '/mediaRecordId' },
+        ]);
+      }
+    } else {
+      const observation = await this.observations.get(request.sourceObservationId);
+      if (observation === null || observation.gardenId !== clientUpdate.gardenId) {
+        throw selectedItemInvalidError([
+          { code: 'client_update.selected_item_invalid', pointer: '/sourceObservationId' },
         ]);
       }
     }
@@ -161,7 +194,7 @@ export class AddClientUpdateItem {
             description: request.description,
             now,
           });
-        } else {
+        } else if (request.kind === 'media') {
           await context.clientUpdateItems.insert({
             id,
             clientUpdateId,
@@ -172,11 +205,25 @@ export class AddClientUpdateItem {
             caption: request.caption,
             now,
           });
+        } else {
+          await context.clientUpdateItems.insert({
+            id,
+            clientUpdateId,
+            kind: 'observation',
+            occurredAt: request.occurredAt,
+            sourceObservationId: request.sourceObservationId,
+            description: request.description,
+            now,
+          });
         }
       } catch (error) {
         if (isUniqueViolation(error)) {
           const constraint = postgresConstraintName(error);
-          if (constraint === WORK_LOG_ITEM_CONSTRAINT || constraint === MEDIA_ITEM_CONSTRAINT) {
+          if (
+            constraint === WORK_LOG_ITEM_CONSTRAINT ||
+            constraint === MEDIA_ITEM_CONSTRAINT ||
+            constraint === OBSERVATION_ITEM_CONSTRAINT
+          ) {
             throw alreadyStaged(error);
           }
         }
@@ -199,33 +246,42 @@ export class AddClientUpdateItem {
         payload: { engagementId, clientUpdateId, kind: request.kind },
       });
 
-      return toClientUpdateItemResource(
+      const common = { id, clientUpdateId, occurredAt: request.occurredAt, createdAt: now };
+      const detail: ClientUpdateItemDetail =
         request.kind === 'work_log'
           ? {
-              id,
-              clientUpdateId,
+              ...common,
               kind: 'work_log',
-              occurredAt: request.occurredAt,
               sourceWorkLogId: request.sourceWorkLogId,
               description: request.description,
               mediaRecordId: null,
               mediaRole: null,
               caption: null,
-              createdAt: now,
+              sourceObservationId: null,
             }
-          : {
-              id,
-              clientUpdateId,
-              kind: 'media',
-              occurredAt: request.occurredAt,
-              sourceWorkLogId: null,
-              description: null,
-              mediaRecordId: request.mediaRecordId,
-              mediaRole: request.mediaRole,
-              caption: request.caption,
-              createdAt: now,
-            },
-      );
+          : request.kind === 'media'
+            ? {
+                ...common,
+                kind: 'media',
+                sourceWorkLogId: null,
+                description: null,
+                mediaRecordId: request.mediaRecordId,
+                mediaRole: request.mediaRole,
+                caption: request.caption,
+                sourceObservationId: null,
+              }
+            : {
+                ...common,
+                kind: 'observation',
+                sourceWorkLogId: null,
+                description: request.description,
+                mediaRecordId: null,
+                mediaRole: null,
+                caption: null,
+                sourceObservationId: request.sourceObservationId,
+              };
+
+      return toClientUpdateItemResource(detail);
     });
   }
 }

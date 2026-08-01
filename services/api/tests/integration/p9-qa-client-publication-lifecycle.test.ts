@@ -74,6 +74,7 @@ import {
   KyselyClientMediaEntitlementSource,
   KyselyMediaRepository,
 } from '../../src/modules/media/public.js';
+import { KyselyObservationRepository } from '../../src/modules/observations-history/public.js';
 import type { DatabaseSchema } from '../../src/platform/database/database-gateway.js';
 import { KyselyAuditLogger } from '../../src/platform/audit/kysely-audit-logger.js';
 import { KyselyIdempotencyStore } from '../../src/platform/idempotency/kysely-idempotency-store.js';
@@ -245,11 +246,25 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     expect(overviewBeforePublish.overviewText).toBeUndefined();
 
     // --- Step 5: publish an update WITH media (real command chain) --------
+    // `isMediaClientSafe` (P11-SHARE-01) now accepts only a DERIVATIVE
+    // record, never the original — an original photo's bytes may carry
+    // embedded EXIF/GPS. Seed a real original, then the derivative
+    // `AddClientUpdateItem`/`PublishClientUpdate` actually stage/publish.
+    const originalMediaId = await insertMediaRecord(pgClient, ownerId, {
+      garden_id: gardenId,
+      processing_state: 'processed',
+      bucket_name: 'test-user-media',
+      object_key: `ab/p9-qa-lifecycle/${randomUUID()}`,
+    });
     const mediaId = await insertMediaRecord(pgClient, ownerId, {
       garden_id: gardenId,
       processing_state: 'processed',
       bucket_name: 'test-user-media',
       object_key: `ab/p9-qa-lifecycle/${randomUUID()}`,
+      media_class: 'derived_preview',
+      derived_from_media_id: originalMediaId,
+      derivative_kind: 'screen_preview',
+      transformation_version: 1,
     });
 
     const createUpdate = new CreateClientUpdate(
@@ -274,6 +289,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       clientUpdates(),
       new KyselyWorkLogRepository(db),
       new KyselyMediaRepository(db),
+      new KyselyObservationRepository(db),
       fixedClock(APRIL),
     );
     await addItem.execute(
@@ -330,6 +346,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       engagements(),
       clientUpdates(),
       new KyselyMediaRepository(db),
+      new KyselyObservationRepository(db),
       new KyselyProfileRepository(db),
       fixedClock(APRIL),
     );

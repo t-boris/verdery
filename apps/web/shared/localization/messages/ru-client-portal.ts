@@ -66,6 +66,7 @@ export const russianClientPortalMessages: Readonly<
   'clientPortal.kindMedia': 'Фото',
   'clientPortal.kindGardenSnapshot': 'Обзор сада',
   'clientPortal.kindTimelineEntry': 'Заметка',
+  'clientPortal.kindObservation': 'Заметка о развитии',
 
   'clientPortal.mediaRoleBefore': 'До',
   'clientPortal.mediaRoleAfter': 'После',

@@ -40,6 +40,7 @@ export function ClientTimelineEntry({ entry }: { readonly entry: ClientTimelineE
         overviewText={entry.overviewText}
         snapshotData={entry.snapshotData}
         entryText={entry.entryText}
+        narrativeText={entry.narrativeText}
       />
     </li>
   );

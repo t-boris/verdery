@@ -4685,10 +4685,10 @@ export interface components {
          */
         ClientUpdateState: "internal_draft" | "ready_for_client" | "published" | "withdrawn";
         /**
-         * @description The two kinds a staged `client_update_item` may be — see `addClientUpdateItem`'s own description for why the other two publication-item kinds are not staged.
+         * @description The three kinds a staged `client_update_item` may be — see `addClientUpdateItem`'s own description for why `garden_snapshot`/`timeline_entry` (the remaining two `PublicationItemKind` values) are never staged.
          * @enum {string}
          */
-        ClientUpdateItemKind: "work_log" | "media";
+        ClientUpdateItemKind: "work_log" | "media" | "observation";
         /**
          * @description Shared by staged and published media items. `general` is a plain finished-work photo with no before/after counterpart.
          * @enum {string}
@@ -4701,7 +4701,7 @@ export interface components {
             occurredAt: components["schemas"]["Timestamp"];
             /** @description Present only when `kind` is `work_log`. */
             sourceWorkLogId?: components["schemas"]["Uuid"];
-            /** @description Present only when `kind` is `work_log` — curated, client-safe text, independent of the source work log's own words. */
+            /** @description Present when `kind` is `work_log` (curated, client-safe text, independent of the source work log's own words) or `observation` (curated, client-safe narrative, independent of the source observation's own note text). */
             description?: string;
             /** @description Present only when `kind` is `media`. */
             mediaRecordId?: components["schemas"]["Uuid"];
@@ -4709,6 +4709,8 @@ export interface components {
             mediaRole?: components["schemas"]["PublicationMediaRole"];
             /** @description Optional, `kind media` only. */
             caption?: string;
+            /** @description Present only when `kind` is `observation`. */
+            sourceObservationId?: components["schemas"]["Uuid"];
             createdAt: components["schemas"]["Timestamp"];
         };
         ClientUpdate: {
@@ -4750,7 +4752,7 @@ export interface components {
             occurredAt: components["schemas"]["Timestamp"];
             /** @description Required when `kind` is `work_log`. */
             sourceWorkLogId?: components["schemas"]["Uuid"];
-            /** @description Required when `kind` is `work_log`. */
+            /** @description Required when `kind` is `work_log` or `observation`. */
             description?: string;
             /** @description Required when `kind` is `media`. */
             mediaRecordId?: components["schemas"]["Uuid"];
@@ -4758,6 +4760,8 @@ export interface components {
             mediaRole?: components["schemas"]["PublicationMediaRole"];
             /** @description Optional, `kind media` only. */
             caption?: string;
+            /** @description Required when `kind` is `observation`. */
+            sourceObservationId?: components["schemas"]["Uuid"];
         };
         WithdrawClientUpdateRequest: {
             /** @description Optional free-text reason, stored as `withdrawn_reason`. */
@@ -4780,7 +4784,7 @@ export interface components {
          * @description Mirrors `collaboration.publication_item.kind` — every published item kind, a strict superset of `ClientUpdateItemKind`.
          * @enum {string}
          */
-        PublicationItemKind: "work_log" | "media" | "garden_snapshot" | "timeline_entry";
+        PublicationItemKind: "work_log" | "media" | "garden_snapshot" | "timeline_entry" | "observation";
         PublicationItem: {
             id: components["schemas"]["Uuid"];
             publicationVersionId: components["schemas"]["Uuid"];
@@ -4804,6 +4808,10 @@ export interface components {
             };
             /** @description Present only when `kind` is `timeline_entry`. */
             entryText?: string;
+            /** @description Present only when `kind` is `observation` — curated, client-safe text, independent of the source observation's own note text. */
+            narrativeText?: string;
+            /** @description Present only when `kind` is `observation`. Provenance only — never re-read to render client content. */
+            sourceObservationId?: components["schemas"]["Uuid"];
             createdAt: components["schemas"]["Timestamp"];
         };
         PublicationStaffAttribution: {
@@ -4896,6 +4904,8 @@ export interface components {
             };
             /** @description Present only when `kind` is `timeline_entry`. */
             entryText?: string;
+            /** @description Present only when `kind` is `observation` — curated, client-safe text. */
+            narrativeText?: string;
         };
         ClientPublicationStaffAttribution: {
             id: components["schemas"]["Uuid"];
@@ -4938,6 +4948,8 @@ export interface components {
             };
             /** @description Present only when `kind` is `timeline_entry`. */
             entryText?: string;
+            /** @description Present only when `kind` is `observation` — curated, client-safe text. */
+            narrativeText?: string;
         };
         ClientTimelineResult: {
             /** @description Oldest first — a factual narrative read from the beginning, not a publisher's own newest-first update log. */

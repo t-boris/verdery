@@ -93,6 +93,7 @@ import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import type { ProfileRepository } from '../../identity-access/public.js';
 import type { MediaRecord, MediaRepository } from '../../media/public.js';
+import type { ObservationRepository } from '../../observations-history/public.js';
 import {
   clientUpdateInvalidTransitionError,
   clientUpdateNotFoundError,
@@ -108,6 +109,7 @@ import type {
   CreatePublicationVersionInput,
   PublicationGardenSnapshotItemInput,
   PublicationMediaItemInput,
+  PublicationObservationItemInput,
   PublicationStaffAttributionInput,
   PublicationTimelineEntryItemInput,
   PublicationWorkLogItemInput,
@@ -152,7 +154,14 @@ function alreadyPublished(cause?: unknown): ConflictError {
 }
 
 function isMediaClientSafe(media: MediaRecord, gardenId: Uuid): boolean {
-  return media.gardenId === gardenId && media.uploadState === 'available';
+  // Kept in lockstep with `add-client-update-item.ts`'s own copy of this
+  // function — see that file's doc comment for why `derivedFromMediaId`
+  // is checked (excludes originals, whose bytes can carry EXIF/GPS).
+  return (
+    media.gardenId === gardenId &&
+    media.uploadState === 'available' &&
+    media.derivedFromMediaId !== null
+  );
 }
 
 export class PublishClientUpdate {
@@ -163,6 +172,7 @@ export class PublishClientUpdate {
     private readonly engagements: ClientEngagementRepository,
     private readonly clientUpdates: ClientUpdateRepository,
     private readonly media: MediaRepository,
+    private readonly observations: ObservationRepository,
     private readonly profiles: ProfileRepository,
     private readonly clock: Clock,
   ) {}
@@ -238,6 +248,7 @@ export class PublishClientUpdate {
       const stagedItems = await context.clientUpdateItems.listForClientUpdate(clientUpdateId);
       const workLogItems: PublicationWorkLogItemInput[] = [];
       const mediaItems: PublicationMediaItemInput[] = [];
+      const observationItems: PublicationObservationItemInput[] = [];
 
       for (const item of stagedItems) {
         if (item.kind === 'work_log') {
@@ -253,7 +264,7 @@ export class PublishClientUpdate {
             description: item.description as string,
             sourceWorkLogId: item.sourceWorkLogId,
           });
-        } else {
+        } else if (item.kind === 'media') {
           const media = await this.media.get(item.mediaRecordId as Uuid);
           if (media === null || !isMediaClientSafe(media, clientUpdate.gardenId)) {
             throw selectedItemInvalidError([
@@ -266,6 +277,19 @@ export class PublishClientUpdate {
             mediaRecordId: item.mediaRecordId as Uuid,
             mediaRole: item.mediaRole as PublicationMediaItemInput['mediaRole'],
             caption: item.caption,
+          });
+        } else {
+          const observation = await this.observations.get(item.sourceObservationId as Uuid);
+          if (observation === null || observation.gardenId !== clientUpdate.gardenId) {
+            throw selectedItemInvalidError([
+              { code: 'client_update.selected_item_invalid', parameters: { itemId: item.id } },
+            ]);
+          }
+          observationItems.push({
+            id: generateUuidV7(),
+            occurredAt: item.occurredAt,
+            narrativeText: item.description as string,
+            sourceObservationId: item.sourceObservationId,
           });
         }
       }
@@ -335,6 +359,7 @@ export class PublishClientUpdate {
         mediaItems,
         gardenSnapshotItem,
         timelineEntryItems,
+        observationItems,
         staffAttributions,
       };
 
@@ -361,7 +386,11 @@ export class PublishClientUpdate {
         details: {
           engagementId,
           clientUpdateId,
-          itemCount: workLogItems.length + mediaItems.length + timelineEntryItems.length,
+          itemCount:
+            workLogItems.length +
+            mediaItems.length +
+            timelineEntryItems.length +
+            observationItems.length,
         },
       });
       // Step 6: this outbox event, appended in the SAME transaction, is the

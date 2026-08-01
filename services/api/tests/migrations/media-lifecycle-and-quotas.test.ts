@@ -472,7 +472,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     await client.end();
 
-    // `count: 30` undoes every newer migration (through
+    // `count: 31` undoes every newer migration (through
     // 1787800000000_plant-search-extensions.sql) first, then
     // this one — matching every earlier migration test's own convention of
     // unwinding whatever landed on top since this file was written. Update
@@ -482,7 +482,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 30,
+      count: 31,
       log: () => {},
     });
 

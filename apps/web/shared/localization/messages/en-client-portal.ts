@@ -70,6 +70,7 @@ export const englishClientPortalMessages = {
   'clientPortal.kindMedia': 'Photo',
   'clientPortal.kindGardenSnapshot': 'Garden overview',
   'clientPortal.kindTimelineEntry': 'Note',
+  'clientPortal.kindObservation': 'Progress note',
 
   'clientPortal.mediaRoleBefore': 'Before',
   'clientPortal.mediaRoleAfter': 'After',

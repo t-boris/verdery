@@ -50,6 +50,7 @@ import {
   UpdateClientUpdateContent,
 } from '../../src/modules/collaboration/public.js';
 import { KyselyMediaRepository } from '../../src/modules/media/public.js';
+import { KyselyObservationRepository } from '../../src/modules/observations-history/public.js';
 import type {
   DatabaseGateway,
   DatabaseSchema,
@@ -304,6 +305,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       clientUpdates,
       new KyselyWorkLogRepository(db),
       new KyselyMediaRepository(db),
+      new KyselyObservationRepository(db),
       fixedClock(MARCH),
     );
     await addItemCommand.execute(

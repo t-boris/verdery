@@ -166,7 +166,7 @@ published ──withdraw──► withdrawn
 Publishing is a revision-guarded, idempotent transaction that:
 
 1. Revalidates publisher, organization, assignment, engagement, garden, and media capabilities.
-2. Validates that every selected item is client-safe and belongs to the engagement's garden.
+2. Validates that every selected item is client-safe and belongs to the engagement's garden. For media, client-safe means an available DERIVATIVE, never an original capture — an original's bytes may carry embedded EXIF/GPS the client must never receive.
 3. Creates an immutable publication version and item snapshots.
 4. Creates explicit media-entitlement records.
 5. Appends audit and outbox records atomically.
@@ -180,6 +180,8 @@ A publication version may contain:
 
 - Client-safe title and result summary.
 - Selected completed-work snapshots.
+- Selected progress-observation narratives, publisher-authored and independent of the source
+  observation's own internal note text.
 - Selected before/after media derivatives.
 - Accepted garden overview or snapshot.
 - Factual timeline entries.
@@ -188,7 +190,11 @@ A publication version may contain:
 
 It must not contain internal tasks, assignments, notes, estimates, recommendations, unaccepted
 geometry, drafts, synchronization conflicts, capture proposals, sensitive raw capture artifacts,
-processor diagnostics, or unpublished media.
+processor diagnostics, plant candidates, internal suitability notes, unconfirmed health
+suggestions, rejected analysis, original (non-derivative) media carrying precise EXIF/location, or
+unpublished media. Real time-lapse derivatives (rendered from a photo sequence) remain deferred —
+no video/GIF-encoding worker exists yet; a before/after media pair is the shipped comparison
+mechanism.
 
 Snapshots preserve what the client saw at publication time. A later operational edit cannot silently rewrite an older publication.
 

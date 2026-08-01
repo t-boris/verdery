@@ -304,7 +304,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('down reverses up: dropping and reapplying this migration leaves the schema intact', async () => {
     await client.end();
 
-    await migrate('down', 1);
+    await migrate('down', 2);
 
     client = new pg.Client({ connectionString: container.getConnectionUri() });
     await client.connect();

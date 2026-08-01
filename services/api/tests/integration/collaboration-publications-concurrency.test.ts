@@ -36,6 +36,7 @@ import {
   UpdateClientUpdateContent,
 } from '../../src/modules/collaboration/public.js';
 import { KyselyMediaRepository } from '../../src/modules/media/public.js';
+import { KyselyObservationRepository } from '../../src/modules/observations-history/public.js';
 import { KyselyProfileRepository } from '../../src/modules/identity-access/public.js';
 import type { DatabaseSchema } from '../../src/platform/database/database-gateway.js';
 import { StaleRevisionError } from '../../src/platform/errors/application-error.js';
@@ -115,6 +116,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       engagements(),
       clientUpdates(),
       new KyselyMediaRepository(db),
+      new KyselyObservationRepository(db),
       new KyselyProfileRepository(db),
       fixedClock(now),
     );
