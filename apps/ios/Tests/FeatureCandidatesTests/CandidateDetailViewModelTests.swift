@@ -37,6 +37,7 @@ struct CandidateDetailViewModelTests {
             updateCandidateDetails: UpdateCandidateDetails(gateway: gateway),
             setCandidateStatus: SetCandidateStatus(gateway: gateway),
             convertCandidate: ConvertCandidate(gateway: gateway),
+            deleteCandidate: DeleteCandidate(gateway: gateway),
             getCandidateSuitability: GetCandidateSuitability(gateway: gateway),
             recalculateCandidateSuitability: RecalculateCandidateSuitability(gateway: gateway),
             searchTaxonomyReferences: SearchCandidateTaxonomyReferences(gateway: FakeCandidatePlantGateway()),
@@ -137,6 +138,34 @@ struct CandidateDetailViewModelTests {
             return
         }
         #expect(updated.status == .converted)
+    }
+
+    @Test("delete() removes the candidate and flags the view to leave")
+    func deleteRemovesCandidate() async {
+        let gateway = FakePlantCandidateGateway(candidates: [candidate()])
+        let model = makeModel(gateway: gateway)
+        await model.load()
+
+        await model.delete()
+
+        #expect(model.deleteErrorMessage == nil)
+        #expect(model.didDelete)
+        #expect(gateway.candidates.isEmpty)
+    }
+
+    // The API refuses this, so offering it would be offering an action that
+    // can only fail — refuse before the request, as `convert()` already does.
+    @Test("delete() refuses a converted candidate without calling the gateway")
+    func deleteRefusesConverted() async {
+        let gateway = FakePlantCandidateGateway(candidates: [candidate(status: .converted)])
+        let model = makeModel(gateway: gateway)
+        await model.load()
+
+        await model.delete()
+
+        #expect(model.deleteErrorMessage != nil)
+        #expect(!model.didDelete)
+        #expect(!gateway.candidates.isEmpty)
     }
 
     @Test("every mutating action refuses locally once already converted")

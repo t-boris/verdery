@@ -39,6 +39,7 @@ import type { PlantPhoto } from '../domain/plant-photo.js';
 import type { Plant } from '../domain/plant.js';
 import {
   FakeCandidateConversionRepository,
+  FakeCandidateSuitabilityAssessmentRepository,
   FakePlantCandidatePhotoRepository,
   FakePlantCandidateRepository,
 } from './plant-candidate-test-doubles.js';
@@ -501,6 +502,7 @@ export interface PlantsInventoryFakes {
   readonly candidates: FakePlantCandidateRepository;
   readonly candidatePhotos: FakePlantCandidatePhotoRepository;
   readonly candidateConversions: FakeCandidateConversionRepository;
+  readonly candidateSuitability: FakeCandidateSuitabilityAssessmentRepository;
   readonly idempotency: FakeIdempotencyStore;
   readonly mapObjects: FakeMapObjectRepository;
   readonly media: FakeMediaRepository;
@@ -517,6 +519,7 @@ export function createPlantsInventoryFakes(
     revisionJournal: new FakePlantRevisionJournalWriter(),
     candidates: new FakePlantCandidateRepository(),
     candidatePhotos: new FakePlantCandidatePhotoRepository(),
+    candidateSuitability: new FakeCandidateSuitabilityAssessmentRepository(),
     candidateConversions: new FakeCandidateConversionRepository(),
     idempotency: new FakeIdempotencyStore(),
     mapObjects: new FakeMapObjectRepository(mapObjectSummaries),

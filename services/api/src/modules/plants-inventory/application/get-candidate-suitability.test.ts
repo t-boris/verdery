@@ -27,6 +27,7 @@ describe('GetCandidateSuitability', () => {
     );
     const assessments = new (class {
       insert = () => Promise.resolve();
+      deleteAllForCandidate = () => Promise.resolve();
       findLatest = () =>
         Promise.resolve({
           candidateId: CANDIDATE_ID,
@@ -57,6 +58,7 @@ describe('GetCandidateSuitability', () => {
     );
     const assessments = new (class {
       insert = () => Promise.resolve();
+      deleteAllForCandidate = () => Promise.resolve();
       findLatest = () => Promise.resolve(null);
     })();
     const getSuitability = new GetCandidateSuitability(

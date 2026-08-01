@@ -72,6 +72,11 @@ public enum PlantCandidatesLocalizationKey: String, Sendable, CaseIterable {
     case candidatesConvertSubmit = "candidates.convert.submit"
     case candidatesConvertConfirm = "candidates.convert.confirm"
 
+    case candidatesDeleteTitle = "candidates.delete.title"
+    case candidatesDeleteDescription = "candidates.delete.description"
+    case candidatesDeleteSubmit = "candidates.delete.submit"
+    case candidatesDeleteConfirm = "candidates.delete.confirm"
+
     case candidatesGroupingKindIndividual = "candidates.enum.groupingKind.individual"
     case candidatesGroupingKindRow = "candidates.enum.groupingKind.row"
     case candidatesGroupingKindGroup = "candidates.enum.groupingKind.group"

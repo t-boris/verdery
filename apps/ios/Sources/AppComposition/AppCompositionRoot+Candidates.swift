@@ -30,6 +30,7 @@ extension AppCompositionRoot {
             updateCandidateDetails: UpdateCandidateDetails(gateway: plantCandidateGateway),
             setCandidateStatus: SetCandidateStatus(gateway: plantCandidateGateway),
             convertCandidate: ConvertCandidate(gateway: plantCandidateGateway),
+            deleteCandidate: DeleteCandidate(gateway: plantCandidateGateway),
             getCandidateSuitability: GetCandidateSuitability(gateway: plantCandidateGateway),
             recalculateCandidateSuitability: RecalculateCandidateSuitability(gateway: plantCandidateGateway),
             searchTaxonomyReferences: SearchCandidateTaxonomyReferences(gateway: plantGateway),

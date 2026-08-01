@@ -11,7 +11,9 @@ import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { CandidateConversion } from '../domain/candidate-conversion.js';
 import type { PlantCandidate } from '../domain/plant-candidate.js';
 import type { PlantCandidatePhoto } from '../domain/plant-candidate-photo.js';
+import type { SuitabilityAssessmentResult } from '../domain/suitability-finding.js';
 import type { CandidateConversionRepository } from './candidate-conversion-repository.js';
+import type { CandidateSuitabilityAssessmentRepository } from './candidate-suitability-assessment-repository.js';
 import type {
   CandidateListFilters,
   CandidateListPage,
@@ -65,6 +67,24 @@ export class FakePlantCandidateRepository implements PlantCandidateRepository {
     }
     this.candidates.set(candidate.id, candidate);
     return Promise.resolve(true);
+  }
+
+  deleteById(candidateId: Uuid, expectedRevision: number): Promise<boolean> {
+    const existing = this.candidates.get(candidateId);
+    if (existing === undefined || existing.revision !== expectedRevision) {
+      return Promise.resolve(false);
+    }
+    this.candidates.delete(candidateId);
+    return Promise.resolve(true);
+  }
+
+  clearAlternativeReferences(candidateId: Uuid): Promise<void> {
+    for (const [id, candidate] of this.candidates) {
+      if (candidate.alternativeToCandidateId === candidateId) {
+        this.candidates.set(id, { ...candidate, alternativeToCandidateId: null });
+      }
+    }
+    return Promise.resolve();
   }
 
   /**
@@ -129,6 +149,41 @@ export class FakePlantCandidatePhotoRepository implements PlantCandidatePhotoRep
 
   insert(photo: PlantCandidatePhoto): Promise<void> {
     this.photos.set(photo.id, photo);
+    return Promise.resolve();
+  }
+
+  deleteAllForCandidate(candidateId: Uuid): Promise<void> {
+    for (const [id, photo] of this.photos) {
+      if (photo.candidateId === candidateId) {
+        this.photos.delete(id);
+      }
+    }
+    return Promise.resolve();
+  }
+}
+
+export class FakeCandidateSuitabilityAssessmentRepository implements CandidateSuitabilityAssessmentRepository {
+  readonly assessments = new Map<Uuid, SuitabilityAssessmentResult>();
+
+  insert(id: Uuid, assessment: SuitabilityAssessmentResult): Promise<void> {
+    this.assessments.set(id, assessment);
+    return Promise.resolve();
+  }
+
+  /** Latest-wins over insertion order, the same `(candidate_id, created_at DESC) LIMIT 1` the real repository reads. */
+  findLatest(candidateId: Uuid): Promise<SuitabilityAssessmentResult | null> {
+    const matching = [...this.assessments.values()].filter(
+      (assessment) => assessment.candidateId === candidateId,
+    );
+    return Promise.resolve(matching.at(-1) ?? null);
+  }
+
+  deleteAllForCandidate(candidateId: Uuid): Promise<void> {
+    for (const [id, assessment] of this.assessments) {
+      if (assessment.candidateId === candidateId) {
+        this.assessments.delete(id);
+      }
+    }
     return Promise.resolve();
   }
 }

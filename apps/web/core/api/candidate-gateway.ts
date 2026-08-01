@@ -78,6 +78,14 @@ export interface CandidateGateway {
     idempotencyKey: string,
     signal?: AbortSignal,
   ): Promise<ApiResult<PlantCandidate>>;
+  /** Permanent removal, unlike `setStatus`'s `archived`/`rejected`. Resolves to `null` on the contract's `204`. */
+  remove(
+    gardenId: string,
+    candidateId: string,
+    expectedRevision: number,
+    idempotencyKey: string,
+    signal?: AbortSignal,
+  ): Promise<ApiResult<null>>;
   convert(
     gardenId: string,
     candidateId: string,
@@ -206,6 +214,15 @@ export function createCandidateGateway(client: ApiClient): CandidateGateway {
         method: 'POST',
         path: `/gardens/${gardenId}/plant-candidates/${candidateId}/status`,
         body: input,
+        headers: revisionHeaders(expectedRevision, idempotencyKey),
+        ...(signal === undefined ? {} : { signal }),
+      });
+    },
+
+    remove(gardenId, candidateId, expectedRevision, idempotencyKey, signal) {
+      return client.request<null>({
+        method: 'DELETE',
+        path: `/gardens/${gardenId}/plant-candidates/${candidateId}`,
         headers: revisionHeaders(expectedRevision, idempotencyKey),
         ...(signal === undefined ? {} : { signal }),
       });

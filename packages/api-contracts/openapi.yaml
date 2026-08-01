@@ -2489,6 +2489,45 @@ paths:
         '412':
           $ref: '#/components/responses/PreconditionFailed'
 
+    delete:
+      operationId: deleteCandidate
+      tags: [PlantCandidates]
+      summary: Permanently delete a plant candidate
+      description: |
+        A genuine row removal, not a status change — `setCandidateStatus`'s
+        `archived` and `rejected` remain the ordinary way to dispose of a
+        candidate whose evaluation is worth keeping. This exists for the
+        candidate that should never have been created at all, and it does not
+        preserve anything.
+
+        A `converted` candidate CANNOT be deleted and returns `409`: its
+        conversion record is the resulting plant's provenance, and FR-19
+        requires conversion to preserve the evaluation and decision history.
+        Archive the plant instead.
+
+        Deletes the candidate's suitability assessments and its photo LINKS,
+        and clears the reference from any candidate that named this one as its
+        alternative. The linked media records themselves survive under their
+        own retention lifecycle — `deleteMedia` owns those.
+
+        Source: implementation-plan.md work package P11-API-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '204':
+          description: The candidate and its dependent rows are gone.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+
   /gardens/{gardenId}/plant-candidates/{candidateId}/status:
     parameters:
       - name: gardenId

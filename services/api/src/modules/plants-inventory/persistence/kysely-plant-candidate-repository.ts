@@ -211,6 +211,24 @@ export class KyselyPlantCandidateRepository implements PlantCandidateRepository 
     }
   }
 
+  async deleteById(candidateId: Uuid, expectedRevision: number): Promise<boolean> {
+    const result = await this.db
+      .deleteFrom('plants_inventory.plant_candidate')
+      .where('id', '=', candidateId)
+      .where('revision', '=', expectedRevision)
+      .executeTakeFirst();
+
+    return (result?.numDeletedRows ?? 0n) === 1n;
+  }
+
+  async clearAlternativeReferences(candidateId: Uuid): Promise<void> {
+    await this.db
+      .updateTable('plants_inventory.plant_candidate')
+      .set({ alternative_to_candidate_id: null })
+      .where('alternative_to_candidate_id', '=', candidateId)
+      .execute();
+  }
+
   async list(
     gardenId: Uuid,
     filters: CandidateListFilters,

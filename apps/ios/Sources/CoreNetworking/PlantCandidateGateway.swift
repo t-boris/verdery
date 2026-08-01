@@ -80,6 +80,16 @@ public protocol PlantCandidateGateway: Sendable {
         idempotencyKey: String
     ) async throws -> PlantCandidate
 
+    /// Permanent removal, unlike `setCandidateStatus`'s `.archived`/`.rejected`.
+    /// A `.converted` candidate is refused by the API — its conversion record is
+    /// the resulting plant's provenance.
+    func deleteCandidate(
+        gardenId: String,
+        candidateId: String,
+        expectedRevision: Int,
+        idempotencyKey: String
+    ) async throws
+
     func convertCandidate(
         gardenId: String,
         candidateId: String,
@@ -283,6 +293,19 @@ public struct URLSessionPlantCandidateGateway: PlantCandidateGateway {
             acceptedStatusCodes: [200]
         )
         return result.domainValue
+    }
+
+    public func deleteCandidate(
+        gardenId: String,
+        candidateId: String,
+        expectedRevision: Int,
+        idempotencyKey: String
+    ) async throws {
+        try await transport.sendNoContent(
+            method: "DELETE",
+            operationPath: "gardens/\(gardenId)/plant-candidates/\(candidateId)",
+            headers: revisionHeaders(expectedRevision: expectedRevision, idempotencyKey: idempotencyKey)
+        )
     }
 
     public func convertCandidate(

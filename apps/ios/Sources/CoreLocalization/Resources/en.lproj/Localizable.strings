@@ -434,6 +434,10 @@
 "candidates.convert.acquisitionDateTypeLabel" = "Acquisition type";
 "candidates.convert.submit" = "Convert to plant";
 "candidates.convert.confirm" = "Convert this candidate into a real plant in this garden?";
+"candidates.delete.title" = "Delete permanently";
+"candidates.delete.description" = "Removes this candidate and its photos and suitability assessments for good. Archiving keeps the record and its history instead.";
+"candidates.delete.submit" = "Delete permanently";
+"candidates.delete.confirm" = "Yes, delete it";
 "candidates.enum.groupingKind.individual" = "Individual";
 "candidates.enum.groupingKind.row" = "Row";
 "candidates.enum.groupingKind.group" = "Group";

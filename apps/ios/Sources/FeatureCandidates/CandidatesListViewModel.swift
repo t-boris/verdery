@@ -7,11 +7,18 @@ import Observation
 /// View model for the candidate list: search, status/priority filters, and
 /// cursor-driven "Load more" pagination — mirrors
 /// `FeaturePlants.PlantsListViewModel`'s identical shape for the identical
-/// problem. Unlike that list, no status is hidden by a fixed default here:
-/// every `PlantCandidateStatus` (including `.converted`/`.rejected`) is a
-/// real, useful thing to browse, matching `apps/web/features/candidates/
-/// candidate-list.tsx`'s own identical "nothing hidden by default" choice —
-/// an empty filter selection means "every value."
+/// problem.
+///
+/// The status filter starts at `workingStatuses` — everything except
+/// `.archived` and `.rejected` — so disposing of a candidate takes it out of
+/// the list, which is what a user who just archived one expects. This
+/// defaulted to every status on the reasoning that browsing disposed
+/// candidates is useful; it is, but not unasked, and an archived candidate
+/// that stays put reads as an archive that did not work. Both remain one tap
+/// away in the filter, `PlantsListViewModel` hides its own `.removed` plants
+/// for the same reason, and `apps/web/features/candidates/candidate-list.tsx`
+/// makes the identical choice. An empty PRIORITY selection still means
+/// "every value."
 ///
 /// Source: implementation-plan.md work package P11-IOS-01;
 /// packages/api-contracts/openapi.yaml, operation `listCandidates`.
@@ -23,7 +30,10 @@ public final class CandidatesListViewModel {
     /// Applied only on the next `load()` — the same explicit-submit shape
     /// `PlantsListViewModel.searchText` uses.
     public var searchText: String = ""
-    public var selectedStatuses: Set<PlantCandidateStatus> = []
+    public var selectedStatuses: Set<PlantCandidateStatus> = CandidatesListViewModel.workingStatuses
+
+    /// The statuses a candidate is still being worked on under — the default view.
+    public static let workingStatuses: Set<PlantCandidateStatus> = [.active, .converted]
     public var selectedPriorities: Set<PlantCandidatePriority> = []
 
     public let gardenId: String

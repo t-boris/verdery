@@ -41,6 +41,7 @@ import {
   RecordObservationFromIdentification,
   SearchPlants,
   SearchTaxonomyReferences,
+  DeleteCandidate,
   SetCandidateStatus,
   SetPlantStatus,
   SetPrimaryPlantPhoto,
@@ -232,6 +233,12 @@ export function composePlantsInventory(
     gardenAuthorization,
     clock,
   );
+  const deleteCandidate = new DeleteCandidate(
+    plantCandidateRepository,
+    plantsInventoryIdempotency,
+    plantsInventoryUnitOfWork,
+    gardenAuthorization,
+  );
   const convertCandidate = new ConvertCandidate(
     plantCandidateRepository,
     plantsInventoryIdempotency,
@@ -293,6 +300,7 @@ export function composePlantsInventory(
       getCandidate,
       updateCandidateDetails,
       setCandidateStatus,
+      deleteCandidate,
       convertCandidate,
       getCandidateSuitability,
       recalculateCandidateSuitability,

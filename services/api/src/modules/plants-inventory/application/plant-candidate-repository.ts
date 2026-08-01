@@ -33,6 +33,29 @@ export interface PlantCandidateRepository {
   update(candidate: PlantCandidate, expectedRevision: number): Promise<boolean>;
 
   /**
+   * Removes the candidate row itself, guarded by `expectedRevision` exactly as
+   * `update` is, and returning the same `boolean` rather than throwing when
+   * the stored revision no longer matches.
+   *
+   * Callers must have cleared every dependent row first — this method does not
+   * cascade, so a caller that forgets one gets a foreign-key violation rather
+   * than a silently orphaned row.
+   */
+  deleteById(candidateId: Uuid, expectedRevision: number): Promise<boolean>;
+
+  /**
+   * Clears `alternative_to_candidate_id` on every candidate that names this
+   * one as its alternative, so those candidates survive a deletion that
+   * would otherwise be blocked by their own reference to it.
+   *
+   * Deliberately does NOT bump their revisions: losing an alternative link is
+   * not an edit any client is holding a stale copy of, and bumping would make
+   * every open editor's next save fail a precondition it could not have known
+   * about.
+   */
+  clearAlternativeReferences(candidateId: Uuid): Promise<void>;
+
+  /**
    * Every candidate in the garden matching `filters`, cursor-paginated —
    * ranked most-similar-first when `filters.query` is set, most recently
    * created first otherwise, the exact `PlantRepository.search` dual-mode

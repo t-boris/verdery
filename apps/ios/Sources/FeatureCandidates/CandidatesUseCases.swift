@@ -135,6 +135,29 @@ public struct SetCandidateStatus: Sendable {
     }
 }
 
+/// Permanent removal, the counterpart to `SetCandidateStatus`'s `.archived`
+/// and `.rejected`. The API refuses a `.converted` candidate — its conversion
+/// record is the resulting plant's provenance — so callers must not offer this
+/// once a candidate has been converted.
+public struct DeleteCandidate: Sendable {
+    private let gateway: any PlantCandidateGateway
+
+    public init(gateway: any PlantCandidateGateway) {
+        self.gateway = gateway
+    }
+
+    public func callAsFunction(
+        gardenId: String,
+        candidateId: String,
+        expectedRevision: Int
+    ) async throws {
+        try await gateway.deleteCandidate(
+            gardenId: gardenId, candidateId: candidateId,
+            expectedRevision: expectedRevision, idempotencyKey: UUIDv7.generate()
+        )
+    }
+}
+
 /// `gardenAreaMapObjectId`/`placementMapObjectId` default to the candidate's
 /// own proposed placement when `nil` — the operation's own contract
 /// description, not a value this use case needs to resolve itself.

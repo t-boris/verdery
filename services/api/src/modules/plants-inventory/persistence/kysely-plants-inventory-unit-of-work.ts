@@ -10,6 +10,7 @@ import type {
   PlantsInventoryUnitOfWork,
 } from '../application/plants-inventory-unit-of-work.js';
 import { KyselyCandidateConversionRepository } from './kysely-candidate-conversion-repository.js';
+import { KyselyCandidateSuitabilityAssessmentRepository } from './kysely-candidate-suitability-assessment-repository.js';
 import { KyselyPlantCandidatePhotoRepository } from './kysely-plant-candidate-photo-repository.js';
 import { KyselyPlantCandidateRepository } from './kysely-plant-candidate-repository.js';
 import { KyselyPlantIdentificationRepository } from './kysely-plant-identification-repository.js';
@@ -33,6 +34,7 @@ export class KyselyPlantsInventoryUnitOfWork implements PlantsInventoryUnitOfWor
         candidates: new KyselyPlantCandidateRepository(trx),
         candidatePhotos: new KyselyPlantCandidatePhotoRepository(trx),
         candidateConversions: new KyselyCandidateConversionRepository(trx),
+        candidateSuitability: new KyselyCandidateSuitabilityAssessmentRepository(trx),
         idempotency: new KyselyIdempotencyStore(trx, this.clock),
         mapObjects: new KyselyMapObjectRepository(trx),
         media: new KyselyMediaRepository(trx),

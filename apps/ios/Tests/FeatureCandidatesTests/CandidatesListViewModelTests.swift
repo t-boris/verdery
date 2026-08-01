@@ -61,7 +61,7 @@ struct CandidatesListViewModelTests {
         }
     }
 
-    @Test("toggling a status filter re-searches with that status included")
+    @Test("toggling a status filter adds it to the working default")
     func toggleStatusReSearches() async {
         let gateway = FakePlantCandidateGateway()
         let model = makeModel(gateway: gateway)
@@ -70,7 +70,27 @@ struct CandidatesListViewModelTests {
         model.toggleStatus(.rejected)
         await model.filtersDidChange()
 
-        #expect(gateway.listCandidatesQueries.last?.status == [.rejected])
+        let requested: Set<PlantCandidateStatus> = Set(
+            gateway.listCandidatesQueries.last?.status ?? []
+        )
+        #expect(requested == CandidatesListViewModel.workingStatuses.union([.rejected]))
+    }
+
+    // Disposal has to take a candidate out of the working list, or archiving
+    // reads as an archive that did not work — which is how this was reported.
+    @Test("the status filter starts on the working statuses, hiding archived and rejected")
+    func defaultStatusesHideDisposed() async {
+        let gateway = FakePlantCandidateGateway()
+        let model = makeModel(gateway: gateway)
+
+        await model.load()
+
+        let requested: Set<PlantCandidateStatus> = Set(
+            gateway.listCandidatesQueries.last?.status ?? []
+        )
+        #expect(requested == CandidatesListViewModel.workingStatuses)
+        #expect(!requested.contains(.archived))
+        #expect(!requested.contains(.rejected))
     }
 
     @Test("toggling a priority filter re-searches with that priority included")
@@ -85,14 +105,13 @@ struct CandidatesListViewModelTests {
         #expect(gateway.listCandidatesQueries.last?.priority == [.high])
     }
 
-    @Test("an empty filter selection omits the parameter, matching every value")
+    @Test("an empty priority selection omits the parameter, matching every value")
     func emptyFilterOmitsParameter() async {
         let gateway = FakePlantCandidateGateway()
         let model = makeModel(gateway: gateway)
 
         await model.load()
 
-        #expect(gateway.listCandidatesQueries.last?.status == nil)
         #expect(gateway.listCandidatesQueries.last?.priority == nil)
     }
 

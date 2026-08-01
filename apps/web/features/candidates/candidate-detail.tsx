@@ -7,6 +7,7 @@ import { useLocalization } from '@/shared/localization/public';
 import { Alert, Card, FailureAlert, StaleIndicator, StatusPill } from '@/shared/ui/public';
 
 import { CandidateConvertForm } from './candidate-convert-form';
+import { CandidateDeleteControl } from './candidate-delete-control';
 import { CandidateDetailsForm } from './candidate-details-form';
 import styles from './candidate-detail.module.css';
 import { CandidatePhotoGallery } from './candidate-photo-gallery';
@@ -121,6 +122,10 @@ export function CandidateDetail({ gardenId, candidateId }: CandidateDetailProps)
 
           <Card title={t('candidates.convertTitle')}>
             <CandidateConvertForm gardenId={gardenId} candidate={candidate} />
+          </Card>
+
+          <Card title={t('candidates.deleteTitle')}>
+            <CandidateDeleteControl gardenId={gardenId} candidate={candidate} />
           </Card>
         </>
       )}

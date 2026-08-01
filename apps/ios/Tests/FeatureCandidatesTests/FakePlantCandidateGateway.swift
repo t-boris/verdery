@@ -6,7 +6,7 @@ import Foundation
 /// `FeaturePlantsTests/FakePlantGateway`'s role and its `expectRevision`
 /// helper for `FeatureCandidates`'s own view-model tests.
 final class FakePlantCandidateGateway: PlantCandidateGateway, @unchecked Sendable {
-    private var candidates: [String: PlantCandidate]
+    private(set) var candidates: [String: PlantCandidate]
     private var nextId = 1
     var suitability: [String: SuitabilityAssessment] = [:]
     var listCandidatesPages: [String?: PlantCandidateListPage] = [:]
@@ -123,6 +123,16 @@ final class FakePlantCandidateGateway: PlantCandidateGateway, @unchecked Sendabl
         let updated = withStatus(current, status)
         candidates[candidateId] = updated
         return updated
+    }
+
+    func deleteCandidate(
+        gardenId: String,
+        candidateId: String,
+        expectedRevision: Int,
+        idempotencyKey: String
+    ) async throws {
+        _ = try expectRevision(candidateId, expectedRevision)
+        candidates[candidateId] = nil
     }
 
     func convertCandidate(

@@ -29,6 +29,7 @@ import type { MediaRepository } from '../../media/public.js';
 import type { IdempotencyStore } from '../../../platform/idempotency/idempotency-store.js';
 import type { SyncChangeRecorder } from '../../../platform/sync/sync-change-recorder.js';
 import type { CandidateConversionRepository } from './candidate-conversion-repository.js';
+import type { CandidateSuitabilityAssessmentRepository } from './candidate-suitability-assessment-repository.js';
 import type { PlantCandidatePhotoRepository } from './plant-candidate-photo-repository.js';
 import type { PlantCandidateRepository } from './plant-candidate-repository.js';
 import type { PlantIdentificationRepository } from './plant-identification-repository.js';
@@ -44,6 +45,8 @@ export interface PlantsInventoryTransactionContext {
   readonly candidates: PlantCandidateRepository;
   readonly candidatePhotos: PlantCandidatePhotoRepository;
   readonly candidateConversions: CandidateConversionRepository;
+  /** Present so that deleting a candidate can clear its assessments in the same transaction as the candidate row — every other use of this repository is a read or an append outside any transaction. */
+  readonly candidateSuitability: CandidateSuitabilityAssessmentRepository;
   readonly idempotency: IdempotencyStore;
   readonly mapObjects: MapObjectRepository;
   readonly media: MediaRepository;

@@ -581,6 +581,13 @@ decision notes, but it must not be counted as present or receive current-care ta
 conversion to an actual plant must be explicit and must preserve the evaluation and decision
 history.
 
+Disposing of a candidate must take it out of the working list rather than leave it in place, or the
+disposal reads as one that failed. Archiving and rejecting are the ordinary disposals and keep the
+record and its history; both remain reachable through an explicit filter. A candidate that should
+never have been created may also be deleted outright, which keeps nothing — except that a converted
+candidate must not be deletable, because its conversion record is the resulting plant's provenance
+and deleting it would contradict the preservation requirement above.
+
 ### FR-20: Plant Addition
 
 - Users must be able to add plants manually.

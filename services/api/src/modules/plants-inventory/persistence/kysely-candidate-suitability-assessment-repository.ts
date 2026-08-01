@@ -56,4 +56,11 @@ export class KyselyCandidateSuitabilityAssessmentRepository implements Candidate
 
     return row === undefined ? null : toSuitabilityAssessmentResult(row);
   }
+
+  async deleteAllForCandidate(candidateId: Uuid): Promise<void> {
+    await this.db
+      .deleteFrom('plants_inventory.candidate_suitability_assessment')
+      .where('candidate_id', '=', candidateId)
+      .execute();
+  }
 }

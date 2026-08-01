@@ -57,6 +57,10 @@ public final class CandidateDetailViewModel {
     public var convertAcquisitionDateType: PlantAcquisitionDateType = .planted
     public private(set) var isConverting = false
     public private(set) var convertErrorMessage: String?
+    public private(set) var isDeleting = false
+    public private(set) var deleteErrorMessage: String?
+    /// Set once the row is gone, so the view can leave a detail screen that no longer has anything to show.
+    public private(set) var didDelete = false
     public private(set) var convertedPlantId: String?
 
     public let gardenId: String
@@ -65,6 +69,7 @@ public final class CandidateDetailViewModel {
     private let updateCandidateDetails: UpdateCandidateDetails
     private let setCandidateStatus: SetCandidateStatus
     private let convertCandidate: ConvertCandidate
+    private let deleteCandidate: DeleteCandidate
     private let getCandidateSuitability: GetCandidateSuitability
     private let recalculateCandidateSuitability: RecalculateCandidateSuitability
     private let searchTaxonomyReferences: SearchCandidateTaxonomyReferences
@@ -77,6 +82,7 @@ public final class CandidateDetailViewModel {
         updateCandidateDetails: UpdateCandidateDetails,
         setCandidateStatus: SetCandidateStatus,
         convertCandidate: ConvertCandidate,
+        deleteCandidate: DeleteCandidate,
         getCandidateSuitability: GetCandidateSuitability,
         recalculateCandidateSuitability: RecalculateCandidateSuitability,
         searchTaxonomyReferences: SearchCandidateTaxonomyReferences,
@@ -88,6 +94,7 @@ public final class CandidateDetailViewModel {
         self.updateCandidateDetails = updateCandidateDetails
         self.setCandidateStatus = setCandidateStatus
         self.convertCandidate = convertCandidate
+        self.deleteCandidate = deleteCandidate
         self.getCandidateSuitability = getCandidateSuitability
         self.recalculateCandidateSuitability = recalculateCandidateSuitability
         self.searchTaxonomyReferences = searchTaxonomyReferences
@@ -135,6 +142,10 @@ public final class CandidateDetailViewModel {
     public var convertAcquisitionDateLabel: String { strings(.candidatesConvertAcquisitionDateLabel) }
     public var convertAcquisitionDateTypeLabel: String { strings(.candidatesConvertAcquisitionDateTypeLabel) }
     public var convertSubmitTitle: String { strings(.candidatesConvertSubmit) }
+    public var deleteTitle: String { strings(.candidatesDeleteTitle) }
+    public var deleteDescription: String { strings(.candidatesDeleteDescription) }
+    public var deleteSubmitTitle: String { strings(.candidatesDeleteSubmit) }
+    public var deleteConfirmTitle: String { strings(.candidatesDeleteConfirm) }
 
     public func statusName(_ status: PlantCandidateStatus) -> String {
         CandidatesLocalization.statusName(status, strings: strings)
@@ -354,6 +365,33 @@ public final class CandidateDetailViewModel {
             convertErrorMessage = message(for: error)
         } catch {
             convertErrorMessage = strings(.serverUnexpected)
+        }
+    }
+
+    /// Permanent removal. Refused for a `.converted` candidate before the
+    /// request is made, matching the API's own refusal rather than sending a
+    /// call that can only fail.
+    public func delete() async {
+        guard case let .loaded(candidate) = state, candidate.status != .converted else {
+            deleteErrorMessage = alreadyConvertedMessage
+            return
+        }
+
+        isDeleting = true
+        deleteErrorMessage = nil
+        defer { isDeleting = false }
+
+        do {
+            try await deleteCandidate(
+                gardenId: gardenId,
+                candidateId: candidateId,
+                expectedRevision: candidate.revision
+            )
+            didDelete = true
+        } catch let error as APIGatewayError {
+            deleteErrorMessage = message(for: error)
+        } catch {
+            deleteErrorMessage = strings(.serverUnexpected)
         }
     }
 

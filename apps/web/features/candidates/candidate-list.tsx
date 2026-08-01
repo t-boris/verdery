@@ -30,18 +30,28 @@ export interface CandidateListProps {
 
 const PAGE_LIMIT = 20;
 
+/** The statuses a candidate is still being worked on under — the default view. `archived` and `rejected` are reachable through the filter, never shown unasked. */
+const WORKING_STATUSES: readonly PlantCandidateStatus[] = CANDIDATE_STATUSES.filter(
+  (status) => status !== 'archived' && status !== 'rejected',
+);
+
 /**
  * A garden's plant candidates — plants under consideration, not yet
  * planted — searchable by `displayName` and filterable by status and
  * priority via `ListCandidates`
  * (`GET /gardens/{gardenId}/plant-candidates`, P11-SEARCH-01/P11-API-01).
  *
- * An empty status or priority filter selection means "every value",
- * mirroring `features/tasks/task-list.tsx`'s own identical filter-fieldset
- * convention — unlike `plant-list.tsx`'s fixed, non-toggleable status
- * default, every `PlantCandidateStatus` (including `converted` and
- * `rejected`) is a real, useful thing to browse here, so nothing is hidden
- * by default.
+ * An empty PRIORITY selection means "every value", mirroring
+ * `features/tasks/task-list.tsx`'s own filter-fieldset convention.
+ *
+ * STATUS does not work that way: it starts at `WORKING_STATUSES`, everything
+ * except `archived` and `rejected`, so disposing of a candidate removes it
+ * from the list the way a user who just archived it expects. This list used to
+ * default to every status on the reasoning that browsing disposed candidates
+ * is useful — it is, but not as the default view: an archived candidate that
+ * stays put reads as an archive that did not work, which is exactly how it was
+ * reported. Both statuses remain one checkbox away, and `plant-list.tsx` hides
+ * its own `removed` plants for the same reason.
  *
  * Pagination mirrors `plant-list.tsx`'s own "Load more" / frozen-prior-pages
  * approach — see that component's doc comment for the full reasoning.
@@ -52,7 +62,8 @@ const PAGE_LIMIT = 20;
 export function CandidateList({ gardenId }: CandidateListProps) {
   const { t } = useLocalization();
   const [searchText, setSearchText] = useState('');
-  const [selectedStatuses, setSelectedStatuses] = useState<readonly PlantCandidateStatus[]>([]);
+  const [selectedStatuses, setSelectedStatuses] =
+    useState<readonly PlantCandidateStatus[]>(WORKING_STATUSES);
   const [selectedPriorities, setSelectedPriorities] = useState<readonly PlantCandidatePriority[]>(
     [],
   );

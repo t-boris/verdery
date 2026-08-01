@@ -44,6 +44,8 @@ const candidateQueryKey = (gardenId: string, candidateId: string) =>
   ['candidates', gardenId, candidateId] as const;
 const candidateListQueryKey = (gardenId: string, params: ListCandidatesParams) =>
   ['candidates', gardenId, 'list', params] as const;
+/** Every list variant for a garden, whatever its filters — the prefix a deletion has to invalidate, since it cannot know which filter combinations are cached. */
+const candidateListQueryKeyPrefix = (gardenId: string) => ['candidates', gardenId, 'list'] as const;
 const candidateSuitabilityQueryKey = (gardenId: string, candidateId: string) =>
   ['candidates', gardenId, candidateId, 'suitability'] as const;
 const candidatePhotosQueryKey = (gardenId: string, candidateId: string) =>
@@ -165,6 +167,33 @@ export function useSetCandidateStatus(gardenId: string, candidateId: string) {
       ),
     onSuccess: (candidate) => {
       queryClient.setQueryData(candidateQueryKey(gardenId, candidateId), candidate);
+    },
+  });
+}
+
+export interface DeleteCandidateVariables {
+  readonly expectedRevision: number;
+}
+
+/**
+ * Permanent removal, the counterpart to `useSetCandidateStatus`'s
+ * `archived`/`rejected`. On success the candidate is REMOVED from cache rather
+ * than written back — there is no row left to describe, and leaving a stale
+ * copy behind would let a detail route keep rendering something that no longer
+ * exists. Every candidate list is invalidated for the same reason.
+ */
+export function useDeleteCandidate(gardenId: string, candidateId: string) {
+  const gateway = useCandidateGateway();
+  const queryClient = useQueryClient();
+
+  return useMutation<null, ApiFailureError, DeleteCandidateVariables>({
+    mutationFn: async ({ expectedRevision }) =>
+      unwrap(
+        await gateway.remove(gardenId, candidateId, expectedRevision, generateIdempotencyKey()),
+      ),
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: candidateQueryKey(gardenId, candidateId) });
+      void queryClient.invalidateQueries({ queryKey: candidateListQueryKeyPrefix(gardenId) });
     },
   });
 }

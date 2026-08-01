@@ -69,6 +69,12 @@ export const russianCandidatesMessages = {
   'candidates.suitabilityAssumedValue': 'Предположение: {value}',
 
   'candidates.convertTitle': 'Преобразовать в растение',
+  'candidates.deleteTitle': 'Удалить безвозвратно',
+  'candidates.deleteExplanation':
+    'Кандидат, его фотографии и оценки пригодности исчезнут насовсем. Архивация вместо этого сохраняет запись и её историю.',
+  'candidates.deleteAction': 'Удалить безвозвратно',
+  'candidates.deleteConfirm': 'Да, удалить',
+  'candidates.deleteCancel': 'Оставить',
   'candidates.convertDescription':
     'Создаёт настоящее растение на основе этого кандидата и помечает кандидата как преобразованного. Это действие необратимо.',
   'candidates.convertAcquisitionDateLabel': 'Дата приобретения',

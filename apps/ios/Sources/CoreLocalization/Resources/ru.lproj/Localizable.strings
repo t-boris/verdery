@@ -434,6 +434,10 @@
 "candidates.convert.acquisitionDateTypeLabel" = "Тип приобретения";
 "candidates.convert.submit" = "Преобразовать в растение";
 "candidates.convert.confirm" = "Преобразовать этого кандидата в настоящее растение в этом саду?";
+"candidates.delete.title" = "Удалить безвозвратно";
+"candidates.delete.description" = "Кандидат, его фотографии и оценки пригодности исчезнут насовсем. Архивация вместо этого сохраняет запись и её историю.";
+"candidates.delete.submit" = "Удалить безвозвратно";
+"candidates.delete.confirm" = "Да, удалить";
 "candidates.enum.groupingKind.individual" = "Отдельное растение";
 "candidates.enum.groupingKind.row" = "Ряд";
 "candidates.enum.groupingKind.group" = "Группа";

@@ -7,4 +7,7 @@ export interface PlantCandidatePhotoRepository {
   findAllForCandidate(candidateId: Uuid): Promise<PlantCandidatePhoto[]>;
 
   insert(photo: PlantCandidatePhoto): Promise<void>;
+
+  /** Removes every photo LINK for a candidate. The `media_record` rows themselves are untouched — they keep their own retention lifecycle, which the media module owns. */
+  deleteAllForCandidate(candidateId: Uuid): Promise<void>;
 }

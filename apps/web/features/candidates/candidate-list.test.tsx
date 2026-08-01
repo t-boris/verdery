@@ -7,6 +7,9 @@ import { LocalizationProvider } from '@/shared/localization/public';
 import { CandidateList } from './candidate-list';
 import { useListCandidates } from './queries';
 
+/** Mirrors `candidate-list.tsx`'s own default: every status except the two disposal ones. */
+const WORKING_STATUSES = ['active', 'converted'] as const;
+
 vi.mock('./queries', () => ({ useListCandidates: vi.fn() }));
 
 const mockedUseListCandidates = vi.mocked(useListCandidates);
@@ -152,14 +155,41 @@ describe('CandidateList — search, filters, and pagination', () => {
 
     expect(mockedUseListCandidates).toHaveBeenLastCalledWith('garden-1', {
       query: 'fig',
-      status: null,
+      status: WORKING_STATUSES,
       priority: null,
       cursor: null,
       limit: 20,
     });
   });
 
-  it('re-queries with the selected statuses when a status filter is toggled', () => {
+  // `archived` and `rejected` are hidden by default so that disposing of a
+  // candidate takes it out of the working list — the whole point of the
+  // default. Checking `Archived` is how a user goes looking for one.
+  it('starts on the working statuses and adds archived only when asked', () => {
+    mockListResult(queryResult({ items: [CANDIDATE_A] }));
+
+    renderList();
+
+    expect(mockedUseListCandidates).toHaveBeenLastCalledWith('garden-1', {
+      query: null,
+      status: WORKING_STATUSES,
+      priority: null,
+      cursor: null,
+      limit: 20,
+    });
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Archived' }));
+
+    expect(mockedUseListCandidates).toHaveBeenLastCalledWith('garden-1', {
+      query: null,
+      status: [...WORKING_STATUSES, 'archived'],
+      priority: null,
+      cursor: null,
+      limit: 20,
+    });
+  });
+
+  it('re-queries with the remaining statuses when a default one is unchecked', () => {
     mockListResult(queryResult({ items: [CANDIDATE_A] }));
 
     renderList();
@@ -168,7 +198,7 @@ describe('CandidateList — search, filters, and pagination', () => {
 
     expect(mockedUseListCandidates).toHaveBeenLastCalledWith('garden-1', {
       query: null,
-      status: ['active'],
+      status: WORKING_STATUSES.filter((status) => status !== 'active'),
       priority: null,
       cursor: null,
       limit: 20,
@@ -184,7 +214,7 @@ describe('CandidateList — search, filters, and pagination', () => {
 
     expect(mockedUseListCandidates).toHaveBeenLastCalledWith('garden-1', {
       query: null,
-      status: null,
+      status: WORKING_STATUSES,
       priority: ['high'],
       cursor: null,
       limit: 20,

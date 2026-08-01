@@ -1422,7 +1422,27 @@ export interface paths {
         get: operations["getCandidate"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Permanently delete a plant candidate
+         * @description A genuine row removal, not a status change — `setCandidateStatus`'s
+         *     `archived` and `rejected` remain the ordinary way to dispose of a
+         *     candidate whose evaluation is worth keeping. This exists for the
+         *     candidate that should never have been created at all, and it does not
+         *     preserve anything.
+         *
+         *     A `converted` candidate CANNOT be deleted and returns `409`: its
+         *     conversion record is the resulting plant's provenance, and FR-19
+         *     requires conversion to preserve the evaluation and decision history.
+         *     Archive the plant instead.
+         *
+         *     Deletes the candidate's suitability assessments and its photo LINKS,
+         *     and clears the reference from any candidate that named this one as its
+         *     alternative. The linked media records themselves survive under their
+         *     own retention lifecycle — `deleteMedia` owns those.
+         *
+         *     Source: implementation-plan.md work package P11-API-01.
+         */
+        delete: operations["deleteCandidate"];
         options?: never;
         head?: never;
         /**
@@ -9656,6 +9676,44 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    deleteCandidate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                candidateId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The candidate and its dependent rows are gone. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
         };
     };
     updateCandidateDetails: {

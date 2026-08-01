@@ -6,4 +6,6 @@ export interface CandidateSuitabilityAssessmentRepository {
   insert(id: Uuid, assessment: SuitabilityAssessmentResult): Promise<void>;
   /** The most recently computed assessment for a candidate, or `null` if none has ever been run. */
   findLatest(candidateId: Uuid): Promise<SuitabilityAssessmentResult | null>;
+  /** Removes every assessment ever computed for a candidate. Used only when the candidate itself is being deleted — assessments are otherwise append-only. */
+  deleteAllForCandidate(candidateId: Uuid): Promise<void>;
 }

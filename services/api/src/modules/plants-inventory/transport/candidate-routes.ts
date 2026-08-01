@@ -31,6 +31,7 @@ import type { GetTaxonProfile } from '../application/get-taxon-profile.js';
 import type { ListCandidatePhotos } from '../application/list-candidate-photos.js';
 import type { ListCandidates } from '../application/list-candidates.js';
 import type { RecalculateCandidateSuitability } from '../application/recalculate-candidate-suitability.js';
+import type { DeleteCandidate } from '../application/delete-candidate.js';
 import type { SetCandidateStatus } from '../application/set-candidate-status.js';
 import type { UpdateCandidateDetails } from '../application/update-candidate-details.js';
 import type { CandidatePriority, CandidateStatus } from '../domain/plant-candidate.js';
@@ -57,6 +58,7 @@ export interface CandidateRoutesDependencies {
   readonly getCandidate: GetCandidate;
   readonly updateCandidateDetails: UpdateCandidateDetails;
   readonly setCandidateStatus: SetCandidateStatus;
+  readonly deleteCandidate: DeleteCandidate;
   readonly convertCandidate: ConvertCandidate;
   readonly getCandidateSuitability: GetCandidateSuitability;
   readonly recalculateCandidateSuitability: RecalculateCandidateSuitability;
@@ -337,6 +339,26 @@ export function registerCandidateRoutes(
     );
 
     return reply.status(200).send(candidate);
+  });
+
+  // A real DELETE, unlike `deleteMedia`'s POST sub-resource form: this row
+  // genuinely goes, rather than transitioning to a disposed state that keeps
+  // it queryable. `setCandidateStatus`'s `archived`/`rejected` remain the
+  // ordinary disposal path.
+  app.delete('/gardens/:gardenId/plant-candidates/:candidateId', async (request, reply) => {
+    requireGardenId(request);
+    const candidateId = requireCandidateId(request);
+    const idempotencyKey = requireIdempotencyKey(request);
+    const expectedRevision = requireExpectedRevision(request);
+
+    await deps.deleteCandidate.execute(
+      candidateId,
+      request.actorContext.profileId,
+      expectedRevision,
+      idempotencyKey,
+    );
+
+    return reply.status(204).send();
   });
 
   app.post('/gardens/:gardenId/plant-candidates/:candidateId/status', async (request, reply) => {

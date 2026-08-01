@@ -13,6 +13,7 @@ import SwiftUI
 public struct CandidateDetailView: View {
     @State private var model: CandidateDetailViewModel
     @State private var isConvertConfirmationPresented = false
+    @State private var isDeleteConfirmationPresented = false
     @Environment(\.dismiss) private var dismiss
 
     public init(model: CandidateDetailViewModel) {
@@ -67,6 +68,27 @@ public struct CandidateDetailView: View {
             } message: {
                 Text(model.convertDescription)
             }
+            // Deleting is terminal in the same way converting is: there is no
+            // row left for this screen to render, so it pops rather than
+            // showing an empty detail.
+            .onChange(of: model.didDelete) { _, deleted in
+                if deleted {
+                    Haptics.play(.success)
+                    dismiss()
+                }
+            }
+            .confirmationDialog(
+                model.deleteSubmitTitle,
+                isPresented: $isDeleteConfirmationPresented,
+                titleVisibility: .visible
+            ) {
+                Button(model.deleteConfirmTitle, role: .destructive) {
+                    Task { await model.delete() }
+                }
+                Button(model.closeTitle, role: .cancel) {}
+            } message: {
+                Text(model.deleteDescription)
+            }
     }
 
     private var displayNameOrFallback: String {
@@ -98,6 +120,7 @@ public struct CandidateDetailView: View {
                         editSection(candidate)
                         statusSection(candidate)
                         convertSection
+                        deleteSection
                     }
                 }
                 .padding(Metrics.space4)
@@ -370,5 +393,37 @@ public struct CandidateDetailView: View {
             }
         }
         .accessibilityIdentifier("candidates.detail.convert")
+    }
+
+    /// Permanent removal, kept visually separate from the disposal statuses
+    /// above because it is the only action on this screen that destroys
+    /// anything. Not rendered at all for a converted candidate — the caller
+    /// already gates this whole region on that.
+    private var deleteSection: some View {
+        VStack(alignment: .leading, spacing: Metrics.space2) {
+            SectionEyebrow(symbol: CandidateSymbols.delete, title: model.deleteTitle)
+
+            SurfaceCard {
+                VStack(alignment: .leading, spacing: Metrics.space3) {
+                    Text(model.deleteDescription)
+                        .font(Typography.detail)
+                        .foregroundStyle(.secondary)
+
+                    Button(role: .destructive) {
+                        isDeleteConfirmationPresented = true
+                    } label: {
+                        Text(model.deleteSubmitTitle)
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .disabled(model.isDeleting)
+                    .accessibilityIdentifier("candidates.detail.deleteSubmit")
+
+                    if let message = model.deleteErrorMessage {
+                        InlineMessage(message)
+                    }
+                }
+            }
+        }
+        .accessibilityIdentifier("candidates.detail.delete")
     }
 }

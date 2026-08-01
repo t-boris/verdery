@@ -75,6 +75,12 @@ export const englishCandidatesMessages = {
   'candidates.suitabilityAssumedValue': 'Assumed: {value}',
 
   'candidates.convertTitle': 'Convert to a plant',
+  'candidates.deleteTitle': 'Delete permanently',
+  'candidates.deleteExplanation':
+    'Removes this candidate and its photos and suitability assessments for good. Archiving keeps the record and its history instead.',
+  'candidates.deleteAction': 'Delete permanently',
+  'candidates.deleteConfirm': 'Yes, delete it',
+  'candidates.deleteCancel': 'Keep it',
   'candidates.convertDescription':
     'Creates a real plant from this candidate and marks the candidate converted. This cannot be undone.',
   'candidates.convertAcquisitionDateLabel': 'Acquisition date',

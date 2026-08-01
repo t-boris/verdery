@@ -6,5 +6,6 @@ enum CandidateSymbols {
     static let priority = "flag"
     static let suitability = "checklist"
     static let convert = "arrow.triangle.2.circlepath"
+    static let delete = "trash"
     static let chevron = "chevron.right"
 }

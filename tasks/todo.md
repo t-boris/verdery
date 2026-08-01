@@ -8775,3 +8775,60 @@ work package explicitly declined to bundle in rather than dilute review quality.
 an owner approval this session cannot grant on its own behalf.
 
 ---
+
+## Candidate removal: hide disposed candidates, and add a real delete
+
+Reported as "cannot delete a candidate". Confirmed against dev: the garden holds exactly one
+candidate, already `archived`, still listed. There is no delete at all — `plant-candidates` exposes
+`POST .../status` over `active | archived | rejected` and nothing else — and `candidate-list.tsx:43`
+deliberately shows every status, so archiving looks like a failed deletion. Plants went the other
+way in `7b9f41a`, which hid `removed` from their list; candidates kept the old behaviour, and that
+inconsistency is what reads as broken.
+
+Owner chose both halves: disposal should leave the working list, AND an outright delete should exist
+for candidates created by mistake.
+
+### Design decisions
+
+- **A real `DELETE` verb**, not `POST .../delete`. This codebase reserves the POST sub-resource form
+  for governed state transitions on a surviving row (see `media-routes.ts`'s own note, and
+  `deleteTask`), and uses real `DELETE` where a row genuinely goes (`member-routes.ts`,
+  `publisher-grant-routes.ts`, `client-update-item-routes.ts`). This is the second kind.
+- **A `converted` candidate cannot be deleted** — `candidate_conversion` is the plant's provenance,
+  and FR-19 requires conversion to preserve the evaluation and decision history. Returns a conflict,
+  not a silent skip.
+- **No migration.** The cascade runs in application code inside one unit of work, and
+  `alternative_to_candidate_id` is already nullable, so nothing about the schema has to change.
+- **Media records survive.** Deleting a candidate deletes its photo LINKS
+  (`plant_candidate_photo`); the media rows keep their own retention lifecycle, which
+  `deleteGardenMedia` and the retention sweep already own.
+- **`editGardenContent`**, the same capability every other candidate mutation requires. A user who
+  may archive a candidate may delete one; inventing a stronger capability for this alone would be a
+  new authorization concept with no home in the model.
+
+### Plan
+
+- [x] 1. Contract: `DELETE /gardens/{gardenId}/plant-candidates/{candidateId}` in `openapi.yaml` —
+      `If-Match` revision, `Idempotency-Key`, `204`, and the `converted` conflict. Regenerate types.
+- [x] 2. API application: `DeleteCandidate` use case — capability, revision check, `converted`
+      refusal, cascade (suitability assessments, photo links, null out other candidates'
+      `alternative_to_candidate_id`), then the row. One transaction.
+- [x] 3. API repository + transport: repository methods for the cascade; route wiring.
+- [x] 4. API tests: use case (happy path, `converted` refusal, revision mismatch, cascade
+      completeness), route-level contract test.
+- [x] 5. Web: hide `archived`/`rejected` from the candidate list by default, mirroring
+      `plant-list.tsx`'s `VISIBLE_STATUSES`, with the existing filter still able to show them.
+- [x] 6. Web: explicit "Archive" action instead of a Select plus an unlabelled tick, and a separate
+      destructive "Delete permanently" with confirmation.
+- [x] 7. iOS: same list default and the same two actions.
+- [x] 8. Docs: `api-contract.md`, `web-application-design.md`, `ios-application-design.md`,
+      and the candidate lifecycle wording in `technical-specification.md`.
+- [x] 9. Full gates immediately before commit: `pnpm typecheck`, `pnpm lint`,
+      `prettier --check` over tracked files, `node scripts/check-file-size.mjs`, API + web tests.
+
+### Not in this change
+
+- Bulk delete, and an undo window for the delete. Both are real, neither was asked for.
+- The candidate photo that motivated this session still will not display: dev has no workers
+  service and Cloud Tasks is not enabled, so media never leaves validation. Separate decision,
+  already raised.

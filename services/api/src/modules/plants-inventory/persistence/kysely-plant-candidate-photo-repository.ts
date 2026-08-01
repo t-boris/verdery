@@ -49,4 +49,11 @@ export class KyselyPlantCandidatePhotoRepository implements PlantCandidatePhotoR
       })
       .execute();
   }
+
+  async deleteAllForCandidate(candidateId: Uuid): Promise<void> {
+    await this.db
+      .deleteFrom('plants_inventory.plant_candidate_photo')
+      .where('candidate_id', '=', candidateId)
+      .execute();
+  }
 }

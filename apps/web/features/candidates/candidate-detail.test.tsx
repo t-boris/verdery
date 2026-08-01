@@ -25,6 +25,7 @@ vi.mock('./queries', () => ({
     isSuccess: false,
   }),
   useConvertCandidate: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
+  useDeleteCandidate: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
   useCandidateSuitability: () => ({ isPending: false, isError: false, data: null, error: null }),
   useRecalculateCandidateSuitability: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
   useCandidatePhotos: () => ({ data: [], isPending: false, isError: false }),
@@ -84,6 +85,7 @@ describe('CandidateDetail — active candidate', () => {
     expect(screen.getByRole('button', { name: 'Save details' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Save status' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Convert to plant' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Delete permanently' })).toBeTruthy();
     expect(
       screen.queryByText('This candidate has already been converted and cannot be edited.'),
     ).toBeNull();
