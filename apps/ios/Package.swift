@@ -246,9 +246,7 @@ let package = Package(
                 "CoreLocalization",
                 "CoreDesignSystem",
                 "CorePersistence",
-                // For `CoreSynchronization.SyncRecordApplier`, which
-                // `MapSyncRecordApplier` conforms to (P5-IOS-03, Stage 5a) —
-                // see `FeatureGardens`'s identical comment above.
+                // For CoreSynchronization.SyncRecordApplier (MapSyncRecordApplier) — see FeatureGardens's comment above.
                 "CoreSynchronization",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ]
@@ -272,27 +270,20 @@ let package = Package(
                 "CoreLocalization",
                 "CoreDesignSystem",
                 "CorePersistence",
-                // For `CoreSynchronization.SyncRecordApplier`, which
-                // `PlantSyncRecordApplier` conforms to (P5-IOS-03, Stage 5a)
-                // — see `FeatureGardens`'s identical comment above.
+                // For CoreSynchronization.SyncRecordApplier (PlantSyncRecordApplier) — see FeatureGardens's comment above.
                 "CoreSynchronization",
-                // For `CoreMediaTransfer.PhotoAttachmentController`, which
-                // `PlantDetailViewModel` uses to give the plant detail
-                // screen's "Attach Photo" affordance real upload capability
-                // (P6-IOS-01).
+                // For CoreMediaTransfer.PhotoAttachmentController — PlantDetailViewModel's "Attach Photo" upload (P6-IOS-01).
                 "CoreMediaTransfer",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ]
         ),
 
-        // `FeatureObservations` gained a GRDB dependency in P5-IOS-02
-        // (Stage 4d): `LocalObservationStore` durably persists the
-        // purely-local `observation` rows `RecordObservation`/
-        // `CorrectObservation` append offline, the same split as
-        // `FeaturePlants` above. Unlike every other table, an observation
-        // carries no `expectedRevision` — see that store's own doc comment
-        // for why it is append-only with no "current record" to load. The
-        // two list use cases stay always-fresh-from-server.
+        // `FeatureObservations` gained a GRDB dependency in P5-IOS-02 (Stage 4d):
+        // `LocalObservationStore` durably persists the purely-local `observation` rows
+        // `RecordObservation`/`CorrectObservation` append offline, the same split as
+        // `FeaturePlants` above. Unlike every other table, an observation carries no
+        // `expectedRevision` — see that store's own doc comment for why it is append-only
+        // with no "current record" to load. The two list use cases stay always-fresh-from-server.
         //
         // Source: implementation-plan.md work packages P4-IOS-01, P5-IOS-02.
         .target(
@@ -303,33 +294,23 @@ let package = Package(
                 "CoreLocalization",
                 "CoreDesignSystem",
                 "CorePersistence",
-                // For `CoreSynchronization.SyncRecordApplier`, which
-                // `ObservationSyncRecordApplier` conforms to (P5-IOS-03,
-                // Stage 5a) — see `FeatureGardens`'s identical comment above.
+                // For CoreSynchronization.SyncRecordApplier (ObservationSyncRecordApplier) — see FeatureGardens's comment above.
                 "CoreSynchronization",
-                // For `CoreMediaTransfer.PhotoAttachmentController`, which
-                // `ObservationsTimelineViewModel` uses to give the "record
-                // observation" form's photo attachment real upload
-                // capability (P6-IOS-01) — the same reason `FeaturePlants`
-                // gained this dependency.
+                // For CoreMediaTransfer.PhotoAttachmentController — the "record observation" form's photo upload (P6-IOS-01).
                 "CoreMediaTransfer",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ]
         ),
 
-        // `FeatureTasks` gained a GRDB dependency in P5-IOS-02 (Stage 4e —
-        // the work package's last slice): `LocalTaskStore` durably persists
-        // the local `task` read model an offline command's optimistic
-        // projection commits against, the same way `FeatureObservations`'s
-        // `LocalObservationStore` does for `observation` (Stage 4d) — see
-        // `FeaturePlants`'s own comment above for why `CorePersistence`
-        // centralizes the database's lifecycle/schema while the feature owns
-        // its own read-model repository directly against GRDB. A stale
-        // locally-projected revision, which that comment warned about, is not
-        // a new risk here: `unconfirmedTaskRevision` (`TasksUseCases.swift`)
-        // never advances one, so a local commit still quotes the last
-        // server-confirmed revision, exactly as an always-fresh-from-server
-        // read would have.
+        // `FeatureTasks` gained a GRDB dependency in P5-IOS-02 (Stage 4e — the work package's
+        // last slice): `LocalTaskStore` durably persists the local `task` read model an offline
+        // command's optimistic projection commits against, the same way `FeatureObservations`'s
+        // `LocalObservationStore` does for `observation` (Stage 4d) — see `FeaturePlants`'s own
+        // comment above for why `CorePersistence` centralizes the database's lifecycle/schema
+        // while the feature owns its own read-model repository directly against GRDB. A stale
+        // locally-projected revision, which that comment warned about, is not a new risk here:
+        // `unconfirmedTaskRevision` (`TasksUseCases.swift`) never advances one, so a local commit
+        // still quotes the last server-confirmed revision, exactly as an always-fresh read would.
         //
         // Source: implementation-plan.md work packages P4-IOS-01, P5-IOS-02.
         .target(
@@ -340,25 +321,16 @@ let package = Package(
                 "CoreLocalization",
                 "CoreDesignSystem",
                 "CorePersistence",
-                // For `CoreSynchronization.SyncRecordApplier`, which
-                // `TaskSyncRecordApplier` conforms to (P5-IOS-03, Stage 5a) —
-                // see `FeatureGardens`'s identical comment above.
+                // For CoreSynchronization.SyncRecordApplier (TaskSyncRecordApplier) — see FeatureGardens's comment above.
                 "CoreSynchronization",
                 .product(name: "GRDB", package: "GRDB.swift"),
             ]
         ),
 
-        // Plant candidates — plants under consideration for a garden, not yet
-        // planted (P11-IOS-01). Shaped like `FeatureRecommendations`: no
-        // GRDB/`CorePersistence`/`CoreSynchronization` — candidates are not a
-        // synced record family, see `CoreNetworking.PlantCandidateGateway`.
-        //
-        // This registration pushes this file past the repository's 600-line
-        // source-file rule (it already sat at exactly 600 before this
-        // target). Accepted as a deliberate, owner-approved exception:
-        // SwiftPM's manifest cannot be split across files the way an
-        // ordinary source file can, so there is no mechanical way to bring
-        // it back under the limit without cutting existing documentation.
+        // Plant candidates — plants under consideration for a garden, not yet planted
+        // (P11-IOS-01). Shaped like `FeatureRecommendations`: no GRDB/`CorePersistence`/
+        // `CoreSynchronization` — candidates are not a synced record family, see
+        // `CoreNetworking.PlantCandidateGateway`.
         .target(
             name: "FeatureCandidates",
             dependencies: ["CoreDomain", "CoreNetworking", "CoreLocalization", "CoreDesignSystem"]

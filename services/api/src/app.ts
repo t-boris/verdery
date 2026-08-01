@@ -481,33 +481,25 @@ export async function buildApplication(
   await app.register(
     (instance, _options, done) => {
       registerMediaProcessingCallbackRoute(instance, mediaProcessingCallbackRouteDependencies);
-      // P6-RET-01: the worker-triggered retention sweep, same
-      // machine-to-machine identity check as the callback above.
+      // P6-RET-01: the worker-triggered retention sweep, same machine-to-machine identity check as the callback above.
       registerMediaRetentionSweepRoute(instance, mediaRetentionSweepRouteDependencies);
-      // P7-ASYNC-01: the worker-triggered weather-refresh and
-      // recommendation-evaluation sweeps — same identity check again.
+      // P7-ASYNC-01: the worker-triggered weather-refresh and recommendation-evaluation sweeps — same identity check again.
       registerWeatherRefreshSweepRoute(instance, weatherRefreshSweepRouteDependencies);
       registerRecommendationEvaluationSweepRoute(
         instance,
         recommendationEvaluationSweepRouteDependencies,
       );
-      // P7-NOTIF-01: the workers outbox relay's notification-event
-      // endpoint — same identity check yet again.
+      // P7-NOTIF-01: the workers outbox relay's notification-event endpoint — same identity check yet again.
       registerNotificationEventsRoute(instance, notificationEventsRouteDependencies);
-      // P7-NOTIF-02: the worker-triggered notification delivery sweep —
-      // same identity check once more.
+      // P7-NOTIF-02: the worker-triggered notification delivery sweep — same identity check once more.
       registerNotificationDeliverySweepRoute(instance, notificationDeliverySweepRouteDependencies);
-      // P8-EXPORT-01: the export-generation worker's snapshot/checkpoint/
-      // completion endpoints — same identity check again.
+      // P8-EXPORT-01: the export-generation worker's snapshot/checkpoint/completion endpoints — same identity check again.
       registerExportInternalRoutes(instance, exportInternalRoutesDependencies);
       // P8-DELETE-01: the deletion sweep — same identity check, fifth sweep.
       registerDeletionSweepRoute(instance, deletionSweepRouteDependencies);
-      // P9A-API-01: the invitation expiry sweep — same identity check,
-      // sixth sweep. Not yet scheduled by a worker (see that route's own
-      // header for why) but callable the same way every sibling sweep is.
+      // P9A-API-01: the invitation expiry sweep — same identity check, sixth sweep. Not yet scheduled by a worker (see that route's own header for why) but callable the same way every sibling sweep is.
       registerInvitationExpirySweepRoute(instance, invitationExpirySweepRouteDependencies);
-      // P11-ASYNC-01: the taxon-enrichment sweep — same identity check,
-      // seventh sweep.
+      // P11-ASYNC-01: the taxon-enrichment sweep — same identity check, seventh sweep.
       registerTaxonEnrichmentSweepRoute(instance, taxonEnrichmentSweepRouteDependencies);
       done();
     },
@@ -558,10 +550,7 @@ export async function buildApplication(
       // but still requires authentication — the same posture
       // `searchTaxonomyReferences` (just above) already takes.
       registerCandidateRoutes(instance, candidateRoutesDependencies);
-      // P11-PROV-01: the horticultural-review surface — gated by
-      // `requirePlantReviewerAccess` inside the two use cases themselves,
-      // not a route-level guard; see `plant-assertion-review-routes.ts`'s
-      // own header.
+      // P11-PROV-01: the horticultural-review surface (guard lives in the use cases, not here).
       registerPlantAssertionReviewRoutes(instance, plantAssertionReviewRoutesDependencies);
       registerObservationRoutes(instance, observationRoutesDependencies);
       registerTaskRoutes(instance, taskRoutesDependencies);

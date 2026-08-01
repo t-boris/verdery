@@ -57,7 +57,7 @@ afterEach(() => {
 
 describe('ClientUpdateLifecycleControls', () => {
   it('disables submit and shows a hint when no summary is set', () => {
-    renderControls({ state: 'internal_draft', summary: undefined });
+    renderControls({ state: 'internal_draft' });
 
     expect(
       screen.getByRole<HTMLButtonElement>('button', { name: 'Submit for publishing' }).disabled,

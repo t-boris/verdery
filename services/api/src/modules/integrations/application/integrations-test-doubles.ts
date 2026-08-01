@@ -1,15 +1,11 @@
 /**
- * Shared deterministic test doubles for this module's unit and integration
- * tests — the same "one shared file, not N copies" reasoning
- * `media/application/media-test-doubles.ts` documents.
- *
- * The fake weather and plant-content adapters here are the module's ONLY
- * adapter implementations: no real vendor exists for either capability
- * (P0-PROV-01 undecided), and these fakes are what proves the port/registry
- * machinery is provider-agnostic — the replacement tests run two of them
- * through identical machinery.
- *
- * Not itself a `*.test.ts` file, so vitest never runs it as a suite.
+ * Shared deterministic test doubles for this module's unit and integration tests — the same
+ * "one shared file, not N copies" reasoning `media/application/media-test-doubles.ts` documents.
+ * The fake weather and plant-content adapters here are the module's ONLY adapter
+ * implementations: no real vendor exists for either capability (P0-PROV-01 undecided), and these
+ * fakes are what proves the port/registry machinery is provider-agnostic — the replacement tests
+ * run two of them through identical machinery. Not itself a `*.test.ts` file, so vitest never
+ * runs it as a suite.
  */
 
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
