@@ -41,7 +41,7 @@ function percentOf(uploadedBytes: number, totalBytes: number): number {
 }
 
 /**
- * Creates a plant candidate identified from a photo (P11-CAND-PHOTO-01):
+ * Creates a plant candidate identified from a photo (P11-WEB-01):
  * upload → `AddCandidateFromPhoto` → straight to the candidate's own detail
  * page. Unlike `AddPlantFromPhotoPanel`, there is no suggestion-review step
  * to show here: `AddCandidateFromPhoto` applies the AI's guess directly to
@@ -55,7 +55,7 @@ function percentOf(uploadedBytes: number, totalBytes: number): number {
  * web-application-design.md, section "20. Dependency Rules"), but the page
  * layer may compose freely.
  *
- * Source: implementation-plan.md work package P11-CAND-PHOTO-01;
+ * Source: implementation-plan.md work package P11-WEB-01;
  * packages/api-contracts/openapi.yaml, operation `addCandidateFromPhoto`.
  */
 export function AddCandidateFromPhotoPanel({ gardenId }: AddCandidateFromPhotoPanelProps) {

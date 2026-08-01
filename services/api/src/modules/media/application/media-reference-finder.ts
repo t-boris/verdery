@@ -7,7 +7,7 @@
  * "deleting a media record out from under a background must fail loudly ...
  * not silently orphan or destroy a map object"):
  * `plants_inventory.plant_photo`, `plants_inventory.plant_candidate_photo`
- * (P11-CAND-PHOTO-01), `observations_history.observation_photo`,
+ * (P11-API-01), `observations_history.observation_photo`,
  * `tasks_recommendations.task_attachment`, and
  * `gardens_mapping.imported_background_details`. Because media deletion is
  * a STATE transition, not a row `DELETE`, those foreign keys never fire on

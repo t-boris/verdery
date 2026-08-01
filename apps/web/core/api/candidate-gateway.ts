@@ -138,7 +138,7 @@ function listCandidatesQuery(params: ListCandidatesParams): string {
  * assessment has ever been computed; `recalculateSuitability` is what a
  * client calls first, and again whenever garden context or the candidate's
  * own details change enough to warrant a fresh read. `addFromPhoto`/
- * `listPhotos` (P11-CAND-PHOTO-01) mirror `plant-gateway.ts`'s own
+ * `listPhotos` (P11-WEB-01) mirror `plant-gateway.ts`'s own
  * `addFromPhoto`/`listPhotos`, minus the separate confirm step a real plant
  * needs — see `AddCandidateFromPhoto`'s own header for why.
  *

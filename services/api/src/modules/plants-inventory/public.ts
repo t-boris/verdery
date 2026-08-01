@@ -93,7 +93,7 @@ export type {
 export { KyselyPlantCandidateRepository } from './persistence/kysely-plant-candidate-repository.js';
 export { KyselyCandidateConversionRepository } from './persistence/kysely-candidate-conversion-repository.js';
 
-// Candidate photos (P11-CAND-PHOTO-01) — mirrors the plant-photo exports
+// Candidate photos (P11-API-01) — mirrors the plant-photo exports
 // below, retargeted to `plant_candidate`.
 export type { PlantCandidatePhoto } from './domain/plant-candidate-photo.js';
 export type { PlantCandidatePhotoRepository } from './application/plant-candidate-photo-repository.js';

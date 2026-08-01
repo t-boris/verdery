@@ -7,7 +7,8 @@ import styles from './page.module.css';
 /**
  * The candidates entry point for a garden: browse plants under
  * consideration (searchable, filterable by status and priority), and add a
- * new one — manually, or from a photo (P11-CAND-PHOTO-01).
+ * new one — manually, or from a photo (ADR-0015's photo-identification
+ * pattern, extended to candidates).
  *
  * A candidate's own detail page (`[candidateId]/page.tsx`) is where its
  * suitability assessment is reviewed and where it is converted into a real
@@ -17,7 +18,7 @@ import styles from './page.module.css';
  * `features/candidates` for the same reason `plants/add-plant-from-photo-
  * panel.tsx` does — see that component's own doc comment.
  *
- * Source: implementation-plan.md work packages P11-WEB-01, P11-CAND-PHOTO-01;
+ * Source: implementation-plan.md work package P11-WEB-01; ADR-0015;
  * packages/api-contracts/openapi.yaml, tag `PlantCandidates`.
  */
 export default async function CandidatesPage({

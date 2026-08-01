@@ -92,7 +92,7 @@ export function useAddCandidate(gardenId: string) {
   });
 }
 
-/** Backs `add-candidate-from-photo-panel.tsx` (P11-CAND-PHOTO-01). Same create-then-cache pattern as `useAddCandidate`. */
+/** Backs `add-candidate-from-photo-panel.tsx` (P11-WEB-01). Same create-then-cache pattern as `useAddCandidate`. */
 export function useAddCandidateFromPhoto(gardenId: string) {
   const gateway = useCandidateGateway();
   const queryClient = useQueryClient();

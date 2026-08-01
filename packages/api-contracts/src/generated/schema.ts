@@ -1396,7 +1396,7 @@ export interface paths {
          *     candidate is a lower-stakes, not-yet-real-plant record, edited or
          *     deleted like any other candidate field if the guess is wrong.
          *
-         *     Source: implementation-plan.md work package P11-CAND-PHOTO-01.
+         *     Source: implementation-plan.md work package P11-API-01; ADR-0015.
          */
         post: operations["addCandidateFromPhoto"];
         delete?: never;
@@ -1550,7 +1550,7 @@ export interface paths {
          *     `addCandidateFromPhoto` is the only writer today, so this is
          *     always at most one photo.
          *
-         *     Source: implementation-plan.md work package P11-CAND-PHOTO-01.
+         *     Source: implementation-plan.md work package P11-API-01; ADR-0015.
          */
         get: operations["listCandidatePhotos"];
         put?: never;

@@ -35,7 +35,7 @@ function CandidatePhotoThumbnail({ gardenId, mediaId, alt }: CandidatePhotoThumb
 /**
  * A candidate's attached photo(s), as a horizontally scrolling row of
  * thumbnails — the read side of `AddCandidateFromPhoto`'s photo attachment
- * (P11-CAND-PHOTO-01), mirroring `plant-photo-gallery.tsx`'s own shape.
+ * (P11-WEB-01), mirroring `plant-photo-gallery.tsx`'s own shape.
  * Renders nothing while the list is empty: an empty gallery is not an error
  * state, just nothing to show yet — a manually added candidate has none.
  *
