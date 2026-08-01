@@ -13,6 +13,7 @@ import {
   CheckCircleIcon,
   EyeIcon,
   HomeIcon,
+  LightbulbIcon,
   MapIcon,
   SignOutIcon,
   SproutIcon,
@@ -50,6 +51,12 @@ function gardenSections(gardenId: string): readonly GardenSection[] {
     },
     { href: `${base}/map`, labelKey: 'shell.mapTab', icon: MapIcon, exact: false },
     { href: `${base}/plants`, labelKey: 'plants.pageTitle', icon: SproutIcon, exact: false },
+    {
+      href: `${base}/candidates`,
+      labelKey: 'candidates.pageTitle',
+      icon: LightbulbIcon,
+      exact: false,
+    },
     {
       href: `${base}/observations`,
       labelKey: 'observations.pageTitle',

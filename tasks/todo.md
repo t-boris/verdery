@@ -8159,3 +8159,130 @@ section 5's own instruction; and `PLANT_CONDITION_AI_ENABLED` stays `false` in e
 unchanged by this pass — this ships real and kill-switched, not real and turned on.
 
 ---
+
+## P11-WEB-01 — Web plant library/add/detail/journal redesign
+
+A real, working candidates surface for the web app — zero UI existed for `PlantCandidates` before this
+pass despite the backend (P11-DATA-01, P11-SUIT-01, P11-API-01, P11-SEARCH-01) being fully ready — plus
+two smaller, already-wired gaps this pass closed alongside it: the plants list's missing `identified`
+filter (P11-SEARCH-01 built the endpoint support; no client ever exposed it), and the observation
+timeline's still-stubbed health-suggestion rendering (P11-HEALTH-01 extended `ImageAnalysisResult` and
+added `SetHealthSuggestionDisposition`; no client had been updated for either).
+
+**Scope decisions, made following this session's own established "real backbone + one deep real
+vertical + documented honest gaps for the rest" discipline**: built candidate list (search + status/
+priority filters + pagination), add-candidate form, candidate detail (edit, status, suitability,
+convert-to-plant) — the most "shovel-ready" gap, zero existing UI against a fully-ready backend.
+Deliberately deferred, not attempted: an image-card grid for candidates (no card-grid precedent
+anywhere in the app; kept the established row-list pattern instead), URL-shareable filter state (no
+precedent), bulk actions (no precedent), full journal photo/measurement capture UI on
+`record-observation-form.tsx` (a real, separate, bigger lift — the backend and `useMediaUpload` machinery
+already exist, but wiring them into that specific form is its own pass), and taxon catalog browse (the
+backend for it is genuinely incomplete: no catalog search endpoint, no media endpoint per ADR-0016
+section 3).
+
+**`core/api`**: new `candidate-gateway.ts` (`CandidateGateway`/`ListCandidatesParams`), mirroring
+`plant-gateway.ts` exactly — `add`/`updateDetails`/`setStatus`/`convert` all revision-guarded,
+`getSuitability` a plain read, `recalculateSuitability` deliberately sent with NO `Idempotency-Key`
+(the contract's own "naturally safe to call repeatedly" description) but still carrying `csrfHeader()`,
+the same bodyless-POST precedent `garden-context-gateway.ts` already set. `plant-gateway.ts` gained
+`identified` on `SearchPlantsParams`; `observation-gateway.ts` gained `setHealthSuggestionDisposition`
+(no `If-Match`: `image_analysis_result` carries no revision).
+
+**Found and fixed a real gap in P11-HEALTH-01's own contract wiring**: `HealthSuggestionSafetyClass`,
+`HealthSuggestionDisposition`, and `SetHealthSuggestionDispositionRequest` were defined in
+`openapi.yaml` and present in the generated schema, but never re-exported from
+`packages/api-contracts/src/index.ts` — the hand-written TS surface every client actually imports from.
+No client (web or iOS) could have consumed these types until this was closed; fixed by adding the three
+missing `export type` lines, the same pattern every sibling schema in that file already follows.
+
+**`features/candidates`** (new): `labels.ts` (status/priority/grouping-kind/suitability-axis/
+suitability-category/unknown-reason label-and-tone mappings — `groupingKind`/`acquisitionDateType`
+duplicate `features/plants/labels.ts`'s identical constants rather than importing that feature, per
+`architecture/web-application-design.md` section 20's "features import public Core and Shared
+interfaces only"), `queries.ts` (TanStack Query hooks mirroring `features/plants/queries.ts`'s pattern),
+`taxonomy-queries.ts` + `taxonomy-reference-field.tsx` (a local rebuild of
+`features/plants/taxonomy-reference-field.tsx` directly on `createPlantGateway`, the same "duplicate
+rather than cross-import" precedent `map-object-queries.ts` already set), `map-object-queries.ts` (same
+precedent, for the placement pickers), `candidate-list.tsx` (search + a `<fieldset>` status filter and a
+`<fieldset>` priority filter, both mirroring `features/tasks/task-list.tsx`'s "empty selection = every
+value" convention — unlike `plant-list.tsx`'s fixed non-toggleable status default, every
+`PlantCandidateStatus` including `converted`/`rejected` is a real, useful thing to browse here, so
+nothing is hidden by default), `add-candidate-form.tsx` (mirrors `add-plant-form.tsx` including
+`useRecoverableDraft` wiring; `alternativeToCandidateId` deliberately left out — it needs a candidate
+picker this pass does not build), `candidate-detail.tsx` (orchestrator; once `status === 'converted'`
+the edit/status/convert sections are replaced with a plain notice — a converted candidate is a frozen
+historical record — while the suitability panel stays visible as a historical read either way),
+`candidate-details-form.tsx`, `candidate-status-controls.tsx` (never offers `converted` — the request
+schema's own exclusion), `candidate-convert-form.tsx` (acquisition date/type only; placement fields
+left unset so both default to the candidate's own proposed placement per the contract; goes through the
+same `globalThis.confirm` gate `plant-delete-section.tsx` already uses for irreversible actions; navigates
+to the newly created plant on success), `candidate-suitability-panel.tsx` (renders every
+`SuitabilityFinding` per its own `category` — `unknown` shows only `reason`, never a fabricated
+explanation, matching the schema's own "missing context never becomes a positive match").
+
+**Shared UI**: promoted `plant-detail.tsx`'s private `DetailRow` (icon + label-over-value) to
+`shared/ui/detail-row.tsx`, exported via `shared/ui/public.ts` — domain-neutral, and needed identically
+by `candidate-detail.tsx`'s identification-suggestion-style rows; `plant-detail.tsx` now imports the
+shared one instead of its own copy, and the now-dead local CSS classes were removed from
+`plant-detail.module.css`.
+
+**Routing**: new `/application/gardens/[gardenId]/candidates` (list + add) and
+`/application/gardens/[gardenId]/candidates/[candidateId]` (detail) routes, composed the same
+route-layer way `plants/[plantId]/page.tsx` composes `features/plants` with `features/observations`; a
+new "Candidates" tab (`LightbulbIcon`) added to `application-shell.tsx`'s garden section nav.
+
+**Closing the `identified`-filter gap**: `plant-list.tsx` gained an `identified` `Select`
+(all/identified-only/not-identified-only), reusing the same `resetPagination`-on-filter-change pattern
+its own search box already had — the only structured filter this component exposes; `lifecycleStage`/
+`groupingKind`/`status` beyond the fixed default remain out of scope, unchanged from this component's
+own pre-existing documented posture.
+
+**Closing the health-suggestion-review gap**: extracted `AnalysisResultNotice`/`ObservationPhotoAnalysis`
+out of `observation-entry.tsx` into a new sibling `observation-analysis-result.tsx` (the same
+"split a growing private sub-component into its own file" posture `observation-correction-form.tsx`
+already set) and rebuilt it against the real P11-HEALTH-01 shape: evidence summary and alternative
+explanations (only when non-empty — never fabricated), a safety-class `StatusPill`
+(`expert_review_recommended` the only tone read as `negative`; `monitor`/`informational` both
+`neutral`, never `positive` — an AI suggestion is never a confirmed good result), an honest
+"no AI model could be reached" notice in place of the suggestion line when `modelName === null` (the
+fixed placeholder shape `analyzeObservationPhoto`'s own `NO_ANALYSIS_OUTCOME` always returns for that
+case), and a disposition `Select` + save button wired to the new `useSetHealthSuggestionDisposition`
+mutation (invalidates the affected timeline queries on success — the updated `ImageAnalysisResult` is
+nested too deep inside `Observation.photos[].analysisResults[]` for a targeted cache patch to be worth
+it, the same treatment `useCorrectObservation` already gives every other timeline mutation).
+
+**Localization**: new `en-candidates.ts`/`ru-candidates.ts` modules (full coverage, spread into
+`en.ts`/`ru.ts`). `observations.*` — previously inline in `en.ts`/`ru.ts` — extracted into
+`en-observations.ts`/`ru-observations.ts` at the point this pass's own new health-suggestion-review
+keys were added to it, the same "split once a block grows" posture `en-today.ts`/`en-accessibility.ts`
+already established; `en.ts`/`ru.ts` dropped from 509/508 lines to 472/470 even after every other
+addition this pass made. `keyed-copy.test.ts` (the suite that fails on any English prose written
+straight into JSX rather than routed through `t(...)`) passes clean across every new file — zero
+hardcoded strings.
+
+**Verification**: `pnpm check:all` (format, lint, typecheck, 600-line file-size gate, full test suite
+across every workspace package) — format/lint/typecheck/file-size clean; `apps/web` 126 files/1029
+tests all green; `services/api`'s 334-file suite had 2 failures on the full parallel run
+(`media-retention-sweep.test.ts`, `plant-search-extensions.test.ts`, both a `beforeAll` Testcontainers
+Postgres-startup timeout under Docker contention from many concurrent containers) — the same class of
+environmental flake this session already saw and re-confirmed by rerunning both files in isolation,
+where they passed clean (6/6). Neither file touches anything this pass changed. `pnpm --filter
+@verdery/web build` (Next.js production build) clean, both new routes present in the route manifest.
+New/extended web tests:
+`candidate-gateway.test.ts` (10), `candidate-list.test.tsx` (9), `add-candidate-form.test.tsx` (2),
+`candidate-details-form.test.ts` (2, schema-only, mirroring `plant-details-form.test.ts`'s own
+precedent), `candidate-status-controls.test.tsx` (4), `candidate-suitability-panel.test.tsx` (4),
+`candidate-convert-form.test.tsx` (3), `candidate-detail.test.tsx` (2), `detail-row.test.tsx` (1),
+`observation-analysis-result.test.tsx` (5), `labels.test.ts` extended for the 3 new mapping functions;
+`plant-gateway.test.ts`/`plant-list.test.tsx`/`observation-gateway.test.ts` extended for `identified`/
+`setHealthSuggestionDisposition`.
+
+**What was NOT done, tracked as real follow-up, not dropped**: no live-browser click-through — this
+sandbox has no running Postgres/Firebase-auth-backed API instance to point the Next.js dev server at,
+so verification here is the full automated suite (unit, component, contract, build) rather than an
+actual click-through; the deferred items listed under "Scope decisions" above (card-grid, URL filter
+state, bulk actions, full journal capture UI, taxon catalog browse) remain open, matching what this
+session's own prior Phase 11 web-adjacent passes already documented as deferred rather than dropped.
+
+---

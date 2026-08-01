@@ -1,13 +1,14 @@
 'use client';
 
-import type { ImageAnalysisResult, Observation, ObservationPhoto } from '@verdery/api-contracts';
+import type { Observation } from '@verdery/api-contracts';
 import { useState } from 'react';
 
 import { formatInstant, useLocalization } from '@/shared/localization/public';
-import { Alert, Button, StatusPill } from '@/shared/ui/public';
+import { Button, StatusPill } from '@/shared/ui/public';
 
-import { actorTypeLabel, analysisKindLabel, correctionKindLabel } from './labels';
+import { actorTypeLabel, correctionKindLabel } from './labels';
 import { ObservationCorrectionForm } from './observation-correction-form';
+import { ObservationPhotoAnalysis } from './observation-analysis-result';
 import styles from './observation-entry.module.css';
 
 export interface ObservationEntryProps {
@@ -15,52 +16,6 @@ export interface ObservationEntryProps {
   /** Whichever `plantId` scopes the timeline this entry is rendered in — `null` for the garden-wide view. */
   readonly plantId: string | null;
   readonly observation: Observation;
-}
-
-function formatConfidence(score: number): string {
-  return `${Math.round(score * 100).toString()}%`;
-}
-
-/**
- * One analysis result on one photo, surfaced exactly as the backend
- * documents it: `requiresConfirmation` is always `true` in this stubbed
- * pass, so this is rendered as an unconfirmed suggestion, never as a
- * diagnosis — matching `ImageAnalysisResult`'s own schema description.
- */
-function AnalysisResultNotice({ result }: { readonly result: ImageAnalysisResult }) {
-  const { t } = useLocalization();
-
-  return (
-    <Alert tone="info" title={t(analysisKindLabel(result.analysisKind))}>
-      <p>
-        {t('observations.analysisSuggestion', {
-          label: result.suggestedLabel,
-          confidence: formatConfidence(result.confidenceScore),
-        })}
-      </p>
-      {result.requiresConfirmation && <p>{t('observations.analysisRequiresConfirmation')}</p>}
-      {result.requestedAdditionalEvidence && (
-        <p>{t('observations.analysisRequestsMoreEvidence')}</p>
-      )}
-    </Alert>
-  );
-}
-
-function ObservationPhotoAnalysis({ photo }: { readonly photo: ObservationPhoto }) {
-  const { t } = useLocalization();
-
-  if (photo.analysisResults.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className={styles['photoAnalysis']}>
-      <p className={styles['photoLabel']}>{t('observations.photoLabel')}</p>
-      {photo.analysisResults.map((result) => (
-        <AnalysisResultNotice key={result.id} result={result} />
-      ))}
-    </div>
-  );
 }
 
 /**
@@ -105,7 +60,12 @@ export function ObservationEntry({ gardenId, plantId, observation }: Observation
       )}
 
       {observation.photos.map((photo) => (
-        <ObservationPhotoAnalysis key={photo.id} photo={photo} />
+        <ObservationPhotoAnalysis
+          key={photo.id}
+          gardenId={gardenId}
+          plantId={plantId}
+          photo={photo}
+        />
       ))}
 
       {correcting ? (

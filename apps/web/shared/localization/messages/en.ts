@@ -9,10 +9,12 @@
  * Source: architecture/web-application-design.md, section "15. Localization".
  */
 import { englishAccessibilityMessages } from './en-accessibility';
+import { englishCandidatesMessages } from './en-candidates';
 import { englishClientPortalMessages } from './en-client-portal';
 import { englishCollaborationMessages } from './en-collaboration';
 import { englishGardenContextMessages } from './en-garden-context';
 import { englishMediaMessages } from './en-media';
+import { englishObservationsMessages } from './en-observations';
 import { englishOrganizationsMessages } from './en-organizations';
 import { englishPlantsMessages } from './en-plants';
 import { englishSeasonalPlanMessages } from './en-seasonal-plan';
@@ -28,6 +30,8 @@ export const englishMessages = {
   ...englishClientPortalMessages,
   ...englishSeasonalPlanMessages,
   ...englishGardenContextMessages,
+  ...englishCandidatesMessages,
+  ...englishObservationsMessages,
   'app.name': 'Verdery',
   'app.tagline': 'A living map of a real garden.',
   'app.skipToContent': 'Skip to content',
@@ -412,45 +416,6 @@ export const englishMessages = {
   'map.saveStatus.saving': 'Saving…',
   'map.saveStatus.saved': 'Saved',
   'map.saveStatus.failed': 'Not saved',
-
-  'observations.pageTitle': 'Observations',
-  'observations.pageDescription': "This garden's chronological observation history.",
-  'observations.recordTitle': 'Record an observation',
-  'observations.recordSubmit': 'Record observation',
-  'observations.noteTextLabel': 'Note',
-  'observations.conditionSummaryLabel': 'Condition summary',
-  'observations.noteOrSummaryRequired': 'Enter a note or a condition summary.',
-  'observations.plantIdLabel': 'Plant ID (optional)',
-  'observations.gardenObjectIdLabel': 'Garden area (map object ID, optional)',
-  'observations.observedAtLabel': 'Observed at',
-  'observations.mediaGapHint':
-    'Photo attachments are not connected to observations yet, though uploading itself now works elsewhere in this application (a garden photo, from the garden settings page). A note and/or a condition summary is enough to record an observation.',
-  'observations.historyTitle': 'History',
-  'observations.loading': 'Loading the observation history.',
-  'observations.retry': 'Try again',
-  'observations.empty': 'No observations recorded yet.',
-  'observations.isCorrectedBadge': 'Corrected',
-  'observations.correctionOf': '{kind} of observation {id}',
-  'observations.photoLabel': 'Photo',
-  'observations.analysisSuggestion': 'Possible {label} ({confidence} confidence)',
-  'observations.analysisRequiresConfirmation':
-    'This is an automated suggestion, not a confirmed diagnosis — it requires your confirmation.',
-  'observations.analysisRequestsMoreEvidence': 'More evidence was requested for this suggestion.',
-  'observations.correctAction': 'Correct this observation',
-  'observations.correctionExplanation':
-    'A correction adds a new entry to the timeline; it never edits or removes the original.',
-  'observations.correctionKindLabel': 'Correction type',
-  'observations.correctionSubmit': 'Record correction',
-  'observations.correctionCancel': 'Cancel',
-
-  'observations.enum.analysisKind.stress': 'Stress',
-  'observations.enum.analysisKind.disease': 'Disease',
-  'observations.enum.analysisKind.pest': 'Pest',
-  'observations.enum.analysisKind.other': 'Other',
-  'observations.enum.correctionKind.amendment': 'Amendment',
-  'observations.enum.correctionKind.supersede': 'Supersede',
-  'observations.enum.actorType.user': 'User',
-  'observations.enum.actorType.system': 'System',
 
   'tasks.pageTitle': 'Tasks',
   'tasks.pageDescription': "This garden's manual tasks.",

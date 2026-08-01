@@ -9,6 +9,7 @@
 export { Alert, type AlertProps, type AlertTone } from './alert';
 export { Button, type ButtonProps, type ButtonVariant } from './button';
 export { Card, type CardProps } from './card';
+export { DetailRow, type DetailRowProps } from './detail-row';
 export { FailureAlert } from './failure-alert';
 export {
   CalendarIcon,

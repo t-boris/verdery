@@ -4,8 +4,6 @@ import type { PlantIdentificationSuggestion } from '@verdery/api-contracts';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
-import type { ReactNode } from 'react';
-
 import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
 import {
@@ -13,6 +11,7 @@ import {
   Button,
   CalendarIcon,
   Card,
+  DetailRow,
   FailureAlert,
   LightbulbIcon,
   PulseIcon,
@@ -51,32 +50,6 @@ function suggestionLabel(suggestion: PlantIdentificationSuggestion): string {
 /** The AI's own raw name guess, when it was confident but the catalog had no match for it — mirrors `suggestionLabel`'s own "scientific name, common name parenthesized" convention, and `add-plant-from-photo-panel.tsx`'s own identical (unexported) helper. */
 function rawSuggestionLabel(commonName: string, scientificName: string | null): string {
   return scientificName === null ? commonName : `${scientificName} (${commonName})`;
-}
-
-/**
- * One identification-suggestion fact: icon, label above, value below, with
- * real line height — not a single `${label}: ${value}` line, which crushed a
- * full sentence (a condition/care guess) onto one crowded row. Mirrors
- * `PlantIdentificationBannerView.detailRow`'s identical iOS redesign.
- */
-function DetailRow({
-  icon,
-  label,
-  value,
-}: {
-  readonly icon: ReactNode;
-  readonly label: string;
-  readonly value: string;
-}) {
-  return (
-    <div className={styles['detailRow']}>
-      <span className={styles['detailIcon']}>{icon}</span>
-      <div>
-        <span className={styles['detailLabel']}>{label}</span>
-        <p className={styles['detailValue']}>{value}</p>
-      </div>
-    </div>
-  );
 }
 
 /**

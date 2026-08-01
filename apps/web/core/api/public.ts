@@ -14,6 +14,11 @@ export {
   type FetchLike,
 } from './client';
 export { createBrowserApiClient, resolveApiOrigin } from './config';
+export {
+  createCandidateGateway,
+  type CandidateGateway,
+  type ListCandidatesParams,
+} from './candidate-gateway';
 export { createClientPortalGateway, type ClientPortalGateway } from './client-portal-gateway';
 export { createCollaborationGateway, type CollaborationGateway } from './collaboration-gateway';
 export { CORRELATION_ID_HEADER, createCorrelationId } from './correlation';

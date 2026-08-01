@@ -112,7 +112,7 @@ describe('createPlantGateway', () => {
     expect(result).toEqual(expect.objectContaining({ ok: true, data: { items: [PLANT] } }));
   });
 
-  it('encodes the free-text query, comma-joined structured filters, cursor, and limit', async () => {
+  it('encodes the free-text query, comma-joined structured filters, identified, cursor, and limit', async () => {
     const { gateway, recorded } = gatewayRecording(jsonResponse({ items: [] }, 200));
 
     await gateway.search(GARDEN_ID, {
@@ -120,6 +120,7 @@ describe('createPlantGateway', () => {
       lifecycleStage: ['seed', 'seedling'],
       status: ['active'],
       groupingKind: ['individual', 'row'],
+      identified: true,
       cursor: 'opaque-cursor',
       limit: 25,
     });
@@ -130,6 +131,7 @@ describe('createPlantGateway', () => {
     expect(url.searchParams.get('lifecycleStage')).toBe('seed,seedling');
     expect(url.searchParams.get('status')).toBe('active');
     expect(url.searchParams.get('groupingKind')).toBe('individual,row');
+    expect(url.searchParams.get('identified')).toBe('true');
     expect(url.searchParams.get('cursor')).toBe('opaque-cursor');
     expect(url.searchParams.get('limit')).toBe('25');
   });
@@ -137,7 +139,12 @@ describe('createPlantGateway', () => {
   it('omits empty-array filters and a blank query rather than sending empty parameters', async () => {
     const { gateway, recorded } = gatewayRecording(jsonResponse({ items: [] }, 200));
 
-    await gateway.search(GARDEN_ID, { query: '', lifecycleStage: [], status: null });
+    await gateway.search(GARDEN_ID, {
+      query: '',
+      lifecycleStage: [],
+      status: null,
+      identified: null,
+    });
 
     expect(recorded[0]?.url).toBe(`${ORIGIN}/v1/gardens/${GARDEN_ID}/plants`);
   });

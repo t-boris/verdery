@@ -1,0 +1,33 @@
+.photoAnalysis {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.photoLabel {
+  margin: 0;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+}
+
+.alternatives {
+  margin: 0;
+  padding-inline-start: var(--space-5);
+}
+
+.dispositionRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.dispositionRow > *:first-child {
+  flex: 1;
+}
+
+.dispositionSetAt {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}

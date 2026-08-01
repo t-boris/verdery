@@ -25,14 +25,16 @@ import type { ApiResult } from './result';
  * Every parameter `SearchPlants` accepts, all optional. `query` is a
  * trigram-fuzzy match against `displayName`; `lifecycleStage`/`status`/
  * `groupingKind` are structured filters, each combinable and each accepting
- * more than one value; `cursor`/`limit` paginate the same way `ListGardens`
- * does.
+ * more than one value; `identified` (P11-SEARCH-01) restricts to plants
+ * with (`true`) or without (`false`) a resolved `taxonomyReferenceId`;
+ * `cursor`/`limit` paginate the same way `ListGardens` does.
  */
 export interface SearchPlantsParams {
   readonly query?: string | null;
   readonly lifecycleStage?: readonly PlantLifecycleStage[] | null;
   readonly status?: readonly PlantStatus[] | null;
   readonly groupingKind?: readonly PlantGroupingKind[] | null;
+  readonly identified?: boolean | null;
   readonly cursor?: string | null;
   readonly limit?: number | null;
 }
@@ -179,6 +181,9 @@ function searchPlantsQuery(params: SearchPlantsParams): string {
     params.groupingKind.length > 0
   ) {
     search.set('groupingKind', params.groupingKind.join(','));
+  }
+  if (params.identified !== undefined && params.identified !== null) {
+    search.set('identified', String(params.identified));
   }
   if (params.cursor !== undefined && params.cursor !== null) {
     search.set('cursor', params.cursor);

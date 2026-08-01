@@ -1,4 +1,8 @@
-import type { Observation, ObservationListResult } from '@verdery/api-contracts';
+import type {
+  ImageAnalysisResult,
+  Observation,
+  ObservationListResult,
+} from '@verdery/api-contracts';
 import { describe, expect, it } from 'vitest';
 
 import { createApiClient, type FetchLike } from './client';
@@ -9,6 +13,7 @@ const GARDEN_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0b';
 const PLANT_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0c';
 const OBSERVATION_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0d';
 const IDEMPOTENCY_KEY = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0e';
+const ANALYSIS_RESULT_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a10';
 
 interface RecordedRequest {
   readonly url: string;
@@ -114,5 +119,44 @@ describe('createObservationGateway', () => {
     expect(recorded[0]?.init.method).toBe('POST');
     expect(headersOf(recorded[0]!)['idempotency-key']).toBe(IDEMPOTENCY_KEY);
     expect(headersOf(recorded[0]!)['if-match']).toBeUndefined();
+  });
+
+  it('posts the disposition to the analysis-result-scoped resource without an If-Match header', async () => {
+    const RESULT: ImageAnalysisResult = {
+      id: ANALYSIS_RESULT_ID,
+      analysisKind: 'disease',
+      suggestedLabel: 'Possible leaf spot',
+      confidenceScore: 0.6,
+      requiresConfirmation: true,
+      requestedAdditionalEvidence: false,
+      evidenceSummary: 'Brown spotting on lower leaves.',
+      alternativeExplanations: ['Nutrient deficiency'],
+      safetyClass: 'monitor',
+      requestedViewPurposes: [],
+      modelName: 'gemini-test',
+      promptVersion: 3,
+      disposition: 'accepted_as_observation',
+      dispositionSetAt: '2026-07-22T09:00:00Z',
+      dispositionSetByProfileId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0f',
+      createdAt: '2026-07-21T09:00:00Z',
+    };
+    const { gateway, recorded } = gatewayRecording(jsonResponse(RESULT, 200));
+
+    const result = await gateway.setHealthSuggestionDisposition(
+      ANALYSIS_RESULT_ID,
+      'accepted_as_observation',
+      IDEMPOTENCY_KEY,
+    );
+
+    expect(recorded[0]?.url).toBe(
+      `${ORIGIN}/v1/observations/analysis-results/${ANALYSIS_RESULT_ID}/disposition`,
+    );
+    expect(recorded[0]?.init.method).toBe('POST');
+    expect(headersOf(recorded[0]!)['idempotency-key']).toBe(IDEMPOTENCY_KEY);
+    expect(headersOf(recorded[0]!)['if-match']).toBeUndefined();
+    expect(JSON.parse(recorded[0]?.init.body as string)).toEqual({
+      disposition: 'accepted_as_observation',
+    });
+    expect(result).toEqual(expect.objectContaining({ ok: true, data: RESULT }));
   });
 });

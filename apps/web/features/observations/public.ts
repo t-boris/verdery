@@ -10,4 +10,5 @@ export {
   useObservationsForGarden,
   useObservationsForPlant,
   useRecordObservation,
+  useSetHealthSuggestionDisposition,
 } from './queries';

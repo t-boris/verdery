@@ -107,6 +107,11 @@ export type Observation = Schemas['Observation'];
 export type ObservationListResult = Schemas['ObservationListResult'];
 export type RecordObservationRequest = Schemas['RecordObservationRequest'];
 export type CorrectObservationRequest = Schemas['CorrectObservationRequest'];
+/** The health-suggestion-disposition schemas (P11-HEALTH-01). */
+export type HealthSuggestionSafetyClass = Schemas['HealthSuggestionSafetyClass'];
+export type HealthSuggestionDisposition = Schemas['HealthSuggestionDisposition'];
+export type SetHealthSuggestionDispositionRequest =
+  Schemas['SetHealthSuggestionDispositionRequest'];
 
 /** The tasks-recommendations schemas (P4-CONTRACT-01). */
 export type TaskTargetKind = Schemas['TaskTargetKind'];

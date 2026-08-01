@@ -10,6 +10,7 @@ import {
   Button,
   FailureAlert,
   LeafIcon,
+  Select,
   StaleIndicator,
   StatusPill,
   TextField,
@@ -49,15 +50,17 @@ const VISIBLE_STATUSES = PLANT_STATUSES.filter((status) => status !== 'removed')
  * known-id and `AddPlantForm`'s create-then-navigate. See
  * `docs/development/deferred-capabilities.md` for the now-closed history.
  *
- * The structured filters `SearchPlants` also accepts (`lifecycleStage`/
- * `groupingKind`, and `status` beyond the fixed default below) are
- * deliberately left out of this pass — only the free-text `query` (matched
- * trigram-fuzzy against `displayName`) is user-facing, per this follow-up's
- * own explicit scope: a real, working list takes priority over exhaustive
- * filter UI. `status` itself is always sent, fixed to `VISIBLE_STATUSES`
- * (every status except `removed`), so a plant the reader just deleted does
- * not keep appearing here as if nothing happened — see that constant's own
- * doc comment.
+ * Most of the structured filters `SearchPlants` also accepts
+ * (`lifecycleStage`/`groupingKind`, and `status` beyond the fixed default
+ * below) are still deliberately left out of this pass — only the free-text
+ * `query` (matched trigram-fuzzy against `displayName`) plus `identified`
+ * (P11-SEARCH-01 — added as its own follow-up, since "which plants still
+ * need identifying" is a real, common question this list had no way to
+ * answer) are user-facing, per this component's own explicit scope: a real,
+ * working list takes priority over exhaustive filter UI. `status` itself is
+ * always sent, fixed to `VISIBLE_STATUSES` (every status except `removed`),
+ * so a plant the reader just deleted does not keep appearing here as if
+ * nothing happened — see that constant's own doc comment.
  *
  * Pagination is a plain "Load more" button over the contract's own
  * `nextCursor` convention (`ListGardens`/`SearchPlants` share it). Earlier
@@ -74,23 +77,47 @@ const VISIBLE_STATUSES = PLANT_STATUSES.filter((status) => status !== 'removed')
  * Source: implementation-plan.md work package P4-SEARCH-01;
  * packages/api-contracts/openapi.yaml, operation `searchPlants`.
  */
+type IdentifiedFilter = 'all' | 'identified' | 'unidentified';
+
+function toIdentifiedParam(filter: IdentifiedFilter): boolean | null {
+  switch (filter) {
+    case 'all':
+      return null;
+    case 'identified':
+      return true;
+    case 'unidentified':
+      return false;
+  }
+}
+
 export function PlantList({ gardenId }: PlantListProps) {
   const { t } = useLocalization();
   const [searchText, setSearchText] = useState('');
+  const [identifiedFilter, setIdentifiedFilter] = useState<IdentifiedFilter>('all');
   const [cursor, setCursor] = useState<string | null>(null);
   const [priorItems, setPriorItems] = useState<readonly Plant[]>([]);
 
   const query = useSearchPlants(gardenId, {
     query: searchText.trim() === '' ? null : searchText.trim(),
     status: VISIBLE_STATUSES,
+    identified: toIdentifiedParam(identifiedFilter),
     cursor,
     limit: PAGE_LIMIT,
   });
 
-  const onSearchChange = (value: string) => {
-    setSearchText(value);
+  const resetPagination = () => {
     setCursor(null);
     setPriorItems([]);
+  };
+
+  const onSearchChange = (value: string) => {
+    setSearchText(value);
+    resetPagination();
+  };
+
+  const onIdentifiedFilterChange = (value: IdentifiedFilter) => {
+    setIdentifiedFilter(value);
+    resetPagination();
   };
 
   const onLoadMore = () => {
@@ -118,6 +145,17 @@ export function PlantList({ gardenId }: PlantListProps) {
         label={t('plants.searchLabel')}
         value={searchText}
         onChange={(event) => onSearchChange(event.target.value)}
+      />
+
+      <Select
+        label={t('plants.identifiedFilterLabel')}
+        value={identifiedFilter}
+        onChange={(event) => onIdentifiedFilterChange(event.target.value as IdentifiedFilter)}
+        options={[
+          { value: 'all', label: t('plants.identifiedFilterAll') },
+          { value: 'identified', label: t('plants.identifiedFilterIdentified') },
+          { value: 'unidentified', label: t('plants.identifiedFilterUnidentified') },
+        ]}
       />
 
       {isFirstLoad && <p role="status">{t('plants.listLoading')}</p>}

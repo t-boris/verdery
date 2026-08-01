@@ -159,6 +159,25 @@ describe('PlantList — search and pagination', () => {
     expect(mockedUseSearchPlants).toHaveBeenLastCalledWith('garden-1', {
       query: 'tomato',
       status: ['active', 'dormant', 'archived', 'dead'],
+      identified: null,
+      cursor: null,
+      limit: 20,
+    });
+  });
+
+  it('re-queries with the identified filter and resets pagination when it changes', () => {
+    mockSearchResult(queryResult({ items: [PLANT_A] }));
+
+    renderList();
+
+    fireEvent.change(screen.getByLabelText('Identification'), {
+      target: { value: 'unidentified' },
+    });
+
+    expect(mockedUseSearchPlants).toHaveBeenLastCalledWith('garden-1', {
+      query: null,
+      status: ['active', 'dormant', 'archived', 'dead'],
+      identified: false,
       cursor: null,
       limit: 20,
     });

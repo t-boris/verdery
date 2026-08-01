@@ -1,5 +1,7 @@
 import type {
   CorrectObservationRequest,
+  HealthSuggestionDisposition,
+  ImageAnalysisResult,
   Observation,
   ObservationListResult,
   RecordObservationRequest,
@@ -29,6 +31,13 @@ export interface ObservationGateway {
     idempotencyKey: string,
     signal?: AbortSignal,
   ): Promise<ApiResult<Observation>>;
+  /** `SetHealthSuggestionDisposition` (P11-HEALTH-01) — no `If-Match`: `image_analysis_result` carries no revision, and a disposition may be reconsidered freely. */
+  setHealthSuggestionDisposition(
+    analysisResultId: string,
+    disposition: HealthSuggestionDisposition,
+    idempotencyKey: string,
+    signal?: AbortSignal,
+  ): Promise<ApiResult<ImageAnalysisResult>>;
 }
 
 /**
@@ -77,6 +86,16 @@ export function createObservationGateway(client: ApiClient): ObservationGateway 
         method: 'POST',
         path: `/observations/${observationId}/corrections`,
         body: input,
+        headers: { [IDEMPOTENCY_KEY_HEADER]: idempotencyKey, ...csrfHeader() },
+        ...(signal === undefined ? {} : { signal }),
+      });
+    },
+
+    setHealthSuggestionDisposition(analysisResultId, disposition, idempotencyKey, signal) {
+      return client.request<ImageAnalysisResult>({
+        method: 'POST',
+        path: `/observations/analysis-results/${analysisResultId}/disposition`,
+        body: { disposition },
         headers: { [IDEMPOTENCY_KEY_HEADER]: idempotencyKey, ...csrfHeader() },
         ...(signal === undefined ? {} : { signal }),
       });

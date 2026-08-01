@@ -2,6 +2,8 @@
 
 import type {
   CorrectObservationRequest,
+  HealthSuggestionDisposition,
+  ImageAnalysisResult,
   Observation,
   ObservationListResult,
   RecordObservationRequest,
@@ -118,4 +120,43 @@ export function useCorrectObservation(gardenId: string, plantId: string | null) 
       }
     },
   });
+}
+
+export interface SetHealthSuggestionDispositionVariables {
+  readonly analysisResultId: string;
+  readonly disposition: HealthSuggestionDisposition;
+}
+
+/**
+ * `SetHealthSuggestionDisposition` (P11-HEALTH-01). The updated
+ * `ImageAnalysisResult` is nested inside `Observation.photos[].analysisResults[]`
+ * — too deep to patch with a targeted `setQueryData` without duplicating
+ * that whole nested shape here, so this invalidates the affected timeline
+ * queries instead, the same treatment `useCorrectObservation` already gives
+ * every other observation-timeline mutation.
+ */
+export function useSetHealthSuggestionDisposition(gardenId: string, plantId: string | null) {
+  const gateway = useObservationGateway();
+  const queryClient = useQueryClient();
+
+  return useMutation<ImageAnalysisResult, ApiFailureError, SetHealthSuggestionDispositionVariables>(
+    {
+      mutationFn: async ({ analysisResultId, disposition }) =>
+        unwrap(
+          await gateway.setHealthSuggestionDisposition(
+            analysisResultId,
+            disposition,
+            generateIdempotencyKey(),
+          ),
+        ),
+      onSuccess: () => {
+        void queryClient.invalidateQueries({ queryKey: gardenObservationsQueryKey(gardenId) });
+        if (plantId !== null) {
+          void queryClient.invalidateQueries({
+            queryKey: plantObservationsQueryKey(gardenId, plantId),
+          });
+        }
+      },
+    },
+  );
 }
