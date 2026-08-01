@@ -1,8 +1,20 @@
+/*
+ * The route fills the shell's scrolling region so the workspace below can take
+ * whatever the heading leaves. Without a definite height here the editor's own
+ * `flex: 1` had nothing to divide and the four-region grid collapsed to its
+ * content height, leaving a band of empty canvas-coloured page beneath it.
+ */
 .page {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  min-width: 0;
+  min-inline-size: 0;
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+.heading {
+  flex: none;
 }
 
 .heading {

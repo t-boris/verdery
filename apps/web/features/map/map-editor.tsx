@@ -28,6 +28,7 @@ import { MapToolbar } from './map-toolbar';
 import { MapWarningsPanel } from './map-warnings-panel';
 import { useGardenMap } from './queries';
 import { useMapDraftPersistence } from './use-map-draft-persistence';
+import { DEFAULT_SCALE } from './viewport';
 import { useMapEditorActions } from './use-map-editor-actions';
 
 // Konva and MapLibre both need a real `document`/canvas/WebGL context to
@@ -82,7 +83,11 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
     },
     {
       label: t('map.statusBar.zoom'),
-      value: `${String(Math.round(store.state.camera.scale * 100))}%`,
+      // Relative to the default view, NOT `scale * 100`: `camera.scale` is a
+      // pixels-per-metre factor (24 by default), so multiplying it by 100
+      // printed "2400%" for an untouched camera — a number that was a
+      // percentage of nothing.
+      value: `${String(Math.round((store.state.camera.scale / DEFAULT_SCALE) * 100))}%`,
     },
   ]);
 

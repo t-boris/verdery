@@ -27,8 +27,14 @@ export interface BoundingBox {
   readonly maxY: number;
 }
 
-/** Pixels per metre for a garden with no objects and no prior camera to restore. */
-const DEFAULT_SCALE = 24;
+/**
+ * Pixels per metre for a garden with no objects and no prior camera to
+ * restore. Exported because it is the reference the status bar's zoom readout
+ * is a percentage OF — `camera.scale` is a px/m factor, not a percentage, so
+ * "100%" has to mean something, and the default view is the only non-arbitrary
+ * thing it can mean.
+ */
+export const DEFAULT_SCALE = 24;
 const MIN_SCALE = 2;
 const MAX_SCALE = 400;
 

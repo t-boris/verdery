@@ -46,3 +46,23 @@ after the commit was already pushed, requiring a second corrective commit.
   the former rather than doing it silently.
 - Run the docs-sync obligation (repository rule: keep `docs/` accurate and
   synchronized in the SAME task) BEFORE committing, not after pushing.
+
+## 2026-08-01 — ran a narrower check than CI runs
+
+**What happened**: The Kern design pass added `shared/ui/fonts/NOTICE.md`. Local
+verification ran `prettier --check "apps/web/**/*.{ts,tsx,css}"` — a glob chosen to
+match the files being edited — while CI runs `pnpm format:check`, which is
+`prettier --check .` across every extension. The markdown file was never checked
+locally and failed CI on column padding alone.
+
+**Rules for next time**:
+
+- Verify with the SCRIPT CI runs, never a hand-written approximation of it. Read
+  `.github/workflows/ci.yml`, then run those exact package scripts:
+  `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test`,
+  `node scripts/check-file-size.mjs`.
+- A hand-rolled glob encodes an assumption about which file types a change
+  touched. Adding one file of a new type silently escapes it.
+- When untracked tooling directories make a repo-wide check noisy, filter to
+  tracked files (`git ls-files`) rather than narrowing the file types — the
+  extension list is the part that must stay complete.

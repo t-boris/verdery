@@ -6,16 +6,17 @@
  * The widths are the direction's: a 44px tool rail, a 252px object index, the
  * canvas taking the rest, and a 326px inspector.
  *
- * `block-size: 100%` with `min-block-size: 0`, not a `calc(100vh - Xrem)`:
- * the editor now sits inside the application shell's single scrolling region,
- * which is already exactly sized, so subtracting a guessed chrome height would
- * be wrong twice over.
+ * `flex: 1` inside the route's own column, not a `calc(100vh - Xrem)`: the
+ * editor sits inside the application shell's single scrolling region, which is
+ * already exactly sized, so subtracting a guessed chrome height would be wrong
+ * twice over. The route supplies the definite height this divides
+ * (`app/application/gardens/[gardenId]/map/page.module.css`).
  */
 .editor {
   display: flex;
   flex-direction: column;
   gap: var(--border-width);
-  block-size: 100%;
+  flex: 1;
   min-block-size: 0;
 }
 
