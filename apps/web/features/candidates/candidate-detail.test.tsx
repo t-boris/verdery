@@ -27,6 +27,7 @@ vi.mock('./queries', () => ({
   useConvertCandidate: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
   useCandidateSuitability: () => ({ isPending: false, isError: false, data: null, error: null }),
   useRecalculateCandidateSuitability: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
+  useCandidatePhotos: () => ({ data: [], isPending: false, isError: false }),
 }));
 
 vi.mock('./taxonomy-queries', () => ({

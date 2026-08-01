@@ -9,6 +9,7 @@ import { Alert, Card, FailureAlert, StaleIndicator, StatusPill } from '@/shared/
 import { CandidateConvertForm } from './candidate-convert-form';
 import { CandidateDetailsForm } from './candidate-details-form';
 import styles from './candidate-detail.module.css';
+import { CandidatePhotoGallery } from './candidate-photo-gallery';
 import { CandidateStatusControls } from './candidate-status-controls';
 import { CandidateSuitabilityPanel } from './candidate-suitability-panel';
 import {
@@ -93,6 +94,8 @@ export function CandidateDetail({ gardenId, candidateId }: CandidateDetailProps)
         )}
         {candidate.taxonomyReferenceId === null && <span>{t('candidates.taxonomyNone')}</span>}
       </div>
+
+      <CandidatePhotoGallery gardenId={gardenId} candidateId={candidate.id} />
 
       {isConverted && (
         <Alert tone="info" title={t('candidates.alreadyConverted')}>

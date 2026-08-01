@@ -250,7 +250,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   });
 
   it('down reverses up: dropping and reapplying this migration leaves the schema intact', async () => {
-    // `count: 7` undoes every newer migration (through
+    // `count: 8` undoes every newer migration (through
     // 1788200000000_plant-assertion-review-status-index.sql) first, then
     // this migration itself — the same "update this count when a later
     // migration is added on top" discipline every other rollback test in
@@ -262,7 +262,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     // un-reapplied without this test's own narrow table-name assertion ever
     // catching it, which is fine as long as the down count above stays
     // accurate.
-    await migrate('down', 7);
+    await migrate('down', 8);
 
     const afterDown = await client.query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.tables

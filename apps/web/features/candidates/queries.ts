@@ -1,11 +1,13 @@
 'use client';
 
 import type {
+  AddCandidateFromPhotoRequest,
   AddCandidateRequest,
   ConvertCandidateRequest,
   ConvertCandidateResult,
   PlantCandidate,
   PlantCandidateListResult,
+  PlantCandidatePhoto,
   SetCandidateStatusRequest,
   SuitabilityAssessment,
   UpdateCandidateDetailsRequest,
@@ -44,6 +46,8 @@ const candidateListQueryKey = (gardenId: string, params: ListCandidatesParams) =
   ['candidates', gardenId, 'list', params] as const;
 const candidateSuitabilityQueryKey = (gardenId: string, candidateId: string) =>
   ['candidates', gardenId, candidateId, 'suitability'] as const;
+const candidatePhotosQueryKey = (gardenId: string, candidateId: string) =>
+  ['candidates', gardenId, candidateId, 'photos'] as const;
 
 function useCandidateGateway() {
   return useMemo(() => createCandidateGateway(createBrowserApiClient()), []);
@@ -85,6 +89,31 @@ export function useAddCandidate(gardenId: string) {
     onSuccess: (candidate) => {
       queryClient.setQueryData(candidateQueryKey(gardenId, candidate.id), candidate);
     },
+  });
+}
+
+/** Backs `add-candidate-from-photo-panel.tsx` (P11-CAND-PHOTO-01). Same create-then-cache pattern as `useAddCandidate`. */
+export function useAddCandidateFromPhoto(gardenId: string) {
+  const gateway = useCandidateGateway();
+  const queryClient = useQueryClient();
+
+  return useMutation<PlantCandidate, ApiFailureError, AddCandidateFromPhotoRequest>({
+    mutationFn: async (input) =>
+      unwrap(await gateway.addFromPhoto(gardenId, input, generateIdempotencyKey())),
+    onSuccess: (candidate) => {
+      queryClient.setQueryData(candidateQueryKey(gardenId, candidate.id), candidate);
+    },
+  });
+}
+
+/** Backs a candidate's own photo display. Unpaginated — mirrors `usePlantPhotos`'s own note: a candidate's photo count is always small (today, at most one). */
+export function useCandidatePhotos(gardenId: string, candidateId: string) {
+  const gateway = useCandidateGateway();
+
+  return useQuery<readonly PlantCandidatePhoto[], ApiFailureError>({
+    queryKey: candidatePhotosQueryKey(gardenId, candidateId),
+    queryFn: async ({ signal }) =>
+      unwrap(await gateway.listPhotos(gardenId, candidateId, signal)).items,
   });
 }
 

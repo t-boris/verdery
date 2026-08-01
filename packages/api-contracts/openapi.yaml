@@ -2372,6 +2372,53 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /gardens/{gardenId}/plant-candidates/from-photo:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    post:
+      operationId: addCandidateFromPhoto
+      tags: [PlantCandidates]
+      summary: Add a plant candidate identified from a photo
+      description: |
+        Creates an `'individual'` candidate prefilled from a
+        photo-identification pass, and inserts the photo in the same
+        transaction. Unlike `addPlantFromPhoto`, the suggestion is applied
+        directly to the created candidate — no separate confirm step: a
+        candidate is a lower-stakes, not-yet-real-plant record, edited or
+        deleted like any other candidate field if the guess is wrong.
+
+        Source: implementation-plan.md work package P11-CAND-PHOTO-01.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddCandidateFromPhotoRequest'
+      responses:
+        '201':
+          description: The created candidate.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlantCandidate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
   /gardens/{gardenId}/plant-candidates/{candidateId}:
     parameters:
       - name: gardenId
@@ -2607,6 +2654,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuitabilityAssessment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /gardens/{gardenId}/plant-candidates/{candidateId}/photos:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: candidateId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+
+    get:
+      operationId: listCandidatePhotos
+      tags: [PlantCandidates]
+      summary: List a candidate's attached photos
+      description: |
+        Every photo attached to this candidate, primary first, then oldest
+        first. No pagination — mirrors `listPlantPhotos`'s own shape;
+        `addCandidateFromPhoto` is the only writer today, so this is
+        always at most one photo.
+
+        Source: implementation-plan.md work package P11-CAND-PHOTO-01.
+      responses:
+        '200':
+          description: The candidate's attached photos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlantCandidatePhotoListResult'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -10083,6 +10166,46 @@ components:
           $ref: '#/components/schemas/Timestamp'
         updatedAt:
           $ref: '#/components/schemas/Timestamp'
+
+    PlantCandidatePhoto:
+      type: object
+      additionalProperties: false
+      required: [id, candidateId, mediaId, isPrimary, createdAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        candidateId:
+          $ref: '#/components/schemas/Uuid'
+        mediaId:
+          $ref: '#/components/schemas/Uuid'
+        isPrimary:
+          type: boolean
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+
+    PlantCandidatePhotoListResult:
+      type: object
+      additionalProperties: false
+      required: [items]
+      description: "Every photo attached to a candidate, primary first, then oldest first. No pagination — mirrors PlantPhotoListResult's own unpaginated shape."
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlantCandidatePhoto'
+
+    AddCandidateFromPhotoRequest:
+      type: object
+      additionalProperties: false
+      required: [photoMediaId]
+      description: 'Mirrors `AddCandidateFromPhotoInput`. Source: plants-inventory/application/add-candidate-from-photo.ts.'
+      properties:
+        proposedGardenAreaMapObjectId:
+          $ref: '#/components/schemas/Uuid'
+        proposedPlacementMapObjectId:
+          $ref: '#/components/schemas/Uuid'
+        photoMediaId:
+          $ref: '#/components/schemas/Uuid'
 
     PlantCandidateListResult:
       type: object

@@ -12,6 +12,7 @@
 
 import {
   AddCandidate,
+  AddCandidateFromPhoto,
   AddPlant,
   AddPlantFromPhoto,
   AttachPlantPhoto,
@@ -24,6 +25,7 @@ import {
   GetPlantIdentification,
   GetTaxonProfile,
   KyselyCandidateSuitabilityAssessmentRepository,
+  KyselyPlantCandidatePhotoRepository,
   KyselyPlantCandidateRepository,
   KyselyPlantIdentificationRepository,
   KyselyPlantPhotoRepository,
@@ -31,6 +33,7 @@ import {
   KyselyPlantRepository,
   KyselyPlantsInventoryUnitOfWork,
   KyselyTaxonomyReferenceRepository,
+  ListCandidatePhotos,
   ListCandidates,
   ListPlantPhotos,
   MovePlant,
@@ -198,6 +201,21 @@ export function composePlantsInventory(
     gardenAuthorization,
     clock,
   );
+  const addCandidateFromPhoto = new AddCandidateFromPhoto(
+    plantsInventoryIdempotency,
+    plantsInventoryUnitOfWork,
+    gardenAuthorization,
+    clock,
+    identifyPlantSpecies,
+    taxonomyReferenceRepository,
+    logger,
+  );
+  const plantCandidatePhotoRepository = new KyselyPlantCandidatePhotoRepository(database.queries);
+  const listCandidatePhotos = new ListCandidatePhotos(
+    plantCandidateRepository,
+    plantCandidatePhotoRepository,
+    gardenAuthorization,
+  );
   const listCandidates = new ListCandidates(plantCandidateRepository, gardenAuthorization);
   const getCandidate = new GetCandidate(plantCandidateRepository, gardenAuthorization);
   const updateCandidateDetails = new UpdateCandidateDetails(
@@ -269,7 +287,9 @@ export function composePlantsInventory(
     },
     candidateRoutesDependencies: {
       addCandidate,
+      addCandidateFromPhoto,
       listCandidates,
+      listCandidatePhotos,
       getCandidate,
       updateCandidateDetails,
       setCandidateStatus,

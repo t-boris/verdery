@@ -9,6 +9,7 @@
  */
 
 import { invalid } from '../../gardens-mapping/transport/garden-routes.js';
+import type { AddCandidateFromPhotoInput } from '../application/add-candidate-from-photo.js';
 import type { AddCandidateInput } from '../application/add-candidate.js';
 import type { ConvertCandidateInput } from '../application/convert-candidate.js';
 import type {
@@ -166,6 +167,25 @@ export function parseAddCandidateRequest(body: unknown): AddCandidateInput {
     ...(priceCurrency === undefined ? {} : { priceCurrency }),
     ...(purchaseSource === undefined ? {} : { purchaseSource }),
     ...(alternativeToCandidateId === undefined ? {} : { alternativeToCandidateId }),
+  };
+}
+
+export function parseAddCandidateFromPhotoRequest(body: unknown): AddCandidateFromPhotoInput {
+  const record = requireRecord(body, '');
+  const proposedGardenAreaMapObjectId = requireOptionalUuid(
+    record['proposedGardenAreaMapObjectId'],
+    '/proposedGardenAreaMapObjectId',
+  );
+  const proposedPlacementMapObjectId = requireOptionalUuid(
+    record['proposedPlacementMapObjectId'],
+    '/proposedPlacementMapObjectId',
+  );
+  const photoMediaId = requireUuid(record['photoMediaId'], '/photoMediaId');
+
+  return {
+    ...(proposedGardenAreaMapObjectId === undefined ? {} : { proposedGardenAreaMapObjectId }),
+    ...(proposedPlacementMapObjectId === undefined ? {} : { proposedPlacementMapObjectId }),
+    photoMediaId,
   };
 }
 

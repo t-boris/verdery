@@ -62,7 +62,8 @@ function normalizedPlacement(input: AddPlantFromPhotoInput): PlantPlacement {
  */
 export type ConfidenceBucket = 'none' | 'low' | 'medium' | 'high';
 
-function confidenceBucket(confidenceScore: number): ConfidenceBucket {
+/** Exported so `AddCandidateFromPhoto` can log the same closed-vocabulary bucket for its own identification attempt, without duplicating the thresholds. */
+export function confidenceBucket(confidenceScore: number): ConfidenceBucket {
   if (confidenceScore <= 0) {
     return 'none';
   }

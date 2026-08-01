@@ -29,6 +29,7 @@ import type { MediaRepository } from '../../media/public.js';
 import type { IdempotencyStore } from '../../../platform/idempotency/idempotency-store.js';
 import type { SyncChangeRecorder } from '../../../platform/sync/sync-change-recorder.js';
 import type { CandidateConversionRepository } from './candidate-conversion-repository.js';
+import type { PlantCandidatePhotoRepository } from './plant-candidate-photo-repository.js';
 import type { PlantCandidateRepository } from './plant-candidate-repository.js';
 import type { PlantIdentificationRepository } from './plant-identification-repository.js';
 import type { PlantPhotoRepository } from './plant-photo-repository.js';
@@ -41,6 +42,7 @@ export interface PlantsInventoryTransactionContext {
   readonly plantIdentifications: PlantIdentificationRepository;
   readonly revisionJournal: PlantRevisionJournalWriter;
   readonly candidates: PlantCandidateRepository;
+  readonly candidatePhotos: PlantCandidatePhotoRepository;
   readonly candidateConversions: CandidateConversionRepository;
   readonly idempotency: IdempotencyStore;
   readonly mapObjects: MapObjectRepository;

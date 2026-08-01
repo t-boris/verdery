@@ -1,8 +1,8 @@
 /**
- * `MediaReferenceFinder` over the four referencing tables — see the port's
+ * `MediaReferenceFinder` over the five referencing tables — see the port's
  * own header comment for the reference-kind inventory and the
  * cross-schema-read precedent (`KyselyPlantOwnershipRepository`) this
- * follows. Four `EXISTS`-shaped probes rather than one `UNION` query: each
+ * follows. Five `EXISTS`-shaped probes rather than one `UNION` query: each
  * is a cheap primary-index/`media_id`-index lookup, and keeping them
  * separate keeps each kind's mapping to its table obvious.
  */
@@ -29,6 +29,16 @@ export class KyselyMediaReferenceFinder implements MediaReferenceFinder {
       .executeTakeFirst();
     if (plantPhoto !== undefined) {
       kinds.push('plant_photo');
+    }
+
+    const candidatePhoto = await this.db
+      .selectFrom('plants_inventory.plant_candidate_photo')
+      .select('id')
+      .where('media_id', '=', mediaId)
+      .limit(1)
+      .executeTakeFirst();
+    if (candidatePhoto !== undefined) {
+      kinds.push('candidate_photo');
     }
 
     const observationPhoto = await this.db

@@ -374,7 +374,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   });
 
   it('down reverses up: dropping and reapplying this migration leaves the schema intact', async () => {
-    // `count: 6` undoes 1788200000000_plant-assertion-review-status-index.sql,
+    // `count: 7` undoes 1788200000000_plant-assertion-review-status-index.sql,
     // 1788100000000_client-update-observation-kind.sql,
     // 1788000000000_health-suggestion-disposition.sql,
     // 1787900000000_visual-journal-observation-extensions.sql, and
@@ -384,7 +384,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     // migrations un-reapplied without this test's own narrow table-name
     // assertion ever catching it. Update this count when a later migration
     // is added on top.
-    await migrate('down', 6);
+    await migrate('down', 7);
 
     const afterDown = await client.query<{ qualified: string }>(
       `SELECT table_schema || '.' || table_name AS qualified

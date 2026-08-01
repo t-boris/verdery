@@ -22,11 +22,13 @@ import {
   requireGardenId,
   requireIdempotencyKey,
 } from '../../gardens-mapping/transport/garden-routes.js';
+import type { AddCandidateFromPhoto } from '../application/add-candidate-from-photo.js';
 import type { AddCandidate } from '../application/add-candidate.js';
 import type { ConvertCandidate } from '../application/convert-candidate.js';
 import type { GetCandidate } from '../application/get-candidate.js';
 import type { GetCandidateSuitability } from '../application/get-candidate-suitability.js';
 import type { GetTaxonProfile } from '../application/get-taxon-profile.js';
+import type { ListCandidatePhotos } from '../application/list-candidate-photos.js';
 import type { ListCandidates } from '../application/list-candidates.js';
 import type { RecalculateCandidateSuitability } from '../application/recalculate-candidate-suitability.js';
 import type { SetCandidateStatus } from '../application/set-candidate-status.js';
@@ -34,6 +36,7 @@ import type { UpdateCandidateDetails } from '../application/update-candidate-det
 import type { CandidatePriority, CandidateStatus } from '../domain/plant-candidate.js';
 import {
   CANDIDATE_PRIORITIES,
+  parseAddCandidateFromPhotoRequest,
   parseAddCandidateRequest,
   parseConvertCandidateRequest,
   parseSetCandidateStatusRequest,
@@ -48,7 +51,9 @@ import {
 
 export interface CandidateRoutesDependencies {
   readonly addCandidate: AddCandidate;
+  readonly addCandidateFromPhoto: AddCandidateFromPhoto;
   readonly listCandidates: ListCandidates;
+  readonly listCandidatePhotos: ListCandidatePhotos;
   readonly getCandidate: GetCandidate;
   readonly updateCandidateDetails: UpdateCandidateDetails;
   readonly setCandidateStatus: SetCandidateStatus;
@@ -229,6 +234,33 @@ export function registerCandidateRoutes(
     return reply.status(201).send(candidate);
   });
 
+  app.post('/gardens/:gardenId/plant-candidates/from-photo', async (request, reply) => {
+    const gardenId = requireGardenId(request);
+    const idempotencyKey = requireIdempotencyKey(request);
+    const input = parseAddCandidateFromPhotoRequest(request.body);
+
+    const candidate = await deps.addCandidateFromPhoto.execute(
+      gardenId,
+      request.actorContext.profileId,
+      input,
+      idempotencyKey,
+    );
+
+    request.log.info(
+      {
+        event: 'plants.candidate_added',
+        kind: 'candidate',
+        groupingKind: candidate.groupingKind,
+        identified: candidate.taxonomyReferenceId !== null,
+        hasPriority: candidate.priority !== null,
+        isAlternative: candidate.alternativeToCandidateId !== null,
+      },
+      'Plant candidate added from photo',
+    );
+
+    return reply.status(201).send(candidate);
+  });
+
   app.get('/gardens/:gardenId/plant-candidates', async (request, reply) => {
     const gardenId = requireGardenId(request);
     const { filters, cursor, limit } = parseListCandidatesQuery(request);
@@ -274,6 +306,19 @@ export function registerCandidateRoutes(
     );
 
     return reply.status(200).send(candidate);
+  });
+
+  app.get('/gardens/:gardenId/plant-candidates/:candidateId/photos', async (request, reply) => {
+    const gardenId = requireGardenId(request);
+    const candidateId = requireCandidateId(request);
+
+    const photos = await deps.listCandidatePhotos.execute(
+      gardenId,
+      candidateId,
+      request.actorContext.profileId,
+    );
+
+    return reply.status(200).send({ items: [...photos] });
   });
 
   app.patch('/gardens/:gardenId/plant-candidates/:candidateId', async (request, reply) => {

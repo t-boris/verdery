@@ -66,3 +66,21 @@ export function candidateSuitabilityNotFoundError(): NotFoundError {
     'No suitability assessment has been computed for this candidate yet.',
   );
 }
+
+/** `AddCandidateFromPhoto`'s own media-reference guard — mirrors `invalidMediaReferenceError` in `plant-errors.ts`. */
+export function invalidCandidateMediaReferenceError(pointer: string): ValidationError {
+  return new ValidationError(
+    SharedErrorCode.RequestInvalid,
+    'mediaId must reference an existing media record in this garden.',
+    { details: [{ code: 'plants_inventory.plant_candidate.invalid_media_reference', pointer }] },
+  );
+}
+
+/** Mirrors `mediaNotAvailableForAttachmentError` in `plant-errors.ts`. */
+export function candidateMediaNotAvailableForAttachmentError(pointer: string): ValidationError {
+  return new ValidationError(
+    SharedErrorCode.RequestInvalid,
+    'mediaId must reference media whose upload has completed and is not being deleted.',
+    { details: [{ code: 'plants_inventory.plant_candidate.media_not_available', pointer }] },
+  );
+}

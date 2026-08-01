@@ -74,6 +74,8 @@ export type { CandidateResource } from './application/candidate-view.js';
 export { toCandidateResource } from './application/candidate-view.js';
 export { AddCandidate } from './application/add-candidate.js';
 export type { AddCandidateInput } from './application/add-candidate.js';
+export { AddCandidateFromPhoto } from './application/add-candidate-from-photo.js';
+export type { AddCandidateFromPhotoInput } from './application/add-candidate-from-photo.js';
 export { UpdateCandidateDetails } from './application/update-candidate-details.js';
 export { SetCandidateStatus } from './application/set-candidate-status.js';
 export { ConvertCandidate } from './application/convert-candidate.js';
@@ -90,6 +92,14 @@ export type {
 } from './application/list-candidates.js';
 export { KyselyPlantCandidateRepository } from './persistence/kysely-plant-candidate-repository.js';
 export { KyselyCandidateConversionRepository } from './persistence/kysely-candidate-conversion-repository.js';
+
+// Candidate photos (P11-CAND-PHOTO-01) — mirrors the plant-photo exports
+// below, retargeted to `plant_candidate`.
+export type { PlantCandidatePhoto } from './domain/plant-candidate-photo.js';
+export type { PlantCandidatePhotoRepository } from './application/plant-candidate-photo-repository.js';
+export type { PlantCandidatePhotoResource } from './application/plant-candidate-photo-view.js';
+export { ListCandidatePhotos } from './application/list-candidate-photos.js';
+export { KyselyPlantCandidatePhotoRepository } from './persistence/kysely-plant-candidate-photo-repository.js';
 
 // Taxon knowledge profile crosswalk and materialized version (P11-DATA-02).
 // `plant_fact_assertion`/`plant_distribution_assertion`/`plant_media_asset`

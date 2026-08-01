@@ -55,6 +55,14 @@ export interface PlantPhotoRow {
   created_at: Generated<Date>;
 }
 
+export interface PlantCandidatePhotoRow {
+  id: string;
+  candidate_id: string;
+  media_id: string;
+  is_primary: Generated<boolean>;
+  created_at: Generated<Date>;
+}
+
 export interface PlantIdentificationRow {
   id: string;
   plant_id: string;
@@ -218,6 +226,7 @@ export interface PlantsInventoryDatabaseSchema {
   'plants_inventory.plant_identification': PlantIdentificationRow;
   'plants_inventory.plant_revision': PlantRevisionRow;
   'plants_inventory.plant_candidate': PlantCandidateRow;
+  'plants_inventory.plant_candidate_photo': PlantCandidatePhotoRow;
   'plants_inventory.candidate_conversion': CandidateConversionRow;
   'plants_inventory.candidate_suitability_assessment': CandidateSuitabilityAssessmentRow;
   'plants_inventory.taxonomy_name': TaxonomyNameRow;

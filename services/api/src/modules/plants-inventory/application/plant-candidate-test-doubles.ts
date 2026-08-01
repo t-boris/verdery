@@ -10,12 +10,14 @@
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { CandidateConversion } from '../domain/candidate-conversion.js';
 import type { PlantCandidate } from '../domain/plant-candidate.js';
+import type { PlantCandidatePhoto } from '../domain/plant-candidate-photo.js';
 import type { CandidateConversionRepository } from './candidate-conversion-repository.js';
 import type {
   CandidateListFilters,
   CandidateListPage,
   PlantCandidateRepository,
 } from './plant-candidate-repository.js';
+import type { PlantCandidatePhotoRepository } from './plant-candidate-photo-repository.js';
 
 /** A minimal, valid `PlantCandidate` for tests that need one already stored, with any field overridable — mirrors `buildPlant`. */
 export function buildCandidate(
@@ -107,6 +109,27 @@ export class FakePlantCandidateRepository implements PlantCandidateRepository {
       items: pageItems,
       nextCursor: hasMore ? String(start + limit) : null,
     });
+  }
+}
+
+export class FakePlantCandidatePhotoRepository implements PlantCandidatePhotoRepository {
+  readonly photos = new Map<Uuid, PlantCandidatePhoto>();
+
+  findAllForCandidate(candidateId: Uuid): Promise<PlantCandidatePhoto[]> {
+    const photos = [...this.photos.values()]
+      .filter((photo) => photo.candidateId === candidateId)
+      .sort((a, b) => {
+        if (a.isPrimary !== b.isPrimary) {
+          return a.isPrimary ? -1 : 1;
+        }
+        return a.createdAt.getTime() - b.createdAt.getTime();
+      });
+    return Promise.resolve(photos);
+  }
+
+  insert(photo: PlantCandidatePhoto): Promise<void> {
+    this.photos.set(photo.id, photo);
+    return Promise.resolve();
   }
 }
 

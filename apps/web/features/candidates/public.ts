@@ -8,7 +8,9 @@ export { CandidateDetail } from './candidate-detail';
 export { CandidateList } from './candidate-list';
 export {
   useAddCandidate,
+  useAddCandidateFromPhoto,
   useCandidate,
+  useCandidatePhotos,
   useCandidateSuitability,
   useConvertCandidate,
   useListCandidates,

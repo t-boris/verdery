@@ -1376,6 +1376,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/gardens/{gardenId}/plant-candidates/from-photo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a plant candidate identified from a photo
+         * @description Creates an `'individual'` candidate prefilled from a
+         *     photo-identification pass, and inserts the photo in the same
+         *     transaction. Unlike `addPlantFromPhoto`, the suggestion is applied
+         *     directly to the created candidate — no separate confirm step: a
+         *     candidate is a lower-stakes, not-yet-real-plant record, edited or
+         *     deleted like any other candidate field if the guess is wrong.
+         *
+         *     Source: implementation-plan.md work package P11-CAND-PHOTO-01.
+         */
+        post: operations["addCandidateFromPhoto"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/gardens/{gardenId}/plant-candidates/{candidateId}": {
         parameters: {
             query?: never;
@@ -1498,6 +1527,34 @@ export interface paths {
          *     Source: implementation-plan.md work package P11-SUIT-01, P11-API-01.
          */
         post: operations["recalculateCandidateSuitability"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/plant-candidates/{candidateId}/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                candidateId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List a candidate's attached photos
+         * @description Every photo attached to this candidate, primary first, then oldest
+         *     first. No pagination — mirrors `listPlantPhotos`'s own shape;
+         *     `addCandidateFromPhoto` is the only writer today, so this is
+         *     always at most one photo.
+         *
+         *     Source: implementation-plan.md work package P11-CAND-PHOTO-01.
+         */
+        get: operations["listCandidatePhotos"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5923,6 +5980,23 @@ export interface components {
             createdAt: components["schemas"]["Timestamp"];
             updatedAt: components["schemas"]["Timestamp"];
         };
+        PlantCandidatePhoto: {
+            id: components["schemas"]["Uuid"];
+            candidateId: components["schemas"]["Uuid"];
+            mediaId: components["schemas"]["Uuid"];
+            isPrimary: boolean;
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        /** @description Every photo attached to a candidate, primary first, then oldest first. No pagination — mirrors PlantPhotoListResult's own unpaginated shape. */
+        PlantCandidatePhotoListResult: {
+            items: components["schemas"]["PlantCandidatePhoto"][];
+        };
+        /** @description Mirrors `AddCandidateFromPhotoInput`. Source: plants-inventory/application/add-candidate-from-photo.ts. */
+        AddCandidateFromPhotoRequest: {
+            proposedGardenAreaMapObjectId?: components["schemas"]["Uuid"];
+            proposedPlacementMapObjectId?: components["schemas"]["Uuid"];
+            photoMediaId: components["schemas"]["Uuid"];
+        };
         PlantCandidateListResult: {
             items: components["schemas"]["PlantCandidate"][];
             /** @description Opaque continuation token. Absent when no further page exists. */
@@ -9521,6 +9595,44 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
+    addCandidateFromPhoto: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddCandidateFromPhotoRequest"];
+            };
+        };
+        responses: {
+            /** @description The created candidate. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlantCandidate"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     getCandidate: {
         parameters: {
             query?: never;
@@ -9726,6 +9838,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SuitabilityAssessment"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listCandidatePhotos: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                candidateId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The candidate's attached photos. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlantCandidatePhotoListResult"];
                 };
             };
             401: components["responses"]["Unauthorized"];

@@ -2,11 +2,12 @@
  * Port answering "which attachment rows still reference this media record?"
  * — the deletion workflow's referenced-media guard (P6-RET-01).
  *
- * Four tables reference `media.media_record` today, all RESTRICT-shaped by
+ * Five tables reference `media.media_record` today, all RESTRICT-shaped by
  * deliberate choice (`imported_background_details`' migration comment:
  * "deleting a media record out from under a background must fail loudly ...
  * not silently orphan or destroy a map object"):
- * `plants_inventory.plant_photo`, `observations_history.observation_photo`,
+ * `plants_inventory.plant_photo`, `plants_inventory.plant_candidate_photo`
+ * (P11-CAND-PHOTO-01), `observations_history.observation_photo`,
  * `tasks_recommendations.task_attachment`, and
  * `gardens_mapping.imported_background_details`. Because media deletion is
  * a STATE transition, not a row `DELETE`, those foreign keys never fire on
@@ -26,7 +27,11 @@ import type { Uuid } from '../../../shared/identifiers/uuid.js';
 
 /** One kind of attachment row that can hold a media reference — the vocabulary `media.referenced`'s error details name. */
 export type MediaReferenceKind =
-  'plant_photo' | 'observation_photo' | 'task_attachment' | 'imported_background';
+  | 'plant_photo'
+  | 'candidate_photo'
+  | 'observation_photo'
+  | 'task_attachment'
+  | 'imported_background';
 
 export interface MediaReferenceFinder {
   /**

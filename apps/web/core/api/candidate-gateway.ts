@@ -1,9 +1,11 @@
 import type {
+  AddCandidateFromPhotoRequest,
   AddCandidateRequest,
   ConvertCandidateRequest,
   ConvertCandidateResult,
   PlantCandidate,
   PlantCandidateListResult,
+  PlantCandidatePhotoListResult,
   PlantCandidatePriority,
   PlantCandidateStatus,
   SetCandidateStatusRequest,
@@ -39,6 +41,17 @@ export interface CandidateGateway {
     idempotencyKey: string,
     signal?: AbortSignal,
   ): Promise<ApiResult<PlantCandidate>>;
+  addFromPhoto(
+    gardenId: string,
+    input: AddCandidateFromPhotoRequest,
+    idempotencyKey: string,
+    signal?: AbortSignal,
+  ): Promise<ApiResult<PlantCandidate>>;
+  listPhotos(
+    gardenId: string,
+    candidateId: string,
+    signal?: AbortSignal,
+  ): Promise<ApiResult<PlantCandidatePhotoListResult>>;
   list(
     gardenId: string,
     params: ListCandidatesParams,
@@ -124,7 +137,10 @@ function listCandidatesQuery(params: ListCandidatesParams): string {
  * inventory (`plant-gateway.ts`). `getSuitability` answers `404` when no
  * assessment has ever been computed; `recalculateSuitability` is what a
  * client calls first, and again whenever garden context or the candidate's
- * own details change enough to warrant a fresh read.
+ * own details change enough to warrant a fresh read. `addFromPhoto`/
+ * `listPhotos` (P11-CAND-PHOTO-01) mirror `plant-gateway.ts`'s own
+ * `addFromPhoto`/`listPhotos`, minus the separate confirm step a real plant
+ * needs — see `AddCandidateFromPhoto`'s own header for why.
  *
  * Source: packages/api-contracts/openapi.yaml, tag `PlantCandidates`;
  * architecture/web-application-design.md, section "8. API Access".
@@ -137,6 +153,24 @@ export function createCandidateGateway(client: ApiClient): CandidateGateway {
         path: `/gardens/${gardenId}/plant-candidates`,
         body: input,
         headers: { [IDEMPOTENCY_KEY_HEADER]: idempotencyKey, ...csrfHeader() },
+        ...(signal === undefined ? {} : { signal }),
+      });
+    },
+
+    addFromPhoto(gardenId, input, idempotencyKey, signal) {
+      return client.request<PlantCandidate>({
+        method: 'POST',
+        path: `/gardens/${gardenId}/plant-candidates/from-photo`,
+        body: input,
+        headers: { [IDEMPOTENCY_KEY_HEADER]: idempotencyKey, ...csrfHeader() },
+        ...(signal === undefined ? {} : { signal }),
+      });
+    },
+
+    listPhotos(gardenId, candidateId, signal) {
+      return client.request<PlantCandidatePhotoListResult>({
+        method: 'GET',
+        path: `/gardens/${gardenId}/plant-candidates/${candidateId}/photos`,
         ...(signal === undefined ? {} : { signal }),
       });
     },
