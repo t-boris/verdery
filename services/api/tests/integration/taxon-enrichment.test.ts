@@ -336,6 +336,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       refreshTaxonAssertions,
       rebuildPlantProfileVersion,
       [PROVIDER_KEY],
+      fixedClock(now),
     );
 
     const result = await sweep.execute();
@@ -346,5 +347,6 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     // real "nothing to resolve yet" outcome, not a crash.
     expect(result.profilesWithNothingToResolve).toBeGreaterThanOrEqual(1);
     expect(adapter.searchCallCount).toBeGreaterThanOrEqual(1);
+    expect(result.durationMs).toBeGreaterThanOrEqual(0);
   });
 });

@@ -47,6 +47,7 @@
  */
 
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
+import type { Clock } from '../../../shared/time/clock.js';
 import type {
   RefreshTaxonAssertionsInput,
   RefreshTaxonAssertionsResult,
@@ -82,6 +83,8 @@ export interface TaxonEnrichmentSweepResult {
   readonly degradationReasons: Readonly<Partial<Record<TaxonAssertionsUnavailableReason, number>>>;
   /** True when a typed `quotaExhausted` outcome stopped the batch before every candidate was considered. */
   readonly stoppedOnQuotaExhaustion: boolean;
+  /** P11-OBS-01: "enrichment duration" — wall-clock time for this run's own DB/provider work, measured here (not by the worker's HTTP round-trip, which would also fold in network latency the sweep itself has no control over). */
+  readonly durationMs: number;
 }
 
 export class RunTaxonEnrichmentSweep {
@@ -91,9 +94,11 @@ export class RunTaxonEnrichmentSweep {
     private readonly rebuildPlantProfileVersion: PlantProfileVersionRebuilder,
     /** Ordered, most preferred first — see this file's own header on why one list serves both roles. */
     private readonly sourcePriority: readonly string[],
+    private readonly clock: Clock,
   ) {}
 
   async execute(): Promise<TaxonEnrichmentSweepResult> {
+    const startedAt = this.clock.now();
     const taxonomyReferenceIds = await this.candidates.listEnrichmentCandidates(
       TAXON_ENRICHMENT_SWEEP_BATCH_LIMIT,
     );
@@ -144,6 +149,7 @@ export class RunTaxonEnrichmentSweep {
       profilesWithNothingToResolve,
       degradationReasons,
       stoppedOnQuotaExhaustion,
+      durationMs: this.clock.now().getTime() - startedAt.getTime(),
     };
   }
 }

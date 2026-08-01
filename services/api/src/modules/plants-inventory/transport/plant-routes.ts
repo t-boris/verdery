@@ -274,6 +274,21 @@ export function registerPlantRoutes(app: FastifyInstance, deps: PlantRoutesDepen
       idempotencyKey,
     );
 
+    // P11-OBS-01: "actual-versus-candidate additions" — this route only
+    // ever creates an ACTUAL plant (candidates are `plants.candidate_added`
+    // below), so `kind` is a constant, carried anyway so the two events
+    // share one log-based-metric filter downstream. Never the display name
+    // or any identifier.
+    request.log.info(
+      {
+        event: 'plants.actual_created',
+        kind: 'actual',
+        groupingKind: plant.groupingKind,
+        identified: plant.taxonomyReferenceId !== null,
+      },
+      'Actual plant created',
+    );
+
     return reply.status(201).send(plant);
   });
 
@@ -287,6 +302,24 @@ export function registerPlantRoutes(app: FastifyInstance, deps: PlantRoutesDepen
       filters,
       cursor,
       limit,
+    );
+
+    // P11-OBS-01: "search success, zero results, filter use" — counts and
+    // filter-presence flags only, never the query text itself (a common
+    // name can be sensitive — plant-intelligence-and-visual-journal.md
+    // section 17's own exclusion list).
+    request.log.info(
+      {
+        event: 'plants.search_completed',
+        resultCount: result.items.length,
+        isZeroResult: result.items.length === 0,
+        hasQueryText: filters.query !== undefined && filters.query !== null,
+        hasLifecycleStageFilter: filters.lifecycleStage !== undefined,
+        hasStatusFilter: filters.status !== undefined,
+        hasGroupingKindFilter: filters.groupingKind !== undefined,
+        hasIdentifiedFilter: filters.identified !== undefined && filters.identified !== null,
+      },
+      'Plant search completed',
     );
 
     return reply.status(200).send(toPlantListResult(result));
@@ -410,6 +443,21 @@ export function registerPlantRoutes(app: FastifyInstance, deps: PlantRoutesDepen
         identificationId,
         expectedRevision,
         idempotencyKey,
+      );
+
+      // P11-OBS-01: "confirmation outcomes" — paired with
+      // `plants.identification_suggested` (application layer, at the
+      // moment of the photo-based suggestion), this is the OTHER half of
+      // that funnel. `hasCatalogMatch` is read straight off the response
+      // this route already sends: confirming an identification with a
+      // catalog match sets `plant.taxonomyReferenceId`; a raw-guess-only
+      // confirmation leaves it null — no second query.
+      request.log.info(
+        {
+          event: 'plants.identification_confirmed',
+          hasCatalogMatch: plant.taxonomyReferenceId !== null,
+        },
+        'Plant identification confirmed',
       );
 
       return reply.status(200).send(plant);

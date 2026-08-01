@@ -193,6 +193,7 @@ Required dashboards:
 - Cost and quota.
 - Deletion and retention compliance.
 - Client publication and portal.
+- Plant intelligence.
 
 Each dashboard links to its runbook and owning component.
 
@@ -1123,6 +1124,190 @@ completion" have no new producer, for the reasons stated above, not silently pro
 prohibited-content correction table above fixed two REAL, pre-existing violations found while
 establishing this package's own starting state — recorded here as findings, not hidden as if they
 had never happened.
+
+### Plant intelligence dashboard, alert candidates, and runbook (P11-OBS-01)
+
+Section 17's own list ("search success, filters, add abandonment, actual/candidate creation,
+enrichment coverage, license rejection, suitability review, conversion, journal capture/recovery,
+comparison use, health disposition, processing latency, and storage growth") maps to code built
+across six earlier P11 work packages (P11-DATA-01, P11-SEARCH-01, P11-ASYNC-01, P11-SUIT-01,
+P11-MEDIA-01, P11-HEALTH-01). Two categories needed NOTHING new, because they are already fully
+covered by earlier packages' own signals, reused verbatim:
+
+- **Media processing latency, derivative failure, storage growth, publication access.** Visual-journal
+  photos flow through the same shared `media` module every other photo does — `media.upload
+.registered`/`media.upload.completed`/`media.processing.result_recorded` (P6-OBS-01) and
+  `client_media.access_granted`/`authorization.denied{surface="client_media"}` (P9C-OBS-01) already
+  answer this category exactly. P11-SHARE-01 only added an eligibility filter
+  (`isMediaClientSafe`'s derivative-only check) inside an existing command; it built no new
+  read/access route to instrument. Storage growth itself is, and remains, a GCS built-in metric
+  (`storage.googleapis.com/storage/total_bytes`), the same deferral this document's own opening
+  section already states — no application log line was ever the right producer for a bucket-wide
+  byte total.
+- **License rejection.** `plants_inventory.plant_media_asset`/`integrations.plant_content_record`
+  document license eligibility in their own domain comments, but neither has an application-layer
+  command, a repository, or an ingestion pipeline — see this document's own P11-DATA-02 subsection
+  cross-reference. There is no code path that could reject a license, so there is nothing to log; a
+  future licensed-image ingestion package is where this signal would first become real, not invented
+  here ahead of the feature it measures.
+
+**What is logged — structured log lines, counts/flags/closed vocabulary only, no display name, note,
+suggested label, evidence summary, alternative explanation, raw confidence score, or model
+identifier in any of them:**
+
+| Event                                     | Fields                                                                                                                                                                                                                  | Emitted by                                                                                                                                                                                                     |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `plants.actual_created`                   | `kind` (`'actual'`), `groupingKind`, `identified`                                                                                                                                                                       | `POST /gardens/{id}/plants`                                                                                                                                                                                    |
+| `plants.candidate_added`                  | `kind` (`'candidate'`), `groupingKind`, `identified`, `hasPriority`, `isAlternative`                                                                                                                                    | `POST /gardens/{id}/plant-candidates`                                                                                                                                                                          |
+| `plants.identification_suggested`         | `hadCandidate`, `hasCatalogMatch`, `confidenceBucket` (`none`/`low`/`medium`/`high`)                                                                                                                                    | `AddPlantFromPhoto` (application layer — the raw suggestion the route response never carries is only in scope inside this command)                                                                             |
+| `plants.identification_confirmed`         | `hasCatalogMatch`                                                                                                                                                                                                       | `POST .../identification/{id}/confirm`                                                                                                                                                                         |
+| `plants.search_completed`                 | `resultCount`, `isZeroResult`, `hasQueryText`, `hasLifecycleStageFilter`, `hasStatusFilter`, `hasGroupingKindFilter`, `hasIdentifiedFilter`                                                                             | `GET /gardens/{id}/plants`                                                                                                                                                                                     |
+| `plants.candidates_listed`                | `resultCount`, `isZeroResult`, `hasQueryText`, `hasStatusFilter`, `hasPriorityFilter`, `hasIdentifiedFilter`                                                                                                            | `GET /gardens/{id}/plant-candidates`                                                                                                                                                                           |
+| `plants.candidate_suitability_reviewed`   | `recalculated` (flag), `findingCounts` (per `match`/`caution`/`blocker`/`unknown`/`assumption`)                                                                                                                         | `GET`/`POST .../suitability`                                                                                                                                                                                   |
+| `plants.candidate_converted`              | `groupingKind`, `hasPriority`                                                                                                                                                                                           | `POST .../convert`                                                                                                                                                                                             |
+| `observations.recorded`                   | `hasPlant`, `photoCount`, `measurementCount`, `hasNote`, `hasConditionSummary`, `hasPhenologicalStage`                                                                                                                  | `POST /gardens/{id}/observations`                                                                                                                                                                              |
+| `observations.corrected`                  | `correctionKind` (`amendment`/`supersede`), `photoCount`, `measurementCount`                                                                                                                                            | `POST /observations/{id}/corrections`                                                                                                                                                                          |
+| `observations.health_suggestion_produced` | `analysisCount`, `requestedAdditionalEvidenceCount`, `hasModelCount`, `safetyClassCounts` (per `informational`/`monitor`/`expert_review_recommended`)                                                                   | The same two routes above, whenever the recorded/corrected observation carries at least one photo — there is no separate client-invoked "request a suggestion" action; a photo's own attachment IS the request |
+| `observations.health_disposition_set`     | `disposition` (`confirmed_externally`/`accepted_as_observation`/`rejected`/`unresolved`)                                                                                                                                | `POST /observations/analysis-results/{id}/disposition`                                                                                                                                                         |
+| `taxon_enrichment.sweep_completed`        | Unchanged P11-ASYNC-01 fields, plus new `durationMs`                                                                                                                                                                    | The taxon-enrichment worker sweep (unchanged emitter)                                                                                                                                                          |
+| `plant_species_ai.no_catalog_match`       | `confidenceScore` (was, until this pass, ALSO the model's raw `commonName` guess — a real, pre-existing prohibited-content violation found and fixed; see the fix site's own comment in `identify-plant-from-photo.ts`) | `AddPlantFromPhoto` (via `identifyPlantFromPhoto`)                                                                                                                                                             |
+
+**Why confidence is bucketed, never logged raw.** `plants.identification_suggested.confidenceBucket`
+buckets the model's continuous `[0, 1]` score into `none`/`low` (`< 0.5`)/`medium` (`< 0.8`)/`high` —
+a raw float, unlike a bucket, could in principle be correlated across log lines to fingerprint one
+specific identification attempt; `plant_species_ai.no_catalog_match`'s own `confidenceScore` field is
+the one deliberate exception, grandfathered because this pass only removed that event's
+`commonName` violation, not its pre-existing (and already reviewed) confidence field.
+
+**Log-based metric definitions these fields support** (Cloud Monitoring, filtered by
+`jsonPayload.event`, all `verdery-api` except the sweep, `verdery-workers`):
+
+- `plants_actual_created`/`plants_candidate_added` — counters, grouped by `jsonPayload.identified`
+  and `jsonPayload.groupingKind` — "actual-versus-candidate additions" (section 17) as one ratio.
+- `plants_search_completed_zero_result_rate` — counter filtered additionally on
+  `jsonPayload.isZeroResult="true"`, divided by the unfiltered `plants_search_completed` counter —
+  "search success, zero results" directly. `plants_candidates_listed` mirrors it for the candidate
+  list.
+- `plants_identification_suggested_confidence_bucket` — counter grouped by
+  `jsonPayload.confidenceBucket` — "identification ambiguity" as a distribution across the four
+  buckets (see "What this section deliberately does not claim" below for why this is the honest
+  ceiling on that specific named signal). `plants_identification_confirmation_rate` —
+  `plants.identification_confirmed` count divided by `plants.identification_suggested` count with
+  `hadCandidate="true"` — the confirmation half.
+- `plants_candidate_suitability_reviewed_finding_counts` — DISTRIBUTION per category, value
+  extractors on each `jsonPayload.findingCounts.<category>` — "suitability review" per finding
+  category. `plants_candidate_conversion_rate` — `plants.candidate_converted` count divided by
+  `plants.candidate_added` count over the same trailing window — "conversion" (section 17) directly.
+- `observations_recorded_photo_count`/`observations_corrected_photo_count` — DISTRIBUTIONs on
+  `jsonPayload.photoCount` — "journal capture completion" volume.
+- `observations_health_suggestion_produced_safety_class` — counter grouped by
+  `jsonPayload.safetyClassCounts.<class>` — "health-suggestion" volume by urgency.
+  `observations_health_disposition_set` — counter grouped by `jsonPayload.disposition` —
+  "disposition" directly.
+- `taxon_enrichment_sweep_duration_ms` — DISTRIBUTION, value extractor `jsonPayload.durationMs`,
+  filter `jsonPayload.event="taxon_enrichment.sweep_completed"` — "enrichment duration," the one
+  field this pass added to an otherwise already-instrumented (P11-ASYNC-01) event.
+
+**Dashboard widget compositions** — the "Plant intelligence" dashboard (added to this document's
+required list above):
+
+- **Add funnel** — `plants_actual_created` beside `plants_candidate_added`, stacked: the
+  actual-versus-candidate split section 17 names first.
+- **Search and candidate-list health** — `plants_search_completed_zero_result_rate` beside
+  `plants_candidates_listed`'s own zero-result rate, with filter-presence flags (`hasQueryText`,
+  `hasStatusFilter`, etc.) as secondary breakdowns — "filter use" made visible per filter, not only
+  in aggregate.
+- **Identification funnel** — `plants_identification_suggested_confidence_bucket` (stacked by
+  bucket) beside `plants_identification_confirmation_rate` — how often a suggestion is made, at what
+  confidence, and how often it is actually confirmed.
+- **Suitability and conversion** — `plants_candidate_suitability_reviewed_finding_counts` (stacked
+  by category) beside `plants_candidate_conversion_rate` — whether candidates with more
+  `blocker`/`caution` findings convert less often (a real, checkable hypothesis this pair of widgets
+  makes visible, not asserted here).
+- **Journal capture volume** — `observations_recorded_photo_count`/`observations_corrected_photo_count`
+  p50/p95, side by side.
+- **Health-suggestion safety and disposition** — `observations_health_suggestion_produced_safety_class`
+  (stacked by class) beside `observations_health_disposition_set` (stacked by disposition) — whether
+  `expert_review_recommended` suggestions are disproportionately `rejected` versus
+  `accepted_as_observation`, the same kind of checkable-not-asserted pairing as the suitability
+  widget above.
+- **Enrichment sweep health** — `taxon_enrichment_sweep_duration_ms` p50/p95 beside the P11-ASYNC-01
+  `degradationReasons` breakdown already documented in that package's own review — duration and
+  failure mode on one dashboard.
+
+**Alert candidates, with reasoned starting thresholds** (per section 14, exact targets still need
+approval before production):
+
+1. **Search zero-result share, review-time, not paged.** `plants_search_completed_zero_result_rate`
+   exceeds 40% over a trailing 7 days. Mirrors the care-loop and portal-invitation "product-quality
+   review measure, not an incident" precedent already established in the two subsections above — a
+   sustained high zero-result share usually means the catalog is too sparse for what users are
+   actually typing (a P11-PROV-01/enrichment-coverage problem) or the trigram similarity threshold
+   needs tuning, either an operational/product decision, not a page.
+2. **Enrichment sweep duration regression.** `taxon_enrichment_sweep_duration_ms` p95 over a trailing
+   6-hour window (the sweep's own interval) exceeds 3x its own trailing 7-day p95 baseline —
+   comparison against the sweep's OWN history, the identical posture the "Authorization denial
+   spike" alert candidate above takes for a brand-new signal with no external baseline to compare
+   against yet. A real regression here means a provider is responding slowly (check
+   `degradationReasons` for `providerTimeout` first) or the batch limit
+   (`TAXON_ENRICHMENT_SWEEP_BATCH_LIMIT`) needs revisiting.
+
+**Runbook entries** (section 18's shape):
+
+- **Search zero-result share.** Meaning: the catalog or the search ranking is failing users more
+  than usual. First: the zero-result rate split by whether `hasQueryText` was set (a genuine
+  free-text miss versus a filter combination that legitimately has no matches), then
+  `plants_identification_suggested_confidence_bucket`'s own `none`/`low` share over the same window
+  (a sparse catalog shows up in both places at once). Safe remediation: none server-side that is
+  live-tunable; widening trigram similarity or seeding more catalog entries are reviewed product
+  decisions.
+- **Enrichment sweep duration regression.** Meaning: a provider is slow, quota-throttled, or the
+  batch size no longer fits the interval. First: `degradationReasons` grouped by reason for the same
+  window, then the provider's own external status page if `providerTimeout`/`providerFailed`
+  dominates. Safe remediation: none server-side beyond the sweep's own existing quota-exhaustion
+  stop; reducing `TAXON_ENRICHMENT_SWEEP_BATCH_LIMIT` is a reviewed configuration change, not a
+  live-tuning knob.
+
+**What this section deliberately does not claim.** No live dashboard, log-based metric, or alert
+policy has been created against any environment — the same precedent every subsection above already
+states. Four of section 17's named signals have NO real producer, and this is recorded here as an
+honest gap rather than an invented one:
+
+- **"Identification ambiguity" has no real outcome to log.** `identifyPlantFromPhoto` collapses
+  every non-candidate case (disabled, unconfigured, quota-exhausted, timed out, failed, no confident
+  candidate, schema-invalid, safety-blocked) into one `NO_SUGGESTION` shape before `AddPlantFromPhoto`
+  ever sees it — there is no "multiple candidates" or "ambiguous" state anywhere in the domain.
+  `confidenceBucket`'s own `low`/`medium` split is the closest honest proxy this pass could build
+  without inventing a distinction the identification pipeline does not make.
+- **"Model fallback" is not a real concept.** There is no secondary/fallback model for either
+  species identification or condition analysis — both collapse every failure mode to one generic,
+  non-diagnostic outcome shape, never a fallback-to-another-model path. `hasModelCount` (from
+  `observations.health_suggestion_produced`) answers "was any model reached at all," which is the
+  full extent of what the current single-provider architecture can honestly report.
+- **"Duplicate detection" and "upload recovery" were never built, in any phase, not only deferred
+  within P11.** Section 8.3 of plant-intelligence-and-visual-journal.md names perceptual/cryptographic
+  hashing for duplicate detection as required, and implementation-plan.md's own P11-MEDIA-01 scope
+  line repeats it, but no hash computation exists anywhere in `services/workers` (the closest file,
+  `content-signature.ts`, does MIME magic-byte sniffing, not content hashing), and no
+  `contentHash`/`perceptualHash` column exists in the media schema. Uploads resume directly against
+  Cloud Storage's own resumable-upload protocol, never through the API, so there is no distinct
+  "recovery" code path to distinguish from an ordinary registration either. Neither is a P11-OBS-01
+  gap — there is no feature here to instrument, and inventing a log line for a feature that does not
+  exist would be worse than reporting nothing.
+- **"Comparison use" has no backend endpoint.** Before/after comparison and matched-view overlay
+  (section 8.4) are client-side compositions over the ordinary chronological observation list
+  (`GET .../plants/{id}/observations`) — there is nothing distinctly "comparison" for a server route
+  to log; this is a client-telemetry signal, and P0-SEC-01's consent model for client-emitted product
+  events remains undecided (the same P7-ANALYTICS-01/P9C-OBS-01 deferral this document's own
+  Consent section states).
+- **"Abandoned add flows" needs no new field — it is a derived metric.** There is no "add flow
+  started" event to abandon from, and inventing one would mean logging on every keystroke of an
+  in-progress form, which no client-emitted-events decision has authorized. The honest, buildable
+  signal is the SAME "gap between two independently-logged counters" pattern this document's own
+  media-upload section already uses (`media.upload.registered` minus `media.upload.completed`):
+  `plants.candidate_added` minus (`plants.candidate_converted` plus a rejected-status transition,
+  neither instrumented by this pass) over the same window is the P11 analogue, buildable from
+  signals this pass already produces without a new field.
 
 ## 14. SLOs
 

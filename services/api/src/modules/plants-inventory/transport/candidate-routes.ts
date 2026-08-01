@@ -40,6 +40,11 @@ import {
   parseUpdateCandidateDetailsRequest,
 } from './parse-candidate-request.js';
 import type { ListCandidatesFilters } from '../application/list-candidates.js';
+import {
+  findingsOfCategory,
+  type SuitabilityAssessmentResult,
+  type SuitabilityFinding,
+} from '../domain/suitability-finding.js';
 
 export interface CandidateRoutesDependencies {
   readonly addCandidate: AddCandidate;
@@ -61,6 +66,19 @@ const CANDIDATE_STATUSES: readonly CandidateStatus[] = [
 ];
 const MAX_LIST_CANDIDATES_LIMIT = 100;
 const DEFAULT_LIST_CANDIDATES_LIMIT = 50;
+
+/** P11-OBS-01: per-category finding counts for `plants.candidate_suitability_reviewed` — a closed-vocabulary breakdown, never a finding's own axis/evidence text. */
+function suitabilityFindingCounts(
+  assessment: SuitabilityAssessmentResult,
+): Record<SuitabilityFinding['category'], number> {
+  return {
+    match: findingsOfCategory(assessment, 'match').length,
+    caution: findingsOfCategory(assessment, 'caution').length,
+    blocker: findingsOfCategory(assessment, 'blocker').length,
+    unknown: findingsOfCategory(assessment, 'unknown').length,
+    assumption: findingsOfCategory(assessment, 'assumption').length,
+  };
+}
 
 function requireCandidateId(request: FastifyRequest): string {
   const { candidateId } = request.params as { candidateId?: unknown };
@@ -194,6 +212,20 @@ export function registerCandidateRoutes(
       idempotencyKey,
     );
 
+    // P11-OBS-01: "actual-versus-candidate additions" — the candidate half
+    // of the pair `plants.actual_created` establishes for actual plants.
+    request.log.info(
+      {
+        event: 'plants.candidate_added',
+        kind: 'candidate',
+        groupingKind: candidate.groupingKind,
+        identified: candidate.taxonomyReferenceId !== null,
+        hasPriority: candidate.priority !== null,
+        isAlternative: candidate.alternativeToCandidateId !== null,
+      },
+      'Plant candidate added',
+    );
+
     return reply.status(201).send(candidate);
   });
 
@@ -207,6 +239,22 @@ export function registerCandidateRoutes(
       filters,
       cursor,
       limit,
+    );
+
+    // P11-OBS-01: "search success, zero results, filter use" — the
+    // candidate-list half of the pair `plants.search_completed` establishes
+    // for the plant search route.
+    request.log.info(
+      {
+        event: 'plants.candidates_listed',
+        resultCount: page.items.length,
+        isZeroResult: page.items.length === 0,
+        hasQueryText: filters.query !== undefined && filters.query !== null,
+        hasStatusFilter: filters.status !== undefined,
+        hasPriorityFilter: filters.priority !== undefined,
+        hasIdentifiedFilter: filters.identified !== undefined && filters.identified !== null,
+      },
+      'Plant candidates listed',
     );
 
     return reply.status(200).send({
@@ -279,6 +327,19 @@ export function registerCandidateRoutes(
       idempotencyKey,
     );
 
+    // P11-OBS-01: "candidate suitability review and conversion" — the
+    // conversion half. `hasPriority` is the same signal
+    // `plants.candidate_added` already records, carried through to see
+    // whether higher-priority candidates convert at a different rate.
+    request.log.info(
+      {
+        event: 'plants.candidate_converted',
+        groupingKind: result.candidate.groupingKind,
+        hasPriority: result.candidate.priority !== null,
+      },
+      'Plant candidate converted',
+    );
+
     return reply.status(201).send(result);
   });
 
@@ -294,6 +355,18 @@ export function registerCandidateRoutes(
         request.actorContext.profileId,
       );
 
+      // P11-OBS-01: "candidate suitability review" — the read half. Finding
+      // counts per closed category only, never a finding's own axis/
+      // evidence text or the candidate/garden id.
+      request.log.info(
+        {
+          event: 'plants.candidate_suitability_reviewed',
+          recalculated: false,
+          findingCounts: suitabilityFindingCounts(assessment),
+        },
+        'Candidate suitability assessment read',
+      );
+
       return reply.status(200).send(assessment);
     },
   );
@@ -307,6 +380,15 @@ export function registerCandidateRoutes(
       const assessment = await deps.recalculateCandidateSuitability.execute(
         candidateId,
         request.actorContext.profileId,
+      );
+
+      request.log.info(
+        {
+          event: 'plants.candidate_suitability_reviewed',
+          recalculated: true,
+          findingCounts: suitabilityFindingCounts(assessment),
+        },
+        'Candidate suitability assessment recalculated',
       );
 
       return reply.status(201).send(assessment);

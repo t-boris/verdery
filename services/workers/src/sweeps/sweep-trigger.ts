@@ -101,4 +101,6 @@ export interface TaxonEnrichmentSweepSummary {
   readonly profilesWithNothingToResolve: number;
   readonly degradationReasons: Readonly<Record<string, number>>;
   readonly stoppedOnQuotaExhaustion: boolean;
+  /** P11-OBS-01: "enrichment duration" — see `services/api`'s own `RunTaxonEnrichmentSweep.execute()` for where this is measured. */
+  readonly durationMs: number;
 }

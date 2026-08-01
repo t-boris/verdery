@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
+import { fixedClock } from './integrations-test-doubles.js';
 import { RunTaxonEnrichmentSweep } from './run-taxon-enrichment-sweep.js';
 import type {
   PlantProfileVersionRebuilder,
@@ -10,6 +11,7 @@ import type { TaxonEnrichmentCandidateSource } from './taxon-enrichment-candidat
 
 const TAXON_A: Uuid = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a01';
 const TAXON_B: Uuid = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a02';
+const NOW = new Date('2026-06-01T09:00:00Z');
 
 class FixedCandidateSource implements TaxonEnrichmentCandidateSource {
   constructor(private readonly ids: readonly Uuid[]) {}
@@ -79,7 +81,13 @@ describe('RunTaxonEnrichmentSweep', () => {
       REFRESHED(taxonomyReferenceId),
     );
     const rebuilder = new ScriptedRebuilder(() => 'rebuilt');
-    const sweep = new RunTaxonEnrichmentSweep(candidates, refresher, rebuilder, ['usda-plants']);
+    const sweep = new RunTaxonEnrichmentSweep(
+      candidates,
+      refresher,
+      rebuilder,
+      ['usda-plants'],
+      fixedClock(NOW),
+    );
 
     const result = await sweep.execute();
 
@@ -90,6 +98,7 @@ describe('RunTaxonEnrichmentSweep', () => {
       profilesWithNothingToResolve: 0,
       degradationReasons: {},
       stoppedOnQuotaExhaustion: false,
+      durationMs: 0,
     });
     expect(refresher.calls).toEqual([
       { taxonomyReferenceId: TAXON_A, providerKey: 'usda-plants' },
@@ -107,7 +116,13 @@ describe('RunTaxonEnrichmentSweep', () => {
       throw new Error('must not be called with an empty sourcePriority');
     });
     const rebuilder = new ScriptedRebuilder(() => 'nothingToResolve');
-    const sweep = new RunTaxonEnrichmentSweep(candidates, refresher, rebuilder, []);
+    const sweep = new RunTaxonEnrichmentSweep(
+      candidates,
+      refresher,
+      rebuilder,
+      [],
+      fixedClock(NOW),
+    );
 
     const result = await sweep.execute();
 
@@ -118,6 +133,7 @@ describe('RunTaxonEnrichmentSweep', () => {
       profilesWithNothingToResolve: 1,
       degradationReasons: {},
       stoppedOnQuotaExhaustion: false,
+      durationMs: 0,
     });
   });
 
@@ -128,7 +144,13 @@ describe('RunTaxonEnrichmentSweep', () => {
       reason: 'quotaExhausted',
     }));
     const rebuilder = new ScriptedRebuilder(() => 'nothingToResolve');
-    const sweep = new RunTaxonEnrichmentSweep(candidates, refresher, rebuilder, ['usda-plants']);
+    const sweep = new RunTaxonEnrichmentSweep(
+      candidates,
+      refresher,
+      rebuilder,
+      ['usda-plants'],
+      fixedClock(NOW),
+    );
 
     const result = await sweep.execute();
 
@@ -148,7 +170,13 @@ describe('RunTaxonEnrichmentSweep', () => {
         : REFRESHED(taxonomyReferenceId),
     );
     const rebuilder = new ScriptedRebuilder(() => 'rebuilt');
-    const sweep = new RunTaxonEnrichmentSweep(candidates, refresher, rebuilder, ['usda-plants']);
+    const sweep = new RunTaxonEnrichmentSweep(
+      candidates,
+      refresher,
+      rebuilder,
+      ['usda-plants'],
+      fixedClock(NOW),
+    );
 
     const result = await sweep.execute();
 

@@ -31,6 +31,7 @@ import {
 import type { CorrectObservation } from '../application/correct-observation.js';
 import type { ListObservationsForGarden } from '../application/list-observations-for-garden.js';
 import type { ListObservationsForPlant } from '../application/list-observations-for-plant.js';
+import type { ObservationPhotoResource } from '../application/observation-view.js';
 import type { RecordObservation } from '../application/record-observation.js';
 import type { SetHealthSuggestionDisposition } from '../application/set-health-suggestion-disposition.js';
 import {
@@ -95,6 +96,41 @@ function toItemsResult<T>(items: readonly T[]): { items: T[] } {
   return { items: [...items] };
 }
 
+/**
+ * P11-OBS-01: "health-suggestion request, additional-view request" —
+ * logged whenever an observation carries at least one photo, since a
+ * photo's own analysis IS the (implicit, automatic) health-suggestion
+ * request — there is no separate client-invoked "request a suggestion"
+ * action. Counts and closed-vocabulary safety classes only: never
+ * `suggestedLabel`, `evidenceSummary`, or `alternativeExplanations` (all
+ * content), and never a raw `modelName` (a `hasModel` presence flag
+ * instead — see `plant_condition_ai.result`'s own precedent for why the
+ * model identifier itself stays out of telemetry).
+ */
+function logHealthSuggestionsProduced(
+  request: FastifyRequest,
+  photos: readonly ObservationPhotoResource[],
+): void {
+  const results = photos.flatMap((photo) => photo.analysisResults);
+  if (results.length === 0) {
+    return;
+  }
+  const safetyClassCounts: Record<string, number> = {};
+  for (const result of results) {
+    safetyClassCounts[result.safetyClass] = (safetyClassCounts[result.safetyClass] ?? 0) + 1;
+  }
+  request.log.info(
+    {
+      event: 'observations.health_suggestion_produced',
+      analysisCount: results.length,
+      requestedAdditionalEvidenceCount: results.filter((r) => r.requestedAdditionalEvidence).length,
+      hasModelCount: results.filter((r) => r.modelName !== null).length,
+      safetyClassCounts,
+    },
+    'Health suggestion(s) produced for attached photo(s)',
+  );
+}
+
 export function registerObservationRoutes(
   app: FastifyInstance,
   deps: ObservationRoutesDependencies,
@@ -110,6 +146,22 @@ export function registerObservationRoutes(
       input,
       idempotencyKey,
     );
+
+    // P11-OBS-01: "journal capture completion" — counts and presence flags
+    // only, never note/summary text, never a plant or garden-object id.
+    request.log.info(
+      {
+        event: 'observations.recorded',
+        hasPlant: observation.plantId !== null,
+        photoCount: observation.photos.length,
+        measurementCount: observation.measurements.length,
+        hasNote: observation.noteText !== null,
+        hasConditionSummary: observation.conditionSummary !== null,
+        hasPhenologicalStage: observation.observedPhenologicalStage !== null,
+      },
+      'Observation recorded',
+    );
+    logHealthSuggestionsProduced(request, observation.photos);
 
     return reply.status(201).send(observation);
   });
@@ -136,6 +188,20 @@ export function registerObservationRoutes(
       input,
       idempotencyKey,
     );
+
+    // P11-OBS-01: the correction half of `observations.recorded` — same
+    // shape, distinguished by `correctionKind` (closed vocabulary:
+    // `amendment`/`supersede`).
+    request.log.info(
+      {
+        event: 'observations.corrected',
+        correctionKind: correction.correctionKind,
+        photoCount: correction.photos.length,
+        measurementCount: correction.measurements.length,
+      },
+      'Observation correction recorded',
+    );
+    logHealthSuggestionsProduced(request, correction.photos);
 
     return reply.status(201).send(correction);
   });
@@ -165,6 +231,14 @@ export function registerObservationRoutes(
         request.actorContext.profileId,
         disposition,
         idempotencyKey,
+      );
+
+      // P11-OBS-01: "health-suggestion ... disposition" — closed vocabulary
+      // only (`confirmed_externally`/`accepted_as_observation`/`rejected`/
+      // `unresolved`), never the analysis result id or any content field.
+      request.log.info(
+        { event: 'observations.health_disposition_set', disposition: result.disposition },
+        'Health-suggestion disposition set',
       );
 
       return reply.status(200).send(result);

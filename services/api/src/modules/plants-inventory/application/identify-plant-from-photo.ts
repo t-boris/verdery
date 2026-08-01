@@ -104,10 +104,16 @@ export async function identifyPlantFromPhoto(
   );
   const bestMatch = matches[0];
   if (bestMatch === undefined) {
+    // P11-OBS-01: a real, pre-existing prohibited-content violation found
+    // and fixed while instrumenting this pass — `commonName` is content
+    // (the model's own guessed plant name text), not a privacy-safe
+    // operational signal, and must never appear in a log line
+    // (observability-and-analytics.md section 6). `confidenceScore` alone
+    // already answers "how confident was the model when the catalog had
+    // nothing to match."
     logger.info(
       {
         event: 'plant_species_ai.no_catalog_match',
-        commonName: result.candidate.commonName,
         confidenceScore: result.candidate.confidenceScore,
       },
       'Model produced a confident candidate with no matching taxonomy catalog entry.',

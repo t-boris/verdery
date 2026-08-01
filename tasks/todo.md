@@ -8571,3 +8571,126 @@ extend; real time-lapse derivative generation remains deferred a third time, sam
 as both prior deferrals (no video/GIF-encoding worker, no multi-source derivative join table).
 
 ---
+
+## P11-OBS-01 — plant intelligence privacy-safe metrics
+
+The AC names thirteen categories: "search success, filters, add abandonment, actual/candidate
+creation, enrichment coverage, license rejection, suitability review, conversion, journal
+capture/recovery, comparison use, health disposition, processing latency, and storage growth," with
+"Event catalog, dashboards, consent tests, and alert candidates" as its own named evidence. Research
+before writing any code found this is NOT a from-scratch analytics platform build: every earlier
+`-OBS-01`-suffixed package (P5-OBS-01 sync, P6-OBS-01 media, P7-ANALYTICS-01 care-loop, P9C-OBS-01
+client portal) already established the real, consistent shape — structured Cloud Logging JSON lines
+(`request.log.info({event: 'module.event_name', ...}, msg)`, mostly at the transport layer, right
+after a command executes), documented as Cloud Monitoring log-based metrics/dashboard
+widgets/numbered alert candidates in `observability-and-analytics.md`'s own per-package subsections,
+and "event schema and consent tests" as a `tests/analytics/*.test.ts` catalog file
+(`care-loop-analytics.test.ts`'s own precedent: compile-pinned field allowlists plus a runtime
+identity/content-vocabulary scan) — never a deployed dashboard or alert policy, matching the
+identical "not this work package's own deliverable" posture every prior subsection already states.
+`identity_access.consent_record` exists but has NO writer anywhere and NO analytics consent category
+— `P0-SEC-01` (the consent model) remains undecided through P11, exactly as it was through P5/P6/P7/
+P9C, so this package follows the identical scope every predecessor already settled on: real
+OPERATIONAL server-side signals (counts, flags, closed vocabulary — never identity, never content),
+not consented CLIENT-emitted product events.
+
+**Scope decision**: instrument the already-built P11 feature routes/commands with real structured
+log lines wherever the underlying command already computes the needed field with zero new queries;
+write the full 13-category catalog into `observability-and-analytics.md` regardless of whether code
+backs every category; and record, explicitly and by name, which named signals have no real feature
+behind them yet rather than inventing one. Research mapped every one of the 13 categories to an
+exact file before any code was written (`code-researcher`-style Explore pass): two categories needed
+NOTHING new (media processing latency/derivative failure/publication access — already fully covered
+by P6-OBS-01/P9C-OBS-01's own signals on the same shared `media` module; storage growth — already,
+correctly, deferred to GCS's own built-in bucket metrics) and license rejection has no ingestion
+pipeline to instrument at all (`plants_inventory.plant_media_asset`/`integrations
+.plant_content_record` are schema/domain-only, confirmed via the same research pass).
+
+**Twelve new/extended events, all counts/flags/closed vocabulary, zero new queries** (each field was
+already computed by the command in scope before this pass — see `observability-and-analytics.md`'s
+own new "Plant intelligence dashboard" subsection for the full field-by-field table, log-based
+metric definitions, dashboard widget compositions, and two numbered alert candidates):
+`plants.actual_created`/`plants.candidate_added` (kind, groupingKind, identified, plus
+candidate-only `hasPriority`/`isAlternative`) at the add routes; `plants.identification_suggested`
+(hadCandidate, hasCatalogMatch, confidenceBucket) — the ONE event emitted at the APPLICATION layer
+(`AddPlantFromPhoto`, using its own already-injected `FastifyBaseLogger`) rather than a route, since
+the raw AI suggestion the route's own response never carries is only ever in scope inside that
+command; `plants.identification_confirmed` (hasCatalogMatch, read straight off the confirm route's
+own response — `plant.taxonomyReferenceId !== null` after confirmation IS "was this a catalog
+match," no second query); `plants.search_completed`/`plants.candidates_listed` (result counts,
+zero-result flag, one presence flag per filter, never the query text);
+`plants.candidate_suitability_reviewed` (recalculated flag, per-category finding counts via the
+existing `findingsOfCategory` domain helper) on both the GET and POST suitability routes;
+`plants.candidate_converted`; `observations.recorded`/`observations.corrected` (photo/measurement
+counts, presence flags for note/summary/phenological-stage, never their text);
+`observations.health_suggestion_produced` (analysis count, requested-additional-evidence count,
+model-reached count, safety-class counts) — fired whenever a recorded or corrected observation
+carries a photo, since a photo's own attachment IS the (automatic, implicit) health-suggestion
+request; `observations.health_disposition_set` (the closed four-value disposition).
+
+**A real, pre-existing prohibited-content violation found and fixed, not merely a new gap closed**:
+`identify-plant-from-photo.ts`'s own (pre-P11, P8/P9-era) `plant_species_ai.no_catalog_match` event
+was logging the model's raw guessed `commonName` in cleartext on every confident-candidate-no-match
+occurrence — content, not an operational signal, and a direct violation of this codebase's own
+established "never log a value, only whether one exists" consent boundary. Fixed by removing the
+field; `confidenceScore` alone already answers "how confident was the model" without naming what it
+thought the plant was. A new unit test
+(`plants-inventory/application/identify-plant-from-photo.test.ts`) pins the corrected field set
+directly against a captured pino output stream, so this cannot silently regress.
+
+**`taxon_enrichment.sweep_completed` (P11-ASYNC-01) gained the one real gap research confirmed**:
+`durationMs`, computed by injecting a `Clock` into `RunTaxonEnrichmentSweep` (previously had none) —
+measured as the sweep's own start-to-finish wall-clock time, deliberately NOT the worker's HTTP
+round-trip (`GoogleApiSweepTrigger` just relays whatever summary the API returns; it never measured
+duration itself, and folding in network latency the sweep has no control over would have been the
+wrong signal). Threaded through `compose-integrations.ts` and a duplicate summary-shape interface on
+the workers side (`services/workers/src/sweeps/sweep-trigger.ts`) that has no shared source with the
+API's own type and had to be updated separately — five existing test call sites (four unit, one
+integration) needed the new constructor argument.
+
+**Consent tests**: `tests/analytics/plant-intelligence-analytics.test.ts`, the
+`care-loop-analytics.test.ts` shape applied to this pass's own 13 events (12 new/extended plus the
+one grandfathered fix) — compile-pinned field allowlists and reason vocabularies against real
+exported domain unions, plus a runtime scan rejecting identity/secret/location-shaped field names.
+Deliberately NOT a copy of `care-loop-analytics.test.ts`'s own forbidden-vocabulary regex: that
+catalog's domain nouns (`garden`/`plant`/`candidate`) are genuine identity-reference risks in ITS
+events, but in THIS catalog `plant`/`candidate`/`observation`/`profile` (as in `PlantProfileVersion`)
+ARE the literal, central domain nouns, used only inside `has___`/`___Count`/`___Kind`-shaped fields —
+reusing the other catalog's regex verbatim produced real false positives (`hadCandidate`, `hasPlant`,
+`profilesRebuilt` all tripped it) that a properly domain-scoped regex resolves without renaming a
+single field. A second, narrower rule (content words — `note`/`summary`/`text`/`name`/`label`/
+`title`/`query` — permitted ONLY behind a `has`/`is`/`had` presence prefix) replaces the blanket ban,
+matching this codebase's own already-established "presence boolean, never the value" convention
+(`hasQuietHours`, `hasReason`) precisely.
+
+**HTTP tests proving the wire matches the catalog**: two new suites,
+`tests/http/plant-analytics-events.test.ts` and `tests/http/observation-analytics-events.test.ts`
+(the `notification-analytics-events.test.ts` shape — real app, real DB, `onLogRecord` capture,
+`emittedPayloadKeys`/`lastLogEvent` exact-key-set assertions) — eight and four events respectively,
+each asserting the precise field set a real HTTP round trip actually emits, including the
+"no AI provider configured in this test environment" deterministic path
+(`compose-integrations.ts`'s own documented posture, true in every environment today) that makes
+`plants.identification_suggested`/`observations.health_suggestion_produced` reproducible without any
+fake AI adapter.
+
+**Honest, explicitly documented gaps — not invented around, not silently skipped** (full reasoning
+in `observability-and-analytics.md`'s own new subsection): "identification ambiguity" has no real
+outcome to log (`identifyPlantFromPhoto` collapses every non-candidate case into one shape;
+`confidenceBucket`'s `low`/`medium` split is the closest honest proxy); "model fallback" is not a
+real concept (no secondary model exists for either identification or condition analysis);
+"duplicate detection" and "upload recovery" were never built in ANY phase, not only deferred within
+P11 (no hash computation anywhere in `services/workers`, uploads resume directly against Cloud
+Storage with no distinct API-level "recovery" path) — confirmed by the same research pass, not
+assumed; "comparison use" has no backend endpoint (a client-side composition over the ordinary
+observation list); "abandoned add flows" needs no new field, only a derived metric from counters
+this pass already produces (`plants.candidate_added` minus `plants.candidate_converted`, the
+identical "gap between two counters" pattern P6-OBS-01's own media-upload section already
+establishes).
+
+**Verification**: `pnpm --filter @verdery/api typecheck`/`pnpm --filter @verdery/workers typecheck`
+clean; `pnpm exec eslint` clean on every changed file; full `services/api` unit suite (`src/`) — 178
+files, 1519 tests, all green; full `services/workers` suite — 22 files, 134 tests, all green; every
+new/touched analytics, HTTP, and integration test file re-run individually — all green; a full
+`tests/http/ tests/integration/` sweep run as final confirmation.
+
+---

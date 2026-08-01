@@ -54,6 +54,27 @@ function normalizedPlacement(input: AddPlantFromPhotoInput): PlantPlacement {
   };
 }
 
+/**
+ * P11-OBS-01: buckets a continuous `confidenceScore` (`[0, 1]`) into a
+ * closed, privacy-safe vocabulary for telemetry — never the raw float,
+ * which (unlike a bucket) could in principle be correlated across log
+ * lines to fingerprint a specific identification attempt.
+ */
+export type ConfidenceBucket = 'none' | 'low' | 'medium' | 'high';
+
+function confidenceBucket(confidenceScore: number): ConfidenceBucket {
+  if (confidenceScore <= 0) {
+    return 'none';
+  }
+  if (confidenceScore < 0.5) {
+    return 'low';
+  }
+  if (confidenceScore < 0.8) {
+    return 'medium';
+  }
+  return 'high';
+}
+
 export class AddPlantFromPhoto {
   constructor(
     private readonly idempotency: IdempotencyStore,
@@ -134,6 +155,23 @@ export class AddPlantFromPhoto {
           this.taxonomyReferences,
           photoReference,
           this.logger,
+        );
+
+        // P11-OBS-01: "identification ambiguity and confirmation outcomes"
+        // (plant-intelligence-and-visual-journal.md section 17). There is
+        // no real "ambiguous" outcome to distinguish (`identifyPlantFromPhoto`
+        // collapses every non-candidate case to one shape) — confidence
+        // bucket plus catalog-match are the two real, closed-vocabulary
+        // signals this attempt actually produced. Never the plant id, the
+        // photo, or any guessed name text.
+        this.logger.info(
+          {
+            event: 'plants.identification_suggested',
+            hadCandidate: suggestion.confidenceScore > 0,
+            hasCatalogMatch: suggestion.suggestedTaxonomyId !== null,
+            confidenceBucket: confidenceBucket(suggestion.confidenceScore),
+          },
+          'Photo-based species identification produced a suggestion.',
         );
         const condition = await this.analyzePlantCondition.execute({
           photo: photoReference,

@@ -257,6 +257,7 @@ export function composeIntegrations(
       refreshTaxonAssertions,
       rebuildPlantProfileVersion,
       taxonSourcePriority,
+      clock,
     ),
     cloudTasksInvocationVerifier,
   };
