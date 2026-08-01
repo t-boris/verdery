@@ -84,9 +84,12 @@ export function PlantLifecycleControls({ gardenId, plant }: PlantLifecycleContro
           busy={stageMutation.isPending}
           disabled={!isOnline}
           onClick={onSaveStage}
+
+          iconOnly
+          aria-label={t('plants.saveStage')}
+          title={t('plants.saveStage')}
         >
           <CheckIcon />
-          {t('plants.saveStage')}
         </Button>
       </div>
       {stageMutation.isError && <FailureAlert failure={stageMutation.error.failure} />}
@@ -103,9 +106,12 @@ export function PlantLifecycleControls({ gardenId, plant }: PlantLifecycleContro
           busy={statusMutation.isPending}
           disabled={!isOnline}
           onClick={onSaveStatus}
+
+          iconOnly
+          aria-label={t('plants.saveStatus')}
+          title={t('plants.saveStatus')}
         >
           <CheckIcon />
-          {t('plants.saveStatus')}
         </Button>
         <StatusPill tone={statusTone(plant.status)} label={t(statusLabel(plant.status))} />
       </div>

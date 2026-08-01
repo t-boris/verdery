@@ -11,6 +11,16 @@
    * minimum, from the moment this stylesheet landed.
    */
   min-height: var(--control-min-size);
+  /*
+   * Sized by its own content, never stretched by its container. Most forms
+   * here are flex COLUMNS, whose default `align-items: stretch` was turning
+   * every submit into a full-width slab — a 336px "Create task" bar next to
+   * the map rail's compact 44px controls, which is what made the rest of the
+   * application look like a different product. In a flex ROW this only
+   * top-aligns the button, which its own `min-height` already makes
+   * indistinguishable beside another control.
+   */
+  align-self: start;
   padding: var(--space-2) var(--space-4);
   border: var(--border-width) solid transparent;
   border-radius: var(--radius-md);
@@ -29,6 +39,24 @@
     background-color var(--duration-fast) var(--ease-out),
     border-color var(--duration-fast) var(--ease-out),
     color var(--duration-fast) var(--ease-out);
+}
+
+/*
+ * The square icon control — the map rail's shape, promoted to the primitive so
+ * every part of the application can use it rather than only the editor.
+ * Exactly `--control-min-size` on both axes, which is also the touch-target
+ * minimum, so the shape and the requirement are the same number.
+ */
+.iconOnly {
+  inline-size: var(--control-min-size);
+  block-size: var(--control-min-size);
+  padding: 0;
+  flex: none;
+}
+
+/* The busy ring would not fit beside an icon in a 44px square, so it replaces it. */
+.iconOnly[aria-busy='true'] > svg {
+  display: none;
 }
 
 /*

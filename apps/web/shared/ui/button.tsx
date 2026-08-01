@@ -12,6 +12,17 @@ export interface ButtonProps extends Omit<
   readonly variant?: ButtonVariant;
   /** True while the action this button started is still running. */
   readonly busy?: boolean;
+  /**
+   * Render as a square icon control, the map rail's shape: exactly
+   * `--control-min-size` on both axes, no visible text.
+   *
+   * `aria-label` becomes REQUIRED in practice — every icon in `icons.tsx` is
+   * `aria-hidden`, so without one the button would have no accessible name at
+   * all. Pass `title` too: it is the only way a pointer user learns what the
+   * icon means, and `e2e/keyboard.spec.ts` already asserts that contract for
+   * the rail's own buttons.
+   */
+  readonly iconOnly?: boolean;
   readonly children: ReactNode;
 }
 
@@ -28,6 +39,7 @@ export interface ButtonProps extends Omit<
 export function Button({
   variant = 'secondary',
   busy = false,
+  iconOnly = false,
   type = 'button',
   onClick,
   children,
@@ -37,7 +49,11 @@ export function Button({
     <button
       {...rest}
       type={type}
-      className={classNames(styles['button'], styles[variant])}
+      className={classNames(
+        styles['button'],
+        styles[variant],
+        iconOnly ? styles['iconOnly'] : undefined,
+      )}
       aria-busy={busy || undefined}
       aria-disabled={busy || undefined}
       onClick={busy ? undefined : onClick}

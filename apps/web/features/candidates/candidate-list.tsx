@@ -150,9 +150,14 @@ export function CandidateList({ gardenId }: CandidateListProps) {
       {showFullFailure && (
         <div className={styles['errorState']}>
           <FailureAlert failure={query.error.failure} />
-          <Button variant="secondary" onClick={() => void query.refetch()}>
+          <Button
+            variant="secondary"
+            onClick={() => void query.refetch()}
+            iconOnly
+            aria-label={t('candidates.listRetry')}
+            title={t('candidates.listRetry')}
+          >
             <RefreshIcon />
-            {t('candidates.listRetry')}
           </Button>
         </div>
       )}
@@ -180,9 +185,14 @@ export function CandidateList({ gardenId }: CandidateListProps) {
 
           <div className={styles['loadMoreRow']}>
             {!isLoadingMore && query.data?.nextCursor !== undefined && (
-              <Button variant="secondary" onClick={onLoadMore}>
+              <Button
+                variant="secondary"
+                onClick={onLoadMore}
+                iconOnly
+                aria-label={t('candidates.listLoadMore')}
+                title={t('candidates.listLoadMore')}
+              >
                 <ChevronDownIcon />
-                {t('candidates.listLoadMore')}
               </Button>
             )}
             {!isLoadingMore && query.isError && items.length > 0 && (

@@ -211,9 +211,15 @@ export function CandidateDetailsForm({ gardenId, candidate }: CandidateDetailsFo
         maxLength={200}
         {...register('purchaseSource')}
       />
-      <Button type="submit" variant="primary" busy={mutation.isPending}>
+      <Button
+        type="submit"
+        variant="primary"
+        busy={mutation.isPending}
+        iconOnly
+        aria-label={t('candidates.saveDetails')}
+        title={t('candidates.saveDetails')}
+      >
         <CheckIcon />
-        {t('candidates.saveDetails')}
       </Button>
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}
       {savedAnnouncement && !mutation.isError && (

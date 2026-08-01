@@ -67,9 +67,16 @@ export function CandidateStatusControls({ gardenId, candidate }: CandidateStatus
             label: t(candidateStatusLabel(value)),
           }))}
         />
-        <Button variant="secondary" busy={mutation.isPending} disabled={!isOnline} onClick={onSave}>
+        <Button
+          variant="secondary"
+          busy={mutation.isPending}
+          disabled={!isOnline}
+          onClick={onSave}
+          iconOnly
+          aria-label={t('candidates.saveStatus')}
+          title={t('candidates.saveStatus')}
+        >
           <CheckIcon />
-          {t('candidates.saveStatus')}
         </Button>
         <StatusPill
           tone={candidateStatusTone(candidate.status)}

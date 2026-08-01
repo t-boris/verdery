@@ -93,9 +93,16 @@ export function PlantMoveForm({ gardenId, plant }: PlantMoveFormProps) {
         onChange={(event) => setPlacementMapObjectId(event.target.value)}
       />
       <p className={styles['hint']}>{t('plants.mapObjectIdHint')}</p>
-      <Button type="submit" variant="secondary" busy={mutation.isPending} disabled={!isOnline}>
+      <Button
+        type="submit"
+        variant="secondary"
+        busy={mutation.isPending}
+        disabled={!isOnline}
+        iconOnly
+        aria-label={t('plants.move')}
+        title={t('plants.move')}
+      >
         <CheckIcon />
-        {t('plants.move')}
       </Button>
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}
       {mutation.isSuccess && <p role="status">{t('plants.moved')}</p>}

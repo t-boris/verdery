@@ -188,9 +188,14 @@ export function PlantList({ gardenId }: PlantListProps) {
       {showFullFailure && (
         <div className={styles['errorState']}>
           <FailureAlert failure={query.error.failure} />
-          <Button variant="secondary" onClick={() => void query.refetch()}>
+          <Button
+            variant="secondary"
+            onClick={() => void query.refetch()}
+            iconOnly
+            aria-label={t('plants.listRetry')}
+            title={t('plants.listRetry')}
+          >
             <RefreshIcon />
-            {t('plants.listRetry')}
           </Button>
         </div>
       )}
@@ -218,9 +223,14 @@ export function PlantList({ gardenId }: PlantListProps) {
 
           <div className={styles['loadMoreRow']}>
             {!isLoadingMore && query.data?.nextCursor !== undefined && (
-              <Button variant="secondary" onClick={onLoadMore}>
+              <Button
+                variant="secondary"
+                onClick={onLoadMore}
+                iconOnly
+                aria-label={t('plants.listLoadMore')}
+                title={t('plants.listLoadMore')}
+              >
                 <ChevronDownIcon />
-                {t('plants.listLoadMore')}
               </Button>
             )}
             {!isLoadingMore && query.isError && items.length > 0 && (

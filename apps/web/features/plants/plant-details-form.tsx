@@ -203,9 +203,15 @@ export function PlantDetailsForm({ gardenId, plant }: PlantDetailsFormProps) {
         icon={<LightbulbIcon />}
         {...register('careGuidanceNote')}
       />
-      <Button type="submit" variant="primary" busy={mutation.isPending}>
+      <Button
+        type="submit"
+        variant="primary"
+        busy={mutation.isPending}
+        iconOnly
+        aria-label={t('plants.saveDetails')}
+        title={t('plants.saveDetails')}
+      >
         <CheckIcon />
-        {t('plants.saveDetails')}
       </Button>
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}
       {savedAnnouncement && !mutation.isError && <p role="status">{t('plants.detailsSaved')}</p>}

@@ -226,9 +226,15 @@ export function GardenPlanUpload({ gardenId }: GardenPlanUploadProps) {
             {t(uploadFailureReasonLabel(upload.uploadFailureReason))}
           </p>
           {upload.retryable && (
-            <Button variant="primary" disabled={!isOnline} onClick={upload.retry}>
+            <Button
+              variant="primary"
+              disabled={!isOnline}
+              onClick={upload.retry}
+              iconOnly
+              aria-label={t('media.retry')}
+              title={t('media.retry')}
+            >
               <RefreshIcon />
-              {t('media.retry')}
             </Button>
           )}
         </div>
@@ -252,9 +258,14 @@ export function GardenPlanUpload({ gardenId }: GardenPlanUploadProps) {
       )}
 
       {CANCELLABLE_PHASES.has(upload.phase) && (
-        <Button variant="secondary" onClick={upload.cancel}>
+        <Button
+          variant="secondary"
+          onClick={upload.cancel}
+          iconOnly
+          aria-label={t('media.cancel')}
+          title={t('media.cancel')}
+        >
           <CloseIcon />
-          {t('media.cancel')}
         </Button>
       )}
 
