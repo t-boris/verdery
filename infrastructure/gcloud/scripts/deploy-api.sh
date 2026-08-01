@@ -161,15 +161,16 @@ log "Deploying ${IMAGE} to ${VERDERY_CLOUD_RUN_SERVICE_NAME}"
 # P8-NET-01 / P8-DB-01 made three of the flags below configuration:
 #
 #   --min-instances
-#     One, not zero. Scaling to zero meant every first request after an idle
-#     period landed on a booting instance, and a booting Node process holds
-#     the event loop long enough that `@fastify/under-pressure` shed the
-#     request's concurrent siblings as overload — ordinary page loads
-#     returning 503 `server.dependency_unavailable`, which the clients
-#     correctly present as a retryable network failure. Keeping one instance
-#     warm removes the trigger; the guard itself stays, retuned in
-#     `services/api/src/app.ts`. Override with VERDERY_API_MIN_INSTANCES=0
-#     where an always-warm instance is not worth its cost.
+#     Zero, and raising it REQUIRES --no-cpu-throttling in the same change.
+#     Cloud Run allocates CPU only while a request is in flight unless told
+#     otherwise, so a warm minimum instance is a frozen one between requests.
+#     `@fastify/under-pressure` samples event-loop delay on a timer, that timer
+#     does not run while the process is throttled, and the delay it reads on
+#     the next request is the whole idle period — so the guard rejected EVERY
+#     authenticated request with 503 until the instance was replaced. Setting
+#     this to one without always-on CPU is strictly worse than scaling to
+#     zero: it converts an occasional cold start into a permanent outage.
+#     Verified on dev, 2026-08-01.
 #
 #   --max-instances / --concurrency / DATABASE_POOL_MAX_CONNECTIONS
 #     networking.md section 11 names exactly these as the levers that keep
@@ -199,7 +200,7 @@ gcloud run deploy "${VERDERY_CLOUD_RUN_SERVICE_NAME}" \
   --vpc-egress=private-ranges-only \
   --service-account="${VERDERY_RUNTIME_SERVICE_ACCOUNT_ID}@${VERDERY_PROJECT_ID}.iam.gserviceaccount.com" \
   --set-env-vars="^#^${env_vars}" \
-  --min-instances="${VERDERY_API_MIN_INSTANCES:-1}" \
+  --min-instances="${VERDERY_API_MIN_INSTANCES:-0}" \
   --max-instances="${VERDERY_API_MAX_INSTANCES:-2}" \
   --concurrency="${VERDERY_API_CONCURRENCY:-80}" \
   --cpu=1 \

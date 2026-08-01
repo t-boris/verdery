@@ -32,7 +32,11 @@ import type { ApplicationConfiguration } from './platform/configuration/configur
  * cookie (an RSA check), exceed it on one vCPU. Shedding must trip on
  * overload, not on a busy instance — the rejection reaches users as a network
  * failure, so a guard set too tight misdirects every investigation it causes.
- * Paired with `--min-instances=1` in `deploy-api.sh`.
+ *
+ * This guard is also why `deploy-api.sh` keeps `--min-instances=0`: a warm
+ * Cloud Run instance has its CPU throttled between requests, which stops the
+ * sampler below and makes the delay it reads on the next request the whole
+ * idle period. See that script's own note before raising either.
  *
  * Source: architecture/cost-and-scaling.md, section 6.
  */

@@ -55,14 +55,14 @@ Budget alerts do not automatically disable core user data access. Emergency cont
 
 Initial posture:
 
-- Minimum instances: one.
+- Minimum instances: zero.
 - Bounded maximum instances.
 - Concurrency selected through load tests.
 - CPU and memory sized from representative requests.
 - Request timeout below platform maximum and appropriate for interactive use.
 - Startup optimized without loading large models.
 
-Enable one minimum instance only when measured cold-start latency materially harms the product. That threshold has been met and one instance is now the default, including in development: scaling to zero put every first request after an idle period on a booting instance, whose event-loop delay tripped the application's own overload guard and shed the request's concurrent siblings. The symptom was not slowness but failure — ordinary reads returning `503 server.dependency_unavailable`, which clients present as a retryable network error rather than as a cold start. Deployments may still set the minimum back to zero per environment where the cost of a warm instance outweighs that.
+Enable one minimum instance only when measured cold-start latency materially harms the product, and never without allocating CPU outside requests in the same change. Cloud Run throttles an idle instance's CPU to near zero by default, which stops the application's event-loop-delay sampler; the delay it then reads on the next request is the entire idle period, and the overload guard rejects every request until that instance is replaced. A warm instance without always-on CPU is therefore strictly worse than scaling to zero — it converts an occasional cold start into a sustained outage. Confirmed by attempting exactly that on development, 2026-08-01.
 
 ## 7. Database Protection
 
@@ -162,7 +162,7 @@ model and define:
 
 ## 15. Environment Cost
 
-- Development scales to zero where possible, excluding the API, which keeps one warm instance for the reason given in section 6.
+- Development scales to zero where possible.
 - Staging mirrors topology but not production capacity except during tests.
 - Production preserves required HA and recovery even when scale is low.
 - Ephemeral preview resources have expiration and cleanup.
