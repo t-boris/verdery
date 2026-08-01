@@ -1,0 +1,32 @@
+{
+  "displayName": "Taxon enrichment sweep duration elevated",
+  "documentation": {
+    "mimeType": "text/markdown",
+    "content": "p95 taxon-enrichment sweep duration has exceeded __ENRICHMENT_DURATION_THRESHOLD_MS__ ms for two consecutive sweeps.\n\nThis is a review-time signal (`autoClose` 7 days, no page) — a slow sweep degrades knowledge-enrichment freshness, it does not affect any user-facing request path (the sweep runs on `services/workers`' own interval, never inline with a garden/plant read or write).\n\n1. Check `taxon_enrichment.sweep_completed`'s own `degradationReasons` for the same window — `providerTimeout`/`providerFailed` dominating means an external provider (USDA PLANTS, and soon GBIF/USA-NPN/World Flora Online) is slow or down, not a problem in this codebase.\n2. If no single provider dominates, check whether `TAXON_ENRICHMENT_SWEEP_BATCH_LIMIT` (25 taxa/run) now needs revisiting — a growing number of registered providers means more (taxon, provider) calls per run at the same batch size.\n\nThis is a FIXED starting threshold, not a baseline comparison — this signal has no production traffic history yet (`services/workers` was not deployed to verdery-dev at the time this alert was created). Revisit the threshold once real sweep-duration data exists, the same 'exact targets still need approval before production' posture every other alert candidate in this document already carries.\n\nSource: architecture/observability-and-analytics.md, 'Plant intelligence dashboard, alert candidates, and runbook (P11-OBS-01)'."
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "p95 sweep duration above threshold for two consecutive periods",
+      "conditionThreshold": {
+        "filter": "resource.type = \"cloud_run_revision\" AND metric.type = \"logging.googleapis.com/user/taxon_enrichment_sweep_duration_ms\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "21600s",
+            "perSeriesAligner": "ALIGN_PERCENTILE_95",
+            "crossSeriesReducer": "REDUCE_MEAN"
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": "__ENRICHMENT_DURATION_THRESHOLD_MS__",
+        "duration": "0s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "604800s"
+  }
+}

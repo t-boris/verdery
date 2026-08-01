@@ -1,0 +1,18 @@
+{
+  "name": "taxon_enrichment_sweep_duration_ms",
+  "description": "P11-OBS-01/P11-ASYNC-01: wall-clock duration of one taxon-enrichment sweep run, extracted from RunTaxonEnrichmentSweep's own durationMs field. Backs the enrichment-sweep-duration-regression alert.",
+  "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"__WORKERS_SERVICE_NAME__\" AND jsonPayload.event=\"taxon_enrichment.sweep_completed\"",
+  "metricDescriptor": {
+    "metricKind": "DELTA",
+    "valueType": "DISTRIBUTION",
+    "unit": "ms"
+  },
+  "valueExtractor": "EXTRACT(jsonPayload.durationMs)",
+  "bucketOptions": {
+    "exponentialBuckets": {
+      "numFiniteBuckets": 64,
+      "growthFactor": 1.4,
+      "scale": 1
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "displayName": "Plant search zero-result count elevated",
+  "documentation": {
+    "mimeType": "text/markdown",
+    "content": "More than __ZERO_RESULT_SEARCH_THRESHOLD__ zero-result plant/candidate searches in 24 hours.\n\nThis is a review-time product-quality signal, not an incident (`autoClose` is 7 days, no page) — the same posture `observability-and-analytics.md`'s own Plant intelligence dashboard subsection documents for this exact alert candidate. A sustained high zero-result count usually means the enriched taxonomy catalog is too sparse for what users are actually typing (a provider-coverage problem — check how many taxa have a resolved `plant_taxonomy_mapping` row) or the trigram similarity threshold needs tuning.\n\n1. Split the zero-result count by whether `hasQueryText` was set — a genuine free-text miss versus a filter combination that legitimately has no matches are different problems.\n2. Check the `plants_identification_suggested` metric's own `confidenceBucket` distribution over the same window — a sparse catalog shows up in both places at once.\n\nThis is a FIXED starting threshold, not a baseline comparison — verdery-dev has no real traffic history yet to compare against, so the number should be revisited once real usage exists (the same 'exact targets still need approval before production' posture every other alert candidate in this document already carries).\n\nSource: architecture/observability-and-analytics.md, 'Plant intelligence dashboard, alert candidates, and runbook (P11-OBS-01)'."
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "Zero-result plant/candidate searches above threshold for 24 hours",
+      "conditionThreshold": {
+        "filter": "resource.type = \"cloud_run_revision\" AND metric.type = \"logging.googleapis.com/user/plants_search_completed\" AND metric.label.\"isZeroResult\" = \"true\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "86400s",
+            "perSeriesAligner": "ALIGN_SUM",
+            "crossSeriesReducer": "REDUCE_SUM"
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": "__ZERO_RESULT_SEARCH_THRESHOLD__",
+        "duration": "0s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "604800s"
+  }
+}

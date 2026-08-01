@@ -1,0 +1,20 @@
+{
+  "name": "plants_candidate_converted",
+  "description": "P11-OBS-01: one line per candidate converted into an actual plant. Divided by plants_candidate_added over the same window for the conversion-rate widget.",
+  "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"__API_SERVICE_NAME__\" AND jsonPayload.event=\"plants.candidate_converted\"",
+  "metricDescriptor": {
+    "metricKind": "DELTA",
+    "valueType": "INT64",
+    "unit": "1",
+    "labels": [
+      {
+        "key": "groupingKind",
+        "valueType": "STRING",
+        "description": "individual, row, or group."
+      }
+    ]
+  },
+  "labelExtractors": {
+    "groupingKind": "EXTRACT(jsonPayload.groupingKind)"
+  }
+}

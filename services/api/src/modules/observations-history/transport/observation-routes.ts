@@ -115,7 +115,16 @@ function logHealthSuggestionsProduced(
   if (results.length === 0) {
     return;
   }
-  const safetyClassCounts: Record<string, number> = {};
+  // Every key present, zero-valued ones included — the same "closed
+  // vocabulary, always-all-keys" shape `suitabilityFindingCounts()`
+  // (plants-inventory/transport/candidate-routes.ts) already establishes,
+  // needed here so a log-based metric can extract any one class by a fixed
+  // JSON path without that path being absent on lines where it didn't occur.
+  const safetyClassCounts: Record<string, number> = {
+    informational: 0,
+    monitor: 0,
+    expert_review_recommended: 0,
+  };
   for (const result of results) {
     safetyClassCounts[result.safetyClass] = (safetyClassCounts[result.safetyClass] ?? 0) + 1;
   }

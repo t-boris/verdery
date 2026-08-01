@@ -1,0 +1,26 @@
+{
+  "name": "plants_search_completed",
+  "description": "P11-OBS-01: one line per plant search request. Filters by isZeroResult label to compute the zero-result rate observability-and-analytics.md's own Plant intelligence subsection names as a required signal.",
+  "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"__API_SERVICE_NAME__\" AND jsonPayload.event=\"plants.search_completed\"",
+  "metricDescriptor": {
+    "metricKind": "DELTA",
+    "valueType": "INT64",
+    "unit": "1",
+    "labels": [
+      {
+        "key": "isZeroResult",
+        "valueType": "STRING",
+        "description": "Whether this search returned zero results."
+      },
+      {
+        "key": "hasQueryText",
+        "valueType": "STRING",
+        "description": "Whether a free-text query was supplied, versus a filter-only browse."
+      }
+    ]
+  },
+  "labelExtractors": {
+    "isZeroResult": "EXTRACT(jsonPayload.isZeroResult)",
+    "hasQueryText": "EXTRACT(jsonPayload.hasQueryText)"
+  }
+}

@@ -122,7 +122,16 @@ create_policy() {
     -e "s|__URL_MAP__|${VERDERY_LB_URL_MAP_NAME:-}|g" \
     "${source_file}" >"${rendered_file}"
 
-  display_name="$(grep -m 1 '"displayName"' "${rendered_file}" | sed -e 's/.*"displayName": "//' -e 's/",\?$//')"
+  # `\?` is a GNU sed extension, not portable to BSD sed (macOS) in basic
+  # regex mode — two plain substitutions instead, so this works identically
+  # for a CI runner (GNU sed) and an operator's own Mac (BSD sed). Found
+  # live while deploying 17-plant-intelligence-monitoring.sh's own copy of
+  # this exact pattern for the first time — this script's policies have
+  # never actually been created against any project either (see this
+  # file's own header, "verified live on 2026-07-25"), so the bug had
+  # nothing to surface against until now.
+  display_name="$(grep -m 1 '"displayName"' "${rendered_file}" |
+    sed -e 's/.*"displayName": "//' -e 's/",$//' -e 's/"$//')"
 
   existing="$(gcloud alpha monitoring policies list \
     --project="${VERDERY_PROJECT_ID}" \

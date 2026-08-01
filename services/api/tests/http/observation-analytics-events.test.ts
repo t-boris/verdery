@@ -278,6 +278,13 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       requestedAdditionalEvidenceCount: 1,
       hasModelCount: 0,
     });
+    // Every safety class present, zero-valued ones included — the shape a
+    // log-based metric needs to extract any one class by a fixed JSON path.
+    expect(producedEvent?.['safetyClassCounts']).toEqual({
+      informational: 1,
+      monitor: 0,
+      expert_review_recommended: 0,
+    });
     expect(emittedPayloadKeys(producedEvent)).toEqual([
       'analysisCount',
       'event',

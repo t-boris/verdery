@@ -1,0 +1,26 @@
+{
+  "name": "plants_actual_created",
+  "description": "P11-OBS-01: one line per actual (non-candidate) plant added. Paired with plants_candidate_added for the 'actual-versus-candidate additions' add-funnel widget.",
+  "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"__API_SERVICE_NAME__\" AND jsonPayload.event=\"plants.actual_created\"",
+  "metricDescriptor": {
+    "metricKind": "DELTA",
+    "valueType": "INT64",
+    "unit": "1",
+    "labels": [
+      {
+        "key": "groupingKind",
+        "valueType": "STRING",
+        "description": "individual, row, or group."
+      },
+      {
+        "key": "identified",
+        "valueType": "STRING",
+        "description": "Whether a taxonomy reference was resolved at creation time."
+      }
+    ]
+  },
+  "labelExtractors": {
+    "groupingKind": "EXTRACT(jsonPayload.groupingKind)",
+    "identified": "EXTRACT(jsonPayload.identified)"
+  }
+}

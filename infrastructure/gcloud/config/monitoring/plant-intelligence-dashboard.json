@@ -1,0 +1,141 @@
+{
+  "displayName": "Plant intelligence",
+  "labels": {
+    "package": "p11-obs-01"
+  },
+  "gridLayout": {
+    "columns": "2",
+    "widgets": [
+      {
+        "title": "Add funnel — actual vs. candidate",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type = \"cloud_run_revision\" AND metric.type = \"logging.googleapis.com/user/plants_actual_created\"",
+                  "aggregation": {
+                    "alignmentPeriod": "3600s",
+                    "perSeriesAligner": "ALIGN_SUM",
+                    "crossSeriesReducer": "REDUCE_SUM"
+                  }
+                }
+              },
+              "plotType": "STACKED_BAR",
+              "legendTemplate": "actual"
+            },
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type = \"cloud_run_revision\" AND metric.type = \"logging.googleapis.com/user/plants_candidate_added\"",
+                  "aggregation": {
+                    "alignmentPeriod": "3600s",
+                    "perSeriesAligner": "ALIGN_SUM",
+                    "crossSeriesReducer": "REDUCE_SUM"
+                  }
+                }
+              },
+              "plotType": "STACKED_BAR",
+              "legendTemplate": "candidate"
+            }
+          ],
+          "yAxis": { "label": "additions / hour", "scale": "LINEAR" }
+        }
+      },
+      {
+        "title": "Candidate conversions",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type = \"cloud_run_revision\" AND metric.type = \"logging.googleapis.com/user/plants_candidate_converted\"",
+                  "aggregation": {
+                    "alignmentPeriod": "3600s",
+                    "perSeriesAligner": "ALIGN_SUM",
+                    "crossSeriesReducer": "REDUCE_SUM"
+                  }
+                }
+              },
+              "plotType": "LINE",
+              "legendTemplate": "converted"
+            }
+          ],
+          "yAxis": { "label": "conversions / hour", "scale": "LINEAR" }
+        }
+      },
+      {
+        "title": "Search results — zero vs. non-zero",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type = \"cloud_run_revision\" AND metric.type = \"logging.googleapis.com/user/plants_search_completed\" AND metric.label.\"isZeroResult\" = \"true\"",
+                  "aggregation": {
+                    "alignmentPeriod": "3600s",
+                    "perSeriesAligner": "ALIGN_SUM",
+                    "crossSeriesReducer": "REDUCE_SUM"
+                  }
+                }
+              },
+              "plotType": "STACKED_BAR",
+              "legendTemplate": "zero result"
+            },
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type = \"cloud_run_revision\" AND metric.type = \"logging.googleapis.com/user/plants_search_completed\" AND metric.label.\"isZeroResult\" = \"false\"",
+                  "aggregation": {
+                    "alignmentPeriod": "3600s",
+                    "perSeriesAligner": "ALIGN_SUM",
+                    "crossSeriesReducer": "REDUCE_SUM"
+                  }
+                }
+              },
+              "plotType": "STACKED_BAR",
+              "legendTemplate": "has results"
+            }
+          ],
+          "yAxis": { "label": "searches / hour", "scale": "LINEAR" }
+        }
+      },
+      {
+        "title": "Taxon enrichment sweep duration (p50 / p95)",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type = \"cloud_run_revision\" AND metric.type = \"logging.googleapis.com/user/taxon_enrichment_sweep_duration_ms\"",
+                  "aggregation": {
+                    "alignmentPeriod": "21600s",
+                    "perSeriesAligner": "ALIGN_PERCENTILE_50",
+                    "crossSeriesReducer": "REDUCE_MEAN"
+                  }
+                }
+              },
+              "plotType": "LINE",
+              "legendTemplate": "p50"
+            },
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type = \"cloud_run_revision\" AND metric.type = \"logging.googleapis.com/user/taxon_enrichment_sweep_duration_ms\"",
+                  "aggregation": {
+                    "alignmentPeriod": "21600s",
+                    "perSeriesAligner": "ALIGN_PERCENTILE_95",
+                    "crossSeriesReducer": "REDUCE_MEAN"
+                  }
+                }
+              },
+              "plotType": "LINE",
+              "legendTemplate": "p95"
+            }
+          ],
+          "yAxis": { "label": "ms", "scale": "LINEAR" }
+        }
+      }
+    ]
+  }
+}
