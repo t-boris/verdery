@@ -7,6 +7,7 @@ import type {
 } from '@verdery/api-contracts';
 import Link from 'next/link';
 import { useState } from 'react';
+import { ChevronDownIcon, RefreshIcon } from '@/shared/ui/public';
 
 import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
@@ -150,6 +151,7 @@ export function CandidateList({ gardenId }: CandidateListProps) {
         <div className={styles['errorState']}>
           <FailureAlert failure={query.error.failure} />
           <Button variant="secondary" onClick={() => void query.refetch()}>
+            <RefreshIcon />
             {t('candidates.listRetry')}
           </Button>
         </div>
@@ -179,6 +181,7 @@ export function CandidateList({ gardenId }: CandidateListProps) {
           <div className={styles['loadMoreRow']}>
             {!isLoadingMore && query.data?.nextCursor !== undefined && (
               <Button variant="secondary" onClick={onLoadMore}>
+                <ChevronDownIcon />
                 {t('candidates.listLoadMore')}
               </Button>
             )}

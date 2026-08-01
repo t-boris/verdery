@@ -2,6 +2,7 @@
 
 import type { MovePlantRequest, Plant } from '@verdery/api-contracts';
 import { useEffect, useState, type FormEvent } from 'react';
+import { CheckIcon } from '@/shared/ui/public';
 
 import { useIsOnline } from '@/core/connectivity/public';
 import { useLocalization } from '@/shared/localization/public';
@@ -93,6 +94,7 @@ export function PlantMoveForm({ gardenId, plant }: PlantMoveFormProps) {
       />
       <p className={styles['hint']}>{t('plants.mapObjectIdHint')}</p>
       <Button type="submit" variant="secondary" busy={mutation.isPending} disabled={!isOnline}>
+        <CheckIcon />
         {t('plants.move')}
       </Button>
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}

@@ -2,6 +2,7 @@
 
 import type { PlantCandidate, PlantCandidateStatus } from '@verdery/api-contracts';
 import { useEffect, useState } from 'react';
+import { CheckIcon } from '@/shared/ui/public';
 
 import { useIsOnline } from '@/core/connectivity/public';
 import { useLocalization } from '@/shared/localization/public';
@@ -67,6 +68,7 @@ export function CandidateStatusControls({ gardenId, candidate }: CandidateStatus
           }))}
         />
         <Button variant="secondary" busy={mutation.isPending} disabled={!isOnline} onClick={onSave}>
+          <CheckIcon />
           {t('candidates.saveStatus')}
         </Button>
         <StatusPill

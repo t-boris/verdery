@@ -13,6 +13,9 @@ export { DetailRow, type DetailRowProps } from './detail-row';
 export { FailureAlert } from './failure-alert';
 export {
   CalendarIcon,
+  CheckIcon,
+  ChevronDownIcon,
+  CloseIcon,
   CheckCircleIcon,
   CursorIcon,
   EyeIcon,
@@ -23,7 +26,9 @@ export {
   LightbulbIcon,
   LockIcon,
   MapIcon,
+  PlusIcon,
   PulseIcon,
+  RefreshIcon,
   RedoIcon,
   RulerIcon,
   SignOutIcon,
@@ -34,6 +39,7 @@ export {
   TypeIcon,
   UndoIcon,
   UnlockIcon,
+  UploadIcon,
   type IconProps,
 } from './icons';
 export { Label, type LabelProps } from './label';

@@ -11,6 +11,7 @@ import { useIsOnline } from '@/core/connectivity/public';
 import { useRecoverableDraft } from '@/core/drafts/public';
 import { useLocalization } from '@/shared/localization/public';
 import {
+  PlusIcon,
   Button,
   FailureAlert,
   RecoveredDraftNotice,
@@ -275,6 +276,7 @@ export function AddPlantForm({ gardenId }: { readonly gardenId: string }) {
 
       <StaleIndicator />
       <Button type="submit" variant="primary" busy={mutation.isPending} disabled={!isOnline}>
+        <PlusIcon />
         {t('plants.addSubmit')}
       </Button>
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}

@@ -8,6 +8,7 @@ import { z } from '@/shared/validation/zod';
 
 import { useLocalization } from '@/shared/localization/public';
 import {
+  CheckIcon,
   Button,
   FailureAlert,
   HashIcon,
@@ -211,6 +212,7 @@ export function CandidateDetailsForm({ gardenId, candidate }: CandidateDetailsFo
         {...register('purchaseSource')}
       />
       <Button type="submit" variant="primary" busy={mutation.isPending}>
+        <CheckIcon />
         {t('candidates.saveDetails')}
       </Button>
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}

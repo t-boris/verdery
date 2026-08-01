@@ -2,6 +2,7 @@
 
 import type { Plant, PlantLifecycleStage, PlantStatus } from '@verdery/api-contracts';
 import { useEffect, useState } from 'react';
+import { CheckIcon } from '@/shared/ui/public';
 
 import { useIsOnline } from '@/core/connectivity/public';
 import { useLocalization } from '@/shared/localization/public';
@@ -84,6 +85,7 @@ export function PlantLifecycleControls({ gardenId, plant }: PlantLifecycleContro
           disabled={!isOnline}
           onClick={onSaveStage}
         >
+          <CheckIcon />
           {t('plants.saveStage')}
         </Button>
       </div>
@@ -102,6 +104,7 @@ export function PlantLifecycleControls({ gardenId, plant }: PlantLifecycleContro
           disabled={!isOnline}
           onClick={onSaveStatus}
         >
+          <CheckIcon />
           {t('plants.saveStatus')}
         </Button>
         <StatusPill tone={statusTone(plant.status)} label={t(statusLabel(plant.status))} />

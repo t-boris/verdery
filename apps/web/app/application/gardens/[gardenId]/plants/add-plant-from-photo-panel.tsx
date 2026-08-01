@@ -24,10 +24,12 @@ import { useLocalization } from '@/shared/localization/public';
 import {
   Button,
   CalendarIcon,
+  CloseIcon,
   FailureAlert,
   LightbulbIcon,
   ProgressBar,
   PulseIcon,
+  RefreshIcon,
   SproutIcon,
   StaleIndicator,
   TagIcon,
@@ -409,6 +411,7 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
           </p>
           {upload.retryable && (
             <Button variant="primary" disabled={!isOnline} onClick={upload.retry}>
+              <RefreshIcon />
               {t('media.retry')}
             </Button>
           )}
@@ -434,6 +437,7 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
 
       {CANCELLABLE_PHASES.has(upload.phase) && (
         <Button variant="secondary" onClick={upload.cancel}>
+          <CloseIcon />
           {t('media.cancel')}
         </Button>
       )}

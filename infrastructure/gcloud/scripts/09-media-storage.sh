@@ -134,10 +134,9 @@ grant_runtime_object_admin() {
 # this: it is the only bucket browsers write to directly. Methods are PUT
 # (the resumable protocol's only data verb) plus OPTIONS (preflight);
 # response headers cover the resumable protocol's own Content-Range/Range
-# offset negotiation. Origins currently list only local development — no
-# deployed web origin exists yet (the web app itself is undeployed, and the
-# API's own HTTP_ALLOWED_ORIGINS is empty for the same reason); extend the
-# JSON when one does.
+# offset negotiation. The committed JSON is the fallback for an environment
+# with no custom domain; once `VERDERY_WEB_DOMAIN` is set, the list is
+# rendered below from the domain plus every live Cloud Run alias instead.
 apply_cors_file() {
   local bucket_name="${1}" cors_file="${2}"
 
@@ -164,13 +163,17 @@ apply_cors_file() {
 # data verb, OPTIONS is the preflight, and the response headers cover the
 # resumable protocol's Content-Range/Range offset negotiation.
 render_user_media_cors() {
-  local origin="${1}" rendered_file
+  local rendered_file origins_json
+
+  # Every argument is one exact origin; jq builds the array so quoting and
+  # escaping are its problem, not a here-doc's.
+  origins_json="$(printf '%s\n' "$@" | jq -R . | jq -s .)"
 
   rendered_file="$(mktemp)"
   cat >"${rendered_file}" <<JSON
 [
   {
-    "origin": ["${origin}"],
+    "origin": ${origins_json},
     "method": ["PUT", "OPTIONS"],
     "responseHeader": ["Content-Type", "Content-Range", "Range", "X-Goog-Resumable"],
     "maxAgeSeconds": 3600
@@ -188,8 +191,28 @@ JSON
 # lifecycle rule is applied.
 create_bucket_if_needed "${VERDERY_USER_MEDIA_BUCKET}"
 grant_runtime_object_admin "${VERDERY_USER_MEDIA_BUCKET}"
+#
+# EVERY origin the environment serves, not only the custom domain. A browser
+# uploads its bytes straight to the bucket, so an origin missing here cannot
+# upload at all — and the failure surfaces to the user as "the upload was
+# interrupted by a network problem", because a blocked preflight is
+# indistinguishable from a dead network to the page making it. That is exactly
+# what happened when `dev.verdery-app.com` was mapped and this list was left
+# alone: the site loaded, signed in, and registered uploads fine, and only the
+# direct-to-storage PUT failed.
+#
+# Merging rather than replacing mirrors `sync-web-auth-domains.sh`, which
+# already keeps the generated `run.app` aliases alongside a custom domain for
+# the same reason: both URLs stay live and reachable after a domain mapping, so
+# both must keep working.
 if [[ -n "${VERDERY_WEB_DOMAIN:-}" ]]; then
-  user_media_cors_file="$(render_user_media_cors "https://${VERDERY_WEB_DOMAIN}")"
+  command -v jq >/dev/null || fail "Required command is not installed: jq"
+  # `cloud_run_service_origins_csv` returns every official alias of the web
+  # service; splitting it keeps this correct when Cloud Run adds or changes one.
+  IFS=',' read -r -a web_run_origins <<<"$(cloud_run_service_origins_csv "${VERDERY_WEB_SERVICE_NAME}")"
+  user_media_cors_file="$(render_user_media_cors \
+    "https://${VERDERY_WEB_DOMAIN}" \
+    "${web_run_origins[@]}")"
   apply_cors_file "${VERDERY_USER_MEDIA_BUCKET}" "${user_media_cors_file}"
   rm -f "${user_media_cors_file}"
 else

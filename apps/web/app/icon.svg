@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Verdery">
+  <title>Verdery</title>
+  <!--
+    The application mark, in Kern's own terms: a square field (the direction
+    has no radii), the one signal colour, and the leaf from
+    `shared/ui/icons.tsx` — the same silhouette, not a redrawing.
+
+    FILLED, not stroked. The source icon is a 1.6px stroke on a 20-unit grid;
+    at a 16px favicon that resolves to well under a pixel and the mark
+    dissolves into a smudge. Filling the closed path keeps the shape identical
+    at every size, and the midrib survives as a knocked-out line.
+
+    COORDINATES ARE BAKED, with no wrapping `<g transform>`. They are the
+    original 20-grid path mapped by `x*1.7-1.43, y*1.7-1.0` — a 19.6-unit span
+    centred in this 32-unit box, leaving about a fifth of the width clear on
+    each side. A larger mark measured the same on paper but read as cropped at
+    16px, because the leaf runs corner to corner and its diagonal covers far
+    more of the square than its bounding box suggests.
+
+    The midrib is a FILLED band, not a stroked line, and the coordinates are
+    baked rather than wrapped in a `<g transform>`. Both concessions are to the
+    same fact: `app/apple-icon.png` is rasterised from this file, and the only
+    SVG renderer available here is ImageMagick's internal MSVG, which drops
+    stroked paths entirely — the PNG came out as a solid leaf with no midrib
+    while browsers drew it correctly. A fill renders identically in both, so
+    the icon and the touch icon cannot drift apart. The band is the original
+    centreline offset by 1.15 units either side of its own perpendicular.
+
+    One colour pair, not a `prefers-color-scheme` variant: a tab strip is not
+    the page, the mark has to be recognisable in either, and a solid field
+    carries its own contrast wherever it is drawn.
+  -->
+  <rect width="32" height="32" fill="#b53d18" />
+  <path d="M6.22 25.35C6.22 14.3 14.72 6.65 25.77 6.65C25.77 17.7 18.12 25.35 6.22 25.35Z" fill="#f2f0e9" />
+  <path
+    d="M7.012 26.184C11.262 20.234 17.212 14.284 24.012 10.034L22.428 8.366C15.628 12.616 9.678 18.566 5.428 24.516Z"
+    fill="#b53d18"
+  />
+</svg>

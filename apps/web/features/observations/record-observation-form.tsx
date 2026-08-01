@@ -10,6 +10,7 @@ import { useIsOnline } from '@/core/connectivity/public';
 import { useRecoverableDraft } from '@/core/drafts/public';
 import { useLocalization } from '@/shared/localization/public';
 import {
+  PlusIcon,
   Button,
   FailureAlert,
   RecoveredDraftNotice,
@@ -186,6 +187,7 @@ export function RecordObservationForm({ gardenId, fixedPlantId }: RecordObservat
       <p className={styles['hint']}>{t('observations.mediaGapHint')}</p>
       <StaleIndicator />
       <Button type="submit" variant="primary" busy={mutation.isPending} disabled={!isOnline}>
+        <PlusIcon />
         {t('observations.recordSubmit')}
       </Button>
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}

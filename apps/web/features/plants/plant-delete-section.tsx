@@ -4,6 +4,7 @@ import type { Plant, PlantStatus } from '@verdery/api-contracts';
 import { useIsOnline } from '@/core/connectivity/public';
 import { useLocalization } from '@/shared/localization/public';
 import { Alert, Button, FailureAlert } from '@/shared/ui/public';
+import { TrashIcon } from '@/shared/ui/public';
 
 import { useSetPlantStatus } from './queries';
 
@@ -49,6 +50,7 @@ export function PlantDeleteSection({ gardenId, plant }: PlantDeleteSectionProps)
         disabled={!isOnline}
         onClick={onDelete}
       >
+        <TrashIcon />
         {t('plants.delete')}
       </Button>
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}

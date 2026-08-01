@@ -19,15 +19,65 @@
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.01em;
   cursor: pointer;
+  /*
+   * No `transform` on press. The map editor's rail set the reference for what
+   * a button looks like here, and nothing in it moves: Kern is a fixed grid of
+   * hairlines, and a control that shifts a pixel under the cursor reads as a
+   * different language from the one around it. Colour carries the press.
+   */
   transition:
     background-color var(--duration-fast) var(--ease-out),
     border-color var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out),
-    transform var(--duration-fast) var(--ease-out);
+    color var(--duration-fast) var(--ease-out);
 }
 
-.button:active {
-  transform: translateY(1px);
+/*
+ * COLOURED ICONS, the thing that makes the map rail read as it does: the icon
+ * carries the action's own colour while the label stays ink, so a row of
+ * buttons is scannable by hue without hue ever being the only signal — every
+ * one of them still has its text label or `aria-label`.
+ *
+ * Set per variant rather than per call site, so a button cannot pick a colour
+ * that disagrees with what it does. On a filled button the icon drops to the
+ * fill's own text colour, because an accent icon on an accent field would
+ * vanish.
+ */
+.button svg {
+  color: var(--button-icon-color, currentcolor);
+  flex: none;
+}
+
+.secondary svg {
+  --button-icon-color: var(--color-accent);
+}
+
+.destructive svg {
+  --button-icon-color: var(--color-negative);
+}
+
+.primary svg,
+.button[aria-pressed='true'] svg {
+  --button-icon-color: currentcolor;
+}
+
+.button:disabled svg {
+  --button-icon-color: currentcolor;
+}
+
+/*
+ * The pressed state, promoted from `map-toolbar.module.css` to the primitive:
+ * a filled accent block. `aria-pressed` is what a toggle already sets, so the
+ * fill can never be the only signal.
+ */
+.button[aria-pressed='true'] {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-accent-text);
+}
+
+.button[aria-pressed='true']:hover {
+  background-color: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
 }
 
 .primary {
@@ -50,12 +100,12 @@
 }
 
 .secondary:hover {
-  background-color: var(--color-accent-quiet);
-  border-color: var(--color-accent-quiet-border);
+  /* The rail's own hover: a sunken wash, not an accent tint — the signal colour stays reserved for the active state. */
+  background-color: var(--color-surface-sunken);
 }
 
 .secondary:active {
-  background-color: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+  background-color: var(--color-border);
 }
 
 .destructive {
@@ -81,12 +131,6 @@
 .button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
-  box-shadow: none;
-}
-
-.button:disabled:active,
-.button[aria-disabled='true']:active {
-  transform: none;
 }
 
 /*

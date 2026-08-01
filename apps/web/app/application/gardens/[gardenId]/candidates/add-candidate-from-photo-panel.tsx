@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useState, type ChangeEvent } from 'react';
+import { CloseIcon, RefreshIcon } from '@/shared/ui/public';
 
 import { useIsOnline } from '@/core/connectivity/public';
 import { useAddCandidateFromPhoto } from '@/features/candidates/public';
@@ -191,6 +192,7 @@ export function AddCandidateFromPhotoPanel({ gardenId }: AddCandidateFromPhotoPa
           </p>
           {upload.retryable && (
             <Button variant="primary" disabled={!isOnline} onClick={upload.retry}>
+              <RefreshIcon />
               {t('media.retry')}
             </Button>
           )}
@@ -216,6 +218,7 @@ export function AddCandidateFromPhotoPanel({ gardenId }: AddCandidateFromPhotoPa
 
       {CANCELLABLE_PHASES.has(upload.phase) && (
         <Button variant="secondary" onClick={upload.cancel}>
+          <CloseIcon />
           {t('media.cancel')}
         </Button>
       )}

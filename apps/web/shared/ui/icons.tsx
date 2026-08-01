@@ -257,3 +257,67 @@ export function LightbulbIcon(props: IconProps) {
     </IconBase>
   );
 }
+
+/*
+ * ACTION ICONS. The set above names things the product HAS — a garden, a
+ * plant, an observation. These name things a button DOES, which the set had
+ * none of, so every action button in the application was text-only while the
+ * map rail's were not. Same 20-unit grid and 1.6 stroke, so they sit beside
+ * the others without a second visual language.
+ */
+
+/** Create or add: a plus. */
+export function PlusIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M10 4.5v11M4.5 10h11" />
+    </IconBase>
+  );
+}
+
+/** Confirm or save: a check. */
+export function CheckIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M4.5 10.5 8.5 14.5 15.5 6" />
+    </IconBase>
+  );
+}
+
+/** Dismiss or cancel: a cross. Never used for delete — that is `TrashIcon`. */
+export function CloseIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M5.5 5.5l9 9M14.5 5.5l-9 9" />
+    </IconBase>
+  );
+}
+
+/** Retry or recalculate: a circular arrow. */
+export function RefreshIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M16 10a6 6 0 1 1-1.9-4.4" />
+      <path d="M16.2 4v3.4h-3.4" />
+    </IconBase>
+  );
+}
+
+/** Send a file to storage: an arrow into a tray. */
+export function UploadIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M10 13.5V4.5M6.5 8 10 4.5 13.5 8" />
+      <path d="M4.5 13v2.6a.9.9 0 0 0 .9.9h9.2a.9.9 0 0 0 .9-.9V13" />
+    </IconBase>
+  );
+}
+
+/** Load the next page of a list: a downward chevron. */
+export function ChevronDownIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M5.5 8 10 12.5 14.5 8" />
+    </IconBase>
+  );
+}

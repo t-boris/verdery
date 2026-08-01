@@ -2,6 +2,7 @@
 
 import type { Media } from '@verdery/api-contracts';
 import { useId, useState, type ChangeEvent } from 'react';
+import { CloseIcon, RefreshIcon } from '@/shared/ui/public';
 
 import { useIsOnline } from '@/core/connectivity/public';
 import { useLocalization } from '@/shared/localization/public';
@@ -226,6 +227,7 @@ export function GardenPlanUpload({ gardenId }: GardenPlanUploadProps) {
           </p>
           {upload.retryable && (
             <Button variant="primary" disabled={!isOnline} onClick={upload.retry}>
+              <RefreshIcon />
               {t('media.retry')}
             </Button>
           )}
@@ -251,6 +253,7 @@ export function GardenPlanUpload({ gardenId }: GardenPlanUploadProps) {
 
       {CANCELLABLE_PHASES.has(upload.phase) && (
         <Button variant="secondary" onClick={upload.cancel}>
+          <CloseIcon />
           {t('media.cancel')}
         </Button>
       )}

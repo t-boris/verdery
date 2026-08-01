@@ -8,6 +8,7 @@ import { z } from '@/shared/validation/zod';
 
 import { useLocalization } from '@/shared/localization/public';
 import {
+  CheckIcon,
   Button,
   CalendarIcon,
   FailureAlert,
@@ -203,6 +204,7 @@ export function PlantDetailsForm({ gardenId, plant }: PlantDetailsFormProps) {
         {...register('careGuidanceNote')}
       />
       <Button type="submit" variant="primary" busy={mutation.isPending}>
+        <CheckIcon />
         {t('plants.saveDetails')}
       </Button>
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}

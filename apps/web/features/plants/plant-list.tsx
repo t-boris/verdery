@@ -7,6 +7,8 @@ import { useState } from 'react';
 import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization, type MessageKey } from '@/shared/localization/public';
 import {
+  RefreshIcon,
+  ChevronDownIcon,
   Button,
   FailureAlert,
   LeafIcon,
@@ -187,6 +189,7 @@ export function PlantList({ gardenId }: PlantListProps) {
         <div className={styles['errorState']}>
           <FailureAlert failure={query.error.failure} />
           <Button variant="secondary" onClick={() => void query.refetch()}>
+            <RefreshIcon />
             {t('plants.listRetry')}
           </Button>
         </div>
@@ -216,6 +219,7 @@ export function PlantList({ gardenId }: PlantListProps) {
           <div className={styles['loadMoreRow']}>
             {!isLoadingMore && query.data?.nextCursor !== undefined && (
               <Button variant="secondary" onClick={onLoadMore}>
+                <ChevronDownIcon />
                 {t('plants.listLoadMore')}
               </Button>
             )}
