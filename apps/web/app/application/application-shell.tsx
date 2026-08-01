@@ -13,10 +13,13 @@ import {
   CheckCircleIcon,
   EyeIcon,
   HomeIcon,
+  LeafIcon,
   LightbulbIcon,
   MapIcon,
   SignOutIcon,
   SproutIcon,
+  StatusBar,
+  StatusBarFieldsProvider,
   SunIcon,
   classNames,
   type IconProps,
@@ -68,7 +71,18 @@ function gardenSections(gardenId: string): readonly GardenSection[] {
 }
 
 /**
- * Navigation and sign-out for every authenticated route.
+ * Navigation, status, and sign-out for every authenticated route.
+ *
+ * KERN SHELL. Three rows — a 48px header, one scrolling content region, and a
+ * permanent 24px `<StatusBar>` — filling exactly `100dvh` with `overflow:
+ * hidden`, so the page itself never scrolls and only the content region does.
+ * This is also why the root layout's own brand header is suppressed beneath an
+ * application route (`app/layout.module.css`): Kern has ONE header, and it is
+ * this one, which is why the wordmark moved here.
+ *
+ * The root links and the garden tabs are now one strip rather than two rows —
+ * a 48px header has no room for two, and merging them means one horizontal
+ * scroll on a phone instead of a stacked bar that would eat the content area.
  *
  * The bar is purely structural: the garden identifier is read from the route
  * parameters, and no data is fetched here — the shell must render instantly
@@ -117,54 +131,66 @@ export function ApplicationShell({ children }: { readonly children: ReactNode })
     router.push('/auth/sign-in');
   };
 
+  const gardensActive = pathname === '/application/gardens';
+  const organizationsActive = pathname.startsWith('/application/organizations');
+
   return (
-    <div className={styles['shell']}>
-      <div className={styles['bar']}>
-        <nav className={styles['primaryNav']} aria-label={t('shell.primaryNavLabel')}>
-          <Link
-            className={styles['rootLink']}
-            href="/application/gardens"
-            aria-current={pathname === '/application/gardens' ? 'page' : undefined}
-          >
-            {t('gardens.title')}
+    <StatusBarFieldsProvider>
+      <div className={styles['shell']} data-app-shell>
+        <header className={styles['header']}>
+          <Link className={styles['brand']} href="/application/gardens">
+            <LeafIcon size={16} />
+            <span className={styles['brandName']}>{t('app.name')}</span>
           </Link>
-          <Link
-            className={styles['rootLink']}
-            href="/application/organizations"
-            aria-current={pathname.startsWith('/application/organizations') ? 'page' : undefined}
-          >
-            {t('organizations.title')}
-          </Link>
-        </nav>
-        <Button variant="secondary" busy={signingOut} onClick={() => void onSignOut()}>
-          <SignOutIcon />
-          {t('shell.signOut')}
-        </Button>
+
+          <nav className={styles['nav']} aria-label={t('shell.primaryNavLabel')}>
+            <Link
+              className={classNames(styles['tab'], gardensActive && styles['tabActive'])}
+              href="/application/gardens"
+              aria-current={gardensActive ? 'page' : undefined}
+            >
+              {t('gardens.title')}
+            </Link>
+            <Link
+              className={classNames(styles['tab'], organizationsActive && styles['tabActive'])}
+              href="/application/organizations"
+              aria-current={organizationsActive ? 'page' : undefined}
+            >
+              {t('organizations.title')}
+            </Link>
+
+            {gardenId !== null &&
+              gardenSections(gardenId).map((section) => {
+                const active = section.exact
+                  ? pathname === section.href
+                  : pathname.startsWith(section.href);
+                const Icon = section.icon;
+                return (
+                  <Link
+                    key={section.href}
+                    className={classNames(styles['tab'], active && styles['tabActive'])}
+                    href={section.href}
+                    aria-current={active ? 'page' : undefined}
+                  >
+                    <Icon />
+                    <span>{t(section.labelKey)}</span>
+                  </Link>
+                );
+              })}
+          </nav>
+
+          <div className={styles['headerEnd']}>
+            <Button variant="secondary" busy={signingOut} onClick={() => void onSignOut()}>
+              <SignOutIcon />
+              {t('shell.signOut')}
+            </Button>
+          </div>
+        </header>
+
+        <div className={styles['content']}>{children}</div>
+
+        <StatusBar />
       </div>
-
-      {gardenId !== null && (
-        <nav className={styles['tabs']} aria-label={t('shell.gardenNavLabel')}>
-          {gardenSections(gardenId).map((section) => {
-            const active = section.exact
-              ? pathname === section.href
-              : pathname.startsWith(section.href);
-            const Icon = section.icon;
-            return (
-              <Link
-                key={section.href}
-                className={classNames(styles['tab'], active && styles['tabActive'])}
-                href={section.href}
-                aria-current={active ? 'page' : undefined}
-              >
-                <Icon />
-                <span>{t(section.labelKey)}</span>
-              </Link>
-            );
-          })}
-        </nav>
-      )}
-
-      <div className={styles['content']}>{children}</div>
-    </div>
+    </StatusBarFieldsProvider>
   );
 }

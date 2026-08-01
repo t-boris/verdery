@@ -1,0 +1,55 @@
+/*
+ * Self-hosted webfaces for the Kern direction: Archivo for everything set in
+ * the sans stack, IBM Plex Mono for labels, ordinals, and status strings.
+ *
+ * Local files, never a font CDN — the Content Security Policy allows no
+ * remote font origin, and `e2e/content-security-policy.spec.ts` fails if one
+ * appears. See `fonts/NOTICE.md` for the licences (both SIL OFL 1.1) and for
+ * why only the latin subsets ship.
+ *
+ * `font-display: swap` throughout: the fallback in each stack renders
+ * immediately and is replaced when the face arrives, so no text is ever
+ * invisible. That matters more than usual here — the map editor's object
+ * index and the status bar are mono, and a blocking font would leave the
+ * whole chrome blank on a cold load.
+ *
+ * Imported by `app/layout.tsx` and `app/global-error.tsx` immediately ahead of
+ * `tokens.css`, so the faces are declared before any rule can reference them.
+ * The error boundary needs its own import because it renders its own `<html>`
+ * outside the root layout's tree.
+ *
+ * Source: templates/kern-grid/IMPLEMENTATION.md, section 1 ("Type").
+ */
+
+/* Variable, covering the full 400-700 range the weight tokens use. */
+@font-face {
+  font-family: Archivo;
+  src: url('./fonts/archivo-variable-latin.woff2') format('woff2-variations');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('./fonts/ibm-plex-mono-400-latin.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('./fonts/ibm-plex-mono-500-latin.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('./fonts/ibm-plex-mono-600-latin.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}

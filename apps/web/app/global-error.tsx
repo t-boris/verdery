@@ -2,6 +2,7 @@
 
 import { DEFAULT_LOCALE, createTranslator } from '@/shared/localization/public';
 import { Alert, Button } from '@/shared/ui/public';
+import '@/shared/ui/fonts.css';
 import '@/shared/ui/tokens.css';
 import '@/shared/ui/global.css';
 

@@ -5,22 +5,40 @@
  * hard-code a colour or a spacing step, so a theme change is a change here and
  * nowhere else.
  *
- * The design language is a "botanical ledger": a warm paper canvas, deep fir
- * greens, a serif display face for headings, and soft green-tinted elevation.
- * Light and dark palettes are chosen so that body text, muted text, and text on
- * a filled control all clear the WCAG AA contrast ratio, and so that state is
- * never carried by colour alone.
+ * The design language is "Kern": achromatic warm paper, one orange signal
+ * colour, square geometry, hairlines instead of shadows, and two self-hosted
+ * families (Archivo, IBM Plex Mono). Light and dark palettes are chosen so
+ * that body text, muted text, and text on a filled control all clear the WCAG
+ * AA contrast ratio, and so that state is never carried by colour alone —
+ * `--color-positive` stays green precisely because the orange is the
+ * INTERACTION signal, not the success tone.
  *
- * Source: architecture/web-application-design.md, section "14. Accessibility".
+ * TWO VALUES DEVIATE FROM templates/kern-grid/IMPLEMENTATION.md, both in the
+ * light palette, both because the guide's table does not clear this repo's own
+ * contrast gate. The guide states "#c8431a on #fbfaf6 is 5.2:1"; by the WCAG
+ * relative-luminance formula that pair is 4.70:1, and the guide checks only
+ * `--color-surface` while `contrast.test.ts` also checks `--color-canvas`,
+ * `--color-surface-sunken`, and `--color-accent-quiet`. Against the darkest of
+ * those the guide's values land at 3.85:1 and 3.97:1 — below SC 1.4.3. Both
+ * corrections keep the hue (14.1°) and saturation identical and only deepen
+ * lightness, so the direction is unchanged:
+ *
+ *   --color-accent      #c8431a -> #b53d18   (worst pairing 3.85 -> 4.52)
+ *   --color-text-muted  #6a6a5d -> #66665a   (worst pairing 4.30 -> 4.56)
+ *
+ * The dark palette is the guide's, unmodified — it already cleared every pair.
+ *
+ * Source: templates/kern-grid/IMPLEMENTATION.md, section 1;
+ * architecture/web-application-design.md, section "14. Accessibility".
  */
 
 :root {
   /* Surfaces. */
-  --color-canvas: #f2f1e8;
-  --color-surface: #fcfcf7;
-  --color-surface-sunken: #ecebdf;
-  --color-border: #d6d4c2;
-  --color-border-strong: #b5b3a0;
+  --color-canvas: #f2f0e9;
+  --color-surface: #fbfaf6;
+  --color-surface-sunken: #e6e4da;
+  --color-border: #d3d1c4;
+  --color-border-strong: #b0ae9d;
 
   /*
    * The boundary of an interactive control, as distinct from the hairline
@@ -30,37 +48,41 @@
    * background for "visual information required to identify user interface
    * components". A text input and a secondary button have no fill of their
    * own — their border IS the whole of that information — so they cannot use
-   * `--color-border`, which sits at 1.45:1 on `--color-surface` and is
+   * `--color-border`, which sits at 1.47:1 on `--color-surface` and is
    * correct only for decorative separators, where nothing has to be
-   * identified. Measured 4.66:1 (light) and 4.20:1 (dark) on
+   * identified. Measured 4.88:1 (light) and 4.83:1 (dark) on
    * `--color-surface`; see `shared/ui/contrast.test.ts`, which fails if
    * either drops below 3:1 on any surface a control is ever placed on.
+   *
+   * Kern leans on this token harder than the previous direction did: with
+   * `--shadow-xs/sm` now `none`, this hairline is the ENTIRE affordance of a
+   * button, input, or select — there is no elevation left to help.
    */
-  --color-control-border: #6f7566;
+  --color-control-border: #6f6f61;
 
   /* Ink. */
-  --color-text: #1c2a21;
-  --color-text-muted: #56635a;
+  --color-text: #15150f;
+  --color-text-muted: #66665a;
 
-  /* Brand green. */
-  --color-accent: #2f6b3f;
-  --color-accent-hover: #275c35;
-  --color-accent-active: #204d2c;
+  /* The one signal colour — interaction, never success. */
+  --color-accent: #b53d18;
+  --color-accent-hover: #9c3414;
+  --color-accent-active: #832b11;
   --color-accent-text: #ffffff;
-  --color-accent-quiet: #e1ecdc;
-  --color-accent-quiet-border: #c2d6bd;
+  --color-accent-quiet: #f7e3dc;
+  --color-accent-quiet-border: #e8c4b6;
 
-  /* Tones. */
+  /* Tones. `--color-positive` stays green: state is not carried by the signal colour. */
   --color-positive: #2f6b3f;
   --color-negative: #96322c;
   --color-negative-hover: #822b26;
-  --color-negative-quiet: #f7e9e5;
-  --color-negative-quiet-border: #e5c8c1;
-  --color-warning: #7a5210;
-  --color-warning-quiet: #f5ecd7;
-  --color-warning-quiet-border: #e2d3ab;
+  --color-negative-quiet: #f6e6e2;
+  --color-negative-quiet-border: #e2c5be;
+  --color-warning: #6f5312;
+  --color-warning-quiet: #f2ead6;
+  --color-warning-quiet-border: #ded0aa;
 
-  --color-focus: #2f6b3f;
+  --color-focus: #b53d18;
 
   /* Spacing scale. */
   --space-1: 0.25rem;
@@ -72,24 +94,37 @@
   --space-7: 3rem;
   --space-8: 4rem;
 
-  /* Radii. */
-  --radius-sm: 0.375rem;
-  --radius-md: 0.625rem;
-  --radius-lg: 0.875rem;
-  --radius-xl: 1.25rem;
+  /*
+   * Radii. Kern is square, so every rectangular radius is 0 — the names are
+   * kept so no component has to change, and so a future direction can restore
+   * curvature here alone. `--radius-pill` survives with a real value for the
+   * one element whose shape carries meaning rather than style: the progress
+   * bar's track and fill.
+   */
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
   --radius-pill: 999px;
 
   /*
-   * Type. The display face is a warm old-style serif for headings and the
-   * wordmark; body copy stays on the system sans stack. Both stacks resolve
-   * locally — no font is fetched from any origin, per the CSP posture.
+   * Type. Two families, both self-hosted from `shared/ui/fonts/` and declared
+   * in `shared/ui/fonts.css` — no font is fetched from any origin, per the CSP
+   * posture that `e2e/content-security-policy.spec.ts` enforces.
+   *
+   * `--font-family-display` is retired as a SEPARATE face: Kern sets headings
+   * in Archivo 600/700, the same family as body copy. The token is kept
+   * pointing at the sans stack rather than deleted, so the ~14 rules that
+   * reference it (`card.module.css`'s title, the shell wordmarks, several
+   * feature headings) keep resolving to a real family instead of silently
+   * falling through to whatever they inherit. Those rules are now no-ops that
+   * a later pass can remove one at a time; deleting the token first would have
+   * changed all fourteen at once, unreviewed.
    */
   --font-family-sans:
-    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-family-display:
-    'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, 'Times New Roman',
-    serif;
-  --font-family-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    Archivo, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-family-display: var(--font-family-sans);
+  --font-family-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
@@ -106,14 +141,24 @@
   --line-height-tight: 1.25;
   --line-height-normal: 1.6;
 
-  --letter-spacing-tight: -0.015em;
+  --letter-spacing-tight: -0.02em;
   --letter-spacing-caps: 0.08em;
 
-  /* Elevation: green-tinted, soft, and shallow — paper, not glass. */
-  --shadow-xs: 0 1px 2px rgb(28 42 33 / 0.06);
-  --shadow-sm: 0 1px 2px rgb(28 42 33 / 0.05), 0 2px 8px -2px rgb(28 42 33 / 0.09);
-  --shadow-md: 0 2px 4px rgb(28 42 33 / 0.05), 0 12px 28px -12px rgb(28 42 33 / 0.22);
-  --shadow-lg: 0 4px 8px rgb(28 42 33 / 0.06), 0 24px 48px -16px rgb(28 42 33 / 0.28);
+  /* Kern's 10px mono uppercase label — one pair, so `<Label>` is the only place the three declarations live. */
+  --label-size: 0.625rem;
+  --label-letter-spacing: 0.09em;
+
+  /*
+   * Elevation. Kern separates with hairlines, not shadows: `--shadow-xs/sm`
+   * are `none`, and a `1px solid var(--color-control-border)` boundary is the
+   * whole of a control's affordance. `--shadow-md/lg` keep real values for the
+   * two cases a hairline cannot serve — dialogs and popovers, which must read
+   * as detached from the surface beneath them.
+   */
+  --shadow-xs: none;
+  --shadow-sm: none;
+  --shadow-md: 0 2px 4px rgb(21 21 15 / 0.05), 0 12px 28px -12px rgb(21 21 15 / 0.22);
+  --shadow-lg: 0 4px 8px rgb(21 21 15 / 0.06), 0 24px 48px -16px rgb(21 21 15 / 0.28);
 
   --border-width: 1px;
   --focus-ring-width: 3px;
@@ -131,12 +176,20 @@
    */
   --control-min-size: 2.75rem;
 
+  /*
+   * The Kern shell's two fixed rows. 48px rather than the direction's 46px:
+   * header-height tab buttons make the header the hit area, and 46px is under
+   * `--control-min-size` — see `app/application/application-shell.module.css`.
+   */
+  --shell-header-size: 48px;
+  --shell-status-size: 24px;
+
   --duration-fast: 120ms;
   --duration-medium: 220ms;
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
 
-  /* Chevron for styled <select> controls; swapped per palette below. */
-  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%2356635a' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  /* Chevron for styled <select> controls; stroke tracks `--color-text-muted`, swapped per palette below. */
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%2366665a' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
 /*
@@ -146,64 +199,60 @@
  */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --color-canvas: #10160f;
-    --color-surface: #1a211a;
-    --color-surface-sunken: #141b14;
-    --color-border: #37413a;
-    --color-border-strong: #4d584f;
-    --color-control-border: #7c8a7e;
-    --color-text: #e9efe7;
-    --color-text-muted: #a9b8ab;
-    --color-accent: #7fd0a0;
-    --color-accent-hover: #93dbaf;
-    --color-accent-active: #a8e3bf;
-    --color-accent-text: #0e1710;
-    --color-accent-quiet: #21331f;
-    --color-accent-quiet-border: #35492f;
+    --color-canvas: #131310;
+    --color-surface: #1b1b16;
+    --color-surface-sunken: #242420;
+    --color-border: #33332a;
+    --color-border-strong: #4a4a3e;
+    --color-control-border: #8a8877;
+    --color-text: #eceadf;
+    --color-text-muted: #93917f;
+    --color-accent: #f2622f;
+    --color-accent-hover: #f57a4d;
+    --color-accent-active: #f8916b;
+    --color-accent-text: #1b0d06;
+    --color-accent-quiet: #2c1d16;
+    --color-accent-quiet-border: #452a1d;
     --color-positive: #7fd0a0;
     --color-negative: #f2a99f;
     --color-negative-hover: #f6bcb4;
-    --color-negative-quiet: #3a221f;
-    --color-negative-quiet-border: #57332e;
+    --color-negative-quiet: #3a2320;
+    --color-negative-quiet-border: #57342f;
     --color-warning: #e3bd77;
-    --color-warning-quiet: #35290f;
-    --color-warning-quiet-border: #514021;
-    --color-focus: #7fd0a0;
-    --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.35);
-    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 8px -2px rgb(0 0 0 / 0.4);
+    --color-warning-quiet: #332a15;
+    --color-warning-quiet-border: #4f4222;
+    --color-focus: #f2622f;
     --shadow-md: 0 2px 4px rgb(0 0 0 / 0.3), 0 12px 28px -12px rgb(0 0 0 / 0.55);
     --shadow-lg: 0 4px 8px rgb(0 0 0 / 0.35), 0 24px 48px -16px rgb(0 0 0 / 0.6);
-    --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%23a9b8ab' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%2393917f' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   }
 }
 
 :root[data-theme='dark'] {
-  --color-canvas: #10160f;
-  --color-surface: #1a211a;
-  --color-surface-sunken: #141b14;
-  --color-border: #37413a;
-  --color-border-strong: #4d584f;
-  --color-control-border: #7c8a7e;
-  --color-text: #e9efe7;
-  --color-text-muted: #a9b8ab;
-  --color-accent: #7fd0a0;
-  --color-accent-hover: #93dbaf;
-  --color-accent-active: #a8e3bf;
-  --color-accent-text: #0e1710;
-  --color-accent-quiet: #21331f;
-  --color-accent-quiet-border: #35492f;
+  --color-canvas: #131310;
+  --color-surface: #1b1b16;
+  --color-surface-sunken: #242420;
+  --color-border: #33332a;
+  --color-border-strong: #4a4a3e;
+  --color-control-border: #8a8877;
+  --color-text: #eceadf;
+  --color-text-muted: #93917f;
+  --color-accent: #f2622f;
+  --color-accent-hover: #f57a4d;
+  --color-accent-active: #f8916b;
+  --color-accent-text: #1b0d06;
+  --color-accent-quiet: #2c1d16;
+  --color-accent-quiet-border: #452a1d;
   --color-positive: #7fd0a0;
   --color-negative: #f2a99f;
   --color-negative-hover: #f6bcb4;
-  --color-negative-quiet: #3a221f;
-  --color-negative-quiet-border: #57332e;
+  --color-negative-quiet: #3a2320;
+  --color-negative-quiet-border: #57342f;
   --color-warning: #e3bd77;
-  --color-warning-quiet: #35290f;
-  --color-warning-quiet-border: #514021;
-  --color-focus: #7fd0a0;
-  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.35);
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 8px -2px rgb(0 0 0 / 0.4);
+  --color-warning-quiet: #332a15;
+  --color-warning-quiet-border: #4f4222;
+  --color-focus: #f2622f;
   --shadow-md: 0 2px 4px rgb(0 0 0 / 0.3), 0 12px 28px -12px rgb(0 0 0 / 0.55);
   --shadow-lg: 0 4px 8px rgb(0 0 0 / 0.35), 0 24px 48px -16px rgb(0 0 0 / 0.6);
-  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%23a9b8ab' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%2393917f' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }

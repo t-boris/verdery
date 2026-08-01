@@ -1,93 +1,124 @@
+/*
+ * Kern's application shell: a fixed header, a status footer, and exactly one
+ * scrolling region between them.
+ *
+ * `--shell-header-size` is 48px, not the 46px the direction's mock uses. Tab
+ * buttons fill the header's full height, so the header height IS the tab hit
+ * area, and 46px is below the 44px minimum `e2e/responsive.spec.ts` asserts.
+ * The guide names this trade-off and sanctions either fix; raising the header
+ * is the one that keeps the tabs full-height.
+ */
 .shell {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
+  display: grid;
+  grid-template-rows: var(--shell-header-size) 1fr var(--shell-status-size);
+  block-size: 100dvh;
+  overflow: hidden;
 }
 
-.bar {
+.header {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding-bottom: var(--space-3);
-  border-bottom: var(--border-width) solid var(--color-border);
+  align-items: stretch;
+  min-inline-size: 0;
+  border-block-end: var(--border-width) solid var(--color-border);
+  background-color: var(--color-surface);
 }
 
-.primaryNav {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-4);
-}
-
-.rootLink {
+.brand {
   display: inline-flex;
   align-items: center;
-  /*
-   * A navigation link is a standalone target, not a word inside a sentence,
-   * so it carries the same minimum hit area as a button. Its 32px height was
-   * a real outdoor-use failure at phone widths.
-   */
-  min-height: var(--control-min-size);
+  flex: none;
   gap: var(--space-2);
-  font-family: var(--font-family-display);
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--letter-spacing-tight);
+  padding-inline: var(--space-3);
+  border-inline-end: var(--border-width) solid var(--color-border);
   color: var(--color-text);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-tight);
   text-decoration: none;
 }
 
-.rootLink:hover {
+.brand:hover {
   color: var(--color-accent);
 }
 
-.tabs {
+/* The wordmark is dropped below the phone breakpoint; the mark alone still identifies the product and buys ~70px for the tabs. */
+@media (max-width: 30rem) {
+  .brandName {
+    display: none;
+  }
+}
+
+/*
+ * Root links and garden tabs share one scrolling strip. `min-inline-size: 0`
+ * is what lets it shrink instead of pushing the header wider than the
+ * viewport — without it the strip's content width becomes the header's
+ * minimum and `expectNoHorizontalOverflow` fails at 360px.
+ */
+.nav {
   display: flex;
-  gap: var(--space-1);
-  margin-top: calc(var(--space-3) * -1);
-  padding-bottom: var(--space-1);
+  align-items: stretch;
+  flex: 1 1 auto;
+  min-inline-size: 0;
   overflow-x: auto;
   scrollbar-width: none;
 }
 
-.tabs::-webkit-scrollbar {
+.nav::-webkit-scrollbar {
   display: none;
 }
 
 .tab {
   display: inline-flex;
   align-items: center;
+  flex: none;
   gap: var(--space-2);
-  min-height: var(--control-min-size);
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid transparent;
-  border-radius: var(--radius-md);
+  /* Full header height: the row IS the target, so it clears 44px by construction. */
+  min-block-size: var(--control-min-size);
+  padding-inline: var(--space-3);
+  border-inline-end: var(--border-width) solid var(--color-border);
+  /* Reserved so the active state's 2px rule does not shift the label. */
+  border-block-end: 2px solid transparent;
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   text-decoration: none;
   white-space: nowrap;
-  transition:
-    background-color var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
+  transition: color var(--duration-fast) var(--ease-out);
 }
 
 .tab:hover {
-  background-color: var(--color-accent-quiet);
   color: var(--color-text);
 }
 
+/* The whole active indicator: a 2px rule in the signal colour, plus weight — never colour alone. */
 .tabActive {
-  background-color: var(--color-accent-quiet);
-  border-color: var(--color-accent-quiet-border);
+  border-block-end-color: var(--color-accent);
   color: var(--color-accent);
   font-weight: var(--font-weight-semibold);
 }
 
-.content {
+.headerEnd {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
+  align-items: center;
+  flex: none;
+  gap: var(--space-2);
+  padding-inline: var(--space-3);
+  border-inline-start: var(--border-width) solid var(--color-border);
+}
+
+/*
+ * The only scrolling region. `min-block-size: 0` is required for a grid child
+ * to be allowed to shrink below its content size — without it this row grows
+ * to fit its content and the whole shell scrolls, which is exactly what the
+ * direction removes.
+ */
+.content {
+  min-block-size: 0;
+  overflow-y: auto;
+  padding: var(--space-4);
+}
+
+@media (max-width: 40rem) {
+  .content {
+    padding: var(--space-3);
+  }
 }

@@ -1,26 +1,36 @@
+/*
+ * Kern's object index: a zero-padding list whose rows are separated by
+ * hairlines rather than boxed, each carrying the mono ordinal the canvas
+ * prints for the same object (`map-object-ordinals.ts`).
+ *
+ * The panel owns no border of its own — the editor grid's 1px gaps are the
+ * rules between regions, so a border here would double them.
+ */
 .panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  min-height: 0;
-  padding: var(--space-4);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-lg);
+  min-block-size: 0;
   background-color: var(--color-surface);
-  box-shadow: var(--shadow-xs);
 }
 
 .title {
+  flex: none;
   margin: 0;
-  font-family: var(--font-family-sans);
-  font-size: var(--font-size-xs);
+  padding: 0 var(--space-3);
+  block-size: var(--shell-header-size);
+  display: flex;
+  align-items: center;
+  border-block-end: var(--border-width) solid var(--color-border);
+  font-family: var(--font-family-mono);
+  font-size: var(--label-size);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--letter-spacing-caps);
+  letter-spacing: var(--label-letter-spacing);
   text-transform: uppercase;
-  color: var(--color-text-muted);
+  color: var(--color-text);
 }
 
 .empty {
+  padding: var(--space-3);
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
 }
@@ -29,69 +39,70 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  min-block-size: 0;
   overflow-y: auto;
 }
 
 .item {
   display: flex;
-  flex-wrap: wrap;
   align-items: stretch;
-  gap: var(--space-1);
+  border-block-end: var(--border-width) solid var(--color-border);
 }
 
+/*
+ * `26px 1fr auto` per the direction: ordinal, name, category. The leading
+ * 3px inline rule is the selected state's carrier — with the category icon's
+ * colour deliberately NOT load-bearing, selection has to be legible without
+ * it.
+ */
 .itemButton {
   flex: 1;
+  min-inline-size: 0;
   display: grid;
-  grid-template-columns: 1.25rem 0.75rem minmax(0, 1fr) auto;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-2);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface);
+  min-block-size: var(--control-min-size);
+  padding-inline: var(--space-2);
+  border: 0;
+  border-inline-start: 3px solid transparent;
+  background-color: transparent;
   color: var(--color-text);
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition:
-    background-color var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out);
-}
-
-.categoryIcon {
-  display: inline-flex;
+  transition: background-color var(--duration-fast) var(--ease-out);
 }
 
 .itemButton:hover {
-  background-color: var(--color-accent-quiet);
+  background-color: var(--color-surface-sunken);
 }
 
 .itemButton:focus-visible {
   outline: 2px solid var(--color-focus);
-  outline-offset: 2px;
+  outline-offset: -2px;
 }
 
 .itemButtonSelected {
-  border-color: var(--color-accent);
-  border-width: 2px;
-  font-weight: var(--font-weight-medium);
+  border-inline-start-color: var(--color-accent);
+  background-color: var(--color-accent-quiet);
+  font-weight: var(--font-weight-semibold);
 }
 
 .itemButtonMultiSelected {
-  background-color: var(--color-accent-quiet);
+  background-color: var(--color-surface-sunken);
 }
 
-.joinBar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
+/* The ordinal: the same number the canvas chip prints for this object. */
+.ordinal {
+  font-family: var(--font-family-mono);
+  font-size: var(--label-size);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--label-letter-spacing);
+  color: var(--color-text-muted);
 }
 
-.marker {
+.itemButtonSelected .ordinal {
   color: var(--color-accent);
 }
 
@@ -99,33 +110,48 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.category {
-  color: var(--color-text-muted);
   font-size: var(--font-size-sm);
 }
 
+.category {
+  font-family: var(--font-family-mono);
+  font-size: var(--label-size);
+  letter-spacing: var(--label-letter-spacing);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
 .deleteButton {
+  flex: none;
   inline-size: var(--control-min-size);
-  padding: var(--space-2);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface);
-  color: var(--color-negative);
+  border: 0;
+  border-inline-start: var(--border-width) solid var(--color-border);
+  background-color: transparent;
+  color: var(--color-text-muted);
   font: inherit;
   cursor: pointer;
   transition:
     background-color var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out);
+    color var(--duration-fast) var(--ease-out);
 }
 
-.deleteButton:hover {
+.deleteButton:hover:not(:disabled) {
   background-color: var(--color-negative-quiet);
-  border-color: var(--color-negative-quiet-border);
+  color: var(--color-negative);
 }
 
 .deleteButton:focus-visible {
   outline: 2px solid var(--color-focus);
-  outline-offset: 2px;
+  outline-offset: -2px;
+}
+
+.joinBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+  padding: var(--space-2);
+  border-block-start: var(--border-width) solid var(--color-border);
 }

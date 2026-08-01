@@ -2,6 +2,8 @@ import type { GardenObjectCategory } from '@verdery/geometry-contracts';
 
 import type { MessageKey } from '@/shared/localization/public';
 
+import { creatableCategoryOfTool, type ToolMode } from './types';
+
 /**
  * Message key for a category's display name — every category, not only the
  * five the toolbar can create. A `switch` rather than a template-literal cast
@@ -37,4 +39,16 @@ export function categoryLabelKey(category: GardenObjectCategory): MessageKey {
     case 'importedBackground':
       return 'map.category.importedBackground';
   }
+}
+
+/**
+ * Message key naming the active tool, for the status bar's readout.
+ *
+ * Reuses `categoryLabelKey` for every creation tool rather than a second
+ * `map.toolbar.create*` lookup: the footer states WHAT is being drawn ("Bed"),
+ * not the imperative the rail's tooltip uses ("Draw a bed").
+ */
+export function toolLabelKey(tool: ToolMode): MessageKey {
+  const category = creatableCategoryOfTool(tool);
+  return category === null ? 'map.toolbar.select' : categoryLabelKey(category);
 }

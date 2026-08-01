@@ -6,10 +6,21 @@
  * track it is given, is what makes every form reflow instead of overflow.
  * WCAG 2.2 SC 1.4.10.
  */
+/*
+ * The `--field-*` custom properties below are a CONTEXTUAL DENSITY hook, not
+ * per-call-site configuration. An ancestor sets them once and every nested
+ * field inherits — which is how the map inspector becomes Kern's borderless
+ * `104px 1fr` table (`map-property-panel.module.css`) without threading a
+ * layout prop through the 32 field call sites in `category-detail-fields*.tsx`.
+ * Every default below is the stacked layout this file had before, so a field
+ * with no such ancestor is byte-identical to what it was.
+ */
 .field {
-  display: flex;
+  display: var(--field-display, flex);
+  grid-template-columns: var(--field-columns, none);
+  align-items: var(--field-align, stretch);
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--field-gap, var(--space-2));
   min-inline-size: 0;
 }
 
@@ -17,9 +28,12 @@
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  font-size: var(--font-size-sm);
+  font-family: var(--field-label-family, inherit);
+  font-size: var(--field-label-size, var(--font-size-sm));
   font-weight: var(--font-weight-semibold);
-  color: var(--color-text);
+  letter-spacing: var(--field-label-tracking, normal);
+  text-transform: var(--field-label-transform, none);
+  color: var(--field-label-color, var(--color-text));
 }
 
 .labelIcon {
@@ -32,12 +46,19 @@
   min-inline-size: 0;
   min-height: var(--control-min-size);
   padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--color-control-border);
+  /*
+   * `--field-input-border-width` may drop three of the four sides (the
+   * inspector sets `0 0 1px`), but never all four: SC 1.4.11 wants a 3:1
+   * boundary at rest, and this colour is the only thing here that provides
+   * one — the sunken fill is 1.22:1 against the surface and a decorative
+   * hairline 1.47:1, both measured, both far short.
+   */
+  border: solid var(--color-control-border);
+  border-width: var(--field-input-border-width, var(--border-width));
   border-radius: var(--radius-md);
-  background-color: var(--color-surface);
+  background-color: var(--field-input-background, var(--color-surface));
   color: var(--color-text);
   font: inherit;
-  box-shadow: var(--shadow-xs);
   transition:
     border-color var(--duration-fast) var(--ease-out),
     box-shadow var(--duration-fast) var(--ease-out);

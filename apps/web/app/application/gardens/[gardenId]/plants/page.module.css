@@ -1,49 +1,79 @@
+/*
+ * Kern's library route: a fixed 296px context column beside the library pane,
+ * separated — like every Kern boundary — by a 1px gap over the border colour
+ * rather than by a border either side draws.
+ *
+ * The whole route fills the shell's scrolling region; the two panes scroll
+ * independently, so reading the KPI column never scrolls the card grid away.
+ */
 .page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
+  display: grid;
+  grid-template-columns: 296px minmax(0, 1fr);
+  gap: var(--border-width);
+  block-size: 100%;
+  min-block-size: 0;
+  background-color: var(--color-border);
 }
 
-.header {
+.context {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  max-width: 44rem;
+  min-block-size: 0;
+  overflow-y: auto;
+  background-color: var(--color-surface);
+}
+
+.library {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow-y: auto;
+  background-color: var(--color-surface);
 }
 
 .title {
-  font-size: clamp(1.75rem, 1.45rem + 1vw, 2.25rem);
+  margin: 0;
+  padding: var(--space-4) var(--space-3) var(--space-2);
+  /* 22px: the direction's headline size, and Archivo rather than a serif face. */
+  font-size: 22px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-tight);
 }
 
 .description {
+  padding: 0 var(--space-3) var(--space-4);
   color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
 }
 
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.panelGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
-  gap: var(--space-4);
-  align-items: start;
-}
-
+/* Panels below the KPI rows keep the same hairline rhythm as the rows. */
 .panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-5);
-  background-color: var(--color-surface);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-block-start: var(--border-width) solid var(--color-border);
 }
 
 .sectionTitle {
-  padding-bottom: var(--space-3);
-  border-bottom: var(--border-width) solid var(--color-surface-sunken);
+  margin: 0;
+  font-family: var(--font-family-mono);
+  font-size: var(--label-size);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--label-letter-spacing);
+  text-transform: uppercase;
+  color: var(--color-text);
+}
+
+@media (max-width: 70rem) {
+  .page {
+    grid-template-columns: minmax(0, 1fr);
+    block-size: auto;
+  }
+
+  .context,
+  .library {
+    overflow: visible;
+  }
 }

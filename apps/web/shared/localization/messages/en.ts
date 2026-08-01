@@ -411,9 +411,13 @@ export const englishMessages = {
   'map.warnings.code.belowMinimumArea': 'This shape is smaller than the minimum allowed area.',
   'map.warnings.code.fallback': 'Validation note: {code}',
 
+  'statusBar.disclosure': 'Planning only — not a survey',
+  'map.statusBar.tool': 'Tool',
+  'map.statusBar.selection': 'Selection',
+  'map.statusBar.selectionNone': 'None',
+  'map.statusBar.zoom': 'Zoom',
   'map.disclosure.text':
     'Not a legal survey — for planning purposes only. Garden geometry and measurements shown here are approximate, not authoritative property boundaries.',
-  'map.disclosure.dismiss': 'Dismiss',
 
   'map.saveStatus.saving': 'Saving…',
   'map.saveStatus.saved': 'Saved',

@@ -5,24 +5,17 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 import { isConnectivityFailure } from '@/core/api/public';
-import { useLocalization } from '@/shared/localization/public';
+import { useLocalization, type MessageKey } from '@/shared/localization/public';
 import {
   Button,
   FailureAlert,
   LeafIcon,
-  Select,
   StaleIndicator,
-  StatusPill,
   TextField,
+  classNames,
 } from '@/shared/ui/public';
 
-import {
-  PLANT_STATUSES,
-  groupingKindLabel,
-  lifecycleStageLabel,
-  statusLabel,
-  statusTone,
-} from './labels';
+import { PLANT_STATUSES, groupingKindLabel, lifecycleStageLabel, statusLabel } from './labels';
 import { usePlantPhotoAccess } from './plant-media-queries';
 import styles from './plant-list.module.css';
 import { useSearchPlants } from './queries';
@@ -78,6 +71,15 @@ const VISIBLE_STATUSES = PLANT_STATUSES.filter((status) => status !== 'removed')
  * packages/api-contracts/openapi.yaml, operation `searchPlants`.
  */
 type IdentifiedFilter = 'all' | 'identified' | 'unidentified';
+
+const IDENTIFIED_FILTERS: readonly {
+  readonly value: IdentifiedFilter;
+  readonly labelKey: MessageKey;
+}[] = [
+  { value: 'all', labelKey: 'plants.identifiedFilterAll' },
+  { value: 'identified', labelKey: 'plants.identifiedFilterIdentified' },
+  { value: 'unidentified', labelKey: 'plants.identifiedFilterUnidentified' },
+];
 
 function toIdentifiedParam(filter: IdentifiedFilter): boolean | null {
   switch (filter) {
@@ -141,22 +143,43 @@ export function PlantList({ gardenId }: PlantListProps) {
 
   return (
     <div className={styles['panel']}>
-      <TextField
-        label={t('plants.searchLabel')}
-        value={searchText}
-        onChange={(event) => onSearchChange(event.target.value)}
-      />
+      <div className={styles['filterBar']}>
+        <div className={styles['filterSearch']}>
+          <TextField
+            label={t('plants.searchLabel')}
+            value={searchText}
+            placeholder={t('plants.searchLabel')}
+            onChange={(event) => onSearchChange(event.target.value)}
+          />
+        </div>
 
-      <Select
-        label={t('plants.identifiedFilterLabel')}
-        value={identifiedFilter}
-        onChange={(event) => onIdentifiedFilterChange(event.target.value as IdentifiedFilter)}
-        options={[
-          { value: 'all', label: t('plants.identifiedFilterAll') },
-          { value: 'identified', label: t('plants.identifiedFilterIdentified') },
-          { value: 'unidentified', label: t('plants.identifiedFilterUnidentified') },
-        ]}
-      />
+        {/*
+          A segmented control rather than a `Select`: three mutually exclusive
+          options read faster as one strip than as a dropdown, and the strip is
+          what gives the bar its full-height Kern rhythm. `aria-pressed` carries
+          the active option, so the fill is never the only signal.
+        */}
+        <div
+          className={styles['filterSegments']}
+          role="group"
+          aria-label={t('plants.identifiedFilterLabel')}
+        >
+          {IDENTIFIED_FILTERS.map((filter) => (
+            <button
+              key={filter.value}
+              type="button"
+              className={classNames(
+                styles['segment'],
+                identifiedFilter === filter.value && styles['segmentActive'],
+              )}
+              aria-pressed={identifiedFilter === filter.value}
+              onClick={() => onIdentifiedFilterChange(filter.value)}
+            >
+              {t(filter.labelKey)}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {isFirstLoad && <p role="status">{t('plants.listLoading')}</p>}
 
@@ -223,8 +246,15 @@ function PlantCoverPhoto({
   }
 
   // A plain `<img>`, not `next/image` — see `plant-photo-gallery.tsx`'s own
-  // doc comment: the source is a short-lived signed Cloud Storage URL.
-  return <img className={styles['cover']} src={query.data.url} alt="" />;
+  // doc comment: the source is a short-lived signed Cloud Storage URL,
+  // re-issued per fetch, which Next's optimizer can neither cache nor be
+  // configured for by `remotePatterns`. The direction asks for `next/image`
+  // with `sizes="16vw"` to protect the LCP budget at 18+ tiles; the budget is
+  // met instead by `.coverBox`'s fixed 118px box (so no tile reflows as URLs
+  // resolve) plus lazy, off-thread decoding here.
+  return (
+    <img className={styles['cover']} src={query.data.url} alt="" loading="lazy" decoding="async" />
+  );
 }
 
 /** Shown in place of a cover photo: no `coverMediaId` yet, or its signed URL failed to resolve (including the documented dev-environment media-processing gap). */
@@ -242,15 +272,18 @@ function PlantListItem({ gardenId, plant }: { readonly gardenId: string; readonl
   return (
     <li className={styles['item']}>
       <Link className={styles['link']} href={`/application/gardens/${gardenId}/plants/${plant.id}`}>
-        {plant.coverMediaId !== null ? (
-          <PlantCoverPhoto gardenId={gardenId} mediaId={plant.coverMediaId} />
-        ) : (
-          <PlantCoverFallback />
-        )}
+        <span className={styles['coverBox']}>
+          {plant.coverMediaId !== null ? (
+            <PlantCoverPhoto gardenId={gardenId} mediaId={plant.coverMediaId} />
+          ) : (
+            <PlantCoverFallback />
+          )}
+          {/* An ink chip over the photo's corner replaces the row's `StatusPill`: at card width the pill's own padding cost more room than the word it carried. */}
+          <span className={styles['statusChip']}>{t(statusLabel(plant.status))}</span>
+        </span>
         <span className={styles['itemBody']}>
           <span className={styles['name']}>{plant.displayName}</span>
           <span className={styles['meta']}>
-            <StatusPill tone={statusTone(plant.status)} label={t(statusLabel(plant.status))} />
             <span>{t(lifecycleStageLabel(plant.lifecycleStage))}</span>
             <span>{t(groupingKindLabel(plant.groupingKind))}</span>
             {plant.quantity !== null && (

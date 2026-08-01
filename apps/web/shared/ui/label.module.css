@@ -1,0 +1,15 @@
+.label {
+  font-family: var(--font-family-mono);
+  font-size: var(--label-size);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--label-letter-spacing);
+  line-height: var(--line-height-tight);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* The one variant that carries emphasis: a panel heading, not a field name. */
+.strong {
+  color: var(--color-text);
+  font-weight: var(--font-weight-semibold);
+}

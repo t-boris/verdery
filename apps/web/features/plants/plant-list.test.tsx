@@ -170,9 +170,9 @@ describe('PlantList — search and pagination', () => {
 
     renderList();
 
-    fireEvent.change(screen.getByLabelText('Identification'), {
-      target: { value: 'unidentified' },
-    });
+    // A segmented button group since the Kern pass, not a `<select>` — the
+    // behaviour asserted below (re-query, reset pagination) is unchanged.
+    fireEvent.click(screen.getByRole('button', { name: 'Not identified only' }));
 
     expect(mockedUseSearchPlants).toHaveBeenLastCalledWith('garden-1', {
       query: null,

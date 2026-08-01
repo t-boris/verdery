@@ -19,13 +19,14 @@ html {
 
 body {
   margin: 0;
+  /*
+   * Flat, with no wash. The previous direction tinted the top of the canvas
+   * with 4% of the accent to keep large empty regions from reading as flat
+   * grey; under Kern that same rule smears the ONE signal colour across the
+   * whole page, which is precisely what the direction reserves for
+   * interaction. Emptiness is now answered by hairlines and the grid instead.
+   */
   background-color: var(--color-canvas);
-  /* A faint vertical wash keeps large empty regions from reading as flat grey. */
-  background-image: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--color-accent) 4%, var(--color-canvas)) 0,
-    var(--color-canvas) 22rem
-  );
   color: var(--color-text);
   font-family: var(--font-family-sans);
   font-size: var(--font-size-md);

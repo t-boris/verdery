@@ -33,7 +33,6 @@
 .primary {
   background-color: var(--color-accent);
   color: var(--color-accent-text);
-  box-shadow: var(--shadow-xs);
 }
 
 .primary:hover {
@@ -48,7 +47,6 @@
   background-color: var(--color-surface);
   border-color: var(--color-control-border);
   color: var(--color-text);
-  box-shadow: var(--shadow-xs);
 }
 
 .secondary:hover {
@@ -64,7 +62,6 @@
   background-color: var(--color-surface);
   border-color: var(--color-negative);
   color: var(--color-negative);
-  box-shadow: var(--shadow-xs);
 }
 
 .destructive:hover {

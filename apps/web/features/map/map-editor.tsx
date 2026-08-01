@@ -11,12 +11,14 @@ import {
   RecoveredDraftNotice,
   StaleIndicator,
   VisuallyHidden,
+  usePublishStatusBarFields,
 } from '@/shared/ui/public';
 
 import { CalibrationPanel } from './calibration-panel';
+import { categoryLabelKey, toolLabelKey } from './labels';
 import { MapEditorStoreProvider, useMapEditorStore } from './editor-store';
 import { ImportedBackgroundPanel } from './imported-background-panel';
-import { MapDisclosureBanner } from './map-disclosure-banner';
+import { MapDraftControls } from './map-draft-controls';
 import styles from './map-editor.module.css';
 import { MapLayerPanel } from './map-layer-panel';
 import { MapObjectList } from './map-object-list';
@@ -63,6 +65,27 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
   const actions = useMapEditorActions(gardenId);
   const mapDraft = useMapDraftPersistence(gardenId, store);
 
+  // The shell's footer is mounted above this route and cannot take props, so
+  // the readouts are published into it — see `usePublishStatusBarFields`.
+  // Deliberately NO "CRS" field, which the direction lists: this product's
+  // `Georeference` is a local anchor plus a geographic anchor, a rotation and
+  // a scale correction (`packages/api-contracts/openapi.yaml`) — it names no
+  // coordinate reference system, so any CRS string here would be invented.
+  usePublishStatusBarFields([
+    { label: t('map.statusBar.tool'), value: t(toolLabelKey(store.state.tool)) },
+    {
+      label: t('map.statusBar.selection'),
+      value:
+        actions.selectedRecord === null
+          ? t('map.statusBar.selectionNone')
+          : (actions.selectedRecord.label ?? t(categoryLabelKey(actions.selectedRecord.category))),
+    },
+    {
+      label: t('map.statusBar.zoom'),
+      value: `${String(Math.round(store.state.camera.scale * 100))}%`,
+    },
+  ]);
+
   // Cmd/Ctrl+Z and Shift+Cmd/Ctrl+Z are global — unlike arrow-key nudging and
   // Delete, which are scoped to the canvas/object list so they never fight a
   // text field's own editing keys — because undo/redo has no natural single
@@ -108,31 +131,35 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
         <FailureAlert failure={mapQuery.error.failure} />
       )}
       {mapDraft.recovered && <RecoveredDraftNotice onDiscard={mapDraft.discardRecoveredDraft} />}
-      <MapToolbar actions={actions} />
-      <MapDisclosureBanner />
       <div className={styles['body']}>
-        <div className={styles['canvasWrapper']}>
-          <MapBasemap georeference={mapQuery.data.georeference} camera={store.state.camera} />
-          <MapCanvas actions={actions} />
-          <MapScaleBadge georeference={mapQuery.data.georeference} />
+        <div className={styles['rail']}>
+          <MapToolbar actions={actions} />
         </div>
-        <aside className={styles['inspector']} aria-label={t('map.inspector.ariaLabel')}>
+        <div className={styles['index']}>
           <MapObjectList
             actions={actions}
             selectedObjectId={store.state.selectedObjectId}
             onSelect={store.select}
           />
+        </div>
+        <div className={styles['canvasWrapper']}>
+          <MapBasemap georeference={mapQuery.data.georeference} camera={store.state.camera} />
+          <MapCanvas actions={actions} />
+          <MapScaleBadge georeference={mapQuery.data.georeference} />
+          <MapDraftControls actions={actions} />
+        </div>
+        <aside className={styles['inspector']} aria-label={t('map.inspector.ariaLabel')}>
           <MapPropertyPanel actions={actions} selectedRecord={actions.selectedRecord} />
-        </aside>
-        <aside className={styles['utilities']} aria-label={t('map.utilities.ariaLabel')}>
-          <MapLayerPanel actions={actions} />
-          <ImportedBackgroundPanel gardenId={gardenId} actions={actions} />
-          <CalibrationPanel gardenId={gardenId} actions={actions} />
-          <MapWarningsPanel
-            warnings={mapQuery.data.validationSummary}
-            findRecord={actions.findRecord}
-            onSelectObject={store.select}
-          />
+          <div className={styles['utilities']} aria-label={t('map.utilities.ariaLabel')}>
+            <MapLayerPanel actions={actions} />
+            <ImportedBackgroundPanel gardenId={gardenId} actions={actions} />
+            <CalibrationPanel gardenId={gardenId} actions={actions} />
+            <MapWarningsPanel
+              warnings={mapQuery.data.validationSummary}
+              findRecord={actions.findRecord}
+              onSelectObject={store.select}
+            />
+          </div>
         </aside>
       </div>
       {store.state.status !== null && store.state.status.tone === 'alert' ? (

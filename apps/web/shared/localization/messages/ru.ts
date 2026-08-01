@@ -409,9 +409,13 @@ export const russianMessages: MessageCatalogue = {
   'map.warnings.code.belowMinimumArea': 'Эта фигура меньше минимально допустимой площади.',
   'map.warnings.code.fallback': 'Примечание проверки: {code}',
 
+  'statusBar.disclosure': 'Только планирование — не съёмка',
+  'map.statusBar.tool': 'Инструмент',
+  'map.statusBar.selection': 'Выделение',
+  'map.statusBar.selectionNone': 'Нет',
+  'map.statusBar.zoom': 'Масштаб',
   'map.disclosure.text':
     'Это не официальная геодезическая съёмка — только для планирования. Геометрия и измерения сада, показанные здесь, приблизительны и не являются официальными границами участка.',
-  'map.disclosure.dismiss': 'Скрыть',
 
   'map.saveStatus.saving': 'Сохранение…',
   'map.saveStatus.saved': 'Сохранено',

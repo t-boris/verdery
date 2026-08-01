@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { LocalizationProvider, createTranslator } from '@/shared/localization/public';
 import { getRequestLocale } from '@/shared/localization/server';
 import { LeafIcon } from '@/shared/ui/public';
+import '@/shared/ui/fonts.css';
 import '@/shared/ui/tokens.css';
 import '@/shared/ui/global.css';
 

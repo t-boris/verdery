@@ -1,52 +1,97 @@
+/*
+ * Kern's inspector: 326px of borderless `104px 1fr` table.
+ *
+ * The row layout is set ONCE here, as inherited `--field-*` custom properties
+ * that every nested `TextField`/`Select` picks up (see
+ * `shared/ui/text-field.module.css` for the contract). That is what turns the
+ * 32 field call sites in `category-detail-fields*.tsx` into table rows without
+ * touching any of them.
+ *
+ * DEVIATION FROM THE DIRECTION, on an accessibility ground it asked to check.
+ * The guide specifies "input with no border of its own", with the row divider
+ * plus the sunken fill carrying SC 1.4.11's 3:1 control boundary, and adds
+ * "verify it in contrast.test.ts before shipping". Verified, and it does not
+ * hold: the sunken fill is 1.22:1 against the surface (1.11:1 dark) and the
+ * divider 1.47:1 (1.36:1 dark). So the input keeps ONE side — a bottom rule in
+ * `--color-control-border`, 4.0:1 on the sunken fill (4.35:1 dark). The
+ * borderless-table reading survives, because no box is drawn around the input;
+ * only the boundary that identifies it as a control does.
+ */
 .panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  min-height: 0;
-  padding: var(--space-4);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-lg);
+  min-block-size: 0;
   background-color: var(--color-surface);
-  box-shadow: var(--shadow-xs);
 }
 
 .title {
   margin: 0;
-  font-family: var(--font-family-sans);
-  font-size: var(--font-size-xs);
+  font-family: var(--font-family-mono);
+  font-size: var(--label-size);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--letter-spacing-caps);
+  letter-spacing: var(--label-letter-spacing);
   text-transform: uppercase;
-  color: var(--color-text-muted);
+  color: var(--color-text);
 }
 
 .heading {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
+  flex: none;
+  block-size: var(--shell-header-size);
+  padding-inline: var(--space-3);
+  border-block-end: var(--border-width) solid var(--color-border);
 }
 
 .empty {
   margin: 0;
+  padding: var(--space-3);
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
-}
-
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
 }
 
 .meta {
   margin: 0;
+  font-family: var(--font-family-mono);
+  font-size: var(--label-size);
+  letter-spacing: var(--label-letter-spacing);
+  text-transform: uppercase;
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+}
+
+/* The table itself: one inherited declaration block, every nested field obeys. */
+.form {
+  --field-display: grid;
+  --field-columns: 104px minmax(0, 1fr);
+  --field-align: center;
+  --field-gap: 0;
+  --field-label-family: var(--font-family-mono);
+  --field-label-size: var(--label-size);
+  --field-label-tracking: var(--label-letter-spacing);
+  --field-label-transform: uppercase;
+  --field-label-color: var(--color-text-muted);
+  --field-input-border-width: 0 0 var(--border-width);
+  --field-input-background: var(--color-surface-sunken);
+
+  display: flex;
+  flex-direction: column;
+}
+
+/* The 1px cell divider between rows. */
+.form > * {
+  border-block-end: var(--border-width) solid var(--color-border);
 }
 
 .actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+/* The action rows are buttons, not table cells — they opt out of the divider. */
+.form > .actions {
+  border-block-end: 0;
 }

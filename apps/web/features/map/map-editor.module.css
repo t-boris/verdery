@@ -1,94 +1,104 @@
+/*
+ * Kern's map workspace: four regions in one row, separated by 1px gaps over a
+ * border-coloured background — the gap IS the rule, so no region draws a
+ * border of its own.
+ *
+ * The widths are the direction's: a 44px tool rail, a 252px object index, the
+ * canvas taking the rest, and a 326px inspector.
+ *
+ * `block-size: 100%` with `min-block-size: 0`, not a `calc(100vh - Xrem)`:
+ * the editor now sits inside the application shell's single scrolling region,
+ * which is already exactly sized, so subtracting a guessed chrome height would
+ * be wrong twice over.
+ */
 .editor {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  height: calc(100vh - 12rem);
-  min-height: 32rem;
+  gap: var(--border-width);
+  block-size: 100%;
+  min-block-size: 0;
 }
 
 .body {
   display: grid;
-  grid-template-areas: 'utilities canvas inspector';
-  grid-template-columns: 17rem minmax(32rem, 1fr) 25rem;
-  gap: var(--space-3);
+  grid-template-areas: 'rail index canvas inspector';
+  grid-template-columns: var(--control-min-size) 252px minmax(0, 1fr) 326px;
+  gap: var(--border-width);
   flex: 1;
-  min-height: 0;
+  min-block-size: 0;
+  /* The 1px gaps show this through, which is what draws every rule in the workspace. */
+  background-color: var(--color-border);
 }
 
-@media (max-width: 80rem) {
-  .body {
-    grid-template-areas:
-      'canvas inspector'
-      'utilities utilities';
-    grid-template-columns: minmax(28rem, 1fr) minmax(22rem, 25rem);
-    overflow-y: auto;
-  }
+.rail {
+  grid-area: rail;
+  min-block-size: 0;
+}
 
-  .editor {
-    height: auto;
-  }
-
-  .utilities {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    overflow: visible;
-  }
+.index {
+  grid-area: index;
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+  overflow: hidden;
 }
 
 .canvasWrapper {
   grid-area: canvas;
   position: relative;
-  min-height: 24rem;
-  border-radius: var(--radius-lg);
+  min-inline-size: 0;
+  min-block-size: 0;
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
-}
-
-.inspector,
-.utilities {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: var(--space-1);
-  scrollbar-gutter: stable;
+  background-color: var(--color-surface);
 }
 
 .inspector {
   grid-area: inspector;
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+  overflow-y: auto;
+  background-color: var(--color-surface);
 }
 
-.inspector > :first-child {
-  max-height: 18rem;
-  flex: 0 0 auto;
-}
-
+/*
+ * The utility panels (layers, background, calibration, warnings) have no
+ * column of their own in the four-region layout — they follow the inspector
+ * in the same scrolling column, under their own heavier rule.
+ */
 .utilities {
-  grid-area: utilities;
+  display: flex;
+  flex-direction: column;
+  border-block-start: var(--border-width) solid var(--color-border-strong);
 }
 
-@media (max-width: 58rem) {
+/*
+ * Below the tablet breakpoint the four columns cannot coexist. The rail turns
+ * horizontal (see `map-toolbar.module.css`), and index/canvas/inspector stack
+ * with the whole editor scrolling as one document again — a phone has no room
+ * for three independently scrolling panes.
+ */
+@media (max-width: 80rem) {
+  .editor {
+    block-size: auto;
+  }
+
   .body {
     grid-template-areas:
+      'rail'
       'canvas'
-      'inspector'
-      'utilities';
-    grid-template-columns: minmax(0, 1fr);
-    overflow: visible;
-  }
-
-  .utilities {
+      'index'
+      'inspector';
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .inspector,
-  .utilities {
-    overflow: visible;
-    padding-right: 0;
+  .canvasWrapper {
+    min-block-size: 24rem;
   }
 
-  .inspector > :first-child {
-    max-height: none;
+  .index,
+  .inspector {
+    overflow: visible;
+    max-block-size: 32rem;
   }
 }

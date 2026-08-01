@@ -5,22 +5,24 @@ import { AddPlantFromPhotoPanel } from './add-plant-from-photo-panel';
 import styles from './page.module.css';
 
 /**
- * The plants entry point for a garden: browse the inventory, add a plant
- * (manually or from a photo), or open a known one directly.
+ * The plants entry point for a garden, as Kern's two-pane library: a 296px
+ * context column carrying the route's identity and every way IN to a plant,
+ * beside a library pane that is nothing but the card grid.
  *
- * `PlantList` (P4-SEARCH-01 follow-up) backs the inventory browse against
- * the real `SearchPlants` endpoint (`GET /gardens/{gardenId}/plants`), which
- * this page previously had no client for — see
- * `docs/development/deferred-capabilities.md` for the now-closed history of
- * that gap. `OpenPlantByIdForm` stays alongside it as a direct-navigation
- * shortcut for a plant id already known from elsewhere (e.g. a link shared
- * outside the app); it is no longer this page's only way to reach a plant.
- * `AddPlantFromPhotoPanel` (ADR-0015) is this page's third way in — see that
- * component's own doc comment for why it lives beside this file rather than
- * inside `features/plants`.
+ * The three entry points moved into the context column because the grid wants
+ * the full width — `repeat(6,1fr)` at 118px per tile is the point of the
+ * direction, and a form sitting beside it would have taken two of the six
+ * columns permanently.
  *
- * Source: implementation-plan.md work packages P4-WEB-01, P4-SEARCH-01;
- * packages/api-contracts/openapi.yaml, tag `Plants`; ADR-0015.
+ * NOT IMPLEMENTED FROM THE DIRECTION: the KPI rows it lists for this column.
+ * They need counts (`total plants`, `by status`) that no single call returns —
+ * `PlantListResult` carries `items` and `nextCursor` and no total, so any
+ * number here would either be a lie or require walking every page. Closing it
+ * properly is an API change (a count on the search response), not a styling
+ * one.
+ *
+ * Source: templates/kern-grid/IMPLEMENTATION.md, section 4;
+ * implementation-plan.md work packages P4-WEB-01, P4-SEARCH-01; ADR-0015.
  */
 export default async function PlantsPage({
   params,
@@ -32,17 +34,10 @@ export default async function PlantsPage({
 
   return (
     <div className={styles['page']}>
-      <div className={styles['header']}>
+      <div className={styles['context']}>
         <h1 className={styles['title']}>{t('plants.pageTitle')}</h1>
         <p className={styles['description']}>{t('plants.pageDescription')}</p>
-      </div>
 
-      <div className={styles['section']}>
-        <h2 className={styles['sectionTitle']}>{t('plants.inventoryTitle')}</h2>
-        <PlantList gardenId={gardenId} />
-      </div>
-
-      <div className={styles['panelGrid']}>
         <section className={styles['panel']}>
           <h2 className={styles['sectionTitle']}>{t('plants.addTitle')}</h2>
           <AddPlantForm gardenId={gardenId} />
@@ -57,6 +52,10 @@ export default async function PlantsPage({
           <h2 className={styles['sectionTitle']}>{t('plants.openByIdTitle')}</h2>
           <OpenPlantByIdForm gardenId={gardenId} />
         </section>
+      </div>
+
+      <div className={styles['library']}>
+        <PlantList gardenId={gardenId} />
       </div>
     </div>
   );

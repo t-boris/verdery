@@ -29,7 +29,6 @@
   background-color: var(--color-surface);
   color: var(--color-text);
   font: inherit;
-  box-shadow: var(--shadow-xs);
   resize: vertical;
   transition:
     border-color var(--duration-fast) var(--ease-out),

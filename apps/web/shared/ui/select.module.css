@@ -7,7 +7,9 @@
  * WCAG 2.2 SC 1.4.10.
  */
 .field {
-  display: flex;
+  display: var(--field-display, flex);
+  grid-template-columns: var(--field-columns, none);
+  align-items: var(--field-align, stretch);
   flex-direction: column;
   gap: var(--space-2);
   min-inline-size: 0;
@@ -17,7 +19,10 @@
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  font-size: var(--font-size-sm);
+  font-family: var(--field-label-family, inherit);
+  font-size: var(--field-label-size, var(--font-size-sm));
+  letter-spacing: var(--field-label-tracking, normal);
+  text-transform: var(--field-label-transform, none);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text);
 }
@@ -32,9 +37,11 @@
   min-inline-size: 0;
   min-height: var(--control-min-size);
   padding: var(--space-2) var(--space-6) var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--color-control-border);
+  /* See `text-field.module.css` for why the boundary colour survives even when three sides are dropped. */
+  border: solid var(--color-control-border);
+  border-width: var(--field-input-border-width, var(--border-width));
   border-radius: var(--radius-md);
-  background-color: var(--color-surface);
+  background-color: var(--field-input-background, var(--color-surface));
   background-image: var(--select-chevron);
   background-repeat: no-repeat;
   background-position: right var(--space-3) center;
@@ -42,7 +49,6 @@
   color: var(--color-text);
   font: inherit;
   appearance: none;
-  box-shadow: var(--shadow-xs);
   transition:
     border-color var(--duration-fast) var(--ease-out),
     box-shadow var(--duration-fast) var(--ease-out);

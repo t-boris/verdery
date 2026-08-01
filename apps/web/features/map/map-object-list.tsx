@@ -9,11 +9,10 @@ import {
 import { useLocalization } from '@/shared/localization/public';
 import { Button, TrashIcon, classNames } from '@/shared/ui/public';
 
-import { styleForCategory } from './category-style';
 import { useMapEditorStore } from './editor-store';
 import { categoryLabelKey } from './labels';
 import { isCategoryHidden, isCategoryLocked } from './map-layers';
-import { MapCategoryIcon } from './map-category-icon';
+import { formatOrdinal, mapObjectOrdinals } from './map-object-ordinals';
 import styles from './map-object-list.module.css';
 import type { MapObjectRecord } from './types';
 import type { MapEditorActions } from './use-map-editor-actions';
@@ -66,6 +65,10 @@ export function MapObjectList({ actions, selectedObjectId, onSelect }: MapObject
   const visibleRecords = actions.records.filter(
     (record) => !isCategoryHidden(record.category, store.state.hiddenLayers),
   );
+  // Numbered from the FULL record set, so hiding a layer never renumbers what
+  // is left and the number always matches the canvas chip — see
+  // `map-object-ordinals.ts`.
+  const ordinals = mapObjectOrdinals(actions.records);
 
   if (actions.records.length === 0 || visibleRecords.length === 0) {
     return (
@@ -142,6 +145,7 @@ export function MapObjectList({ actions, selectedObjectId, onSelect }: MapObject
                 itemRefs.current[index] = node;
               }}
               record={record}
+              ordinal={ordinals.get(record.id)}
               selected={record.id === selectedObjectId}
               multiSelected={multiSelected.includes(record.id)}
               locked={locked}
@@ -191,6 +195,8 @@ export function MapObjectList({ actions, selectedObjectId, onSelect }: MapObject
 
 interface ObjectListRowProps {
   readonly record: MapObjectRecord;
+  /** The canvas prints this same number above the shape — `map-object-ordinals.ts`. */
+  readonly ordinal: number | undefined;
   readonly selected: boolean;
   readonly multiSelected: boolean;
   /** True when this object's layer is locked — see `map-layers.ts`. Disables delete and marks the row's accessible name. */
@@ -203,6 +209,7 @@ interface ObjectListRowProps {
 
 function ObjectListRow({
   record,
+  ordinal,
   selected,
   multiSelected,
   locked,
@@ -236,14 +243,9 @@ function ObjectListRow({
         onKeyDown={onKeyDown}
         {...lockedTitleProp}
       >
-        <span
-          className={styles['categoryIcon']}
-          style={{ color: styleForCategory(record.category).stroke }}
-        >
-          <MapCategoryIcon category={record.category} />
-        </span>
-        <span className={styles['marker']} aria-hidden="true">
-          {selected ? '▸' : ''}
+        {/* Hidden from assistive technology: the row's `aria-label` already names the object, and the ordinal is a visual handle for matching the canvas chip, not extra content to read out. */}
+        <span className={styles['ordinal']} aria-hidden="true">
+          {formatOrdinal(ordinal)}
         </span>
         <span className={styles['label']}>{label}</span>
         <span className={styles['category']}>{categoryLabel}</span>

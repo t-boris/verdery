@@ -36,10 +36,18 @@ export {
   UnlockIcon,
   type IconProps,
 } from './icons';
+export { Label, type LabelProps } from './label';
 export { ProgressBar, type ProgressBarProps } from './progress-bar';
 export { RecoveredDraftNotice, type RecoveredDraftNoticeProps } from './recovered-draft-notice';
 export { Select, type SelectOption, type SelectProps } from './select';
 export { StaleIndicator, type StaleIndicatorProps } from './stale-indicator';
+export {
+  StatusBar,
+  StatusBarFieldsProvider,
+  usePublishStatusBarFields,
+  type StatusBarField,
+  type StatusBarProps,
+} from './status-bar';
 export { StatusPill, type StatusPillProps, type StatusTone } from './status-pill';
 export { TextArea, type TextAreaProps } from './text-area';
 export { TextField, type TextFieldProps } from './text-field';

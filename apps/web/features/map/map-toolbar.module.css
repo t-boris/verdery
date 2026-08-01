@@ -1,96 +1,151 @@
-.toolbar {
+/*
+ * Kern's tool rail: a 44px column of 44x44 icon-only buttons, divided by
+ * hairlines, with the active tool filled in the signal colour.
+ *
+ * The rail carries ONLY tool selection plus undo/redo and the save dot in its
+ * footer. The draft finish/cancel controls moved out to the canvas overlay —
+ * a 44px column cannot hold a labelled button, and the direction wants the
+ * width rather than a compromise on it.
+ *
+ * Below the tablet breakpoint the rail turns horizontal and scrolls: a 44px
+ * column plus a 252px index plus a 326px inspector cannot coexist with a
+ * usable canvas on a phone.
+ */
+.rail {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-xs);
-}
-
-.commandRow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
-.history {
-  display: flex;
-  gap: var(--space-1);
-  margin-inline-start: auto;
-}
-
-.history button {
   inline-size: var(--control-min-size);
-  padding: var(--space-2);
+  flex: none;
+  background-color: var(--color-surface);
+  overflow-y: auto;
+  scrollbar-width: none;
 }
 
-.palette {
-  display: grid;
-  grid-template-columns: 1.35fr 1fr 0.8fr;
-  gap: var(--space-4);
+.rail::-webkit-scrollbar {
+  display: none;
 }
 
-.toolGroup {
+/* Groups are separated by a heavier rule than the buttons within them. */
+.group {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
+  flex: none;
 }
 
-.groupLabel {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--letter-spacing-caps);
-  text-transform: uppercase;
+.group + .group {
+  border-block-start: var(--border-width) solid var(--color-border-strong);
 }
 
-.tools {
+.toolButton {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
 }
 
+/*
+ * The whole button is the target: exactly `--control-min-size` square, so the
+ * rail's width and the 44px minimum are the same number by construction.
+ */
 .toolButton button {
-  padding-inline: var(--space-3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--control-min-size);
+  block-size: var(--control-min-size);
+  min-block-size: var(--control-min-size);
+  padding: 0;
+  border: 0;
+  border-block-end: var(--border-width) solid var(--color-border);
+  border-radius: 0;
+  background-color: transparent;
+  color: var(--tool-color, var(--color-text-muted));
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
-.toolButton button svg {
-  color: var(--tool-color);
+.toolButton button:hover:not(:disabled) {
+  background-color: var(--color-surface-sunken);
 }
 
-.toolButton button[aria-pressed='true'] svg {
-  color: currentcolor;
+.toolButton button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
-.draftActions {
+.toolButton button:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+/* Active = filled accent, per the direction. `aria-pressed` carries it non-visually. */
+.toolButton button[aria-pressed='true'] {
+  background-color: var(--color-accent);
+  color: var(--color-accent-text);
+}
+
+.toolButton button[aria-pressed='true']:hover {
+  background-color: var(--color-accent-hover);
+}
+
+/* Undo/redo and the save dot, pinned below the tools. */
+.railFooter {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  padding-top: var(--space-2);
-  border-top: var(--border-width) solid var(--color-border);
+  flex-direction: column;
+  flex: none;
+  margin-block-start: auto;
+  border-block-start: var(--border-width) solid var(--color-border-strong);
 }
 
-@media (max-width: 70rem) {
-  .palette {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.railFooter button {
+  inline-size: var(--control-min-size);
+  block-size: var(--control-min-size);
+  min-block-size: var(--control-min-size);
+  padding: 0;
+  border-radius: 0;
 }
 
-@media (max-width: 42rem) {
-  .palette {
-    grid-template-columns: minmax(0, 1fr);
+.saveStatus {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  block-size: var(--control-min-size);
+  border-block-start: var(--border-width) solid var(--color-border);
+}
+
+@media (max-width: 80rem) {
+  .rail {
+    flex-direction: row;
+    inline-size: auto;
+    block-size: var(--control-min-size);
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-block-end: var(--border-width) solid var(--color-border);
   }
 
-  .toolButton {
-    flex: 1 1 9rem;
+  .group {
+    flex-direction: row;
+  }
+
+  .group + .group {
+    border-block-start: 0;
+    border-inline-start: var(--border-width) solid var(--color-border-strong);
   }
 
   .toolButton button {
-    inline-size: 100%;
+    border-block-end: 0;
+    border-inline-end: var(--border-width) solid var(--color-border);
+  }
+
+  .railFooter {
+    flex-direction: row;
+    margin-block-start: 0;
+    margin-inline-start: auto;
+    border-block-start: 0;
+    border-inline-start: var(--border-width) solid var(--color-border-strong);
+  }
+
+  .saveStatus {
+    border-block-start: 0;
+    border-inline-start: var(--border-width) solid var(--color-border);
   }
 }

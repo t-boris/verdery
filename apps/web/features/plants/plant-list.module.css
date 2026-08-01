@@ -1,87 +1,217 @@
+/*
+ * Kern's plant library: a filter bar of full-height segmented controls over a
+ * photo-first card grid.
+ *
+ * THE GRID DRAWS ITS OWN RULES. `gap: 1px` over a `--color-border` background
+ * means the gap IS the rule between cells, so no card carries a border. That
+ * is also why the cards set an opaque `--color-surface`: they are what hides
+ * the background everywhere except the 1px tracks.
+ */
 .panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  min-block-size: 0;
+}
+
+/* Full-height segmented controls, divided by hairlines rather than spaced apart. */
+.filterBar {
+  display: flex;
+  align-items: stretch;
+  flex: none;
+  gap: var(--border-width);
+  background-color: var(--color-border);
+  border-block-end: var(--border-width) solid var(--color-border);
+}
+
+.filterSearch {
+  flex: 1 1 20rem;
+  min-inline-size: 0;
+  display: flex;
+  align-items: center;
+  padding-inline: var(--space-3);
+  background-color: var(--color-surface);
+}
+
+/*
+ * The search field inside the bar is chrome, not a form row. Its own `<label>`
+ * is visually hidden RATHER than removed — it stays the input's accessible
+ * name, which the placeholder alone would not be — and the input drops its box
+ * so the bar reads as one continuous strip. The boundary that identifies it as
+ * a control is the bar's own hairlines plus the focus ring.
+ */
+.filterSearch label {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.filterSearch input {
+  border: 0;
+  background-color: transparent;
+  padding-inline: 0;
+}
+
+.filterSegments {
+  display: flex;
+  align-items: stretch;
+  flex: none;
+  gap: var(--border-width);
+  background-color: var(--color-border);
+}
+
+.segment {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--control-min-size);
+  padding-inline: var(--space-3);
+  border: 0;
+  background-color: var(--color-surface);
+  color: var(--color-text-muted);
+  font-family: var(--font-family-mono);
+  font-size: var(--label-size);
+  letter-spacing: var(--label-letter-spacing);
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.segment:hover {
+  background-color: var(--color-surface-sunken);
+  color: var(--color-text);
+}
+
+.segment:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+/* Active carries fill AND weight, never colour alone — `aria-pressed` carries it non-visually. */
+.segmentActive {
+  background-color: var(--color-accent);
+  color: var(--color-accent-text);
+  font-weight: var(--font-weight-semibold);
 }
 
 .list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--border-width);
   padding: 0;
   margin: 0;
   list-style: none;
+  background-color: var(--color-border);
+  /* The outer rules, so the grid is boxed by the same hairline as its cells. */
+  border: var(--border-width) solid var(--color-border);
+}
+
+@media (max-width: 90rem) {
+  .list {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 60rem) {
+  .list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 40rem) {
+  .list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .item {
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
+  display: flex;
   background-color: var(--color-surface);
-  box-shadow: var(--shadow-xs);
-  transition:
-    border-color var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out);
 }
 
-.item:hover {
-  border-color: var(--color-accent-quiet-border);
-  box-shadow: var(--shadow-sm);
-}
-
-/*
- * The row's own link is the only way into the record — it now wraps the
- * cover photo and the text together, one bigger touch target rather than
- * two siblings — and carries the same minimum hit area as a button:
- * `technical-specification.md` section 11's outdoor-use requirement, asserted
- * at 360px by `e2e/responsive.spec.ts`. `inline-flex` is what lets a
- * `min-height` apply to an anchor at all.
- */
 .link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-  width: 100%;
-  min-height: var(--control-min-size);
+  display: flex;
+  flex-direction: column;
+  inline-size: 100%;
+  min-inline-size: 0;
   color: var(--color-text);
   text-decoration: none;
+  transition: background-color var(--duration-fast) var(--ease-out);
 }
 
-.link:hover .name {
-  color: var(--color-accent);
+.link:hover {
+  background-color: var(--color-surface-sunken);
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
 }
 
 /*
- * Deliberately bigger than a decorative icon: `Plant.coverMediaId` is meant
- * to read as a real photo of the plant, the primary visual anchor of the
- * row, not a small badge next to the name — see this feature's own standing
- * "UI should be built around this concept" direction.
+ * The image is the load-bearing element of the card, so it gets a FIXED box:
+ * 118px tall whether or not a photo resolves. A card whose height depended on
+ * its image would reflow the whole grid as signed URLs arrive one by one.
  */
-.cover,
-.coverFallback {
-  flex: 0 0 auto;
-  width: 3.5rem;
-  height: 3.5rem;
-  border-radius: var(--radius-md);
+.coverBox {
+  position: relative;
+  flex: none;
+  block-size: 118px;
+  inline-size: 100%;
+  background-color: var(--color-surface-sunken);
+  overflow: hidden;
+}
+
+.cover {
+  inline-size: 100%;
+  block-size: 100%;
   object-fit: cover;
+  display: block;
 }
 
 .coverFallback {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--color-surface-sunken);
+  inline-size: 100%;
+  block-size: 100%;
   color: var(--color-text-muted);
+}
+
+/* An ink chip in the corner of the photo, not a pill in the text block. */
+.statusChip {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  padding: 2px var(--space-2);
+  background-color: var(--color-text);
+  color: var(--color-canvas);
+  font-family: var(--font-family-mono);
+  font-size: var(--label-size);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--label-letter-spacing);
+  text-transform: uppercase;
 }
 
 .itemBody {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  min-width: 0;
+  min-inline-size: 0;
+  padding: var(--space-2) var(--space-3);
 }
 
 .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -89,15 +219,16 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
+  font-family: var(--font-family-mono);
+  font-size: var(--label-size);
+  letter-spacing: var(--label-letter-spacing);
+  text-transform: uppercase;
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
 }
 
 .empty {
   padding: var(--space-5);
-  border: var(--border-width) dashed var(--color-border-strong);
-  border-radius: var(--radius-lg);
   color: var(--color-text-muted);
   text-align: center;
 }
@@ -107,10 +238,12 @@
   flex-direction: column;
   gap: var(--space-3);
   align-items: flex-start;
+  padding: var(--space-3);
 }
 
 .loadMoreRow {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
+  padding: var(--space-3);
 }

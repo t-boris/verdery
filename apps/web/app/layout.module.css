@@ -74,6 +74,40 @@
   }
 }
 
+/*
+ * Behind an authenticated route, `app/application/application-shell.tsx`
+ * supplies the whole Kern chrome: one 48px header (carrying the wordmark this
+ * one would otherwise duplicate), one scrolling region, and a permanent status
+ * footer, sized to exactly `100dvh`.
+ *
+ * So this layout gets out of its way rather than stacking on top of it. Left
+ * in place, the brand header's own height would push the shell's `100dvh` past
+ * the viewport and reintroduce the document-level scrollbar the direction
+ * removes, and `.main`'s padding and `96rem` cap would inset a chrome that is
+ * meant to reach the edges.
+ *
+ * Keyed off the shell's own `data-app-shell` marker via `:has()` rather than a
+ * prop threaded down from the route: the root layout renders on unauthenticated
+ * routes too (sign-in, invite acceptance, the email-link handler), which keep
+ * the brand header and the ordinary document scroll, and those routes must not
+ * have to know this rule exists.
+ */
+.shell:has([data-app-shell]) {
+  block-size: 100dvh;
+  min-block-size: 0;
+  overflow: hidden;
+}
+
+.shell:has([data-app-shell]) .header {
+  display: none;
+}
+
+.shell:has([data-app-shell]) .main {
+  width: 100%;
+  min-block-size: 0;
+  padding: 0;
+}
+
 .skipLink {
   position: absolute;
   left: var(--space-4);

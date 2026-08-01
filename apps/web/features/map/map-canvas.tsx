@@ -23,9 +23,12 @@ import {
 import { useMapEditorStore } from './editor-store';
 import { categoryLabelKey } from './labels';
 import { isCategoryHidden, isCategoryLocked } from './map-layers';
+import { formatOrdinal, mapObjectOrdinals } from './map-object-ordinals';
 import { BackgroundImageShape } from './shapes/background-image-shape';
 import { CalibrationOverlay } from './shapes/calibration-overlay';
+import { CanvasGrid } from './shapes/canvas-grid';
 import { DraftPreviewShape } from './shapes/draft-preview-shape';
+import { ObjectLabelChip } from './shapes/object-label-chip';
 import { ObjectShape } from './shapes/object-shape';
 import { TransformHandles } from './shapes/transform-handles';
 import { VertexHandles } from './shapes/vertex-handles';
@@ -37,6 +40,7 @@ import {
   existingObjectsAreInteractive,
   type CanvasSize,
 } from './types';
+import { useCanvasPalette } from './use-canvas-palette';
 import type { MapEditorActions } from './use-map-editor-actions';
 import { editableRingOf, isRingClosureVertex, movedRingClosureGeometry } from './vertex-ring';
 import { initialCameraFor, isRecordInViewport, panCamera, toLocal, zoomCamera } from './viewport';
@@ -133,6 +137,10 @@ export function MapCanvas({ actions }: MapCanvasProps) {
   // A hidden layer's objects are excluded here the same way `map-object-list.tsx`
   // excludes them from the accessible list — the canvas and the list must
   // always agree on what is currently visible.
+  const palette = useCanvasPalette();
+  // Numbered from the FULL record set so the chip matches the object index's
+  // row even when the viewport or a hidden layer excludes its neighbours.
+  const ordinals = mapObjectOrdinals(actions.records);
   const visibleRecords = actions.records.filter(
     (record) =>
       isRecordInViewport(record, camera, size) &&
@@ -389,6 +397,7 @@ export function MapCanvas({ actions }: MapCanvasProps) {
             onWheel={handleWheel}
           >
             <Layer>
+              <CanvasGrid size={size} stroke={palette.grid} />
               {visibleBackgrounds.map((record) => (
                 <BackgroundImageShape
                   key={`background-${record.id}`}
@@ -436,6 +445,18 @@ export function MapCanvas({ actions }: MapCanvasProps) {
                   />
                 );
               })}
+              {/* After every shape, so a chip is never painted under a neighbouring object. */}
+              {visibleRecords.map((record) => (
+                <ObjectLabelChip
+                  key={`chip-${record.id}`}
+                  record={record}
+                  text={formatOrdinal(ordinals.get(record.id))}
+                  camera={camera}
+                  size={size}
+                  fill={palette.chipFill}
+                  textColor={palette.chipText}
+                />
+              ))}
               {isDrafting && draftKind !== null && (
                 <DraftPreviewShape
                   points={store.state.draftPoints}
