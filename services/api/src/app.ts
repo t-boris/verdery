@@ -9,12 +9,8 @@
  * Source: architecture/backend-modular-monolith.md, section "9. Composition Root".
  */
 
-import cookie from '@fastify/cookie';
-import cors from '@fastify/cors';
-import helmet from '@fastify/helmet';
-import underPressure from '@fastify/under-pressure';
 import { API_BASE_PATH } from '@verdery/api-contracts';
-import Fastify, { type FastifyInstance } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import {
   registerClientEngagementRoutes,
   registerClientPortalRoutes,
@@ -28,6 +24,7 @@ import { composeCollaboration } from './compose-collaboration.js';
 import { composeDeletion } from './compose-deletion.js';
 import { composeExports } from './compose-exports.js';
 import { composeGardensMapping } from './compose-gardens-mapping.js';
+import { composeHttpServer } from './compose-http-server.js';
 import { composeIntegrations } from './compose-integrations.js';
 import { composeMedia } from './compose-media.js';
 import { composeNotifications } from './compose-notifications.js';
@@ -104,31 +101,7 @@ import { registerAppCheck } from './platform/app-check/app-check-plugin.js';
 import { registerAuthentication } from './platform/authentication/authentication-plugin.js';
 import { registerSessionRoutes } from './platform/authentication/transport/session-routes.js';
 import { KyselyIdempotencyStore } from './platform/idempotency/kysely-idempotency-store.js';
-import { registerErrorHandling } from './platform/errors/error-handler.js';
-import { generateRequestId, registerCorrelation } from './platform/telemetry/correlation.js';
 import type { ApplicationDependencies } from './application-dependencies.js';
-
-/**
- * Event-loop delay above which the instance rejects new work.
- *
- * Shedding load early keeps latency bounded for requests already in flight
- * instead of degrading every request equally.
- *
- * THREE SECONDS, NOT ONE. At one second this guard fired on ordinary traffic:
- * a single page load fans out a handful of concurrent authenticated reads,
- * each verifying a Firebase session cookie — an RSA signature check — and on
- * the one vCPU this service runs with, that alone pushed the sampled delay
- * past a second. Cloud Run logs showed bursts of two to seven 503s at a time
- * on plain `GET`s, translated to a retryable `server.dependency_unavailable`
- * and surfaced to users as an interrupted-network failure, including on media
- * upload registration. Overload shedding must trip on overload, not on a
- * normally busy instance, or it becomes an outage that reports itself as a
- * client-side network problem.
- *
- * Paired with `--min-instances=1` in `deploy-api.sh`, which removes the boot
- * spike this threshold otherwise has to absorb.
- */
-const MAX_EVENT_LOOP_DELAY_MS = 3_000;
 
 export async function buildApplication(
   dependencies: ApplicationDependencies,
@@ -153,48 +126,7 @@ export async function buildApplication(
   // below, so the registrations cannot drift into disagreeing about it.
   const appCheckEnforcement = configuration.appCheck.enforcement;
 
-  const app = Fastify({
-    loggerInstance: logger,
-    genReqId: generateRequestId,
-    bodyLimit: configuration.http.bodyLimitBytes,
-    // The load balancer terminates TLS and sets the forwarding headers; without
-    // this the service logs and rate-limits against the proxy address.
-    trustProxy: true,
-  });
-
-  registerCorrelation(app);
-  registerErrorHandling(app);
-
-  await app.register(helmet, { contentSecurityPolicy: false });
-
-  await app.register(cors, {
-    origin:
-      configuration.http.allowedOrigins.length === 0
-        ? false
-        : [...configuration.http.allowedOrigins],
-    credentials: true,
-    // @fastify/cors defaults to 'GET,HEAD,POST', silently blocking PATCH
-    // (rename garden) and DELETE (end session): the preflight succeeds but a
-    // real browser then refuses the actual request. `app.inject()`-based
-    // tests never exercise a CORS preflight, so this went unnoticed until a
-    // real browser E2E (apps/web/e2e/sign-out.spec.ts) hit it. PUT joined
-    // later for P7-NOTIF-01's whole-document `PUT /notification-preferences`.
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-  });
-
-  await app.register(underPressure, {
-    maxEventLoopDelay: MAX_EVENT_LOOP_DELAY_MS,
-    // Health endpoints are owned by the service-health module so that they match
-    // the contract document exactly.
-    exposeStatusRoute: false,
-  });
-
-  // Parses `request.cookies`, used by both the Firebase session cookie
-  // (`__session`) and the CSRF double-submit cookie. No `secret` option: the
-  // service never signs cookies, only reads the opaque Firebase-issued value
-  // and compares the CSRF cookie against a header, so there is nothing here
-  // for a signature to protect.
-  await app.register(cookie);
+  const app = await composeHttpServer(configuration, logger);
 
   const health = new ServiceHealth(
     [new DatabaseDependencyProbe(database)],
