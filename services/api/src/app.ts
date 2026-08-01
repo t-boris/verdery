@@ -113,8 +113,22 @@ import type { ApplicationDependencies } from './application-dependencies.js';
  *
  * Shedding load early keeps latency bounded for requests already in flight
  * instead of degrading every request equally.
+ *
+ * THREE SECONDS, NOT ONE. At one second this guard fired on ordinary traffic:
+ * a single page load fans out a handful of concurrent authenticated reads,
+ * each verifying a Firebase session cookie — an RSA signature check — and on
+ * the one vCPU this service runs with, that alone pushed the sampled delay
+ * past a second. Cloud Run logs showed bursts of two to seven 503s at a time
+ * on plain `GET`s, translated to a retryable `server.dependency_unavailable`
+ * and surfaced to users as an interrupted-network failure, including on media
+ * upload registration. Overload shedding must trip on overload, not on a
+ * normally busy instance, or it becomes an outage that reports itself as a
+ * client-side network problem.
+ *
+ * Paired with `--min-instances=1` in `deploy-api.sh`, which removes the boot
+ * spike this threshold otherwise has to absorb.
  */
-const MAX_EVENT_LOOP_DELAY_MS = 1_000;
+const MAX_EVENT_LOOP_DELAY_MS = 3_000;
 
 export async function buildApplication(
   dependencies: ApplicationDependencies,

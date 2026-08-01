@@ -55,14 +55,14 @@ Budget alerts do not automatically disable core user data access. Emergency cont
 
 Initial posture:
 
-- Minimum instances: zero.
+- Minimum instances: one.
 - Bounded maximum instances.
 - Concurrency selected through load tests.
 - CPU and memory sized from representative requests.
 - Request timeout below platform maximum and appropriate for interactive use.
 - Startup optimized without loading large models.
 
-Enable one minimum instance only when measured cold-start latency materially harms the product.
+Enable one minimum instance only when measured cold-start latency materially harms the product. That threshold has been met and one instance is now the default, including in development: scaling to zero put every first request after an idle period on a booting instance, whose event-loop delay tripped the application's own overload guard and shed the request's concurrent siblings. The symptom was not slowness but failure — ordinary reads returning `503 server.dependency_unavailable`, which clients present as a retryable network error rather than as a cold start. Deployments may still set the minimum back to zero per environment where the cost of a warm instance outweighs that.
 
 ## 7. Database Protection
 
@@ -162,7 +162,7 @@ model and define:
 
 ## 15. Environment Cost
 
-- Development scales to zero where possible.
+- Development scales to zero where possible, excluding the API, which keeps one warm instance for the reason given in section 6.
 - Staging mirrors topology but not production capacity except during tests.
 - Production preserves required HA and recovery even when scale is low.
 - Ephemeral preview resources have expiration and cleanup.
