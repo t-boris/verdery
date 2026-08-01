@@ -270,7 +270,11 @@ export interface FakeMediaStorageGatewayOptions {
 
 /** Never touches real Cloud Storage. Records every call it received, for assertions on what target/content-type a command passed. */
 export class FakeMediaStorageGateway implements MediaStorageGateway {
-  readonly createSessionCalls: { target: MediaStorageObjectTarget; contentType: string }[] = [];
+  readonly createSessionCalls: {
+    target: MediaStorageObjectTarget;
+    contentType: string;
+    browserOrigin: string | null;
+  }[] = [];
   readonly getMetadataCalls: MediaStorageObjectTarget[] = [];
   readonly createSignedUrlCalls: MediaStorageObjectTarget[] = [];
 
@@ -280,8 +284,9 @@ export class FakeMediaStorageGateway implements MediaStorageGateway {
     target: MediaStorageObjectTarget,
     declaredContentType: string,
     now: Date,
+    browserOrigin: string | null,
   ): Promise<MediaResumableUploadSession> {
-    this.createSessionCalls.push({ target, contentType: declaredContentType });
+    this.createSessionCalls.push({ target, contentType: declaredContentType, browserOrigin });
     if (this.options.createResumableUploadSessionError !== undefined) {
       return Promise.reject(this.options.createResumableUploadSessionError);
     }

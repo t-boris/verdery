@@ -46,17 +46,32 @@ export class GcsMediaStorageGateway implements MediaStorageGateway {
     private readonly storage: Storage,
     private readonly uploadSessionTtlMs: number,
     private readonly signedDownloadTtlMs: number,
+    /**
+     * The origins a session may be bound to — the same list the HTTP layer
+     * allows. A caller's `Origin` is an attacker-controlled header, and a
+     * session bound to an origin we do not already trust would let that
+     * origin read the upload's responses.
+     */
+    private readonly allowedBrowserOrigins: readonly string[] = [],
   ) {}
 
   async createResumableUploadSession(
     target: MediaStorageObjectTarget,
     declaredContentType: string,
     now: Date,
+    browserOrigin: string | null,
   ): Promise<MediaResumableUploadSession> {
     try {
       const file = this.storage.bucket(target.bucketName).file(target.objectKey);
+      // Omitted entirely rather than passed as undefined for a native client:
+      // the option's presence is what binds the session.
+      const boundOrigin =
+        browserOrigin !== null && this.allowedBrowserOrigins.includes(browserOrigin)
+          ? { origin: browserOrigin }
+          : {};
       const [uploadUrl] = await file.createResumableUpload({
         metadata: { contentType: declaredContentType },
+        ...boundOrigin,
       });
 
       return { uploadUrl, expiresAt: new Date(now.getTime() + this.uploadSessionTtlMs) };

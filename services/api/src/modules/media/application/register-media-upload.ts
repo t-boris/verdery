@@ -83,6 +83,7 @@ export class RegisterMediaUpload {
     profileId: Uuid,
     input: RegisterMediaUploadInput,
     idempotencyKey: string,
+    browserOrigin: string | null = null,
   ): Promise<MediaUploadSession> {
     await this.authorization.requireCapability(gardenId, profileId, 'editGardenContent');
 
@@ -137,6 +138,7 @@ export class RegisterMediaUpload {
             { bucketName, objectKey },
             record.declaredContentType,
             now,
+            browserOrigin,
           );
         } catch (error) {
           if (error instanceof DependencyUnavailableError) {

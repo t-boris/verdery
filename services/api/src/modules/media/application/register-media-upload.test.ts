@@ -106,7 +106,29 @@ describe('RegisterMediaUpload', () => {
     });
 
     expect(storage.createSessionCalls).toHaveLength(1);
-    expect(storage.createSessionCalls[0]).toMatchObject({ contentType: 'image/jpeg' });
+    expect(storage.createSessionCalls[0]).toMatchObject({
+      contentType: 'image/jpeg',
+      browserOrigin: null,
+    });
+  });
+
+  // The browser that registers the upload is the one that PUTs the bytes
+  // straight to Cloud Storage, and Cloud Storage omits CORS headers from the
+  // final data PUT of a session that was not bound to that origin. Losing
+  // this hand-off breaks browser uploads at their last request while every
+  // earlier one succeeds, which is exactly how it hid before.
+  it("hands the caller's origin to the storage gateway so the session can be bound to it", async () => {
+    const { useCase, storage } = buildUseCase();
+
+    await useCase.execute(
+      GARDEN_ID,
+      PROFILE_ID,
+      BASE_INPUT,
+      '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0e',
+      'https://app.example',
+    );
+
+    expect(storage.createSessionCalls[0]).toMatchObject({ browserOrigin: 'https://app.example' });
   });
 
   it('routes raw_capture uploads to the raw-capture bucket', async () => {

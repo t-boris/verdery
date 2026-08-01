@@ -256,11 +256,17 @@ export function registerMediaRoutes(
     const idempotencyKey = requireIdempotencyKey(request);
     const body = requireRegisterMediaUploadBody(request);
 
+    // The browser that registers the upload is the one that will PUT the
+    // bytes straight to Cloud Storage, so the session has to be bound to this
+    // origin or its final `PUT` comes back without CORS headers. Forwarded
+    // verbatim and vetted against the allowlist by the storage gateway, which
+    // is where that policy already lives.
     const session: MediaUploadSession = await dependencies.registerMediaUpload.execute(
       gardenId,
       request.actorContext.profileId,
       body,
       idempotencyKey,
+      request.headers.origin ?? null,
     );
 
     request.log.info(

@@ -99,6 +99,9 @@ async function main(): Promise<void> {
     new Storage(),
     configuration.media.uploadSessionTtlMs,
     configuration.media.signedDownloadTtlMs,
+    // The same allowlist the HTTP layer uses: a resumable session may only be
+    // bound to an origin this service already trusts.
+    configuration.http.allowedOrigins,
   );
   const cloudTasksInvocationVerifier = new GoogleOidcInvocationVerifier(
     configuration.media.processingCallback.audience,

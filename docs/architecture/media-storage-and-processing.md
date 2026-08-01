@@ -100,7 +100,9 @@ Transitions are server-owned and revisioned.
 
 1. Client submits metadata, purpose, size, content type, and checksum when available.
 2. API authenticates, authorizes garden access, validates quota and type, and creates a media record.
-3. API creates a backend-authorized resumable Cloud Storage upload session.
+3. API creates a backend-authorized resumable Cloud Storage upload session, binding it to the
+   caller's browser origin when the caller sends one and that origin is on the service's own
+   allowlist.
 4. Client uploads directly to Cloud Storage and persists local progress.
 5. Completion event or explicit client call triggers verification.
 6. The synchronous completion command compares authoritative object metadata with the registration,
@@ -111,6 +113,15 @@ Transitions are server-owned and revisioned.
    that success.
 
 Upload authorization is single-purpose, short-lived, size-bounded where supported, and scoped to one object.
+
+Binding the session to an origin is a correctness requirement for browser clients, not a hardening
+option. A session created without one still answers the browser's CORS preflight and its progress
+probes, so an upload appears to work until its final data request, which returns success without
+CORS headers and is therefore discarded unread by the browser — surfacing to the user as an
+interrupted network connection. The origin arrives as a request header and is therefore untrusted:
+it is honoured only when it already appears in the service's allowed-origins configuration, so a
+session can never be bound to an origin the service does not otherwise serve. Native clients send
+no origin and need none; their sessions are created unbound.
 
 ## 8. File Validation
 

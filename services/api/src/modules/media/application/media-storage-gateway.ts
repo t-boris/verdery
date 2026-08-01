@@ -66,11 +66,22 @@ export interface MediaStorageGateway {
    * `now` is the basis for `expiresAt`, injected so callers stay
    * deterministic under a fixed `Clock` — this method never reads the system
    * clock itself.
+   *
+   * `browserOrigin` is the `Origin` of the client that will PUT the bytes, or
+   * `null` for a native client that sends none. It is not decoration: a
+   * resumable session records the origin it was created for, and the FINAL
+   * data `PUT` — the one that completes the object — carries CORS headers
+   * only when it matches. A session created without it answers the browser's
+   * preflight and its status probes normally and then fails the upload at the
+   * last request, with a 200 the browser refuses to read. Implementations
+   * must treat this as untrusted input and honour it only against their own
+   * allowlist.
    */
   createResumableUploadSession(
     target: MediaStorageObjectTarget,
     declaredContentType: string,
     now: Date,
+    browserOrigin: string | null,
   ): Promise<MediaResumableUploadSession>;
 
   /** Reads real object metadata for verification. Returns `null` when no object exists at `target` — never throws for a simple absence. */

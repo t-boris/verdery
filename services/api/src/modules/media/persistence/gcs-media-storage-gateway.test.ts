@@ -63,10 +63,14 @@ function stubStorage(behavior: {
   return { storage, calls };
 }
 
+const ALLOWED_ORIGIN = 'https://app.example';
+
 function buildGateway(behavior: Parameters<typeof stubStorage>[0]) {
   const { storage, calls } = stubStorage(behavior);
   return {
-    gateway: new GcsMediaStorageGateway(storage, UPLOAD_SESSION_TTL_MS, SIGNED_DOWNLOAD_TTL_MS),
+    gateway: new GcsMediaStorageGateway(storage, UPLOAD_SESSION_TTL_MS, SIGNED_DOWNLOAD_TTL_MS, [
+      ALLOWED_ORIGIN,
+    ]),
     calls,
   };
 }
@@ -87,10 +91,34 @@ describe('GcsMediaStorageGateway', () => {
   it('stamps the resumable upload session with the configured session TTL and the declared content type', async () => {
     const { gateway, calls } = buildGateway({});
 
-    const session = await gateway.createResumableUploadSession(TARGET, 'image/jpeg', NOW);
+    const session = await gateway.createResumableUploadSession(TARGET, 'image/jpeg', NOW, null);
 
     expect(session.expiresAt).toEqual(new Date(NOW.getTime() + UPLOAD_SESSION_TTL_MS));
     expect(session.uploadUrl).toBe('https://storage.example/resumable-session');
+    expect(calls.createResumableUpload).toEqual([{ metadata: { contentType: 'image/jpeg' } }]);
+  });
+
+  // Without `origin` on the session, Cloud Storage answers the browser's
+  // preflight and its status probes but omits CORS headers from the FINAL
+  // data PUT, so the upload dies at its last request with a 200 the browser
+  // refuses to read. Reproduced against the real bucket on 2026-08-01.
+  it('binds the session to an allowlisted caller origin', async () => {
+    const { gateway, calls } = buildGateway({});
+
+    await gateway.createResumableUploadSession(TARGET, 'image/jpeg', NOW, ALLOWED_ORIGIN);
+
+    expect(calls.createResumableUpload).toEqual([
+      { metadata: { contentType: 'image/jpeg' }, origin: ALLOWED_ORIGIN },
+    ]);
+  });
+
+  // `Origin` is attacker-controlled: binding a session to an unvetted origin
+  // would let that origin read the upload's responses.
+  it('omits the binding entirely for an origin outside the allowlist', async () => {
+    const { gateway, calls } = buildGateway({});
+
+    await gateway.createResumableUploadSession(TARGET, 'image/jpeg', NOW, 'https://evil.example');
+
     expect(calls.createResumableUpload).toEqual([{ metadata: { contentType: 'image/jpeg' } }]);
   });
 
@@ -115,7 +143,7 @@ describe('GcsMediaStorageGateway', () => {
       DependencyUnavailableError,
     );
     await expect(
-      gateway.createResumableUploadSession(TARGET, 'image/jpeg', NOW),
+      gateway.createResumableUploadSession(TARGET, 'image/jpeg', NOW, null),
     ).rejects.toBeInstanceOf(DependencyUnavailableError);
     await expect(gateway.getObjectMetadata(TARGET)).rejects.toBeInstanceOf(
       DependencyUnavailableError,
