@@ -4,9 +4,11 @@ How a Verdery build gets from this repository onto a device, and everything App 
 asks for that a human has to paste in. Work package `P8-STORE-01`.
 
 The build mechanics, the store copy, and the privacy declarations are all finished and checked in.
-Verdery 1.0 build 192 was accepted for TestFlight processing on July 27, 2026. The remaining
-owner-account actions are enumerated once in
-[1. Owner action checklist](#1-owner-action-checklist).
+Verdery 1.0 build 192 was accepted for TestFlight processing on July 27, 2026, and build 245 — the
+identical source tree, since no `apps/ios/**` file changed between the two — was uploaded and
+accepted for processing on August 1, 2026, confirming the same authenticated-Xcode-account upload
+path (section 4) still works unattended run to run. The remaining owner-account actions are
+enumerated once in [1. Owner action checklist](#1-owner-action-checklist).
 
 ## 0. Where things stand
 
@@ -94,8 +96,11 @@ difference.
     `_CodeSignature`.
 
 **Uploaded:** Xcode reported `Upload succeeded` for Verdery 1.0 build 192 on July 27, 2026, and App
-Store Connect started processing the package. Availability to testers follows Apple's processing and
-the internal-group assignment in owner action 2.
+Store Connect started processing the package. **Repeated for build 245 on August 1, 2026** — same
+signing identity (`Apple Distribution: Boris Tsekinovsky (3M68DG8S7N)`), same `beta-reports-active`/
+`get-task-allow: false`/`com.apple.developer.applesignin` entitlement shape, `Upload succeeded`
+again — confirming this path is reproducible, not a one-off. Availability to testers follows Apple's
+processing and the internal-group assignment in owner action 2.
 
 **Not verifiable anywhere but a real device:** Sign in with Apple, Google sign-in, and App Attest.
 See [12](#12-known-gaps).
