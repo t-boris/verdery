@@ -255,7 +255,18 @@ PLANTS, GBIF, USA-NPN — each still kill-switched off by default (`GBIF_PROVIDE
 `USA_NPN_PROVIDER_ENABLED`, `WORLD_FLORA_ONLINE_PROVIDER_ENABLED`, all default `false`, no
 environment enables any of the four today). Every fetched assertion still lands
 `awaiting_horticultural_review`; nothing is visible in a materialized profile or a suitability
-finding until a human reviewer promotes it.
+finding until a human reviewer promotes it — and, as of this same pass, that promotion surface
+now exists: `GET /v1/plant-assertion-reviews` lists every pending fact and distribution assertion
+(enriched with the resolved scientific name, where a live `plant_taxonomy_mapping` row exists) and
+`POST /v1/plant-assertion-reviews/:kind/:assertionId/approve` promotes one to
+`horticulturally_reviewed`, stamping the calling reviewer's own verified email and the current
+date. Gated by `PLANT_REVIEWER_EMAILS` (a comma-separated verified-email allowlist — empty by
+default, so every environment today still refuses every reviewer, the same honest "no reviewer
+configured" starting state every kill-switch in this document defaults to) rather than a
+platform-wide role, since none exists yet (`docs/architecture/identity-and-authorization.md`
+section 13 describes staff/support access only as an undesigned aspiration). There is no reject
+path — no `rejected` review state exists in either table's own CHECK constraint — so a first pass
+reviewer can only approve or leave an assertion pending.
 
 The remaining four sources (USDA Characteristics as its own registration if ever split from USDA
 PLANTS, Wikidata, hardiness rasters, USDA NRCS SDA, federal/state regulatory — five names, one

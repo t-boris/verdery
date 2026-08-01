@@ -213,6 +213,8 @@ describe('MapPlantTaxonomy — mapping and provenance', () => {
         return inner.findLive(providerKey, taxonomyReferenceId);
       },
       insert: (mapping) => inner.insert(mapping),
+      findByProviderIdentity: (providerKey, providerTaxonId) =>
+        inner.findByProviderIdentity(providerKey, providerTaxonId),
       updateVerificationState: (...args) => inner.updateVerificationState(...args),
     };
     const { map } = makeHarness({

@@ -35,6 +35,7 @@ import { composePlantsInventory } from './compose-plants-inventory.js';
 import { composeSynchronization } from './compose-synchronization.js';
 import { composeTasksRecommendations } from './compose-tasks-recommendations.js';
 import {
+  registerPlantAssertionReviewRoutes,
   registerTaxonEnrichmentSweepRoute,
   registerWeatherRefreshSweepRoute,
 } from './modules/integrations/public.js';
@@ -222,6 +223,7 @@ export async function buildApplication(
     analyzePlantCondition,
     weatherRefreshSweepRouteDependencies,
     taxonEnrichmentSweepRouteDependencies,
+    plantAssertionReviewRoutesDependencies,
     transactionalEmailAdapter,
   } = composeIntegrations(
     database,
@@ -234,6 +236,7 @@ export async function buildApplication(
     configuration.plantConditionAi,
     plantConditionAnalysisAdapter,
     configuration.taxonKnowledge,
+    configuration.plantReview,
     configuration.transactionalEmail,
     cloudTasksInvocationVerifier,
     logger,
@@ -555,6 +558,11 @@ export async function buildApplication(
       // but still requires authentication — the same posture
       // `searchTaxonomyReferences` (just above) already takes.
       registerCandidateRoutes(instance, candidateRoutesDependencies);
+      // P11-PROV-01: the horticultural-review surface — gated by
+      // `requirePlantReviewerAccess` inside the two use cases themselves,
+      // not a route-level guard; see `plant-assertion-review-routes.ts`'s
+      // own header.
+      registerPlantAssertionReviewRoutes(instance, plantAssertionReviewRoutesDependencies);
       registerObservationRoutes(instance, observationRoutesDependencies);
       registerTaskRoutes(instance, taskRoutesDependencies);
       registerRecommendationRoutes(instance, recommendationRoutesDependencies);

@@ -45,6 +45,21 @@ export interface PlantTaxonomyMappingRepository {
   findLive(providerKey: string, taxonomyReferenceId: Uuid): Promise<PlantTaxonomyMapping | null>;
 
   /**
+   * P11-PROV-01: every live (non-rejected) mapping for one provider's OWN
+   * taxon identity — the reverse of `findLive`'s (providerKey,
+   * taxonomyReferenceId) direction. Several application references may
+   * share one provider taxon (this table's own migration header), so this
+   * can return more than one row; the reviewer surface that consumes this
+   * uses the first for display only (every returned row was resolved from
+   * the same provider taxon and carries the same `providerScientificName`),
+   * a deliberate simplification, not a correctness requirement.
+   */
+  findByProviderIdentity(
+    providerKey: string,
+    providerTaxonId: string,
+  ): Promise<readonly PlantTaxonomyMapping[]>;
+
+  /**
    * Moves one mapping's verification state, guarded by the expected current
    * state (callers validate the move through
    * `validateMappingStateTransition` first — the repository stores, the

@@ -9,6 +9,7 @@
 
 import type { Kysely, Selectable } from 'kysely';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
+import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { PlantDistributionAssertionRepository } from '../application/plant-distribution-assertion-repository.js';
 import type {
   PlantAssertionAuthoring,
@@ -111,5 +112,32 @@ export class KyselyPlantDistributionAssertionRepository implements PlantDistribu
       .execute();
 
     return rows.map(toPlantDistributionAssertion);
+  }
+
+  async findAllAwaitingReview(limit: number): Promise<readonly PlantDistributionAssertion[]> {
+    const rows = await this.db
+      .selectFrom('integrations.plant_distribution_assertion')
+      .selectAll()
+      .where('review_status', '=', 'awaiting_horticultural_review')
+      .orderBy('created_at', 'asc')
+      .limit(limit)
+      .execute();
+
+    return rows.map(toPlantDistributionAssertion);
+  }
+
+  async approveReview(assertionId: Uuid, reviewedBy: string, reviewedOn: string): Promise<boolean> {
+    const result = await this.db
+      .updateTable('integrations.plant_distribution_assertion')
+      .set({
+        review_status: 'horticulturally_reviewed',
+        reviewed_by: reviewedBy,
+        reviewed_on: reviewedOn,
+      })
+      .where('id', '=', assertionId)
+      .where('review_status', '=', 'awaiting_horticultural_review')
+      .executeTakeFirst();
+
+    return result.numUpdatedRows > 0n;
   }
 }

@@ -333,6 +333,19 @@ export const environmentSchema = z.object({
   WORLD_FLORA_ONLINE_MAX_CALLS_PER_HOUR: positiveInteger.default(120),
   WORLD_FLORA_ONLINE_MAX_CALLS_PER_DAY: positiveInteger.default(1_000),
 
+  // P11-PROV-01: the horticultural-review surface's own gate. No
+  // platform-wide "reviewer" role exists anywhere in this codebase yet
+  // (docs/architecture/identity-and-authorization.md section 13 describes
+  // one only as an undesigned aspiration) — a comma-separated verified-email
+  // allowlist is the smallest gate that needs no new DB/role infrastructure,
+  // reusing `originList`'s own comma-separated-to-array shape and
+  // `ActorContext.email`/`emailVerified` (already populated by every
+  // authenticated request, for the invitation-email-binding use this field
+  // was originally added for). An empty default means "no reviewer
+  // configured" — the honest state every environment starts in, matching
+  // `WEATHER_ACTIVE_PROVIDER_KEY`'s own "absent means off" posture.
+  PLANT_REVIEWER_EMAILS: originList,
+
   // P9C-INVITE-01: transactional email (Resend, decided 2026-07-26 —
   // section 29.1.1). Absent `RESEND_API_KEY` (every environment today) is
   // the honest `noProviderConfigured`-style degradation

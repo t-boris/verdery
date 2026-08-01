@@ -263,6 +263,24 @@ export type {
 } from './application/run-taxon-enrichment-sweep.js';
 export { registerTaxonEnrichmentSweepRoute } from './transport/taxon-enrichment-sweep-route.js';
 export type { TaxonEnrichmentSweepRouteDependencies } from './transport/taxon-enrichment-sweep-route.js';
+
+// P11-PROV-01: the horticultural-review surface.
+export { requirePlantReviewerAccess } from './application/plant-reviewer-authorization.js';
+export type { PlantReviewerActor } from './application/plant-reviewer-authorization.js';
+export { ListPlantAssertionsAwaitingReview } from './application/list-plant-assertions-awaiting-review.js';
+export type {
+  PendingAssertionForReview,
+  PendingDistributionAssertionForReview,
+  PendingFactAssertionForReview,
+} from './application/list-plant-assertions-awaiting-review.js';
+export { ApprovePlantAssertionReview } from './application/approve-plant-assertion-review.js';
+export type {
+  ApprovePlantAssertionReviewInput,
+  ApprovePlantAssertionReviewResult,
+  PlantAssertionKind,
+} from './application/approve-plant-assertion-review.js';
+export { registerPlantAssertionReviewRoutes } from './transport/plant-assertion-review-routes.js';
+export type { PlantAssertionReviewRoutesDependencies } from './transport/plant-assertion-review-routes.js';
 export { UsdaPlantsAdapter } from './persistence/usda-plants-adapter.js';
 export type {
   UsdaPlantsHttpFetch,

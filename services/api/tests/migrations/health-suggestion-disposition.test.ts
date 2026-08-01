@@ -304,7 +304,11 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('down reverses up: dropping and reapplying this migration leaves the schema intact', async () => {
     await client.end();
 
-    await migrate('down', 2);
+    // `count: 3` undoes 1788200000000_plant-assertion-review-status-index.sql
+    // and 1788100000000_client-update-observation-kind.sql (now the topmost
+    // migrations), then this migration itself. Update this count when a
+    // later migration is added on top.
+    await migrate('down', 3);
 
     client = new pg.Client({ connectionString: container.getConnectionUri() });
     await client.connect();

@@ -374,6 +374,19 @@ export class InMemoryPlantTaxonomyMappingRepository implements PlantTaxonomyMapp
     return Promise.resolve(live ?? null);
   }
 
+  findByProviderIdentity(
+    providerKey: string,
+    providerTaxonId: string,
+  ): Promise<readonly PlantTaxonomyMapping[]> {
+    const matching = this.mappings.filter(
+      (mapping) =>
+        mapping.providerKey === providerKey &&
+        mapping.providerTaxonId === providerTaxonId &&
+        mapping.verificationState !== 'rejected',
+    );
+    return Promise.resolve(matching);
+  }
+
   updateVerificationState(
     mappingId: Uuid,
     expectedCurrentState: TaxonomyMappingVerificationState,

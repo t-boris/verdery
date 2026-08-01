@@ -136,6 +136,14 @@ export const testConfiguration: ApplicationConfiguration = {
       maxCallsPerDay: 1_000,
     },
   },
+  // P11-PROV-01: no reviewer configured, like every real environment today
+  // — every test-built application runs with the honest "no reviewer"
+  // degradation `requirePlantReviewerAccess` answers with. Tests that
+  // exercise the review routes/commands override this via
+  // `buildTestApplication({ configuration: ... })`.
+  plantReview: {
+    reviewerEmails: [],
+  },
   // P8-SEC-02: the enforcement switch in its default position, like every
   // real environment today. This is load-bearing for the whole suite: it is
   // why 1,500-odd existing tests, most of which send no App Check header at

@@ -144,6 +144,12 @@ export interface TaxonKnowledgeConfiguration {
   readonly worldFloraOnline: TaxonKnowledgeProviderConfiguration;
 }
 
+/** P11-PROV-01 — see the schema's own comment on `PLANT_REVIEWER_EMAILS`. */
+export interface PlantReviewConfiguration {
+  /** Lower-cased, trimmed, verified-email allowlist. Empty means no reviewer is configured — the honest starting state. */
+  readonly reviewerEmails: readonly string[];
+}
+
 /** P8-SEC-02 — see the schema's own comment on `APP_CHECK_ENFORCEMENT`. */
 export interface AppCheckConfiguration {
   /** `'monitor'` everywhere today: classify and log, reject nothing. */
@@ -175,6 +181,7 @@ export interface ApplicationConfiguration {
   readonly plantSpeciesAi: PlantSpeciesAiConfiguration;
   readonly plantConditionAi: PlantConditionAiConfiguration;
   readonly taxonKnowledge: TaxonKnowledgeConfiguration;
+  readonly plantReview: PlantReviewConfiguration;
   readonly appCheck: AppCheckConfiguration;
   readonly transactionalEmail: TransactionalEmailConfiguration;
 }
@@ -296,6 +303,9 @@ export function toApplicationConfiguration(raw: RawEnvironment): ApplicationConf
         maxCallsPerHour: raw.WORLD_FLORA_ONLINE_MAX_CALLS_PER_HOUR,
         maxCallsPerDay: raw.WORLD_FLORA_ONLINE_MAX_CALLS_PER_DAY,
       },
+    },
+    plantReview: {
+      reviewerEmails: raw.PLANT_REVIEWER_EMAILS.map((email) => email.toLowerCase()),
     },
     appCheck: {
       enforcement: raw.APP_CHECK_ENFORCEMENT,

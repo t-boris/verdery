@@ -83,6 +83,21 @@ export class KyselyPlantTaxonomyMappingRepository implements PlantTaxonomyMappin
     return row === undefined ? null : toMapping(row);
   }
 
+  async findByProviderIdentity(
+    providerKey: string,
+    providerTaxonId: string,
+  ): Promise<readonly PlantTaxonomyMapping[]> {
+    const rows = await this.db
+      .selectFrom('integrations.plant_taxonomy_mapping')
+      .selectAll()
+      .where('provider_key', '=', providerKey)
+      .where('provider_taxon_id', '=', providerTaxonId)
+      .where('verification_state', '<>', 'rejected')
+      .execute();
+
+    return rows.map(toMapping);
+  }
+
   async updateVerificationState(
     mappingId: Uuid,
     expectedCurrentState: TaxonomyMappingVerificationState,

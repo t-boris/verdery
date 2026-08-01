@@ -8,6 +8,7 @@
 
 import type { Kysely, Selectable } from 'kysely';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
+import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { PlantFactAssertionRepository } from '../application/plant-fact-assertion-repository.js';
 import type {
   PlantAssertionAuthoring,
@@ -109,5 +110,32 @@ export class KyselyPlantFactAssertionRepository implements PlantFactAssertionRep
       .execute();
 
     return rows.map(toPlantFactAssertion);
+  }
+
+  async findAllAwaitingReview(limit: number): Promise<readonly PlantFactAssertion[]> {
+    const rows = await this.db
+      .selectFrom('integrations.plant_fact_assertion')
+      .selectAll()
+      .where('review_status', '=', 'awaiting_horticultural_review')
+      .orderBy('created_at', 'asc')
+      .limit(limit)
+      .execute();
+
+    return rows.map(toPlantFactAssertion);
+  }
+
+  async approveReview(assertionId: Uuid, reviewedBy: string, reviewedOn: string): Promise<boolean> {
+    const result = await this.db
+      .updateTable('integrations.plant_fact_assertion')
+      .set({
+        review_status: 'horticulturally_reviewed',
+        reviewed_by: reviewedBy,
+        reviewed_on: reviewedOn,
+      })
+      .where('id', '=', assertionId)
+      .where('review_status', '=', 'awaiting_horticultural_review')
+      .executeTakeFirst();
+
+    return result.numUpdatedRows > 0n;
   }
 }

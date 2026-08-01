@@ -23,6 +23,7 @@
 
 import {
   AnalyzePlantCondition,
+  ApprovePlantAssertionReview,
   createGbifRegistration,
   createOpenMeteoWeatherRegistration,
   createUsaNpnRegistration,
@@ -40,6 +41,7 @@ import {
   KyselyTaxonomyIdentitySource,
   KyselyWeatherRecordRepository,
   KyselyWeatherRefreshCandidateSource,
+  ListPlantAssertionsAwaitingReview,
   PlantAssertionProviderRegistry,
   RefreshGardenWeather,
   RefreshTaxonAssertions,
@@ -54,6 +56,7 @@ import {
 import type {
   AiExplanationProviderAdapter,
   PlantAssertionProviderRegistration,
+  PlantAssertionReviewRoutesDependencies,
   PlantConditionAnalysisProviderAdapter,
   PlantSpeciesIdentificationProviderAdapter,
   TaxonEnrichmentSweepRouteDependencies,
@@ -68,6 +71,7 @@ import {
 import type {
   AiExplanationConfiguration,
   PlantConditionAiConfiguration,
+  PlantReviewConfiguration,
   PlantSpeciesAiConfiguration,
   TaxonKnowledgeConfiguration,
   TransactionalEmailConfiguration,
@@ -102,6 +106,8 @@ export interface IntegrationsComposition {
   readonly weatherRefreshSweepRouteDependencies: WeatherRefreshSweepRouteDependencies;
   /** P11-ASYNC-01: the scheduled taxon-enrichment sweep's internal route dependencies — the `weatherRefreshSweepRouteDependencies` precedent, second instance. */
   readonly taxonEnrichmentSweepRouteDependencies: TaxonEnrichmentSweepRouteDependencies;
+  /** P11-PROV-01: the horticultural-review surface's own route dependencies. */
+  readonly plantAssertionReviewRoutesDependencies: PlantAssertionReviewRoutesDependencies;
   /** P9C-INVITE-01: consumed by collaboration's `CreateClientInvitation` — the cross-module use-case injection precedent, again. `null` whenever `RESEND_API_KEY` is unconfigured. */
   readonly transactionalEmailAdapter: TransactionalEmailAdapter | null;
 }
@@ -117,6 +123,7 @@ export function composeIntegrations(
   plantConditionAi: PlantConditionAiConfiguration,
   plantConditionAnalysisAdapter: PlantConditionAnalysisProviderAdapter | null,
   taxonKnowledge: TaxonKnowledgeConfiguration,
+  plantReview: PlantReviewConfiguration,
   transactionalEmail: TransactionalEmailConfiguration,
   cloudTasksInvocationVerifier: CloudTasksInvocationVerifier,
   logger: FastifyBaseLogger,
@@ -318,6 +325,25 @@ export function composeIntegrations(
     cloudTasksInvocationVerifier,
   };
 
+  // P11-PROV-01: the horticultural-review surface — gated by
+  // `plantReview.reviewerEmails` (empty in every environment today, the
+  // honest "no reviewer configured" starting state `requirePlantReviewerAccess`
+  // itself refuses).
+  const plantAssertionReviewRoutesDependencies: PlantAssertionReviewRoutesDependencies = {
+    listPlantAssertionsAwaitingReview: new ListPlantAssertionsAwaitingReview(
+      new KyselyPlantFactAssertionRepository(database.queries),
+      new KyselyPlantDistributionAssertionRepository(database.queries),
+      new KyselyPlantTaxonomyMappingRepository(database.queries),
+      plantReview.reviewerEmails,
+    ),
+    approvePlantAssertionReview: new ApprovePlantAssertionReview(
+      new KyselyPlantFactAssertionRepository(database.queries),
+      new KyselyPlantDistributionAssertionRepository(database.queries),
+      plantReview.reviewerEmails,
+      clock,
+    ),
+  };
+
   // P9C-INVITE-01 (transactional email: Resend, decided 2026-07-26 —
   // implementation-plan.md section 29.1.1). Built directly here, the same
   // "plain fetch, no SDK" posture Open-Meteo's own registration above takes
@@ -343,6 +369,7 @@ export function composeIntegrations(
     analyzePlantCondition,
     weatherRefreshSweepRouteDependencies,
     taxonEnrichmentSweepRouteDependencies,
+    plantAssertionReviewRoutesDependencies,
     transactionalEmailAdapter,
   };
 }

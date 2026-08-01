@@ -1,3 +1,4 @@
+import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { PlantDistributionAssertion } from '../domain/plant-distribution-assertion.js';
 
 export interface PlantDistributionAssertionRepository {
@@ -7,4 +8,10 @@ export interface PlantDistributionAssertionRepository {
     providerKey: string,
     providerTaxonId: string,
   ): Promise<readonly PlantDistributionAssertion[]>;
+
+  /** P11-PROV-01 — the `PlantFactAssertionRepository.findAllAwaitingReview` precedent, applied to this sibling table. */
+  findAllAwaitingReview(limit: number): Promise<readonly PlantDistributionAssertion[]>;
+
+  /** P11-PROV-01 — the `PlantFactAssertionRepository.approveReview` precedent, applied to this sibling table. */
+  approveReview(assertionId: Uuid, reviewedBy: string, reviewedOn: string): Promise<boolean>;
 }

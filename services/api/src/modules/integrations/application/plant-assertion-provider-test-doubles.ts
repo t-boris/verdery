@@ -144,6 +144,39 @@ export class InMemoryPlantFactAssertionRepository implements PlantFactAssertionR
       ),
     );
   }
+
+  findAllAwaitingReview(limit: number): Promise<readonly PlantFactAssertion[]> {
+    return Promise.resolve(
+      this.assertions
+        .filter(
+          (assertion) => assertion.provenance.reviewStatus === 'awaiting_horticultural_review',
+        )
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+        .slice(0, limit),
+    );
+  }
+
+  approveReview(assertionId: Uuid, reviewedBy: string, reviewedOn: string): Promise<boolean> {
+    const index = this.assertions.findIndex(
+      (assertion) =>
+        assertion.id === assertionId &&
+        assertion.provenance.reviewStatus === 'awaiting_horticultural_review',
+    );
+    if (index === -1) {
+      return Promise.resolve(false);
+    }
+    const current = this.assertions[index] as PlantFactAssertion;
+    this.assertions[index] = {
+      ...current,
+      provenance: {
+        ...current.provenance,
+        reviewStatus: 'horticulturally_reviewed',
+        reviewedBy,
+        reviewedOn,
+      },
+    };
+    return Promise.resolve(true);
+  }
 }
 
 export class InMemoryPlantDistributionAssertionRepository implements PlantDistributionAssertionRepository {
@@ -165,6 +198,39 @@ export class InMemoryPlantDistributionAssertionRepository implements PlantDistri
           assertion.providerTaxonId === providerTaxonId,
       ),
     );
+  }
+
+  findAllAwaitingReview(limit: number): Promise<readonly PlantDistributionAssertion[]> {
+    return Promise.resolve(
+      this.assertions
+        .filter(
+          (assertion) => assertion.provenance.reviewStatus === 'awaiting_horticultural_review',
+        )
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+        .slice(0, limit),
+    );
+  }
+
+  approveReview(assertionId: Uuid, reviewedBy: string, reviewedOn: string): Promise<boolean> {
+    const index = this.assertions.findIndex(
+      (assertion) =>
+        assertion.id === assertionId &&
+        assertion.provenance.reviewStatus === 'awaiting_horticultural_review',
+    );
+    if (index === -1) {
+      return Promise.resolve(false);
+    }
+    const current = this.assertions[index] as PlantDistributionAssertion;
+    this.assertions[index] = {
+      ...current,
+      provenance: {
+        ...current.provenance,
+        reviewStatus: 'horticulturally_reviewed',
+        reviewedBy,
+        reviewedOn,
+      },
+    };
+    return Promise.resolve(true);
   }
 }
 

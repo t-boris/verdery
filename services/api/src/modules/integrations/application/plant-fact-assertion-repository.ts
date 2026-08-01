@@ -1,3 +1,4 @@
+import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { PlantFactAssertion } from '../domain/plant-fact-assertion.js';
 
 export interface PlantFactAssertionRepository {
@@ -8,4 +9,26 @@ export interface PlantFactAssertionRepository {
     providerKey: string,
     providerTaxonId: string,
   ): Promise<readonly PlantFactAssertion[]>;
+
+  /**
+   * P11-PROV-01: every fact assertion still `awaiting_horticultural_review`,
+   * oldest-fetched first, capped at `limit` — the reviewer queue's own read.
+   * Nothing is visible in a materialized profile or a suitability finding
+   * until a human promotes it out of this list (`run-taxon-enrichment-
+   * sweep.ts`'s own header).
+   */
+  findAllAwaitingReview(limit: number): Promise<readonly PlantFactAssertion[]>;
+
+  /**
+   * Approves one assertion's review, guarded by the expected current status
+   * (the caller validates the candidate through `validatePlantAssertionReview`
+   * first — the repository stores, the domain decides, the
+   * `PlantTaxonomyMappingRepository.updateVerificationState` precedent).
+   * Returns `false` when the row is not `awaiting_horticultural_review`
+   * anymore (a lost race — the caller re-reads), `true` when applied. There
+   * is no reject path: no `rejected` review state exists in the migration's
+   * own CHECK constraint, so this is the only mutation this port offers
+   * beyond `insert`.
+   */
+  approveReview(assertionId: Uuid, reviewedBy: string, reviewedOn: string): Promise<boolean>;
 }
