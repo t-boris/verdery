@@ -197,15 +197,43 @@ gcloud run services update "${VERDERY_WORKERS_CLOUD_RUN_SERVICE_NAME}" \
 # legitimate caller; unlike deploy-api.sh's own current --allow-unauthenticated
 # development-only choice, this service carries a real authenticated
 # machine-to-machine target from day one, so it is never made public.
-log "Granting Cloud Run Invoker on ${VERDERY_WORKERS_CLOUD_RUN_SERVICE_NAME} to the Cloud Tasks agent and to itself"
+# VERIFIED HERE, GRANTED ELSEWHERE. The deployer identity deliberately cannot
+# set IAM policy on a Cloud Run service — `run.services.setIamPolicy` is not in
+# its role, and widening the role so that a routine deploy can rewrite who may
+# invoke a service is the wrong trade. So this checks the binding and says
+# exactly what to run if it is missing, instead of attempting a call that fails
+# every single deploy with PERMISSION_DENIED and takes the whole workflow down
+# with it. 10-media-processing-queue.sh, which runs as an owner, is where the
+# grant belongs.
 project_number="$(gcloud projects describe "${VERDERY_PROJECT_ID}" --format="value(projectNumber)")"
 cloud_tasks_agent="service-${project_number}@gcp-sa-cloudtasks.iam.gserviceaccount.com"
-gcloud run services add-iam-policy-binding "${VERDERY_WORKERS_CLOUD_RUN_SERVICE_NAME}" \
-  --project="${VERDERY_PROJECT_ID}" \
-  --region="${VERDERY_REGION}" \
-  --member="serviceAccount:${cloud_tasks_agent}" \
-  --role="roles/run.invoker" \
-  --quiet >/dev/null
+invoker_policy="$(gcloud run services get-iam-policy "${VERDERY_WORKERS_CLOUD_RUN_SERVICE_NAME}" \
+  --project="${VERDERY_PROJECT_ID}" --region="${VERDERY_REGION}" \
+  --format='value(bindings.members)' 2>/dev/null || true)"
+
+missing_invokers=()
+for member in "${cloud_tasks_agent}" "${worker_email}"; do
+  [[ "${invoker_policy}" == *"${member}"* ]] || missing_invokers+=("${member}")
+done
+
+if [[ ${#missing_invokers[@]} -gt 0 ]]; then
+  log ""
+  log "MISSING run.invoker on ${VERDERY_WORKERS_CLOUD_RUN_SERVICE_NAME} for:"
+  for member in "${missing_invokers[@]}"; do
+    log "  ${member}"
+  done
+  log ""
+  log "Cloud Tasks will deliver every job and get 403 until this is granted."
+  log "Run 10-media-processing-queue.sh as an owner, or directly:"
+  for member in "${missing_invokers[@]}"; do
+    log "  gcloud run services add-iam-policy-binding ${VERDERY_WORKERS_CLOUD_RUN_SERVICE_NAME} \\"
+    log "    --project=${VERDERY_PROJECT_ID} --region=${VERDERY_REGION} \\"
+    log "    --member=serviceAccount:${member} --role=roles/run.invoker"
+  done
+  log ""
+else
+  log "run.invoker is in place for the Cloud Tasks agent and the worker itself"
+fi
 
 log "Deployed. Service URL: ${workers_service_url}"
 log ""

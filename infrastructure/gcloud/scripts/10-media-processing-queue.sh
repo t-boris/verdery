@@ -273,6 +273,31 @@ gcloud iam service-accounts add-iam-policy-binding "${worker_email}" \
   --role="roles/iam.serviceAccountTokenCreator" \
   >/dev/null
 
+# The Cloud Run invoker bindings the worker's own delivery path needs. Done
+# here rather than in deploy-workers.sh because the deployer identity cannot
+# set IAM policy on a Cloud Run service, deliberately — see that script's own
+# note. Guarded on the service existing, since on a fresh environment this
+# script runs long before the first deploy; re-run it afterwards and the
+# bindings land then.
+if resource_exists gcloud run services describe "${VERDERY_WORKERS_CLOUD_RUN_SERVICE_NAME}" \
+  --project="${VERDERY_PROJECT_ID}" --region="${VERDERY_REGION}"; then
+  project_number="$(gcloud projects describe "${VERDERY_PROJECT_ID}" --format='value(projectNumber)')"
+  for invoker in \
+    "service-${project_number}@gcp-sa-cloudtasks.iam.gserviceaccount.com" \
+    "${worker_email}"; do
+    log "Granting run.invoker on ${VERDERY_WORKERS_CLOUD_RUN_SERVICE_NAME} to ${invoker}"
+    gcloud run services add-iam-policy-binding "${VERDERY_WORKERS_CLOUD_RUN_SERVICE_NAME}" \
+      --project="${VERDERY_PROJECT_ID}" \
+      --region="${VERDERY_REGION}" \
+      --member="serviceAccount:${invoker}" \
+      --role=roles/run.invoker \
+      --quiet >/dev/null
+  done
+else
+  log "${VERDERY_WORKERS_CLOUD_RUN_SERVICE_NAME} does not exist yet — re-run this"
+  log "script after the first deploy to grant its run.invoker bindings."
+fi
+
 log "Worker service account: ${worker_email}"
 log "Cloud Tasks queue: projects/${VERDERY_PROJECT_ID}/locations/${VERDERY_REGION}/queues/${VERDERY_MEDIA_PROCESSING_QUEUE_NAME}"
 log ""
