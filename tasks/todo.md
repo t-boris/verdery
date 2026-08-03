@@ -9148,3 +9148,70 @@ measurement one.
 
 The export path carries neither measurements nor symptoms — that is the
 existing posture for observation child tables, not a gap this work introduced.
+
+---
+
+## P11 remainder — the two engineering gaps, decided (2026-08-03)
+
+The owner asked for both. Each had exactly one open decision; both are now made, and the
+reasoning is recorded here before any code is written.
+
+### Near-duplicate photos — the premise of the earlier "no" was wrong
+
+The exact-duplicate half shipped on 2026-08-03 and near-duplicate detection was declined
+because it "needs a perceptual-hashing dependency". It does not. `sharp` is already a
+production dependency of `services/workers` (`package.json`, used by
+`image-derivative-generator.ts`, `tile-pyramid-generator.ts`, and `media-validator.ts`), and a
+64-bit difference hash is a resize plus a comparison of adjacent pixels — no library.
+
+**Decision:** build it on `sharp`. Owner confirmed 2026-08-03 after being shown the premise
+was wrong.
+
+**Design:**
+
+- A dHash is computed where the bytes are already decoded and in memory: the
+  `derivative_generation` job. Computing it anywhere else would mean downloading and decoding
+  the same object a second time.
+- It describes the SOURCE media, not any derivative, so it travels back on
+  `MediaProcessingResult` itself rather than in `outputObjects`. That is a contract change:
+  `openapi.yaml` first, then the generated client, then both runtimes.
+- Stored as `bit(64)` on `media.media_record`, not text. PostgreSQL 17 has `bit_count()`, so
+  "within N bits" is `bit_count(perceptual_hash # $1) <= N` — a real query rather than a
+  fetch-and-compare-in-application loop.
+- Nullable, and never blocking: a media record whose hash could not be computed (a format
+  `sharp` will not decode, a job that failed before this step) behaves exactly as it does
+  today. Duplicate detection is an advisory, and an advisory that can fail an upload is worse
+  than no advisory.
+- The threshold is a named constant with its own test, not a number inline in a query. dHash
+  distances are only meaningful relative to a stated cut-off.
+
+**Deliberately not built:** rotation- and crop-robust hashing. dHash catches re-encoding,
+resizing, and format change — the cases a phone gallery actually produces. Anything stronger
+is the dependency the owner declined, and the decline stands for that.
+
+### Taxon imagery — GBIF media, with a licence rule the runbook already found
+
+`ADR-0016` §3 lists `plant_media_asset` as a table that does not exist yet, so there is no read
+surface for taxon images. The owner chose GBIF over Wikimedia Commons on 2026-08-03: the GBIF
+adapter already exists and is verified live, so no new provider appears — consistent with the
+2026-08-03 descope of new plant-knowledge adapters.
+
+**The constraint this inherits, stated before it can be forgotten:** `gbif-payload.ts`'s own
+header records that a raw GBIF occurrence record's `license` field is mixed CC0/CC-BY/CC-BY-NC
+within a single result set, and that a future pass fetching individual records "must read
+`license` per record, never assume one for the whole response". This is that pass.
+**CC-BY-NC images are not ingestible** — this product is not non-commercial — so the adapter
+filters to CC0 and CC-BY, stores licence and rights-holder per asset, and shows attribution
+wherever the image is shown. An asset with no readable licence is skipped, not defaulted.
+
+### Plan
+
+- [ ] 1. Near-duplicate, backend: contract field, migration, worker dHash, result recording.
+- [ ] 2. Near-duplicate, web: the warning that already exists for exact matches, extended to
+      "looks like" with its own wording — a near match must never claim to be an exact one.
+- [ ] 3. Taxon imagery: `plant_media_asset`, GBIF media fetch with per-record licence
+      filtering, read surface on the taxon profile, attribution on both clients.
+- [ ] 4. Docs in the same pass: ADR-0016 §3's disposition column, the media design, and the
+      provider runbook's GBIF section.
+
+This is multi-session work. Item 1 starts now.
