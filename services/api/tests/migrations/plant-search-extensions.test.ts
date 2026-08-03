@@ -14,6 +14,7 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
 import { startPostgresTestContainer } from '../support/postgres-container.js';
+import { rollbackDepthTo } from '../support/migration-rollback-depth.js';
 
 const SUITE_NAME = 'plant search extensions migration';
 const MIGRATIONS_DIRECTORY = new URL('../../migrations', import.meta.url).pathname;
@@ -159,11 +160,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving plant_candidate and taxonomy_name otherwise intact', async () => {
     await client.end();
 
-    // `count: 7` undoes 1787900000000_visual-journal-observation-extensions.sql
-    // (now the topmost migration), then this migration itself. The reapply
-    // below must use the SAME count. Update this count when a later
-    // migration is added on top.
-    await migrate(databaseUrl, 'down', 7);
+    // Undoes every migration applied after this one, then this one. The
+    // depth is derived from the migrations directory, so a migration added
+    // on top needs no edit here.
+    await migrate(databaseUrl, 'down', rollbackDepthTo('plant-search-extensions'));
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

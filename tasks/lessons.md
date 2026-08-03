@@ -170,18 +170,15 @@ bumped those, and shipped — the other twenty-six use
 `migrate(databaseUrl, 'down', N)` or a bare `count: N` inside a `runner({...})`
 call, and none of them was in that grep's output.
 
-**Rule:** after adding a migration, bump EVERY encoded rollback depth, and find
-them by searching for the depth rather than for one call shape:
-`grep -rn "'down'" services/api/tests/migrations`, then read each hit.
-
 **Rule:** when a repository fact is duplicated across dozens of files, one
 grep pattern matching some of them is not evidence you found them all. Count
 the hits against the number of files that should have one.
 
-**Follow-up worth doing:** the depth is derivable — it is the number of
-migration files at or after this test's own. A shared helper that computes it
-would delete the whole class of failure, and is a better use of the next hour
-than bumping thirty numbers again.
+**Fixed:** the depth is derivable — it is the number of migration files at or
+after the one under test. `tests/support/migration-rollback-depth.ts` computes
+it, and all thirty tests now call `rollbackDepthTo('<migration-slug>')`. Adding
+a migration no longer touches a single test file. Do not reintroduce a literal
+depth.
 
 ## A test that counts microtasks fails on someone else's machine
 

@@ -24,6 +24,7 @@ import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
 import { startPostgresTestContainer } from '../support/postgres-container.js';
 import { insertGarden, insertProfile } from '../support/collaboration-fixtures.js';
 import type { Row } from '../support/collaboration-fixtures.js';
+import { rollbackDepthTo } from '../support/migration-rollback-depth.js';
 import {
   insertClientAccessGrant,
   insertClientEngagement,
@@ -462,14 +463,14 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   });
 
   it('rolls back cleanly, leaving no trace of any of the six new tables', async () => {
-    // `count: 19` undoes every migration applied after this one (through
-    // 1787800000000_plant-search-extensions.sql —
-    // 1786900000000_client-invitation-token.sql in particular ALTERs
-    // `client_access_grant` itself and must therefore unwind before this
-    // migration's own `DROP TABLE` reaches it; nothing else this file's own
-    // assertions below check) first, then this migration itself. Update
-    // this count when a later migration is added on top.
-    await migrate(databaseUrl, 'down', 19);
+    // Undoes every migration applied after this one, then this one. The
+    // depth is derived from the migrations directory, so a migration added
+    // on top needs no edit here.
+    await migrate(
+      databaseUrl,
+      'down',
+      rollbackDepthTo('service-organizations-and-client-engagements'),
+    );
 
     const { rows } = await client.query<Row>(
       `SELECT table_name FROM information_schema.tables

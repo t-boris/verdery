@@ -20,6 +20,7 @@ import { startPostgresTestContainer } from '../support/postgres-container.js';
 import { insertGarden, insertProfile } from '../support/collaboration-fixtures.js';
 import type { Row } from '../support/collaboration-fixtures.js';
 import { insertClientEngagement } from '../support/service-organization-fixtures.js';
+import { rollbackDepthTo } from '../support/migration-rollback-depth.js';
 import {
   insertClientUpdate,
   insertMediaRecord,
@@ -289,12 +290,14 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   });
 
   it('rolls back cleanly, leaving no trace of either new table', async () => {
-    // `count: 17` undoes every newer migration (through
-    // 1788100000000_client-update-observation-kind.sql, nothing this
-    // file's own assertions below check) first, then this migration itself.
-    // Update this count when a later migration is added on top, the same
-    // convention every earlier migration test here already follows.
-    await migrate(databaseUrl, 'down', 17);
+    // Undoes every migration applied after this one, then this one. The
+    // depth is derived from the migrations directory, so a migration added
+    // on top needs no edit here.
+    await migrate(
+      databaseUrl,
+      'down',
+      rollbackDepthTo('engagement-publisher-grant-and-client-update-items'),
+    );
 
     const { rows } = await client.query<Row>(
       `SELECT table_name FROM information_schema.tables

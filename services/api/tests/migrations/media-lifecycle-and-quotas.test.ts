@@ -21,6 +21,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import '../../src/platform/database/pg-bigint-parser.js';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
 import { startPostgresTestContainer } from '../support/postgres-container.js';
+import { rollbackDepthTo } from '../support/migration-rollback-depth.js';
 
 const SUITE_NAME = 'media lifecycle and quotas migration';
 
@@ -472,17 +473,15 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     await client.end();
 
-    // `count: 34` undoes every newer migration (through
-    // 1787800000000_plant-search-extensions.sql) first, then
-    // this one — matching every earlier migration test's own convention of
-    // unwinding whatever landed on top since this file was written. Update
-    // again the next time a migration is added on top of that one.
+    // Undoes every migration applied after this one, then this one. The
+    // depth is derived from the migrations directory, so a migration added
+    // on top needs no edit here.
     await runner({
       databaseUrl,
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 34,
+      count: rollbackDepthTo('media-lifecycle-and-quotas'),
       log: () => {},
     });
 

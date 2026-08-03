@@ -15,6 +15,7 @@ import pg from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
 import { startPostgresTestContainer } from '../support/postgres-container.js';
+import { rollbackDepthTo } from '../support/migration-rollback-depth.js';
 
 const SUITE_NAME = 'synchronization baseline migration';
 const MIGRATIONS_DIRECTORY = new URL('../../migrations', import.meta.url).pathname;
@@ -140,17 +141,15 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving the search-indexes schemas and tables otherwise intact', async () => {
     await client.end();
 
-    // `count: 35` undoes this migration and every migration applied after it
-    // (currently through 1787800000000_plant-search-extensions.sql,
-    // none of which depends on `platform.sync_client_installation` but all
-    // of which were applied later and must unwind first). Update this count
-    // when a later migration is added on top.
+    // Undoes every migration applied after this one, then this one. The
+    // depth is derived from the migrations directory, so a migration added
+    // on top needs no edit here.
     await runner({
       databaseUrl,
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 35,
+      count: rollbackDepthTo('synchronization-baseline'),
       log: () => {},
     });
 

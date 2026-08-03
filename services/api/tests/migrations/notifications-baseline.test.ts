@@ -20,6 +20,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import '../../src/platform/database/pg-bigint-parser.js';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
 import { startPostgresTestContainer } from '../support/postgres-container.js';
+import { rollbackDepthTo } from '../support/migration-rollback-depth.js';
 
 const SUITE_NAME = 'notifications baseline migration';
 
@@ -340,13 +341,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, dropping the notifications schema whole while every earlier table survives', async () => {
     await client.end();
 
-    // `count: 25` undoes every newer migration (through
-    // 1787800000000_plant-search-extensions.sql — this schema's
-    // OWN delivery tables and intent alterations must leave before the
-    // baseline can, nothing this file's own assertions check) first, then
-    // this migration itself. Update again the next time a migration is
-    // added on top of those.
-    await migrate(databaseUrl, 'down', 25);
+    // Undoes every migration applied after this one, then this one. The
+    // depth is derived from the migrations directory, so a migration added
+    // on top needs no edit here.
+    await migrate(databaseUrl, 'down', rollbackDepthTo('notifications-baseline'));
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

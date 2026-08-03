@@ -19,6 +19,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import '../../src/platform/database/pg-bigint-parser.js';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
 import { startPostgresTestContainer } from '../support/postgres-container.js';
+import { rollbackDepthTo } from '../support/migration-rollback-depth.js';
 
 const SUITE_NAME = 'recommendation AI explanation migration';
 
@@ -242,11 +243,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, dropping the table while the candidate and its explanation survive', async () => {
     await client.end();
 
-    // `count: 24` undoes every newer migration (through
-    // 1787800000000_plant-search-extensions.sql, nothing this
-    // file's own assertions check) first, then this migration itself.
-    // Update again the next time a migration is added on top of that one.
-    await migrate(databaseUrl, 'down', 24);
+    // Undoes every migration applied after this one, then this one. The
+    // depth is derived from the migrations directory, so a migration added
+    // on top needs no edit here.
+    await migrate(databaseUrl, 'down', rollbackDepthTo('recommendation-ai-explanation'));
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

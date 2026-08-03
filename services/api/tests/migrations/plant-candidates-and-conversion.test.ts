@@ -19,6 +19,7 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
 import { startPostgresTestContainer } from '../support/postgres-container.js';
+import { rollbackDepthTo } from '../support/migration-rollback-depth.js';
 
 const SUITE_NAME = 'plant candidates and conversion migration';
 const MIGRATIONS_DIRECTORY = new URL('../../migrations', import.meta.url).pathname;
@@ -250,19 +251,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   });
 
   it('down reverses up: dropping and reapplying this migration leaves the schema intact', async () => {
-    // `count: 8` undoes every newer migration (through
-    // 1788200000000_plant-assertion-review-status-index.sql) first, then
-    // this migration itself — the same "update this count when a later
-    // migration is added on top" discipline every other rollback test in
-    // this suite follows. The reapply below intentionally uses a SMALLER
-    // count (5): it only needs to restore the three tables this test's own
-    // assertion checks, all created by this migration alone — a stale,
-    // smaller "up" count (found and fixed during P11-MEDIA-01 — this pair
-    // had drifted out of sync since P11-DATA-02) leaves later migrations
-    // un-reapplied without this test's own narrow table-name assertion ever
-    // catching it, which is fine as long as the down count above stays
-    // accurate.
-    await migrate('down', 9);
+    // Undoes every migration applied after this one, then this one. The
+    // depth is derived from the migrations directory, so a migration added
+    // on top needs no edit here.
+    await migrate('down', rollbackDepthTo('plant-candidates-and-conversion'));
 
     const afterDown = await client.query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.tables

@@ -63,6 +63,26 @@ project's convention).
 Source: [ADR-0005](../architecture/decisions/ADR-0005-dual-space-geospatial-model.md);
 [ADR-0010](../architecture/decisions/ADR-0010-local-coordinate-space-and-geometry-tolerances.md).
 
+## Testing the rollback
+
+Every migration has a suite in `services/api/tests/migrations/` that applies the whole directory,
+rolls this migration back, and asserts the schema it created is gone.
+
+`node-pg-migrate` rolls back a count of steps from the newest applied migration, not down to a
+named target, so undoing one migration means undoing everything applied after it too. Do not write
+that count as a literal — ask for it:
+
+```ts
+import { rollbackDepthTo } from '../support/migration-rollback-depth.js';
+
+await migrate(databaseUrl, 'down', rollbackDepthTo('observation-symptoms'));
+```
+
+The argument is the migration's name without its timestamp prefix or `.sql` suffix, and an unknown
+slug throws rather than rolling back the wrong depth. Because the depth is read from the migrations
+directory, adding a migration needs no edit in any existing test — a literal there would silently
+become wrong for every older migration at once.
+
 ## The expand and contract sequence
 
 A change that would break the running application is split across releases:

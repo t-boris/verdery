@@ -37,6 +37,7 @@ import {
   insertRow,
 } from '../support/collaboration-fixtures.js';
 import type { Row } from '../support/collaboration-fixtures.js';
+import { rollbackDepthTo } from '../support/migration-rollback-depth.js';
 
 const SUITE_NAME = 'collaboration operations and attribution migration';
 const MIGRATIONS_DIRECTORY = new URL('../../migrations', import.meta.url).pathname;
@@ -488,11 +489,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   });
 
   it('rolls back cleanly, and re-applying backfills a period for every membership that already existed', async () => {
-    // `count: 20` undoes every migration applied after this one (through
-    // 1787800000000_plant-search-extensions.sql, nothing this
-    // file's own assertions below check) first, then this migration itself.
-    // Update this count when a later migration is added on top.
-    await migrate(databaseUrl, 'down', 20);
+    // Undoes every migration applied after this one, then this one. The
+    // depth is derived from the migrations directory, so a migration added
+    // on top needs no edit here.
+    await migrate(databaseUrl, 'down', rollbackDepthTo('collaboration-operations-and-attribution'));
 
     const tables = await client.query(
       `SELECT 1 FROM information_schema.tables

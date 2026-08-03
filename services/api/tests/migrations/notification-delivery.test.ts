@@ -21,6 +21,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import '../../src/platform/database/pg-bigint-parser.js';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
 import { startPostgresTestContainer } from '../support/postgres-container.js';
+import { rollbackDepthTo } from '../support/migration-rollback-depth.js';
 
 const SUITE_NAME = 'notification delivery migration';
 
@@ -338,10 +339,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     await client.end();
 
-    // `count: 23` undoes every newer migration (through
-    // 1787800000000_plant-search-extensions.sql) first, then
-    // this one. Update the count the next time a migration is added on top.
-    await migrate(databaseUrl, 'down', 23);
+    // Undoes every migration applied after this one, then this one. The
+    // depth is derived from the migrations directory, so a migration added
+    // on top needs no edit here.
+    await migrate(databaseUrl, 'down', rollbackDepthTo('notification-delivery'));
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();

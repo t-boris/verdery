@@ -15,6 +15,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import '../../src/platform/database/pg-bigint-parser.js';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
 import { startPostgresTestContainer } from '../support/postgres-container.js';
+import { rollbackDepthTo } from '../support/migration-rollback-depth.js';
 
 const SUITE_NAME = 'deletion baseline migration';
 const MIGRATIONS_DIRECTORY = new URL('../../migrations', import.meta.url).pathname;
@@ -333,10 +334,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   });
 
   it('rolls back cleanly: the deletion schema drops whole, the membership foreign key and the narrow lifecycle CHECK return, and re-migrating up succeeds', async () => {
-    // `count: 21` undoes this migration and every migration applied after it
-    // (currently through 1787800000000_plant-search-extensions.sql).
-    // Update this count when a later migration is added on top.
-    await migrate(databaseUrl, 'down', 21);
+    // Undoes every migration applied after this one, then this one. The
+    // depth is derived from the migrations directory, so a migration added
+    // on top needs no edit here.
+    await migrate(databaseUrl, 'down', rollbackDepthTo('deletion-baseline'));
 
     const schema = await client.query(
       `SELECT 1 FROM information_schema.schemata WHERE schema_name = 'deletion'`,

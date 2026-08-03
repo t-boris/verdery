@@ -17,6 +17,7 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
 import { startPostgresTestContainer } from '../support/postgres-container.js';
+import { rollbackDepthTo } from '../support/migration-rollback-depth.js';
 
 const SUITE_NAME = 'plant taxon knowledge profile migration';
 const MIGRATIONS_DIRECTORY = new URL('../../migrations', import.meta.url).pathname;
@@ -374,17 +375,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   });
 
   it('down reverses up: dropping and reapplying this migration leaves the schema intact', async () => {
-    // `count: 7` undoes 1788200000000_plant-assertion-review-status-index.sql,
-    // 1788100000000_client-update-observation-kind.sql,
-    // 1788000000000_health-suggestion-disposition.sql,
-    // 1787900000000_visual-journal-observation-extensions.sql, and
-    // 1787800000000_plant-search-extensions.sql (now the topmost migration),
-    // then this migration itself. A stale, smaller count (found and fixed
-    // during P11-MEDIA-01, and again during P11-PROV-01) leaves later
-    // migrations un-reapplied without this test's own narrow table-name
-    // assertion ever catching it. Update this count when a later migration
-    // is added on top.
-    await migrate('down', 8);
+    // Undoes every migration applied after this one, then this one. The
+    // depth is derived from the migrations directory, so a migration added
+    // on top needs no edit here.
+    await migrate('down', rollbackDepthTo('plant-taxon-knowledge-profile'));
 
     const afterDown = await client.query<{ qualified: string }>(
       `SELECT table_schema || '.' || table_name AS qualified

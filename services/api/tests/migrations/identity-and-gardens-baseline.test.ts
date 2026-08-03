@@ -18,6 +18,7 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
 import { startPostgresTestContainer } from '../support/postgres-container.js';
+import { rollbackDepthTo } from '../support/migration-rollback-depth.js';
 
 const SUITE_NAME = 'identity and gardens baseline migration';
 
@@ -213,19 +214,15 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving the platform-baseline schemas and roles otherwise intact', async () => {
     await client.end();
 
-    // `count: 39` undoes this migration and every migration applied after it
-    // (currently through 1787800000000_plant-search-extensions.sql,
-    // each of which depends, directly or transitively, on tables this one
-    // creates and must come down first). The shared `migrate()` helper runs
-    // with an unbounded count, which is correct for 'up' but would also
-    // undo platform-baseline here, which this test is specifically checking
-    // survives. Update this count when a later migration is added on top.
+    // Undoes every migration applied after this one, then this one. The
+    // depth is derived from the migrations directory, so a migration added
+    // on top needs no edit here.
     await runner({
       databaseUrl,
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 39,
+      count: rollbackDepthTo('identity-and-gardens-baseline'),
       log: () => {},
     });
 

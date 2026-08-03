@@ -13,6 +13,7 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
 import { startPostgresTestContainer } from '../support/postgres-container.js';
+import { rollbackDepthTo } from '../support/migration-rollback-depth.js';
 
 const SUITE_NAME = 'observation symptoms migration';
 const MIGRATIONS_DIRECTORY = new URL('../../migrations', import.meta.url).pathname;
@@ -147,10 +148,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('down reverses up: dropping and reapplying this migration leaves the schema intact', async () => {
     await client.end();
 
-    // `count: 1` — this is the topmost migration. Update the count when a
-    // later one is added on top, the same maintenance note every other
-    // rollback test here carries.
-    await migrate('down', 1);
+    // Undoes every migration applied after this one, then this one. The
+    // depth is derived from the migrations directory, so a migration added
+    // on top needs no edit here.
+    await migrate('down', rollbackDepthTo('observation-symptoms'));
 
     client = new pg.Client({ connectionString: container.getConnectionUri() });
     await client.connect();

@@ -15,6 +15,7 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { isDockerAvailable, warnDockerUnavailable } from '../support/docker.js';
 import { startPostgresTestContainer } from '../support/postgres-container.js';
+import { rollbackDepthTo } from '../support/migration-rollback-depth.js';
 
 const SUITE_NAME = 'visual journal observation extensions migration';
 const MIGRATIONS_DIRECTORY = new URL('../../migrations', import.meta.url).pathname;
@@ -247,14 +248,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('down reverses up: dropping and reapplying this migration leaves the schema intact', async () => {
     await client.end();
 
-    // `count: 6` undoes 1788400000000_observation-symptoms.sql,
-    // 1788300000000_plant-candidate-photo.sql,
-    // 1788200000000_plant-assertion-review-status-index.sql,
-    // 1788100000000_client-update-observation-kind.sql, and
-    // 1788000000000_health-suggestion-disposition.sql (now the topmost
-    // migrations), then this migration itself. Update this count when a
-    // later migration is added on top.
-    await migrate('down', 6);
+    // Undoes every migration applied after this one, then this one. The
+    // depth is derived from the migrations directory, so a migration added
+    // on top needs no edit here.
+    await migrate('down', rollbackDepthTo('visual-journal-observation-extensions'));
 
     client = new pg.Client({ connectionString: container.getConnectionUri() });
     await client.connect();
