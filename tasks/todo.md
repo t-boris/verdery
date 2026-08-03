@@ -8963,3 +8963,17 @@ contract's reasoning survived; they now sit beside the schemas they explain.
 Still open in P11-WEB-01: image-led cards for the plants list, taxon catalog browsing (its backend
 is genuinely absent — no catalog search endpoint, no media endpoint), and URL-shareable filter
 state. P11-MEDIA-01's symptoms and duplicate handling are untouched.
+
+### Catalog browsing (P11-WEB-01)
+
+Built on the two operations that already exist: `searchTaxonomyReferences` for the browse, and
+`getTaxonProfile` for what is known about one taxon. The earlier deferral said the backend was
+"genuinely incomplete"; verified against the contract, that is true only of taxon IMAGERY —
+ADR-0016 §3 lists `plant_media_asset` as a table with no read surface — and of faceted filters.
+Name browse and the cited profile were both reachable and are now built, with the two real gaps
+stated on the page rather than left for a reader to discover.
+
+A `404` from the profile is rendered as "nothing has been assembled about this plant yet", not as a
+failure alert: the request was well-formed and the knowledge simply does not exist. Every fact
+carries its provider and citation, because a hardiness range from a federal dataset and one from an
+occurrence record are different claims.

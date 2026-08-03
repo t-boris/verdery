@@ -14,6 +14,7 @@ import { englishClientPortalMessages } from './en-client-portal';
 import { englishCollaborationMessages } from './en-collaboration';
 import { englishGardenContextMessages } from './en-garden-context';
 import { englishMediaMessages } from './en-media';
+import { englishCatalogMessages } from './en-catalog';
 import { englishObservationsMessages } from './en-observations';
 import { englishOrganizationsMessages } from './en-organizations';
 import { englishPlantsMessages } from './en-plants';
@@ -32,6 +33,7 @@ export const englishMessages = {
   ...englishSeasonalPlanMessages,
   ...englishGardenContextMessages,
   ...englishCandidatesMessages,
+  ...englishCatalogMessages,
   ...englishObservationsMessages,
   ...englishPublicationsMessages,
   'app.name': 'Verdery',

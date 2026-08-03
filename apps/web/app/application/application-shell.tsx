@@ -8,6 +8,7 @@ import { createBrowserApiClient, createSessionGateway } from '@/core/api/public'
 import { signOutOfFirebase } from '@/core/auth/public';
 import { useLocalization, type MessageKey } from '@/shared/localization/public';
 import {
+  BookIcon,
   Button,
   CalendarIcon,
   CheckCircleIcon,
@@ -66,6 +67,9 @@ function gardenSections(gardenId: string): readonly GardenSection[] {
       icon: EyeIcon,
       exact: false,
     },
+    // Reference knowledge rather than this garden's own records, so it sits
+    // after the record sections and before the work section.
+    { href: `${base}/catalog`, labelKey: 'catalog.pageTitle', icon: BookIcon, exact: false },
     { href: `${base}/tasks`, labelKey: 'tasks.pageTitle', icon: CheckCircleIcon, exact: false },
   ];
 }

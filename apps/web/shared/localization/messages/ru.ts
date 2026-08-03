@@ -6,6 +6,7 @@ import { russianClientPortalMessages } from './ru-client-portal';
 import { russianCollaborationMessages } from './ru-collaboration';
 import { russianGardenContextMessages } from './ru-garden-context';
 import { russianMediaMessages } from './ru-media';
+import { russianCatalogMessages } from './ru-catalog';
 import { russianObservationsMessages } from './ru-observations';
 import { russianOrganizationsMessages } from './ru-organizations';
 import { russianPlantsMessages } from './ru-plants';
@@ -24,6 +25,7 @@ export const russianMessages: MessageCatalogue = {
   ...russianClientPortalMessages,
   ...russianSeasonalPlanMessages,
   ...russianCandidatesMessages,
+  ...russianCatalogMessages,
   ...russianObservationsMessages,
   ...russianPublicationsMessages,
   ...russianGardenContextMessages,

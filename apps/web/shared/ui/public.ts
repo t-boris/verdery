@@ -12,6 +12,7 @@ export { Card, type CardProps } from './card';
 export { DetailRow, type DetailRowProps } from './detail-row';
 export { FailureAlert } from './failure-alert';
 export {
+  BookIcon,
   CalendarIcon,
   CheckIcon,
   ChevronDownIcon,

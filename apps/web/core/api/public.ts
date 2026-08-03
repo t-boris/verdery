@@ -40,6 +40,7 @@ export {
 } from './observation-gateway';
 export { createOrganizationGateway, type OrganizationGateway } from './organization-gateway';
 export { createOwnershipGateway, type OwnershipGateway } from './ownership-gateway';
+export { createPlantCatalogGateway, type PlantCatalogGateway } from './plant-catalog-gateway';
 export { createPlantGateway, type PlantGateway, type SearchPlantsParams } from './plant-gateway';
 export { createPublisherGrantGateway, type PublisherGrantGateway } from './publisher-grant-gateway';
 export { createRecommendationGateway, type RecommendationGateway } from './recommendation-gateway';

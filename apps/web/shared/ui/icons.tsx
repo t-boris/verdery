@@ -50,6 +50,17 @@ export function LeafIcon(props: IconProps) {
   );
 }
 
+/** Reference knowledge: an open book. */
+export function BookIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M10 5.8C8.6 4.6 6.9 4 5 4H3.2v11H5c1.9 0 3.6.6 5 1.8" />
+      <path d="M10 5.8C11.4 4.6 13.1 4 15 4h1.8v11H15c-1.9 0-3.6.6-5 1.8" />
+      <path d="M10 5.8v11" />
+    </IconBase>
+  );
+}
+
 /** Garden overview: a simple house-and-plot outline. */
 export function HomeIcon(props: IconProps) {
   return (

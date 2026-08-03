@@ -53,6 +53,7 @@ apps/web/
 │   ├── gardens/
 │   ├── map-editor/
 │   ├── plants/
+│   ├── catalog/
 │   ├── observations/
 │   ├── tasks/
 │   ├── recommendations/
