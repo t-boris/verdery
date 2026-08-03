@@ -9076,3 +9076,25 @@ is substantially built with G10 pending, name what landed, and point at the evid
 than asserting a pass. The remaining-evidence cell names the five things that are not engineering
 work: hardware accessibility, performance, cost, the hashing dependency, and the symptom design
 pass.
+
+### P11-MEDIA-01 duplicate handling — the half that needed no decision
+
+The design doc names "perceptual and cryptographic hashes for duplicate detection". The
+cryptographic half needed no new dependency and was not wired at all: the contract accepts
+`checksumSha256` on registration "when available", and the browser never sent one — so every web
+upload reached `CompleteMediaUpload` with nothing to verify its bytes against, and a truncated or
+swapped upload was indistinguishable from a correct one.
+
+The browser now hashes with `crypto.subtle` (platform, no dependency) after the registering phase
+is already on screen, since hashing a 50 MB photo is not instant and a picker that looks idle reads
+as a pick that failed. A platform that will not hash yields no checksum rather than a failed
+upload.
+
+What remains, and what each needs:
+
+- **Exact-duplicate warning** ("this is the same photo you already attached"): a server read over
+  `media_record.checksum_sha256` scoped to a garden, plus an index on that column — one endpoint and
+  one migration. No dependency. Not built.
+- **Near-duplicate detection** (the same plant photographed twice a second apart): a perceptual
+  hash. No such library is in this repository and adding one is an owner decision, not a code
+  change.

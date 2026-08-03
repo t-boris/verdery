@@ -23,6 +23,7 @@ import type { ApiFailure } from '@/core/api/public';
 import { isFailure, type MediaGateway } from '@/core/api/public';
 
 import type { ResumableTransport } from './gcs-resumable-transport';
+import { computeSha256Hex } from './media-checksum';
 import type { PendingUploadRecord, PendingUploadStore } from './pending-upload-store';
 import { uploadResumableFile } from './resumable-upload-driver';
 
@@ -292,6 +293,14 @@ export function createMediaUploadController(deps: MediaUploadControllerDependenc
     recoveredRecord = null;
     currentSource = source;
 
+    // After the phase is already on screen, not before: hashing a 50 MB photo
+    // is not instant, and a picker that looks idle while it runs reads as a
+    // pick that did not register.
+    const checksumSha256 = await computeSha256Hex(source.file);
+    if (disposed) {
+      return;
+    }
+
     const result = await deps.mediaGateway.register(
       deps.gardenId,
       {
@@ -299,6 +308,10 @@ export function createMediaUploadController(deps: MediaUploadControllerDependenc
         displayFilename: source.displayFilename,
         declaredContentType: source.declaredContentType,
         declaredByteSize: source.file.size,
+        // Omitted rather than sent as null: the contract's own "supplied when
+        // available" wording, and `additionalProperties: false` makes an
+        // explicit null a rejected request rather than an absent value.
+        ...(checksumSha256 === null ? {} : { checksumSha256 }),
       },
       deps.generateIdempotencyKey(),
     );

@@ -169,9 +169,13 @@ describe('createMediaUploadController — reload recovery, cancellation, subscri
     });
 
     const uploadPromise = controller.startUpload(fakeFile());
-    // Fake timers are active for this test; `register`/`store.put` resolve
-    // through plain microtasks, so a zero-delay timer advance is enough to
-    // flush them without needing a real polling wait.
+    // Fake timers are active for this test; hashing, `register`, and
+    // `store.put` all resolve through plain microtasks, so zero-delay timer
+    // advances flush them without needing a real polling wait. Two of them,
+    // because registration now hashes the file first (`media-checksum.ts`) —
+    // the count tracks how many awaits stand between the pick and the upload,
+    // which is an implementation detail this test has always depended on.
+    await vi.advanceTimersByTimeAsync(0);
     await vi.advanceTimersByTimeAsync(0);
     expect(controller.getState().phase).toBe('uploading');
 
