@@ -75,10 +75,12 @@ import {
   CorrectObservation,
   GetObservation,
   KyselyImageAnalysisResultRepository,
+  KyselyObservationPhotoRepository,
   KyselyObservationRepository,
   KyselyObservationsHistoryUnitOfWork,
   ListObservationsForGarden,
   ListObservationsForPlant,
+  ListPlantJournalFrames,
   RecordObservation,
   registerObservationRoutes,
   SetHealthSuggestionDisposition,
@@ -229,6 +231,10 @@ export async function buildApplication(
   // transport (`registerObservationRoutes`, tag `Observations`) wired below.
   const observationRepository = new KyselyObservationRepository(database.queries);
   const imageAnalysisResultRepository = new KyselyImageAnalysisResultRepository(database.queries);
+  // Standalone, outside the unit of work: journal frames are a READ, and
+  // wrapping a read in a transaction to reach the repository would be paying
+  // for a guarantee it does not need.
+  const observationPhotoRepository = new KyselyObservationPhotoRepository(database.queries);
   const observationsHistoryIdempotency = new KyselyIdempotencyStore(database.queries, clock);
   const observationsHistoryUnitOfWork = new KyselyObservationsHistoryUnitOfWork(
     database.queries,
@@ -257,6 +263,11 @@ export async function buildApplication(
     observationRepository,
     gardenAuthorization,
   );
+  // P11-MEDIA-01: a plant's photographs as an ordered comparison sequence.
+  const listPlantJournalFrames = new ListPlantJournalFrames(
+    observationPhotoRepository,
+    gardenAuthorization,
+  );
   // Used below by tasks-recommendations' `CreateManualTask`.
   const getObservation = new GetObservation(observationRepository);
   // P11-HEALTH-01: reviewing a health suggestion's disposition.
@@ -273,6 +284,7 @@ export async function buildApplication(
     correctObservation,
     listObservationsForGarden,
     listObservationsForPlant,
+    listPlantJournalFrames,
     setHealthSuggestionDisposition,
   };
 

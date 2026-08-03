@@ -86,6 +86,8 @@ export { CorrectObservation } from './application/correct-observation.js';
 export type { CorrectObservationInput } from './application/correct-observation.js';
 export { ListObservationsForGarden } from './application/list-observations-for-garden.js';
 export { ListObservationsForPlant } from './application/list-observations-for-plant.js';
+export { ListPlantJournalFrames } from './application/list-plant-journal-frames.js';
+export type { PlantJournalFrameResource } from './application/list-plant-journal-frames.js';
 export { GetObservation } from './application/get-observation.js';
 export { GetObservationForSync } from './application/get-observation-for-sync.js';
 export { SetHealthSuggestionDisposition } from './application/set-health-suggestion-disposition.js';
