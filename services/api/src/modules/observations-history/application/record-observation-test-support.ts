@@ -39,6 +39,7 @@ import type {
 import type { ObservationMeasurementRepository } from './observation-measurement-repository.js';
 import type {
   ObservationPhotoRepository,
+  PlantJournalFrame,
   PlantPhotoHistoryEntry,
 } from './observation-photo-repository.js';
 import type { ObservationHistoryEntry, ObservationRepository } from './observation-repository.js';
@@ -177,6 +178,11 @@ class FakeObservationPhotoRepository implements ObservationPhotoRepository {
   }
 
   listAnalysisHistoryForPlant(): Promise<readonly PlantPhotoHistoryEntry[]> {
+    return Promise.resolve([]);
+  }
+
+  /** Empty by construction: these doubles serve the record/correct use cases, which never read a journal sequence. A fake that invented frames here would let a test pass on data no production path produces. */
+  listJournalFramesForPlant(): Promise<readonly PlantJournalFrame[]> {
     return Promise.resolve([]);
   }
 }
