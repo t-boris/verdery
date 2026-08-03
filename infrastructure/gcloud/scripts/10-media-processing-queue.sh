@@ -75,6 +75,21 @@ gcloud iam service-accounts add-iam-policy-binding "${worker_email}" \
   --role=roles/iam.serviceAccountUser \
   --quiet >/dev/null
 
+# And the worker must be able to act as ITSELF. Every task the relay creates
+# carries an OIDC token naming this same service account as the identity Cloud
+# Tasks should call the worker back with, and creating a task that names an
+# identity requires `iam.serviceAccounts.actAs` on it — even when the caller
+# and the named identity are the same account. Without this the relay reaches
+# the database, reads the outbox correctly, and then fails every single event
+# with PERMISSION_DENIED, which reads as a database or queue problem rather
+# than as a self-impersonation one.
+log "Granting ${VERDERY_WORKER_SERVICE_ACCOUNT_ID} permission to act as itself"
+gcloud iam service-accounts add-iam-policy-binding "${worker_email}" \
+  --project="${VERDERY_PROJECT_ID}" \
+  --member="serviceAccount:${worker_email}" \
+  --role=roles/iam.serviceAccountUser \
+  --quiet >/dev/null
+
 grant_project_role() {
   local member="${1}" role="${2}"
   local attempts=0

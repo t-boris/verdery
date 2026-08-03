@@ -20,7 +20,7 @@
  * jobs.sql (`media.processing_job`).
  */
 
-import type { Generated } from 'kysely';
+import type { ColumnType, Generated } from 'kysely';
 
 export interface OutboxEventRow {
   id: string;
@@ -42,7 +42,16 @@ export interface ProcessingJobRow {
   processor_config_version: Generated<string>;
   state: Generated<string>;
   attempt: Generated<number>;
-  input_checksums: string[];
+  /**
+   * `jsonb`, not a Postgres text array — the migration declares
+   * `jsonb NOT NULL DEFAULT '[]'::jsonb`. Selecting gives the parsed array,
+   * but writing has to send serialized JSON: bind a JS array and pg encodes
+   * the Postgres array literal `{}`, which Postgres rejects as invalid JSON.
+   * Stating both sides here is what stops the next writer rediscovering that
+   * from a runtime error. `services/api`'s own schema records the same column
+   * as `unknown` and leaves the distinction to its repository.
+   */
+  input_checksums: ColumnType<string[], string, string>;
   trace_id: string | null;
   revision: Generated<number>;
   queued_at: Date | null;

@@ -38,7 +38,14 @@ export class KyselyProcessingJobStore implements ProcessingJobStore {
         media_id: input.mediaId,
         job_kind: input.jobKind,
         processor_config_version: input.processorConfigVersion,
-        input_checksums: [...input.inputChecksums],
+        // `jsonb`, not a Postgres array: binding a JS array here makes pg
+        // send the array literal `{}`, which Postgres then rejects with
+        // `invalid input syntax for type json ... Expected ":", but found
+        // "}"` — every outbox event failing at the same point, which reads
+        // as a queue or permission fault rather than a serialization one.
+        // `services/api`'s own repository for this same column already
+        // stringifies; this side did not.
+        input_checksums: JSON.stringify([...input.inputChecksums]),
         trace_id: input.traceId,
         updated_at: now,
       })
