@@ -40,7 +40,8 @@ struct ObservationGatewayTests {
           "observedAt": "2026-01-01T00:00:00.000Z",
           "recordedAt": "2026-01-01T00:00:00.000Z",
           "photos": [],
-          "measurements": []
+          "measurements": [],
+          "symptoms": []
         }
         """#
 
@@ -121,6 +122,7 @@ struct ObservationGatewayTests {
             observedAt: nil,
             photos: [],
             measurements: [],
+            symptoms: [],
             idempotencyKey: "idem-1"
         )
 
@@ -153,6 +155,7 @@ struct ObservationGatewayTests {
             observedAt: Date(timeIntervalSince1970: 0),
             photos: [],
             measurements: [],
+            symptoms: [],
             idempotencyKey: "idem-2"
         )
 
@@ -206,6 +209,7 @@ struct ObservationGatewayTests {
             conditionSummary: nil,
             photos: [],
             measurements: [],
+            symptoms: [],
             idempotencyKey: "idem-3"
         )
 

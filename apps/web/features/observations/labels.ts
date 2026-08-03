@@ -6,6 +6,8 @@ import type {
   ObservationCorrectionKind,
   ObservationMeasurementKind,
   ObservationPhotoPurpose,
+  ObservationSymptomKind,
+  ObservationSymptomSeverity,
 } from '@verdery/api-contracts';
 
 import type { MessageKey } from '@/shared/localization/public';
@@ -62,6 +64,58 @@ export function photoPurposeLabel(purpose: ObservationPhotoPurpose): MessageKey 
       return 'observations.enum.photoPurpose.symptomCloseUp';
     case 'context_or_free_form':
       return 'observations.enum.photoPurpose.contextOrFreeForm';
+  }
+}
+
+export const OBSERVATION_SYMPTOM_KINDS: readonly ObservationSymptomKind[] = [
+  'leaf_spots',
+  'leaf_yellowing',
+  'leaf_curling',
+  'wilting',
+  'holes_or_chewing',
+  'mould_or_mildew',
+  'dieback',
+  'stunted_growth',
+  'unusual_growth',
+];
+
+export const OBSERVATION_SYMPTOM_SEVERITIES: readonly ObservationSymptomSeverity[] = [
+  'mild',
+  'moderate',
+  'severe',
+];
+
+export function symptomKindLabel(kind: ObservationSymptomKind): MessageKey {
+  switch (kind) {
+    case 'leaf_spots':
+      return 'observations.enum.symptom.leafSpots';
+    case 'leaf_yellowing':
+      return 'observations.enum.symptom.leafYellowing';
+    case 'leaf_curling':
+      return 'observations.enum.symptom.leafCurling';
+    case 'wilting':
+      return 'observations.enum.symptom.wilting';
+    case 'holes_or_chewing':
+      return 'observations.enum.symptom.holesOrChewing';
+    case 'mould_or_mildew':
+      return 'observations.enum.symptom.mouldOrMildew';
+    case 'dieback':
+      return 'observations.enum.symptom.dieback';
+    case 'stunted_growth':
+      return 'observations.enum.symptom.stuntedGrowth';
+    case 'unusual_growth':
+      return 'observations.enum.symptom.unusualGrowth';
+  }
+}
+
+export function symptomSeverityLabel(severity: ObservationSymptomSeverity): MessageKey {
+  switch (severity) {
+    case 'mild':
+      return 'observations.enum.severity.mild';
+    case 'moderate':
+      return 'observations.enum.severity.moderate';
+    case 'severe':
+      return 'observations.enum.severity.severe';
   }
 }
 

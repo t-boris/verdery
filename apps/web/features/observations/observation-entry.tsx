@@ -6,7 +6,12 @@ import { useState } from 'react';
 import { formatInstant, useLocalization } from '@/shared/localization/public';
 import { Button, StatusPill } from '@/shared/ui/public';
 
-import { actorTypeLabel, correctionKindLabel } from './labels';
+import {
+  actorTypeLabel,
+  correctionKindLabel,
+  symptomKindLabel,
+  symptomSeverityLabel,
+} from './labels';
 import { ObservationCorrectionForm } from './observation-correction-form';
 import { ObservationPhotoAnalysis } from './observation-analysis-result';
 import styles from './observation-entry.module.css';
@@ -57,6 +62,24 @@ export function ObservationEntry({ gardenId, plantId, observation }: Observation
       {observation.noteText !== null && <p className={styles['note']}>{observation.noteText}</p>}
       {observation.conditionSummary !== null && (
         <p className={styles['conditionSummary']}>{observation.conditionSummary}</p>
+      )}
+
+      {observation.symptoms.length > 0 && (
+        <div className={styles['symptoms']}>
+          {/*
+            Labelled as the observer's own, and rendered above the photo
+            analyses rather than among them: a model's suggestion and a
+            person's testimony must not read as one list.
+          */}
+          <span className={styles['symptomsLabel']}>{t('observations.symptomsReported')}</span>
+          <ul className={styles['symptomsList']}>
+            {observation.symptoms.map((symptom) => (
+              <li key={symptom.id}>
+                {t(symptomKindLabel(symptom.kind))} — {t(symptomSeverityLabel(symptom.severity))}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {observation.photos.map((photo) => (

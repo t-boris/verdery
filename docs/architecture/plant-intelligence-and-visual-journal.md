@@ -228,6 +228,15 @@ It may contain:
 Corrections amend an observation through a new record or explicit amendment; they do not rewrite
 historical evidence silently.
 
+**Symptoms are testimony, and are stored apart from suggestions.** A structured symptom
+(`observation_symptom`) is what a person reported seeing; an `image_analysis_result` is what a model
+proposed and what a reviewer decided about it. They share no table, no vocabulary, and no reference,
+and no surface presents them as one list — a single table with an `authored_by` discriminator was
+considered and rejected, because the first read that forgot to filter would show a guess as
+testimony. The symptom vocabulary names what is VISIBLE (`leaf_spots`), never what caused it
+(`blight`), and severity is three values rather than a number: two people would not report the same
+leaf as the same score out of ten.
+
 ### 8.2 Guided Capture
 
 The capture UI offers optional shot purposes:

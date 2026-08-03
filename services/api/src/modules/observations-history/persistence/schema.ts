@@ -53,6 +53,14 @@ export interface ObservationMeasurementRow {
   created_at: Generated<Date>;
 }
 
+export interface ObservationSymptomRow {
+  id: string;
+  observation_id: string;
+  symptom_kind: string;
+  severity: string;
+  created_at: Generated<Date>;
+}
+
 /**
  * `confidence_score` is `numeric(4,3)` in the migration, which node-postgres
  * returns as a string by default — the same reasoning
@@ -111,5 +119,6 @@ export interface ObservationsHistoryDatabaseSchema {
   'observations_history.observation_photo': ObservationPhotoRow;
   'observations_history.image_analysis_result': ImageAnalysisResultRow;
   'observations_history.observation_measurement': ObservationMeasurementRow;
+  'observations_history.observation_symptom': ObservationSymptomRow;
   'plants_inventory.plant': PlantOwnershipRow;
 }

@@ -95,6 +95,17 @@ enum ObservationSyncCommand: Encodable {
 /// The record sheet asks for that label whenever a photograph is attached
 /// (P11-IOS-01); nothing is stamped on the way out.
 /// Mirrors `ObservationMeasurementInput`.
+/// Mirrors `ObservationSymptomInput`.
+struct ObservationSymptomInputPayload: Encodable {
+    let kind: String
+    let severity: String
+
+    init(symptom: ObservationSymptomInput) {
+        self.kind = symptom.kind.rawValue
+        self.severity = symptom.severity.rawValue
+    }
+}
+
 struct ObservationMeasurementInputPayload: Encodable {
     let kind: String
     let value: Double
@@ -139,6 +150,7 @@ struct RecordObservationRequestPayload: Encodable {
     let observedAt: String?
     let photos: [ObservationPhotoAttachmentRequestPayload]
     let measurements: [ObservationMeasurementInputPayload]
+    let symptoms: [ObservationSymptomInputPayload]
     let observedPhenologicalStage: String? = nil
 }
 
@@ -158,6 +170,7 @@ struct CorrectObservationRequestPayload: Encodable {
     let conditionSummary: String?
     let photos: [ObservationPhotoAttachmentRequestPayload]
     let measurements: [ObservationMeasurementInputPayload]
+    let symptoms: [ObservationSymptomInputPayload]
     let observedPhenologicalStage: String? = nil
 }
 

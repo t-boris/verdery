@@ -262,7 +262,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     // un-reapplied without this test's own narrow table-name assertion ever
     // catching it, which is fine as long as the down count above stays
     // accurate.
-    await migrate('down', 8);
+    await migrate('down', 9);
 
     const afterDown = await client.query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.tables

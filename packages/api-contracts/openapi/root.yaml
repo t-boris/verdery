@@ -699,6 +699,13 @@ components:
       { $ref: './components/schemas/observations.yaml#/ObservationCorrectionKind' }
     ObservationPhotoPurpose:
       { $ref: './components/schemas/observations.yaml#/ObservationPhotoPurpose' }
+    ObservationSymptomKind:
+      { $ref: './components/schemas/observations.yaml#/ObservationSymptomKind' }
+    ObservationSymptomSeverity:
+      { $ref: './components/schemas/observations.yaml#/ObservationSymptomSeverity' }
+    ObservationSymptom: { $ref: './components/schemas/observations.yaml#/ObservationSymptom' }
+    ObservationSymptomInput:
+      { $ref: './components/schemas/observations.yaml#/ObservationSymptomInput' }
     ObservationMeasurementKind:
       { $ref: './components/schemas/observations.yaml#/ObservationMeasurementKind' }
     ObservedSunExposure: { $ref: './components/schemas/observations.yaml#/ObservedSunExposure' }

@@ -308,7 +308,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     // and 1788100000000_client-update-observation-kind.sql (now the topmost
     // migrations), then this migration itself. Update this count when a
     // later migration is added on top.
-    await migrate('down', 4);
+    await migrate('down', 5);
 
     client = new pg.Client({ connectionString: container.getConnectionUri() });
     await client.connect();

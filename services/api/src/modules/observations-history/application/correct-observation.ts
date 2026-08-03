@@ -25,12 +25,13 @@ import {
   type ObservationCorrectionKind,
 } from '../domain/observation.js';
 import { createObservationMeasurement } from '../domain/observation-measurement.js';
+import { createObservationSymptom } from '../domain/observation-symptom.js';
 import {
   attachObservationPhotos,
   type ObservationPhotoAttachmentInput,
 } from './attach-observation-photos.js';
 import { observationNotFoundError } from './observation-errors.js';
-import type { ObservationMeasurementInput } from './record-observation.js';
+import type { ObservationMeasurementInput, ObservationSymptomInput } from './record-observation.js';
 import type { ObservationRepository } from './observation-repository.js';
 import { toObservationResource, type ObservationResource } from './observation-view.js';
 import type { ObservationsHistoryUnitOfWork } from './observations-history-unit-of-work.js';
@@ -45,6 +46,7 @@ export interface CorrectObservationInput {
   readonly conditionSummary: string | null;
   readonly photos: readonly ObservationPhotoAttachmentInput[];
   readonly measurements: readonly ObservationMeasurementInput[];
+  readonly symptoms: readonly ObservationSymptomInput[];
   readonly observedPhenologicalStage: string | null;
 }
 
@@ -144,11 +146,25 @@ export class CorrectObservation {
           measurements.push(measurement);
         }
 
+        const symptoms = [];
+        for (const symptomInput of input.symptoms) {
+          const symptom = createObservationSymptom(
+            generateUuidV7(),
+            correction.id,
+            symptomInput.kind,
+            symptomInput.severity,
+            now,
+          );
+          await context.observationSymptoms.insert(symptom);
+          symptoms.push(symptom);
+        }
+
         return toObservationResource({
           observation: correction,
           isCorrected: false,
           photos,
           measurements,
+          symptoms,
         });
       },
     );

@@ -6194,6 +6194,39 @@ export interface components {
          * @enum {string}
          */
         ObservationPhotoPurpose: "whole_plant" | "leaf_front" | "leaf_back" | "stem_or_bark" | "flower" | "fruit" | "symptom_close_up" | "context_or_free_form";
+        /**
+         * @description What an observer SAW, never what caused it: `leaf_spots` is visible,
+         *     `blight` would be a diagnosis the observer is guessing at. Distinct from
+         *     `ImageAnalysisKind`, which is a model's own vocabulary — the two are
+         *     never merged, see `ObservationSymptom`.
+         *     Source: observations-history/domain/observation-symptom.ts.
+         * @enum {string}
+         */
+        ObservationSymptomKind: "leaf_spots" | "leaf_yellowing" | "leaf_curling" | "wilting" | "holes_or_chewing" | "mould_or_mildew" | "dieback" | "stunted_growth" | "unusual_growth";
+        /**
+         * @description Three values rather than a numeric scale: two people would not report the
+         *     same leaf as the same number out of ten.
+         * @enum {string}
+         */
+        ObservationSymptomSeverity: "mild" | "moderate" | "severe";
+        /**
+         * @description A symptom a PERSON reported. Never an `ImageAnalysisResult`, which is what
+         *     a model proposed and what a reviewer decided about it: the two carry
+         *     different weight in a health review and share no table, no vocabulary, and
+         *     no reference. At most one entry per kind per observation — seeing the same
+         *     symptom worse next week is a new observation.
+         *     Source: observations-history/domain/observation-symptom.ts.
+         */
+        ObservationSymptom: {
+            id: components["schemas"]["Uuid"];
+            kind: components["schemas"]["ObservationSymptomKind"];
+            severity: components["schemas"]["ObservationSymptomSeverity"];
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        ObservationSymptomInput: {
+            kind: components["schemas"]["ObservationSymptomKind"];
+            severity: components["schemas"]["ObservationSymptomSeverity"];
+        };
         /** @enum {string} */
         ObservationMeasurementKind: "height" | "width" | "count";
         /**
@@ -6329,6 +6362,7 @@ export interface components {
             recordedAt: components["schemas"]["Timestamp"];
             photos: components["schemas"]["ObservationPhoto"][];
             measurements: components["schemas"]["ObservationMeasurement"][];
+            symptoms: components["schemas"]["ObservationSymptom"][];
         };
         ObservationListResult: {
             items: components["schemas"]["Observation"][];
@@ -6375,6 +6409,8 @@ export interface components {
             photos: components["schemas"]["ObservationPhotoAttachmentRequest"][];
             /** @default [] */
             measurements: components["schemas"]["ObservationMeasurementInput"][];
+            /** @default [] */
+            symptoms: components["schemas"]["ObservationSymptomInput"][];
             /** @description `null` or omitted means the observer did not report a stage. */
             observedPhenologicalStage?: components["schemas"]["PlantLifecycleStage"] | null;
         };
@@ -6387,6 +6423,8 @@ export interface components {
             photos: components["schemas"]["ObservationPhotoAttachmentRequest"][];
             /** @default [] */
             measurements: components["schemas"]["ObservationMeasurementInput"][];
+            /** @default [] */
+            symptoms: components["schemas"]["ObservationSymptomInput"][];
             observedPhenologicalStage?: components["schemas"]["PlantLifecycleStage"] | null;
         };
         /** @description Mirrors `SetHealthSuggestionDisposition`'s own input. Source: observations-history/application/set-health-suggestion-disposition.ts. */

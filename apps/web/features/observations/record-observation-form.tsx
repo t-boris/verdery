@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import type {
   ObservationMeasurementInput,
   ObservationPhotoAttachmentRequest,
+  ObservationSymptomInput,
   RecordObservationRequest,
 } from '@verdery/api-contracts';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -23,6 +24,7 @@ import {
 } from '@/shared/ui/public';
 
 import { ObservationMeasurementsField } from './observation-measurements-field';
+import { ObservationSymptomsField } from './observation-symptoms-field';
 import styles from './record-observation-form.module.css';
 import { useRecordObservation } from './queries';
 
@@ -125,6 +127,7 @@ export function RecordObservationForm({
   const mutation = useRecordObservation(gardenId);
   const isOnline = useIsOnline();
   const [measurements, setMeasurements] = useState<readonly ObservationMeasurementInput[]>([]);
+  const [symptoms, setSymptoms] = useState<readonly ObservationSymptomInput[]>([]);
 
   // Read at validation time, so attaching a photo satisfies the
   // note-or-summary-or-photo rule without rebuilding the resolver.
@@ -175,6 +178,7 @@ export function RecordObservationForm({
       // measurement; sending it would fail the schema's own `minLength` on
       // `unit` and lose the whole observation over a stray row.
       measurements: measurements.filter((measurement) => measurement.unit.trim() !== ''),
+      symptoms: [...symptoms],
       ...(values.noteText === undefined || values.noteText === ''
         ? {}
         : { noteText: values.noteText }),
@@ -198,6 +202,7 @@ export function RecordObservationForm({
       onSuccess: () => {
         reset();
         setMeasurements([]);
+        setSymptoms([]);
         draft.clearDraft();
         onRecorded?.();
       },
@@ -229,6 +234,7 @@ export function RecordObservationForm({
         type="datetime-local"
         {...register('observedAt')}
       />
+      <ObservationSymptomsField value={symptoms} onChange={setSymptoms} />
       <ObservationMeasurementsField value={measurements} onChange={setMeasurements} />
       {/*
         The recoverable draft carries the text fields only. Measurements and

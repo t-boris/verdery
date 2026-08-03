@@ -97,32 +97,8 @@ export * from './plants.js';
 /** The plant-candidate/conversion/suitability/taxon-profile schemas (P11-API-01) live in `./plant-candidates.js` — same 600-line-rule posture. */
 export * from './plant-candidates.js';
 
-/** The observations-history schemas (P4-CONTRACT-01). */
-export type ObservationActorType = Schemas['ObservationActorType'];
-export type ObservationCorrectionKind = Schemas['ObservationCorrectionKind'];
-export type ImageAnalysisKind = Schemas['ImageAnalysisKind'];
-export type TaxonSeasonalActivity = Schemas['TaxonSeasonalActivity'];
-export type PlantDistributionStatus = Schemas['PlantDistributionStatus'];
-export type PlantProfileCompleteness = Schemas['PlantProfileCompleteness'];
-export type ImageAnalysisResult = Schemas['ImageAnalysisResult'];
-export type ObservationPhotoPurpose = Schemas['ObservationPhotoPurpose'];
-export type ObservationPhoto = Schemas['ObservationPhoto'];
-export type ObservationMeasurementKind = Schemas['ObservationMeasurementKind'];
-export type ObservationMeasurement = Schemas['ObservationMeasurement'];
-export type Observation = Schemas['Observation'];
-export type ObservationListResult = Schemas['ObservationListResult'];
-export type ObservationPhotoAttachmentRequest = Schemas['ObservationPhotoAttachmentRequest'];
-export type ObservationMeasurementInput = Schemas['ObservationMeasurementInput'];
-export type RecordObservationRequest = Schemas['RecordObservationRequest'];
-export type CorrectObservationRequest = Schemas['CorrectObservationRequest'];
-/** The visual-journal frame sequence (P11-MEDIA-01) — a plant's photographs in observed order, not a rendered time-lapse. */
-export type PlantJournalFrame = Schemas['PlantJournalFrame'];
-export type PlantJournalFrameListResult = Schemas['PlantJournalFrameListResult'];
-/** The health-suggestion-disposition schemas (P11-HEALTH-01). */
-export type HealthSuggestionSafetyClass = Schemas['HealthSuggestionSafetyClass'];
-export type HealthSuggestionDisposition = Schemas['HealthSuggestionDisposition'];
-export type SetHealthSuggestionDispositionRequest =
-  Schemas['SetHealthSuggestionDispositionRequest'];
+/** The observations-history schemas (P4-CONTRACT-01, P11-MEDIA-01, P11-HEALTH-01) live in `./observations.js` — same 600-line-rule posture as `./plants.js`. */
+export * from './observations.js';
 
 /** The tasks-recommendations schemas (P4-CONTRACT-01). */
 export type TaskTargetKind = Schemas['TaskTargetKind'];

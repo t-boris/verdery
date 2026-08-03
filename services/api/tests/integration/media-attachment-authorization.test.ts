@@ -271,6 +271,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       conditionSummary: null,
       observedAt: null,
       measurements: [],
+      symptoms: [],
       observedPhenologicalStage: null,
     };
 

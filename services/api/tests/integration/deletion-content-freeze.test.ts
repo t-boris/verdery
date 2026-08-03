@@ -245,6 +245,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
               observedAt: null,
               photos: [],
               measurements: [],
+              symptoms: [],
               observedPhenologicalStage: null,
             },
             generateUuidV7(),

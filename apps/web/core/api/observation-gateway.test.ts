@@ -63,6 +63,7 @@ const OBSERVATION: Observation = {
   recordedAt: '2026-07-21T09:00:00Z',
   photos: [],
   measurements: [],
+  symptoms: [],
 };
 
 describe('createObservationGateway', () => {
@@ -71,7 +72,7 @@ describe('createObservationGateway', () => {
 
     await gateway.record(
       GARDEN_ID,
-      { noteText: 'Leaves looking healthy', photos: [], measurements: [] },
+      { noteText: 'Leaves looking healthy', photos: [], measurements: [], symptoms: [] },
       IDEMPOTENCY_KEY,
     );
 
@@ -82,6 +83,7 @@ describe('createObservationGateway', () => {
       noteText: 'Leaves looking healthy',
       photos: [],
       measurements: [],
+      symptoms: [],
     });
   });
 
@@ -162,7 +164,7 @@ describe('createObservationGateway', () => {
 
     await gateway.correct(
       OBSERVATION_ID,
-      { correctionKind: 'amendment', photos: [], measurements: [] },
+      { correctionKind: 'amendment', photos: [], measurements: [], symptoms: [] },
       IDEMPOTENCY_KEY,
     );
 

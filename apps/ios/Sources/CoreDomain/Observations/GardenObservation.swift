@@ -49,6 +49,7 @@ public struct GardenObservation: Equatable, Sendable, Identifiable {
     public let recordedAt: Date
     public let photos: [ObservationPhoto]
     public let measurements: [ObservationMeasurement]
+    public let symptoms: [ObservationSymptom]
 
     public init(
         id: String,
@@ -70,7 +71,10 @@ public struct GardenObservation: Equatable, Sendable, Identifiable {
         // observation this device has no server-assigned measurement rows
         // for. A required parameter would make each of them write `[]`
         // explicitly for no gain.
-        measurements: [ObservationMeasurement] = []
+        measurements: [ObservationMeasurement] = [],
+        /// Defaulted for the same reason `measurements` is: no local
+        /// projection or test builds server-assigned symptom rows.
+        symptoms: [ObservationSymptom] = []
     ) {
         self.id = id
         self.gardenId = gardenId
@@ -87,5 +91,6 @@ public struct GardenObservation: Equatable, Sendable, Identifiable {
         self.recordedAt = recordedAt
         self.photos = photos
         self.measurements = measurements
+        self.symptoms = symptoms
     }
 }

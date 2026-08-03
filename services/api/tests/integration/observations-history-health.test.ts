@@ -70,6 +70,7 @@ const BASE_INPUT: RecordObservationInput = {
   observedAt: null,
   photos: [],
   measurements: [],
+  symptoms: [],
   observedPhenologicalStage: null,
 };
 

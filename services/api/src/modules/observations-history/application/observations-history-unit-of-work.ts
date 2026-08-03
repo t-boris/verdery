@@ -32,6 +32,7 @@ import type { GardenContextFactRepository } from '../../gardens-mapping/public.j
 import type { MediaRepository } from '../../media/public.js';
 import type { ImageAnalysisResultRepository } from './image-analysis-result-repository.js';
 import type { ObservationMeasurementRepository } from './observation-measurement-repository.js';
+import type { ObservationSymptomRepository } from './observation-symptom-repository.js';
 import type { ObservationPhotoRepository } from './observation-photo-repository.js';
 import type { ObservationRepository } from './observation-repository.js';
 import type { PlantOwnershipRepository } from './plant-ownership-repository.js';
@@ -41,6 +42,7 @@ export interface ObservationsHistoryTransactionContext {
   readonly observationPhotos: ObservationPhotoRepository;
   readonly imageAnalysisResults: ImageAnalysisResultRepository;
   readonly observationMeasurements: ObservationMeasurementRepository;
+  readonly observationSymptoms: ObservationSymptomRepository;
   readonly plants: PlantOwnershipRepository;
   readonly media: MediaRepository;
   readonly gardenContextFacts: GardenContextFactRepository;

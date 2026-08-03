@@ -25,6 +25,11 @@ import type {
   ObservationMeasurement,
   ObservationMeasurementKind,
 } from '../domain/observation-measurement.js';
+import type {
+  ObservationSymptom,
+  ObservationSymptomKind,
+  ObservationSymptomSeverity,
+} from '../domain/observation-symptom.js';
 import type { ObservationPhoto, ObservationPhotoPurpose } from '../domain/observation-photo.js';
 
 interface ImageAnalysisResultRowLike {
@@ -112,6 +117,24 @@ interface ObservationMeasurementRowLike {
   value: string;
   unit: string;
   created_at: Date;
+}
+
+interface ObservationSymptomRowLike {
+  id: string;
+  observation_id: string;
+  symptom_kind: string;
+  severity: string;
+  created_at: Date;
+}
+
+function toObservationSymptom(row: ObservationSymptomRowLike): ObservationSymptom {
+  return {
+    id: row.id,
+    observationId: row.observation_id,
+    kind: row.symptom_kind as ObservationSymptomKind,
+    severity: row.severity as ObservationSymptomSeverity,
+    createdAt: row.created_at,
+  };
 }
 
 function toObservationMeasurement(row: ObservationMeasurementRowLike): ObservationMeasurement {
@@ -207,10 +230,28 @@ export async function attachHistoryDetails(
     }
   }
 
+  const symptomRows = await db
+    .selectFrom('observations_history.observation_symptom')
+    .selectAll()
+    .where('observation_id', 'in', observationIds)
+    .execute();
+
+  const symptomsByObservationId = new Map<string, ObservationSymptom[]>();
+  for (const row of symptomRows) {
+    const symptom = toObservationSymptom(row);
+    const existing = symptomsByObservationId.get(symptom.observationId);
+    if (existing === undefined) {
+      symptomsByObservationId.set(symptom.observationId, [symptom]);
+    } else {
+      existing.push(symptom);
+    }
+  }
+
   return observations.map((observation) => ({
     observation,
     isCorrected: correctedIds.has(observation.id),
     photos: photosByObservationId.get(observation.id) ?? [],
     measurements: measurementsByObservationId.get(observation.id) ?? [],
+    symptoms: symptomsByObservationId.get(observation.id) ?? [],
   }));
 }

@@ -33,6 +33,7 @@ struct ObservationRecordSheetView: View {
                 VStack(alignment: .leading, spacing: Metrics.space5) {
                     photoSection
                     noteSection
+                    symptomsSection
                     measurementsSection
                     targetSection
                     timingSection
@@ -205,6 +206,53 @@ struct ObservationRecordSheetView: View {
                     .textFieldStyle(.roundedBorder)
                     .lineLimit(2...4)
                     .accessibilityIdentifier("observations.record.conditionField")
+                }
+            }
+        }
+    }
+
+    /// What the observer says they saw. Never shown alongside a photo's
+    /// health suggestions: one is testimony and the other a model's proposal,
+    /// and a shared list would blur exactly the distinction the schema keeps.
+    private var symptomsSection: some View {
+        VStack(alignment: .leading, spacing: Metrics.space2) {
+            SectionEyebrow(symbol: "leaf", title: model.symptomsLegend)
+
+            SurfaceCard {
+                VStack(alignment: .leading, spacing: Metrics.space3) {
+                    ForEach($model.recordSymptoms) { $symptom in
+                        VStack(alignment: .leading, spacing: Metrics.space2) {
+                            Picker(model.symptomKindLabel, selection: $symptom.kind) {
+                                ForEach(model.availableSymptomKinds(for: symptom), id: \.self) { kind in
+                                    Text(model.symptomKindName(kind)).tag(kind)
+                                }
+                            }
+                            .accessibilityIdentifier("observations.record.symptom.kind")
+
+                            Picker(model.symptomSeverityLabel, selection: $symptom.severity) {
+                                ForEach(ObservationSymptomSeverity.allCases, id: \.self) { severity in
+                                    Text(model.symptomSeverityName(severity)).tag(severity)
+                                }
+                            }
+                            .accessibilityIdentifier("observations.record.symptom.severity")
+
+                            CompactActionButton(
+                                symbol: "trash",
+                                title: model.symptomRemoveTitle,
+                                tone: .negative
+                            ) {
+                                model.removeSymptom(symptom.kind)
+                            }
+                            .accessibilityIdentifier("observations.record.symptom.remove")
+                        }
+                    }
+
+                    if model.nextFreeSymptomKind != nil {
+                        CompactActionButton(symbol: "plus", title: model.symptomAddTitle) {
+                            model.addSymptom()
+                        }
+                        .accessibilityIdentifier("observations.record.symptom.add")
+                    }
                 }
             }
         }

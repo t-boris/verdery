@@ -56,6 +56,44 @@ public enum ObservationsLocalization {
         }
     }
 
+    public static func key(for kind: ObservationSymptomKind) -> ObservationJournalLocalizationKey {
+        switch kind {
+        case .leafSpots: .observationsSymptomLeafSpots
+        case .leafYellowing: .observationsSymptomLeafYellowing
+        case .leafCurling: .observationsSymptomLeafCurling
+        case .wilting: .observationsSymptomWilting
+        case .holesOrChewing: .observationsSymptomHolesOrChewing
+        case .mouldOrMildew: .observationsSymptomMouldOrMildew
+        case .dieback: .observationsSymptomDieback
+        case .stuntedGrowth: .observationsSymptomStuntedGrowth
+        case .unusualGrowth: .observationsSymptomUnusualGrowth
+        }
+    }
+
+    public static func symptomKindName(
+        _ kind: ObservationSymptomKind,
+        strings: LocalizedStrings
+    ) -> String {
+        strings(key(for: kind))
+    }
+
+    public static func key(
+        for severity: ObservationSymptomSeverity
+    ) -> ObservationJournalLocalizationKey {
+        switch severity {
+        case .mild: .observationsSeverityMild
+        case .moderate: .observationsSeverityModerate
+        case .severe: .observationsSeveritySevere
+        }
+    }
+
+    public static func symptomSeverityName(
+        _ severity: ObservationSymptomSeverity,
+        strings: LocalizedStrings
+    ) -> String {
+        strings(key(for: severity))
+    }
+
     public static func measurementKindName(
         _ kind: ObservationMeasurementKind,
         strings: LocalizedStrings

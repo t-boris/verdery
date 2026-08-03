@@ -83,7 +83,8 @@ public struct RecordObservation: Sendable {
         conditionSummary: String? = nil,
         observedAt: Date? = nil,
         photos: [ObservationPhotoAttachment] = [],
-        measurements: [ObservationMeasurementInput] = []
+        measurements: [ObservationMeasurementInput] = [],
+        symptoms: [ObservationSymptomInput] = []
     ) async throws -> GardenObservation {
         let (normalizedNote, normalizedCondition) = try validatedContent(noteText: noteText, conditionSummary: conditionSummary)
         let observationId = generateObservationId()
@@ -137,7 +138,8 @@ public struct RecordObservation: Sendable {
                         photos: photos.map(ObservationPhotoAttachmentRequestPayload.init(attachment:)),
                         measurements: measurements.map(
                             ObservationMeasurementInputPayload.init(measurement:)
-                        )
+                        ),
+                        symptoms: symptoms.map(ObservationSymptomInputPayload.init(symptom:))
                     )
                 )
             ),
@@ -294,7 +296,8 @@ public struct CorrectObservation: Sendable {
         noteText: String? = nil,
         conditionSummary: String? = nil,
         photos: [ObservationPhotoAttachment] = [],
-        measurements: [ObservationMeasurementInput] = []
+        measurements: [ObservationMeasurementInput] = [],
+        symptoms: [ObservationSymptomInput] = []
     ) async throws -> GardenObservation {
         let (normalizedNote, normalizedCondition) = try validatedContent(noteText: noteText, conditionSummary: conditionSummary)
         let observationId = generateObservationId()
@@ -348,7 +351,8 @@ public struct CorrectObservation: Sendable {
                         photos: photos.map(ObservationPhotoAttachmentRequestPayload.init(attachment:)),
                         measurements: measurements.map(
                             ObservationMeasurementInputPayload.init(measurement:)
-                        )
+                        ),
+                        symptoms: symptoms.map(ObservationSymptomInputPayload.init(symptom:))
                     )
                 )
             ),

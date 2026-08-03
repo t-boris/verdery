@@ -77,6 +77,30 @@ struct ObservationMeasurementTransport: Codable {
     }
 }
 
+/// Mirrors `ObservationSymptom` — the read side, with the id and timestamp the
+/// server assigns.
+struct ObservationSymptomTransport: Codable {
+    let id: String
+    let kind: ObservationSymptomKind
+    let severity: ObservationSymptomSeverity
+    let createdAt: Date
+
+    var domainValue: ObservationSymptom {
+        ObservationSymptom(id: id, kind: kind, severity: severity, createdAt: createdAt)
+    }
+}
+
+/// Mirrors `ObservationSymptomInput` — the write side.
+struct ObservationSymptomInputTransport: Encodable {
+    let kind: String
+    let severity: String
+
+    init(symptom: ObservationSymptomInput) {
+        self.kind = symptom.kind.rawValue
+        self.severity = symptom.severity.rawValue
+    }
+}
+
 struct ObservationTransport: Codable {
     let id: String
     let gardenId: String
@@ -93,6 +117,7 @@ struct ObservationTransport: Codable {
     let recordedAt: Date
     let photos: [ObservationPhotoTransport]
     let measurements: [ObservationMeasurementTransport]
+    let symptoms: [ObservationSymptomTransport]
 
     var domainValue: GardenObservation {
         GardenObservation(
@@ -110,7 +135,8 @@ struct ObservationTransport: Codable {
             observedAt: observedAt,
             recordedAt: recordedAt,
             photos: photos.map(\.domainValue),
-            measurements: measurements.map(\.domainValue)
+            measurements: measurements.map(\.domainValue),
+            symptoms: symptoms.map(\.domainValue)
         )
     }
 }
@@ -165,6 +191,7 @@ struct RecordObservationRequestTransport: Encodable {
     let observedAt: Date?
     let photos: [ObservationPhotoAttachmentRequestTransport]
     let measurements: [ObservationMeasurementInputTransport]
+    let symptoms: [ObservationSymptomInputTransport]
     let observedPhenologicalStage: String? = nil
 }
 
@@ -187,6 +214,7 @@ struct CorrectObservationRequestTransport: Encodable {
     let conditionSummary: String?
     let photos: [ObservationPhotoAttachmentRequestTransport]
     let measurements: [ObservationMeasurementInputTransport]
+    let symptoms: [ObservationSymptomInputTransport]
     let observedPhenologicalStage: String? = nil
 }
 

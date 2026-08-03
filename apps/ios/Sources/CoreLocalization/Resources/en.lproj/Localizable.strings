@@ -963,3 +963,22 @@
 "observations.measurementKind.height" = "Height";
 "observations.measurementKind.width" = "Width";
 "observations.measurementKind.count" = "Count";
+
+/* Visual plant journal — symptoms the observer reports (P11-MEDIA-01). */
+"observations.symptoms.legend" = "What you see";
+"observations.symptoms.kindLabel" = "Symptom";
+"observations.symptoms.severityLabel" = "How bad";
+"observations.symptoms.add" = "Add a symptom";
+"observations.symptoms.remove" = "Remove this symptom";
+"observations.symptom.leafSpots" = "Spots on leaves";
+"observations.symptom.leafYellowing" = "Yellowing leaves";
+"observations.symptom.leafCurling" = "Curling leaves";
+"observations.symptom.wilting" = "Wilting";
+"observations.symptom.holesOrChewing" = "Holes or chewed edges";
+"observations.symptom.mouldOrMildew" = "Mould or mildew";
+"observations.symptom.dieback" = "Dieback";
+"observations.symptom.stuntedGrowth" = "Stunted growth";
+"observations.symptom.unusualGrowth" = "Unusual growth";
+"observations.severity.mild" = "Mild";
+"observations.severity.moderate" = "Moderate";
+"observations.severity.severe" = "Severe";

@@ -123,6 +123,7 @@ describe('ListObservationsForPlant', () => {
       isCorrected: true,
       photos: [],
       measurements: [],
+      symptoms: [],
     };
     const observations = new FakeObservationRepository([entry]);
     const listObservationsForPlant = new ListObservationsForPlant(

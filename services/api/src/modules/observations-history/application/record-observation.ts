@@ -18,6 +18,7 @@ import type { GardenAuthorization } from '../../gardens-mapping/public.js';
 import type { AnalyzePlantCondition } from '../../integrations/public.js';
 import { createObservation } from '../domain/observation.js';
 import { createObservationMeasurement } from '../domain/observation-measurement.js';
+import { createObservationSymptom } from '../domain/observation-symptom.js';
 import {
   attachObservationPhotos,
   type ObservationPhotoAttachmentInput,
@@ -27,6 +28,12 @@ import { toObservationResource, type ObservationResource } from './observation-v
 import type { ObservationsHistoryUnitOfWork } from './observations-history-unit-of-work.js';
 import { resolveObservedContextSnapshot } from './resolve-observed-context-snapshot.js';
 import { runIdempotentCommand } from './run-idempotent-command.js';
+
+/** One reported symptom, mirroring `createObservationSymptom`'s raw (unvalidated) inputs. */
+export interface ObservationSymptomInput {
+  readonly kind: string;
+  readonly severity: string;
+}
 
 /** One requested measurement, mirroring `createObservationMeasurement`'s raw (unvalidated) inputs. */
 export interface ObservationMeasurementInput {
@@ -46,6 +53,7 @@ export interface RecordObservationInput {
   readonly observedAt: Date | null;
   readonly photos: readonly ObservationPhotoAttachmentInput[];
   readonly measurements: readonly ObservationMeasurementInput[];
+  readonly symptoms: readonly ObservationSymptomInput[];
   /** What the observer reported seeing, distinct from the plant's own current `lifecycleStage` — see `domain/observation.ts`'s header comment. */
   readonly observedPhenologicalStage: string | null;
 }
@@ -145,7 +153,26 @@ export class RecordObservation {
           measurements.push(measurement);
         }
 
-        return toObservationResource({ observation, isCorrected: false, photos, measurements });
+        const symptoms = [];
+        for (const symptomInput of input.symptoms) {
+          const symptom = createObservationSymptom(
+            generateUuidV7(),
+            observation.id,
+            symptomInput.kind,
+            symptomInput.severity,
+            now,
+          );
+          await context.observationSymptoms.insert(symptom);
+          symptoms.push(symptom);
+        }
+
+        return toObservationResource({
+          observation,
+          isCorrected: false,
+          photos,
+          measurements,
+          symptoms,
+        });
       },
     );
   }

@@ -44,3 +44,28 @@
   margin: 0;
   color: var(--color-text-muted);
 }
+
+/*
+ * The observer's own symptoms sit apart from the photo analyses below them:
+ * one is testimony, the other a model's proposal, and a shared visual
+ * treatment would blur exactly the distinction the schema keeps.
+ */
+.symptoms {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.symptomsLabel {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.symptomsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

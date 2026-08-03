@@ -24,6 +24,7 @@ public protocol ObservationGateway: Sendable {
         observedAt: Date?,
         photos: [ObservationPhotoAttachment],
         measurements: [ObservationMeasurementInput],
+        symptoms: [ObservationSymptomInput],
         idempotencyKey: String
     ) async throws -> GardenObservation
 
@@ -54,6 +55,7 @@ public protocol ObservationGateway: Sendable {
         conditionSummary: String?,
         photos: [ObservationPhotoAttachment],
         measurements: [ObservationMeasurementInput],
+        symptoms: [ObservationSymptomInput],
         idempotencyKey: String
     ) async throws -> GardenObservation
 
@@ -100,6 +102,7 @@ public struct URLSessionObservationGateway: ObservationGateway {
         observedAt: Date?,
         photos: [ObservationPhotoAttachment],
         measurements: [ObservationMeasurementInput],
+        symptoms: [ObservationSymptomInput],
         idempotencyKey: String
     ) async throws -> GardenObservation {
         let result: ObservationTransport = try await transport.send(
@@ -112,7 +115,8 @@ public struct URLSessionObservationGateway: ObservationGateway {
                 conditionSummary: conditionSummary,
                 observedAt: observedAt,
                 photos: photos.map(ObservationPhotoAttachmentRequestTransport.init(attachment:)),
-                measurements: measurements.map(ObservationMeasurementInputTransport.init(measurement:))
+                measurements: measurements.map(ObservationMeasurementInputTransport.init(measurement:)),
+                symptoms: symptoms.map(ObservationSymptomInputTransport.init(symptom:))
             ),
             headers: [APIConfiguration.idempotencyKeyHeader: idempotencyKey],
             acceptedStatusCodes: [201]
@@ -169,6 +173,7 @@ public struct URLSessionObservationGateway: ObservationGateway {
         conditionSummary: String?,
         photos: [ObservationPhotoAttachment],
         measurements: [ObservationMeasurementInput],
+        symptoms: [ObservationSymptomInput],
         idempotencyKey: String
     ) async throws -> GardenObservation {
         let result: ObservationTransport = try await transport.send(
@@ -179,7 +184,8 @@ public struct URLSessionObservationGateway: ObservationGateway {
                 noteText: noteText,
                 conditionSummary: conditionSummary,
                 photos: photos.map(ObservationPhotoAttachmentRequestTransport.init(attachment:)),
-                measurements: measurements.map(ObservationMeasurementInputTransport.init(measurement:))
+                measurements: measurements.map(ObservationMeasurementInputTransport.init(measurement:)),
+                symptoms: symptoms.map(ObservationSymptomInputTransport.init(symptom:))
             ),
             headers: [APIConfiguration.idempotencyKeyHeader: idempotencyKey],
             acceptedStatusCodes: [201]

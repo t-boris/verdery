@@ -239,6 +239,35 @@ struct ObservationsUseCasesOfflineTests {
         #expect(measurements.first?["unit"] as? String == "cm")
     }
 
+    @Test("RecordObservation puts the reported symptoms in the outbox payload")
+    func recordObservationCarriesSymptoms() async throws {
+        let dbQueue = try makeDatabase()
+        let store = GRDBObservationStore(dbQueue: dbQueue)
+        let outbox = GRDBSyncOutboxStore(dbQueue: dbQueue)
+        let recordObservation = RecordObservation(
+            localStore: store,
+            profileId: "profile-1",
+            generateOperationId: { "operation-1" },
+            generateObservationId: { "obs-1" }
+        )
+
+        _ = try await recordObservation(
+            gardenId: "garden-1",
+            noteText: "Spots appeared this week",
+            symptoms: [ObservationSymptomInput(kind: .leafSpots, severity: .severe)]
+        )
+
+        let operation = try #require(try await outbox.fetchAll().first)
+        let json = try decodedPayloadJSON(operation)
+        let command = try #require(json["command"] as? [String: Any])
+        let request = try #require(command["request"] as? [String: Any])
+        let symptoms = try #require(request["symptoms"] as? [[String: String]])
+
+        // The observer's own words on the wire, in their own field — never in
+        // the analysis results a model produces for a photo.
+        #expect(symptoms == [["kind": "leaf_spots", "severity": "severe"]])
+    }
+
     // MARK: - CorrectObservation
 
     @Test("CorrectObservation writes a local projection and an observations.correct outbox row")

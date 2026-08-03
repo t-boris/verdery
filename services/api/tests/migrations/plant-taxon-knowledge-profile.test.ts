@@ -384,7 +384,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     // migrations un-reapplied without this test's own narrow table-name
     // assertion ever catching it. Update this count when a later migration
     // is added on top.
-    await migrate('down', 7);
+    await migrate('down', 8);
 
     const afterDown = await client.query<{ qualified: string }>(
       `SELECT table_schema || '.' || table_name AS qualified

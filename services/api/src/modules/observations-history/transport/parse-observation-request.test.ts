@@ -92,6 +92,32 @@ describe('parseRecordObservationRequest — measurements', () => {
     ).toThrow(ValidationError);
   });
 
+  it('refuses a second entry for a symptom already reported', () => {
+    // `observation_symptom_unique_kind`: one statement per symptom per
+    // observation, the same shape the measurement rule has.
+    expect(() =>
+      parseRecordObservationRequest({
+        noteText: 'Note',
+        symptoms: [
+          { kind: 'leaf_spots', severity: 'mild' },
+          { kind: 'leaf_spots', severity: 'severe' },
+        ],
+      }),
+    ).toThrow(ValidationError);
+  });
+
+  it('accepts different symptoms on one observation', () => {
+    const parsed = parseRecordObservationRequest({
+      noteText: 'Note',
+      symptoms: [
+        { kind: 'leaf_spots', severity: 'mild' },
+        { kind: 'wilting', severity: 'severe' },
+      ],
+    });
+
+    expect(parsed.symptoms).toHaveLength(2);
+  });
+
   it('applies the same rule to a correction, which writes the same table', () => {
     expect(() =>
       parseCorrectObservationRequest({

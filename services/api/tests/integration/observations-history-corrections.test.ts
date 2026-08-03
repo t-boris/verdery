@@ -59,6 +59,7 @@ const BASE_INPUT: RecordObservationInput = {
   observedAt: null,
   photos: [],
   measurements: [],
+  symptoms: [],
   observedPhenologicalStage: null,
 };
 
@@ -162,6 +163,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       conditionSummary: null,
       photos: [],
       measurements: [],
+      symptoms: [],
       observedPhenologicalStage: null,
     };
     const correction = await laterHandlers.correctObservation.execute(
@@ -227,6 +229,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       conditionSummary: null,
       photos: [],
       measurements: [],
+      symptoms: [],
       observedPhenologicalStage: null,
     };
     const correction = await handlers.correctObservation.execute(
@@ -254,6 +257,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       conditionSummary: null,
       photos: [],
       measurements: [],
+      symptoms: [],
       observedPhenologicalStage: null,
     };
     await expect(

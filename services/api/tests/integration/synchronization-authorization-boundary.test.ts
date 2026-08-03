@@ -140,7 +140,7 @@ function recordObservationOperation(gardenId: string): SyncOperation {
       command: {
         commandType: 'observations.record',
         observationId: generateUuidV7(),
-        request: { photos: [], measurements: [], noteText: 'Looks healthy' },
+        request: { photos: [], measurements: [], symptoms: [], noteText: 'Looks healthy' },
       },
     },
   };

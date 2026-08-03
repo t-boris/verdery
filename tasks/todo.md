@@ -9098,3 +9098,21 @@ What remains, and what each needs:
 - **Near-duplicate detection** (the same plant photographed twice a second apart): a perceptual
   hash. No such library is in this repository and adding one is an owner decision, not a code
   change.
+
+### Structured symptoms (P11-MEDIA-01) — the deferred design pass, done
+
+The visual-journal migration deferred symptoms because they "overlap meaningfully with
+`image_analysis_result`'s own AI-suggested symptom data and need a design pass to keep the two from
+being confused". The answer is separation, and it is now written down in the migration header, the
+domain type, the contract, and the design doc: `observation_symptom` is a person's testimony,
+`image_analysis_result` is a model's proposal plus a reviewer's disposition, and they share no
+table, no vocabulary, and no reference. A single table with an `authored_by` discriminator was
+rejected — the first read that forgot to filter would show a guess as testimony.
+
+The vocabulary names what is visible (`leaf_spots`), never what caused it (`blight`), and does not
+reuse `ImageAnalysisKind`'s words. Severity is three values, not a number.
+
+Built end to end: migration, domain, repository, both commands, contract, both clients' entry, and
+the web timeline's display, which keeps the observer's symptoms visually apart from a photo's
+analyses. Migration and rollback tests are written; they run in CI, since Docker is not available
+here — that was the owner's call, recorded before starting.

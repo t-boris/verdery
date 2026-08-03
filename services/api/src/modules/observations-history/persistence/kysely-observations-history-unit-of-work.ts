@@ -11,6 +11,7 @@ import type {
 } from '../application/observations-history-unit-of-work.js';
 import { KyselyImageAnalysisResultRepository } from './kysely-image-analysis-result-repository.js';
 import { KyselyObservationMeasurementRepository } from './kysely-observation-measurement-repository.js';
+import { KyselyObservationSymptomRepository } from './kysely-observation-symptom-repository.js';
 import { KyselyObservationPhotoRepository } from './kysely-observation-photo-repository.js';
 import { KyselyObservationRepository } from './kysely-observation-repository.js';
 import { KyselyPlantOwnershipRepository } from './kysely-plant-ownership-repository.js';
@@ -28,6 +29,7 @@ export class KyselyObservationsHistoryUnitOfWork implements ObservationsHistoryU
         observationPhotos: new KyselyObservationPhotoRepository(trx),
         imageAnalysisResults: new KyselyImageAnalysisResultRepository(trx),
         observationMeasurements: new KyselyObservationMeasurementRepository(trx),
+        observationSymptoms: new KyselyObservationSymptomRepository(trx),
         plants: new KyselyPlantOwnershipRepository(trx),
         media: new KyselyMediaRepository(trx),
         gardenContextFacts: new KyselyGardenContextFactRepository(trx),

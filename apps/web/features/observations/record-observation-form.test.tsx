@@ -82,6 +82,33 @@ describe('RecordObservationForm', () => {
     expect(await submittedRequest()).toEqual(expect.objectContaining({ measurements: [] }));
   });
 
+  it('sends the symptoms the observer reported, distinct from any model suggestion', async () => {
+    renderForm();
+
+    fireEvent.change(screen.getByLabelText('Note'), { target: { value: 'Spots appeared' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add a symptom' }));
+    fireEvent.change(screen.getByLabelText('How bad'), { target: { value: 'severe' } });
+
+    // The first free symptom, at the severity the observer chose. A model's
+    // own vocabulary (`stress`, `disease`) is never offered here.
+    expect(await submittedRequest()).toEqual(
+      expect.objectContaining({ symptoms: [{ kind: 'leaf_spots', severity: 'severe' }] }),
+    );
+  });
+
+  it('offers each symptom once and stops offering when all are reported', () => {
+    renderForm();
+
+    const addButton = () => screen.queryByRole('button', { name: 'Add a symptom' });
+    for (let index = 0; index < 9; index += 1) {
+      fireEvent.click(addButton()!);
+    }
+
+    // `observation_symptom_unique_kind` permits one statement per symptom, so
+    // a tenth row would be refused by the server for a rule never shown.
+    expect(addButton()).toBeNull();
+  });
+
   it('tells the composer the entry was recorded, so it can clear the photographs it owns', async () => {
     const onRecorded = vi.fn();
     renderForm({ photos: [{ mediaId: 'media-1', purpose: 'whole_plant' }], onRecorded });

@@ -238,6 +238,31 @@ struct ObservationsTimelineViewModelTests {
         #expect(model.recordMeasurements.isEmpty)
     }
 
+    @Test("Symptoms are offered once each and stop being offered when all are reported")
+    func symptomRowsAreOnePerKind() async {
+        let model = makeModel(gateway: FakeObservationGateway())
+
+        for _ in 0..<ObservationSymptomKind.allCases.count {
+            model.addSymptom()
+        }
+        model.addSymptom()
+
+        // `observation_symptom_unique_kind` permits one statement per symptom.
+        #expect(model.recordSymptoms.count == ObservationSymptomKind.allCases.count)
+        #expect(model.nextFreeSymptomKind == nil)
+    }
+
+    @Test("A recorded observation clears its symptoms rather than reporting them again")
+    func symptomsResetAfterSubmit() async {
+        let model = makeModel(gateway: FakeObservationGateway())
+        model.recordNoteText = "Spots appeared"
+        model.addSymptom()
+
+        await model.submitRecordObservation()
+
+        #expect(model.recordSymptoms.isEmpty)
+    }
+
     @Test("A recorded observation returns the shot purpose to the default instead of carrying it over")
     func recordPhotoPurposeResetsAfterSubmit() async {
         let gateway = FakeObservationGateway()

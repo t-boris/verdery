@@ -22,6 +22,7 @@ import type { CorrectObservationInput } from '../application/correct-observation
 import { ListPlantJournalFrames } from '../application/list-plant-journal-frames.js';
 import type {
   ObservationMeasurementInput,
+  ObservationSymptomInput,
   RecordObservationInput,
 } from '../application/record-observation.js';
 import { OBSERVATION_PHOTO_PURPOSES } from '../domain/observation-photo.js';
@@ -150,6 +151,38 @@ function measurementInputs(
   });
 }
 
+function symptomInputs(value: unknown, pointer: string): readonly ObservationSymptomInput[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    throw invalid(`${pointer} must be an array.`, 'request.invalid', pointer);
+  }
+
+  const seenKinds = new Set<string>();
+  return value.map((entry, index) => {
+    const entryPointer = `${pointer}/${String(index)}`;
+    const entryRecord = requireRecord(entry, entryPointer);
+    const kind = requireString(entryRecord['kind'], `${entryPointer}/kind`);
+
+    // `observation_symptom_unique_kind`: one statement per symptom per
+    // observation. Refused here for the same reason the duplicate measurement
+    // kind is — reaching that constraint mid-transaction turns a client
+    // mistake into a 500 with nothing naming the cause.
+    if (seenKinds.has(kind)) {
+      throw invalid(
+        `${pointer} may carry at most one entry per symptom; ${kind} appears more than once.`,
+        'request.invalid',
+        `${entryPointer}/kind`,
+      );
+    }
+    seenKinds.add(kind);
+
+    return {
+      kind,
+      severity: requireString(entryRecord['severity'], `${entryPointer}/severity`),
+    };
+  });
+}
+
 export function parseRecordObservationRequest(body: unknown): RecordObservationInput {
   const record = requireRecord(body, '');
 
@@ -161,6 +194,7 @@ export function parseRecordObservationRequest(body: unknown): RecordObservationI
     observedAt: nullableTimestamp(record['observedAt'], '/observedAt'),
     photos: photoAttachments(record['photos'], '/photos'),
     measurements: measurementInputs(record['measurements'], '/measurements'),
+    symptoms: symptomInputs(record['symptoms'], '/symptoms'),
     observedPhenologicalStage: nullableString(
       record['observedPhenologicalStage'],
       '/observedPhenologicalStage',
@@ -178,6 +212,7 @@ export function parseCorrectObservationRequest(body: unknown): CorrectObservatio
     conditionSummary: nullableString(record['conditionSummary'], '/conditionSummary'),
     photos: photoAttachments(record['photos'], '/photos'),
     measurements: measurementInputs(record['measurements'], '/measurements'),
+    symptoms: symptomInputs(record['symptoms'], '/symptoms'),
     observedPhenologicalStage: nullableString(
       record['observedPhenologicalStage'],
       '/observedPhenologicalStage',

@@ -74,6 +74,10 @@ export class RecordObservationFromIdentification {
         observedAt: identification.createdAt,
         photos: [],
         measurements: [],
+        // An identification records what a model saw in a photo, never what a
+        // person reported seeing — `observation_symptom` is testimony, and
+        // this path has no person making a statement.
+        symptoms: [],
         observedPhenologicalStage: null,
       },
       idempotencyKey,

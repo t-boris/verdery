@@ -37,6 +37,7 @@ import type {
   ImageAnalysisResultWithGardenContext,
 } from './image-analysis-result-repository.js';
 import type { ObservationMeasurementRepository } from './observation-measurement-repository.js';
+import type { ObservationSymptomRepository } from './observation-symptom-repository.js';
 import type {
   ObservationPhotoRepository,
   PlantJournalFrame,
@@ -201,6 +202,13 @@ class FakeImageAnalysisResultRepository implements ImageAnalysisResultRepository
 
   update(): Promise<void> {
     throw new Error('not used by this test');
+  }
+}
+
+/** Insert-only, like the real one: a test asserting a symptom was recorded reads what the command returned. */
+class FakeObservationSymptomRepository implements ObservationSymptomRepository {
+  insert(): Promise<void> {
+    return Promise.resolve();
   }
 }
 
@@ -417,6 +425,7 @@ export function buildHarness(options: {
     observationPhotos,
     imageAnalysisResults,
     observationMeasurements: new FakeObservationMeasurementRepository(),
+    observationSymptoms: new FakeObservationSymptomRepository(),
     plants: new FakePlantOwnershipRepository(options.plantGardenIds ?? new Map()),
     media: new FakeMediaRepository(options.mediaIds ?? new Set()),
     gardenContextFacts: new FakeGardenContextFactRepository(options.contextFacts ?? []),
@@ -443,5 +452,6 @@ export const NOTE_ONLY_INPUT: RecordObservationInput = {
   observedAt: null,
   photos: [],
   measurements: [],
+  symptoms: [],
   observedPhenologicalStage: null,
 };

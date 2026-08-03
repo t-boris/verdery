@@ -962,3 +962,22 @@
 "observations.measurementKind.height" = "Высота";
 "observations.measurementKind.width" = "Ширина";
 "observations.measurementKind.count" = "Количество";
+
+/* Visual plant journal — symptoms the observer reports (P11-MEDIA-01). */
+"observations.symptoms.legend" = "Что вы видите";
+"observations.symptoms.kindLabel" = "Симптом";
+"observations.symptoms.severityLabel" = "Насколько сильно";
+"observations.symptoms.add" = "Добавить симптом";
+"observations.symptoms.remove" = "Убрать симптом";
+"observations.symptom.leafSpots" = "Пятна на листьях";
+"observations.symptom.leafYellowing" = "Пожелтение листьев";
+"observations.symptom.leafCurling" = "Скручивание листьев";
+"observations.symptom.wilting" = "Увядание";
+"observations.symptom.holesOrChewing" = "Дыры или обгрызенные края";
+"observations.symptom.mouldOrMildew" = "Плесень или мучнистая роса";
+"observations.symptom.dieback" = "Усыхание побегов";
+"observations.symptom.stuntedGrowth" = "Задержка роста";
+"observations.symptom.unusualGrowth" = "Необычный рост";
+"observations.severity.mild" = "Слабо";
+"observations.severity.moderate" = "Умеренно";
+"observations.severity.severe" = "Сильно";

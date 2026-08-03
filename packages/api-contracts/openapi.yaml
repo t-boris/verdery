@@ -10971,6 +10971,68 @@ components:
       description: |
         Visual Plant Journal purpose label (P11-MEDIA-01).
         Source: architecture/plant-intelligence-and-visual-journal.md §8.2.
+    ObservationSymptomKind:
+      type: string
+      enum:
+        - leaf_spots
+        - leaf_yellowing
+        - leaf_curling
+        - wilting
+        - holes_or_chewing
+        - mould_or_mildew
+        - dieback
+        - stunted_growth
+        - unusual_growth
+      description: |
+        What an observer SAW, never what caused it: `leaf_spots` is visible,
+        `blight` would be a diagnosis the observer is guessing at. Distinct from
+        `ImageAnalysisKind`, which is a model's own vocabulary — the two are
+        never merged, see `ObservationSymptom`.
+        Source: observations-history/domain/observation-symptom.ts.
+    ObservationSymptomSeverity:
+      type: string
+      enum:
+        - mild
+        - moderate
+        - severe
+      description: |
+        Three values rather than a numeric scale: two people would not report the
+        same leaf as the same number out of ten.
+    ObservationSymptom:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - kind
+        - severity
+        - createdAt
+      description: |
+        A symptom a PERSON reported. Never an `ImageAnalysisResult`, which is what
+        a model proposed and what a reviewer decided about it: the two carry
+        different weight in a health review and share no table, no vocabulary, and
+        no reference. At most one entry per kind per observation — seeing the same
+        symptom worse next week is a new observation.
+        Source: observations-history/domain/observation-symptom.ts.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        kind:
+          $ref: '#/components/schemas/ObservationSymptomKind'
+        severity:
+          $ref: '#/components/schemas/ObservationSymptomSeverity'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+    ObservationSymptomInput:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+        - severity
+      properties:
+        kind:
+          $ref: '#/components/schemas/ObservationSymptomKind'
+        severity:
+          $ref: '#/components/schemas/ObservationSymptomSeverity'
     ObservationMeasurementKind:
       type: string
       enum:
@@ -11211,6 +11273,7 @@ components:
         - recordedAt
         - photos
         - measurements
+        - symptoms
       description: |
         Immutable and append-only — no revision, no update path. A
         correction is a separate row (see `correctionKind`/
@@ -11286,6 +11349,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ObservationMeasurement'
+        symptoms:
+          type: array
+          items:
+            $ref: '#/components/schemas/ObservationSymptom'
     ObservationListResult:
       type: object
       additionalProperties: false
@@ -11398,6 +11465,11 @@ components:
           items:
             $ref: '#/components/schemas/ObservationMeasurementInput'
           default: []
+        symptoms:
+          type: array
+          items:
+            $ref: '#/components/schemas/ObservationSymptomInput'
+          default: []
         observedPhenologicalStage:
           oneOf:
             - $ref: '#/components/schemas/PlantLifecycleStage'
@@ -11429,6 +11501,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ObservationMeasurementInput'
+          default: []
+        symptoms:
+          type: array
+          items:
+            $ref: '#/components/schemas/ObservationSymptomInput'
           default: []
         observedPhenologicalStage:
           oneOf:

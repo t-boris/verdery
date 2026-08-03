@@ -56,6 +56,10 @@ export function ObservationCorrectionForm({
       // schema `default: []`, which the generated type surfaces as required.
       photos: [],
       measurements: [],
+      // A correction restates the note or the condition summary; it does not
+      // re-report symptoms. Sending an empty list is what "this correction
+      // says nothing about symptoms" looks like on the wire.
+      symptoms: [],
       ...(values.noteText === undefined || values.noteText === ''
         ? {}
         : { noteText: values.noteText }),

@@ -59,6 +59,7 @@ const BASE_INPUT: RecordObservationInput = {
   observedAt: null,
   photos: [],
   measurements: [],
+  symptoms: [],
   observedPhenologicalStage: null,
 };
 
@@ -220,6 +221,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
         conditionSummary: null,
         photos: [],
         measurements: [],
+        symptoms: [],
         observedPhenologicalStage: null,
       },
       generateUuidV7(),

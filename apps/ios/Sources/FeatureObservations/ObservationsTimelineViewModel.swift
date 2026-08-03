@@ -68,6 +68,10 @@ public final class ObservationsTimelineViewModel {
     /// in use. A rule the server enforces should not first appear as a
     /// refusal.
     public var recordMeasurements: [ObservationMeasurementInput] = []
+    /// The symptoms the observer reports. One per kind
+    /// (`observation_symptom_unique_kind`), and never mixed with a model's
+    /// suggestions — those are `ImageAnalysisResult` rows on a photo.
+    public var recordSymptoms: [ObservationSymptomInput] = []
     public var recordObservedAt: Date = .now
     public private(set) var isSubmittingRecord = false
     public private(set) var recordErrorMessage: String?
@@ -88,7 +92,12 @@ public final class ObservationsTimelineViewModel {
     private let listObservationsForPlant: ListObservationsForPlant
     private let correctObservation: CorrectObservation
     private let setHealthSuggestionDisposition: SetHealthSuggestionDisposition
-    private let strings: LocalizedStrings
+    /// `internal`, not `private`: the journal-entry inputs live in an
+    /// extension in their own file (see
+    /// `ObservationsTimelineViewModel+JournalEntry.swift`) and resolve their
+    /// own labels through it. Still not `public` — nothing outside this module
+    /// reads the catalogue through a view model.
+    let strings: LocalizedStrings
 
     /// A disposition the reader has picked but not yet saved, keyed by
     /// `ImageAnalysisResult.id` — the `Picker` binding falls back to that
@@ -191,58 +200,6 @@ public final class ObservationsTimelineViewModel {
     public var measurementUnitPlaceholder: String { strings(.observationsMeasurementUnitPlaceholder) }
     public var measurementAddTitle: String { strings(.observationsMeasurementAdd) }
     public var measurementRemoveTitle: String { strings(.observationsMeasurementRemove) }
-
-    public func measurementKindName(_ kind: ObservationMeasurementKind) -> String {
-        ObservationsLocalization.measurementKindName(kind, strings: strings)
-    }
-
-    /// The kinds a given row may switch to: its own, plus any no other row
-    /// holds.
-    public func availableMeasurementKinds(
-        for measurement: ObservationMeasurementInput
-    ) -> [ObservationMeasurementKind] {
-        let taken = Set(recordMeasurements.map(\.kind))
-        return ObservationMeasurementKind.allCases.filter {
-            $0 == measurement.kind || !taken.contains($0)
-        }
-    }
-
-    /// The kind a new row would take, or `nil` when every kind is in use —
-    /// which is what hides the add control.
-    public var nextFreeMeasurementKind: ObservationMeasurementKind? {
-        let taken = Set(recordMeasurements.map(\.kind))
-        return ObservationMeasurementKind.allCases.first { !taken.contains($0) }
-    }
-
-    public func addMeasurement() {
-        guard let kind = nextFreeMeasurementKind else { return }
-        // Centimetres because that is what a plant is measured in; every part
-        // of the row stays editable, and the unit is a free string on the
-        // contract, so nothing here fixes a vocabulary.
-        recordMeasurements.append(ObservationMeasurementInput(kind: kind, value: 0, unit: "cm"))
-    }
-
-    public func removeMeasurement(_ kind: ObservationMeasurementKind) {
-        recordMeasurements.removeAll { $0.kind == kind }
-    }
-    /// Whether the record form's submit action should be disabled: a photo
-    /// pick is in progress but not yet `.ready` — submitting now would
-    /// either drop the picked photo silently or (if an attachment could
-    /// somehow reference a not-yet-confirmed upload) violate the invariant
-    /// this file's own doc comment on `RecordObservation`'s `photos`
-    /// establishes. Not blocked by `.idle` (no photo picked at all — the
-    /// contract's own "note and/or condition alone is valid" stays true) or
-    /// by `.ready`/a terminal failure (the user can still submit without
-    /// the photo, or after removing it).
-    public var isPhotoBlockingSubmit: Bool {
-        guard let status = photoAttachment?.status else { return false }
-        switch status {
-        case .idle, .ready, .rejected, .failed:
-            return false
-        case .preparing, .waitingForConnectivity, .uploading, .verifying, .processing:
-            return true
-        }
-    }
 
     public var correctionSheetTitle: String { strings(.observationsCorrectionSheetTitle) }
     public var correctionKindLabel: String { strings(.observationsCorrectionKindLabel) }
@@ -361,7 +318,8 @@ public final class ObservationsTimelineViewModel {
                 // whole observation over something the observer abandoned.
                 measurements: recordMeasurements.filter {
                     !$0.unit.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                }
+                },
+                symptoms: recordSymptoms
             )
             resetRecordForm()
             // The row now owns this photo's `mediaId` server-side —
@@ -467,6 +425,7 @@ public final class ObservationsTimelineViewModel {
     private func resetRecordForm() {
         recordPhotoPurpose = .wholePlant
         recordMeasurements = []
+        recordSymptoms = []
         recordNoteText = ""
         recordConditionSummary = ""
         recordPlantId = ""

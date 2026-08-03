@@ -17,6 +17,7 @@
 
 import type { ImageAnalysisResult } from '../domain/image-analysis-result.js';
 import type { ObservationMeasurement } from '../domain/observation-measurement.js';
+import type { ObservationSymptom } from '../domain/observation-symptom.js';
 import type {
   ObservationHistoryEntry,
   ObservationPhotoWithAnalysis,
@@ -57,6 +58,14 @@ export interface ObservationMeasurementResource {
   readonly createdAt: string;
 }
 
+/** What a person reported seeing. Never merged with `ImageAnalysisResultResource`, which is what a model proposed — see `observation-symptom.ts` for why they stay apart. */
+export interface ObservationSymptomResource {
+  readonly id: string;
+  readonly kind: string;
+  readonly severity: string;
+  readonly createdAt: string;
+}
+
 export interface ObservationResource {
   readonly id: string;
   readonly gardenId: string;
@@ -77,6 +86,7 @@ export interface ObservationResource {
   readonly recordedAt: string;
   readonly photos: readonly ObservationPhotoResource[];
   readonly measurements: readonly ObservationMeasurementResource[];
+  readonly symptoms: readonly ObservationSymptomResource[];
 }
 
 export function toImageAnalysisResultResource(
@@ -109,6 +119,15 @@ function toObservationPhotoResource(entry: ObservationPhotoWithAnalysis): Observ
     purpose: entry.photo.purpose,
     createdAt: entry.photo.createdAt.toISOString(),
     analysisResults: entry.analysisResults.map(toImageAnalysisResultResource),
+  };
+}
+
+function toObservationSymptomResource(symptom: ObservationSymptom): ObservationSymptomResource {
+  return {
+    id: symptom.id,
+    kind: symptom.kind,
+    severity: symptom.severity,
+    createdAt: symptom.createdAt.toISOString(),
   };
 }
 
@@ -147,5 +166,6 @@ export function toObservationResource(entry: ObservationHistoryEntry): Observati
     recordedAt: observation.recordedAt.toISOString(),
     photos: entry.photos.map(toObservationPhotoResource),
     measurements: entry.measurements.map(toObservationMeasurementResource),
+    symptoms: entry.symptoms.map(toObservationSymptomResource),
   };
 }

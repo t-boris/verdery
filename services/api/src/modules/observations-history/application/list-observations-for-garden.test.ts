@@ -131,6 +131,7 @@ function entryFor(observedAt: Date): ObservationHistoryEntry {
     isCorrected: false,
     photos: [],
     measurements: [],
+    symptoms: [],
   };
 }
 
