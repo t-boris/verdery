@@ -140,3 +140,23 @@ constraint is a last line, not an error message.
 **Rule:** a comment that enumerates "the only X that can happen here" is a
 claim with an expiry date. When adding an X, grep for comments that said there
 were none.
+
+## A local Swift test run can pass against a module CI will not compile
+
+CI's Swift job failed on `FakeCandidatePlantGateway`, which stopped conforming
+to `PlantGateway` when the previous session added `filters:` to
+`searchPlants`. Locally `swift test` reported 1036 passing tests immediately
+before the push. SwiftPM had not recompiled `FeatureCandidatesTests` — that
+target's own sources had not changed, and the incremental build did not react
+to the protocol change in a module it depends on. The same staleness showed up
+twice earlier in the session as undefined-symbol link errors, each time after
+adding a defaulted parameter, and each time cleared by deleting one target's
+build directory.
+
+**Rule:** before pushing Swift changes that alter a protocol, a public
+initializer, or anything else a test target implements, run `swift package
+clean` and build once from scratch. An incremental green run is not evidence
+that CI will compile the same code.
+
+**Rule:** when a link error names a symbol whose signature you just changed,
+the build is stale — do not go looking for a second definition.

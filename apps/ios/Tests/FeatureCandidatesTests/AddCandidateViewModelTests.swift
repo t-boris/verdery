@@ -126,7 +126,7 @@ final class FakeCandidatePlantGateway: PlantGateway, @unchecked Sendable {
         []
     }
 
-    func searchPlants(gardenId: String, query: String?, status: [PlantStatus]?, identified: Bool?, cursor: String?, limit: Int?) async throws -> PlantSearchPage {
+    func searchPlants(gardenId: String, query: String?, status: [PlantStatus]?, identified: Bool?, filters: PlantSearchFilters, cursor: String?, limit: Int?) async throws -> PlantSearchPage {
         fatalError("not used")
     }
 
