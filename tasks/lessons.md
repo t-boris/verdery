@@ -195,3 +195,24 @@ and still fails fast when the condition never arrives.
 **Rule:** a comment admitting a test depends on an implementation detail
 ("the count tracks how many awaits stand between…") is a defect report against
 that test. Fix it then, not after CI does.
+
+## A new column breaks the migration test that enumerates its table
+
+Adding `media_record.perceptual_hash` turned CI red on
+`media-lifecycle-and-quotas.test.ts`, which asserts the table's ENTIRE column
+list. I had run the new migration's own test, the media module, and the HTTP
+suite — none of which enumerate columns — and concluded the change was
+verified.
+
+The enumerating assertion is not an obstacle; it is the point. It exists so a
+column cannot arrive unnoticed, and it did its job.
+
+**Rule:** after adding a column, run the test suite for the migration that
+CREATED that table, not only the one for the migration that added the column.
+`grep -rln "<table_name>" services/api/tests/migrations` finds it in one step.
+
+**Rule:** the same applies to formatting. I ran `prettier --write` over the
+globs I remembered touching, and missed a file edited early in the session.
+`pnpm format:check` takes seconds and covers the repository — run it before
+pushing, not the per-directory globs.
+

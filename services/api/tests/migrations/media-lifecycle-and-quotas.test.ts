@@ -163,6 +163,10 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
         'media_class',
         'display_filename',
         'declared_content_type',
+        // Added by 1788500000000_media-perceptual-hash.sql. This assertion
+        // enumerates the whole table on purpose: a column arriving unnoticed
+        // is exactly what it exists to catch.
+        'perceptual_hash',
         'verified_content_type',
         'declared_byte_size',
         'verified_byte_size',

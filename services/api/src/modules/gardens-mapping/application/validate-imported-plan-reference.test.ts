@@ -20,7 +20,7 @@ function planMediaRecord(overrides: Partial<MediaRecord> = {}): MediaRecord {
     declaredByteSize: 5_000_000,
     verifiedByteSize: 5_000_000,
     checksumSha256: null,
-  perceptualHash: null,
+    perceptualHash: null,
     bucketName: 'test-user-media',
     objectKey: 'shard/media/object',
     uploadState: 'available',
