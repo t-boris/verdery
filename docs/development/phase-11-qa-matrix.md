@@ -108,11 +108,19 @@ and drop an unresolvable frame rather than the sequence (`plant-journal-strip.te
 **CI only.** Upload verification, retention sweeps, and orphan reconciliation:
 `services/api/tests/integration/media*.test.ts`.
 
-**Gap.** Duplicate detection is unbuilt and needs a perceptual-hashing dependency this repository
-does not have — an owner decision, recorded in `deferred-capabilities.md`. Structured symptoms are
-likewise unbuilt: the P11-MEDIA-01 migration's own header explains that they overlap
-`image_analysis_result` and need a design pass first. Time-lapse generation is deliberately cut
-(owner decision, 2026-08-03).
+**Run.** Structured symptoms are built end to end and kept apart from AI suggestions by
+construction; the domain test pins that a model's own vocabulary (`stress`) is refused as an
+observer's word. Exact-duplicate detection is built: the browser hashes before registering, and
+`listGardenMedia` filters by that checksum.
+
+**CI only.** The symptom table's constraints and its rollback are covered by
+`tests/migrations/observation-symptoms.test.ts`, which needs Postgres and did not run here — the
+owner's decision, made before the work started, was to let CI verify it.
+
+**Gap.** Near-duplicate detection (the same plant photographed twice a second apart) needs a
+perceptual hash, and therefore a dependency this repository does not have; the owner's decision was
+to build the exact half only. Time-lapse generation is deliberately cut (owner decision,
+2026-08-03).
 
 ### 3.6 AI safety
 
@@ -218,8 +226,10 @@ None of these is engineering work that was skipped; each needs something a check
 2. Performance measurement against a deployed environment (3.9).
 3. Real-photo evaluation of the Vertex adapter, and the data-retention confirmation (3.6).
 4. A cost observation window with real usage (3.13).
-5. Owner decisions, each already recorded: the perceptual-hashing dependency for duplicate
-   detection, the symptom schema design pass, and the licensed-imagery provider for taxon photos.
+5. Owner decisions, each already recorded: the perceptual-hashing dependency for near-duplicate
+   detection, and the licensed-imagery provider for taxon photos. (The symptom schema design pass
+   was made and built during this phase; the dependency question was answered "exact duplicates
+   only".)
 
 Source: [../implementation-plan.md](../implementation-plan.md), work package `P11-QA-01` and
 section 20.4; [deferred-capabilities.md](deferred-capabilities.md).
