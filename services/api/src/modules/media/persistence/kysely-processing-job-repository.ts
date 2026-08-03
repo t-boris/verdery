@@ -30,6 +30,25 @@ interface ProcessingJobRowLike {
   updated_at: Date;
 }
 
+/**
+ * `input_checksums` is `jsonb`, and a blind `as string[]` on it turns bad data
+ * into a `TypeError` three call frames away rather than a failure that names
+ * itself. That is not hypothetical: a writer that bound a JS array instead of
+ * serialized JSON made pg send the Postgres array literal, and the EMPTY case
+ * `{}` parses as a perfectly valid JSON object — so one row was stored as an
+ * object, read back as one, and blew up in a domain rule with
+ * "inputChecksums.some is not a function".
+ *
+ * Narrowing here costs one check and makes the same corruption legible.
+ * Anything that is not an array of strings is treated as no expected
+ * checksums, which is the safe direction: it can only make the verification
+ * in `requireSuccessfulInputChecksums` more permissive, never wrongly reject a
+ * result that was actually correct.
+ */
+function toChecksumArray(value: unknown): readonly string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === 'string') ? value : [];
+}
+
 function toProcessingJob(row: ProcessingJobRowLike): ProcessingJob {
   return {
     id: row.id,
@@ -38,7 +57,7 @@ function toProcessingJob(row: ProcessingJobRowLike): ProcessingJob {
     processorConfigVersion: row.processor_config_version,
     state: row.state as ProcessingJobState,
     attempt: row.attempt,
-    inputChecksums: (row.input_checksums as string[] | null) ?? [],
+    inputChecksums: toChecksumArray(row.input_checksums),
     outputObjects: row.output_objects as readonly ProcessingJobOutputObject[] | null,
     resultSummary: row.result_summary as Record<string, unknown> | null,
     qualityDiagnostics: row.quality_diagnostics as Record<string, unknown> | null,
