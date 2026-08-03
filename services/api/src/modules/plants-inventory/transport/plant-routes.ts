@@ -19,6 +19,7 @@
  * implementation-plan.md work package P4-CONTRACT-01.
  */
 
+import { parseSearchPlantsQuery } from './plant-search-query.js';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import {
   UUID_PATTERN,
@@ -36,18 +37,13 @@ import type { GetPlantIdentification } from '../application/get-plant-identifica
 import type { ListPlantPhotos } from '../application/list-plant-photos.js';
 import type { MovePlant } from '../application/move-plant.js';
 import type { RecordObservationFromIdentification } from '../application/record-observation-from-identification.js';
-import type { SearchPlants, SearchPlantsFilters } from '../application/search-plants.js';
+import type { SearchPlants } from '../application/search-plants.js';
 import type { SearchTaxonomyReferences } from '../application/search-taxonomy-references.js';
 import type { SetPlantStatus } from '../application/set-plant-status.js';
 import type { SetPrimaryPlantPhoto } from '../application/set-primary-plant-photo.js';
 import type { TransitionPlantLifecycleStage } from '../application/transition-plant-lifecycle-stage.js';
 import type { UpdatePlantDetails } from '../application/update-plant-details.js';
-import type { GroupingKind } from '../domain/plant.js';
-import type { LifecycleStage, PlantStatus } from '../domain/plant-lifecycle.js';
 import {
-  GROUPING_KINDS,
-  LIFECYCLE_STAGES,
-  PLANT_STATUSES,
   parseAddPlantFromPhotoRequest,
   parseAddPlantRequest,
   parseAttachPlantPhotoRequest,
@@ -79,8 +75,6 @@ const MAX_TAXONOMY_SEARCH_LIMIT = 100;
 // Same bounds `garden-routes.ts`'s own `parseListQuery` uses for `ListGardens`
 // — `SearchPlants` is cursor-paginated the identical way, per this module's
 // own P4-SEARCH-01 conventions.
-const MAX_SEARCH_PLANTS_LIMIT = 100;
-const DEFAULT_SEARCH_PLANTS_LIMIT = 50;
 
 function requirePlantId(request: FastifyRequest): string {
   const { plantId } = request.params as { plantId?: unknown };
@@ -141,103 +135,6 @@ function parseTaxonomySearchQuery(request: FastifyRequest): {
   }
 
   return { query, limit };
-}
-
-/** Parses a comma-separated enum query parameter (OpenAPI `style: form, explode: false`), the same convention `task-routes.ts`'s own `parseStatusFilter` establishes for `TaskStatus`. */
-function parseCommaSeparatedEnum<T extends string>(
-  raw: unknown,
-  allowed: readonly T[],
-  pointer: string,
-): readonly T[] | undefined {
-  if (raw === undefined) {
-    return undefined;
-  }
-  if (typeof raw !== 'string' || raw.length === 0) {
-    throw invalid(`${pointer} must be a comma-separated list.`, 'request.invalid', pointer);
-  }
-
-  return raw.split(',').map((candidate) => {
-    if (!(allowed as readonly string[]).includes(candidate)) {
-      throw invalid(
-        `${pointer} must be one of: ${allowed.join(', ')}.`,
-        'request.enum.invalid',
-        pointer,
-      );
-    }
-    return candidate as T;
-  });
-}
-
-/** Mirrors `candidate-routes.ts`'s own `parseIdentifiedFilter` — kept local since it is this file's only caller. */
-function parseIdentifiedFilter(raw: unknown): boolean | undefined {
-  if (raw === undefined) {
-    return undefined;
-  }
-  if (raw !== 'true' && raw !== 'false') {
-    throw invalid('/identified must be "true" or "false".', 'request.invalid', '/identified');
-  }
-  return raw === 'true';
-}
-
-function parseSearchPlantsQuery(request: FastifyRequest): {
-  filters: SearchPlantsFilters;
-  cursor: string | null;
-  limit: number;
-} {
-  const raw = request.query as {
-    query?: unknown;
-    lifecycleStage?: unknown;
-    status?: unknown;
-    groupingKind?: unknown;
-    identified?: unknown;
-    cursor?: unknown;
-    limit?: unknown;
-  };
-
-  const query = typeof raw.query === 'string' && raw.query.length > 0 ? raw.query : null;
-  const cursor = typeof raw.cursor === 'string' && raw.cursor.length > 0 ? raw.cursor : null;
-
-  const lifecycleStage = parseCommaSeparatedEnum<LifecycleStage>(
-    raw.lifecycleStage,
-    LIFECYCLE_STAGES,
-    '/lifecycleStage',
-  );
-  const status = parseCommaSeparatedEnum<PlantStatus>(raw.status, PLANT_STATUSES, '/status');
-  const groupingKind = parseCommaSeparatedEnum<GroupingKind>(
-    raw.groupingKind,
-    GROUPING_KINDS,
-    '/groupingKind',
-  );
-  const identified = parseIdentifiedFilter(raw.identified);
-
-  let limit = DEFAULT_SEARCH_PLANTS_LIMIT;
-  if (raw.limit !== undefined) {
-    const parsedLimit = Number(raw.limit);
-    if (
-      !Number.isInteger(parsedLimit) ||
-      parsedLimit < 1 ||
-      parsedLimit > MAX_SEARCH_PLANTS_LIMIT
-    ) {
-      throw invalid(
-        `limit must be between 1 and ${String(MAX_SEARCH_PLANTS_LIMIT)}.`,
-        'request.limit.invalid',
-        '/limit',
-      );
-    }
-    limit = parsedLimit;
-  }
-
-  return {
-    filters: {
-      query,
-      ...(lifecycleStage === undefined ? {} : { lifecycleStage }),
-      ...(status === undefined ? {} : { status }),
-      ...(groupingKind === undefined ? {} : { groupingKind }),
-      ...(identified === undefined ? {} : { identified }),
-    },
-    cursor,
-    limit,
-  };
 }
 
 /**

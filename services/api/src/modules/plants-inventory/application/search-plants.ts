@@ -28,6 +28,12 @@ import type { GardenAuthorization } from '../../gardens-mapping/public.js';
 import type { GroupingKind } from '../domain/plant.js';
 import type { LifecycleStage, PlantStatus } from '../domain/plant-lifecycle.js';
 import type { PlantPhotoRepository } from './plant-photo-repository.js';
+import type {
+  ImageAnalysisKind,
+  PlantDistributionStatus,
+  PlantProfileCompleteness,
+  TaxonSeasonalActivity,
+} from './plant-search-filter-values.js';
 import type { PlantRepository, PlantSearchFilters } from './plant-repository.js';
 import { toPlantResource, type PlantResource } from './plant-view.js';
 
@@ -45,6 +51,16 @@ export interface SearchPlantsFilters {
   readonly groupingKind?: readonly GroupingKind[];
   /** `true` = has a resolved `taxonomyReferenceId`; `false` = does not; omitted = no restriction (P11-SEARCH-01's "identity" filter). */
   readonly identified?: boolean | null;
+
+  /** P11-SEARCH-01's joined filters. Each is documented on `PlantSearchFilters`, which is where their semantics live. */
+  readonly observedWithinDays?: number | null;
+  readonly notObservedForDays?: number | null;
+  readonly healthConcern?: readonly ImageAnalysisKind[];
+  readonly seasonalActivity?: readonly TaxonSeasonalActivity[];
+  readonly seasonalMonth?: number | null;
+  readonly distributionStatus?: readonly PlantDistributionStatus[];
+  readonly distributionRegion?: string | null;
+  readonly profileCompleteness?: PlantProfileCompleteness | null;
 }
 
 export interface PlantSearchResult {
@@ -54,6 +70,12 @@ export interface PlantSearchResult {
 
 function normalizeMultiValue<T>(values: readonly T[] | undefined): readonly T[] | null {
   return values !== undefined && values.length > 0 ? values : null;
+}
+
+/** Blank-after-trimming is the same as absent — a region of `"   "` filters nothing and should not reach SQL as one. */
+function normalizeText(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? '';
+  return trimmed === '' ? null : trimmed;
 }
 
 export class SearchPlants {
@@ -80,6 +102,14 @@ export class SearchPlants {
       status: normalizeMultiValue(filters.status),
       groupingKind: normalizeMultiValue(filters.groupingKind),
       identified: filters.identified ?? null,
+      observedWithinDays: filters.observedWithinDays ?? null,
+      notObservedForDays: filters.notObservedForDays ?? null,
+      healthConcern: normalizeMultiValue(filters.healthConcern),
+      seasonalActivity: normalizeMultiValue(filters.seasonalActivity),
+      seasonalMonth: filters.seasonalMonth ?? null,
+      distributionStatus: normalizeMultiValue(filters.distributionStatus),
+      distributionRegion: normalizeText(filters.distributionRegion),
+      profileCompleteness: filters.profileCompleteness ?? null,
     };
 
     const page = await this.plants.search(gardenId, repositoryFilters, cursor, limit);

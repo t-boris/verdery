@@ -6173,6 +6173,29 @@ export interface components {
         /** @enum {string} */
         ImageAnalysisKind: "stress" | "disease" | "pest" | "other";
         /**
+         * @description The seasonal windows `taxonomy_seasonal_fact` records. Crop-oriented
+         *     rather than botanical: these are the moments a gardener acts, not the
+         *     plant's own bloom and fruit phenology, which no current source
+         *     populates.
+         * @enum {string}
+         */
+        TaxonSeasonalActivity: "sow_indoors" | "sow_outdoors" | "transplant" | "harvest";
+        /**
+         * @description A taxon's standing in a named region. `regulated` is a legal state and
+         *     `invasive` an ecological one; they overlap often but neither implies
+         *     the other, so both are asserted independently.
+         * @enum {string}
+         */
+        PlantDistributionStatus: "native" | "introduced" | "invasive" | "regulated";
+        /**
+         * @description How much of a taxon's knowledge profile has been materialized.
+         *     `none` is not a degenerate `partial`: it means enrichment has never
+         *     produced a profile for this taxon, which is the ordinary state for
+         *     anything the pipeline has not reached yet.
+         * @enum {string}
+         */
+        PlantProfileCompleteness: "complete" | "partial" | "none";
+        /**
          * @description How urgently a health suggestion should prompt a human follow-up
          *     (P11-HEALTH-01) — NOT a treatment recommendation. High-impact
          *     treatment recommendations remain rules-first, under the separate
@@ -8999,6 +9022,60 @@ export interface operations {
                  *     (P11-SEARCH-01).
                  */
                 identified?: boolean;
+                /**
+                 * @description Restricts to plants whose most recent observation is newer than
+                 *     this many days — "what have I actually been looking at". Plants
+                 *     with no observation at all never match (P11-SEARCH-01, journal
+                 *     recency).
+                 */
+                observedWithinDays?: number;
+                /**
+                 * @description The neglect half of journal recency, and deliberately not the
+                 *     complement of `observedWithinDays`: a plant with NO observation
+                 *     at all matches here, because "never recorded" is the strongest
+                 *     form of "not recorded lately" and is exactly what this filter
+                 *     exists to surface (P11-SEARCH-01).
+                 */
+                notObservedForDays?: number;
+                /**
+                 * @description Comma-separated analysis kinds; restricts to plants carrying at
+                 *     least one image-analysis suggestion of a listed kind. These are
+                 *     SUGGESTIONS awaiting confirmation, never findings — filtering by
+                 *     one says "something was flagged here", not "this plant is
+                 *     diseased" (P11-SEARCH-01).
+                 */
+                healthConcern?: components["schemas"]["ImageAnalysisKind"][];
+                /**
+                 * @description Comma-separated seasonal activities. Combined with
+                 *     `seasonalMonth`, restricts to plants whose taxon has that
+                 *     activity's window open in that month. Without `seasonalMonth`
+                 *     it restricts to plants whose taxon records the window at all
+                 *     (P11-SEARCH-01, phenology).
+                 */
+                seasonalActivity?: components["schemas"]["TaxonSeasonalActivity"][];
+                /**
+                 * @description Month number the `seasonalActivity` window must cover. Windows
+                 *     that wrap the year end (start month greater than end month) are
+                 *     matched across the boundary rather than treated as empty.
+                 */
+                seasonalMonth?: number;
+                /**
+                 * @description Comma-separated distribution statuses; restricts to plants whose
+                 *     taxon carries a matching assertion. Pair with
+                 *     `distributionRegion` — a status without a region is a question
+                 *     about the whole world and rarely what the caller means
+                 *     (P11-SEARCH-01, native/regulatory).
+                 */
+                distributionStatus?: components["schemas"]["PlantDistributionStatus"][];
+                /** @description Region the `distributionStatus` assertion must apply to. */
+                distributionRegion?: string;
+                /**
+                 * @description Restricts by how complete the taxon's resolved knowledge profile
+                 *     is. `none` means no profile has ever been materialized, which is
+                 *     a different and more common state than a partial one and is worth
+                 *     being able to find on its own (P11-SEARCH-01, completeness).
+                 */
+                profileCompleteness?: components["schemas"]["PlantProfileCompleteness"];
                 /** @description Opaque continuation token from a previous page. Clients must not parse it. */
                 cursor?: components["parameters"]["Cursor"];
                 /** @description Maximum items to return. */

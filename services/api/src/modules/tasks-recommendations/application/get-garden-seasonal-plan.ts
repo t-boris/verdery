@@ -90,6 +90,7 @@ import type {
   TaxonomySeasonalFact,
   TaxonomySeasonalFactRepository,
 } from '../../plants-inventory/public.js';
+import { NO_PLANT_SEARCH_FILTERS } from '../../plants-inventory/public.js';
 import type {
   Hemisphere,
   PlantFact,
@@ -309,13 +310,7 @@ export class GetGardenSeasonalPlan {
     do {
       const page = await this.plants.search(
         gardenId,
-        {
-          query: null,
-          lifecycleStage: null,
-          status: ['active'],
-          groupingKind: null,
-          identified: null,
-        },
+        { ...NO_PLANT_SEARCH_FILTERS, status: ['active'] },
         cursor,
         PLANT_PAGE_SIZE,
       );

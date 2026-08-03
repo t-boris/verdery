@@ -1,9 +1,10 @@
 import { SharedErrorCode } from '@verdery/api-contracts';
-import type { Kysely, SelectQueryBuilder } from 'kysely';
+import type { Kysely, RawBuilder, SelectQueryBuilder } from 'kysely';
 import { sql } from 'kysely';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
 import { ValidationError } from '../../../platform/errors/application-error.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
+import type { TaxonSeasonalActivity } from '../application/plant-search-filter-values.js';
 import type {
   PlantRepository,
   PlantSearchFilters,
@@ -134,6 +135,48 @@ function toPlant(row: PlantRowLike): Plant {
   };
 }
 
+/** The month-range column pair each seasonal activity is stored in. */
+const SEASONAL_WINDOW_COLUMNS = {
+  sow_indoors: ['sow_indoors_start_month', 'sow_indoors_end_month'],
+  sow_outdoors: ['sow_outdoors_start_month', 'sow_outdoors_end_month'],
+  transplant: ['transplant_start_month', 'transplant_end_month'],
+  harvest: ['harvest_start_month', 'harvest_end_month'],
+} as const satisfies Record<TaxonSeasonalActivity, readonly [string, string]>;
+
+/**
+ * "Any of these activity windows is recorded", or with a month, "…and covers
+ * that month".
+ *
+ * WINDOWS WRAP THE YEAR. A window stored as start 11, end 2 runs November to
+ * February, so the naive `month BETWEEN start AND end` reports it as empty for
+ * every month. Where start is greater than end the test inverts to `month >=
+ * start OR month <= end`, which is the only reading under which a
+ * winter-spanning window means anything at all.
+ */
+function seasonalWindowPredicate(
+  activities: readonly TaxonSeasonalActivity[],
+  month: number | null,
+): RawBuilder<boolean> {
+  const perActivity = activities.map((activity) => {
+    const [startColumn, endColumn] = SEASONAL_WINDOW_COLUMNS[activity];
+    const start = sql.ref(`season.${startColumn}`);
+    const end = sql.ref(`season.${endColumn}`);
+    if (month === null) {
+      return sql<boolean>`${start} is not null`;
+    }
+    return sql<boolean>`(
+      ${start} is not null
+      and ${end} is not null
+      and (
+        (${start} <= ${end} and ${month} between ${start} and ${end})
+        or (${start} > ${end} and (${month} >= ${start} or ${month} <= ${end}))
+      )
+    )`;
+  });
+
+  return perActivity.reduce((left, right) => sql<boolean>`(${left} or ${right})`);
+}
+
 export class KyselyPlantRepository implements PlantRepository {
   constructor(private readonly db: Kysely<DatabaseSchema>) {}
 
@@ -247,6 +290,133 @@ export class KyselyPlantRepository implements PlantRepository {
     if (filters.identified !== null) {
       q = q.where('taxonomy_reference_id', filters.identified ? 'is not' : 'is', null);
     }
+
+    // P11-SEARCH-01's six joined filters. Every one is `EXISTS` rather than a
+    // join, deliberately: a plant with three observations carrying health
+    // suggestions must appear ONCE, and a join would multiply it by the number
+    // of matching rows and then need a `DISTINCT` that defeats the keyset
+    // pagination this method depends on.
+    if (filters.observedWithinDays !== null) {
+      q = q.where((eb) =>
+        eb.exists(
+          eb
+            .selectFrom('observations_history.observation as recent')
+            .select('recent.id')
+            .whereRef('recent.plant_id', '=', 'plants_inventory.plant.id')
+            .where(
+              'recent.observed_at',
+              '>=',
+              sql<Date>`now() - make_interval(days => ${filters.observedWithinDays})`,
+            ),
+        ),
+      );
+    }
+
+    // NOT the complement of the filter above: a plant with no observation at
+    // all matches here, because "never recorded" is the strongest form of "not
+    // recorded lately" and is exactly what a neglect filter is asked for.
+    if (filters.notObservedForDays !== null) {
+      q = q.where((eb) =>
+        eb.not(
+          eb.exists(
+            eb
+              .selectFrom('observations_history.observation as fresh')
+              .select('fresh.id')
+              .whereRef('fresh.plant_id', '=', 'plants_inventory.plant.id')
+              .where(
+                'fresh.observed_at',
+                '>=',
+                sql<Date>`now() - make_interval(days => ${filters.notObservedForDays})`,
+              ),
+          ),
+        ),
+      );
+    }
+
+    if (filters.healthConcern !== null && filters.healthConcern.length > 0) {
+      const kinds = [...filters.healthConcern];
+      q = q.where((eb) =>
+        eb.exists(
+          eb
+            .selectFrom('observations_history.observation as concern')
+            .innerJoin(
+              'observations_history.observation_photo as concern_photo',
+              'concern_photo.observation_id',
+              'concern.id',
+            )
+            .innerJoin(
+              'observations_history.image_analysis_result as concern_result',
+              'concern_result.observation_photo_id',
+              'concern_photo.id',
+            )
+            .select('concern.id')
+            .whereRef('concern.plant_id', '=', 'plants_inventory.plant.id')
+            .where('concern_result.analysis_kind', 'in', kinds),
+        ),
+      );
+    }
+
+    if (filters.seasonalActivity !== null && filters.seasonalActivity.length > 0) {
+      const activities = [...filters.seasonalActivity];
+      const month = filters.seasonalMonth;
+      q = q.where((eb) =>
+        eb.exists(
+          eb
+            .selectFrom('plants_inventory.taxonomy_seasonal_fact as season')
+            .select('season.id')
+            .whereRef(
+              'season.taxonomy_reference_id',
+              '=',
+              'plants_inventory.plant.taxonomy_reference_id',
+            )
+            .where(seasonalWindowPredicate(activities, month)),
+        ),
+      );
+    }
+
+    if (filters.distributionStatus !== null && filters.distributionStatus.length > 0) {
+      const statuses = [...filters.distributionStatus];
+      const region = filters.distributionRegion;
+      q = q.where((eb) => {
+        let inner = eb
+          .selectFrom('integrations.plant_taxonomy_mapping as mapping')
+          .innerJoin('integrations.plant_distribution_assertion as distribution', (join) =>
+            join
+              .onRef('distribution.provider_key', '=', 'mapping.provider_key')
+              .onRef('distribution.provider_taxon_id', '=', 'mapping.provider_taxon_id'),
+          )
+          .select('mapping.id')
+          .whereRef(
+            'mapping.taxonomy_reference_id',
+            '=',
+            'plants_inventory.plant.taxonomy_reference_id',
+          )
+          .where('distribution.status', 'in', statuses);
+        if (region !== null) {
+          inner = inner.where('distribution.region', '=', region);
+        }
+        return eb.exists(inner);
+      });
+    }
+
+    if (filters.profileCompleteness !== null) {
+      const completeness = filters.profileCompleteness;
+      q = q.where((eb) => {
+        const profiles = eb
+          .selectFrom('plants_inventory.plant_profile_version as profile')
+          .select('profile.id')
+          .whereRef(
+            'profile.taxonomy_reference_id',
+            '=',
+            'plants_inventory.plant.taxonomy_reference_id',
+          );
+        if (completeness === 'none') {
+          return eb.not(eb.exists(profiles));
+        }
+        return eb.exists(profiles.where('profile.is_partial', '=', completeness === 'partial'));
+      });
+    }
+
     return q;
   }
 

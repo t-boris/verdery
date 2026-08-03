@@ -91,6 +91,7 @@ import {
   type RecommendationCandidateCreatedEventPayload,
 } from '@verdery/api-contracts';
 import { ConflictError, InternalError } from '../../../platform/errors/application-error.js';
+import { NO_PLANT_SEARCH_FILTERS } from '../../plants-inventory/public.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import { generateUuidV7 } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
@@ -402,7 +403,7 @@ async function gatherGardenFacts(
   do {
     const page = await context.plants.search(
       gardenId,
-      { query: null, lifecycleStage: null, status: null, groupingKind: null, identified: null },
+      NO_PLANT_SEARCH_FILTERS,
       cursor,
       PLANT_PAGE_SIZE,
     );

@@ -138,6 +138,7 @@ import { toGardenObjectResource, toGeoreferenceResource } from '../../gardens-ma
 import type { GetClientMediaAccess } from '../../media/public.js';
 import type { PlantRepository, PlantSearchFilters } from '../../plants-inventory/public.js';
 import { toPlantResource } from '../../plants-inventory/public.js';
+import { NO_PLANT_SEARCH_FILTERS } from '../../plants-inventory/public.js';
 import type {
   ClientExportGardenModelResource,
   ClientExportManifestResource,
@@ -145,13 +146,7 @@ import type {
 } from './client-export-view.js';
 
 /** Every plant, unfiltered — the accepted garden model wants the CURRENT full set, not a search result. `search`'s own cursor pagination is looped to completion. */
-const PLANT_SEARCH_FILTERS: PlantSearchFilters = {
-  query: null,
-  lifecycleStage: null,
-  status: null,
-  groupingKind: null,
-  identified: null,
-};
+const PLANT_SEARCH_FILTERS: PlantSearchFilters = NO_PLANT_SEARCH_FILTERS;
 
 /** Comfortably above any real garden's plant count; bounds one page's memory without needing more than a handful of round trips for the gardens this route serves. */
 const PLANT_PAGE_SIZE = 500;

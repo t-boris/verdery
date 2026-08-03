@@ -190,6 +190,7 @@ export type {
   PlantSearchFilters,
   PlantSearchPage,
 } from './application/plant-repository.js';
+export { NO_PLANT_SEARCH_FILTERS } from './application/plant-repository.js';
 export type { PlantPhotoRepository } from './application/plant-photo-repository.js';
 export type { PlantIdentificationRepository } from './application/plant-identification-repository.js';
 export type {
