@@ -9041,3 +9041,17 @@ issued for, and the list already discards it on any filter change.
 An unrecognised value falls back to unfiltered rather than being sent to the server. A stale or
 hand-edited link is ordinary input, and turning someone else's typo into an error page would be a
 worse answer than showing them the list.
+
+### P11-SHARE-01 — the publisher could not pick what to publish
+
+The backend and the publisher screens both existed; staging a photograph or an observation meant
+pasting a UUID, which the panel's own doc comment admitted. Two consequences, not one: nobody can
+publish without a database console, and a publisher who pasted an ORIGINAL photo's id got a server
+refusal for the EXIF/GPS rule `isMediaClientSafe` enforces — a rule the screen never showed them.
+
+Both fields are pickers now. The observation picker lists the garden's observations by date and
+what the observer wrote. The media picker lists DERIVATIVES, built from each original's own
+`derivatives` array, so the publisher picks a photograph and stages the safe copy without needing
+to know the distinction exists; a photograph whose derivatives are not ready yet contributes no
+option, and the empty state says why rather than leaving "the photo I just uploaded is missing"
+unanswered.

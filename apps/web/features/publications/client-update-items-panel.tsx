@@ -5,15 +5,21 @@ import type {
   ClientUpdate,
   ClientUpdateItem,
   ClientUpdateItemKind,
+  Observation,
   PublicationMediaRole,
 } from '@verdery/api-contracts';
 import { useState } from 'react';
 
 import { useIsOnline } from '@/core/connectivity/public';
-import { useLocalization } from '@/shared/localization/public';
+import { formatInstant, useLocalization, type Locale } from '@/shared/localization/public';
 import { Button, FailureAlert, Select, TextField } from '@/shared/ui/public';
 
 import styles from './client-update-items-panel.module.css';
+import {
+  stageableMediaOptions,
+  useGardenMediaForStaging,
+  useGardenObservationsForStaging,
+} from './staging-queries';
 import {
   CLIENT_UPDATE_ITEM_KINDS,
   PUBLICATION_MEDIA_ROLES,
@@ -77,7 +83,13 @@ export function ClientUpdateItemsPanel({ engagementId, update }: ClientUpdateIte
         </ul>
       )}
 
-      {isDraft && <AddItemForm engagementId={engagementId} clientUpdateId={update.id} />}
+      {isDraft && (
+        <AddItemForm
+          engagementId={engagementId}
+          clientUpdateId={update.id}
+          gardenId={update.gardenId}
+        />
+      )}
     </div>
   );
 }
@@ -132,17 +144,35 @@ function StagedItemRow({
   );
 }
 
+/**
+ * How one observation reads in the picker: when it was observed, then whatever
+ * the observer wrote. Enough to recognise the right one without the publisher
+ * holding an id in their head — and the note is theirs, not the client's, so
+ * it never reaches a publication by being shown here.
+ */
+function observationOptionLabel(observation: Observation, locale: Locale): string {
+  const observed = formatInstant(observation.observedAt, locale);
+  const summary = observation.noteText ?? observation.conditionSummary ?? '';
+  return summary === '' ? observed : `${observed} — ${summary}`;
+}
+
 function AddItemForm({
   engagementId,
   clientUpdateId,
+  gardenId,
 }: {
   readonly engagementId: string;
   readonly clientUpdateId: string;
+  /** The update's own garden — what the media and observation pickers are scoped to. */
+  readonly gardenId: string;
 }) {
-  const { t } = useLocalization();
+  const { t, locale } = useLocalization();
   const isOnline = useIsOnline();
   const mutation = useAddClientUpdateItem(engagementId, clientUpdateId);
   const workLogsQuery = useEngagementWorkLogs(engagementId);
+  const observationsQuery = useGardenObservationsForStaging(gardenId);
+  const mediaQuery = useGardenMediaForStaging(gardenId);
+  const mediaOptions = stageableMediaOptions(mediaQuery.data);
 
   const [kind, setKind] = useState<ClientUpdateItemKind>('work_log');
   const [sourceWorkLogId, setSourceWorkLogId] = useState('');
@@ -248,12 +278,27 @@ function AddItemForm({
 
       {kind === 'observation' && (
         <>
-          <TextField
-            label={t('publications.addItemObservationIdLabel')}
-            value={sourceObservationId}
-            onChange={(event) => setSourceObservationId(event.target.value)}
-          />
-          <p className={styles['hint']}>{t('publications.addItemObservationIdHint')}</p>
+          {observationsQuery.data !== undefined && observationsQuery.data.items.length === 0 ? (
+            <p className={styles['hint']}>{t('publications.addItemNoEligibleObservations')}</p>
+          ) : (
+            <Select
+              label={t('publications.addItemObservationLabel')}
+              value={sourceObservationId}
+              onChange={(event) => setSourceObservationId(event.target.value)}
+              options={[
+                { value: '', label: t('publications.addItemObservationPlaceholder') },
+                ...(observationsQuery.data?.items.map((observation) => ({
+                  value: observation.id,
+                  label: observationOptionLabel(observation, locale),
+                })) ?? []),
+              ]}
+            />
+          )}
+          {/*
+            The narrative is authored, never a copy of the observation's own
+            note: the item's `description` is what the client reads, and the
+            observation is provenance the client never sees.
+          */}
           <TextField
             label={t('publications.addItemDescriptionLabel')}
             value={description}
@@ -264,12 +309,26 @@ function AddItemForm({
 
       {kind === 'media' && (
         <>
-          <TextField
-            label={t('publications.addItemMediaRecordIdLabel')}
-            value={mediaRecordId}
-            onChange={(event) => setMediaRecordId(event.target.value)}
-          />
-          <p className={styles['hint']}>{t('publications.addItemMediaRecordIdHint')}</p>
+          {mediaOptions.length === 0 ? (
+            // Says which empty this is: a garden with no photographs, and one
+            // whose photographs have not finished processing, are different
+            // situations, and only the second resolves by waiting.
+            <p className={styles['hint']}>{t('publications.addItemNoEligibleMedia')}</p>
+          ) : (
+            <Select
+              label={t('publications.addItemMediaLabel')}
+              value={mediaRecordId}
+              onChange={(event) => setMediaRecordId(event.target.value)}
+              options={[
+                { value: '', label: t('publications.addItemMediaPlaceholder') },
+                ...mediaOptions.map((option) => ({
+                  value: option.mediaId,
+                  label: option.label,
+                })),
+              ]}
+            />
+          )}
+          <p className={styles['hint']}>{t('publications.addItemMediaDerivativeHint')}</p>
           <Select
             label={t('publications.addItemMediaRoleLabel')}
             value={mediaRole}

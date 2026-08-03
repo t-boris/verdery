@@ -83,14 +83,17 @@ export const russianPublicationsMessages: Readonly<
   'publications.addItemNoEligibleWorkLogs':
     'На этом обслуживании пока не зафиксировано ни одной выполненной работы.',
   'publications.addItemDescriptionLabel': 'Описание',
-  'publications.addItemMediaRecordIdLabel': 'ID медиафайла',
-  'publications.addItemMediaRecordIdHint':
-    'Вставьте идентификатор уже загруженного фото — выбора из списка здесь пока нет.',
   'publications.addItemMediaRoleLabel': 'Роль',
   'publications.addItemCaptionLabel': 'Подпись (необязательно)',
-  'publications.addItemObservationIdLabel': 'ID наблюдения',
-  'publications.addItemObservationIdHint':
-    'Вставьте идентификатор существующего наблюдения — выбора из списка здесь пока нет.',
+  'publications.addItemObservationLabel': 'Наблюдение',
+  'publications.addItemObservationPlaceholder': 'Выберите наблюдение',
+  'publications.addItemNoEligibleObservations':
+    'В этом саду пока нет наблюдений, которые можно опубликовать.',
+  'publications.addItemMediaLabel': 'Фотография',
+  'publications.addItemMediaPlaceholder': 'Выберите фотографию',
+  'publications.addItemNoEligibleMedia':
+    'Ни одна фотография пока не готова к публикации. Фото становится доступным, когда готова его обработанная копия: оригинал не публикуется никогда, потому что его файл может нести данные о местоположении.',
+  'publications.addItemMediaDerivativeHint': 'Клиент видит обработанную копию, а не исходный файл.',
   'publications.addItemOccurredAtLabel': 'Когда',
   'publications.addItemSubmit': 'Подготовить элемент',
   'publications.removeItem': 'Удалить',

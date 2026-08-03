@@ -84,14 +84,18 @@ export const englishPublicationsMessages = {
   'publications.addItemWorkLogPlaceholder': 'Choose completed work',
   'publications.addItemNoEligibleWorkLogs': 'No completed work is logged on this engagement yet.',
   'publications.addItemDescriptionLabel': 'Description',
-  'publications.addItemMediaRecordIdLabel': 'Media ID',
-  'publications.addItemMediaRecordIdHint':
-    'Paste the identifier of an already-uploaded photo — there is no picker here yet.',
   'publications.addItemMediaRoleLabel': 'Role',
   'publications.addItemCaptionLabel': 'Caption (optional)',
-  'publications.addItemObservationIdLabel': 'Observation ID',
-  'publications.addItemObservationIdHint':
-    'Paste the identifier of an existing observation — there is no picker here yet.',
+  'publications.addItemObservationLabel': 'Observation',
+  'publications.addItemObservationPlaceholder': 'Choose an observation',
+  'publications.addItemNoEligibleObservations':
+    'This garden has no observations to publish from yet.',
+  'publications.addItemMediaLabel': 'Photograph',
+  'publications.addItemMediaPlaceholder': 'Choose a photograph',
+  'publications.addItemNoEligibleMedia':
+    'No photograph is ready to publish yet. A photo becomes available once its processed copy exists — an original is never published, because its file can carry location data.',
+  'publications.addItemMediaDerivativeHint':
+    'Clients see a processed copy, never the original file.',
   'publications.addItemOccurredAtLabel': 'When',
   'publications.addItemSubmit': 'Stage item',
   'publications.removeItem': 'Remove',
