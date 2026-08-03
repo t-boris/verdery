@@ -9206,7 +9206,10 @@ wherever the image is shown. An asset with no readable licence is skipped, not d
 
 ### Plan
 
-- [ ] 1. Near-duplicate, backend: contract field, migration, worker dHash, result recording.
+- [x] 1. Near-duplicate, backend: contract field, migration, worker dHash, result recording.
+      Done 2026-08-03. dHash survives JPEG re-encode and resize, separates a mirrored
+      image, and answers null on undecodable bytes; the column carries the same shape of
+      format CHECK as `checksum_sha256`, and Hamming distance is a SQL predicate.
 - [ ] 2. Near-duplicate, web: the warning that already exists for exact matches, extended to
       "looks like" with its own wording — a near match must never claim to be an exact one.
 - [ ] 3. Taxon imagery: `plant_media_asset`, GBIF media fetch with per-record licence
