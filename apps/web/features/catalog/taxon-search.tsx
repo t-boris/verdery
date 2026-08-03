@@ -1,9 +1,10 @@
 'use client';
 
+import type { TaxonomyReference } from '@verdery/api-contracts';
 import Link from 'next/link';
 import { useState } from 'react';
 
-import { useLocalization } from '@/shared/localization/public';
+import { useLocalization, type MessageKey } from '@/shared/localization/public';
 import { FailureAlert, TextField } from '@/shared/ui/public';
 
 import { TAXON_SEARCH_LIMIT, useTaxonSearch } from './queries';
@@ -32,6 +33,29 @@ export interface TaxonSearchProps {
  * Source: packages/api-contracts/openapi.yaml, operation
  * `searchTaxonomyReferences`.
  */
+/**
+ * How a result matched, when that is not already visible.
+ *
+ * `null` for a query-less browse (the contract returns no match at all), and
+ * `null` when the matched text is the scientific or common name the row
+ * already shows — repeating it would be noise. A synonym or a cultivar is
+ * exactly the case worth saying out loud.
+ */
+function matchExplanation(
+  matchedName: TaxonomyReference['matchedName'],
+): { readonly key: MessageKey; readonly name: string } | null {
+  if (matchedName === null) return null;
+  switch (matchedName.nameKind) {
+    case 'synonym_scientific':
+      return { key: 'catalog.matchedSynonym', name: matchedName.nameText };
+    case 'cultivar':
+      return { key: 'catalog.matchedCultivar', name: matchedName.nameText };
+    case 'accepted_scientific':
+    case 'common':
+      return null;
+  }
+}
+
 export function TaxonSearch({ gardenId }: TaxonSearchProps) {
   const { t } = useLocalization();
   const [query, setQuery] = useState('');
@@ -68,6 +92,19 @@ export function TaxonSearch({ gardenId }: TaxonSearchProps) {
                         .filter((part) => part !== null)
                         .join(' · ')}
                     </span>
+                    {/*
+                      Why this row matched, when it matched something other
+                      than the name already on screen. A search for a synonym
+                      or a cultivar otherwise returns a list of scientific
+                      names with no visible connection to what was typed.
+                    */}
+                    {matchExplanation(taxon.matchedName) !== null && (
+                      <span className={styles['matchReason']}>
+                        {t(matchExplanation(taxon.matchedName)!.key, {
+                          name: matchExplanation(taxon.matchedName)!.name,
+                        })}
+                      </span>
+                    )}
                   </Link>
                 </li>
               ))}

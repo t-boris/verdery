@@ -16,6 +16,8 @@ export const englishCatalogMessages = {
   'catalog.searchEmpty': 'No taxa match that name.',
   'catalog.searchBounded':
     'Showing the first {limit} matches. Narrow the name to see different ones — this search has no further pages.',
+  'catalog.matchedSynonym': 'Matched the synonym {name}',
+  'catalog.matchedCultivar': 'Matched the cultivar {name}',
   'catalog.backToCatalog': 'Back to the catalog',
   'catalog.profileTitle': 'What is known about this plant',
   'catalog.profileDescription':

@@ -12,6 +12,8 @@ export const russianCatalogMessages = {
   'catalog.searchEmpty': 'Ни один таксон не подходит под это название.',
   'catalog.searchBounded':
     'Показаны первые {limit} совпадений. Уточните название, чтобы увидеть другие, — следующих страниц у этого поиска нет.',
+  'catalog.matchedSynonym': 'Совпало по синониму {name}',
+  'catalog.matchedCultivar': 'Совпало по культивару {name}',
   'catalog.backToCatalog': 'Назад в каталог',
   'catalog.profileTitle': 'Что известно об этом растении',
   'catalog.profileDescription':

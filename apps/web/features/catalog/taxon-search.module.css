@@ -48,3 +48,10 @@
 .empty {
   margin: 0;
 }
+
+/* Quieter than the names it explains — it is a reason, not a title. */
+.matchReason {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-style: italic;
+}

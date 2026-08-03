@@ -16,14 +16,23 @@ vi.mock('./queries', async (importOriginal) => ({
 
 const mockedUseTaxonSearch = vi.mocked(useTaxonSearch);
 
-function taxon(id: string, scientificName: string, commonName: string | null): TaxonomyReference {
+function taxon(
+  id: string,
+  scientificName: string,
+  commonName: string | null,
+  matchedName: TaxonomyReference['matchedName'] = {
+    nameKind: 'accepted_scientific',
+    nameText: scientificName,
+    locale: null,
+  },
+): TaxonomyReference {
   return {
     id,
     scientificName,
     commonName,
     varietyName: null,
     source: 'system_catalog',
-    matchedName: { nameKind: 'accepted_scientific', nameText: scientificName, locale: null },
+    matchedName,
     createdByProfileId: null,
     createdAt: '2026-05-02T08:00:00Z',
   };
@@ -81,5 +90,36 @@ describe('TaxonSearch', () => {
     // This operation takes no cursor, so a full page is the end of what the
     // reader can reach — saying nothing would read as "that is all there is".
     expect(screen.getByText(/Showing the first 25 matches/)).toBeTruthy();
+  });
+  it('says when a row matched a synonym rather than the name it shows', () => {
+    mockedUseTaxonSearch.mockReturnValue({
+      isError: false,
+      data: {
+        items: [
+          taxon('taxon-1', 'Solanum lycopersicum', 'Tomato', {
+            nameKind: 'synonym_scientific',
+            nameText: 'Lycopersicon esculentum',
+            locale: null,
+          }),
+        ],
+      },
+    } as never);
+
+    renderSearch();
+
+    // Without this the reader sees a scientific name with no visible
+    // connection to what they typed.
+    expect(screen.getByText('Matched the synonym Lycopersicon esculentum')).toBeTruthy();
+  });
+
+  it('stays quiet when the match is the name already on screen', () => {
+    mockedUseTaxonSearch.mockReturnValue({
+      isError: false,
+      data: { items: [taxon('taxon-1', 'Solanum lycopersicum', 'Tomato')] },
+    } as never);
+
+    renderSearch();
+
+    expect(screen.queryByText(/Matched the/)).toBeNull();
   });
 });
