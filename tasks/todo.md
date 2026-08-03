@@ -9130,3 +9130,14 @@ read to the caller as "no duplicate exists" — the opposite of what a failed ch
 
 Near-duplicates (the same plant photographed twice a second apart) still need a perceptual hash and
 therefore a dependency. That remains the owner's decision and is not built.
+
+### A new table is not finished until the garden purge knows about it
+
+CI's `deletion-garden-purge` test compares the purge plan against the live
+catalog and found `observations_history.observation_symptom` missing: deleting a
+garden would have left behind statements about a garden that no longer exists.
+Added to the plan before `observation`, with an ordering assertion beside the
+measurement one.
+
+The export path carries neither measurements nor symptoms — that is the
+existing posture for observation child tables, not a gap this work introduced.

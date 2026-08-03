@@ -80,6 +80,7 @@ describe('the garden purge plan ordering', () => {
     before('plants_inventory.plant_photo', 'media.media_record');
     before('observations_history.observation_photo', 'observations_history.observation');
     before('observations_history.observation_measurement', 'observations_history.observation');
+    before('observations_history.observation_symptom', 'observations_history.observation');
     before('observations_history.observation', 'plants_inventory.plant');
     before('tasks_recommendations.task', 'plants_inventory.plant');
     before('gardens_mapping.garden_object', 'gardens_mapping.coordinate_space');

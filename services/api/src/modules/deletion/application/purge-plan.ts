@@ -238,6 +238,16 @@ export const GARDEN_PURGE_STEPS: readonly PurgeStep[] = [
     rows: (gardenId) =>
       sql`observation_id IN (SELECT id FROM observations_history.observation WHERE garden_id = ${gardenId})`,
   },
+  // P11-MEDIA-01: the third `observation`-scoped child table. A symptom is
+  // what a person said they saw in this garden, so a garden purge must take it
+  // with everything else — leaving it would keep a statement about a garden
+  // that no longer exists.
+  {
+    name: 'observations_history.observation_symptom',
+    table: 'observations_history.observation_symptom',
+    rows: (gardenId) =>
+      sql`observation_id IN (SELECT id FROM observations_history.observation WHERE garden_id = ${gardenId})`,
+  },
   {
     name: 'observations_history.observation',
     table: 'observations_history.observation',
