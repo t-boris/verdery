@@ -410,6 +410,7 @@ struct PlantGatewayTests {
 
         let page = try await gateway.searchPlants(
             gardenId: "garden-1", query: "tomato", status: [.active, .dormant], identified: true,
+            filters: .none,
             cursor: "cursor-1", limit: 10
         )
 
@@ -437,7 +438,8 @@ struct PlantGatewayTests {
         let gateway = makeGateway(identifier: identifier, answer: .json(200, resultJSON))
 
         let page = try await gateway.searchPlants(
-            gardenId: "garden-1", query: nil, status: nil, identified: nil, cursor: nil, limit: nil
+            gardenId: "garden-1", query: nil, status: nil, identified: nil, filters: .none,
+            cursor: nil, limit: nil
         )
 
         let request = try #require(StubURLProtocol.requests(forSession: identifier).first)

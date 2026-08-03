@@ -186,3 +186,65 @@ struct PlantsListViewModelTests {
         #expect(nextCursor == "cursor-2")
     }
 }
+
+@Suite("Plants list view model — joined filters")
+@MainActor
+struct PlantsListViewModelFilterTests {
+    @Test("passes the filters through on both load and loadMore")
+    func filtersReachTheGateway() async {
+        let gateway = FakePlantGateway()
+        gateway.searchPlantsPages = [
+            PlantsListViewModelFilterTests.noCursor: PlantSearchPage(items: [], nextCursor: "page-2"),
+            "page-2": PlantSearchPage(items: [], nextCursor: nil),
+        ]
+        let model = PlantsListViewModel(
+            gardenId: "garden-1",
+            searchPlants: SearchPlants(gateway: gateway),
+            strings: LocalizedStrings(locale: Locale(identifier: "en_GB"))
+        )
+        model.filters = PlantSearchFilters(observedWithinDays: 7, healthConcern: [.pest])
+
+        await model.load()
+        await model.loadMore()
+
+        #expect(gateway.searchPlantsQueries.count == 2)
+        #expect(gateway.searchPlantsQueries.allSatisfy { $0.filters.observedWithinDays == 7 })
+        #expect(gateway.searchPlantsQueries.allSatisfy { $0.filters.healthConcern == [.pest] })
+    }
+
+    // A cursor encodes a position in the previous result set; a filter change
+    // has to start over or it skips rows that now belong on page one.
+    @Test("filtersDidChange restarts from the first page")
+    func filterChangeRestarts() async {
+        let gateway = FakePlantGateway()
+        let model = PlantsListViewModel(
+            gardenId: "garden-1",
+            searchPlants: SearchPlants(gateway: gateway),
+            strings: LocalizedStrings(locale: Locale(identifier: "en_GB"))
+        )
+
+        await model.filtersDidChange()
+
+        #expect(gateway.searchPlantsQueries.last?.cursor == nil)
+    }
+
+    @Test("counts only the filters that narrow the result")
+    func activeCount() async {
+        let gateway = FakePlantGateway()
+        let model = PlantsListViewModel(
+            gardenId: "garden-1",
+            searchPlants: SearchPlants(gateway: gateway),
+            strings: LocalizedStrings(locale: Locale(identifier: "en_GB"))
+        )
+
+        #expect(model.activeFilterCount == 0)
+
+        model.filters = PlantSearchFilters(distributionRegion: "   ")
+        #expect(model.activeFilterCount == 0)
+
+        model.filters = PlantSearchFilters(notObservedForDays: 30, distributionRegion: "US-CA")
+        #expect(model.activeFilterCount == 2)
+    }
+
+    private static let noCursor: String? = nil
+}

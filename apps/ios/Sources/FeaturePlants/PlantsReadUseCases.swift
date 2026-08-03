@@ -35,6 +35,7 @@ public struct SearchPlants: Sendable {
         query: String? = nil,
         status: [PlantStatus]? = nil,
         identified: Bool? = nil,
+        filters: PlantSearchFilters = .none,
         cursor: String? = nil,
         limit: Int? = nil
     ) async throws -> PlantSearchPage {
@@ -43,6 +44,7 @@ public struct SearchPlants: Sendable {
             query: query,
             status: status,
             identified: identified,
+            filters: filters,
             cursor: cursor,
             limit: limit
         )

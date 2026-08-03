@@ -141,6 +141,7 @@ public protocol PlantGateway: Sendable {
         query: String?,
         status: [PlantStatus]?,
         identified: Bool?,
+        filters: PlantSearchFilters,
         cursor: String?,
         limit: Int?
     ) async throws -> PlantSearchPage
@@ -434,6 +435,7 @@ public struct URLSessionPlantGateway: PlantGateway {
         query: String?,
         status: [PlantStatus]?,
         identified: Bool?,
+        filters: PlantSearchFilters,
         cursor: String?,
         limit: Int?
     ) async throws -> PlantSearchPage {
@@ -447,6 +449,7 @@ public struct URLSessionPlantGateway: PlantGateway {
         if let identified {
             queryItems.append("identified=\(identified)")
         }
+        queryItems.append(contentsOf: filters.queryItems)
         if let cursor, let encoded = cursor.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
             queryItems.append("cursor=\(encoded)")
         }

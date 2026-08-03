@@ -112,6 +112,25 @@ public final class PlantsListViewModel {
     /// nothing happened.
     private static let visibleStatuses: [PlantStatus] = PlantStatus.allCases.filter { $0 != .removed }
 
+    /// P11-SEARCH-01's joined filters, as one value the view binds to and the
+    /// two search calls below both read. Held whole rather than as eight
+    /// properties so that adding a filter does not mean touching both calls
+    /// and every test that constructs this model.
+    public var filters: PlantSearchFilters = .none
+
+    /// How many joined filters are narrowing the result — the view shows this
+    /// so a filtered list is never mistaken for a garden with fewer plants.
+    public var activeFilterCount: Int {
+        [
+            filters.observedWithinDays != nil || filters.notObservedForDays != nil,
+            !filters.healthConcern.isEmpty,
+            !filters.seasonalActivity.isEmpty,
+            !filters.distributionStatus.isEmpty,
+            !(filters.distributionRegion?.trimmingCharacters(in: .whitespaces).isEmpty ?? true),
+            filters.profileCompleteness != nil,
+        ].filter { $0 }.count
+    }
+
     public func load() async {
         state = .loading
         do {
@@ -119,7 +138,8 @@ public final class PlantsListViewModel {
                 gardenId: gardenId,
                 query: trimmedQuery,
                 status: Self.visibleStatuses,
-                identified: identifiedFilter.queryValue
+                identified: identifiedFilter.queryValue,
+                filters: filters
             )
             state = .loaded(items: page.items, nextCursor: page.nextCursor)
         } catch let error as APIGatewayError {
@@ -135,6 +155,14 @@ public final class PlantsListViewModel {
         await load()
     }
 
+    /// Re-searches from the first page. A cursor encodes a position in the
+    /// PREVIOUS result set; carrying it into a narrower one skips rows that
+    /// now belong on page one, so `load()` is the only correct response to a
+    /// filter change.
+    public func filtersDidChange() async {
+        await load()
+    }
+
     public func loadMore() async {
         guard case let .loaded(items, nextCursor) = state, let nextCursor, !isLoadingMore else { return }
 
@@ -147,6 +175,7 @@ public final class PlantsListViewModel {
                 query: trimmedQuery,
                 status: Self.visibleStatuses,
                 identified: identifiedFilter.queryValue,
+                filters: filters,
                 cursor: nextCursor
             )
             state = .loaded(items: items + page.items, nextCursor: page.nextCursor)

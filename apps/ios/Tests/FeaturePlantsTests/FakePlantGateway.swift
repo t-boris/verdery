@@ -29,7 +29,12 @@ final class FakePlantGateway: PlantGateway, @unchecked Sendable {
     /// whatever `cursor` the test expects to see requested next; `nil`
     /// entries answer with an empty, terminal page.
     var searchPlantsPages: [String?: PlantSearchPage] = [:]
-    var searchPlantsQueries: [(query: String?, status: [PlantStatus]?, identified: Bool?, cursor: String?)] = []
+    var searchPlantsQueries: [
+        (
+            query: String?, status: [PlantStatus]?, identified: Bool?,
+            filters: PlantSearchFilters, cursor: String?
+        )
+    ] = []
     var searchPlantsError: Error?
     var plantPhotos: [PlantPhoto] = []
     var listPlantPhotosError: Error?
@@ -294,10 +299,13 @@ final class FakePlantGateway: PlantGateway, @unchecked Sendable {
     }
 
     func searchPlants(
-        gardenId: String, query: String?, status: [PlantStatus]?, identified: Bool?, cursor: String?, limit: Int?
+        gardenId: String, query: String?, status: [PlantStatus]?, identified: Bool?,
+        filters: PlantSearchFilters, cursor: String?, limit: Int?
     ) async throws -> PlantSearchPage {
         if let searchPlantsError { throw searchPlantsError }
-        searchPlantsQueries.append((query: query, status: status, identified: identified, cursor: cursor))
+        searchPlantsQueries.append(
+            (query: query, status: status, identified: identified, filters: filters, cursor: cursor)
+        )
         return searchPlantsPages[cursor] ?? PlantSearchPage(items: [], nextCursor: nil)
     }
 
