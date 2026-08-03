@@ -160,3 +160,25 @@ that CI will compile the same code.
 
 **Rule:** when a link error names a symbol whose signature you just changed,
 the build is stale — do not go looking for a second definition.
+
+## Thirty rollback tests encode a migration count, in three different shapes
+
+Adding one migration turned seventeen migration suites red in CI. Each
+rollback test unwinds "every migration newer than mine, then mine", and each
+hardcodes that depth. I found four of them by grepping `migrate('down', N)`,
+bumped those, and shipped — the other twenty-six use
+`migrate(databaseUrl, 'down', N)` or a bare `count: N` inside a `runner({...})`
+call, and none of them was in that grep's output.
+
+**Rule:** after adding a migration, bump EVERY encoded rollback depth, and find
+them by searching for the depth rather than for one call shape:
+`grep -rn "'down'" services/api/tests/migrations`, then read each hit.
+
+**Rule:** when a repository fact is duplicated across dozens of files, one
+grep pattern matching some of them is not evidence you found them all. Count
+the hits against the number of files that should have one.
+
+**Follow-up worth doing:** the depth is derivable — it is the number of
+migration files at or after this test's own. A shared helper that computes it
+would delete the whole class of failure, and is a better use of the next hour
+than bumping thirty numbers again.

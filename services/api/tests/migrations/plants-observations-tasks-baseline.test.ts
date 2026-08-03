@@ -528,7 +528,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   it('rolls back, leaving the garden-map-baseline schemas and tables otherwise intact', async () => {
     await client.end();
 
-    // `count: 36` undoes this migration and every migration applied after
+    // `count: 37` undoes this migration and every migration applied after
     // it (currently through 1787800000000_plant-search-extensions.sql
     // — several of which extend or reference tables this one creates, e.g.
     // the media migrations grow `media.media_record`,
@@ -548,7 +548,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
       migrationsTable: 'pgmigrations',
-      count: 36,
+      count: 37,
       log: () => {},
     });
 

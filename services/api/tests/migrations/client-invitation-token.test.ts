@@ -193,12 +193,12 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     await client.end();
 
-    // `count: 15` undoes every migration applied after this one (through
+    // `count: 16` undoes every migration applied after this one (through
     // 1787800000000_plant-search-extensions.sql, nothing this
     // file's own assertions below check) first, then this migration itself.
     // Update this count when a later migration is added on top, the same
     // convention every earlier migration test here follows.
-    await migrate(databaseUrl, 'down', 15);
+    await migrate(databaseUrl, 'down', 16);
 
     client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();
