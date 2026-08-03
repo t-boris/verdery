@@ -187,7 +187,7 @@ struct ObservationsUseCasesOfflineTests {
         let result = try await recordObservation(
             gardenId: "garden-1",
             noteText: "New growth",
-            photoMediaIds: ["media-42"]
+            photos: [ObservationPhotoAttachment(mediaId: "media-42", purpose: .leafFront)]
         )
 
         // The local optimistic projection stays `photos: []` — see
@@ -200,7 +200,9 @@ struct ObservationsUseCasesOfflineTests {
         let command = try #require(json["command"] as? [String: Any])
         let request = try #require(command["request"] as? [String: Any])
         let photos = try #require(request["photos"] as? [[String: String]])
-        #expect(photos == [["mediaId": "media-42", "purpose": "context_or_free_form"]])
+        // The purpose is the one the photographer chose, not a catch-all this
+        // client stamps on every attachment — which is what it used to do.
+        #expect(photos == [["mediaId": "media-42", "purpose": "leaf_front"]])
     }
 
     // MARK: - CorrectObservation

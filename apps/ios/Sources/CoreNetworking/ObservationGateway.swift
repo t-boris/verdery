@@ -11,9 +11,10 @@ import Foundation
 /// Source: architecture/ios-application-design.md, section "9. Networking";
 /// packages/api-contracts/openapi.yaml, tag `Observations`.
 public protocol ObservationGateway: Sendable {
-    /// Each `photoMediaIds` entry is wrapped with a fixed
-    /// `context_or_free_form` purpose label on the wire (P11-MEDIA-01) — see
-    /// `observationPhotoAttachmentTransport(mediaId:)` below.
+    /// Each attachment carries the shot purpose chosen for it
+    /// (P11-MEDIA-01). Nothing is defaulted here: a purpose invented at this
+    /// boundary would put the photograph into a comparison sequence it does
+    /// not belong to.
     func recordObservation(
         gardenId: String,
         plantId: String?,
@@ -21,7 +22,7 @@ public protocol ObservationGateway: Sendable {
         noteText: String?,
         conditionSummary: String?,
         observedAt: Date?,
-        photoMediaIds: [String],
+        photos: [ObservationPhotoAttachment],
         idempotencyKey: String
     ) async throws -> GardenObservation
 
@@ -50,7 +51,7 @@ public protocol ObservationGateway: Sendable {
         correctionKind: ObservationCorrectionKind,
         noteText: String?,
         conditionSummary: String?,
-        photoMediaIds: [String],
+        photos: [ObservationPhotoAttachment],
         idempotencyKey: String
     ) async throws -> GardenObservation
 
@@ -95,7 +96,7 @@ public struct URLSessionObservationGateway: ObservationGateway {
         noteText: String?,
         conditionSummary: String?,
         observedAt: Date?,
-        photoMediaIds: [String],
+        photos: [ObservationPhotoAttachment],
         idempotencyKey: String
     ) async throws -> GardenObservation {
         let result: ObservationTransport = try await transport.send(
@@ -107,7 +108,7 @@ public struct URLSessionObservationGateway: ObservationGateway {
                 noteText: noteText,
                 conditionSummary: conditionSummary,
                 observedAt: observedAt,
-                photos: photoMediaIds.map(observationPhotoAttachmentTransport(mediaId:))
+                photos: photos.map(ObservationPhotoAttachmentRequestTransport.init(attachment:))
             ),
             headers: [APIConfiguration.idempotencyKeyHeader: idempotencyKey],
             acceptedStatusCodes: [201]
@@ -162,7 +163,7 @@ public struct URLSessionObservationGateway: ObservationGateway {
         correctionKind: ObservationCorrectionKind,
         noteText: String?,
         conditionSummary: String?,
-        photoMediaIds: [String],
+        photos: [ObservationPhotoAttachment],
         idempotencyKey: String
     ) async throws -> GardenObservation {
         let result: ObservationTransport = try await transport.send(
@@ -172,7 +173,7 @@ public struct URLSessionObservationGateway: ObservationGateway {
                 correctionKind: correctionKind,
                 noteText: noteText,
                 conditionSummary: conditionSummary,
-                photos: photoMediaIds.map(observationPhotoAttachmentTransport(mediaId:))
+                photos: photos.map(ObservationPhotoAttachmentRequestTransport.init(attachment:))
             ),
             headers: [APIConfiguration.idempotencyKeyHeader: idempotencyKey],
             acceptedStatusCodes: [201]
@@ -194,15 +195,4 @@ public struct URLSessionObservationGateway: ObservationGateway {
         )
         return result.domainValue
     }
-}
-
-/// See `ObservationGateway.recordObservation`'s doc comment: no
-/// purpose-picker UI exists on this client yet. This pass (P11-IOS-01)
-/// still does not build one — a real, separate follow-up, matching the
-/// identical scope decision already made in the web client's own P11-WEB-01
-/// pass (`record-observation-form.tsx` also still hardcodes an empty photo
-/// list) — so every photo attached here continues to be stamped with the
-/// design doc's catch-all label.
-private func observationPhotoAttachmentTransport(mediaId: String) -> ObservationPhotoAttachmentRequestTransport {
-    ObservationPhotoAttachmentRequestTransport(mediaId: mediaId, purpose: "context_or_free_form")
 }

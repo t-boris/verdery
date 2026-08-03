@@ -27,7 +27,7 @@ import Foundation
 /// `expectedRevision` either, matching the domain reality that an
 /// observation is never updated in place.
 ///
-/// `photoMediaIds` accepts real, already-uploaded media ids as of P6-IOS-01:
+/// `photos` accepts real, already-uploaded media ids as of P6-IOS-01:
 /// `CoreMediaTransfer.MediaUploadCoordinator` is the file-upload flow this
 /// doc comment previously said did not exist yet. Still defaults to `[]` —
 /// `RecordObservation`/`CorrectObservation` work fully without a photo, the
@@ -47,9 +47,10 @@ import Foundation
 /// UI itself (the submit action stays disabled until the photo is ready),
 /// not by this command.
 ///
-/// On the wire (P11-MEDIA-01), each `photoMediaIds` entry is now wrapped
-/// with a purpose label — see `observationPhotoAttachmentPayload(mediaId:)`
-/// below.
+/// On the wire (P11-MEDIA-01), each attachment carries the shot purpose the
+/// photographer chose for it. Nothing is defaulted on the way out: a guessed
+/// label lands the photograph in a comparison sequence it does not belong to,
+/// and nothing downstream can tell it was guessed.
 ///
 /// Source: implementation-plan.md work package P4-IOS-01, P5-IOS-02;
 /// packages/api-contracts/openapi.yaml, tag `Observations`, `Synchronization`.
@@ -81,7 +82,7 @@ public struct RecordObservation: Sendable {
         noteText: String? = nil,
         conditionSummary: String? = nil,
         observedAt: Date? = nil,
-        photoMediaIds: [String] = []
+        photos: [ObservationPhotoAttachment] = []
     ) async throws -> GardenObservation {
         let (normalizedNote, normalizedCondition) = try validatedContent(noteText: noteText, conditionSummary: conditionSummary)
         let observationId = generateObservationId()
@@ -103,7 +104,7 @@ public struct RecordObservation: Sendable {
             observedAt: observedAt ?? timestamp,
             recordedAt: timestamp,
             // The local optimistic projection stays `photos: []` even when
-            // `photoMediaIds` is non-empty: a full `ObservationPhoto` needs a
+            // `photos` is non-empty: a full `ObservationPhoto` needs a
             // server-assigned photo-record id this device does not have
             // until the next successful sync pulls it back — the same
             // "unconfirmed until the server round-trips it" gap
@@ -132,7 +133,7 @@ public struct RecordObservation: Sendable {
                         noteText: normalizedNote,
                         conditionSummary: normalizedCondition,
                         observedAt: observedAt.map(ObservationTimestampFormatting.string(from:)),
-                        photos: photoMediaIds.map(observationPhotoAttachmentPayload(mediaId:))
+                        photos: photos.map(ObservationPhotoAttachmentRequestPayload.init(attachment:))
                     )
                 )
             ),
@@ -258,7 +259,7 @@ public struct CorrectObservation: Sendable {
         correctionKind: ObservationCorrectionKind,
         noteText: String? = nil,
         conditionSummary: String? = nil,
-        photoMediaIds: [String] = []
+        photos: [ObservationPhotoAttachment] = []
     ) async throws -> GardenObservation {
         let (normalizedNote, normalizedCondition) = try validatedContent(noteText: noteText, conditionSummary: conditionSummary)
         let observationId = generateObservationId()
@@ -309,7 +310,7 @@ public struct CorrectObservation: Sendable {
                         correctionKind: correctionKind,
                         noteText: normalizedNote,
                         conditionSummary: normalizedCondition,
-                        photos: photoMediaIds.map(observationPhotoAttachmentPayload(mediaId:))
+                        photos: photos.map(ObservationPhotoAttachmentRequestPayload.init(attachment:))
                     )
                 )
             ),
@@ -324,7 +325,7 @@ public struct CorrectObservation: Sendable {
 /// non-empty after trimming — mirrors the domain's own
 /// `normalizeOptionalText`/`requireObservationContent`
 /// (`observations-history/domain/observation.ts`), restricted to the
-/// note/condition half of that three-way rule since `photoMediaIds` is
+/// note/condition half of that three-way rule since `photos` is
 /// always `[]` from this client (see this file's own doc comment).
 private func validatedContent(
     noteText: String?,
@@ -345,11 +346,4 @@ private func normalizedText(_ text: String?) -> String? {
         return nil
     }
     return trimmed
-}
-
-/// Every photo this client attaches is stamped `context_or_free_form` — see
-/// `RecordObservationRequestPayload`'s own doc comment (P11-MEDIA-01) for why
-/// (no purpose-picker UI yet, deferred to P11-IOS-01).
-private func observationPhotoAttachmentPayload(mediaId: String) -> ObservationPhotoAttachmentRequestPayload {
-    ObservationPhotoAttachmentRequestPayload(mediaId: mediaId, purpose: "context_or_free_form")
 }

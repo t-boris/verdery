@@ -91,14 +91,24 @@ enum ObservationSyncCommand: Encodable {
 
 /// Mirrors `packages/api-contracts/openapi.yaml`'s
 /// `ObservationPhotoAttachmentRequest` exactly (P11-MEDIA-01): each attached
-/// photo now names a purpose label alongside its media id. This client has
-/// no purpose-picker UI yet (that is P11-IOS-01's job), so every photo this
-/// client ever attaches is stamped `context_or_free_form` — the design
-/// doc's own catch-all label for a photo the observer did not classify more
-/// specifically (architecture/plant-intelligence-and-visual-journal.md §8.2).
+/// photograph names the shot purpose chosen for it alongside its media id.
+/// The record sheet asks for that label whenever a photograph is attached
+/// (P11-IOS-01); nothing is stamped on the way out.
+/// Mirrors `ObservationMeasurementInput`. Not yet produced by this client.
+struct ObservationMeasurementInputPayload: Encodable {
+    let kind: String
+    let value: Double
+    let unit: String
+}
+
 struct ObservationPhotoAttachmentRequestPayload: Encodable {
     let mediaId: String
     let purpose: String
+
+    init(attachment: ObservationPhotoAttachment) {
+        self.mediaId = attachment.mediaId
+        self.purpose = attachment.purpose.rawValue
+    }
 }
 
 /// Mirrors `packages/api-contracts/openapi.yaml`'s `RecordObservationRequest`
@@ -113,8 +123,8 @@ struct ObservationPhotoAttachmentRequestPayload: Encodable {
 ///
 /// `measurements`/`observedPhenologicalStage` (P11-MEDIA-01) are always
 /// empty/`nil` from this client — no typed-measurement or phenology-picker
-/// UI exists yet, the same documented gap `photos`' fixed purpose label
-/// above carries, deferred to P11-IOS-01.
+/// UI exists yet. `photos` no longer belongs on that list: each attachment
+/// now carries the purpose the photographer chose (P11-IOS-01).
 struct RecordObservationRequestPayload: Encodable {
     let plantId: String?
     let gardenObjectId: String?
@@ -122,10 +132,10 @@ struct RecordObservationRequestPayload: Encodable {
     let conditionSummary: String?
     let observedAt: String?
     let photos: [ObservationPhotoAttachmentRequestPayload]
-    // Always empty — see the doc comment above. `[String]` is an arbitrary
-    // but harmless element type: the array is never populated, so its
-    // encoded JSON is `[]` regardless of what `Element` is.
-    let measurements: [String] = []
+    // Always empty — see the doc comment above. Typed as the contract's own
+    // measurement shape rather than as an arbitrary element type, so the day
+    // this client can enter one the compiler is what notices.
+    let measurements: [ObservationMeasurementInputPayload] = []
     let observedPhenologicalStage: String? = nil
 }
 
@@ -144,7 +154,7 @@ struct CorrectObservationRequestPayload: Encodable {
     let noteText: String?
     let conditionSummary: String?
     let photos: [ObservationPhotoAttachmentRequestPayload]
-    let measurements: [String] = []
+    let measurements: [ObservationMeasurementInputPayload] = []
     let observedPhenologicalStage: String? = nil
 }
 

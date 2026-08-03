@@ -118,7 +118,7 @@ struct ObservationGatewayTests {
             noteText: "Looking healthy",
             conditionSummary: nil,
             observedAt: nil,
-            photoMediaIds: [],
+            photos: [],
             idempotencyKey: "idem-1"
         )
 
@@ -149,7 +149,7 @@ struct ObservationGatewayTests {
             noteText: "Note",
             conditionSummary: nil,
             observedAt: Date(timeIntervalSince1970: 0),
-            photoMediaIds: [],
+            photos: [],
             idempotencyKey: "idem-2"
         )
 
@@ -201,7 +201,7 @@ struct ObservationGatewayTests {
             correctionKind: .supersede,
             noteText: "Actually it was pest damage",
             conditionSummary: nil,
-            photoMediaIds: [],
+            photos: [],
             idempotencyKey: "idem-3"
         )
 

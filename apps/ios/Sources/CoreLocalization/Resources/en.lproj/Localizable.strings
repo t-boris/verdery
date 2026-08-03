@@ -932,3 +932,14 @@
 "media.capture.takePhotoButton" = "Take a photo";
 "media.capture.permissionDenied" = "Camera access is turned off. Enable it in Settings to take a photo.";
 "media.capture.openSettingsButton" = "Open Settings";
+
+/* Visual plant journal — the shot purpose a photograph is labelled with (P11-MEDIA-01). */
+"observations.photoPurpose.label" = "What this shot is";
+"observations.photoPurpose.wholePlant" = "Whole plant";
+"observations.photoPurpose.leafFront" = "Leaf, front";
+"observations.photoPurpose.leafBack" = "Leaf, back";
+"observations.photoPurpose.stemOrBark" = "Stem or bark";
+"observations.photoPurpose.flower" = "Flower";
+"observations.photoPurpose.fruit" = "Fruit";
+"observations.photoPurpose.symptomCloseUp" = "Symptom close-up";
+"observations.photoPurpose.contextOrFreeForm" = "Context or free-form";

@@ -54,6 +54,7 @@ struct LocalizationCatalogueTests {
         #expect(Set(MediaCaptureLocalizationKey.allCases.map(\.rawValue)).isSubset(of: declared))
         #expect(Set(ObservationsHealthSuggestionLocalizationKey.allCases.map(\.rawValue)).isSubset(of: declared))
         #expect(Set(PlantCandidatesLocalizationKey.allCases.map(\.rawValue)).isSubset(of: declared))
+        #expect(Set(ObservationJournalLocalizationKey.allCases.map(\.rawValue)).isSubset(of: declared))
         #expect(declared.count == LocalizedStrings.declaredKeys.count, "A key is declared twice.")
     }
 

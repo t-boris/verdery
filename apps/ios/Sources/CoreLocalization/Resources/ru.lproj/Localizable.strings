@@ -931,3 +931,14 @@
 "media.capture.takePhotoButton" = "Сделать фото";
 "media.capture.permissionDenied" = "Доступ к камере отключён. Включите его в настройках, чтобы сделать фото.";
 "media.capture.openSettingsButton" = "Открыть настройки";
+
+/* Visual plant journal — the shot purpose a photograph is labelled with (P11-MEDIA-01). */
+"observations.photoPurpose.label" = "Что на снимке";
+"observations.photoPurpose.wholePlant" = "Растение целиком";
+"observations.photoPurpose.leafFront" = "Лист, лицевая сторона";
+"observations.photoPurpose.leafBack" = "Лист, обратная сторона";
+"observations.photoPurpose.stemOrBark" = "Стебель или кора";
+"observations.photoPurpose.flower" = "Цветок";
+"observations.photoPurpose.fruit" = "Плод";
+"observations.photoPurpose.symptomCloseUp" = "Симптом крупным планом";
+"observations.photoPurpose.contextOrFreeForm" = "Окружение или свободный кадр";

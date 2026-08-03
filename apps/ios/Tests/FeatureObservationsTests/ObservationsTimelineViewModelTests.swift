@@ -186,6 +186,21 @@ struct ObservationsTimelineViewModelTests {
 
     // MARK: - Offline routing (P5-IOS-02, Stage 4d)
 
+    @Test("A recorded observation returns the shot purpose to the default instead of carrying it over")
+    func recordPhotoPurposeResetsAfterSubmit() async {
+        let gateway = FakeObservationGateway()
+        let model = makeModel(gateway: gateway)
+        model.recordNoteText = "Spotting on one leaf"
+        model.recordPhotoPurpose = .symptomCloseUp
+
+        await model.submitRecordObservation()
+
+        // Inheriting the previous entry's label would quietly file the next
+        // photograph — likely an ordinary progress shot — into the symptom
+        // sequence, where nothing downstream could tell it did not belong.
+        #expect(model.recordPhotoPurpose == .wholePlant)
+    }
+
     @Test("submitRecordObservation never reaches the gateway — the recorded observation exists only locally")
     func submitRecordNeverCallsGateway() async {
         let gateway = FakeObservationGateway()

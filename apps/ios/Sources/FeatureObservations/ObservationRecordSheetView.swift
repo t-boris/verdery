@@ -1,4 +1,5 @@
 import CoreDesignSystem
+import CoreDomain
 import CoreMediaTransfer
 import PhotosUI
 import SwiftUI
@@ -139,6 +140,19 @@ struct ObservationRecordSheetView: View {
                         if photoAttachment.status != .idle {
                             InlineMessage(model.photoStatusText, tone: .info)
                                 .accessibilityIdentifier("observations.record.photo.status")
+
+                            // Shown only once a photograph is actually being
+                            // attached: asking what a shot is before there is
+                            // a shot is a question about nothing. The label is
+                            // what makes the journal's comparison sequences
+                            // comparable, so it is asked for rather than
+                            // assumed.
+                            Picker(model.photoPurposeLabel, selection: $model.recordPhotoPurpose) {
+                                ForEach(ObservationPhotoPurpose.allCases, id: \.self) { purpose in
+                                    Text(model.photoPurposeName(purpose)).tag(purpose)
+                                }
+                            }
+                            .accessibilityIdentifier("observations.record.photo.purposePicker")
 
                             HStack(spacing: Metrics.space2) {
                                 if photoAttachment.status.isRetryable,

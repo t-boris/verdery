@@ -62,6 +62,13 @@ public struct LocalizedStrings: Sendable {
         string(forKey: key.rawValue)
     }
 
+    /// The same resolution for the visual plant journal's own key set
+    /// (P11-MEDIA-01). See ``ObservationJournalLocalizationKey`` for why this
+    /// is yet another key set rather than more cases somewhere existing.
+    public func callAsFunction(_ key: ObservationJournalLocalizationKey) -> String {
+        string(forKey: key.rawValue)
+    }
+
     /// The same resolution for the Context quality screen's own key set
     /// (P9D-UX-01). See ``GardenContextLocalizationKey`` for why this is yet
     /// another key set rather than more cases somewhere existing.
@@ -140,6 +147,7 @@ public struct LocalizedStrings: Sendable {
         + PlantPhotoGalleryLocalizationKey.allCases.map(\.rawValue)
         + ObservationsHealthSuggestionLocalizationKey.allCases.map(\.rawValue)
         + PlantCandidatesLocalizationKey.allCases.map(\.rawValue)
+        + ObservationJournalLocalizationKey.allCases.map(\.rawValue)
 
     /// Resolves an arbitrary key, used for codes that originate in Core.
     ///

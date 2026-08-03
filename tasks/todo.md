@@ -8992,3 +8992,19 @@ Closed on both sides. The parser refuses a duplicate kind with a validation erro
 no other row has taken, dropping the add control once all three are in use.
 `run-idempotent-command.ts`'s comment claimed the idempotency key was the only unique constraint
 reachable from `work`; that stopped being true when P11-MEDIA-01 added this one, and it now says so.
+
+### P11-IOS-01, first two slices
+
+1. Journal read (`b6495c0`): `PlantJournalFrame`, `listPlantJournalFrames` on the gateway,
+   `ObservationPhoto.purpose` decoded at last. Frames were reachable from web and invisible here.
+2. Purpose on capture: every photograph this client attached was stamped `context_or_free_form`
+   regardless of what it showed — which poisons exactly the comparison sequences the web client now
+   reads. The record sheet asks for the label whenever a photograph is attached, and it travels with
+   the media id through the offline outbox payload and the online gateway alike. The label returns
+   to "whole plant" after a successful record rather than carrying over.
+
+Also typed `measurements` in both wire payloads as the contract's own measurement shape instead of
+`[String]`. Both are still always empty here — this client has no measurement entry — but the day
+one is added the compiler is what notices, rather than the server.
+
+Still open on iOS: measurement entry, and a view that shows the journal sequence.

@@ -57,6 +57,11 @@ public final class ObservationsTimelineViewModel {
     public var recordPlantId: String = ""
     public var recordGardenObjectId: String = ""
     public var recordHasObservedAt: Bool = false
+    /// The shot purpose the next attached photograph is labelled with
+    /// (P11-MEDIA-01). Defaults to the whole plant — the ordinary progress
+    /// shot, and the one setting a reader is most likely to mean — but is
+    /// always visible and always chosen, never applied behind their back.
+    public var recordPhotoPurpose: ObservationPhotoPurpose = .wholePlant
     public var recordObservedAt: Date = .now
     public private(set) var isSubmittingRecord = false
     public private(set) var recordErrorMessage: String?
@@ -167,11 +172,16 @@ public final class ObservationsTimelineViewModel {
     public var photoStatusText: String {
         PhotoAttachmentStatusLocalization.text(for: photoAttachment?.status ?? .idle, strings: strings)
     }
+    public var photoPurposeLabel: String { strings(.observationsPhotoPurposeLabel) }
+
+    public func photoPurposeName(_ purpose: ObservationPhotoPurpose) -> String {
+        ObservationsLocalization.photoPurposeName(purpose, strings: strings)
+    }
     /// Whether the record form's submit action should be disabled: a photo
     /// pick is in progress but not yet `.ready` — submitting now would
-    /// either drop the picked photo silently or (if `photoMediaIds` could
+    /// either drop the picked photo silently or (if an attachment could
     /// somehow reference a not-yet-confirmed upload) violate the invariant
-    /// this file's own doc comment on `RecordObservation`'s `photoMediaIds`
+    /// this file's own doc comment on `RecordObservation`'s `photos`
     /// establishes. Not blocked by `.idle` (no photo picked at all — the
     /// contract's own "note and/or condition alone is valid" stays true) or
     /// by `.ready`/a terminal failure (the user can still submit without
@@ -285,7 +295,9 @@ public final class ObservationsTimelineViewModel {
         recordErrorMessage = nil
         defer { isSubmittingRecord = false }
 
-        let photoMediaIds = photoAttachment?.mediaId.map { [$0] } ?? []
+        let photos = (photoAttachment?.mediaId).map {
+            [ObservationPhotoAttachment(mediaId: $0, purpose: recordPhotoPurpose)]
+        } ?? []
 
         do {
             _ = try await recordObservation(
@@ -295,7 +307,7 @@ public final class ObservationsTimelineViewModel {
                 noteText: note.isEmpty ? nil : note,
                 conditionSummary: condition.isEmpty ? nil : condition,
                 observedAt: recordHasObservedAt ? recordObservedAt : nil,
-                photoMediaIds: photoMediaIds
+                photos: photos
             )
             resetRecordForm()
             // The row now owns this photo's `mediaId` server-side —
@@ -399,6 +411,7 @@ public final class ObservationsTimelineViewModel {
     }
 
     private func resetRecordForm() {
+        recordPhotoPurpose = .wholePlant
         recordNoteText = ""
         recordConditionSummary = ""
         recordPlantId = ""

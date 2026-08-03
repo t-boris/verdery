@@ -130,6 +130,11 @@ struct PlantJournalFrameListResultTransport: Decodable {
 struct ObservationPhotoAttachmentRequestTransport: Encodable {
     let mediaId: String
     let purpose: String
+
+    init(attachment: ObservationPhotoAttachment) {
+        self.mediaId = attachment.mediaId
+        self.purpose = attachment.purpose.rawValue
+    }
 }
 
 /// This gateway's write methods (`recordObservation`/`correctObservation`)
@@ -143,8 +148,21 @@ struct RecordObservationRequestTransport: Encodable {
     let conditionSummary: String?
     let observedAt: Date?
     let photos: [ObservationPhotoAttachmentRequestTransport]
-    let measurements: [String] = []
+    // Typed on the contract as `ObservationMeasurementInput`, and always sent
+    // empty because this client has no measurement entry yet — declared as an
+    // empty array of that shape rather than of strings, so the day a
+    // measurement is added the compiler is the one that notices.
+    let measurements: [ObservationMeasurementInputTransport] = []
     let observedPhenologicalStage: String? = nil
+}
+
+/// Mirrors `ObservationMeasurementInput`. Unused until this client can enter
+/// a measurement; present so `measurements` is not typed as something the
+/// contract never accepts.
+struct ObservationMeasurementInputTransport: Encodable {
+    let kind: String
+    let value: Double
+    let unit: String
 }
 
 struct CorrectObservationRequestTransport: Encodable {
@@ -152,7 +170,11 @@ struct CorrectObservationRequestTransport: Encodable {
     let noteText: String?
     let conditionSummary: String?
     let photos: [ObservationPhotoAttachmentRequestTransport]
-    let measurements: [String] = []
+    // Typed on the contract as `ObservationMeasurementInput`, and always sent
+    // empty because this client has no measurement entry yet — declared as an
+    // empty array of that shape rather than of strings, so the day a
+    // measurement is added the compiler is the one that notices.
+    let measurements: [ObservationMeasurementInputTransport] = []
     let observedPhenologicalStage: String? = nil
 }
 

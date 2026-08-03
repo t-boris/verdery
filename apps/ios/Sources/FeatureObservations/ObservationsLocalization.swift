@@ -31,6 +31,23 @@ public enum ObservationsLocalization {
         strings(key(for: kind))
     }
 
+    public static func key(for purpose: ObservationPhotoPurpose) -> ObservationJournalLocalizationKey {
+        switch purpose {
+        case .wholePlant: .observationsPhotoPurposeWholePlant
+        case .leafFront: .observationsPhotoPurposeLeafFront
+        case .leafBack: .observationsPhotoPurposeLeafBack
+        case .stemOrBark: .observationsPhotoPurposeStemOrBark
+        case .flower: .observationsPhotoPurposeFlower
+        case .fruit: .observationsPhotoPurposeFruit
+        case .symptomCloseUp: .observationsPhotoPurposeSymptomCloseUp
+        case .contextOrFreeForm: .observationsPhotoPurposeContextOrFreeForm
+        }
+    }
+
+    public static func photoPurposeName(_ purpose: ObservationPhotoPurpose, strings: LocalizedStrings) -> String {
+        strings(key(for: purpose))
+    }
+
     /// Not a stored `static let`: `DateFormatter` is not `Sendable` — the
     /// same reason `CalendarDate.swift` computes its formatter fresh.
     public static func formattedObservedAt(_ date: Date) -> String {
