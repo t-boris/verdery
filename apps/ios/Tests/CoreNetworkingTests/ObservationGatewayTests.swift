@@ -43,6 +43,67 @@ struct ObservationGatewayTests {
         }
         """#
 
+    private static let journalFramesJSON = #"""
+        {
+          "items": [
+            {
+              "observationId": "obs-1",
+              "mediaId": "media-1",
+              "observedAt": "2026-01-01T00:00:00.000Z",
+              "purpose": "leaf_front"
+            },
+            {
+              "observationId": "obs-2",
+              "mediaId": "media-2",
+              "observedAt": "2026-03-01T00:00:00.000Z",
+              "purpose": null
+            }
+          ]
+        }
+        """#
+
+    @Test("listPlantJournalFrames reads the sequence and keeps an unlabelled frame unlabelled")
+    func listPlantJournalFramesDecodesSequence() async throws {
+        let identifier = "journal-frames"
+        defer { StubURLProtocol.unregister(identifier) }
+
+        let gateway = makeGateway(identifier: identifier, answer: .json(200, Self.journalFramesJSON))
+
+        let frames = try await gateway.listPlantJournalFrames(
+            gardenId: "garden-1",
+            plantId: "plant-1",
+            purpose: nil,
+            limit: nil
+        )
+
+        let request = try #require(StubURLProtocol.requests(forSession: identifier).first)
+        #expect(request.url?.path == "/v1/gardens/garden-1/plants/plant-1/journal-frames")
+        // No narrowing was asked for, so none is sent: an unnarrowed sequence
+        // is the only one that includes photographs carrying no label.
+        #expect(request.url?.query == nil)
+        #expect(frames.map(\.mediaId) == ["media-1", "media-2"])
+        #expect(frames.first?.purpose == .leafFront)
+        #expect(frames.last?.purpose == nil)
+    }
+
+    @Test("listPlantJournalFrames sends the purpose and the bound it was given")
+    func listPlantJournalFramesSendsNarrowing() async throws {
+        let identifier = "journal-frames-narrowed"
+        defer { StubURLProtocol.unregister(identifier) }
+
+        let gateway = makeGateway(identifier: identifier, answer: .json(200, #"{"items": []}"#))
+
+        _ = try await gateway.listPlantJournalFrames(
+            gardenId: "garden-1",
+            plantId: "plant-1",
+            purpose: .symptomCloseUp,
+            limit: 12
+        )
+
+        let request = try #require(StubURLProtocol.requests(forSession: identifier).first)
+        #expect(request.url?.query == "purpose=symptom_close_up&limit=12")
+    }
+
     @Test("recordObservation posts to the garden's observations and decodes the result")
     func recordObservationDecodesResult() async throws {
         let identifier = "record-observation"

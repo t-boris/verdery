@@ -29,6 +29,21 @@ public protocol ObservationGateway: Sendable {
 
     func listObservationsForPlant(gardenId: String, plantId: String) async throws -> [GardenObservation]
 
+    /// `ListPlantJournalFrames` (P11-MEDIA-01): a plant's photographs in
+    /// observed order, oldest first.
+    ///
+    /// `purpose` narrows the sequence to one kind of shot, which is what makes
+    /// consecutive frames comparable; passing nil returns every photograph,
+    /// including those carrying no label at all. `limit` is a bound on the
+    /// sequence, not a page size — this operation has no cursor, and asking
+    /// for fewer frames asks for a shorter sequence.
+    func listPlantJournalFrames(
+        gardenId: String,
+        plantId: String,
+        purpose: ObservationPhotoPurpose?,
+        limit: Int?
+    ) async throws -> [PlantJournalFrame]
+
     /// See `recordObservation`'s identical doc comment.
     func correctObservation(
         observationId: String,
@@ -111,6 +126,32 @@ public struct URLSessionObservationGateway: ObservationGateway {
     public func listObservationsForPlant(gardenId: String, plantId: String) async throws -> [GardenObservation] {
         let result: ObservationListResultTransport = try await transport.get(
             operationPath: "gardens/\(gardenId)/plants/\(plantId)/observations",
+            acceptedStatusCodes: [200]
+        )
+        return result.items.map(\.domainValue)
+    }
+
+    public func listPlantJournalFrames(
+        gardenId: String,
+        plantId: String,
+        purpose: ObservationPhotoPurpose?,
+        limit: Int?
+    ) async throws -> [PlantJournalFrame] {
+        var queryItems: [String] = []
+        if let purpose {
+            queryItems.append("purpose=\(purpose.rawValue)")
+        }
+        if let limit {
+            queryItems.append("limit=\(limit)")
+        }
+
+        var path = "gardens/\(gardenId)/plants/\(plantId)/journal-frames"
+        if !queryItems.isEmpty {
+            path += "?" + queryItems.joined(separator: "&")
+        }
+
+        let result: PlantJournalFrameListResultTransport = try await transport.get(
+            operationPath: path,
             acceptedStatusCodes: [200]
         )
         return result.items.map(\.domainValue)

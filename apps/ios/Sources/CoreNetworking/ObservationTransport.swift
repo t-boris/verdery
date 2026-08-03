@@ -48,6 +48,7 @@ struct ImageAnalysisResultTransport: Codable {
 struct ObservationPhotoTransport: Codable {
     let id: String
     let mediaId: String
+    let purpose: ObservationPhotoPurpose?
     let createdAt: Date
     let analysisResults: [ImageAnalysisResultTransport]
 
@@ -55,6 +56,7 @@ struct ObservationPhotoTransport: Codable {
         ObservationPhoto(
             id: id,
             mediaId: mediaId,
+            purpose: purpose,
             createdAt: createdAt,
             analysisResults: analysisResults.map(\.domainValue)
         )
@@ -99,6 +101,28 @@ struct ObservationTransport: Codable {
 
 struct ObservationListResultTransport: Decodable {
     let items: [ObservationTransport]
+}
+
+/// Mirrors `PlantJournalFrame` (P11-MEDIA-01) — a read of existing
+/// photographs, never a rendered derivative.
+struct PlantJournalFrameTransport: Decodable {
+    let observationId: String
+    let mediaId: String
+    let observedAt: Date
+    let purpose: ObservationPhotoPurpose?
+
+    var domainValue: PlantJournalFrame {
+        PlantJournalFrame(
+            observationId: observationId,
+            mediaId: mediaId,
+            observedAt: observedAt,
+            purpose: purpose
+        )
+    }
+}
+
+struct PlantJournalFrameListResultTransport: Decodable {
+    let items: [PlantJournalFrameTransport]
 }
 
 /// Mirrors `packages/api-contracts/openapi.yaml`'s

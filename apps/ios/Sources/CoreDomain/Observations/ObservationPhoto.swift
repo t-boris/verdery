@@ -84,21 +84,31 @@ public struct ImageAnalysisResult: Equatable, Sendable, Identifiable {
 /// passes run against it (P11-HEALTH-01 — see `ImageAnalysisResult`'s own
 /// doc comment for the real, non-stubbed shape those passes now produce).
 ///
-/// This type does not yet model `purpose` (the Visual Plant Journal capture
-/// label, P11-MEDIA-01) — a real, separate follow-up: journal photo/
-/// measurement capture UI is a bigger lift this pass does not build, the
-/// same scope this codebase's web client also deferred.
+/// `purpose` is the Visual Plant Journal capture label (P11-MEDIA-01). It is
+/// optional because it genuinely can be absent: every photo attached before
+/// that label existed carries none, and the column is nullable for exactly
+/// that reason. Attaching a photo WITH a chosen purpose is a separate,
+/// still-unbuilt capture step on this client — see `ObservationGateway`'s
+/// own note.
 ///
 /// Source: packages/api-contracts/openapi.yaml, `ObservationPhoto`.
 public struct ObservationPhoto: Equatable, Sendable, Identifiable {
     public let id: String
     public let mediaId: String
+    public let purpose: ObservationPhotoPurpose?
     public let createdAt: Date
     public let analysisResults: [ImageAnalysisResult]
 
-    public init(id: String, mediaId: String, createdAt: Date, analysisResults: [ImageAnalysisResult]) {
+    public init(
+        id: String,
+        mediaId: String,
+        purpose: ObservationPhotoPurpose?,
+        createdAt: Date,
+        analysisResults: [ImageAnalysisResult]
+    ) {
         self.id = id
         self.mediaId = mediaId
+        self.purpose = purpose
         self.createdAt = createdAt
         self.analysisResults = analysisResults
     }

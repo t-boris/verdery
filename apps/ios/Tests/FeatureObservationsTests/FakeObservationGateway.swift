@@ -77,6 +77,18 @@ final class FakeObservationGateway: ObservationGateway, @unchecked Sendable {
         return observations.filter { $0.plantId == plantId }
     }
 
+    /// The timeline this fake serves never reads journal frames; returning an
+    /// empty sequence says so, where invented frames would let a test pass on
+    /// data no production path produced.
+    func listPlantJournalFrames(
+        gardenId: String,
+        plantId: String,
+        purpose: ObservationPhotoPurpose?,
+        limit: Int?
+    ) async throws -> [PlantJournalFrame] {
+        []
+    }
+
     func correctObservation(
         observationId: String,
         correctionKind: ObservationCorrectionKind,
@@ -167,7 +179,8 @@ final class FakeObservationGateway: ObservationGateway, @unchecked Sendable {
                 var updatedResults = photo.analysisResults
                 updatedResults[resultIndex] = updated
                 let updatedPhoto = ObservationPhoto(
-                    id: photo.id, mediaId: photo.mediaId, createdAt: photo.createdAt, analysisResults: updatedResults
+                    id: photo.id, mediaId: photo.mediaId, purpose: photo.purpose,
+                    createdAt: photo.createdAt, analysisResults: updatedResults
                 )
                 var updatedPhotos = observation.photos
                 updatedPhotos[photoIndex] = updatedPhoto

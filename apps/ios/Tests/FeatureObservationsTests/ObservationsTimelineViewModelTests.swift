@@ -41,7 +41,8 @@ struct ObservationsTimelineViewModelTests {
             createdAt: Date(timeIntervalSince1970: 0)
         )
         let photo = ObservationPhoto(
-            id: "photo-1", mediaId: "media-1", createdAt: Date(timeIntervalSince1970: 0), analysisResults: [result]
+            id: "photo-1", mediaId: "media-1", purpose: .wholePlant,
+            createdAt: Date(timeIntervalSince1970: 0), analysisResults: [result]
         )
         return GardenObservation(
             id: "obs-1", gardenId: "garden-1", plantId: "plant-1", gardenObjectId: nil, actorType: .user,
@@ -429,7 +430,8 @@ struct ObservationsTimelineViewModelTests {
             dispositionSetAt: nil, dispositionSetByProfileId: nil, createdAt: Date(timeIntervalSince1970: 0)
         )
         let photo = ObservationPhoto(
-            id: "photo-1", mediaId: "media-1", createdAt: Date(timeIntervalSince1970: 0), analysisResults: [result]
+            id: "photo-1", mediaId: "media-1", purpose: .wholePlant,
+            createdAt: Date(timeIntervalSince1970: 0), analysisResults: [result]
         )
         let observationWithUnavailableModel = GardenObservation(
             id: "obs-1", gardenId: "garden-1", plantId: "plant-1", gardenObjectId: nil, actorType: .user,
