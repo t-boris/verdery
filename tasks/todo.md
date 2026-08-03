@@ -8899,3 +8899,37 @@ rather than waiting.
 - P11-MEDIA-01 time-lapse: the owner's own list makes this build-or-formally-cut. Building it
   proceeds unless told otherwise; the cut, if chosen, needs a written decision because the
   surface matrix in the implementation plan currently requires it.
+
+---
+
+## P11-WEB-01 continued — the journal vertical (2026-08-03)
+
+The owner's decisions carried into this pass unchanged: provider adapters are not touched, and
+time-lapse is not rendered. The journal is therefore a sequence of the photographs that already
+exist, presented by the client.
+
+### What verification found before any code was written
+
+`GET /gardens/{gardenId}/plants/{plantId}/journal-frames` exists in `observation-routes.ts` and
+nowhere else. It is absent from `openapi.yaml`, from `packages/api-contracts/src/index.ts`, from
+both clients, and from `docs/`. This repository is contract-first — every route header in the
+module cites the contract as its source — so a client written against that route today would be
+written against nothing. It also has no test of its own: neither the use case nor the route.
+Closing that is the first step, not an optional tidy-up, because steps 2 and 3 build on it.
+
+### Plan
+
+- [ ] 1. Contract: `listPlantJournalFrames` in `openapi.yaml` (`purpose` and `limit` query
+      parameters, `PlantJournalFrame`/`PlantJournalFrameListResult` schemas), regenerated
+      `schema.ts`, re-exported types. Move the route's inline query parsing into
+      `parse-observation-request.ts` where the module's other parsers already live and can be
+      unit-tested without a container; unit tests for the use case and the parser.
+- [ ] 2. Web read side: `listJournalFrames` on `observation-gateway.ts`, a purpose-filtered
+      ordered frame strip on the plant detail page, thumbnails resolved through signed URLs the
+      same way `plant-photo-gallery.tsx` resolves them. This is the "journal UI" half of item 4
+      and the "comparison sets" half of item 3.
+- [ ] 3. Web capture side: photo attachment with a purpose label and measurement entry on
+      `record-observation-form.tsx`, through the `useMediaUpload` machinery that already exists.
+      Split into sibling components rather than growing that form past the file-size limit.
+- [ ] 4. Docs in the same pass: `api-contract.md`, `web-application-design.md`, and the visual
+      journal section of `plant-intelligence-and-visual-journal.md`.

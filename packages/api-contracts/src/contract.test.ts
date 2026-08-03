@@ -266,6 +266,51 @@ describe('SyncRecordType parity with services/api', () => {
   });
 });
 
+describe('Journal frames (P11-MEDIA-01)', () => {
+  const journalFrames = '/gardens/{gardenId}/plants/{plantId}/journal-frames';
+
+  it('narrows the sequence by the same purpose vocabulary an attached photo carries', () => {
+    const operation = requireOperation(journalFrames, 'get');
+    expect(operation.operationId).toBe('listPlantJournalFrames');
+
+    const purpose = (operation.parameters ?? []).find((parameter) => parameter.name === 'purpose');
+    expect(purpose).toBeDefined();
+    expect((purpose as { schema?: { $ref?: string } }).schema?.$ref).toBe(
+      '#/components/schemas/ObservationPhotoPurpose',
+    );
+  });
+
+  it('bounds the sequence at the same maximum the use case enforces', () => {
+    // The same cross-check against real backend source `SyncRecordType`
+    // parity performs above, for the same reason: the contract's ceiling and
+    // the use case's own `MAX_FRAMES` are two statements of one number, and a
+    // caller that trusts the contract would silently receive a shorter
+    // sequence than it asked for if they drifted apart. Read only.
+    const sourcePath = fileURLToPath(
+      new URL(
+        '../../../services/api/src/modules/observations-history/application/list-plant-journal-frames.ts',
+        import.meta.url,
+      ),
+    );
+    const source = readFileSync(sourcePath, 'utf8');
+    const maxFrames = source.match(/static readonly MAX_FRAMES = (\d+);/)?.[1];
+    expect(maxFrames).toBeDefined();
+
+    const operation = requireOperation(journalFrames, 'get');
+    const limit = (operation.parameters ?? []).find((parameter) => parameter.name === 'limit');
+    expect((limit as { schema?: { maximum?: number } }).schema?.maximum).toBe(Number(maxFrames));
+  });
+
+  it('carries the observation a frame belongs to, so a comparison view can lead back to the record', () => {
+    expect(requireSchema('PlantJournalFrame').required).toEqual([
+      'observationId',
+      'mediaId',
+      'observedAt',
+      'purpose',
+    ]);
+  });
+});
+
 describe('Sync discriminated unions', () => {
   it('groups SyncOperationPayload by exactly the record-type families this codebase established', () => {
     const payload = requireSchema('SyncOperationPayload');

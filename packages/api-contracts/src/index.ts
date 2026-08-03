@@ -105,11 +105,19 @@ export type TaxonSeasonalActivity = Schemas['TaxonSeasonalActivity'];
 export type PlantDistributionStatus = Schemas['PlantDistributionStatus'];
 export type PlantProfileCompleteness = Schemas['PlantProfileCompleteness'];
 export type ImageAnalysisResult = Schemas['ImageAnalysisResult'];
+export type ObservationPhotoPurpose = Schemas['ObservationPhotoPurpose'];
 export type ObservationPhoto = Schemas['ObservationPhoto'];
+export type ObservationMeasurementKind = Schemas['ObservationMeasurementKind'];
+export type ObservationMeasurement = Schemas['ObservationMeasurement'];
 export type Observation = Schemas['Observation'];
 export type ObservationListResult = Schemas['ObservationListResult'];
+export type ObservationPhotoAttachmentRequest = Schemas['ObservationPhotoAttachmentRequest'];
+export type ObservationMeasurementInput = Schemas['ObservationMeasurementInput'];
 export type RecordObservationRequest = Schemas['RecordObservationRequest'];
 export type CorrectObservationRequest = Schemas['CorrectObservationRequest'];
+/** The visual-journal frame sequence (P11-MEDIA-01) — a plant's photographs in observed order, not a rendered time-lapse. */
+export type PlantJournalFrame = Schemas['PlantJournalFrame'];
+export type PlantJournalFrameListResult = Schemas['PlantJournalFrameListResult'];
 /** The health-suggestion-disposition schemas (P11-HEALTH-01). */
 export type HealthSuggestionSafetyClass = Schemas['HealthSuggestionSafetyClass'];
 export type HealthSuggestionDisposition = Schemas['HealthSuggestionDisposition'];

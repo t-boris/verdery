@@ -1698,6 +1698,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/gardens/{gardenId}/plants/{plantId}/journal-frames": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                plantId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List a plant's journal frames as an ordered sequence
+         * @description One plant's attached photographs, oldest observed first, for
+         *     side-by-side and before/after reading. Nothing is rendered and no
+         *     derivative is produced: these are the photographs that already
+         *     exist, and how they are presented is the client's decision.
+         *
+         *     `purpose` narrows the sequence to comparable frames — a sequence
+         *     mixing whole-plant shots with leaf close-ups compares nothing.
+         *     Photographs carrying no purpose label come back only when no
+         *     `purpose` is asked for; deciding which sequence they belong to
+         *     would be inventing data. An unrecognised `purpose` is a `400`
+         *     rather than a silently unnarrowed sequence.
+         *
+         *     `limit` is a bound, not a page size: this operation returns a
+         *     sequence, and a plant with more photographs than the bound wants
+         *     that sequence thinned rather than paged. Thinning is a presentation
+         *     decision and is left to the caller.
+         *
+         *     Source: architecture/plant-intelligence-and-visual-journal.md
+         *     section 8.2; implementation-plan.md work package P11-MEDIA-01.
+         */
+        get: operations["listPlantJournalFrames"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/observations/analysis-results/{analysisResultId}/disposition": {
         parameters: {
             query?: never;
@@ -6292,6 +6333,23 @@ export interface components {
         ObservationListResult: {
             items: components["schemas"]["Observation"][];
         };
+        /**
+         * @description One photograph in a plant's journal sequence, carrying the
+         *     observation it belongs to so a reader comparing growth has a way back
+         *     to the record. Distinct from `ObservationPhoto`, which is read from
+         *     one observation outwards rather than across a plant's whole history.
+         *     Source: observations-history/application/list-plant-journal-frames.ts.
+         */
+        PlantJournalFrame: {
+            observationId: components["schemas"]["Uuid"];
+            mediaId: components["schemas"]["Uuid"];
+            observedAt: components["schemas"]["Timestamp"];
+            /** @description Null for a photograph attached without a purpose label; such frames appear only in an unnarrowed sequence. */
+            purpose: components["schemas"]["ObservationPhotoPurpose"] | null;
+        };
+        PlantJournalFrameListResult: {
+            items: components["schemas"]["PlantJournalFrame"][];
+        };
         ObservationPhotoAttachmentRequest: {
             mediaId: components["schemas"]["Uuid"];
             purpose: components["schemas"]["ObservationPhotoPurpose"];
@@ -10150,6 +10208,37 @@ export interface operations {
                     "application/json": components["schemas"]["ObservationListResult"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listPlantJournalFrames: {
+        parameters: {
+            query?: {
+                /** @description Restricts the sequence to one shot purpose. Omit to include every photograph, labelled or not. */
+                purpose?: components["schemas"]["ObservationPhotoPurpose"];
+                /** @description Maximum frames to return, counted from the oldest. Defaults to the maximum. */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                plantId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The plant's journal frames, oldest observed first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlantJournalFrameListResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
         };
