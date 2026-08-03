@@ -22,6 +22,27 @@ import {
  * only because the combined suite exceeded this repository's 600-line
  * source-file limit.
  */
+/**
+ * Drives fake timers until the controller reaches `phase`.
+ *
+ * Not a fixed number of flushes: registration hashes the file first
+ * (`media-checksum.ts`), and how many awaits stand between the pick and the
+ * upload is an implementation detail. Counting them passed locally and failed
+ * in CI, where the digest resolved a tick later — so this waits for the state
+ * the test is actually about, and gives up after a bound rather than hanging
+ * if it never arrives.
+ */
+async function advanceUntilPhase(
+  controller: { getState: () => { phase: string } },
+  phase: string,
+  maxFlushes = 20,
+): Promise<void> {
+  for (let flush = 0; flush < maxFlushes; flush += 1) {
+    if (controller.getState().phase === phase) return;
+    await vi.advanceTimersByTimeAsync(0);
+  }
+}
+
 describe('createMediaUploadController — reload recovery, cancellation, subscribers', () => {
   it('finds an unexpired pending record on mount and resumes it to completion', async () => {
     const store = new FakePendingUploadStore();
@@ -169,14 +190,7 @@ describe('createMediaUploadController — reload recovery, cancellation, subscri
     });
 
     const uploadPromise = controller.startUpload(fakeFile());
-    // Fake timers are active for this test; hashing, `register`, and
-    // `store.put` all resolve through plain microtasks, so zero-delay timer
-    // advances flush them without needing a real polling wait. Two of them,
-    // because registration now hashes the file first (`media-checksum.ts`) —
-    // the count tracks how many awaits stand between the pick and the upload,
-    // which is an implementation detail this test has always depended on.
-    await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersByTimeAsync(0);
+    await advanceUntilPhase(controller, 'uploading');
     expect(controller.getState().phase).toBe('uploading');
 
     await controller.cancel();

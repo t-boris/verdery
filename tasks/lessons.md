@@ -182,3 +182,19 @@ the hits against the number of files that should have one.
 migration files at or after this test's own. A shared helper that computes it
 would delete the whole class of failure, and is a better use of the next hour
 than bumping thirty numbers again.
+
+## A test that counts microtasks fails on someone else's machine
+
+`media-upload-controller.recovery.test.ts` flushed a fixed number of zero-delay
+timer advances and then asserted the upload had started. Adding a checksum
+computation put one more `await` between the pick and the upload; I added one
+more flush, it passed locally, and CI failed anyway — the digest resolved a
+tick later there.
+
+**Rule:** wait for the state the test is about, not for a number of ticks. A
+bounded loop that stops as soon as the condition holds passes on any machine
+and still fails fast when the condition never arrives.
+
+**Rule:** a comment admitting a test depends on an implementation detail
+("the count tracks how many awaits stand between…") is a defect report against
+that test. Fix it then, not after CI does.
