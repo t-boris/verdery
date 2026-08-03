@@ -982,3 +982,4 @@
 "observations.severity.mild" = "Mild";
 "observations.severity.moderate" = "Moderate";
 "observations.severity.severe" = "Severe";
+"observations.symptoms.reported" = "Reported by you";

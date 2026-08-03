@@ -250,6 +250,23 @@ public struct ObservationsTimelineView: View {
                             .foregroundStyle(Palette.textMuted)
                     }
 
+                    if !row.symptomLabels.isEmpty {
+                        // Above the analyses and labelled as the observer's
+                        // own: a model's suggestion and a person's testimony
+                        // must not read as one list.
+                        VStack(alignment: .leading, spacing: Metrics.space1) {
+                            Text(model.symptomsReportedLabel)
+                                .font(Typography.micro)
+                                .foregroundStyle(Palette.textMuted)
+                            ForEach(row.symptomLabels, id: \.self) { label in
+                                Text(label)
+                                    .font(Typography.detail)
+                                    .foregroundStyle(Palette.text)
+                            }
+                        }
+                        .accessibilityIdentifier("observations.row.\(row.id).symptoms")
+                    }
+
                     ForEach(row.analysisSummaries) { summary in
                         analysisView(summary)
                     }

@@ -493,6 +493,9 @@ public final class ObservationsTimelineViewModel {
             isPendingSync: isPendingSync,
             correctionKindLabel: observation.correctionKind.map(correctionKindName),
             correctsObservationId: observation.correctsObservationId,
+            symptomLabels: observation.symptoms.map { symptom in
+                "\(symptomKindName(symptom.kind)) — \(symptomSeverityName(symptom.severity))"
+            },
             analysisSummaries: observation.photos.flatMap(analysisSummaries)
         )
     }

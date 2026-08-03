@@ -18,6 +18,8 @@ import Foundation
 /// the observer as a refusal.
 extension ObservationsTimelineViewModel {
     public var symptomsLegend: String { strings(.observationsSymptomsLegend) }
+    /// The timeline's own label for the observer's symptoms — the counterpart to the web entry's `observations.symptomsReported`.
+    public var symptomsReportedLabel: String { strings(.observationsSymptomsReported) }
     public var symptomKindLabel: String { strings(.observationsSymptomKindLabel) }
     public var symptomSeverityLabel: String { strings(.observationsSymptomSeverityLabel) }
     public var symptomAddTitle: String { strings(.observationsSymptomAdd) }

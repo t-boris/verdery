@@ -238,6 +238,36 @@ struct ObservationsTimelineViewModelTests {
         #expect(model.recordMeasurements.isEmpty)
     }
 
+    @Test("A row carries the observer's symptoms, localized and apart from any model suggestion")
+    func rowsCarryReportedSymptoms() async {
+        let observation = GardenObservation(
+            id: "obs-1", gardenId: "garden-1", plantId: "plant-1", gardenObjectId: nil,
+            actorType: .user, createdByProfileId: "profile-1", noteText: "Spots appeared",
+            conditionSummary: nil, correctionKind: nil, correctsObservationId: nil,
+            isCorrected: false, observedAt: Date(timeIntervalSince1970: 0),
+            recordedAt: Date(timeIntervalSince1970: 0), photos: [],
+            symptoms: [
+                ObservationSymptom(
+                    id: "symptom-1", kind: .wilting, severity: .severe,
+                    createdAt: Date(timeIntervalSince1970: 0)
+                )
+            ]
+        )
+        let model = makeModel(gateway: FakeObservationGateway(observations: [observation]))
+
+        await model.load()
+
+        guard case let .loaded(rows) = model.state else {
+            Issue.record("Expected loaded state")
+            return
+        }
+        // Localized here, not in the view, and kept in its own field: a
+        // model's suggestion lands in `analysisSummaries` and must never be
+        // rendered as the same kind of statement.
+        #expect(rows.first?.symptomLabels == ["Wilting — Severe"])
+        #expect(rows.first?.analysisSummaries.isEmpty == true)
+    }
+
     @Test("Symptoms are offered once each and stop being offered when all are reported")
     func symptomRowsAreOnePerKind() async {
         let model = makeModel(gateway: FakeObservationGateway())

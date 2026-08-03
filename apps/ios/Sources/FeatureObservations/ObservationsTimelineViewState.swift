@@ -68,6 +68,11 @@ public struct ObservationRow: Equatable, Sendable, Identifiable {
     /// (an id to display, not a translated label) rather than something
     /// `ObservationsLocalization` resolves.
     public let correctsObservationId: String?
+    /// The symptoms the observer reported, already localized ("Wilting —
+    /// Severe"). Deliberately a separate field from `analysisSummaries`, and
+    /// rendered apart from it: one is what a person said they saw, the other
+    /// what a model proposed, and a single list would read them as equals.
+    public let symptomLabels: [String]
     public let analysisSummaries: [ObservationAnalysisSummary]
 }
 

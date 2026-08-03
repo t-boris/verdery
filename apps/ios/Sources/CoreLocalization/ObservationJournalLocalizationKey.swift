@@ -12,6 +12,7 @@ public enum ObservationJournalLocalizationKey: String, Sendable, CaseIterable {
     case observationsJournalEmpty = "observations.journal.empty"
     case observationsJournalEmptyForPurpose = "observations.journal.emptyForPurpose"
     case observationsJournalOpenButton = "observations.journal.openButton"
+    case observationsSymptomsReported = "observations.symptoms.reported"
     case observationsSymptomsLegend = "observations.symptoms.legend"
     case observationsSymptomKindLabel = "observations.symptoms.kindLabel"
     case observationsSymptomSeverityLabel = "observations.symptoms.severityLabel"

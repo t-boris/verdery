@@ -981,3 +981,4 @@
 "observations.severity.mild" = "Слабо";
 "observations.severity.moderate" = "Умеренно";
 "observations.severity.severe" = "Сильно";
+"observations.symptoms.reported" = "Отмечено вами";
