@@ -9055,3 +9055,16 @@ what the observer wrote. The media picker lists DERIVATIVES, built from each ori
 to know the distinction exists; a photograph whose derivatives are not ready yet contributes no
 option, and the empty state says why rather than leaving "the photo I just uploaded is missing"
 unanswered.
+
+### P11-QA-01 — the evidence report
+
+`docs/development/phase-11-qa-matrix.md`. Every row is marked Run, CI only, Gap, or Owner, and the
+counts are the ones actually produced while writing it, not restated from memory.
+
+Two environment facts shape the whole report: no Docker here, so 151 container-backed API test
+files (84 integration, 24 HTTP, 43 migration) are marked CI only rather than claimed; and no
+deployed environment, so the ten Playwright specs did not run either.
+
+The largest genuine gap is accessibility: no screen reader has been run against either client this
+phase, and no test closes that. Performance and cost were not measured at all, and the report says
+so rather than implying the absence of a failure is evidence of a pass.
