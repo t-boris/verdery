@@ -8878,18 +8878,25 @@ filters comes from `PROV`/`ASYNC`, so those filters ship able to express "unknow
 rather than waiting.
 
 - [x] 1a. P11-SEARCH-01 server: contract, repository, transport, parser tests. Done 2026-08-03.
-- [ ] 1b. P11-SEARCH-01 clients: filter state and UI on web and iOS.
+- [x] 1b. P11-SEARCH-01 clients: filter state and UI on web and iOS. Done 2026-08-03,
+      including URL-shareable filter state on web.
 - [x] 2. P11-ASYNC-01 adapters: DESCOPED BY THE OWNER, 2026-08-03. The four plant-knowledge
       adapters that exist (World Flora Online, USDA PLANTS, GBIF, USA-NPN) stay as they are;
       Wikidata, GRIN, hardiness rasters, NRCS soil and regulatory status are not built. The
       completeness and native/regulatory filters therefore keep returning "unknown" for taxa no
       adapter covers, which is the behaviour they were written to express.
-- [ ] 3. P11-MEDIA-01: journal capture, comparison sets, symptoms, duplicate handling.
-- [ ] 4. P11-WEB-01: image-led cards, journal UI, catalog browsing, complete filter state.
-- [ ] 5. P11-IOS-01: photo purpose, proposed placement, alternatives, converted-candidate link.
-- [ ] 6. P11-SHARE-01: publication UI for progress and before/after.
-- [ ] 7. P11-QA-01: the matrix, minus what needs hardware.
-- [ ] 8. Sync README, implementation plan, and the status table.
+- [x] 3. P11-MEDIA-01: journal capture, comparison sets, symptoms, exact-duplicate handling.
+      Done 2026-08-03. NEAR-duplicate detection is NOT built (needs a perceptual-hashing
+      dependency, owner chose exact-only); time-lapse was cut by owner decision.
+- [x] 4. P11-WEB-01: image-led cards, journal UI, catalog browsing, complete filter state.
+      Done 2026-08-03. Taxon imagery is NOT built — ADR-0016 §3 exposes no read surface.
+- [x] 5. P11-IOS-01: photo purpose, proposed placement, alternatives, converted-candidate link.
+      Done 2026-08-03, plus the observer's symptoms on the timeline.
+- [x] 6. P11-SHARE-01: publication UI for progress and before/after. Done 2026-08-03;
+      the staging picker offers derivatives only, per the EXIF/GPS rule.
+- [x] 7. P11-QA-01: the matrix, minus what needs hardware. Done 2026-08-03 —
+      `docs/development/phase-11-qa-matrix.md`.
+- [x] 8. Sync README, implementation plan, and the status table. Done 2026-08-03.
 
 ### What I cannot deliver, stated now rather than at the end
 
