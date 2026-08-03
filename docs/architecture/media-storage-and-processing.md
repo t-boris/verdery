@@ -182,6 +182,27 @@ Orientation is normalized. EXIF location is removed from derivatives unless the 
 
 Derivative generation is idempotent and addressed by source checksum plus transformation version.
 
+### 9.0 Perceptual hash of the source (P11-MEDIA-01)
+
+Alongside every derivative, the generation job records a 64-bit difference hash of the source
+image's own pixels on `media.media_record.perceptual_hash`, as sixteen lowercase hex characters.
+
+`checksum_sha256` identifies BYTES and answers "this exact file is already here". It cannot answer
+"this is the photograph already in this garden, re-encoded" — a phone gallery export, a resize, or a
+format change alters every byte while the picture stays the same, which is the case a person
+photographing one plant repeatedly actually produces. The hash is computed from the single clean
+decode the derivative job already performs, never from a second download.
+
+It is ADVISORY throughout. It warns a person before they attach a photograph twice; nothing depends
+on it, and nothing is ever rejected because of it. A record predating the column, a class that is
+not an image, and bytes the decoder refused all hold `NULL`, and a later job reporting no hash
+leaves an existing one alone. `ListGardenMedia`'s `similarToMediaId` reads it, comparing by Hamming
+distance inside PostgreSQL (`bit_count` over a hex-to-bit cast) with a threshold shared between the
+worker that produces hashes and the API that compares them.
+
+Not robust to rotation or aggressive cropping: recognising those needs a dedicated perceptual-hashing
+dependency, deliberately not taken.
+
 ### 9.1 Implemented derivative profile (P6-WORKER-02)
 
 Real images only, for the two media classes real derivative production is grounded in a documented
