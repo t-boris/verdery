@@ -215,3 +215,30 @@ CREATED that table, not only the one for the migration that added the column.
 globs I remembered touching, and missed a file edited early in the session.
 `pnpm format:check` takes seconds and covers the repository — run it before
 pushing, not the per-directory globs.
+
+## An ADR saying "none yet" is a snapshot, not the schema
+
+I wrote a migration creating `integrations.plant_media_asset` because ADR-0016
+section 3 lists it as "none yet — new table". The table already existed,
+created three migrations earlier by `plant-taxon-knowledge-profile.sql`, and
+the first run of the new migration test said so in one line: `relation
+"plant_media_asset" already exists`.
+
+The existing table is also better than the one I wrote. It stores EVERY
+licence a source claims, including the unusable ones, with an
+`ingestion_state` of `discovered`/`rejected`/`ingested` — and its header
+explains the reasoning I had missed: presentation eligibility is an
+application-layer decision that should evolve without a migration each time a
+licence category's standing changes. My version had baked the allowlist into
+a CHECK constraint, which would have made every future policy change a schema
+change, and would have thrown away the fact that a rejected image exists.
+
+**Rule:** before writing a migration that creates a table, grep the migrations
+directory for the table name. An ADR's disposition column records what was
+true when it was written.
+
+**Rule:** the same applies to the rule the code is meant to enforce. The
+commercial-media allowlist I was about to invent is already stated verbatim in
+`architecture/plant-intelligence-and-visual-journal.md` section 7, including
+the CC-BY-SA carve-out I would have missed. Search the design docs for the
+policy before designing it.
