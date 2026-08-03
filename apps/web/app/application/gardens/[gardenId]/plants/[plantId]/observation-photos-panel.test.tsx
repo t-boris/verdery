@@ -19,7 +19,10 @@ let uploadState: {
   apiFailure: unknown;
 };
 
+let duplicates: { displayFilename: string }[] = [];
+
 vi.mock('@/features/media/public', () => ({
+  useExactDuplicateMedia: () => ({ duplicates, isPending: false }),
   useMediaUpload: () => ({
     ...uploadState,
     startUpload: startUploadMock,
@@ -47,6 +50,7 @@ function renderPanel(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  duplicates = [];
   uploadState = {
     phase: 'idle',
     mediaId: null,
@@ -114,5 +118,15 @@ describe('ObservationPhotosPanel', () => {
 
     expect(startUploadMock).not.toHaveBeenCalled();
     expect(screen.getByText('That file is larger than 50 MB.')).toBeTruthy();
+  });
+  it('warns that this exact photograph is already in the garden, without blocking it', () => {
+    uploadState = { ...uploadState, phase: 'processed', mediaId: 'media-1' };
+    duplicates = [{ displayFilename: 'bed.jpg' }];
+    renderPanel();
+
+    expect(screen.getByText(/already uploaded this exact photograph/)).toBeTruthy();
+    // A warning, never a block: the same photograph can legitimately belong to
+    // two observations, and only the photographer knows.
+    expect(screen.getByRole('button', { name: 'Attach to this observation' })).toBeTruthy();
   });
 });

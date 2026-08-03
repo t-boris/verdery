@@ -20,6 +20,8 @@ export interface ListForGardenInput {
   readonly gardenId: Uuid;
   /** `null` lists every class (originals only either way). */
   readonly mediaClass: MediaClass | null;
+  /** `null` applies no checksum restriction; a value lists only byte-identical originals. */
+  readonly checksumSha256: string | null;
   /** Opaque continuation token a previous page returned; `null` for the first page. */
   readonly cursor: string | null;
   readonly limit: number;

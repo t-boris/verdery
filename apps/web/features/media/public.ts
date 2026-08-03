@@ -11,7 +11,7 @@ export {
   type MediaUploadPhase,
   type MediaUploadState,
 } from './media-upload-controller';
-export { useMediaAccess } from './queries';
+export { useExactDuplicateMedia, useMediaAccess } from './queries';
 export { useMediaUpload, type UseMediaUploadResult } from './use-media-upload';
 /**
  * Exposed for `app/application/gardens/[gardenId]/plants/add-plant-from-photo-panel.tsx`

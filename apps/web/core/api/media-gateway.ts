@@ -57,7 +57,13 @@ export interface MediaGateway {
   /** `ListGardenMedia` (P6-PLAN-01) — a garden's original media records, most recent first, optionally one class. */
   list(
     gardenId: string,
-    options?: { mediaClass?: MediaClass; cursor?: string; limit?: number },
+    options?: {
+      mediaClass?: MediaClass;
+      /** Restrict to originals with these exact bytes — the duplicate check a client runs on a photo it just hashed. */
+      checksumSha256?: string;
+      cursor?: string;
+      limit?: number;
+    },
     signal?: AbortSignal,
   ): Promise<ApiResult<MediaListResult>>;
 }
@@ -111,6 +117,9 @@ export function createMediaGateway(client: ApiClient): MediaGateway {
       const query = new URLSearchParams();
       if (options?.mediaClass !== undefined) {
         query.set('mediaClass', options.mediaClass);
+      }
+      if (options?.checksumSha256 !== undefined) {
+        query.set('checksumSha256', options.checksumSha256);
       }
       if (options?.cursor !== undefined) {
         query.set('cursor', options.cursor);

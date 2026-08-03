@@ -1,6 +1,6 @@
 'use client';
 
-import type { MediaAccess } from '@verdery/api-contracts';
+import type { MediaAccess, MediaListResult } from '@verdery/api-contracts';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
@@ -56,4 +56,40 @@ export function useMediaAccess(gardenId: string, mediaId: string, enabled: boole
     // open preview from ever hitting a dead URL.
     staleTime: 5 * 60 * 1000,
   });
+}
+
+/**
+ * Whether this garden already holds a photograph with exactly these bytes.
+ *
+ * Runs against `checksumSha256`, which the browser computed before
+ * registering the upload — so it answers "you have uploaded this same file
+ * before", not "this looks like the same plant". A re-encoded or re-cropped
+ * copy of the same scene has a different checksum and is deliberately not
+ * found: recognising that needs a perceptual hash this system does not
+ * compute, an owner decision recorded in tasks/todo.md.
+ *
+ * The just-uploaded record is excluded by id — it matches its own checksum,
+ * and reporting it would make every upload look like a duplicate of itself.
+ */
+export function useExactDuplicateMedia(
+  gardenId: string,
+  checksumSha256: string | null,
+  excludeMediaId: string | null,
+) {
+  const gateway = useMemo(() => createMediaGateway(createBrowserApiClient()), []);
+
+  const query = useQuery<MediaListResult, ApiFailureError>({
+    queryKey: ['media', gardenId, 'duplicates', checksumSha256] as const,
+    queryFn: async ({ signal }) =>
+      unwrap(
+        // Non-null inside the query function: `enabled` keeps it from running
+        // before a checksum exists.
+        await gateway.list(gardenId, { checksumSha256: checksumSha256 as string }, signal),
+      ),
+    enabled: checksumSha256 !== null,
+  });
+
+  const duplicates = (query.data?.items ?? []).filter((media) => media.id !== excludeMediaId);
+
+  return { duplicates, isPending: query.isPending };
 }

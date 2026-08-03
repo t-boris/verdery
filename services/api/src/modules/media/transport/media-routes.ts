@@ -125,12 +125,18 @@ function requireExpectedRevision(request: FastifyRequest): number {
 
 interface ListGardenMediaQuery {
   readonly mediaClass: MediaClass | null;
+  readonly checksumSha256: string | null;
   readonly cursor: string | null;
   readonly limit: number;
 }
 
 function parseListQuery(request: FastifyRequest): ListGardenMediaQuery {
-  const query = request.query as { mediaClass?: unknown; cursor?: unknown; limit?: unknown };
+  const query = request.query as {
+    mediaClass?: unknown;
+    checksumSha256?: unknown;
+    cursor?: unknown;
+    limit?: unknown;
+  };
 
   let mediaClass: MediaClass | null = null;
   if (query.mediaClass !== undefined) {
@@ -147,10 +153,28 @@ function parseListQuery(request: FastifyRequest): ListGardenMediaQuery {
     mediaClass = query.mediaClass as MediaClass;
   }
 
+  let checksumSha256: string | null = null;
+  if (query.checksumSha256 !== undefined) {
+    // Validated rather than passed through: a malformed value would silently
+    // match nothing, which reads to a caller as "no duplicate exists" — the
+    // opposite of what a failed check should say.
+    if (
+      typeof query.checksumSha256 !== 'string' ||
+      !CHECKSUM_SHA256_PATTERN.test(query.checksumSha256)
+    ) {
+      throw invalid(
+        'checksumSha256 must be 64 lowercase hexadecimal characters.',
+        'request.checksum.invalid',
+        '/checksumSha256',
+      );
+    }
+    checksumSha256 = query.checksumSha256;
+  }
+
   const cursor = typeof query.cursor === 'string' && query.cursor.length > 0 ? query.cursor : null;
 
   if (query.limit === undefined) {
-    return { mediaClass, cursor, limit: DEFAULT_LIMIT };
+    return { mediaClass, checksumSha256, cursor, limit: DEFAULT_LIMIT };
   }
   const limit = Number(query.limit);
   if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT) {
@@ -161,7 +185,7 @@ function parseListQuery(request: FastifyRequest): ListGardenMediaQuery {
     );
   }
 
-  return { mediaClass, cursor, limit };
+  return { mediaClass, checksumSha256, cursor, limit };
 }
 
 interface RegisterMediaUploadBody {
@@ -238,12 +262,13 @@ export function registerMediaRoutes(
 ): void {
   app.get('/gardens/:gardenId/media', async (request, reply) => {
     const gardenId = requireGardenId(request);
-    const { mediaClass, cursor, limit } = parseListQuery(request);
+    const { mediaClass, checksumSha256, cursor, limit } = parseListQuery(request);
 
     const result: MediaListResult = await dependencies.listGardenMedia.execute(
       gardenId,
       request.actorContext.profileId,
       mediaClass,
+      checksumSha256,
       cursor,
       limit,
     );

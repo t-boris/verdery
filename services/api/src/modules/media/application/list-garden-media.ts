@@ -10,6 +10,11 @@
  * record instead carries its own `derivatives` array, resolved the same way
  * `GetMediaStatus` resolves it.
  *
+ * `checksumSha256` narrows to byte-identical originals: the exact-duplicate
+ * check a client runs against a photograph it has just hashed. Identical bytes
+ * only — a re-encoded copy of the same scene is a different checksum, and
+ * recognising THAT needs a perceptual hash nothing here computes.
+ *
  * Authorization matches `GetMediaStatus`: `viewGarden` — this reads record
  * state, not bytes (`GetMediaAccess` owns the section 12 download rules).
  * Cursor/limit semantics mirror `ListGardens` exactly (opaque keyset
@@ -33,12 +38,19 @@ export class ListGardenMedia {
     gardenId: Uuid,
     profileId: Uuid,
     mediaClass: MediaClass | null,
+    checksumSha256: string | null,
     cursor: string | null,
     limit: number,
   ): Promise<MediaListResult> {
     await this.authorization.requireCapability(gardenId, profileId, 'viewGarden');
 
-    const page = await this.media.listForGarden({ gardenId, mediaClass, cursor, limit });
+    const page = await this.media.listForGarden({
+      gardenId,
+      mediaClass,
+      checksumSha256,
+      cursor,
+      limit,
+    });
 
     const items = await Promise.all(
       page.items.map(async (record) =>

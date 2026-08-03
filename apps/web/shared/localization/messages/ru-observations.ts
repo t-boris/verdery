@@ -25,6 +25,8 @@ export const russianObservationsMessages = {
   'observations.photoProcessingFailed': 'Не удалось обработать фотографию. Попробуйте другой файл.',
   'observations.photoUploadFailed': 'Загрузка не завершилась.',
   'observations.photoRetry': 'Повторить загрузку',
+  'observations.photoDuplicate':
+    'Эта же фотография уже загружена в этот сад ({filename}). Прикрепить её ещё раз можно, если вы этого и хотели.',
   'observations.photoPurposeLabel': 'Что на снимке',
   'observations.photoAttach': 'Прикрепить к наблюдению',
   'observations.photoRemove': 'Убрать фотографию',

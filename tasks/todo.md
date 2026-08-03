@@ -9116,3 +9116,17 @@ Built end to end: migration, domain, repository, both commands, contract, both c
 the web timeline's display, which keeps the observer's symptoms visually apart from a photo's
 analyses. Migration and rollback tests are written; they run in CI, since Docker is not available
 here — that was the owner's call, recorded before starting.
+
+### Exact-duplicate warning (owner's call: no new dependency)
+
+`listGardenMedia` gained a `checksumSha256` filter, so a client can ask whether the garden already
+holds these exact bytes. The browser already computes that hash before registering an upload, so the
+observation photo panel now says "you have already uploaded this exact photograph" once a photo is
+ready to attach — a warning, never a block: the same photograph can legitimately belong to two
+observations, and only the person who took it knows.
+
+A malformed checksum in the query is refused rather than matching nothing, because "no rows" would
+read to the caller as "no duplicate exists" — the opposite of what a failed check should say.
+
+Near-duplicates (the same plant photographed twice a second apart) still need a perceptual hash and
+therefore a dependency. That remains the owner's decision and is not built.

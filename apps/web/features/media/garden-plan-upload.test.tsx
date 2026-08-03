@@ -23,6 +23,7 @@ const BASE_STATE: UseMediaUploadResult = {
   uploadedBytes: 0,
   mediaId: null,
   media: null,
+  checksumSha256: null,
   retryable: false,
   uploadFailureReason: null,
   apiFailure: null,

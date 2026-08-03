@@ -11021,6 +11021,14 @@ export interface operations {
             query?: {
                 /** @description Restrict to one media class — for example `imported_plan` for the plan-import picker. Omit to list every class (originals only). */
                 mediaClass?: components["schemas"]["MediaClass"];
+                /**
+                 * @description Restrict to originals whose declared SHA-256 matches — the exact-
+                 *     duplicate check a client runs before attaching a photograph it just
+                 *     hashed. Only bytes that are identical match; a re-encoded or
+                 *     re-cropped copy of the same scene does not, and detecting that needs
+                 *     a perceptual hash this system does not compute (P11-MEDIA-01).
+                 */
+                checksumSha256?: string;
                 /** @description Opaque continuation token from a previous page. Clients must not parse it. */
                 cursor?: components["parameters"]["Cursor"];
                 /** @description Maximum items to return. */

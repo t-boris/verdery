@@ -7,7 +7,7 @@ import type {
 import { useId, useState, type ChangeEvent } from 'react';
 
 import { useIsOnline } from '@/core/connectivity/public';
-import { useMediaUpload } from '@/features/media/public';
+import { useExactDuplicateMedia, useMediaUpload } from '@/features/media/public';
 import { OBSERVATION_PHOTO_PURPOSES, photoPurposeLabel } from '@/features/observations/public';
 import { useLocalization } from '@/shared/localization/public';
 import { Button, CloseIcon, FailureAlert, PlusIcon, ProgressBar, Select } from '@/shared/ui/public';
@@ -62,6 +62,9 @@ export function ObservationPhotosPanel({ gardenId, value, onChange }: Observatio
   const { t } = useLocalization();
   const isOnline = useIsOnline();
   const upload = useMediaUpload(gardenId, 'garden_photo');
+  // Asked once the upload has a checksum, which is also when it has a media id
+  // to exclude — a record always matches its own bytes.
+  const duplicates = useExactDuplicateMedia(gardenId, upload.checksumSha256, upload.mediaId);
   const [purpose, setPurpose] = useState<ObservationPhotoPurpose>('whole_plant');
   const [tooLarge, setTooLarge] = useState(false);
   const inputId = useId();
@@ -169,6 +172,17 @@ export function ObservationPhotosPanel({ gardenId, value, onChange }: Observatio
             </Button>
           )}
         </div>
+      )}
+
+      {attachable && duplicates.duplicates.length > 0 && (
+        // A warning, never a block: the same photograph is sometimes worth
+        // attaching twice — to two different observations, or with a different
+        // purpose — and only the person who took it knows.
+        <p className={styles['status']}>
+          {t('observations.photoDuplicate', {
+            filename: duplicates.duplicates[0]?.displayFilename ?? '',
+          })}
+        </p>
       )}
 
       {attachable && (

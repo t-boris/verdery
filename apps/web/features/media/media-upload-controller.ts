@@ -52,6 +52,8 @@ export interface MediaUploadState {
   readonly uploadedBytes: number;
   readonly mediaId: string | null;
   readonly media: Media | null;
+  /** The SHA-256 this upload registered under, or `null` when the platform would not hash. Lets a caller ask whether the same bytes are already in this garden. */
+  readonly checksumSha256: string | null;
   readonly retryable: boolean;
   readonly uploadFailureReason: MediaUploadFailureReason | null;
   readonly apiFailure: ApiFailure | null;
@@ -66,6 +68,7 @@ const IDLE_STATE: MediaUploadState = {
   uploadedBytes: 0,
   mediaId: null,
   media: null,
+  checksumSha256: null,
   retryable: false,
   uploadFailureReason: null,
   apiFailure: null,
@@ -300,6 +303,7 @@ export function createMediaUploadController(deps: MediaUploadControllerDependenc
     if (disposed) {
       return;
     }
+    setState({ checksumSha256 });
 
     const result = await deps.mediaGateway.register(
       deps.gardenId,

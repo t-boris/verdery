@@ -166,14 +166,19 @@ export class FakeMediaRepository implements MediaRepository {
     return Promise.resolve(match ?? null);
   }
 
+  /** The most recent `listForGarden` input, so a test can assert what the use case asked for. */
+  lastListInput: ListForGardenInput | null = null;
+
   /** In-memory mirror of `KyselyMediaRepository.listForGarden`: originals only, `(createdAt, id)` descending, opaque index cursor. */
   listForGarden(input: ListForGardenInput): Promise<MediaRecordPage> {
+    this.lastListInput = input;
     const ordered = [...this.records.values()]
       .filter(
         (record) =>
           record.gardenId === input.gardenId &&
           record.derivedFromMediaId === null &&
-          (input.mediaClass === null || record.mediaClass === input.mediaClass),
+          (input.mediaClass === null || record.mediaClass === input.mediaClass) &&
+          (input.checksumSha256 === null || record.checksumSha256 === input.checksumSha256),
       )
       .sort(
         (a, b) =>

@@ -73,7 +73,7 @@ describe('ListGardenMedia', () => {
       authorizationGranting(buildMembership({ gardenId: GARDEN_ID, role: 'viewer' })),
     );
 
-    const result = await useCase.execute(GARDEN_ID, PROFILE_ID, null, null, 50);
+    const result = await useCase.execute(GARDEN_ID, PROFILE_ID, null, null, null, 50);
 
     expect(result.items.map((item) => item.id)).toEqual([
       '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a03',
@@ -89,7 +89,7 @@ describe('ListGardenMedia', () => {
       authorizationGranting(buildMembership({ gardenId: GARDEN_ID, role: 'viewer' })),
     );
 
-    const firstPage = await useCase.execute(GARDEN_ID, PROFILE_ID, 'imported_plan', null, 1);
+    const firstPage = await useCase.execute(GARDEN_ID, PROFILE_ID, 'imported_plan', null, null, 1);
     expect(firstPage.items.map((item) => item.id)).toEqual([
       '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a03',
     ]);
@@ -99,12 +99,32 @@ describe('ListGardenMedia', () => {
       GARDEN_ID,
       PROFILE_ID,
       'imported_plan',
+      null,
       firstPage.nextCursor ?? null,
       1,
     );
     expect(secondPage.items.map((item) => item.id)).toEqual([
       '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a02',
     ]);
+  });
+
+  it('narrows to byte-identical originals when a checksum is given', async () => {
+    const repository = seededRepository();
+    const useCase = new ListGardenMedia(
+      repository,
+      authorizationGranting(buildMembership({ gardenId: GARDEN_ID, role: 'viewer' })),
+    );
+
+    const all = await useCase.execute(GARDEN_ID, PROFILE_ID, null, null, null, 50);
+    const checksum = 'a'.repeat(64);
+
+    // The exact-duplicate check a client runs against a photograph it just
+    // hashed: identical bytes only. A re-encoded copy of the same scene has a
+    // different checksum and is deliberately not found here.
+    const matches = await useCase.execute(GARDEN_ID, PROFILE_ID, null, checksum, null, 50);
+
+    expect(all.items.length).toBeGreaterThan(matches.items.length);
+    expect(repository.lastListInput?.checksumSha256).toBe(checksum);
   });
 
   it('excludes derivative rows from the listing but resolves them onto their original', async () => {
@@ -130,7 +150,7 @@ describe('ListGardenMedia', () => {
       authorizationGranting(buildMembership({ gardenId: GARDEN_ID, role: 'viewer' })),
     );
 
-    const result = await useCase.execute(GARDEN_ID, PROFILE_ID, null, null, 50);
+    const result = await useCase.execute(GARDEN_ID, PROFILE_ID, null, null, null, 50);
     expect(result.items.map((item) => item.id)).not.toContain(derivative.id);
     const listedOriginal = result.items.find((item) => item.id === original.id);
     expect(listedOriginal?.derivatives).toEqual([
@@ -141,7 +161,9 @@ describe('ListGardenMedia', () => {
   it('conceals a garden the caller has no membership on as notFound', async () => {
     const useCase = new ListGardenMedia(seededRepository(), authorizationDenying());
 
-    await expect(useCase.execute(GARDEN_ID, PROFILE_ID, null, null, 50)).rejects.toMatchObject({
+    await expect(
+      useCase.execute(GARDEN_ID, PROFILE_ID, null, null, null, 50),
+    ).rejects.toMatchObject({
       category: 'notFound',
     });
   });

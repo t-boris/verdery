@@ -260,6 +260,9 @@ export class KyselyMediaRepository implements MediaRepository {
     if (input.mediaClass !== null) {
       query = query.where('media_class', '=', input.mediaClass);
     }
+    if (input.checksumSha256 !== null) {
+      query = query.where('checksum_sha256', '=', input.checksumSha256);
+    }
     if (decoded !== null) {
       const cursorCreatedAt = new Date(decoded.createdAt);
       query = query.where((eb) =>
