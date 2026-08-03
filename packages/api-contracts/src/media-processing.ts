@@ -266,4 +266,16 @@ export interface MediaProcessingResult {
   readonly qualityDiagnostics: Record<string, unknown> | null;
   readonly resourceMetrics: { readonly durationMs: number } | null;
   readonly outcome: MediaProcessingOutcome;
+  /**
+   * A 64-bit difference hash of the SOURCE image, as 16 lowercase hex
+   * characters — absent when the job produced none (a non-image class, a
+   * failed job, bytes the decoder refused).
+   *
+   * It describes the source, not any derivative, which is why it travels
+   * here rather than on an entry in `outputObjects`. Its only use is
+   * warning a person that a photograph they are uploading looks like one
+   * the garden already holds; nothing depends on it, and a missing hash
+   * degrades that warning to the exact-bytes check alone.
+   */
+  readonly sourcePerceptualHash?: string | null;
 }

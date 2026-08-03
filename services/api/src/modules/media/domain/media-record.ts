@@ -94,6 +94,17 @@ export interface MediaRecord {
   readonly verifiedByteSize: number | null;
   /** SHA-256, lowercase hex. Nullable until computed — the client supplies it "when available" at registration, or a later verifier computes it. */
   readonly checksumSha256: string | null;
+  /**
+   * dHash of the image's own pixels, 16 lowercase hex characters. Null
+   * until a derivative job computes one, and permanently null for classes
+   * that are not images or bytes the decoder refused.
+   *
+   * Where `checksumSha256` identifies BYTES, this identifies the PICTURE:
+   * a re-encoded or resized copy keeps a near-identical hash. Advisory
+   * only — it warns about a probable duplicate upload and never rejects
+   * one.
+   */
+  readonly perceptualHash: string | null;
   /** Nullable until `authorizeMediaUpload` assigns a real Cloud Storage upload session's target — that assignment is a future stage's job, not this one's. */
   readonly bucketName: string | null;
   /** Paired with `bucketName`: always both null or both set. */
@@ -355,6 +366,8 @@ export function registerMediaRecord(
     declaredByteSize: validateDeclaredByteSize(rawDeclaredByteSize),
     verifiedByteSize: null,
     checksumSha256: normalizeChecksumSha256(rawChecksumSha256),
+    // No hash until a derivative job decodes the pixels.
+    perceptualHash: null,
     bucketName: null,
     objectKey: null,
     uploadState: 'registered',
@@ -494,6 +507,8 @@ export function registerExportPackageMediaRecord(
     declaredByteSize: byteSize,
     verifiedByteSize: byteSize,
     checksumSha256: normalizeChecksumSha256(input.checksumSha256),
+    // An export package is not an image; nothing will ever hash it.
+    perceptualHash: null,
     bucketName: input.bucketName,
     objectKey: input.objectKey,
     uploadState: 'available',
@@ -523,6 +538,10 @@ export function registerDerivativeMediaRecord(
   const checksumSha256 = normalizeChecksumSha256(input.checksumSha256);
   const tile = validateDerivativeTileCoordinates(input.derivativeKind, input.tile);
 
+  // Derivatives are not hashed: the duplicate warning compares what a
+  // person uploaded, and every derivative would otherwise match its own
+  // source.
+
   return {
     id,
     gardenId: input.gardenId,
@@ -534,6 +553,7 @@ export function registerDerivativeMediaRecord(
     declaredByteSize: byteSize,
     verifiedByteSize: byteSize,
     checksumSha256,
+    perceptualHash: null,
     bucketName: input.bucketName,
     objectKey: input.objectKey,
     uploadState: 'available',

@@ -29,6 +29,7 @@ interface MediaRecordRowLike {
   declared_byte_size: number;
   verified_byte_size: number | null;
   checksum_sha256: string | null;
+  perceptual_hash: string | null;
   bucket_name: string | null;
   object_key: string | null;
   upload_state: string;
@@ -98,6 +99,7 @@ function toMediaRecord(row: MediaRecordRowLike): MediaRecord {
     declaredByteSize: row.declared_byte_size,
     verifiedByteSize: row.verified_byte_size,
     checksumSha256: row.checksum_sha256,
+    perceptualHash: row.perceptual_hash,
     bucketName: row.bucket_name,
     objectKey: row.object_key,
     uploadState: row.upload_state as MediaUploadState,
@@ -134,6 +136,7 @@ export class KyselyMediaRepository implements MediaRepository {
         declared_byte_size: record.declaredByteSize,
         verified_byte_size: record.verifiedByteSize,
         checksum_sha256: record.checksumSha256,
+        perceptual_hash: record.perceptualHash,
         bucket_name: record.bucketName,
         object_key: record.objectKey,
         upload_state: record.uploadState,
@@ -189,6 +192,7 @@ export class KyselyMediaRepository implements MediaRepository {
         declared_byte_size: record.declaredByteSize,
         verified_byte_size: record.verifiedByteSize,
         checksum_sha256: record.checksumSha256,
+        perceptual_hash: record.perceptualHash,
         bucket_name: record.bucketName,
         object_key: record.objectKey,
         upload_state: record.uploadState,

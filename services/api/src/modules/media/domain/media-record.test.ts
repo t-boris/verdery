@@ -66,6 +66,8 @@ describe('registerMediaRecord', () => {
       declaredByteSize: 123_456,
       verifiedByteSize: null,
       checksumSha256: null,
+      // No hash until a derivative job decodes the pixels.
+      perceptualHash: null,
       bucketName: null,
       objectKey: null,
       uploadState: 'registered',

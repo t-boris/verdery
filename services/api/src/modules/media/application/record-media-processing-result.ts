@@ -270,10 +270,20 @@ export class RecordMediaProcessingResult {
     now: Date,
   ): Promise<MediaProcessingResultRecordedSummary> {
     const processing = beginMediaProcessing(media, now);
-    const processed =
+    const transitioned =
       result.outcome === 'succeeded'
         ? markMediaProcessed(processing, now)
         : markMediaProcessingFailed(processing, now);
+
+    // The derivative job hashed the source's pixels while it had them
+    // decoded; this is the only write path that sees that hash. A result
+    // without one (a validation job, a non-image class, a decoder refusal)
+    // leaves whatever is already stored alone rather than clearing it — a
+    // later job re-reporting nothing must not erase a good hash.
+    const processed =
+      typeof result.sourcePerceptualHash === 'string'
+        ? { ...transitioned, perceptualHash: result.sourcePerceptualHash }
+        : transitioned;
 
     const mediaApplied = await context.media.update(processed, media.revision);
     if (!mediaApplied) {

@@ -18,6 +18,9 @@ export interface MediaProcessingCallbackRouteDependencies {
   readonly cloudTasksInvocationVerifier: CloudTasksInvocationVerifier;
 }
 
+/** 64 bits of dHash — see services/workers/src/derivatives/perceptual-hash.ts. */
+const PERCEPTUAL_HASH_PATTERN = /^[0-9a-f]{16}$/;
+
 function invalid(message: string, code: string, pointer: string): ValidationError {
   return new ValidationError(SharedErrorCode.RequestInvalid, message, {
     details: [{ code, pointer }],
@@ -53,6 +56,23 @@ function requireResultBody(request: FastifyRequest): MediaProcessingResult {
       'The processing result is missing required fields.',
       'request.processing_result.invalid',
       '/',
+    );
+  }
+
+  // Optional, and validated rather than trusted: this endpoint is
+  // machine-to-machine, but a malformed hash would violate the column's own
+  // CHECK and fail the whole result-recording transaction — losing a real
+  // processing outcome over an advisory field.
+  if (
+    body.sourcePerceptualHash !== undefined &&
+    body.sourcePerceptualHash !== null &&
+    (typeof body.sourcePerceptualHash !== 'string' ||
+      !PERCEPTUAL_HASH_PATTERN.test(body.sourcePerceptualHash))
+  ) {
+    throw invalid(
+      'sourcePerceptualHash must be 16 lowercase hexadecimal characters.',
+      'request.processing_result.source_perceptual_hash.invalid',
+      '/sourcePerceptualHash',
     );
   }
 

@@ -23,6 +23,8 @@ export interface MediaRecordRow {
   declared_byte_size: number;
   verified_byte_size: number | null;
   checksum_sha256: string | null;
+  /** dHash as 16 lowercase hex characters — see migrations/1788500000000_media-perceptual-hash.sql. */
+  perceptual_hash: string | null;
   bucket_name: string | null;
   object_key: string | null;
   upload_state: Generated<string>;

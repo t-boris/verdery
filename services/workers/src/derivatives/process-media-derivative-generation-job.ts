@@ -35,6 +35,7 @@ import {
   planTilePyramid,
 } from './derivative-profile.js';
 import { decodeAndOrient, resizeRasterDerivative } from './image-derivative-generator.js';
+import { computePerceptualHash } from './perceptual-hash.js';
 import { generateTilePyramid } from './tile-pyramid-generator.js';
 
 const PROCESSOR_VERSION = 'media-derivative-generator-v1';
@@ -169,6 +170,10 @@ export class ProcessMediaDerivativeGenerationJob {
         qualityDiagnostics: null,
         resourceMetrics: { durationMs: Math.max(0, this.now() - startedAt) },
         outcome: 'succeeded',
+        // Hashed from the one clean decode this job already performed —
+        // computing it anywhere else would mean downloading and decoding
+        // the same object a second time.
+        sourcePerceptualHash: await computePerceptualHash(oriented.buffer),
       };
     } finally {
       await object.dispose();
