@@ -49,7 +49,13 @@ export class GoogleApiSweepTrigger<TSummary extends object> implements SweepTrig
       // deterministic: whether a bodyless POST carries a content type at all
       // is up to the HTTP client's defaults, and a contract this quiet
       // should not depend on them.
-      body: {},
+      //
+      // `data`, NOT `body`. This client is gaxios, which serializes `data`
+      // and has no `body` of its own — but its options extend fetch's
+      // `RequestInit`, where `body` does exist, so `body: {}` type-checks
+      // cleanly, is then ignored at runtime, and changes nothing at all. The
+      // first attempt at this fix used it and shipped an identical 400.
+      data: {},
     });
 
     const summary = response.data;
