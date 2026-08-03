@@ -20,6 +20,12 @@ import {
 import { PLANT_STATUSES, groupingKindLabel, lifecycleStageLabel, statusLabel } from './labels';
 import { usePlantPhotoAccess } from './plant-media-queries';
 import styles from './plant-list.module.css';
+import {
+  EMPTY_PLANT_ADVANCED_FILTERS,
+  PlantAdvancedFilters,
+  toRecencyParams,
+  type PlantAdvancedFilterState,
+} from './plant-advanced-filters';
 import { useSearchPlants } from './queries';
 
 export interface PlantListProps {
@@ -98,13 +104,25 @@ export function PlantList({ gardenId }: PlantListProps) {
   const { t } = useLocalization();
   const [searchText, setSearchText] = useState('');
   const [identifiedFilter, setIdentifiedFilter] = useState<IdentifiedFilter>('all');
+  const [advanced, setAdvanced] = useState<PlantAdvancedFilterState>(EMPTY_PLANT_ADVANCED_FILTERS);
   const [cursor, setCursor] = useState<string | null>(null);
   const [priorItems, setPriorItems] = useState<readonly Plant[]>([]);
 
+  const recency = toRecencyParams(advanced.journalRecency);
   const query = useSearchPlants(gardenId, {
     query: searchText.trim() === '' ? null : searchText.trim(),
     status: VISIBLE_STATUSES,
     identified: toIdentifiedParam(identifiedFilter),
+    observedWithinDays: recency.observedWithinDays,
+    notObservedForDays: recency.notObservedForDays,
+    healthConcern: advanced.healthConcern === 'any' ? null : [advanced.healthConcern],
+    seasonalActivity: advanced.seasonalActivity === 'any' ? null : [advanced.seasonalActivity],
+    seasonalMonth: advanced.seasonalActivity === 'any' ? null : advanced.seasonalMonth,
+    distributionStatus:
+      advanced.distributionStatus === 'any' ? null : [advanced.distributionStatus],
+    distributionRegion: advanced.distributionStatus === 'any' ? null : advanced.distributionRegion,
+    profileCompleteness:
+      advanced.profileCompleteness === 'any' ? null : advanced.profileCompleteness,
     cursor,
     limit: PAGE_LIMIT,
   });
@@ -121,6 +139,14 @@ export function PlantList({ gardenId }: PlantListProps) {
 
   const onIdentifiedFilterChange = (value: IdentifiedFilter) => {
     setIdentifiedFilter(value);
+    resetPagination();
+  };
+
+  // Any filter change invalidates the cursor: it encodes a position in the
+  // PREVIOUS result set, and reusing it against a narrower one skips rows that
+  // now belong on the first page.
+  const onAdvancedChange = (next: PlantAdvancedFilterState) => {
+    setAdvanced(next);
     resetPagination();
   };
 
@@ -182,6 +208,8 @@ export function PlantList({ gardenId }: PlantListProps) {
           ))}
         </div>
       </div>
+
+      <PlantAdvancedFilters value={advanced} onChange={onAdvancedChange} />
 
       {isFirstLoad && <p role="status">{t('plants.listLoading')}</p>}
 

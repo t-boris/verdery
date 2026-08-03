@@ -8877,8 +8877,13 @@ depends on `MEDIA`; `QA` is last by definition. Data for the completeness and na
 filters comes from `PROV`/`ASYNC`, so those filters ship able to express "unknown" from day one
 rather than waiting.
 
-- [ ] 1. P11-SEARCH-01: the six filters, contract first, then repository, then both clients.
-- [ ] 2. P11-ASYNC-01: the five missing source adapters and the human-review workflow.
+- [x] 1a. P11-SEARCH-01 server: contract, repository, transport, parser tests. Done 2026-08-03.
+- [ ] 1b. P11-SEARCH-01 clients: filter state and UI on web and iOS.
+- [x] 2. P11-ASYNC-01 adapters: DESCOPED BY THE OWNER, 2026-08-03. The four plant-knowledge
+      adapters that exist (World Flora Online, USDA PLANTS, GBIF, USA-NPN) stay as they are;
+      Wikidata, GRIN, hardiness rasters, NRCS soil and regulatory status are not built. The
+      completeness and native/regulatory filters therefore keep returning "unknown" for taxa no
+      adapter covers, which is the behaviour they were written to express.
 - [ ] 3. P11-MEDIA-01: journal capture, comparison sets, symptoms, duplicate handling.
 - [ ] 4. P11-WEB-01: image-led cards, journal UI, catalog browsing, complete filter state.
 - [ ] 5. P11-IOS-01: photo purpose, proposed placement, alternatives, converted-candidate link.

@@ -1,5 +1,9 @@
 import type {
   AddPlantFromPhotoRequest,
+  ImageAnalysisKind,
+  PlantDistributionStatus,
+  PlantProfileCompleteness,
+  TaxonSeasonalActivity,
   AddPlantRequest,
   AttachPlantPhotoRequest,
   MovePlantRequest,
@@ -35,6 +39,15 @@ export interface SearchPlantsParams {
   readonly status?: readonly PlantStatus[] | null;
   readonly groupingKind?: readonly PlantGroupingKind[] | null;
   readonly identified?: boolean | null;
+  /** P11-SEARCH-01's joined filters. Semantics live on the operation in openapi.yaml; this type only carries them. */
+  readonly observedWithinDays?: number | null;
+  readonly notObservedForDays?: number | null;
+  readonly healthConcern?: readonly ImageAnalysisKind[] | null;
+  readonly seasonalActivity?: readonly TaxonSeasonalActivity[] | null;
+  readonly seasonalMonth?: number | null;
+  readonly distributionStatus?: readonly PlantDistributionStatus[] | null;
+  readonly distributionRegion?: string | null;
+  readonly profileCompleteness?: PlantProfileCompleteness | null;
   readonly cursor?: string | null;
   readonly limit?: number | null;
 }
@@ -160,6 +173,23 @@ function revisionHeaders(expectedRevision: number, idempotencyKey: string): Reco
   };
 }
 
+/** Omitted when absent, null, or empty — an empty list means "no restriction", and sending `?healthConcern=` would say something different. */
+function setList(
+  search: URLSearchParams,
+  key: string,
+  values: readonly string[] | null | undefined,
+) {
+  if (values !== undefined && values !== null && values.length > 0) {
+    search.set(key, values.join(','));
+  }
+}
+
+function setNumber(search: URLSearchParams, key: string, value: number | null | undefined) {
+  if (value !== undefined && value !== null) {
+    search.set(key, String(value));
+  }
+}
+
 function searchPlantsQuery(params: SearchPlantsParams): string {
   const search = new URLSearchParams();
   if (params.query !== undefined && params.query !== null && params.query !== '') {
@@ -184,6 +214,22 @@ function searchPlantsQuery(params: SearchPlantsParams): string {
   }
   if (params.identified !== undefined && params.identified !== null) {
     search.set('identified', String(params.identified));
+  }
+  setNumber(search, 'observedWithinDays', params.observedWithinDays);
+  setNumber(search, 'notObservedForDays', params.notObservedForDays);
+  setList(search, 'healthConcern', params.healthConcern);
+  setList(search, 'seasonalActivity', params.seasonalActivity);
+  setNumber(search, 'seasonalMonth', params.seasonalMonth);
+  setList(search, 'distributionStatus', params.distributionStatus);
+  if (
+    params.distributionRegion !== undefined &&
+    params.distributionRegion !== null &&
+    params.distributionRegion.trim() !== ''
+  ) {
+    search.set('distributionRegion', params.distributionRegion.trim());
+  }
+  if (params.profileCompleteness !== undefined && params.profileCompleteness !== null) {
+    search.set('profileCompleteness', params.profileCompleteness);
   }
   if (params.cursor !== undefined && params.cursor !== null) {
     search.set('cursor', params.cursor);
