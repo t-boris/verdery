@@ -19,10 +19,13 @@
 import { UUID_PATTERN, invalid } from '../../gardens-mapping/transport/garden-routes.js';
 import type { ObservationPhotoAttachmentInput } from '../application/attach-observation-photos.js';
 import type { CorrectObservationInput } from '../application/correct-observation.js';
+import { ListPlantJournalFrames } from '../application/list-plant-journal-frames.js';
 import type {
   ObservationMeasurementInput,
   RecordObservationInput,
 } from '../application/record-observation.js';
+import { OBSERVATION_PHOTO_PURPOSES } from '../domain/observation-photo.js';
+import type { ObservationPhotoPurpose } from '../domain/observation-photo.js';
 import type { ObservationCorrectionKind } from '../domain/observation.js';
 
 const CORRECTION_KINDS: readonly ObservationCorrectionKind[] = ['amendment', 'supersede'];
@@ -162,6 +165,58 @@ export function parseCorrectObservationRequest(body: unknown): CorrectObservatio
       '/observedPhenologicalStage',
     ),
   };
+}
+
+/** A journal-frame sequence's narrowing and its bound, both optional. */
+export interface JournalFramesQuery {
+  readonly purpose: ObservationPhotoPurpose | null;
+  readonly limit: number;
+}
+
+/**
+ * `purpose` narrows the sequence to comparable frames; `limit` bounds it.
+ *
+ * Unlike this module's body parsers, the purpose IS validated here rather than
+ * passed through raw: no domain constructor sees this value — it goes straight
+ * to a repository query — so the transport layer is the only place that can
+ * refuse it. And refuse it must: silently returning every frame for a
+ * misspelled purpose would hand back an incomparable mixture as if it were the
+ * sequence the caller asked for.
+ */
+export function parseJournalFramesQuery(query: unknown): JournalFramesQuery {
+  const raw = (query ?? {}) as { purpose?: unknown; limit?: unknown };
+
+  let purpose: ObservationPhotoPurpose | null = null;
+  if (raw.purpose !== undefined) {
+    if (
+      typeof raw.purpose !== 'string' ||
+      !OBSERVATION_PHOTO_PURPOSES.includes(raw.purpose as ObservationPhotoPurpose)
+    ) {
+      throw invalid(
+        `purpose must be one of: ${OBSERVATION_PHOTO_PURPOSES.join(', ')}.`,
+        'request.purpose.invalid',
+        '/purpose',
+      );
+    }
+    purpose = raw.purpose as ObservationPhotoPurpose;
+  }
+
+  let limit = ListPlantJournalFrames.MAX_FRAMES;
+  if (raw.limit !== undefined) {
+    // `Number('')` is 0 and `Number(' 5 ')` is 5, so the integer-and-range
+    // check below is what actually rejects a malformed limit, not the cast.
+    const parsed = Number(raw.limit);
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > ListPlantJournalFrames.MAX_FRAMES) {
+      throw invalid(
+        `limit must be between 1 and ${String(ListPlantJournalFrames.MAX_FRAMES)}.`,
+        'request.limit.invalid',
+        '/limit',
+      );
+    }
+    limit = parsed;
+  }
+
+  return { purpose, limit };
 }
 
 /** The raw disposition string is validated by `applyHealthSuggestionDisposition` (domain layer) against `HEALTH_SUGGESTION_DISPOSITIONS` — not re-validated here, the same "pass the raw string through" posture `photoAttachments`' own `rawPurpose` already takes. */

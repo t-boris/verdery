@@ -31,14 +31,13 @@ import {
 import type { CorrectObservation } from '../application/correct-observation.js';
 import type { ListObservationsForGarden } from '../application/list-observations-for-garden.js';
 import type { ListObservationsForPlant } from '../application/list-observations-for-plant.js';
-import { ListPlantJournalFrames } from '../application/list-plant-journal-frames.js';
-import { OBSERVATION_PHOTO_PURPOSES } from '../domain/observation-photo.js';
-import type { ObservationPhotoPurpose } from '../domain/observation-photo.js';
+import type { ListPlantJournalFrames } from '../application/list-plant-journal-frames.js';
 import type { ObservationPhotoResource } from '../application/observation-view.js';
 import type { RecordObservation } from '../application/record-observation.js';
 import type { SetHealthSuggestionDisposition } from '../application/set-health-suggestion-disposition.js';
 import {
   parseCorrectObservationRequest,
+  parseJournalFramesQuery,
   parseRecordObservationRequest,
   parseSetHealthSuggestionDispositionRequest,
 } from './parse-observation-request.js';
@@ -50,50 +49,6 @@ export interface ObservationRoutesDependencies {
   readonly listObservationsForPlant: ListObservationsForPlant;
   readonly listPlantJournalFrames: ListPlantJournalFrames;
   readonly setHealthSuggestionDisposition: SetHealthSuggestionDisposition;
-}
-
-/**
- * `purpose` narrows the sequence to comparable frames; `limit` bounds it.
- *
- * An unknown purpose is refused rather than ignored: silently returning every
- * frame for a misspelled purpose would present an incomparable mixture as if
- * it were the sequence the caller asked for.
- */
-function parseJournalFramesQuery(request: FastifyRequest): {
-  purpose: ObservationPhotoPurpose | null;
-  limit: number;
-} {
-  const raw = request.query as { purpose?: unknown; limit?: unknown };
-
-  let purpose: ObservationPhotoPurpose | null = null;
-  if (raw.purpose !== undefined) {
-    if (
-      typeof raw.purpose !== 'string' ||
-      !OBSERVATION_PHOTO_PURPOSES.includes(raw.purpose as ObservationPhotoPurpose)
-    ) {
-      throw invalid(
-        `purpose must be one of: ${OBSERVATION_PHOTO_PURPOSES.join(', ')}.`,
-        'request.purpose.invalid',
-        '/purpose',
-      );
-    }
-    purpose = raw.purpose as ObservationPhotoPurpose;
-  }
-
-  let limit = ListPlantJournalFrames.MAX_FRAMES;
-  if (raw.limit !== undefined) {
-    const parsed = Number(raw.limit);
-    if (!Number.isInteger(parsed) || parsed < 1 || parsed > ListPlantJournalFrames.MAX_FRAMES) {
-      throw invalid(
-        `limit must be between 1 and ${String(ListPlantJournalFrames.MAX_FRAMES)}.`,
-        'request.limit.invalid',
-        '/limit',
-      );
-    }
-    limit = parsed;
-  }
-
-  return { purpose, limit };
 }
 
 function requirePlantId(request: FastifyRequest): string {
@@ -281,7 +236,7 @@ export function registerObservationRoutes(
   app.get('/gardens/:gardenId/plants/:plantId/journal-frames', async (request, reply) => {
     const gardenId = requireGardenId(request);
     const plantId = requirePlantId(request);
-    const { purpose, limit } = parseJournalFramesQuery(request);
+    const { purpose, limit } = parseJournalFramesQuery(request.query);
 
     const items = await deps.listPlantJournalFrames.execute(
       gardenId,

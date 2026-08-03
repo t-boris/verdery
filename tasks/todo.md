@@ -8933,3 +8933,15 @@ Closing that is the first step, not an optional tidy-up, because steps 2 and 3 b
       Split into sibling components rather than growing that form past the file-size limit.
 - [ ] 4. Docs in the same pass: `api-contract.md`, `web-application-design.md`, and the visual
       journal section of `plant-intelligence-and-visual-journal.md`.
+
+### Contract split (owner decision, mid-pass)
+
+Owner asked whether the 14,095-line `openapi.yaml` could be split, and chose to do it immediately
+rather than after the journal work. Done in `3715018`: 148 files under `packages/api-contracts/
+openapi/`, `redocly bundle` producing the committed `openapi.yaml`, a byte-for-byte bundle gate in
+CI before the generated-client gate, and two tests that fail when the index and the tree disagree.
+Proven to change nothing: the bundle is structurally identical to the pre-split contract (354
+schemas, 116 paths, zero differences) and regenerates `schema.ts` byte-identical.
+
+The split was textual rather than parse-and-re-emit so the hundred comment lines carrying the
+contract's reasoning survived; they now sit beside the schemas they explain.
