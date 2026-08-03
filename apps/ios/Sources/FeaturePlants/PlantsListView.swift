@@ -16,6 +16,7 @@ struct PlantsListView: View {
         VStack(alignment: .leading, spacing: Metrics.space3) {
             searchField
             identifiedFilterPicker
+            PlantAdvancedFiltersView(model: model)
 
             switch model.state {
             case .loading:

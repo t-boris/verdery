@@ -1,4 +1,5 @@
 import CoreDomain
+import Foundation
 import CoreLocalization
 import CoreNetworking
 import Observation
@@ -90,6 +91,136 @@ public final class PlantsListViewModel {
     public var loadMoreTitle: String { strings(.plantsListLoadMore) }
     public var loadingMoreMessage: String { strings(.plantsListLoadingMore) }
     public var identifiedFilterLabel: String { strings(.plantsIdentifiedFilterLabel) }
+    public var filterAnyTitle: String { strings(.plantsFilterAny) }
+    public var filterAnyMonthTitle: String { strings(.plantsFilterAnyMonth) }
+    public var journalRecencyLabel: String { strings(.plantsJournalRecencyLabel) }
+    public var healthConcernLabel: String { strings(.plantsHealthConcernLabel) }
+    public var seasonalActivityLabel: String { strings(.plantsSeasonalActivityLabel) }
+    public var seasonalMonthLabel: String { strings(.plantsSeasonalMonthLabel) }
+    public var distributionStatusLabel: String { strings(.plantsDistributionStatusLabel) }
+    public var distributionRegionLabel: String { strings(.plantsDistributionRegionLabel) }
+    public var profileCompletenessLabel: String { strings(.plantsProfileCompletenessLabel) }
+
+    public var moreFiltersTitle: String { strings(.plantsMoreFilters) }
+
+    /// Single-selection bindings over the API's list-valued filters.
+    ///
+    /// The contract takes lists so a caller CAN ask for two concerns at once,
+    /// but a phone-sized picker that offers multi-select for four values costs
+    /// more interaction than it saves. One value or none covers what a reader
+    /// actually asks, and the list shape stays available to any caller that
+    /// needs it.
+    public var healthConcernSelection: ImageAnalysisKind? {
+        get { filters.healthConcern.first }
+        set { filters.healthConcern = newValue.map { [$0] } ?? [] }
+    }
+
+    public var seasonalActivitySelection: TaxonSeasonalActivity? {
+        get { filters.seasonalActivity.first }
+        set {
+            filters.seasonalActivity = newValue.map { [$0] } ?? []
+            // A month without an activity filters nothing; clearing it here
+            // stops a stale month sitting in a disabled control.
+            if newValue == nil { filters.seasonalMonth = nil }
+        }
+    }
+
+    public var seasonalMonthSelection: Int? {
+        get { filters.seasonalMonth }
+        set { filters.seasonalMonth = newValue }
+    }
+
+    public var distributionStatusSelection: PlantDistributionStatus? {
+        get { filters.distributionStatus.first }
+        set {
+            filters.distributionStatus = newValue.map { [$0] } ?? []
+            if newValue == nil { filters.distributionRegion = nil }
+        }
+    }
+
+    public var distributionRegionText: String {
+        get { filters.distributionRegion ?? "" }
+        set { filters.distributionRegion = newValue.isEmpty ? nil : newValue }
+    }
+
+    public var profileCompletenessSelection: PlantProfileCompleteness? {
+        get { filters.profileCompleteness }
+        set { filters.profileCompleteness = newValue }
+    }
+
+    public var activeFilterCountLabel: String { strings(.plantsMoreFilters) }
+
+    public func healthConcernTitle(_ kind: ImageAnalysisKind) -> String {
+        switch kind {
+        case .stress: strings(.plantsHealthStress)
+        case .disease: strings(.plantsHealthDisease)
+        case .pest: strings(.plantsHealthPest)
+        case .other: strings(.plantsHealthOther)
+        }
+    }
+
+    public func seasonalActivityTitle(_ activity: TaxonSeasonalActivity) -> String {
+        switch activity {
+        case .sowIndoors: strings(.plantsSeasonSowIndoors)
+        case .sowOutdoors: strings(.plantsSeasonSowOutdoors)
+        case .transplant: strings(.plantsSeasonTransplant)
+        case .harvest: strings(.plantsSeasonHarvest)
+        }
+    }
+
+    public func distributionStatusTitle(_ status: PlantDistributionStatus) -> String {
+        switch status {
+        case .native: strings(.plantsDistributionNative)
+        case .introduced: strings(.plantsDistributionIntroduced)
+        case .invasive: strings(.plantsDistributionInvasive)
+        case .regulated: strings(.plantsDistributionRegulated)
+        }
+    }
+
+    public func profileCompletenessTitle(_ value: PlantProfileCompleteness) -> String {
+        switch value {
+        case .complete: strings(.plantsCompletenessComplete)
+        case .partial: strings(.plantsCompletenessPartial)
+        case .none: strings(.plantsCompletenessNone)
+        }
+    }
+
+    /// The device's own month names — a hand-maintained list of twelve
+    /// translations per locale would drift, and Foundation already has them.
+    public func monthTitle(_ month: Int) -> String {
+        let symbols = Calendar.current.monthSymbols
+        guard month >= 1, month <= symbols.count else { return String(month) }
+        return symbols[month - 1]
+    }
+
+    public func recencyTitle(_ option: JournalRecencyOption) -> String {
+        switch option {
+        case .any: strings(.plantsFilterAny)
+        case .seen7: strings(.plantsRecencySeen7)
+        case .seen30: strings(.plantsRecencySeen30)
+        case .notSeen30: strings(.plantsRecencyNotSeen30)
+        case .notSeen90: strings(.plantsRecencyNotSeen90)
+        case .neverSeen: strings(.plantsRecencyNeverSeen)
+        }
+    }
+
+    /// The single recency control, mapped to at most one of the API's two
+    /// independent bounds. A reader wants "recently seen" OR "neglected";
+    /// setting both returns nothing and reads as a bug.
+    public var journalRecency: JournalRecencyOption {
+        get {
+            if filters.observedWithinDays == 7 { return .seen7 }
+            if filters.observedWithinDays == 30 { return .seen30 }
+            if filters.notObservedForDays == 30 { return .notSeen30 }
+            if filters.notObservedForDays == 90 { return .notSeen90 }
+            if filters.notObservedForDays == JournalRecencyOption.neverSeenDays { return .neverSeen }
+            return .any
+        }
+        set {
+            filters.observedWithinDays = newValue.observedWithinDays
+            filters.notObservedForDays = newValue.notObservedForDays
+        }
+    }
 
     public func identifiedFilterOptionTitle(_ filter: PlantsIdentifiedFilter) -> String {
         switch filter {
