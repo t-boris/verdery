@@ -4,6 +4,8 @@ import type {
   ImageAnalysisResult,
   Observation,
   ObservationListResult,
+  ObservationPhotoPurpose,
+  PlantJournalFrameListResult,
   RecordObservationRequest,
 } from '@verdery/api-contracts';
 import { IDEMPOTENCY_KEY_HEADER } from '@verdery/api-contracts';
@@ -11,6 +13,30 @@ import { IDEMPOTENCY_KEY_HEADER } from '@verdery/api-contracts';
 import type { ApiClient } from './client';
 import { csrfHeader } from './csrf';
 import type { ApiResult } from './result';
+
+/**
+ * `ListPlantJournalFrames`' two optional parameters. `purpose` narrows the
+ * sequence to one kind of shot, which is what makes consecutive frames
+ * comparable; `limit` is a bound on the sequence, not a page size — there is
+ * no cursor here, and asking for fewer frames means asking for a shorter
+ * sequence.
+ */
+export interface PlantJournalFramesParams {
+  readonly purpose?: ObservationPhotoPurpose | null;
+  readonly limit?: number | null;
+}
+
+function journalFramesQuery(params: PlantJournalFramesParams | undefined): string {
+  const search = new URLSearchParams();
+  if (params?.purpose !== undefined && params.purpose !== null) {
+    search.set('purpose', params.purpose);
+  }
+  if (params?.limit !== undefined && params.limit !== null) {
+    search.set('limit', String(params.limit));
+  }
+  const query = search.toString();
+  return query === '' ? '' : `?${query}`;
+}
 
 export interface ObservationGateway {
   record(
@@ -25,6 +51,13 @@ export interface ObservationGateway {
     plantId: string,
     signal?: AbortSignal,
   ): Promise<ApiResult<ObservationListResult>>;
+  /** `ListPlantJournalFrames` (P11-MEDIA-01) — a plant's photographs oldest-first, for reading growth as a sequence. A read of what exists; nothing is rendered server-side. */
+  listJournalFrames(
+    gardenId: string,
+    plantId: string,
+    params?: PlantJournalFramesParams,
+    signal?: AbortSignal,
+  ): Promise<ApiResult<PlantJournalFrameListResult>>;
   correct(
     observationId: string,
     input: CorrectObservationRequest,
@@ -77,6 +110,14 @@ export function createObservationGateway(client: ApiClient): ObservationGateway 
       return client.request<ObservationListResult>({
         method: 'GET',
         path: `/gardens/${gardenId}/plants/${plantId}/observations`,
+        ...(signal === undefined ? {} : { signal }),
+      });
+    },
+
+    listJournalFrames(gardenId, plantId, params, signal) {
+      return client.request<PlantJournalFrameListResult>({
+        method: 'GET',
+        path: `/gardens/${gardenId}/plants/${plantId}/journal-frames${journalFramesQuery(params)}`,
         ...(signal === undefined ? {} : { signal }),
       });
     },

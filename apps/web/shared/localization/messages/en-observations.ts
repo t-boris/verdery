@@ -52,6 +52,23 @@ export const englishObservationsMessages = {
   'observations.analysisDispositionSaved': 'Review saved.',
   'observations.analysisDispositionSetBy': 'Reviewed {date}',
 
+  'observations.journalTitle': 'Photo journal',
+  'observations.journalPurposeLabel': 'Compare shots of',
+  'observations.journalPurposeAll': 'Everything, in order',
+  'observations.journalEmpty': 'No photographs have been attached to this plant yet.',
+  'observations.journalEmptyForPurpose': 'No photographs of this kind yet. Try another shot type.',
+  'observations.journalFrameAlt': 'Photograph observed {observed}',
+  'observations.journalFramePurposeAlt': '{purpose}, observed {observed}',
+
+  'observations.enum.photoPurpose.wholePlant': 'Whole plant',
+  'observations.enum.photoPurpose.leafFront': 'Leaf, front',
+  'observations.enum.photoPurpose.leafBack': 'Leaf, back',
+  'observations.enum.photoPurpose.stemOrBark': 'Stem or bark',
+  'observations.enum.photoPurpose.flower': 'Flower',
+  'observations.enum.photoPurpose.fruit': 'Fruit',
+  'observations.enum.photoPurpose.symptomCloseUp': 'Symptom close-up',
+  'observations.enum.photoPurpose.contextOrFreeForm': 'Context or free-form',
+
   'observations.enum.analysisKind.stress': 'Stress',
   'observations.enum.analysisKind.disease': 'Disease',
   'observations.enum.analysisKind.pest': 'Pest',

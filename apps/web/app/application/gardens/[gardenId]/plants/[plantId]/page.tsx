@@ -1,7 +1,11 @@
 import Link from 'next/link';
 
 import { PlantDetail } from '@/features/plants/public';
-import { ObservationTimeline, RecordObservationForm } from '@/features/observations/public';
+import {
+  ObservationTimeline,
+  PlantJournalStrip,
+  RecordObservationForm,
+} from '@/features/observations/public';
 import { getRequestTranslator } from '@/shared/localization/server';
 
 import styles from './page.module.css';
@@ -33,6 +37,16 @@ export default async function PlantDetailPage({
       </Link>
 
       <PlantDetail gardenId={gardenId} plantId={plantId} />
+
+      {/*
+        Above the record form and the timeline on purpose: the sequence is how
+        this plant has actually changed, and it is what a reader wants before
+        they write down what they see today.
+      */}
+      <div className={styles['section']}>
+        <h2 className={styles['sectionTitle']}>{t('observations.journalTitle')}</h2>
+        <PlantJournalStrip gardenId={gardenId} plantId={plantId} />
+      </div>
 
       <section className={styles['panel']}>
         <h2 className={styles['sectionTitle']}>{t('observations.recordTitle')}</h2>

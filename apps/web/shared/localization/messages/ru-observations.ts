@@ -45,6 +45,24 @@ export const russianObservationsMessages = {
   'observations.analysisDispositionSaved': 'Оценка сохранена.',
   'observations.analysisDispositionSetBy': 'Оценено {date}',
 
+  'observations.journalTitle': 'Фотодневник',
+  'observations.journalPurposeLabel': 'Сравнивать снимки',
+  'observations.journalPurposeAll': 'Все подряд, по порядку',
+  'observations.journalEmpty': 'К этому растению ещё не прикреплено ни одной фотографии.',
+  'observations.journalEmptyForPurpose':
+    'Снимков такого вида пока нет. Выберите другой тип съёмки.',
+  'observations.journalFrameAlt': 'Фотография от {observed}',
+  'observations.journalFramePurposeAlt': '{purpose}, снято {observed}',
+
+  'observations.enum.photoPurpose.wholePlant': 'Растение целиком',
+  'observations.enum.photoPurpose.leafFront': 'Лист, лицевая сторона',
+  'observations.enum.photoPurpose.leafBack': 'Лист, обратная сторона',
+  'observations.enum.photoPurpose.stemOrBark': 'Стебель или кора',
+  'observations.enum.photoPurpose.flower': 'Цветок',
+  'observations.enum.photoPurpose.fruit': 'Плод',
+  'observations.enum.photoPurpose.symptomCloseUp': 'Симптом крупным планом',
+  'observations.enum.photoPurpose.contextOrFreeForm': 'Окружение или свободный кадр',
+
   'observations.enum.analysisKind.stress': 'Стресс',
   'observations.enum.analysisKind.disease': 'Болезнь',
   'observations.enum.analysisKind.pest': 'Вредитель',

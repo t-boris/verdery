@@ -4,6 +4,7 @@ import type {
   ImageAnalysisKind,
   ObservationActorType,
   ObservationCorrectionKind,
+  ObservationPhotoPurpose,
 } from '@verdery/api-contracts';
 
 import type { MessageKey } from '@/shared/localization/public';
@@ -29,6 +30,39 @@ export const HEALTH_SUGGESTION_DISPOSITIONS: readonly HealthSuggestionDispositio
   'accepted_as_observation',
   'rejected',
 ];
+
+/** Every shot purpose a journal sequence can be narrowed to, in the order the design doc lists them (§8.2): whole plant first, then the parts, then the two special cases. */
+export const OBSERVATION_PHOTO_PURPOSES: readonly ObservationPhotoPurpose[] = [
+  'whole_plant',
+  'leaf_front',
+  'leaf_back',
+  'stem_or_bark',
+  'flower',
+  'fruit',
+  'symptom_close_up',
+  'context_or_free_form',
+];
+
+export function photoPurposeLabel(purpose: ObservationPhotoPurpose): MessageKey {
+  switch (purpose) {
+    case 'whole_plant':
+      return 'observations.enum.photoPurpose.wholePlant';
+    case 'leaf_front':
+      return 'observations.enum.photoPurpose.leafFront';
+    case 'leaf_back':
+      return 'observations.enum.photoPurpose.leafBack';
+    case 'stem_or_bark':
+      return 'observations.enum.photoPurpose.stemOrBark';
+    case 'flower':
+      return 'observations.enum.photoPurpose.flower';
+    case 'fruit':
+      return 'observations.enum.photoPurpose.fruit';
+    case 'symptom_close_up':
+      return 'observations.enum.photoPurpose.symptomCloseUp';
+    case 'context_or_free_form':
+      return 'observations.enum.photoPurpose.contextOrFreeForm';
+  }
+}
 
 export function analysisKindLabel(kind: ImageAnalysisKind): MessageKey {
   switch (kind) {

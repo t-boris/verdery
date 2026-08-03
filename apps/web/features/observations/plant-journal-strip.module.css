@@ -1,0 +1,53 @@
+.strip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/*
+ * A horizontal scroller rather than a wrapping grid: the frames are a
+ * sequence, and reading two of them against each other depends on the order
+ * staying one continuous line.
+ */
+.frames {
+  display: flex;
+  gap: var(--space-3);
+  overflow-x: auto;
+  margin: 0;
+  padding: 0 0 var(--space-1);
+  list-style: none;
+}
+
+.frame {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 9rem;
+}
+
+.thumbnail {
+  width: 9rem;
+  height: 9rem;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  background-color: var(--color-surface-sunken);
+}
+
+/* Same box as the thumbnail, so a sequence does not reflow as frames resolve. */
+.placeholder {
+  width: 9rem;
+  height: 9rem;
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-sunken);
+}
+
+.observed {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.empty {
+  color: var(--color-text-muted);
+  margin: 0;
+}

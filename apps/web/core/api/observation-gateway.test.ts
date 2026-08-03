@@ -2,6 +2,7 @@ import type {
   ImageAnalysisResult,
   Observation,
   ObservationListResult,
+  PlantJournalFrameListResult,
 } from '@verdery/api-contracts';
 import { describe, expect, it } from 'vitest';
 
@@ -103,6 +104,56 @@ describe('createObservationGateway', () => {
 
     expect(recorded[0]?.url).toBe(
       `${ORIGIN}/v1/gardens/${GARDEN_ID}/plants/${PLANT_ID}/observations`,
+    );
+  });
+
+  it('asks for the whole journal sequence when no narrowing is given', async () => {
+    const frames: PlantJournalFrameListResult = { items: [] };
+    const { gateway, recorded } = gatewayRecording(jsonResponse(frames, 200));
+
+    await gateway.listJournalFrames(GARDEN_ID, PLANT_ID);
+
+    // No trailing `?`: an empty query string would be a different request from
+    // the one this means, and one the parser reads the same way only by luck.
+    expect(recorded[0]?.url).toBe(
+      `${ORIGIN}/v1/gardens/${GARDEN_ID}/plants/${PLANT_ID}/journal-frames`,
+    );
+    expect(recorded[0]?.init.method).toBe('GET');
+  });
+
+  it('sends the purpose and the bound when the caller narrows the sequence', async () => {
+    const frames: PlantJournalFrameListResult = {
+      items: [
+        {
+          observationId: OBSERVATION_ID,
+          mediaId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a11',
+          observedAt: '2026-04-02T08:00:00Z',
+          purpose: 'leaf_front',
+        },
+      ],
+    };
+    const { gateway, recorded } = gatewayRecording(jsonResponse(frames, 200));
+
+    const result = await gateway.listJournalFrames(GARDEN_ID, PLANT_ID, {
+      purpose: 'leaf_front',
+      limit: 24,
+    });
+
+    expect(recorded[0]?.url).toBe(
+      `${ORIGIN}/v1/gardens/${GARDEN_ID}/plants/${PLANT_ID}/journal-frames?purpose=leaf_front&limit=24`,
+    );
+    expect(result).toEqual(expect.objectContaining({ ok: true, data: frames }));
+  });
+
+  it('omits a null purpose rather than sending it as a value', async () => {
+    // `null` is this codebase's "no restriction" for a filter, and
+    // `?purpose=null` would be rejected by the route as an unknown purpose.
+    const { gateway, recorded } = gatewayRecording(jsonResponse({ items: [] }, 200));
+
+    await gateway.listJournalFrames(GARDEN_ID, PLANT_ID, { purpose: null, limit: 5 });
+
+    expect(recorded[0]?.url).toBe(
+      `${ORIGIN}/v1/gardens/${GARDEN_ID}/plants/${PLANT_ID}/journal-frames?limit=5`,
     );
   });
 
