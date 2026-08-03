@@ -9025,3 +9025,19 @@ Still open on iOS: measurement entry, and a view that shows the journal sequence
 
    Two gateway test fixtures were missing `measurements` from their `Observation` JSON. The contract
    requires it, so decoding them was passing only because this client did not read the field.
+
+### URL-shareable filter state (P11-WEB-01)
+
+The plant list's filters now live in the query string. A filtered list is something people send
+each other — "the three plants nobody has seen since spring" is a link, not a set of instructions
+for reproducing a form.
+
+Read once at mount, not on every render: the URL is where a filtered list is shared from, not a
+second source of truth fighting the controls for what the reader is typing. Written with `replace`
+so four keystrokes do not leave four history entries. Defaults are omitted, so an unfiltered list
+keeps a clean URL. The pagination cursor stays out: it encodes a position in the result set it was
+issued for, and the list already discards it on any filter change.
+
+An unrecognised value falls back to unfiltered rather than being sent to the server. A stale or
+hand-edited link is ordinary input, and turning someone else's typo into an error page would be a
+worse answer than showing them the list.

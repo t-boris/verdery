@@ -2,6 +2,7 @@
 
 import type { Plant } from '@verdery/api-contracts';
 import Link from 'next/link';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 
 import { isConnectivityFailure } from '@/core/api/public';
@@ -21,7 +22,12 @@ import { PLANT_STATUSES, groupingKindLabel, lifecycleStageLabel, statusLabel } f
 import { usePlantPhotoAccess } from './plant-media-queries';
 import styles from './plant-list.module.css';
 import {
-  EMPTY_PLANT_ADVANCED_FILTERS,
+  readPlantListFilters,
+  writePlantListFilters,
+  type IdentifiedFilter,
+  type PlantListFilters,
+} from './plant-list-url-state';
+import {
   PlantAdvancedFilters,
   toRecencyParams,
   type PlantAdvancedFilterState,
@@ -78,8 +84,6 @@ const VISIBLE_STATUSES = PLANT_STATUSES.filter((status) => status !== 'removed')
  * Source: implementation-plan.md work package P4-SEARCH-01;
  * packages/api-contracts/openapi.yaml, operation `searchPlants`.
  */
-type IdentifiedFilter = 'all' | 'identified' | 'unidentified';
-
 const IDENTIFIED_FILTERS: readonly {
   readonly value: IdentifiedFilter;
   readonly labelKey: MessageKey;
@@ -102,9 +106,17 @@ function toIdentifiedParam(filter: IdentifiedFilter): boolean | null {
 
 export function PlantList({ gardenId }: PlantListProps) {
   const { t } = useLocalization();
-  const [searchText, setSearchText] = useState('');
-  const [identifiedFilter, setIdentifiedFilter] = useState<IdentifiedFilter>('all');
-  const [advanced, setAdvanced] = useState<PlantAdvancedFilterState>(EMPTY_PLANT_ADVANCED_FILTERS);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Read once, at mount. The URL is where a filtered list is shared FROM; it
+  // is not a second source of truth to re-read on every render, which would
+  // fight the controls for ownership of what the reader is typing.
+  const [filters, setFilters] = useState<PlantListFilters>(() =>
+    readPlantListFilters(new URLSearchParams(searchParams.toString())),
+  );
+  const { searchText, identified: identifiedFilter, advanced } = filters;
   const [cursor, setCursor] = useState<string | null>(null);
   const [priorItems, setPriorItems] = useState<readonly Plant[]>([]);
 
@@ -132,22 +144,35 @@ export function PlantList({ gardenId }: PlantListProps) {
     setPriorItems([]);
   };
 
-  const onSearchChange = (value: string) => {
-    setSearchText(value);
+  /**
+   * Every filter change goes through here: it moves the state and rewrites the
+   * URL so the address bar always describes what is on screen.
+   *
+   * `replace`, not `push`: typing four letters into the search box would
+   * otherwise leave four entries in the reader's history, and the back button
+   * would walk them back one keystroke at a time. `scroll: false` because a
+   * filter change is not a navigation the reader asked to be moved for.
+   */
+  const applyFilters = (next: PlantListFilters) => {
+    setFilters(next);
     resetPagination();
+    const query = writePlantListFilters(next);
+    router.replace(query === '' ? pathname : `${pathname}?${query}`, { scroll: false });
+  };
+
+  const onSearchChange = (value: string) => {
+    applyFilters({ ...filters, searchText: value });
   };
 
   const onIdentifiedFilterChange = (value: IdentifiedFilter) => {
-    setIdentifiedFilter(value);
-    resetPagination();
+    applyFilters({ ...filters, identified: value });
   };
 
   // Any filter change invalidates the cursor: it encodes a position in the
   // PREVIOUS result set, and reusing it against a narrower one skips rows that
   // now belong on the first page.
   const onAdvancedChange = (next: PlantAdvancedFilterState) => {
-    setAdvanced(next);
-    resetPagination();
+    applyFilters({ ...filters, advanced: next });
   };
 
   const onLoadMore = () => {

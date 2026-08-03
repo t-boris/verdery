@@ -11,6 +11,20 @@ import { useSearchPlants } from './queries';
 vi.mock('./queries', () => ({ useSearchPlants: vi.fn() }));
 vi.mock('./plant-media-queries', () => ({ usePlantPhotoAccess: vi.fn() }));
 
+/**
+ * The list writes its filters into the URL (`plant-list-url-state.ts`), so the
+ * router is faked here and `currentSearch` stands in for the address bar: what
+ * a reader would copy out of it is what these tests assert.
+ */
+const replaceMock = vi.fn<(href: string, options?: unknown) => void>();
+let currentSearch = '';
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: replaceMock, push: vi.fn() }),
+  usePathname: () => '/application/gardens/garden-1/plants',
+  useSearchParams: () => new URLSearchParams(currentSearch),
+}));
+
 const mockedUseSearchPlants = vi.mocked(useSearchPlants);
 const mockedUsePlantPhotoAccess = vi.mocked(usePlantPhotoAccess);
 
@@ -91,6 +105,8 @@ function renderList() {
 afterEach(() => {
   mockedUseSearchPlants.mockReset();
   mockedUsePlantPhotoAccess.mockReset();
+  replaceMock.mockReset();
+  currentSearch = '';
 });
 
 describe('PlantList — loading and failure states', () => {
@@ -266,5 +282,65 @@ describe('PlantList — cover photo', () => {
     const { container } = renderList();
 
     expect(container.querySelector('img')).toBeNull();
+  });
+});
+
+describe('PlantList — filters in the URL', () => {
+  it('opens already filtered when the link carries filters', () => {
+    // The point of the whole mechanism: a link someone sent shows what they
+    // were looking at, not an unfiltered list.
+    currentSearch = 'q=tomato&identified=unidentified&seen=not_seen_90';
+    mockSearchResult(queryResult({ items: [] }));
+
+    renderList();
+
+    expect(mockedUseSearchPlants).toHaveBeenLastCalledWith(
+      'garden-1',
+      expect.objectContaining({
+        query: 'tomato',
+        identified: false,
+        notObservedForDays: 90,
+      }),
+    );
+  });
+
+  it('writes a filter change back into the address bar', () => {
+    mockSearchResult(queryResult({ items: [] }));
+    renderList();
+
+    fireEvent.change(screen.getByLabelText('Search by name'), { target: { value: 'basil' } });
+
+    // `replace`, not `push`: four keystrokes must not leave four entries in
+    // the reader's history.
+    expect(replaceMock).toHaveBeenLastCalledWith('/application/gardens/garden-1/plants?q=basil', {
+      scroll: false,
+    });
+  });
+
+  it('returns to a clean URL when the last filter is cleared', () => {
+    currentSearch = 'q=basil';
+    mockSearchResult(queryResult({ items: [] }));
+    renderList();
+
+    fireEvent.change(screen.getByLabelText('Search by name'), { target: { value: '' } });
+
+    // An unfiltered list should not carry `?q=` — that would say something the
+    // reader never chose.
+    expect(replaceMock).toHaveBeenLastCalledWith('/application/gardens/garden-1/plants', {
+      scroll: false,
+    });
+  });
+
+  it('ignores a value the contract does not define rather than filtering by it', () => {
+    currentSearch = 'identified=perhaps&health=sunburn';
+    mockSearchResult(queryResult({ items: [] }));
+
+    renderList();
+
+    // A hand-edited or stale link is ordinary input, not an error.
+    expect(mockedUseSearchPlants).toHaveBeenLastCalledWith(
+      'garden-1',
+      expect.objectContaining({ identified: null, healthConcern: null }),
+    );
   });
 });
