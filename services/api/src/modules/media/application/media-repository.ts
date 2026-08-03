@@ -16,12 +16,28 @@ export interface FindDerivativeInput {
 }
 
 /** `ListGardenMedia`'s repository input — originals only, optionally one class, cursor-paged (P6-PLAN-01). */
+/** The reference image a similarity search compares against. */
+export interface SimilarMediaFilter {
+  readonly perceptualHash: string;
+  /** The reference record itself, always excluded — every image matches its own hash exactly. */
+  readonly excludeMediaId: Uuid;
+}
+
 export interface ListForGardenInput {
   readonly gardenId: Uuid;
   /** `null` lists every class (originals only either way). */
   readonly mediaClass: MediaClass | null;
   /** `null` applies no checksum restriction; a value lists only byte-identical originals. */
   readonly checksumSha256: string | null;
+  /**
+   * `null` applies no similarity restriction; a value lists originals whose
+   * perceptual hash is within `PERCEPTUAL_HASH_MATCH_THRESHOLD` bits of the
+   * given one, never including the record it came from.
+   *
+   * Independent of `checksumSha256`: a caller asking both gets the
+   * intersection, which is almost never what it wants.
+   */
+  readonly similarTo: SimilarMediaFilter | null;
   /** Opaque continuation token a previous page returned; `null` for the first page. */
   readonly cursor: string | null;
   readonly limit: number;

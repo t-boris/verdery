@@ -73,7 +73,13 @@ describe('ListGardenMedia', () => {
       authorizationGranting(buildMembership({ gardenId: GARDEN_ID, role: 'viewer' })),
     );
 
-    const result = await useCase.execute(GARDEN_ID, PROFILE_ID, null, null, null, 50);
+    const result = await useCase.execute(GARDEN_ID, PROFILE_ID, {
+      mediaClass: null,
+      checksumSha256: null,
+      similarToMediaId: null,
+      cursor: null,
+      limit: 50,
+    });
 
     expect(result.items.map((item) => item.id)).toEqual([
       '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a03',
@@ -89,20 +95,25 @@ describe('ListGardenMedia', () => {
       authorizationGranting(buildMembership({ gardenId: GARDEN_ID, role: 'viewer' })),
     );
 
-    const firstPage = await useCase.execute(GARDEN_ID, PROFILE_ID, 'imported_plan', null, null, 1);
+    const firstPage = await useCase.execute(GARDEN_ID, PROFILE_ID, {
+      mediaClass: 'imported_plan',
+      checksumSha256: null,
+      similarToMediaId: null,
+      cursor: null,
+      limit: 1,
+    });
     expect(firstPage.items.map((item) => item.id)).toEqual([
       '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a03',
     ]);
     expect(firstPage.nextCursor).toBeDefined();
 
-    const secondPage = await useCase.execute(
-      GARDEN_ID,
-      PROFILE_ID,
-      'imported_plan',
-      null,
-      firstPage.nextCursor ?? null,
-      1,
-    );
+    const secondPage = await useCase.execute(GARDEN_ID, PROFILE_ID, {
+      mediaClass: 'imported_plan',
+      checksumSha256: null,
+      similarToMediaId: null,
+      cursor: firstPage.nextCursor ?? null,
+      limit: 1,
+    });
     expect(secondPage.items.map((item) => item.id)).toEqual([
       '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a02',
     ]);
@@ -115,13 +126,25 @@ describe('ListGardenMedia', () => {
       authorizationGranting(buildMembership({ gardenId: GARDEN_ID, role: 'viewer' })),
     );
 
-    const all = await useCase.execute(GARDEN_ID, PROFILE_ID, null, null, null, 50);
+    const all = await useCase.execute(GARDEN_ID, PROFILE_ID, {
+      mediaClass: null,
+      checksumSha256: null,
+      similarToMediaId: null,
+      cursor: null,
+      limit: 50,
+    });
     const checksum = 'a'.repeat(64);
 
     // The exact-duplicate check a client runs against a photograph it just
     // hashed: identical bytes only. A re-encoded copy of the same scene has a
     // different checksum and is deliberately not found here.
-    const matches = await useCase.execute(GARDEN_ID, PROFILE_ID, null, checksum, null, 50);
+    const matches = await useCase.execute(GARDEN_ID, PROFILE_ID, {
+      mediaClass: null,
+      checksumSha256: checksum,
+      similarToMediaId: null,
+      cursor: null,
+      limit: 50,
+    });
 
     expect(all.items.length).toBeGreaterThan(matches.items.length);
     expect(repository.lastListInput?.checksumSha256).toBe(checksum);
@@ -150,7 +173,13 @@ describe('ListGardenMedia', () => {
       authorizationGranting(buildMembership({ gardenId: GARDEN_ID, role: 'viewer' })),
     );
 
-    const result = await useCase.execute(GARDEN_ID, PROFILE_ID, null, null, null, 50);
+    const result = await useCase.execute(GARDEN_ID, PROFILE_ID, {
+      mediaClass: null,
+      checksumSha256: null,
+      similarToMediaId: null,
+      cursor: null,
+      limit: 50,
+    });
     expect(result.items.map((item) => item.id)).not.toContain(derivative.id);
     const listedOriginal = result.items.find((item) => item.id === original.id);
     expect(listedOriginal?.derivatives).toEqual([
@@ -162,9 +191,112 @@ describe('ListGardenMedia', () => {
     const useCase = new ListGardenMedia(seededRepository(), authorizationDenying());
 
     await expect(
-      useCase.execute(GARDEN_ID, PROFILE_ID, null, null, null, 50),
+      useCase.execute(GARDEN_ID, PROFILE_ID, {
+        mediaClass: null,
+        checksumSha256: null,
+        similarToMediaId: null,
+        cursor: null,
+        limit: 50,
+      }),
     ).rejects.toMatchObject({
       category: 'notFound',
     });
+  });
+  it('finds a re-encoded copy the checksum cannot see, and never the reference itself', () => {
+    const repository = new FakeMediaRepository();
+    const reference = {
+      ...record('019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a11', 'garden_photo', new Date('2026-07-01Z')),
+      perceptualHash: '0f1e2d3c4b5a6978',
+    };
+    const reEncoded = {
+      ...record('019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a12', 'garden_photo', new Date('2026-07-02Z')),
+      // Two bits apart: the same picture through a JPEG round trip.
+      perceptualHash: '0f1e2d3c4b5a697b',
+    };
+    const different = {
+      ...record('019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a13', 'garden_photo', new Date('2026-07-03Z')),
+      perceptualHash: 'f0e1d2c3b4a59687',
+    };
+    for (const row of [reference, reEncoded, different]) {
+      void repository.insert(row);
+    }
+    const useCase = new ListGardenMedia(
+      repository,
+      authorizationGranting(buildMembership({ gardenId: GARDEN_ID, role: 'viewer' })),
+    );
+
+    return useCase
+      .execute(GARDEN_ID, PROFILE_ID, {
+        mediaClass: null,
+        checksumSha256: null,
+        similarToMediaId: reference.id,
+        cursor: null,
+        limit: 50,
+      })
+      .then((result) => {
+        expect(result.items.map((item) => item.id)).toEqual([reEncoded.id]);
+      });
+  });
+
+  it('answers an empty page when the reference has no hash rather than failing', async () => {
+    // A media class that is not an image, or bytes the decoder refused. The
+    // question is unanswerable, not malformed.
+    const repository = new FakeMediaRepository();
+    const reference = record(
+      '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a21',
+      'garden_photo',
+      new Date('2026-07-01Z'),
+    );
+    void repository.insert(reference);
+    const useCase = new ListGardenMedia(
+      repository,
+      authorizationGranting(buildMembership({ gardenId: GARDEN_ID, role: 'viewer' })),
+    );
+
+    const result = await useCase.execute(GARDEN_ID, PROFILE_ID, {
+      mediaClass: null,
+      checksumSha256: null,
+      similarToMediaId: reference.id,
+      cursor: null,
+      limit: 50,
+    });
+
+    expect(result.items).toEqual([]);
+  });
+
+  it('treats a reference in another garden as absent, never as a denial', async () => {
+    // Answering "that exists elsewhere" would leak the existence of media in
+    // a garden the caller cannot see.
+    const repository = new FakeMediaRepository();
+    const foreign = {
+      ...record(
+        '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a31',
+        'garden_photo',
+        new Date('2026-07-01Z'),
+        OTHER_GARDEN_ID,
+      ),
+      perceptualHash: '0f1e2d3c4b5a6978',
+    };
+    const mine = {
+      ...record('019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a32', 'garden_photo', new Date('2026-07-02Z')),
+      perceptualHash: '0f1e2d3c4b5a6978',
+    };
+    for (const row of [foreign, mine]) {
+      void repository.insert(row);
+    }
+    const useCase = new ListGardenMedia(
+      repository,
+      authorizationGranting(buildMembership({ gardenId: GARDEN_ID, role: 'viewer' })),
+    );
+
+    const result = await useCase.execute(GARDEN_ID, PROFILE_ID, {
+      mediaClass: null,
+      checksumSha256: null,
+      similarToMediaId: foreign.id,
+      cursor: null,
+      limit: 50,
+    });
+
+    expect(result.items).toEqual([]);
   });
 });

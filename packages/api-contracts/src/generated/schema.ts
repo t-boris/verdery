@@ -11024,11 +11024,24 @@ export interface operations {
                 /**
                  * @description Restrict to originals whose declared SHA-256 matches — the exact-
                  *     duplicate check a client runs before attaching a photograph it just
-                 *     hashed. Only bytes that are identical match; a re-encoded or
-                 *     re-cropped copy of the same scene does not, and detecting that needs
-                 *     a perceptual hash this system does not compute (P11-MEDIA-01).
+                 *     hashed. Only byte-identical files match; for a re-encoded or resized
+                 *     copy of the same scene, use `similarToMediaId`.
                  */
                 checksumSha256?: string;
+                /**
+                 * @description Restrict to originals whose pixels look like this media record's —
+                 *     the near-duplicate check, answering "the garden already holds this
+                 *     photograph" where the bytes differ because the file was re-encoded,
+                 *     resized, or exported by a gallery.
+                 *
+                 *     Compared by difference hash within a fixed distance, so a match is a
+                 *     probability and never a certainty; it is advisory and must be
+                 *     presented as such. The named record itself is never returned. When
+                 *     it has no hash — a class that is not an image, or bytes the decoder
+                 *     refused — the result is empty rather than an error, because a
+                 *     missing hash is an absent answer, not a bad request.
+                 */
+                similarToMediaId?: string;
                 /** @description Opaque continuation token from a previous page. Clients must not parse it. */
                 cursor?: components["parameters"]["Cursor"];
                 /** @description Maximum items to return. */

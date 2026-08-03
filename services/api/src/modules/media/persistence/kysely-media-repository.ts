@@ -1,5 +1,6 @@
+import { sql } from 'kysely';
 import type { Kysely } from 'kysely';
-import { SharedErrorCode } from '@verdery/api-contracts';
+import { PERCEPTUAL_HASH_MATCH_THRESHOLD, SharedErrorCode } from '@verdery/api-contracts';
 import { ValidationError } from '../../../platform/errors/application-error.js';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
@@ -266,6 +267,17 @@ export class KyselyMediaRepository implements MediaRepository {
     }
     if (input.checksumSha256 !== null) {
       query = query.where('checksum_sha256', '=', input.checksumSha256);
+    }
+    if (input.similarTo !== null) {
+      // Hamming distance in the database. PostgreSQL casts hex straight to
+      // bits, so this is a predicate over the garden's own originals rather
+      // than a fetch-everything-and-compare loop in the application.
+      const { perceptualHash, excludeMediaId } = input.similarTo;
+      query = query.where('id', '!=', excludeMediaId).where(
+        sql<boolean>`perceptual_hash IS NOT NULL
+            AND bit_count(('x' || perceptual_hash)::bit(64) # ('x' || ${perceptualHash}::text)::bit(64))
+                <= ${PERCEPTUAL_HASH_MATCH_THRESHOLD}`,
+      );
     }
     if (decoded !== null) {
       const cursorCreatedAt = new Date(decoded.createdAt);

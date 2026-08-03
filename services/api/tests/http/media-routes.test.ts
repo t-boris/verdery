@@ -353,6 +353,65 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     });
   });
 
+  it('finds a near-duplicate through the real Hamming-distance query (P11-MEDIA-01)', async () => {
+    const { token, garden } = await createGardenAsOwner();
+    const reference = asMediaUploadSession(await registerUpload(token, garden.id));
+    const reEncoded = asMediaUploadSession(await registerUpload(token, garden.id));
+    const different = asMediaUploadSession(await registerUpload(token, garden.id));
+
+    // Hashes are written by the derivative worker in production; set them
+    // directly so this test exercises the SQL predicate rather than the
+    // whole processing pipeline.
+    const hashes: readonly [string, string][] = [
+      [reference.media.id, '0f1e2d3c4b5a6978'],
+      // Two bits from the reference: the same picture, re-encoded.
+      [reEncoded.media.id, '0f1e2d3c4b5a697b'],
+      [different.media.id, 'f0e1d2c3b4a59687'],
+    ];
+    for (const [id, perceptualHash] of hashes) {
+      await db
+        .updateTable('media.media_record')
+        .set({ perceptual_hash: perceptualHash })
+        .where('id', '=', id)
+        .execute();
+    }
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/v1/gardens/${garden.id}/media?similarToMediaId=${reference.media.id}`,
+      headers: bearer(token),
+    });
+
+    expect(response.statusCode).toBe(200);
+    // The re-encoded copy alone: not the unrelated photograph, and never the
+    // reference itself, which matches its own hash exactly.
+    expect(response.json<MediaListResult>().items.map((item) => item.id)).toEqual([
+      reEncoded.media.id,
+    ]);
+  });
+
+  it('answers an empty list when the reference has no hash, and 400 when it is not a UUID', async () => {
+    const { token, garden } = await createGardenAsOwner();
+    const reference = asMediaUploadSession(await registerUpload(token, garden.id));
+
+    const unhashed = await app.inject({
+      method: 'GET',
+      url: `/v1/gardens/${garden.id}/media?similarToMediaId=${reference.media.id}`,
+      headers: bearer(token),
+    });
+    expect(unhashed.statusCode).toBe(200);
+    expect(unhashed.json<MediaListResult>().items).toEqual([]);
+
+    // An unanswerable question is an empty answer; a malformed one is an
+    // error, because an empty list would read as "nothing similar here".
+    const malformed = await app.inject({
+      method: 'GET',
+      url: `/v1/gardens/${garden.id}/media?similarToMediaId=not-a-uuid`,
+      headers: bearer(token),
+    });
+    expect(malformed.statusCode).toBe(400);
+  });
+
   it('rejects listing with an unknown mediaClass filter with 400', async () => {
     const { token, garden } = await createGardenAsOwner();
 

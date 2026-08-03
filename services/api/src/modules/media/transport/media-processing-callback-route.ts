@@ -6,7 +6,7 @@
  */
 
 import type { MediaProcessingResult } from '@verdery/api-contracts';
-import { SharedErrorCode } from '@verdery/api-contracts';
+import { PERCEPTUAL_HASH_PATTERN, SharedErrorCode } from '@verdery/api-contracts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { ValidationError } from '../../../platform/errors/application-error.js';
 import type { CloudTasksInvocationVerifier } from '../../../platform/tasks/cloud-tasks-invocation-verifier.js';
@@ -17,9 +17,6 @@ export interface MediaProcessingCallbackRouteDependencies {
   readonly recordMediaProcessingResult: RecordMediaProcessingResult;
   readonly cloudTasksInvocationVerifier: CloudTasksInvocationVerifier;
 }
-
-/** 64 bits of dHash — see services/workers/src/derivatives/perceptual-hash.ts. */
-const PERCEPTUAL_HASH_PATTERN = /^[0-9a-f]{16}$/;
 
 function invalid(message: string, code: string, pointer: string): ValidationError {
   return new ValidationError(SharedErrorCode.RequestInvalid, message, {

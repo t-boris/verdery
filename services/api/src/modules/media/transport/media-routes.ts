@@ -38,6 +38,7 @@ import type { GetMediaAccess } from '../application/get-media-access.js';
 import type { GetMediaRetentionPolicy } from '../application/get-media-retention-policy.js';
 import type { GetMediaStatus } from '../application/get-media-status.js';
 import type { ListGardenMedia } from '../application/list-garden-media.js';
+import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { MediaClass } from '../domain/media-record.js';
 import type { RegisterMediaUpload } from '../application/register-media-upload.js';
 
@@ -126,6 +127,7 @@ function requireExpectedRevision(request: FastifyRequest): number {
 interface ListGardenMediaQuery {
   readonly mediaClass: MediaClass | null;
   readonly checksumSha256: string | null;
+  readonly similarToMediaId: Uuid | null;
   readonly cursor: string | null;
   readonly limit: number;
 }
@@ -134,6 +136,7 @@ function parseListQuery(request: FastifyRequest): ListGardenMediaQuery {
   const query = request.query as {
     mediaClass?: unknown;
     checksumSha256?: unknown;
+    similarToMediaId?: unknown;
     cursor?: unknown;
     limit?: unknown;
   };
@@ -171,10 +174,25 @@ function parseListQuery(request: FastifyRequest): ListGardenMediaQuery {
     checksumSha256 = query.checksumSha256;
   }
 
+  let similarToMediaId: Uuid | null = null;
+  if (query.similarToMediaId !== undefined) {
+    // A malformed identifier is rejected rather than treated as absent: an
+    // empty result would read as "nothing similar here", which is the
+    // opposite of what an unanswerable question means.
+    if (typeof query.similarToMediaId !== 'string' || !UUID_PATTERN.test(query.similarToMediaId)) {
+      throw invalid(
+        'similarToMediaId must be a UUID.',
+        'request.similar_to_media_id.invalid',
+        '/similarToMediaId',
+      );
+    }
+    similarToMediaId = query.similarToMediaId;
+  }
+
   const cursor = typeof query.cursor === 'string' && query.cursor.length > 0 ? query.cursor : null;
 
   if (query.limit === undefined) {
-    return { mediaClass, checksumSha256, cursor, limit: DEFAULT_LIMIT };
+    return { mediaClass, checksumSha256, similarToMediaId, cursor, limit: DEFAULT_LIMIT };
   }
   const limit = Number(query.limit);
   if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT) {
@@ -185,7 +203,7 @@ function parseListQuery(request: FastifyRequest): ListGardenMediaQuery {
     );
   }
 
-  return { mediaClass, checksumSha256, cursor, limit };
+  return { mediaClass, checksumSha256, similarToMediaId, cursor, limit };
 }
 
 interface RegisterMediaUploadBody {
@@ -262,15 +280,11 @@ export function registerMediaRoutes(
 ): void {
   app.get('/gardens/:gardenId/media', async (request, reply) => {
     const gardenId = requireGardenId(request);
-    const { mediaClass, checksumSha256, cursor, limit } = parseListQuery(request);
 
     const result: MediaListResult = await dependencies.listGardenMedia.execute(
       gardenId,
       request.actorContext.profileId,
-      mediaClass,
-      checksumSha256,
-      cursor,
-      limit,
+      parseListQuery(request),
     );
 
     return reply.status(200).send(result);

@@ -279,3 +279,22 @@ export interface MediaProcessingResult {
    */
   readonly sourcePerceptualHash?: string | null;
 }
+
+/** Hex characters in a rendered perceptual hash — 64 bits, 4 bits per character. */
+export const PERCEPTUAL_HASH_HEX_LENGTH = 16;
+
+/** A rendered perceptual hash: 16 lowercase hex characters. */
+export const PERCEPTUAL_HASH_PATTERN = /^[0-9a-f]{16}$/;
+
+/**
+ * At or below this many differing bits, two images are reported as probably
+ * the same picture.
+ *
+ * Shared deliberately: `services/workers` computes the hashes and
+ * `services/api` compares them, and a threshold that differed between them
+ * would mean the warning a person sees depends on which side answered.
+ * Five of sixty-four is the conventional dHash cut-off, and this codebase
+ * has no measured alternative to prefer yet. Raising it is a product
+ * decision about how often to cry duplicate, not a query detail.
+ */
+export const PERCEPTUAL_HASH_MATCH_THRESHOLD = 5;

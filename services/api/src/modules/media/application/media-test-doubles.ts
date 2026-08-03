@@ -18,6 +18,7 @@ import type {
   IdempotencyStore,
 } from '../../../platform/idempotency/idempotency-store.js';
 import type { OutboxAppender, OutboxEventInput } from '../../../platform/outbox/outbox-appender.js';
+import { PERCEPTUAL_HASH_MATCH_THRESHOLD } from '@verdery/api-contracts';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import { GardenAuthorization } from '../../gardens-mapping/public.js';
@@ -62,6 +63,17 @@ export const TEST_BUCKETS: MediaStorageBucketNames = {
   derived: 'test-derived',
   exports: 'test-exports',
 };
+
+/** Mirrors the `bit_count(a # b)` the real query delegates to PostgreSQL. */
+function hammingDistance(left: string, right: string): number {
+  let difference = BigInt(`0x${left}`) ^ BigInt(`0x${right}`);
+  let bits = 0;
+  while (difference > 0n) {
+    bits += Number(difference & 1n);
+    difference >>= 1n;
+  }
+  return bits;
+}
 
 export class FakeMediaRepository implements MediaRepository {
   readonly records = new Map<Uuid, MediaRecord>();
@@ -178,7 +190,12 @@ export class FakeMediaRepository implements MediaRepository {
           record.gardenId === input.gardenId &&
           record.derivedFromMediaId === null &&
           (input.mediaClass === null || record.mediaClass === input.mediaClass) &&
-          (input.checksumSha256 === null || record.checksumSha256 === input.checksumSha256),
+          (input.checksumSha256 === null || record.checksumSha256 === input.checksumSha256) &&
+          (input.similarTo === null ||
+            (record.id !== input.similarTo.excludeMediaId &&
+              record.perceptualHash !== null &&
+              hammingDistance(record.perceptualHash, input.similarTo.perceptualHash) <=
+                PERCEPTUAL_HASH_MATCH_THRESHOLD)),
       )
       .sort(
         (a, b) =>

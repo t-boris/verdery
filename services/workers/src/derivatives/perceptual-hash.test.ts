@@ -11,9 +11,8 @@ import { describe, expect, it } from 'vitest';
 import {
   PERCEPTUAL_HASH_HEX_LENGTH,
   PERCEPTUAL_HASH_MATCH_THRESHOLD,
-  computePerceptualHash,
-  perceptualHashDistance,
-} from './perceptual-hash.js';
+} from '@verdery/api-contracts';
+import { computePerceptualHash, perceptualHashDistance } from './perceptual-hash.js';
 
 /** A deterministic gradient-and-blocks image — structure a dHash can describe. */
 async function gradientImage(width: number, height: number, seed: number): Promise<Buffer> {

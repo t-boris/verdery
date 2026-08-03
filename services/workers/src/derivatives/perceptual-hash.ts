@@ -27,15 +27,13 @@
  * section 9.
  */
 
+import { PERCEPTUAL_HASH_HEX_LENGTH } from '@verdery/api-contracts';
 import sharp from 'sharp';
 
 /** Columns sampled per row: 8 comparisons need 9 pixels. */
 const HASH_WIDTH = 9;
 /** Rows sampled: 8 rows x 8 comparisons = 64 bits. */
 const HASH_HEIGHT = 8;
-
-/** Hex characters in the rendered hash — 64 bits, 4 bits per character. */
-export const PERCEPTUAL_HASH_HEX_LENGTH = 16;
 
 /**
  * The dHash of an image, as 16 lowercase hex characters, or `null` when the
@@ -93,15 +91,3 @@ export function perceptualHashDistance(left: string, right: string): number {
   }
   return bits;
 }
-
-/**
- * At or below this many differing bits, two images are reported as probably
- * the same picture.
- *
- * Five of sixty-four is the conventional dHash cut-off, and this codebase
- * has no measured alternative to prefer. It is named, not inlined, because
- * a dHash distance means nothing without the threshold it is judged
- * against — and because raising it is a product decision about how often to
- * cry duplicate, not a query detail.
- */
-export const PERCEPTUAL_HASH_MATCH_THRESHOLD = 5;
