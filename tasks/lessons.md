@@ -215,4 +215,3 @@ CREATED that table, not only the one for the migration that added the column.
 globs I remembered touching, and missed a file edited early in the session.
 `pnpm format:check` takes seconds and covers the repository — run it before
 pushing, not the per-directory globs.
-
