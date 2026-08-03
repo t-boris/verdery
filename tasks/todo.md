@@ -8832,3 +8832,65 @@ for candidates created by mistake.
 - The candidate photo that motivated this session still will not display: dev has no workers
   service and Cloud Tasks is not enabled, so media never leaves validation. Separate decision,
   already raised.
+
+## Phase 11 critical remainders (owner list, 2026-08-03)
+
+Owner supplied seven work packages as G10 prerequisites. Verified against the repository
+before planning, because acting on a stale list here would be expensive.
+
+### Verification findings — one item in the list is wrong
+
+**P11-PROV-01 is substantially further along than "one of nine adapters".** Implemented source
+adapters: World Flora Online (taxonomy), USDA PLANTS (US names/status), GBIF (occurrence),
+USA-NPN (phenology), and Vertex AI species identification — five, not one. Missing: Wikidata,
+USDA GRIN, hardiness rasters, NRCS soil, regulatory status. The documentation half of the package
+is DONE: `docs/development/plant-knowledge-provider-runbooks.md` covers all ten source classes
+with a legal/privacy inventory, and its section 7 already records what remains an owner decision.
+
+**P11-SEARCH-01 confirmed.** `searchPlants` accepts `query`, `lifecycleStage`, `status`,
+`groupingKind`, `identified`. None of suitability, phenology, native/regulatory, completeness,
+health, or journal recency exist.
+
+The other five packages are not yet verified line by line; each is verified as its work begins
+rather than trusted from the list.
+
+### Filter data sources, established before writing SQL
+
+None of the six missing filters is a column on `plants_inventory.plant`. Every one is a join:
+
+| Filter            | Source                                                              |
+| ----------------- | ------------------------------------------------------------------- |
+| journal recency   | `observations_history.observation` (latest `observed_at` per plant) |
+| health            | `observations_history.image_analysis_result`                        |
+| phenology         | `plants_inventory.taxonomy_seasonal_fact`                           |
+| native/regulatory | `integrations.plant_distribution_assertion`                         |
+| completeness      | `plants_inventory.plant_profile_version`                            |
+| suitability       | `plants_inventory.candidate_suitability_assessment` (candidates)    |
+
+Suitability is a CANDIDATE property; it has no meaning on an actual plant, so it belongs to
+`listCandidates`, not `searchPlants`.
+
+### Order, and why
+
+`SEARCH` and `MEDIA` block `WEB` and `IOS` through the plan's own dependency column; `SHARE`
+depends on `MEDIA`; `QA` is last by definition. Data for the completeness and native/regulatory
+filters comes from `PROV`/`ASYNC`, so those filters ship able to express "unknown" from day one
+rather than waiting.
+
+- [ ] 1. P11-SEARCH-01: the six filters, contract first, then repository, then both clients.
+- [ ] 2. P11-ASYNC-01: the five missing source adapters and the human-review workflow.
+- [ ] 3. P11-MEDIA-01: journal capture, comparison sets, symptoms, duplicate handling.
+- [ ] 4. P11-WEB-01: image-led cards, journal UI, catalog browsing, complete filter state.
+- [ ] 5. P11-IOS-01: photo purpose, proposed placement, alternatives, converted-candidate link.
+- [ ] 6. P11-SHARE-01: publication UI for progress and before/after.
+- [ ] 7. P11-QA-01: the matrix, minus what needs hardware.
+- [ ] 8. Sync README, implementation plan, and the status table.
+
+### What I cannot deliver, stated now rather than at the end
+
+- Real-device iOS testing, VoiceOver and Dynamic Type verification on hardware (P11-QA-01).
+  Simulator coverage is not the same evidence and will not be presented as if it were.
+- G10 itself: an owner decision after evidence review, not an implementation step.
+- P11-MEDIA-01 time-lapse: the owner's own list makes this build-or-formally-cut. Building it
+  proceeds unless told otherwise; the cut, if chosen, needs a written decision because the
+  surface matrix in the implementation plan currently requires it.
