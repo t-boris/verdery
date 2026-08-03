@@ -38,6 +38,18 @@ export class GoogleApiSweepTrigger<TSummary extends object> implements SweepTrig
       method: 'POST',
       url: this.sweepUrl,
       headers: { 'Content-Type': 'application/json' },
+      // An empty object, not an absent body. These sweeps take no input, but
+      // the request announces a JSON content type, and Fastify rejects a
+      // POST that declares JSON and then sends nothing — before the route
+      // handler, in under a millisecond, as a plain 400 with no error log.
+      // Every sweep in this service failed that way and had never once
+      // succeeded; the hourly ones simply failed too rarely to notice.
+      //
+      // Sending `{}` rather than dropping the header keeps the fix
+      // deterministic: whether a bodyless POST carries a content type at all
+      // is up to the HTTP client's defaults, and a contract this quiet
+      // should not depend on them.
+      body: {},
     });
 
     const summary = response.data;
