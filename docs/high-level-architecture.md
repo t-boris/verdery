@@ -1,8 +1,8 @@
 # Grow Garden High-Level Architecture
 
-> Status: Draft 0.6
+> Status: Draft 0.7
 > Decision status: Approved detailed-design baseline  
-> Last updated: July 28, 2026
+> Last updated: August 3, 2026
 > Cloud platform: Firebase and Google Cloud
 
 ## 1. Purpose
@@ -662,7 +662,11 @@ The following alternatives were evaluated and are not the selected baseline:
 
 ## 22. Detailed Architecture
 
-Approved detailed-design documents and ADRs are indexed in [architecture/README.md](architecture/README.md). Implementation must add the operational runbooks, final threat model, provider assessments, and release-specific support matrices required by those designs before the affected capability reaches production.
+The visual entry point is [architecture/visual-architecture.md](architecture/visual-architecture.md).
+Approved detailed-design documents and ADRs are indexed in
+[architecture/README.md](architecture/README.md). Implementation must add the operational runbooks,
+final threat model, provider assessments, and release-specific support matrices required by those
+designs before the affected capability reaches production.
 
 ## 23. Documentation Maintenance
 

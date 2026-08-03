@@ -1,8 +1,8 @@
 # Grow Garden Architecture Documentation
 
-> Status: Draft 0.5
+> Status: Draft 0.6
 > Decision status: Approved detailed-design baseline  
-> Last updated: July 28, 2026
+> Last updated: August 3, 2026
 
 ## 1. Purpose
 
@@ -30,6 +30,7 @@ The architecture is based on the following approved product-level choices:
 
 | Area                                       | Detailed design                                                                      |
 | ------------------------------------------ | ------------------------------------------------------------------------------------ |
+| Visual architecture overview               | [visual-architecture.md](visual-architecture.md)                                     |
 | Native Apple client                        | [ios-application-design.md](ios-application-design.md)                               |
 | Web client                                 | [web-application-design.md](web-application-design.md)                               |
 | Garden map rendering and editing           | [map-rendering-and-editing.md](map-rendering-and-editing.md)                         |
