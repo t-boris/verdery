@@ -1,0 +1,25 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.legend {
+  padding: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/*
+ * The remove control sits on the row's baseline rather than stretching with
+ * the inputs, so a row reads as one measurement instead of four controls.
+ */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2);
+}

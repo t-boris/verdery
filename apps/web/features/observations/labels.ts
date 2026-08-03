@@ -4,6 +4,7 @@ import type {
   ImageAnalysisKind,
   ObservationActorType,
   ObservationCorrectionKind,
+  ObservationMeasurementKind,
   ObservationPhotoPurpose,
 } from '@verdery/api-contracts';
 
@@ -61,6 +62,23 @@ export function photoPurposeLabel(purpose: ObservationPhotoPurpose): MessageKey 
       return 'observations.enum.photoPurpose.symptomCloseUp';
     case 'context_or_free_form':
       return 'observations.enum.photoPurpose.contextOrFreeForm';
+  }
+}
+
+export const OBSERVATION_MEASUREMENT_KINDS: readonly ObservationMeasurementKind[] = [
+  'height',
+  'width',
+  'count',
+];
+
+export function measurementKindLabel(kind: ObservationMeasurementKind): MessageKey {
+  switch (kind) {
+    case 'height':
+      return 'observations.enum.measurementKind.height';
+    case 'width':
+      return 'observations.enum.measurementKind.width';
+    case 'count':
+      return 'observations.enum.measurementKind.count';
   }
 }
 

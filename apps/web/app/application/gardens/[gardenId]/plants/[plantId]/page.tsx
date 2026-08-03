@@ -1,13 +1,10 @@
 import Link from 'next/link';
 
 import { PlantDetail } from '@/features/plants/public';
-import {
-  ObservationTimeline,
-  PlantJournalStrip,
-  RecordObservationForm,
-} from '@/features/observations/public';
+import { ObservationTimeline, PlantJournalStrip } from '@/features/observations/public';
 import { getRequestTranslator } from '@/shared/localization/server';
 
+import { RecordJournalEntryPanel } from './record-journal-entry-panel';
 import styles from './page.module.css';
 
 /**
@@ -50,7 +47,7 @@ export default async function PlantDetailPage({
 
       <section className={styles['panel']}>
         <h2 className={styles['sectionTitle']}>{t('observations.recordTitle')}</h2>
-        <RecordObservationForm gardenId={gardenId} fixedPlantId={plantId} />
+        <RecordJournalEntryPanel gardenId={gardenId} plantId={plantId} />
       </section>
 
       <div className={styles['section']}>

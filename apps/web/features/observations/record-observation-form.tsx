@@ -1,8 +1,12 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import type { RecordObservationRequest } from '@verdery/api-contracts';
-import { useEffect } from 'react';
+import type {
+  ObservationMeasurementInput,
+  ObservationPhotoAttachmentRequest,
+  RecordObservationRequest,
+} from '@verdery/api-contracts';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from '@/shared/validation/zod';
 
@@ -18,30 +22,43 @@ import {
   TextField,
 } from '@/shared/ui/public';
 
+import { ObservationMeasurementsField } from './observation-measurements-field';
 import styles from './record-observation-form.module.css';
 import { useRecordObservation } from './queries';
 
-const recordObservationSchema = z
-  .object({
-    noteText: z.string().trim().max(4000).optional(),
-    conditionSummary: z.string().trim().max(4000).optional(),
-    plantId: z.string().trim().optional(),
-    gardenObjectId: z.string().trim().optional(),
-    observedAt: z.string().trim().optional(),
-  })
-  .superRefine((values, ctx) => {
+const observationFields = z.object({
+  noteText: z.string().trim().max(4000).optional(),
+  conditionSummary: z.string().trim().max(4000).optional(),
+  plantId: z.string().trim().optional(),
+  gardenObjectId: z.string().trim().optional(),
+  observedAt: z.string().trim().optional(),
+});
+
+type RecordObservationValues = z.infer<typeof observationFields>;
+
+/**
+ * The contract's own rule: at least one of `noteText`, `conditionSummary`, or
+ * a photo. A purpose-labelled photograph with no words is a complete journal
+ * entry (P11-MEDIA-01), so the requirement is checked against what is actually
+ * attached rather than assuming the text fields are the only content.
+ *
+ * `hasPhotos` is read through a getter rather than captured: the schema is
+ * built once, and a schema rebuilt on every attachment would be a new resolver
+ * identity on every render.
+ */
+function recordObservationSchema(hasPhotos: () => boolean) {
+  return observationFields.superRefine((values, ctx) => {
     const hasNote = (values.noteText ?? '') !== '';
     const hasSummary = (values.conditionSummary ?? '') !== '';
-    if (!hasNote && !hasSummary) {
+    if (!hasNote && !hasSummary && !hasPhotos()) {
       ctx.addIssue({
         code: 'custom',
         path: ['noteText'],
-        message: 'a note or a condition summary is required',
+        message: 'a note, a condition summary, or a photo is required',
       });
     }
   });
-
-type RecordObservationValues = z.infer<typeof recordObservationSchema>;
+}
 
 const DEFAULT_VALUES: RecordObservationValues = {
   noteText: '',
@@ -68,16 +85,26 @@ export interface RecordObservationFormProps {
    * doc comment for why this codebase does not build one this pass).
    */
   readonly fixedPlantId?: string;
+  /**
+   * Photographs already uploaded and labelled, ready to attach to this
+   * observation. Owned outside the form because uploading needs
+   * `features/media` and one feature never imports another — the route layer
+   * composes the two (see this route's own `observation-photos-panel.tsx`).
+   */
+  readonly photos?: readonly ObservationPhotoAttachmentRequest[];
+  /** Called after a successful record, so whoever owns `photos` can clear the list this observation just consumed. */
+  readonly onRecorded?: () => void;
 }
 
 /**
- * `RecordObservationRequest` without photo support: a working upload flow
- * now exists (`features/media`, P6-WEB-01) but is not yet wired to this
- * form (the same not-yet-reused gap `features/plants/plant-detail.tsx`
- * documents), and the contract already allows a note and/or a condition
- * summary with no photo at all — at least one of `noteText`,
- * `conditionSummary`, or a photo is required, and this form always
- * supplies one of the first two.
+ * A journal entry: a note and/or a condition summary, typed measurements, and
+ * purpose-labelled photographs (P11-MEDIA-01, guided capture).
+ *
+ * The photographs arrive as a prop rather than being uploaded here. Uploading
+ * needs `features/media`, and a feature never imports another feature, so the
+ * route layer owns that composition — the same seam
+ * `add-plant-from-photo-panel.tsx` already uses. Measurements have no such
+ * dependency and are owned here.
  *
  * Wired to `core/drafts`' recoverable-draft mechanism (P5-WEB-01): field
  * values are persisted locally while the form is dirty and restored on a
@@ -88,13 +115,26 @@ export interface RecordObservationFormProps {
  *
  * Source: packages/api-contracts/openapi.yaml, operation `recordObservation`.
  */
-export function RecordObservationForm({ gardenId, fixedPlantId }: RecordObservationFormProps) {
+export function RecordObservationForm({
+  gardenId,
+  fixedPlantId,
+  photos,
+  onRecorded,
+}: RecordObservationFormProps) {
   const { t } = useLocalization();
   const mutation = useRecordObservation(gardenId);
   const isOnline = useIsOnline();
+  const [measurements, setMeasurements] = useState<readonly ObservationMeasurementInput[]>([]);
+
+  // Read at validation time, so attaching a photo satisfies the
+  // note-or-summary-or-photo rule without rebuilding the resolver.
+  const photosRef = useRef(photos);
+  photosRef.current = photos;
 
   const { register, handleSubmit, formState, reset, watch } = useForm<RecordObservationValues>({
-    resolver: zodResolver(recordObservationSchema),
+    resolver: zodResolver(
+      useMemo(() => recordObservationSchema(() => (photosRef.current?.length ?? 0) > 0), []),
+    ),
     defaultValues: DEFAULT_VALUES,
   });
 
@@ -127,11 +167,14 @@ export function RecordObservationForm({ gardenId, fixedPlantId }: RecordObservat
 
   const onSubmit = handleSubmit((values) => {
     const input: RecordObservationRequest = {
-      // No photo-upload flow exists yet (see this component's doc comment);
-      // `photos`/`measurements` carry a schema `default: []`, which the
-      // generated type surfaces as required rather than optional.
-      photos: [],
-      measurements: [],
+      // Both carry a schema `default: []`, which the generated type surfaces
+      // as required rather than optional — so they are always sent, empty or
+      // not.
+      photos: [...(photos ?? [])],
+      // A row the reader added and then left at zero with no unit is not a
+      // measurement; sending it would fail the schema's own `minLength` on
+      // `unit` and lose the whole observation over a stray row.
+      measurements: measurements.filter((measurement) => measurement.unit.trim() !== ''),
       ...(values.noteText === undefined || values.noteText === ''
         ? {}
         : { noteText: values.noteText }),
@@ -154,7 +197,9 @@ export function RecordObservationForm({ gardenId, fixedPlantId }: RecordObservat
     mutation.mutate(input, {
       onSuccess: () => {
         reset();
+        setMeasurements([]);
         draft.clearDraft();
+        onRecorded?.();
       },
     });
   });
@@ -167,7 +212,7 @@ export function RecordObservationForm({ gardenId, fixedPlantId }: RecordObservat
         error={
           formState.errors.noteText === undefined
             ? undefined
-            : t('observations.noteOrSummaryRequired')
+            : t('observations.noteSummaryOrPhotoRequired')
         }
         {...register('noteText')}
       />
@@ -184,7 +229,14 @@ export function RecordObservationForm({ gardenId, fixedPlantId }: RecordObservat
         type="datetime-local"
         {...register('observedAt')}
       />
-      <p className={styles['hint']}>{t('observations.mediaGapHint')}</p>
+      <ObservationMeasurementsField value={measurements} onChange={setMeasurements} />
+      {/*
+        The recoverable draft carries the text fields only. Measurements and
+        attached photographs are not restored after a reload: a media id
+        restored into a form whose upload widget has been re-created would
+        claim an attachment the reader can no longer see or remove, and one
+        they cannot verify is worse than one they re-add.
+      */}
       <StaleIndicator />
       <Button type="submit" variant="primary" busy={mutation.isPending} disabled={!isOnline}>
         <PlusIcon />

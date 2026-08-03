@@ -8945,3 +8945,21 @@ schemas, 116 paths, zero differences) and regenerates `schema.ts` byte-identical
 
 The split was textual rather than parse-and-re-emit so the hundred comment lines carrying the
 contract's reasoning survived; they now sit beside the schemas they explain.
+
+### Journal vertical — what landed
+
+- [x] 1. Contract for `listPlantJournalFrames`, plus the five observation types the hand-written
+      surface had never re-exported. Use-case and parser tests; parsing moved to
+      `parse-observation-request.ts` so it runs without a container. `ad956d5`, `4f189a3`.
+- [x] 2. Web read side: `listJournalFrames` on the gateway, a purpose-filtered frame strip on the
+      plant detail page. `a0dfa06`.
+- [x] 3. Web capture side: photograph attachment with a purpose label, and typed measurements, on
+      the observation form. The upload half lives at the route layer — a feature may not import
+      `features/media`, and the route is the seam `add-plant-from-photo-panel.tsx` already uses.
+- [x] 4. Docs: `api-contract.md`, `api-design.md`, `web-application-design.md` (sections 12 and 20),
+      and the visual journal's own progress-views section, which now states what exists and that the
+      generated time-lapse is deliberately not built.
+
+Still open in P11-WEB-01: image-led cards for the plants list, taxon catalog browsing (its backend
+is genuinely absent — no catalog search endpoint, no media endpoint), and URL-shareable filter
+state. P11-MEDIA-01's symptoms and duplicate handling are untouched.

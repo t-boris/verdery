@@ -208,6 +208,10 @@ The web application requests an upload record and resumable Cloud Storage sessio
 
 The upload controller persists recoverable metadata for large imports where browser storage and security policy permit it. Raw signed session URLs are not written to analytics or ordinary logs.
 
+Attaching an uploaded photograph to a domain record is a second step, never folded into the upload. The server refuses media that has not finished validation, so an attach control appears only once the upload reaches `processed`. A photograph attached to an observation also carries a purpose label chosen by the person attaching it; the label is not defaulted silently, because a mislabelled shot lands in a comparison sequence it does not belong to and nothing downstream can tell.
+
+Uploading needs the media feature, so any form that attaches media is composed at the route layer rather than inside another feature — see section 20. The observation form receives its attachments as a prop; the route owns the list and clears it when the record succeeds.
+
 ## 13. Error Boundaries
 
 Use error boundaries at:
@@ -391,6 +395,7 @@ Critical end-to-end flows include authentication, garden creation, map editing, 
 ## 20. Dependency Rules
 
 - Features import public Core and Shared interfaces only.
+- A screen that needs two features is composed in `app/`, which may import both public surfaces. A small hook duplicated across features (a media-access read, a taxonomy picker) is preferred to a cross-feature import; a whole subsystem (media upload) is composed at the route layer instead of duplicated.
 - Shared UI does not import product features.
 - Next.js server-only modules cannot be imported by client components.
 - Firebase SDK usage remains inside authentication, App Check, messaging, or hosting adapters.

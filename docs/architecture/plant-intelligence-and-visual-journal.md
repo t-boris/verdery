@@ -275,6 +275,20 @@ The same journal data supports:
 
 Generated time-lapse files are derivatives with their own retention and publication entitlement.
 
+**Built so far, and the deliberate gap.** `ListPlantJournalFrames`
+(`GET /gardens/{gardenId}/plants/{plantId}/journal-frames`) returns a plant's photographs as an
+ordered sequence, oldest observed first, optionally narrowed to one shot purpose and bounded at 200
+frames. Narrowing is what makes consecutive frames comparable — a sequence mixing whole-plant shots
+with leaf close-ups compares nothing — and photographs carrying no purpose label are returned only
+in an unnarrowed sequence, since assigning them to one would be inventing data. The web client
+renders this as a purpose-filtered strip on the plant detail page.
+
+No time-lapse file is generated, on the owner's decision. The workers service has an image library
+and no video encoder at all, and adding one would put ffmpeg into an image whose cold start has
+already cost this environment an outage. The frames themselves need no encoder, no derivative kind,
+and no migration. Every requirement above that names a generated derivative — including the
+publication entitlement for one — therefore remains unbuilt rather than partially implemented.
+
 ## 9. Health Suggestions
 
 Image analysis produces a `plant_health_suggestion`, not a confirmed diagnosis. It contains:
