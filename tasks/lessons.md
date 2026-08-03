@@ -84,3 +84,28 @@ are final — never mid-task. For this repo that is `pnpm typecheck`, `pnpm lint
 600 limit is over the limit the repo actually states, which is "split before
 exceeding". Split it instead of shrinking a comment to fit — shrinking hides
 that the file needed splitting and guarantees the next edit fails the same way.
+
+## A wrong option name can type-check and do nothing
+
+`GoogleApiSweepTrigger` posted with no body, so every internal sweep failed
+with 400 and had never once succeeded. The fix set `body: {}`; it deployed and
+changed nothing. The client is gaxios, which serializes `data` — but its
+options extend fetch's `RequestInit`, where `body` exists, so the wrong name
+passed typecheck and was ignored at runtime.
+
+Typecheck, lint and the full unit suite passed on the broken version, because
+nothing reaches that class: it constructs its own `GoogleAuth`, so the single
+request it makes is unreachable from a test. The only signal that told the two
+versions apart was the deployed status code.
+
+**Rule:** when a fix changes what goes over the wire, "types compile and tests
+pass" is not evidence it works. Name the observable that would differ — a
+status code, a log line, a row — and go look at it after deploying.
+
+**Rule:** before adopting an unfamiliar option on a third-party client, read
+that client's own type for the field. `RequestInit` inheritance in particular
+makes plausible-but-inert options type-check.
+
+**Second-order:** three separate faults this session shipped through a code
+path no test could reach. A class that news up its own transport or auth
+client is not merely hard to test; it is where this kind of bug survives.
