@@ -78,6 +78,20 @@ gcloud iam service-accounts add-iam-policy-binding "${runtime_email}" \
   --role="roles/iam.serviceAccountUser" \
   >/dev/null
 
+# The runtime signs Cloud Storage download URLs with Application Default
+# Credentials, which have no private key — the signature is produced by calling
+# `signBlob` on the runtime's OWN service account, and that call needs this
+# role on itself. Without it every signed-download request fails deep inside
+# the storage client and surfaces as "Cloud Storage is temporarily
+# unavailable", which points at Cloud Storage rather than at IAM and sends the
+# reader looking in the wrong place entirely.
+log "Granting the runtime permission to sign blobs as itself (signed download URLs)"
+gcloud iam service-accounts add-iam-policy-binding "${runtime_email}" \
+  --project="${VERDERY_PROJECT_ID}" \
+  --member="serviceAccount:${runtime_email}" \
+  --role="roles/iam.serviceAccountTokenCreator" \
+  >/dev/null
+
 grant_project_role "serviceAccount:${runtime_email}" "roles/cloudtrace.agent"
 grant_project_role "serviceAccount:${runtime_email}" "roles/monitoring.metricWriter"
 grant_project_role "serviceAccount:${runtime_email}" "roles/logging.logWriter"
