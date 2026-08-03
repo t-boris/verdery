@@ -36,6 +36,8 @@ export const englishObservationsMessages = {
   'observations.photoRetry': 'Try the upload again',
   'observations.photoDuplicate':
     'You have already uploaded this exact photograph to this garden ({filename}). Attaching it again is fine if you meant to.',
+  'observations.photoNearDuplicate':
+    'This looks like a photograph already in this garden ({filename}) — perhaps the same shot saved again. Attaching it is fine if you meant to.',
   'observations.photoPurposeLabel': 'What this shot is',
   'observations.photoAttach': 'Attach to this observation',
   'observations.photoRemove': 'Remove this photograph',

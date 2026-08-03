@@ -70,6 +70,9 @@ export function useMediaAccess(gardenId: string, mediaId: string, enabled: boole
  *
  * The just-uploaded record is excluded by id — it matches its own checksum,
  * and reporting it would make every upload look like a duplicate of itself.
+ *
+ * For a re-encoded or resized copy, whose bytes differ, see
+ * `useSimilarMedia` below.
  */
 export function useExactDuplicateMedia(
   gardenId: string,
@@ -92,4 +95,32 @@ export function useExactDuplicateMedia(
   const duplicates = (query.data?.items ?? []).filter((media) => media.id !== excludeMediaId);
 
   return { duplicates, isPending: query.isPending };
+}
+
+/**
+ * Which of this garden's photographs LOOK like the one just uploaded.
+ *
+ * Where `useExactDuplicateMedia` compares bytes, this compares pixels: the
+ * server holds a perceptual hash of every processed image and answers with
+ * the ones within a fixed distance. That catches the case a checksum
+ * cannot — the same shot re-encoded by a phone gallery, resized, or saved
+ * to a different format.
+ *
+ * A probability, never a certainty, and the wording that presents it must
+ * say so. The server excludes the reference record itself, and answers an
+ * empty list rather than an error when it has no hash yet — so this stays
+ * quiet during the window between upload and derivative processing instead
+ * of claiming there is nothing similar.
+ */
+export function useSimilarMedia(gardenId: string, mediaId: string | null) {
+  const gateway = useMemo(() => createMediaGateway(createBrowserApiClient()), []);
+
+  const query = useQuery<MediaListResult, ApiFailureError>({
+    queryKey: ['media', gardenId, 'similar', mediaId] as const,
+    queryFn: async ({ signal }) =>
+      unwrap(await gateway.list(gardenId, { similarToMediaId: mediaId as string }, signal)),
+    enabled: mediaId !== null,
+  });
+
+  return { similar: query.data?.items ?? [], isPending: query.isPending };
 }

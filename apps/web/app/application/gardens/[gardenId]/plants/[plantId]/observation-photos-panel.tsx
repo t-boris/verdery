@@ -7,7 +7,7 @@ import type {
 import { useId, useState, type ChangeEvent } from 'react';
 
 import { useIsOnline } from '@/core/connectivity/public';
-import { useExactDuplicateMedia, useMediaUpload } from '@/features/media/public';
+import { useExactDuplicateMedia, useMediaUpload, useSimilarMedia } from '@/features/media/public';
 import { OBSERVATION_PHOTO_PURPOSES, photoPurposeLabel } from '@/features/observations/public';
 import { useLocalization } from '@/shared/localization/public';
 import { Button, CloseIcon, FailureAlert, PlusIcon, ProgressBar, Select } from '@/shared/ui/public';
@@ -65,6 +65,7 @@ export function ObservationPhotosPanel({ gardenId, value, onChange }: Observatio
   // Asked once the upload has a checksum, which is also when it has a media id
   // to exclude — a record always matches its own bytes.
   const duplicates = useExactDuplicateMedia(gardenId, upload.checksumSha256, upload.mediaId);
+  const similar = useSimilarMedia(gardenId, upload.mediaId);
   const [purpose, setPurpose] = useState<ObservationPhotoPurpose>('whole_plant');
   const [tooLarge, setTooLarge] = useState(false);
   const inputId = useId();
@@ -181,6 +182,17 @@ export function ObservationPhotosPanel({ gardenId, value, onChange }: Observatio
         <p className={styles['status']}>
           {t('observations.photoDuplicate', {
             filename: duplicates.duplicates[0]?.displayFilename ?? '',
+          })}
+        </p>
+      )}
+
+      {attachable && duplicates.duplicates.length === 0 && similar.similar.length > 0 && (
+        // Only when the bytes did NOT match: an exact duplicate is already
+        // reported above with certainty, and saying "this looks like" about
+        // the very same file would understate what is known.
+        <p className={styles['status']}>
+          {t('observations.photoNearDuplicate', {
+            filename: similar.similar[0]?.displayFilename ?? '',
           })}
         </p>
       )}

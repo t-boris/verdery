@@ -20,9 +20,11 @@ let uploadState: {
 };
 
 let duplicates: { displayFilename: string }[] = [];
+let similar: { displayFilename: string }[] = [];
 
 vi.mock('@/features/media/public', () => ({
   useExactDuplicateMedia: () => ({ duplicates, isPending: false }),
+  useSimilarMedia: () => ({ similar, isPending: false }),
   useMediaUpload: () => ({
     ...uploadState,
     startUpload: startUploadMock,
@@ -51,6 +53,7 @@ function renderPanel(
 beforeEach(() => {
   vi.clearAllMocks();
   duplicates = [];
+  similar = [];
   uploadState = {
     phase: 'idle',
     mediaId: null,
@@ -128,5 +131,24 @@ describe('ObservationPhotosPanel', () => {
     // A warning, never a block: the same photograph can legitimately belong to
     // two observations, and only the photographer knows.
     expect(screen.getByRole('button', { name: 'Attach to this observation' })).toBeTruthy();
+  });
+  it('says a photo only LOOKS like one already here, and stays quiet when the bytes matched', () => {
+    uploadState = { ...uploadState, phase: 'processed', mediaId: 'media-1' };
+    similar = [{ displayFilename: 'tomato-july.jpg' }];
+
+    const { unmount } = render(
+      <ObservationPhotosPanel gardenId="garden-1" value={[]} onChange={vi.fn()} />,
+    );
+
+    expect(screen.getByText(/looks like a photograph already in this garden/)).toBeTruthy();
+    unmount();
+
+    // An exact match is reported with certainty above; hedging about the
+    // very same file would understate what is known.
+    duplicates = [{ displayFilename: 'tomato-july.jpg' }];
+    render(<ObservationPhotosPanel gardenId="garden-1" value={[]} onChange={vi.fn()} />);
+
+    expect(screen.queryByText(/looks like a photograph already in this garden/)).toBeNull();
+    expect(screen.getByText(/already uploaded this exact photograph/)).toBeTruthy();
   });
 });

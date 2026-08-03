@@ -9210,8 +9210,10 @@ wherever the image is shown. An asset with no readable licence is skipped, not d
       Done 2026-08-03. dHash survives JPEG re-encode and resize, separates a mirrored
       image, and answers null on undecodable bytes; the column carries the same shape of
       format CHECK as `checksum_sha256`, and Hamming distance is a SQL predicate.
-- [ ] 2. Near-duplicate, web: the warning that already exists for exact matches, extended to
-      "looks like" with its own wording — a near match must never claim to be an exact one.
+- [x] 2. Near-duplicate, web: done 2026-08-03. `similarToMediaId` on the media list, a
+      `useSimilarMedia` hook, and separate wording in both languages. The near-match line is
+      suppressed when the checksum already matched — hedging about the very same file would
+      understate what is known.
 - [ ] 3. Taxon imagery: `plant_media_asset`, GBIF media fetch with per-record licence
       filtering, read surface on the taxon profile, attribution on both clients.
 - [ ] 4. Docs in the same pass: ADR-0016 §3's disposition column, the media design, and the

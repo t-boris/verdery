@@ -61,6 +61,8 @@ export interface MediaGateway {
       mediaClass?: MediaClass;
       /** Restrict to originals with these exact bytes — the duplicate check a client runs on a photo it just hashed. */
       checksumSha256?: string;
+      /** Restrict to originals whose pixels look like this record's — the near-duplicate check, which catches a re-encoded or resized copy the checksum cannot. */
+      similarToMediaId?: string;
       cursor?: string;
       limit?: number;
     },
@@ -120,6 +122,9 @@ export function createMediaGateway(client: ApiClient): MediaGateway {
       }
       if (options?.checksumSha256 !== undefined) {
         query.set('checksumSha256', options.checksumSha256);
+      }
+      if (options?.similarToMediaId !== undefined) {
+        query.set('similarToMediaId', options.similarToMediaId);
       }
       if (options?.cursor !== undefined) {
         query.set('cursor', options.cursor);

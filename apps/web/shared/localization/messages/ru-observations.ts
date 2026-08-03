@@ -27,6 +27,8 @@ export const russianObservationsMessages = {
   'observations.photoRetry': 'Повторить загрузку',
   'observations.photoDuplicate':
     'Эта же фотография уже загружена в этот сад ({filename}). Прикрепить её ещё раз можно, если вы этого и хотели.',
+  'observations.photoNearDuplicate':
+    'Похоже на снимок, который уже есть в этом саду ({filename}), — возможно, тот же кадр, сохранённый заново. Прикрепить его можно, если вы этого и хотели.',
   'observations.photoPurposeLabel': 'Что на снимке',
   'observations.photoAttach': 'Прикрепить к наблюдению',
   'observations.photoRemove': 'Убрать фотографию',
