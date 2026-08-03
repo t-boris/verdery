@@ -8977,3 +8977,18 @@ A `404` from the profile is rendered as "nothing has been assembled about this p
 failure alert: the request was well-formed and the knowledge simply does not exist. Every fact
 carries its provider and citation, because a hardiness range from a federal dataset and one from an
 occurrence record are different claims.
+
+### Defect found in this pass's own work, and closed
+
+`observation_measurement` carries `UNIQUE (observation_id, kind)` — one height, one width, one
+count per observation, because a revised measurement is a correction and a correction is a new
+observation. The measurement field shipped earlier in this pass let a reader add two rows of the
+same kind, which the server would have refused, and refused badly: the insert reaches the
+constraint mid-transaction, `runIdempotentCommand` catches every unique violation, finds no replay,
+and rethrows — a 500 for what is a client mistake.
+
+Closed on both sides. The parser refuses a duplicate kind with a validation error naming the kind
+(record and correct alike, since both write that table), and the field offers a row only the kinds
+no other row has taken, dropping the add control once all three are in use.
+`run-idempotent-command.ts`'s comment claimed the idempotency key was the only unique constraint
+reachable from `work`; that stopped being true when P11-MEDIA-01 added this one, and it now says so.

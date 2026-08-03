@@ -16,8 +16,8 @@ export interface ObservationMeasurementsFieldProps {
   readonly onChange: (value: readonly ObservationMeasurementInput[]) => void;
 }
 
-/** A row starts as a height in centimetres because that is the measurement a gardener records most often; every part of it is editable. */
-const NEW_ROW: ObservationMeasurementInput = { kind: 'height', value: 0, unit: 'cm' };
+/** A new row starts in centimetres because that is what a gardener measures a plant in; the kind is whichever one is still free. */
+const NEW_ROW_UNIT = 'cm';
 
 /**
  * The typed measurements an observation may carry — height, width, or count
@@ -29,6 +29,13 @@ const NEW_ROW: ObservationMeasurementInput = { kind: 'height', value: 0, unit: '
  * watching them, and a field array would put a growing structure into that
  * draft for no gain here. Rows are plain state and are submitted as they
  * stand.
+ *
+ * One row per kind, because `observation_measurement_unique_kind` allows one
+ * height, one width, and one count per observation — a second of the same kind
+ * is a correction, and a correction is a new observation. The kind picker
+ * therefore offers only kinds no other row has taken, and the add control
+ * disappears once all three are in use. Offering the duplicate would produce a
+ * server refusal for a rule the reader was never shown.
  *
  * `unit` is a free string in the contract, with no vocabulary fixed anywhere
  * in this repository — so this field does not invent one. The placeholder
@@ -48,15 +55,19 @@ export function ObservationMeasurementsField({
     onChange(value.map((existing, position) => (position === index ? row : existing)));
   };
 
+  const takenKinds = new Set(value.map((measurement) => measurement.kind));
+  const freeKind = OBSERVATION_MEASUREMENT_KINDS.find((kind) => !takenKinds.has(kind));
+
   return (
     <fieldset className={styles['field']}>
       <legend className={styles['legend']}>{t('observations.measurementsLegend')}</legend>
 
       {value.map((measurement, index) => (
-        // The index is the identity here: rows carry no id of their own until
-        // the server assigns one, and two rows can legitimately be identical
-        // (two counts of different things, both still unnamed).
-        <div className={styles['row']} key={index}>
+        // Keyed by kind, which is unique across rows by construction: rows
+        // carry no id until the server assigns one, and an index key would
+        // move a reader's focus to a different row when an earlier one is
+        // removed.
+        <div className={styles['row']} key={measurement.kind}>
           <Select
             label={t('observations.measurementKindLabel')}
             value={measurement.kind}
@@ -66,7 +77,9 @@ export function ObservationMeasurementsField({
                 kind: event.target.value as ObservationMeasurementKind,
               })
             }
-            options={OBSERVATION_MEASUREMENT_KINDS.map((kind) => ({
+            options={OBSERVATION_MEASUREMENT_KINDS.filter(
+              (kind) => kind === measurement.kind || !takenKinds.has(kind),
+            ).map((kind) => ({
               value: kind,
               label: t(measurementKindLabel(kind)),
             }))}
@@ -102,10 +115,15 @@ export function ObservationMeasurementsField({
         </div>
       ))}
 
-      <Button variant="secondary" onClick={() => onChange([...value, NEW_ROW])}>
-        <PlusIcon />
-        {t('observations.measurementAdd')}
-      </Button>
+      {freeKind !== undefined && (
+        <Button
+          variant="secondary"
+          onClick={() => onChange([...value, { kind: freeKind, value: 0, unit: NEW_ROW_UNIT }])}
+        >
+          <PlusIcon />
+          {t('observations.measurementAdd')}
+        </Button>
+      )}
     </fieldset>
   );
 }

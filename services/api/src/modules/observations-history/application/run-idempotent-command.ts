@@ -63,12 +63,19 @@ export async function runIdempotentCommand<T>(
       return result;
     });
   } catch (error) {
-    // The only unique constraint any statement in `work` can hit is the
-    // idempotency record's own primary key: `RecordObservation` and
-    // `CorrectObservation` always write freshly generated UUIDv7 ids for
-    // every row they insert, which cannot collide. A true concurrent
-    // duplicate request lost the race to `save`; the winner's result,
-    // committed under the same key, is authoritative.
+    // Every id `work` inserts is a freshly generated UUIDv7 and cannot
+    // collide, so the unique violation this recovers from is the idempotency
+    // record's own key: a true concurrent duplicate request lost the race to
+    // `save`, and the winner's result, committed under the same key, is
+    // authoritative.
+    //
+    // It is no longer the ONLY unique constraint reachable from here —
+    // P11-MEDIA-01 added `observation_measurement_unique_kind` — which is why
+    // the recheck below is what decides. A violation that is not a lost race
+    // finds no replay and is rethrown rather than being reported as a
+    // successful duplicate. Requests that would hit that constraint are
+    // refused at the transport boundary (`parse-observation-request.ts`), so
+    // reaching it here means a defect, not ordinary client input.
     if (!isUniqueViolation(error)) {
       throw error;
     }

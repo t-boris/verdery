@@ -29,6 +29,42 @@ describe('ObservationMeasurementsField', () => {
     expect(onChange).toHaveBeenCalledWith([{ kind: 'height', value: 0, unit: 'cm' }]);
   });
 
+  it('adds the next free kind rather than a second row of one already taken', () => {
+    // `observation_measurement_unique_kind` permits one row per kind; a second
+    // height would be refused by the server for a rule the reader never saw.
+    const onChange = renderField([{ kind: 'height', value: 10, unit: 'cm' }]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add a measurement' }));
+
+    expect(onChange).toHaveBeenCalledWith([
+      { kind: 'height', value: 10, unit: 'cm' },
+      { kind: 'width', value: 0, unit: 'cm' },
+    ]);
+  });
+
+  it('stops offering to add once every kind is in use', () => {
+    renderField([
+      { kind: 'height', value: 10, unit: 'cm' },
+      { kind: 'width', value: 20, unit: 'cm' },
+      { kind: 'count', value: 3, unit: 'pcs' },
+    ]);
+
+    expect(screen.queryByRole('button', { name: 'Add a measurement' })).toBeNull();
+  });
+
+  it('offers a row only the kinds no other row has taken', () => {
+    renderField([
+      { kind: 'height', value: 10, unit: 'cm' },
+      { kind: 'count', value: 3, unit: 'pcs' },
+    ]);
+
+    const [heightRow] = screen.getAllByLabelText('Measurement');
+    const offered = [...(heightRow as HTMLSelectElement).options].map((option) => option.value);
+    // Its own kind stays selectable — otherwise the control would show a value
+    // that is not among its options.
+    expect(offered).toEqual(['height', 'width']);
+  });
+
   it('keeps the unit the reader typed rather than a vocabulary this client invented', () => {
     const onChange = renderField([{ kind: 'width', value: 40, unit: 'cm' }]);
 

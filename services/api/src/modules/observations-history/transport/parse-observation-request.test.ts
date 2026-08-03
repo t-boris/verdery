@@ -1,6 +1,7 @@
 /**
- * The journal-frame sequence's query parsing (P11-MEDIA-01). Pure input
- * validation, so it is tested here rather than through the HTTP suite —
+ * P11-MEDIA-01's request parsing: the journal-frame sequence's query, and the
+ * one-row-per-measurement-kind rule the observation body must satisfy. Pure
+ * input validation, so it is tested here rather than through the HTTP suite —
  * `tests/http/observation-routes.test.ts` needs a real migrated database for
  * what it covers, and none of these cases needs one.
  */
@@ -8,7 +9,11 @@
 import { describe, expect, it } from 'vitest';
 import { ValidationError } from '../../../platform/errors/application-error.js';
 import { ListPlantJournalFrames } from '../application/list-plant-journal-frames.js';
-import { parseJournalFramesQuery } from './parse-observation-request.js';
+import {
+  parseCorrectObservationRequest,
+  parseJournalFramesQuery,
+  parseRecordObservationRequest,
+} from './parse-observation-request.js';
 
 describe('parseJournalFramesQuery', () => {
   it('returns an unnarrowed sequence at the full bound when the query is empty', () => {
@@ -56,5 +61,46 @@ describe('parseJournalFramesQuery', () => {
       purpose: null,
       limit: ListPlantJournalFrames.MAX_FRAMES,
     });
+  });
+});
+
+describe('parseRecordObservationRequest — measurements', () => {
+  it('accepts one measurement of each kind', () => {
+    const parsed = parseRecordObservationRequest({
+      noteText: 'Note',
+      measurements: [
+        { kind: 'height', value: 40, unit: 'cm' },
+        { kind: 'width', value: 25, unit: 'cm' },
+      ],
+    });
+
+    expect(parsed.measurements).toHaveLength(2);
+  });
+
+  it('refuses a second measurement of a kind already present', () => {
+    // `observation_measurement_unique_kind` permits one row per kind. Without
+    // this check the insert reaches that constraint mid-transaction, where a
+    // client mistake surfaces as a 500 with nothing naming the cause.
+    expect(() =>
+      parseRecordObservationRequest({
+        noteText: 'Note',
+        measurements: [
+          { kind: 'height', value: 40, unit: 'cm' },
+          { kind: 'height', value: 41, unit: 'cm' },
+        ],
+      }),
+    ).toThrow(ValidationError);
+  });
+
+  it('applies the same rule to a correction, which writes the same table', () => {
+    expect(() =>
+      parseCorrectObservationRequest({
+        correctionKind: 'amendment',
+        measurements: [
+          { kind: 'count', value: 3, unit: 'pcs' },
+          { kind: 'count', value: 4, unit: 'pcs' },
+        ],
+      }),
+    ).toThrow(ValidationError);
   });
 });

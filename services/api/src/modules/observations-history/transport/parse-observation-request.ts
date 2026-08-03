@@ -121,11 +121,29 @@ function measurementInputs(
   if (!Array.isArray(value)) {
     throw invalid(`${pointer} must be an array.`, 'request.invalid', pointer);
   }
+
+  const seenKinds = new Set<string>();
   return value.map((entry, index) => {
     const entryPointer = `${pointer}/${String(index)}`;
     const entryRecord = requireRecord(entry, entryPointer);
+    const kind = requireString(entryRecord['kind'], `${entryPointer}/kind`);
+
+    // `observation_measurement_unique_kind` allows one height, one width, and
+    // one count per observation — a second of the same kind is a correction,
+    // which is a new observation rather than a second row. Refused here
+    // because the alternative is reaching that constraint mid-transaction,
+    // where a client mistake surfaces as a 500 with nothing naming the cause.
+    if (seenKinds.has(kind)) {
+      throw invalid(
+        `${pointer} may carry at most one measurement of each kind; ${kind} appears more than once.`,
+        'request.invalid',
+        `${entryPointer}/kind`,
+      );
+    }
+    seenKinds.add(kind);
+
     return {
-      kind: requireString(entryRecord['kind'], `${entryPointer}/kind`),
+      kind,
       value: requireNumber(entryRecord['value'], `${entryPointer}/value`),
       unit: requireString(entryRecord['unit'], `${entryPointer}/unit`),
     };
