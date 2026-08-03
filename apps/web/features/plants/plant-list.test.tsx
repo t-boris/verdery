@@ -134,12 +134,15 @@ describe('PlantList — loading and failure states', () => {
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
   });
 
-  it('shows the empty message when a search matches nothing', () => {
+  it('shows the empty message when the garden holds no plants', () => {
     mockSearchResult(queryResult({ items: [] }));
 
     renderList();
 
-    expect(screen.getByText('No plants match your search yet.')).toBeTruthy();
+    // The unfiltered case. The filtered one has its own message and its own
+    // undo — see "distinguishes a garden with no plants from filters that
+    // match none".
+    expect(screen.getByText('This garden has no plants yet.')).toBeTruthy();
   });
 
   it('keeps already-loaded plants visible with the stale indicator on a connectivity failure', () => {
@@ -342,5 +345,30 @@ describe('PlantList — filters in the URL', () => {
       'garden-1',
       expect.objectContaining({ identified: null, healthConcern: null }),
     );
+  });
+  it('distinguishes a garden with no plants from filters that match none', () => {
+    mockSearchResult(queryResult({ items: [] }));
+    renderList();
+    expect(screen.getByText('This garden has no plants yet.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Clear filters' })).toBeNull();
+
+    fireEvent.change(screen.getByLabelText('Search by name'), { target: { value: 'basil' } });
+
+    // Only the second is something the reader can undo, so only the second
+    // offers the undo.
+    expect(screen.getByText(/No plant matches these filters/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Clear filters' })).toBeTruthy();
+  });
+
+  it('clearing the filters empties the query string too', () => {
+    currentSearch = 'q=basil&identified=identified';
+    mockSearchResult(queryResult({ items: [] }));
+    renderList();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+
+    expect(replaceMock).toHaveBeenLastCalledWith('/application/gardens/garden-1/plants', {
+      scroll: false,
+    });
   });
 });

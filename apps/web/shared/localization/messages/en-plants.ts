@@ -24,7 +24,10 @@ export const englishPlantsMessages = {
   'plants.listLoading': 'Loading plants.',
   'plants.listLoadingMore': 'Loading more plants.',
   'plants.listRetry': 'Try again',
-  'plants.listEmpty': 'No plants match your search yet.',
+  'plants.listEmptyForFilters':
+    'No plant matches these filters. This garden may still have plants that do not.',
+  'plants.clearFilters': 'Clear filters',
+  'plants.listEmpty': 'This garden has no plants yet.',
   'plants.listLoadMore': 'Load more',
   'plants.openByIdTitle': 'Open a plant',
   'plants.openByIdLabel': 'Plant ID',

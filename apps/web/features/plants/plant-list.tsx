@@ -22,6 +22,7 @@ import { PLANT_STATUSES, groupingKindLabel, lifecycleStageLabel, statusLabel } f
 import { usePlantPhotoAccess } from './plant-media-queries';
 import styles from './plant-list.module.css';
 import {
+  EMPTY_PLANT_LIST_FILTERS,
   readPlantListFilters,
   writePlantListFilters,
   type IdentifiedFilter,
@@ -184,6 +185,9 @@ export function PlantList({ gardenId }: PlantListProps) {
     setCursor(currentPage.nextCursor);
   };
 
+  // Any narrowing at all, including the search box — the reader does not
+  // distinguish "a filter" from "what I typed" when nothing comes back.
+  const isFiltered = writePlantListFilters(filters) !== '';
   const isFirstLoad = query.isPending && priorItems.length === 0;
   const isLoadingMore = query.isPending && priorItems.length > 0;
   // A failed fetch with nothing already loaded is a full failure state —
@@ -261,7 +265,20 @@ export function PlantList({ gardenId }: PlantListProps) {
           )}
 
           {!isFirstLoad && items.length === 0 && (
-            <p className={styles['empty']}>{t('plants.listEmpty')}</p>
+            // "This garden has no plants" and "none match this filter" are
+            // different situations, and only the second is one the reader can
+            // undo — so the second offers the undo rather than leaving them to
+            // work out which they hit.
+            <div className={styles['emptyState']}>
+              <p className={styles['empty']}>
+                {isFiltered ? t('plants.listEmptyForFilters') : t('plants.listEmpty')}
+              </p>
+              {isFiltered && (
+                <Button variant="secondary" onClick={() => applyFilters(EMPTY_PLANT_LIST_FILTERS)}>
+                  {t('plants.clearFilters')}
+                </Button>
+              )}
+            </div>
           )}
 
           {items.length > 0 && (

@@ -16,7 +16,10 @@ export const russianPlantsMessages = {
   'plants.listLoading': 'Загрузка растений.',
   'plants.listLoadingMore': 'Загрузка дополнительных растений.',
   'plants.listRetry': 'Повторить',
-  'plants.listEmpty': 'По вашему запросу растения не найдены.',
+  'plants.listEmptyForFilters':
+    'Под эти фильтры не подходит ни одно растение. В саду могут быть другие.',
+  'plants.clearFilters': 'Сбросить фильтры',
+  'plants.listEmpty': 'В этом саду пока нет растений.',
   'plants.listLoadMore': 'Загрузить ещё',
   'plants.openByIdTitle': 'Открыть растение',
   'plants.openByIdLabel': 'ID растения',
