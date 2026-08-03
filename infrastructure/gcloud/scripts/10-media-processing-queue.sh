@@ -62,6 +62,19 @@ else
     --display-name="Verdery ${VERDERY_ENVIRONMENT} worker (media-processing relay)"
 fi
 
+# Cloud Run refuses to deploy a service that RUNS AS an identity the deploying
+# principal cannot act as, and it refuses within seconds, before any container
+# is pulled — which reads as an unexplained "Deployment failed" rather than as
+# a permission problem. 05-service-accounts.sh grants this for the API's own
+# runtime identity; the worker's is created here, so the matching grant
+# belongs here too.
+log "Granting the deployer permission to act as ${VERDERY_WORKER_SERVICE_ACCOUNT_ID}"
+gcloud iam service-accounts add-iam-policy-binding "${worker_email}" \
+  --project="${VERDERY_PROJECT_ID}" \
+  --member="serviceAccount:${VERDERY_DEPLOY_SERVICE_ACCOUNT_ID}@${VERDERY_PROJECT_ID}.iam.gserviceaccount.com" \
+  --role=roles/iam.serviceAccountUser \
+  --quiet >/dev/null
+
 grant_project_role() {
   local member="${1}" role="${2}"
   local attempts=0
