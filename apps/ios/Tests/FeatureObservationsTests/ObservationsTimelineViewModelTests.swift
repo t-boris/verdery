@@ -186,6 +186,58 @@ struct ObservationsTimelineViewModelTests {
 
     // MARK: - Offline routing (P5-IOS-02, Stage 4d)
 
+    @Test("Adding measurements walks the free kinds and stops when every kind is taken")
+    func measurementRowsAreOnePerKind() async {
+        let model = makeModel(gateway: FakeObservationGateway())
+
+        model.addMeasurement()
+        model.addMeasurement()
+        model.addMeasurement()
+        model.addMeasurement()
+
+        // `observation_measurement_unique_kind` permits one row per kind, so a
+        // fourth row would be refused by the server for a rule the observer
+        // was never shown.
+        #expect(model.recordMeasurements.map(\.kind) == [.height, .width, .count])
+        #expect(model.nextFreeMeasurementKind == nil)
+    }
+
+    @Test("A row may switch to its own kind or a free one, never to one another row holds")
+    func measurementKindOptionsExcludeTakenKinds() async {
+        let model = makeModel(gateway: FakeObservationGateway())
+        model.addMeasurement()
+        model.addMeasurement()
+
+        let heightRow = model.recordMeasurements[0]
+
+        #expect(model.availableMeasurementKinds(for: heightRow) == [.height, .count])
+    }
+
+    @Test("Removing a row frees its kind again")
+    func removingAMeasurementFreesItsKind() async {
+        let model = makeModel(gateway: FakeObservationGateway())
+        model.addMeasurement()
+        model.addMeasurement()
+
+        model.removeMeasurement(.height)
+
+        #expect(model.recordMeasurements.map(\.kind) == [.width])
+        #expect(model.nextFreeMeasurementKind == .height)
+    }
+
+    @Test("A recorded observation clears its measurements rather than carrying them into the next one")
+    func measurementsResetAfterSubmit() async {
+        let model = makeModel(gateway: FakeObservationGateway())
+        model.recordNoteText = "Taller than last month"
+        model.addMeasurement()
+
+        await model.submitRecordObservation()
+
+        // Carrying them over would attach last week's height to this week's
+        // observation as if it had been measured again.
+        #expect(model.recordMeasurements.isEmpty)
+    }
+
     @Test("A recorded observation returns the shot purpose to the default instead of carrying it over")
     func recordPhotoPurposeResetsAfterSubmit() async {
         let gateway = FakeObservationGateway()

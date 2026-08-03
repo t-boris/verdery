@@ -48,6 +48,7 @@ public struct GardenObservation: Equatable, Sendable, Identifiable {
     public let observedAt: Date
     public let recordedAt: Date
     public let photos: [ObservationPhoto]
+    public let measurements: [ObservationMeasurement]
 
     public init(
         id: String,
@@ -63,7 +64,13 @@ public struct GardenObservation: Equatable, Sendable, Identifiable {
         isCorrected: Bool,
         observedAt: Date,
         recordedAt: Date,
-        photos: [ObservationPhoto]
+        photos: [ObservationPhoto],
+        // Defaulted because every existing construction site — the offline
+        // projection, the sync applier, and a dozen tests — builds an
+        // observation this device has no server-assigned measurement rows
+        // for. A required parameter would make each of them write `[]`
+        // explicitly for no gain.
+        measurements: [ObservationMeasurement] = []
     ) {
         self.id = id
         self.gardenId = gardenId
@@ -79,5 +86,6 @@ public struct GardenObservation: Equatable, Sendable, Identifiable {
         self.observedAt = observedAt
         self.recordedAt = recordedAt
         self.photos = photos
+        self.measurements = measurements
     }
 }

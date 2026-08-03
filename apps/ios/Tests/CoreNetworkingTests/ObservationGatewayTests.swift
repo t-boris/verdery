@@ -39,7 +39,8 @@ struct ObservationGatewayTests {
           "isCorrected": false,
           "observedAt": "2026-01-01T00:00:00.000Z",
           "recordedAt": "2026-01-01T00:00:00.000Z",
-          "photos": []
+          "photos": [],
+          "measurements": []
         }
         """#
 
@@ -119,6 +120,7 @@ struct ObservationGatewayTests {
             conditionSummary: nil,
             observedAt: nil,
             photos: [],
+            measurements: [],
             idempotencyKey: "idem-1"
         )
 
@@ -150,6 +152,7 @@ struct ObservationGatewayTests {
             conditionSummary: nil,
             observedAt: Date(timeIntervalSince1970: 0),
             photos: [],
+            measurements: [],
             idempotencyKey: "idem-2"
         )
 
@@ -202,6 +205,7 @@ struct ObservationGatewayTests {
             noteText: "Actually it was pest damage",
             conditionSummary: nil,
             photos: [],
+            measurements: [],
             idempotencyKey: "idem-3"
         )
 

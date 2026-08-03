@@ -380,7 +380,8 @@ struct PlantGatewayTests {
               "isCorrected": false,
               "observedAt": "2026-01-01T00:00:00.000Z",
               "recordedAt": "2026-01-01T00:00:00.000Z",
-              "photos": []
+              "photos": [],
+              "measurements": []
             }
             """#
         let gateway = makeGateway(identifier: identifier, answer: .json(201, observationJSON))

@@ -62,6 +62,12 @@ public final class ObservationsTimelineViewModel {
     /// shot, and the one setting a reader is most likely to mean — but is
     /// always visible and always chosen, never applied behind their back.
     public var recordPhotoPurpose: ObservationPhotoPurpose = .wholePlant
+    /// The typed measurements this observation will carry. At most one per
+    /// kind — `observation_measurement_unique_kind` — so the form offers only
+    /// kinds no row has taken, and stops offering to add once all three are
+    /// in use. A rule the server enforces should not first appear as a
+    /// refusal.
+    public var recordMeasurements: [ObservationMeasurementInput] = []
     public var recordObservedAt: Date = .now
     public private(set) var isSubmittingRecord = false
     public private(set) var recordErrorMessage: String?
@@ -176,6 +182,48 @@ public final class ObservationsTimelineViewModel {
 
     public func photoPurposeName(_ purpose: ObservationPhotoPurpose) -> String {
         ObservationsLocalization.photoPurposeName(purpose, strings: strings)
+    }
+
+    public var measurementsLegend: String { strings(.observationsMeasurementsLegend) }
+    public var measurementKindLabel: String { strings(.observationsMeasurementKindLabel) }
+    public var measurementValueLabel: String { strings(.observationsMeasurementValueLabel) }
+    public var measurementUnitLabel: String { strings(.observationsMeasurementUnitLabel) }
+    public var measurementUnitPlaceholder: String { strings(.observationsMeasurementUnitPlaceholder) }
+    public var measurementAddTitle: String { strings(.observationsMeasurementAdd) }
+    public var measurementRemoveTitle: String { strings(.observationsMeasurementRemove) }
+
+    public func measurementKindName(_ kind: ObservationMeasurementKind) -> String {
+        ObservationsLocalization.measurementKindName(kind, strings: strings)
+    }
+
+    /// The kinds a given row may switch to: its own, plus any no other row
+    /// holds.
+    public func availableMeasurementKinds(
+        for measurement: ObservationMeasurementInput
+    ) -> [ObservationMeasurementKind] {
+        let taken = Set(recordMeasurements.map(\.kind))
+        return ObservationMeasurementKind.allCases.filter {
+            $0 == measurement.kind || !taken.contains($0)
+        }
+    }
+
+    /// The kind a new row would take, or `nil` when every kind is in use —
+    /// which is what hides the add control.
+    public var nextFreeMeasurementKind: ObservationMeasurementKind? {
+        let taken = Set(recordMeasurements.map(\.kind))
+        return ObservationMeasurementKind.allCases.first { !taken.contains($0) }
+    }
+
+    public func addMeasurement() {
+        guard let kind = nextFreeMeasurementKind else { return }
+        // Centimetres because that is what a plant is measured in; every part
+        // of the row stays editable, and the unit is a free string on the
+        // contract, so nothing here fixes a vocabulary.
+        recordMeasurements.append(ObservationMeasurementInput(kind: kind, value: 0, unit: "cm"))
+    }
+
+    public func removeMeasurement(_ kind: ObservationMeasurementKind) {
+        recordMeasurements.removeAll { $0.kind == kind }
     }
     /// Whether the record form's submit action should be disabled: a photo
     /// pick is in progress but not yet `.ready` — submitting now would
@@ -307,7 +355,13 @@ public final class ObservationsTimelineViewModel {
                 noteText: note.isEmpty ? nil : note,
                 conditionSummary: condition.isEmpty ? nil : condition,
                 observedAt: recordHasObservedAt ? recordObservedAt : nil,
-                photos: photos
+                photos: photos,
+                // A row left without a unit is not a measurement: `unit` has a
+                // `minLength` of 1, and sending the blank row would lose the
+                // whole observation over something the observer abandoned.
+                measurements: recordMeasurements.filter {
+                    !$0.unit.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                }
             )
             resetRecordForm()
             // The row now owns this photo's `mediaId` server-side —
@@ -412,6 +466,7 @@ public final class ObservationsTimelineViewModel {
 
     private func resetRecordForm() {
         recordPhotoPurpose = .wholePlant
+        recordMeasurements = []
         recordNoteText = ""
         recordConditionSummary = ""
         recordPlantId = ""

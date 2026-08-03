@@ -9017,3 +9017,11 @@ Still open on iOS: measurement entry, and a view that shows the journal sequence
    A frame whose signed URL will not resolve is dropped rather than failing the sequence: one
    expired signature must not hide a decade of photographs. Both empty states are distinct, as on
    web.
+
+4. Measurements on iOS: the domain types, the read side (`GardenObservation.measurements`, which
+   the transport had been dropping entirely), and entry on the record sheet with the same
+   one-row-per-kind rule the web form carries. Both write paths — offline outbox payload and online
+   gateway — now send what the observer entered; the payload had been hardcoding `[]`.
+
+   Two gateway test fixtures were missing `measurements` from their `Observation` JSON. The contract
+   requires it, so decoding them was passing only because this client did not read the field.

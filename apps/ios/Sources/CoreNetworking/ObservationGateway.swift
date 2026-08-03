@@ -23,6 +23,7 @@ public protocol ObservationGateway: Sendable {
         conditionSummary: String?,
         observedAt: Date?,
         photos: [ObservationPhotoAttachment],
+        measurements: [ObservationMeasurementInput],
         idempotencyKey: String
     ) async throws -> GardenObservation
 
@@ -52,6 +53,7 @@ public protocol ObservationGateway: Sendable {
         noteText: String?,
         conditionSummary: String?,
         photos: [ObservationPhotoAttachment],
+        measurements: [ObservationMeasurementInput],
         idempotencyKey: String
     ) async throws -> GardenObservation
 
@@ -97,6 +99,7 @@ public struct URLSessionObservationGateway: ObservationGateway {
         conditionSummary: String?,
         observedAt: Date?,
         photos: [ObservationPhotoAttachment],
+        measurements: [ObservationMeasurementInput],
         idempotencyKey: String
     ) async throws -> GardenObservation {
         let result: ObservationTransport = try await transport.send(
@@ -108,7 +111,8 @@ public struct URLSessionObservationGateway: ObservationGateway {
                 noteText: noteText,
                 conditionSummary: conditionSummary,
                 observedAt: observedAt,
-                photos: photos.map(ObservationPhotoAttachmentRequestTransport.init(attachment:))
+                photos: photos.map(ObservationPhotoAttachmentRequestTransport.init(attachment:)),
+                measurements: measurements.map(ObservationMeasurementInputTransport.init(measurement:))
             ),
             headers: [APIConfiguration.idempotencyKeyHeader: idempotencyKey],
             acceptedStatusCodes: [201]
@@ -164,6 +168,7 @@ public struct URLSessionObservationGateway: ObservationGateway {
         noteText: String?,
         conditionSummary: String?,
         photos: [ObservationPhotoAttachment],
+        measurements: [ObservationMeasurementInput],
         idempotencyKey: String
     ) async throws -> GardenObservation {
         let result: ObservationTransport = try await transport.send(
@@ -173,7 +178,8 @@ public struct URLSessionObservationGateway: ObservationGateway {
                 correctionKind: correctionKind,
                 noteText: noteText,
                 conditionSummary: conditionSummary,
-                photos: photos.map(ObservationPhotoAttachmentRequestTransport.init(attachment:))
+                photos: photos.map(ObservationPhotoAttachmentRequestTransport.init(attachment:)),
+                measurements: measurements.map(ObservationMeasurementInputTransport.init(measurement:))
             ),
             headers: [APIConfiguration.idempotencyKeyHeader: idempotencyKey],
             acceptedStatusCodes: [201]

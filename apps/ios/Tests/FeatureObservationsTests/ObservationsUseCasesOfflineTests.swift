@@ -205,6 +205,40 @@ struct ObservationsUseCasesOfflineTests {
         #expect(photos == [["mediaId": "media-42", "purpose": "leaf_front"]])
     }
 
+    @Test("RecordObservation puts the entered measurements in the outbox payload")
+    func recordObservationCarriesMeasurements() async throws {
+        let dbQueue = try makeDatabase()
+        let store = GRDBObservationStore(dbQueue: dbQueue)
+        let outbox = GRDBSyncOutboxStore(dbQueue: dbQueue)
+        let recordObservation = RecordObservation(
+            localStore: store,
+            profileId: "profile-1",
+            generateOperationId: { "operation-1" },
+            generateObservationId: { "obs-1" }
+        )
+
+        _ = try await recordObservation(
+            gardenId: "garden-1",
+            noteText: "Taller than last month",
+            measurements: [
+                ObservationMeasurementInput(kind: .height, value: 42.5, unit: "cm"),
+                ObservationMeasurementInput(kind: .count, value: 3, unit: "pcs"),
+            ]
+        )
+
+        let operation = try #require(try await outbox.fetchAll().first)
+        let json = try decodedPayloadJSON(operation)
+        let command = try #require(json["command"] as? [String: Any])
+        let request = try #require(command["request"] as? [String: Any])
+        let measurements = try #require(request["measurements"] as? [[String: Any]])
+
+        // The payload used to send `[]` unconditionally: a measurement entered
+        // offline reached nothing at all.
+        #expect(measurements.count == 2)
+        #expect(measurements.first?["kind"] as? String == "height")
+        #expect(measurements.first?["unit"] as? String == "cm")
+    }
+
     // MARK: - CorrectObservation
 
     @Test("CorrectObservation writes a local projection and an observations.correct outbox row")

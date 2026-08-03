@@ -33,6 +33,7 @@ struct ObservationRecordSheetView: View {
                 VStack(alignment: .leading, spacing: Metrics.space5) {
                     photoSection
                     noteSection
+                    measurementsSection
                     targetSection
                     timingSection
 
@@ -204,6 +205,63 @@ struct ObservationRecordSheetView: View {
                     .textFieldStyle(.roundedBorder)
                     .lineLimit(2...4)
                     .accessibilityIdentifier("observations.record.conditionField")
+                }
+            }
+        }
+    }
+
+    /// Typed measurements, one row per kind. The kind picker offers only what
+    /// no other row holds and the add control disappears once all three are
+    /// in use, because `observation_measurement_unique_kind` permits exactly
+    /// one of each — a rule the server enforces should not first reach the
+    /// observer as a refusal.
+    private var measurementsSection: some View {
+        VStack(alignment: .leading, spacing: Metrics.space2) {
+            SectionEyebrow(symbol: "ruler", title: model.measurementsLegend)
+
+            SurfaceCard {
+                VStack(alignment: .leading, spacing: Metrics.space3) {
+                    ForEach($model.recordMeasurements) { $measurement in
+                        VStack(alignment: .leading, spacing: Metrics.space2) {
+                            Picker(model.measurementKindLabel, selection: $measurement.kind) {
+                                ForEach(model.availableMeasurementKinds(for: measurement), id: \.self) { kind in
+                                    Text(model.measurementKindName(kind)).tag(kind)
+                                }
+                            }
+                            .accessibilityIdentifier("observations.record.measurement.kind")
+
+                            TextField(
+                                model.measurementValueLabel,
+                                value: $measurement.value,
+                                format: .number
+                            )
+                            .textFieldStyle(.roundedBorder)
+                            #if os(iOS)
+                                .keyboardType(.decimalPad)
+                            #endif
+                            .accessibilityIdentifier("observations.record.measurement.value")
+
+                            TextField(model.measurementUnitLabel, text: $measurement.unit)
+                                .textFieldStyle(.roundedBorder)
+                                .accessibilityIdentifier("observations.record.measurement.unit")
+
+                            CompactActionButton(
+                                symbol: "trash",
+                                title: model.measurementRemoveTitle,
+                                tone: .negative
+                            ) {
+                                model.removeMeasurement(measurement.kind)
+                            }
+                            .accessibilityIdentifier("observations.record.measurement.remove")
+                        }
+                    }
+
+                    if model.nextFreeMeasurementKind != nil {
+                        CompactActionButton(symbol: "plus", title: model.measurementAddTitle) {
+                            model.addMeasurement()
+                        }
+                        .accessibilityIdentifier("observations.record.measurement.add")
+                    }
                 }
             }
         }

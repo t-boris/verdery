@@ -951,3 +951,15 @@
 "observations.journal.empty" = "No photographs have been attached to this plant yet.";
 "observations.journal.emptyForPurpose" = "No photographs of this kind yet. Try another shot type.";
 "observations.journal.openButton" = "Photo journal";
+
+/* Visual plant journal — typed measurements recorded with an observation (P11-MEDIA-01). */
+"observations.measurements.legend" = "Measurements";
+"observations.measurements.kindLabel" = "Measurement";
+"observations.measurements.valueLabel" = "Value";
+"observations.measurements.unitLabel" = "Unit";
+"observations.measurements.unitPlaceholder" = "cm, m, pcs";
+"observations.measurements.add" = "Add a measurement";
+"observations.measurements.remove" = "Remove this measurement";
+"observations.measurementKind.height" = "Height";
+"observations.measurementKind.width" = "Width";
+"observations.measurementKind.count" = "Count";

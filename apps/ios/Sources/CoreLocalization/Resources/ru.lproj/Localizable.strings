@@ -950,3 +950,15 @@
 "observations.journal.empty" = "К этому растению ещё не прикреплено ни одной фотографии.";
 "observations.journal.emptyForPurpose" = "Снимков такого вида пока нет. Выберите другой тип съёмки.";
 "observations.journal.openButton" = "Фотодневник";
+
+/* Visual plant journal — typed measurements recorded with an observation (P11-MEDIA-01). */
+"observations.measurements.legend" = "Измерения";
+"observations.measurements.kindLabel" = "Что измеряется";
+"observations.measurements.valueLabel" = "Значение";
+"observations.measurements.unitLabel" = "Единица";
+"observations.measurements.unitPlaceholder" = "см, м, шт";
+"observations.measurements.add" = "Добавить измерение";
+"observations.measurements.remove" = "Убрать измерение";
+"observations.measurementKind.height" = "Высота";
+"observations.measurementKind.width" = "Ширина";
+"observations.measurementKind.count" = "Количество";

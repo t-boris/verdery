@@ -44,6 +44,7 @@ final class FakeObservationGateway: ObservationGateway, @unchecked Sendable {
         conditionSummary: String?,
         observedAt: Date?,
         photos: [ObservationPhotoAttachment],
+        measurements: [ObservationMeasurementInput],
         idempotencyKey: String
     ) async throws -> GardenObservation {
         if let nextRecordFailure {
@@ -102,6 +103,7 @@ final class FakeObservationGateway: ObservationGateway, @unchecked Sendable {
         noteText: String?,
         conditionSummary: String?,
         photos: [ObservationPhotoAttachment],
+        measurements: [ObservationMeasurementInput],
         idempotencyKey: String
     ) async throws -> GardenObservation {
         if let nextCorrectionFailure {

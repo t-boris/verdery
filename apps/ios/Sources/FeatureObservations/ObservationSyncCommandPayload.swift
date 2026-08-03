@@ -94,11 +94,17 @@ enum ObservationSyncCommand: Encodable {
 /// photograph names the shot purpose chosen for it alongside its media id.
 /// The record sheet asks for that label whenever a photograph is attached
 /// (P11-IOS-01); nothing is stamped on the way out.
-/// Mirrors `ObservationMeasurementInput`. Not yet produced by this client.
+/// Mirrors `ObservationMeasurementInput`.
 struct ObservationMeasurementInputPayload: Encodable {
     let kind: String
     let value: Double
     let unit: String
+
+    init(measurement: ObservationMeasurementInput) {
+        self.kind = measurement.kind.rawValue
+        self.value = measurement.value
+        self.unit = measurement.unit
+    }
 }
 
 struct ObservationPhotoAttachmentRequestPayload: Encodable {
@@ -121,10 +127,10 @@ struct ObservationPhotoAttachmentRequestPayload: Encodable {
 /// plain, default-`Encodable`-friendly shape like every other feature's
 /// payload structs.
 ///
-/// `measurements`/`observedPhenologicalStage` (P11-MEDIA-01) are always
-/// empty/`nil` from this client — no typed-measurement or phenology-picker
-/// UI exists yet. `photos` no longer belongs on that list: each attachment
-/// now carries the purpose the photographer chose (P11-IOS-01).
+/// `observedPhenologicalStage` (P11-MEDIA-01) is always `nil` from this
+/// client — no stage picker exists yet. `photos` and `measurements` used to
+/// share that note; both now carry what the observer actually entered
+/// (P11-IOS-01).
 struct RecordObservationRequestPayload: Encodable {
     let plantId: String?
     let gardenObjectId: String?
@@ -132,10 +138,7 @@ struct RecordObservationRequestPayload: Encodable {
     let conditionSummary: String?
     let observedAt: String?
     let photos: [ObservationPhotoAttachmentRequestPayload]
-    // Always empty — see the doc comment above. Typed as the contract's own
-    // measurement shape rather than as an arbitrary element type, so the day
-    // this client can enter one the compiler is what notices.
-    let measurements: [ObservationMeasurementInputPayload] = []
+    let measurements: [ObservationMeasurementInputPayload]
     let observedPhenologicalStage: String? = nil
 }
 
@@ -154,7 +157,7 @@ struct CorrectObservationRequestPayload: Encodable {
     let noteText: String?
     let conditionSummary: String?
     let photos: [ObservationPhotoAttachmentRequestPayload]
-    let measurements: [ObservationMeasurementInputPayload] = []
+    let measurements: [ObservationMeasurementInputPayload]
     let observedPhenologicalStage: String? = nil
 }
 

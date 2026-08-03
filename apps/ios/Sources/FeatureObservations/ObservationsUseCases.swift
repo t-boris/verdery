@@ -82,7 +82,8 @@ public struct RecordObservation: Sendable {
         noteText: String? = nil,
         conditionSummary: String? = nil,
         observedAt: Date? = nil,
-        photos: [ObservationPhotoAttachment] = []
+        photos: [ObservationPhotoAttachment] = [],
+        measurements: [ObservationMeasurementInput] = []
     ) async throws -> GardenObservation {
         let (normalizedNote, normalizedCondition) = try validatedContent(noteText: noteText, conditionSummary: conditionSummary)
         let observationId = generateObservationId()
@@ -133,7 +134,10 @@ public struct RecordObservation: Sendable {
                         noteText: normalizedNote,
                         conditionSummary: normalizedCondition,
                         observedAt: observedAt.map(ObservationTimestampFormatting.string(from:)),
-                        photos: photos.map(ObservationPhotoAttachmentRequestPayload.init(attachment:))
+                        photos: photos.map(ObservationPhotoAttachmentRequestPayload.init(attachment:)),
+                        measurements: measurements.map(
+                            ObservationMeasurementInputPayload.init(measurement:)
+                        )
                     )
                 )
             ),
@@ -289,7 +293,8 @@ public struct CorrectObservation: Sendable {
         correctionKind: ObservationCorrectionKind,
         noteText: String? = nil,
         conditionSummary: String? = nil,
-        photos: [ObservationPhotoAttachment] = []
+        photos: [ObservationPhotoAttachment] = [],
+        measurements: [ObservationMeasurementInput] = []
     ) async throws -> GardenObservation {
         let (normalizedNote, normalizedCondition) = try validatedContent(noteText: noteText, conditionSummary: conditionSummary)
         let observationId = generateObservationId()
@@ -340,7 +345,10 @@ public struct CorrectObservation: Sendable {
                         correctionKind: correctionKind,
                         noteText: normalizedNote,
                         conditionSummary: normalizedCondition,
-                        photos: photos.map(ObservationPhotoAttachmentRequestPayload.init(attachment:))
+                        photos: photos.map(ObservationPhotoAttachmentRequestPayload.init(attachment:)),
+                        measurements: measurements.map(
+                            ObservationMeasurementInputPayload.init(measurement:)
+                        )
                     )
                 )
             ),

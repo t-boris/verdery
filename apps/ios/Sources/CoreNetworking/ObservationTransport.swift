@@ -63,6 +63,20 @@ struct ObservationPhotoTransport: Codable {
     }
 }
 
+/// Mirrors `ObservationMeasurement` — the read side, with the id and
+/// timestamp the server assigns.
+struct ObservationMeasurementTransport: Codable {
+    let id: String
+    let kind: ObservationMeasurementKind
+    let value: Double
+    let unit: String
+    let createdAt: Date
+
+    var domainValue: ObservationMeasurement {
+        ObservationMeasurement(id: id, kind: kind, value: value, unit: unit, createdAt: createdAt)
+    }
+}
+
 struct ObservationTransport: Codable {
     let id: String
     let gardenId: String
@@ -78,6 +92,7 @@ struct ObservationTransport: Codable {
     let observedAt: Date
     let recordedAt: Date
     let photos: [ObservationPhotoTransport]
+    let measurements: [ObservationMeasurementTransport]
 
     var domainValue: GardenObservation {
         GardenObservation(
@@ -94,7 +109,8 @@ struct ObservationTransport: Codable {
             isCorrected: isCorrected,
             observedAt: observedAt,
             recordedAt: recordedAt,
-            photos: photos.map(\.domainValue)
+            photos: photos.map(\.domainValue),
+            measurements: measurements.map(\.domainValue)
         )
     }
 }
@@ -148,21 +164,21 @@ struct RecordObservationRequestTransport: Encodable {
     let conditionSummary: String?
     let observedAt: Date?
     let photos: [ObservationPhotoAttachmentRequestTransport]
-    // Typed on the contract as `ObservationMeasurementInput`, and always sent
-    // empty because this client has no measurement entry yet — declared as an
-    // empty array of that shape rather than of strings, so the day a
-    // measurement is added the compiler is the one that notices.
-    let measurements: [ObservationMeasurementInputTransport] = []
+    let measurements: [ObservationMeasurementInputTransport]
     let observedPhenologicalStage: String? = nil
 }
 
-/// Mirrors `ObservationMeasurementInput`. Unused until this client can enter
-/// a measurement; present so `measurements` is not typed as something the
-/// contract never accepts.
+/// Mirrors `ObservationMeasurementInput` — the write side.
 struct ObservationMeasurementInputTransport: Encodable {
     let kind: String
     let value: Double
     let unit: String
+
+    init(measurement: ObservationMeasurementInput) {
+        self.kind = measurement.kind.rawValue
+        self.value = measurement.value
+        self.unit = measurement.unit
+    }
 }
 
 struct CorrectObservationRequestTransport: Encodable {
@@ -170,11 +186,7 @@ struct CorrectObservationRequestTransport: Encodable {
     let noteText: String?
     let conditionSummary: String?
     let photos: [ObservationPhotoAttachmentRequestTransport]
-    // Typed on the contract as `ObservationMeasurementInput`, and always sent
-    // empty because this client has no measurement entry yet — declared as an
-    // empty array of that shape rather than of strings, so the day a
-    // measurement is added the compiler is the one that notices.
-    let measurements: [ObservationMeasurementInputTransport] = []
+    let measurements: [ObservationMeasurementInputTransport]
     let observedPhenologicalStage: String? = nil
 }
 
