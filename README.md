@@ -25,10 +25,13 @@ The authoritative sources are:
 
 ## Current state
 
-As of July 27, 2026, the implementation through Phase 9 is delivered. Phase 1 is complete; Phases
-2–8 are implementation-complete with their owner-controlled release approvals still pending; and
-Phase 9 passed its recorded G9 review. This is implementation evidence, not a claim that Verdery is
-generally available.
+As of August 3, 2026, the implementation through Phase 9 is delivered and Phase 11 is
+substantially built. Phase 1 is complete; Phases 2–8 are implementation-complete with their
+owner-controlled release approvals still pending; Phase 9 passed its recorded G9 review; and Phase
+11's G10 review is pending its own evidence, which is recorded in
+[docs/development/phase-11-qa-matrix.md](docs/development/phase-11-qa-matrix.md) — including the
+gaps no test closes. This is implementation evidence, not a claim that Verdery is generally
+available.
 
 The repository now contains the implemented foundation capabilities across the API, web, and native
 Apple client: authentication and gardens; the canonical editable 2D garden map; plants,
@@ -37,6 +40,11 @@ media upload, validation, derivatives, retention, plan import, and calibration; 
 recommendations, Today, notifications, export, and recoverable deletion. Phase 9 adds household/team
 collaboration, professional organizations and garden assignments, a publication-only client portal
 with factual timeline and client export, plus reviewed seasonal and garden-context surfaces.
+
+Phase 11 adds plant candidates with suitability assessment and explicit conversion, six joined
+search filters, a purpose-labelled visual journal — capture on both clients, and a plant's
+photographs read back as an ordered comparison sequence — typed measurements, a taxon catalog whose
+every fact names the source that asserted it, and shareable filter links on the web.
 
 The development API and web application are deployed to `verdery-dev`, and the automatic
 post-CI deployment verifies database migrations plus live API and web responses. Verdery 1.0 build

@@ -9068,3 +9068,11 @@ deployed environment, so the ten Playwright specs did not run either.
 The largest genuine gap is accessibility: no screen reader has been run against either client this
 phase, and no test closes that. Performance and cost were not measured at all, and the report says
 so rather than implying the absence of a failure is evidence of a pass.
+
+### Docs sync (plan item 8)
+
+`README.md`'s current-state paragraph and `implementation-plan.md`'s status table now say Phase 11
+is substantially built with G10 pending, name what landed, and point at the evidence report rather
+than asserting a pass. The remaining-evidence cell names the five things that are not engineering
+work: hardware accessibility, performance, cost, the hashing dependency, and the symptom design
+pass.
