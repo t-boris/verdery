@@ -1,0 +1,38 @@
+parameters:
+  - name: notificationId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: markNotificationRead
+  tags: [Notifications]
+  summary: Mark a notification as read
+  description: |
+    Stamps the caller's own notification with a read time. Naturally
+    idempotent and monotonic: the first call sets `readAt`, every later
+    call is a no-op returning the same stamped entry — so this
+    operation deliberately takes neither `Idempotency-Key` nor
+    `If-Match`. A repeated or concurrent call cannot produce a
+    different outcome, and a revision precondition would force clients
+    to serialize inherently commutative writes (two devices marking
+    the same entry read). Legal in any state: reading an entry that
+    has since expired or been superseded records the read time without
+    resurrecting it.
+
+    Source: architecture/notifications.md, section "12. In-App Inbox"
+    ("It supports read state ...").
+  responses:
+    '200':
+      description: The notification with its read time set.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/notifications.yaml#/Notification'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

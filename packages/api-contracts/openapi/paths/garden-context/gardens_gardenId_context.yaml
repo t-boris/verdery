@@ -1,0 +1,31 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: listGardenContextFacts
+  tags: [GardenContext]
+  summary: List a garden's context facts
+  description: |
+    Every context fact currently recorded for this garden — sun
+    exposure, soil type, drainage, irrigation method, growing context,
+    and microclimate, whichever have been declared or reviewed so far.
+    Available to any member with garden read access (`viewGarden`),
+    the same posture `getGardenMap` already applies.
+
+    Source: implementation-plan.md §18.2, work package P9D-CONTEXT-01;
+    technical-specification.md FR-22 ("Garden Context").
+  responses:
+    '200':
+      description: The garden's currently recorded context facts.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/garden-context.yaml#/GardenContextFactListResult'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

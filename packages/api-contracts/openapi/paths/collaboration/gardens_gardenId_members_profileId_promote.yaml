@@ -1,0 +1,58 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: profileId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: promoteGardenMember
+  tags: [Collaboration]
+  summary: Promote an active member to co-owner
+  description: |
+    Owner-only, and requires RECENT authentication (a session whose
+    underlying sign-in is older than 30 minutes is rejected with `403`
+    and `error.code`
+    `collaboration.membership.recent_authentication_required`) — matrix
+    row H8. The target must hold ACTIVE `editor` or `viewer` membership;
+    promoting a target who is already `owner` is a no-op, `200`,
+    unchanged. Multiple active owners are allowed by design
+    (identity-and-authorization.md, section "8. Operational Garden
+    Roles": "Equal household partners may both be owners"), so this
+    never touches any OTHER member's role.
+
+    This is the ONLY path from an accepted ordinary invitation to
+    co-ownership: `createInvitation` can never name `owner` as the
+    intended role, by construction.
+
+    Source: implementation-plan.md work package P9A-OWNER-01;
+    architecture/identity-and-authorization.md, sections "10. Invitations",
+    "11. Ownership Transfer"; docs/development/garden-capability-matrix.md,
+    row H8.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  responses:
+    '200':
+      description: The member's updated (or already current) role.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/collaboration.yaml#/GardenMember'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      description: |
+        The caller is not an owner, or their session's underlying sign-in
+        is older than 30 minutes
+        (`collaboration.membership.recent_authentication_required`).
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/errors.yaml#/Error'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

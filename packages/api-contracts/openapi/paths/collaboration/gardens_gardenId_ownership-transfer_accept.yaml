@@ -1,0 +1,60 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: acceptOwnershipTransfer
+  tags: [Collaboration]
+  summary: Accept a pending ownership transfer addressed to the caller
+  description: |
+    Called by the TARGET named in the garden's currently PENDING
+    transfer's `toProfileId` — the one command that actually moves
+    ownership. Identified by garden plus the caller's own identity, no
+    token: `404` with `collaboration.ownership_transfer.not_found` when
+    no transfer is pending, or one is pending but does not name the
+    caller (the two are deliberately indistinguishable — a caller must
+    not learn that a transfer exists naming someone else).
+
+    RE-VALIDATES AT ACCEPTANCE TIME, not just at request time: the
+    transfer's `fromProfileId` must STILL be an active owner right now
+    (`422` with `collaboration.membership.target_not_owner` if they were
+    demoted, removed, or transferred ownership elsewhere while this
+    stayed pending); the caller must still hold ACTIVE, non-`owner`
+    membership (`404` with `collaboration.membership.not_found`, or `422`
+    with `collaboration.membership.target_already_owner`, if either
+    changed while this stayed pending). Any such failure leaves
+    everything exactly as it was — no membership row is touched, and the
+    transfer is left in whatever state it was already in.
+
+    On success, atomically: the initiator's own role becomes the
+    `fromResultingRole` recorded on the transfer, the caller becomes
+    `owner`, and the transfer is marked `completed`.
+
+    NOT recent-auth-gated, unlike every OTHER owner-administration
+    operation on this tag: every recent-auth gate here protects a caller
+    administering someone ELSE'S access, and accepting is the opposite
+    shape — the caller is only disposing of an offer addressed to
+    themselves, the same risk category `acceptInvitation` is in.
+
+    Source: implementation-plan.md work package P9A-OWNER-01;
+    architecture/identity-and-authorization.md, section
+    "11. Ownership Transfer"; docs/development/garden-capability-matrix.md,
+    row H13.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  responses:
+    '200':
+      description: The completed ownership transfer.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/collaboration.yaml#/OwnershipTransfer'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'

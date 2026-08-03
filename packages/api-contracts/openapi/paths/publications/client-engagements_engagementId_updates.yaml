@@ -1,0 +1,75 @@
+parameters:
+  - name: engagementId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: listClientUpdates
+  tags: [Publications]
+  summary: List an engagement's client updates
+  description: |
+    Every `client_update` on this engagement in any state, newest first,
+    each with its currently staged items. Authorized by an ACTIVE
+    publisher grant on this engagement.
+
+    Source: implementation-plan.md work package P9C-PUBLISH-01.
+  responses:
+    '200':
+      description: The engagement's client updates.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/publications.yaml#/ClientUpdateListResult'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+
+post:
+  operationId: createClientUpdate
+  tags: [Publications]
+  summary: Create a client update in internal_draft
+  description: |
+    The first of the workflow's three-to-four distinct publisher-
+    initiated steps (ADR-0012, "Publication Boundary"). Publisher-only —
+    gated by an ACTIVE `publisher_grant` on this engagement, never by
+    `manageEngagement`/`manageGarden` alone. Requires the engagement be
+    `active`. `summary` starts unset; `submitClientUpdate` requires it be
+    supplied first via `updateClientUpdateContent`.
+
+    Task completion never triggers this: nothing in this codebase calls
+    it from `CompleteTask`, matching the explicit requirement that
+    publication is always a distinct, manually initiated act.
+
+    Source: implementation-plan.md work package P9C-PUBLISH-01;
+    architecture/collaboration-and-client-sharing.md, section
+    "10. Publication Workflow".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/publications.yaml#/CreateClientUpdateRequest'
+  responses:
+    '201':
+      description: The created update, in internal_draft state.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/publications.yaml#/ClientUpdate'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'

@@ -1,0 +1,50 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: candidateId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: setCandidateStatus
+  tags: [PlantCandidates]
+  summary: Set a plant candidate's status
+  description: |
+    Sets `status` to `active`, `archived`, or `rejected` — never
+    `converted`, which only `convertCandidate` may reach. This is how
+    "delete a candidate" is modeled: a transition, never a hard delete.
+
+    Source: implementation-plan.md work package P11-API-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/plant-candidates.yaml#/SetCandidateStatusRequest'
+  responses:
+    '200':
+      description: The candidate at its new status.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/plant-candidates.yaml#/PlantCandidate'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'

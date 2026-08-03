@@ -1,0 +1,82 @@
+parameters:
+  - name: engagementId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: clientUpdateId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: publishClientUpdate
+  tags: [Publications]
+  summary: Publish a ready-for-client update (ready_for_client -> published)
+  description: |
+    The six-step publish transaction (collaboration-and-client-sharing.md
+    section 10): (1) revalidates the caller's publisher grant, the
+    engagement's `active` state, and the garden every selected item must
+    belong to; (2) re-validates every staged work-log/media item plus any
+    inline garden-snapshot/timeline-entry/staff-attribution content
+    supplied in this request; (3) creates an immutable
+    `publication_version` and its per-kind item snapshots; (4) creates
+    explicit `media_entitlement` records for every media item; (5)
+    appends an audit record and an outbox event atomically with the same
+    write; (6) the outbox event is what a notification worker consumes
+    strictly after this transaction commits — nothing here sends a
+    notification synchronously.
+
+    `gardenSnapshot`, `timelineEntries`, and `staffAttributions` are
+    supplied directly in this request (not staged in advance): they are
+    narrative content the publisher composes for the publication itself,
+    unlike work-log/media items, which are selected from existing
+    operational records and staged beforehand via `addClientUpdateItem`.
+    All three are optional; a publication with zero items is valid.
+
+    Revision-guarded by `If-Match` against `client_update.revision` —
+    the mechanism that resolves two publishers racing to publish the SAME
+    update: exactly one revision-guarded write succeeds, the other
+    receives `412`. Only the `ready_for_client -> published` edge
+    applies; refused with `422` from any other state, including an
+    already-`published` update (this state machine has no `published ->
+    published` edge), so a retried publish that reuses the same
+    `Idempotency-Key` replays the same result, while one that does not
+    receives a clean `422` rather than a raw constraint violation —
+    `publication_version.client_update_id` is `UNIQUE`, so a genuine
+    double-insert is additionally caught and translated, never surfaced
+    as a raw `500`.
+
+    Source: implementation-plan.md work package P9C-PUBLISH-01;
+    architecture/collaboration-and-client-sharing.md, sections
+    "10. Publication Workflow", "11. Publication Contents".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/publications.yaml#/PublishClientUpdateRequest'
+  responses:
+    '200':
+      description: The immutable publication version just created.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/publications.yaml#/PublicationVersion'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'

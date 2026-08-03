@@ -1,0 +1,52 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: plantId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: identificationId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: confirmPlantIdentification
+  tags: [Plants]
+  summary: Confirm a photo-identification suggestion
+  description: |
+    Accepts a prior `plant_identification` suggestion, setting the
+    plant's `taxonomyReferenceId` and `acceptedIdentificationId`. When
+    the suggestion has no catalog row to link (a confident AI guess with
+    no taxonomy match), this also sets the plant's own `displayName`
+    from that raw name guess — the only meaningful action confirming
+    can take without a taxonomy row to point to. The named
+    identification must belong to the named plant, or the request is
+    rejected.
+
+    Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01; ADR-0015.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  responses:
+    '200':
+      description: The plant with its identification confirmed.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/plants.yaml#/Plant'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'

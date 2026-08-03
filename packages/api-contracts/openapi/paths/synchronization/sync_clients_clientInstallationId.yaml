@@ -1,0 +1,72 @@
+parameters:
+  - name: clientInstallationId
+    in: path
+    required: true
+    description: Client-generated UUIDv7. Stable for the lifetime of one app installation on one device.
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+put:
+  operationId: registerSyncClient
+  tags: [Synchronization]
+  summary: Register or refresh client installation metadata
+  description: |
+    Registers a new client installation, or refreshes an already-registered
+    one under the same `clientInstallationId` — the "register or refresh"
+    step named first in the initial-synchronization sequence. `PUT` at a
+    client-known id, not `POST`, because the id is minted by the client
+    itself before the first call, not assigned by the server: a second
+    call with the same id and current metadata is an ordinary idempotent
+    refresh, not an ambiguous re-create.
+
+    `protocolVersion` is the sync protocol version this installation
+    currently speaks. A version below the server's supported window is
+    rejected with `409` and `error.code`
+    `sync.protocol_version.unsupported`, the same code and meaning
+    `PushSyncOperations` and `GetSyncChanges` use — registration is the
+    earliest point a badly outdated client can learn it must upgrade,
+    before it ever attempts a push. The rejection never deletes anything
+    client-side; the local outbox is untouched.
+
+    Revocation of a client installation (architecture/offline-synchronization.md,
+    section "22. Security": "Device installation identifiers are
+    application-scoped and revocable") is a support/administrative
+    capability with no endpoint in this contract yet — out of scope for
+    this work package.
+
+    Source: architecture/offline-synchronization.md, section
+    "12. Initial Synchronization", step 1; section "21. Protocol
+    Versioning"; section "22. Security".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/sync-protocol.yaml#/SyncClientRegistrationRequest'
+  responses:
+    '200':
+      description: The refreshed client installation.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/sync-protocol.yaml#/SyncClientInstallation'
+    '201':
+      description: The newly registered client installation.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/sync-protocol.yaml#/SyncClientInstallation'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '409':
+      description: |
+        `error.code` `sync.protocol_version.unsupported`: `protocolVersion`
+        is outside the server's currently supported window.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/errors.yaml#/Error'

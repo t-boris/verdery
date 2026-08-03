@@ -1,0 +1,51 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: plantId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: movePlant
+  tags: [Plants]
+  summary: Move a plant to a different map placement
+  description: |
+    Updates the plant's placement fields only. Both, when given, must
+    reference an active map object in the plant's own garden — the
+    garden itself never changes; there is no "move to a different
+    garden" command.
+
+    Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/plants.yaml#/MovePlantRequest'
+  responses:
+    '200':
+      description: The plant at its new placement.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/plants.yaml#/Plant'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'

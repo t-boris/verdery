@@ -1,0 +1,944 @@
+openapi: 3.1.0
+
+info:
+  title: Verdery API
+  version: 1.0.0
+  summary: Garden mapping, care records, and recommendations
+  description: |
+    The external contract shared by the native Apple and web applications.
+
+    This document is the machine-readable source of truth for paths, schemas,
+    error envelopes, pagination, idempotency, and concurrency headers. Generated
+    clients are wrapped by handwritten application gateways and are never edited
+    by hand.
+
+    Conventions:
+
+    - Paths use plural lowercase nouns; JSON fields use `camelCase`.
+    - Identifiers are opaque UUIDv7 strings.
+    - Timestamps are RFC 3339 in UTC.
+    - Measurements are SI with explicit unit metadata where ambiguity exists.
+    - Geometry always travels inside an envelope naming its coordinate space,
+      because GeoJSON alone cannot say whether coordinates are local metres or
+      longitude and latitude.
+
+    Source: architecture/api-design.md.
+  license:
+    name: UNLICENSED
+    identifier: LicenseRef-Proprietary
+
+servers:
+  - url: /v1
+    description: Version 1
+
+tags:
+  - name: Operations
+    description: Service health and readiness, used by infrastructure rather than by end users.
+  - name: Gardens
+    description: Garden lifecycle — list, create, view, rename, archive, and request deletion.
+  - name: Authentication
+    description: Web session exchange for the browser client. Native clients use a Firebase ID token directly and never call these.
+  - name: Map
+    description: The canonical 2D garden map — objects, their categories and geometry, and the single revision-aware command endpoint that mutates them.
+  - name: GardenContext
+    description: Reviewed or declared facts about a garden's physical growing environment — sun exposure, soil type, drainage, irrigation method, growing context (open ground / container / greenhouse), and microclimate — each with its own source and quality (FR-22).
+  - name: Plants
+    description: Plant inventory within a garden — placement on the map, photos, taxonomy identification, lifecycle stage, and status.
+  - name: PlantCandidates
+    description: Plants being CONSIDERED for a garden — excluded from inventory counts, current-care tasks, and "what grows here" claims by construction. Covers candidate CRUD, explicit revision-aware conversion into an actual plant, and garden-specific suitability assessment (matches, cautions, blockers, unknowns, assumptions — never a positive match from missing context).
+  - name: PlantCatalog
+    description: Shared, source-attributed plant knowledge — not garden-owned data. Today covers a taxon's materialized knowledge profile (resolved, cited facts); catalog search and filtering land with P11-SEARCH-01.
+  - name: Observations
+    description: The append-only garden and plant observation history, including per-photo image-analysis results and immutable corrections.
+  - name: Tasks
+    description: Garden care tasks — manual creation, scheduling, completion, and file attachments.
+  - name: Recommendations
+    description: The Today view's prioritized, explainable recommendation set and its controls — completion, postponement, dismissal, relevance feedback, and conversion into a task. Candidates are generated exclusively by the server-side rule engine; these operations read and act on them, never create them.
+  - name: SeasonalPlan
+    description: A garden-wide, forward-looking read of every reviewed seasonal timing fact for the garden's own plants (every configured window, not only whichever one happens to be open right now) plus the continuous bed-rotation status per placed plant with a known family — distinct from the rule-fired Today/Recommendations set above, which only ever surfaces a candidate within its own narrow eligibility window.
+  - name: Media
+    description: Garden-scoped media upload registration, backend-authorized resumable upload sessions, client-triggered completion verification, status, and short-lived authorized download access.
+  - name: Synchronization
+    description: The native offline outbox protocol — client installation registration, bounded batched push of client commands, resumable pull of the server change log, and cheap re-acknowledgement of already-submitted operations.
+  - name: Notifications
+    description: The per-user in-app notification inbox — the durable user-facing record of eligible notifications, with read state, dismissal, expiration, and stable deep links — plus the caller's own notification preferences (per-type and per-channel toggles with optional per-garden overrides, quiet hours, and time zone). Intents are created exclusively by the server-side notification policy from domain events; these operations read and annotate them, never create them.
+  - name: Account
+    description: The caller's own account lifecycle — requesting deletion of the account and everything it solely owns, inspecting the resulting 30-day recovery window and its per-garden resolution, and withdrawing the request before the deadline. These are the only operations reachable while an account is inside its recovery window; every other endpoint refuses a non-active account.
+  - name: Exports
+    description: Portable data export — request an asynchronous account-wide or garden-scoped export package (ZIP with JSON, GeoJSON, CSV, entitled media, checksums, and a README), poll its state, and obtain a short-lived signed download URL while the package is within its 7-day expiry window. Generation is asynchronous and checkpointed; completion is announced through the in-app notification inbox.
+  - name: Collaboration
+    description: Operational garden membership and invitations — issue and revoke editor/viewer invitations, accept one as the invited profile, list a garden's member roster, and change or remove a non-owner member's role. Owner promotion, demotion, and ownership transfer (P9A-OWNER-01) are the same tag's recent-auth-gated operations for the owner set itself — promote an active member to co-owner, demote a co-owner back to editor/viewer while at least one other owner remains, and REQUEST transfer of ownership outright to another active member. A requested transfer stays pending until its named recipient accepts or declines it, or its initiator cancels it — ownership only actually moves on acceptance. This tag also carries the two garden-scoped READS onto the professional-service domain (`GET /gardens/{gardenId}/assignments`, `GET /gardens/{gardenId}/engagements`) — they are garden-scoped resources, authorized the same way every other garden read in this tag is, even though the rows they read belong to the `Organizations` tag's own domain.
+  - name: Organizations
+    description: |
+      The professional-service domain (P9B-API-01) — lightweight service
+      organizations, their membership, the explicit garden assignment that is
+      the ONLY mechanism through which organization membership becomes garden
+      access, and client engagement lifecycle. Distinct from `Collaboration`
+      deliberately: these resources are organization- and engagement-scoped,
+      not garden-scoped, and the single most important invariant this tag's
+      own endpoints protect is ADR-0012's own sentence — "Organization
+      membership alone grants no garden access. A professional must also have
+      an active garden assignment or operational garden membership." No
+      endpoint under this tag ever resolves garden access from
+      `organization_membership` alone.
+
+      Source: architecture/decisions/ADR-0012-separate-team-and-client-sharing.md;
+      architecture/collaboration-and-client-sharing.md, sections
+      "7. Service Organizations and Assignments", "8. Client Engagement".
+  - name: Publications
+    description: |
+      The client-publication domain (P9C-PUBLISH-01) — the separate publisher
+      capability, and the `internal_draft -> ready_for_client -> published ->
+      withdrawn` `client_update` workflow. Distinct from `Organizations`
+      deliberately: publisher access is its own capability, explicitly
+      granted per engagement, never implied by `manageEngagement`,
+      `manageGarden`, or organization/garden role alone (ADR-0012,
+      "Publication Boundary": "Owner, editor, or professional status alone
+      does not grant publication access"). Task completion never publishes
+      automatically — every operation under this tag is a distinct,
+      publisher-initiated step.
+
+      Source: architecture/decisions/ADR-0012-separate-team-and-client-sharing.md,
+      section "Publication Boundary";
+      architecture/collaboration-and-client-sharing.md, sections
+      "4.4 Publisher", "10. Publication Workflow", "11. Publication Contents".
+  - name: ClientAccess
+    description: |
+      Email-bound, expiring client invitations and the resulting client
+      access grant (P9C-INVITE-01) — architecture/collaboration-and-client-
+      sharing.md section 9's six-step flow, end to end. Distinct from
+      `Organizations`/`Publications` deliberately: creating and revoking a
+      client invitation is gated by the SAME dual capability that
+      administers the engagement record (`manageEngagement`/`manageGarden`,
+      unlike publisher access, which ADR-0012 names as a genuinely separate
+      capability), while accepting one is the CLIENT's own action, gated by
+      nothing but the token itself plus a matching verified email — no
+      organization or garden authorization applies to that one operation, the
+      same posture the `Collaboration` tag's own `acceptInvitation` already
+      takes for the operational case. No anonymous public links: every
+      invitation is bound to a specific email address, checked against a real
+      verified Firebase claim at acceptance.
+
+      Source: implementation-plan.md work package P9C-INVITE-01;
+      architecture/collaboration-and-client-sharing.md, section
+      "9. Client Invitation and Session".
+  - name: ClientPortal
+    description: |
+      The publication-only client portal read surface (P9C-API-01) — the
+      third access plane collaboration-and-client-sharing.md section 2
+      names (operational garden / professional workspace / client
+      publication), deliberately separate from `Collaboration`/
+      `Organizations`/`Publications`/`ClientAccess`: every operation under
+      this tag is reachable ONLY through the caller's own CURRENT client
+      profile and ACTIVE `client_access_grant`, never through an
+      operational garden, organization, or engagement id supplied as
+      ambient authority (section 13's own sentence: "Operational
+      identifiers are not accepted as authority by client routes. A
+      client-facing garden handle may map internally to an engagement and
+      garden, but authorization always starts from the current client
+      profile and active access grant").
+
+      `clientGardenId` is, concretely, the same value as the underlying
+      `client_engagement.id` — but every operation below re-resolves and
+      re-authorizes it fresh, from the caller's own active grant, on every
+      call; it is never trusted as a bare lookup key the way an
+      operational `engagementId` path parameter is in `Organizations`/
+      `Publications`. A request naming a `clientGardenId`/`publicationId`
+      the caller holds no active grant for receives the IDENTICAL
+      concealed `404` a genuinely nonexistent id would — this tag has no
+      operation that distinguishes "wrong" from "nonexistent", the
+      completion evidence P9C-API-01 names in its own work-package row:
+      "Client cannot enumerate operational records or other engagements."
+
+      Read-only in this initial release (section 14: "deliberately
+      read-only in the initial release"). `getClientExportManifest`
+      (P9C-EXPORT-01) is the one exception to "publication-only": it also
+      discloses the accepted garden model (current map objects and plants),
+      because section 18 makes that, alongside published deliverables,
+      client-exportable by the default residential stewardship policy. It is
+      still a plain synchronous read — no request/poll/download job, unlike
+      the operational `Exports` tag — because a client export never carries
+      operational history or unentitled media, only the same bounded content
+      every other operation under this tag already reads.
+
+      Source: implementation-plan.md work packages P9C-API-01, P9C-EXPORT-01;
+      architecture/collaboration-and-client-sharing.md, sections
+      "2. Core Boundary", "12. Garden Timeline and Time Machine",
+      "13. API Surfaces", "18. Data Stewardship, Export, and Engagement End".
+
+paths:
+  '/health/live': { $ref: './paths/operations/health_live.yaml' }
+  '/health/ready': { $ref: './paths/operations/health_ready.yaml' }
+  '/auth/session': { $ref: './paths/authentication/auth_session.yaml' }
+  '/gardens': { $ref: './paths/gardens/gardens.yaml' }
+  '/gardens/{gardenId}': { $ref: './paths/gardens/gardens_gardenId.yaml' }
+  '/gardens/{gardenId}/archive': { $ref: './paths/gardens/gardens_gardenId_archive.yaml' }
+  '/gardens/{gardenId}/delete-request':
+    { $ref: './paths/gardens/gardens_gardenId_delete-request.yaml' }
+  '/gardens/{gardenId}/invitations':
+    { $ref: './paths/collaboration/gardens_gardenId_invitations.yaml' }
+  '/gardens/{gardenId}/invitations/{invitationId}/revoke':
+    { $ref: './paths/collaboration/gardens_gardenId_invitations_invitationId_revoke.yaml' }
+  '/invitations/accept': { $ref: './paths/collaboration/invitations_accept.yaml' }
+  '/gardens/{gardenId}/members': { $ref: './paths/collaboration/gardens_gardenId_members.yaml' }
+  '/gardens/{gardenId}/members/{profileId}':
+    { $ref: './paths/collaboration/gardens_gardenId_members_profileId.yaml' }
+  '/gardens/{gardenId}/members/{profileId}/promote':
+    { $ref: './paths/collaboration/gardens_gardenId_members_profileId_promote.yaml' }
+  '/gardens/{gardenId}/members/{profileId}/demote':
+    { $ref: './paths/collaboration/gardens_gardenId_members_profileId_demote.yaml' }
+  '/gardens/{gardenId}/ownership-transfer':
+    { $ref: './paths/collaboration/gardens_gardenId_ownership-transfer.yaml' }
+  '/gardens/{gardenId}/ownership-transfer/accept':
+    { $ref: './paths/collaboration/gardens_gardenId_ownership-transfer_accept.yaml' }
+  '/gardens/{gardenId}/ownership-transfer/decline':
+    { $ref: './paths/collaboration/gardens_gardenId_ownership-transfer_decline.yaml' }
+  '/ownership-transfers/incoming':
+    { $ref: './paths/collaboration/ownership-transfers_incoming.yaml' }
+  '/gardens/{gardenId}/assignments':
+    { $ref: './paths/collaboration/gardens_gardenId_assignments.yaml' }
+  '/gardens/{gardenId}/engagements':
+    { $ref: './paths/collaboration/gardens_gardenId_engagements.yaml' }
+  '/gardens/{gardenId}/map': { $ref: './paths/map/gardens_gardenId_map.yaml' }
+  '/gardens/{gardenId}/map/commands': { $ref: './paths/map/gardens_gardenId_map_commands.yaml' }
+  '/gardens/{gardenId}/context': { $ref: './paths/garden-context/gardens_gardenId_context.yaml' }
+  '/gardens/{gardenId}/context/{contextKind}':
+    { $ref: './paths/garden-context/gardens_gardenId_context_contextKind.yaml' }
+  '/gardens/{gardenId}/plants': { $ref: './paths/plants/gardens_gardenId_plants.yaml' }
+  '/gardens/{gardenId}/plants/from-photo':
+    { $ref: './paths/plants/gardens_gardenId_plants_from-photo.yaml' }
+  '/gardens/{gardenId}/plants/{plantId}':
+    { $ref: './paths/plants/gardens_gardenId_plants_plantId.yaml' }
+  '/gardens/{gardenId}/plants/{plantId}/photos':
+    { $ref: './paths/plants/gardens_gardenId_plants_plantId_photos.yaml' }
+  '/gardens/{gardenId}/plants/{plantId}/photos/{plantPhotoId}/primary':
+    { $ref: './paths/plants/gardens_gardenId_plants_plantId_photos_plantPhotoId_primary.yaml' }
+  '/gardens/{gardenId}/plants/{plantId}/identification':
+    { $ref: './paths/plants/gardens_gardenId_plants_plantId_identification.yaml' }
+  '/gardens/{gardenId}/plants/{plantId}/identification/{identificationId}/confirm':
+    {
+      $ref: './paths/plants/gardens_gardenId_plants_plantId_identification_identificationId_confirm.yaml',
+    }
+  '/gardens/{gardenId}/plants/{plantId}/identification/{identificationId}/record-observation':
+    {
+      $ref: './paths/plants/gardens_gardenId_plants_plantId_identification_identificationId_record-observation.yaml',
+    }
+  '/gardens/{gardenId}/plants/{plantId}/lifecycle-stage':
+    { $ref: './paths/plants/gardens_gardenId_plants_plantId_lifecycle-stage.yaml' }
+  '/gardens/{gardenId}/plants/{plantId}/status':
+    { $ref: './paths/plants/gardens_gardenId_plants_plantId_status.yaml' }
+  '/gardens/{gardenId}/plants/{plantId}/move':
+    { $ref: './paths/plants/gardens_gardenId_plants_plantId_move.yaml' }
+  '/gardens/{gardenId}/taxonomy-references':
+    { $ref: './paths/plants/gardens_gardenId_taxonomy-references.yaml' }
+  '/gardens/{gardenId}/plant-candidates':
+    { $ref: './paths/plant-candidates/gardens_gardenId_plant-candidates.yaml' }
+  '/gardens/{gardenId}/plant-candidates/from-photo':
+    { $ref: './paths/plant-candidates/gardens_gardenId_plant-candidates_from-photo.yaml' }
+  '/gardens/{gardenId}/plant-candidates/{candidateId}':
+    { $ref: './paths/plant-candidates/gardens_gardenId_plant-candidates_candidateId.yaml' }
+  '/gardens/{gardenId}/plant-candidates/{candidateId}/status':
+    { $ref: './paths/plant-candidates/gardens_gardenId_plant-candidates_candidateId_status.yaml' }
+  '/gardens/{gardenId}/plant-candidates/{candidateId}/convert':
+    { $ref: './paths/plant-candidates/gardens_gardenId_plant-candidates_candidateId_convert.yaml' }
+  '/gardens/{gardenId}/plant-candidates/{candidateId}/suitability':
+    {
+      $ref: './paths/plant-candidates/gardens_gardenId_plant-candidates_candidateId_suitability.yaml',
+    }
+  '/gardens/{gardenId}/plant-candidates/{candidateId}/photos':
+    { $ref: './paths/plant-candidates/gardens_gardenId_plant-candidates_candidateId_photos.yaml' }
+  '/plant-catalog/taxa/{taxonomyReferenceId}/profile':
+    { $ref: './paths/plant-catalog/plant-catalog_taxa_taxonomyReferenceId_profile.yaml' }
+  '/gardens/{gardenId}/observations':
+    { $ref: './paths/observations/gardens_gardenId_observations.yaml' }
+  '/observations/{observationId}/corrections':
+    { $ref: './paths/observations/observations_observationId_corrections.yaml' }
+  '/gardens/{gardenId}/plants/{plantId}/observations':
+    { $ref: './paths/observations/gardens_gardenId_plants_plantId_observations.yaml' }
+  '/gardens/{gardenId}/plants/{plantId}/journal-frames':
+    { $ref: './paths/observations/gardens_gardenId_plants_plantId_journal-frames.yaml' }
+  '/observations/analysis-results/{analysisResultId}/disposition':
+    { $ref: './paths/observations/observations_analysis-results_analysisResultId_disposition.yaml' }
+  '/gardens/{gardenId}/tasks': { $ref: './paths/tasks/gardens_gardenId_tasks.yaml' }
+  '/gardens/{gardenId}/tasks/{taskId}': { $ref: './paths/tasks/gardens_gardenId_tasks_taskId.yaml' }
+  '/gardens/{gardenId}/tasks/{taskId}/reschedule':
+    { $ref: './paths/tasks/gardens_gardenId_tasks_taskId_reschedule.yaml' }
+  '/gardens/{gardenId}/tasks/{taskId}/complete':
+    { $ref: './paths/tasks/gardens_gardenId_tasks_taskId_complete.yaml' }
+  '/gardens/{gardenId}/tasks/{taskId}/dismiss':
+    { $ref: './paths/tasks/gardens_gardenId_tasks_taskId_dismiss.yaml' }
+  '/gardens/{gardenId}/tasks/{taskId}/skip':
+    { $ref: './paths/tasks/gardens_gardenId_tasks_taskId_skip.yaml' }
+  '/gardens/{gardenId}/tasks/{taskId}/delete':
+    { $ref: './paths/tasks/gardens_gardenId_tasks_taskId_delete.yaml' }
+  '/gardens/{gardenId}/tasks/{taskId}/assign':
+    { $ref: './paths/tasks/gardens_gardenId_tasks_taskId_assign.yaml' }
+  '/gardens/{gardenId}/tasks/{taskId}/activity':
+    { $ref: './paths/tasks/gardens_gardenId_tasks_taskId_activity.yaml' }
+  '/gardens/{gardenId}/tasks/{taskId}/attachments':
+    { $ref: './paths/tasks/gardens_gardenId_tasks_taskId_attachments.yaml' }
+  '/gardens/{gardenId}/today': { $ref: './paths/recommendations/gardens_gardenId_today.yaml' }
+  '/gardens/{gardenId}/seasonal-plan':
+    { $ref: './paths/seasonal-plan/gardens_gardenId_seasonal-plan.yaml' }
+  '/gardens/{gardenId}/recommendations/{recommendationId}/complete':
+    {
+      $ref: './paths/recommendations/gardens_gardenId_recommendations_recommendationId_complete.yaml',
+    }
+  '/gardens/{gardenId}/recommendations/{recommendationId}/postpone':
+    {
+      $ref: './paths/recommendations/gardens_gardenId_recommendations_recommendationId_postpone.yaml',
+    }
+  '/gardens/{gardenId}/recommendations/{recommendationId}/dismiss':
+    {
+      $ref: './paths/recommendations/gardens_gardenId_recommendations_recommendationId_dismiss.yaml',
+    }
+  '/gardens/{gardenId}/recommendations/{recommendationId}/mark-irrelevant':
+    {
+      $ref: './paths/recommendations/gardens_gardenId_recommendations_recommendationId_mark-irrelevant.yaml',
+    }
+  '/gardens/{gardenId}/recommendations/{recommendationId}/convert-to-task':
+    {
+      $ref: './paths/recommendations/gardens_gardenId_recommendations_recommendationId_convert-to-task.yaml',
+    }
+  '/gardens/{gardenId}/media': { $ref: './paths/media/gardens_gardenId_media.yaml' }
+  '/gardens/{gardenId}/media/{mediaId}':
+    { $ref: './paths/media/gardens_gardenId_media_mediaId.yaml' }
+  '/gardens/{gardenId}/media/{mediaId}/complete':
+    { $ref: './paths/media/gardens_gardenId_media_mediaId_complete.yaml' }
+  '/gardens/{gardenId}/media/{mediaId}/access':
+    { $ref: './paths/media/gardens_gardenId_media_mediaId_access.yaml' }
+  '/gardens/{gardenId}/media/{mediaId}/delete':
+    { $ref: './paths/media/gardens_gardenId_media_mediaId_delete.yaml' }
+  '/media/retention-policy': { $ref: './paths/media/media_retention-policy.yaml' }
+  '/account/deletion': { $ref: './paths/account/account_deletion.yaml' }
+  '/exports': { $ref: './paths/exports/exports.yaml' }
+  '/exports/{exportRequestId}': { $ref: './paths/exports/exports_exportRequestId.yaml' }
+  '/exports/{exportRequestId}/download':
+    { $ref: './paths/exports/exports_exportRequestId_download.yaml' }
+  '/sync/clients/{clientInstallationId}':
+    { $ref: './paths/synchronization/sync_clients_clientInstallationId.yaml' }
+  '/sync/push': { $ref: './paths/synchronization/sync_push.yaml' }
+  '/sync/changes': { $ref: './paths/synchronization/sync_changes.yaml' }
+  '/sync/acknowledge': { $ref: './paths/synchronization/sync_acknowledge.yaml' }
+  '/notifications': { $ref: './paths/notifications/notifications.yaml' }
+  '/notifications/{notificationId}/read':
+    { $ref: './paths/notifications/notifications_notificationId_read.yaml' }
+  '/notifications/{notificationId}/dismiss':
+    { $ref: './paths/notifications/notifications_notificationId_dismiss.yaml' }
+  '/notification-preferences': { $ref: './paths/notifications/notification-preferences.yaml' }
+  '/notification-devices/{deviceInstallationId}':
+    { $ref: './paths/notifications/notification-devices_deviceInstallationId.yaml' }
+  '/service-organizations': { $ref: './paths/organizations/service-organizations.yaml' }
+  '/service-organizations/{organizationId}':
+    { $ref: './paths/organizations/service-organizations_organizationId.yaml' }
+  '/service-organizations/{organizationId}/members':
+    { $ref: './paths/organizations/service-organizations_organizationId_members.yaml' }
+  '/service-organizations/{organizationId}/members/{profileId}':
+    { $ref: './paths/organizations/service-organizations_organizationId_members_profileId.yaml' }
+  '/service-organizations/{organizationId}/garden-assignments':
+    { $ref: './paths/organizations/service-organizations_organizationId_garden-assignments.yaml' }
+  '/service-organizations/{organizationId}/garden-assignments/{assignmentId}/end':
+    {
+      $ref: './paths/organizations/service-organizations_organizationId_garden-assignments_assignmentId_end.yaml',
+    }
+  '/service-organizations/{organizationId}/garden-assignments/{assignmentId}/revoke':
+    {
+      $ref: './paths/organizations/service-organizations_organizationId_garden-assignments_assignmentId_revoke.yaml',
+    }
+  '/service-organizations/{organizationId}/client-engagements':
+    { $ref: './paths/organizations/service-organizations_organizationId_client-engagements.yaml' }
+  '/client-engagements': { $ref: './paths/organizations/client-engagements.yaml' }
+  '/client-engagements/{engagementId}/activate':
+    { $ref: './paths/organizations/client-engagements_engagementId_activate.yaml' }
+  '/client-engagements/{engagementId}/end':
+    { $ref: './paths/organizations/client-engagements_engagementId_end.yaml' }
+  '/client-engagements/{engagementId}/revoke':
+    { $ref: './paths/organizations/client-engagements_engagementId_revoke.yaml' }
+  '/client-engagements/{engagementId}/publishers':
+    { $ref: './paths/publications/client-engagements_engagementId_publishers.yaml' }
+  '/client-engagements/{engagementId}/publishers/{profileId}':
+    { $ref: './paths/publications/client-engagements_engagementId_publishers_profileId.yaml' }
+  '/client-engagements/{engagementId}/client-invitations':
+    { $ref: './paths/client-access/client-engagements_engagementId_client-invitations.yaml' }
+  '/client-engagements/{engagementId}/client-invitations/{grantId}/revoke':
+    {
+      $ref: './paths/client-access/client-engagements_engagementId_client-invitations_grantId_revoke.yaml',
+    }
+  '/client-invitations/accept': { $ref: './paths/client-access/client-invitations_accept.yaml' }
+  '/client-engagements/{engagementId}/work-logs':
+    { $ref: './paths/publications/client-engagements_engagementId_work-logs.yaml' }
+  '/client-engagements/{engagementId}/updates':
+    { $ref: './paths/publications/client-engagements_engagementId_updates.yaml' }
+  '/client-engagements/{engagementId}/updates/{clientUpdateId}':
+    { $ref: './paths/publications/client-engagements_engagementId_updates_clientUpdateId.yaml' }
+  '/client-engagements/{engagementId}/updates/{clientUpdateId}/items':
+    {
+      $ref: './paths/publications/client-engagements_engagementId_updates_clientUpdateId_items.yaml',
+    }
+  '/client-engagements/{engagementId}/updates/{clientUpdateId}/items/{itemId}':
+    {
+      $ref: './paths/publications/client-engagements_engagementId_updates_clientUpdateId_items_itemId.yaml',
+    }
+  '/client-engagements/{engagementId}/updates/{clientUpdateId}/submit':
+    {
+      $ref: './paths/publications/client-engagements_engagementId_updates_clientUpdateId_submit.yaml',
+    }
+  '/client-engagements/{engagementId}/updates/{clientUpdateId}/publish':
+    {
+      $ref: './paths/publications/client-engagements_engagementId_updates_clientUpdateId_publish.yaml',
+    }
+  '/client-engagements/{engagementId}/updates/{clientUpdateId}/withdraw':
+    {
+      $ref: './paths/publications/client-engagements_engagementId_updates_clientUpdateId_withdraw.yaml',
+    }
+  '/client/gardens': { $ref: './paths/client-portal/client_gardens.yaml' }
+  '/client/gardens/{clientGardenId}/overview':
+    { $ref: './paths/client-portal/client_gardens_clientGardenId_overview.yaml' }
+  '/client/gardens/{clientGardenId}/publications':
+    { $ref: './paths/client-portal/client_gardens_clientGardenId_publications.yaml' }
+  '/client/gardens/{clientGardenId}/timeline':
+    { $ref: './paths/client-portal/client_gardens_clientGardenId_timeline.yaml' }
+  '/client/publications/{publicationId}/media/{mediaId}/access':
+    { $ref: './paths/client-portal/client_publications_publicationId_media_mediaId_access.yaml' }
+  '/client/gardens/{clientGardenId}/exports':
+    { $ref: './paths/client-portal/client_gardens_clientGardenId_exports.yaml' }
+
+components:
+  securitySchemes:
+    firebaseIdToken: { $ref: './components/security-schemes.yaml#/firebaseIdToken' }
+    sessionCookie: { $ref: './components/security-schemes.yaml#/sessionCookie' }
+  parameters:
+    IdempotencyKey: { $ref: './components/parameters.yaml#/IdempotencyKey' }
+    IfMatch: { $ref: './components/parameters.yaml#/IfMatch' }
+    Cursor: { $ref: './components/parameters.yaml#/Cursor' }
+    Limit: { $ref: './components/parameters.yaml#/Limit' }
+    SyncAfterCursor: { $ref: './components/parameters.yaml#/SyncAfterCursor' }
+  headers:
+    ETag: { $ref: './components/headers.yaml#/ETag' }
+    RetryAfter: { $ref: './components/headers.yaml#/RetryAfter' }
+  responses:
+    BadRequest: { $ref: './components/responses.yaml#/BadRequest' }
+    Unauthorized: { $ref: './components/responses.yaml#/Unauthorized' }
+    Forbidden: { $ref: './components/responses.yaml#/Forbidden' }
+    NotFound: { $ref: './components/responses.yaml#/NotFound' }
+    Conflict: { $ref: './components/responses.yaml#/Conflict' }
+    PreconditionFailed: { $ref: './components/responses.yaml#/PreconditionFailed' }
+    UnprocessableEntity: { $ref: './components/responses.yaml#/UnprocessableEntity' }
+    TooManyRequests: { $ref: './components/responses.yaml#/TooManyRequests' }
+    InternalError: { $ref: './components/responses.yaml#/InternalError' }
+    ServiceUnavailable: { $ref: './components/responses.yaml#/ServiceUnavailable' }
+  schemas:
+    Uuid: { $ref: './components/schemas/shared.yaml#/Uuid' }
+    Timestamp: { $ref: './components/schemas/shared.yaml#/Timestamp' }
+    Revision: { $ref: './components/schemas/shared.yaml#/Revision' }
+    GardenLifecycleState: { $ref: './components/schemas/gardens.yaml#/GardenLifecycleState' }
+    GardenRole: { $ref: './components/schemas/gardens.yaml#/GardenRole' }
+    Garden: { $ref: './components/schemas/gardens.yaml#/Garden' }
+    GardenListResult: { $ref: './components/schemas/gardens.yaml#/GardenListResult' }
+    CreateGardenRequest: { $ref: './components/schemas/gardens.yaml#/CreateGardenRequest' }
+    RenameGardenRequest: { $ref: './components/schemas/gardens.yaml#/RenameGardenRequest' }
+    GardenMemberState: { $ref: './components/schemas/collaboration.yaml#/GardenMemberState' }
+    GardenMember: { $ref: './components/schemas/collaboration.yaml#/GardenMember' }
+    GardenMemberListResult:
+      { $ref: './components/schemas/collaboration.yaml#/GardenMemberListResult' }
+    InvitationListResult: { $ref: './components/schemas/collaboration.yaml#/InvitationListResult' }
+    ChangeGardenMemberRoleRequest:
+      { $ref: './components/schemas/collaboration.yaml#/ChangeGardenMemberRoleRequest' }
+    OwnershipTransferState:
+      { $ref: './components/schemas/collaboration.yaml#/OwnershipTransferState' }
+    OwnershipTransfer: { $ref: './components/schemas/collaboration.yaml#/OwnershipTransfer' }
+    TransferOwnershipRequest:
+      { $ref: './components/schemas/collaboration.yaml#/TransferOwnershipRequest' }
+    IncomingOwnershipTransfer:
+      { $ref: './components/schemas/collaboration.yaml#/IncomingOwnershipTransfer' }
+    IncomingOwnershipTransferListResult:
+      { $ref: './components/schemas/collaboration.yaml#/IncomingOwnershipTransferListResult' }
+    InvitationIntendedRole:
+      { $ref: './components/schemas/collaboration.yaml#/InvitationIntendedRole' }
+    InvitationState: { $ref: './components/schemas/collaboration.yaml#/InvitationState' }
+    Invitation: { $ref: './components/schemas/collaboration.yaml#/Invitation' }
+    CreateInvitationResult:
+      { $ref: './components/schemas/collaboration.yaml#/CreateInvitationResult' }
+    CreateInvitationRequest:
+      { $ref: './components/schemas/collaboration.yaml#/CreateInvitationRequest' }
+    AcceptInvitationRequest:
+      { $ref: './components/schemas/collaboration.yaml#/AcceptInvitationRequest' }
+    OrganizationRole: { $ref: './components/schemas/organizations.yaml#/OrganizationRole' }
+    ServiceOrganization: { $ref: './components/schemas/organizations.yaml#/ServiceOrganization' }
+    ServiceOrganizationListResult:
+      { $ref: './components/schemas/organizations.yaml#/ServiceOrganizationListResult' }
+    CreateServiceOrganizationRequest:
+      { $ref: './components/schemas/organizations.yaml#/CreateServiceOrganizationRequest' }
+    OrganizationMemberState:
+      { $ref: './components/schemas/organizations.yaml#/OrganizationMemberState' }
+    OrganizationMember: { $ref: './components/schemas/organizations.yaml#/OrganizationMember' }
+    OrganizationMemberListResult:
+      { $ref: './components/schemas/organizations.yaml#/OrganizationMemberListResult' }
+    AddOrganizationMemberRequest:
+      { $ref: './components/schemas/organizations.yaml#/AddOrganizationMemberRequest' }
+    ChangeOrganizationMemberRoleRequest:
+      { $ref: './components/schemas/organizations.yaml#/ChangeOrganizationMemberRoleRequest' }
+    GardenAssignmentRole: { $ref: './components/schemas/organizations.yaml#/GardenAssignmentRole' }
+    GardenAssignmentState:
+      { $ref: './components/schemas/organizations.yaml#/GardenAssignmentState' }
+    GardenAssignment: { $ref: './components/schemas/organizations.yaml#/GardenAssignment' }
+    GardenAssignmentListResult:
+      { $ref: './components/schemas/organizations.yaml#/GardenAssignmentListResult' }
+    CreateGardenAssignmentRequest:
+      { $ref: './components/schemas/organizations.yaml#/CreateGardenAssignmentRequest' }
+    ClientEngagementState:
+      { $ref: './components/schemas/organizations.yaml#/ClientEngagementState' }
+    StewardshipPolicy: { $ref: './components/schemas/organizations.yaml#/StewardshipPolicy' }
+    ClientEngagement: { $ref: './components/schemas/organizations.yaml#/ClientEngagement' }
+    ClientEngagementListResult:
+      { $ref: './components/schemas/organizations.yaml#/ClientEngagementListResult' }
+    CreateClientEngagementRequest:
+      { $ref: './components/schemas/organizations.yaml#/CreateClientEngagementRequest' }
+    RevokeClientEngagementRequest:
+      { $ref: './components/schemas/organizations.yaml#/RevokeClientEngagementRequest' }
+    PublisherGrantState: { $ref: './components/schemas/organizations.yaml#/PublisherGrantState' }
+    PublisherGrant: { $ref: './components/schemas/organizations.yaml#/PublisherGrant' }
+    PublisherGrantListResult:
+      { $ref: './components/schemas/organizations.yaml#/PublisherGrantListResult' }
+    GrantPublisherAccessRequest:
+      { $ref: './components/schemas/organizations.yaml#/GrantPublisherAccessRequest' }
+    ClientAccessGrantState:
+      { $ref: './components/schemas/client-access.yaml#/ClientAccessGrantState' }
+    ClientAccessGrant: { $ref: './components/schemas/client-access.yaml#/ClientAccessGrant' }
+    ClientAccessGrantListResult:
+      { $ref: './components/schemas/client-access.yaml#/ClientAccessGrantListResult' }
+    CreateClientInvitationRequest:
+      { $ref: './components/schemas/client-access.yaml#/CreateClientInvitationRequest' }
+    AcceptClientInvitationRequest:
+      { $ref: './components/schemas/client-access.yaml#/AcceptClientInvitationRequest' }
+    ClientUpdateState: { $ref: './components/schemas/publications.yaml#/ClientUpdateState' }
+    ClientUpdateItemKind: { $ref: './components/schemas/publications.yaml#/ClientUpdateItemKind' }
+    PublicationMediaRole: { $ref: './components/schemas/publications.yaml#/PublicationMediaRole' }
+    ClientUpdateItem: { $ref: './components/schemas/publications.yaml#/ClientUpdateItem' }
+    ClientUpdate: { $ref: './components/schemas/publications.yaml#/ClientUpdate' }
+    ClientUpdateListResult:
+      { $ref: './components/schemas/publications.yaml#/ClientUpdateListResult' }
+    CreateClientUpdateRequest:
+      { $ref: './components/schemas/publications.yaml#/CreateClientUpdateRequest' }
+    UpdateClientUpdateContentRequest:
+      { $ref: './components/schemas/publications.yaml#/UpdateClientUpdateContentRequest' }
+    AddClientUpdateItemRequest:
+      { $ref: './components/schemas/publications.yaml#/AddClientUpdateItemRequest' }
+    WithdrawClientUpdateRequest:
+      { $ref: './components/schemas/publications.yaml#/WithdrawClientUpdateRequest' }
+    WorkLog: { $ref: './components/schemas/publications.yaml#/WorkLog' }
+    WorkLogListResult: { $ref: './components/schemas/publications.yaml#/WorkLogListResult' }
+    PublicationItemKind: { $ref: './components/schemas/publications.yaml#/PublicationItemKind' }
+    PublicationItem: { $ref: './components/schemas/publications.yaml#/PublicationItem' }
+    PublicationStaffAttribution:
+      { $ref: './components/schemas/publications.yaml#/PublicationStaffAttribution' }
+    PublicationVersion: { $ref: './components/schemas/publications.yaml#/PublicationVersion' }
+    PublishGardenSnapshotInput:
+      { $ref: './components/schemas/publications.yaml#/PublishGardenSnapshotInput' }
+    PublishTimelineEntryInput:
+      { $ref: './components/schemas/publications.yaml#/PublishTimelineEntryInput' }
+    PublishStaffAttributionInput:
+      { $ref: './components/schemas/publications.yaml#/PublishStaffAttributionInput' }
+    PublishClientUpdateRequest:
+      { $ref: './components/schemas/publications.yaml#/PublishClientUpdateRequest' }
+    ClientGarden: { $ref: './components/schemas/client-portal.yaml#/ClientGarden' }
+    ClientGardenListResult:
+      { $ref: './components/schemas/client-portal.yaml#/ClientGardenListResult' }
+    ClientGardenOverview: { $ref: './components/schemas/client-portal.yaml#/ClientGardenOverview' }
+    ClientPublicationItem:
+      { $ref: './components/schemas/client-portal.yaml#/ClientPublicationItem' }
+    ClientPublicationStaffAttribution:
+      { $ref: './components/schemas/client-portal.yaml#/ClientPublicationStaffAttribution' }
+    ClientPublicationSummary:
+      { $ref: './components/schemas/client-portal.yaml#/ClientPublicationSummary' }
+    ClientPublicationListResult:
+      { $ref: './components/schemas/client-portal.yaml#/ClientPublicationListResult' }
+    ClientTimelineEntry: { $ref: './components/schemas/client-portal.yaml#/ClientTimelineEntry' }
+    ClientTimelineResult: { $ref: './components/schemas/client-portal.yaml#/ClientTimelineResult' }
+    ClientExportGardenModel:
+      { $ref: './components/schemas/client-portal.yaml#/ClientExportGardenModel' }
+    ClientExportMediaEntry:
+      { $ref: './components/schemas/client-portal.yaml#/ClientExportMediaEntry' }
+    ClientExportManifest: { $ref: './components/schemas/client-portal.yaml#/ClientExportManifest' }
+    SessionLoginRequest: { $ref: './components/schemas/authentication.yaml#/SessionLoginRequest' }
+    ErrorDetail: { $ref: './components/schemas/errors.yaml#/ErrorDetail' }
+    Error: { $ref: './components/schemas/errors.yaml#/Error' }
+    LivenessResult: { $ref: './components/schemas/operations.yaml#/LivenessResult' }
+    DependencyStatus: { $ref: './components/schemas/operations.yaml#/DependencyStatus' }
+    ReadinessResult: { $ref: './components/schemas/operations.yaml#/ReadinessResult' }
+    CoordinateSpaceKind: { $ref: './components/schemas/geometry.yaml#/CoordinateSpaceKind' }
+    Position: { $ref: './components/schemas/geometry.yaml#/Position' }
+    Geometry: { $ref: './components/schemas/geometry.yaml#/Geometry' }
+    PointGeometry: { $ref: './components/schemas/geometry.yaml#/PointGeometry' }
+    LineStringGeometry: { $ref: './components/schemas/geometry.yaml#/LineStringGeometry' }
+    PolygonGeometry: { $ref: './components/schemas/geometry.yaml#/PolygonGeometry' }
+    MultiLineStringGeometry: { $ref: './components/schemas/geometry.yaml#/MultiLineStringGeometry' }
+    MultiPolygonGeometry: { $ref: './components/schemas/geometry.yaml#/MultiPolygonGeometry' }
+    ProvenanceKind: { $ref: './components/schemas/geometry.yaml#/ProvenanceKind' }
+    CurveMetadata: { $ref: './components/schemas/geometry.yaml#/CurveMetadata' }
+    GeometryEnvelope: { $ref: './components/schemas/geometry.yaml#/GeometryEnvelope' }
+    GardenObjectCategory: { $ref: './components/schemas/map-objects.yaml#/GardenObjectCategory' }
+    MeasurementUnit: { $ref: './components/schemas/map-objects.yaml#/MeasurementUnit' }
+    MeasurementAcquisitionMethod:
+      { $ref: './components/schemas/map-objects.yaml#/MeasurementAcquisitionMethod' }
+    Measurement: { $ref: './components/schemas/map-objects.yaml#/Measurement' }
+    StructureDetails: { $ref: './components/schemas/map-objects.yaml#/StructureDetails' }
+    FenceDetails: { $ref: './components/schemas/map-objects.yaml#/FenceDetails' }
+    GateDetails: { $ref: './components/schemas/map-objects.yaml#/GateDetails' }
+    ZoneDetails: { $ref: './components/schemas/map-objects.yaml#/ZoneDetails' }
+    BedDetails: { $ref: './components/schemas/map-objects.yaml#/BedDetails' }
+    TreeDetails: { $ref: './components/schemas/map-objects.yaml#/TreeDetails' }
+    PlantPlacementDetails: { $ref: './components/schemas/map-objects.yaml#/PlantPlacementDetails' }
+    UtilityExclusionDetails:
+      { $ref: './components/schemas/map-objects.yaml#/UtilityExclusionDetails' }
+    AnnotationDetails: { $ref: './components/schemas/map-objects.yaml#/AnnotationDetails' }
+    ImportedBackgroundCalibration:
+      { $ref: './components/schemas/map-objects.yaml#/ImportedBackgroundCalibration' }
+    ImportedBackgroundDetails:
+      { $ref: './components/schemas/map-objects.yaml#/ImportedBackgroundDetails' }
+    GardenObjectDetails: { $ref: './components/schemas/map-objects.yaml#/GardenObjectDetails' }
+    GardenObjectLifecycleState:
+      { $ref: './components/schemas/map-objects.yaml#/GardenObjectLifecycleState' }
+    GardenObject: { $ref: './components/schemas/map-objects.yaml#/GardenObject' }
+    ValidationSeverity: { $ref: './components/schemas/map-objects.yaml#/ValidationSeverity' }
+    ValidationIssue: { $ref: './components/schemas/map-objects.yaml#/ValidationIssue' }
+    Georeference: { $ref: './components/schemas/map-objects.yaml#/Georeference' }
+    GardenMapDocument: { $ref: './components/schemas/map-objects.yaml#/GardenMapDocument' }
+    VertexOperation: { $ref: './components/schemas/map-commands.yaml#/VertexOperation' }
+    ProposalDecision: { $ref: './components/schemas/map-commands.yaml#/ProposalDecision' }
+    CreateMapObjectCommand:
+      { $ref: './components/schemas/map-commands.yaml#/CreateMapObjectCommand' }
+    MoveObjectCommand: { $ref: './components/schemas/map-commands.yaml#/MoveObjectCommand' }
+    ReplaceGeometryCommand:
+      { $ref: './components/schemas/map-commands.yaml#/ReplaceGeometryCommand' }
+    EditVertexCommand: { $ref: './components/schemas/map-commands.yaml#/EditVertexCommand' }
+    SplitLineworkCommand: { $ref: './components/schemas/map-commands.yaml#/SplitLineworkCommand' }
+    JoinLineworkCommand: { $ref: './components/schemas/map-commands.yaml#/JoinLineworkCommand' }
+    ChangePropertiesCommand:
+      { $ref: './components/schemas/map-commands.yaml#/ChangePropertiesCommand' }
+    AssignPlantCommand: { $ref: './components/schemas/map-commands.yaml#/AssignPlantCommand' }
+    PlanPoint: { $ref: './components/schemas/map-commands.yaml#/PlanPoint' }
+    PlanKnownDistance: { $ref: './components/schemas/map-commands.yaml#/PlanKnownDistance' }
+    ManualCalibrationAdjustment:
+      { $ref: './components/schemas/map-commands.yaml#/ManualCalibrationAdjustment' }
+    PlanTransform: { $ref: './components/schemas/map-commands.yaml#/PlanTransform' }
+    CalibrationReferencePoint:
+      { $ref: './components/schemas/map-commands.yaml#/CalibrationReferencePoint' }
+    UpsertCalibrationCommand:
+      { $ref: './components/schemas/map-commands.yaml#/UpsertCalibrationCommand' }
+    DecideProposalCommand: { $ref: './components/schemas/map-commands.yaml#/DecideProposalCommand' }
+    DeleteObjectCommand: { $ref: './components/schemas/map-commands.yaml#/DeleteObjectCommand' }
+    RestoreObjectCommand: { $ref: './components/schemas/map-commands.yaml#/RestoreObjectCommand' }
+    DuplicateObjectCommand:
+      { $ref: './components/schemas/map-commands.yaml#/DuplicateObjectCommand' }
+    MapCommandPayload: { $ref: './components/schemas/map-commands.yaml#/MapCommandPayload' }
+    MapCommandRequest: { $ref: './components/schemas/map-commands.yaml#/MapCommandRequest' }
+    MapCommandResult: { $ref: './components/schemas/map-commands.yaml#/MapCommandResult' }
+    GardenContextKind: { $ref: './components/schemas/garden-context.yaml#/GardenContextKind' }
+    GardenContextSource: { $ref: './components/schemas/garden-context.yaml#/GardenContextSource' }
+    GardenContextFact: { $ref: './components/schemas/garden-context.yaml#/GardenContextFact' }
+    GardenContextFactListResult:
+      { $ref: './components/schemas/garden-context.yaml#/GardenContextFactListResult' }
+    RecordGardenContextFactRequest:
+      { $ref: './components/schemas/garden-context.yaml#/RecordGardenContextFactRequest' }
+    PlantGroupingKind: { $ref: './components/schemas/plants.yaml#/PlantGroupingKind' }
+    PlantAcquisitionDateType: { $ref: './components/schemas/plants.yaml#/PlantAcquisitionDateType' }
+    PlantLifecycleStage: { $ref: './components/schemas/plants.yaml#/PlantLifecycleStage' }
+    PlantStatus: { $ref: './components/schemas/plants.yaml#/PlantStatus' }
+    TaxonomySource: { $ref: './components/schemas/plants.yaml#/TaxonomySource' }
+    TaxonomyNameKind: { $ref: './components/schemas/plants.yaml#/TaxonomyNameKind' }
+    TaxonomyNameMatch: { $ref: './components/schemas/plants.yaml#/TaxonomyNameMatch' }
+    Plant: { $ref: './components/schemas/plants.yaml#/Plant' }
+    PlantListResult: { $ref: './components/schemas/plants.yaml#/PlantListResult' }
+    PlantPhoto: { $ref: './components/schemas/plants.yaml#/PlantPhoto' }
+    PlantIdentification: { $ref: './components/schemas/plants.yaml#/PlantIdentification' }
+    TaxonomyReference: { $ref: './components/schemas/plants.yaml#/TaxonomyReference' }
+    TaxonomyReferenceListResult:
+      { $ref: './components/schemas/plants.yaml#/TaxonomyReferenceListResult' }
+    PlantPhotoListResult: { $ref: './components/schemas/plants.yaml#/PlantPhotoListResult' }
+    AddPlantRequest: { $ref: './components/schemas/plants.yaml#/AddPlantRequest' }
+    AddPlantFromPhotoRequest: { $ref: './components/schemas/plants.yaml#/AddPlantFromPhotoRequest' }
+    UpdatePlantDetailsRequest:
+      { $ref: './components/schemas/plants.yaml#/UpdatePlantDetailsRequest' }
+    AttachPlantPhotoRequest: { $ref: './components/schemas/plants.yaml#/AttachPlantPhotoRequest' }
+    TransitionPlantLifecycleStageRequest:
+      { $ref: './components/schemas/plants.yaml#/TransitionPlantLifecycleStageRequest' }
+    SetPlantStatusRequest: { $ref: './components/schemas/plants.yaml#/SetPlantStatusRequest' }
+    MovePlantRequest: { $ref: './components/schemas/plants.yaml#/MovePlantRequest' }
+    PlantCandidateStatus:
+      { $ref: './components/schemas/plant-candidates.yaml#/PlantCandidateStatus' }
+    PlantCandidatePriority:
+      { $ref: './components/schemas/plant-candidates.yaml#/PlantCandidatePriority' }
+    PlantCandidate: { $ref: './components/schemas/plant-candidates.yaml#/PlantCandidate' }
+    PlantCandidatePhoto: { $ref: './components/schemas/plant-candidates.yaml#/PlantCandidatePhoto' }
+    PlantCandidatePhotoListResult:
+      { $ref: './components/schemas/plant-candidates.yaml#/PlantCandidatePhotoListResult' }
+    AddCandidateFromPhotoRequest:
+      { $ref: './components/schemas/plant-candidates.yaml#/AddCandidateFromPhotoRequest' }
+    PlantCandidateListResult:
+      { $ref: './components/schemas/plant-candidates.yaml#/PlantCandidateListResult' }
+    AddCandidateRequest: { $ref: './components/schemas/plant-candidates.yaml#/AddCandidateRequest' }
+    UpdateCandidateDetailsRequest:
+      { $ref: './components/schemas/plant-candidates.yaml#/UpdateCandidateDetailsRequest' }
+    SetCandidateStatusRequest:
+      { $ref: './components/schemas/plant-candidates.yaml#/SetCandidateStatusRequest' }
+    ConvertCandidateRequest:
+      { $ref: './components/schemas/plant-candidates.yaml#/ConvertCandidateRequest' }
+    CandidateConversion: { $ref: './components/schemas/plant-candidates.yaml#/CandidateConversion' }
+    ConvertCandidateResult:
+      { $ref: './components/schemas/plant-candidates.yaml#/ConvertCandidateResult' }
+    SuitabilityAxis: { $ref: './components/schemas/plant-candidates.yaml#/SuitabilityAxis' }
+    SuitabilityEvidence: { $ref: './components/schemas/plant-candidates.yaml#/SuitabilityEvidence' }
+    SuitabilityFinding: { $ref: './components/schemas/plant-candidates.yaml#/SuitabilityFinding' }
+    SuitabilityAssessment:
+      { $ref: './components/schemas/plant-candidates.yaml#/SuitabilityAssessment' }
+    ResolvedFact: { $ref: './components/schemas/plant-candidates.yaml#/ResolvedFact' }
+    PlantProfileVersion: { $ref: './components/schemas/plant-candidates.yaml#/PlantProfileVersion' }
+    ObservationActorType: { $ref: './components/schemas/observations.yaml#/ObservationActorType' }
+    ObservationCorrectionKind:
+      { $ref: './components/schemas/observations.yaml#/ObservationCorrectionKind' }
+    ObservationPhotoPurpose:
+      { $ref: './components/schemas/observations.yaml#/ObservationPhotoPurpose' }
+    ObservationMeasurementKind:
+      { $ref: './components/schemas/observations.yaml#/ObservationMeasurementKind' }
+    ObservedSunExposure: { $ref: './components/schemas/observations.yaml#/ObservedSunExposure' }
+    ObservedDrainage: { $ref: './components/schemas/observations.yaml#/ObservedDrainage' }
+    ObservedGrowingContext:
+      { $ref: './components/schemas/observations.yaml#/ObservedGrowingContext' }
+    ImageAnalysisKind: { $ref: './components/schemas/observations.yaml#/ImageAnalysisKind' }
+    TaxonSeasonalActivity: { $ref: './components/schemas/observations.yaml#/TaxonSeasonalActivity' }
+    PlantDistributionStatus:
+      { $ref: './components/schemas/observations.yaml#/PlantDistributionStatus' }
+    PlantProfileCompleteness:
+      { $ref: './components/schemas/observations.yaml#/PlantProfileCompleteness' }
+    HealthSuggestionSafetyClass:
+      { $ref: './components/schemas/observations.yaml#/HealthSuggestionSafetyClass' }
+    HealthSuggestionDisposition:
+      { $ref: './components/schemas/observations.yaml#/HealthSuggestionDisposition' }
+    ImageAnalysisResult: { $ref: './components/schemas/observations.yaml#/ImageAnalysisResult' }
+    ObservationPhoto: { $ref: './components/schemas/observations.yaml#/ObservationPhoto' }
+    ObservationMeasurement:
+      { $ref: './components/schemas/observations.yaml#/ObservationMeasurement' }
+    Observation: { $ref: './components/schemas/observations.yaml#/Observation' }
+    ObservationListResult: { $ref: './components/schemas/observations.yaml#/ObservationListResult' }
+    PlantJournalFrame: { $ref: './components/schemas/observations.yaml#/PlantJournalFrame' }
+    PlantJournalFrameListResult:
+      { $ref: './components/schemas/observations.yaml#/PlantJournalFrameListResult' }
+    ObservationPhotoAttachmentRequest:
+      { $ref: './components/schemas/observations.yaml#/ObservationPhotoAttachmentRequest' }
+    ObservationMeasurementInput:
+      { $ref: './components/schemas/observations.yaml#/ObservationMeasurementInput' }
+    RecordObservationRequest:
+      { $ref: './components/schemas/observations.yaml#/RecordObservationRequest' }
+    CorrectObservationRequest:
+      { $ref: './components/schemas/observations.yaml#/CorrectObservationRequest' }
+    SetHealthSuggestionDispositionRequest:
+      { $ref: './components/schemas/observations.yaml#/SetHealthSuggestionDispositionRequest' }
+    TaskTargetKind: { $ref: './components/schemas/tasks.yaml#/TaskTargetKind' }
+    TaskStatus: { $ref: './components/schemas/tasks.yaml#/TaskStatus' }
+    TaskUrgency: { $ref: './components/schemas/tasks.yaml#/TaskUrgency' }
+    TaskSource: { $ref: './components/schemas/tasks.yaml#/TaskSource' }
+    Task: { $ref: './components/schemas/tasks.yaml#/Task' }
+    TaskAttachment: { $ref: './components/schemas/tasks.yaml#/TaskAttachment' }
+    TaskListResult: { $ref: './components/schemas/tasks.yaml#/TaskListResult' }
+    TaskTimeWindowInput: { $ref: './components/schemas/tasks.yaml#/TaskTimeWindowInput' }
+    CreateManualTaskRequest: { $ref: './components/schemas/tasks.yaml#/CreateManualTaskRequest' }
+    EditTaskRequest: { $ref: './components/schemas/tasks.yaml#/EditTaskRequest' }
+    RescheduleTaskRequest: { $ref: './components/schemas/tasks.yaml#/RescheduleTaskRequest' }
+    CompleteTaskRequest: { $ref: './components/schemas/tasks.yaml#/CompleteTaskRequest' }
+    DismissTaskRequest: { $ref: './components/schemas/tasks.yaml#/DismissTaskRequest' }
+    AttachTaskFileRequest: { $ref: './components/schemas/tasks.yaml#/AttachTaskFileRequest' }
+    AssignTaskRequest: { $ref: './components/schemas/tasks.yaml#/AssignTaskRequest' }
+    TaskActivityEntry: { $ref: './components/schemas/tasks.yaml#/TaskActivityEntry' }
+    TaskActivityListResult: { $ref: './components/schemas/tasks.yaml#/TaskActivityListResult' }
+    RecommendationState: { $ref: './components/schemas/recommendations.yaml#/RecommendationState' }
+    RecommendationSafetyTier:
+      { $ref: './components/schemas/recommendations.yaml#/RecommendationSafetyTier' }
+    RecommendationEvidenceKind:
+      { $ref: './components/schemas/recommendations.yaml#/RecommendationEvidenceKind' }
+    RecommendationPriorityFactorKind:
+      { $ref: './components/schemas/recommendations.yaml#/RecommendationPriorityFactorKind' }
+    RecommendationPriorityFactor:
+      { $ref: './components/schemas/recommendations.yaml#/RecommendationPriorityFactor' }
+    RecommendationEvidence:
+      { $ref: './components/schemas/recommendations.yaml#/RecommendationEvidence' }
+    Recommendation: { $ref: './components/schemas/recommendations.yaml#/Recommendation' }
+    TodayRecommendation: { $ref: './components/schemas/recommendations.yaml#/TodayRecommendation' }
+    TodayResult: { $ref: './components/schemas/recommendations.yaml#/TodayResult' }
+    PostponeRecommendationRequest:
+      { $ref: './components/schemas/recommendations.yaml#/PostponeRecommendationRequest' }
+    ConvertRecommendationToTaskResult:
+      { $ref: './components/schemas/recommendations.yaml#/ConvertRecommendationToTaskResult' }
+    Hemisphere: { $ref: './components/schemas/seasonal-plan.yaml#/Hemisphere' }
+    SeasonalPlanTaxonomyTiming:
+      { $ref: './components/schemas/seasonal-plan.yaml#/SeasonalPlanTaxonomyTiming' }
+    SeasonalPlanTaxonomyStatusReviewed:
+      { $ref: './components/schemas/seasonal-plan.yaml#/SeasonalPlanTaxonomyStatusReviewed' }
+    SeasonalPlanTaxonomyStatusMissing:
+      { $ref: './components/schemas/seasonal-plan.yaml#/SeasonalPlanTaxonomyStatusMissing' }
+    SeasonalPlanTaxonomyStatus:
+      { $ref: './components/schemas/seasonal-plan.yaml#/SeasonalPlanTaxonomyStatus' }
+    SeasonalPlanPlantEntry:
+      { $ref: './components/schemas/seasonal-plan.yaml#/SeasonalPlanPlantEntry' }
+    SeasonalPlanRotationStatusEntry:
+      { $ref: './components/schemas/seasonal-plan.yaml#/SeasonalPlanRotationStatusEntry' }
+    SeasonalPlanResult: { $ref: './components/schemas/seasonal-plan.yaml#/SeasonalPlanResult' }
+    MediaClass: { $ref: './components/schemas/media.yaml#/MediaClass' }
+    MediaUploadState: { $ref: './components/schemas/media.yaml#/MediaUploadState' }
+    MediaProcessingState: { $ref: './components/schemas/media.yaml#/MediaProcessingState' }
+    MediaSensitivityClassification:
+      { $ref: './components/schemas/media.yaml#/MediaSensitivityClassification' }
+    Media: { $ref: './components/schemas/media.yaml#/Media' }
+    MediaDerivativeKindSummary:
+      { $ref: './components/schemas/media.yaml#/MediaDerivativeKindSummary' }
+    MediaDerivativeSummary: { $ref: './components/schemas/media.yaml#/MediaDerivativeSummary' }
+    MediaListResult: { $ref: './components/schemas/media.yaml#/MediaListResult' }
+    RegisterMediaUploadRequest:
+      { $ref: './components/schemas/media.yaml#/RegisterMediaUploadRequest' }
+    MediaUploadSession: { $ref: './components/schemas/media.yaml#/MediaUploadSession' }
+    MediaAccess: { $ref: './components/schemas/media.yaml#/MediaAccess' }
+    MediaRetentionAnchor: { $ref: './components/schemas/media.yaml#/MediaRetentionAnchor' }
+    MediaClassRetentionPolicy:
+      { $ref: './components/schemas/media.yaml#/MediaClassRetentionPolicy' }
+    MediaRetentionPolicyResult:
+      { $ref: './components/schemas/media.yaml#/MediaRetentionPolicyResult' }
+    SyncRecordType: { $ref: './components/schemas/sync-records.yaml#/SyncRecordType' }
+    SyncRecordReference: { $ref: './components/schemas/sync-records.yaml#/SyncRecordReference' }
+    Calibration: { $ref: './components/schemas/sync-records.yaml#/Calibration' }
+    SyncGardenSnapshot: { $ref: './components/schemas/sync-records.yaml#/SyncGardenSnapshot' }
+    SyncGardenObjectSnapshot:
+      { $ref: './components/schemas/sync-records.yaml#/SyncGardenObjectSnapshot' }
+    SyncCalibrationSnapshot:
+      { $ref: './components/schemas/sync-records.yaml#/SyncCalibrationSnapshot' }
+    SyncPlantSnapshot: { $ref: './components/schemas/sync-records.yaml#/SyncPlantSnapshot' }
+    SyncObservationSnapshot:
+      { $ref: './components/schemas/sync-records.yaml#/SyncObservationSnapshot' }
+    SyncTaskSnapshot: { $ref: './components/schemas/sync-records.yaml#/SyncTaskSnapshot' }
+    SyncRecordSnapshot: { $ref: './components/schemas/sync-records.yaml#/SyncRecordSnapshot' }
+    SyncChange: { $ref: './components/schemas/sync-records.yaml#/SyncChange' }
+    SyncChangesResult: { $ref: './components/schemas/sync-records.yaml#/SyncChangesResult' }
+    SyncCreateGardenCommand:
+      { $ref: './components/schemas/sync-commands.yaml#/SyncCreateGardenCommand' }
+    SyncRenameGardenCommand:
+      { $ref: './components/schemas/sync-commands.yaml#/SyncRenameGardenCommand' }
+    SyncArchiveGardenCommand:
+      { $ref: './components/schemas/sync-commands.yaml#/SyncArchiveGardenCommand' }
+    SyncRequestGardenDeletionCommand:
+      { $ref: './components/schemas/sync-commands.yaml#/SyncRequestGardenDeletionCommand' }
+    SyncGardenCommand: { $ref: './components/schemas/sync-commands.yaml#/SyncGardenCommand' }
+    SyncAddPlantCommand: { $ref: './components/schemas/sync-commands.yaml#/SyncAddPlantCommand' }
+    SyncAddPlantFromPhotoCommand:
+      { $ref: './components/schemas/sync-commands.yaml#/SyncAddPlantFromPhotoCommand' }
+    SyncUpdatePlantDetailsCommand:
+      { $ref: './components/schemas/sync-commands.yaml#/SyncUpdatePlantDetailsCommand' }
+    SyncAttachPlantPhotoCommand:
+      { $ref: './components/schemas/sync-commands.yaml#/SyncAttachPlantPhotoCommand' }
+    SyncSetPrimaryPlantPhotoCommand:
+      { $ref: './components/schemas/sync-commands.yaml#/SyncSetPrimaryPlantPhotoCommand' }
+    SyncConfirmPlantIdentificationCommand:
+      { $ref: './components/schemas/sync-commands.yaml#/SyncConfirmPlantIdentificationCommand' }
+    SyncTransitionPlantLifecycleStageCommand:
+      { $ref: './components/schemas/sync-commands.yaml#/SyncTransitionPlantLifecycleStageCommand' }
+    SyncSetPlantStatusCommand:
+      { $ref: './components/schemas/sync-commands.yaml#/SyncSetPlantStatusCommand' }
+    SyncMovePlantCommand: { $ref: './components/schemas/sync-commands.yaml#/SyncMovePlantCommand' }
+    SyncPlantCommand: { $ref: './components/schemas/sync-commands.yaml#/SyncPlantCommand' }
+    SyncRecordObservationCommand:
+      { $ref: './components/schemas/sync-commands.yaml#/SyncRecordObservationCommand' }
+    SyncCorrectObservationCommand:
+      { $ref: './components/schemas/sync-commands.yaml#/SyncCorrectObservationCommand' }
+    SyncObservationCommand:
+      { $ref: './components/schemas/sync-commands.yaml#/SyncObservationCommand' }
+    SyncCreateManualTaskCommand:
+      { $ref: './components/schemas/sync-commands.yaml#/SyncCreateManualTaskCommand' }
+    SyncEditTaskCommand: { $ref: './components/schemas/sync-commands.yaml#/SyncEditTaskCommand' }
+    SyncRescheduleTaskCommand:
+      { $ref: './components/schemas/sync-commands.yaml#/SyncRescheduleTaskCommand' }
+    SyncCompleteTaskCommand:
+      { $ref: './components/schemas/sync-commands.yaml#/SyncCompleteTaskCommand' }
+    SyncDismissTaskCommand:
+      { $ref: './components/schemas/sync-commands.yaml#/SyncDismissTaskCommand' }
+    SyncSkipTaskCommand: { $ref: './components/schemas/sync-commands.yaml#/SyncSkipTaskCommand' }
+    SyncDeleteTaskCommand:
+      { $ref: './components/schemas/sync-commands.yaml#/SyncDeleteTaskCommand' }
+    SyncAttachTaskFileCommand:
+      { $ref: './components/schemas/sync-commands.yaml#/SyncAttachTaskFileCommand' }
+    SyncTaskCommand: { $ref: './components/schemas/sync-commands.yaml#/SyncTaskCommand' }
+    SyncGardenOperationPayload:
+      { $ref: './components/schemas/sync-protocol.yaml#/SyncGardenOperationPayload' }
+    SyncGardenObjectOperationPayload:
+      { $ref: './components/schemas/sync-protocol.yaml#/SyncGardenObjectOperationPayload' }
+    SyncPlantOperationPayload:
+      { $ref: './components/schemas/sync-protocol.yaml#/SyncPlantOperationPayload' }
+    SyncObservationOperationPayload:
+      { $ref: './components/schemas/sync-protocol.yaml#/SyncObservationOperationPayload' }
+    SyncTaskOperationPayload:
+      { $ref: './components/schemas/sync-protocol.yaml#/SyncTaskOperationPayload' }
+    SyncOperationPayload: { $ref: './components/schemas/sync-protocol.yaml#/SyncOperationPayload' }
+    SyncMediaPrerequisite:
+      { $ref: './components/schemas/sync-protocol.yaml#/SyncMediaPrerequisite' }
+    SyncOperation: { $ref: './components/schemas/sync-protocol.yaml#/SyncOperation' }
+    SyncPushRequest: { $ref: './components/schemas/sync-protocol.yaml#/SyncPushRequest' }
+    SyncOperationError: { $ref: './components/schemas/sync-protocol.yaml#/SyncOperationError' }
+    SyncAcceptedOperationResult:
+      { $ref: './components/schemas/sync-protocol.yaml#/SyncAcceptedOperationResult' }
+    SyncDuplicateOperationResult:
+      { $ref: './components/schemas/sync-protocol.yaml#/SyncDuplicateOperationResult' }
+    SyncConflictOperationResult:
+      { $ref: './components/schemas/sync-protocol.yaml#/SyncConflictOperationResult' }
+    SyncRejectedOperationResult:
+      { $ref: './components/schemas/sync-protocol.yaml#/SyncRejectedOperationResult' }
+    SyncBlockedByDependencyOperationResult:
+      { $ref: './components/schemas/sync-protocol.yaml#/SyncBlockedByDependencyOperationResult' }
+    SyncRetryLaterOperationResult:
+      { $ref: './components/schemas/sync-protocol.yaml#/SyncRetryLaterOperationResult' }
+    SyncPushOperationResult:
+      { $ref: './components/schemas/sync-protocol.yaml#/SyncPushOperationResult' }
+    SyncPushResult: { $ref: './components/schemas/sync-protocol.yaml#/SyncPushResult' }
+    SyncUnknownOperationResult:
+      { $ref: './components/schemas/sync-protocol.yaml#/SyncUnknownOperationResult' }
+    SyncOperationLookupResult:
+      { $ref: './components/schemas/sync-protocol.yaml#/SyncOperationLookupResult' }
+    SyncAcknowledgeRequest:
+      { $ref: './components/schemas/sync-protocol.yaml#/SyncAcknowledgeRequest' }
+    SyncAcknowledgeResult:
+      { $ref: './components/schemas/sync-protocol.yaml#/SyncAcknowledgeResult' }
+    SyncClientPlatform: { $ref: './components/schemas/sync-protocol.yaml#/SyncClientPlatform' }
+    SyncClientRegistrationRequest:
+      { $ref: './components/schemas/sync-protocol.yaml#/SyncClientRegistrationRequest' }
+    SyncClientInstallation:
+      { $ref: './components/schemas/sync-protocol.yaml#/SyncClientInstallation' }
+    ExportScope: { $ref: './components/schemas/exports.yaml#/ExportScope' }
+    ExportRequestState: { $ref: './components/schemas/exports.yaml#/ExportRequestState' }
+    CreateExportRequest: { $ref: './components/schemas/exports.yaml#/CreateExportRequest' }
+    ExportRequest: { $ref: './components/schemas/exports.yaml#/ExportRequest' }
+    AccountDeletionState: { $ref: './components/schemas/account.yaml#/AccountDeletionState' }
+    AccountDeletionGardenResolution:
+      { $ref: './components/schemas/account.yaml#/AccountDeletionGardenResolution' }
+    AccountDeletionGarden: { $ref: './components/schemas/account.yaml#/AccountDeletionGarden' }
+    AccountDeletion: { $ref: './components/schemas/account.yaml#/AccountDeletion' }
+    NotificationType: { $ref: './components/schemas/notifications.yaml#/NotificationType' }
+    NotificationPriority: { $ref: './components/schemas/notifications.yaml#/NotificationPriority' }
+    NotificationDeepLink: { $ref: './components/schemas/notifications.yaml#/NotificationDeepLink' }
+    GardenTodayDeepLink: { $ref: './components/schemas/notifications.yaml#/GardenTodayDeepLink' }
+    ExportReadyDeepLink: { $ref: './components/schemas/notifications.yaml#/ExportReadyDeepLink' }
+    Notification: { $ref: './components/schemas/notifications.yaml#/Notification' }
+    NotificationListResult:
+      { $ref: './components/schemas/notifications.yaml#/NotificationListResult' }
+    NotificationQuietHours:
+      { $ref: './components/schemas/notifications.yaml#/NotificationQuietHours' }
+    NotificationPreferenceEntry:
+      { $ref: './components/schemas/notifications.yaml#/NotificationPreferenceEntry' }
+    NotificationPreferencesDocument:
+      { $ref: './components/schemas/notifications.yaml#/NotificationPreferencesDocument' }
+    UpdateNotificationPreferencesRequest:
+      { $ref: './components/schemas/notifications.yaml#/UpdateNotificationPreferencesRequest' }
+    NotificationDevicePlatform:
+      { $ref: './components/schemas/notifications.yaml#/NotificationDevicePlatform' }
+    RegisterNotificationDeviceRequest:
+      { $ref: './components/schemas/notifications.yaml#/RegisterNotificationDeviceRequest' }
+    NotificationDevice: { $ref: './components/schemas/notifications.yaml#/NotificationDevice' }
+
+security:
+  - firebaseIdToken: []
+  - sessionCookie: []

@@ -12,3 +12,9 @@ docs/.dde
 # its own style, with the comment "This file should not be edited". Reformatting
 # it would just be undone by the next build and is not ours to own.
 apps/web/next-env.d.ts
+
+# Redocly emits this bundle from `packages/api-contracts/openapi/`, in its own
+# style, and CI compares the committed file byte for byte against a fresh
+# bundle. Reformatting it would fail that check on the next run. The source
+# tree it is built from is formatted normally.
+packages/api-contracts/openapi.yaml

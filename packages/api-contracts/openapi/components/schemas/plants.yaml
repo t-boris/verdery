@@ -1,0 +1,475 @@
+PlantGroupingKind:
+  type: string
+  enum: [individual, row, group]
+  description: Whether `Plant` tracks a single instance, a row, or a group as one record.
+
+PlantAcquisitionDateType:
+  type: string
+  enum: [planted, sown, acquired]
+
+PlantLifecycleStage:
+  type: string
+  enum:
+    - planned
+    - seed
+    - seedling
+    - transplanted
+    - growing
+    - flowering
+    - fruiting
+    - ready_to_harvest
+  description: |
+    No ordering is enforced: any stage is reachable from any other, and
+    transitioning to the stage already held is accepted as a legitimate,
+    if inert, command.
+
+PlantStatus:
+  type: string
+  enum: [active, dormant, archived, removed, dead]
+  description: |
+    The axis orthogonal to `PlantLifecycleStage`. There is no hard-delete
+    command for a plant — removing one from active inventory is a
+    transition to `removed` or `dead` here.
+
+TaxonomySource:
+  type: string
+  enum: [system_catalog, user_defined]
+  description: Whether a taxonomy reference was seeded independently of any profile, or defined by one.
+
+TaxonomyNameKind:
+  type: string
+  enum: [accepted_scientific, synonym_scientific, common, cultivar]
+  description: |
+    Which name form matched a search query (P11-SEARCH-01). `accepted_scientific`/
+    `common` represent a match against the taxonomy reference's own
+    `scientificName`/`commonName`; `synonym_scientific`/`cultivar` represent a
+    match against a `plants_inventory.taxonomy_name` row.
+
+TaxonomyNameMatch:
+  type: object
+  additionalProperties: false
+  required: [nameKind, nameText, locale]
+  description: Which name form a search query actually matched, and its own text — never fabricated for a plain (query-less) listing, where `matchedName` is `null` instead.
+  properties:
+    nameKind:
+      $ref: '#/TaxonomyNameKind'
+    nameText:
+      type: string
+    locale:
+      type: [string, 'null']
+
+Plant:
+  type: object
+  additionalProperties: false
+  required:
+    [
+      id,
+      gardenId,
+      gardenAreaMapObjectId,
+      placementMapObjectId,
+      displayName,
+      taxonomyReferenceId,
+      varietyLabel,
+      acceptedIdentificationId,
+      acquisitionDate,
+      acquisitionDateType,
+      groupingKind,
+      quantity,
+      lifecycleStage,
+      status,
+      conditionNote,
+      careGuidanceNote,
+      coverMediaId,
+      revision,
+      createdByProfileId,
+      createdAt,
+      updatedAt,
+    ]
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    gardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    gardenAreaMapObjectId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+    placementMapObjectId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+    displayName:
+      type: string
+      minLength: 1
+      maxLength: 200
+    taxonomyReferenceId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+    varietyLabel:
+      type: [string, 'null']
+    acceptedIdentificationId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+    acquisitionDate:
+      oneOf:
+        - type: string
+          format: date
+        - type: 'null'
+    acquisitionDateType:
+      oneOf:
+        - $ref: '#/PlantAcquisitionDateType'
+        - type: 'null'
+    groupingKind:
+      $ref: '#/PlantGroupingKind'
+    quantity:
+      oneOf:
+        - type: integer
+          minimum: 1
+        - type: 'null'
+    lifecycleStage:
+      $ref: '#/PlantLifecycleStage'
+    status:
+      $ref: '#/PlantStatus'
+    conditionNote:
+      type: [string, 'null']
+    careGuidanceNote:
+      type: [string, 'null']
+    coverMediaId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+      description: >
+        The plant's cover photo for list/summary display: its primary
+        photo's media id if one is set, else its oldest photo's, else
+        null when it has none. Only `searchPlants` populates this
+        (a bulk lookup done for the whole result page); every other
+        operation returning a Plant leaves it null, matching that
+        operation's `toPlantResource` call with no cover-lookup argument
+        — resolve the full gallery via `listPlantPhotos` instead.
+    revision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    createdByProfileId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    updatedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
+PlantListResult:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/Plant'
+    nextCursor:
+      type: string
+      description: Opaque continuation token. Absent when no further page exists.
+
+PlantPhoto:
+  type: object
+  additionalProperties: false
+  required: [id, plantId, mediaId, isPrimary, createdAt]
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    plantId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    mediaId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    isPrimary:
+      type: boolean
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
+PlantIdentification:
+  type: object
+  additionalProperties: false
+  required:
+    [
+      id,
+      plantId,
+      plantPhotoId,
+      confidenceScore,
+      createdAt,
+      suggestedTaxonomy,
+      suggestedCommonName,
+      suggestedScientificName,
+      suggestedVarietyLabel,
+      suggestedLifecycleStage,
+      suggestedConditionNote,
+      suggestedCareGuidanceNote,
+      suggestedAcquisitionDate,
+    ]
+  description: >
+    A photo-identification suggestion `AddPlantFromPhoto` created, as long
+    as it is still pending (not yet accepted via
+    `ConfirmPlantIdentification`). Source: plants-inventory/application/
+    get-plant-identification.ts, ADR-0015.
+
+    `suggestedTaxonomy`, and the `(suggestedCommonName,
+    suggestedScientificName)` pair, are mutually exclusive: never both
+    non-null. Either the AI's name matched this application's own
+    taxonomy catalog (`suggestedTaxonomy` set, the raw pair null), or it
+    didn't (`suggestedTaxonomy` null, the raw pair carries the AI's own
+    name guess so it is not silently discarded), or the AI was not
+    confident/available at all (everything null).
+
+    `suggestedVarietyLabel`/`suggestedLifecycleStage` come from the same
+    species-identification pass; `suggestedConditionNote`/
+    `suggestedCareGuidanceNote` come from a separate condition-analysis
+    pass over the same photo. All four are independent of the
+    taxonomy/name mutual-exclusivity above and of each other — any
+    subset may be non-null. `ConfirmPlantIdentification` only applies
+    each one to the plant when the plant's own corresponding field is
+    still at its creation default, never overwriting a manual edit.
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    plantId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    plantPhotoId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    confidenceScore:
+      type: number
+      minimum: 0
+      maximum: 1
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    suggestedTaxonomy:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [id, scientificName, commonName]
+          properties:
+            id:
+              $ref: '../../components/schemas/shared.yaml#/Uuid'
+            scientificName:
+              type: string
+            commonName:
+              type: [string, 'null']
+        - type: 'null'
+      description: 'Null when the identification pass found no confident candidate, or a confident candidate had no catalog match (see suggestedCommonName in that case).'
+    suggestedCommonName:
+      type: [string, 'null']
+      description: >
+        The AI's own raw common-name guess, when it was confident but
+        `suggestedTaxonomy` is null because the catalog has no matching
+        entry. `ConfirmPlantIdentification` uses this to name the plant
+        directly when there is no taxonomy row to link.
+    suggestedScientificName:
+      type: [string, 'null']
+      description: "The AI's own raw scientific-name guess, alongside suggestedCommonName under the same condition."
+    suggestedVarietyLabel:
+      type: [string, 'null']
+      description: "The AI's own variety guess (e.g. 'Roma' for a tomato), when visually confident."
+    suggestedLifecycleStage:
+      oneOf:
+        - $ref: '#/PlantLifecycleStage'
+        - type: 'null'
+      description: "The AI's own growth-stage guess, when visually confident. Never `planned` — that stage describes a plant not yet started, which a photo cannot show."
+    suggestedConditionNote:
+      type: [string, 'null']
+      description: 'A stress/disease/pest observation from a separate condition-analysis pass over the same photo, or null when unavailable.'
+    suggestedCareGuidanceNote:
+      type: [string, 'null']
+      description: 'A general care suggestion (watering, light, pruning) from the same condition-analysis pass, or null when it had nothing specific to add. Never chemicals, pesticides, fertilizers, or dosages.'
+    suggestedAcquisitionDate:
+      type: [string, 'null']
+      format: date
+      description: "The AI's own approximate acquisition-date guess, estimated from visible maturity, when confident. `ConfirmPlantIdentification` only applies it when the plant's own acquisitionDate is still null, defaulting acquisitionDateType to 'acquired' when that is also still unset."
+
+TaxonomyReference:
+  type: object
+  additionalProperties: false
+  required:
+    [
+      id,
+      scientificName,
+      commonName,
+      varietyName,
+      source,
+      createdByProfileId,
+      createdAt,
+      matchedName,
+    ]
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    scientificName:
+      type: string
+    commonName:
+      type: [string, 'null']
+    varietyName:
+      type: [string, 'null']
+    source:
+      $ref: '#/TaxonomySource'
+    createdByProfileId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    matchedName:
+      description: |
+        Which name form a text search query matched (P11-SEARCH-01) — a
+        synonym, cultivar, or localized common name from
+        `plants_inventory.taxonomy_name`, or the reference's own
+        `scientificName`/`commonName`. `null` for a plain (query-less)
+        listing, and for every OTHER caller of this schema (e.g.
+        `PlantIdentification.suggestedTaxonomy`), which is not itself a
+        search result.
+      oneOf:
+        - $ref: '#/TaxonomyNameMatch'
+        - type: 'null'
+
+TaxonomyReferenceListResult:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/TaxonomyReference'
+
+PlantPhotoListResult:
+  type: object
+  additionalProperties: false
+  required: [items]
+  description: "Every photo attached to a plant, primary first, then oldest first. No pagination — a plant's photo count is always small, matching TaxonomyReferenceListResult's own unpaginated shape."
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/PlantPhoto'
+
+AddPlantRequest:
+  type: object
+  additionalProperties: false
+  required: [displayName, groupingKind]
+  description: 'Mirrors `AddPlantInput`. Source: plants-inventory/application/add-plant.ts.'
+  properties:
+    gardenAreaMapObjectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    placementMapObjectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    displayName:
+      type: string
+      minLength: 1
+      maxLength: 200
+    taxonomyReferenceId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+    varietyLabel:
+      type: [string, 'null']
+    acquisitionDate:
+      oneOf:
+        - type: string
+          format: date
+        - type: 'null'
+    acquisitionDateType:
+      oneOf:
+        - $ref: '#/PlantAcquisitionDateType'
+        - type: 'null'
+    groupingKind:
+      $ref: '#/PlantGroupingKind'
+    quantity:
+      oneOf:
+        - type: integer
+          minimum: 1
+        - type: 'null'
+      description: Required and greater than zero unless `groupingKind` is `individual`, which must leave this unset.
+
+AddPlantFromPhotoRequest:
+  type: object
+  additionalProperties: false
+  required: [photoMediaId]
+  description: 'Mirrors `AddPlantFromPhotoInput`. Source: plants-inventory/application/add-plant-from-photo.ts.'
+  properties:
+    gardenAreaMapObjectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    placementMapObjectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    photoMediaId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+UpdatePlantDetailsRequest:
+  type: object
+  additionalProperties: false
+  description: |
+    Mirrors `PlantDetailsChanges`. Every property is optional; an omitted
+    property leaves the current value unchanged, and an explicit `null`
+    on a nullable property clears it. Source:
+    plants-inventory/domain/plant.ts.
+  properties:
+    displayName:
+      type: string
+      minLength: 1
+      maxLength: 200
+    taxonomyReferenceId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+    varietyLabel:
+      type: [string, 'null']
+    acquisitionDate:
+      oneOf:
+        - type: string
+          format: date
+        - type: 'null'
+    acquisitionDateType:
+      oneOf:
+        - $ref: '#/PlantAcquisitionDateType'
+        - type: 'null'
+    conditionNote:
+      type: [string, 'null']
+    careGuidanceNote:
+      type: [string, 'null']
+    quantity:
+      oneOf:
+        - type: integer
+          minimum: 1
+        - type: 'null'
+
+AttachPlantPhotoRequest:
+  type: object
+  additionalProperties: false
+  required: [mediaId]
+  properties:
+    mediaId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    isPrimary:
+      type: boolean
+      default: false
+
+TransitionPlantLifecycleStageRequest:
+  type: object
+  additionalProperties: false
+  required: [stage]
+  properties:
+    stage:
+      $ref: '#/PlantLifecycleStage'
+
+SetPlantStatusRequest:
+  type: object
+  additionalProperties: false
+  required: [status]
+  properties:
+    status:
+      $ref: '#/PlantStatus'
+
+MovePlantRequest:
+  type: object
+  additionalProperties: false
+  description: 'Mirrors `MovePlantInput`. Source: plants-inventory/application/move-plant.ts.'
+  properties:
+    gardenAreaMapObjectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    placementMapObjectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'

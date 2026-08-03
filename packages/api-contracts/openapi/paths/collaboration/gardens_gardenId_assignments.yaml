@@ -1,0 +1,42 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: listGardenAssignments
+  tags: [Collaboration]
+  summary: List a garden's active professional assignments
+  description: |
+    Every active role may read this — owner, editor, and viewer alike,
+    the same `viewGarden` reasoning `listGardenMembers` already applies:
+    a household member who cannot see which outside professional
+    currently has access to their own garden has less visibility into
+    it than a stranger would. Returns every ACTIVE
+    `collaboration.garden_assignment` row naming this garden, across
+    every service organization, newest-assigned first.
+
+    This is a read of the SAME rows `listOrganizationGardenAssignments`
+    (tag `Organizations`) reads from the opposite direction — "who can
+    reach this garden" versus "which gardens can this organization's
+    members reach." Neither endpoint's authorization gate is satisfied
+    by the other: seeing this list requires garden membership, not
+    organization membership, and organization membership alone never
+    grants it (ADR-0012).
+
+    Source: implementation-plan.md work package P9B-API-01;
+    architecture/collaboration-and-client-sharing.md, section
+    "7. Service Organizations and Assignments".
+  responses:
+    '200':
+      description: The garden's active assignments.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/organizations.yaml#/GardenAssignmentListResult'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

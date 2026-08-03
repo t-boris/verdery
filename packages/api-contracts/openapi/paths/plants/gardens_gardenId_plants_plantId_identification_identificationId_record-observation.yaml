@@ -1,0 +1,46 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: plantId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: identificationId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: recordObservationFromIdentification
+  tags: [Plants]
+  summary: Record an identification's condition analysis as a real observation
+  description: |
+    Turns a pending `plant_identification` row's already-computed
+    `suggestedConditionNote`/`suggestedCareGuidanceNote` into a real,
+    dated `Observation` — independent of, and separately callable from,
+    `ConfirmPlantIdentification` over the same row. Rejects with `409`
+    when the identification carries no condition analysis to record.
+
+    Source: ADR-0015.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  responses:
+    '201':
+      description: The recorded observation.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/observations.yaml#/Observation'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'

@@ -1,0 +1,45 @@
+ErrorDetail:
+  type: object
+  additionalProperties: false
+  required: [code]
+  properties:
+    code:
+      type: string
+      description: Stable machine-readable detail code.
+    pointer:
+      type: string
+      description: JSON Pointer to the offending member, where the error is structural.
+    parameters:
+      type: object
+      additionalProperties: true
+      description: Values interpolated into the localized message. Never free-form prose.
+
+Error:
+  type: object
+  additionalProperties: false
+  required: [error]
+  properties:
+    error:
+      type: object
+      additionalProperties: false
+      required: [code, message, correlationId, retryable]
+      properties:
+        code:
+          type: string
+          description: |
+            Stable dotted code. Clients localize known errors by this value
+            rather than by displaying `message`.
+          examples: ['garden.geometry.stale_revision']
+        message:
+          type: string
+          description: Safe fallback text in English. Not a localization source.
+        correlationId:
+          type: string
+          description: Identifier for correlating this response with server telemetry.
+        details:
+          type: array
+          items:
+            $ref: '#/ErrorDetail'
+        retryable:
+          type: boolean
+          description: Whether repeating the identical request may succeed later.

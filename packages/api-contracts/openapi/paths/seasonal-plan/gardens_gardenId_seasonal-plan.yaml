@@ -1,0 +1,46 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: getGardenSeasonalPlan
+  tags: [SeasonalPlan]
+  summary: Get the garden's seasonal plan
+  description: |
+    Every ACTIVE plant's full reviewed seasonal timing fact (all
+    configured windows — sow indoors/outdoors, transplant, harvest,
+    days-to-maturity, succession interval, rotation rest period — not
+    only whichever window happens to be open right now, unlike the
+    rule-fired Today view), plus the continuous bed-rotation status per
+    placed plant with a known family — computed independently of
+    whether `rotation.crop-rotation-caution` would currently fire.
+
+    A plant whose taxon is unknown, or whose taxon has no reviewed
+    seasonal fact for this garden's hemisphere, is still included with
+    an explicit `noSeasonalData` marker — never silently omitted, so a
+    client can distinguish "nothing configured" from "this plant does
+    not exist". `hemisphere` is `null` when the garden has never been
+    georeferenced, so the client can render an honest "we don't know
+    your season" state instead of an empty list masquerading as
+    "nothing to show".
+
+    Authorized the same way `getGardenMap`/`listGardenContextFacts`
+    already are (`viewGarden`) — no new capability.
+
+    Source: tasks/todo.md, "P9D-SEASON-01 design decisions", "Stage 3 —
+    P9D-SEASON-API-01"; implementation-plan.md work package
+    P9D-SEASON-API-01.
+  responses:
+    '200':
+      description: The garden's current seasonal plan.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/seasonal-plan.yaml#/SeasonalPlanResult'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

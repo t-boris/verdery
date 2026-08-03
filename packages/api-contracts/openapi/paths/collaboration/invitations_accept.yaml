@@ -1,0 +1,51 @@
+post:
+  operationId: acceptInvitation
+  tags: [Collaboration]
+  summary: Accept a garden invitation
+  description: |
+    Grants the AUTHENTICATED caller the invitation's intended role.
+    Identified by the raw token plus the caller's own session — not by
+    the token alone — so acceptance is always attributable to a real
+    account, and an email-bound invitation can be checked against a
+    VERIFIED email claim rather than an unauthenticated assertion.
+
+    Idempotent and handles, each distinguishably:
+
+    - The caller already has active membership on the garden: returns
+      it unchanged, `200`, no error.
+    - The invitation is expired or revoked: `409`.
+    - The invitation was already accepted (by this caller outside the
+      idempotency-key replay window, or by someone else): `409`.
+    - The invitation is bound to an email the caller's own verified
+      email does not match: `403`. Existence is never concealed here —
+      the caller already holds the token — but this response does not
+      disclose what the correct email is.
+
+    Source: implementation-plan.md work package P9A-API-01;
+    architecture/identity-and-authorization.md, section
+    "10. Invitations".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/collaboration.yaml#/AcceptInvitationRequest'
+  responses:
+    '200':
+      description: The caller's membership on the garden the invitation named.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/collaboration.yaml#/GardenMember'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'

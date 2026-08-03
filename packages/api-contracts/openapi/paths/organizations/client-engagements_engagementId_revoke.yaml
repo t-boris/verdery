@@ -1,0 +1,41 @@
+parameters:
+  - name: engagementId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: revokeClientEngagement
+  tags: [Organizations]
+  summary: Revoke a client engagement
+  description: |
+    Same dual authorization as `createClientEngagement`. Valid from
+    `draft` OR `active`; idempotent when already `revoked`. Refused with
+    `422` from `ended` (a different terminal state).
+
+    Source: implementation-plan.md work package P9B-API-01;
+    architecture/collaboration-and-client-sharing.md, section
+    "8. Client Engagement".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/organizations.yaml#/RevokeClientEngagementRequest'
+  responses:
+    '200':
+      description: The revoked engagement.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/organizations.yaml#/ClientEngagement'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'

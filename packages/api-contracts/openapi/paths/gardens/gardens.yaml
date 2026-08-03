@@ -1,0 +1,64 @@
+get:
+  operationId: listGardens
+  tags: [Gardens]
+  summary: List the caller's gardens
+  description: |
+    Returns every garden the authenticated profile has active membership
+    in, regardless of lifecycle state. Most recently created first, or —
+    when `nameQuery` is given — ranked by trigram similarity against
+    `name` instead, most-similar first.
+
+    Source: implementation-plan.md work packages P2-API-01, P4-SEARCH-01.
+  parameters:
+    - name: nameQuery
+      in: query
+      required: false
+      description: Trigram-fuzzy match against the garden's name. Omit to list every garden the caller can see, most recently created first.
+      schema:
+        type: string
+        maxLength: 120
+    - $ref: '../../components/parameters.yaml#/Cursor'
+    - $ref: '../../components/parameters.yaml#/Limit'
+  responses:
+    '200':
+      description: The caller's gardens.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/gardens.yaml#/GardenListResult'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+
+post:
+  operationId: createGarden
+  tags: [Gardens]
+  summary: Create a garden
+  description: |
+    Creates a garden and grants the caller the owner role on it in the
+    same transaction. Every garden has exactly one owner at creation.
+
+    Source: implementation-plan.md work package P2-API-01;
+    architecture/identity-and-authorization.md, section "8. Garden Roles".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/gardens.yaml#/CreateGardenRequest'
+  responses:
+    '201':
+      description: The created garden.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/gardens.yaml#/Garden'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'

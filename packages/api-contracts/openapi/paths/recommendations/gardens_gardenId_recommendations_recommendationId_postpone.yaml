@@ -1,0 +1,55 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: recommendationId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: postponeRecommendation
+  tags: [Recommendations]
+  summary: Postpone a recommendation
+  description: |
+    Records `postponed` feedback (with the caller's optional
+    `postponedUntil` horizon) and transitions the candidate
+    `presented -> postponed` in one transaction. `postponed` is
+    TERMINAL: re-surfacing is the rule engine's job on a later
+    evaluation — after the horizon (or the rule's recurrence interval
+    when none was given) it may generate a NEW candidate referencing
+    this one via `supersedesCandidateId`, preserving this record's
+    evidence and feedback unmodified. Only legal while `presented`.
+
+    Source: implementation-plan.md work package P7-BE-01;
+    recommendations-and-ai.md section 6.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/recommendations.yaml#/PostponeRecommendationRequest'
+  responses:
+    '200':
+      description: The postponed recommendation.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/recommendations.yaml#/Recommendation'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'

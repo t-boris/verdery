@@ -1,0 +1,84 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: profileId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+patch:
+  operationId: changeGardenMemberRole
+  tags: [Collaboration]
+  summary: Change a member's role between editor and viewer
+  description: |
+    Owner-only. Moves a non-owner member between `editor` and `viewer`
+    only — the target's current role must already be one of those two,
+    and the requested role must be one of those two. Promoting to, or
+    demoting from, `owner` is a separate, recent-auth-gated flow and is
+    rejected here with `422`.
+
+    Source: implementation-plan.md work package P9A-API-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/collaboration.yaml#/ChangeGardenMemberRoleRequest'
+  responses:
+    '200':
+      description: The member's updated role.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/collaboration.yaml#/GardenMember'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'
+
+delete:
+  operationId: removeGardenMember
+  tags: [Collaboration]
+  summary: Remove a member, or leave a garden
+  description: |
+    A caller may always remove THEMSELVES (leaving a garden is not
+    membership administration). Removing anyone else requires the
+    owner-only membership-administration capability. Either way, removing
+    the garden's last active owner is refused with `422` — including a
+    sole owner attempting to leave their own garden; they must transfer
+    ownership or delete the garden instead.
+
+    Source: implementation-plan.md work package P9A-API-01;
+    architecture/identity-and-authorization.md, section
+    "11. Ownership Transfer".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  responses:
+    '200':
+      description: The removed membership.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/collaboration.yaml#/GardenMember'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'

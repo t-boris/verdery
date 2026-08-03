@@ -1,0 +1,37 @@
+parameters:
+  - name: exportRequestId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: getExportDownload
+  tags: [Exports]
+  summary: Get a short-lived signed download URL for a completed export
+  description: |
+    The established signed-access mechanism (`getMediaAccess`'s own
+    shape) applied to the export package: a short-lived signed URL,
+    never a permanent one, re-requestable until the package expires
+    (architecture/data-export-and-deletion.md, section 9: "Repeated
+    download requires reauthorization after URL expiration").
+
+    Only the requester can download — the package's media record is
+    deliberately NOT reachable through the garden-scoped media routes,
+    so garden collaborators can never fetch another member's export.
+    Before completion, after the 7-day expiry, or after the package's
+    automatic deletion the response is `409` with `error.code`
+    `export.not_downloadable`.
+  responses:
+    '200':
+      description: A short-lived signed download URL for the export package.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/media.yaml#/MediaAccess'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'

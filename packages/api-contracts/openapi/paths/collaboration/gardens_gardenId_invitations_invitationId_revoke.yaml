@@ -1,0 +1,39 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: invitationId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: revokeInvitation
+  tags: [Collaboration]
+  summary: Revoke a garden invitation
+  description: |
+    Owner-only. Idempotent: revoking an invitation that is already
+    revoked, accepted, or expired returns that invitation's current
+    state unchanged rather than an error.
+
+    Source: implementation-plan.md work package P9A-API-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  responses:
+    '200':
+      description: The invitation's current state.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/collaboration.yaml#/Invitation'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

@@ -1,0 +1,22 @@
+get:
+  operationId: getReadiness
+  tags: [Operations]
+  summary: Readiness probe
+  description: |
+    Reports whether the service can serve traffic, including its required
+    dependencies. Returns `503` when a required dependency is unavailable so
+    that the platform stops routing requests to this instance.
+  security: []
+  responses:
+    '200':
+      description: The service is ready to serve traffic.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/operations.yaml#/ReadinessResult'
+    '503':
+      description: A required dependency is unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/operations.yaml#/ReadinessResult'

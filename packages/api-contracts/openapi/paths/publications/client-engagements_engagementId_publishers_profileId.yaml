@@ -1,0 +1,40 @@
+parameters:
+  - name: engagementId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: profileId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+delete:
+  operationId: revokePublisherAccess
+  tags: [Publications]
+  summary: Revoke a profile's publisher access on an engagement
+  description: |
+    Same dual authorization gate as `grantPublisherAccess`. Idempotent
+    when the named profile's grant is already revoked, or when no grant
+    ever existed for this profile — both return the same `404`
+    (`publisher_grant.not_found`) unless a grant (active or revoked)
+    exists, in which case an already-revoked grant is returned unchanged
+    with `200`.
+
+    Source: implementation-plan.md work package P9C-PUBLISH-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  responses:
+    '200':
+      description: The revoked (or already revoked) publisher grant.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/organizations.yaml#/PublisherGrant'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

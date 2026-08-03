@@ -1,0 +1,47 @@
+parameters:
+  - name: engagementId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: clientUpdateId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: submitClientUpdate
+  tags: [Publications]
+  summary: Submit a draft update for review (internal_draft -> ready_for_client)
+  description: |
+    Only the `internal_draft -> ready_for_client` edge applies
+    (`publication-state.ts`). Requires `summary` already set
+    (`client_update_summary_required_check`); refused with `422`
+    otherwise. Revision-guarded by `If-Match`. Refused with `422` from
+    any other state — this state machine has no edge back to
+    `internal_draft`, so a submitted update cannot be re-submitted.
+
+    Source: implementation-plan.md work package P9C-PUBLISH-01;
+    architecture/collaboration-and-client-sharing.md, section
+    "10. Publication Workflow".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  responses:
+    '200':
+      description: The submitted update.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/publications.yaml#/ClientUpdate'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'

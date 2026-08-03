@@ -1,0 +1,23 @@
+# --- Client portal (P9C-API-01, tag ClientPortal) ---
+get:
+  operationId: listClientGardens
+  tags: [ClientPortal]
+  summary: List the caller's own client-portal gardens
+  description: |
+    Every engagement the AUTHENTICATED caller currently holds an
+    ACTIVE `client_access_grant` on, resolved entirely from the
+    caller's own profile — no path or query parameter names an
+    engagement, organization, or garden, so there is nothing here for
+    a caller to guess or enumerate. Each item's `id` IS the
+    `clientGardenId` every other `ClientPortal` operation takes.
+
+    Source: implementation-plan.md work package P9C-API-01.
+  responses:
+    '200':
+      description: The caller's own client-portal gardens.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/client-portal.yaml#/ClientGardenListResult'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'

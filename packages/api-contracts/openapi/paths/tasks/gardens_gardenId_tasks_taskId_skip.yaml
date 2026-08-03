@@ -1,0 +1,43 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: taskId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: skipTask
+  tags: [Tasks]
+  summary: Skip a task
+  description: |
+    Transitions the task to `'skipped'` — "not doing this occurrence,"
+    distinct in intent from `dismiss`'s "not doing this at all," though
+    both are plain terminal transitions with no further data attached.
+    Terminal: only legal while `'planned'` or `'suggested'`.
+
+    Source: implementation-plan.md work packages P4-BE-03, P4-CONTRACT-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  responses:
+    '200':
+      description: The skipped task.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/tasks.yaml#/Task'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'

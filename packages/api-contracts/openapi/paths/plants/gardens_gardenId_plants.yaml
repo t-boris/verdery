@@ -1,0 +1,223 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: addPlant
+  tags: [Plants]
+  summary: Add a plant
+  description: |
+    Adds a plant instance, row, or group to the garden's inventory.
+    `taxonomyReferenceId` may be set directly here when the caller already
+    knows the species; otherwise leave it unset and identify the plant
+    later via a photo or `SearchTaxonomyReferences`.
+
+    Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/plants.yaml#/AddPlantRequest'
+  responses:
+    '201':
+      description: The created plant.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/plants.yaml#/Plant'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+
+get:
+  operationId: searchPlants
+  tags: [Plants]
+  summary: Search a garden's plants
+  description: |
+    Trigram-fuzzy match against `displayName` when `query` is given,
+    combined with optional structured filters (`lifecycleStage`,
+    `status`, `groupingKind`, each combinable and each accepting more
+    than one value), cursor-paginated the same way `ListGardens`
+    paginates. Ranked most-similar first when `query` is given, most
+    recently created first otherwise.
+
+    Closes a real, already-documented gap: before P4-SEARCH-01 this tag
+    had no list operation at all, only single-plant `GetPlant` — the web
+    and iOS Phase 4 clients each had to fall back to a
+    create-then-navigate / open-by-id flow instead of a real inventory
+    list.
+
+    Source: implementation-plan.md work package P4-SEARCH-01.
+  parameters:
+    - name: query
+      in: query
+      required: false
+      description: Trigram-fuzzy match against displayName. Omit to list every plant matching the other filters.
+      schema:
+        type: string
+        maxLength: 200
+    - name: lifecycleStage
+      in: query
+      required: false
+      description: Comma-separated lifecycle stages to include. Omit to include every stage.
+      style: form
+      explode: false
+      schema:
+        type: array
+        items:
+          $ref: '../../components/schemas/plants.yaml#/PlantLifecycleStage'
+    - name: status
+      in: query
+      required: false
+      description: Comma-separated statuses to include. Omit to include every status.
+      style: form
+      explode: false
+      schema:
+        type: array
+        items:
+          $ref: '../../components/schemas/plants.yaml#/PlantStatus'
+    - name: groupingKind
+      in: query
+      required: false
+      description: Comma-separated grouping kinds to include. Omit to include every kind.
+      style: form
+      explode: false
+      schema:
+        type: array
+        items:
+          $ref: '../../components/schemas/plants.yaml#/PlantGroupingKind'
+    - name: identified
+      in: query
+      required: false
+      description: |
+        `true` restricts to plants with a resolved `taxonomyReferenceId`;
+        `false` restricts to those without one. Omit for no restriction
+        (P11-SEARCH-01).
+      schema:
+        type: boolean
+    - name: observedWithinDays
+      in: query
+      required: false
+      description: |
+        Restricts to plants whose most recent observation is newer than
+        this many days — "what have I actually been looking at". Plants
+        with no observation at all never match (P11-SEARCH-01, journal
+        recency).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 3650
+    - name: notObservedForDays
+      in: query
+      required: false
+      description: |
+        The neglect half of journal recency, and deliberately not the
+        complement of `observedWithinDays`: a plant with NO observation
+        at all matches here, because "never recorded" is the strongest
+        form of "not recorded lately" and is exactly what this filter
+        exists to surface (P11-SEARCH-01).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 3650
+    - name: healthConcern
+      in: query
+      required: false
+      description: |
+        Comma-separated analysis kinds; restricts to plants carrying at
+        least one image-analysis suggestion of a listed kind. These are
+        SUGGESTIONS awaiting confirmation, never findings — filtering by
+        one says "something was flagged here", not "this plant is
+        diseased" (P11-SEARCH-01).
+      style: form
+      explode: false
+      schema:
+        type: array
+        items:
+          $ref: '../../components/schemas/observations.yaml#/ImageAnalysisKind'
+    - name: seasonalActivity
+      in: query
+      required: false
+      description: |
+        Comma-separated seasonal activities. Combined with
+        `seasonalMonth`, restricts to plants whose taxon has that
+        activity's window open in that month. Without `seasonalMonth`
+        it restricts to plants whose taxon records the window at all
+        (P11-SEARCH-01, phenology).
+      style: form
+      explode: false
+      schema:
+        type: array
+        items:
+          $ref: '../../components/schemas/observations.yaml#/TaxonSeasonalActivity'
+    - name: seasonalMonth
+      in: query
+      required: false
+      description: |
+        Month number the `seasonalActivity` window must cover. Windows
+        that wrap the year end (start month greater than end month) are
+        matched across the boundary rather than treated as empty.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 12
+    - name: distributionStatus
+      in: query
+      required: false
+      description: |
+        Comma-separated distribution statuses; restricts to plants whose
+        taxon carries a matching assertion. Pair with
+        `distributionRegion` — a status without a region is a question
+        about the whole world and rarely what the caller means
+        (P11-SEARCH-01, native/regulatory).
+      style: form
+      explode: false
+      schema:
+        type: array
+        items:
+          $ref: '../../components/schemas/observations.yaml#/PlantDistributionStatus'
+    - name: distributionRegion
+      in: query
+      required: false
+      description: Region the `distributionStatus` assertion must apply to.
+      schema:
+        type: string
+        maxLength: 100
+    - name: profileCompleteness
+      in: query
+      required: false
+      description: |
+        Restricts by how complete the taxon's resolved knowledge profile
+        is. `none` means no profile has ever been materialized, which is
+        a different and more common state than a partial one and is worth
+        being able to find on its own (P11-SEARCH-01, completeness).
+      schema:
+        $ref: '../../components/schemas/observations.yaml#/PlantProfileCompleteness'
+    - $ref: '../../components/parameters.yaml#/Cursor'
+    - $ref: '../../components/parameters.yaml#/Limit'
+  responses:
+    '200':
+      description: Matching plants.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/plants.yaml#/PlantListResult'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

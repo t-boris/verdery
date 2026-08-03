@@ -1,0 +1,44 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: addPlantFromPhoto
+  tags: [Plants]
+  summary: Add a plant identified from a photo
+  description: |
+    Creates an `'individual'` plant prefilled from a photo-identification
+    pass, and inserts the photo and the identification suggestion in the
+    same transaction. `taxonomyReferenceId` on the created plant stays
+    unset until the suggestion is confirmed via `ConfirmPlantIdentification`
+    — identification never auto-confirms.
+
+    Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/plants.yaml#/AddPlantFromPhotoRequest'
+  responses:
+    '201':
+      description: The created plant.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/plants.yaml#/Plant'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'

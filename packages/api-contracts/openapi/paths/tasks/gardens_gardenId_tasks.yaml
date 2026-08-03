@@ -1,0 +1,78 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: createManualTask
+  tags: [Tasks]
+  summary: Create a manual task
+  description: |
+    Creates a task with `source: 'manual'` — the only kind this API
+    creates; a `'suggested'` task would originate from a recommendation
+    entity this phase does not build. `originObservationId`, when given,
+    must name an observation that belongs to this garden.
+
+    Source: implementation-plan.md work packages P4-BE-03, P4-CONTRACT-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/tasks.yaml#/CreateManualTaskRequest'
+  responses:
+    '201':
+      description: The created task.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/tasks.yaml#/Task'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+
+get:
+  operationId: listTasksForGarden
+  tags: [Tasks]
+  summary: List a garden's tasks
+  description: |
+    Every task in the garden, optionally restricted to the given
+    statuses, soonest-due first (undated tasks last), then by urgency
+    descending, then by creation order.
+
+    Source: implementation-plan.md work packages P4-BE-03, P4-CONTRACT-01.
+  parameters:
+    - name: status
+      in: query
+      required: false
+      description: Comma-separated statuses to include. Omit to return every status.
+      style: form
+      explode: false
+      schema:
+        type: array
+        items:
+          $ref: '../../components/schemas/tasks.yaml#/TaskStatus'
+  responses:
+    '200':
+      description: The garden's tasks.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/tasks.yaml#/TaskListResult'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

@@ -1,0 +1,76 @@
+parameters:
+  - name: engagementId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: clientUpdateId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: getClientUpdate
+  tags: [Publications]
+  summary: Get a client update
+  description: |
+    Returns the update with its currently staged items — the preview a
+    publisher reviews before submitting. Authorized by an ACTIVE
+    publisher grant on this engagement.
+
+    Source: implementation-plan.md work package P9C-PUBLISH-01.
+  responses:
+    '200':
+      description: The requested client update.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/publications.yaml#/ClientUpdate'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+
+patch:
+  operationId: updateClientUpdateContent
+  tags: [Publications]
+  summary: Edit a draft update's title and summary
+  description: |
+    `internal_draft` only — content is locked from `ready_for_client`
+    onward, matching the strictly linear state machine
+    (`publication-state.ts`): there is no edge back to `internal_draft`,
+    so a submitted update cannot be edited and re-submitted. Revision-
+    guarded by `If-Match` against `client_update.revision`.
+
+    Source: implementation-plan.md work package P9C-PUBLISH-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/publications.yaml#/UpdateClientUpdateContentRequest'
+  responses:
+    '200':
+      description: The updated draft.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/publications.yaml#/ClientUpdate'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'

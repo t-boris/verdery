@@ -1,0 +1,32 @@
+parameters:
+  - name: engagementId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: listEngagementWorkLogs
+  tags: [Publications]
+  summary: List the engagement garden's work logs
+  description: |
+    The candidate list a publisher selects completed work from when
+    staging a `client_update` — plain reads of `collaboration.work_log`
+    for the engagement's own garden, newest first. Authorized by an
+    ACTIVE publisher grant on this engagement — no new authorization
+    machinery beyond what preparing a client update already requires.
+
+    Source: implementation-plan.md work package P9C-PUBLISH-01.
+  responses:
+    '200':
+      description: The garden's work logs, newest first.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/publications.yaml#/WorkLogListResult'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

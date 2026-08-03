@@ -1,0 +1,29 @@
+parameters:
+  - name: taxonomyReferenceId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: getTaxonProfile
+  tags: [PlantCatalog]
+  summary: Get a taxon's materialized knowledge profile
+  description: |
+    A shared reference resource, not garden-scoped — the same "no
+    per-garden authorization" posture `searchTaxonomyReferences` takes
+    for the identical reason. An honest 404 when no profile version has
+    ever been assembled for this taxon.
+
+    Source: implementation-plan.md work package P11-DATA-02, P11-API-01.
+  responses:
+    '200':
+      description: The latest materialized profile.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/plant-candidates.yaml#/PlantProfileVersion'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

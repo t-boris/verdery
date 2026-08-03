@@ -1,0 +1,18 @@
+Uuid:
+  type: string
+  format: uuid
+  description: Opaque UUIDv7 identifier. Time ordering is an index property, not an authoritative creation time.
+  pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+  examples: ['019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0b']
+
+Timestamp:
+  type: string
+  format: date-time
+  description: RFC 3339 timestamp in UTC.
+  examples: ['2026-07-22T09:15:00Z']
+
+Revision:
+  type: integer
+  format: int64
+  minimum: 1
+  description: Monotonically increasing server revision within one object's identity.

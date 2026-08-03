@@ -1,0 +1,43 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: declineOwnershipTransfer
+  tags: [Collaboration]
+  summary: Decline a pending ownership transfer addressed to the caller
+  description: |
+    Called by the TARGET named in the garden's currently PENDING
+    transfer's `toProfileId` — the symmetric refusal to
+    `acceptOwnershipTransfer`, resolved by the recipient rather than the
+    initiator (`cancelGardenOwnershipTransfer` is the initiator's own,
+    separate withdrawal path). `404` with
+    `collaboration.ownership_transfer.not_found` when no transfer is
+    pending, or one is pending but does not name the caller.
+
+    Touches no membership row and asserts nothing about the current
+    owner: refusing an offer is valid regardless of whether its premise
+    still holds. On success the transfer is marked `cancelled` with a
+    recipient-attributed reason. Not recent-auth-gated, for the same
+    reason `acceptOwnershipTransfer` and `cancelGardenOwnershipTransfer`
+    are not.
+
+    Source: implementation-plan.md work package P9A-OWNER-01;
+    architecture/identity-and-authorization.md, section
+    "11. Ownership Transfer".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  responses:
+    '200':
+      description: The declined (cancelled) ownership transfer.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/collaboration.yaml#/OwnershipTransfer'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

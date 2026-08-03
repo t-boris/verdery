@@ -1,0 +1,39 @@
+get:
+  operationId: listNotifications
+  tags: [Notifications]
+  summary: List the caller's notification inbox
+  description: |
+    The caller's durable in-app notification inbox, newest first,
+    cursor-paginated the same way `ListGardens` paginates. Returns only
+    LIVE entries: intents that are still pending, in-app eligible, not
+    dismissed, and not past their expiration. Read entries stay listed
+    (with `readAt` set) until they expire or are dismissed.
+
+    The inbox is the durable user-facing record for eligible
+    notifications and is written when the intent is created, before —
+    and independent of — any push delivery attempt, so it remains
+    correct even when push delivery fails or never happens.
+
+    Expiration is enforced durably by this read: the caller's own
+    pending intents whose expiration has passed are closed (state
+    `expired`) in the same transaction that lists the rest — the same
+    read-triggers-write posture `GetTodayRecommendations` documents for
+    first presentation. Repeating the request is safe: an already
+    `expired` intent is simply no longer listed.
+
+    Source: architecture/notifications.md, section "12. In-App Inbox";
+    implementation-plan.md work package P7-NOTIF-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/Cursor'
+    - $ref: '../../components/parameters.yaml#/Limit'
+  responses:
+    '200':
+      description: The caller's live inbox entries, newest first.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/notifications.yaml#/NotificationListResult'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'

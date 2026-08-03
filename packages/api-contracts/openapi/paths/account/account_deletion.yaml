@@ -1,0 +1,106 @@
+post:
+  operationId: requestAccountDeletion
+  tags: [Account]
+  summary: Request deletion of the caller's own account
+  description: |
+    Starts account deletion for the authenticated caller
+    (architecture/data-export-and-deletion.md, section 11). Nothing is
+    deleted immediately: the account enters a 30-day recovery window
+    during which ordinary access is disabled and only this resource
+    remains reachable.
+
+    Requires RECENT authentication: a session whose underlying sign-in is
+    older than 30 minutes is rejected with `403` and `error.code`
+    `deletion.recent_authentication_required`.
+
+    OWNERSHIP RESOLUTION runs synchronously and is reported in
+    `gardens` (section 11, "Resolves owned shared gardens by transfer or
+    deletion policy"):
+
+    - A garden the caller owns ALONE enters `deletionRequested` with the
+      same recovery deadline as the account, and is purged with it —
+      resolution `gardenDeletionRequested`.
+    - A garden with another active owner survives; the caller's own
+      membership is revoked — resolution `ownershipRetainedByCoOwner`.
+    - A garden where the caller is only an editor or viewer survives; the
+      membership is revoked — resolution `membershipRevoked`.
+
+    Every revocation surfaces to the caller's other offline clients as an
+    ordinary `garden` `delete` change on the next pull.
+
+    Immediate irreversible deletion (section 12) is deliberately not
+    offered: the recovery window is unconditional.
+
+    Source: implementation-plan.md work package P8-DELETE-01;
+    architecture/data-export-and-deletion.md, section "11. Account Deletion".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  responses:
+    '200':
+      description: The account is now inside its recovery window.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/account.yaml#/AccountDeletion'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+
+get:
+  operationId: getAccountDeletion
+  tags: [Account]
+  summary: Get the caller's own account-deletion state
+  description: |
+    The caller's pending deletion — state, deadline, and the recorded
+    per-garden ownership resolution. Reachable while the account is
+    inside its recovery window, which is the whole point: it is how a
+    signed-in-but-disabled user sees what will happen and when.
+
+    `404` (`deletion.not_found`) when no deletion is pending.
+  responses:
+    '200':
+      description: The pending account deletion.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/account.yaml#/AccountDeletion'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+
+delete:
+  operationId: restoreAccount
+  tags: [Account]
+  summary: Withdraw an account-deletion request within the recovery window
+  description: |
+    Reverses `requestAccountDeletion` completely: the account returns to
+    `active`, every membership revoked by the request is reactivated, and
+    every garden the request put into `deletionRequested` returns to
+    `active`.
+
+    Requires RECENT authentication, exactly like the request it reverses.
+
+    Once the deletion sweep has claimed the account recovery is
+    impossible and the response is `409` with `error.code`
+    `deletion.not_recoverable`.
+
+    Source: implementation-plan.md work package P8-DELETE-01;
+    architecture/data-export-and-deletion.md, sections "11. Account
+    Deletion", "16. Failure and Retry".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  responses:
+    '204':
+      description: The account is active again and no deletion is pending.
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'

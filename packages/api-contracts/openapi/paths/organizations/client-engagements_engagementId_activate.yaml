@@ -1,0 +1,50 @@
+parameters:
+  - name: engagementId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: activateClientEngagement
+  tags: [Organizations]
+  summary: Activate a draft client engagement
+  description: |
+    Same dual authorization as `createClientEngagement`, re-evaluated
+    against the STORED engagement's own `serviceOrganizationId` (never
+    against a client-supplied value). Only the `draft` -> `active`
+    transition applies; idempotent when already `active`. Refused with
+    `422` (`client_engagement.invalid_transition`) from `ended` or
+    `revoked` — both terminal.
+
+    Enforces only the state-machine transition itself
+    (`client-engagement-state.ts`). The richer precondition
+    collaboration-and-client-sharing.md section 8 also describes
+    ("activation requires ... one client identity or pending bound
+    invitation") is NOT enforced by this endpoint: nothing in this
+    package creates a `client_access_grant` row — that mechanism is
+    P9C-INVITE-01's own scope ("implement email-bound, expiring client
+    invitations"). Documented here rather than silently assumed, the
+    same honesty the underlying migration's own header applies to every
+    invariant it does not enforce.
+
+    Source: implementation-plan.md work packages P9B-API-01, P9C-INVITE-01;
+    architecture/collaboration-and-client-sharing.md, section
+    "8. Client Engagement".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  responses:
+    '200':
+      description: The activated (or already active) engagement.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/organizations.yaml#/ClientEngagement'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'

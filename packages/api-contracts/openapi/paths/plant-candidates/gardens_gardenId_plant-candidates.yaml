@@ -1,0 +1,110 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: addCandidate
+  tags: [PlantCandidates]
+  summary: Add a plant candidate
+  description: |
+    Adds a plant being CONSIDERED for the garden — excluded from
+    inventory counts, current-care tasks, and "what grows here" claims
+    by construction (a separate table, never a status value on
+    `Plant`). See ADR-0016 section 1.
+
+    Source: implementation-plan.md work package P11-DATA-01, P11-API-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/plant-candidates.yaml#/AddCandidateRequest'
+  responses:
+    '201':
+      description: The created candidate.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/plant-candidates.yaml#/PlantCandidate'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+
+get:
+  operationId: listCandidates
+  tags: [PlantCandidates]
+  summary: Search a garden's plant candidates
+  description: |
+    Trigram-fuzzy match against `displayName` when `query` is given,
+    combined with optional structured filters (`status`, `priority`,
+    `identified`), cursor-paginated the same way `searchPlants`
+    paginates. Ranked most-similar first when `query` is given, most
+    recently created first otherwise (P11-SEARCH-01, closing the gap
+    this operation's own description used to name: "full-text/relevance
+    search over candidates is a separate, later capability").
+
+    Source: implementation-plan.md work package P11-API-01, P11-SEARCH-01.
+  parameters:
+    - name: query
+      in: query
+      required: false
+      description: Trigram-fuzzy match against displayName. Omit to list every candidate matching the other filters.
+      schema:
+        type: string
+        maxLength: 200
+    - name: status
+      in: query
+      required: false
+      description: Comma-separated statuses to include. Omit to include every status.
+      style: form
+      explode: false
+      schema:
+        type: array
+        items:
+          $ref: '../../components/schemas/plant-candidates.yaml#/PlantCandidateStatus'
+    - name: priority
+      in: query
+      required: false
+      description: Comma-separated priorities to include. Omit to include every priority (including candidates with no priority set).
+      style: form
+      explode: false
+      schema:
+        type: array
+        items:
+          $ref: '../../components/schemas/plant-candidates.yaml#/PlantCandidatePriority'
+    - name: identified
+      in: query
+      required: false
+      description: |
+        `true` restricts to candidates with a resolved
+        `taxonomyReferenceId`; `false` restricts to those without one.
+        Omit for no restriction.
+      schema:
+        type: boolean
+    - $ref: '../../components/parameters.yaml#/Cursor'
+    - $ref: '../../components/parameters.yaml#/Limit'
+  responses:
+    '200':
+      description: Matching candidates.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/plant-candidates.yaml#/PlantCandidateListResult'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

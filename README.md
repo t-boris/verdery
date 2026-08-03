@@ -173,11 +173,12 @@ That is the aggregate gate, equivalent to running:
 | `pnpm check:file-size` | The 600-line source-file rule from AGENTS.md |
 | `pnpm test`            | Vitest in every workspace package            |
 
-Two contract gates are not part of `check:all` and run separately:
+Three contract gates are not part of `check:all` and run separately:
 
 ```bash
-pnpm --filter @verdery/api-contracts lint:contract    # Redocly rules on openapi.yaml
-pnpm --filter @verdery/api-contracts generate:check   # generated client matches the contract
+pnpm --filter @verdery/api-contracts lint:contract    # Redocly rules on openapi/root.yaml
+pnpm --filter @verdery/api-contracts bundle:check     # openapi.yaml matches the openapi/ source tree
+pnpm --filter @verdery/api-contracts generate:check   # generated client matches the bundle
 ```
 
 Every gate above also runs in CI, plus a secret scan and the Swift build.

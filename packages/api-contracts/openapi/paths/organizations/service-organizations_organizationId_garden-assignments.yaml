@@ -1,0 +1,90 @@
+parameters:
+  - name: organizationId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: createGardenAssignment
+  tags: [Organizations]
+  summary: Assign an organization member to a garden
+  description: |
+    `organizationAdmin`-only (`manageGardenAssignment`) — the ONE place
+    organization boundaries and garden boundaries meet. Checks BOTH that
+    the caller holds `manageGardenAssignment` on `organizationId` AND
+    that `profileId` is genuinely an ACTIVE member of THAT SAME
+    organization (`422` `organization.assignment.assignee_not_member`
+    otherwise) — an organization can never assign a stranger to
+    anything.
+
+    Free-standing, NOT scoped by an active client engagement: this
+    endpoint does not require a `client_engagement` naming this
+    organization and garden to already exist. Section 3's own domain
+    diagram draws `garden_assignment` as a direct edge from
+    `organization_membership` to `garden`, with no `client_engagement`
+    on that path at all, and `garden_assignment` carries no foreign key
+    or other reference to `client_engagement` in the schema — the two
+    are genuinely independent records. An organization administrator may
+    therefore assign any of their organization's members to any garden
+    id that exists, unconditionally; nothing here asks the garden's
+    owner to have approved it first. `404` if no garden exists at
+    `gardenId`. Fails with `409` if the named profile already holds an
+    ACTIVE assignment on this garden (`garden_assignment_active_key`'s
+    own invariant — the schema's enforcement of "organization membership
+    alone grants no garden access, an active assignment is what does,"
+    at most one at a time).
+
+    Source: implementation-plan.md work package P9B-API-01;
+    architecture/collaboration-and-client-sharing.md, sections
+    "3. Domain Relationships", "7. Service Organizations and Assignments".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/organizations.yaml#/CreateGardenAssignmentRequest'
+  responses:
+    '201':
+      description: The created assignment.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/organizations.yaml#/GardenAssignment'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'
+
+get:
+  operationId: listOrganizationGardenAssignments
+  tags: [Organizations]
+  summary: List an organization's active garden assignments
+  description: |
+    Any ACTIVE member may read this — "which gardens can this
+    organization's members reach," the mirror question
+    `listGardenAssignments` (tag `Collaboration`) answers from the
+    garden's own side.
+
+    Source: implementation-plan.md work package P9B-API-01.
+  responses:
+    '200':
+      description: The organization's active assignments.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/organizations.yaml#/GardenAssignmentListResult'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

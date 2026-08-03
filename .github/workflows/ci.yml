@@ -149,6 +149,12 @@ jobs:
       - name: Lint the OpenAPI document
         run: pnpm --filter @verdery/api-contracts lint:contract
 
+      # Ordered before the generated-client check on purpose: that check reads
+      # the committed bundle, so a bundle that no longer matches its source tree
+      # would otherwise be verified against itself and pass.
+      - name: Verify the bundled contract matches its source tree
+        run: pnpm --filter @verdery/api-contracts bundle:check
+
       # Run against the checkout before anything regenerates the client. The
       # `typescript` job builds the contract package, which rewrites the
       # generated file as a side effect and would mask drift; this job must see

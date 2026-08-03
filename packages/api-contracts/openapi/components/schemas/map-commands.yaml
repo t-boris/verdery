@@ -1,0 +1,424 @@
+VertexOperation:
+  type: string
+  enum: [insert, move, remove]
+
+ProposalDecision:
+  type: string
+  enum: [accept, modifyAndAccept, reject]
+
+CreateMapObjectCommand:
+  type: object
+  additionalProperties: false
+  required: [type, objectId, category, geometry]
+  properties:
+    type:
+      type: string
+      enum: [createObject]
+    objectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    category:
+      $ref: '../../components/schemas/map-objects.yaml#/GardenObjectCategory'
+    geometry:
+      $ref: '../../components/schemas/geometry.yaml#/Geometry'
+    label:
+      type: string
+      maxLength: 200
+    categoryDetails:
+      $ref: '../../components/schemas/map-objects.yaml#/GardenObjectDetails'
+
+MoveObjectCommand:
+  type: object
+  additionalProperties: false
+  required: [type, objectId, expectedRevision, translationMetres]
+  properties:
+    type:
+      type: string
+      enum: [moveObject]
+    objectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    expectedRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    translationMetres:
+      type: object
+      additionalProperties: false
+      required: [dx, dy]
+      properties:
+        dx:
+          type: number
+        dy:
+          type: number
+
+ReplaceGeometryCommand:
+  type: object
+  additionalProperties: false
+  required: [type, objectId, expectedRevision, geometry]
+  description: What a resize, rotate, or freehand reshape gesture commits as.
+  properties:
+    type:
+      type: string
+      enum: [replaceGeometry]
+    objectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    expectedRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    geometry:
+      $ref: '../../components/schemas/geometry.yaml#/Geometry'
+
+EditVertexCommand:
+  type: object
+  additionalProperties: false
+  required: [type, objectId, expectedRevision, operation, ringIndex, vertexIndex]
+  properties:
+    type:
+      type: string
+      enum: [editVertex]
+    objectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    expectedRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    operation:
+      $ref: '#/VertexOperation'
+    ringIndex:
+      type: integer
+      minimum: 0
+    vertexIndex:
+      type: integer
+      minimum: 0
+    position:
+      $ref: '../../components/schemas/geometry.yaml#/Position'
+      description: Required for `insert` and `move`; absent for `remove`.
+
+SplitLineworkCommand:
+  type: object
+  additionalProperties: false
+  required: [type, objectId, expectedRevision, resultObjectIds, atVertexIndex]
+  properties:
+    type:
+      type: string
+      enum: [splitLinework]
+    objectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    expectedRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    resultObjectIds:
+      type: array
+      minItems: 2
+      maxItems: 2
+      items:
+        $ref: '../../components/schemas/shared.yaml#/Uuid'
+    atVertexIndex:
+      type: integer
+      minimum: 0
+
+JoinLineworkCommand:
+  type: object
+  additionalProperties: false
+  required:
+    [
+      type,
+      firstObjectId,
+      firstExpectedRevision,
+      secondObjectId,
+      secondExpectedRevision,
+      resultObjectId,
+    ]
+  properties:
+    type:
+      type: string
+      enum: [joinLinework]
+    firstObjectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    firstExpectedRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    secondObjectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    secondExpectedRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    resultObjectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+ChangePropertiesCommand:
+  type: object
+  additionalProperties: false
+  required: [type, objectId, expectedRevision]
+  properties:
+    type:
+      type: string
+      enum: [changeProperties]
+    objectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    expectedRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    label:
+      type: string
+      maxLength: 200
+    categoryDetails:
+      $ref: '../../components/schemas/map-objects.yaml#/GardenObjectDetails'
+
+AssignPlantCommand:
+  type: object
+  additionalProperties: false
+  required: [type, plantObjectId, expectedRevision, targetObjectId]
+  properties:
+    type:
+      type: string
+      enum: [assignPlant]
+    plantObjectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    expectedRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    targetObjectId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+      description: '`null` unassigns the plant from any zone or bed.'
+
+PlanPoint:
+  type: array
+  minItems: 2
+  maxItems: 2
+  items:
+    type: number
+  description: |
+    A point on an imported plan page in plan-fraction units: pixel x
+    AND pixel y each divided by the displayed rendition's WIDTH (y
+    down, image convention). Resolution-independent, because every
+    derivative preserves the page's aspect ratio — the same `[u, v]`
+    names the same ink on the screen preview, the high-resolution
+    image, or the original. `u` runs 0..1; `v` runs 0..pageAspectRatio.
+    See `calibration.ts` in `@verdery/geometry-contracts` for the full
+    convention.
+
+PlanKnownDistance:
+  type: object
+  additionalProperties: false
+  required: [pointA, pointB, distanceMetres]
+  description: Two plan points and the real-world distance between them — the uniform-scale source (section 16, "one known-distance segment").
+  properties:
+    pointA:
+      $ref: '#/PlanPoint'
+    pointB:
+      $ref: '#/PlanPoint'
+    distanceMetres:
+      type: number
+      exclusiveMinimum: 0
+
+ManualCalibrationAdjustment:
+  type: object
+  additionalProperties: false
+  required: [rotationRadians, translationMetres]
+  description: |
+    The section-16 "manual origin and orientation adjustment", stored
+    as INPUT (rotate about the local origin, then translate — composed
+    on top of the fitted transform) so recalibration re-derives it
+    instead of overwriting a transform.
+  properties:
+    rotationRadians:
+      type: number
+    translationMetres:
+      type: object
+      additionalProperties: false
+      required: [dx, dy]
+      properties:
+        dx:
+          type: number
+        dy:
+          type: number
+
+PlanTransform:
+  type: object
+  additionalProperties: false
+  required: [metresPerPlanUnit, rotationRadians, translationMetres]
+  description: |
+    The derived plan-space → local-space SIMILARITY transform (uniform
+    scale + rotation + translation):
+    `local = translationMetres + metresPerPlanUnit · R(rotationRadians) · (u, −v)`.
+    Deliberately not a 6-DOF affine — shear would absorb input noise
+    and manufacture precision (section 16, "prevents false
+    precision"). Always server-derived, never client-authored.
+  properties:
+    metresPerPlanUnit:
+      type: number
+      exclusiveMinimum: 0
+      description: Metres per plan-fraction unit, i.e. the page's full width in metres.
+    rotationRadians:
+      type: number
+      description: Counter-clockwise rotation in local space, normalized to (−π, π].
+    translationMetres:
+      type: object
+      additionalProperties: false
+      required: [x, y]
+      properties:
+        x:
+          type: number
+        y:
+          type: number
+
+CalibrationReferencePoint:
+  type: object
+  additionalProperties: false
+  required: [planPoint, localMetres]
+  description: One control point — a plan point paired with the local-space point it must land on.
+  properties:
+    planPoint:
+      $ref: '#/PlanPoint'
+    localMetres:
+      $ref: '../../components/schemas/geometry.yaml#/Position'
+
+UpsertCalibrationCommand:
+  type: object
+  additionalProperties: false
+  required:
+    [type, backgroundObjectId, expectedRevision, pageAspectRatio, knownDistance, referencePoints]
+  description: |
+    Calibrates (or recalibrates) an imported background from the full
+    section-16 input set. The server derives the transform, per-point
+    residuals, aggregate RMS, and the background's page-footprint
+    geometry — a client never submits a transform. Revision-guarded
+    like every object-mutating command, because applying a calibration
+    rewrites the background object's details and geometry. Reshaped by
+    P6-PLAN-02 from its P3 reference-points-only scaffold (which no
+    client ever submitted).
+  properties:
+    type:
+      type: string
+      enum: [upsertCalibration]
+    backgroundObjectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    expectedRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    pageAspectRatio:
+      type: number
+      exclusiveMinimum: 0
+      description: Page height / width, measured by the client from the displayed raster (the API exposes no raster dimensions).
+    knownDistance:
+      $ref: '#/PlanKnownDistance'
+    referencePoints:
+      type: array
+      maxItems: 32
+      description: Optional control points — may be empty; a known distance plus manual placement is a legitimate calibration.
+      items:
+        $ref: '#/CalibrationReferencePoint'
+    manualAdjustment:
+      $ref: '#/ManualCalibrationAdjustment'
+
+DecideProposalCommand:
+  type: object
+  additionalProperties: false
+  required: [type, proposalId, decision]
+  properties:
+    type:
+      type: string
+      enum: [decideProposal]
+    proposalId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    decision:
+      $ref: '#/ProposalDecision'
+    editedGeometry:
+      $ref: '../../components/schemas/geometry.yaml#/Geometry'
+      description: Required only for `modifyAndAccept`.
+
+DeleteObjectCommand:
+  type: object
+  additionalProperties: false
+  required: [type, objectId, expectedRevision]
+  properties:
+    type:
+      type: string
+      enum: [deleteObject]
+    objectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    expectedRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+
+RestoreObjectCommand:
+  type: object
+  additionalProperties: false
+  required: [type, objectId, expectedRevision]
+  properties:
+    type:
+      type: string
+      enum: [restoreObject]
+    objectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    expectedRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+
+DuplicateObjectCommand:
+  type: object
+  additionalProperties: false
+  required: [type, sourceObjectId, newObjectId, offsetMetres]
+  properties:
+    type:
+      type: string
+      enum: [duplicateObject]
+    sourceObjectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    newObjectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    offsetMetres:
+      type: object
+      additionalProperties: false
+      required: [dx, dy]
+      properties:
+        dx:
+          type: number
+        dy:
+          type: number
+
+MapCommandPayload:
+  oneOf:
+    - $ref: '#/CreateMapObjectCommand'
+    - $ref: '#/MoveObjectCommand'
+    - $ref: '#/ReplaceGeometryCommand'
+    - $ref: '#/EditVertexCommand'
+    - $ref: '#/SplitLineworkCommand'
+    - $ref: '#/JoinLineworkCommand'
+    - $ref: '#/ChangePropertiesCommand'
+    - $ref: '#/AssignPlantCommand'
+    - $ref: '#/UpsertCalibrationCommand'
+    - $ref: '#/DecideProposalCommand'
+    - $ref: '#/DeleteObjectCommand'
+    - $ref: '#/RestoreObjectCommand'
+    - $ref: '#/DuplicateObjectCommand'
+  discriminator:
+    propertyName: type
+    # See Geometry's discriminator comment: mapping to the actual wire
+    # values, not schema names, is required for the generated type to
+    # narrow real JSON correctly.
+    mapping:
+      createObject: '#/CreateMapObjectCommand'
+      moveObject: '#/MoveObjectCommand'
+      replaceGeometry: '#/ReplaceGeometryCommand'
+      editVertex: '#/EditVertexCommand'
+      splitLinework: '#/SplitLineworkCommand'
+      joinLinework: '#/JoinLineworkCommand'
+      changeProperties: '#/ChangePropertiesCommand'
+      assignPlant: '#/AssignPlantCommand'
+      upsertCalibration: '#/UpsertCalibrationCommand'
+      decideProposal: '#/DecideProposalCommand'
+      deleteObject: '#/DeleteObjectCommand'
+      restoreObject: '#/RestoreObjectCommand'
+      duplicateObject: '#/DuplicateObjectCommand'
+
+MapCommandRequest:
+  type: object
+  additionalProperties: false
+  required: [commandId, clientTimestamp, payload]
+  properties:
+    commandId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    clientTimestamp:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    payload:
+      $ref: '#/MapCommandPayload'
+
+MapCommandResult:
+  type: object
+  additionalProperties: false
+  required: [affectedObjects]
+  properties:
+    affectedObjects:
+      type: array
+      items:
+        $ref: '../../components/schemas/map-objects.yaml#/GardenObject'

@@ -1,0 +1,36 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: archiveGarden
+  tags: [Gardens]
+  summary: Archive a garden
+  description: |
+    Owner-only lifecycle command. Archiving an already-archived garden
+    under a new idempotency key is a domain conflict, not a silent no-op.
+
+    Source: implementation-plan.md work packages P2-API-01, P2-SEC-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  responses:
+    '200':
+      description: The archived garden.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/gardens.yaml#/Garden'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'

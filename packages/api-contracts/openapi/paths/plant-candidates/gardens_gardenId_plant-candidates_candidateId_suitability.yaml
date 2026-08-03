@@ -1,0 +1,60 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: candidateId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: getCandidateSuitability
+  tags: [PlantCandidates]
+  summary: Get a candidate's latest suitability assessment
+  description: |
+    An honest 404 when no assessment has ever been computed — never a
+    fabricated empty one. `recalculateCandidateSuitability` is what a
+    client calls first.
+
+    Source: implementation-plan.md work package P11-SUIT-01, P11-API-01.
+  responses:
+    '200':
+      description: The latest assessment.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/plant-candidates.yaml#/SuitabilityAssessment'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+
+post:
+  operationId: recalculateCandidateSuitability
+  tags: [PlantCandidates]
+  summary: Recalculate a candidate's suitability assessment
+  description: |
+    Assembles current garden context, the candidate's resolved plant
+    profile, and reviewed distribution/regulatory facts, then always
+    persists a new append-only assessment — even an all-`unknown`
+    result is itself a meaningful, real result for a candidate with no
+    identified taxon yet, so it is never skipped. No `Idempotency-Key`:
+    recalculation is naturally safe to call repeatedly, each call
+    producing its own fresh, equally valid assessment rather than
+    needing at-most-once semantics.
+
+    Source: implementation-plan.md work package P11-SUIT-01, P11-API-01.
+  responses:
+    '201':
+      description: The freshly computed assessment.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/plant-candidates.yaml#/SuitabilityAssessment'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

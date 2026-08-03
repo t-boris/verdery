@@ -1,0 +1,362 @@
+TaskTargetKind:
+  type: string
+  enum: [garden, garden_area, plant]
+
+TaskStatus:
+  type: string
+  enum: [planned, suggested, completed, skipped, dismissed, deleted]
+  description: |
+    `planned` and `suggested` are the only two statuses a task's status
+    or details may still be changed from; the other four are terminal.
+
+TaskUrgency:
+  type: string
+  enum: [low, normal, high, urgent]
+
+TaskSource:
+  type: string
+  enum: [manual, suggested]
+  description: This API only ever creates `manual` tasks; `suggested` would originate from a recommendation entity this phase does not build.
+
+Task:
+  type: object
+  additionalProperties: false
+  required:
+    [
+      id,
+      gardenId,
+      targetKind,
+      targetGardenAreaMapObjectId,
+      targetPlantId,
+      title,
+      notes,
+      status,
+      dueDate,
+      timeWindowStart,
+      timeWindowEnd,
+      recurrenceRule,
+      urgency,
+      source,
+      originObservationId,
+      originRecommendationId,
+      revision,
+      createdByProfileId,
+      createdAt,
+      updatedAt,
+      completedAt,
+      assignedProfileId,
+      assignedAt,
+      completedByProfileId,
+    ]
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    gardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    targetKind:
+      $ref: '#/TaskTargetKind'
+    targetGardenAreaMapObjectId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+    targetPlantId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+    title:
+      type: string
+      minLength: 1
+      maxLength: 200
+    notes:
+      type: [string, 'null']
+    status:
+      $ref: '#/TaskStatus'
+    dueDate:
+      oneOf:
+        - type: string
+          format: date
+        - type: 'null'
+    timeWindowStart:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Timestamp'
+        - type: 'null'
+    timeWindowEnd:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Timestamp'
+        - type: 'null'
+    recurrenceRule:
+      type: [string, 'null']
+      description: Stored only; never parsed, expanded, or validated this pass.
+    urgency:
+      $ref: '#/TaskUrgency'
+    source:
+      $ref: '#/TaskSource'
+    originObservationId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+    originRecommendationId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+      description: |
+        The recommendation candidate this task was converted from
+        (P7-BE-01) — set exactly when `source` is `'suggested'`, the
+        outcome-history linkage FR-24's explainability chain requires.
+        Always `null` for manual tasks.
+    revision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    createdByProfileId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    updatedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    completedAt:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Timestamp'
+        - type: 'null'
+    assignedProfileId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+      description: |
+        The garden member responsible for this task (P9A-TASK-01) —
+        `null` when unassigned. Set only by `AssignTask`; the assignee
+        must be an active member holding `editGardenContent` (owner or
+        editor) on this task's own garden.
+    assignedAt:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Timestamp'
+        - type: 'null'
+      description: Present exactly when `assignedProfileId` is.
+    completedByProfileId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+      description: |
+        The actual caller who completed this task (P9A-TASK-01) — not
+        necessarily `assignedProfileId`. Stays readable after that
+        profile loses access to this garden, because it references the
+        profile directly rather than the membership. `null` until
+        completed.
+
+TaskAttachment:
+  type: object
+  additionalProperties: false
+  required: [id, taskId, mediaId, createdAt]
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    taskId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    mediaId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
+TaskListResult:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/Task'
+
+TaskTimeWindowInput:
+  type: object
+  additionalProperties: false
+  description: Shared by `CreateManualTaskRequest`, `EditTaskRequest`, and `RescheduleTaskRequest`.
+  properties:
+    start:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Timestamp'
+        - type: 'null'
+    end:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Timestamp'
+        - type: 'null'
+
+CreateManualTaskRequest:
+  type: object
+  additionalProperties: false
+  required: [target, title]
+  description: 'Mirrors `CreateManualTaskInput`. Source: tasks-recommendations/application/create-manual-task.ts.'
+  properties:
+    target:
+      type: object
+      additionalProperties: false
+      required: [kind]
+      description: |
+        Mirrors the migration's `task_target_consistency_check`: `kind:
+        garden` sets neither id; `kind: garden_area` sets only
+        `gardenAreaMapObjectId`; `kind: plant` sets only `plantId`.
+      properties:
+        kind:
+          $ref: '#/TaskTargetKind'
+        gardenAreaMapObjectId:
+          $ref: '../../components/schemas/shared.yaml#/Uuid'
+        plantId:
+          $ref: '../../components/schemas/shared.yaml#/Uuid'
+    title:
+      type: string
+      minLength: 1
+      maxLength: 200
+    notes:
+      type: [string, 'null']
+    dueDate:
+      oneOf:
+        - type: string
+          format: date
+        - type: 'null'
+    timeWindow:
+      $ref: '#/TaskTimeWindowInput'
+    urgency:
+      $ref: '#/TaskUrgency'
+    originObservationId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+      description: Must name an observation belonging to this same garden.
+
+EditTaskRequest:
+  type: object
+  additionalProperties: false
+  description: |
+    Mirrors `EditTaskChanges`. Every property is optional; an omitted
+    property leaves the current value unchanged, and an explicit `null`
+    on a nullable property clears it. Source
+    tasks-recommendations/application/edit-task.ts.
+  properties:
+    title:
+      type: string
+      minLength: 1
+      maxLength: 200
+    notes:
+      type: [string, 'null']
+    dueDate:
+      oneOf:
+        - type: string
+          format: date
+        - type: 'null'
+    timeWindow:
+      $ref: '#/TaskTimeWindowInput'
+    urgency:
+      $ref: '#/TaskUrgency'
+    recurrenceRule:
+      type: [string, 'null']
+
+RescheduleTaskRequest:
+  type: object
+  additionalProperties: false
+  description: 'Mirrors `RescheduleTaskInput`. Source: tasks-recommendations/application/reschedule-task.ts.'
+  properties:
+    dueDate:
+      oneOf:
+        - type: string
+          format: date
+        - type: 'null'
+    timeWindow:
+      $ref: '#/TaskTimeWindowInput'
+
+CompleteTaskRequest:
+  type: object
+  additionalProperties: false
+  description: '`completionNote` is accepted for interface completeness but has no storage target this pass — it still binds the idempotency fingerprint.'
+  properties:
+    completionNote:
+      type: [string, 'null']
+
+DismissTaskRequest:
+  type: object
+  additionalProperties: false
+  description: '`reason` is accepted for interface completeness but has no storage target this pass, the same carve-out `CompleteTaskRequest.completionNote` documents.'
+  properties:
+    reason:
+      type: [string, 'null']
+
+AttachTaskFileRequest:
+  type: object
+  additionalProperties: false
+  required: [mediaId]
+  properties:
+    mediaId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+AssignTaskRequest:
+  type: object
+  additionalProperties: false
+  required: [assigneeProfileId]
+  description: |
+    Assigns, reassigns, or unassigns (`assigneeProfileId: null`) a task
+    (P9A-TASK-01). `assigneeProfileId` is required, unlike this tag's
+    other request bodies: `null` is how a caller explicitly unassigns,
+    not a shorthand for "no change." The named profile must be an
+    active member of this task's own garden holding `editGardenContent`
+    (owner or editor) — assigning to a viewer, or to a non-member, is
+    rejected as a bad request. Source:
+    tasks-recommendations/application/assign-task.ts.
+  properties:
+    assigneeProfileId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+
+TaskActivityEntry:
+  type: object
+  additionalProperties: false
+  required: [revision, commandType, actorProfileId, status, dueDate, assignedProfileId, recordedAt]
+  description: |
+    One row of a task's shared activity history (P9A-TASK-01, row B17) —
+    the application-layer projection of one `tasks_recommendations.
+    task_revision` row: every accepted command against this task,
+    oldest first, naming who performed it and what it changed.
+  properties:
+    revision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    commandType:
+      type: string
+      enum:
+        [
+          createManualTask,
+          editTask,
+          rescheduleTask,
+          completeTask,
+          dismissTask,
+          skipTask,
+          deleteTask,
+          convertRecommendationToTask,
+          assignTask,
+        ]
+    actorProfileId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    status:
+      oneOf:
+        - $ref: '#/TaskStatus'
+        - type: 'null'
+      description: Populated only for the entries that changed status.
+    dueDate:
+      oneOf:
+        - type: string
+          format: date
+        - type: 'null'
+      description: Populated only for the entries that changed the due date.
+    assignedProfileId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+      description: Populated only for `assignTask` entries — the assignee that command settled on, or `null` for an unassignment.
+    recordedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
+TaskActivityListResult:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/TaskActivityEntry'

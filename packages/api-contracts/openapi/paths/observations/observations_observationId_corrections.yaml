@@ -1,0 +1,44 @@
+parameters:
+  - name: observationId
+    in: path
+    required: true
+    description: The observation being corrected.
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: correctObservation
+  tags: [Observations]
+  summary: Correct an observation
+  description: |
+    Inserts a new observation row that points backward to the one it
+    corrects; the original is never edited or superseded in place. No
+    `gardenId` in the path — the garden is discovered from the original
+    observation itself, the same way the command layer resolves it.
+
+    Source: implementation-plan.md work packages P4-BE-02, P4-CONTRACT-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/observations.yaml#/CorrectObservationRequest'
+  responses:
+    '201':
+      description: The correction observation.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/observations.yaml#/Observation'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'

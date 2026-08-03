@@ -1,0 +1,64 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: mediaId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: completeMediaUpload
+  tags: [Media]
+  summary: Verify a finished upload and resolve it to available or rejected
+  description: |
+    Explicit, client-triggered completion verification only — there is
+    no event-driven or Pub/Sub-triggered path yet (that is
+    P6-ASYNC-01's own scope). Drives the record through
+    `uploading` -> `verifying` and then to a terminal outcome: reads
+    real object metadata from Cloud Storage and compares it against the
+    declared content type and byte size (section 8/20, "Declared versus
+    actual type and size mismatch"). A mismatch, or a missing object,
+    resolves to `rejected`; an exact match resolves to `available`. Both
+    outcomes are a successful `200` response — verification concluding
+    with a rejection is not a request failure.
+
+    Full content-hash (SHA-256) verification against the object's real
+    bytes is not performed here: that requires downloading and hashing
+    the object, which this synchronous interactive endpoint does not do
+    (section 2) — it remains P6-WORKER-01's job. When the client
+    declared a checksum at registration, that declared value is carried
+    through unchanged on success, never independently confirmed at this
+    stage.
+
+    Idempotent under a duplicate completion notification: calling this
+    again against an already-`available` or already-`rejected` record
+    simply returns the record's current state rather than re-verifying
+    or erroring.
+
+    Source: implementation-plan.md work package P6-API-01;
+    architecture/media-storage-and-processing.md, sections "7. Upload
+    Flow", "8. File Validation", "20. Testing".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  responses:
+    '200':
+      description: The resolved media record (`available` or `rejected`).
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/media.yaml#/Media'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'

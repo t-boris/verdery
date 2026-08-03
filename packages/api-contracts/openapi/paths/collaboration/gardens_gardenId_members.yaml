@@ -1,0 +1,33 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: listGardenMembers
+  tags: [Collaboration]
+  summary: List a garden's active members
+  description: |
+    Every active role may read this — owner, editor, and viewer alike
+    (garden-capability-matrix.md, row H2 / decision S1): a household
+    member who cannot see who else can see their garden has less
+    visibility into their own garden than a stranger would. Entries
+    carry `profileId` and `role`, never an email address — email is the
+    invitation-binding and enumeration surface, and stays owner-visible
+    only on the invitation itself.
+
+    Source: implementation-plan.md work package P9A-API-01;
+    docs/development/garden-capability-matrix.md, section "4.8 Membership".
+  responses:
+    '200':
+      description: The garden's active members.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/collaboration.yaml#/GardenMemberListResult'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

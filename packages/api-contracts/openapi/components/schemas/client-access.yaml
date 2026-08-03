@@ -1,0 +1,70 @@
+# --- Client invitation and access grant (P9C-INVITE-01) ---
+ClientAccessGrantState:
+  type: string
+  enum: [pending, active, revoked, expired]
+  description: |
+    Mirrors `collaboration.client_access_grant.state`. Unlike
+    `InvitationState`, this machine has an `active -> revoked` edge: this
+    one row is both the invitation and the client's ongoing portal-access
+    grant, so revoking an accepted client's access is the same
+    transition as revoking a still-pending invite.
+
+ClientAccessGrant:
+  type: object
+  additionalProperties: false
+  required: [id, engagementId, state, createdAt]
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    engagementId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    clientProfileId:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Absent until a real invitation is accepted and binds a profile.
+    invitedEmail:
+      type: string
+      format: email
+      description: The email this invitation was bound to. Stays present even after acceptance.
+    state:
+      $ref: '#/ClientAccessGrantState'
+    grantedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    revokedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    expiresAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
+ClientAccessGrantListResult:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/ClientAccessGrant'
+
+CreateClientInvitationRequest:
+  type: object
+  additionalProperties: false
+  required: [email]
+  properties:
+    email:
+      type: string
+      format: email
+      description: |
+        Required — client invitations are always email-bound; no
+        anonymous, unbound link exists for this resource.
+
+AcceptClientInvitationRequest:
+  type: object
+  additionalProperties: false
+  required: [token]
+  properties:
+    token:
+      type: string
+      minLength: 32
+      maxLength: 128

@@ -1,0 +1,50 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: taskId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: dismissTask
+  tags: [Tasks]
+  summary: Dismiss a task
+  description: |
+    Transitions the task to `'dismissed'` — "not doing this at all."
+    Terminal: only legal while `'planned'` or `'suggested'`. `reason` is
+    accepted for interface completeness but has no storage target this
+    pass, the same carve-out `completionNote` documents.
+
+    Source: implementation-plan.md work packages P4-BE-03, P4-CONTRACT-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/tasks.yaml#/DismissTaskRequest'
+  responses:
+    '200':
+      description: The dismissed task.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/tasks.yaml#/Task'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'

@@ -1,0 +1,37 @@
+parameters:
+  - name: engagementId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: endClientEngagement
+  tags: [Organizations]
+  summary: End an active client engagement
+  description: |
+    Same dual authorization as `createClientEngagement`. Only the
+    `active` -> `ended` transition applies; idempotent when already
+    `ended`. Refused with `422` from `draft` (never activated) or
+    `revoked`.
+
+    Source: implementation-plan.md work package P9B-API-01;
+    architecture/collaboration-and-client-sharing.md, section
+    "8. Client Engagement".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  responses:
+    '200':
+      description: The ended engagement.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/organizations.yaml#/ClientEngagement'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'

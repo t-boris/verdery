@@ -1,0 +1,60 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: mediaId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: getMediaAccess
+  tags: [Media]
+  summary: Get short-lived authorized download access to a media object
+  description: |
+    Implements section 12's download flow: authenticates, authorizes
+    garden role, and returns a short-lived signed download mechanism —
+    never a permanent URL. Only `available` media can be accessed.
+
+    An ORIGINAL additionally requires `processingState: 'processed'`
+    (its safety validation concluded clean). A DERIVATIVE row — reached
+    via its original's `derivatives` array (P6-PLAN-01) — is servable
+    at `available` alone: a derivative row only ever exists because its
+    source already validated clean and a worker produced it, and its
+    own `processingState` is `null` by design ("not applicable" — a
+    derivative is never itself the subject of further processing).
+
+    Enforces section 12's own stricter line for the operational viewer
+    role: a viewer may access ordinary accepted photos according to
+    garden capability, but not `restricted`-classified media (raw scan
+    artifacts) unless explicitly allowed. No "explicitly allowed"
+    override mechanism exists anywhere in this codebase's role model yet,
+    so this is currently an unconditional denial for viewers against
+    `restricted` media, not a configurable one.
+
+    The client-portal-specific rules section 12's last paragraph
+    describes (organization/client-engagement/publication entitlement)
+    are out of scope: those concepts do not exist anywhere in this
+    codebase yet (Phase 9, not started), the same deferral Phase 5
+    already applied to the identical gap.
+
+    Source: implementation-plan.md work package P6-API-01;
+    architecture/media-storage-and-processing.md, section "12. Download Flow".
+  responses:
+    '200':
+      description: Short-lived signed download access.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/media.yaml#/MediaAccess'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'

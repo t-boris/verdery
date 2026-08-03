@@ -1,0 +1,81 @@
+parameters:
+  - name: engagementId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: listEngagementPublishers
+  tags: [Publications]
+  summary: List an engagement's publisher grants
+  description: |
+    Every ACTIVE and revoked grant on this engagement, newest first.
+    Authorized the same dual gate as `grantPublisherAccess` — only
+    whoever administers the engagement (an organization's
+    `manageEngagement` holders when org-backed, the garden's own owner
+    otherwise) may see who currently holds publisher access on it.
+
+    Source: implementation-plan.md work package P9C-PUBLISH-01.
+  responses:
+    '200':
+      description: The engagement's publisher grants.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/organizations.yaml#/PublisherGrantListResult'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+
+post:
+  operationId: grantPublisherAccess
+  tags: [Publications]
+  summary: Grant publisher access on an engagement
+  description: |
+    Publisher access is a SEPARATE capability, never implied by
+    `manageEngagement`, `manageGarden`, or organization/garden role alone
+    (ADR-0012, "Publication Boundary"). Authorization is the same dual
+    gate `createClientEngagement` uses, re-evaluated against the
+    engagement's CURRENT `serviceOrganizationId`: an organization's
+    `manageEngagement` holders grant it for an organization-backed
+    engagement; the garden's own owner (`manageGarden`) grants it when no
+    service organization is attached.
+
+    The named profile must independently be eligible: an ACTIVE member of
+    the SAME service organization for an organization-backed engagement,
+    or an ACTIVE garden member (any role) of the engagement's own garden
+    otherwise. Refused with `409` when the named profile already holds an
+    ACTIVE grant on this engagement (`publisher_grant_active_key`).
+
+    Source: implementation-plan.md work package P9C-PUBLISH-01;
+    architecture/decisions/ADR-0012-separate-team-and-client-sharing.md,
+    section "Publication Boundary".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/organizations.yaml#/GrantPublisherAccessRequest'
+  responses:
+    '201':
+      description: The created, active publisher grant.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/organizations.yaml#/PublisherGrant'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'

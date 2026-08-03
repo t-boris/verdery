@@ -1,0 +1,42 @@
+parameters:
+  - name: clientGardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: getClientTimeline
+  tags: [ClientPortal]
+  summary: Get a client garden's factual timeline
+  description: |
+    The SAME visible (`published`, never `withdrawn`) publication
+    items `listClientPublications` reads, reshaped: every item of
+    every kind (`work_log`, `media`, `garden_snapshot`,
+    `timeline_entry`) across every visible publication version,
+    flattened into ONE chronological sequence ordered by its own
+    `occurredAt`, oldest first — a factual narrative of what happened
+    and when, not a log of publisher batches. Genuinely distinct from
+    `listClientPublications`: that operation groups by publication
+    version (title, summary, and a bounded item list per publish
+    event); this one has no version grouping or title/summary at all,
+    only the flattened facts in time order, per
+    collaboration-and-client-sharing.md section 12.1 ("Garden Timeline
+    is factual. It is composed from immutable published updates,
+    completed-work snapshots, selected media, and accepted garden
+    snapshots with real timestamps").
+
+    Source: implementation-plan.md work package P9C-API-01;
+    architecture/collaboration-and-client-sharing.md, section
+    "12. Garden Timeline and Time Machine".
+  responses:
+    '200':
+      description: The garden's factual timeline, oldest first.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/client-portal.yaml#/ClientTimelineResult'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

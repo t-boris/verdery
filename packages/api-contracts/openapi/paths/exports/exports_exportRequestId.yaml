@@ -1,0 +1,27 @@
+parameters:
+  - name: exportRequestId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: getExportRequest
+  tags: [Exports]
+  summary: Get one export request's state
+  description: |
+    The caller's own export request — state, boundary, expiry, and
+    package facts once completed. Another user's request id, or an
+    unknown id, is `404` (`export.not_found`): non-ownership is
+    concealed as not-found, the inbox-entry posture.
+  responses:
+    '200':
+      description: The export request.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/exports.yaml#/ExportRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

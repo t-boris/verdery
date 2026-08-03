@@ -1,0 +1,240 @@
+# ------------------------------------------------------------------
+# Synchronization (P5-API-01).
+#
+# Wire shapes for the native offline outbox protocol: client
+# installation registration, batched push, resumable pull of the
+# server change log, and cheap re-acknowledgement of already-pushed
+# operations. Source: architecture/offline-synchronization.md;
+# architecture/api-design.md, section "16. Synchronization Endpoints".
+# ------------------------------------------------------------------
+SyncRecordType:
+  type: string
+  enum: [garden, gardenObject, calibration, plant, observation, task]
+  description: |
+    Every record type this service's sync change log writes today.
+    Matches `SyncRecordType` in
+    services/api/src/platform/sync/sync-record-type.ts exactly — grow
+    that union first when a module starts writing a new type, then add
+    the matching value here.
+
+    `calibration` has no direct branch in `SyncOperationPayload` below:
+    a calibration is written only as a side effect of `map.upsertCalibration`,
+    submitted the same way every other map command is, under
+    `recordType: 'gardenObject'`.
+
+SyncRecordReference:
+  type: object
+  additionalProperties: false
+  required: [recordId, recordType, revision]
+  description: |
+    The minimum a client needs to know a record changed and at what
+    revision, without the full record body — what an `accepted` or
+    `duplicate` push result carries.
+  properties:
+    recordId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    recordType:
+      $ref: '#/SyncRecordType'
+    revision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+
+Calibration:
+  type: object
+  additionalProperties: false
+  required: [id, backgroundObjectId, revision, referencePoints, createdByProfileId, createdAt]
+  description: |
+    A background-image calibration revision. Recalibration always
+    inserts a new row rather than updating one in place, so `revision`
+    identifies this specific calibration attempt, not a mutable
+    object's current state — mirrors `Calibration` in
+    gardens-mapping/application/calibration-repository.ts. Not exposed
+    by `SubmitMapCommand`'s own response today; introduced here because
+    `GetSyncChanges` needs a real payload for `recordType: 'calibration'`
+    upserts, per architecture/offline-synchronization.md's own
+    requirement that a change "contains enough information to upsert...
+    a local read-model record."
+
+    P6-PLAN-02 added the calibration inputs (known distance, page
+    aspect ratio, manual adjustment) and the derived transform and
+    residuals; each is optional here only because a legacy P3-shaped
+    row carries none of them — every row the reworked command writes
+    carries them all.
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    backgroundObjectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    revision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    referencePoints:
+      type: array
+      maxItems: 32
+      items:
+        $ref: '../../components/schemas/map-commands.yaml#/CalibrationReferencePoint'
+    knownDistance:
+      $ref: '../../components/schemas/map-commands.yaml#/PlanKnownDistance'
+    pageAspectRatio:
+      type: number
+      exclusiveMinimum: 0
+    manualAdjustment:
+      $ref: '../../components/schemas/map-commands.yaml#/ManualCalibrationAdjustment'
+    transform:
+      $ref: '../../components/schemas/map-commands.yaml#/PlanTransform'
+    pointResidualsMetres:
+      type: array
+      maxItems: 32
+      items:
+        type: number
+        minimum: 0
+      description: Aligned index-for-index with `referencePoints`.
+    residualErrorMetres:
+      type: [number, 'null']
+      description: Aggregate RMS over the point residuals; `null` below two control points, and on every legacy row.
+    createdByProfileId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
+SyncGardenSnapshot:
+  type: object
+  additionalProperties: false
+  required: [recordType, data]
+  properties:
+    recordType:
+      type: string
+      enum: [garden]
+    data:
+      $ref: '../../components/schemas/gardens.yaml#/Garden'
+
+SyncGardenObjectSnapshot:
+  type: object
+  additionalProperties: false
+  required: [recordType, data]
+  properties:
+    recordType:
+      type: string
+      enum: [gardenObject]
+    data:
+      $ref: '../../components/schemas/map-objects.yaml#/GardenObject'
+
+SyncCalibrationSnapshot:
+  type: object
+  additionalProperties: false
+  required: [recordType, data]
+  properties:
+    recordType:
+      type: string
+      enum: [calibration]
+    data:
+      $ref: '#/Calibration'
+
+SyncPlantSnapshot:
+  type: object
+  additionalProperties: false
+  required: [recordType, data]
+  properties:
+    recordType:
+      type: string
+      enum: [plant]
+    data:
+      $ref: '../../components/schemas/plants.yaml#/Plant'
+
+SyncObservationSnapshot:
+  type: object
+  additionalProperties: false
+  required: [recordType, data]
+  properties:
+    recordType:
+      type: string
+      enum: [observation]
+    data:
+      $ref: '../../components/schemas/observations.yaml#/Observation'
+
+SyncTaskSnapshot:
+  type: object
+  additionalProperties: false
+  required: [recordType, data]
+  properties:
+    recordType:
+      type: string
+      enum: [task]
+    data:
+      $ref: '../../components/schemas/tasks.yaml#/Task'
+
+SyncRecordSnapshot:
+  oneOf:
+    - $ref: '#/SyncGardenSnapshot'
+    - $ref: '#/SyncGardenObjectSnapshot'
+    - $ref: '#/SyncCalibrationSnapshot'
+    - $ref: '#/SyncPlantSnapshot'
+    - $ref: '#/SyncObservationSnapshot'
+    - $ref: '#/SyncTaskSnapshot'
+  discriminator:
+    propertyName: recordType
+    # See Geometry's discriminator comment (above, in the Map section)
+    # for why `mapping` to the actual wire values is required for
+    # openapi-typescript to narrow real JSON by `recordType`.
+    mapping:
+      garden: '#/SyncGardenSnapshot'
+      gardenObject: '#/SyncGardenObjectSnapshot'
+      calibration: '#/SyncCalibrationSnapshot'
+      plant: '#/SyncPlantSnapshot'
+      observation: '#/SyncObservationSnapshot'
+      task: '#/SyncTaskSnapshot'
+  description: The full current representation of one record, used both for `GetSyncChanges` upserts and for a push `conflict` result's current server state.
+
+SyncChange:
+  type: object
+  additionalProperties: false
+  required: [sequence, gardenId, recordId, recordType, operation, recordRevision, committedAt]
+  description: |
+    One row of `platform.sync_change`. `record` is present when
+    `operation` is `'upsert'` and absent when `operation` is `'delete'`
+    — a tombstone's identity, type, garden, revision, and sequence are
+    already the sibling fields above; no further payload is needed to
+    apply it, per architecture/offline-synchronization.md, section
+    "17. Deletion and Tombstones".
+
+    Source: services/api/src/platform/sync/sync-change-recorder.ts;
+    services/api/src/platform/database/platform-schema.ts (`SyncChangeRow`).
+  properties:
+    sequence:
+      type: integer
+      format: int64
+      description: Strictly increasing within a garden partition. The pull cursor's ordering key.
+    gardenId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+      description: '`null` only for a record with no owning garden; every change this service produces today always has one.'
+    recordId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    recordType:
+      $ref: '#/SyncRecordType'
+    operation:
+      type: string
+      enum: [upsert, delete]
+    recordRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    committedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    record:
+      $ref: '#/SyncRecordSnapshot'
+
+SyncChangesResult:
+  type: object
+  additionalProperties: false
+  required: [items, nextCursor]
+  description: |
+    Unlike `GardenListResult`/`PlantListResult`, `nextCursor` is always
+    present, including on an empty or final page — see `GetSyncChanges`'s
+    own description for why a durable sync cursor cannot use this
+    contract's ordinary "absent once caught up" list convention.
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/SyncChange'
+    nextCursor:
+      type: string
+      description: Opaque continuation token for the next `GetSyncChanges` call. Clients must not parse it.

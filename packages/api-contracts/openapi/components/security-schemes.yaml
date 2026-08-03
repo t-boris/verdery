@@ -1,0 +1,20 @@
+firebaseIdToken:
+  type: http
+  scheme: bearer
+  bearerFormat: JWT
+  description: |
+    Firebase ID token presented by the native client.
+
+    Source: architecture/identity-and-authorization.md, section
+    "4. Native Authentication Flow".
+
+sessionCookie:
+  type: apiKey
+  in: cookie
+  name: __session
+  description: |
+    HTTP-only Firebase session cookie used by the web client. Cookie
+    authenticated mutations additionally require CSRF protection.
+
+    Source: architecture/identity-and-authorization.md, section
+    "5. Web Session Flow".

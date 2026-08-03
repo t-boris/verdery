@@ -1,0 +1,61 @@
+AccountDeletionState:
+  type: string
+  enum: [recoveryWindow, purging]
+  description: |
+    `recoveryWindow` — the deletion is pending and fully reversible
+    through `restoreAccount` until `recoveryDeadlineAt`.
+
+    `purging` — the deletion sweep has claimed the account and the
+    irreversible purge is running; recovery is refused from here on
+    (architecture/data-export-and-deletion.md, section 16: "A deletion
+    request cannot return to active accidentally after purge begins").
+    A finished purge leaves no readable account at all, so no third
+    value exists.
+
+AccountDeletionGardenResolution:
+  type: string
+  enum: [gardenDeletionRequested, ownershipRetainedByCoOwner, membershipRevoked]
+  description: |
+    How one garden the caller had access to was resolved by the account
+    deletion (architecture/data-export-and-deletion.md, section 11,
+    "Resolves owned shared gardens by transfer or deletion policy").
+
+    - `gardenDeletionRequested` — the caller was the only owner; the
+      garden entered its own deletion with the account's deadline.
+    - `ownershipRetainedByCoOwner` — another active owner remains; the
+      garden survives and only the caller's membership was revoked.
+    - `membershipRevoked` — the caller was an editor or viewer; the
+      garden survives untouched.
+
+AccountDeletionGarden:
+  type: object
+  additionalProperties: false
+  required: [gardenId, resolution]
+  properties:
+    gardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    resolution:
+      $ref: '#/AccountDeletionGardenResolution'
+
+AccountDeletion:
+  type: object
+  additionalProperties: false
+  required: [profileId, state, requestedAt, recoveryDeadlineAt, gardens]
+  description: |
+    The caller's own pending account deletion (P8-DELETE-01). Contains
+    no personal data beyond identifiers the caller already holds — it is
+    a status resource, not a copy of what is being deleted.
+  properties:
+    profileId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    state:
+      $ref: '#/AccountDeletionState'
+    requestedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    recoveryDeadlineAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    gardens:
+      type: array
+      description: How each garden the caller had access to at request time was resolved.
+      items:
+        $ref: '#/AccountDeletionGarden'

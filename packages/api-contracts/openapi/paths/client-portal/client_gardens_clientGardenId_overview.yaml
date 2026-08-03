@@ -1,0 +1,35 @@
+parameters:
+  - name: clientGardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: getClientGardenOverview
+  tags: [ClientPortal]
+  summary: Get a client garden's accepted-garden overview
+  description: |
+    Re-resolves the caller's own ACTIVE `client_access_grant` for
+    `clientGardenId` first — never trusts the path parameter alone
+    (this tag's own description) — then returns the accepted-garden-
+    snapshot content (`kind: garden_snapshot`) from the latest
+    published version that included one, if any. Snapshot fields are
+    entirely absent, with `200` and no error, when no such publication
+    has ever gone out — an honest absence, not a client-portal
+    precondition failure.
+
+    Source: implementation-plan.md work package P9C-API-01;
+    architecture/collaboration-and-client-sharing.md, section
+    "11. Publication Contents".
+  responses:
+    '200':
+      description: The garden's current overview, possibly with no snapshot yet.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/client-portal.yaml#/ClientGardenOverview'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

@@ -1,0 +1,56 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: contextKind
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/garden-context.yaml#/GardenContextKind'
+
+put:
+  operationId: recordGardenContextFact
+  tags: [GardenContext]
+  summary: Declare or update one garden context fact
+  description: |
+    Creates the fact at `contextKind` for this garden, or updates it in
+    place if one is already recorded — one row per
+    `(gardenId, contextKind)`. Requires the same capability as editing
+    garden map content (`editGardenContent`, the same capability
+    `submitMapCommand` requires) — a sun-exposure or drainage
+    declaration is exactly the kind of garden-content edit that
+    capability already governs.
+
+    Idempotent BY DESIGN, so this operation deliberately takes neither
+    `Idempotency-Key` nor `If-Match` — the same posture
+    `registerNotificationDevice` documents for itself: a last-writer-
+    wins upsert on a single natural key, where a retry or concurrent
+    duplicate submitting the same body converges on identical stored
+    state and an identical response, so a separate idempotency record
+    would duplicate what the upsert already guarantees.
+
+    Source: implementation-plan.md §18.2, work package P9D-CONTEXT-01;
+    technical-specification.md FR-22 ("Garden Context").
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/garden-context.yaml#/RecordGardenContextFactRequest'
+  responses:
+    '200':
+      description: The recorded context fact, at its new revision.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/garden-context.yaml#/GardenContextFact'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

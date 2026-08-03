@@ -1,0 +1,348 @@
+# --- Organizations, garden assignment, and client engagement (P9B-API-01) ---
+OrganizationRole:
+  type: string
+  enum: [organizationAdmin, professional]
+  description: |
+    Mirrors `collaboration.organization_membership.role`
+    (`organization_membership_role_check`), camelCased on the wire the
+    same way `GardenLifecycleState` camelCases `deletion_requested`.
+    `organizationAdmin` holds every organization capability
+    (`manageOrganizationMembership`, `manageGardenAssignment`,
+    `manageEngagement`); `professional` holds none of its own — a
+    professional's rights come entirely from an explicit
+    `GardenAssignment`, never from organization membership itself
+    (ADR-0012: "Organization membership alone grants no garden access").
+
+    Source: architecture/collaboration-and-client-sharing.md, section
+    "7. Service Organizations and Assignments".
+
+ServiceOrganization:
+  type: object
+  additionalProperties: false
+  required: [id, name, callerRole, revision, createdAt, updatedAt]
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    name:
+      type: string
+      minLength: 1
+      maxLength: 120
+    callerRole:
+      allOf:
+        - $ref: '#/OrganizationRole'
+      description: The authenticated caller's own role on this organization. Informational for client UI only.
+    revision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    updatedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
+ServiceOrganizationListResult:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/ServiceOrganization'
+
+CreateServiceOrganizationRequest:
+  type: object
+  additionalProperties: false
+  required: [name]
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 120
+
+OrganizationMemberState:
+  type: string
+  enum: [active, removed]
+  description: Mirrors `collaboration.organization_membership.state`.
+
+OrganizationMember:
+  type: object
+  additionalProperties: false
+  required: [id, organizationId, profileId, role, state, createdAt, updatedAt]
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    organizationId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    profileId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    role:
+      $ref: '#/OrganizationRole'
+    state:
+      $ref: '#/OrganizationMemberState'
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    updatedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
+OrganizationMemberListResult:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/OrganizationMember'
+
+AddOrganizationMemberRequest:
+  type: object
+  additionalProperties: false
+  required: [profileId, role]
+  properties:
+    profileId:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: An existing profile's id. No invitation flow exists for organization membership — see `addOrganizationMember`'s own description.
+    role:
+      $ref: '#/OrganizationRole'
+
+ChangeOrganizationMemberRoleRequest:
+  type: object
+  additionalProperties: false
+  required: [role]
+  properties:
+    role:
+      $ref: '#/OrganizationRole'
+
+GardenAssignmentRole:
+  type: string
+  enum: [editor, viewer]
+  description: |
+    The role vocabulary a garden assignment may name — identical to
+    `InvitationIntendedRole` and for the identical reason: `owner`
+    is excluded (`garden_assignment_role_check`), because the garden's
+    owner is the CLIENT; ownership never travels through an assignment.
+
+GardenAssignmentState:
+  type: string
+  enum: [active, ended, revoked]
+  description: |
+    Mirrors `collaboration.garden_assignment.state`. Both `ended` and
+    `revoked` are terminal — see `garden-assignment-state.ts`'s own
+    state diagram.
+
+GardenAssignment:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - organizationId
+    - profileId
+    - gardenId
+    - role
+    - state
+    - validFrom
+    - createdByProfileId
+    - createdAt
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    organizationId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    profileId:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: The assigned professional — an ACTIVE member of `organizationId` at the time this assignment was created.
+    gardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    role:
+      $ref: '#/GardenAssignmentRole'
+    state:
+      $ref: '#/GardenAssignmentState'
+    validFrom:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    validUntil:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Timestamp'
+      description: Present only once `state` is `ended` or `revoked`.
+    createdByProfileId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
+GardenAssignmentListResult:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/GardenAssignment'
+
+CreateGardenAssignmentRequest:
+  type: object
+  additionalProperties: false
+  required: [profileId, gardenId, role]
+  properties:
+    profileId:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Must name a profile holding ACTIVE membership on the organization named in the path.
+    gardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    role:
+      $ref: '#/GardenAssignmentRole'
+
+ClientEngagementState:
+  type: string
+  enum: [draft, active, ended, revoked]
+  description: |
+    Mirrors `collaboration.client_engagement.state`. Both `ended` and
+    `revoked` are terminal — see `client-engagement-state.ts`'s own
+    state diagram.
+
+StewardshipPolicy:
+  type: string
+  enum: [residential]
+  description: |
+    Mirrors `collaboration.client_engagement.stewardship_policy`. Only
+    one value is admitted today — the default residential-service
+    policy (collaboration-and-client-sharing.md section 18) making the
+    accepted garden model and published deliverables client-exportable,
+    while provider-internal notes, drafts, assignments, diagnostics, and
+    estimates are not. A second, contractually different policy
+    requires explicit product and legal approval.
+
+ClientEngagement:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - gardenId
+    - state
+    - stewardshipPolicy
+    - clientNotificationsEnabled
+    - createdByProfileId
+    - createdAt
+    - updatedAt
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    gardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    serviceOrganizationId:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Absent when the garden's own owner runs the engagement directly, with no service organization attached.
+    state:
+      $ref: '#/ClientEngagementState'
+    stewardshipPolicy:
+      $ref: '#/StewardshipPolicy'
+    clientNotificationsEnabled:
+      type: boolean
+    createdByProfileId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    activatedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    endedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    revokedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    revokedReason:
+      type: string
+      description: Present only on a revoked engagement, and only when one was given.
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    updatedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
+ClientEngagementListResult:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/ClientEngagement'
+
+CreateClientEngagementRequest:
+  type: object
+  additionalProperties: false
+  required: [gardenId]
+  properties:
+    gardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    serviceOrganizationId:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Omit for a garden owner running the engagement directly, with no service organization attached.
+    stewardshipPolicy:
+      allOf:
+        - $ref: '#/StewardshipPolicy'
+      description: Defaults to `residential` when omitted.
+    clientNotificationsEnabled:
+      type: boolean
+      description: Defaults to `true` when omitted.
+
+RevokeClientEngagementRequest:
+  type: object
+  additionalProperties: false
+  properties:
+    reason:
+      type: string
+      description: Optional free-text reason, stored as `revoked_reason`.
+
+PublisherGrantState:
+  type: string
+  enum: [active, revoked]
+  description: Mirrors `collaboration.publisher_grant.state`. A two-state machine with one edge (`active -> revoked`); `revoked` is a true terminal.
+
+PublisherGrant:
+  type: object
+  additionalProperties: false
+  required: [id, engagementId, profileId, state, grantedByProfileId, grantedAt, createdAt]
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    engagementId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    profileId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    state:
+      $ref: '#/PublisherGrantState'
+    grantedByProfileId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    grantedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    revokedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    revokedByProfileId:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Present only once `state` is `revoked`.
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
+PublisherGrantListResult:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/PublisherGrant'
+
+GrantPublisherAccessRequest:
+  type: object
+  additionalProperties: false
+  required: [profileId]
+  properties:
+    profileId:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: |
+        For an organization-backed engagement, must be an ACTIVE member of
+        that same organization. Otherwise, must hold ACTIVE garden
+        membership (any role) on the engagement's own garden.

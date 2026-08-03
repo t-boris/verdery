@@ -1,0 +1,50 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: taskId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: deleteTask
+  tags: [Tasks]
+  summary: Delete a task
+  description: |
+    Transitions the task to `'deleted'`. `POST`, not HTTP `DELETE`: this
+    module has no hard-delete anywhere — deleting a task is a status
+    transition, the exact same shape as `SetPlantStatus('removed')` and
+    the map's own `deleteObject` command — and every other terminal
+    transition on this resource (`complete`, `dismiss`, `skip`) is
+    already a `POST` sub-resource action for the same reason. Using
+    HTTP `DELETE` for only this one transition, while its four siblings
+    stay `POST`, would read as this task alone supporting a hard delete
+    it does not have; consistency with its siblings was chosen over the
+    more literal HTTP verb. Terminal: only legal while `'planned'` or
+    `'suggested'`.
+
+    Source: implementation-plan.md work packages P4-BE-03, P4-CONTRACT-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  responses:
+    '200':
+      description: The deleted (soft) task.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/tasks.yaml#/Task'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'

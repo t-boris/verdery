@@ -1,0 +1,413 @@
+SyncCreateGardenCommand:
+  type: object
+  additionalProperties: false
+  required: [commandType, request]
+  description: The new garden's id is `SyncGardenOperationPayload.gardenId`, not a field here — client-generated, the same way `CreateMapObjectCommand.objectId` is.
+  properties:
+    commandType:
+      type: string
+      enum: [gardens.create]
+    request:
+      $ref: '../../components/schemas/gardens.yaml#/CreateGardenRequest'
+
+SyncRenameGardenCommand:
+  type: object
+  additionalProperties: false
+  required: [commandType, expectedRevision, request]
+  properties:
+    commandType:
+      type: string
+      enum: [gardens.rename]
+    expectedRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    request:
+      $ref: '../../components/schemas/gardens.yaml#/RenameGardenRequest'
+
+SyncArchiveGardenCommand:
+  type: object
+  additionalProperties: false
+  required: [commandType, expectedRevision]
+  properties:
+    commandType:
+      type: string
+      enum: [gardens.archive]
+    expectedRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+
+SyncRequestGardenDeletionCommand:
+  type: object
+  additionalProperties: false
+  required: [commandType, expectedRevision]
+  properties:
+    commandType:
+      type: string
+      enum: [gardens.delete_request]
+    expectedRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+
+SyncGardenCommand:
+  oneOf:
+    - $ref: '#/SyncCreateGardenCommand'
+    - $ref: '#/SyncRenameGardenCommand'
+    - $ref: '#/SyncArchiveGardenCommand'
+    - $ref: '#/SyncRequestGardenDeletionCommand'
+  discriminator:
+    propertyName: commandType
+    # See Geometry's discriminator comment for why `mapping` to the
+    # actual wire values is required.
+    mapping:
+      gardens.create: '#/SyncCreateGardenCommand'
+      gardens.rename: '#/SyncRenameGardenCommand'
+      gardens.archive: '#/SyncArchiveGardenCommand'
+      gardens.delete_request: '#/SyncRequestGardenDeletionCommand'
+  description: |
+    `commandType` values match this codebase's own internal `OPERATION`
+    idempotency-operation constants (for example `gardens-mapping/application/rename-garden.ts`'s
+    `'gardens.rename'`) exactly, rather than inventing a parallel naming
+    scheme, across every command family below.
+
+SyncAddPlantCommand:
+  type: object
+  additionalProperties: false
+  required: [commandType, plantId, request]
+  description: '`plantId` is client-generated, carried here because `AddPlantRequest` itself has no id field — REST creation assigns one server-side, but offline optimistic creation needs a stable id up front.'
+  properties:
+    commandType:
+      type: string
+      enum: [plants.addPlant]
+    plantId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    request:
+      $ref: '../../components/schemas/plants.yaml#/AddPlantRequest'
+
+SyncAddPlantFromPhotoCommand:
+  type: object
+  additionalProperties: false
+  required: [commandType, plantId, request]
+  properties:
+    commandType:
+      type: string
+      enum: [plants.addPlantFromPhoto]
+    plantId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    request:
+      $ref: '../../components/schemas/plants.yaml#/AddPlantFromPhotoRequest'
+
+SyncUpdatePlantDetailsCommand:
+  type: object
+  additionalProperties: false
+  required: [commandType, plantId, expectedRevision, request]
+  properties:
+    commandType:
+      type: string
+      enum: [plants.updateDetails]
+    plantId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    expectedRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    request:
+      $ref: '../../components/schemas/plants.yaml#/UpdatePlantDetailsRequest'
+
+SyncAttachPlantPhotoCommand:
+  type: object
+  additionalProperties: false
+  required: [commandType, plantId, plantPhotoId, request]
+  description: No `expectedRevision` — a photo is a child record, not a field of the plant, the same rule `AttachPlantPhoto` documents.
+  properties:
+    commandType:
+      type: string
+      enum: [plants.attachPlantPhoto]
+    plantId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    plantPhotoId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Client-generated id for the new photo record.
+    request:
+      $ref: '../../components/schemas/plants.yaml#/AttachPlantPhotoRequest'
+
+SyncSetPrimaryPlantPhotoCommand:
+  type: object
+  additionalProperties: false
+  required: [commandType, plantId, plantPhotoId]
+  properties:
+    commandType:
+      type: string
+      enum: [plants.setPrimaryPlantPhoto]
+    plantId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    plantPhotoId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: An existing photo of this plant.
+
+SyncConfirmPlantIdentificationCommand:
+  type: object
+  additionalProperties: false
+  required: [commandType, plantId, identificationId, expectedRevision]
+  description: No request body, matching `ConfirmPlantIdentification`, which takes only path parameters and `If-Match`.
+  properties:
+    commandType:
+      type: string
+      enum: [plants.confirmIdentification]
+    plantId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    identificationId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    expectedRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+
+SyncTransitionPlantLifecycleStageCommand:
+  type: object
+  additionalProperties: false
+  required: [commandType, plantId, expectedRevision, request]
+  properties:
+    commandType:
+      type: string
+      enum: [plants.transitionLifecycleStage]
+    plantId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    expectedRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    request:
+      $ref: '../../components/schemas/plants.yaml#/TransitionPlantLifecycleStageRequest'
+
+SyncSetPlantStatusCommand:
+  type: object
+  additionalProperties: false
+  required: [commandType, plantId, expectedRevision, request]
+  properties:
+    commandType:
+      type: string
+      enum: [plants.setStatus]
+    plantId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    expectedRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    request:
+      $ref: '../../components/schemas/plants.yaml#/SetPlantStatusRequest'
+
+SyncMovePlantCommand:
+  type: object
+  additionalProperties: false
+  required: [commandType, plantId, expectedRevision, request]
+  properties:
+    commandType:
+      type: string
+      enum: [plants.movePlant]
+    plantId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    expectedRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    request:
+      $ref: '../../components/schemas/plants.yaml#/MovePlantRequest'
+
+SyncPlantCommand:
+  oneOf:
+    - $ref: '#/SyncAddPlantCommand'
+    - $ref: '#/SyncAddPlantFromPhotoCommand'
+    - $ref: '#/SyncUpdatePlantDetailsCommand'
+    - $ref: '#/SyncAttachPlantPhotoCommand'
+    - $ref: '#/SyncSetPrimaryPlantPhotoCommand'
+    - $ref: '#/SyncConfirmPlantIdentificationCommand'
+    - $ref: '#/SyncTransitionPlantLifecycleStageCommand'
+    - $ref: '#/SyncSetPlantStatusCommand'
+    - $ref: '#/SyncMovePlantCommand'
+  discriminator:
+    propertyName: commandType
+    mapping:
+      plants.addPlant: '#/SyncAddPlantCommand'
+      plants.addPlantFromPhoto: '#/SyncAddPlantFromPhotoCommand'
+      plants.updateDetails: '#/SyncUpdatePlantDetailsCommand'
+      plants.attachPlantPhoto: '#/SyncAttachPlantPhotoCommand'
+      plants.setPrimaryPlantPhoto: '#/SyncSetPrimaryPlantPhotoCommand'
+      plants.confirmIdentification: '#/SyncConfirmPlantIdentificationCommand'
+      plants.transitionLifecycleStage: '#/SyncTransitionPlantLifecycleStageCommand'
+      plants.setStatus: '#/SyncSetPlantStatusCommand'
+      plants.movePlant: '#/SyncMovePlantCommand'
+
+SyncRecordObservationCommand:
+  type: object
+  additionalProperties: false
+  required: [commandType, observationId, request]
+  description: '`observationId` is client-generated, the same reasoning as `SyncAddPlantCommand.plantId`.'
+  properties:
+    commandType:
+      type: string
+      enum: [observations.record]
+    observationId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    request:
+      $ref: '../../components/schemas/observations.yaml#/RecordObservationRequest'
+
+SyncCorrectObservationCommand:
+  type: object
+  additionalProperties: false
+  required: [commandType, correctedObservationId, observationId, request]
+  description: |
+    A correction inserts a new observation row rather than editing the
+    original, so this command has two distinct ids: `correctedObservationId`
+    (existing, the one being corrected) and `observationId` (new,
+    client-generated, the correction row itself) — mirrors
+    `CorrectObservation`'s own path parameter versus response identity.
+    No `expectedRevision`: observations carry no revision, matching
+    `CorrectObservation` having no `If-Match`.
+  properties:
+    commandType:
+      type: string
+      enum: [observations.correct]
+    correctedObservationId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    observationId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    request:
+      $ref: '../../components/schemas/observations.yaml#/CorrectObservationRequest'
+
+SyncObservationCommand:
+  oneOf:
+    - $ref: '#/SyncRecordObservationCommand'
+    - $ref: '#/SyncCorrectObservationCommand'
+  discriminator:
+    propertyName: commandType
+    mapping:
+      observations.record: '#/SyncRecordObservationCommand'
+      observations.correct: '#/SyncCorrectObservationCommand'
+
+SyncCreateManualTaskCommand:
+  type: object
+  additionalProperties: false
+  required: [commandType, taskId, request]
+  description: '`taskId` is client-generated, the same reasoning as `SyncAddPlantCommand.plantId`.'
+  properties:
+    commandType:
+      type: string
+      enum: [tasks.createManualTask]
+    taskId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    request:
+      $ref: '../../components/schemas/tasks.yaml#/CreateManualTaskRequest'
+
+SyncEditTaskCommand:
+  type: object
+  additionalProperties: false
+  required: [commandType, taskId, expectedRevision, request]
+  properties:
+    commandType:
+      type: string
+      enum: [tasks.editTask]
+    taskId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    expectedRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    request:
+      $ref: '../../components/schemas/tasks.yaml#/EditTaskRequest'
+
+SyncRescheduleTaskCommand:
+  type: object
+  additionalProperties: false
+  required: [commandType, taskId, expectedRevision, request]
+  properties:
+    commandType:
+      type: string
+      enum: [tasks.rescheduleTask]
+    taskId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    expectedRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    request:
+      $ref: '../../components/schemas/tasks.yaml#/RescheduleTaskRequest'
+
+SyncCompleteTaskCommand:
+  type: object
+  additionalProperties: false
+  required: [commandType, taskId, expectedRevision, request]
+  properties:
+    commandType:
+      type: string
+      enum: [tasks.completeTask]
+    taskId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    expectedRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    request:
+      $ref: '../../components/schemas/tasks.yaml#/CompleteTaskRequest'
+
+SyncDismissTaskCommand:
+  type: object
+  additionalProperties: false
+  required: [commandType, taskId, expectedRevision, request]
+  properties:
+    commandType:
+      type: string
+      enum: [tasks.dismissTask]
+    taskId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    expectedRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    request:
+      $ref: '../../components/schemas/tasks.yaml#/DismissTaskRequest'
+
+SyncSkipTaskCommand:
+  type: object
+  additionalProperties: false
+  required: [commandType, taskId, expectedRevision]
+  description: No request body, matching `SkipTask`, which takes only `If-Match`.
+  properties:
+    commandType:
+      type: string
+      enum: [tasks.skipTask]
+    taskId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    expectedRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+
+SyncDeleteTaskCommand:
+  type: object
+  additionalProperties: false
+  required: [commandType, taskId, expectedRevision]
+  description: No request body, matching `DeleteTask`, which takes only `If-Match`. A status transition to `'deleted'`, not a sync tombstone — the same distinction `RequestGardenDeletion` documents for gardens.
+  properties:
+    commandType:
+      type: string
+      enum: [tasks.deleteTask]
+    taskId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    expectedRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+
+SyncAttachTaskFileCommand:
+  type: object
+  additionalProperties: false
+  required: [commandType, taskId, taskAttachmentId, request]
+  description: No `expectedRevision` — an attachment is a child record, not a field of the task, the same rule `AttachTaskFile` documents.
+  properties:
+    commandType:
+      type: string
+      enum: [tasks.attachTaskFile]
+    taskId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    taskAttachmentId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Client-generated id for the new attachment record.
+    request:
+      $ref: '../../components/schemas/tasks.yaml#/AttachTaskFileRequest'
+
+SyncTaskCommand:
+  oneOf:
+    - $ref: '#/SyncCreateManualTaskCommand'
+    - $ref: '#/SyncEditTaskCommand'
+    - $ref: '#/SyncRescheduleTaskCommand'
+    - $ref: '#/SyncCompleteTaskCommand'
+    - $ref: '#/SyncDismissTaskCommand'
+    - $ref: '#/SyncSkipTaskCommand'
+    - $ref: '#/SyncDeleteTaskCommand'
+    - $ref: '#/SyncAttachTaskFileCommand'
+  discriminator:
+    propertyName: commandType
+    mapping:
+      tasks.createManualTask: '#/SyncCreateManualTaskCommand'
+      tasks.editTask: '#/SyncEditTaskCommand'
+      tasks.rescheduleTask: '#/SyncRescheduleTaskCommand'
+      tasks.completeTask: '#/SyncCompleteTaskCommand'
+      tasks.dismissTask: '#/SyncDismissTaskCommand'
+      tasks.skipTask: '#/SyncSkipTaskCommand'
+      tasks.deleteTask: '#/SyncDeleteTaskCommand'
+      tasks.attachTaskFile: '#/SyncAttachTaskFileCommand'

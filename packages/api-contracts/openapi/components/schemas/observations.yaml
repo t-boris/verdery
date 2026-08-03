@@ -1,0 +1,446 @@
+ObservationActorType:
+  type: string
+  enum: [user, system]
+
+ObservationCorrectionKind:
+  type: string
+  enum: [amendment, supersede]
+
+ObservationPhotoPurpose:
+  type: string
+  enum:
+    - whole_plant
+    - leaf_front
+    - leaf_back
+    - stem_or_bark
+    - flower
+    - fruit
+    - symptom_close_up
+    - context_or_free_form
+  description: |
+    Visual Plant Journal purpose label (P11-MEDIA-01).
+    Source: architecture/plant-intelligence-and-visual-journal.md §8.2.
+
+ObservationMeasurementKind:
+  type: string
+  enum: [height, width, count]
+
+ObservedSunExposure:
+  type: string
+  enum: [full_sun, partial_sun, partial_shade, full_shade]
+  description: Reuses `GardenContextFact`'s `sun_exposure` vocabulary verbatim.
+
+ObservedDrainage:
+  type: string
+  enum: [well_drained, poor_drainage, waterlogged]
+  description: Reuses `GardenContextFact`'s `drainage` vocabulary verbatim.
+
+ObservedGrowingContext:
+  type: string
+  enum: [open_ground, container, greenhouse]
+  description: Reuses `GardenContextFact`'s `growing_context` vocabulary verbatim.
+
+ImageAnalysisKind:
+  type: string
+  enum: [stress, disease, pest, other]
+
+TaxonSeasonalActivity:
+  type: string
+  enum: [sow_indoors, sow_outdoors, transplant, harvest]
+  description: |
+    The seasonal windows `taxonomy_seasonal_fact` records. Crop-oriented
+    rather than botanical: these are the moments a gardener acts, not the
+    plant's own bloom and fruit phenology, which no current source
+    populates.
+
+PlantDistributionStatus:
+  type: string
+  enum: [native, introduced, invasive, regulated]
+  description: |
+    A taxon's standing in a named region. `regulated` is a legal state and
+    `invasive` an ecological one; they overlap often but neither implies
+    the other, so both are asserted independently.
+
+PlantProfileCompleteness:
+  type: string
+  enum: [complete, partial, none]
+  description: |
+    How much of a taxon's knowledge profile has been materialized.
+    `none` is not a degenerate `partial`: it means enrichment has never
+    produced a profile for this taxon, which is the ordinary state for
+    anything the pipeline has not reached yet.
+
+HealthSuggestionSafetyClass:
+  type: string
+  enum: [informational, monitor, expert_review_recommended]
+  description: |
+    How urgently a health suggestion should prompt a human follow-up
+    (P11-HEALTH-01) — NOT a treatment recommendation. High-impact
+    treatment recommendations remain rules-first, under the separate
+    recommendation safety policy, regardless of this value.
+
+HealthSuggestionDisposition:
+  type: string
+  enum: [confirmed_externally, accepted_as_observation, rejected, unresolved]
+  description: |
+    The design doc's own four-state vocabulary
+    (plant-intelligence-and-visual-journal.md §9). `unresolved` is the
+    default — no disposition has been recorded yet.
+
+ImageAnalysisResult:
+  type: object
+  additionalProperties: false
+  required:
+    [
+      id,
+      analysisKind,
+      suggestedLabel,
+      confidenceScore,
+      requiresConfirmation,
+      requestedAdditionalEvidence,
+      evidenceSummary,
+      alternativeExplanations,
+      safetyClass,
+      requestedViewPurposes,
+      modelName,
+      promptVersion,
+      disposition,
+      dispositionSetAt,
+      dispositionSetByProfileId,
+      createdAt,
+    ]
+  description: |
+    The design doc's own "health suggestion" (§9) — an unconfirmed
+    automated observation, never a diagnosis: `requiresConfirmation` is
+    always `true`, and the model cannot directly populate toxicity,
+    edibility, pesticide/treatment, or regulatory facts (structurally —
+    no such field exists here or anywhere this is produced).
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    analysisKind:
+      $ref: '#/ImageAnalysisKind'
+    suggestedLabel:
+      type: string
+    confidenceScore:
+      type: number
+      minimum: 0
+      maximum: 1
+    requiresConfirmation:
+      type: boolean
+    requestedAdditionalEvidence:
+      type: boolean
+    evidenceSummary:
+      type: string
+      description: What is visibly supporting `suggestedLabel` — empty when nothing notable is visible.
+    alternativeExplanations:
+      type: array
+      items:
+        type: string
+      description: Other plausible causes besides `suggestedLabel`, short labels not full sentences.
+    safetyClass:
+      $ref: '#/HealthSuggestionSafetyClass'
+    requestedViewPurposes:
+      type: array
+      items:
+        $ref: '#/ObservationPhotoPurpose'
+      description: Populated only when `requestedAdditionalEvidence` is true.
+    modelName:
+      type: [string, 'null']
+      description: Null when no provider was ever reached (disabled, quota exhausted, timed out).
+    promptVersion:
+      type: [integer, 'null']
+    disposition:
+      $ref: '#/HealthSuggestionDisposition'
+    dispositionSetAt:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Timestamp'
+        - type: 'null'
+      description: Null exactly when `disposition` is `unresolved`, set together with `dispositionSetByProfileId` otherwise.
+    dispositionSetByProfileId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
+ObservationPhoto:
+  type: object
+  additionalProperties: false
+  required: [id, mediaId, purpose, createdAt, analysisResults]
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    mediaId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    purpose:
+      oneOf:
+        - $ref: '#/ObservationPhotoPurpose'
+        - type: 'null'
+      description: Null only for a photo attached before P11-MEDIA-01 introduced this label.
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    analysisResults:
+      type: array
+      items:
+        $ref: '#/ImageAnalysisResult'
+
+ObservationMeasurement:
+  type: object
+  additionalProperties: false
+  required: [id, kind, value, unit, createdAt]
+  description: One typed measurement (height, width, or count) attached to an observation.
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    kind:
+      $ref: '#/ObservationMeasurementKind'
+    value:
+      type: number
+      minimum: 0
+    unit:
+      type: string
+      minLength: 1
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
+Observation:
+  type: object
+  additionalProperties: false
+  required:
+    [
+      id,
+      gardenId,
+      plantId,
+      gardenObjectId,
+      actorType,
+      createdByProfileId,
+      noteText,
+      conditionSummary,
+      correctionKind,
+      correctsObservationId,
+      isCorrected,
+      observedPhenologicalStage,
+      observedSunExposure,
+      observedDrainage,
+      observedGrowingContext,
+      observedAt,
+      recordedAt,
+      photos,
+      measurements,
+    ]
+  description: |
+    Immutable and append-only — no revision, no update path. A
+    correction is a separate row (see `correctionKind`/
+    `correctsObservationId`), never an edit of this one.
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    gardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    plantId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+    gardenObjectId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+    actorType:
+      $ref: '#/ObservationActorType'
+    createdByProfileId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+    noteText:
+      type: [string, 'null']
+    conditionSummary:
+      type: [string, 'null']
+    correctionKind:
+      oneOf:
+        - $ref: '#/ObservationCorrectionKind'
+        - type: 'null'
+    correctsObservationId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+    isCorrected:
+      type: boolean
+      description: Whether a later observation names this one in its own `correctsObservationId`.
+    observedPhenologicalStage:
+      oneOf:
+        - $ref: '../../components/schemas/plants.yaml#/PlantLifecycleStage'
+        - type: 'null'
+      description: |
+        What the observer reported seeing, independent of the plant's own
+        current `lifecycleStage` (which only advances via
+        `transitionLifecycleStage`). Null when not reported.
+    observedSunExposure:
+      oneOf:
+        - $ref: '#/ObservedSunExposure'
+        - type: 'null'
+      description: Ambient snapshot of the garden's declared context at record time. Null when the garden has not declared this context kind.
+    observedDrainage:
+      oneOf:
+        - $ref: '#/ObservedDrainage'
+        - type: 'null'
+    observedGrowingContext:
+      oneOf:
+        - $ref: '#/ObservedGrowingContext'
+        - type: 'null'
+    observedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    recordedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    photos:
+      type: array
+      items:
+        $ref: '#/ObservationPhoto'
+    measurements:
+      type: array
+      items:
+        $ref: '#/ObservationMeasurement'
+
+ObservationListResult:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/Observation'
+
+PlantJournalFrame:
+  type: object
+  additionalProperties: false
+  required: [observationId, mediaId, observedAt, purpose]
+  description: |
+    One photograph in a plant's journal sequence, carrying the
+    observation it belongs to so a reader comparing growth has a way back
+    to the record. Distinct from `ObservationPhoto`, which is read from
+    one observation outwards rather than across a plant's whole history.
+    Source: observations-history/application/list-plant-journal-frames.ts.
+  properties:
+    observationId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    mediaId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    observedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    purpose:
+      oneOf:
+        - $ref: '#/ObservationPhotoPurpose'
+        - type: 'null'
+      description: Null for a photograph attached without a purpose label; such frames appear only in an unnarrowed sequence.
+
+PlantJournalFrameListResult:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/PlantJournalFrame'
+
+ObservationPhotoAttachmentRequest:
+  type: object
+  additionalProperties: false
+  required: [mediaId, purpose]
+  properties:
+    mediaId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    purpose:
+      $ref: '#/ObservationPhotoPurpose'
+
+ObservationMeasurementInput:
+  type: object
+  additionalProperties: false
+  required: [kind, value, unit]
+  properties:
+    kind:
+      $ref: '#/ObservationMeasurementKind'
+    value:
+      type: number
+      minimum: 0
+    unit:
+      type: string
+      minLength: 1
+
+RecordObservationRequest:
+  type: object
+  additionalProperties: false
+  description: |
+    Mirrors `RecordObservationInput`. At least one of `noteText`,
+    `conditionSummary`, or a `photos` entry is required, enforced
+    server-side. Source: observations-history/application/record-observation.ts.
+  properties:
+    plantId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+    gardenObjectId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+    noteText:
+      type: [string, 'null']
+    conditionSummary:
+      type: [string, 'null']
+    observedAt:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Timestamp'
+        - type: 'null'
+      description: '`null` or omitted means "use the server''s own timestamp."'
+    photos:
+      type: array
+      items:
+        $ref: '#/ObservationPhotoAttachmentRequest'
+      default: []
+    measurements:
+      type: array
+      items:
+        $ref: '#/ObservationMeasurementInput'
+      default: []
+    observedPhenologicalStage:
+      oneOf:
+        - $ref: '../../components/schemas/plants.yaml#/PlantLifecycleStage'
+        - type: 'null'
+      description: '`null` or omitted means the observer did not report a stage.'
+
+CorrectObservationRequest:
+  type: object
+  additionalProperties: false
+  required: [correctionKind]
+  description: 'Mirrors `CorrectObservationInput`. Source: observations-history/application/correct-observation.ts.'
+  properties:
+    correctionKind:
+      $ref: '#/ObservationCorrectionKind'
+    noteText:
+      type: [string, 'null']
+    conditionSummary:
+      type: [string, 'null']
+    photos:
+      type: array
+      items:
+        $ref: '#/ObservationPhotoAttachmentRequest'
+      default: []
+    measurements:
+      type: array
+      items:
+        $ref: '#/ObservationMeasurementInput'
+      default: []
+    observedPhenologicalStage:
+      oneOf:
+        - $ref: '../../components/schemas/plants.yaml#/PlantLifecycleStage'
+        - type: 'null'
+
+SetHealthSuggestionDispositionRequest:
+  type: object
+  additionalProperties: false
+  required: [disposition]
+  description: "Mirrors `SetHealthSuggestionDisposition`'s own input. Source: observations-history/application/set-health-suggestion-disposition.ts."
+  properties:
+    disposition:
+      $ref: '#/HealthSuggestionDisposition'

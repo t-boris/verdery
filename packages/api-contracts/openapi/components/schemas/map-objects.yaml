@@ -1,0 +1,468 @@
+GardenObjectCategory:
+  type: string
+  enum:
+    - lot
+    - structure
+    - fence
+    - gate
+    - path
+    - zone
+    - bed
+    - waterFeature
+    - utilityExclusion
+    - tree
+    - plant
+    - annotation
+    - importedBackground
+  description: |
+    Source: architecture/map-rendering-and-editing.md, section
+    "4. Canonical Object Categories".
+
+MeasurementUnit:
+  type: string
+  enum: [metres, squareMetres, degrees]
+
+MeasurementAcquisitionMethod:
+  type: string
+  enum:
+    - userEntered
+    - derivedFromGeometry
+    - arMeasurement
+    - imageExtraction
+    - depthCapture
+    - importedPlan
+
+Measurement:
+  type: object
+  additionalProperties: false
+  required: [value, unit, acquisitionMethod]
+  description: |
+    The schema must not imply survey accuracy merely because a value
+    uses a precise numeric type — every measurement carries how it was
+    acquired.
+
+    Source: architecture/data-and-geospatial-design.md, section
+    "11. Measurements and Uncertainty".
+  properties:
+    value:
+      type: number
+      description: Canonical SI value in `unit`.
+    unit:
+      $ref: '#/MeasurementUnit'
+    acquisitionMethod:
+      $ref: '#/MeasurementAcquisitionMethod'
+    originalEntry:
+      type: string
+      description: As the user typed it, before conversion — for example "40 ft".
+    uncertainty:
+      type: number
+      description: Absolute uncertainty in the same unit as `value`.
+    referenceObjectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    calibrationRevision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+
+StructureDetails:
+  type: object
+  additionalProperties: false
+  required: [category, structureKind]
+  properties:
+    category:
+      type: string
+      enum: [structure]
+    structureKind:
+      type: string
+      enum: [house, shed, greenhouse, deck, garage, other]
+    heightMetres:
+      type: number
+      exclusiveMinimum: 0
+
+FenceDetails:
+  type: object
+  additionalProperties: false
+  required: [category, fenceKind]
+  properties:
+    category:
+      type: string
+      enum: [fence]
+    fenceKind:
+      type: string
+      enum: [wood, chainLink, vinyl, metal, hedge, other]
+    heightMetres:
+      type: number
+      exclusiveMinimum: 0
+
+GateDetails:
+  type: object
+  additionalProperties: false
+  required: [category, fenceObjectId]
+  description: A gate is always positioned along exactly one fence.
+  properties:
+    category:
+      type: string
+      enum: [gate]
+    fenceObjectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    widthMetres:
+      type: number
+      exclusiveMinimum: 0
+
+ZoneDetails:
+  type: object
+  additionalProperties: false
+  required: [category, zoneKind]
+  properties:
+    category:
+      type: string
+      enum: [zone]
+    zoneKind:
+      type: string
+      enum: [lawn, garden, mulch, gravel, groundCover, other]
+
+BedDetails:
+  type: object
+  additionalProperties: false
+  required: [category, bedKind]
+  properties:
+    category:
+      type: string
+      enum: [bed]
+    bedKind:
+      type: string
+      enum: [inGround, raised, container]
+    soilNotes:
+      type: string
+      maxLength: 2000
+
+TreeDetails:
+  type: object
+  additionalProperties: false
+  required: [category]
+  description: |
+    The canopy is a second, optional geometry — distinct from the trunk
+    position carried by the object's own `geometryEnvelope`.
+  properties:
+    category:
+      type: string
+      enum: [tree]
+    canopyGeometry:
+      $ref: '../../components/schemas/geometry.yaml#/Geometry'
+    commonName:
+      type: string
+      maxLength: 200
+    estimatedHeightMetres:
+      type: number
+      exclusiveMinimum: 0
+    estimatedSpreadMetres:
+      type: number
+      exclusiveMinimum: 0
+
+PlantPlacementDetails:
+  type: object
+  additionalProperties: false
+  required: [category, commonName, quantity]
+  description: |
+    Deliberately without a plant-catalog reference: the species and care
+    catalog is Phase 4 scope.
+  properties:
+    category:
+      type: string
+      enum: [plant]
+    commonName:
+      type: string
+      minLength: 1
+      maxLength: 200
+    quantity:
+      type: integer
+      minimum: 1
+    spacingMetres:
+      type: number
+      exclusiveMinimum: 0
+    assignedToObjectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+UtilityExclusionDetails:
+  type: object
+  additionalProperties: false
+  required: [category, utilityExclusionKind]
+  properties:
+    category:
+      type: string
+      enum: [utilityExclusion]
+    utilityExclusionKind:
+      type: string
+      enum: [undergroundUtility, septicField, wellRadius, setback, other]
+    notes:
+      type: string
+      maxLength: 2000
+
+AnnotationDetails:
+  type: object
+  additionalProperties: false
+  required: [category]
+  description: Where a `Measurement` attaches — the "Annotation and measurement reference" category.
+  properties:
+    category:
+      type: string
+      enum: [annotation]
+    measurement:
+      $ref: '#/Measurement'
+
+ImportedBackgroundCalibration:
+  type: object
+  additionalProperties: false
+  required:
+    [transformRevision, pageAspectRatio, knownDistance, referencePoints, transform, rmsErrorMetres]
+  description: |
+    The server-owned calibration block a CALIBRATED background's
+    details carry (P6-PLAN-02): the full inputs (so recalibration can
+    re-derive and re-display them), the derived transform, and the
+    honest error report. Sourced from the background's latest
+    `gardens_mapping.calibration` revision — the single storage of
+    transforms; the details table stores only the state flag.
+  properties:
+    transformRevision:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Revision'
+      description: |
+        Monotonically increasing per background — "recalibration
+        creates a new background transform revision" (section 16).
+        Distinct from the object's own optimistic-concurrency
+        `revision`, which bumps on EVERY edit: a consumer that cached
+        traced geometry can tell "the background moved under me" (this
+        changed) apart from ordinary edits.
+    pageAspectRatio:
+      type: number
+      exclusiveMinimum: 0
+    knownDistance:
+      $ref: '../../components/schemas/map-commands.yaml#/PlanKnownDistance'
+    referencePoints:
+      type: array
+      maxItems: 32
+      items:
+        type: object
+        additionalProperties: false
+        required: [planPoint, localMetres, residualMetres]
+        properties:
+          planPoint:
+            $ref: '../../components/schemas/map-commands.yaml#/PlanPoint'
+          localMetres:
+            $ref: '../../components/schemas/geometry.yaml#/Position'
+          residualMetres:
+            type: number
+            minimum: 0
+            description: Distance in metres between this control point's mapped plan point and its stated local point, under the stored transform.
+    manualAdjustment:
+      $ref: '../../components/schemas/map-commands.yaml#/ManualCalibrationAdjustment'
+    transform:
+      $ref: '../../components/schemas/map-commands.yaml#/PlanTransform'
+    rmsErrorMetres:
+      type: [number, 'null']
+      description: |
+        Aggregate root-mean-square of the per-point residuals. `null`
+        ("not expressed") below two control points — a one-point fit
+        is exact by construction, and reporting zero for it would be
+        false precision (section 16).
+
+ImportedBackgroundDetails:
+  type: object
+  additionalProperties: false
+  required: [category, planMediaId, isBackgroundVisible, calibrationState]
+  description: |
+    The non-authoritative background asset a plan import produces
+    (architecture/map-rendering-and-editing.md, section "16. Plan Import
+    and Calibration"). Added by P6-PLAN-01: before it, this category
+    carried no `details` member at all. The object's own Polygon geometry
+    is its placeholder placement in garden-local space until calibration
+    exists (P6-PLAN-02).
+  properties:
+    category:
+      type: string
+      enum: [importedBackground]
+    planMediaId:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: |
+        The `imported_plan` media record (the original document) this
+        background displays. Validated server-side to reference an
+        `available` + `processed` media record of class `imported_plan`
+        in the same garden.
+    sourcePageNumber:
+      type: integer
+      minimum: 1
+      description: |
+        1-based page of a multi-page (PDF) source. Absent — equivalent
+        to 1 — for a raster plan. A value above 1 is only accepted for a
+        PDF-classed source. PDF pages cannot render yet (P6-WORKER-02's
+        documented deferral), so this models the plan-import flow's
+        page-selection step honestly rather than driving rendering.
+    isBackgroundVisible:
+      type: boolean
+      description: |
+        Per-background persisted visibility — "Plan backgrounds are ...
+        independently hideable" (Phase 6 exit criterion). Distinct from
+        the client-local layer-visibility preference, which hides every
+        imported background at once and resets on reload.
+    calibrationState:
+      type: string
+      enum: [uncalibrated, calibrated]
+      description: |
+        Server-owned. `createObject` requires `uncalibrated`;
+        `changeProperties` must echo the current stored state — only
+        the `upsertCalibration` command changes it. There is
+        deliberately no intermediate or quality-graded state: quality
+        is the continuous `calibration.rmsErrorMetres` (including its
+        honest absence below two control points), not a threshold
+        bucket ("displays calibration quality and prevents false
+        precision" — section 16).
+    calibration:
+      allOf:
+        - $ref: '#/ImportedBackgroundCalibration'
+      description: |
+        Present exactly when `calibrationState` is `calibrated`.
+        READ-ONLY: server-populated from the background's latest
+        calibration revision. A `createObject`/`changeProperties`
+        payload that echoes it back is ignored — the server always
+        preserves its own stored block; only the `upsertCalibration`
+        command produces a new revision.
+
+GardenObjectDetails:
+  oneOf:
+    - $ref: '#/StructureDetails'
+    - $ref: '#/FenceDetails'
+    - $ref: '#/GateDetails'
+    - $ref: '#/ZoneDetails'
+    - $ref: '#/BedDetails'
+    - $ref: '#/TreeDetails'
+    - $ref: '#/PlantPlacementDetails'
+    - $ref: '#/UtilityExclusionDetails'
+    - $ref: '#/AnnotationDetails'
+    - $ref: '#/ImportedBackgroundDetails'
+  discriminator:
+    propertyName: category
+    # See Geometry's discriminator comment: mapping to the actual wire
+    # values, not schema names, is required for the generated type to
+    # narrow real JSON correctly.
+    mapping:
+      structure: '#/StructureDetails'
+      fence: '#/FenceDetails'
+      gate: '#/GateDetails'
+      zone: '#/ZoneDetails'
+      bed: '#/BedDetails'
+      tree: '#/TreeDetails'
+      plant: '#/PlantPlacementDetails'
+      utilityExclusion: '#/UtilityExclusionDetails'
+      annotation: '#/AnnotationDetails'
+      importedBackground: '#/ImportedBackgroundDetails'
+  description: |
+    Present only for categories that have specialized fields. `lot`,
+    `path`, and `waterFeature` carry no `details` member.
+    `importedBackground` gained its `ImportedBackgroundDetails` member
+    in P6-PLAN-01.
+
+GardenObjectLifecycleState:
+  type: string
+  enum: [active, deleted]
+
+GardenObject:
+  type: object
+  additionalProperties: false
+  required:
+    [id, gardenId, category, geometryEnvelope, lifecycleState, revision, createdAt, updatedAt]
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    gardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    category:
+      $ref: '#/GardenObjectCategory'
+    geometryEnvelope:
+      $ref: '../../components/schemas/geometry.yaml#/GeometryEnvelope'
+    label:
+      type: string
+      maxLength: 200
+    details:
+      $ref: '#/GardenObjectDetails'
+    lifecycleState:
+      $ref: '#/GardenObjectLifecycleState'
+    revision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    updatedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
+ValidationSeverity:
+  type: string
+  enum: [error, warning]
+
+ValidationIssue:
+  type: object
+  additionalProperties: false
+  required: [code, severity]
+  description: |
+    Warnings do not block a save unless the corresponding rule protects
+    data integrity or safety.
+
+    Source: architecture/map-rendering-and-editing.md, section
+    "11. Validation".
+  properties:
+    code:
+      type: string
+      description: Stable machine-readable code, localized client-side.
+    severity:
+      $ref: '#/ValidationSeverity'
+    affectedObjectIds:
+      type: array
+      items:
+        $ref: '../../components/schemas/shared.yaml#/Uuid'
+    geometry:
+      $ref: '../../components/schemas/geometry.yaml#/Geometry'
+      description: The offending geometry, when the issue is localizable to a shape rather than a whole object.
+
+Georeference:
+  type: object
+  additionalProperties: false
+  required:
+    [localAnchor, geographicAnchor, rotationDegrees, scaleCorrection, provenance, method, revision]
+  properties:
+    localAnchor:
+      $ref: '../../components/schemas/geometry.yaml#/Position'
+    geographicAnchor:
+      $ref: '../../components/schemas/geometry.yaml#/Position'
+      description: Longitude, latitude — WGS84.
+    rotationDegrees:
+      type: number
+    scaleCorrection:
+      type: number
+      exclusiveMinimum: 0
+    accuracyMetres:
+      type: number
+      minimum: 0
+    provenance:
+      $ref: '../../components/schemas/geometry.yaml#/ProvenanceKind'
+    method:
+      type: string
+    revision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+
+GardenMapDocument:
+  type: object
+  additionalProperties: false
+  required: [coordinateSpaceId, objects, validationSummary]
+  description: |
+    Source: architecture/map-rendering-and-editing.md, section
+    "6. Hybrid Data Model".
+  properties:
+    coordinateSpaceId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    georeference:
+      $ref: '#/Georeference'
+    objects:
+      type: array
+      items:
+        $ref: '#/GardenObject'
+    validationSummary:
+      type: array
+      items:
+        $ref: '#/ValidationIssue'

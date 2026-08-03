@@ -1,0 +1,45 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: plantId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: plantPhotoId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: setPrimaryPlantPhoto
+  tags: [Plants]
+  summary: Set a plant's primary photo
+  description: |
+    Clears any existing primary photo for this plant, then marks this one
+    primary, in the same transaction. Does not change the plant's own
+    revision, so this command carries no `If-Match` precondition, the
+    same as `AttachPlantPhoto`.
+
+    Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  responses:
+    '200':
+      description: The now-primary photo.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/plants.yaml#/PlantPhoto'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'

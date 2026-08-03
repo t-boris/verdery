@@ -1,0 +1,71 @@
+get:
+  operationId: getNotificationPreferences
+  tags: [Notifications]
+  summary: Get the caller's notification preferences
+  description: |
+    The caller's whole notification-preference document: quiet hours
+    (or `null` when none are set) and the explicit per-type entries.
+    A type/garden combination with no entry uses the documented
+    default — every channel enabled. `revision` is `0` for a caller
+    who has never written preferences; feed it to the update's
+    `If-Match` either way.
+
+    Source: architecture/notifications.md, section "7. Preferences".
+  responses:
+    '200':
+      description: The caller's current preference document.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/notifications.yaml#/NotificationPreferencesDocument'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+
+put:
+  operationId: updateNotificationPreferences
+  tags: [Notifications]
+  summary: Replace the caller's notification preferences
+  description: |
+    Replaces the caller's whole preference document — quiet hours and
+    every explicit entry — in one transaction. `If-Match` carries the
+    document revision from the last read; a document never written
+    before has revision `0`, so a first write sends `"0"` (this is the
+    one revision-guarded resource whose expected revision may be zero).
+
+    Quiet hours defer PUSH delivery until the window ends, evaluated
+    in the named IANA time zone (or the profile's own time zone when
+    `timeZone` is `null`); they never delay the in-app inbox entry.
+    An entry naming a garden requires current membership on that
+    garden and is rejected as not-found otherwise, without revealing
+    whether the garden exists. Unknown `notificationType` values are
+    rejected: the accepted vocabulary is server-owned and grows with
+    the product.
+
+    Source: architecture/notifications.md, sections "7. Preferences",
+    "9. Scheduling".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/notifications.yaml#/UpdateNotificationPreferencesRequest'
+  responses:
+    '200':
+      description: The stored preference document with its new revision.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/notifications.yaml#/NotificationPreferencesDocument'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'

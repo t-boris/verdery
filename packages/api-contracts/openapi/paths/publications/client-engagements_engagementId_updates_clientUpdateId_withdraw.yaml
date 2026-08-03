@@ -1,0 +1,53 @@
+parameters:
+  - name: engagementId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: clientUpdateId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: withdrawClientUpdate
+  tags: [Publications]
+  summary: Withdraw a published update (published -> withdrawn)
+  description: |
+    Only the `published -> withdrawn` edge applies; a true terminal, and
+    idempotent when already `withdrawn`. Never deletes the publication
+    version, its items, or its media entitlements — withdrawal removes
+    the update from ordinary client queries and revokes portal
+    visibility, but preserves the audit/dispute record
+    (collaboration-and-client-sharing.md section 10). Revision-guarded by
+    `If-Match`.
+
+    Source: implementation-plan.md work package P9C-PUBLISH-01;
+    architecture/collaboration-and-client-sharing.md, section
+    "10. Publication Workflow".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/publications.yaml#/WithdrawClientUpdateRequest'
+  responses:
+    '200':
+      description: The withdrawn (or already withdrawn) update.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/publications.yaml#/ClientUpdate'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'

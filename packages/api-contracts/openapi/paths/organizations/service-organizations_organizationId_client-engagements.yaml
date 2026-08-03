@@ -1,0 +1,27 @@
+parameters:
+  - name: organizationId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: listOrganizationClientEngagements
+  tags: [Organizations]
+  summary: List an organization's client engagements
+  description: |
+    Any ACTIVE member may read this. Returns every engagement in any
+    state, newest first.
+
+    Source: implementation-plan.md work package P9B-API-01.
+  responses:
+    '200':
+      description: The organization's client engagements, newest first.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/organizations.yaml#/ClientEngagementListResult'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

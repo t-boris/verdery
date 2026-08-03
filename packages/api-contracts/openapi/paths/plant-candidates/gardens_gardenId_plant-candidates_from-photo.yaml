@@ -1,0 +1,45 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: addCandidateFromPhoto
+  tags: [PlantCandidates]
+  summary: Add a plant candidate identified from a photo
+  description: |
+    Creates an `'individual'` candidate prefilled from a
+    photo-identification pass, and inserts the photo in the same
+    transaction. Unlike `addPlantFromPhoto`, the suggestion is applied
+    directly to the created candidate — no separate confirm step: a
+    candidate is a lower-stakes, not-yet-real-plant record, edited or
+    deleted like any other candidate field if the guess is wrong.
+
+    Source: implementation-plan.md work package P11-API-01; ADR-0015.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/plant-candidates.yaml#/AddCandidateFromPhotoRequest'
+  responses:
+    '201':
+      description: The created candidate.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/plant-candidates.yaml#/PlantCandidate'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'

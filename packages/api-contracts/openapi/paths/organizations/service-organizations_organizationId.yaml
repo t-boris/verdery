@@ -1,0 +1,29 @@
+parameters:
+  - name: organizationId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: getServiceOrganization
+  tags: [Organizations]
+  summary: Get one service organization
+  description: |
+    Any ACTIVE member may read this — `organizationAdmin` and
+    `professional` alike; there is no capability gate on a plain read of
+    the organization's own identity. Existence is concealed as `404` to
+    a non-member, the same posture `getGarden` already applies.
+
+    Source: implementation-plan.md work package P9B-API-01.
+  responses:
+    '200':
+      description: The organization.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/organizations.yaml#/ServiceOrganization'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

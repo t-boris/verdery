@@ -1,0 +1,54 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: candidateId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: convertCandidate
+  tags: [PlantCandidates]
+  summary: Convert a candidate into an actual plant
+  description: |
+    An explicit, idempotent, revision-aware command — never a status
+    flag flip. `candidate_conversion`'s `UNIQUE (candidateId)` is the
+    authoritative at-most-once guard structurally, beneath this
+    command's own revision check. Preserves the original candidate,
+    linked as converted, never deleted.
+
+    Source: implementation-plan.md work package P11-API-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/plant-candidates.yaml#/ConvertCandidateRequest'
+  responses:
+    '201':
+      description: The new plant, the converted candidate, and the conversion record.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/plant-candidates.yaml#/ConvertCandidateResult'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'

@@ -1,0 +1,50 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: plantId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: transitionPlantLifecycleStage
+  tags: [Plants]
+  summary: Transition a plant's lifecycle stage
+  description: |
+    Sets `lifecycleStage` to any of the eight stages; no ordering is
+    enforced, and transitioning to the stage already held is accepted as
+    a legitimate, if inert, command.
+
+    Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/plants.yaml#/TransitionPlantLifecycleStageRequest'
+  responses:
+    '200':
+      description: The plant at its new lifecycle stage.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/plants.yaml#/Plant'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'

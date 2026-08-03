@@ -1,0 +1,49 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: query
+    in: query
+    required: false
+    description: Case-insensitive match against scientific, common, or variety name. Omit to list the catalog, most recent first.
+    schema:
+      type: string
+      maxLength: 200
+  - name: limit
+    in: query
+    required: false
+    schema:
+      type: integer
+      minimum: 1
+      maximum: 100
+      default: 20
+
+get:
+  operationId: searchTaxonomyReferences
+  tags: [Plants]
+  summary: Search the taxonomy reference catalog
+  description: |
+    Reads `plants_inventory.taxonomy_reference`, the read-only species
+    catalog `AddPlant` callers pick a `taxonomyReferenceId` from. Not
+    scoped to `gardenId` and carries no authorization check of its own —
+    the catalog is not garden-owned data, the same way a product catalog
+    is not owned by any one customer, so any authenticated caller may
+    search it; `gardenId` is present only for URL consistency with every
+    other route under this garden and is validated for shape but
+    otherwise unused. Consequently this operation never returns `403` or
+    a garden-related `404`.
+
+    Source: implementation-plan.md work package P4-CONTRACT-01.
+  responses:
+    '200':
+      description: Matching taxonomy references.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/plants.yaml#/TaxonomyReferenceListResult'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'

@@ -1,0 +1,40 @@
+parameters:
+  - name: organizationId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: assignmentId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: endGardenAssignment
+  tags: [Organizations]
+  summary: End a garden assignment
+  description: |
+    `organizationAdmin`-only (`manageGardenAssignment`). Idempotent:
+    ending an assignment already `ended` returns it unchanged; ending one
+    that is `revoked` (a different terminal state) is refused with
+    `422`.
+
+    Source: implementation-plan.md work package P9B-API-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  responses:
+    '200':
+      description: The ended assignment.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/organizations.yaml#/GardenAssignment'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'

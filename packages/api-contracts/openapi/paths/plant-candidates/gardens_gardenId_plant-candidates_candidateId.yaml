@@ -1,0 +1,107 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: candidateId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: getCandidate
+  tags: [PlantCandidates]
+  summary: Get a single plant candidate
+  description: 'Source: implementation-plan.md work package P11-API-01.'
+  responses:
+    '200':
+      description: The candidate.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/plant-candidates.yaml#/PlantCandidate'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+
+patch:
+  operationId: updateCandidateDetails
+  tags: [PlantCandidates]
+  summary: Update a plant candidate's details
+  description: |
+    Mirrors `UpdatePlantDetails`: every property optional, an omitted
+    property leaves the current value unchanged, an explicit `null` on
+    a nullable property clears it. `groupingKind` is immutable and not
+    included.
+
+    Source: implementation-plan.md work package P11-API-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/plant-candidates.yaml#/UpdateCandidateDetailsRequest'
+  responses:
+    '200':
+      description: The candidate with its changes applied.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/plant-candidates.yaml#/PlantCandidate'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'
+
+delete:
+  operationId: deleteCandidate
+  tags: [PlantCandidates]
+  summary: Permanently delete a plant candidate
+  description: |
+    A genuine row removal, not a status change — `setCandidateStatus`'s
+    `archived` and `rejected` remain the ordinary way to dispose of a
+    candidate whose evaluation is worth keeping. This exists for the
+    candidate that should never have been created at all, and it does not
+    preserve anything.
+
+    A `converted` candidate CANNOT be deleted and returns `409`: its
+    conversion record is the resulting plant's provenance, and FR-19
+    requires conversion to preserve the evaluation and decision history.
+    Archive the plant instead.
+
+    Deletes the candidate's suitability assessments and its photo LINKS,
+    and clears the reference from any candidate that named this one as its
+    alternative. The linked media records themselves survive under their
+    own retention lifecycle — `deleteMedia` owns those.
+
+    Source: implementation-plan.md work package P11-API-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  responses:
+    '204':
+      description: The candidate and its dependent rows are gone.
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'

@@ -1,0 +1,42 @@
+parameters:
+  - name: engagementId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: clientUpdateId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: itemId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+delete:
+  operationId: removeClientUpdateItem
+  tags: [Publications]
+  summary: Remove a staged item from a draft update
+  description: |
+    `internal_draft` only, mirroring `addClientUpdateItem`.
+
+    Source: implementation-plan.md work package P9C-PUBLISH-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  responses:
+    '200':
+      description: The removed item.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/publications.yaml#/ClientUpdateItem'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'

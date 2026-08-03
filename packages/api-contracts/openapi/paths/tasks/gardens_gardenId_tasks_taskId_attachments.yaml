@@ -1,0 +1,48 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: taskId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: attachTaskFile
+  tags: [Tasks]
+  summary: Attach a file to a task
+  description: |
+    Appends a file. Never changes the task's own revision — an
+    attachment is a child record, not a field of the task itself — so
+    this command carries no `If-Match` precondition, the same as
+    `AttachPlantPhoto`.
+
+    Source: implementation-plan.md work packages P4-BE-03, P4-CONTRACT-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/tasks.yaml#/AttachTaskFileRequest'
+  responses:
+    '201':
+      description: The attached file.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/tasks.yaml#/TaskAttachment'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'

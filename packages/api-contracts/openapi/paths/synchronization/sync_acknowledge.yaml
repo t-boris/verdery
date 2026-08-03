@@ -1,0 +1,68 @@
+post:
+  operationId: acknowledgeSyncOperations
+  tags: [Synchronization]
+  summary: Re-learn the durable outcome of already-submitted operations
+  description: |
+    Resolves a genuine gap in architecture/offline-synchronization.md:
+    `POST /v1/sync/acknowledge` is named once, in
+    architecture/api-design.md section "16. Synchronization Endpoints",
+    with no request or response shape and no explanation of what it
+    acknowledges, given that push already returns synchronous
+    per-operation results (section "8. Push Protocol") and pull's cursor
+    advancement is purely client-local with no server round trip
+    (section "10. Pull Protocol").
+
+    This endpoint is resolved as a **cheaper alternative to a full push
+    retry**, not a second delivery-confirmation mechanism. Support for
+    this reading:
+
+    - Section "9. Server Idempotency": "An unknown client response after
+      a network failure is resolved by retrying the same operation ID" —
+      this already fully recovers a lost push response; `acknowledge`
+      cannot be required for correctness on top of that.
+    - Section "24. Testing Matrix" lists "Lost response after accepted
+      server commit" as a scenario the protocol must handle — exactly
+      the case a full idempotent retry already resolves, but only by
+      resending the complete canonical payload for every operation whose
+      outcome is merely unknown to the client, which is wasteful for a
+      large batch after, for example, a process death between receiving
+      and durably persisting the push response.
+    - Nothing in the document describes any server-side effect an
+      "acknowledgement" would itself cause — pull needs none (client-local
+      cursor advance), and push already durably persists its outcome the
+      moment it decides it (idempotency record, same transaction).
+
+    So: the client submits operation IDs it believes it already pushed,
+    with no payload, and receives back each one's stored durable outcome
+    — identical in shape to what `PushSyncOperations` would have
+    returned — without re-sending the canonical payload. An operation ID
+    with no stored outcome (never actually received, or its idempotency
+    record has expired) comes back `unknown`; the client's only recourse
+    for that one is a real `PushSyncOperations` retry with its full
+    payload.
+
+    Performs no new mutation and takes no `Idempotency-Key` — it only
+    reports previously decided outcomes.
+
+    Source: architecture/offline-synchronization.md, sections
+    "8. Push Protocol", "9. Server Idempotency", "24. Testing Matrix";
+    architecture/api-design.md, section "16. Synchronization Endpoints".
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/sync-protocol.yaml#/SyncAcknowledgeRequest'
+  responses:
+    '200':
+      description: One result per requested operation ID, in request order.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/sync-protocol.yaml#/SyncAcknowledgeResult'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '429':
+      $ref: '../../components/responses.yaml#/TooManyRequests'

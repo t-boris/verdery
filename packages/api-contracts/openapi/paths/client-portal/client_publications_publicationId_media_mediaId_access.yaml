@@ -1,0 +1,50 @@
+parameters:
+  - name: publicationId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: mediaId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: getClientMediaAccess
+  tags: [ClientPortal]
+  summary: Get short-lived client access to one entitled media object
+  description: |
+    A thin transport wrapper around the existing `GetClientMediaAccess`
+    command (P9C-MEDIA-01) — this operation adds no authorization
+    logic of its own. `mediaId` is the sole authority parameter beyond
+    the caller's own authenticated profile: access is decided entirely
+    from the `media_entitlement` row naming this exact media object
+    (which, in turn, already names its own engagement and publication
+    version), re-verifying at issuance time that the engagement is
+    `active`, the caller's own `client_access_grant` on it is
+    `active`, and the entitling publication is genuinely `published`
+    (collaboration-and-client-sharing.md section 16's six-condition
+    list). `publicationId` is validated as a well-formed identifier
+    but is NOT itself an authorization input — it exists purely so
+    this route's URL mirrors architecture section 13's own path shape;
+    a mismatched, stale, or unrelated `publicationId` alongside a
+    genuinely entitled `mediaId` still succeeds, the same way none of
+    this tag's other operations accept an operational id as authority.
+    State is rechecked fresh on every call; nothing here caches a
+    prior verdict.
+
+    Source: implementation-plan.md work packages P9C-MEDIA-01,
+    P9C-API-01; architecture/collaboration-and-client-sharing.md,
+    section "16. Media Access".
+  responses:
+    '200':
+      description: Short-lived, authorized access to the entitled media object.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/media.yaml#/MediaAccess'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

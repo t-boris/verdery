@@ -1,0 +1,64 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: recordObservation
+  tags: [Observations]
+  summary: Record an observation
+  description: |
+    Records a note, a condition summary, and/or photos about the garden,
+    a plant within it, or an area (`gardenObjectId`), running one stubbed
+    image-analysis pass per attached photo in the same transaction. At
+    least one of `noteText`, `conditionSummary`, or a photo is required.
+
+    Source: implementation-plan.md work packages P4-BE-02, P4-CONTRACT-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/observations.yaml#/RecordObservationRequest'
+  responses:
+    '201':
+      description: The recorded observation.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/observations.yaml#/Observation'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+
+get:
+  operationId: listObservationsForGarden
+  tags: [Observations]
+  summary: List a garden's observation history
+  description: |
+    Every observation recorded in the garden, most recently observed
+    first, correction rows included.
+
+    Source: implementation-plan.md work packages P4-BE-02, P4-CONTRACT-01.
+  responses:
+    '200':
+      description: The garden's observation history.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/observations.yaml#/ObservationListResult'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

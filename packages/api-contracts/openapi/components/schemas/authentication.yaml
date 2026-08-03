@@ -1,0 +1,8 @@
+SessionLoginRequest:
+  type: object
+  additionalProperties: false
+  required: [idToken]
+  properties:
+    idToken:
+      type: string
+      description: Freshly obtained Firebase ID token, verified server-side before any cookie is issued.

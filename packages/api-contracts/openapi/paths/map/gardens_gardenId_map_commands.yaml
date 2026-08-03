@@ -1,0 +1,56 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: submitMapCommand
+  tags: [Map]
+  summary: Submit one canonical map editor command
+  description: |
+    A single revision-aware endpoint for every map editing command —
+    create, move, replace geometry, edit a vertex, split or join
+    linework, change properties, assign a plant, upsert a calibration,
+    decide a proposal, delete, restore, or duplicate — rather than one
+    REST endpoint per command type. Every command that targets an
+    existing object carries its own expected revision in its payload
+    (not an `If-Match` header), because some commands, such as joining
+    two lines, target more than one object at once and need more than
+    one expected revision.
+
+    `actorProfileId` and `actorType` are never read from the request
+    body; the server fills them from the authenticated caller, the same
+    rule every other mutation in this API follows.
+
+    Source: implementation-plan.md work package P3-BE-01;
+    architecture/map-rendering-and-editing.md, section
+    "7. Editor Command Model".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/map-commands.yaml#/MapCommandRequest'
+  responses:
+    '200':
+      description: The object or objects the command affected, at their new revision.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/map-commands.yaml#/MapCommandResult'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'

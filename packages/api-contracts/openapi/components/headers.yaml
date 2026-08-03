@@ -1,0 +1,10 @@
+ETag:
+  description: Current revision of the returned resource, quoted.
+  schema:
+    type: string
+
+RetryAfter:
+  description: Seconds to wait before retrying.
+  schema:
+    type: integer
+    minimum: 0

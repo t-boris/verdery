@@ -1,0 +1,73 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: plantId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: getPlant
+  tags: [Plants]
+  summary: Get a plant
+  description: |
+    Returns a plant in a garden the caller has active membership in.
+    Existence — including a plant id that belongs to a different garden
+    than the one named in the path — is concealed as `404`.
+
+    Source: implementation-plan.md work package P4-CONTRACT-01.
+  responses:
+    '200':
+      description: The requested plant.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/plants.yaml#/Plant'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+
+patch:
+  operationId: updatePlantDetails
+  tags: [Plants]
+  summary: Update plant details
+  description: |
+    Revision-guarded edit of identity, acquisition, and care-note fields.
+    Every property is optional; an omitted property leaves the current
+    value unchanged, while an explicit `null` on a nullable property
+    clears it. `groupingKind` is immutable and not editable here.
+
+    Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/plants.yaml#/UpdatePlantDetailsRequest'
+  responses:
+    '200':
+      description: The updated plant.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/plants.yaml#/Plant'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'

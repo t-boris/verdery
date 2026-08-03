@@ -1,0 +1,34 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: candidateId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: listCandidatePhotos
+  tags: [PlantCandidates]
+  summary: List a candidate's attached photos
+  description: |
+    Every photo attached to this candidate, primary first, then oldest
+    first. No pagination — mirrors `listPlantPhotos`'s own shape;
+    `addCandidateFromPhoto` is the only writer today, so this is
+    always at most one photo.
+
+    Source: implementation-plan.md work package P11-API-01; ADR-0015.
+  responses:
+    '200':
+      description: The candidate's attached photos.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/plant-candidates.yaml#/PlantCandidatePhotoListResult'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

@@ -1,0 +1,60 @@
+post:
+  operationId: requestExport
+  tags: [Exports]
+  summary: Request an asynchronous data export
+  description: |
+    Records a durable export request and starts asynchronous package
+    generation (architecture/data-export-and-deletion.md, sections
+    3-6). The response is the request resource in its initial
+    `requested` state; the caller polls `getExportRequest` and receives
+    an `export_ready` in-app notification when the package completes.
+
+    Scope rules (section 4):
+
+    - `account` — the caller's own personal data (profile, consents,
+      notification preferences) plus the full content of every garden
+      the caller OWNS. Gardens where the caller is only an editor or
+      viewer are named in the package manifest as excluded — per-role
+      garden export entitlement beyond ownership is a deferred
+      capability. Requires RECENT authentication (section 5): a
+      session whose underlying sign-in is older than 30 minutes is
+      rejected with `403` and `error.code`
+      `export.recent_authentication_required`.
+    - `garden` — one garden's full content; requires the `owner` role
+      on `gardenId`.
+
+    `includeMedia` selects whether entitled original media files
+    (garden photos and imported plans) are packaged; media METADATA
+    and checksums are always included. Raw scan artifacts
+    (`raw_capture`) are never included — the separate sensitive-media
+    permission section 4 names does not exist yet.
+
+    One active export per requester: while a previous request is
+    `requested` or `running`, a new one is rejected with `409` and
+    `error.code` `export.active_export_exists` — an export is
+    expensive, and the durable request row is the rate-limit ledger.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/exports.yaml#/CreateExportRequest'
+  responses:
+    '201':
+      description: The export request was recorded and generation scheduled.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/exports.yaml#/ExportRequest'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'

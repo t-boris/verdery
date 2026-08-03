@@ -1,0 +1,65 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: profileId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: demoteGardenOwner
+  tags: [Collaboration]
+  summary: Demote a co-owner to editor or viewer
+  description: |
+    Owner-only, and requires RECENT authentication exactly like
+    `promoteGardenMember` — matrix row H9. The target's CURRENT role must
+    already be `owner`; demoting a non-owner is `422`
+    (`collaboration.membership.target_not_owner`) — use
+    `changeGardenMemberRole` to move between `editor` and `viewer`
+    instead. Refused with `422`
+    (`collaboration.membership.last_owner_required`) when the target is
+    the garden's LAST active owner — including under genuine concurrent
+    demotion attempts against two co-owners, where exactly one succeeds.
+    Self-targeting is permitted: an owner may step themselves down while
+    at least one other active owner remains.
+
+    Source: implementation-plan.md work package P9A-OWNER-01;
+    architecture/identity-and-authorization.md, section
+    "11. Ownership Transfer"; docs/development/garden-capability-matrix.md,
+    rows H9, H10.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/collaboration.yaml#/ChangeGardenMemberRoleRequest'
+  responses:
+    '200':
+      description: The demoted member's updated role.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/collaboration.yaml#/GardenMember'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      description: |
+        The caller is not an owner, or their session's underlying sign-in
+        is older than 30 minutes
+        (`collaboration.membership.recent_authentication_required`).
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/errors.yaml#/Error'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'

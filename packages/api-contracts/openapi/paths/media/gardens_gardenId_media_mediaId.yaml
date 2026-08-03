@@ -1,0 +1,35 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: mediaId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: getMediaStatus
+  tags: [Media]
+  summary: Read a media record's current status
+  description: |
+    Any garden role that can view the garden can read a media record's
+    status — the section 12 viewer restriction applies to download
+    access (`GetMediaAccess`), not to reading state.
+
+    Source: implementation-plan.md work package P6-API-01.
+  responses:
+    '200':
+      description: The media record.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/media.yaml#/Media'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

@@ -1,0 +1,56 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: minX
+    in: query
+    required: false
+    description: |
+      Viewport bounding box in garden-local metres, for large gardens.
+      All four bounds are required together or omitted together; a
+      partial set is a `400`.
+    schema:
+      type: number
+  - name: minY
+    in: query
+    required: false
+    schema:
+      type: number
+  - name: maxX
+    in: query
+    required: false
+    schema:
+      type: number
+  - name: maxY
+    in: query
+    required: false
+    schema:
+      type: number
+
+get:
+  operationId: getGardenMap
+  tags: [Map]
+  summary: Get the canonical garden map
+  description: |
+    Returns every active object in the garden's local coordinate space,
+    its optional georeference, and a validation summary. Omitting the
+    bounding box parameters returns the whole garden — appropriate for
+    small and ordinary gardens; large gardens should pass a viewport.
+
+    Source: implementation-plan.md work packages P3-BE-01, P3-DATA-02;
+    architecture/map-rendering-and-editing.md, section "6. Hybrid Data Model".
+  responses:
+    '200':
+      description: The garden's map document.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/map-objects.yaml#/GardenMapDocument'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

@@ -1,0 +1,78 @@
+parameters:
+  - name: organizationId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: listOrganizationMembers
+  tags: [Organizations]
+  summary: List an organization's active membership roster
+  description: |
+    Any ACTIVE member may read this — `organizationAdmin` and
+    `professional` alike, the same "any role may see who else can see
+    their own resource" reasoning `listGardenMembers` already applies.
+
+    Source: implementation-plan.md work package P9B-API-01.
+  responses:
+    '200':
+      description: The organization's active members.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/organizations.yaml#/OrganizationMemberListResult'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+
+post:
+  operationId: addOrganizationMember
+  tags: [Organizations]
+  summary: Add an existing profile as an organization member
+  description: |
+    `organizationAdmin`-only (`manageOrganizationMembership`). Adds an
+    EXISTING profile by id directly — no invitation-with-token flow
+    exists for organization membership, deliberately: unlike a garden
+    invitation (which must reach someone with no prior relationship to
+    the garden, often by unauthenticated email link) or a client
+    invitation (P9C-INVITE-01, which must bind and verify an external
+    client's email), an organization admin already has an ordinary,
+    authenticated relationship with the professional they are adding —
+    the same "do not build an invitation system this package does not
+    actually need" judgment call implementation-plan.md work package
+    P9B-API-01 itself calls for. Fails with `409` if the named profile
+    already has ANY membership record (active or removed) on this
+    organization — `collaboration.organization_membership`'s own
+    one-row-per-pair-forever constraint means a removed member cannot
+    currently be re-added.
+
+    Source: implementation-plan.md work package P9B-API-01;
+    architecture/collaboration-and-client-sharing.md, section
+    "7. Service Organizations and Assignments".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/organizations.yaml#/AddOrganizationMemberRequest'
+  responses:
+    '201':
+      description: The new membership.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/organizations.yaml#/OrganizationMember'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'

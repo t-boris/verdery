@@ -1,0 +1,34 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: plantId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: listObservationsForPlant
+  tags: [Observations]
+  summary: List a plant's observation history
+  description: |
+    Every observation recorded for one plant, most recently observed
+    first, correction rows included. A `plantId` with no observations
+    returns an empty list rather than `404`; only an unknown or
+    not-visible `gardenId` produces `404`.
+
+    Source: implementation-plan.md work packages P4-BE-02, P4-CONTRACT-01.
+  responses:
+    '200':
+      description: The plant's observation history.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/observations.yaml#/ObservationListResult'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

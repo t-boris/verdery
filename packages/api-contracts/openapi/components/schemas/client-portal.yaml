@@ -1,0 +1,303 @@
+# --- Client portal (P9C-API-01, tag ClientPortal) ---
+#
+# Every schema below is a DELIBERATELY separate, more restricted shape
+# than its operational counterpart (`PublicationItem`/
+# `PublicationStaffAttribution`/`PublicationVersion`) — never a reuse of
+# the same DTO. Specifically omitted, on purpose, from every shape here:
+# `sourceWorkLogId` (the operational schema's own words: "Provenance
+# only — never re-read to render client content"), `staffProfileId` (an
+# internal profile id; `displayName` is the client-facing snapshot),
+# and `engagementId`/`gardenId`/`clientUpdateId`/`clientUpdateRevisionAtPublish`/
+# `publishedByProfileId` (all operational bookkeeping the caller already
+# implicitly knows from `clientGardenId`, or has no legitimate use for).
+# `mediaRecordId` is kept, renamed `mediaId`, because it is the exact
+# value `getClientMediaAccess`'s own `{mediaId}` path parameter expects —
+# not a secret, since access to it is independently re-verified from the
+# caller's own entitlement on every access request.
+ClientGarden:
+  type: object
+  additionalProperties: false
+  required: [id, name]
+  properties:
+    id:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: The `clientGardenId` every other `ClientPortal` operation takes.
+    name:
+      type: string
+      description: The garden's current display name, read live (not a publication snapshot) — this is portal navigation, not published content.
+
+ClientGardenListResult:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/ClientGarden'
+
+ClientGardenOverview:
+  type: object
+  additionalProperties: false
+  required: [clientGardenId]
+  properties:
+    clientGardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    publicationId:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Present only once a `garden_snapshot` has ever been published for this garden.
+    overviewText:
+      type: string
+      description: Present only once a `garden_snapshot` has ever been published for this garden.
+    snapshotData:
+      type: object
+      additionalProperties: true
+      description: Optional structured supplement, present only alongside `overviewText`, and only when the publisher supplied one.
+    occurredAt:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Timestamp'
+      description: Present only alongside `overviewText`.
+    publishedAt:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Timestamp'
+      description: When the containing publication itself was published. Present only alongside `overviewText`.
+  description: All snapshot fields are absent, with `200` and no error, when no `garden_snapshot` has ever been published for this garden — an honest absence, not a failure.
+
+ClientPublicationItem:
+  type: object
+  additionalProperties: false
+  required: [id, kind, occurredAt]
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    kind:
+      $ref: '../../components/schemas/publications.yaml#/PublicationItemKind'
+    occurredAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    description:
+      type: string
+      description: Present only when `kind` is `work_log` — curated, client-safe text.
+    mediaId:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Present only when `kind` is `media`. The exact id `getClientMediaAccess`'s own `{mediaId}` path parameter expects.
+    mediaRole:
+      allOf:
+        - $ref: '../../components/schemas/publications.yaml#/PublicationMediaRole'
+      description: Present only when `kind` is `media`.
+    caption:
+      type: string
+      description: Optional, `kind media` only.
+    overviewText:
+      type: string
+      description: Present only when `kind` is `garden_snapshot`.
+    snapshotData:
+      type: object
+      additionalProperties: true
+      description: Optional structured supplement, `kind garden_snapshot` only.
+    entryText:
+      type: string
+      description: Present only when `kind` is `timeline_entry`.
+    narrativeText:
+      type: string
+      description: Present only when `kind` is `observation` — curated, client-safe text.
+
+ClientPublicationStaffAttribution:
+  type: object
+  additionalProperties: false
+  required: [id, displayName]
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    displayName:
+      type: string
+      description: A snapshot at publication time — never a live join to a profile's current display name.
+    roleLabel:
+      type: string
+
+ClientPublicationSummary:
+  type: object
+  additionalProperties: false
+  required: [id, versionNumber, title, summary, publishedAt, items, staffAttributions]
+  properties:
+    id:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: The `publicationId` `getClientMediaAccess`'s own path takes.
+    versionNumber:
+      type: integer
+      minimum: 1
+    title:
+      type: string
+    summary:
+      type: string
+    publishedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    items:
+      type: array
+      items:
+        $ref: '#/ClientPublicationItem'
+    staffAttributions:
+      type: array
+      items:
+        $ref: '#/ClientPublicationStaffAttribution'
+
+ClientPublicationListResult:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/ClientPublicationSummary'
+
+ClientTimelineEntry:
+  type: object
+  additionalProperties: false
+  required: [publicationId, kind, occurredAt]
+  properties:
+    publicationId:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Which visible publication this fact came from — the same id `listClientPublications` returns as each summary's own `id`.
+    kind:
+      $ref: '../../components/schemas/publications.yaml#/PublicationItemKind'
+    occurredAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    description:
+      type: string
+      description: Present only when `kind` is `work_log`.
+    mediaId:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Present only when `kind` is `media`.
+    mediaRole:
+      allOf:
+        - $ref: '../../components/schemas/publications.yaml#/PublicationMediaRole'
+      description: Present only when `kind` is `media`.
+    caption:
+      type: string
+      description: Optional, `kind media` only.
+    overviewText:
+      type: string
+      description: Present only when `kind` is `garden_snapshot`.
+    snapshotData:
+      type: object
+      additionalProperties: true
+      description: Optional structured supplement, `kind garden_snapshot` only.
+    entryText:
+      type: string
+      description: Present only when `kind` is `timeline_entry`.
+    narrativeText:
+      type: string
+      description: Present only when `kind` is `observation` — curated, client-safe text.
+  description: No version grouping and no title/summary, deliberately — see `getClientTimeline`'s own description for why this differs from `ClientPublicationSummary`.
+
+ClientTimelineResult:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/ClientTimelineEntry'
+      description: Oldest first — a factual narrative read from the beginning, not a publisher's own newest-first update log.
+
+# --- Client export/handoff manifest (P9C-EXPORT-01, tag ClientPortal) ---
+#
+# `gardenModel.mapObjects`/`gardenModel.plants` reuse `GardenObject`/`Plant`
+# UNCHANGED — the identical shapes `getGardenMap`/`searchPlants` already
+# return operationally — rather than a second, parallel export-specific
+# shape for the same current-state facts. `georeference` reuses
+# `Georeference` the same way `GardenMapDocument.georeference` does.
+# Deliberately absent from `gardenModel`: garden memberships (operational
+# collaborator identities, not the "garden model" section 18 names) and
+# calibrations (capture-processing diagnostics, explicitly excluded by
+# section 18).
+ClientExportGardenModel:
+  type: object
+  additionalProperties: false
+  required:
+    [
+      id,
+      name,
+      lifecycleState,
+      revision,
+      createdAt,
+      updatedAt,
+      coordinateSpaceId,
+      mapObjects,
+      plants,
+    ]
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    name:
+      type: string
+    lifecycleState:
+      $ref: '../../components/schemas/gardens.yaml#/GardenLifecycleState'
+    revision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    updatedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    coordinateSpaceId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    georeference:
+      $ref: '../../components/schemas/map-objects.yaml#/Georeference'
+    mapObjects:
+      type: array
+      items:
+        $ref: '../../components/schemas/map-objects.yaml#/GardenObject'
+      description: Every currently active (non-deleted) map object — the accepted CURRENT state, never soft-deleted history.
+    plants:
+      type: array
+      items:
+        $ref: '../../components/schemas/plants.yaml#/Plant'
+  description: |
+    The accepted garden model (section 18): current map objects and
+    plants, exactly as the operational map/plant reads already expose
+    them. Never operational history, drafts, capture proposals, or
+    provider-internal notes.
+
+ClientExportMediaEntry:
+  type: object
+  additionalProperties: false
+  required: [mediaId, access]
+  properties:
+    mediaId:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: The exact id `getClientMediaAccess`'s own `{mediaId}` path parameter expects.
+    access:
+      $ref: '../../components/schemas/media.yaml#/MediaAccess'
+  description: One media item this client is genuinely entitled to, re-verified through the identical check `getClientMediaAccess` enforces.
+
+ClientExportManifest:
+  type: object
+  additionalProperties: false
+  required: [clientGardenId, generatedAt, gardenModel, publications, media]
+  properties:
+    clientGardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    generatedAt:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Timestamp'
+      description: When this manifest was read — a fresh read boundary, not a stored package's creation time.
+    gardenModel:
+      $ref: '#/ClientExportGardenModel'
+    publications:
+      type: array
+      items:
+        $ref: '#/ClientPublicationSummary'
+      description: Every CURRENTLY published (never withdrawn) update, identical to `listClientPublications`.
+    media:
+      type: array
+      items:
+        $ref: '#/ClientExportMediaEntry'
+      description: Only media this client is currently entitled to. An item referenced by `publications` but absent here failed the same entitlement check `getClientMediaAccess` would apply — never a distinguishable error.

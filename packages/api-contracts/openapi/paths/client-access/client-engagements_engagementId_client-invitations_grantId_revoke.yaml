@@ -1,0 +1,41 @@
+parameters:
+  - name: engagementId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: grantId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: revokeClientInvitation
+  tags: [ClientAccess]
+  summary: Revoke a client access grant
+  description: |
+    Same dual authorization gate as `createClientInvitation`. Works on a
+    PENDING or an ACTIVE grant — revokes a still-unaccepted invitation or
+    ends an accepted client's ongoing portal access, whichever the grant
+    currently is. Idempotent when already `revoked`. Refused with `422`
+    from `expired` — a different terminal state.
+
+    Source: implementation-plan.md work package P9C-INVITE-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  responses:
+    '200':
+      description: The revoked (or already revoked) client access grant.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/client-access.yaml#/ClientAccessGrant'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'

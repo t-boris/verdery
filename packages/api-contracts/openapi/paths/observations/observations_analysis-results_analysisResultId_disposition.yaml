@@ -1,0 +1,48 @@
+parameters:
+  - name: analysisResultId
+    in: path
+    required: true
+    description: The health suggestion (`image_analysis_result`) being reviewed.
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: setHealthSuggestionDisposition
+  tags: [Observations]
+  summary: Set a health suggestion's disposition
+  description: |
+    Records the caller's disposition on an already-produced health
+    suggestion — `confirmed_externally`, `accepted_as_observation`,
+    `rejected`, or back to `unresolved`. No ordering is enforced: a
+    disposition may be reconsidered freely, matching `PlantLifecycleStage`'s
+    own "any transition is a legitimate, if inert, command" posture. No
+    `If-Match`: `image_analysis_result` carries no revision.
+
+    Source: implementation-plan.md work package P11-HEALTH-01;
+    architecture/plant-intelligence-and-visual-journal.md, section
+    "9. Health Suggestions".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/observations.yaml#/SetHealthSuggestionDispositionRequest'
+  responses:
+    '200':
+      description: The health suggestion with its updated disposition.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/observations.yaml#/ImageAnalysisResult'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'

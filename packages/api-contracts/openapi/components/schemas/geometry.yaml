@@ -1,0 +1,182 @@
+CoordinateSpaceKind:
+  type: string
+  enum: [localPlanarMetres, geographicWgs84]
+  description: |
+    Which space a geometry's coordinates belong to. Local planar coordinates
+    are metres from a garden-specific origin and are never EPSG:4326.
+
+    Source: ADR-0010.
+
+Position:
+  type: array
+  minItems: 2
+  maxItems: 2
+  items:
+    type: number
+  description: |
+    Coordinate pair. In local planar space this is metres east and metres
+    north of the garden origin, rounded to 1 mm.
+
+Geometry:
+  oneOf:
+    - $ref: '#/PointGeometry'
+    - $ref: '#/LineStringGeometry'
+    - $ref: '#/PolygonGeometry'
+    - $ref: '#/MultiLineStringGeometry'
+    - $ref: '#/MultiPolygonGeometry'
+  discriminator:
+    propertyName: type
+    # Without explicit mapping, openapi-typescript sets each branch's
+    # discriminator literal to the referenced schema's *name*
+    # ("PointGeometry") instead of the actual wire value ("Point"),
+    # making the generated type unusable for narrowing real JSON.
+    # Confirmed directly: this surfaced building the map module's
+    # generated-client consumers.
+    mapping:
+      Point: '#/PointGeometry'
+      LineString: '#/LineStringGeometry'
+      Polygon: '#/PolygonGeometry'
+      MultiLineString: '#/MultiLineStringGeometry'
+      MultiPolygon: '#/MultiPolygonGeometry'
+
+PointGeometry:
+  type: object
+  additionalProperties: false
+  required: [type, coordinates]
+  properties:
+    type:
+      type: string
+      enum: [Point]
+    coordinates:
+      $ref: '#/Position'
+
+LineStringGeometry:
+  type: object
+  additionalProperties: false
+  required: [type, coordinates]
+  properties:
+    type:
+      type: string
+      enum: [LineString]
+    coordinates:
+      type: array
+      minItems: 2
+      items:
+        $ref: '#/Position'
+
+PolygonGeometry:
+  type: object
+  additionalProperties: false
+  required: [type, coordinates]
+  properties:
+    type:
+      type: string
+      enum: [Polygon]
+    coordinates:
+      type: array
+      minItems: 1
+      description: First ring is the exterior ring; any further rings are holes.
+      items:
+        type: array
+        minItems: 4
+        items:
+          $ref: '#/Position'
+
+MultiLineStringGeometry:
+  type: object
+  additionalProperties: false
+  required: [type, coordinates]
+  properties:
+    type:
+      type: string
+      enum: [MultiLineString]
+    coordinates:
+      type: array
+      minItems: 1
+      items:
+        type: array
+        minItems: 2
+        items:
+          $ref: '#/Position'
+
+MultiPolygonGeometry:
+  type: object
+  additionalProperties: false
+  required: [type, coordinates]
+  properties:
+    type:
+      type: string
+      enum: [MultiPolygon]
+    coordinates:
+      type: array
+      minItems: 1
+      items:
+        type: array
+        minItems: 1
+        items:
+          type: array
+          minItems: 4
+          items:
+            $ref: '#/Position'
+
+ProvenanceKind:
+  type: string
+  enum:
+    - manualDrawing
+    - userMeasurement
+    - importedPlan
+    - importedMapImagery
+    - arMeasurement
+    - imageExtraction
+    - depthCapture
+    - externalProvider
+    - processor
+  description: |
+    How a piece of geometry came to exist. Generated results additionally
+    reference processor and model versions elsewhere in the record.
+
+    Source: architecture/data-and-geospatial-design.md, section "12. Provenance".
+
+CurveMetadata:
+  type: object
+  additionalProperties: false
+  required: [kind, controlPoints, chordDeviationMetres]
+  description: |
+    Advisory. Consumers that ignore this still receive correct geometry from
+    the densified `geometry` member.
+  properties:
+    kind:
+      type: string
+      enum: [cubicBezier]
+    controlPoints:
+      type: array
+      minItems: 4
+      items:
+        $ref: '#/Position'
+    chordDeviationMetres:
+      type: number
+      exclusiveMinimum: 0
+
+GeometryEnvelope:
+  type: object
+  additionalProperties: false
+  required: [geometry, coordinateSpaceId, coordinateSpaceKind, provenance]
+  description: |
+    The only form in which geometry crosses this API. A bare GeoJSON object
+    is never sufficient, because it cannot state its coordinate space.
+  properties:
+    geometry:
+      $ref: '#/Geometry'
+    coordinateSpaceId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    coordinateSpaceKind:
+      $ref: '#/CoordinateSpaceKind'
+    provenance:
+      $ref: '#/ProvenanceKind'
+    curve:
+      $ref: '#/CurveMetadata'
+    confidence:
+      type: number
+      minimum: 0
+      maximum: 1
+      description: Absent means "not expressed", not "certain".

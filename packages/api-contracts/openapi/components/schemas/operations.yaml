@@ -1,0 +1,41 @@
+LivenessResult:
+  type: object
+  additionalProperties: false
+  required: [status, version]
+  properties:
+    status:
+      type: string
+      enum: [alive]
+    version:
+      type: string
+      description: Build version of the running artifact.
+
+DependencyStatus:
+  type: object
+  additionalProperties: false
+  required: [name, status]
+  properties:
+    name:
+      type: string
+      examples: ['database']
+    status:
+      type: string
+      enum: [available, unavailable]
+    detail:
+      type: string
+      description: Non-sensitive summary. Never contains connection strings or credentials.
+
+ReadinessResult:
+  type: object
+  additionalProperties: false
+  required: [status, version, dependencies]
+  properties:
+    status:
+      type: string
+      enum: [ready, notReady]
+    version:
+      type: string
+    dependencies:
+      type: array
+      items:
+        $ref: '#/DependencyStatus'

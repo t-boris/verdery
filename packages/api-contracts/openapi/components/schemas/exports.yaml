@@ -1,0 +1,101 @@
+ExportScope:
+  type: string
+  enum: [account, garden]
+  description: What one export request covers — see `requestExport`'s own scope rules.
+
+ExportRequestState:
+  type: string
+  enum: [requested, running, completed, failed]
+  description: |
+    The export request's server-owned state machine
+    (architecture/data-export-and-deletion.md, section 5). `requested`
+    — recorded, generation not yet begun. `running` — the checkpointed
+    generation job has begun (a retried attempt resumes from recorded
+    checkpoints rather than restarting). `completed` — the package is
+    written, checksummed, and downloadable until `expiresAt`. `failed`
+    — generation concluded without a package; a failed export never
+    exposes a partial object (section 16).
+
+CreateExportRequest:
+  type: object
+  additionalProperties: false
+  required: [scope]
+  properties:
+    scope:
+      $ref: '#/ExportScope'
+    gardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Required exactly when `scope` is `garden`; forbidden for `account`.
+    includeMedia:
+      type: boolean
+      default: true
+      description: Whether entitled original media files are packaged. Media metadata and checksums are always included.
+
+ExportRequest:
+  type: object
+  additionalProperties: false
+  required:
+    [
+      id,
+      scope,
+      gardenId,
+      includeMedia,
+      formatVersion,
+      state,
+      boundaryAt,
+      outputChecksumSha256,
+      failureCode,
+      expiresAt,
+      completedAt,
+      createdAt,
+      updatedAt,
+    ]
+  description: |
+    One durable export request. `boundaryAt` is the recorded
+    consistency boundary: every structured record in the package was
+    read in one repeatable-read snapshot taken at that instant, so
+    changes after it are excluded and disclosed in the package
+    manifest (architecture/data-export-and-deletion.md, section 7).
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    scope:
+      $ref: '#/ExportScope'
+    gardenId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+      description: The exported garden for `garden` scope; `null` for `account` scope.
+    includeMedia:
+      type: boolean
+    formatVersion:
+      type: string
+      minLength: 1
+      description: The package layout's schema version, stamped into the package's own `export.json`.
+    state:
+      $ref: '#/ExportRequestState'
+    boundaryAt:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Timestamp'
+        - type: 'null'
+      description: The consistency boundary, once the snapshot has been taken and checkpointed; `null` before that.
+    outputChecksumSha256:
+      type: [string, 'null']
+      pattern: '^[0-9a-f]{64}$'
+      description: The completed ZIP package's SHA-256; `null` until `completed`.
+    failureCode:
+      type: [string, 'null']
+      description: A stable machine reason once `failed`; `null` otherwise.
+    expiresAt:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Timestamp'
+        - type: 'null'
+      description: When the package (and its download) expires — the 7-day `export_package` retention deadline, set at completion; `null` until `completed`.
+    completedAt:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Timestamp'
+        - type: 'null'
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    updatedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'

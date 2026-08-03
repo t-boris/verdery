@@ -1,0 +1,58 @@
+get:
+  operationId: getSyncChanges
+  tags: [Synchronization]
+  summary: Pull the server change log since a cursor
+  description: |
+    Returns changes in deterministic, ordered, bounded, resumable pages.
+    `nextCursor` is always present, unlike this API's ordinary list
+    endpoints (`ListGardens`, `SearchPlants`), whose `nextCursor` is
+    absent once the caller reaches the end: an ordinary list is re-listed
+    from the start on the next visit, but a sync cursor is a durable
+    position a client resumes from indefinitely, including across an
+    empty page, so it always needs a valid position to resume from next
+    time, even when caught up.
+
+    Authorization is applied per architecture/offline-synchronization.md,
+    section "11. Authorization Changes": a garden the caller has lost
+    access to surfaces as an ordinary `record: 'garden'`,
+    `operation: 'delete'` change (a tombstone for the whole garden
+    partition), not a distinct change shape.
+
+    Source: architecture/offline-synchronization.md, section
+    "10. Pull Protocol"; architecture/api-design.md, section
+    "16. Synchronization Endpoints".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/SyncAfterCursor'
+    - $ref: '../../components/parameters.yaml#/Limit'
+    - name: protocolVersion
+      in: query
+      required: true
+      description: The sync protocol version this client currently speaks, checked the same way `PushSyncOperations` checks it.
+      schema:
+        type: integer
+        minimum: 1
+  responses:
+    '200':
+      description: A page of changes plus the cursor to resume from.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/sync-records.yaml#/SyncChangesResult'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '409':
+      description: |
+        One of two stable `error.code` values: `sync.changes.cursor_expired`
+        (`after` is older than retained history) or
+        `sync.protocol_version.unsupported` (`protocolVersion` is outside
+        the server's supported window). Both require a full
+        resynchronization per architecture/offline-synchronization.md,
+        section "13. Full Resynchronization".
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/errors.yaml#/Error'
+    '429':
+      $ref: '../../components/responses.yaml#/TooManyRequests'

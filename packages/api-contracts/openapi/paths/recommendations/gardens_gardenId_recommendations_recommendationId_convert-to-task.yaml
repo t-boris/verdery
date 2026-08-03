@@ -1,0 +1,54 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: recommendationId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: convertRecommendationToTask
+  tags: [Recommendations]
+  summary: Convert a recommendation into a task
+  description: |
+    One transaction: the candidate transitions
+    `presented -> completed` (converting is acting on it — the work
+    now lives on the task list), a `completed` feedback row is
+    appended, and a task is created with `source: 'suggested'` and
+    `originRecommendationId` set together (the database enforces
+    exactly that pairing), `status: 'planned'`, the rule version's own
+    action title as the task title, the stored deterministic
+    explanation as the task notes, and the candidate's target,
+    urgency, and validity window carried over. The converted task's
+    `originRecommendationId` is what distinguishes a
+    conversion-completion from a did-it-now completion in the outcome
+    history. Only legal while `presented`.
+
+    Source: implementation-plan.md work package P7-BE-01;
+    technical-specification.md FR-25.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  responses:
+    '201':
+      description: The created task and the completed recommendation.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/recommendations.yaml#/ConvertRecommendationToTaskResult'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'

@@ -1,0 +1,79 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: createInvitation
+  tags: [Collaboration]
+  summary: Invite a person to a garden
+  description: |
+    Owner-only. Issues an opaque, single-use, expiring invitation for
+    `editor` or `viewer` — never `owner`; a token can never grant
+    ownership by construction. At most one PENDING invitation may exist
+    per (garden, intended email); issuing a second while the first is
+    still pending is rejected with `409`. An invitation with no intended
+    email is shareable with anyone who receives the link.
+
+    The raw token is returned exactly once, in this response, and is
+    never recoverable afterward — the server stores only its hash.
+    Distribute it out of band; this endpoint does not send email.
+
+    Source: implementation-plan.md work package P9A-API-01;
+    architecture/identity-and-authorization.md, section
+    "10. Invitations".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/collaboration.yaml#/CreateInvitationRequest'
+  responses:
+    '201':
+      description: The created invitation, including its one-time raw token.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/collaboration.yaml#/CreateInvitationResult'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+
+get:
+  operationId: listGardenInvitations
+  tags: [Collaboration]
+  summary: List a garden's invitations
+  description: |
+    Owner-only, unlike `listGardenMembers` — an invitation carries an
+    intended email, which is the enumeration surface
+    `garden-capability-matrix.md` reserves to the owner alone. Returns
+    every invitation regardless of state (pending, accepted, revoked,
+    expired), newest first, so the owner can find a pending invitation
+    to revoke without having retained its id from the create response.
+
+    Source: implementation-plan.md work package P9A-API-01;
+    docs/development/garden-capability-matrix.md, row H5.
+  responses:
+    '200':
+      description: The garden's invitations, newest first.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/collaboration.yaml#/InvitationListResult'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

@@ -1,0 +1,83 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: mediaId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: deleteGardenMedia
+  tags: [Media]
+  summary: Delete a media record and its stored objects
+  description: |
+    Starts section 16's asynchronous deletion workflow for one ORIGINAL
+    media record: revokes new access immediately (a
+    `deletion_scheduled` record can no longer be signed by
+    `GetMediaAccess`), schedules the record and every derivative row
+    produced from it, cancels eligible pending processing jobs, and
+    emits the durable event the worker-side deletion job executes the
+    actual Cloud Storage object removal through. The record reaches
+    `deleted` only after object absence is confirmed — "User-visible
+    deletion remains pending until required objects are confirmed
+    deleted" (section 16) — so the response's `uploadState` is
+    `deletion_scheduled`, not `deleted`.
+
+    `POST`, not HTTP `DELETE`, for exactly `deleteTask`'s own
+    documented reason: this is a governed state transition on a row
+    that survives (metadata is retained per audit policy until a later
+    purge stage), not a hard row delete — using the literal verb would
+    misrepresent that.
+
+    Only an ORIGINAL can be named here: a derivative row is deleted
+    with its source, never independently (`409`,
+    `media.derivative_not_deletable`) — its bytes are rebuildable
+    artifacts of the original, and independently deleting one would
+    leave the original's `derivatives` array silently self-healing on
+    the next regeneration anyway.
+
+    A record still referenced by an attachment row — a plant photo, an
+    observation photo, a task attachment, or an imported-background map
+    object — is not deletable (`409`, `media.referenced`, with one
+    detail entry naming each referencing kind): the referencing record
+    must be removed first. This is the same rule the database's own
+    RESTRICT-shaped foreign keys and
+    `imported_background_details`' migration comment ("deleting a media
+    record out from under a background must fail loudly") already
+    encode, surfaced as a clean contract error instead of a constraint
+    violation.
+
+    Idempotent under replay: a record already `deletion_scheduled` or
+    `deleted` returns its current state unchanged, never a second
+    workflow.
+
+    Authorization: `editGardenContent` — deleting a photo is editing
+    garden content, the same capability that attached it.
+
+    Source: implementation-plan.md work package P6-RET-01;
+    architecture/media-storage-and-processing.md, sections
+    "15. Retention and Lifecycle", "16. Deletion Workflow".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  responses:
+    '200':
+      description: The media record with deletion scheduled (or its already-terminal state, on replay).
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/media.yaml#/Media'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'

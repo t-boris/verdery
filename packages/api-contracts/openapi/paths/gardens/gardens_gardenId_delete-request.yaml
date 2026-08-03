@@ -1,0 +1,100 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: requestGardenDeletion
+  tags: [Gardens]
+  summary: Request garden deletion
+  description: |
+    Owner-only lifecycle command. Starts the deletion workflow; it does
+    not delete the garden immediately (architecture/data-export-and-
+    deletion.md, section 10).
+
+    Requires RECENT authentication (section 10.1): a session whose
+    underlying sign-in is older than 30 minutes is rejected with `403`
+    and `error.code` `deletion.recent_authentication_required`.
+
+    On acceptance the garden stops accepting edits, every NON-owner
+    membership is revoked (each revoked member's next `getSyncChanges`
+    pull carries the garden as an ordinary `delete` tombstone so their
+    offline clients purge local copies), and `recoveryDeadlineAt` is
+    stamped 30 days out. `restoreGarden` fully reverses all of that until
+    the deadline passes; afterwards the deletion sweep purges the garden
+    irreversibly.
+
+    Source: implementation-plan.md work packages P2-API-01, P2-SEC-01,
+    P8-DELETE-01; architecture/data-and-geospatial-design.md, section
+    "15. Deletion"; architecture/data-export-and-deletion.md, section
+    "10. Garden Deletion".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  responses:
+    '200':
+      description: The garden, now in the deletionRequested lifecycle state.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/gardens.yaml#/Garden'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'
+
+delete:
+  operationId: restoreGarden
+  tags: [Gardens]
+  summary: Withdraw a garden deletion request within the recovery window
+  description: |
+    Owner-only. Reverses `requestGardenDeletion` completely while the
+    garden is still inside its recovery window: the lifecycle state
+    returns to `active`, `recoveryDeadlineAt` is cleared, and every
+    membership revoked by the deletion request is reactivated (each
+    restored member's next pull carries the garden as an ordinary
+    `upsert`, so their client repopulates).
+
+    Requires RECENT authentication, exactly like the request it reverses.
+
+    Recovery ends when the deletion sweep claims the garden. That claim
+    revokes every remaining membership in the same transaction — the
+    offline-client revocation of section 10.6 — so a later attempt is
+    `404` (`garden.not_found`), the same concealment every garden route
+    applies to a caller with no membership. A restore that RACES the
+    claim (authorized before it, applied after) instead gets `409` with
+    `error.code` `deletion.not_recoverable`. Either way "a deletion
+    request cannot return to active accidentally after purge begins"
+    (architecture/data-export-and-deletion.md, section 16) holds.
+
+    Source: implementation-plan.md work package P8-DELETE-01;
+    architecture/data-export-and-deletion.md, sections "10. Garden
+    Deletion", "16. Failure and Retry".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  responses:
+    '200':
+      description: The garden, restored to the active lifecycle state.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/gardens.yaml#/Garden'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'

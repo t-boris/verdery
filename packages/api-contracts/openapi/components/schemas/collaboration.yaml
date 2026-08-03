@@ -1,0 +1,236 @@
+# --- Collaboration (P9A-API-01) -----------------------------------
+GardenMemberState:
+  type: string
+  enum: [active, removed]
+  description: |
+    Mirrors `collaboration.membership.state`. A member roster
+    (`listGardenMembers`) only ever returns `active` entries; this value
+    is carried on every `GardenMember` regardless, so the shape stays
+    stable if a later endpoint returns non-active history.
+
+GardenMember:
+  type: object
+  additionalProperties: false
+  required: [id, gardenId, profileId, role, state, createdAt, updatedAt]
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    gardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    profileId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    role:
+      $ref: '../../components/schemas/gardens.yaml#/GardenRole'
+    state:
+      $ref: '#/GardenMemberState'
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    updatedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
+GardenMemberListResult:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/GardenMember'
+
+InvitationListResult:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/Invitation'
+
+ChangeGardenMemberRoleRequest:
+  type: object
+  additionalProperties: false
+  required: [role]
+  properties:
+    role:
+      $ref: '#/InvitationIntendedRole'
+
+# --- Ownership administration (P9A-OWNER-01) ----------------------
+OwnershipTransferState:
+  type: string
+  enum: [pending, completed, cancelled]
+  description: |
+    Mirrors `collaboration.ownership_transfer.state`. `transferGardenOwnership`
+    only ever creates a `pending` row; it reaches `completed` when the
+    named recipient calls `acceptOwnershipTransfer`, or `cancelled` when
+    either the recipient calls `declineOwnershipTransfer` or the
+    initiator calls `cancelGardenOwnershipTransfer`. `pending` is the
+    ordinary, externally observable in-between state for as long as
+    neither has happened yet.
+
+OwnershipTransfer:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - gardenId
+    - fromProfileId
+    - toProfileId
+    - fromResultingRole
+    - state
+    - authenticatedAt
+    - requestedAt
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    gardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    fromProfileId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    toProfileId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    fromResultingRole:
+      allOf:
+        - $ref: '#/InvitationIntendedRole'
+      description: The role the outgoing owner holds once this transfer completes.
+    state:
+      $ref: '#/OwnershipTransferState'
+    authenticatedAt:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Timestamp'
+      description: The recent-authentication instant that satisfied section 11's sensitive-action precondition.
+    requestedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    completedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    cancelledAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    cancellationReason:
+      type: string
+      description: Present only on a cancelled transfer, and only when one was given.
+
+TransferOwnershipRequest:
+  type: object
+  additionalProperties: false
+  required: [toProfileId, resultingRole]
+  properties:
+    toProfileId:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Must name a profile holding ACTIVE `editor` or `viewer` membership on this garden.
+    resultingRole:
+      allOf:
+        - $ref: '#/InvitationIntendedRole'
+      description: The role the caller (the outgoing owner) holds once the transfer completes.
+
+IncomingOwnershipTransfer:
+  description: |
+    An `OwnershipTransfer` plus the destination garden's own current
+    name (P9A-OWNER-02) — `listIncomingOwnershipTransfers`'s own item
+    shape. The name is joined in so a recipient deciding whether to
+    accept ownership of a garden can see which one, rather than only its
+    opaque id.
+  allOf:
+    - $ref: '#/OwnershipTransfer'
+    - type: object
+      additionalProperties: false
+      required: [gardenName]
+      properties:
+        gardenName:
+          type: string
+          description: The destination garden's current name, as of when this list was read.
+
+IncomingOwnershipTransferListResult:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/IncomingOwnershipTransfer'
+
+InvitationIntendedRole:
+  type: string
+  enum: [editor, viewer]
+  description: |
+    The role vocabulary an invitation, or a role change under this same
+    module, may name. Never `owner` — ownership moves only through the
+    dedicated transfer flow (`invitation_intended_role_check`).
+
+InvitationState:
+  type: string
+  enum: [pending, accepted, revoked, expired]
+  description: Mirrors `collaboration.invitation.state`.
+
+Invitation:
+  type: object
+  additionalProperties: false
+  required: [id, gardenId, inviterProfileId, intendedRole, state, createdAt, expiresAt]
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    gardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    inviterProfileId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    intendedRole:
+      $ref: '#/InvitationIntendedRole'
+    intendedEmail:
+      type: string
+      format: email
+      description: Absent for an unbound invitation, shareable with anyone who receives the link.
+    state:
+      $ref: '#/InvitationState'
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    expiresAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    acceptedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    revokedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    resultingMembershipId:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Present only once the invitation has been accepted.
+
+CreateInvitationResult:
+  description: |
+    An `Invitation` plus the raw token — present ONLY in this one
+    response. The server stores only the token's hash; there is no
+    endpoint that can ever return it again.
+  allOf:
+    - $ref: '#/Invitation'
+    - type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token:
+          type: string
+          minLength: 32
+          maxLength: 128
+          description: Opaque single-use secret. Distribute out of band; excluded from logs and analytics.
+
+CreateInvitationRequest:
+  type: object
+  additionalProperties: false
+  required: [intendedRole]
+  properties:
+    intendedRole:
+      $ref: '#/InvitationIntendedRole'
+    intendedEmail:
+      type: string
+      format: email
+      description: Omit for an unbound invitation shareable with anyone who receives the link.
+
+AcceptInvitationRequest:
+  type: object
+  additionalProperties: false
+  required: [token]
+  properties:
+    token:
+      type: string
+      minLength: 32
+      maxLength: 128

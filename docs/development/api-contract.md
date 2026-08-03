@@ -1,14 +1,14 @@
 # The API contract and generated clients
 
-`packages/api-contracts/openapi.yaml` is the source of truth for the external API. Everything else —
-TypeScript types, Swift types, request validation, documentation — is derived from it. This document
-covers how to change it and how to keep the derived artefacts honest.
+The contract source is the tree under `packages/api-contracts/openapi/`. Everything else —
+`openapi.yaml`, TypeScript types, Swift types, request validation, documentation — is derived from
+it. This document covers how to change it and how to keep the derived artefacts honest.
 
 ## The one rule
 
-**Generated files are never edited by hand.** `packages/api-contracts/src/generated/schema.ts` is
-output, not source. Editing it produces code that disagrees with the contract that clients were
-built against, and CI rejects the result.
+**Generated files are never edited by hand.** `packages/api-contracts/src/generated/schema.ts` and
+`packages/api-contracts/openapi.yaml` are output, not source. Editing either produces something that
+disagrees with the contract clients were built against, and CI rejects the result.
 
 Source: [../architecture/api-design.md](../architecture/api-design.md), section
 "3. Contract Ownership".
@@ -17,11 +17,34 @@ Source: [../architecture/api-design.md](../architecture/api-design.md), section
 
 | Path                                     | Role                                                                                                      |
 | ---------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `openapi.yaml`                           | The contract. Hand-written and reviewed.                                                                  |
+| `openapi/`                               | The contract. Hand-written and reviewed; see the next section for its shape.                              |
+| `openapi.yaml`                           | The bundle built from `openapi/`. Committed, never edited.                                                |
 | `redocly.yaml`                           | Lint rules applied to the contract.                                                                       |
 | `src/generated/schema.ts`                | Generated types. Committed, never edited.                                                                 |
 | `src/index.ts`                           | The package's public surface: stable type aliases, header constants, and the shared error-code catalogue. |
-| `scripts/check-generated-is-current.mjs` | The drift gate.                                                                                           |
+| `scripts/bundle-contract.mjs`            | Builds the bundle, and (with `--check`) the drift gate that keeps it honest.                              |
+| `scripts/check-generated-is-current.mjs` | The drift gate for the generated client.                                                                  |
+
+## The contract source tree
+
+One 14,000-line YAML file made every change hard to review and hard to place. The same contract now
+lives as:
+
+| Path                                | Holds                                                                                         |
+| ----------------------------------- | --------------------------------------------------------------------------------------------- |
+| `openapi/root.yaml`                 | The document head — `info`, `servers`, `tags`, `security` — and an index of everything below. |
+| `openapi/paths/<tag>/<path>.yaml`   | One path item per file, in a directory named for its tag.                                     |
+| `openapi/components/schemas/*.yaml` | Schemas grouped by domain, in the order the contract already laid them out.                   |
+| `openapi/components/*.yaml`         | Parameters, responses, headers, and security schemes.                                         |
+
+`root.yaml` names every schema and every path explicitly, the same way `src/index.ts` re-exports
+every type by name rather than star-exporting. Adding a schema therefore means two edits: the schema
+in its group file, and one line in the index. That is deliberate — it keeps the bundle deterministic
+and makes the contract's whole surface readable in one file. A schema defined in a group file but
+missing from the index would silently not exist; `contract.test.ts` fails when that happens.
+
+Comments explaining a schema live beside the schema, in the tree. The bundler cannot carry them into
+`openapi.yaml`, which is one more reason that file is not where you read or edit the contract.
 
 `src/index.ts` exists because OpenAPI cannot express everything a client needs. Error codes,
 `API_BASE_PATH`, `IDEMPOTENCY_KEY_HEADER`, and `IF_MATCH_HEADER` are hand-written there and are the
@@ -31,24 +54,26 @@ from `@verdery/api-contracts/src/generated/...`.
 ## Changing the contract
 
 ```bash
-# 1. Edit the contract.
-$EDITOR packages/api-contracts/openapi.yaml
+# 1. Edit the contract source, and its index when adding or removing a name.
+$EDITOR packages/api-contracts/openapi/components/schemas/plants.yaml
+$EDITOR packages/api-contracts/openapi/root.yaml
 
-# 2. Regenerate the client.
+# 2. Rebundle and regenerate the client. `generate` bundles first.
 pnpm --filter @verdery/api-contracts generate
 
 # 3. Lint the contract.
 pnpm --filter @verdery/api-contracts lint:contract
 
-# 4. Confirm the committed client now matches.
+# 4. Confirm the committed bundle and client now match their sources.
+pnpm --filter @verdery/api-contracts bundle:check
 pnpm --filter @verdery/api-contracts generate:check
 
 # 5. Rebuild consumers, because their types just changed.
 pnpm build && pnpm typecheck && pnpm test
 ```
 
-Commit `openapi.yaml` and the regenerated `src/generated/schema.ts` in the same change. A commit
-that contains one without the other fails the drift gate.
+Commit the source tree, the rebundled `openapi.yaml`, and the regenerated `src/generated/schema.ts`
+in the same change. A commit that contains one without the others fails a drift gate.
 
 ## Conventions the contract already fixes
 
@@ -81,20 +106,25 @@ off on purpose, each with the reason recorded in the file:
 
 If you re-enable either rule, remove the comment that explains why it was off.
 
-## How the drift gate works
+## How the drift gates work
+
+There are two, and they run in order.
+
+`bundle:check` re-bundles the source tree into a temporary file and compares it byte-for-byte with
+the committed `openapi.yaml`. A difference means the tree changed and nobody rebundled, or somebody
+edited the bundle by hand.
 
 `generate:check` regenerates the client into a temporary directory from the committed
-`openapi.yaml` and compares it byte-for-byte with `src/generated/schema.ts`. A difference means one
-of two things, and both must block the merge:
+`openapi.yaml` and compares it byte-for-byte with `src/generated/schema.ts`. A difference means the
+contract changed and nobody regenerated, so clients are being built against a stale shape — or
+somebody edited the generated file directly.
 
-- the contract changed and nobody regenerated, so clients are being built against a stale shape; or
-- somebody edited the generated file directly.
+Both failure messages name the command that fixes them.
 
-The failure message names the command that fixes it.
-
-In CI this runs in its own job, before anything builds the contract package. That ordering is
-deliberate: `pnpm --filter @verdery/api-contracts build` runs `generate` as its first step and would
-silently repair the drift the gate is supposed to catch.
+The bundle check runs first because the client check reads the committed bundle: a stale bundle
+would otherwise be verified against itself and pass. Both run in their own CI job, before anything
+builds the contract package — `pnpm --filter @verdery/api-contracts build` runs `generate` as its
+first step and would silently repair the drift the gates are supposed to catch.
 
 ## Swift and other runtimes
 

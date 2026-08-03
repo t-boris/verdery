@@ -1,0 +1,56 @@
+post:
+  operationId: acceptClientInvitation
+  tags: [ClientAccess]
+  summary: Accept a client invitation
+  description: |
+    Grants the AUTHENTICATED caller the invitation's client access grant.
+    Identified by the raw token plus the caller's own session, exactly
+    like `acceptInvitation` — never by the token alone, so a VERIFIED
+    email claim is available to check against and acceptance is always
+    attributable to a real account. Email magic link is the lowest-
+    friction default sign-in method this token's own email arrived
+    through, but any approved Firebase method the caller actually used is
+    accepted identically — this operation reads the same verified-email
+    claim `acceptInvitation` already reads, not a second one.
+
+    Idempotent and handles, each distinguishably:
+
+    - The caller already holds an ACTIVE grant from this exact token:
+      returns it unchanged, `200`, no error.
+    - The invitation is expired or revoked: `409`.
+    - The invitation was already accepted by a DIFFERENT caller: `409`.
+    - The invitation is bound to an email the caller's own verified
+      email does not match: `403`. Existence is never concealed here —
+      the caller already holds the token — but this response does not
+      disclose what the correct email is.
+    - The invitation's engagement is not currently `active` (never
+      activated, ended, or revoked): `409`.
+
+    Source: implementation-plan.md work package P9C-INVITE-01;
+    architecture/collaboration-and-client-sharing.md, section
+    "9. Client Invitation and Session".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/client-access.yaml#/AcceptClientInvitationRequest'
+  responses:
+    '200':
+      description: The caller's client access grant on the engagement the invitation named.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/client-access.yaml#/ClientAccessGrant'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'

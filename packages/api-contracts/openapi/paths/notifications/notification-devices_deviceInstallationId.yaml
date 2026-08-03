@@ -1,0 +1,81 @@
+parameters:
+  - name: deviceInstallationId
+    in: path
+    required: true
+    description: Client-generated UUIDv7, stable for the lifetime of one app installation on one device — the same convention `registerSyncClient` documents for its own installation id.
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+put:
+  operationId: registerNotificationDevice
+  tags: [Notifications]
+  summary: Register or refresh this installation's push channel
+  description: |
+    Registers this app installation's FCM registration token for the
+    caller, or refreshes an already-registered one under the same
+    `deviceInstallationId` — the client calls this after obtaining or
+    rotating a token. `PUT` at a client-known id because the id is
+    minted by the client before the first call (the `registerSyncClient`
+    posture).
+
+    Idempotent BY DESIGN, so this operation deliberately takes no
+    `Idempotency-Key`: registration is a last-writer-wins replacement
+    of a single-owner record — a retry or concurrent duplicate
+    converges on identical stored state and an identical `200`
+    response, with no created-versus-refreshed distinction to
+    preserve. A registration always reactivates a previously disabled
+    record: a fresh token proves the channel works again.
+
+    A token belongs to exactly one installation at the provider, so
+    registering a token held by another record (an account switch on
+    the same physical device) displaces that record in the same
+    transaction.
+
+    The token is a secret: it is stored server-side for delivery only
+    and never appears in any response, log, or analytics stream —
+    `NotificationDevice` deliberately omits it. The stored record is
+    scoped to the environment of the API that accepted it; the server
+    stamps that itself.
+
+    Source: architecture/notifications.md, section "6. Device Tokens";
+    implementation-plan.md work package P7-NOTIF-02.
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/notifications.yaml#/RegisterNotificationDeviceRequest'
+  responses:
+    '200':
+      description: The registered or refreshed device record (token omitted — it is a secret).
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/notifications.yaml#/NotificationDevice'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+
+delete:
+  operationId: removeNotificationDevice
+  tags: [Notifications]
+  summary: Remove this installation's push channel
+  description: |
+    Deletes the caller's own device record for this installation —
+    called on sign-out or when the user disables push for this device
+    at the OS level. Idempotent by design and precondition-free:
+    removing an absent record is the same end state as removing a
+    present one, so the response is `204` either way and no
+    `Idempotency-Key` is taken. Removal is per-installation; other
+    devices and all notification preferences are untouched.
+
+    Source: architecture/notifications.md, section "6. Device Tokens"
+    ("revocable device-channel records").
+  responses:
+    '204':
+      description: The device record is gone (whether or not it existed).
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'

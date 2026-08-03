@@ -1,0 +1,85 @@
+parameters:
+  - name: organizationId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: profileId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+patch:
+  operationId: changeOrganizationMemberRole
+  tags: [Organizations]
+  summary: Change a member's role between organizationAdmin and professional
+  description: |
+    `organizationAdmin`-only (`manageOrganizationMembership`). Refused
+    with `422` when the change would leave the organization with no
+    active `organizationAdmin` — the last-admin invariant this package
+    protects the same way `changeGardenMemberRole`'s sibling
+    `demoteGardenOwner` protects the garden's own last-owner invariant, a
+    locking read (`FOR UPDATE`) over every other active admin
+    immediately before the write, exactly as the P9B-DATA-01 migration's
+    own header prescribes.
+
+    Source: implementation-plan.md work package P9B-API-01;
+    migrations/1786600000000_service-organizations-and-client-engagements.sql.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/organizations.yaml#/ChangeOrganizationMemberRoleRequest'
+  responses:
+    '200':
+      description: The member's updated (or already current) role.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/organizations.yaml#/OrganizationMember'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'
+
+delete:
+  operationId: removeOrganizationMember
+  tags: [Organizations]
+  summary: Remove a member, or leave an organization
+  description: |
+    A caller may always remove THEMSELVES — leaving an organization is
+    not organization administration, the same posture
+    `removeGardenMember` already takes for leaving a garden. Removing
+    anyone else requires `manageOrganizationMembership`. Either way,
+    removing the organization's last active `organizationAdmin` is
+    refused with `422`, including a sole admin attempting to leave their
+    own organization.
+
+    Source: implementation-plan.md work package P9B-API-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  responses:
+    '200':
+      description: The removed membership.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/organizations.yaml#/OrganizationMember'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'

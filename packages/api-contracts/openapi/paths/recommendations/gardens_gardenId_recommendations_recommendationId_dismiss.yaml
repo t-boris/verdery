@@ -1,0 +1,45 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: recommendationId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: dismissRecommendation
+  tags: [Recommendations]
+  summary: Dismiss a recommendation
+  description: |
+    Records `dismissed` feedback and transitions the candidate
+    `presented -> rejected` in one transaction — the feedback verb is
+    FR-24's, the state is the lifecycle's own vocabulary. Only legal
+    while `presented`.
+
+    Source: implementation-plan.md work package P7-BE-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  responses:
+    '200':
+      description: The dismissed (now `rejected`) recommendation.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/recommendations.yaml#/Recommendation'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'

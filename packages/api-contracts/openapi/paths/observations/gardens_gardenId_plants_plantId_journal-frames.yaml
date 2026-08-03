@@ -1,0 +1,65 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: plantId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: listPlantJournalFrames
+  tags: [Observations]
+  summary: List a plant's journal frames as an ordered sequence
+  description: |
+    One plant's attached photographs, oldest observed first, for
+    side-by-side and before/after reading. Nothing is rendered and no
+    derivative is produced: these are the photographs that already
+    exist, and how they are presented is the client's decision.
+
+    `purpose` narrows the sequence to comparable frames — a sequence
+    mixing whole-plant shots with leaf close-ups compares nothing.
+    Photographs carrying no purpose label come back only when no
+    `purpose` is asked for; deciding which sequence they belong to
+    would be inventing data. An unrecognised `purpose` is a `400`
+    rather than a silently unnarrowed sequence.
+
+    `limit` is a bound, not a page size: this operation returns a
+    sequence, and a plant with more photographs than the bound wants
+    that sequence thinned rather than paged. Thinning is a presentation
+    decision and is left to the caller.
+
+    Source: architecture/plant-intelligence-and-visual-journal.md
+    section 8.2; implementation-plan.md work package P11-MEDIA-01.
+  parameters:
+    - name: purpose
+      in: query
+      required: false
+      description: Restricts the sequence to one shot purpose. Omit to include every photograph, labelled or not.
+      schema:
+        $ref: '../../components/schemas/observations.yaml#/ObservationPhotoPurpose'
+    - name: limit
+      in: query
+      required: false
+      description: Maximum frames to return, counted from the oldest. Defaults to the maximum.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 200
+  responses:
+    '200':
+      description: The plant's journal frames, oldest observed first.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/observations.yaml#/PlantJournalFrameListResult'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

@@ -1,0 +1,47 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: recommendationId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: markRecommendationIrrelevant
+  tags: [Recommendations]
+  summary: Report a recommendation as not relevant
+  description: |
+    Appends `irrelevant` feedback WITHOUT a lifecycle transition or
+    revision bump — the explicit quality signal that accompanies or
+    follows a dismissal. Legal on a still-visible `presented`
+    candidate or on an already-`rejected` one; the response echoes the
+    unchanged recommendation.
+
+    Source: implementation-plan.md work package P7-BE-01;
+    technical-specification.md FR-3.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  responses:
+    '200':
+      description: The unchanged recommendation the feedback now annotates.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/recommendations.yaml#/Recommendation'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'

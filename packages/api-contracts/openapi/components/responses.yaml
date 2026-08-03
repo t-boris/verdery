@@ -1,0 +1,77 @@
+BadRequest:
+  description: The request is malformed or fails validation.
+  content:
+    application/json:
+      schema:
+        $ref: '../components/schemas/errors.yaml#/Error'
+
+Unauthorized:
+  description: Authentication is missing or invalid.
+  content:
+    application/json:
+      schema:
+        $ref: '../components/schemas/errors.yaml#/Error'
+
+Forbidden:
+  description: Authenticated but not authorized for this resource.
+  content:
+    application/json:
+      schema:
+        $ref: '../components/schemas/errors.yaml#/Error'
+
+NotFound:
+  description: |
+    Not found, or existence intentionally concealed because the actor is not
+    authorized to learn that the resource exists.
+  content:
+    application/json:
+      schema:
+        $ref: '../components/schemas/errors.yaml#/Error'
+
+Conflict:
+  description: A domain or synchronization conflict prevented the command.
+  content:
+    application/json:
+      schema:
+        $ref: '../components/schemas/errors.yaml#/Error'
+
+PreconditionFailed:
+  description: The supplied revision precondition did not match the current revision.
+  content:
+    application/json:
+      schema:
+        $ref: '../components/schemas/errors.yaml#/Error'
+
+UnprocessableEntity:
+  description: The request is structurally valid but violates a domain rule (for example, the last-owner invariant).
+  content:
+    application/json:
+      schema:
+        $ref: '../components/schemas/errors.yaml#/Error'
+
+TooManyRequests:
+  description: A quota or rate limit was exceeded.
+  headers:
+    Retry-After:
+      $ref: '../components/headers.yaml#/RetryAfter'
+  content:
+    application/json:
+      schema:
+        $ref: '../components/schemas/errors.yaml#/Error'
+
+InternalError:
+  description: Unexpected internal failure.
+  content:
+    application/json:
+      schema:
+        $ref: '../components/schemas/errors.yaml#/Error'
+
+ServiceUnavailable:
+  description: |
+    A required external dependency (for example the transactional email
+    provider) is temporarily unavailable or did not respond in time. The
+    request was not applied and may be retried.
+  content:
+    application/json:
+      schema:
+        $ref: '../components/schemas/errors.yaml#/Error'

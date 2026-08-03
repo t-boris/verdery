@@ -1,0 +1,446 @@
+SyncGardenOperationPayload:
+  type: object
+  additionalProperties: false
+  required: [recordType, gardenId, command]
+  description: For every `command` here, `gardenId` names the target garden itself — for `gardens.create`, the client-generated id of the new garden.
+  properties:
+    recordType:
+      type: string
+      enum: [garden]
+    gardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    command:
+      $ref: '../../components/schemas/sync-commands.yaml#/SyncGardenCommand'
+
+SyncGardenObjectOperationPayload:
+  type: object
+  additionalProperties: false
+  required: [recordType, gardenId, command]
+  description: |
+    Reuses `MapCommandPayload` — the same 13-command union
+    `SubmitMapCommand` already accepts — unchanged, rather than
+    redefining map commands a second time for sync. `gardenId` is
+    explicit here (unlike `SubmitMapCommand`, which reads it from the
+    URL path) because `PushSyncOperations` has no per-garden path
+    segment: one batch can carry operations for more than one garden.
+  properties:
+    recordType:
+      type: string
+      enum: [gardenObject]
+    gardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    command:
+      $ref: '../../components/schemas/map-commands.yaml#/MapCommandPayload'
+
+SyncPlantOperationPayload:
+  type: object
+  additionalProperties: false
+  required: [recordType, gardenId, command]
+  properties:
+    recordType:
+      type: string
+      enum: [plant]
+    gardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    command:
+      $ref: '../../components/schemas/sync-commands.yaml#/SyncPlantCommand'
+
+SyncObservationOperationPayload:
+  type: object
+  additionalProperties: false
+  required: [recordType, gardenId, command]
+  properties:
+    recordType:
+      type: string
+      enum: [observation]
+    gardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    command:
+      $ref: '../../components/schemas/sync-commands.yaml#/SyncObservationCommand'
+
+SyncTaskOperationPayload:
+  type: object
+  additionalProperties: false
+  required: [recordType, gardenId, command]
+  properties:
+    recordType:
+      type: string
+      enum: [task]
+    gardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    command:
+      $ref: '../../components/schemas/sync-commands.yaml#/SyncTaskCommand'
+
+SyncOperationPayload:
+  oneOf:
+    - $ref: '#/SyncGardenOperationPayload'
+    - $ref: '#/SyncGardenObjectOperationPayload'
+    - $ref: '#/SyncPlantOperationPayload'
+    - $ref: '#/SyncObservationOperationPayload'
+    - $ref: '#/SyncTaskOperationPayload'
+  discriminator:
+    propertyName: recordType
+    mapping:
+      garden: '#/SyncGardenOperationPayload'
+      gardenObject: '#/SyncGardenObjectOperationPayload'
+      plant: '#/SyncPlantOperationPayload'
+      observation: '#/SyncObservationOperationPayload'
+      task: '#/SyncTaskOperationPayload'
+  description: |
+    The outbox operation's canonical payload — a `oneOf` grouped by
+    target record family (`garden`, `gardenObject`/map commands,
+    `plant`, `observation`, `task`: every record type Phase 4/5
+    established that has a client-issuable command today), each family
+    then discriminated again on its own `commandType`. Deliberately not
+    one flat 24-branch `oneOf` on a single discriminator: `gardenObject`
+    reuses `MapCommandPayload` wholesale, which already discriminates
+    internally on `type`, not `commandType`, so a single shared
+    discriminator property across every branch is not possible without
+    modifying that existing schema.
+
+    `media` is intentionally not a sixth family: media registration and
+    upload have their own lifecycle (architecture/offline-synchronization.md,
+    section "18. Media Coordination") and are declared per-operation via
+    `SyncOperation.mediaPrerequisites`, not submitted as a sync command
+    themselves.
+
+SyncMediaPrerequisite:
+  type: object
+  additionalProperties: false
+  required: [mediaId]
+  description: |
+    Declares whether an operation may be accepted before its referenced
+    media finishes uploading, per architecture/offline-synchronization.md,
+    section "18. Media Coordination".
+  properties:
+    mediaId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    allowPendingUpload:
+      type: boolean
+      default: false
+      description: '`true` for something like a new observation that may sync with `mediaPending`; `false` (the default) for a command that requires verified source media and must stay `blockedByDependency` until it is.'
+
+SyncOperation:
+  type: object
+  additionalProperties: false
+  required: [operationId, localSequence, payload]
+  description: |
+    One outbox operation on the wire. Per architecture/offline-synchronization.md,
+    section "7. Outbox Operation", two of that section's local outbox
+    fields never appear here: "Authenticated profile ID" (the server
+    fills it from the authenticated caller, never a client claim — the
+    same rule `SubmitMapCommand` documents for `actorProfileId`) and
+    "Retry state and last error category" (purely local bookkeeping
+    about the client's own retry history). "Target record IDs" and
+    "Expected server revision" also aren't repeated here as generic
+    fields — they live inside `payload`'s own typed command, the same
+    way `MapCommandPayload`'s branches already carry their own
+    `objectId`/`expectedRevision` rather than a generic pair at the
+    `MapCommandRequest` level.
+  properties:
+    operationId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Client-generated. The idempotency key for this operation (section "9. Server Idempotency") — reusing it with an identical payload replays the stored outcome; reusing it with a different payload is `rejected`.
+    commandVersion:
+      type: integer
+      minimum: 1
+      description: This operation's own command payload version, when it differs from the batch's `operationPayloadVersion` — for example, an operation that has sat unsent in the outbox since before a payload-version bump the rest of this batch was authored under. Defaults to `operationPayloadVersion` when omitted.
+    localSequence:
+      type: integer
+      format: int64
+      minimum: 0
+      description: This operation's position in the client's own local outbox, not its position within this batch — lets the server and telemetry distinguish "batch item 3" from "outbox item 4102" for backlog observability (section "23. Observability").
+    dependsOnOperationIds:
+      type: array
+      maxItems: 20
+      default: []
+      items:
+        $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Operation IDs — in this batch or an earlier one — that must be `accepted` or `duplicate` before this one may process. Makes ordering explicit per section "16. Ordering".
+    mediaPrerequisites:
+      type: array
+      maxItems: 20
+      default: []
+      items:
+        $ref: '#/SyncMediaPrerequisite'
+    payload:
+      $ref: '#/SyncOperationPayload'
+
+SyncPushRequest:
+  type: object
+  additionalProperties: false
+  required: [clientInstallationId, protocolVersion, operationPayloadVersion, operations]
+  description: |
+    Profile is implicit from the authenticated caller, never a request
+    field, the same rule every other mutation in this API follows.
+    `protocolVersion` is the wire/envelope version (section
+    "21. Protocol Versioning"); `operationPayloadVersion` is the default
+    command-payload version this batch was authored under — see
+    `SyncOperation.commandVersion` for why an individual operation can
+    still override it.
+  properties:
+    clientInstallationId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    protocolVersion:
+      type: integer
+      minimum: 1
+    operationPayloadVersion:
+      type: integer
+      minimum: 1
+    operations:
+      type: array
+      minItems: 1
+      maxItems: 500
+      items:
+        $ref: '#/SyncOperation'
+
+SyncOperationError:
+  type: object
+  additionalProperties: false
+  required: [code, message]
+  description: Per-operation error detail for a `rejected` push result. Deliberately not the shared `Error` schema's `error` object reused by reference — that shape is the HTTP response envelope; this is one line item inside a `200` batch response, with no `correlationId` or `retryable` of its own.
+  properties:
+    code:
+      type: string
+      description: Stable dotted code, the same convention `Error.error.code` uses. A reused operation ID with a different payload uses `request.idempotency.key_reused`, the exact code `SharedErrorCode.IdempotencyKeyReused` already names.
+    message:
+      type: string
+    details:
+      type: array
+      items:
+        $ref: '../../components/schemas/errors.yaml#/ErrorDetail'
+
+SyncAcceptedOperationResult:
+  type: object
+  additionalProperties: false
+  required: [outcome, operationId, recordRevisions]
+  properties:
+    outcome:
+      type: string
+      enum: [accepted]
+    operationId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    recordRevisions:
+      type: array
+      minItems: 1
+      items:
+        $ref: '../../components/schemas/sync-records.yaml#/SyncRecordReference'
+      description: Every record this operation created or changed, at its new revision — more than one entry for a command like `map.joinLinework` that affects two objects at once.
+
+SyncDuplicateOperationResult:
+  type: object
+  additionalProperties: false
+  required: [outcome, operationId, recordRevisions]
+  description: |
+    This exact operation ID, with an identical payload, was already
+    `accepted` by a prior push — `recordRevisions` is the same value
+    that original acceptance produced; no new mutation ran. A retry of
+    an operation whose prior outcome was `rejected`, `conflict`,
+    `blockedByDependency`, or `retryLater` simply returns that same
+    outcome again, not `duplicate` — only a previously `accepted`
+    operation, which had a lasting effect that must not repeat, needs
+    this distinct label.
+  properties:
+    outcome:
+      type: string
+      enum: [duplicate]
+    operationId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    recordRevisions:
+      type: array
+      minItems: 1
+      items:
+        $ref: '../../components/schemas/sync-records.yaml#/SyncRecordReference'
+
+SyncConflictOperationResult:
+  type: object
+  additionalProperties: false
+  required: [outcome, operationId, conflictCode, currentRecord]
+  description: Per section "14.2 Same Mutable Object" — carries the current authorized representation, its current revision (inside `currentRecord`), and a stable conflict type. The original local command remains locally recoverable; this response does not discard it.
+  properties:
+    outcome:
+      type: string
+      enum: [conflict]
+    operationId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    conflictCode:
+      type: string
+      description: Stable machine-readable conflict type, localized client-side.
+    currentRecord:
+      $ref: '../../components/schemas/sync-records.yaml#/SyncRecordSnapshot'
+
+SyncRejectedOperationResult:
+  type: object
+  additionalProperties: false
+  required: [outcome, operationId, error]
+  properties:
+    outcome:
+      type: string
+      enum: [rejected]
+    operationId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    error:
+      $ref: '#/SyncOperationError'
+
+SyncBlockedByDependencyOperationResult:
+  type: object
+  additionalProperties: false
+  required: [outcome, operationId, blockingOperationIds]
+  properties:
+    outcome:
+      type: string
+      enum: [blockedByDependency]
+    operationId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    blockingOperationIds:
+      type: array
+      minItems: 1
+      items:
+        $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+SyncRetryLaterOperationResult:
+  type: object
+  additionalProperties: false
+  required: [outcome, operationId]
+  description: A transient server-side condition, not a domain outcome — safe for the client to retry with the identical operation ID and payload, unlike `rejected`.
+  properties:
+    outcome:
+      type: string
+      enum: [retryLater]
+    operationId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    retryAfterSeconds:
+      type: integer
+      minimum: 0
+    reason:
+      type: string
+      description: Short machine code for telemetry, for example `server.dependency_unavailable`.
+
+SyncPushOperationResult:
+  oneOf:
+    - $ref: '#/SyncAcceptedOperationResult'
+    - $ref: '#/SyncDuplicateOperationResult'
+    - $ref: '#/SyncConflictOperationResult'
+    - $ref: '#/SyncRejectedOperationResult'
+    - $ref: '#/SyncBlockedByDependencyOperationResult'
+    - $ref: '#/SyncRetryLaterOperationResult'
+  discriminator:
+    propertyName: outcome
+    mapping:
+      accepted: '#/SyncAcceptedOperationResult'
+      duplicate: '#/SyncDuplicateOperationResult'
+      conflict: '#/SyncConflictOperationResult'
+      rejected: '#/SyncRejectedOperationResult'
+      blockedByDependency: '#/SyncBlockedByDependencyOperationResult'
+      retryLater: '#/SyncRetryLaterOperationResult'
+  description: The exact six outcomes architecture/offline-synchronization.md, section "8. Push Protocol" names, no more and no fewer.
+
+SyncPushResult:
+  type: object
+  additionalProperties: false
+  required: [results]
+  properties:
+    results:
+      type: array
+      items:
+        $ref: '#/SyncPushOperationResult'
+      description: Same length and order as the request's `operations`.
+
+SyncUnknownOperationResult:
+  type: object
+  additionalProperties: false
+  required: [outcome, operationId]
+  description: No durable outcome is stored for this operation ID under this profile — never actually pushed, or its idempotency record has expired. The client's only recourse is a real `PushSyncOperations` call with the operation's full canonical payload.
+  properties:
+    outcome:
+      type: string
+      enum: [unknown]
+    operationId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+SyncOperationLookupResult:
+  oneOf:
+    - $ref: '#/SyncAcceptedOperationResult'
+    - $ref: '#/SyncDuplicateOperationResult'
+    - $ref: '#/SyncConflictOperationResult'
+    - $ref: '#/SyncRejectedOperationResult'
+    - $ref: '#/SyncBlockedByDependencyOperationResult'
+    - $ref: '#/SyncRetryLaterOperationResult'
+    - $ref: '#/SyncUnknownOperationResult'
+  discriminator:
+    propertyName: outcome
+    mapping:
+      accepted: '#/SyncAcceptedOperationResult'
+      duplicate: '#/SyncDuplicateOperationResult'
+      conflict: '#/SyncConflictOperationResult'
+      rejected: '#/SyncRejectedOperationResult'
+      blockedByDependency: '#/SyncBlockedByDependencyOperationResult'
+      retryLater: '#/SyncRetryLaterOperationResult'
+      unknown: '#/SyncUnknownOperationResult'
+  description: "`AcknowledgeSyncOperations`'s result: the same six push outcomes, reusing those exact schemas, plus `unknown` for an operation ID the server has no stored result for."
+
+SyncAcknowledgeRequest:
+  type: object
+  additionalProperties: false
+  required: [clientInstallationId, operationIds]
+  properties:
+    clientInstallationId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    operationIds:
+      type: array
+      minItems: 1
+      maxItems: 500
+      items:
+        $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Operation IDs the client believes it already pushed and wants the durable outcome of, without resending their payloads.
+
+SyncAcknowledgeResult:
+  type: object
+  additionalProperties: false
+  required: [results]
+  properties:
+    results:
+      type: array
+      items:
+        $ref: '#/SyncOperationLookupResult'
+      description: Same length and order as the request's `operationIds`.
+
+SyncClientPlatform:
+  type: string
+  enum: [ios, web]
+  description: The two application platforms this API serves, per architecture/api-design.md's own opening line ("the native Apple and web applications").
+
+SyncClientRegistrationRequest:
+  type: object
+  additionalProperties: false
+  required: [platform, appVersion, protocolVersion]
+  properties:
+    platform:
+      $ref: '#/SyncClientPlatform'
+    appVersion:
+      type: string
+      description: Build version of the calling client, as free text — the same untyped convention `LivenessResult.version` already uses.
+    protocolVersion:
+      type: integer
+      minimum: 1
+      description: The maximum sync protocol version this installation currently supports.
+
+SyncClientInstallation:
+  type: object
+  additionalProperties: false
+  required: [id, platform, appVersion, protocolVersion, registeredAt, lastSeenAt]
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    platform:
+      $ref: '#/SyncClientPlatform'
+    appVersion:
+      type: string
+    protocolVersion:
+      type: integer
+      minimum: 1
+    registeredAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    lastSeenAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+      description: Set to the current time on every successful register-or-refresh call.

@@ -1,0 +1,35 @@
+get:
+  operationId: listIncomingOwnershipTransfers
+  tags: [Collaboration]
+  summary: List every pending ownership transfer addressed to the caller
+  description: |
+    Profile-scoped, not garden-scoped — no `gardenId` path segment, and no
+    garden membership capability is checked, mirroring `listGardens`:
+    "every pending transfer naming me" is inherently scoped to the
+    caller's own identity, the same way "every garden I belong to" is.
+
+    This is the read that actually closes the recipient side of the gap
+    `getGardenOwnershipTransfer` alone cannot: a recipient who does not
+    already know which garden a transfer concerns has no `gardenId` to
+    ask that endpoint about. Before this endpoint, the only way a
+    recipient could learn a transfer named them was out of band, from the
+    initiator.
+
+    Returns every PENDING transfer across every garden where the caller
+    is the named recipient (`toProfileId`), most recently requested
+    first. Each item carries the destination garden's own current name
+    (`gardenName`) so a client can render a real card ("accept ownership
+    of Riverside Garden?") rather than an anonymous offer.
+
+    Source: implementation-plan.md work package P9A-OWNER-02;
+    architecture/identity-and-authorization.md, section
+    "11. Ownership Transfer".
+  responses:
+    '200':
+      description: Every pending ownership transfer addressed to the caller.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/collaboration.yaml#/IncomingOwnershipTransferListResult'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'

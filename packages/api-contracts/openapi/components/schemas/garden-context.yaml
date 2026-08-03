@@ -1,0 +1,115 @@
+# --- Garden context facts (P9D-CONTEXT-01, tag GardenContext) -----
+GardenContextKind:
+  type: string
+  enum: [sun_exposure, soil_type, drainage, irrigation_method, growing_context, microclimate]
+  description: |
+    Which aspect of the garden's physical growing environment this fact
+    describes. Matches `context_kind` in
+    migrations/1787000000000_garden-context-facts.sql exactly — enum
+    values are the same snake_case string this service uses internally,
+    not translated to camelCase (unlike the older `GardenLifecycleState`
+    precedent; this contract's more recent additions, such as
+    `ClientUpdateState`, already expose snake_case enum values directly).
+
+GardenContextSource:
+  type: string
+  enum: [user_declared, horticulturally_reviewed_default, imported]
+  description: |
+    How a context fact's value was obtained. `horticulturally_reviewed_default`
+    additionally requires `reviewedBy`/`reviewedOn` on the same fact —
+    FR-22: "The source and quality of each context type must be
+    understood before it influences high-impact guidance."
+
+GardenContextFact:
+  type: object
+  additionalProperties: false
+  required:
+    [
+      id,
+      gardenId,
+      contextKind,
+      value,
+      source,
+      recordedByProfileId,
+      recordedAt,
+      revision,
+      createdAt,
+      updatedAt,
+    ]
+  description: |
+    One reviewed or declared fact about a garden's physical growing
+    environment. One row per `(gardenId, contextKind)`; recording the
+    same `contextKind` again updates this same fact in place rather
+    than creating a second one.
+
+    Source: implementation-plan.md §18.2, work package P9D-CONTEXT-01;
+    technical-specification.md FR-22 ("Garden Context").
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    gardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    contextKind:
+      $ref: '#/GardenContextKind'
+    value:
+      type: string
+      minLength: 1
+      maxLength: 2000
+      description: |
+        The declared value. For `sun_exposure`: `full_sun` |
+        `partial_sun` | `partial_shade` | `full_shade`. For `drainage`:
+        `well_drained` | `poor_drainage` | `waterlogged`. For
+        `irrigation_method`: `manual` | `drip` | `sprinkler` | `none`.
+        For `growing_context`: `open_ground` | `container` |
+        `greenhouse`. For `soil_type`/`microclimate`: free text, the
+        same latitude `BedDetails.soilNotes` already takes.
+    source:
+      $ref: '#/GardenContextSource'
+    reviewedBy:
+      type: string
+      description: Human reviewer name or identifier. Present only when `source` is `horticulturally_reviewed_default`.
+    reviewedOn:
+      type: string
+      format: date
+      description: Calendar date of horticultural sign-off. Present only when `source` is `horticulturally_reviewed_default`.
+    recordedByProfileId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Who declared or imported this fact. Always present, distinct from `reviewedBy`, a human reviewer name not necessarily tied to a profile.
+    recordedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    revision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    updatedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
+GardenContextFactListResult:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/GardenContextFact'
+
+RecordGardenContextFactRequest:
+  type: object
+  additionalProperties: false
+  required: [value, source]
+  description: '`contextKind` travels in the path (`PUT /gardens/{gardenId}/context/{contextKind}`), not in this body.'
+  properties:
+    value:
+      type: string
+      minLength: 1
+      maxLength: 2000
+    source:
+      $ref: '#/GardenContextSource'
+    reviewedBy:
+      type: string
+      minLength: 1
+      maxLength: 200
+    reviewedOn:
+      type: string
+      format: date

@@ -1,0 +1,279 @@
+NotificationType:
+  type: string
+  minLength: 1
+  maxLength: 100
+  description: |
+    The notification's server-owned type vocabulary, deliberately open
+    (a plain string, not an enum) so a new type never breaks an
+    already-shipped client — an unknown type must render through the
+    client's generic fallback (architecture/notifications.md, section
+    "16. Testing", "Locale fallback"). Current vocabulary:
+
+    - `care_recommendation` — a new care recommendation candidate was
+      generated for a garden the recipient is a member of.
+    - `export_ready` — the recipient's own requested data-export
+      package completed and is downloadable until it expires
+      (P8-EXPORT-01; in-app channel only).
+
+NotificationPriority:
+  type: string
+  enum: [normal, high]
+  description: |
+    Delivery priority derived by the notification policy from the
+    source's own urgency (`urgent`/`high` map to `high`). Two values,
+    matching what push transports actually distinguish.
+
+NotificationDeepLink:
+  oneOf:
+    - $ref: '#/GardenTodayDeepLink'
+    - $ref: '#/ExportReadyDeepLink'
+  discriminator:
+    propertyName: kind
+    mapping:
+      gardenToday: '#/GardenTodayDeepLink'
+      exportReady: '#/ExportReadyDeepLink'
+  description: |
+    A stable application route reference — resource identifiers only,
+    never bearer access; the client authenticates and authorizes after
+    opening, and opens a safe fallback when the target is unavailable
+    rather than revealing prior existence. `kind` names the route
+    target; clients resolve it to their own navigation. New kinds
+    arrive as new object variants and an unknown kind must fall back
+    to a safe default screen.
+
+    Source: architecture/notifications.md, section "11. Deep Links".
+
+GardenTodayDeepLink:
+  type: object
+  additionalProperties: false
+  required: [kind, gardenId, recommendationCandidateId]
+  properties:
+    kind:
+      type: string
+      enum: [gardenToday]
+      description: The garden's Today surface, highlighting the referenced recommendation when it is still presentable.
+    gardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    recommendationCandidateId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+ExportReadyDeepLink:
+  type: object
+  additionalProperties: false
+  required: [kind, exportRequestId]
+  properties:
+    kind:
+      type: string
+      enum: [exportReady]
+      description: The recipient's own export request — its state and, while unexpired, its download (P8-EXPORT-01).
+    exportRequestId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+Notification:
+  type: object
+  additionalProperties: false
+  required:
+    [
+      id,
+      notificationType,
+      priority,
+      gardenId,
+      recommendationCandidateId,
+      templateKey,
+      parameters,
+      deepLink,
+      readAt,
+      dismissedAt,
+      expiresAt,
+      createdAt,
+    ]
+  description: |
+    One durable inbox entry. Carries a stable template key plus
+    structured parameters, never rendered text — the client renders in
+    the recipient's locale as late as practical
+    (architecture/notifications.md, section "8. Localization"), falling
+    back generically for an unknown `templateKey`.
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    notificationType:
+      $ref: '#/NotificationType'
+    priority:
+      $ref: '#/NotificationPriority'
+    gardenId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+      description: The garden this notification concerns; `null` for account-level entries (an `export_ready` entry for an account-wide export).
+    recommendationCandidateId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+      description: The recommendation candidate this notification is about, for `care_recommendation` entries — the freshness linkage the delivery pipeline rechecks before any push attempt.
+    templateKey:
+      type: string
+      minLength: 1
+      description: Stable, versioned rendering key, e.g. `care_recommendation.created.v1`.
+    parameters:
+      type: object
+      description: Structured template parameters — identifiers and small facts only, never rendered text, secrets, or signed URLs.
+    deepLink:
+      $ref: '#/NotificationDeepLink'
+    readAt:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Timestamp'
+        - type: 'null'
+    dismissedAt:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Timestamp'
+        - type: 'null'
+    expiresAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+      description: When this entry stops being actionable — the source recommendation's own validity-window end where it has one.
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
+NotificationListResult:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/Notification'
+    nextCursor:
+      type: string
+      description: Present only when another page may exist.
+
+NotificationQuietHours:
+  type: object
+  additionalProperties: false
+  required: [startMinute, endMinute, timeZone]
+  description: |
+    A daily do-not-push window in the recipient's own local time,
+    expressed as minutes after local midnight. The window may wrap
+    midnight (`startMinute` greater than `endMinute`, e.g. 1320 to 420
+    for 22:00-07:00); `startMinute` equal to `endMinute` is rejected —
+    an always-quiet day is expressed by disabling the push channel,
+    not by a degenerate window. Evaluated with real time-zone rules,
+    daylight-saving transitions included.
+  properties:
+    startMinute:
+      type: integer
+      minimum: 0
+      maximum: 1439
+    endMinute:
+      type: integer
+      minimum: 0
+      maximum: 1439
+    timeZone:
+      oneOf:
+        - type: string
+          minLength: 1
+          maxLength: 100
+          description: An IANA time-zone identifier, e.g. `Europe/Berlin`.
+        - type: 'null'
+      description: "`null` means the profile's own time zone applies."
+
+NotificationPreferenceEntry:
+  type: object
+  additionalProperties: false
+  required: [notificationType, gardenId, inAppEnabled, pushEnabled]
+  description: |
+    One explicit per-type toggle row. `gardenId: null` is the caller's
+    global setting for the type; a non-null `gardenId` overrides the
+    global setting for that one garden. A type/garden combination with
+    no entry defaults to every channel enabled.
+  properties:
+    notificationType:
+      $ref: '#/NotificationType'
+    gardenId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+    inAppEnabled:
+      type: boolean
+    pushEnabled:
+      type: boolean
+
+NotificationPreferencesDocument:
+  type: object
+  additionalProperties: false
+  required: [revision, quietHours, entries]
+  properties:
+    revision:
+      type: integer
+      format: int64
+      minimum: 0
+      description: "`0` for a caller who has never written preferences. Feeds `updateNotificationPreferences's` `If-Match`."
+    quietHours:
+      oneOf:
+        - $ref: '#/NotificationQuietHours'
+        - type: 'null'
+    entries:
+      type: array
+      items:
+        $ref: '#/NotificationPreferenceEntry'
+
+UpdateNotificationPreferencesRequest:
+  type: object
+  additionalProperties: false
+  required: [quietHours, entries]
+  description: |
+    The whole replacement document, stated explicitly: `quietHours:
+    null` clears quiet hours, and an entry absent from `entries` is
+    removed (reverting that type/garden combination to the default).
+    At most one entry per type/garden combination.
+  properties:
+    quietHours:
+      oneOf:
+        - $ref: '#/NotificationQuietHours'
+        - type: 'null'
+    entries:
+      type: array
+      maxItems: 200
+      items:
+        $ref: '#/NotificationPreferenceEntry'
+
+NotificationDevicePlatform:
+  type: string
+  enum: [ios, web]
+  description: The two application platforms this API serves — the `SyncClientPlatform` vocabulary, repeated here because a device channel and a sync installation are separate registrations with separate lifecycles.
+
+RegisterNotificationDeviceRequest:
+  type: object
+  additionalProperties: false
+  required: [platform, fcmToken]
+  properties:
+    platform:
+      $ref: '#/NotificationDevicePlatform'
+    fcmToken:
+      type: string
+      minLength: 1
+      maxLength: 4096
+      description: The installation's current FCM registration token. A secret — stored for delivery only, never echoed back, never logged.
+
+NotificationDevice:
+  type: object
+  additionalProperties: false
+  required: [installationId, platform, status, lastSeenAt, registeredAt]
+  description: |
+    One registered push channel — the caller's own device record,
+    keyed by the client-minted installation id. Deliberately excludes
+    the token: tokens are secrets (architecture/notifications.md,
+    section "6. Device Tokens").
+  properties:
+    installationId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    platform:
+      $ref: '#/NotificationDevicePlatform'
+    status:
+      type: string
+      enum: [active, disabled]
+      description: Always `active` in a registration response (registering reactivates); `disabled` records a provider invalid-token verdict until the next refresh.
+    lastSeenAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+      description: Set to the current time on every successful register-or-refresh call.
+    registeredAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'

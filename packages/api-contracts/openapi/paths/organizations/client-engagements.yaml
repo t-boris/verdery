@@ -1,0 +1,54 @@
+post:
+  operationId: createClientEngagement
+  tags: [Organizations]
+  summary: Create a client engagement for a garden
+  description: |
+    Draft state only — `activateClientEngagement` is the separate step
+    that makes it live. Authorization is dual, decided by whether
+    `serviceOrganizationId` is supplied:
+
+    - Supplied: the caller must hold `manageEngagement` on THAT
+      organization. The named garden need only EXIST (`404` otherwise);
+      nothing requires its owner to have done anything first, the same
+      free-standing posture `createGardenAssignment` already takes for
+      the identical reason (section 3's domain diagram; no schema
+      reference links `client_engagement` to any prerequisite).
+    - Omitted: the caller must hold `manageGarden` on the garden itself
+      — a garden owner running the service relationship directly, no
+      service organization attached (ADR-0012 section 4.4: "For an
+      engagement with no service organization, a garden owner grants
+      [publisher access]"; creating the engagement itself follows the
+      same owner-only posture).
+
+    `stewardshipPolicy` defaults to `residential` (the only value the
+    database currently admits) and `clientNotificationsEnabled` defaults
+    to `true` when omitted.
+
+    Source: implementation-plan.md work package P9B-API-01;
+    architecture/collaboration-and-client-sharing.md, section
+    "8. Client Engagement";
+    architecture/decisions/ADR-0012-separate-team-and-client-sharing.md,
+    section "Client Engagement".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/organizations.yaml#/CreateClientEngagementRequest'
+  responses:
+    '201':
+      description: The created engagement, in `draft` state.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/organizations.yaml#/ClientEngagement'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

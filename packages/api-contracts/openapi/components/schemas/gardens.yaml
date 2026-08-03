@@ -1,0 +1,91 @@
+GardenLifecycleState:
+  type: string
+  enum: [active, archived, deletionRequested, purging]
+  description: |
+    `deletionRequested` starts the deletion workflow; it is not immediate
+    deletion. The garden stays recoverable through `restoreGarden` until
+    `recoveryDeadlineAt` passes.
+
+    `purging` is the point of no return (P8-DELETE-01): the deletion sweep
+    has claimed the garden and is executing the irreversible purge.
+    `restoreGarden` refuses it, and the garden row itself disappears when
+    the purge completes — no `deleted` value exists because no readable
+    garden survives to carry one.
+
+    Source: architecture/data-and-geospatial-design.md, section "15. Deletion";
+    architecture/data-export-and-deletion.md, section "10. Garden Deletion".
+
+GardenRole:
+  type: string
+  enum: [owner, editor, viewer]
+  description: |
+    The authenticated caller's own role on this garden. Informational for
+    client UI only — the server re-evaluates authorization on every
+    request and never trusts a client-submitted role.
+
+    Source: architecture/identity-and-authorization.md, section "8. Garden Roles".
+
+Garden:
+  type: object
+  additionalProperties: false
+  required: [id, name, lifecycleState, callerRole, revision, createdAt, updatedAt]
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    name:
+      type: string
+      minLength: 1
+      maxLength: 120
+    lifecycleState:
+      $ref: '#/GardenLifecycleState'
+    callerRole:
+      $ref: '#/GardenRole'
+    revision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    updatedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    recoveryDeadlineAt:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Timestamp'
+      description: |
+        When the 30-day recovery window closes and the irreversible purge
+        becomes eligible (P8-DELETE-01). Present only while
+        `lifecycleState` is `deletionRequested` or `purging`; absent
+        otherwise.
+
+        Source: architecture/data-export-and-deletion.md, section "10. Garden Deletion".
+
+GardenListResult:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/Garden'
+    nextCursor:
+      type: string
+      description: Opaque continuation token. Absent when no further page exists.
+
+CreateGardenRequest:
+  type: object
+  additionalProperties: false
+  required: [name]
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 120
+
+RenameGardenRequest:
+  type: object
+  additionalProperties: false
+  required: [name]
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 120

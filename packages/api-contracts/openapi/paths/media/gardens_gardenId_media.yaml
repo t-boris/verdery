@@ -1,0 +1,113 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: listGardenMedia
+  tags: [Media]
+  summary: List a garden's media records
+  description: |
+    Lists the garden's ORIGINAL media records — rows a derivative was
+    produced FROM, never the derivative rows themselves — most recently
+    created first, optionally filtered to one media class. P6-PLAN-01
+    added this: the plan-import flow needs to pick from a garden's
+    available `imported_plan` documents, and no endpoint could list
+    media by garden at all before (`GetMediaStatus` requires already
+    knowing the id).
+
+    Derivative (`derived_from_media_id`-bearing) rows are excluded by
+    construction rather than reachable through a `derived_preview`
+    class filter: a raster plan's tile pyramid alone can run to
+    thousands of rows, which would make an unfiltered listing unbounded
+    junk for every real caller. A derivative is reached through its
+    original's own `derivatives` array (see the `Media` schema), never
+    by listing.
+
+    Authorization matches `GetMediaStatus`: any garden role that can
+    view the garden (`viewGarden`) — this reads record state, not the
+    bytes themselves.
+
+    Source: implementation-plan.md work package P6-PLAN-01;
+    architecture/media-storage-and-processing.md, section "12. Download Flow".
+  parameters:
+    - name: mediaClass
+      in: query
+      required: false
+      description: Restrict to one media class — for example `imported_plan` for the plan-import picker. Omit to list every class (originals only).
+      schema:
+        $ref: '../../components/schemas/media.yaml#/MediaClass'
+    - $ref: '../../components/parameters.yaml#/Cursor'
+    - $ref: '../../components/parameters.yaml#/Limit'
+  responses:
+    '200':
+      description: The garden's media records, most recently created first.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/media.yaml#/MediaListResult'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+
+post:
+  operationId: registerMediaUpload
+  tags: [Media]
+  summary: Register a media upload and open its upload session
+  description: |
+    Combines architecture/media-storage-and-processing.md section 7
+    ("Upload Flow") steps 2 and 3 in one call: authorizes garden access,
+    reserves quota, creates the media record (`registered`), then
+    immediately creates a backend-authorized resumable Cloud Storage
+    upload session and advances the record to `authorized`. These two
+    steps are not split across two endpoints and not left for the client
+    to sequence itself — an `authorized` record with no session, or a
+    session with no record, is not a usable intermediate state for any
+    caller, matching this codebase's "one command, one clear side
+    effect" convention applied to the one side effect a caller actually
+    needs from registration: an upload it can start.
+
+    The client then uploads directly to `uploadUrl` — never through this
+    API (section 2, "Binary media bypasses the interactive API data
+    path") — and calls `CompleteMediaUpload` once finished.
+
+    Garden-scoped only this stage: a media row's `gardenId` is nullable
+    at the domain layer for a future pre-garden registration case (plan
+    import onboarding, P6-PLAN-01), but that endpoint shape does not
+    exist yet, so every registration through this contract names its
+    garden in the path.
+
+    Source: implementation-plan.md work package P6-API-01;
+    architecture/media-storage-and-processing.md, section "7. Upload Flow".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/media.yaml#/RegisterMediaUploadRequest'
+  responses:
+    '201':
+      description: The registered, upload-authorized media record and its upload session.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/media.yaml#/MediaUploadSession'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'

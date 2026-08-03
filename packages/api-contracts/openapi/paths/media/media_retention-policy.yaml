@@ -1,0 +1,36 @@
+get:
+  operationId: getMediaRetentionPolicy
+  tags: [Media]
+  summary: Get the retention policy per media class
+  description: |
+    The user-visible statement of section 15's retention rules, one
+    entry per media class — static policy data, the single source the
+    server itself enforces from, so what a client displays and what the
+    retention sweep executes can never drift.
+
+    Honesty over completeness: each entry carries an `enforced` flag.
+    The raw-capture rule ("30 days after successful extraction",
+    architecture/garden-capture-and-scan.md section 17) is DECLARED
+    here but reported `enforced: false` — the anchoring event
+    (successful extraction) has no producer until Garden Scan lands
+    (Phase 10), so no raw-capture deadline is ever set yet, and
+    claiming enforcement would be false. The export-package rule
+    (7 days from registration, the same figure the exports bucket's own
+    live lifecycle rule uses) is both declared and enforced.
+
+    Authenticated but not garden-scoped: policy is product-wide, not
+    per-garden.
+
+    Source: implementation-plan.md work package P6-RET-01;
+    architecture/media-storage-and-processing.md, section
+    "15. Retention and Lifecycle"; architecture/garden-capture-and-scan.md,
+    section "17. Privacy and Retention".
+  responses:
+    '200':
+      description: The retention policy for every media class.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/media.yaml#/MediaRetentionPolicyResult'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'

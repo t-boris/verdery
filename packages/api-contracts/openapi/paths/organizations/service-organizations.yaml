@@ -1,0 +1,55 @@
+post:
+  operationId: createServiceOrganization
+  tags: [Organizations]
+  summary: Create a service organization
+  description: |
+    ANY authenticated profile may call this — an organization does not
+    exist yet for anyone to hold a role on, so no capability could
+    possibly gate its own creation, the same reasoning
+    `createGarden` already applies to a brand-new garden. Creates the
+    organization AND grants its caller `organizationAdmin` membership in
+    one transaction (ADR-0012: "a solo professional may start with an
+    organization containing one administrator").
+
+    Source: implementation-plan.md work package P9B-API-01;
+    architecture/decisions/ADR-0012-separate-team-and-client-sharing.md,
+    section "Service Organizations".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/organizations.yaml#/CreateServiceOrganizationRequest'
+  responses:
+    '201':
+      description: The created organization, with the caller's own `organizationAdmin` role.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/organizations.yaml#/ServiceOrganization'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+
+get:
+  operationId: listServiceOrganizations
+  tags: [Organizations]
+  summary: List the caller's own service organizations
+  description: |
+    Every organization the caller has ACTIVE membership on, most
+    recently created first — the organization-scoped mirror of
+    `listGardens`.
+
+    Source: implementation-plan.md work package P9B-API-01.
+  responses:
+    '200':
+      description: The caller's service organizations.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/organizations.yaml#/ServiceOrganizationListResult'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'

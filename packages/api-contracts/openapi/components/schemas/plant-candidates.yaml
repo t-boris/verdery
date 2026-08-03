@@ -1,0 +1,417 @@
+PlantCandidateStatus:
+  type: string
+  enum: [active, converted, archived, rejected]
+  description: |
+    `converted` is reachable only through `convertCandidate` — never
+    through `setCandidateStatus`, whose own request schema excludes it.
+
+PlantCandidatePriority:
+  type: string
+  enum: [low, medium, high]
+
+PlantCandidate:
+  type: object
+  additionalProperties: false
+  required:
+    [
+      id,
+      gardenId,
+      proposedGardenAreaMapObjectId,
+      proposedPlacementMapObjectId,
+      displayName,
+      taxonomyReferenceId,
+      varietyLabel,
+      groupingKind,
+      quantity,
+      status,
+      rationaleNote,
+      priority,
+      priceAmount,
+      priceCurrency,
+      purchaseSource,
+      alternativeToCandidateId,
+      revision,
+      createdByProfileId,
+      createdAt,
+      updatedAt,
+    ]
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    gardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    proposedGardenAreaMapObjectId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+    proposedPlacementMapObjectId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+    displayName:
+      type: string
+      minLength: 1
+      maxLength: 200
+    taxonomyReferenceId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+    varietyLabel:
+      type: [string, 'null']
+    groupingKind:
+      $ref: '../../components/schemas/plants.yaml#/PlantGroupingKind'
+    quantity:
+      oneOf:
+        - type: integer
+          minimum: 1
+        - type: 'null'
+    status:
+      $ref: '#/PlantCandidateStatus'
+    rationaleNote:
+      type: [string, 'null']
+    priority:
+      oneOf:
+        - $ref: '#/PlantCandidatePriority'
+        - type: 'null'
+    priceAmount:
+      oneOf:
+        - type: number
+          minimum: 0
+        - type: 'null'
+    priceCurrency:
+      type: [string, 'null']
+    purchaseSource:
+      type: [string, 'null']
+    alternativeToCandidateId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+      description: A single, deliberately narrow self-reference — not a full alternatives-set model.
+    revision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    createdByProfileId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    updatedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
+PlantCandidatePhoto:
+  type: object
+  additionalProperties: false
+  required: [id, candidateId, mediaId, isPrimary, createdAt]
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    candidateId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    mediaId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    isPrimary:
+      type: boolean
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
+PlantCandidatePhotoListResult:
+  type: object
+  additionalProperties: false
+  required: [items]
+  description: "Every photo attached to a candidate, primary first, then oldest first. No pagination — mirrors PlantPhotoListResult's own unpaginated shape."
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/PlantCandidatePhoto'
+
+AddCandidateFromPhotoRequest:
+  type: object
+  additionalProperties: false
+  required: [photoMediaId]
+  description: 'Mirrors `AddCandidateFromPhotoInput`. Source: plants-inventory/application/add-candidate-from-photo.ts.'
+  properties:
+    proposedGardenAreaMapObjectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    proposedPlacementMapObjectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    photoMediaId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+PlantCandidateListResult:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/PlantCandidate'
+    nextCursor:
+      type: string
+      description: Opaque continuation token. Absent when no further page exists.
+
+AddCandidateRequest:
+  type: object
+  additionalProperties: false
+  required: [displayName, groupingKind]
+  description: 'Mirrors `AddCandidateInput`. Source: plants-inventory/application/add-candidate.ts.'
+  properties:
+    proposedGardenAreaMapObjectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    proposedPlacementMapObjectId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    displayName:
+      type: string
+      minLength: 1
+      maxLength: 200
+    taxonomyReferenceId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+    varietyLabel:
+      type: [string, 'null']
+    groupingKind:
+      $ref: '../../components/schemas/plants.yaml#/PlantGroupingKind'
+    quantity:
+      oneOf:
+        - type: integer
+          minimum: 1
+        - type: 'null'
+    rationaleNote:
+      type: [string, 'null']
+    priority:
+      oneOf:
+        - $ref: '#/PlantCandidatePriority'
+        - type: 'null'
+    priceAmount:
+      oneOf:
+        - type: number
+          minimum: 0
+        - type: 'null'
+    priceCurrency:
+      type: [string, 'null']
+    purchaseSource:
+      type: [string, 'null']
+    alternativeToCandidateId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+
+UpdateCandidateDetailsRequest:
+  type: object
+  additionalProperties: false
+  description: |
+    Mirrors `CandidateDetailsChanges`. Every property is optional; an
+    omitted property leaves the current value unchanged, and an
+    explicit `null` on a nullable property clears it. `groupingKind` is
+    immutable and not included. Source:
+    plants-inventory/domain/plant-candidate.ts.
+  properties:
+    displayName:
+      type: string
+      minLength: 1
+      maxLength: 200
+    taxonomyReferenceId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+    varietyLabel:
+      type: [string, 'null']
+    quantity:
+      oneOf:
+        - type: integer
+          minimum: 1
+        - type: 'null'
+    rationaleNote:
+      type: [string, 'null']
+    priority:
+      oneOf:
+        - $ref: '#/PlantCandidatePriority'
+        - type: 'null'
+    priceAmount:
+      oneOf:
+        - type: number
+          minimum: 0
+        - type: 'null'
+    priceCurrency:
+      type: [string, 'null']
+    purchaseSource:
+      type: [string, 'null']
+
+SetCandidateStatusRequest:
+  type: object
+  additionalProperties: false
+  required: [status]
+  properties:
+    status:
+      type: string
+      enum: [active, archived, rejected]
+      description: Never `converted` — reachable only through `convertCandidate`.
+
+ConvertCandidateRequest:
+  type: object
+  additionalProperties: false
+  description: |
+    Mirrors `ConvertCandidateInput`. `gardenAreaMapObjectId`/
+    `placementMapObjectId`, when omitted, default to the candidate's
+    own proposed placement. Source:
+    plants-inventory/application/convert-candidate.ts.
+  properties:
+    gardenAreaMapObjectId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+    placementMapObjectId:
+      oneOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - type: 'null'
+    acquisitionDate:
+      oneOf:
+        - type: string
+          format: date
+        - type: 'null'
+    acquisitionDateType:
+      oneOf:
+        - $ref: '../../components/schemas/plants.yaml#/PlantAcquisitionDateType'
+        - type: 'null'
+
+CandidateConversion:
+  type: object
+  additionalProperties: false
+  required: [id, candidateId, plantId, convertedByProfileId, convertedAt]
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    candidateId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    plantId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    convertedByProfileId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    convertedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
+ConvertCandidateResult:
+  type: object
+  additionalProperties: false
+  required: [plant, candidate, conversion]
+  properties:
+    plant:
+      $ref: '../../components/schemas/plants.yaml#/Plant'
+    candidate:
+      $ref: '#/PlantCandidate'
+    conversion:
+      $ref: '#/CandidateConversion'
+
+SuitabilityAxis:
+  type: string
+  enum:
+    - hardiness
+    - sun_exposure
+    - soil_ph
+    - drainage
+    - mature_space
+    - growing_context
+    - structural_conflict
+    - regulatory_status
+    - user_preference
+  description: |
+    Three axes (hardiness, mature_space, user_preference) have no rule
+    producing findings yet, each for a recorded reason — see
+    plants-inventory/domain/suitability-rules/suitability-rule-catalog-instance.ts.
+
+SuitabilityEvidence:
+  type: object
+  additionalProperties: false
+  required: [factKey, value, sourceCitation]
+  properties:
+    factKey:
+      type: string
+    value: {}
+    sourceCitation:
+      type: [string, 'null']
+
+SuitabilityFinding:
+  type: object
+  additionalProperties: false
+  required: [category, axis]
+  description: |
+    A discriminated union over `category`, encoded as one open object
+    so client code branches on `category` before reading the fields
+    that apply to it — `explanation`/`evidence` for match/caution/
+    blocker, `reason` for unknown, `explanation`/`assumedValue` for
+    assumption. "Missing context never becomes a positive match": a
+    `category: unknown` finding never carries `explanation`/`evidence`.
+  properties:
+    category:
+      type: string
+      enum: [match, caution, blocker, unknown, assumption]
+    axis:
+      $ref: '#/SuitabilityAxis'
+    explanation:
+      type: string
+    evidence:
+      type: array
+      items:
+        $ref: '#/SuitabilityEvidence'
+    reason:
+      type: string
+      enum: [garden_context_missing, plant_fact_missing, placement_missing]
+    assumedValue: {}
+
+SuitabilityAssessment:
+  type: object
+  additionalProperties: false
+  required: [candidateId, findings]
+  properties:
+    candidateId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    findings:
+      type: array
+      items:
+        $ref: '#/SuitabilityFinding'
+
+ResolvedFact:
+  type: object
+  additionalProperties: false
+  required: [factKey, value, unit, geographicScope, providerKey, confidence, sourceCitation]
+  properties:
+    factKey:
+      type: string
+    value: {}
+    unit:
+      type: [string, 'null']
+    geographicScope:
+      type: [string, 'null']
+    providerKey:
+      type: string
+    confidence:
+      oneOf:
+        - type: number
+          minimum: 0
+          maximum: 1
+        - type: 'null'
+    sourceCitation:
+      type: [string, 'null']
+
+PlantProfileVersion:
+  type: object
+  additionalProperties: false
+  required: [id, taxonomyReferenceId, resolvedFacts, isPartial, createdAt]
+  description: |
+    The materialized, source-priority-resolved profile
+    (plants-inventory/domain/plant-profile-version.ts). Only
+    `horticulturally_reviewed` facts ever appear in `resolvedFacts`.
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    taxonomyReferenceId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    resolvedFacts:
+      type: array
+      items:
+        $ref: '#/ResolvedFact'
+    isPartial:
+      type: boolean
+      description: True when at least one fact key seen among candidate assertions never resolved (missing, or only unreviewed).
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'

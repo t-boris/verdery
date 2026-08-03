@@ -1,0 +1,68 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: getGarden
+  tags: [Gardens]
+  summary: Get a garden
+  description: |
+    Returns a garden the caller has active membership in. Existence is
+    concealed as `404` for a profile with no membership on this garden.
+
+    Source: implementation-plan.md work packages P2-API-01, P2-SEC-01.
+  responses:
+    '200':
+      description: The requested garden.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/gardens.yaml#/Garden'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+
+patch:
+  operationId: renameGarden
+  tags: [Gardens]
+  summary: Rename a garden
+  description: |
+    Renaming is an owner-only garden setting, distinct from editing garden
+    content. Existence is concealed as `404` for a non-member; an editor
+    or viewer member instead receives `403`, since they already know the
+    garden exists.
+
+    Source: implementation-plan.md work packages P2-API-01, P2-SEC-01;
+    architecture/identity-and-authorization.md, section "8. Garden Roles".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/gardens.yaml#/RenameGardenRequest'
+  responses:
+    '200':
+      description: The renamed garden.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/gardens.yaml#/Garden'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'

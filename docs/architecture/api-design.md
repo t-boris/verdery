@@ -34,6 +34,11 @@ OpenAPI is the machine-readable source of truth for:
 
 Generated clients are wrapped by handwritten application gateways. Generated files are never manually edited.
 
+The OpenAPI document is authored as a multi-file source tree (`packages/api-contracts/openapi/`) and
+bundled into the single `openapi.yaml` every consumer reads. The bundle is committed and gated
+against its source, so it stays readable from a pull request without becoming a second place to
+edit. See [../development/api-contract.md](../development/api-contract.md).
+
 ## 4. Resource Naming
 
 - Paths use plural lowercase nouns and hyphens where needed.

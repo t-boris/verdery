@@ -1,0 +1,68 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: plantId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: listPlantPhotos
+  tags: [Plants]
+  summary: List a plant's attached photos
+  description: |
+    Every photo attached to this plant, primary first, then oldest
+    first. No pagination — a plant's photo count is always small.
+
+    Source: ADR-0015.
+  responses:
+    '200':
+      description: The plant's attached photos.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/plants.yaml#/PlantPhotoListResult'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+
+post:
+  operationId: attachPlantPhoto
+  tags: [Plants]
+  summary: Attach a photo to a plant
+  description: |
+    Appends a photo. Never changes the plant's own revision — a photo is
+    a child record, not a field of the plant itself — so this command
+    carries no `If-Match` precondition.
+
+    Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/plants.yaml#/AttachPlantPhotoRequest'
+  responses:
+    '201':
+      description: The attached photo.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/plants.yaml#/PlantPhoto'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'

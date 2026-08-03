@@ -1,0 +1,149 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: getGardenOwnershipTransfer
+  tags: [Collaboration]
+  summary: Read the garden's currently pending ownership transfer
+  description: |
+    Closes the one real gap this tag's write-only ownership-transfer
+    surface left: before this, the initiating owner could not confirm a
+    requested transfer was still pending after a page reload except by
+    attempting `cancelGardenOwnershipTransfer` and reading its `404` as
+    "nothing was pending".
+
+    Readable by two parties: the current owner
+    (`administerOwnership`) — checking a transfer they requested — or the
+    named recipient (`toProfileId` equal to the caller) — checking an
+    offer addressed to them, without needing `administerOwnership`. `404`
+    with `collaboration.ownership_transfer.not_found` both when nothing
+    is pending for this garden AND when a transfer is pending but the
+    caller is neither party — an editor or viewer with no standing over
+    the transfer must not learn one exists, the identical concealment
+    `acceptOwnershipTransfer`/`declineOwnershipTransfer` already apply to
+    a caller who is not the named recipient.
+
+    Source: implementation-plan.md work package P9A-OWNER-02;
+    architecture/identity-and-authorization.md, section
+    "11. Ownership Transfer".
+  responses:
+    '200':
+      description: The garden's currently PENDING ownership transfer.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/collaboration.yaml#/OwnershipTransfer'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+
+post:
+  operationId: transferGardenOwnership
+  tags: [Collaboration]
+  summary: Request transfer of garden ownership to another active member
+  description: |
+    Owner-only, and requires RECENT authentication exactly like
+    `promoteGardenMember`/`demoteGardenOwner` — matrix row H13. The
+    target must hold ACTIVE `editor` or `viewer` membership (`404` when
+    it does not; `422` with
+    `collaboration.membership.target_already_owner` when the target is
+    already an owner — demote the existing owner instead).
+
+    THIS ONLY REQUESTS. Nobody's role changes yet: the caller remains
+    owner, with full administration rights, until the request is
+    resolved. On success the `ownership_transfer` row is written as
+    `pending` and stays there.
+
+    CONFIRMATION POLICY: ownership actually moves only when the named
+    recipient calls `acceptOwnershipTransfer`. This is an explicit,
+    reviewed product decision: a transfer is a unilateral full handover
+    of deletion, export, and membership-administration rights, with no
+    recovery path if the initiator names the wrong person, so — unlike
+    `promoteGardenMember`, which only ever ADDS a co-owner — it requires
+    the recipient's own explicit acceptance, not merely the initiator's
+    recent-auth-gated request. The recipient may instead
+    `declineOwnershipTransfer` it, or the initiator may
+    `cancelGardenOwnershipTransfer` it, either of which also leaves every
+    role unchanged.
+
+    At most one PENDING transfer may exist per garden; a second request
+    while one is genuinely in flight is rejected with `409`
+    (`collaboration.ownership_transfer.already_pending`) rather than a
+    raw constraint violation.
+
+    Source: implementation-plan.md work package P9A-OWNER-01;
+    architecture/identity-and-authorization.md, section
+    "11. Ownership Transfer"; docs/development/garden-capability-matrix.md,
+    row H13; migrations/1786500000000_collaboration-operations-and-attribution.sql.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/collaboration.yaml#/TransferOwnershipRequest'
+  responses:
+    '200':
+      description: The newly requested, still-PENDING ownership transfer.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/collaboration.yaml#/OwnershipTransfer'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      description: |
+        The caller is not an owner, or their session's underlying sign-in
+        is older than 30 minutes
+        (`collaboration.membership.recent_authentication_required`).
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/errors.yaml#/Error'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'
+
+delete:
+  operationId: cancelGardenOwnershipTransfer
+  tags: [Collaboration]
+  summary: Cancel the garden's pending ownership transfer as its initiator
+  description: |
+    Owner-only. Cancels the garden's currently PENDING ownership
+    transfer, if one exists (`404` with
+    `collaboration.ownership_transfer.not_found` otherwise) — the
+    INITIATOR's own withdrawal of a request they made, reachable any time
+    before the recipient acts on it, which under the recipient-acceptance
+    policy `transferGardenOwnership` implements is the ordinary in-between
+    state, not a rare edge case. Its recipient has a separate, symmetric
+    way to refuse the same offer: `declineOwnershipTransfer`.
+
+    Source: implementation-plan.md work package P9A-OWNER-01;
+    architecture/identity-and-authorization.md, section
+    "11. Ownership Transfer".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  responses:
+    '200':
+      description: The cancelled ownership transfer.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/collaboration.yaml#/OwnershipTransfer'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

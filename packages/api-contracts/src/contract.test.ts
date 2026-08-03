@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
@@ -48,8 +49,14 @@ interface ContractDocument {
   };
 }
 
+/** The bundle — what every consumer of this package actually reads. */
 const contractPath = fileURLToPath(new URL('../openapi.yaml', import.meta.url));
 const contract = parse(readFileSync(contractPath, 'utf8')) as ContractDocument;
+
+/** The bundle's own source: `paths` and `components` here are indexes of `$ref`s into the tree, not the resolved document. */
+const contractSource = parse(
+  readFileSync(fileURLToPath(new URL('../openapi/root.yaml', import.meta.url)), 'utf8'),
+) as { paths: Record<string, unknown> };
 
 /** Every $ref parameter name an operation declares, resolved against `components.parameters`. */
 function referencedParameterNames(operation: Operation): string[] {
@@ -263,6 +270,49 @@ describe('SyncRecordType parity with services/api', () => {
 
     const recordType = requireSchema('SyncRecordType');
     expect([...(recordType.enum ?? [])].sort()).toEqual(backendValues);
+  });
+});
+
+describe('Contract source tree', () => {
+  const treeRoot = fileURLToPath(new URL('../openapi/', import.meta.url));
+
+  /** Every `.yaml` below `directory`, relative to it. */
+  function yamlFilesIn(directory: string): string[] {
+    const found: string[] = [];
+    for (const entry of readdirSync(join(treeRoot, directory), { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        found.push(...yamlFilesIn(join(directory, entry.name)));
+        continue;
+      }
+      if (entry.name.endsWith('.yaml')) found.push(join(directory, entry.name));
+    }
+    return found;
+  }
+
+  it('bundles every schema the tree defines', () => {
+    // `root.yaml` indexes each schema by hand, so a schema added to a group
+    // file and forgotten in the index would simply not exist in the bundle —
+    // silently, since `no-unused-components` is off and nothing else would
+    // notice until a client failed to find a type it was promised.
+    const defined = yamlFilesIn(join('components', 'schemas')).flatMap((file) =>
+      Object.keys(parse(readFileSync(join(treeRoot, file), 'utf8')) as Record<string, unknown>),
+    );
+
+    expect(defined.length).toBeGreaterThan(0);
+    const bundled = new Set(Object.keys(contract.components.schemas));
+    expect(defined.filter((name) => !bundled.has(name))).toEqual([]);
+  });
+
+  it('bundles every path item the tree defines', () => {
+    // The same drift in the other direction: a path file nobody references is
+    // an operation the API serves and the contract never mentions.
+    const files = yamlFilesIn('paths').map((file) => `./${file.split(sep).join('/')}`);
+    const referenced = new Set(
+      Object.values(contractSource.paths).map((entry) => (entry as { $ref: string }).$ref),
+    );
+
+    expect(files.length).toBeGreaterThan(0);
+    expect(files.filter((file) => !referenced.has(file))).toEqual([]);
   });
 });
 

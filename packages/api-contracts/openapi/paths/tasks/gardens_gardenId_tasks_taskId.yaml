@@ -1,0 +1,51 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: taskId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+patch:
+  operationId: editTask
+  tags: [Tasks]
+  summary: Edit a task
+  description: |
+    Revision-guarded edit of title, notes, schedule, urgency, and
+    recurrence rule. Only legal while the task is `'planned'` or
+    `'suggested'`; every property is optional, and an explicit `null` on
+    a nullable property clears it.
+
+    Source: implementation-plan.md work packages P4-BE-03, P4-CONTRACT-01.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/tasks.yaml#/EditTaskRequest'
+  responses:
+    '200':
+      description: The updated task.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/tasks.yaml#/Task'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'

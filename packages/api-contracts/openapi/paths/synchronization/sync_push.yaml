@@ -1,0 +1,77 @@
+post:
+  operationId: pushSyncOperations
+  tags: [Synchronization]
+  summary: Push a bounded batch of client outbox operations
+  description: |
+    Accepts an ordered batch of client-generated domain commands and
+    processes each in dependency-aware order. A batch that is
+    structurally valid and correctly authenticated always returns `200`
+    with one result per operation — an individual operation conflicting,
+    being rejected, or being blocked never fails the whole batch, so
+    that independent operations in the same batch can still succeed.
+    Only a request-level problem (malformed batch, unsupported protocol
+    version, oversized batch) fails before any operation is processed.
+
+    Unlike every other mutation endpoint in this API, this operation
+    does **not** take the shared `Idempotency-Key` header. Per
+    architecture/offline-synchronization.md, section "9. Server
+    Idempotency" ("Operation ID is the idempotency key for
+    synchronization commands"), each operation's own client-generated
+    `operationId` already is the idempotency key, scoped to that one
+    operation rather than the whole batch — a batch retried with a
+    different mix of operations (for example, with already-accepted
+    operations dropped) is still meaningful, which a single request-level
+    key would not allow for.
+
+    Every command payload names its own `expectedRevision` where a
+    revision precondition applies, the same convention
+    `SubmitMapCommand` already established (not a request-level
+    `If-Match`), because some commands target more than one record at
+    once and need more than one expected revision.
+
+    `actorProfileId` is never read from any operation payload; the
+    server fills it from the authenticated caller for every operation,
+    the same rule every other mutation in this API follows. For the same
+    reason, an outbox operation's local-only bookkeeping fields — retry
+    state and last error category (architecture/offline-synchronization.md,
+    section "7. Outbox Operation") — never travel on the wire; they
+    describe the client's own retry history, not something the server
+    needs to receive.
+
+    Source: architecture/offline-synchronization.md, sections
+    "7. Outbox Operation", "8. Push Protocol", "9. Server Idempotency";
+    architecture/api-design.md, section "16. Synchronization Endpoints".
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/sync-protocol.yaml#/SyncPushRequest'
+  responses:
+    '200':
+      description: One result per submitted operation, in request order.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/sync-protocol.yaml#/SyncPushResult'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '409':
+      description: |
+        `error.code` `sync.protocol_version.unsupported`: `protocolVersion`
+        is outside the server's currently supported window. The client's
+        local outbox is not implied lost by this response.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/errors.yaml#/Error'
+    '413':
+      description: '`operations` exceeds the maximum batch size.'
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/errors.yaml#/Error'
+    '429':
+      $ref: '../../components/responses.yaml#/TooManyRequests'

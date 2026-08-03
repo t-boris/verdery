@@ -1,0 +1,18 @@
+get:
+  operationId: getLiveness
+  tags: [Operations]
+  summary: Liveness probe
+  description: |
+    Reports whether the process is running. Never checks dependencies, so a
+    degraded database does not cause the platform to restart a healthy
+    process.
+  security: []
+  responses:
+    '200':
+      description: The process is running.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/operations.yaml#/LivenessResult'
+    '500':
+      $ref: '../../components/responses.yaml#/InternalError'

@@ -1,0 +1,59 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: taskId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: assignTask
+  tags: [Tasks]
+  summary: Assign, reassign, or unassign a task
+  description: |
+    Assigns a task to an active member of its own garden, reassigns it
+    to a different one, or unassigns it (`assigneeProfileId: null`) —
+    one operation for all three (P9A-TASK-01). The caller must hold
+    `editGardenContent` on the garden (owner or editor); the named
+    `assigneeProfileId` must independently hold `editGardenContent` too
+    — assigning to a viewer, or to a profile with no active membership
+    on this garden, is rejected with `400`. Only legal while the task is
+    `'planned'` or `'suggested'`, the same precondition every other task
+    mutation on this tag shares. Concurrent assignment resolves through
+    the task's own `revision` precondition: the losing request receives
+    `412`, never a corrupted task.
+
+    Source: implementation-plan.md work package P9A-TASK-01;
+    docs/development/garden-capability-matrix.md, rows B14, B15.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/tasks.yaml#/AssignTaskRequest'
+  responses:
+    '200':
+      description: The task with its new assignment.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/tasks.yaml#/Task'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'

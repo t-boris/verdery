@@ -1,0 +1,397 @@
+ClientUpdateState:
+  type: string
+  enum: [internal_draft, ready_for_client, published, withdrawn]
+  description: |
+    Mirrors `collaboration.client_update.state`. Strictly linear
+    (`publication-state.ts`): `internal_draft -> ready_for_client ->
+    published -> withdrawn`, with no edge skipping a step or reaching
+    `internal_draft` twice.
+
+ClientUpdateItemKind:
+  type: string
+  enum: [work_log, media, observation]
+  description: The three kinds a staged `client_update_item` may be — see `addClientUpdateItem`'s own description for why `garden_snapshot`/`timeline_entry` (the remaining two `PublicationItemKind` values) are never staged.
+
+PublicationMediaRole:
+  type: string
+  enum: [before, after, general]
+  description: Shared by staged and published media items. `general` is a plain finished-work photo with no before/after counterpart.
+
+ClientUpdateItem:
+  type: object
+  additionalProperties: false
+  required: [id, clientUpdateId, kind, occurredAt, createdAt]
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    clientUpdateId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    kind:
+      $ref: '#/ClientUpdateItemKind'
+    occurredAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    sourceWorkLogId:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Present only when `kind` is `work_log`.
+    description:
+      type: string
+      description: Present when `kind` is `work_log` (curated, client-safe text, independent of the source work log's own words) or `observation` (curated, client-safe narrative, independent of the source observation's own note text).
+    mediaRecordId:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Present only when `kind` is `media`.
+    mediaRole:
+      allOf:
+        - $ref: '#/PublicationMediaRole'
+      description: Present only when `kind` is `media`.
+    caption:
+      type: string
+      description: Optional, `kind media` only.
+    sourceObservationId:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Present only when `kind` is `observation`.
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
+ClientUpdate:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - engagementId
+    - gardenId
+    - state
+    - title
+    - revision
+    - createdByProfileId
+    - createdAt
+    - updatedAt
+    - items
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    engagementId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    gardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    state:
+      $ref: '#/ClientUpdateState'
+    title:
+      type: string
+      minLength: 1
+    summary:
+      type: string
+      description: Required from `ready_for_client` onward (`client_update_summary_required_check`); unset while `internal_draft`.
+    revision:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    createdByProfileId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    submittedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    publishedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    publishedByProfileId:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Present only once `state` is `published` or `withdrawn`. Not necessarily `createdByProfileId` — the publisher is not guaranteed to be the update's own creator.
+    withdrawnAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    withdrawnByProfileId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    withdrawnReason:
+      type: string
+      description: Present only on a withdrawn update, and only when one was given.
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    updatedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    items:
+      type: array
+      items:
+        $ref: '#/ClientUpdateItem'
+      description: Currently staged items. Always present, possibly empty.
+
+ClientUpdateListResult:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/ClientUpdate'
+
+CreateClientUpdateRequest:
+  type: object
+  additionalProperties: false
+  required: [title]
+  properties:
+    title:
+      type: string
+      minLength: 1
+
+UpdateClientUpdateContentRequest:
+  type: object
+  additionalProperties: false
+  properties:
+    title:
+      type: string
+      minLength: 1
+    summary:
+      type: string
+      minLength: 1
+  description: At least one of `title`/`summary` must be supplied.
+
+AddClientUpdateItemRequest:
+  type: object
+  additionalProperties: false
+  required: [kind, occurredAt]
+  properties:
+    kind:
+      $ref: '#/ClientUpdateItemKind'
+    occurredAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    sourceWorkLogId:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Required when `kind` is `work_log`.
+    description:
+      type: string
+      minLength: 1
+      description: Required when `kind` is `work_log` or `observation`.
+    mediaRecordId:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Required when `kind` is `media`.
+    mediaRole:
+      allOf:
+        - $ref: '#/PublicationMediaRole'
+      description: Required when `kind` is `media`.
+    caption:
+      type: string
+      minLength: 1
+      description: Optional, `kind media` only.
+    sourceObservationId:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Required when `kind` is `observation`.
+
+WithdrawClientUpdateRequest:
+  type: object
+  additionalProperties: false
+  properties:
+    reason:
+      type: string
+      description: Optional free-text reason, stored as `withdrawn_reason`.
+
+WorkLog:
+  type: object
+  additionalProperties: false
+  required: [id, gardenId, actorProfileId, description, occurredAt, createdAt]
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    gardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    assignmentId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    taskId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    actorProfileId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    description:
+      type: string
+    occurredAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
+WorkLogListResult:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: '#/WorkLog'
+
+PublicationItemKind:
+  type: string
+  enum: [work_log, media, garden_snapshot, timeline_entry, observation]
+  description: Mirrors `collaboration.publication_item.kind` — every published item kind, a strict superset of `ClientUpdateItemKind`.
+
+PublicationItem:
+  type: object
+  additionalProperties: false
+  required: [id, publicationVersionId, kind, occurredAt, createdAt]
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    publicationVersionId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    kind:
+      $ref: '#/PublicationItemKind'
+    occurredAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    description:
+      type: string
+      description: Present only when `kind` is `work_log`.
+    sourceWorkLogId:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Present only when `kind` is `work_log`. Provenance only — never re-read to render client content.
+    mediaRecordId:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Present only when `kind` is `media`.
+    mediaRole:
+      allOf:
+        - $ref: '#/PublicationMediaRole'
+      description: Present only when `kind` is `media`.
+    caption:
+      type: string
+      description: Optional, `kind media` only.
+    overviewText:
+      type: string
+      description: Present only when `kind` is `garden_snapshot`.
+    snapshotData:
+      type: object
+      additionalProperties: true
+      description: Optional structured supplement, `kind garden_snapshot` only. No fixed shape.
+    entryText:
+      type: string
+      description: Present only when `kind` is `timeline_entry`.
+    narrativeText:
+      type: string
+      description: Present only when `kind` is `observation` — curated, client-safe text, independent of the source observation's own note text.
+    sourceObservationId:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+      description: Present only when `kind` is `observation`. Provenance only — never re-read to render client content.
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
+PublicationStaffAttribution:
+  type: object
+  additionalProperties: false
+  required: [id, publicationVersionId, staffProfileId, displayName, createdAt]
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    publicationVersionId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    staffProfileId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    displayName:
+      type: string
+      description: A snapshot at publication time — never a live join to the profile's current display name.
+    roleLabel:
+      type: string
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
+PublicationVersion:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - clientUpdateId
+    - engagementId
+    - gardenId
+    - versionNumber
+    - title
+    - summary
+    - clientUpdateRevisionAtPublish
+    - publishedAt
+    - publishedByProfileId
+    - createdAt
+    - items
+    - staffAttributions
+  properties:
+    id:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    clientUpdateId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    engagementId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    gardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    versionNumber:
+      type: integer
+      minimum: 1
+    title:
+      type: string
+    summary:
+      type: string
+    clientUpdateRevisionAtPublish:
+      $ref: '../../components/schemas/shared.yaml#/Revision'
+    publishedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    publishedByProfileId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+    items:
+      type: array
+      items:
+        $ref: '#/PublicationItem'
+    staffAttributions:
+      type: array
+      items:
+        $ref: '#/PublicationStaffAttribution'
+
+PublishGardenSnapshotInput:
+  type: object
+  additionalProperties: false
+  required: [overviewText]
+  properties:
+    overviewText:
+      type: string
+      minLength: 1
+    snapshotData:
+      type: object
+      additionalProperties: true
+
+PublishTimelineEntryInput:
+  type: object
+  additionalProperties: false
+  required: [entryText, occurredAt]
+  properties:
+    entryText:
+      type: string
+      minLength: 1
+    occurredAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
+PublishStaffAttributionInput:
+  type: object
+  additionalProperties: false
+  required: [staffProfileId, displayName]
+  properties:
+    staffProfileId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    displayName:
+      type: string
+      minLength: 1
+    roleLabel:
+      type: string
+      minLength: 1
+
+PublishClientUpdateRequest:
+  type: object
+  additionalProperties: false
+  properties:
+    gardenSnapshot:
+      $ref: '#/PublishGardenSnapshotInput'
+    timelineEntries:
+      type: array
+      items:
+        $ref: '#/PublishTimelineEntryInput'
+    staffAttributions:
+      type: array
+      items:
+        $ref: '#/PublishStaffAttributionInput'
+  description: All fields optional — a publication with zero items is valid. Composed directly here, not staged in advance; see `publishClientUpdate`'s own description.

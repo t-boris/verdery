@@ -1,0 +1,31 @@
+parameters:
+  - name: notificationId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: dismissNotification
+  tags: [Notifications]
+  summary: Dismiss a notification from the inbox
+  description: |
+    Stamps the caller's own notification with a dismissal time,
+    removing it from the inbox list without deleting the durable
+    record. Same idempotent, monotonic, precondition-free posture as
+    `markNotificationRead`, and for the same reasons. Dismissal is an
+    inbox-view fact only: it does not transition the intent's delivery
+    state.
+  responses:
+    '200':
+      description: The notification with its dismissal time set.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/notifications.yaml#/Notification'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

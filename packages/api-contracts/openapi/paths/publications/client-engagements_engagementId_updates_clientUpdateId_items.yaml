@@ -1,0 +1,55 @@
+parameters:
+  - name: engagementId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: clientUpdateId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: addClientUpdateItem
+  tags: [Publications]
+  summary: Stage a work-log or media item on a draft update
+  description: |
+    `internal_draft` only. `kind: work_log` requires `sourceWorkLogId`
+    (must belong to the engagement's own garden) and a curated,
+    client-safe `description` — independent text, not necessarily the
+    source work log's own words. `kind: media` requires `mediaRecordId`
+    (must belong to the engagement's own garden and be `available`) and
+    `mediaRole`. Both kinds are re-validated again at publish time
+    (`publishClientUpdate` step 2) since staged content can go stale
+    between selection and publication.
+
+    Source: implementation-plan.md work package P9C-PUBLISH-01;
+    migrations/1786800000000_engagement-publisher-grant-and-client-update-items.sql.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/publications.yaml#/AddClientUpdateItemRequest'
+  responses:
+    '201':
+      description: The staged item.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/publications.yaml#/ClientUpdateItem'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'

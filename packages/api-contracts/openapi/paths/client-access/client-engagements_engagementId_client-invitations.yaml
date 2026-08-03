@@ -1,0 +1,90 @@
+parameters:
+  - name: engagementId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: listClientInvitations
+  tags: [ClientAccess]
+  summary: List an engagement's client access grants
+  description: |
+    Every `client_access_grant` on this engagement in any state
+    (`pending`, `active`, `revoked`, `expired`), newest first. Authorized
+    the same dual gate as `createClientInvitation` — only whoever
+    administers the engagement may see who has been invited to it.
+
+    Source: implementation-plan.md work package P9C-INVITE-01.
+  responses:
+    '200':
+      description: The engagement's client access grants.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/client-access.yaml#/ClientAccessGrantListResult'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+
+post:
+  operationId: createClientInvitation
+  tags: [ClientAccess]
+  summary: Invite a client to an engagement
+  description: |
+    Authorized the SAME dual gate as `activateClientEngagement`/
+    `endClientEngagement` (`manageEngagement` for an organization-backed
+    engagement, `manageGarden` otherwise) — never a separate publisher-
+    style grant; see architecture/collaboration-and-client-sharing.md
+    section 9 and this operation's own tag description for why.
+    Refused when the engagement is `ended` or `revoked`; permitted from
+    `draft` (a pending invitation may satisfy section 8's own activation
+    precondition) or `active`.
+
+    Sends a transactional email carrying an opaque, expiring accept link
+    WITHOUT sensitive garden content, synchronously, as part of this
+    request — the invitation link is the client's very first
+    client-facing event, not a deferred notification. The raw token
+    itself is never returned in this response and never logged; the
+    email is its only distribution channel. Refused with `503` when no
+    transactional email provider is configured, or when the provider
+    call fails or times out — nothing is created in that case, and the
+    request may be safely retried. Refused with `409` when an
+    outstanding (pending or active) grant already exists for this email
+    on this engagement.
+
+    Source: implementation-plan.md work package P9C-INVITE-01;
+    architecture/collaboration-and-client-sharing.md, section
+    "9. Client Invitation and Session".
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../../components/schemas/client-access.yaml#/CreateClientInvitationRequest'
+  responses:
+    '201':
+      description: The created, pending client access grant.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/client-access.yaml#/ClientAccessGrant'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'
+    '503':
+      $ref: '../../components/responses.yaml#/ServiceUnavailable'
