@@ -109,3 +109,34 @@ makes plausible-but-inert options type-check.
 **Second-order:** three separate faults this session shipped through a code
 path no test could reach. A class that news up its own transport or auth
 client is not merely hard to test; it is where this kind of bug survives.
+
+## The 600-line rule was enforced only where the script could see it
+
+The owner asked why `openapi.yaml` was fourteen thousand lines. The file-size
+gate reads a fixed list of source extensions — `.ts`, `.tsx`, `.swift`, and a
+few more — so the contract, the single most-read and most-edited artefact in
+the repository, was exempt by accident rather than by decision. Nobody chose
+that; it simply never came up, and the file grew a phase at a time.
+
+**Rule:** a limit that exists to keep changes reviewable applies to whatever is
+actually reviewed, not to whatever the linter happens to parse. When a
+hand-edited file is exempt from a rule, say so on purpose or fix it.
+
+## A constraint the UI does not know about becomes a 500
+
+The measurement field shipped in this same session let a reader add two
+measurements of one kind. `observation_measurement` has
+`UNIQUE (observation_id, kind)`, so the insert reached that constraint inside
+the transaction, `runIdempotentCommand` caught the unique violation, found no
+idempotency replay, and rethrew — a client mistake reported as a server fault.
+That handler's own comment asserted the idempotency key was the only unique
+constraint reachable from it; true when written, false since the migration
+that added this one.
+
+**Rule:** after adding a UNIQUE constraint, name every request shape that can
+now violate it and refuse those at the transport boundary. A database
+constraint is a last line, not an error message.
+
+**Rule:** a comment that enumerates "the only X that can happen here" is a
+claim with an expiry date. When adding an X, grep for comments that said there
+were none.
