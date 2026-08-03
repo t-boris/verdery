@@ -6,6 +6,12 @@
 /// gives: an enum's cases cannot be declared in an extension, and
 /// `LocalizationKey.swift` is already at this repository's 600-line ceiling.
 public enum ObservationJournalLocalizationKey: String, Sendable, CaseIterable {
+    case observationsJournalTitle = "observations.journal.title"
+    case observationsJournalPurposeFilterLabel = "observations.journal.purposeFilterLabel"
+    case observationsJournalAllPurposes = "observations.journal.allPurposes"
+    case observationsJournalEmpty = "observations.journal.empty"
+    case observationsJournalEmptyForPurpose = "observations.journal.emptyForPurpose"
+    case observationsJournalOpenButton = "observations.journal.openButton"
     case observationsPhotoPurposeLabel = "observations.photoPurpose.label"
     case observationsPhotoPurposeWholePlant = "observations.photoPurpose.wholePlant"
     case observationsPhotoPurposeLeafFront = "observations.photoPurpose.leafFront"

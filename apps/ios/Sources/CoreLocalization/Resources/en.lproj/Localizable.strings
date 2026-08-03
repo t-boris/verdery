@@ -943,3 +943,11 @@
 "observations.photoPurpose.fruit" = "Fruit";
 "observations.photoPurpose.symptomCloseUp" = "Symptom close-up";
 "observations.photoPurpose.contextOrFreeForm" = "Context or free-form";
+
+/* Visual plant journal — the sequence screen (P11-MEDIA-01). */
+"observations.journal.title" = "Photo journal";
+"observations.journal.purposeFilterLabel" = "Compare shots of";
+"observations.journal.allPurposes" = "Everything, in order";
+"observations.journal.empty" = "No photographs have been attached to this plant yet.";
+"observations.journal.emptyForPurpose" = "No photographs of this kind yet. Try another shot type.";
+"observations.journal.openButton" = "Photo journal";

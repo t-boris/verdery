@@ -18,6 +18,10 @@ final class FakeObservationGateway: ObservationGateway, @unchecked Sendable {
     /// keep failing, not just the first.
     var nextListFailure: Error?
     var nextDispositionFailure: Error?
+    /// The sequence `listPlantJournalFrames` serves, and every narrowing it was asked for.
+    var journalFrames: [PlantJournalFrame] = []
+    var nextJournalFailure: Error?
+    private(set) var journalFrameRequests: [ObservationPhotoPurpose?] = []
 
     init(observations: [GardenObservation] = []) {
         self.observations = observations
@@ -77,16 +81,19 @@ final class FakeObservationGateway: ObservationGateway, @unchecked Sendable {
         return observations.filter { $0.plantId == plantId }
     }
 
-    /// The timeline this fake serves never reads journal frames; returning an
-    /// empty sequence says so, where invented frames would let a test pass on
-    /// data no production path produced.
+    /// Scriptable journal frames. Empty unless a test sets them: a fake that
+    /// invented a sequence would let a journal test pass on data no production
+    /// path produced.
     func listPlantJournalFrames(
         gardenId: String,
         plantId: String,
         purpose: ObservationPhotoPurpose?,
         limit: Int?
     ) async throws -> [PlantJournalFrame] {
-        []
+        journalFrameRequests.append(purpose)
+        if let nextJournalFailure { throw nextJournalFailure }
+        guard let purpose else { return journalFrames }
+        return journalFrames.filter { $0.purpose == purpose }
     }
 
     func correctObservation(

@@ -9008,3 +9008,12 @@ Also typed `measurements` in both wire payloads as the contract's own measuremen
 one is added the compiler is what notices, rather than the server.
 
 Still open on iOS: measurement entry, and a view that shows the journal sequence.
+
+3. Journal screen on iOS: `PlantJournalViewModel`/`PlantJournalView` in `FeatureObservations`,
+   pushed from the plant detail screen's toolbar. Wired in `AppComposition` because
+   `FeaturePlants` may not name `FeatureObservations` — the same placement the candidates screen
+   already uses, and now recorded in `ios-application-design.md`.
+
+   A frame whose signed URL will not resolve is dropped rather than failing the sequence: one
+   expired signature must not hide a decade of photographs. Both empty states are distinct, as on
+   web.

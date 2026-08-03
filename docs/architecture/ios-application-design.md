@@ -294,6 +294,13 @@ build's version, build number, and language, and it owns the only sign-out in
 the application. Signing out is confirmed first, because work recorded offline
 and not yet uploaded stays on the device until the next sign-in.
 
+One plant's photo journal (P11-MEDIA-01) is a push from that plant's detail
+screen, not a tab of its own: it is one plant's history, reached from that
+plant. The screen belongs to the observations feature while the detail screen
+belongs to the plants feature, so the link is wired in the composition layer —
+the only layer allowed to import both, the same placement the candidates
+screen already uses.
+
 A typed application router owns major destinations and modal flows. Features declare destinations without reaching into other feature view hierarchies.
 
 Deep links are parsed into typed intents, authenticated, authorized against locally known state where possible, and resolved through normal application use cases.

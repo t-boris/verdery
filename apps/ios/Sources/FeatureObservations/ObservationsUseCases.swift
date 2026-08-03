@@ -185,6 +185,36 @@ public struct ListObservationsForPlant: Sendable {
     }
 }
 
+/// A plant's photographs as an ordered sequence (P11-MEDIA-01). Online-only
+/// and direct-to-gateway, like the two list reads above: frames are derived
+/// from `observation_photo` rows the server owns, and this device's local
+/// observation table holds no photo rows at all (see `RecordObservation`'s own
+/// note on why the local projection stays `photos: []`).
+///
+/// `limit` is not exposed: this client always wants the sequence the server is
+/// willing to give, and a bound chosen here would be a presentation decision
+/// made in the wrong place.
+public struct ListPlantJournalFrames: Sendable {
+    private let gateway: any ObservationGateway
+
+    public init(gateway: any ObservationGateway) {
+        self.gateway = gateway
+    }
+
+    public func callAsFunction(
+        gardenId: String,
+        plantId: String,
+        purpose: ObservationPhotoPurpose?
+    ) async throws -> [PlantJournalFrame] {
+        try await gateway.listPlantJournalFrames(
+            gardenId: gardenId,
+            plantId: plantId,
+            purpose: purpose,
+            limit: nil
+        )
+    }
+}
+
 /// Records the caller's disposition on an already-produced health suggestion
 /// (P11-HEALTH-01). Online-only, direct-to-gateway — like `ListObservations
 /// ForGarden`/`ListObservationsForPlant` above and unlike `RecordObservation`/

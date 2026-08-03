@@ -107,6 +107,28 @@ struct GardenTabView: View {
                                 PlantDetailView(
                                     model: composition.makePlantDetailViewModel(gardenId: gardenId, plantId: plantId)
                                 )
+                                // The plant's journal sequence, wired here for
+                                // the same reason the candidates screen is:
+                                // `FeaturePlants` must never name
+                                // `FeatureObservations`, and only this
+                                // composition layer may import both.
+                                .toolbar {
+                                    ToolbarItem(placement: .secondaryAction) {
+                                        NavigationLink {
+                                            PlantJournalView(
+                                                model: composition.makePlantJournalViewModel(
+                                                    gardenId: gardenId, plantId: plantId
+                                                )
+                                            )
+                                        } label: {
+                                            Label(
+                                                strings(.observationsJournalOpenButton),
+                                                systemImage: "photo.stack"
+                                            )
+                                        }
+                                        .accessibilityIdentifier("plants.detail.openJournal")
+                                    }
+                                }
                             )
                         },
                         makeAddFromPhotoModel: {

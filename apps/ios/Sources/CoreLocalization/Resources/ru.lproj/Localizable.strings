@@ -942,3 +942,11 @@
 "observations.photoPurpose.fruit" = "Плод";
 "observations.photoPurpose.symptomCloseUp" = "Симптом крупным планом";
 "observations.photoPurpose.contextOrFreeForm" = "Окружение или свободный кадр";
+
+/* Visual plant journal — the sequence screen (P11-MEDIA-01). */
+"observations.journal.title" = "Фотодневник";
+"observations.journal.purposeFilterLabel" = "Сравнивать снимки";
+"observations.journal.allPurposes" = "Все подряд, по порядку";
+"observations.journal.empty" = "К этому растению ещё не прикреплено ни одной фотографии.";
+"observations.journal.emptyForPurpose" = "Снимков такого вида пока нет. Выберите другой тип съёмки.";
+"observations.journal.openButton" = "Фотодневник";

@@ -392,6 +392,20 @@ public final class AppCompositionRoot {
         )
     }
 
+    /// One plant's journal sequence (P11-MEDIA-01): the frames read straight
+    /// from the server, and the media gateway each frame's signed URL is
+    /// resolved through — the same pair `makePlantDetailViewModel`'s own photo
+    /// gallery already uses.
+    public func makePlantJournalViewModel(gardenId: String, plantId: String) -> PlantJournalViewModel {
+        PlantJournalViewModel(
+            gardenId: gardenId,
+            plantId: plantId,
+            listPlantJournalFrames: ListPlantJournalFrames(gateway: observationGateway),
+            mediaGateway: mediaGateway,
+            strings: strings
+        )
+    }
+
     /// The garden's property-plan upload screen (P6-PLAN iOS parity):
     /// the shared attachment controller with `media_class: 'imported_plan'`
     /// — the same background upload session as every photo attachment —
