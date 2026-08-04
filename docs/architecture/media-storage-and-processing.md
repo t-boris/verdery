@@ -182,6 +182,12 @@ Orientation is normalized. EXIF location is removed from derivatives unless the 
 
 Derivative generation is idempotent and addressed by source checksum plus transformation version.
 
+Derivatives are also what AI analysis reads. A phone original is routinely larger than a vision
+provider accepts, and the screen preview shows the same plant in a file that fits; see
+architecture/external-integrations.md, section "9.1 Which photograph is sent, and the size the
+provider will accept". Because derivatives appear only once processing finishes, a command that
+runs the moment an upload completes may legitimately find none, and falls back to the original.
+
 ### 9.0 Perceptual hash of the source (P11-MEDIA-01)
 
 Alongside every derivative, the generation job records a 64-bit difference hash of the source

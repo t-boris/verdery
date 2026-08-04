@@ -23,7 +23,7 @@ export const russianCandidatesMessages = {
   'candidates.addFromPhotoTitle': 'Добавить по фото',
   'candidates.addFromPhotoDescription':
     'Загрузите фото растения. Кандидат будет создан автоматически, с полями, предзаполненными на основе предположения ИИ о виде растения — при необходимости отредактируйте или удалите его позже.',
-  'candidates.addFromPhotoCreating': 'Создание кандидата и определение вида…',
+  'candidates.addFromPhotoCreating': 'Создаём кандидата по вашему фото…',
   'candidates.photoGalleryTitle': 'Фото',
   'candidates.displayNameLabel': 'Название',
   'candidates.displayNameRequired': 'Введите название длиной до 200 символов.',

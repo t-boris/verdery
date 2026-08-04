@@ -314,8 +314,22 @@ export class FakeMediaRepository implements MediaRepository {
     throw new Error('not used by this test');
   }
 
-  listDisplayDerivatives(): Promise<readonly MediaRecord[]> {
-    throw new Error('not used by this test');
+  /**
+   * The records this fake holds that were derived from `mediaId`, mirroring
+   * `KyselyMediaRepository.listDisplayDerivatives`'s own filter. A test that
+   * inserts no derivative gets an empty list — the usual state moments after
+   * an upload, and the one the photo commands fall back to the original for.
+   */
+  listDisplayDerivatives(mediaId: Uuid): Promise<readonly MediaRecord[]> {
+    return Promise.resolve(
+      [...this.records.values()].filter(
+        (record) =>
+          record.derivedFromMediaId === mediaId &&
+          record.uploadState === 'available' &&
+          record.derivativeKind !== null &&
+          record.derivativeKind !== 'tile',
+      ),
+    );
   }
 
   listPurgeCandidates(): Promise<readonly MediaRecord[]> {

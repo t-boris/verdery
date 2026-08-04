@@ -79,7 +79,7 @@ export const englishPlantsMessages = {
   'plants.addFromPhotoTitle': 'Add from a photo',
   'plants.addFromPhotoDescription':
     'Upload a photo of the plant. It is created for you, and the AI’s guess at its species is shown for you to confirm.',
-  'plants.addFromPhotoCreating': 'Creating the plant and identifying its species…',
+  'plants.addFromPhotoCreating': 'Creating the plant from your photo…',
   'plants.identificationLoading': 'Loading the identification suggestion.',
   'plants.identificationNoConfidentMatch': 'No confident match was found.',
   'plants.identificationConfidenceLabel': 'Confidence',

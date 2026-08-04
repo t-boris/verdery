@@ -26,11 +26,22 @@ import type {
   PlantSpeciesIdentificationProviderAdapter,
   PlantSpeciesIdentificationRequest,
 } from './plant-species-identification-provider.js';
+import { IDENTIFIABLE_PHOTO_MAX_BYTES } from '@verdery/api-contracts';
 import type { ProviderQuotaLimits, ProviderQuotaRepository } from './provider-quota-repository.js';
 import { withDeadline } from './with-deadline.js';
 
 export type PlantSpeciesIdentificationUnavailableReason =
-  'noProviderConfigured' | 'quotaExhausted' | 'providerTimeout' | 'providerFailed';
+  | 'noProviderConfigured'
+  | 'quotaExhausted'
+  | 'providerTimeout'
+  | 'providerFailed'
+  /**
+   * The photograph is larger than the provider accepts. Refused before the
+   * call rather than after: the answer is knowable from the file's own size,
+   * and a request that cannot succeed should not be paid for. Distinct from
+   * `providerFailed`, because this one has a remedy a person can act on.
+   */
+  | 'photoTooLarge';
 
 export interface PlantSpeciesIdentificationProvenance {
   readonly providerKey: string;
@@ -92,6 +103,16 @@ export class IdentifyPlantSpecies {
       return { outcome: 'unavailable', reason: 'noProviderConfigured' };
     }
     const adapter = this.adapter;
+
+    // Before the quota, because a call that cannot succeed should not consume
+    // one — and before the provider, because the answer is already knowable
+    // from the file's own size. A 30.79 MiB photograph produced a bare
+    // `400 INVALID_ARGUMENT` here on 2026-08-04, logged as a provider
+    // failure, and reached the person as a plant with no species and no
+    // reason.
+    if (request.photo.byteSize > IDENTIFIABLE_PHOTO_MAX_BYTES) {
+      return { outcome: 'unavailable', reason: 'photoTooLarge' };
+    }
 
     const quota = await this.providerQuotas.consumeCall(
       this.policy.providerKey,

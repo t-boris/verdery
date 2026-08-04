@@ -179,3 +179,6 @@ export { registerMediaRoutes } from './transport/media-routes.js';
 // split `collaboration/public.ts` already draws.
 export type { ClientMediaRoutesDependencies } from './transport/client-media-routes.js';
 export { registerClientMediaRoutes } from './transport/client-media-routes.js';
+/** P12/ADR-0015 follow-up: which stored object a vision provider should be given. */
+export { pickAnalysisSource } from './domain/analysis-source.js';
+export type { AnalysisSource, AnalysisSourceCandidate } from './domain/analysis-source.js';

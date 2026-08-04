@@ -29,7 +29,7 @@ export const englishCandidatesMessages = {
   'candidates.addFromPhotoTitle': 'Add from a photo',
   'candidates.addFromPhotoDescription':
     'Upload a photo of the plant. A candidate is created for you, prefilled with the AI’s guess at its species — edit or delete it afterward if the guess is wrong.',
-  'candidates.addFromPhotoCreating': 'Creating the candidate and identifying its species…',
+  'candidates.addFromPhotoCreating': 'Creating the candidate from your photo…',
   'candidates.photoGalleryTitle': 'Photo',
   'candidates.displayNameLabel': 'Display name',
   'candidates.displayNameRequired': 'Enter a name up to 200 characters.',

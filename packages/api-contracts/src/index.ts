@@ -306,6 +306,25 @@ export const IDEMPOTENCY_KEY_HEADER = 'idempotency-key';
 export const IF_MATCH_HEADER = 'if-match';
 
 /**
+ * Largest photo the species-identification provider will look at, in bytes.
+ *
+ * 30 MiB, and not a guess: on 2026-08-04 a 32,282,247-byte PNG produced
+ * `400 INVALID_ARGUMENT` from Vertex AI reading
+ * "exceeds max allowed file size of 31457280 for `image/png` files", and the
+ * whole failure reached the person as a candidate with no species and no
+ * explanation.
+ *
+ * Shared rather than duplicated: the API refuses to spend a provider call
+ * above this, and the web says so before the upload starts. Two copies of
+ * this number would drift, and the drift would be invisible until someone's
+ * photograph silently stopped being identified.
+ *
+ * A larger photo still uploads and still attaches — only the identification
+ * is skipped.
+ */
+export const IDENTIFIABLE_PHOTO_MAX_BYTES = 31_457_280;
+
+/**
  * Error codes shared across modules.
  *
  * Module-specific codes live with their module. These are the ones the request

@@ -29,6 +29,7 @@ const REQUEST: PlantSpeciesIdentificationRequest = {
     bucketName: 'verdery-user-media',
     objectKey: 'gardens/garden-1/plants/photo-1.jpg',
     mimeType: 'image/jpeg',
+    byteSize: 1_024,
   },
 };
 

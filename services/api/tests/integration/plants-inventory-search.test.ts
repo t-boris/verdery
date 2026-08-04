@@ -168,7 +168,14 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     );
     await db
       .updateTable('media.media_record')
-      .set({ garden_id: gardenId, upload_state: 'available' })
+      .set({
+        garden_id: gardenId,
+        upload_state: 'available',
+        // A completed upload always has a stored object behind it; without
+        // one, nothing can read the photo the row claims to be.
+        bucket_name: 'test-user-media',
+        object_key: `gardens/${gardenId}/media/${media.id}`,
+      })
       .where('id', '=', media.id)
       .execute();
     return media.id;

@@ -1,3 +1,4 @@
+import { IDENTIFIABLE_PHOTO_MAX_BYTES } from '@verdery/api-contracts';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 import { InMemoryProviderQuotaRepository, fixedClock } from './integrations-test-doubles.js';
@@ -124,6 +125,56 @@ describe('IdentifyPlantSpecies', () => {
 
     expect(result).toEqual({ outcome: 'unavailable', reason: 'quotaExhausted' });
     expect(adapter.callCount).toBe(0);
+  });
+
+  /*
+   * A 30.79 MiB photograph reached Vertex on 2026-08-04 and came back as a
+   * bare `400 INVALID_ARGUMENT`, which this class logged as a provider
+   * failure and the person read as "no species found". The size says so
+   * beforehand, so neither the quota nor the provider should be spent on it.
+   */
+  it('refuses a photo above the provider limit without spending a call', async () => {
+    const adapter = new FakePlantSpeciesIdentificationProviderAdapter({
+      kind: 'outcome',
+      outcome: { kind: 'noConfidentCandidate' },
+    });
+    const quotas = new InMemoryProviderQuotaRepository();
+    const identify = new IdentifyPlantSpecies(
+      adapter,
+      policy(),
+      quotas,
+      fixedClock(NOW),
+      silentLogger(),
+    );
+
+    const result = await identify.execute({
+      photo: testPlantPhotoReference({ byteSize: IDENTIFIABLE_PHOTO_MAX_BYTES + 1 }),
+    });
+
+    expect(result).toEqual({ outcome: 'unavailable', reason: 'photoTooLarge' });
+    expect(adapter.callCount).toBe(0);
+    expect(quotas.countFor(PROVIDER_KEY, 'hour', NOW)).toBe(0);
+  });
+
+  it('accepts a photo exactly at the provider limit', async () => {
+    const adapter = new FakePlantSpeciesIdentificationProviderAdapter({
+      kind: 'outcome',
+      outcome: { kind: 'noConfidentCandidate' },
+    });
+    const identify = new IdentifyPlantSpecies(
+      adapter,
+      policy(),
+      new InMemoryProviderQuotaRepository(),
+      fixedClock(NOW),
+      silentLogger(),
+    );
+
+    const result = await identify.execute({
+      photo: testPlantPhotoReference({ byteSize: IDENTIFIABLE_PHOTO_MAX_BYTES }),
+    });
+
+    expect(result.outcome).toBe('noConfidentCandidate');
+    expect(adapter.callCount).toBe(1);
   });
 
   it('answers providerTimeout when the adapter hangs past the deadline', async () => {

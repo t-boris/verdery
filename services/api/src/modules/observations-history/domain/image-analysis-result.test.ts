@@ -27,6 +27,7 @@ const PHOTO: PlantPhotoReference = {
   bucketName: 'test-user-media',
   objectKey: 'gardens/test-garden/plants/test-photo.jpg',
   mimeType: 'image/jpeg',
+  byteSize: 1_024,
 };
 const NO_PRIOR_PHOTOS: readonly PlantConditionHistoryEntry[] = [];
 

@@ -37,16 +37,31 @@ export interface ObservationPhotoAttachmentInput {
 /** A bounded history window: enough for the model to judge a real trend without an unbounded multi-image call. */
 const MAX_PRIOR_PHOTOS_FOR_ANALYSIS = 5;
 
+/**
+ * The condition analyser is given the same kind of reference the species
+ * identifier is, size included: every vision provider has a file-size limit,
+ * and a request above it fails in a way indistinguishable from "the model saw
+ * nothing".
+ *
+ * No derivative lookup here, unlike the two "from photo" commands: this path
+ * analyses a WINDOW of prior photos, and reading each one's derivatives would
+ * be a query per photo for a bounded, best-effort call. Prior photos are old
+ * enough that their derivatives exist, and that improvement belongs with a
+ * batched lookup rather than a loop.
+ */
 function toPhotoReference(mediaRecord: {
   bucketName: unknown;
   objectKey: unknown;
   verifiedContentType: string | null;
   declaredContentType: string;
+  declaredByteSize: number;
+  verifiedByteSize: number | null;
 }): PlantPhotoReference {
   return {
     bucketName: mediaRecord.bucketName as string,
     objectKey: mediaRecord.objectKey as string,
     mimeType: mediaRecord.verifiedContentType ?? mediaRecord.declaredContentType,
+    byteSize: mediaRecord.verifiedByteSize ?? mediaRecord.declaredByteSize,
   };
 }
 

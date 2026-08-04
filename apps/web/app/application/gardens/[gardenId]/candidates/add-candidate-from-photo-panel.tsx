@@ -8,6 +8,7 @@ import { useIsOnline } from '@/core/connectivity/public';
 import { useAddCandidateFromPhoto } from '@/features/candidates/public';
 import {
   formatBytes,
+  photoReadyForIdentification,
   useMediaUpload,
   uploadFailureReasonLabel,
   uploadPhaseLabel,
@@ -67,10 +68,12 @@ export function AddCandidateFromPhotoPanel({ gardenId }: AddCandidateFromPhotoPa
   const addFromPhoto = useAddCandidateFromPhoto(gardenId);
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  /* Same gate, same reason as `add-plant-from-photo-panel.tsx` — see its own
-     comment: `mediaId` exists from registration, `uploadState === 'available'`
-     is the server's actual precondition. */
-  const uploadedMediaId = upload.media?.uploadState === 'available' ? upload.mediaId : null;
+  /* Same gate, same reason as `add-plant-from-photo-panel.tsx`: `mediaId`
+     exists from registration, and the photo has to be one the identification
+     provider can actually read, not merely one that is stored. */
+  const uploadedMediaId = photoReadyForIdentification(upload.media, upload.phase)
+    ? upload.mediaId
+    : null;
 
   useEffect(() => {
     if (uploadedMediaId !== null && addFromPhoto.isIdle) {

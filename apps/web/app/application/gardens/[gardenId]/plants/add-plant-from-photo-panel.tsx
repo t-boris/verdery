@@ -7,6 +7,7 @@ import { useEffect, useState, type ChangeEvent } from 'react';
 import { useIsOnline } from '@/core/connectivity/public';
 import {
   formatBytes,
+  photoReadyForIdentification,
   useMediaUpload,
   uploadFailureReasonLabel,
   uploadPhaseLabel,
@@ -142,12 +143,15 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
    * 400 arriving 93ms after the registration's own 201.
    *
    * `uploadState === 'available'` is the server's own precondition, so gating
-   * on the same value is what makes the two agree. Deliberately not
-   * `phase === 'processed'`: derivative processing is irrelevant to
-   * identifying a plant, and in development it can stay `processing`
-   * indefinitely, which would strand the flow.
+   * on the same value is what makes the two agree — and for a photo the
+   * provider can read as it stands, that is the whole gate: waiting on
+   * derivative processing would strand the flow in a development environment
+   * with no processing worker. An oversized original is the one case where
+   * the wait buys something, and `photoReadyForIdentification` scopes it there.
    */
-  const uploadedMediaId = upload.media?.uploadState === 'available' ? upload.mediaId : null;
+  const uploadedMediaId = photoReadyForIdentification(upload.media, upload.phase)
+    ? upload.mediaId
+    : null;
 
   useEffect(() => {
     if (uploadedMediaId !== null && plant === null && addFromPhoto.isIdle) {

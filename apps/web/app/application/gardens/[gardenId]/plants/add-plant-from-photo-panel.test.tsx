@@ -1,7 +1,8 @@
-import type { Plant } from '@verdery/api-contracts';
+import { IDENTIFIABLE_PHOTO_MAX_BYTES, type Plant } from '@verdery/api-contracts';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type * as MediaPublic from '@/features/media/public';
 import { lifecycleStageLabel } from '@/features/plants/labels';
 import { LocalizationProvider } from '@/shared/localization/public';
 
@@ -23,7 +24,11 @@ let uploadState: {
   phase: string;
   mediaId: string | null;
   /** Mirrors the controller's own `media`, whose `uploadState` gates creation. */
-  media: { uploadState: string } | null;
+  media: {
+    uploadState: string;
+    declaredByteSize: number;
+    verifiedByteSize: number | null;
+  } | null;
   uploadedBytes: number;
   totalBytes: number;
   displayFilename: string | null;
@@ -47,7 +52,10 @@ let identificationState: {
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: pushMock }) }));
 
-vi.mock('@/features/media/public', () => ({
+// Partial: `photoReadyForIdentification` is a pure decision this panel is
+// tested THROUGH — stubbing it would hide the gate these tests exist to check.
+vi.mock('@/features/media/public', async (importOriginal) => ({
+  ...(await importOriginal<typeof MediaPublic>()),
   useMediaUpload: () => ({
     ...uploadState,
     startUpload: vi.fn(),
@@ -144,7 +152,11 @@ describe('AddPlantFromPhotoPanel — picking', () => {
 
   it('creates the plant once the uploaded media is available', () => {
     uploadState.mediaId = 'media-1';
-    uploadState.media = { uploadState: 'available' };
+    uploadState.media = {
+      uploadState: 'available',
+      declaredByteSize: 2_000_000,
+      verifiedByteSize: null,
+    };
     uploadState.phase = 'processing';
 
     renderPanel();
@@ -160,12 +172,51 @@ describe('AddPlantFromPhotoPanel — picking', () => {
    */
   it('does not create the plant while the registered media is still pending', () => {
     uploadState.mediaId = 'media-1';
-    uploadState.media = { uploadState: 'pending' };
+    uploadState.media = {
+      uploadState: 'pending',
+      declaredByteSize: 2_000_000,
+      verifiedByteSize: null,
+    };
     uploadState.phase = 'uploading';
 
     renderPanel();
 
     expect(addFromPhotoMutateMock).not.toHaveBeenCalled();
+  });
+
+  /*
+   * Regression, reported 2026-08-04. A 30.79 MiB phone original is stored
+   * long before the display derivative that the identification provider will
+   * accept exists, and creating the plant at that moment produced one with no
+   * species and no picture. It waits for the derivative — and only in this
+   * case, so an ordinary photo still creates the plant immediately.
+   */
+  it('waits for a derivative when the original is too large to identify', () => {
+    uploadState.mediaId = 'media-1';
+    uploadState.media = {
+      uploadState: 'available',
+      declaredByteSize: IDENTIFIABLE_PHOTO_MAX_BYTES + 1,
+      verifiedByteSize: null,
+    };
+    uploadState.phase = 'processing';
+
+    renderPanel();
+
+    expect(addFromPhotoMutateMock).not.toHaveBeenCalled();
+  });
+
+  it('creates the plant from an oversized original once processing has finished', () => {
+    uploadState.mediaId = 'media-1';
+    uploadState.media = {
+      uploadState: 'available',
+      declaredByteSize: IDENTIFIABLE_PHOTO_MAX_BYTES + 1,
+      verifiedByteSize: null,
+    };
+    uploadState.phase = 'processed';
+
+    renderPanel();
+
+    expect(addFromPhotoMutateMock).toHaveBeenCalledWith({ photoMediaId: 'media-1' });
   });
 });
 

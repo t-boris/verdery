@@ -18,6 +18,8 @@
  */
 
 import type { FastifyBaseLogger } from 'fastify';
+import { IDENTIFIABLE_PHOTO_MAX_BYTES } from '@verdery/api-contracts';
+import { pickAnalysisSource } from '../../media/public.js';
 import type { IdempotencyStore } from '../../../platform/idempotency/idempotency-store.js';
 import { generateUuidV7 } from '../../../shared/identifiers/uuid.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
@@ -108,13 +110,22 @@ export class AddCandidateFromPhoto {
           placement,
         );
 
-        // uploadState === 'available' (checked above) guarantees both are
-        // set, mirroring AddPlantFromPhoto's identical note.
-        const photoReference: PlantPhotoReference = {
-          bucketName: media.bucketName as string,
-          objectKey: media.objectKey as string,
-          mimeType: media.verifiedContentType ?? media.declaredContentType,
-        };
+        // The largest stored object that the identification provider will
+        // accept: a display derivative when the pipeline has produced one,
+        // and the original otherwise — which is the usual state moments after
+        // an upload, and is why the size is carried rather than assumed.
+        const analysisSource = pickAnalysisSource(
+          media,
+          await context.media.listDisplayDerivatives(media.id),
+          IDENTIFIABLE_PHOTO_MAX_BYTES,
+        );
+        // `uploadState === 'available'` (checked above) should guarantee a
+        // stored location; refusing rather than asserting keeps a broken row
+        // out of the provider call.
+        if (analysisSource === null) {
+          throw candidateMediaNotAvailableForAttachmentError('/photoMediaId');
+        }
+        const photoReference: PlantPhotoReference = analysisSource;
         const suggestion = await identifyPlantFromPhoto(
           this.identifyPlantSpecies,
           this.taxonomyReferences,

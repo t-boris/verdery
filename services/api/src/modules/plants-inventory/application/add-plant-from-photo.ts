@@ -13,6 +13,8 @@
  */
 
 import type { FastifyBaseLogger } from 'fastify';
+import { IDENTIFIABLE_PHOTO_MAX_BYTES } from '@verdery/api-contracts';
+import { pickAnalysisSource } from '../../media/public.js';
 import type { IdempotencyStore } from '../../../platform/idempotency/idempotency-store.js';
 import { generateUuidV7 } from '../../../shared/identifiers/uuid.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
@@ -143,14 +145,21 @@ export class AddPlantFromPhoto {
         const photo = createPlantPhoto(generateUuidV7(), plant.id, input.photoMediaId, true, now);
         await context.plantPhotos.insert(photo);
 
-        // `uploadState === 'available'` (checked above) guarantees both are
-        // set — the paired storage-target CHECK constraint media's own
-        // migration enforces.
-        const photoReference: PlantPhotoReference = {
-          bucketName: media.bucketName as string,
-          objectKey: media.objectKey as string,
-          mimeType: media.verifiedContentType ?? media.declaredContentType,
-        };
+        // The largest stored object the provider will accept — a display
+        // derivative when one exists, the original otherwise. `uploadState
+        // === 'available'` (checked above) should guarantee a stored location,
+        // the paired storage-target CHECK constraint media's own migration
+        // enforces; refusing rather than asserting keeps a broken row out of
+        // the provider call.
+        const analysisSource = pickAnalysisSource(
+          media,
+          await context.media.listDisplayDerivatives(media.id),
+          IDENTIFIABLE_PHOTO_MAX_BYTES,
+        );
+        if (analysisSource === null) {
+          throw mediaNotAvailableForAttachmentError('/photoMediaId');
+        }
+        const photoReference: PlantPhotoReference = analysisSource;
         const suggestion = await identifyPlantFromPhoto(
           this.identifyPlantSpecies,
           this.taxonomyReferences,

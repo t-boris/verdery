@@ -143,6 +143,29 @@ Vertex AI is the initial provider behind the AI adapter. The adapter enforces us
 
 A provider replacement must reproduce evaluation quality and deletion/privacy obligations before rollout.
 
+### 9.1 Which photograph is sent, and the size the provider will accept
+
+A vision provider refuses an image above its own file-size limit. Vertex AI answers a
+30.79 MiB PNG with a bare `400 INVALID_ARGUMENT`, which is indistinguishable from any other
+provider failure once it reaches the caller — and modern phone originals cross that line
+routinely. Two rules follow, and both live above the adapter so a provider swap does not
+re-derive them:
+
+- **The analysis source is the largest stored object that fits.** `pickAnalysisSource`
+  (`services/api/src/modules/media/domain/analysis-source.ts`) chooses a display derivative
+  when the derivative job has produced one and the original otherwise. Detail is what a
+  species guess depends on, so among the objects that fit, the biggest wins.
+- **An image over the limit is refused before the call.** `IdentifyPlantSpecies` answers
+  `unavailable` with reason `photoTooLarge` before consuming quota: the answer is knowable
+  from the file's own size, and a request that cannot succeed should not be paid for. It is
+  a distinct reason from `providerFailed` because a person can act on it.
+
+`IDENTIFIABLE_PHOTO_MAX_BYTES` (`packages/api-contracts`) carries the limit, so the web client
+applies the same number: an oversized original waits for its derivative before a plant or
+candidate is created from it, rather than producing one with no species and no picture.
+The value is Vertex AI's current published limit; a provider with a different one changes
+this constant alongside its adapter registration.
+
 ## 10. Transactional Messaging
 
 Firebase Cloud Messaging is the push provider. A transactional email provider is selected before professional client sharing because email-bound client invitations and publication notices require it. The provider follows the same adapter principles.

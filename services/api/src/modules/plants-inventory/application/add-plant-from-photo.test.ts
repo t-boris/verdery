@@ -1,3 +1,4 @@
+import { IDENTIFIABLE_PHOTO_MAX_BYTES } from '@verdery/api-contracts';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 import { ValidationError } from '../../../platform/errors/application-error.js';
@@ -30,6 +31,7 @@ import type { TaxonomyReferenceRepository } from './taxonomy-reference-repositor
 const GARDEN_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0b';
 const PROFILE_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0c';
 const MEDIA_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0d';
+const DERIVATIVE_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0f';
 const NOW = new Date('2026-07-21T09:00:00Z');
 const PROVIDER_KEY = 'vertex-ai-plant-species';
 
@@ -73,12 +75,16 @@ class FakePlantSpeciesIdentificationProviderAdapter implements PlantSpeciesIdent
     promptTemplateVersion: 1,
   };
 
+  /** Every request it was handed — which photo was analysed is a decision this suite checks. */
+  readonly requests: PlantSpeciesIdentificationRequest[] = [];
+
   constructor(private readonly outcome: PlantSpeciesIdentificationAdapterOutcome) {}
 
   identifySpecies(
-    _request: PlantSpeciesIdentificationRequest,
+    request: PlantSpeciesIdentificationRequest,
     _signal: AbortSignal,
   ): Promise<PlantSpeciesIdentificationAdapterOutcome> {
+    this.requests.push(request);
     return Promise.resolve(this.outcome);
   }
 }
@@ -159,13 +165,105 @@ function fakesWithMedia() {
       NOW,
     ),
     // Attachment now requires an `available` record (P6-RET-01's
-    // attach-versus-delete guard).
+    // attach-versus-delete guard), and an available record always carries a
+    // storage location — the paired CHECK constraint media's own migration
+    // enforces, and what identification reads the photo from.
     uploadState: 'available' as const,
+    bucketName: 'test-user-media',
+    objectKey: `gardens/${GARDEN_ID}/media/${MEDIA_ID}`,
   });
   return fakes;
 }
 
+/**
+ * A stored screen preview of `MEDIA_ID`, the object identification should
+ * read when the original is one the provider would refuse.
+ */
+function withScreenPreview(
+  fakes: ReturnType<typeof fakesWithMedia>,
+  originalByteSize: number,
+  previewByteSize: number,
+): void {
+  const original = fakes.media.records.get(MEDIA_ID);
+  if (original === undefined) {
+    throw new Error('fakesWithMedia must have inserted the original.');
+  }
+  fakes.media.records.set(MEDIA_ID, { ...original, declaredByteSize: originalByteSize });
+  fakes.media.records.set(DERIVATIVE_ID, {
+    ...original,
+    id: DERIVATIVE_ID,
+    declaredByteSize: previewByteSize,
+    derivedFromMediaId: MEDIA_ID,
+    derivativeKind: 'screen_preview',
+    transformationVersion: 1,
+    objectKey: `gardens/${GARDEN_ID}/media/${DERIVATIVE_ID}`,
+  });
+}
+
 describe('AddPlantFromPhoto', () => {
+  /*
+   * Reported 2026-08-04: a 30.79 MiB phone original was sent to Vertex, which
+   * refused it outright, and the person got a plant with no species and no
+   * picture. The derivative that fits shows the same plant.
+   */
+  it('identifies from the display derivative when the original is larger than the provider accepts', async () => {
+    const fakes = fakesWithMedia();
+    withScreenPreview(fakes, IDENTIFIABLE_PHOTO_MAX_BYTES + 1, 900_000);
+    const adapter = new FakePlantSpeciesIdentificationProviderAdapter({
+      kind: 'noConfidentCandidate',
+    });
+    const addPlantFromPhoto = new AddPlantFromPhoto(
+      fakes.idempotency,
+      new FakePlantsInventoryUnitOfWork(fakes),
+      authorizationGranting(OWNER_MEMBERSHIP),
+      fixedClock(NOW),
+      identifyPlantSpeciesWith(adapter),
+      new FakeTaxonomyReferenceRepository(),
+      pino({ level: 'silent' }),
+      analyzePlantConditionWith(null),
+    );
+
+    await addPlantFromPhoto.execute(
+      GARDEN_ID,
+      PROFILE_ID,
+      { photoMediaId: MEDIA_ID },
+      '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a1f',
+    );
+
+    expect(adapter.requests[0]?.photo.objectKey).toBe(
+      `gardens/${GARDEN_ID}/media/${DERIVATIVE_ID}`,
+    );
+  });
+
+  // Detail is what a species guess depends on: when the original fits, it is
+  // the better picture and the derivative is not a substitute for it.
+  it('identifies from the original when the provider can read it', async () => {
+    const fakes = fakesWithMedia();
+    withScreenPreview(fakes, 4_000_000, 900_000);
+    const adapter = new FakePlantSpeciesIdentificationProviderAdapter({
+      kind: 'noConfidentCandidate',
+    });
+    const addPlantFromPhoto = new AddPlantFromPhoto(
+      fakes.idempotency,
+      new FakePlantsInventoryUnitOfWork(fakes),
+      authorizationGranting(OWNER_MEMBERSHIP),
+      fixedClock(NOW),
+      identifyPlantSpeciesWith(adapter),
+      new FakeTaxonomyReferenceRepository(),
+      pino({ level: 'silent' }),
+      analyzePlantConditionWith(null),
+    );
+
+    await addPlantFromPhoto.execute(
+      GARDEN_ID,
+      PROFILE_ID,
+      { photoMediaId: MEDIA_ID },
+      '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a2a',
+    );
+
+    expect(adapter.requests[0]?.photo.objectKey).toBe(`gardens/${GARDEN_ID}/media/${MEDIA_ID}`);
+  });
+
   it('creates a plant, one plant_photo, and one plant_identification row, with taxonomyReferenceId staying null', async () => {
     const fakes = fakesWithMedia();
     const addPlantFromPhoto = new AddPlantFromPhoto(

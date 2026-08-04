@@ -22,11 +22,13 @@ const NEW_PHOTO = {
   bucketName: 'verdery-user-media',
   objectKey: 'gardens/garden-1/plants/photo-new.jpg',
   mimeType: 'image/jpeg',
+  byteSize: 1_024,
 };
 const PRIOR_PHOTO = {
   bucketName: 'verdery-user-media',
   objectKey: 'gardens/garden-1/plants/photo-old.jpg',
   mimeType: 'image/jpeg',
+  byteSize: 1_024,
 };
 
 const REQUEST: PlantConditionAnalysisRequest = {

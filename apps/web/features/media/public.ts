@@ -20,3 +20,5 @@ export { useMediaUpload, type UseMediaUploadResult } from './use-media-upload';
  * own doc comment gives for importing this feature directly.
  */
 export { formatBytes, uploadFailureReasonLabel, uploadPhaseLabel } from './labels';
+/** Exposed for the same two panels, which decide when a photo can be identified rather than merely attached. */
+export { photoReadyForIdentification, type IdentifiableUpload } from './identification-readiness';

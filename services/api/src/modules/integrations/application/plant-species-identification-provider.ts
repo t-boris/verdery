@@ -34,6 +34,12 @@ export interface PlantPhotoReference {
   readonly bucketName: string;
   readonly objectKey: string;
   readonly mimeType: string;
+  /**
+   * The object's size. Carried because every provider has a limit and a
+   * request above it cannot succeed — spending the call anyway costs money
+   * and returns a failure indistinguishable from "the model saw nothing".
+   */
+  readonly byteSize: number;
 }
 
 export interface PlantSpeciesIdentificationRequest {

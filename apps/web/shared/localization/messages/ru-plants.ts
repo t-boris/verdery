@@ -71,7 +71,7 @@ export const russianPlantsMessages = {
   'plants.addFromPhotoTitle': 'Добавить по фото',
   'plants.addFromPhotoDescription':
     'Загрузите фото растения. Оно будет создано автоматически, а предположение ИИ о его виде будет показано вам для подтверждения.',
-  'plants.addFromPhotoCreating': 'Создаём растение и определяем его вид…',
+  'plants.addFromPhotoCreating': 'Создаём растение по вашему фото…',
   'plants.identificationLoading': 'Загрузка предложения по определению вида.',
   'plants.identificationNoConfidentMatch': 'Уверенное совпадение не найдено.',
   'plants.identificationConfidenceLabel': 'Уверенность',

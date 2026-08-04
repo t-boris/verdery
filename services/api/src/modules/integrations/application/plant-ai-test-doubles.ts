@@ -82,6 +82,9 @@ export function testPlantPhotoReference(
     bucketName: 'test-user-media',
     objectKey: 'gardens/test-garden/plants/test-photo.jpg',
     mimeType: 'image/jpeg',
+    // Comfortably under every provider limit: a test that does not care what
+    // the photo points at does not care how big it is either.
+    byteSize: 1_048_576,
     ...overrides,
   };
 }
