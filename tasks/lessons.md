@@ -311,3 +311,21 @@ a fixed `.frame(width:height:)` on the new image card, and it was right — a
 picture pinned to fixed points shrinks against everything else as the reader
 scales type up. Reach for `@ScaledMetric` when a view needs a dimension, not
 after a test objects.
+
+## Fake timers fake `setImmediate` too
+
+Fixing a flake in `media-upload-controller.recovery.test.ts`, I made the wait
+helper yield a "real macrotask" with `setImmediate`. `vi.useFakeTimers()`
+fakes that as well, so the wait never returned and the test hit its own
+five-second timeout — a worse failure than the flake, and one I briefly read
+as a defect in the controller.
+
+**Rule:** under fake timers, the ONLY yield that advances anything is the
+timer mock's own (`vi.advanceTimersByTimeAsync`). Reaching for `setImmediate`,
+`setTimeout`, or any other scheduler assumes it escaped the mock; check
+`toFake` before assuming that.
+
+**Rule:** a bounded wait must THROW on exhaustion, naming what it observed.
+The original helper returned silently after twenty flushes, so the failure
+surfaced as an assertion about the wrong phase — which reads as a product bug
+and sends you looking in the wrong place.

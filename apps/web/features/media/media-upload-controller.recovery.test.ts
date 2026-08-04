@@ -32,15 +32,31 @@ import {
  * the test is actually about, and gives up after a bound rather than hanging
  * if it never arrives.
  */
+/**
+ * Waits for the controller to reach a phase, then returns.
+ *
+ * The upload path awaits several promises before it starts sending — the
+ * checksum among them — so a FIXED number of flushes is a race: it passed
+ * locally and failed on a loaded CI runner, which is what brought this
+ * helper about. The bound here is generous rather than tuned, and
+ * exhausting it throws naming the phase actually reached, so a genuine hang
+ * reads as a hang instead of as a confusing assertion about the wrong state.
+ *
+ * Only `advanceTimersByTimeAsync` is used to yield: `vi.useFakeTimers()`
+ * fakes `setImmediate` too, so waiting on one here would never return.
+ */
 async function advanceUntilPhase(
   controller: { getState: () => { phase: string } },
   phase: string,
-  maxFlushes = 20,
+  maxTurns = 200,
 ): Promise<void> {
-  for (let flush = 0; flush < maxFlushes; flush += 1) {
+  for (let turn = 0; turn < maxTurns; turn += 1) {
     if (controller.getState().phase === phase) return;
     await vi.advanceTimersByTimeAsync(0);
   }
+  throw new Error(
+    `Timed out waiting for phase "${phase}"; the controller stayed at "${controller.getState().phase}".`,
+  );
 }
 
 describe('createMediaUploadController — reload recovery, cancellation, subscribers', () => {
