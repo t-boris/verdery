@@ -4,33 +4,11 @@
  * `flex: 1` had nothing to divide and the four-region grid collapsed to its
  * content height, leaving a band of empty canvas-coloured page beneath it.
  */
+/* No gap: the shared header brings its own padding and its closing hairline, and the editor starts directly under it. */
 .page {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
   min-inline-size: 0;
   block-size: 100%;
   min-block-size: 0;
-}
-
-.heading {
-  flex: none;
-}
-
-.heading {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-2) var(--space-5);
-}
-
-.title {
-  font-size: clamp(1.5rem, 1.3rem + 0.7vw, 1.75rem);
-}
-
-.description {
-  max-width: 48rem;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
 }

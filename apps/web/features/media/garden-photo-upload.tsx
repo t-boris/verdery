@@ -1,7 +1,7 @@
 'use client';
 
-import { useId, useState, type ChangeEvent } from 'react';
-import { CloseIcon, PauseIcon, RefreshIcon } from '@/shared/ui/public';
+import { useState, type ChangeEvent } from 'react';
+import { CloseIcon, PauseIcon, RefreshIcon, FilePicker } from '@/shared/ui/public';
 
 import { useIsOnline } from '@/core/connectivity/public';
 import { useLocalization } from '@/shared/localization/public';
@@ -64,7 +64,6 @@ export function GardenPhotoUpload({ gardenId }: GardenPhotoUploadProps) {
   const isOnline = useIsOnline();
   const upload = useMediaUpload(gardenId, 'garden_photo');
   const [validationError, setValidationError] = useState<string | null>(null);
-  const inputId = useId();
 
   const percent = percentOf(upload.uploadedBytes, upload.totalBytes);
   const inProgress =
@@ -122,21 +121,15 @@ export function GardenPhotoUpload({ gardenId }: GardenPhotoUploadProps) {
       )}
 
       {PICKER_PHASES.has(upload.phase) && (
-        <div className={styles['picker']}>
-          <label className={styles['fileLabel']} htmlFor={inputId}>
-            {t('media.selectFile')}
-          </label>
-          <input
-            id={inputId}
-            type="file"
-            accept={ACCEPTED_TYPES}
-            disabled={!isOnline}
-            onChange={onFileChange}
-          />
-          {validationError !== null && (
-            <p className={styles['validationError']}>{validationError}</p>
-          )}
-        </div>
+        <FilePicker
+          label={t('media.selectFile')}
+          action={t('media.chooseAction')}
+          emptyText={t('media.noFileChosen')}
+          accept={ACCEPTED_TYPES}
+          disabled={!isOnline}
+          onChange={onFileChange}
+          {...(validationError === null ? {} : { error: validationError })}
+        />
       )}
 
       {inProgress && (

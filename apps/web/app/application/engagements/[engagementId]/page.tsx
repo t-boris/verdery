@@ -5,8 +5,7 @@ import {
   CreateClientUpdateForm,
   PublisherAccessPanel,
 } from '@/features/publications/public';
-
-import styles from './page.module.css';
+import { RouteBody, RouteHeader, RoutePage, RoutePanel } from '@/shared/ui/public';
 
 /**
  * One client engagement's own client-update workspace: who may publish
@@ -29,14 +28,19 @@ export default async function EngagementUpdatesPage({
   const t = await getRequestTranslator();
 
   return (
-    <div className={styles['page']}>
-      <div className={styles['header']}>
-        <h1 className={styles['title']}>{t('publications.pageTitle')}</h1>
-      </div>
-
-      <PublisherAccessPanel engagementId={engagementId} />
-      <ClientUpdateList engagementId={engagementId} />
-      <CreateClientUpdateForm engagementId={engagementId} />
-    </div>
+    <RoutePage>
+      <RouteHeader title={t('publications.pageTitle')} />
+      <RouteBody>
+        <RoutePanel>
+          <PublisherAccessPanel engagementId={engagementId} />
+        </RoutePanel>
+        <RoutePanel>
+          <ClientUpdateList engagementId={engagementId} />
+        </RoutePanel>
+        <RoutePanel>
+          <CreateClientUpdateForm engagementId={engagementId} />
+        </RoutePanel>
+      </RouteBody>
+    </RoutePage>
   );
 }

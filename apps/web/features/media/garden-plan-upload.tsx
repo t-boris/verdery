@@ -1,8 +1,8 @@
 'use client';
 
 import type { Media } from '@verdery/api-contracts';
-import { useId, useState, type ChangeEvent } from 'react';
-import { CloseIcon, PauseIcon, RefreshIcon } from '@/shared/ui/public';
+import { useState, type ChangeEvent } from 'react';
+import { CloseIcon, PauseIcon, RefreshIcon, FilePicker } from '@/shared/ui/public';
 
 import { useIsOnline } from '@/core/connectivity/public';
 import { useLocalization } from '@/shared/localization/public';
@@ -115,7 +115,6 @@ export function GardenPlanUpload({ gardenId }: GardenPlanUploadProps) {
   const isOnline = useIsOnline();
   const upload = useMediaUpload(gardenId, 'imported_plan');
   const [validationError, setValidationError] = useState<string | null>(null);
-  const inputId = useId();
 
   const percent = percentOf(upload.uploadedBytes, upload.totalBytes);
   const inProgress =
@@ -177,21 +176,15 @@ export function GardenPlanUpload({ gardenId }: GardenPlanUploadProps) {
       )}
 
       {PICKER_PHASES.has(upload.phase) && (
-        <div className={styles['picker']}>
-          <label className={styles['fileLabel']} htmlFor={inputId}>
-            {t('media.plan.selectFile')}
-          </label>
-          <input
-            id={inputId}
-            type="file"
-            accept={ACCEPT_ATTRIBUTE}
-            disabled={!isOnline}
-            onChange={onFileChange}
-          />
-          {validationError !== null && (
-            <p className={styles['validationError']}>{validationError}</p>
-          )}
-        </div>
+        <FilePicker
+          label={t('media.plan.selectFile')}
+          action={t('media.chooseAction')}
+          emptyText={t('media.noFileChosen')}
+          accept={ACCEPT_ATTRIBUTE}
+          disabled={!isOnline}
+          onChange={onFileChange}
+          {...(validationError === null ? {} : { error: validationError })}
+        />
       )}
 
       {inProgress && (

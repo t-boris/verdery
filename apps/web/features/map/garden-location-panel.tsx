@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useIsOnline } from '@/core/connectivity/public';
 import type { WireSetGeoreferenceRequest } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Alert, Button, FailureAlert, TextField } from '@/shared/ui/public';
+import { Alert, Button, FailureAlert, FieldGrid, TextField } from '@/shared/ui/public';
 
 import { useGardenMap, useSetGardenGeoreference } from './queries';
 import styles from './garden-location-panel.module.css';
@@ -170,32 +170,35 @@ export function GardenLocationPanel({ gardenId }: GardenLocationPanelProps) {
 
         {locationError !== null && <Alert tone="danger" title={locationError} />}
 
-        <TextField
-          label={t('gardenLocation.latitudeLabel')}
-          inputMode="decimal"
-          value={latitude}
-          onChange={(event) => {
-            setLatitude(event.target.value);
-            setMethod('manualCoordinates');
-            setAccuracyMetres(null);
-          }}
-        />
-        <TextField
-          label={t('gardenLocation.longitudeLabel')}
-          inputMode="decimal"
-          value={longitude}
-          onChange={(event) => {
-            setLongitude(event.target.value);
-            setMethod('manualCoordinates');
-            setAccuracyMetres(null);
-          }}
-        />
-        <TextField
-          label={t('gardenLocation.rotationLabel')}
-          inputMode="decimal"
-          value={rotation}
-          onChange={(event) => setRotation(event.target.value)}
-        />
+        {/* Three short numbers, read together, on one row. */}
+        <FieldGrid>
+          <TextField
+            label={t('gardenLocation.latitudeLabel')}
+            inputMode="decimal"
+            value={latitude}
+            onChange={(event) => {
+              setLatitude(event.target.value);
+              setMethod('manualCoordinates');
+              setAccuracyMetres(null);
+            }}
+          />
+          <TextField
+            label={t('gardenLocation.longitudeLabel')}
+            inputMode="decimal"
+            value={longitude}
+            onChange={(event) => {
+              setLongitude(event.target.value);
+              setMethod('manualCoordinates');
+              setAccuracyMetres(null);
+            }}
+          />
+          <TextField
+            label={t('gardenLocation.rotationLabel')}
+            inputMode="decimal"
+            value={rotation}
+            onChange={(event) => setRotation(event.target.value)}
+          />
+        </FieldGrid>
         <p className={styles['hint']}>{t('gardenLocation.rotationHint')}</p>
 
         {fieldError !== null && <Alert tone="danger" title={fieldError} />}

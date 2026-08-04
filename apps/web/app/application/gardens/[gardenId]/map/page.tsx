@@ -1,5 +1,6 @@
 import { MapEditor } from '@/features/map/public';
 import { getRequestTranslator } from '@/shared/localization/server';
+import { RouteHeader } from '@/shared/ui/public';
 
 import styles from './page.module.css';
 
@@ -13,10 +14,11 @@ export default async function GardenMapPage({
 
   return (
     <div className={styles['page']}>
-      <div className={styles['heading']}>
-        <h1 className={styles['title']}>{t('map.page.title')}</h1>
-        <p className={styles['description']}>{t('map.page.description')}</p>
-      </div>
+      {/* The shared header strip, not a local copy of one: this route cannot
+          use `RoutePage`/`RouteBody` — the editor needs the whole remaining
+          height for its own four-region grid — but its title has no reason to
+          be a different size from every other route's. */}
+      <RouteHeader title={t('map.page.title')} description={t('map.page.description')} />
       <MapEditor gardenId={gardenId} />
     </div>
   );

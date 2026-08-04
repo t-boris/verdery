@@ -2,7 +2,7 @@
 
 import type { PlantIdentificationSuggestion } from '@verdery/api-contracts';
 import { useRouter } from 'next/navigation';
-import { useEffect, useId, useState, type ChangeEvent } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 
 import { useIsOnline } from '@/core/connectivity/public';
 import {
@@ -34,6 +34,7 @@ import {
   SproutIcon,
   StaleIndicator,
   TagIcon,
+  FilePicker,
 } from '@/shared/ui/public';
 
 import styles from './add-plant-from-photo-panel.module.css';
@@ -128,7 +129,6 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
   const confirmIdentification = useConfirmPlantIdentification(gardenId);
   const recordObservation = useRecordObservationFromIdentification(gardenId);
   const [validationError, setValidationError] = useState<string | null>(null);
-  const inputId = useId();
 
   const plant = addFromPhoto.data ?? null;
   const identification = usePlantIdentification(gardenId, plant?.id ?? '', plant !== null);
@@ -362,21 +362,15 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
       )}
 
       {PICKER_PHASES.has(upload.phase) && (
-        <div className={styles['picker']}>
-          <label className={styles['fileLabel']} htmlFor={inputId}>
-            {t('media.selectFile')}
-          </label>
-          <input
-            id={inputId}
-            type="file"
-            accept={ACCEPTED_TYPES}
-            disabled={!isOnline}
-            onChange={onFileChange}
-          />
-          {validationError !== null && (
-            <p className={styles['validationError']}>{validationError}</p>
-          )}
-        </div>
+        <FilePicker
+          label={t('media.selectFile')}
+          action={t('media.chooseAction')}
+          emptyText={t('media.noFileChosen')}
+          accept={ACCEPTED_TYPES}
+          disabled={!isOnline}
+          onChange={onFileChange}
+          {...(validationError === null ? {} : { error: validationError })}
+        />
       )}
 
       {inProgress && (

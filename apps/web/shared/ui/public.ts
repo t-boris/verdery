@@ -11,6 +11,8 @@ export { Button, type ButtonProps, type ButtonVariant } from './button';
 export { Card, type CardProps } from './card';
 export { DetailRow, type DetailRowProps } from './detail-row';
 export { FailureAlert } from './failure-alert';
+export { FieldGrid, type FieldGridProps } from './field-grid';
+export { FilePicker, type FilePickerProps } from './file-picker';
 export {
   BookIcon,
   CalendarIcon,

@@ -1,0 +1,16 @@
+.narrow,
+.wide {
+  display: grid;
+  gap: var(--space-3);
+  align-items: start;
+}
+
+/* A coordinate, a date, a count — values that never need a sentence's width. */
+.narrow {
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+}
+
+/* A name, a label, a select with long option text. */
+.wide {
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+}

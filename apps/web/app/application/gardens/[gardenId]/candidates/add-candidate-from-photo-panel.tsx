@@ -1,8 +1,8 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useId, useState, type ChangeEvent } from 'react';
-import { CloseIcon, PauseIcon, RefreshIcon } from '@/shared/ui/public';
+import { useEffect, useState, type ChangeEvent } from 'react';
+import { CloseIcon, PauseIcon, RefreshIcon, FilePicker } from '@/shared/ui/public';
 
 import { useIsOnline } from '@/core/connectivity/public';
 import { useAddCandidateFromPhoto } from '@/features/candidates/public';
@@ -66,7 +66,6 @@ export function AddCandidateFromPhotoPanel({ gardenId }: AddCandidateFromPhotoPa
   const upload = useMediaUpload(gardenId, 'garden_photo');
   const addFromPhoto = useAddCandidateFromPhoto(gardenId);
   const [validationError, setValidationError] = useState<string | null>(null);
-  const inputId = useId();
 
   /* Same gate, same reason as `add-plant-from-photo-panel.tsx` — see its own
      comment: `mediaId` exists from registration, `uploadState === 'available'`
@@ -142,21 +141,15 @@ export function AddCandidateFromPhotoPanel({ gardenId }: AddCandidateFromPhotoPa
       )}
 
       {PICKER_PHASES.has(upload.phase) && (
-        <div className={styles['picker']}>
-          <label className={styles['fileLabel']} htmlFor={inputId}>
-            {t('media.selectFile')}
-          </label>
-          <input
-            id={inputId}
-            type="file"
-            accept={ACCEPTED_TYPES}
-            disabled={!isOnline}
-            onChange={onFileChange}
-          />
-          {validationError !== null && (
-            <p className={styles['validationError']}>{validationError}</p>
-          )}
-        </div>
+        <FilePicker
+          label={t('media.selectFile')}
+          action={t('media.chooseAction')}
+          emptyText={t('media.noFileChosen')}
+          accept={ACCEPTED_TYPES}
+          disabled={!isOnline}
+          onChange={onFileChange}
+          {...(validationError === null ? {} : { error: validationError })}
+        />
       )}
 
       {inProgress && (

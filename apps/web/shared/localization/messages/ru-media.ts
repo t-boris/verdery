@@ -11,6 +11,8 @@ import type { englishMediaMessages } from './en-media';
  */
 export const russianMediaMessages: Readonly<Record<keyof typeof englishMediaMessages, string>> = {
   'media.selectFile': 'Выбрать фотографию',
+  'media.chooseAction': 'Выбрать…',
+  'media.noFileChosen': 'Файл не выбран',
   'media.tooLarge': 'Этот файл больше ограничения в {max}. Выберите файл меньшего размера.',
   'media.progressLabel': 'Загрузка {filename}: {uploaded} из {total}',
   'media.pause': 'Пауза',

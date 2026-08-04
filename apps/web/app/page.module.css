@@ -6,7 +6,7 @@
 }
 
 .title {
-  font-size: clamp(1.75rem, 1.45rem + 1vw, 2.25rem);
+  font-size: var(--font-size-2xl);
 }
 
 .description {

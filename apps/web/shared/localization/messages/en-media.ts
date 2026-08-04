@@ -11,6 +11,8 @@
  */
 export const englishMediaMessages = {
   'media.selectFile': 'Choose a photo',
+  'media.chooseAction': 'Browse…',
+  'media.noFileChosen': 'No file chosen',
   'media.tooLarge': 'This file is larger than the {max} limit. Choose a smaller photo.',
   'media.progressLabel': 'Uploading {filename}: {uploaded} of {total}',
   'media.pause': 'Pause',
