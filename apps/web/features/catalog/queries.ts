@@ -1,6 +1,6 @@
 'use client';
 
-import type { PlantProfileVersion, TaxonomyReferenceListResult } from '@verdery/api-contracts';
+import type { PlantTaxonProfileResult, TaxonomyReferenceListResult } from '@verdery/api-contracts';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
@@ -65,7 +65,7 @@ export function useTaxonSearch(gardenId: string, query: string) {
 export function useTaxonProfile(taxonomyReferenceId: string) {
   const gateway = useMemo(() => createPlantCatalogGateway(createBrowserApiClient()), []);
 
-  return useQuery<PlantProfileVersion, ApiFailureError>({
+  return useQuery<PlantTaxonProfileResult, ApiFailureError>({
     queryKey: ['plant-catalog', 'profile', taxonomyReferenceId] as const,
     queryFn: async ({ signal }) =>
       unwrap(await gateway.getTaxonProfile(taxonomyReferenceId, signal)),

@@ -1,4 +1,4 @@
-import type { PlantProfileVersion } from '@verdery/api-contracts';
+import type { PlantTaxonProfileResult } from '@verdery/api-contracts';
 
 import type { ApiClient } from './client';
 import type { ApiResult } from './result';
@@ -7,7 +7,7 @@ export interface PlantCatalogGateway {
   getTaxonProfile(
     taxonomyReferenceId: string,
     signal?: AbortSignal,
-  ): Promise<ApiResult<PlantProfileVersion>>;
+  ): Promise<ApiResult<PlantTaxonProfileResult>>;
 }
 
 /**
@@ -29,7 +29,7 @@ export interface PlantCatalogGateway {
 export function createPlantCatalogGateway(client: ApiClient): PlantCatalogGateway {
   return {
     getTaxonProfile(taxonomyReferenceId, signal) {
-      return client.request<PlantProfileVersion>({
+      return client.request<PlantTaxonProfileResult>({
         method: 'GET',
         path: `/plant-catalog/taxa/${taxonomyReferenceId}/profile`,
         ...(signal === undefined ? {} : { signal }),

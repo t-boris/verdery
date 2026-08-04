@@ -2824,11 +2824,11 @@ paths:
         Source: implementation-plan.md work package P11-DATA-02, P11-API-01.
       responses:
         '200':
-          description: The latest materialized profile.
+          description: The latest materialized profile, with the imagery permitted to accompany it.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PlantProfileVersion'
+                $ref: '#/components/schemas/PlantTaxonProfileResult'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -10949,6 +10949,69 @@ components:
           type:
             - string
             - 'null'
+    PlantTaxonImage:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - sourceUrl
+        - license
+        - attribution
+      description: |
+        One licensed reference image for a taxon — what the species looks like,
+        as distinct from a gardener's photographs of their own plant.
+
+        Only images this product may actually show appear here: the commercial-
+        media allowlist is applied server-side (integrations/domain/
+        plant-media-asset.ts), so a client never has to decide a licence
+        question, and images it may not display are never sent to it.
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        sourceUrl:
+          type: string
+          format: uri
+          description: Where the image is served from. Always https.
+        license:
+          type: string
+          enum:
+            - public_domain
+            - cc0
+            - cc_by
+          description: The licence permitting display. Only allowlisted values ever appear.
+        attribution:
+          oneOf:
+            - type: string
+            - type: 'null'
+          description: |
+            The credit line to show beside the image, or null when the licence
+            imposes no attribution condition. Never omit it when present: for
+            `cc_by` it is the condition the licence was granted under, and an
+            image without a displayable credit is never sent.
+        organ:
+          oneOf:
+            - type: string
+            - type: 'null'
+          description: Which part of the plant is pictured, when the source says. Null rather than a guess.
+    PlantTaxonProfileResult:
+      type: object
+      additionalProperties: false
+      required:
+        - profile
+        - images
+      description: |
+        The taxon profile read: the materialized fact projection plus the
+        imagery permitted to accompany it. Images travel beside the profile
+        rather than inside it because the profile is a stored, rebuilt
+        projection while eligibility is decided per read — a licence category's
+        standing can change without rebuilding anything.
+      properties:
+        profile:
+          $ref: '#/components/schemas/PlantProfileVersion'
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlantTaxonImage'
     PlantProfileVersion:
       type: object
       additionalProperties: false

@@ -693,6 +693,10 @@ components:
     SuitabilityAssessment:
       { $ref: './components/schemas/plant-candidates.yaml#/SuitabilityAssessment' }
     ResolvedFact: { $ref: './components/schemas/plant-candidates.yaml#/ResolvedFact' }
+    PlantTaxonImage:
+      $ref: './components/schemas/plant-candidates.yaml#/PlantTaxonImage'
+    PlantTaxonProfileResult:
+      $ref: './components/schemas/plant-candidates.yaml#/PlantTaxonProfileResult'
     PlantProfileVersion: { $ref: './components/schemas/plant-candidates.yaml#/PlantProfileVersion' }
     ObservationActorType: { $ref: './components/schemas/observations.yaml#/ObservationActorType' }
     ObservationCorrectionKind:

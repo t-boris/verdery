@@ -28,3 +28,7 @@ export type SuitabilityFinding = Schemas['SuitabilityFinding'];
 export type SuitabilityAssessment = Schemas['SuitabilityAssessment'];
 export type ResolvedFact = Schemas['ResolvedFact'];
 export type PlantProfileVersion = Schemas['PlantProfileVersion'];
+/** One licensed reference image; only allowlisted licences ever reach a client. */
+export type PlantTaxonImage = Schemas['PlantTaxonImage'];
+/** The taxon profile read: the stored projection plus its permitted imagery. */
+export type PlantTaxonProfileResult = Schemas['PlantTaxonProfileResult'];

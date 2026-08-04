@@ -117,6 +117,7 @@ export { assemblePlantProfileVersion } from './domain/plant-profile-version.js';
 export type { PlantProfileVersionRepository } from './application/plant-profile-version-repository.js';
 export { RebuildPlantProfileVersion } from './application/rebuild-plant-profile-version.js';
 export type { RebuildPlantProfileVersionResult } from './application/rebuild-plant-profile-version.js';
+export { KyselyTaxonImageSource } from './persistence/kysely-taxon-image-source.js';
 export { KyselyPlantProfileVersionRepository } from './persistence/kysely-plant-profile-version-repository.js';
 export { GetTaxonProfile } from './application/get-taxon-profile.js';
 

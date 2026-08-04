@@ -28,4 +28,7 @@ export const russianCatalogMessages = {
     'Профиль неполон: хотя бы одно свойство, которое описывают источники, не удалось подтвердить проверенным утверждением.',
   'catalog.factProvider': 'Источник: {provider}',
   'catalog.factScope': 'Относится к: {scope}',
+  'catalog.imageAlt': 'Эталонная фотография этого растения',
+  'catalog.imageAltOrgan': 'Эталонная фотография этого растения: {organ}',
+  'catalog.imageCredit': 'Фотография: {holder}',
 };

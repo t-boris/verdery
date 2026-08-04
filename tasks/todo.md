@@ -9214,8 +9214,10 @@ wherever the image is shown. An asset with no readable licence is skipped, not d
       `useSimilarMedia` hook, and separate wording in both languages. The near-match line is
       suppressed when the checksum already matched — hedging about the very same file would
       understate what is known.
-- [ ] 3. Taxon imagery: `plant_media_asset`, GBIF media fetch with per-record licence
-      filtering, read surface on the taxon profile, attribution on both clients.
+- [x] 3. Taxon imagery: done on web 2026-08-03 — GBIF media fetch with per-record licence
+      reading, storage into the existing `plant_media_asset` (refusals kept as refusals),
+      the profile read carrying its permitted images, and web rendering with the credit.
+      iOS still shows no taxon imagery.
 - [ ] 4. Docs in the same pass: ADR-0016 §3's disposition column, the media design, and the
       provider runbook's GBIF section.
 

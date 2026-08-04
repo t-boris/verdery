@@ -1,4 +1,4 @@
-import type { PlantProfileVersion } from '@verdery/api-contracts';
+import type { PlantTaxonProfileResult } from '@verdery/api-contracts';
 import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -12,7 +12,7 @@ vi.mock('./queries', () => ({ useTaxonProfile: vi.fn() }));
 
 const mockedUseTaxonProfile = vi.mocked(useTaxonProfile);
 
-const PROFILE: PlantProfileVersion = {
+const PROFILE: PlantTaxonProfileResult['profile'] = {
   id: 'profile-1',
   taxonomyReferenceId: 'taxon-1',
   isPartial: false,
@@ -60,7 +60,7 @@ describe('TaxonProfile', () => {
     mockedUseTaxonProfile.mockReturnValue({
       isPending: false,
       isError: false,
-      data: PROFILE,
+      data: { profile: PROFILE, images: [] },
     } as never);
 
     renderProfile();
@@ -104,11 +104,34 @@ describe('TaxonProfile', () => {
     mockedUseTaxonProfile.mockReturnValue({
       isPending: false,
       isError: false,
-      data: { ...PROFILE, isPartial: true },
+      data: { profile: { ...PROFILE, isPartial: true }, images: [] },
     } as never);
 
     renderProfile();
 
     expect(screen.getByText('Incomplete profile')).toBeTruthy();
+  });
+  it('shows a licensed image with its credit, because the credit is the licence condition', () => {
+    mockedUseTaxonProfile.mockReturnValue({
+      isPending: false,
+      isError: false,
+      data: {
+        profile: PROFILE,
+        images: [
+          {
+            id: 'image-1',
+            sourceUrl: 'https://example.org/tomato.jpg',
+            license: 'cc_by',
+            attribution: 'A. Botanist',
+            organ: null,
+          },
+        ],
+      },
+    } as never);
+
+    render(<TaxonProfile taxonomyReferenceId="taxon-1" />);
+
+    expect(screen.getByRole('img', { name: /reference photograph/i })).toBeTruthy();
+    expect(screen.getByText('Photograph: A. Botanist')).toBeTruthy();
   });
 });

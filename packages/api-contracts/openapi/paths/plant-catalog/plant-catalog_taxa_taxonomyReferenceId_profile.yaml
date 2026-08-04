@@ -18,11 +18,11 @@ get:
     Source: implementation-plan.md work package P11-DATA-02, P11-API-01.
   responses:
     '200':
-      description: The latest materialized profile.
+      description: The latest materialized profile, with the imagery permitted to accompany it.
       content:
         application/json:
           schema:
-            $ref: '../../components/schemas/plant-candidates.yaml#/PlantProfileVersion'
+            $ref: '../../components/schemas/plant-candidates.yaml#/PlantTaxonProfileResult'
     '401':
       $ref: '../../components/responses.yaml#/Unauthorized'
     '404':

@@ -6172,6 +6172,48 @@ export interface components {
             sourceCitation: string | null;
         };
         /**
+         * @description One licensed reference image for a taxon — what the species looks like,
+         *     as distinct from a gardener's photographs of their own plant.
+         *
+         *     Only images this product may actually show appear here: the commercial-
+         *     media allowlist is applied server-side (integrations/domain/
+         *     plant-media-asset.ts), so a client never has to decide a licence
+         *     question, and images it may not display are never sent to it.
+         */
+        PlantTaxonImage: {
+            id: components["schemas"]["Uuid"];
+            /**
+             * Format: uri
+             * @description Where the image is served from. Always https.
+             */
+            sourceUrl: string;
+            /**
+             * @description The licence permitting display. Only allowlisted values ever appear.
+             * @enum {string}
+             */
+            license: "public_domain" | "cc0" | "cc_by";
+            /**
+             * @description The credit line to show beside the image, or null when the licence
+             *     imposes no attribution condition. Never omit it when present: for
+             *     `cc_by` it is the condition the licence was granted under, and an
+             *     image without a displayable credit is never sent.
+             */
+            attribution: string | null;
+            /** @description Which part of the plant is pictured, when the source says. Null rather than a guess. */
+            organ?: string | null;
+        };
+        /**
+         * @description The taxon profile read: the materialized fact projection plus the
+         *     imagery permitted to accompany it. Images travel beside the profile
+         *     rather than inside it because the profile is a stored, rebuilt
+         *     projection while eligibility is decided per read — a licence category's
+         *     standing can change without rebuilding anything.
+         */
+        PlantTaxonProfileResult: {
+            profile: components["schemas"]["PlantProfileVersion"];
+            images: components["schemas"]["PlantTaxonImage"][];
+        };
+        /**
          * @description The materialized, source-priority-resolved profile
          *     (plants-inventory/domain/plant-profile-version.ts). Only
          *     `horticulturally_reviewed` facts ever appear in `resolvedFacts`.
@@ -10111,13 +10153,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The latest materialized profile. */
+            /** @description The latest materialized profile, with the imagery permitted to accompany it. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlantProfileVersion"];
+                    "application/json": components["schemas"]["PlantTaxonProfileResult"];
                 };
             };
             401: components["responses"]["Unauthorized"];

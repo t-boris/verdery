@@ -33,7 +33,7 @@ import type {
   Garden as GardenResource,
   PlantCandidate,
   PlantCandidateListResult,
-  PlantProfileVersion,
+  PlantTaxonProfileResult,
   SuitabilityAssessment,
 } from '@verdery/api-contracts';
 import type {
@@ -63,8 +63,8 @@ function asSuitability(response: InjectResponse): SuitabilityAssessment {
   return response.json<SuitabilityAssessment>();
 }
 
-function asProfile(response: InjectResponse): PlantProfileVersion {
-  return response.json<PlantProfileVersion>();
+function asProfile(response: InjectResponse): PlantTaxonProfileResult {
+  return response.json<PlantTaxonProfileResult>();
 }
 
 function asGarden(response: InjectResponse): GardenResource {
@@ -472,9 +472,14 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
     expect(response.statusCode).toBe(200);
     expect(asProfile(response)).toMatchObject({
-      taxonomyReferenceId,
-      isPartial: false,
-      resolvedFacts: [{ factKey: 'matureHeightCm', value: 900, providerKey: 'human' }],
+      profile: {
+        taxonomyReferenceId,
+        isPartial: false,
+        resolvedFacts: [{ factKey: 'matureHeightCm', value: 900, providerKey: 'human' }],
+      },
+      // No provider imagery for this taxon: an empty list, not an absent
+      // field — a client renders "no pictures", not "unknown".
+      images: [],
     });
   });
 });

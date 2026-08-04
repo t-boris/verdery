@@ -32,4 +32,7 @@ export const englishCatalogMessages = {
     'This profile is incomplete: at least one thing sources describe about this plant could not be resolved from a reviewed assertion.',
   'catalog.factProvider': 'Source: {provider}',
   'catalog.factScope': 'Applies to: {scope}',
+  'catalog.imageAlt': 'A reference photograph of this plant',
+  'catalog.imageAltOrgan': 'A reference photograph of this plant: {organ}',
+  'catalog.imageCredit': 'Photograph: {holder}',
 };

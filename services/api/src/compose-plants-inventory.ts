@@ -30,6 +30,7 @@ import {
   KyselyPlantIdentificationRepository,
   KyselyPlantPhotoRepository,
   KyselyPlantProfileVersionRepository,
+  KyselyTaxonImageSource,
   KyselyPlantRepository,
   KyselyPlantsInventoryUnitOfWork,
   KyselyTaxonomyReferenceRepository,
@@ -272,7 +273,10 @@ export function composePlantsInventory(
     generateUuidV7,
     PLANT_KNOWLEDGE_SOURCE_PRIORITY,
   );
-  const getTaxonProfile = new GetTaxonProfile(plantProfileVersionRepository);
+  const getTaxonProfile = new GetTaxonProfile(
+    plantProfileVersionRepository,
+    new KyselyTaxonImageSource(database.queries),
+  );
 
   return {
     plantRoutesDependencies: {

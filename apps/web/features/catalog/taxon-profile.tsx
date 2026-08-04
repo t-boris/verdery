@@ -57,13 +57,40 @@ export function TaxonProfile({ taxonomyReferenceId }: TaxonProfileProps) {
     );
   }
 
-  const profile = query.data;
+  const { profile, images } = query.data;
 
   return (
     <div className={styles['profile']}>
       <p className={styles['assembled']}>
         {t('catalog.profileAssembled', { date: formatInstant(profile.createdAt, locale) })}
       </p>
+
+      {images.length > 0 && (
+        <ul className={styles['images']}>
+          {images.map((image) => (
+            <li key={image.id} className={styles['image']}>
+              {/* Not next/image: these are third-party URLs on hosts this
+                  application does not control or configure. */}
+              <img
+                src={image.sourceUrl}
+                alt={
+                  image.organ === null || image.organ === undefined
+                    ? t('catalog.imageAlt')
+                    : t('catalog.imageAltOrgan', { organ: image.organ })
+                }
+                loading="lazy"
+              />
+              {/* Rendered whenever the server sent one: for CC-BY it is the
+                  condition the licence was granted under, not a nicety. */}
+              {image.attribution !== null && image.attribution !== undefined && (
+                <p className={styles['credit']}>
+                  {t('catalog.imageCredit', { holder: image.attribution })}
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
 
       {profile.isPartial && (
         <Alert tone="info" title={t('catalog.profilePartialTitle')}>
