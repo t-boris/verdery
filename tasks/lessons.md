@@ -289,3 +289,25 @@ a user rather than to CI.
 answer before the server's behaviour. A 403 carrying a specific code is a
 client presentation defect, not a backend fault — and the correlation
 identifier the UI already shows is enough to find it in one query.
+
+## The stale-build trap, hit a second time in the same session
+
+`swift build --build-tests` reported success while `FakePlantGateway` did not
+implement a protocol method I had just added. `swift test` then died with
+signal 6 rather than a compile error. `swift package clean` produced the real
+message in one line: `type 'FakePlantGateway' does not conform to protocol
+'PlantGateway'`.
+
+This is the lesson recorded earlier in this same file, met again. What is new
+is the SHAPE of the symptom: not a link error naming a symbol, but a test
+process aborting with a signal and no failing test named.
+
+**Rule:** a Swift test run that dies with a signal instead of reporting a
+failed test is a stale build until proven otherwise. `swift package clean`
+first; do not go looking for the crashing test.
+
+**Rule (earned, not lost):** the repository's own accessibility test rejected
+a fixed `.frame(width:height:)` on the new image card, and it was right — a
+picture pinned to fixed points shrinks against everything else as the reader
+scales type up. Reach for `@ScaledMetric` when a view needs a dimension, not
+after a test objects.
