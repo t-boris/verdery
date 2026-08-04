@@ -108,3 +108,24 @@ export function useRequestGardenDeletion(gardenId: string) {
     },
   });
 }
+
+/**
+ * Takes back a pending deletion while its recovery window is still open.
+ *
+ * The window is thirty days precisely so a deletion can be undone; a client
+ * that can request one and cannot cancel it turns a reversible decision into
+ * an irreversible one for anyone who does not read the API directly.
+ */
+export function useRestoreGardenDeletion(gardenId: string) {
+  const gateway = useGardenGateway();
+  const queryClient = useQueryClient();
+
+  return useMutation<Garden, ApiFailureError, number>({
+    mutationFn: async (expectedRevision) =>
+      unwrap(await gateway.restoreDeletion(gardenId, expectedRevision, generateIdempotencyKey())),
+    onSuccess: (garden) => {
+      queryClient.setQueryData(gardenQueryKey(gardenId), garden);
+      void queryClient.invalidateQueries({ queryKey: GARDENS_QUERY_KEY });
+    },
+  });
+}

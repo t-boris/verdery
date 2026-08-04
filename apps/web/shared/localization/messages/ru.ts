@@ -147,6 +147,8 @@ export const russianMessages: MessageCatalogue = {
   'gardens.nameRequired': 'Введите название длиной до 120 символов.',
   'gardens.lifecycleActive': 'Активен',
   'gardens.lifecycleArchived': 'В архиве',
+  'gardens.restoreDeletion': 'Отменить удаление',
+  'gardens.recoveryDeadline': 'Удалится {date}, если не отменить',
   'gardens.lifecycleDeletionRequested': 'Запрошено удаление',
   'gardens.lifecyclePurging': 'Удаляется',
   'gardens.roleOwner': 'Владелец',

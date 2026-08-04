@@ -155,6 +155,8 @@ export const englishMessages = {
   'gardens.nameRequired': 'Enter a name up to 120 characters.',
   'gardens.lifecycleActive': 'Active',
   'gardens.lifecycleArchived': 'Archived',
+  'gardens.restoreDeletion': 'Cancel deletion',
+  'gardens.recoveryDeadline': 'Deletes on {date} unless cancelled',
   'gardens.lifecycleDeletionRequested': 'Deletion requested',
   'gardens.lifecyclePurging': 'Being deleted',
   'gardens.roleOwner': 'Owner',

@@ -13,4 +13,5 @@ export {
   useGardens,
   useRenameGarden,
   useRequestGardenDeletion,
+  useRestoreGardenDeletion,
 } from './queries';

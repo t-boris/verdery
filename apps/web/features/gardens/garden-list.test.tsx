@@ -6,7 +6,17 @@ import { LocalizationProvider } from '@/shared/localization/public';
 import { GardenList } from './garden-list';
 import { useGardens } from './queries';
 
-vi.mock('./queries', () => ({ useGardens: vi.fn() }));
+vi.mock('./queries', () => ({
+  useGardens: vi.fn(),
+  useRestoreGardenDeletion: () => ({
+    mutate: restoreMock,
+    isPending: false,
+    isError: false,
+    error: null,
+  }),
+}));
+
+const restoreMock = vi.fn();
 
 const mockedUseGardens = vi.mocked(useGardens);
 
@@ -97,5 +107,45 @@ describe('GardenList — data stays visible when connectivity is lost (P5-WEB-01
 
     expect(screen.getByText('Backyard')).toBeTruthy();
     expect(screen.queryByText('You are offline')).toBeNull();
+  });
+  it('offers to cancel a pending deletion, and says when the window closes', () => {
+    // The settings screen redirects away from this state, so if the list
+    // does not offer the undo, a thirty-day reversible decision becomes an
+    // irreversible one for anyone not calling the API directly.
+    mockGardensQuery({
+      isPending: false,
+      isError: false,
+      isLoadingError: false,
+      data: {
+        items: [
+          {
+            ...GARDEN,
+            revision: 3,
+            lifecycleState: 'deletionRequested' as const,
+            recoveryDeadlineAt: '2026-09-01T00:00:00Z',
+          },
+        ],
+      },
+      refetch: vi.fn(),
+    });
+
+    renderList();
+
+    expect(screen.getByRole('button', { name: 'Cancel deletion' })).toBeTruthy();
+    expect(screen.getByText(/Deletes on/)).toBeTruthy();
+  });
+
+  it('offers no cancel for an active garden', () => {
+    mockGardensQuery({
+      isPending: false,
+      isError: false,
+      isLoadingError: false,
+      data: { items: [GARDEN] },
+      refetch: vi.fn(),
+    });
+
+    renderList();
+
+    expect(screen.queryByRole('button', { name: 'Cancel deletion' })).toBeNull();
   });
 });

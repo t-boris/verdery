@@ -28,6 +28,17 @@ export interface GardenGateway {
     idempotencyKey: string,
     signal?: AbortSignal,
   ): Promise<ApiResult<Garden>>;
+  /**
+   * Cancels a pending deletion while the recovery window is still open
+   * (`restoreGarden`). The window exists to be usable, so the client that
+   * can request a deletion must also be able to take it back.
+   */
+  restoreDeletion(
+    gardenId: string,
+    expectedRevision: number,
+    idempotencyKey: string,
+    signal?: AbortSignal,
+  ): Promise<ApiResult<Garden>>;
 }
 
 function revisionHeaders(expectedRevision: number, idempotencyKey: string): Record<string, string> {
@@ -95,6 +106,17 @@ export function createGardenGateway(client: ApiClient): GardenGateway {
     requestDeletion(gardenId, expectedRevision, idempotencyKey, signal) {
       return client.request<Garden>({
         method: 'POST',
+        path: `/gardens/${gardenId}/delete-request`,
+        headers: revisionHeaders(expectedRevision, idempotencyKey),
+        ...(signal === undefined ? {} : { signal }),
+      });
+    },
+
+    restoreDeletion(gardenId, expectedRevision, idempotencyKey, signal) {
+      // The same path as the request, taken back by verb: DELETE on the
+      // delete-request resource.
+      return client.request<Garden>({
+        method: 'DELETE',
         path: `/gardens/${gardenId}/delete-request`,
         headers: revisionHeaders(expectedRevision, idempotencyKey),
         ...(signal === undefined ? {} : { signal }),

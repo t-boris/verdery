@@ -4,10 +4,10 @@ import type { Garden } from '@verdery/api-contracts';
 import Link from 'next/link';
 
 import { isConnectivityFailure } from '@/core/api/public';
-import { useLocalization } from '@/shared/localization/public';
+import { formatInstant, useLocalization } from '@/shared/localization/public';
 import { Button, FailureAlert, StaleIndicator, StatusPill } from '@/shared/ui/public';
 
-import { useGardens } from './queries';
+import { useGardens, useRestoreGardenDeletion } from './queries';
 import styles from './garden-list.module.css';
 import { lifecycleLabel, roleLabel } from './labels';
 
@@ -65,7 +65,13 @@ export function GardenList() {
 }
 
 function GardenListItem({ garden }: { readonly garden: Garden }) {
-  const { t } = useLocalization();
+  const { t, locale } = useLocalization();
+  const restore = useRestoreGardenDeletion(garden.id);
+
+  // The settings screen redirects away from a garden in this state, so the
+  // list is the ONLY place it is still reachable — which makes it the only
+  // place the recovery window can be acted on.
+  const isRecoverable = garden.lifecycleState === 'deletionRequested';
 
   return (
     <li className={styles['item']}>
@@ -79,6 +85,29 @@ function GardenListItem({ garden }: { readonly garden: Garden }) {
         />
         <span>{t(roleLabel(garden.callerRole))}</span>
       </span>
+      {isRecoverable && (
+        <span className={styles['recovery']}>
+          {/* The deadline is stated, not implied: "deletion requested" alone
+              does not tell anyone how long they have to change their mind. */}
+          {garden.recoveryDeadlineAt !== undefined && (
+            <span className={styles['deadline']}>
+              {t('gardens.recoveryDeadline', {
+                date: formatInstant(garden.recoveryDeadlineAt, locale),
+              })}
+            </span>
+          )}
+          <Button
+            variant="secondary"
+            disabled={restore.isPending}
+            onClick={() => {
+              restore.mutate(garden.revision);
+            }}
+          >
+            {t('gardens.restoreDeletion')}
+          </Button>
+          {restore.isError && <FailureAlert failure={restore.error.failure} />}
+        </span>
+      )}
     </li>
   );
 }
