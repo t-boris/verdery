@@ -110,6 +110,16 @@ export type {
   WeatherRefreshSweepResult,
 } from './application/run-weather-refresh-sweep.js';
 export type { WeatherRefreshCandidateSource } from './application/weather-refresh-candidate-source.js';
+export { registerGeocodingRoutes } from './transport/geocoding-routes.js';
+export type { GeocodingRoutesDependencies } from './transport/geocoding-routes.js';
+export { FindAddressCandidates } from './application/find-address-candidates.js';
+export type { FindAddressCandidatesResult } from './application/find-address-candidates.js';
+export type {
+  AddressGeocodingAdapter,
+  AddressPrecision as GeocodedAddressPrecision,
+  GeocodedAddressCandidate,
+} from './application/address-geocoding-provider.js';
+export { UsCensusGeocodingAdapter } from './persistence/us-census-geocoding-adapter.js';
 export { registerWeatherRefreshSweepRoute } from './transport/weather-refresh-sweep-route.js';
 export type { WeatherRefreshSweepRouteDependencies } from './transport/weather-refresh-sweep-route.js';
 

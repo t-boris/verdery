@@ -455,6 +455,7 @@ GeoreferenceMethod:
   type: string
   enum:
     - deviceLocation
+    - addressSearch
     - mapPin
     - manualCoordinates
     - controlPoints
@@ -467,6 +468,8 @@ GeoreferenceMethod:
 
     - `deviceLocation` — the device's own positioning, with its reported
       accuracy.
+    - `addressSearch` — a candidate returned for a typed address and accepted
+      by the person who typed it.
     - `mapPin` — a point placed on geographic imagery or a basemap.
     - `manualCoordinates` — longitude and latitude entered by hand.
     - `controlPoints` — two or more known real-world points matched to local

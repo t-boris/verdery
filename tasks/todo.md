@@ -9339,3 +9339,43 @@ runs in CI — written, not claimed as run here.
 Not built, deliberately: no `platform.sync_change` row. Neither client has a local georeference
 table to project one into; both read it inside the map document. A change-log entry no client can
 apply would be a protocol claim this system does not honour.
+
+## Stage 2 — drawing a garden from its address (2026-08-04)
+
+The owner asked for the flow that makes a new garden a real place: type an address, see the actual
+back yard from above, trace the lot. Three decisions taken before any code: US Census geocoder for
+the address, USGS/NAIP for the imagery, and yards drawn by hand — no automatic derivation.
+
+Both providers were checked live before being planned on, not after:
+`1600 Pennsylvania Ave NW` returned `-77.0352, 38.8987`, and NAIP's `exportImage` returned a 200
+JPEG at ~0.8 m/pixel with buildings, trees and cars legible.
+
+- [x] Address search: `AddressGeocodingAdapter` port, `UsCensusGeocodingAdapter`,
+      `FindAddressCandidates` with a 5 s deadline, and `GET /v1/geocoding/address-candidates`.
+      Nothing from the provider is stored — the anchor a person accepts is what persists.
+      `providerAvailable` in the result keeps "we could not ask" apart from "no such address"; an
+      interface that showed those as one thing would be lying about one of them.
+- [x] `GeoreferenceMethod` gained `addressSearch`, whose derived provenance is `externalProvider`:
+      a house number is interpolated along a street segment, not observed on a roof.
+- [x] Aerial backdrop: `usgsNaipImageryProvider` beside the street provider, with the
+      `BasemapProvider` interface generalized to carry either a vector style or raster tiles.
+      `map-basemap.tsx` stays the only file importing `maplibre-gl`.
+- [x] A backdrop switch in the editor (aerial / streets / none), defaulting to aerial, which states
+      the imagery's limits and, on a garden with no location, points at the Location panel instead.
+- [x] CSP: `imagery.nationalmap.gov` in `img-src` and `connect-src`.
+
+### Caught in review, before the commit
+
+The geocoding route was first registered inside the machine-to-machine sweep block — the one Cloud
+Tasks calls with an OIDC identity — instead of the authenticated block. A browser session would have
+been refused there. Moved beside the georeference resource it serves.
+
+### Not delivered, and it was in the plan
+
+No HTTP-level suite for `GET /v1/geocoding/address-candidates`. The route is three lines over a use
+case with 26 unit tests behind it, and the container harness every HTTP suite needs cannot run here;
+that is a reason to write it in CI's shape, not a reason it is written. It is a gap, stated as one.
+
+Evidence: `apps/web` 1181/1181, `services/api` 1677/1677 unit tests, contract 34/34, typecheck and
+lint clean. The imagery and address search have NOT been seen working against a real garden — that
+needs a signed-in session on the deployed environment.

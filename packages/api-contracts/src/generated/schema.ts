@@ -5576,6 +5576,8 @@ export interface components {
          *
          *     - `deviceLocation` — the device's own positioning, with its reported
          *       accuracy.
+         *     - `addressSearch` — a candidate returned for a typed address and accepted
+         *       by the person who typed it.
          *     - `mapPin` — a point placed on geographic imagery or a basemap.
          *     - `manualCoordinates` — longitude and latitude entered by hand.
          *     - `controlPoints` — two or more known real-world points matched to local
@@ -5583,7 +5585,7 @@ export interface components {
          *     - `imageryAlignment` — the local map visually aligned to imagery.
          * @enum {string}
          */
-        GeoreferenceMethod: "deviceLocation" | "mapPin" | "manualCoordinates" | "controlPoints" | "imageryAlignment";
+        GeoreferenceMethod: "deviceLocation" | "addressSearch" | "mapPin" | "manualCoordinates" | "controlPoints" | "imageryAlignment";
         /**
          * @description Source: architecture/data-and-geospatial-design.md, section
          *     "9. Georeferencing".
@@ -5611,6 +5613,32 @@ export interface components {
              */
             accuracyMetres?: number;
             method: components["schemas"]["GeoreferenceMethod"];
+        };
+        /**
+         * @description How exactly the provider claims to have located the address.
+         *
+         *     Deliberately coarse: a provider's own confidence vocabulary is its own,
+         *     and what someone deciding whether to accept a pin needs to know is
+         *     whether it is their roof, their street, or their town.
+         * @enum {string}
+         */
+        AddressPrecision: "streetAddress" | "street" | "area";
+        AddressCandidate: {
+            /** @description The address as the provider matched it, for a person to recognize. Never reformatted by this API. */
+            formattedAddress: string;
+            /** @description Longitude, latitude — WGS84. */
+            position: components["schemas"]["Position"];
+            precision: components["schemas"]["AddressPrecision"];
+        };
+        /** @description Source: implementation-plan.md work package P12-GEO-01. */
+        AddressCandidateListResult: {
+            items: components["schemas"]["AddressCandidate"][];
+            /**
+             * @description `false` when the geocoder failed or ran out of time — which is a
+             *     different fact from an empty `items`, and a different thing to say.
+             *     "We could not ask" must not be shown as "no such address".
+             */
+            providerAvailable: boolean;
         };
         /**
          * @description Source: architecture/map-rendering-and-editing.md, section

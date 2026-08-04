@@ -99,7 +99,12 @@ export interface WireSetGeoreferenceRequest {
 
 /** Mirrors the contract's `GeoreferenceMethod`. */
 export type WireGeoreferenceMethod =
-  'deviceLocation' | 'mapPin' | 'manualCoordinates' | 'controlPoints' | 'imageryAlignment';
+  | 'deviceLocation'
+  | 'addressSearch'
+  | 'mapPin'
+  | 'manualCoordinates'
+  | 'controlPoints'
+  | 'imageryAlignment';
 
 export type WireValidationSeverity = 'error' | 'warning';
 

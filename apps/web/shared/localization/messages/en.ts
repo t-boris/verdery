@@ -502,6 +502,25 @@ export const englishMessages = {
   'tasks.enum.urgency.normal': 'Normal',
   'tasks.enum.urgency.high': 'High',
   'tasks.enum.urgency.urgent': 'Urgent',
+  'map.backdrop.title': 'Backdrop',
+  'map.backdrop.ariaLabel': 'What is drawn behind the garden',
+  'map.backdrop.imagery': 'Aerial',
+  'map.backdrop.streets': 'Streets',
+  'map.backdrop.none': 'None',
+  'map.backdrop.imageryNote':
+    'USGS aerial imagery, United States only. Enough to trace a lot, a house, and a fence line; not an individual bed.',
+  'map.backdrop.needsLocation':
+    'Give this garden a location on its Overview page to draw over a map of the real place.',
+  'gardenLocation.addressLabel': 'Address',
+  'gardenLocation.addressSearch': 'Find',
+  'gardenLocation.addressNoMatches':
+    'No address matched. Check the spelling, or place the point yourself.',
+  'gardenLocation.addressProviderUnavailable':
+    'The address service did not answer. Enter the coordinates instead, or try again.',
+  'gardenLocation.addressUsOnly': 'Address search covers United States addresses.',
+  'gardenLocation.precisionStreetAddress': 'House number',
+  'gardenLocation.precisionStreet': 'Street only',
+  'gardenLocation.precisionArea': 'Area only',
   'gardenLocation.title': 'Location and north',
   'gardenLocation.description':
     'Where this garden sits on the Earth, and which way its map faces. Weather, hemisphere, and the seasonal plan all read this — without it they have nothing to work from.',

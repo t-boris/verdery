@@ -27,6 +27,7 @@ export { CSRF_HEADER_NAME, csrfHeader } from './csrf';
 export { errorMessageKey } from './error-message';
 export { isConnectivityFailure } from './failure';
 export { createGardenContextGateway, type GardenContextGateway } from './garden-context-gateway';
+export { createGeocodingGateway, type GeocodingGateway } from './geocoding-gateway';
 export { createGardenGateway, type GardenGateway } from './garden-gateway';
 export { createHealthGateway, type HealthGateway } from './health-gateway';
 export { generateIdempotencyKey } from './idempotency-key';

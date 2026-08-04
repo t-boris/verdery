@@ -11,6 +11,9 @@ const mutate = vi.fn();
 vi.mock('./queries', () => ({
   useGardenMap: vi.fn(),
   useSetGardenGeoreference: vi.fn(),
+  // The address field this panel composes has its own tests; here it only
+  // needs to render without reaching the network.
+  useAddressCandidates: () => ({ mutate: vi.fn(), isPending: false, isError: false, error: null }),
 }));
 
 const mockedUseGardenMap = vi.mocked(useGardenMap);

@@ -607,6 +607,10 @@ components:
     GeoreferenceMethod: { $ref: './components/schemas/map-objects.yaml#/GeoreferenceMethod' }
     SetGardenGeoreferenceRequest:
       { $ref: './components/schemas/map-objects.yaml#/SetGardenGeoreferenceRequest' }
+    AddressPrecision: { $ref: './components/schemas/geocoding.yaml#/AddressPrecision' }
+    AddressCandidate: { $ref: './components/schemas/geocoding.yaml#/AddressCandidate' }
+    AddressCandidateListResult:
+      { $ref: './components/schemas/geocoding.yaml#/AddressCandidateListResult' }
     GardenMapDocument: { $ref: './components/schemas/map-objects.yaml#/GardenMapDocument' }
     VertexOperation: { $ref: './components/schemas/map-commands.yaml#/VertexOperation' }
     ProposalDecision: { $ref: './components/schemas/map-commands.yaml#/ProposalDecision' }

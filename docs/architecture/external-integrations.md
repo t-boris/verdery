@@ -85,6 +85,28 @@ The decision was made on **retention rights, not price**. This system stores nor
 
 **Known gap in the record model.** The terms require a _link_ beside displayed data, but `weather_record` models attribution as one free-text field (`attribution_text`) with no structured attribution URL — unlike section 6's basemap requirements, which name "attribution text and URL" separately. The link therefore travels inside the attribution text. A structured `attribution_url` would need a domain change and a migration; until then, clients must render the attribution text verbatim, link included.
 
+### 5.2 Geocoding and Aerial Imagery
+
+Two United States federal services, decided together on August 4, 2026 because they answer the same
+question — where a garden is, and what it looks like from above — and because both are public domain.
+
+- **Address geocoding**: the Census Bureau geocoder (`geocoding.geo.census.gov`). Free, no key, no
+  account, public-domain data. A LOOKUP only: nothing it returns is stored. A candidate is shown, a
+  person accepts one, and what persists is the georeference anchor they accepted. That is what keeps
+  this provider free of the retention question every commercial geocoder raises.
+- **Aerial imagery**: the USGS National Map's NAIP service (`imagery.nationalmap.gov`). Public-domain
+  federal imagery, rendered on demand by `exportImage` — the National Map's own cached tiles stop at
+  zoom 16, which is far too coarse for a garden. Roughly 0.6–1 m per pixel: a house, a driveway and a
+  fence line are legible; an individual bed is not. It is a BACKDROP, never geometry — what a person
+  traces over it is their own drawing, and no pixel of it enters the domain model.
+
+Both end at the United States border, which is ADR-0007's first market. Each surface says so rather
+than presenting absent coverage as a failure.
+
+Rejected, and why, so the reasoning is not re-derived: Google, Mapbox and HERE each restrict storing
+or deriving from results, and tracing a lot outline from imagery is deriving from it; Nominatim's
+data is ODbL share-alike, the same defect that disqualified OpenWeather for weather.
+
 ## 6. Basemap and Imagery
 
 The map adapter supplies context only. It records:

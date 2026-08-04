@@ -7,6 +7,7 @@ import { useMemo } from 'react';
 import {
   ApiFailureError,
   createBrowserApiClient,
+  createGeocodingGateway,
   createMapGateway,
   generateIdempotencyKey,
   isFailure,
@@ -15,6 +16,7 @@ import {
   type WireSetGeoreferenceRequest,
   type WireValidationIssue,
 } from '@/core/api/public';
+import type { AddressCandidateListResult } from '@verdery/api-contracts';
 
 import { generateMapId } from './commands';
 import { toMapObjectRecord } from './object-mapper';
@@ -159,5 +161,20 @@ export function useSetGardenGeoreference(gardenId: string) {
       void queryClient.invalidateQueries({ queryKey: ['seasonal-plan', gardenId] });
       void queryClient.invalidateQueries({ queryKey: ['today', gardenId] });
     },
+  });
+}
+
+/**
+ * Address lookup for the location panel.
+ *
+ * A mutation rather than a query, deliberately: this runs when someone
+ * presses search, not when a component renders, and re-running it on a
+ * remount would be a provider call nobody asked for.
+ */
+export function useAddressCandidates() {
+  const gateway = useMemo(() => createGeocodingGateway(createBrowserApiClient()), []);
+
+  return useMutation<AddressCandidateListResult, ApiFailureError, string>({
+    mutationFn: async (query) => unwrap(await gateway.findAddressCandidates(query)),
   });
 }

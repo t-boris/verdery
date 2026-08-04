@@ -5,11 +5,17 @@
  */
 export { MapEditor } from './map-editor';
 export { GardenLocationPanel } from './garden-location-panel';
+export { AddressSearchField } from './address-search-field';
 export {
+  useAddressCandidates,
   useGardenMap,
   useSetGardenGeoreference,
   useSubmitMapCommand,
   type MapDocumentData,
 } from './queries';
-export { openFreeMapProvider, zoomForMetresPerPixel } from './basemap-provider';
-export type { BasemapProvider, Georeference } from './basemap-provider';
+export {
+  openFreeMapProvider,
+  usgsNaipImageryProvider,
+  zoomForMetresPerPixel,
+} from './basemap-provider';
+export type { BasemapProvider, BasemapSource, Georeference } from './basemap-provider';

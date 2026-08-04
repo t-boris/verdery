@@ -500,6 +500,25 @@ export const russianMessages: MessageCatalogue = {
   'tasks.enum.urgency.normal': 'Обычная',
   'tasks.enum.urgency.high': 'Высокая',
   'tasks.enum.urgency.urgent': 'Срочная',
+  'map.backdrop.title': 'Подложка',
+  'map.backdrop.ariaLabel': 'Что рисуется за садом',
+  'map.backdrop.imagery': 'Снимок',
+  'map.backdrop.streets': 'Улицы',
+  'map.backdrop.none': 'Без подложки',
+  'map.backdrop.imageryNote':
+    'Аэросъёмка USGS, только для США. Хватает обвести участок, дом и линию забора; отдельную грядку — уже нет.',
+  'map.backdrop.needsLocation':
+    'Укажите местоположение сада на его обзорной странице, чтобы рисовать поверх карты реального места.',
+  'gardenLocation.addressLabel': 'Адрес',
+  'gardenLocation.addressSearch': 'Найти',
+  'gardenLocation.addressNoMatches':
+    'Ни один адрес не совпал. Проверьте написание или поставьте точку сами.',
+  'gardenLocation.addressProviderUnavailable':
+    'Адресная служба не ответила. Введите координаты вручную или повторите попытку.',
+  'gardenLocation.addressUsOnly': 'Поиск по адресу работает для адресов США.',
+  'gardenLocation.precisionStreetAddress': 'Номер дома',
+  'gardenLocation.precisionStreet': 'Только улица',
+  'gardenLocation.precisionArea': 'Только район',
   'gardenLocation.title': 'Местоположение и север',
   'gardenLocation.description':
     'Где этот сад на Земле и куда направлена его карта. Погода, полушарие и сезонный план читают именно эти данные — без них им не на что опереться.',

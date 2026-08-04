@@ -29,6 +29,7 @@ import {
   createUsaNpnRegistration,
   createUsdaPlantsRegistration,
   createWorldFloraOnlineRegistration,
+  FindAddressCandidates,
   GBIF_PROVIDER_KEY,
   GenerateAiExplanation,
   GetGardenWeather,
@@ -49,6 +50,7 @@ import {
   ResendTransactionalEmailAdapter,
   RunTaxonEnrichmentSweep,
   RunWeatherRefreshSweep,
+  UsCensusGeocodingAdapter,
   USA_NPN_PROVIDER_KEY,
   USDA_PLANTS_PROVIDER_KEY,
   WeatherProviderRegistry,
@@ -56,6 +58,7 @@ import {
 } from './modules/integrations/public.js';
 import type {
   AiExplanationProviderAdapter,
+  GeocodingRoutesDependencies,
   PlantAssertionProviderRegistration,
   PlantAssertionReviewRoutesDependencies,
   PlantConditionAnalysisProviderAdapter,
@@ -104,6 +107,8 @@ export interface IntegrationsComposition {
   readonly identifyPlantSpecies: IdentifyPlantSpecies;
   /** ADR-0015: consumed by observations-history's `RecordObservation`/`CorrectObservation` — same precedent. */
   readonly analyzePlantCondition: AnalyzePlantCondition;
+  /** P12-GEO-01: address search, the one interactive provider call in this module. */
+  readonly geocodingRoutesDependencies: GeocodingRoutesDependencies;
   readonly weatherRefreshSweepRouteDependencies: WeatherRefreshSweepRouteDependencies;
   /** P11-ASYNC-01: the scheduled taxon-enrichment sweep's internal route dependencies — the `weatherRefreshSweepRouteDependencies` precedent, second instance. */
   readonly taxonEnrichmentSweepRouteDependencies: TaxonEnrichmentSweepRouteDependencies;
@@ -213,6 +218,16 @@ export function composeIntegrations(
   );
 
   const getGardenWeather = new GetGardenWeather(weatherRecords, freshnessPolicy, clock);
+
+  // P12-GEO-01: the US Census geocoder needs no key and no configuration, so
+  // unlike every other adapter here it is always present — there is no
+  // "provider not configured" state to represent. `globalThis.fetch` is the
+  // platform's own, per ADR-0009.
+  const geocodingRoutesDependencies: GeocodingRoutesDependencies = {
+    findAddressCandidates: new FindAddressCandidates(
+      new UsCensusGeocodingAdapter({ fetch: (input, init) => globalThis.fetch(input, init) }),
+    ),
+  };
 
   const weatherRefreshSweepRouteDependencies: WeatherRefreshSweepRouteDependencies = {
     runWeatherRefreshSweep: new RunWeatherRefreshSweep(
@@ -369,6 +384,7 @@ export function composeIntegrations(
     generateAiExplanation,
     identifyPlantSpecies,
     analyzePlantCondition,
+    geocodingRoutesDependencies,
     weatherRefreshSweepRouteDependencies,
     taxonEnrichmentSweepRouteDependencies,
     plantAssertionReviewRoutesDependencies,

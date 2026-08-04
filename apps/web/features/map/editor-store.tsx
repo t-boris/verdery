@@ -81,7 +81,18 @@ export interface EditorState {
    * imagery so traced linework stays legible over a dense plan.
    */
   readonly backgroundOpacity: number;
+  /**
+   * What is drawn behind the garden (P12-GEO-01): aerial imagery to trace a
+   * lot from, street vectors for context, or nothing. A client-local
+   * preference like layer visibility — no command, no round trip. Imagery is
+   * the default because tracing is what someone opens a georeferenced,
+   * still-empty garden to do.
+   */
+  readonly backdrop: BackdropKind;
 }
+
+/** The three backdrops the editor offers. `none` is Konva alone, the pre-georeference default. */
+export type BackdropKind = 'imagery' | 'streets' | 'none';
 
 type Action =
   | { readonly type: 'select'; readonly objectId: string | null }
@@ -100,7 +111,8 @@ type Action =
   | { readonly type: 'toggleLayerVisibility'; readonly layer: LayerId }
   | { readonly type: 'toggleLayerLock'; readonly layer: LayerId }
   | { readonly type: 'setCalibrationDraft'; readonly draft: CalibrationDraft | null }
-  | { readonly type: 'setBackgroundOpacity'; readonly opacity: number };
+  | { readonly type: 'setBackgroundOpacity'; readonly opacity: number }
+  | { readonly type: 'setBackdrop'; readonly backdrop: BackdropKind };
 
 export const initialEditorState: EditorState = {
   selectedObjectId: null,
@@ -118,6 +130,7 @@ export const initialEditorState: EditorState = {
   lockedLayers: [],
   calibrationDraft: null,
   backgroundOpacity: 0.85,
+  backdrop: 'imagery',
 };
 
 /** Exported for `editor-store.test.ts` — the reducer is pure and needs no provider to test. */
@@ -204,6 +217,8 @@ export function editorReducer(state: EditorState, action: Action): EditorState {
       // fully invisible through this control — hiding is the visibility
       // toggle's job.
       return { ...state, backgroundOpacity: Math.min(1, Math.max(0.15, action.opacity)) };
+    case 'setBackdrop':
+      return { ...state, backdrop: action.backdrop };
   }
 }
 
@@ -226,6 +241,7 @@ export interface MapEditorStore {
   readonly toggleLayerLock: (layer: LayerId) => void;
   readonly setCalibrationDraft: (draft: CalibrationDraft | null) => void;
   readonly setBackgroundOpacity: (opacity: number) => void;
+  readonly setBackdrop: (backdrop: BackdropKind) => void;
 }
 
 const MapEditorContext = createContext<MapEditorStore | null>(null);
@@ -253,6 +269,7 @@ export function MapEditorStoreProvider({ children }: { readonly children: ReactN
       toggleLayerLock: (layer) => dispatch({ type: 'toggleLayerLock', layer }),
       setCalibrationDraft: (draft) => dispatch({ type: 'setCalibrationDraft', draft }),
       setBackgroundOpacity: (opacity) => dispatch({ type: 'setBackgroundOpacity', opacity }),
+      setBackdrop: (backdrop) => dispatch({ type: 'setBackdrop', backdrop }),
     }),
     [state],
   );

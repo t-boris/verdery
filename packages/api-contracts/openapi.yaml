@@ -9444,6 +9444,7 @@ components:
       type: string
       enum:
         - deviceLocation
+        - addressSearch
         - mapPin
         - manualCoordinates
         - controlPoints
@@ -9456,6 +9457,8 @@ components:
 
         - `deviceLocation` — the device's own positioning, with its reported
           accuracy.
+        - `addressSearch` — a candidate returned for a typed address and accepted
+          by the person who typed it.
         - `mapPin` — a point placed on geographic imagery or a basemap.
         - `manualCoordinates` — longitude and latitude entered by hand.
         - `controlPoints` — two or more known real-world points matched to local
@@ -9502,6 +9505,53 @@ components:
             expressed", never "exact".
         method:
           $ref: '#/components/schemas/GeoreferenceMethod'
+    AddressPrecision:
+      type: string
+      enum:
+        - streetAddress
+        - street
+        - area
+      description: |
+        How exactly the provider claims to have located the address.
+
+        Deliberately coarse: a provider's own confidence vocabulary is its own,
+        and what someone deciding whether to accept a pin needs to know is
+        whether it is their roof, their street, or their town.
+    AddressCandidate:
+      type: object
+      additionalProperties: false
+      required:
+        - formattedAddress
+        - position
+        - precision
+      properties:
+        formattedAddress:
+          type: string
+          description: The address as the provider matched it, for a person to recognize. Never reformatted by this API.
+        position:
+          $ref: '#/components/schemas/Position'
+          description: Longitude, latitude — WGS84.
+        precision:
+          $ref: '#/components/schemas/AddressPrecision'
+    AddressCandidateListResult:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - providerAvailable
+      description: |
+        Source: implementation-plan.md work package P12-GEO-01.
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AddressCandidate'
+        providerAvailable:
+          type: boolean
+          description: |
+            `false` when the geocoder failed or ran out of time — which is a
+            different fact from an empty `items`, and a different thing to say.
+            "We could not ask" must not be shown as "no such address".
     GardenMapDocument:
       type: object
       additionalProperties: false

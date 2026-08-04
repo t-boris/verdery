@@ -26,10 +26,28 @@ export interface Georeference {
   readonly scaleCorrection: number;
 }
 
+/**
+ * What a provider serves, in terms no rendering library owns.
+ *
+ * A vector provider hands over a style document by URL; a raster one hands
+ * over a tile-URL template. `map-basemap.tsx` is the only file that knows how
+ * to turn either into a MapLibre style, which is what keeps this interface
+ * free of that library.
+ */
+export type BasemapSource =
+  | { readonly kind: 'vectorStyle'; readonly styleUrl: string }
+  | {
+      readonly kind: 'rasterTiles';
+      /** Tile URL templates. `{bbox-epsg-3857}` and `{z}/{x}/{y}` are both understood by the renderer. */
+      readonly tiles: readonly string[];
+      readonly tileSize: number;
+      /** Beyond this the source is upsampled rather than refetched — a limit of the imagery, not of the map. */
+      readonly maxZoom: number;
+    };
+
 export interface BasemapProvider {
   readonly name: string;
-  /** MapLibre style JSON URL. */
-  readonly styleUrl: string;
+  readonly source: BasemapSource;
   /**
    * Required attribution, as HTML. Sourced from https://openfreemap.org's
    * quick-start guide (fetched July 2026): "[OpenFreeMap](https://openfreemap.org)
@@ -64,44 +82,51 @@ function rotate(x: number, y: number, degrees: number): readonly [number, number
  * provider serving OpenMapTiles-schema tiles built from OpenStreetMap data.
  * Chosen as the default provider per this work package's brief.
  */
+/**
+ * Local metres → [longitude, latitude]. An equirectangular approximation
+ * around the geographic anchor — adequate for an advisory backdrop over a
+ * garden-sized area (tens to low hundreds of metres), not a survey-grade
+ * projection. `scaleCorrection` and `rotationDegrees` come from the garden's
+ * own georeference.
+ *
+ * A standalone function rather than a method, because the projection belongs
+ * to the GARDEN, not to whoever draws the tiles: every provider shares it,
+ * and sharing it as a method would make each provider's copy a `this`-bound
+ * reference to another object's function.
+ */
+export function localMetresToGeographic(local: Position, georeference: Georeference): Position {
+  const dx = (local[0] - georeference.localAnchor[0]) * georeference.scaleCorrection;
+  const dy = (local[1] - georeference.localAnchor[1]) * georeference.scaleCorrection;
+  const [eastMetres, northMetres] = rotate(dx, dy, georeference.rotationDegrees);
+
+  const [anchorLongitude, anchorLatitude] = georeference.geographicAnchor;
+  const longitude = anchorLongitude + eastMetres / metresPerDegreeLongitude(anchorLatitude);
+  const latitude = anchorLatitude + northMetres / METRES_PER_DEGREE_LATITUDE;
+  return [longitude, latitude];
+}
+
+/** The inverse of {@link localMetresToGeographic}. */
+export function geographicToLocalMetres(geo: Position, georeference: Georeference): Position {
+  const [anchorLongitude, anchorLatitude] = georeference.geographicAnchor;
+  const eastMetres = (geo[0] - anchorLongitude) * metresPerDegreeLongitude(anchorLatitude);
+  const northMetres = (geo[1] - anchorLatitude) * METRES_PER_DEGREE_LATITUDE;
+
+  const [dx, dy] = rotate(eastMetres, northMetres, -georeference.rotationDegrees);
+  return [
+    georeference.localAnchor[0] + dx / georeference.scaleCorrection,
+    georeference.localAnchor[1] + dy / georeference.scaleCorrection,
+  ];
+}
+
 export const openFreeMapProvider: BasemapProvider = {
   name: 'OpenFreeMap',
-  styleUrl: 'https://tiles.openfreemap.org/styles/liberty',
+  source: { kind: 'vectorStyle', styleUrl: 'https://tiles.openfreemap.org/styles/liberty' },
   attributionHtml:
     '<a href="https://openfreemap.org" target="_blank" rel="noopener noreferrer">OpenFreeMap</a> ' +
     '© <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener noreferrer">OpenMapTiles</a> ' +
     'Data from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>',
-
-  /**
-   * Local metres → [longitude, latitude]. An equirectangular approximation
-   * around the geographic anchor — adequate for an optional, advisory
-   * basemap context over a garden-sized area (tens to low hundreds of
-   * metres), not a survey-grade projection. `scaleCorrection` and
-   * `rotationDegrees` come from calibration against the anchor, per
-   * `Georeference`'s own contract.
-   */
-  localToGeographic(local, georeference) {
-    const dx = (local[0] - georeference.localAnchor[0]) * georeference.scaleCorrection;
-    const dy = (local[1] - georeference.localAnchor[1]) * georeference.scaleCorrection;
-    const [eastMetres, northMetres] = rotate(dx, dy, georeference.rotationDegrees);
-
-    const [anchorLongitude, anchorLatitude] = georeference.geographicAnchor;
-    const longitude = anchorLongitude + eastMetres / metresPerDegreeLongitude(anchorLatitude);
-    const latitude = anchorLatitude + northMetres / METRES_PER_DEGREE_LATITUDE;
-    return [longitude, latitude];
-  },
-
-  geographicToLocal(geo, georeference) {
-    const [anchorLongitude, anchorLatitude] = georeference.geographicAnchor;
-    const eastMetres = (geo[0] - anchorLongitude) * metresPerDegreeLongitude(anchorLatitude);
-    const northMetres = (geo[1] - anchorLatitude) * METRES_PER_DEGREE_LATITUDE;
-
-    const [dx, dy] = rotate(eastMetres, northMetres, -georeference.rotationDegrees);
-    return [
-      georeference.localAnchor[0] + dx / georeference.scaleCorrection,
-      georeference.localAnchor[1] + dy / georeference.scaleCorrection,
-    ];
-  },
+  localToGeographic: localMetresToGeographic,
+  geographicToLocal: geographicToLocalMetres,
 };
 
 /** Standard Web Mercator tile math, used to keep MapLibre's zoom in step with the local camera's scale. */
@@ -110,3 +135,47 @@ export function zoomForMetresPerPixel(metresPerPixel: number, latitudeDegrees: n
   const latitudeCorrection = Math.cos(latitudeDegrees * DEGREES_TO_RADIANS);
   return Math.log2((metresPerPixelAtEquatorZoomZero * latitudeCorrection) / metresPerPixel);
 }
+
+/**
+ * United States aerial imagery, from the USGS National Map's NAIP service.
+ *
+ * WHY THIS ONE (owner decision, 2026-08-04): tracing a lot needs to see the
+ * lot, and the vector provider above draws streets, not ground. NAIP is
+ * public-domain federal imagery — no key, no account, no cost, and no terms
+ * restricting what may be traced from it or how long the result is kept,
+ * which is the whole difficulty with every commercial alternative.
+ *
+ * ITS LIMITS, stated because the interface has to state them:
+ *
+ * - United States only. That is the imagery's coverage and the product's
+ *   first market (ADR-0007). Elsewhere the service returns nothing and the
+ *   editor says so rather than showing an unexplained grey field.
+ * - Roughly 0.6–1 m per pixel. Verified on 2026-08-04 against a live
+ *   `exportImage` call: a house, a driveway, a fence line and mature trees
+ *   are legible; an individual bed is not. A garden that needs finer detail
+ *   has the property-plan import path.
+ *
+ * `exportImage` renders on demand, so unlike the National Map's own cached
+ * tile service — which stops at zoom 16, far too coarse for a garden — it
+ * answers at whatever zoom the editor asks for. `{bbox-epsg-3857}` is the
+ * renderer's own placeholder for the tile's bounds.
+ */
+export const usgsNaipImageryProvider: BasemapProvider = {
+  name: 'USGS NAIP imagery',
+  source: {
+    kind: 'rasterTiles',
+    tiles: [
+      'https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage' +
+        '?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=jpgpng&f=image',
+    ],
+    tileSize: 256,
+    // Past this the service returns the same pixels enlarged; asking for more
+    // detail than the imagery holds costs requests and delivers nothing.
+    maxZoom: 20,
+  },
+  attributionHtml:
+    'Imagery: <a href="https://www.usgs.gov/programs/national-geospatial-program/national-map" ' +
+    'target="_blank" rel="noopener noreferrer">USGS The National Map</a> (NAIP, public domain)',
+  localToGeographic: localMetresToGeographic,
+  geographicToLocal: geographicToLocalMetres,
+};

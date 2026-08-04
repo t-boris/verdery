@@ -1,0 +1,64 @@
+.search {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Field and its action on one line: the button acts on the field beside it, not on the panel. */
+.row {
+  display: flex;
+  align-items: end;
+  gap: var(--space-2);
+}
+
+.row > *:first-child {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.empty {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.candidates {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.candidate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  inline-size: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.candidate:hover {
+  border-color: var(--color-control-border);
+  background-color: var(--color-surface-sunken);
+}
+
+.address {
+  font-size: var(--font-size-sm);
+}
+
+.precision {
+  color: var(--color-text-muted);
+  font-family: var(--font-family-mono);
+  font-size: var(--label-size);
+  letter-spacing: var(--label-letter-spacing);
+  text-transform: uppercase;
+}

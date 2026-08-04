@@ -106,6 +106,14 @@ export const CSP_ORIGINS = {
   /** Vector basemap: style JSON, tiles, glyphs, sprites. `features/map/basemap-provider.ts`. */
   basemapTiles: 'https://tiles.openfreemap.org',
   /**
+   * USGS National Map aerial imagery — the layer a lot is traced from
+   * (P12-GEO-01). Public-domain federal imagery, no key, rendered on demand
+   * by an ArcGIS `exportImage` endpoint, which is why it needs both
+   * `img-src` (the tiles themselves) and `connect-src` (MapLibre fetches
+   * them).
+   */
+  aerialImagery: 'https://imagery.nationalmap.gov',
+  /**
    * reCAPTCHA Enterprise, which the App Check SDK loads and runs. Serves the
    * script, the challenge iframe, and the assessment beacon — hence its
    * appearance in `script-src`, `frame-src`, and `connect-src` alike.
@@ -252,7 +260,7 @@ export function buildContentSecurityPolicy(inputs: CspInputs): string {
     // upload previews before they leave the browser; Cloud Storage for signed
     // download URLs (`media-preview.tsx`); the tile host for basemap raster
     // assets.
-    `img-src 'self' data: blob: ${CSP_ORIGINS.cloudStorage} ${CSP_ORIGINS.basemapTiles}`,
+    `img-src 'self' data: blob: ${CSP_ORIGINS.cloudStorage} ${CSP_ORIGINS.basemapTiles} ${CSP_ORIGINS.aerialImagery}`,
 
     // Self only: this application ships no web fonts and uses the platform
     // font stack (`shared/ui/tokens.css`). Stated rather than left to
@@ -267,6 +275,7 @@ export function buildContentSecurityPolicy(inputs: CspInputs): string {
       CSP_ORIGINS.appCheck,
       CSP_ORIGINS.cloudStorage,
       CSP_ORIGINS.basemapTiles,
+      CSP_ORIGINS.aerialImagery,
       // reCAPTCHA posts its assessment beacon here.
       CSP_ORIGINS.recaptcha,
       // Cross-origin only in local development and the E2E harness; the

@@ -26,6 +26,11 @@ const PROVENANCE_BY_METHOD: Readonly<Record<GeoreferenceMethod, ProvenanceKind>>
   // A device sensor reading is a measurement the user took, with its own
   // reported accuracy — not a drawing, and not an import.
   deviceLocation: 'userMeasurement',
+  // A geocoder put this point here and a person accepted it. The record
+  // should say a provider was involved, because its accuracy is the
+  // provider's — a house number is interpolated along a street segment, not
+  // observed on the roof.
+  addressSearch: 'externalProvider',
   // Both of these are read off provider imagery or a basemap, which is what
   // `importedMapImagery` names.
   mapPin: 'importedMapImagery',

@@ -23,6 +23,8 @@ import styles from './map-editor.module.css';
 import { MapLayerPanel } from './map-layer-panel';
 import { MapObjectList } from './map-object-list';
 import { MapPropertyPanel } from './map-property-panel';
+import { openFreeMapProvider, usgsNaipImageryProvider } from './basemap-provider';
+import { MapBackdropSwitch } from './map-backdrop-switch';
 import { MapScaleBadge } from './map-scale-badge';
 import { MapToolbar } from './map-toolbar';
 import { MapWarningsPanel } from './map-warnings-panel';
@@ -148,7 +150,15 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
           />
         </div>
         <div className={styles['canvasWrapper']}>
-          <MapBasemap georeference={mapQuery.data.georeference} camera={store.state.camera} />
+          {store.state.backdrop !== 'none' && (
+            <MapBasemap
+              georeference={mapQuery.data.georeference}
+              camera={store.state.camera}
+              provider={
+                store.state.backdrop === 'imagery' ? usgsNaipImageryProvider : openFreeMapProvider
+              }
+            />
+          )}
           <MapCanvas actions={actions} />
           <MapScaleBadge georeference={mapQuery.data.georeference} />
           <MapDraftControls actions={actions} />
@@ -156,6 +166,7 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
         <aside className={styles['inspector']} aria-label={t('map.inspector.ariaLabel')}>
           <MapPropertyPanel actions={actions} selectedRecord={actions.selectedRecord} />
           <div className={styles['utilities']} aria-label={t('map.utilities.ariaLabel')}>
+            <MapBackdropSwitch available={mapQuery.data.georeference !== undefined} />
             <MapLayerPanel actions={actions} />
             <ImportedBackgroundPanel gardenId={gardenId} actions={actions} />
             <CalibrationPanel gardenId={gardenId} actions={actions} />

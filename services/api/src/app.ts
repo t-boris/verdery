@@ -34,6 +34,7 @@ import { composeTasksRecommendations } from './compose-tasks-recommendations.js'
 import {
   registerPlantAssertionReviewRoutes,
   registerTaxonEnrichmentSweepRoute,
+  registerGeocodingRoutes,
   registerWeatherRefreshSweepRoute,
 } from './modules/integrations/public.js';
 import {
@@ -171,6 +172,7 @@ export async function buildApplication(
     generateAiExplanation,
     identifyPlantSpecies,
     analyzePlantCondition,
+    geocodingRoutesDependencies,
     weatherRefreshSweepRouteDependencies,
     taxonEnrichmentSweepRouteDependencies,
     plantAssertionReviewRoutesDependencies,
@@ -485,6 +487,11 @@ export async function buildApplication(
       registerGardenRoutes(instance, gardenRoutesDependencies);
       registerMapRoutes(instance, mapRoutesDependencies);
       registerGeoreferenceRoutes(instance, georeferenceRoutesDependencies);
+      // P12-GEO-01: address lookup for that same resource. Authenticated like
+      // everything else in this block — it reads no garden, but it spends a
+      // provider call, and an unauthenticated one would be a free proxy to a
+      // third-party service.
+      registerGeocodingRoutes(instance, geocodingRoutesDependencies);
       // P9D-CONTEXT-01: reviewed/declared garden context facts (sun
       // exposure, soil type, drainage, irrigation method, growing context,
       // microclimate).

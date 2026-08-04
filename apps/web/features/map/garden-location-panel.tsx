@@ -7,6 +7,7 @@ import type { WireSetGeoreferenceRequest } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
 import { Alert, Button, FailureAlert, FieldGrid, TextField } from '@/shared/ui/public';
 
+import { AddressSearchField } from './address-search-field';
 import { useGardenMap, useSetGardenGeoreference } from './queries';
 import styles from './garden-location-panel.module.css';
 
@@ -52,6 +53,20 @@ export function GardenLocationPanel({ gardenId }: GardenLocationPanelProps) {
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
+
+  const onAddressPicked = (position: readonly [number, number]) => {
+    const [pickedLongitude, pickedLatitude] = position;
+    setLongitude(pickedLongitude.toFixed(6));
+    setLatitude(pickedLatitude.toFixed(6));
+    // A geocoder's own accuracy is not reported per candidate — a house
+    // number is interpolated along a street segment — so this stays unstated
+    // rather than invented, and `precision` already told the person what kind
+    // of match they accepted.
+    setAccuracyMetres(null);
+    setMethod('addressSearch');
+    setLocationError(null);
+    setFieldError(null);
+  };
 
   const useMyLocation = () => {
     setLocationError(null);
@@ -164,6 +179,9 @@ export function GardenLocationPanel({ gardenId }: GardenLocationPanelProps) {
         ))}
 
       <div className={styles['form']}>
+        <AddressSearchField onPick={onAddressPicked} />
+        <p className={styles['hint']}>{t('gardenLocation.addressUsOnly')}</p>
+
         <Button variant="secondary" busy={locating} onClick={useMyLocation} disabled={!isOnline}>
           {t('gardenLocation.useMyLocation')}
         </Button>
