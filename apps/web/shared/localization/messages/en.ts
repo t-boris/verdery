@@ -89,6 +89,30 @@ export const englishMessages = {
     'This object changed before your edit was saved. Reload and try again.',
   'error.mapObjectLifecycleConflict':
     'This action does not apply to the object in its current state.',
+  'error.deletionRecentAuthenticationRequired':
+    'Deleting a garden needs a recent sign-in. Sign out, sign in again, and retry.',
+  'error.deletionNotFound': 'There is no deletion waiting to be undone.',
+  'error.deletionAlreadyRequested': 'A deletion has already been requested for this.',
+  'error.deletionNotRecoverable':
+    'The recovery window has closed, so this deletion can no longer be undone.',
+  'error.mediaNotFound': 'That file is not here.',
+  'error.mediaStaleRevision': 'This file changed while you were working. Reload and try again.',
+  'error.mediaUploadStateConflict': 'This upload is not at a stage where that can be done.',
+  'error.mediaNotAvailable': 'This file is still being processed. Try again shortly.',
+  'error.mediaViewerAccessRestricted': 'Your access to this garden does not include this file.',
+  'error.mediaProcessingJobNotFound': 'That processing job is not here.',
+  'error.mediaReferenced': 'This file is still used elsewhere, so it cannot be deleted.',
+  'error.mediaDerivativeNotDeletable':
+    'Generated versions are removed with their original, not on their own.',
+  'error.notificationNotFound': 'That notification is not here.',
+  'error.notificationPreferencesStaleRevision':
+    'Your notification settings changed elsewhere. Reload and try again.',
+  'error.exportNotFound': 'That export is not here.',
+  'error.exportActiveExportExists':
+    'An export is already running. Wait for it to finish, then start another.',
+  'error.exportRecentAuthenticationRequired':
+    'Exporting your data needs a recent sign-in. Sign out, sign in again, and retry.',
+  'error.exportNotDownloadable': 'This export is not ready to download, or its link has expired.',
   'error.unknown': 'The request failed for an unrecognized reason.',
 
   'connectivity.staleTitle': 'You are offline',

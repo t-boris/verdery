@@ -4,6 +4,10 @@ import {
   ClientPortalErrorCode,
   ClientUpdateErrorCode,
   CollaborationErrorCode,
+  DeletionErrorCode,
+  ExportErrorCode,
+  MediaErrorCode,
+  NotificationErrorCode,
   GardenErrorCode,
   MapErrorCode,
   OrganizationErrorCode,
@@ -53,6 +57,30 @@ const MESSAGE_KEYS: Readonly<Record<string, MessageKey>> = {
   [CollaborationErrorCode.InvitationEmailMismatch]: 'error.invitationEmailMismatch',
   [CollaborationErrorCode.RecentAuthenticationRequired]:
     'error.collaborationRecentAuthenticationRequired',
+  // Garden deletion and its recovery. Unmapped until 2026-08-03, so
+  // requesting a deletion with an older session showed "the request failed
+  // for an unrecognized reason" — hiding an answer the server had already
+  // given in plain words, and one the reader can act on.
+  [DeletionErrorCode.RecentAuthenticationRequired]: 'error.deletionRecentAuthenticationRequired',
+  [DeletionErrorCode.NotFound]: 'error.deletionNotFound',
+  [DeletionErrorCode.AlreadyRequested]: 'error.deletionAlreadyRequested',
+  [DeletionErrorCode.NotRecoverable]: 'error.deletionNotRecoverable',
+  // Media, notifications and exports were unmapped for the same reason:
+  // nothing failed when a code arrived without a translation.
+  [MediaErrorCode.NotFound]: 'error.mediaNotFound',
+  [MediaErrorCode.StaleRevision]: 'error.mediaStaleRevision',
+  [MediaErrorCode.UploadStateConflict]: 'error.mediaUploadStateConflict',
+  [MediaErrorCode.NotAvailable]: 'error.mediaNotAvailable',
+  [MediaErrorCode.ViewerAccessRestricted]: 'error.mediaViewerAccessRestricted',
+  [MediaErrorCode.ProcessingJobNotFound]: 'error.mediaProcessingJobNotFound',
+  [MediaErrorCode.Referenced]: 'error.mediaReferenced',
+  [MediaErrorCode.DerivativeNotDeletable]: 'error.mediaDerivativeNotDeletable',
+  [NotificationErrorCode.NotFound]: 'error.notificationNotFound',
+  [NotificationErrorCode.PreferencesStaleRevision]: 'error.notificationPreferencesStaleRevision',
+  [ExportErrorCode.NotFound]: 'error.exportNotFound',
+  [ExportErrorCode.ActiveExportExists]: 'error.exportActiveExportExists',
+  [ExportErrorCode.RecentAuthenticationRequired]: 'error.exportRecentAuthenticationRequired',
+  [ExportErrorCode.NotDownloadable]: 'error.exportNotDownloadable',
   [CollaborationErrorCode.TargetNotOwner]: 'error.targetNotOwner',
   [CollaborationErrorCode.TargetAlreadyOwner]: 'error.targetAlreadyOwner',
   [CollaborationErrorCode.OwnershipTransferAlreadyPending]: 'error.ownershipTransferAlreadyPending',

@@ -267,3 +267,25 @@ question.
 **Rule:** never create a file with `cat >` or `Write` without confirming the
 path is free. `ls` the directory first. An overwrite leaves no trace in the
 editor and only fails later, somewhere else.
+
+## A comment claiming a rule is not the rule
+
+`error-message.ts` says an untranslated server code is "a visible omission
+instead of a silent fallback to English". Nothing checked it. The owner hit
+the consequence on the deployed site: requesting a garden deletion answered
+"The request failed for an unrecognized reason", when the server had in fact
+replied `deletion.recent_authentication_required` with a plain sentence
+telling them to sign in again.
+
+Writing the test the comment described found fourteen more unmapped codes
+across media, notifications and exports — every one of which would have shown
+the same non-answer.
+
+**Rule:** when a module's doc comment states an invariant, write the test that
+holds it. An unenforced invariant decays silently, and the failure surfaces to
+a user rather than to CI.
+
+**Rule:** for a report of "it failed with no reason", check the SERVER's
+answer before the server's behaviour. A 403 carrying a specific code is a
+client presentation defect, not a backend fault — and the correlation
+identifier the UI already shows is enough to find it in one query.

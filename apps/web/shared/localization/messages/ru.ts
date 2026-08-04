@@ -81,6 +81,30 @@ export const russianMessages: MessageCatalogue = {
   'error.mapObjectStaleRevision':
     'Объект изменился до того, как ваша правка была сохранена. Обновите страницу и попробуйте снова.',
   'error.mapObjectLifecycleConflict': 'Это действие неприменимо к текущему состоянию объекта.',
+  'error.deletionRecentAuthenticationRequired':
+    'Для удаления сада нужен недавний вход. Выйдите, войдите снова и повторите.',
+  'error.deletionNotFound': 'Нет удаления, которое можно было бы отменить.',
+  'error.deletionAlreadyRequested': 'Удаление для этого уже запрошено.',
+  'error.deletionNotRecoverable': 'Срок отмены истёк, это удаление больше нельзя отменить.',
+  'error.mediaNotFound': 'Такого файла здесь нет.',
+  'error.mediaStaleRevision':
+    'Файл изменился, пока вы работали. Обновите страницу и попробуйте снова.',
+  'error.mediaUploadStateConflict': 'Загрузка не на той стадии, чтобы это сделать.',
+  'error.mediaNotAvailable': 'Файл ещё обрабатывается. Попробуйте через минуту.',
+  'error.mediaViewerAccessRestricted': 'Ваш доступ к этому саду не включает этот файл.',
+  'error.mediaProcessingJobNotFound': 'Такой задачи обработки здесь нет.',
+  'error.mediaReferenced': 'Файл ещё используется в другом месте, поэтому его нельзя удалить.',
+  'error.mediaDerivativeNotDeletable':
+    'Производные версии удаляются вместе с оригиналом, а не отдельно.',
+  'error.notificationNotFound': 'Такого уведомления здесь нет.',
+  'error.notificationPreferencesStaleRevision':
+    'Настройки уведомлений изменились в другом месте. Обновите страницу и попробуйте снова.',
+  'error.exportNotFound': 'Такой выгрузки здесь нет.',
+  'error.exportActiveExportExists':
+    'Выгрузка уже выполняется. Дождитесь её окончания и запустите следующую.',
+  'error.exportRecentAuthenticationRequired':
+    'Для выгрузки данных нужен недавний вход. Выйдите, войдите снова и повторите.',
+  'error.exportNotDownloadable': 'Эта выгрузка ещё не готова к скачиванию, или её ссылка истекла.',
   'error.unknown': 'Запрос не выполнен по нераспознанной причине.',
 
   'connectivity.staleTitle': 'Нет подключения',
