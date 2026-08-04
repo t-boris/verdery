@@ -3,6 +3,7 @@ import { getRequestTranslator } from '@/shared/localization/server';
 import { Collaborators } from '@/features/collaboration/public';
 import { ContextQuality } from '@/features/garden-context/public';
 import { GardenSettings } from '@/features/gardens/public';
+import { GardenLocationPanel } from '@/features/map/public';
 import { GardenPhotoUpload, GardenPlanUpload } from '@/features/media/public';
 import {
   GardenAssignmentsSection,
@@ -45,6 +46,13 @@ export default async function GardenSettingsPage({
             would duplicate it. */}
         <RoutePanel>
           <GardenSettings gardenId={gardenId} />
+        </RoutePanel>
+        {/* Above the media and collaboration bands on purpose: until a
+            garden has this, its weather, hemisphere, and seasonal plan have
+            no input at all, so it is the most consequential setting on the
+            page rather than one more of them. */}
+        <RoutePanel>
+          <GardenLocationPanel gardenId={gardenId} />
         </RoutePanel>
         <RoutePanel>
           <GardenPhotoUpload gardenId={gardenId} />

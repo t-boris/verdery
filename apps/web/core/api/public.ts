@@ -51,6 +51,8 @@ export type {
   WireGardenMapDocument,
   WireGardenObject,
   WireGeoreference,
+  WireGeoreferenceMethod,
+  WireSetGeoreferenceRequest,
   WireMapCommandResult,
   WireValidationIssue,
   WireValidationSeverity,

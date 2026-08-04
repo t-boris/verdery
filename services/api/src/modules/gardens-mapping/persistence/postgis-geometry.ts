@@ -15,7 +15,7 @@
  * PostGIS geometry columns."
  */
 
-import type { Geometry } from '@verdery/geometry-contracts';
+import type { Geometry, Position } from '@verdery/geometry-contracts';
 import { sql, type RawBuilder } from 'kysely';
 
 /** Raw SQL expression selecting a geometry column as GeoJSON text. Always SRID 0 (local planar) in this schema — see the migration's SRID CHECK constraints. */
@@ -50,6 +50,25 @@ export function nullableGeometrySelectExpression(column: string): RawBuilder<str
  */
 export function geometryToGeoJsonInsertExpression(geometry: Geometry): RawBuilder<string> {
   return sql<string>`ST_SetSRID(ST_GeomFromGeoJSON(${JSON.stringify(geometry)}), 0)`;
+}
+
+/**
+ * The same, for the one kind of column in this schema that is NOT
+ * garden-local metres: `gardens_mapping.georeference.geographic_anchor`,
+ * declared `geometry(Point, 4326)` with its own `CHECK (ST_SRID(...) = 4326)`.
+ *
+ * A separate function rather than a parameter on the one above, because the
+ * choice is not a caller's preference: a coordinate is either local planar
+ * metres or WGS84 longitude and latitude, the two are never interchangeable
+ * (ADR-0005), and the column each belongs to is fixed. Two named expressions
+ * make a mix-up a compile-time-visible mistake at the call site instead of a
+ * number that silently means the wrong thing.
+ */
+export function geographicPointInsertExpression(position: Position): RawBuilder<string> {
+  return sql<string>`ST_SetSRID(ST_GeomFromGeoJSON(${JSON.stringify({
+    type: 'Point',
+    coordinates: position,
+  })}), 4326)`;
 }
 
 /** Parses the GeoJSON text `geometrySelectExpression` produces back into a `Geometry`. */

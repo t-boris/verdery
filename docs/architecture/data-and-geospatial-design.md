@@ -178,6 +178,18 @@ Device heading belongs to a capture or alignment record until the user accepts o
 garden-level orientation. Magnetic or low-accuracy heading evidence must not silently replace an
 accepted true-north rotation.
 
+The record is authored through its own resource, `PUT /gardens/{gardenId}/georeference`, and not
+through a map command: the thirteen map commands mutate objects INSIDE a coordinate space, while
+this one describes that whole space's relationship to the Earth. Each write closes the current
+record and inserts its successor, so a garden's geographic history stays readable and an anchor
+moved by mistake can be seen to have moved. `If-Match` carries the revision the caller believes is
+current; its ABSENCE asserts that the garden has never been georeferenced, and asserting that
+wrongly is refused rather than resolved. The method a client reports (device location, map pin,
+typed coordinates, control points, imagery alignment) is what the server derives provenance from —
+a client never sends both, because two fields describing one fact can disagree. Authoring is
+`manageGarden`: a garden's place on the Earth is a garden-level setting, and it changes the
+weather, hemisphere, and season every collaborator sees.
+
 ## 10. Geometry Types and Validation
 
 Supported canonical types are initially Point, LineString, Polygon, and approved multi-geometries.

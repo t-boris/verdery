@@ -75,7 +75,9 @@ export type {
 } from './application/coordinate-space-repository.js';
 export type {
   Georeference,
+  GeoreferenceReader,
   GeoreferenceRepository,
+  NewGeoreference,
 } from './application/georeference-repository.js';
 export type {
   MapObjectRepository,
@@ -115,12 +117,16 @@ export { MoveMapObject } from './application/move-map-object.js';
 export { ReplaceMapObjectGeometry } from './application/replace-map-object-geometry.js';
 export { RestoreMapObject } from './application/restore-map-object.js';
 export { SplitMapObjectLinework } from './application/split-map-object-linework.js';
+export { SetGardenGeoreference } from './application/set-garden-georeference.js';
+export type { SetGardenGeoreferenceInput } from './application/set-garden-georeference.js';
 export { UpsertMapCalibration } from './application/upsert-map-calibration.js';
 export { KyselyCalibrationRepository } from './persistence/kysely-calibration-repository.js';
 export { KyselyCoordinateSpaceRepository } from './persistence/kysely-coordinate-space-repository.js';
 export { KyselyGeoreferenceRepository } from './persistence/kysely-georeference-repository.js';
 export { KyselyMapObjectRepository } from './persistence/kysely-map-object-repository.js';
 export { KyselyRevisionJournalWriter } from './persistence/kysely-revision-journal-writer.js';
+export { registerGeoreferenceRoutes } from './transport/georeference-routes.js';
+export type { GeoreferenceRoutesDependencies } from './transport/georeference-routes.js';
 export { registerMapRoutes } from './transport/map-routes.js';
 export type { MapRoutesDependencies } from './transport/map-routes.js';
 

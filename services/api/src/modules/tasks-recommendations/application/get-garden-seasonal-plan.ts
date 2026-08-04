@@ -82,7 +82,7 @@
 
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
-import type { GardenAuthorization, GeoreferenceRepository } from '../../gardens-mapping/public.js';
+import type { GardenAuthorization, GeoreferenceReader } from '../../gardens-mapping/public.js';
 import type {
   BedOccupancyHistoryReader,
   PlantRepository,
@@ -262,7 +262,7 @@ export class GetGardenSeasonalPlan {
     private readonly taxonomyReferences: TaxonomyReferenceRepository,
     private readonly taxonomySeasonalFacts: TaxonomySeasonalFactRepository,
     private readonly bedOccupancyHistory: BedOccupancyHistoryReader,
-    private readonly georeferences: GeoreferenceRepository,
+    private readonly georeferences: GeoreferenceReader,
     private readonly clock: Clock,
   ) {}
 

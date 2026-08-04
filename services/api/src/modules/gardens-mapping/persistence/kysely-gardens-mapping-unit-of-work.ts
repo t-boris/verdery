@@ -13,6 +13,7 @@ import type {
 import { KyselyCalibrationRepository } from './kysely-calibration-repository.js';
 import { KyselyCoordinateSpaceRepository } from './kysely-coordinate-space-repository.js';
 import { KyselyGardenRepository } from './kysely-garden-repository.js';
+import { KyselyGeoreferenceRepository } from './kysely-georeference-repository.js';
 import { KyselyInvitationRepository } from './kysely-invitation-repository.js';
 import { KyselyMapObjectRepository } from './kysely-map-object-repository.js';
 import { KyselyMembershipRepository } from './kysely-membership-repository.js';
@@ -37,6 +38,7 @@ export class KyselyGardensMappingUnitOfWork implements GardensMappingUnitOfWork 
         auditLogger: new KyselyAuditLogger(trx, this.clock),
         mapObjects: new KyselyMapObjectRepository(trx),
         coordinateSpaces: new KyselyCoordinateSpaceRepository(trx),
+        georeferences: new KyselyGeoreferenceRepository(trx),
         calibrations: new KyselyCalibrationRepository(trx),
         revisionJournal: new KyselyRevisionJournalWriter(trx),
         syncChanges: new KyselySyncChangeRecorder(trx),

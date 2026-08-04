@@ -12,6 +12,7 @@ import {
   isFailure,
   type ApiResult,
   type WireGeoreference,
+  type WireSetGeoreferenceRequest,
   type WireValidationIssue,
 } from '@/core/api/public';
 
@@ -116,6 +117,47 @@ export function useSubmitMapCommand(gardenId: string) {
       queryClient.setQueryData<MapDocumentData>(mapQueryKey(gardenId), (current) =>
         current === undefined ? current : mergeAffected(current, affected),
       );
+    },
+  });
+}
+
+/**
+ * Places the garden on the Earth, or moves where it already sits.
+ *
+ * The response IS the new record, so the cached map document is updated
+ * from it rather than invalidated: nothing else about the map changed —
+ * georeferencing moves no local geometry — and refetching every object to
+ * learn one anchor would be a bigger request than the write itself.
+ */
+export function useSetGardenGeoreference(gardenId: string) {
+  const gateway = useMapGateway();
+  const queryClient = useQueryClient();
+
+  return useMutation<WireGeoreference, ApiFailureError, WireSetGeoreferenceRequest>({
+    mutationFn: async (request) => {
+      const current = queryClient.getQueryData<MapDocumentData>(mapQueryKey(gardenId));
+
+      return unwrap(
+        await gateway.setGeoreference(
+          gardenId,
+          request,
+          current?.georeference?.revision ?? null,
+          generateIdempotencyKey(),
+        ),
+      );
+    },
+    onSuccess: (georeference) => {
+      queryClient.setQueryData<MapDocumentData>(mapQueryKey(gardenId), (cached) =>
+        cached === undefined ? cached : { ...cached, georeference },
+      );
+      // Weather, hemisphere, and the seasonal plan all read this record.
+      // They are other features' queries, so the honest move is to drop what
+      // was derived from the old location rather than patch it here.
+      // Keys owned by `features/seasonal-plan` and `features/recommendations`
+      // — named here, not imported, for the same dependency-rule reason
+      // `useCallerRole` is duplicated across features.
+      void queryClient.invalidateQueries({ queryKey: ['seasonal-plan', gardenId] });
+      void queryClient.invalidateQueries({ queryKey: ['today', gardenId] });
     },
   });
 }

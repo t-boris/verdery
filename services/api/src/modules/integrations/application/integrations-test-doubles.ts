@@ -10,7 +10,7 @@
 
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
-import type { Georeference, GeoreferenceRepository } from '../../gardens-mapping/public.js';
+import type { Georeference, GeoreferenceReader } from '../../gardens-mapping/public.js';
 import type { TaxonomyReference } from '../../plants-inventory/public.js';
 import type { PlantContentRecord } from '../domain/plant-content-record.js';
 import type {
@@ -164,7 +164,7 @@ export class InMemoryProviderQuotaRepository implements ProviderQuotaRepository 
   }
 }
 
-export class FakeGeoreferenceRepository implements GeoreferenceRepository {
+export class FakeGeoreferenceRepository implements GeoreferenceReader {
   private readonly byGarden = new Map<Uuid, Georeference>();
 
   setCurrent(georeference: Georeference): void {

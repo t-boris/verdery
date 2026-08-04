@@ -80,6 +80,27 @@ export interface WireGeoreference {
   readonly revision: number;
 }
 
+/**
+ * The `setGardenGeoreference` request body.
+ *
+ * Declared here with geometry-contracts' `Position` rather than reused from
+ * the generated schema for the same reason every other wire type in this
+ * file is: the generated `Position` is `number[]`, which cannot express
+ * "exactly two numbers", and a garden's anchor is not a list of coordinates.
+ */
+export interface WireSetGeoreferenceRequest {
+  readonly localAnchor: Position;
+  readonly geographicAnchor: Position;
+  readonly rotationDegrees: number;
+  readonly scaleCorrection?: number;
+  readonly accuracyMetres?: number;
+  readonly method: WireGeoreferenceMethod;
+}
+
+/** Mirrors the contract's `GeoreferenceMethod`. */
+export type WireGeoreferenceMethod =
+  'deviceLocation' | 'mapPin' | 'manualCoordinates' | 'controlPoints' | 'imageryAlignment';
+
 export type WireValidationSeverity = 'error' | 'warning';
 
 export interface WireValidationIssue {

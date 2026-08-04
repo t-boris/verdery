@@ -31,11 +31,11 @@
  *
  * Hemisphere (P9D-SEASON-DATA-01) is read the SAME way, for the SAME
  * reason: `gardens_mapping.georeference` is another module's read-only
- * fact from this module's side (see `GeoreferenceRepository`'s own header,
+ * fact from this module's side (see `GeoreferenceReader`'s own header,
  * "none of the thirteen map commands mutate georeferencing") that a
  * transaction over THIS module's own tables cannot make any more
  * consistent, so it is fetched before the transaction via
- * `GeoreferenceRepository.findCurrentForGarden` (gardens-mapping's own
+ * `GeoreferenceReader.findCurrentForGarden` (gardens-mapping's own
  * public port) and derived with `deriveHemisphere`, then threaded into
  * `gatherGardenFacts` exactly like `weatherObservation`/`weatherForecast`
  * are. NOTE ON THE DESIGN RECORD: tasks/todo.md's own design notes name
@@ -95,7 +95,7 @@ import { NO_PLANT_SEARCH_FILTERS } from '../../plants-inventory/public.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import { generateUuidV7 } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
-import type { GeoreferenceRepository } from '../../gardens-mapping/public.js';
+import type { GeoreferenceReader } from '../../gardens-mapping/public.js';
 import type { GetGardenWeather, GetGardenWeatherResult } from '../../integrations/public.js';
 import type {
   PlantFact,
@@ -195,7 +195,7 @@ export class EvaluateGardenRecommendations {
     private readonly unitOfWork: TasksRecommendationsUnitOfWork,
     private readonly catalog: RuleCatalog,
     private readonly getGardenWeather: GetGardenWeather,
-    private readonly georeferenceRepository: GeoreferenceRepository,
+    private readonly georeferenceRepository: GeoreferenceReader,
     private readonly clock: Clock,
   ) {}
 

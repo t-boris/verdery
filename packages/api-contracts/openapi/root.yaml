@@ -201,6 +201,7 @@ paths:
     { $ref: './paths/collaboration/gardens_gardenId_engagements.yaml' }
   '/gardens/{gardenId}/map': { $ref: './paths/map/gardens_gardenId_map.yaml' }
   '/gardens/{gardenId}/map/commands': { $ref: './paths/map/gardens_gardenId_map_commands.yaml' }
+  '/gardens/{gardenId}/georeference': { $ref: './paths/map/gardens_gardenId_georeference.yaml' }
   '/gardens/{gardenId}/context': { $ref: './paths/garden-context/gardens_gardenId_context.yaml' }
   '/gardens/{gardenId}/context/{contextKind}':
     { $ref: './paths/garden-context/gardens_gardenId_context_contextKind.yaml' }
@@ -603,6 +604,9 @@ components:
     ValidationSeverity: { $ref: './components/schemas/map-objects.yaml#/ValidationSeverity' }
     ValidationIssue: { $ref: './components/schemas/map-objects.yaml#/ValidationIssue' }
     Georeference: { $ref: './components/schemas/map-objects.yaml#/Georeference' }
+    GeoreferenceMethod: { $ref: './components/schemas/map-objects.yaml#/GeoreferenceMethod' }
+    SetGardenGeoreferenceRequest:
+      { $ref: './components/schemas/map-objects.yaml#/SetGardenGeoreferenceRequest' }
     GardenMapDocument: { $ref: './components/schemas/map-objects.yaml#/GardenMapDocument' }
     VertexOperation: { $ref: './components/schemas/map-commands.yaml#/VertexOperation' }
     ProposalDecision: { $ref: './components/schemas/map-commands.yaml#/ProposalDecision' }

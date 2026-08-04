@@ -101,6 +101,19 @@ export function requireExpectedRevision(request: FastifyRequest): number {
   return revision;
 }
 
+/**
+ * The same header, for a resource that may not exist yet.
+ *
+ * `null` means the caller sent no `If-Match` at all, which for a
+ * create-or-replace resource is an assertion in its own right — "nothing is
+ * there yet" — and the use case checks it as one. A malformed header is
+ * still rejected: the difference between "absent" and "wrong" is exactly
+ * what an optimistic-concurrency header exists to preserve.
+ */
+export function optionalExpectedRevision(request: FastifyRequest): number | null {
+  return request.headers[IF_MATCH_HEADER] === undefined ? null : requireExpectedRevision(request);
+}
+
 function requireName(request: FastifyRequest): string {
   const body = request.body as { name?: unknown } | undefined;
 

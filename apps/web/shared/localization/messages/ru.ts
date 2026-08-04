@@ -500,6 +500,32 @@ export const russianMessages: MessageCatalogue = {
   'tasks.enum.urgency.normal': 'Обычная',
   'tasks.enum.urgency.high': 'Высокая',
   'tasks.enum.urgency.urgent': 'Срочная',
+  'gardenLocation.title': 'Местоположение и север',
+  'gardenLocation.description':
+    'Где этот сад на Земле и куда направлена его карта. Погода, полушарие и сезонный план читают именно эти данные — без них им не на что опереться.',
+  'gardenLocation.loading': 'Загрузка местоположения сада.',
+  'gardenLocation.empty': 'У этого сада ещё нет местоположения.',
+  'gardenLocation.currentCoordinates': 'Широта, долгота',
+  'gardenLocation.currentRotation': 'Север',
+  'gardenLocation.currentAccuracy': 'Заявленная точность',
+  'gardenLocation.accuracyUnknown': 'Не указана',
+  'gardenLocation.degrees': '{degrees}° по часовой стрелке от верха карты',
+  'gardenLocation.metres': '±{metres} м',
+  'gardenLocation.useMyLocation': 'Использовать моё местоположение',
+  'gardenLocation.geolocationUnavailable': 'Этот браузер не умеет сообщать местоположение.',
+  'gardenLocation.geolocationRefused':
+    'Браузер не сообщил местоположение. Введите координаты вручную.',
+  'gardenLocation.latitudeLabel': 'Широта',
+  'gardenLocation.longitudeLabel': 'Долгота',
+  'gardenLocation.rotationLabel': 'Север, в градусах',
+  'gardenLocation.rotationHint':
+    'Насколько повернуть карту по часовой стрелке, чтобы её верх смотрел на север. Оставьте 0, если карта уже нарисована севером вверх.',
+  'gardenLocation.coordinatesInvalid':
+    'Широта должна быть от -90 до 90, а долгота — от -180 до 180.',
+  'gardenLocation.rotationInvalid': 'Север должен быть от 0 до 360 градусов, не включая 360.',
+  'gardenLocation.saved': 'Местоположение сохранено.',
+  'gardenLocation.submit': 'Сохранить местоположение',
+
   ...russianMediaMessages,
   ...russianPlantsMessages,
 };

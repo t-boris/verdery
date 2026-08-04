@@ -191,7 +191,7 @@ not govern. See gaps G-4 and G-5.
 | A14 | Archive the garden                                                       | Allowed | Denied  | Denied  | `manageGarden`. `archive-garden.ts:28-32`                                                                                                                                                            |
 | A15 | Set one's own notification preferences for a garden                      | Allowed | Allowed | Allowed | `viewGarden`, once per named garden — tuning one's own notifications is a fact of membership. `notification-preference-commands.ts:88-90`                                                            |
 | A16 | Mutate garden content while the garden is `deletion_requested`/`purging` | Denied  | Denied  | Denied  | Enforced centrally: `editGardenContent` is refused in those two states by `garden-authorization.ts:74-82`, so every module's content command fails with `422 garden.lifecycle_conflict`. Was gap G-6 |
-| A17 | Configure garden-level settings other than the name                      | Allowed | Denied  | Denied  | `manageGarden` when such settings exist. **Not implemented**: no settings surface exists                                                                                                             |
+| A17 | Configure garden-level settings other than the name                      | Allowed | Denied  | Denied  | `manageGarden`. First such setting implemented by P12-GEO-01: `set-garden-georeference.ts` (where the garden sits on the Earth and how its map is turned against true north)                         |
 
 ### 4.2 Tasks and recommendations
 

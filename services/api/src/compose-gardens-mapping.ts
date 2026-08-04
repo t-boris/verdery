@@ -67,6 +67,7 @@ import {
   RestoreMapObject,
   RevokeInvitation,
   RunInvitationExpirySweep,
+  SetGardenGeoreference,
   SplitMapObjectLinework,
   TransferOwnership,
   UpsertMapCalibration,
@@ -74,6 +75,7 @@ import {
 import type {
   GardenContextRoutesDependencies,
   GardenRoutesDependencies,
+  GeoreferenceRoutesDependencies,
   InvitationExpirySweepRouteDependencies,
   InvitationRoutesDependencies,
   MapRoutesDependencies,
@@ -89,6 +91,8 @@ export interface GardensMappingComposition {
   readonly gardenAuthorization: GardenAuthorization;
   readonly gardenRoutesDependencies: GardenRoutesDependencies;
   readonly mapRoutesDependencies: MapRoutesDependencies;
+  /** P12-GEO-01 — the garden's revisioned relationship to the Earth. */
+  readonly georeferenceRoutesDependencies: GeoreferenceRoutesDependencies;
   /** P9A-API-01 — garden-scoped invitation issue/revoke/accept. */
   readonly invitationRoutesDependencies: InvitationRoutesDependencies;
   /** P9A-API-01 — garden member roster, role change, removal. */
@@ -383,10 +387,20 @@ export function composeGardensMapping(
     ),
   };
 
+  const georeferenceRoutesDependencies: GeoreferenceRoutesDependencies = {
+    setGardenGeoreference: new SetGardenGeoreference(
+      gardenIdempotency,
+      gardensMappingUnitOfWork,
+      gardenAuthorization,
+      clock,
+    ),
+  };
+
   return {
     gardenAuthorization,
     gardenRoutesDependencies,
     mapRoutesDependencies,
+    georeferenceRoutesDependencies,
     invitationRoutesDependencies,
     memberRoutesDependencies,
     invitationExpirySweepRouteDependencies,

@@ -502,6 +502,32 @@ export const englishMessages = {
   'tasks.enum.urgency.normal': 'Normal',
   'tasks.enum.urgency.high': 'High',
   'tasks.enum.urgency.urgent': 'Urgent',
+  'gardenLocation.title': 'Location and north',
+  'gardenLocation.description':
+    'Where this garden sits on the Earth, and which way its map faces. Weather, hemisphere, and the seasonal plan all read this — without it they have nothing to work from.',
+  'gardenLocation.loading': 'Loading this garden’s location.',
+  'gardenLocation.empty': 'This garden has no location yet.',
+  'gardenLocation.currentCoordinates': 'Latitude, longitude',
+  'gardenLocation.currentRotation': 'North',
+  'gardenLocation.currentAccuracy': 'Reported accuracy',
+  'gardenLocation.accuracyUnknown': 'Not stated',
+  'gardenLocation.degrees': '{degrees}° clockwise from the map’s up',
+  'gardenLocation.metres': '±{metres} m',
+  'gardenLocation.useMyLocation': 'Use my current location',
+  'gardenLocation.geolocationUnavailable': 'This browser cannot report a location.',
+  'gardenLocation.geolocationRefused':
+    'The browser did not report a location. Enter the coordinates instead.',
+  'gardenLocation.latitudeLabel': 'Latitude',
+  'gardenLocation.longitudeLabel': 'Longitude',
+  'gardenLocation.rotationLabel': 'North, in degrees',
+  'gardenLocation.rotationHint':
+    'How far to turn the map clockwise so its up points north. Leave 0 if the map is already drawn north-up.',
+  'gardenLocation.coordinatesInvalid':
+    'Latitude must be between -90 and 90, and longitude between -180 and 180.',
+  'gardenLocation.rotationInvalid': 'North must be at least 0 and less than 360 degrees.',
+  'gardenLocation.saved': 'Location saved.',
+  'gardenLocation.submit': 'Save location',
+
   ...englishMediaMessages,
   ...englishPlantsMessages,
 } as const;

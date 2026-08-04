@@ -37,7 +37,7 @@ import { InternalError, ValidationError } from '../../../platform/errors/applica
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import { generateUuidV7 } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
-import type { GeoreferenceRepository } from '../../gardens-mapping/public.js';
+import type { GeoreferenceReader } from '../../gardens-mapping/public.js';
 import type { WeatherFreshnessPolicy } from '../domain/weather-freshness.js';
 import {
   classifyWeatherFreshness,
@@ -101,7 +101,7 @@ export class RefreshGardenWeather {
     configuration: RefreshGardenWeatherConfiguration,
     private readonly weatherRecords: WeatherRecordRepository,
     private readonly providerQuotas: ProviderQuotaRepository,
-    private readonly georeferences: GeoreferenceRepository,
+    private readonly georeferences: GeoreferenceReader,
     private readonly clock: Clock,
   ) {
     validateWeatherFreshnessPolicy(configuration.freshnessPolicy);

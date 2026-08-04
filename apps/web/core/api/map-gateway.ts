@@ -1,12 +1,14 @@
 import type { MapCommandPayload } from '@verdery/geometry-contracts';
-import { IDEMPOTENCY_KEY_HEADER } from '@verdery/api-contracts';
+import { IDEMPOTENCY_KEY_HEADER, IF_MATCH_HEADER } from '@verdery/api-contracts';
 
 import type { ApiClient } from './client';
 import { csrfHeader } from './csrf';
 import {
   toWireCommandPayload,
   type WireGardenMapDocument,
+  type WireGeoreference,
   type WireMapCommandResult,
+  type WireSetGeoreferenceRequest,
 } from './map-wire-types';
 import type { ApiResult } from './result';
 
@@ -32,6 +34,20 @@ export interface MapGateway {
     idempotencyKey: string,
     signal?: AbortSignal,
   ): Promise<ApiResult<WireMapCommandResult>>;
+  /**
+   * Places the garden on the Earth.
+   *
+   * `expectedRevision` is `null` for a garden that has never been
+   * georeferenced — the absence of `If-Match` is itself the assertion that
+   * no record exists, and the server refuses it if one does.
+   */
+  setGeoreference(
+    gardenId: string,
+    request: WireSetGeoreferenceRequest,
+    expectedRevision: number | null,
+    idempotencyKey: string,
+    signal?: AbortSignal,
+  ): Promise<ApiResult<WireGeoreference>>;
 }
 
 function viewportQuery(viewport: MapViewportBounds | undefined): string {
@@ -65,6 +81,22 @@ export function createMapGateway(client: ApiClient): MapGateway {
       return client.request<WireGardenMapDocument>({
         method: 'GET',
         path: `/gardens/${gardenId}/map${viewportQuery(viewport)}`,
+        ...(signal === undefined ? {} : { signal }),
+      });
+    },
+
+    setGeoreference(gardenId, request, expectedRevision, idempotencyKey, signal) {
+      return client.request<WireGeoreference>({
+        method: 'PUT',
+        path: `/gardens/${gardenId}/georeference`,
+        body: request,
+        headers: {
+          [IDEMPOTENCY_KEY_HEADER]: idempotencyKey,
+          ...(expectedRevision === null
+            ? {}
+            : { [IF_MATCH_HEADER]: `"${String(expectedRevision)}"` }),
+          ...csrfHeader(),
+        },
         ...(signal === undefined ? {} : { signal }),
       });
     },

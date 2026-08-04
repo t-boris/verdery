@@ -9305,3 +9305,37 @@ the client can close.
 - [ ] 1. Gardens list as cards; creation as an action rather than a permanent form panel.
 - [ ] 2. Garden overview as the daily loop rather than a stack of settings panels.
 - [ ] 3. One empty/loading/error vocabulary in `shared/ui`.
+
+## Stage 2.1 — georeference authoring (2026-08-04)
+
+`gardens_mapping.georeference` has existed since the Phase 3 map baseline and is read by weather
+refresh, hemisphere, and the seasonal plan. Nothing in production code ever wrote a row: every
+`INSERT` in the repository lives in a test. So on the deployed environment those three features had
+no input at all — not unbuilt, unreachable.
+
+- [x] Contract first: `PUT /gardens/{gardenId}/georeference`, `GeoreferenceMethod`,
+      `SetGardenGeoreferenceRequest`. The write takes a METHOD and the server derives `provenance`
+      from it; a client sending both could contradict itself.
+- [x] Backend: `SetGardenGeoreference` behind `manageGarden` — the capability matrix's own row A17
+      ("garden-level settings other than the name", owner only), which this turns from "not
+      implemented" into implemented. Each write supersedes: the old row is closed and a new
+      revision inserted inside one transaction, which is why `georeferences` joined the unit of
+      work. `If-Match` absent asserts "never georeferenced", and asserting that wrongly is a `412`
+      rather than a silent overwrite.
+- [x] Range validation lives in the parser, because the contract cannot express it: `Position` is a
+      bare number pair, and PostGIS stores longitude 900 without complaint.
+- [x] Web: a Location panel on the garden page — browser geolocation (which carries its own
+      accuracy) or typed coordinates, plus the north rotation, with the current record and its
+      accuracy shown. Picking the anchor on the basemap belongs to the map editor and is not
+      half-built here.
+- [x] Reader/writer ports split: integrations and tasks-recommendations depend on
+      `GeoreferenceReader`, so a module that only consumes geography cannot write it.
+
+Evidence: `services/api` 1651/1651 unit tests, `apps/web` 1169/1169, contract 34/34, typecheck and
+lint clean. The HTTP suite (`tests/http/garden-georeference-routes.test.ts`, 12 cases including
+supersede-not-edit, both `If-Match` mistakes, editor-denied, and idempotent replay) needs Docker and
+runs in CI — written, not claimed as run here.
+
+Not built, deliberately: no `platform.sync_change` row. Neither client has a local georeference
+table to project one into; both read it inside the map document. A change-log entry no client can
+apply would be a protocol claim this system does not honour.

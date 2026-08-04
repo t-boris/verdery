@@ -41,6 +41,7 @@ import {
   registerGardenRoutes,
   registerInvitationExpirySweepRoute,
   registerInvitationRoutes,
+  registerGeoreferenceRoutes,
   registerMapRoutes,
   registerMemberRoutes,
   registerOwnershipRoutes,
@@ -154,6 +155,7 @@ export async function buildApplication(
     gardenAuthorization,
     gardenRoutesDependencies,
     mapRoutesDependencies,
+    georeferenceRoutesDependencies,
     invitationRoutesDependencies,
     memberRoutesDependencies,
     invitationExpirySweepRouteDependencies,
@@ -482,6 +484,7 @@ export async function buildApplication(
       registerAuthentication(instance, { tokenVerifier, provisionProfile });
       registerGardenRoutes(instance, gardenRoutesDependencies);
       registerMapRoutes(instance, mapRoutesDependencies);
+      registerGeoreferenceRoutes(instance, georeferenceRoutesDependencies);
       // P9D-CONTEXT-01: reviewed/declared garden context facts (sun
       // exposure, soil type, drainage, irrigation method, growing context,
       // microclimate).

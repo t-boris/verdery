@@ -14,7 +14,7 @@
 import { generateUuidV7 } from '../../../shared/identifiers/uuid.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
-import type { Georeference, GeoreferenceRepository } from '../../gardens-mapping/public.js';
+import type { Georeference, GeoreferenceReader } from '../../gardens-mapping/public.js';
 import { GetGardenWeather } from '../../integrations/public.js';
 import type {
   AiExplanationLocale,
@@ -429,7 +429,7 @@ export function getGardenWeatherOver(
 }
 
 /**
- * In-memory `GeoreferenceRepository` (P9D-SEASON-DATA-01) — one optional
+ * In-memory `GeoreferenceReader` (P9D-SEASON-DATA-01) — one optional
  * `Georeference` per garden, `null` meaning "never georeferenced", plus a
  * call log so a test can prove `EvaluateGardenRecommendations` actually
  * consults this port for the garden it is evaluating (the "wiring" proof;
@@ -437,7 +437,7 @@ export function getGardenWeatherOver(
  * cover the derivation itself, and a real-Postgres proof lives in
  * `tests/integration/garden-hemisphere.test.ts`).
  */
-export class FakeGeoreferenceRepository implements GeoreferenceRepository {
+export class FakeGeoreferenceRepository implements GeoreferenceReader {
   readonly byGardenId = new Map<Uuid, Georeference>();
   readonly calls: Uuid[] = [];
 

@@ -14,9 +14,11 @@
  * `calibrations`, and `revisionJournal` bound to the same transaction — a map
  * command's object write and its revision-journal entry must commit or roll
  * back together exactly like its outbox event and audit record already do.
- * `GeoreferenceRepository` is deliberately absent: no map command mutates
- * georeferencing this pass, so `GetGardenMap` reads it directly off the
- * pooled connection instead, the same way `GetGarden` reads `GardenRepository`.
+ * `georeferences` joined them with P12-GEO-01: superseding the current record
+ * and inserting its replacement are two statements that must not be
+ * separable, since the table permits exactly one open record per garden.
+ * `GetGardenMap` still reads georeferencing off the pooled connection, the
+ * same way `GetGarden` reads `GardenRepository`.
  *
  * Source: architecture/backend-modular-monolith.md, section "12. Transactions".
  */
@@ -29,6 +31,7 @@ import type { MediaRepository } from '../../media/public.js';
 import type { CalibrationRepository } from './calibration-repository.js';
 import type { CoordinateSpaceRepository } from './coordinate-space-repository.js';
 import type { GardenRepository } from './garden-repository.js';
+import type { GeoreferenceRepository } from './georeference-repository.js';
 import type { InvitationRepository } from './invitation-repository.js';
 import type { MapObjectRepository } from './map-object-repository.js';
 import type { MembershipRepository } from './membership-repository.js';
@@ -47,6 +50,8 @@ export interface GardensMappingTransactionContext {
   readonly auditLogger: AuditLogger;
   readonly mapObjects: MapObjectRepository;
   readonly coordinateSpaces: CoordinateSpaceRepository;
+  /** P12-GEO-01 — the garden's relationship to the Earth, superseded revision by revision. */
+  readonly georeferences: GeoreferenceRepository;
   readonly calibrations: CalibrationRepository;
   readonly revisionJournal: RevisionJournalWriter;
   readonly syncChanges: SyncChangeRecorder;

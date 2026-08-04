@@ -443,8 +443,73 @@ Georeference:
       $ref: '../../components/schemas/geometry.yaml#/ProvenanceKind'
     method:
       type: string
+      description: |
+        A `GeoreferenceMethod` for every record this API writes. Typed as a
+        plain string on the way OUT so that a record written before this
+        vocabulary existed, or by a later method an older client does not
+        know, still decodes instead of failing a whole map read.
     revision:
       $ref: '../../components/schemas/shared.yaml#/Revision'
+
+GeoreferenceMethod:
+  type: string
+  enum:
+    - deviceLocation
+    - mapPin
+    - manualCoordinates
+    - controlPoints
+    - imageryAlignment
+  description: |
+    How the anchor and the north rotation were established. This is the
+    record's own account of its origin, and the server derives `provenance`
+    from it rather than accepting both — two fields describing the same fact
+    can disagree, and a client should not be the one deciding which is true.
+
+    - `deviceLocation` — the device's own positioning, with its reported
+      accuracy.
+    - `mapPin` — a point placed on geographic imagery or a basemap.
+    - `manualCoordinates` — longitude and latitude entered by hand.
+    - `controlPoints` — two or more known real-world points matched to local
+      ones.
+    - `imageryAlignment` — the local map visually aligned to imagery.
+
+SetGardenGeoreferenceRequest:
+  type: object
+  additionalProperties: false
+  required: [localAnchor, geographicAnchor, rotationDegrees, method]
+  description: |
+    Source: architecture/data-and-geospatial-design.md, section
+    "9. Georeferencing".
+  properties:
+    localAnchor:
+      $ref: '../../components/schemas/geometry.yaml#/Position'
+      description: |
+        The point in garden-local metres that the geographic anchor
+        describes. Usually the space's own origin.
+    geographicAnchor:
+      $ref: '../../components/schemas/geometry.yaml#/Position'
+      description: Longitude, latitude — WGS84.
+    rotationDegrees:
+      type: number
+      minimum: 0
+      exclusiveMaximum: 360
+      description: |
+        Clockwise rotation from the local `+Y` axis to true north. Rejected
+        rather than normalized outside `[0, 360)`: a client that computed a
+        heading of `-5` or `370` has a bug worth seeing, and silently folding
+        it would hide a garden pointing the wrong way.
+    scaleCorrection:
+      type: number
+      exclusiveMinimum: 0
+      description: Defaults to `1`. Only a survey-grade correction should move it.
+    accuracyMetres:
+      type: number
+      minimum: 0
+      description: |
+        Reported accuracy of the geographic anchor. Absent means "not
+        expressed", never "exact".
+    method:
+      $ref: '#/GeoreferenceMethod'
 
 GardenMapDocument:
   type: object

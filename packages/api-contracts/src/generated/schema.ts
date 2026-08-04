@@ -884,6 +884,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/gardens/{gardenId}/georeference": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Place the garden on the Earth
+         * @description Records where the garden's local coordinate origin sits in WGS84 and how
+         *     its local axes are rotated against true north. This is the input every
+         *     geographic capability reads: weather refresh, hemisphere and seasonal
+         *     context, and any later solar work. A garden without it is complete and
+         *     fully usable — it simply has no geography.
+         *
+         *     Georeferencing is deliberately NOT one of the map commands. The command
+         *     model mutates objects inside a coordinate space; this record defines the
+         *     relationship of that whole space to the Earth, is separately revised, and
+         *     changes no accepted local geometry: moving the anchor re-projects what
+         *     the garden looks like on a basemap, never the metres between two beds.
+         *
+         *     Each write supersedes the current record and creates a new revision
+         *     rather than editing one in place, so a garden's geographic history stays
+         *     readable. `If-Match` carries the revision the caller believes is current;
+         *     omitting it asserts that the garden has never been georeferenced. A
+         *     disagreement is `412`, never a silent overwrite.
+         *
+         *     Requires the `editGardenSettings` capability: this is a property of the
+         *     garden, not of its contents. Existence is concealed as `404` for a
+         *     non-member.
+         *
+         *     Source: implementation-plan.md work package P12-GEO-01;
+         *     architecture/data-and-geospatial-design.md, section "9. Georeferencing";
+         *     architecture/map-rendering-and-editing.md, section "3.2 Geographic Space".
+         */
+        put: operations["setGardenGeoreference"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/gardens/{gardenId}/context": {
         parameters: {
             query?: never;
@@ -5513,8 +5559,58 @@ export interface components {
             scaleCorrection: number;
             accuracyMetres?: number;
             provenance: components["schemas"]["ProvenanceKind"];
+            /**
+             * @description A `GeoreferenceMethod` for every record this API writes. Typed as a
+             *     plain string on the way OUT so that a record written before this
+             *     vocabulary existed, or by a later method an older client does not
+             *     know, still decodes instead of failing a whole map read.
+             */
             method: string;
             revision: components["schemas"]["Revision"];
+        };
+        /**
+         * @description How the anchor and the north rotation were established. This is the
+         *     record's own account of its origin, and the server derives `provenance`
+         *     from it rather than accepting both — two fields describing the same fact
+         *     can disagree, and a client should not be the one deciding which is true.
+         *
+         *     - `deviceLocation` — the device's own positioning, with its reported
+         *       accuracy.
+         *     - `mapPin` — a point placed on geographic imagery or a basemap.
+         *     - `manualCoordinates` — longitude and latitude entered by hand.
+         *     - `controlPoints` — two or more known real-world points matched to local
+         *       ones.
+         *     - `imageryAlignment` — the local map visually aligned to imagery.
+         * @enum {string}
+         */
+        GeoreferenceMethod: "deviceLocation" | "mapPin" | "manualCoordinates" | "controlPoints" | "imageryAlignment";
+        /**
+         * @description Source: architecture/data-and-geospatial-design.md, section
+         *     "9. Georeferencing".
+         */
+        SetGardenGeoreferenceRequest: {
+            /**
+             * @description The point in garden-local metres that the geographic anchor
+             *     describes. Usually the space's own origin.
+             */
+            localAnchor: components["schemas"]["Position"];
+            /** @description Longitude, latitude — WGS84. */
+            geographicAnchor: components["schemas"]["Position"];
+            /**
+             * @description Clockwise rotation from the local `+Y` axis to true north. Rejected
+             *     rather than normalized outside `[0, 360)`: a client that computed a
+             *     heading of `-5` or `370` has a bug worth seeing, and silently folding
+             *     it would hide a garden pointing the wrong way.
+             */
+            rotationDegrees: number;
+            /** @description Defaults to `1`. Only a survey-grade correction should move it. */
+            scaleCorrection?: number;
+            /**
+             * @description Reported accuracy of the geographic anchor. Absent means "not
+             *     expressed", never "exact".
+             */
+            accuracyMetres?: number;
+            method: components["schemas"]["GeoreferenceMethod"];
         };
         /**
          * @description Source: architecture/map-rendering-and-editing.md, section
@@ -9078,6 +9174,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MapCommandResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    setGardenGeoreference: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetGardenGeoreferenceRequest"];
+            };
+        };
+        responses: {
+            /** @description The georeference now current for this garden. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Georeference"];
                 };
             };
             400: components["responses"]["BadRequest"];

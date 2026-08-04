@@ -1446,6 +1446,72 @@ paths:
           $ref: '#/components/responses/Conflict'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
+  /gardens/{gardenId}/georeference:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+    put:
+      operationId: setGardenGeoreference
+      tags:
+        - Map
+      summary: Place the garden on the Earth
+      description: |
+        Records where the garden's local coordinate origin sits in WGS84 and how
+        its local axes are rotated against true north. This is the input every
+        geographic capability reads: weather refresh, hemisphere and seasonal
+        context, and any later solar work. A garden without it is complete and
+        fully usable — it simply has no geography.
+
+        Georeferencing is deliberately NOT one of the map commands. The command
+        model mutates objects inside a coordinate space; this record defines the
+        relationship of that whole space to the Earth, is separately revised, and
+        changes no accepted local geometry: moving the anchor re-projects what
+        the garden looks like on a basemap, never the metres between two beds.
+
+        Each write supersedes the current record and creates a new revision
+        rather than editing one in place, so a garden's geographic history stays
+        readable. `If-Match` carries the revision the caller believes is current;
+        omitting it asserts that the garden has never been georeferenced. A
+        disagreement is `412`, never a silent overwrite.
+
+        Requires the `editGardenSettings` capability: this is a property of the
+        garden, not of its contents. Existence is concealed as `404` for a
+        non-member.
+
+        Source: implementation-plan.md work package P12-GEO-01;
+        architecture/data-and-geospatial-design.md, section "9. Georeferencing";
+        architecture/map-rendering-and-editing.md, section "3.2 Geographic Space".
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetGardenGeoreferenceRequest'
+      responses:
+        '200':
+          description: The georeference now current for this garden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Georeference'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
   /gardens/{gardenId}/context:
     parameters:
       - name: gardenId
@@ -9367,8 +9433,75 @@ components:
           $ref: '#/components/schemas/ProvenanceKind'
         method:
           type: string
+          description: |
+            A `GeoreferenceMethod` for every record this API writes. Typed as a
+            plain string on the way OUT so that a record written before this
+            vocabulary existed, or by a later method an older client does not
+            know, still decodes instead of failing a whole map read.
         revision:
           $ref: '#/components/schemas/Revision'
+    GeoreferenceMethod:
+      type: string
+      enum:
+        - deviceLocation
+        - mapPin
+        - manualCoordinates
+        - controlPoints
+        - imageryAlignment
+      description: |
+        How the anchor and the north rotation were established. This is the
+        record's own account of its origin, and the server derives `provenance`
+        from it rather than accepting both — two fields describing the same fact
+        can disagree, and a client should not be the one deciding which is true.
+
+        - `deviceLocation` — the device's own positioning, with its reported
+          accuracy.
+        - `mapPin` — a point placed on geographic imagery or a basemap.
+        - `manualCoordinates` — longitude and latitude entered by hand.
+        - `controlPoints` — two or more known real-world points matched to local
+          ones.
+        - `imageryAlignment` — the local map visually aligned to imagery.
+    SetGardenGeoreferenceRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - localAnchor
+        - geographicAnchor
+        - rotationDegrees
+        - method
+      description: |
+        Source: architecture/data-and-geospatial-design.md, section
+        "9. Georeferencing".
+      properties:
+        localAnchor:
+          $ref: '#/components/schemas/Position'
+          description: |
+            The point in garden-local metres that the geographic anchor
+            describes. Usually the space's own origin.
+        geographicAnchor:
+          $ref: '#/components/schemas/Position'
+          description: Longitude, latitude — WGS84.
+        rotationDegrees:
+          type: number
+          minimum: 0
+          exclusiveMaximum: 360
+          description: |
+            Clockwise rotation from the local `+Y` axis to true north. Rejected
+            rather than normalized outside `[0, 360)`: a client that computed a
+            heading of `-5` or `370` has a bug worth seeing, and silently folding
+            it would hide a garden pointing the wrong way.
+        scaleCorrection:
+          type: number
+          exclusiveMinimum: 0
+          description: Defaults to `1`. Only a survey-grade correction should move it.
+        accuracyMetres:
+          type: number
+          minimum: 0
+          description: |
+            Reported accuracy of the geographic anchor. Absent means "not
+            expressed", never "exact".
+        method:
+          $ref: '#/components/schemas/GeoreferenceMethod'
     GardenMapDocument:
       type: object
       additionalProperties: false
