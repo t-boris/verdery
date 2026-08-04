@@ -129,6 +129,10 @@ public protocol PlantGateway: Sendable {
     /// own default.
     func searchTaxonomyReferences(gardenId: String, query: String?, limit: Int?) async throws -> [TaxonomyReference]
 
+    /// The catalog profile for one taxon: resolved facts and the imagery
+    /// permitted to accompany them.
+    func getTaxonProfile(taxonomyReferenceId: String) async throws -> TaxonProfile
+
     /// `query`/`cursor` omitted lists every plant in the garden, most recent
     /// first — the contract's own default. `cursor` is opaque, from a prior
     /// page's own `PlantSearchPage.nextCursor`. `status` omitted or empty
@@ -428,6 +432,14 @@ public struct URLSessionPlantGateway: PlantGateway {
             acceptedStatusCodes: [200]
         )
         return result.items.map(\.domainValue)
+    }
+
+    public func getTaxonProfile(taxonomyReferenceId: String) async throws -> TaxonProfile {
+        let result: TaxonProfileResultTransport = try await transport.get(
+            operationPath: "plant-catalog/taxa/\(taxonomyReferenceId)/profile",
+            acceptedStatusCodes: [200]
+        )
+        return result.domainValue
     }
 
     public func searchPlants(

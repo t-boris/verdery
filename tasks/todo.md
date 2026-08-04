@@ -9216,8 +9216,8 @@ wherever the image is shown. An asset with no readable licence is skipped, not d
       understate what is known.
 - [x] 3. Taxon imagery: done on web 2026-08-03 — GBIF media fetch with per-record licence
       reading, storage into the existing `plant_media_asset` (refusals kept as refusals),
-      the profile read carrying its permitted images, and web rendering with the credit.
-      iOS still shows no taxon imagery.
+      the profile read carrying its permitted images, and rendering with the credit on BOTH
+      clients — iOS gained the taxon profile screen it never had (P11-IOS-01 "profile").
 - [x] 4. Docs: done 2026-08-03. ADR-0016 §3's `plant_media_asset` row corrected to BUILT, with
       a warning that the column is a snapshot rather than a live schema index — a stale cell
       there is what sent this pass to write a duplicate migration. Media design gained the

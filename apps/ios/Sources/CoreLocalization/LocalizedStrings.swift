@@ -62,6 +62,13 @@ public struct LocalizedStrings: Sendable {
         string(forKey: key.rawValue)
     }
 
+    /// The same resolution for the taxon catalog profile's own key set
+    /// (P11-IOS-01). See ``TaxonProfileLocalizationKey`` for why this is yet
+    /// another key set rather than more cases somewhere existing.
+    public func callAsFunction(_ key: TaxonProfileLocalizationKey) -> String {
+        string(forKey: key.rawValue)
+    }
+
     /// The same resolution for the visual plant journal's own key set
     /// (P11-MEDIA-01). See ``ObservationJournalLocalizationKey`` for why this
     /// is yet another key set rather than more cases somewhere existing.
@@ -148,6 +155,7 @@ public struct LocalizedStrings: Sendable {
         + ObservationsHealthSuggestionLocalizationKey.allCases.map(\.rawValue)
         + PlantCandidatesLocalizationKey.allCases.map(\.rawValue)
         + ObservationJournalLocalizationKey.allCases.map(\.rawValue)
+        + TaxonProfileLocalizationKey.allCases.map(\.rawValue)
 
     /// Resolves an arbitrary key, used for codes that originate in Core.
     ///

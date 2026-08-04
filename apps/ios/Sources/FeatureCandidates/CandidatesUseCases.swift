@@ -242,3 +242,17 @@ public struct SearchCandidateTaxonomyReferences: Sendable {
         try await gateway.searchTaxonomyReferences(gardenId: gardenId, query: query, limit: limit)
     }
 }
+
+/// Reads one taxon's catalog profile. Online-only, like every catalog read.
+public struct GetTaxonProfile: Sendable {
+    private let gateway: any PlantGateway
+
+    public init(gateway: any PlantGateway) {
+        self.gateway = gateway
+    }
+
+    public func callAsFunction(taxonomyReferenceId: String) async throws -> TaxonProfile {
+        try await gateway.getTaxonProfile(taxonomyReferenceId: taxonomyReferenceId)
+    }
+}
+

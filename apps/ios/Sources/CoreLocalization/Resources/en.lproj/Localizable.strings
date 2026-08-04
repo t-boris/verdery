@@ -983,3 +983,16 @@
 "observations.severity.moderate" = "Moderate";
 "observations.severity.severe" = "Severe";
 "observations.symptoms.reported" = "Reported by you";
+
+/* Taxon catalog profile (P11-IOS-01) */
+"taxonProfile.title" = "Plant profile";
+"taxonProfile.loading" = "Loading this plant’s profile…";
+"taxonProfile.missing" = "No profile has been assembled for this plant yet.";
+"taxonProfile.assembled" = "Assembled %@";
+"taxonProfile.partialTitle" = "Partly resolved";
+"taxonProfile.partial" = "Sources describe more than could be resolved and reviewed, so some facts are missing rather than absent.";
+"taxonProfile.noFacts" = "No reviewed facts yet.";
+"taxonProfile.factSource" = "Source: %@";
+"taxonProfile.imageAlt" = "A reference photograph of this plant";
+"taxonProfile.imageAltOrgan" = "A reference photograph of this plant: %@";
+"taxonProfile.imageCredit" = "Photograph: %@";

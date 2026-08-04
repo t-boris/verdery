@@ -94,3 +94,35 @@ public enum JSONValue: Codable, Equatable, Sendable {
         return fields[key]
     }
 }
+
+public extension JSONValue {
+    /// A plain rendering for display beside a fact key.
+    ///
+    /// Numbers drop a trailing `.0` because a resolved fact like "mature
+    /// height 900 cm" is read as a measurement, not a floating-point value.
+    /// Composite values fall back to a compact description rather than being
+    /// hidden — a profile that silently omits a fact it holds is worse than
+    /// one that shows it plainly.
+    var displayText: String {
+        switch self {
+        case .null:
+            return ""
+        case let .bool(value):
+            return value ? "true" : "false"
+        case let .number(value):
+            return value == value.rounded() && value.magnitude < 1e15
+                ? String(Int(value))
+                : String(value)
+        case let .string(value):
+            return value
+        case let .array(values):
+            return values.map(\.displayText).joined(separator: ", ")
+        case let .object(values):
+            return values
+                .sorted { $0.key < $1.key }
+                .map { "\($0.key): \($0.value.displayText)" }
+                .joined(separator: ", ")
+        }
+    }
+}
+

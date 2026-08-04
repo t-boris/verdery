@@ -126,6 +126,12 @@ final class FakeCandidatePlantGateway: PlantGateway, @unchecked Sendable {
         []
     }
 
+    var taxonProfileResult: Result<TaxonProfile, Error> = .failure(CancellationError())
+
+    func getTaxonProfile(taxonomyReferenceId: String) async throws -> TaxonProfile {
+        try taxonProfileResult.get()
+    }
+
     func searchPlants(gardenId: String, query: String?, status: [PlantStatus]?, identified: Bool?, filters: PlantSearchFilters, cursor: String?, limit: Int?) async throws -> PlantSearchPage {
         fatalError("not used")
     }

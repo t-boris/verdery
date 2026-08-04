@@ -225,3 +225,70 @@ struct MovePlantRequestTransport: Encodable {
     let gardenAreaMapObjectId: String?
     let placementMapObjectId: String?
 }
+
+/// `PlantTaxonImage` on the wire.
+///
+/// A malformed or non-absolute `sourceUrl` drops the image rather than
+/// failing the whole profile: one unusable URL must not cost a reader the
+/// facts they came for.
+struct TaxonImageTransport: Decodable {
+    let id: String
+    let sourceUrl: String
+    let license: String
+    let attribution: String?
+    let organ: String?
+
+    var domainValue: TaxonImage? {
+        guard let url = URL(string: sourceUrl), url.scheme == "https" else { return nil }
+        return TaxonImage(
+            id: id,
+            sourceUrl: url,
+            license: license,
+            attribution: attribution,
+            organ: organ
+        )
+    }
+}
+
+struct ResolvedFactTransport: Decodable {
+    let factKey: String
+    let value: JSONValue
+    let unit: String?
+    let providerKey: String
+    let sourceCitation: String?
+
+    var domainValue: TaxonProfileFact {
+        TaxonProfileFact(
+            factKey: factKey,
+            displayValue: value.displayText,
+            unit: unit,
+            providerKey: providerKey,
+            sourceCitation: sourceCitation
+        )
+    }
+}
+
+struct PlantProfileVersionTransport: Decodable {
+    let id: String
+    let taxonomyReferenceId: String
+    let resolvedFacts: [ResolvedFactTransport]
+    let isPartial: Bool
+    let createdAt: Date
+}
+
+/// `PlantTaxonProfileResult` on the wire: the profile with its permitted imagery.
+struct TaxonProfileResultTransport: Decodable {
+    let profile: PlantProfileVersionTransport
+    let images: [TaxonImageTransport]
+
+    var domainValue: TaxonProfile {
+        TaxonProfile(
+            id: profile.id,
+            taxonomyReferenceId: profile.taxonomyReferenceId,
+            facts: profile.resolvedFacts.map(\.domainValue),
+            isPartial: profile.isPartial,
+            assembledAt: profile.createdAt,
+            images: images.compactMap(\.domainValue)
+        )
+    }
+}

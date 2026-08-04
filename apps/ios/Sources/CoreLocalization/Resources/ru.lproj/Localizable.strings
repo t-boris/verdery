@@ -982,3 +982,16 @@
 "observations.severity.moderate" = "Умеренно";
 "observations.severity.severe" = "Сильно";
 "observations.symptoms.reported" = "Отмечено вами";
+
+/* Taxon catalog profile (P11-IOS-01) */
+"taxonProfile.title" = "Профиль растения";
+"taxonProfile.loading" = "Загружаем профиль растения…";
+"taxonProfile.missing" = "Профиль для этого растения ещё не собран.";
+"taxonProfile.assembled" = "Собран %@";
+"taxonProfile.partialTitle" = "Собран частично";
+"taxonProfile.partial" = "Источники описывают больше, чем удалось свести и проверить, поэтому части фактов не хватает — это не значит, что их нет.";
+"taxonProfile.noFacts" = "Проверенных фактов пока нет.";
+"taxonProfile.factSource" = "Источник: %@";
+"taxonProfile.imageAlt" = "Эталонная фотография этого растения";
+"taxonProfile.imageAltOrgan" = "Эталонная фотография этого растения: %@";
+"taxonProfile.imageCredit" = "Фотография: %@";

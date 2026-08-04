@@ -9,6 +9,7 @@ import Foundation
 final class FakePlantGateway: PlantGateway, @unchecked Sendable {
     private var plants: [String: Plant]
     var taxonomyResults: [TaxonomyReference] = []
+    var taxonProfileResult: Result<TaxonProfile, Error> = .failure(CancellationError())
     var searchQueries: [String?] = []
     /// Set by a test to make `attachPlantPhoto` fail instead of succeeding
     /// — `AttachPlantPhotoTests`'s own "propagates a gateway failure" case.
@@ -296,6 +297,10 @@ final class FakePlantGateway: PlantGateway, @unchecked Sendable {
     func searchTaxonomyReferences(gardenId: String, query: String?, limit: Int?) async throws -> [TaxonomyReference] {
         searchQueries.append(query)
         return taxonomyResults
+    }
+
+    func getTaxonProfile(taxonomyReferenceId: String) async throws -> TaxonProfile {
+        try taxonProfileResult.get()
     }
 
     func searchPlants(
