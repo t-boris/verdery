@@ -502,6 +502,14 @@ export const englishMessages = {
   'tasks.enum.urgency.normal': 'Normal',
   'tasks.enum.urgency.high': 'High',
   'tasks.enum.urgency.urgent': 'Urgent',
+  'map.empty.traceTitle': 'Start with the lot',
+  'map.empty.traceBody':
+    'Trace the boundary of the property over the aerial photograph. Everything else — the house, beds, trees — is placed inside it afterwards.',
+  'map.empty.traceAction': 'Trace the lot',
+  'map.empty.locateTitle': 'This garden has no location yet',
+  'map.empty.locateBody':
+    'Give it an address or a point on the Earth, and the map can be drawn over a photograph of the real place.',
+  'map.empty.locateAction': 'Set the location',
   'map.backdrop.title': 'Backdrop',
   'map.backdrop.ariaLabel': 'What is drawn behind the garden',
   'map.backdrop.imagery': 'Aerial',

@@ -57,6 +57,7 @@ import {
   WORLD_FLORA_ONLINE_PROVIDER_KEY,
 } from './modules/integrations/public.js';
 import type {
+  AddressGeocodingAdapter,
   AiExplanationProviderAdapter,
   GeocodingRoutesDependencies,
   PlantAssertionProviderRegistration,
@@ -133,6 +134,13 @@ export function composeIntegrations(
   transactionalEmail: TransactionalEmailConfiguration,
   cloudTasksInvocationVerifier: CloudTasksInvocationVerifier,
   logger: FastifyBaseLogger,
+  /**
+   * P12-GEO-01. `null` builds the real US Census adapter — the production
+   * path, since that service needs no key and no configuration. A test passes
+   * its own so no suite ever reaches the network, which is the same reason
+   * `aiExplanationAdapter` and its siblings are injected.
+   */
+  addressGeocoder: AddressGeocodingAdapter | null = null,
 ): IntegrationsComposition {
   // `globalThis.fetch` is the platform's own HTTP client (Node 24,
   // ADR-0009); no HTTP dependency is added for one REST provider.
@@ -225,7 +233,8 @@ export function composeIntegrations(
   // platform's own, per ADR-0009.
   const geocodingRoutesDependencies: GeocodingRoutesDependencies = {
     findAddressCandidates: new FindAddressCandidates(
-      new UsCensusGeocodingAdapter({ fetch: (input, init) => globalThis.fetch(input, init) }),
+      addressGeocoder ??
+        new UsCensusGeocodingAdapter({ fetch: (input, init) => globalThis.fetch(input, init) }),
     ),
   };
 

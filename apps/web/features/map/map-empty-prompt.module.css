@@ -1,0 +1,38 @@
+/*
+ * Floated over the canvas, top-centre: the same posture `map-draft-controls`
+ * takes, for the same reason — guidance belongs next to the work, not in
+ * chrome the person is not looking at.
+ */
+.prompt {
+  position: absolute;
+  inset-block-start: var(--space-4);
+  inset-inline: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  inline-size: min(28rem, calc(100% - var(--space-6)));
+  margin-inline: auto;
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  text-align: center;
+}
+
+.title {
+  font-weight: var(--font-weight-semibold);
+}
+
+.body {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.link {
+  color: var(--color-accent);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}

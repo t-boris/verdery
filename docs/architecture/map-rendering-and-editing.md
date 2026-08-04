@@ -48,6 +48,26 @@ revise the geographic anchor or north rotation through location search, map pinn
 or approved control-point alignment. Device heading is only proposed evidence and never silently
 changes an accepted map orientation.
 
+#### Backdrops
+
+A georeferenced garden may be drawn over a provider backdrop. Two exist, and the person chooses
+between them and none:
+
+- **Aerial imagery** (USGS National Map NAIP), which is what a lot is traced from. United States
+  coverage, roughly 0.6–1 m per pixel — a house, a driveway and a fence line are legible; an
+  individual bed is not, and the interface says so rather than implying otherwise.
+- **Street vectors** (OpenFreeMap), for orientation rather than tracing.
+
+A backdrop is context, never geometry. No pixel of it enters the domain model: what someone traces
+over it is their own drawing, carrying their own provenance. The projection between local metres and
+WGS84 belongs to the garden's georeference rather than to a provider, so switching backdrop cannot
+move an accepted point — a property the providers' shared transform makes structural rather than
+conventional.
+
+An empty georeferenced garden opens with one piece of guidance, not thirteen: trace the lot. Every
+other object is placed inside it, and a garden with no location is pointed at its Location settings
+instead, since a drawing with nothing to sit on is advice that cannot be followed.
+
 ### 3.3 Screen Space
 
 Each client owns a viewport transform from local coordinates to device pixels. Screen-space hit testing uses a constant visual tolerance converted back to local space at the active zoom.

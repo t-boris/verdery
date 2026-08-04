@@ -17,6 +17,7 @@
 
 import type { FastifyBaseLogger } from 'fastify';
 import type {
+  AddressGeocodingAdapter,
   AiExplanationProviderAdapter,
   PlantConditionAnalysisProviderAdapter,
   PlantSpeciesIdentificationProviderAdapter,
@@ -62,6 +63,14 @@ export interface ApplicationDependencies {
    * Vertex at all — the strongest form of the rollback guarantee.
    */
   readonly aiExplanationAdapter: AiExplanationProviderAdapter | null;
+  /**
+   * P12-GEO-01: the address geocoder. Optional and defaulted, unlike every
+   * adapter above it — the US Census service needs no key and no
+   * configuration, so the real one is always constructible and `null` here
+   * means "build it", not "no path can reach it". A test supplies its own so
+   * no suite ever reaches the network.
+   */
+  readonly addressGeocoder?: AddressGeocodingAdapter | null;
   /**
    * ADR-0015: the Vertex AI plant-species-identification adapter, or `null`
    * whenever `PLANT_SPECIES_AI_ENABLED` is off (every environment today,

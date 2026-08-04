@@ -6,6 +6,7 @@
 export { MapEditor } from './map-editor';
 export { GardenLocationPanel } from './garden-location-panel';
 export { AddressSearchField } from './address-search-field';
+export { MapEmptyPrompt } from './map-empty-prompt';
 export {
   useAddressCandidates,
   useGardenMap,

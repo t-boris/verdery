@@ -14,6 +14,7 @@ import { FakeMediaStorageGateway } from '../../src/modules/media/application/med
 import type { MediaStorageGateway } from '../../src/modules/media/public.js';
 import { FakePushMessageSender } from '../../src/modules/notifications/application/notification-test-doubles.js';
 import type { PushMessageSender } from '../../src/modules/notifications/public.js';
+import type { AddressGeocodingAdapter } from '../../src/modules/integrations/public.js';
 import type { AppCheckVerifier } from '../../src/platform/app-check/app-check-verifier.js';
 import { FakeIdentityProviderAccountGateway } from '../../src/platform/authentication/identity-provider-account-test-double.js';
 import type { IdentityProviderAccountGateway } from '../../src/platform/authentication/identity-provider-account-gateway.js';
@@ -234,6 +235,8 @@ export interface TestApplicationOptions {
   readonly cloudTasksInvocationVerifier?: CloudTasksInvocationVerifier;
   readonly pushMessageSender?: PushMessageSender;
   readonly identityProviderAccounts?: IdentityProviderAccountGateway;
+  /** P12-GEO-01. Defaults to one that refuses, so no suite reaches the real service. */
+  readonly addressGeocoder?: AddressGeocodingAdapter;
   /**
    * Overrides `testConfiguration` wholesale. Added for P8-SEC-02, whose whole
    * point is that both positions of the App Check enforcement switch are
@@ -241,6 +244,14 @@ export interface TestApplicationOptions {
    * while every other suite keeps the default.
    */
   readonly configuration?: ApplicationConfiguration;
+}
+
+/** Rejects every lookup. The default, so no suite reaches census.gov by accident. */
+export function refusingAddressGeocoder(): AddressGeocodingAdapter {
+  return {
+    findAddressCandidates: () =>
+      Promise.reject(new Error('refusingAddressGeocoder: no behavior configured for this test')),
+  };
 }
 
 export async function buildTestApplication(
@@ -264,6 +275,9 @@ export async function buildTestApplication(
     // P7-AI-01 / ADR-0015: `null` exactly as main.ts passes with each
     // kill-switch off.
     aiExplanationAdapter: null,
+    // P12-GEO-01: a geocoder that refuses by default, so a suite that does not
+    // configure one cannot silently call the real service over the network.
+    addressGeocoder: options.addressGeocoder ?? refusingAddressGeocoder(),
     plantSpeciesIdentificationAdapter: null,
     plantConditionAnalysisAdapter: null,
     pushMessageSender: options.pushMessageSender ?? stubPushMessageSender(),

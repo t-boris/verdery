@@ -192,6 +192,7 @@ export async function buildApplication(
     configuration.transactionalEmail,
     cloudTasksInvocationVerifier,
     logger,
+    dependencies.addressGeocoder ?? null,
   );
 
   // collaboration (P9B-API-01, P9C-PUBLISH-01, P9C-INVITE-01): organizations,

@@ -500,6 +500,14 @@ export const russianMessages: MessageCatalogue = {
   'tasks.enum.urgency.normal': 'Обычная',
   'tasks.enum.urgency.high': 'Высокая',
   'tasks.enum.urgency.urgent': 'Срочная',
+  'map.empty.traceTitle': 'Начните с участка',
+  'map.empty.traceBody':
+    'Обведите границу участка по аэроснимку. Всё остальное — дом, грядки, деревья — размещается внутри неё.',
+  'map.empty.traceAction': 'Обвести участок',
+  'map.empty.locateTitle': 'У этого сада ещё нет местоположения',
+  'map.empty.locateBody':
+    'Укажите адрес или точку на Земле — и карту можно будет рисовать поверх снимка реального места.',
+  'map.empty.locateAction': 'Указать местоположение',
   'map.backdrop.title': 'Подложка',
   'map.backdrop.ariaLabel': 'Что рисуется за садом',
   'map.backdrop.imagery': 'Снимок',

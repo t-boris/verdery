@@ -9370,12 +9370,24 @@ The geocoding route was first registered inside the machine-to-machine sweep blo
 Tasks calls with an OIDC identity — instead of the authenticated block. A browser session would have
 been refused there. Moved beside the georeference resource it serves.
 
-### Not delivered, and it was in the plan
+### Finished in the same session
 
-No HTTP-level suite for `GET /v1/geocoding/address-candidates`. The route is three lines over a use
-case with 26 unit tests behind it, and the container harness every HTTP suite needs cannot run here;
-that is a reason to write it in CI's shape, not a reason it is written. It is a gap, stated as one.
+- [x] HTTP suite for `GET /v1/geocoding/address-candidates` — 6 cases, and they RAN: Docker turned
+      out to be available on this machine, so the suite executed against a real migrated Postgres
+      rather than being written for CI on faith. Making it possible needed the geocoder to become an
+      injected dependency (`addressGeocoder`, defaulting to the real Census adapter), and the test
+      harness now defaults to a geocoder that REFUSES — so no suite can reach census.gov by
+      accident.
+- [x] The first-run prompt on an empty map: trace the lot, with the lot tool started for you.
+      A garden with no location is sent to its Location settings instead, because "trace your lot"
+      with nothing to trace over is advice that cannot be followed. Gone as soon as the garden holds
+      any object, and suppressed while a tool is already drawing.
+- [x] Documentation: `map-rendering-and-editing.md` §3.2 gained the backdrop rules (context, never
+      geometry; the projection belongs to the garden, so switching backdrop cannot move a point) and
+      the first-run guidance.
 
-Evidence: `apps/web` 1181/1181, `services/api` 1677/1677 unit tests, contract 34/34, typecheck and
-lint clean. The imagery and address search have NOT been seen working against a real garden — that
-needs a signed-in session on the deployed environment.
+Evidence: `apps/web` 1184/1184, `services/api` 1677/1677 unit tests plus the new HTTP suite 6/6
+against a container, contract 34/34, typecheck and lint clean.
+
+Still unseen: the imagery and the address search have NOT been exercised against a real garden.
+That needs a signed-in session on the deployed environment, and signing in is the owner's action.

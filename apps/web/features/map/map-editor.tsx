@@ -25,6 +25,7 @@ import { MapObjectList } from './map-object-list';
 import { MapPropertyPanel } from './map-property-panel';
 import { openFreeMapProvider, usgsNaipImageryProvider } from './basemap-provider';
 import { MapBackdropSwitch } from './map-backdrop-switch';
+import { MapEmptyPrompt } from './map-empty-prompt';
 import { MapScaleBadge } from './map-scale-badge';
 import { MapToolbar } from './map-toolbar';
 import { MapWarningsPanel } from './map-warnings-panel';
@@ -161,6 +162,16 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
           )}
           <MapCanvas actions={actions} />
           <MapScaleBadge georeference={mapQuery.data.georeference} />
+          {/* First-run guidance, gone as soon as the garden holds anything.
+              Suppressed while a tool is already drawing: the prompt's own
+              action is what started that, and it must not sit over the shape
+              being traced. */}
+          {mapQuery.data.objects.length === 0 && store.state.tool === 'select' && (
+            <MapEmptyPrompt
+              gardenId={gardenId}
+              georeferenced={mapQuery.data.georeference !== undefined}
+            />
+          )}
           <MapDraftControls actions={actions} />
         </div>
         <aside className={styles['inspector']} aria-label={t('map.inspector.ariaLabel')}>
