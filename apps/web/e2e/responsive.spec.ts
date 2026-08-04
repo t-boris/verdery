@@ -132,32 +132,45 @@ test.describe.serial('responsive layout', () => {
     }
   });
 
-  test('the garden tab bar scrolls sideways instead of wrapping', async ({ page }) => {
+  /*
+   * On a phone the garden rail collapses to icons. The label leaves the
+   * layout but must stay in the accessibility tree: `display: none` on it
+   * left six links with no accessible name at all, which is a rail nobody
+   * using a screen reader can navigate, and which no visual check catches.
+   */
+  test('the collapsed garden rail keeps a column of named icons', async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 780 });
     await signIn(page, garden.email);
     await page.goto(`/application/gardens/${garden.gardenId}/today`);
 
-    const bar = page.locator('nav').filter({ has: page.getByRole('link', { name: 'Today' }) });
-    await expect(bar).toBeVisible();
+    const rail = page.locator('nav').filter({ has: page.getByRole('link', { name: 'Today' }) });
+    await expect(rail).toBeVisible();
 
-    const measurements = await bar.evaluate((element) => {
+    const measurements = await rail.evaluate((element) => {
       const tabs = [...element.querySelectorAll('a')].map((tab) => tab.getBoundingClientRect());
       return {
-        scrollWidth: element.scrollWidth,
-        clientWidth: element.clientWidth,
-        overflowX: getComputedStyle(element).overflowX,
-        distinctTops: new Set(tabs.map((box) => Math.round(box.top))).size,
         tabCount: tabs.length,
+        distinctLefts: new Set(tabs.map((box) => Math.round(box.left))).size,
+        distinctTops: new Set(tabs.map((box) => Math.round(box.top))).size,
+        widestTab: Math.max(...tabs.map((box) => box.width)),
+        viewportWidth: document.documentElement.clientWidth,
       };
     });
 
-    // The six tabs genuinely do not fit 360px — that is the case worth
-    // testing, and it is why the bar must be a scroller.
+    // Every section is reachable, and every one of them announces itself.
+    // The accessible name is computed from the a11y tree, so this is the
+    // assertion that fails the moment a label is hidden with `display: none`
+    // rather than clipped out of the layout.
     expect(measurements.tabCount).toBeGreaterThan(4);
-    expect(measurements.scrollWidth).toBeGreaterThan(measurements.clientWidth);
-    expect(measurements.overflowX).toBe('auto');
-    // One row: wrapping is what turns this bar into an unusable stack.
-    expect(measurements.distinctTops).toBe(1);
+    for (const link of await rail.getByRole('link').all()) {
+      await expect(link).toHaveAccessibleName(/\S/u);
+    }
+
+    // One column of icons: stacked, not spread, and narrow enough that the
+    // rail costs the content almost nothing on a 360px screen.
+    expect(measurements.distinctLefts).toBe(1);
+    expect(measurements.distinctTops).toBe(measurements.tabCount);
+    expect(measurements.widestTab).toBeLessThan(measurements.viewportWidth / 4);
   });
 
   test('the map editor stacks its sidebar below the canvas on a phone', async ({ page }) => {
