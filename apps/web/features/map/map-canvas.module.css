@@ -18,13 +18,23 @@
   font-size: var(--font-size-sm);
 }
 
+/*
+ * TRANSPARENT, deliberately.
+ *
+ * This container is stacked over `map-basemap`'s absolutely-positioned map,
+ * so an opaque fill here hides the backdrop completely — which is exactly
+ * what happened: the aerial imagery was fetched, rendered, and then painted
+ * over by this one declaration, leaving the grid as the only thing visible.
+ * The surface colour lives on `.canvasWrapper` in `map-editor.module.css`,
+ * one level up, so a garden with no backdrop looks exactly as it did.
+ */
 .stageContainer {
   position: relative;
   flex: 1;
   min-height: 320px;
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-lg);
-  background-color: var(--color-surface);
+  background-color: transparent;
   overflow: hidden;
 }
 

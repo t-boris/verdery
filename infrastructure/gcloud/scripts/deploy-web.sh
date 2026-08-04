@@ -65,10 +65,23 @@ service_url="$(gcloud run services describe "${VERDERY_WEB_SERVICE_NAME}" \
 if resource_exists gcloud run services describe "${VERDERY_CLOUD_RUN_SERVICE_NAME}" \
   --project="${VERDERY_PROJECT_ID}" --region="${VERDERY_REGION}"; then
   command -v jq >/dev/null || fail "Required command is not installed: jq"
+  # EVERY origin the browser can reach, not just the preferred one.
+  #
+  # This used to send the custom domain ALONE whenever one was configured,
+  # which quietly half-broke the Cloud Run aliases: they stay reachable and
+  # are what a developer actually opens, but the API refused them. The visible
+  # damage was not CORS on the API — the web proxies `/v1` same-origin, so
+  # nothing there noticed — it was MEDIA UPLOAD. `GcsMediaStorageGateway` binds
+  # a resumable session to the browser origin only when that origin is already
+  # trusted, so an unlisted alias produced sessions with no
+  # `Access-Control-Allow-Origin`, and every upload from it died as an
+  # unexplained "network problem".
+  #
+  # The same rule `sync-web-auth-domains.sh` already applies to Firebase and
+  # reCAPTCHA domains: discover every alias, and add the custom domain to them.
+  desired_api_origins="$(cloud_run_service_origins_csv "${VERDERY_WEB_SERVICE_NAME}")"
   if [[ -n "${VERDERY_WEB_DOMAIN:-}" ]]; then
-    desired_api_origins="https://${VERDERY_WEB_DOMAIN}"
-  else
-    desired_api_origins="$(cloud_run_service_origins_csv "${VERDERY_WEB_SERVICE_NAME}")"
+    desired_api_origins="https://${VERDERY_WEB_DOMAIN},${desired_api_origins}"
   fi
 
   api_description="$(gcloud run services describe "${VERDERY_CLOUD_RUN_SERVICE_NAME}" \

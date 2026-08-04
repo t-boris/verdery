@@ -132,6 +132,13 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
     return <FailureAlert failure={mapQuery.error.failure} />;
   }
 
+  // A backdrop is drawn only when there is BOTH a provider chosen and a
+  // geographic anchor to align it to. The canvas needs the same answer — it
+  // suppresses its grid over a photograph — so it is computed once here
+  // rather than derived twice from two halves of the same condition.
+  const backdropVisible =
+    store.state.backdrop !== 'none' && mapQuery.data.georeference !== undefined;
+
   return (
     <div className={styles['editor']}>
       <StaleIndicator failure={mapQuery.isError ? mapQuery.error.failure : null} />
@@ -151,7 +158,7 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
           />
         </div>
         <div className={styles['canvasWrapper']}>
-          {store.state.backdrop !== 'none' && (
+          {backdropVisible && (
             <MapBasemap
               georeference={mapQuery.data.georeference}
               camera={store.state.camera}
@@ -160,7 +167,7 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
               }
             />
           )}
-          <MapCanvas actions={actions} />
+          <MapCanvas actions={actions} backdropVisible={backdropVisible} />
           <MapScaleBadge georeference={mapQuery.data.georeference} />
           {/* First-run guidance, gone as soon as the garden holds anything.
               Suppressed while a tool is already drawing: the prompt's own

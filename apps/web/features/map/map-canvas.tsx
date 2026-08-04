@@ -72,6 +72,11 @@ function isEditableElement(target: EventTarget | null): boolean {
 
 export interface MapCanvasProps {
   readonly actions: MapEditorActions;
+  /**
+   * `true` when a provider backdrop is actually being drawn behind this
+   * stage. The grid is suppressed then — see the render below.
+   */
+  readonly backdropVisible?: boolean;
 }
 
 /**
@@ -91,7 +96,7 @@ export interface MapCanvasProps {
  * Client-only (touches `window`/`document` through Konva) — always loaded via
  * `next/dynamic(..., { ssr: false })` from `map-editor.tsx`.
  */
-export function MapCanvas({ actions }: MapCanvasProps) {
+export function MapCanvas({ actions, backdropVisible = false }: MapCanvasProps) {
   const { t, locale } = useLocalization();
   const store = useMapEditorStore();
 
@@ -397,7 +402,14 @@ export function MapCanvas({ actions }: MapCanvasProps) {
             onWheel={handleWheel}
           >
             <Layer>
-              <CanvasGrid size={size} stroke={palette.grid} />
+              {/*
+                Chrome for an empty canvas, and nothing more: the grid exists
+                so a garden with no objects is not a blank rectangle. Over an
+                aerial photograph it is a lattice across the very thing being
+                traced, so a visible backdrop replaces it — which is also what
+                the grid's own note means by "a visible ground".
+              */}
+              {!backdropVisible && <CanvasGrid size={size} stroke={palette.grid} />}
               {visibleBackgrounds.map((record) => (
                 <BackgroundImageShape
                   key={`background-${record.id}`}

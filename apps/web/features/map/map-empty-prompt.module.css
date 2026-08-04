@@ -31,8 +31,21 @@
   font-size: var(--font-size-sm);
 }
 
+/*
+ * A full control, not a line of text: this is the prompt's only action, and
+ * `e2e/responsive.spec.ts` measures every link on the page against
+ * `--control-min-size`. It was 19.5px — a sentence pretending to be a button.
+ */
 .link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: var(--control-min-size);
+  padding: var(--space-2) var(--space-4);
+  border: var(--border-width) solid var(--color-control-border);
+  border-radius: var(--radius-md);
   color: var(--color-accent);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
+  text-decoration: none;
 }
