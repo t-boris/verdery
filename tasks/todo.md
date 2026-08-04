@@ -9391,3 +9391,16 @@ against a container, contract 34/34, typecheck and lint clean.
 
 Still unseen: the imagery and the address search have NOT been exercised against a real garden.
 That needs a signed-in session on the deployed environment, and signing in is the owner's action.
+
+### CI caught what this session's own checks did not
+
+The first push of the address search left the endpoint OUT of the bundled contract: the edit that
+was supposed to register `./paths/geocoding/address-candidates.yaml` in `root.yaml` silently matched
+nothing, because prettier had reflowed the anchor line between one edit and the next. `redocly lint`
+was happy — an unreferenced path file is not invalid — and so was every runtime test, since Fastify
+registers the route regardless of what the contract says.
+
+`contract.test.ts`'s "bundles every path item the tree defines" is the test that exists for exactly
+this, and it failed in CI on the first run. The lesson is not about YAML: after a string-replace
+edit, the check is whether the FILE now says what was intended, not whether the command reported
+success.

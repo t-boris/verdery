@@ -930,6 +930,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/geocoding/address-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Find candidate positions for an address
+         * @description Looks up where an address is, so a garden can be placed on the Earth
+         *     without typing coordinates. The result is a suggestion: a person picks a
+         *     candidate, and what persists is the georeference anchor they accept
+         *     through `setGardenGeoreference`.
+         *
+         *     Nothing from the provider is stored. That is the decision this operation
+         *     is built on (2026-08-04) and the reason it can use a provider whose data
+         *     may not be retained.
+         *
+         *     United States addresses only, following the product's first market
+         *     (ADR-0007). An address elsewhere returns no candidates, which is a real
+         *     answer rather than a failure.
+         *
+         *     `providerAvailable: false` distinguishes "we could not ask" from "nothing
+         *     matched" — an empty list with the provider available means the address
+         *     does not exist, and the interface must not present those two as the same
+         *     thing.
+         *
+         *     Requires an authenticated caller but no garden capability: this reads no
+         *     garden and touches no garden state.
+         *
+         *     Source: implementation-plan.md work package P12-GEO-01;
+         *     architecture/external-integrations.md, section "3. Adapter Contract".
+         */
+        get: operations["findAddressCandidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/gardens/{gardenId}/context": {
         parameters: {
             query?: never;
@@ -9254,6 +9296,31 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    findAddressCandidates: {
+        parameters: {
+            query: {
+                /** @description A free-form address, 3 to 200 characters. */
+                query: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Candidate positions, or an empty list. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddressCandidateListResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
         };
     };
     listGardenContextFacts: {

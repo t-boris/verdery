@@ -1512,6 +1512,56 @@ paths:
           $ref: '#/components/responses/Conflict'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
+  /geocoding/address-candidates:
+    get:
+      operationId: findAddressCandidates
+      tags:
+        - Map
+      summary: Find candidate positions for an address
+      description: |
+        Looks up where an address is, so a garden can be placed on the Earth
+        without typing coordinates. The result is a suggestion: a person picks a
+        candidate, and what persists is the georeference anchor they accept
+        through `setGardenGeoreference`.
+
+        Nothing from the provider is stored. That is the decision this operation
+        is built on (2026-08-04) and the reason it can use a provider whose data
+        may not be retained.
+
+        United States addresses only, following the product's first market
+        (ADR-0007). An address elsewhere returns no candidates, which is a real
+        answer rather than a failure.
+
+        `providerAvailable: false` distinguishes "we could not ask" from "nothing
+        matched" — an empty list with the provider available means the address
+        does not exist, and the interface must not present those two as the same
+        thing.
+
+        Requires an authenticated caller but no garden capability: this reads no
+        garden and touches no garden state.
+
+        Source: implementation-plan.md work package P12-GEO-01;
+        architecture/external-integrations.md, section "3. Adapter Contract".
+      parameters:
+        - name: query
+          in: query
+          required: true
+          description: A free-form address, 3 to 200 characters.
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 200
+      responses:
+        '200':
+          description: Candidate positions, or an empty list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddressCandidateListResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /gardens/{gardenId}/context:
     parameters:
       - name: gardenId
