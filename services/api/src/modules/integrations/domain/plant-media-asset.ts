@@ -69,6 +69,14 @@ const PLANT_MEDIA_LICENSES: readonly PlantMediaLicense[] = [
 
 export type PlantMediaIngestionState = 'discovered' | 'rejected' | 'ingested';
 
+/** Why an asset is not presentable — see `presentationIneligibility`. */
+export type PlantMediaIneligibility =
+  | 'non_commercial'
+  | 'share_alike_pending_compliance_design'
+  | 'license_unknown'
+  | 'withdrawn'
+  | 'rights_holder_absent';
+
 /** ADR-0016's frozen allowlist. `cc_by_sa` is deliberately absent — it needs an approved compliance design before eligibility, not a blanket yes or no. */
 const PRESENTATION_ELIGIBLE_LICENSES: ReadonlySet<PlantMediaLicense> = new Set([
   'public_domain',
@@ -78,6 +86,85 @@ const PRESENTATION_ELIGIBLE_LICENSES: ReadonlySet<PlantMediaLicense> = new Set([
 
 export function isLicenseEligibleForPresentation(license: PlantMediaLicense): boolean {
   return PRESENTATION_ELIGIBLE_LICENSES.has(license);
+}
+
+/**
+ * Why an asset may not be presented, or `null` when it may be.
+ *
+ * Refines `isLicenseEligibleForPresentation` with the condition that
+ * function cannot see: CC-BY grants use ON CONDITION of attribution, so an
+ * asset licensed CC-BY with no readable rights holder may not be shown
+ * either — displaying an image this application cannot credit would breach
+ * the licence that permitted it.
+ *
+ * The reason is typed rather than collapsed into one "no" because the
+ * responses differ: `share_alike_pending_compliance_design` is expected to
+ * reverse once that design exists, `non_commercial` never will, and
+ * `license_unknown` says to go back to the source.
+ */
+export function presentationIneligibility(
+  license: PlantMediaLicense,
+  rightsHolder: string | null,
+): PlantMediaIneligibility | null {
+  if (license === 'cc_by_nc') {
+    return 'non_commercial';
+  }
+  if (license === 'cc_by_sa') {
+    return 'share_alike_pending_compliance_design';
+  }
+  if (license === 'withdrawn') {
+    return 'withdrawn';
+  }
+  if (!isLicenseEligibleForPresentation(license)) {
+    return 'license_unknown';
+  }
+  if (license === 'cc_by' && (rightsHolder === null || rightsHolder.trim() === '')) {
+    return 'rights_holder_absent';
+  }
+  return null;
+}
+
+/**
+ * A provider's own licence string mapped onto this vocabulary.
+ *
+ * `createPlantMediaAsset` requires a value already in the vocabulary; this
+ * is what turns GBIF's `http://creativecommons.org/licenses/by-nc/4.0/`
+ * into one. Anything unrecognised becomes `unknown`, which is stored
+ * honestly and then found ineligible above — never silently dropped, so
+ * "how many assets did we refuse, and why" stays answerable.
+ */
+export function parseProviderLicense(rawLicense: string | null | undefined): PlantMediaLicense {
+  if (typeof rawLicense !== 'string' || rawLicense.trim() === '') {
+    return 'unknown';
+  }
+
+  const normalized = rawLicense
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/^www\./, '')
+    .replace(/\/+$/, '');
+
+  // Order matters: `by-nc-sa` carries both conditions, and the stricter one
+  // decides — reading it as ShareAlike would file the refusal under a reason
+  // that is expected to reverse.
+  if (normalized.includes('/by-nc') || normalized.startsWith('cc-by-nc')) {
+    return 'cc_by_nc';
+  }
+  if (normalized.includes('/by-sa') || normalized.startsWith('cc-by-sa')) {
+    return 'cc_by_sa';
+  }
+  if (normalized.includes('publicdomain/zero') || normalized.startsWith('cc0')) {
+    return 'cc0';
+  }
+  if (normalized.includes('publicdomain/mark') || normalized === 'public-domain') {
+    return 'public_domain';
+  }
+  if (normalized.includes('/licenses/by/') || normalized.startsWith('cc-by')) {
+    return 'cc_by';
+  }
+
+  return 'unknown';
 }
 
 export interface PlantMediaAsset {

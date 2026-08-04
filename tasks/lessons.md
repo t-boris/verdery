@@ -242,3 +242,28 @@ commercial-media allowlist I was about to invent is already stated verbatim in
 `architecture/plant-intelligence-and-visual-journal.md` section 7, including
 the CC-BY-SA carve-out I would have missed. Search the design docs for the
 policy before designing it.
+
+## I wrote a second home for a rule that already had one — twice in one hour
+
+After the `plant_media_asset` TABLE turned out to already exist, I wrote
+`plant-media-licence.ts` holding the commercial-media allowlist. The allowlist
+was already implemented, in `domain/plant-media-asset.ts`, as
+`isLicenseEligibleForPresentation` — same three licences, same CC-BY-SA
+carve-out, same reasoning in the comment. I committed the duplicate.
+
+Then, reaching for the next piece, I ran `cat > plant-media-asset.ts` and
+overwrote that existing module outright. Only the typechecker's complaint
+about a missing export revealed it; `git checkout` restored it.
+
+Both mistakes have one cause: I searched for the THING I was about to build
+(a table named `plant_media_asset`) but not for the RULE it would enforce, and
+then wrote files without checking whether the path was occupied.
+
+**Rule:** before adding a domain rule, grep for its vocabulary, not its
+filename — `grep -rn "cc_by\|allowlist\|eligib" <module>/domain`. A rule with
+a home already has tests, and duplicating it means two answers to one
+question.
+
+**Rule:** never create a file with `cat >` or `Write` without confirming the
+path is free. `ls` the directory first. An overwrite leaves no trace in the
+editor and only fails later, somewhere else.
