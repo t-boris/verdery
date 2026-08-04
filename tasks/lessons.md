@@ -329,3 +329,40 @@ timer mock's own (`vi.advanceTimersByTimeAsync`). Reaching for `setImmediate`,
 The original helper returned silently after twenty flushes, so the failure
 surfaced as an assertion about the wrong phase — which reads as a product bug
 and sends you looking in the wrong place.
+
+## A limit the provider owns is a decision the caller has to make
+
+Species identification sent Vertex AI whatever the phone produced. A 30.79 MiB
+original came back as a bare `400 INVALID_ARGUMENT`, which the use case mapped
+to `providerFailed`, and the person read as "no species found" on a plant with
+no picture. Three separate mistakes wearing one symptom: analysing the original
+when a smaller derivative of the same picture existed, spending quota on a call
+whose failure was knowable in advance, and a UI promising identification while
+creating the record before anything could be identified.
+
+**Rule:** when an adapter has a documented input limit, the limit belongs above
+the adapter — in the contract package, so both sides use one number — and the
+caller refuses before the call rather than translating the provider's refusal
+afterwards. `providerFailed` means the provider broke; a photo that is too big
+is not a broken provider, and only one of those has a remedy a person can act on.
+
+**Rule:** a test fixture that forces a row into a state the real command never
+produces (here: `upload_state = 'available'` with no bucket or object key) hides
+exactly the defect the code should refuse. The old code carried it with an
+`as string` cast; the cast was the tell.
+
+## `display: none` deletes a label from the accessibility tree
+
+The garden rail collapses to icons on a phone, and the labels were hidden with
+`display: none` — which removes them for screen readers too, leaving six links
+announced as nothing. The E2E test that would have caught it had been silently
+skipped for weeks: an earlier failure in the same serial block took it with it,
+and a skipped test reads as a passing one in the summary line.
+
+**Rule:** hiding a control's text visually is `clip-path`, never `display: none`.
+If the name should be gone visually but present to assistive technology, the
+project already has `visually-hidden.module.css`; copy its declarations when
+`composes` cannot cross a media query.
+
+**Rule:** read the skip count, not just the failure count. `1 failed, 6 skipped`
+means seven tests told you nothing.

@@ -9426,3 +9426,34 @@ is exactly why the domain was not the thing that broke.
 
 Covered twice over: the parser test asserts every contract method, and the
 HTTP suite writes a georeference with each of the six against a real database.
+
+## Stage 2.2 — photographs that identify, and a rail that speaks (2026-08-04)
+
+Three reports from the deployed app, each traced to its own cause:
+
+- [x] **Upload blocked by CORS from the Cloud Run origin.** `deploy-web.sh`
+      taught the bucket only the custom domain; the service answers on both.
+      It now passes the union of origins.
+- [x] **"Unidentified candidate", no picture.** The 30.79 MiB original was
+      refused by Vertex AI. Identification now reads the largest stored object
+      under the provider's limit (`pickAnalysisSource`), refuses oversized ones
+      before spending quota (`photoTooLarge`), and the web panels wait for the
+      derivative — only when the original is one the provider would refuse.
+- [x] **The lot could not be traced over the imagery.** The Konva stage's
+      container painted an opaque surface over the rendered map, and the grid
+      drew above it. Both fixed, with an E2E spec that opens a located garden
+      and asserts the backdrop is visible and the stage transparent.
+
+Found while verifying, not reported:
+
+- [x] The collapsed garden rail hid its labels with `display: none`, leaving six
+      links with no accessible name. Clipped instead. The responsive spec that
+      should have caught it was describing the horizontal tab bar this rail
+      replaced, and had been skipped by an earlier failure in its serial block.
+- [x] `pnpm check:all` failed locally on generated design-sync output that CI
+      never sees. Both directories are ignored by the repo's own checks now.
+
+Still open, deliberately: the `photoTooLarge` reason is not surfaced to the
+person. With the derivative wait in place it is reachable only when processing
+itself failed, and showing it means carrying an identification outcome through
+a contract that currently returns only the created record.
