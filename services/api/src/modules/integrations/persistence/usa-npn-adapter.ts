@@ -40,6 +40,7 @@ import { DependencyUnavailableError } from '../../../platform/errors/application
 import type { Clock } from '../../../shared/time/clock.js';
 import type {
   NormalizedDistributionCandidate,
+  NormalizedMediaCandidate,
   NormalizedFactCandidate,
   PlantAssertionProviderAdapter,
   ProviderTaxonCandidate,
@@ -150,6 +151,14 @@ export class UsaNpnAdapter implements PlantAssertionProviderAdapter {
     _providerTaxonId: string,
     _signal: AbortSignal,
   ): Promise<readonly NormalizedDistributionCandidate[]> {
+    return Promise.resolve([]);
+  }
+
+  /** Always empty — USA-NPN publishes phenology observations, not imagery. */
+  fetchMedia(
+    _providerTaxonId: string,
+    _signal: AbortSignal,
+  ): Promise<readonly NormalizedMediaCandidate[]> {
     return Promise.resolve([]);
   }
 }

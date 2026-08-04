@@ -210,4 +210,88 @@ describe('GbifAdapter', () => {
       adapter.searchTaxa({ scientificName: 'Quercus alba', commonName: null }, signal),
     ).rejects.toMatchObject({ code: 'integrations.gbif.request_failed' });
   });
+  it('reads a licence per media entry, keeping the unusable ones as facts', async () => {
+    // The case this whole pass exists for: one GBIF response mixes CC0,
+    // CC-BY and CC-BY-NC. Dropping the unusable entries here would erase the
+    // difference between "no photographs exist" and "every photograph is
+    // unusable".
+    const adapter = new GbifAdapter(
+      scriptedFetch([
+        {
+          match: 'occurrence/search',
+          body: {
+            results: [
+              {
+                key: 8811,
+                media: [
+                  {
+                    type: 'StillImage',
+                    identifier: 'https://example.org/a.jpg',
+                    license: 'http://creativecommons.org/publicdomain/zero/1.0/',
+                    creator: 'A. Botanist',
+                  },
+                  {
+                    type: 'StillImage',
+                    identifier: 'https://example.org/b.jpg',
+                    license: 'http://creativecommons.org/licenses/by-nc/4.0/',
+                    rightsHolder: 'Someone Else',
+                  },
+                  // No licence at all: kept, recorded as unknown, refused later.
+                  { type: 'StillImage', identifier: 'https://example.org/c.jpg' },
+                ],
+              },
+            ],
+          },
+        },
+      ]).httpFetch,
+    );
+
+    const media = await adapter.fetchMedia('8811', new AbortController().signal);
+
+    expect(media.map((entry) => entry.rawLicence)).toEqual([
+      'http://creativecommons.org/publicdomain/zero/1.0/',
+      'http://creativecommons.org/licenses/by-nc/4.0/',
+      null,
+    ]);
+    expect(media[0]?.providerAssetId).toBe('8811:0');
+  });
+
+  it('skips entries with nothing showable: no URL, a non-image, or an insecure URL', async () => {
+    const adapter = new GbifAdapter(
+      scriptedFetch([
+        {
+          match: 'occurrence/search',
+          body: {
+            results: [
+              {
+                key: 8811,
+                media: [
+                  { type: 'Sound', identifier: 'https://example.org/song.mp3' },
+                  { type: 'StillImage', license: 'CC0' },
+                  { type: 'StillImage', identifier: 'http://example.org/insecure.jpg' },
+                  {
+                    type: 'StillImage',
+                    identifier: 'https://example.org/good.jpg',
+                    license: 'CC0',
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      ]).httpFetch,
+    );
+
+    const media = await adapter.fetchMedia('8811', new AbortController().signal);
+
+    expect(media.map((entry) => entry.sourceUrl)).toEqual(['https://example.org/good.jpg']);
+  });
+
+  it('answers empty when the taxon has no media, rather than failing', async () => {
+    const adapter = new GbifAdapter(
+      scriptedFetch([{ match: 'occurrence/search', body: { results: [] } }]).httpFetch,
+    );
+
+    await expect(adapter.fetchMedia('8811', new AbortController().signal)).resolves.toEqual([]);
+  });
 });

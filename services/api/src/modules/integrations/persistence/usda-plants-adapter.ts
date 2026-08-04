@@ -40,6 +40,7 @@
 import { DependencyUnavailableError } from '../../../platform/errors/application-error.js';
 import type {
   NormalizedDistributionCandidate,
+  NormalizedMediaCandidate,
   NormalizedFactCandidate,
   PlantAssertionProviderAdapter,
   ProviderTaxonCandidate,
@@ -197,5 +198,13 @@ export class UsdaPlantsAdapter implements PlantAssertionProviderAdapter {
       ...parseUsdaPlantsNoxiousStatuses(noxiousBody),
       ...parseUsdaPlantsInvasiveStatuses(invasiveBody),
     ];
+  }
+
+  /** Always empty — USDA PLANTS' image library is not exposed by the API this adapter reads. */
+  fetchMedia(
+    _providerTaxonId: string,
+    _signal: AbortSignal,
+  ): Promise<readonly NormalizedMediaCandidate[]> {
+    return Promise.resolve([]);
   }
 }

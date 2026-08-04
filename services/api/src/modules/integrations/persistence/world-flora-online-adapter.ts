@@ -24,6 +24,7 @@
 import { DependencyUnavailableError } from '../../../platform/errors/application-error.js';
 import type {
   NormalizedDistributionCandidate,
+  NormalizedMediaCandidate,
   NormalizedFactCandidate,
   PlantAssertionProviderAdapter,
   ProviderTaxonCandidate,
@@ -99,6 +100,14 @@ export class WorldFloraOnlineAdapter implements PlantAssertionProviderAdapter {
     _providerTaxonId: string,
     _signal: AbortSignal,
   ): Promise<readonly NormalizedDistributionCandidate[]> {
+    return Promise.resolve([]);
+  }
+
+  /** Always empty — World Flora Online is a nomenclatural source and publishes no imagery. */
+  fetchMedia(
+    _providerTaxonId: string,
+    _signal: AbortSignal,
+  ): Promise<readonly NormalizedMediaCandidate[]> {
     return Promise.resolve([]);
   }
 }

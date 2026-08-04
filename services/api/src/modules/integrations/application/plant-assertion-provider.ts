@@ -70,6 +70,24 @@ export interface NormalizedDistributionCandidate {
   readonly confidence: number | null;
 }
 
+/**
+ * One image a provider offers for a taxon, as the adapter reports it.
+ *
+ * `rawLicence` is the provider's own string, NOT a decision: a GBIF response
+ * mixes CC0, CC-BY and CC-BY-NC within one result set, and every value is
+ * recorded — including the ones this product may not show — so that a
+ * refusal stays a fact the system knows. `plant-media-licence.ts` maps and
+ * judges it; this shape only transports what the source claimed.
+ */
+export interface NormalizedMediaCandidate {
+  readonly providerAssetId: string;
+  readonly sourceUrl: string;
+  readonly rawLicence: string | null;
+  readonly rightsHolder: string | null;
+  readonly creator: string | null;
+  readonly observedAt: Date | null;
+}
+
 export interface PlantAssertionProviderAdapter {
   /**
    * Searches the provider's taxonomy for candidates matching an application
@@ -103,4 +121,18 @@ export interface PlantAssertionProviderAdapter {
     providerTaxonId: string,
     signal: AbortSignal,
   ): Promise<readonly NormalizedDistributionCandidate[]>;
+
+  /**
+   * Fetches the reference images the provider offers for one of its own
+   * taxon identifiers — what the species LOOKS like, as distinct from a
+   * gardener's photographs of their own plant.
+   *
+   * Same empty-array-is-honest-degradation and deadline/failure semantics as
+   * `fetchFacts`. A provider with no imagery returns an empty array; that is
+   * the answer, not a gap to fill from somewhere else.
+   */
+  fetchMedia(
+    providerTaxonId: string,
+    signal: AbortSignal,
+  ): Promise<readonly NormalizedMediaCandidate[]>;
 }

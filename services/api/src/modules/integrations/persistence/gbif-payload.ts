@@ -42,6 +42,7 @@ import { z } from 'zod';
 import { DependencyUnavailableError } from '../../../platform/errors/application-error.js';
 import type {
   NormalizedFactCandidate,
+  NormalizedMediaCandidate,
   ProviderTaxonCandidate,
 } from '../application/plant-assertion-provider.js';
 
@@ -132,4 +133,94 @@ export function parseGbifOccurrenceFacetPayload(body: unknown): readonly Normali
     });
   }
   return facts;
+}
+
+/**
+ * One GBIF occurrence's media entries.
+ *
+ * `identifier` is the image URL and `references` the record page; only the
+ * former is stored. `license`, `rightsHolder` and `creator` are read PER
+ * MEDIA ENTRY — this is the pass this file's own header warned about, where
+ * reading a licence once for the response would be wrong.
+ */
+const gbifMediaEntrySchema = z.object({
+  type: z.string().optional(),
+  identifier: z.string().optional(),
+  license: z.string().optional(),
+  rightsHolder: z.string().optional(),
+  creator: z.string().optional(),
+  created: z.string().optional(),
+});
+
+const gbifOccurrenceMediaSchema = z.object({
+  results: z
+    .array(
+      z.object({
+        key: z.union([z.number(), z.string()]).optional(),
+        media: z.array(gbifMediaEntrySchema).optional(),
+      }),
+    )
+    .optional(),
+});
+
+function trimmedOrNull(value: string | undefined): string | null {
+  const trimmed = value?.trim() ?? '';
+  return trimmed === '' ? null : trimmed;
+}
+
+/**
+ * Still images from an occurrence-search response, one candidate per media
+ * entry.
+ *
+ * Entries with no usable URL are dropped — there is nothing to show or
+ * ingest — but an entry with a URL and NO licence is kept, because
+ * `plant-media-licence.ts` records it as `unknown` and refuses it there.
+ * Dropping it here would erase the fact that an unusable image exists,
+ * which is the difference between "the provider has no photographs" and
+ * "the provider's photographs are all unusable".
+ *
+ * Only `StillImage` is taken: sound and video are outside what a plant
+ * profile shows.
+ */
+export function parseGbifOccurrenceMediaPayload(
+  body: unknown,
+): readonly NormalizedMediaCandidate[] {
+  const parsed = gbifOccurrenceMediaSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new DependencyUnavailableError(
+      'gbif',
+      'GBIF returned an occurrence-media payload this adapter does not recognize.',
+    );
+  }
+
+  const candidates: NormalizedMediaCandidate[] = [];
+  for (const record of parsed.data.results ?? []) {
+    const occurrenceKey = record.key === undefined ? null : String(record.key);
+    for (const [index, entry] of (record.media ?? []).entries()) {
+      if (entry.type !== undefined && entry.type !== 'StillImage') {
+        continue;
+      }
+      const sourceUrl = trimmedOrNull(entry.identifier);
+      if (sourceUrl === null || !sourceUrl.startsWith('https://')) {
+        // Nothing to ingest, and an http:// image cannot be shown from an
+        // https page anyway.
+        continue;
+      }
+
+      const observedAt = entry.created === undefined ? null : new Date(entry.created);
+      candidates.push({
+        // GBIF gives media entries no identifier of their own, so the
+        // occurrence key plus position within it is the stable one — stable
+        // enough for the refetch idempotency the storage layer needs.
+        providerAssetId: occurrenceKey === null ? sourceUrl : `${occurrenceKey}:${String(index)}`,
+        sourceUrl,
+        rawLicence: trimmedOrNull(entry.license),
+        rightsHolder: trimmedOrNull(entry.rightsHolder),
+        creator: trimmedOrNull(entry.creator),
+        observedAt: observedAt === null || Number.isNaN(observedAt.getTime()) ? null : observedAt,
+      });
+    }
+  }
+
+  return candidates;
 }

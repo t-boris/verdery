@@ -14,6 +14,7 @@ import type { PlantFactAssertionRepository } from './plant-fact-assertion-reposi
 import type {
   NormalizedDistributionCandidate,
   NormalizedFactCandidate,
+  NormalizedMediaCandidate,
   PlantAssertionProviderAdapter,
   ProviderTaxonCandidate,
   TaxonomyIdentityQuery,
@@ -113,6 +114,30 @@ export class FakePlantAssertionProviderAdapter implements PlantAssertionProvider
     this.distributionCallCount += 1;
     this.lastDistributionProviderTaxonId = providerTaxonId;
     const behavior = this.distributionBehavior;
+    switch (behavior.kind) {
+      case 'succeed':
+        return Promise.resolve(behavior.value);
+      case 'fail':
+        return Promise.reject(toError(behavior.error));
+      case 'hang':
+        return hang(signal);
+    }
+  }
+
+  mediaBehavior: FakeAssertionFetchBehavior<NormalizedMediaCandidate> = {
+    kind: 'succeed',
+    value: [],
+  };
+  mediaCallCount = 0;
+  lastMediaProviderTaxonId: string | null = null;
+
+  fetchMedia(
+    providerTaxonId: string,
+    signal: AbortSignal,
+  ): Promise<readonly NormalizedMediaCandidate[]> {
+    this.mediaCallCount += 1;
+    this.lastMediaProviderTaxonId = providerTaxonId;
+    const behavior = this.mediaBehavior;
     switch (behavior.kind) {
       case 'succeed':
         return Promise.resolve(behavior.value);

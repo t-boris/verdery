@@ -26,12 +26,17 @@
 import { DependencyUnavailableError } from '../../../platform/errors/application-error.js';
 import type {
   NormalizedDistributionCandidate,
+  NormalizedMediaCandidate,
   NormalizedFactCandidate,
   PlantAssertionProviderAdapter,
   ProviderTaxonCandidate,
   TaxonomyIdentityQuery,
 } from '../application/plant-assertion-provider.js';
-import { parseGbifOccurrenceFacetPayload, parseGbifSpeciesMatchPayload } from './gbif-payload.js';
+import {
+  parseGbifOccurrenceFacetPayload,
+  parseGbifOccurrenceMediaPayload,
+  parseGbifSpeciesMatchPayload,
+} from './gbif-payload.js';
 
 export const GBIF_BASE_URL = 'https://api.gbif.org';
 const SPECIES_MATCH_PATH = '/v1/species/match';
@@ -39,6 +44,17 @@ const OCCURRENCE_SEARCH_PATH = '/v1/occurrence/search';
 
 /** How many top states/provinces to request per fetchFacts call — comfortably above the ~56 US states/territories GBIF's own vocabulary distinguishes. */
 const STATE_PROVINCE_FACET_LIMIT = 60;
+
+/**
+ * Occurrence records read per media fetch.
+ *
+ * A profile shows a handful of reference images, and each record can carry
+ * several; twenty is generous for that and small enough that one taxon's
+ * enrichment cannot pull thousands of records from a shared public API. The
+ * usable subset is smaller still, since a mixed result set is exactly what
+ * the licence rule filters.
+ */
+const MEDIA_RECORD_LIMIT = 20;
 
 /** The response slice this adapter reads. A real `Response` is assignable. */
 export interface GbifHttpResponse {
@@ -113,6 +129,21 @@ export class GbifAdapter implements PlantAssertionProviderAdapter {
     url.searchParams.set('limit', '0');
     const body = await getJson(this.httpFetch, url.toString(), signal);
     return parseGbifOccurrenceFacetPayload(body);
+  }
+
+  async fetchMedia(
+    providerTaxonId: string,
+    signal: AbortSignal,
+  ): Promise<readonly NormalizedMediaCandidate[]> {
+    const url = new URL(OCCURRENCE_SEARCH_PATH, GBIF_BASE_URL);
+    url.searchParams.set('taxonKey', providerTaxonId);
+    // Unlike `fetchFacts`, this DOES read individual records — so every
+    // media entry's own `license` is read per entry, exactly as this file's
+    // payload header requires of any pass that stops using facet counts.
+    url.searchParams.set('mediaType', 'StillImage');
+    url.searchParams.set('limit', String(MEDIA_RECORD_LIMIT));
+    const body = await getJson(this.httpFetch, url.toString(), signal);
+    return parseGbifOccurrenceMediaPayload(body);
   }
 
   /** Always empty — see this file's own header on ADR-0016's "never used to infer garden suitability directly". */
