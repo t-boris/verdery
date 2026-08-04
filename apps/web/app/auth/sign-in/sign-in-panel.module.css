@@ -4,6 +4,32 @@
   gap: var(--space-3);
 }
 
+/*
+ * The one screen where a button IS the width of its container.
+ *
+ * `shared/ui/button.module.css` sets `align-self: start` on purpose, so a
+ * submit never becomes a full-width slab inside an ordinary column form —
+ * see its own comment. An authentication card is the exception that rule
+ * needs: three actions stacked with nothing beside them, whose ragged
+ * content widths ("Continue with Apple" against "Send me a sign-in link")
+ * read as a misaligned column rather than as compact controls.
+ */
+.panel > button,
+.emailForm > button {
+  align-self: stretch;
+}
+
+/*
+ * A provider mark is not our iconography, so the accent tint the secondary
+ * variant applies to icons (`shared/ui/button.module.css`) must not reach it:
+ * Apple's mark is black or white by its owner's guidelines, and an orange
+ * apple is simply the wrong logo. Google's own paths carry fixed fills and
+ * ignore this either way.
+ */
+.panel > button svg {
+  --button-icon-color: currentcolor;
+}
+
 .divider {
   display: flex;
   align-items: center;

@@ -21,6 +21,7 @@ import {
 import { useLocalization } from '@/shared/localization/public';
 import { Alert, Button, TextField } from '@/shared/ui/public';
 
+import { AppleMark, GoogleMark } from './provider-marks';
 import styles from './sign-in-panel.module.css';
 
 const emailSchema = z.object({ email: z.email() });
@@ -102,7 +103,13 @@ export function SignInPanel() {
         <Alert tone="info" title={t('auth.sessionExpired')} />
       )}
 
-      <Button variant="primary" busy={googlePending} onClick={() => void onGoogleSignIn()}>
+      {/* Both providers use the neutral surface rather than the accent one:
+          a brand mark sits on a neutral chip by its owner's own guidelines,
+          and two identical buttons let the marks — not the colour — say
+          which is which. The accent is spent on the email action below, the
+          only one this product owns. */}
+      <Button variant="secondary" busy={googlePending} onClick={() => void onGoogleSignIn()}>
+        <GoogleMark />
         {t('auth.signInWithGoogle')}
       </Button>
       {googleError !== null && (
@@ -112,6 +119,7 @@ export function SignInPanel() {
       )}
 
       <Button variant="secondary" busy={applePending} onClick={() => void onAppleSignIn()}>
+        <AppleMark />
         {t('auth.signInWithApple')}
       </Button>
       {appleError !== null && (
@@ -141,7 +149,7 @@ export function SignInPanel() {
             error={formState.errors.email === undefined ? undefined : t('auth.emailInvalid')}
             {...register('email')}
           />
-          <Button type="submit" variant="secondary" busy={formState.isSubmitting}>
+          <Button type="submit" variant="primary" busy={formState.isSubmitting}>
             {t('auth.emailSubmit')}
           </Button>
           {emailError !== null && (

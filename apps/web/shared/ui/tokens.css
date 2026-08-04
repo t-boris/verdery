@@ -6,8 +6,10 @@
  * nowhere else.
  *
  * The design language is "Kern": achromatic warm paper, one orange signal
- * colour, square geometry, hairlines instead of shadows, and two self-hosted
- * families (Archivo, IBM Plex Mono). Light and dark palettes are chosen so
+ * colour, hairlines rather than heavy elevation, and two self-hosted families
+ * (Archivo, IBM Plex Mono). Its original square geometry and its largest two
+ * type steps were softened on 2026-08-04 — see the radii and type blocks
+ * below for what changed and why. Light and dark palettes are chosen so
  * that body text, muted text, and text on a filled control all clear the WCAG
  * AA contrast ratio, and so that state is never carried by colour alone —
  * `--color-positive` stays green precisely because the orange is the
@@ -54,9 +56,9 @@
    * `--color-surface`; see `shared/ui/contrast.test.ts`, which fails if
    * either drops below 3:1 on any surface a control is ever placed on.
    *
-   * Kern leans on this token harder than the previous direction did: with
-   * `--shadow-xs/sm` now `none`, this hairline is the ENTIRE affordance of a
-   * button, input, or select — there is no elevation left to help.
+   * Kern leans on this token harder than the previous direction did: the
+   * elevation below it is at the edge of visible by design, so this hairline
+   * is effectively the whole affordance of a button, input, or select.
    */
   --color-control-border: #6f6f61;
 
@@ -95,16 +97,22 @@
   --space-8: 4rem;
 
   /*
-   * Radii. Kern is square, so every rectangular radius is 0 — the names are
-   * kept so no component has to change, and so a future direction can restore
-   * curvature here alone. `--radius-pill` survives with a real value for the
-   * one element whose shape carries meaning rather than style: the progress
-   * bar's track and fill.
+   * Radii.
+   *
+   * Kern set every rectangular radius to 0 and left a note that "a future
+   * direction can restore curvature here alone". This is that change, made on
+   * the owner's own reading of the running product: square corners on every
+   * input, button, panel, and card read as hard rather than precise, and the
+   * effect compounds — a page is a dozen sharp rectangles, not one.
+   *
+   * The steps stay small on purpose. This is softening, not a pill-shaped
+   * interface: a control reads as a control at 6px, and the grid Kern is
+   * built on survives it.
    */
-  --radius-sm: 0;
-  --radius-md: 0;
-  --radius-lg: 0;
-  --radius-xl: 0;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
   --radius-pill: 999px;
 
   /*
@@ -126,20 +134,37 @@
   --font-family-display: var(--font-family-sans);
   --font-family-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
-  --font-size-xs: 0.75rem;
-  --font-size-sm: 0.875rem;
-  --font-size-md: 1rem;
-  --font-size-lg: 1.25rem;
-  --font-size-xl: 1.75rem;
-  --font-size-2xl: 2.25rem;
+  /*
+   * The whole scale came down, not only the headings.
+   *
+   * Kern was drawn at 16px body, 1.6 line height, and a 36px page title. On
+   * a laptop that is a reading typography applied to a working tool: a list
+   * of eight gardens filled a screen, and every panel needed scrolling that
+   * its content did not justify. The owner's own words for it were "giant
+   * fonts taking a heap of space", twice.
+   *
+   * 15px body with a 1.5 line height is the working-tool setting — still
+   * above the 14px floor this product's outdoor-use requirement implies, and
+   * unchanged as a `rem` multiple so a reader who raises their browser's own
+   * font size scales everything with it. The root size is deliberately NOT
+   * touched: `--control-min-size` is expressed in `rem` for the touch-target
+   * guarantee below, and shrinking the root would quietly shrink that too.
+   */
+  --font-size-xs: 0.6875rem;
+  --font-size-sm: 0.8125rem;
+  --font-size-md: 0.9375rem;
+  --font-size-lg: 1.0625rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
 
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
 
-  --line-height-tight: 1.25;
-  --line-height-normal: 1.6;
+  --line-height-tight: 1.2;
+  /* 1.5 rather than 1.6: at 1.6 a two-line description cost as much vertical space as the control under it. */
+  --line-height-normal: 1.5;
 
   --letter-spacing-tight: -0.02em;
   --letter-spacing-caps: 0.08em;
@@ -149,14 +174,16 @@
   --label-letter-spacing: 0.09em;
 
   /*
-   * Elevation. Kern separates with hairlines, not shadows: `--shadow-xs/sm`
-   * are `none`, and a `1px solid var(--color-control-border)` boundary is the
-   * whole of a control's affordance. `--shadow-md/lg` keep real values for the
-   * two cases a hairline cannot serve — dialogs and popovers, which must read
-   * as detached from the surface beneath them.
+   * Elevation. Hairlines still do the separating — a control's boundary is
+   * its `1px solid var(--color-control-border)`, not a glow. `--shadow-xs/sm`
+   * are no longer `none`, though: with radii restored, a card with a hairline
+   * and nothing else sits ON the canvas rather than above it, and the corner
+   * curve has no light to describe it. Both values are deliberately at the
+   * edge of visible. `--shadow-md/lg` keep the stronger values for dialogs
+   * and popovers, which must read as detached.
    */
-  --shadow-xs: none;
-  --shadow-sm: none;
+  --shadow-xs: 0 1px 1px rgb(21 21 15 / 0.03);
+  --shadow-sm: 0 1px 2px rgb(21 21 15 / 0.05), 0 1px 3px -1px rgb(21 21 15 / 0.04);
   --shadow-md: 0 2px 4px rgb(21 21 15 / 0.05), 0 12px 28px -12px rgb(21 21 15 / 0.22);
   --shadow-lg: 0 4px 8px rgb(21 21 15 / 0.06), 0 24px 48px -16px rgb(21 21 15 / 0.28);
 
@@ -167,14 +194,24 @@
   /*
    * Minimum hit area of any standalone control, in both dimensions.
    *
-   * 2.75rem is 44 CSS pixels at the default root size — the size WCAG 2.2 SC
-   * 2.5.5 (Target Size, Enhanced) asks for and the one this product's own
-   * requirement "touch targets and map controls must remain usable outdoors"
-   * (technical-specification.md, section 11) is measured against. It is a
-   * token rather than a literal so the E2E responsive spec and every control
-   * agree on one number.
+   * 2rem (32px) where the pointer is fine and the window is wide — a
+   * mouse-driven laptop. 2.75rem (44px) everywhere else, via the query just
+   * below.
+   *
+   * 44px is WCAG 2.2 SC 2.5.5 (Target Size, ENHANCED — the AAA criterion)
+   * and the size this product's "touch targets and map controls must remain
+   * usable outdoors" requirement is measured against. Applied unconditionally
+   * it also made every text input, select, and button on a desktop 44px tall,
+   * which is what the owner met as "input boxes are still gigantic". The AA
+   * criterion actually in force, SC 2.5.8, asks for 24px; 32px clears it and
+   * is the density the owner asked for after seeing 36px.
+   *
+   * The outdoor requirement is preserved exactly where it applies: any coarse
+   * pointer, and any narrow viewport, still gets the full 44px. A token
+   * rather than a literal so the E2E responsive spec reads the same number
+   * every control uses.
    */
-  --control-min-size: 2.75rem;
+  --control-min-size: 2rem;
 
   /*
    * The Kern shell's two fixed rows. 48px rather than the direction's 46px:
@@ -211,6 +248,19 @@
 }
 
 /*
+ * Touch density: a coarse pointer, or a viewport narrow enough to be a phone
+ * or a tablet, restores the 44px target the outdoor requirement asks for.
+ * Both conditions matter — a touchscreen laptop is wide and coarse, a small
+ * browser window on a desktop is narrow and fine, and each deserves the
+ * larger target for its own reason.
+ */
+@media (pointer: coarse), (max-width: 48rem) {
+  :root {
+    --control-min-size: 2.75rem;
+  }
+}
+
+/*
  * The dark palette follows the operating-system preference by default. The
  * explicit `data-theme` attributes let a future preference control override
  * that in both directions without a second stylesheet.
@@ -240,6 +290,8 @@
     --color-warning-quiet: #332a15;
     --color-warning-quiet-border: #4f4222;
     --color-focus: #f2622f;
+    --shadow-xs: 0 1px 1px rgb(0 0 0 / 0.25);
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3), 0 1px 3px -1px rgb(0 0 0 / 0.25);
     --shadow-md: 0 2px 4px rgb(0 0 0 / 0.3), 0 12px 28px -12px rgb(0 0 0 / 0.55);
     --shadow-lg: 0 4px 8px rgb(0 0 0 / 0.35), 0 24px 48px -16px rgb(0 0 0 / 0.6);
     --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%2393917f' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -270,6 +322,8 @@
   --color-warning-quiet: #332a15;
   --color-warning-quiet-border: #4f4222;
   --color-focus: #f2622f;
+  --shadow-xs: 0 1px 1px rgb(0 0 0 / 0.25);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3), 0 1px 3px -1px rgb(0 0 0 / 0.25);
   --shadow-md: 0 2px 4px rgb(0 0 0 / 0.3), 0 12px 28px -12px rgb(0 0 0 / 0.55);
   --shadow-lg: 0 4px 8px rgb(0 0 0 / 0.35), 0 24px 48px -16px rgb(0 0 0 / 0.6);
   --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%2393917f' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");

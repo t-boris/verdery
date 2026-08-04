@@ -2,8 +2,7 @@ import { getRequestTranslator } from '@/shared/localization/server';
 
 import { IncomingOwnershipTransfers } from '@/features/collaboration/public';
 import { CreateGardenForm, GardenList } from '@/features/gardens/public';
-
-import styles from './page.module.css';
+import { RouteBody, RouteHeader, RoutePage, RoutePanel } from '@/shared/ui/public';
 
 /**
  * First-garden vertical slice: list and create.
@@ -14,26 +13,30 @@ import styles from './page.module.css';
  * its own module comment for why it is composed here rather than imported
  * by `features/gardens` itself.
  *
+ * On the shared route chrome (`RoutePage`/`RouteHeader`/`RoutePanel`) rather
+ * than a stylesheet of its own. It was the last authenticated route still
+ * carrying the pre-Kern layout, which is why the FIRST screen after signing
+ * in opened with a 36px title and a boxed card while every garden route
+ * behind it used a 22px strip and ruled bands — the same application in two
+ * visual languages, with the older one facing every new arrival.
+ *
  * Source: implementation-plan.md work package P2-WEB-01, P9A-OWNER-02.
  */
 export default async function GardensPage() {
   const t = await getRequestTranslator();
 
   return (
-    <div className={styles['page']}>
-      <div className={styles['header']}>
-        <h1 className={styles['title']}>{t('gardens.title')}</h1>
-        <p className={styles['description']}>{t('gardens.description')}</p>
-      </div>
-
-      <IncomingOwnershipTransfers />
-
-      <GardenList />
-
-      <section className={styles['createPanel']}>
-        <h2 className={styles['sectionTitle']}>{t('gardens.createTitle')}</h2>
-        <CreateGardenForm />
-      </section>
-    </div>
+    <RoutePage>
+      <RouteHeader title={t('gardens.title')} description={t('gardens.description')} />
+      <RouteBody>
+        <RoutePanel>
+          <IncomingOwnershipTransfers />
+          <GardenList />
+        </RoutePanel>
+        <RoutePanel title={t('gardens.createTitle')}>
+          <CreateGardenForm />
+        </RoutePanel>
+      </RouteBody>
+    </RoutePage>
   );
 }

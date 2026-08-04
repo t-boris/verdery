@@ -1,6 +1,17 @@
+/*
+ * Centred in what is left of the viewport, not parked under the header.
+ *
+ * The card is the entire content of this route, and a card pinned to the top
+ * of a tall empty page reads as a page that failed to finish loading. The
+ * subtraction covers the sticky header and this route's own vertical padding;
+ * `min-block-size` rather than `block-size` so a short viewport still scrolls
+ * instead of clipping the card.
+ */
 .page {
   display: flex;
   justify-content: center;
+  align-items: center;
+  min-block-size: calc(100dvh - 12rem);
   padding-block: var(--space-6) var(--space-7);
 }
 
@@ -17,6 +28,10 @@
 
 @media (max-width: 30rem) {
   .page {
+    /* A phone keyboard eats most of the viewport; centring there would push
+       the card under it. Top-aligned again, tightly. */
+    align-items: start;
+    min-block-size: 0;
     padding-block: var(--space-4) var(--space-6);
   }
 

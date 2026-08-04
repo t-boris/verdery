@@ -27,12 +27,22 @@ export interface RouteHeaderProps {
   readonly actions?: ReactNode;
 }
 
-/** The route's fixed title strip. Always renders the `h1`, so every route has exactly one. */
+/**
+ * The route's fixed title strip. Always renders the `h1`, so every route has
+ * exactly one.
+ *
+ * Title and description are one group, and the actions are the other. They
+ * used to be three siblings under `space-between`, which on a wide display
+ * pushed a route's own subtitle to the far edge of the screen, a thousand
+ * pixels from the title it belongs to.
+ */
 export function RouteHeader({ title, description, actions }: RouteHeaderProps) {
   return (
     <div className={styles['header']}>
-      <h1 className={styles['title']}>{title}</h1>
-      {description !== undefined && <p className={styles['description']}>{description}</p>}
+      <div className={styles['heading']}>
+        <h1 className={styles['title']}>{title}</h1>
+        {description !== undefined && <p className={styles['description']}>{description}</p>}
+      </div>
       {actions}
     </div>
   );
