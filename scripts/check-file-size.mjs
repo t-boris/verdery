@@ -41,6 +41,10 @@ const IGNORED_DIRECTORIES = new Set([
   'DerivedData',
   'generated',
   '.dde',
+  // Locally generated design-sync output. Gitignored, so CI never sees it;
+  // measuring it only fails this check on the machine that ran the tool.
+  'ds-bundle',
+  '.ds-sync',
 ]);
 
 const repositoryRoot = fileURLToPath(new URL('..', import.meta.url));

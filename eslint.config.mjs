@@ -22,6 +22,11 @@ export default tseslint.config(
       '**/generated/**',
       'apps/ios/**',
       'infrastructure/**',
+      // Locally generated design-sync output — gitignored, so CI never sees
+      // it, and linting it only breaks `check:all` on the machine that ran
+      // the tool.
+      'ds-bundle/**',
+      '.ds-sync/**',
     ],
   },
 
