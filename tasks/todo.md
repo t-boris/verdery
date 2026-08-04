@@ -9218,7 +9218,10 @@ wherever the image is shown. An asset with no readable licence is skipped, not d
       reading, storage into the existing `plant_media_asset` (refusals kept as refusals),
       the profile read carrying its permitted images, and web rendering with the credit.
       iOS still shows no taxon imagery.
-- [ ] 4. Docs in the same pass: ADR-0016 §3's disposition column, the media design, and the
-      provider runbook's GBIF section.
+- [x] 4. Docs: done 2026-08-03. ADR-0016 §3's `plant_media_asset` row corrected to BUILT, with
+      a warning that the column is a snapshot rather than a live schema index — a stale cell
+      there is what sent this pass to write a duplicate migration. Media design gained the
+      perceptual-hash section; the plant-intelligence design records the implemented licence
+      rule and the GBIF per-entry reading.
 
 This is multi-session work. Item 1 starts now.

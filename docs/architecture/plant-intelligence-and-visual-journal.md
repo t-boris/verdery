@@ -208,6 +208,24 @@ The initial commercial-media allowlist is Public Domain, CC0, and CC BY. CC BY-S
 approved compliance design. CC BY-NC, incompatible no-derivatives use, unknown licenses, and
 withdrawn media are not eligible for product presentation.
 
+**Implemented (2026-08-03).** `integrations/domain/plant-media-asset.ts` holds this allowlist as
+`isLicenseEligibleForPresentation`, with `presentationIneligibility` adding the condition the
+allowlist alone cannot express: CC BY grants use ON CONDITION of attribution, so an asset with no
+readable rights holder is ineligible even though its licence is listed. `parseProviderLicense` maps
+a source's own licence string onto the stored vocabulary; anything unrecognised becomes `unknown`
+and is refused there rather than dropped, so the count of refused assets and the reason for each
+stays answerable.
+
+Refusal is recorded, not erased: an ineligible asset is stored at `ingestion_state = 'rejected'`.
+"This taxon has no photographs" and "its photographs are all non-commercial" are different answers,
+and only the second one says to look for another source.
+
+GBIF is the first source read for imagery. Its licences are mixed WITHIN one response — verified
+live — so `GbifAdapter.fetchMedia` reads the licence per media entry and never assumes one for the
+response. The taxon-profile read (`GET /plant-catalog/taxa/{id}/profile`) returns only presentable
+images, filtering on both ingestion state and licence, and omitting any CC BY asset without a
+displayable credit; a client is never handed a licence decision.
+
 ## 8. Visual Plant Journal
 
 ### 8.1 Observation Unit
