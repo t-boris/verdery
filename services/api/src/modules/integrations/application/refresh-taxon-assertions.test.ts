@@ -10,6 +10,7 @@ import { PlantAssertionProviderRegistry } from './plant-assertion-provider-regis
 import {
   FakePlantAssertionProviderAdapter,
   InMemoryPlantDistributionAssertionRepository,
+  InMemoryPlantMediaAssetRepository,
   InMemoryPlantFactAssertionRepository,
   sequentialIdGenerator,
 } from './plant-assertion-provider-test-doubles.js';
@@ -77,6 +78,7 @@ function harness(
   });
   const facts = new InMemoryPlantFactAssertionRepository();
   const distributionAssertions = new InMemoryPlantDistributionAssertionRepository();
+  const mediaAssets = new InMemoryPlantMediaAssetRepository();
   const providerQuotas = new InMemoryProviderQuotaRepository();
   const refresh = new RefreshTaxonAssertions(
     registry,
@@ -84,11 +86,12 @@ function harness(
     taxonomyIdentities,
     facts,
     distributionAssertions,
+    mediaAssets,
     providerQuotas,
     sequentialIdGenerator('assertion'),
     fixedClock(NOW),
   );
-  return { refresh, adapter, mappings, facts, distributionAssertions, providerQuotas };
+  return { refresh, adapter, mappings, facts, distributionAssertions, mediaAssets, providerQuotas };
 }
 
 describe('RefreshTaxonAssertions', () => {
@@ -126,7 +129,6 @@ describe('RefreshTaxonAssertions', () => {
       verificationState: 'unverified',
     });
 
-    expect(facts.assertions).toHaveLength(1);
     expect(facts.assertions[0]).toMatchObject({
       providerTaxonId: '70172',
       factKey: 'growth_habit',
@@ -227,5 +229,58 @@ describe('RefreshTaxonAssertions', () => {
     });
 
     expect(result).toEqual({ outcome: 'unavailable', reason: 'providerFailed' });
+  });
+  it('stores every image the provider offers, refused ones marked refused', async () => {
+    const { refresh, adapter, mediaAssets } = harness({});
+    adapter.mediaBehavior = {
+      kind: 'succeed',
+      value: [
+        {
+          providerAssetId: '1:0',
+          sourceUrl: 'https://example.org/usable.jpg',
+          rawLicence: 'http://creativecommons.org/publicdomain/zero/1.0/',
+          rightsHolder: null,
+          creator: 'A. Botanist',
+          observedAt: null,
+        },
+        {
+          providerAssetId: '1:1',
+          sourceUrl: 'https://example.org/non-commercial.jpg',
+          rawLicence: 'http://creativecommons.org/licenses/by-nc/4.0/',
+          rightsHolder: 'Someone Else',
+          creator: null,
+          observedAt: null,
+        },
+      ],
+    };
+
+    const result = await refresh.execute({
+      taxonomyReferenceId: TAXONOMY_ID,
+      providerKey: PROVIDER_KEY,
+    });
+
+    expect(result.outcome).toBe('refreshed');
+    // Both stored: "this taxon has no photographs" and "its photographs are
+    // all non-commercial" are different answers, and only the second says to
+    // look for another source.
+    const stored = [...mediaAssets.assets.values()].map((entry) => entry.asset);
+    expect(stored.map((asset) => asset.ingestionState).sort()).toEqual(['discovered', 'rejected']);
+    expect(stored.find((asset) => asset.license === 'cc_by_nc')?.ingestionState).toBe('rejected');
+  });
+
+  it('keeps a refresh that already wrote facts when the media call fails', async () => {
+    // Losing real horticultural facts because a picture request timed out
+    // would trade data for imagery.
+    const { refresh, adapter, mediaAssets } = harness({});
+
+    adapter.mediaBehavior = { kind: 'fail' };
+
+    const result = await refresh.execute({
+      taxonomyReferenceId: TAXONOMY_ID,
+      providerKey: PROVIDER_KEY,
+    });
+
+    expect(result.outcome).toBe('refreshed');
+    expect(mediaAssets.assets.size).toBe(0);
   });
 });

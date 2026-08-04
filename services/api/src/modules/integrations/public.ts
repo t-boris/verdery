@@ -214,6 +214,8 @@ export {
 } from './domain/plant-media-asset.js';
 export type { PlantFactAssertionRepository } from './application/plant-fact-assertion-repository.js';
 export { KyselyPlantFactAssertionRepository } from './persistence/kysely-plant-fact-assertion-repository.js';
+export { KyselyPlantMediaAssetRepository } from './persistence/kysely-plant-media-asset-repository.js';
+export type { PlantMediaAssetRepository } from './application/plant-media-asset-repository.js';
 export type { PlantDistributionAssertionRepository } from './application/plant-distribution-assertion-repository.js';
 export { KyselyPlantDistributionAssertionRepository } from './persistence/kysely-plant-distribution-assertion-repository.js';
 

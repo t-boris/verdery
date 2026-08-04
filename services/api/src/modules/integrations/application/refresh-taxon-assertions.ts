@@ -55,8 +55,18 @@ import { createPlantFactAssertion } from '../domain/plant-fact-assertion.js';
 import { createPlantTaxonomyMapping } from '../domain/plant-taxonomy-mapping.js';
 import type { PlantTaxonomyMapping } from '../domain/plant-taxonomy-mapping.js';
 import type { PlantDistributionAssertionRepository } from './plant-distribution-assertion-repository.js';
+import type { PlantMediaAssetRepository } from './plant-media-asset-repository.js';
+import {
+  createPlantMediaAsset,
+  parseProviderLicense,
+  presentationIneligibility,
+} from '../domain/plant-media-asset.js';
 import type { PlantFactAssertionRepository } from './plant-fact-assertion-repository.js';
-import type { ProviderTaxonCandidate } from './plant-assertion-provider.js';
+import type {
+  NormalizedMediaCandidate,
+  ProviderTaxonCandidate,
+} from './plant-assertion-provider.js';
+import type { PlantAssertionProviderRegistration } from './plant-assertion-provider-registry.js';
 import type { PlantAssertionProviderRegistry } from './plant-assertion-provider-registry.js';
 import type { PlantTaxonomyMappingRepository } from './plant-taxonomy-mapping-repository.js';
 import type { ProviderQuotaRepository } from './provider-quota-repository.js';
@@ -78,6 +88,8 @@ export type RefreshTaxonAssertionsResult =
       readonly mapping: PlantTaxonomyMapping;
       readonly factsWritten: number;
       readonly distributionWritten: number;
+      /** Images stored, refused ones included; `0` when the provider offered none or could not be reached. */
+      readonly mediaWritten: number;
     }
   | { readonly outcome: 'unavailable'; readonly reason: TaxonAssertionsUnavailableReason };
 
@@ -104,6 +116,7 @@ export class RefreshTaxonAssertions {
     private readonly taxonomyIdentities: TaxonomyIdentitySource,
     private readonly facts: PlantFactAssertionRepository,
     private readonly distributionAssertions: PlantDistributionAssertionRepository,
+    private readonly mediaAssets: PlantMediaAssetRepository,
     private readonly providerQuotas: ProviderQuotaRepository,
     private readonly generateId: () => Uuid,
     private readonly clock: Clock,
@@ -203,12 +216,87 @@ export class RefreshTaxonAssertions {
       );
     }
 
+    // Imagery is fetched LAST and its failure does not fail the refresh: the
+    // facts and distribution claims above are already written, and losing
+    // them because a media call timed out would trade real data for
+    // pictures. A provider with no imagery answers empty, which is the same
+    // path as a provider that could not be reached — both mean "no images
+    // this time", and the next sweep asks again.
+    const mediaWritten = await this.refreshMedia(registration, mapping.providerTaxonId);
+
     return {
       outcome: 'refreshed',
       mapping,
       factsWritten: factsCall.value.length,
       distributionWritten: distributionCall.value.length,
+      mediaWritten,
     };
+  }
+
+  /**
+   * Stores every image the provider offers, refused ones included.
+   *
+   * Returns how many rows were written, or `0` for any degradation — quota
+   * exhausted, timeout, provider failure. Never throws: see the call site on
+   * why imagery must not fail a refresh that already wrote real facts.
+   */
+  private async refreshMedia(
+    registration: PlantAssertionProviderRegistration,
+    providerTaxonId: string,
+  ): Promise<number> {
+    const quota = await this.providerQuotas.consumeCall(
+      registration.metadata.providerKey,
+      registration.metadata.quotaLimits,
+      this.clock.now(),
+    );
+    if (!quota.consumed) {
+      return 0;
+    }
+
+    let mediaCall: Awaited<ReturnType<typeof withDeadline<readonly NormalizedMediaCandidate[]>>>;
+    try {
+      mediaCall = await withDeadline<readonly NormalizedMediaCandidate[]>(
+        registration.metadata.fetchTimeoutMs,
+        (signal) => registration.adapter.fetchMedia(providerTaxonId, signal),
+      );
+    } catch {
+      return 0;
+    }
+    if (mediaCall.kind === 'timedOut') {
+      return 0;
+    }
+
+    const now = this.clock.now();
+    let written = 0;
+    for (const candidate of mediaCall.value) {
+      const license = parseProviderLicense(candidate.rawLicence);
+      const ineligibility = presentationIneligibility(license, candidate.rightsHolder);
+      await this.mediaAssets.upsert(
+        registration.metadata.providerKey,
+        createPlantMediaAsset({
+          id: this.generateId(),
+          rawProviderTaxonId: providerTaxonId,
+          mediaId: null,
+          sourceUrl: candidate.sourceUrl,
+          // The provider does not say which part of the plant is pictured,
+          // and guessing would be a claim this application cannot support.
+          organ: null,
+          inferredOrgan: false,
+          rawLicense: license,
+          attributionText: null,
+          creator: candidate.creator,
+          rightsHolder: candidate.rightsHolder,
+          observedAt: candidate.observedAt,
+          generalizedLocation: null,
+          // A refused image is stored as refused, not dropped.
+          ingestionState: ineligibility === null ? 'discovered' : 'rejected',
+          now,
+        }),
+      );
+      written += 1;
+    }
+
+    return written;
   }
 
   /** Finds the live mapping, or resolves and persists one via `searchTaxa` — mirrors `MapPlantTaxonomy.execute`'s own resolution steps against this module's OTHER registry type. */

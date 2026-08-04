@@ -10,6 +10,8 @@ import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { PlantDistributionAssertion } from '../domain/plant-distribution-assertion.js';
 import type { PlantFactAssertion } from '../domain/plant-fact-assertion.js';
 import type { PlantDistributionAssertionRepository } from './plant-distribution-assertion-repository.js';
+import type { PlantMediaAssetRepository } from './plant-media-asset-repository.js';
+import type { PlantMediaAsset } from '../domain/plant-media-asset.js';
 import type { PlantFactAssertionRepository } from './plant-fact-assertion-repository.js';
 import type {
   NormalizedDistributionCandidate,
@@ -266,4 +268,14 @@ export function sequentialIdGenerator(prefix: string): () => Uuid {
     counter += 1;
     return `${prefix}-${String(counter)}`;
   };
+}
+
+/** Records what enrichment stored, keyed the way the unique index keys it. */
+export class InMemoryPlantMediaAssetRepository implements PlantMediaAssetRepository {
+  readonly assets = new Map<string, { providerKey: string; asset: PlantMediaAsset }>();
+
+  upsert(providerKey: string, asset: PlantMediaAsset): Promise<void> {
+    this.assets.set(`${providerKey}:${asset.sourceUrl ?? asset.id}`, { providerKey, asset });
+    return Promise.resolve();
+  }
 }

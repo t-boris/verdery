@@ -33,6 +33,7 @@ import { KyselyMembershipRepository } from '../../src/modules/gardens-mapping/pe
 import { KyselyPlantsInventoryUnitOfWork } from '../../src/modules/plants-inventory/persistence/kysely-plants-inventory-unit-of-work.js';
 import { createPlantFactAssertion } from '../../src/modules/integrations/domain/plant-fact-assertion.js';
 import { KyselyPlantFactAssertionRepository } from '../../src/modules/integrations/persistence/kysely-plant-fact-assertion-repository.js';
+import { KyselyPlantMediaAssetRepository } from '../../src/modules/integrations/persistence/kysely-plant-media-asset-repository.js';
 import { KyselyPlantDistributionAssertionRepository } from '../../src/modules/integrations/persistence/kysely-plant-distribution-assertion-repository.js';
 import { KyselyPlantTaxonomyMappingRepository } from '../../src/modules/integrations/persistence/kysely-plant-taxonomy-mapping-repository.js';
 import { KyselyTaxonomyIdentitySource } from '../../src/modules/integrations/persistence/kysely-taxonomy-identity-source.js';
@@ -160,12 +161,14 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const mappings = new KyselyPlantTaxonomyMappingRepository(db);
     const facts = new KyselyPlantFactAssertionRepository(db);
     const distributionAssertions = new KyselyPlantDistributionAssertionRepository(db);
+    const mediaAssets = new KyselyPlantMediaAssetRepository(db);
     const refreshTaxonAssertions = new RefreshTaxonAssertions(
       registry,
       mappings,
       new KyselyTaxonomyIdentitySource(db),
       facts,
       distributionAssertions,
+      mediaAssets,
       new KyselyProviderQuotaRepository(db),
       randomUUID,
       fixedClock(now),

@@ -58,6 +58,7 @@ class ScriptedRebuilder implements PlantProfileVersionRebuilder {
 
 const REFRESHED = (taxonomyReferenceId: Uuid): RefreshTaxonAssertionsResult => ({
   outcome: 'refreshed',
+  mediaWritten: 0,
   mapping: {
     id: 'mapping-1',
     taxonomyReferenceId,
