@@ -1,6 +1,8 @@
-import { getAppCheckToken } from '@/core/auth/public';
+import { getAppCheckToken, redirectToSignIn, refreshSessionCookie } from '@/core/auth/public';
 
 import { createApiClient, type ApiClient } from './client';
+import { withSessionRecovery } from './session-recovery';
+import { createSessionGateway } from './session-gateway';
 
 /**
  * Origin used when no environment value is configured.
@@ -34,9 +36,16 @@ export function resolveApiOrigin(): string {
   return origin.replace(/\/+$/u, '');
 }
 
-/** Creates the client the browser uses, bound to the platform `fetch`. */
+/**
+ * Creates the client the browser uses, bound to the platform `fetch` and to
+ * this application's session policy.
+ *
+ * The session-recovery decorator wraps the transport, and the session
+ * endpoints it calls to recover run on the UNWRAPPED client: a refresh that
+ * failed with `auth.unauthenticated` must not trigger another refresh.
+ */
 export function createBrowserApiClient(): ApiClient {
-  return createApiClient({
+  const transport = createApiClient({
     origin: resolveApiOrigin(),
     // `fetch` is reached through an adapter so that gateways stay testable and
     // do not depend on a browser global.
@@ -46,5 +55,22 @@ export function createBrowserApiClient(): ApiClient {
     // component, so wiring the real Firebase App Check call here never
     // reaches server rendering.
     getAppCheckToken,
+  });
+
+  const sessions = createSessionGateway(transport);
+
+  return withSessionRecovery(transport, {
+    recover: () =>
+      refreshSessionCookie(async (idToken) => (await sessions.createSession(idToken)).ok),
+    abandon: async () => {
+      // Clearing the cookie is not tidiness, it is what makes the redirect
+      // terminate: `proxy.ts` routes on the cookie's PRESENCE, so a stale
+      // cookie left in place would bounce `/auth/sign-in` straight back to
+      // `/application/gardens`, which would fail the same way and redirect
+      // again. `DELETE /auth/session` is idempotent and clears the cookies
+      // even for a session it cannot verify.
+      await sessions.endSession();
+      redirectToSignIn();
+    },
   });
 }

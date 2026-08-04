@@ -46,6 +46,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 import { SESSION_COOKIE_NAME } from '@/core/auth/session-cookie';
+import { SESSION_EXPIRED_PARAMETER } from '@/core/auth/sign-in-redirect';
 import {
   buildContentSecurityPolicy,
   cspHeaderName,
@@ -128,7 +129,17 @@ export function proxy(request: NextRequest) {
     return applySecurityHeaders(NextResponse.redirect(signIn), policy);
   }
 
-  if (pathname === '/auth/sign-in' && hasSessionCookie) {
+  // The cookie's PRESENCE is all this rule can see, and a present cookie the
+  // API refuses is exactly the state `SESSION_EXPIRED_PARAMETER` reports. The
+  // client sets it when it has given up recovering a session, and without
+  // this exception the two rules would bounce the browser between sign-in and
+  // the gardens list forever: sign-in sees a cookie and sends it to
+  // `/application`, every request there fails `auth.unauthenticated`, and the
+  // client returns here. Clearing the cookie is the server's job and normally
+  // happens first; this is what makes the loop impossible when it does not.
+  const sessionExpired = request.nextUrl.searchParams.get(SESSION_EXPIRED_PARAMETER) !== null;
+
+  if (pathname === '/auth/sign-in' && hasSessionCookie && !sessionExpired) {
     const gardens = request.nextUrl.clone();
     gardens.pathname = '/application/gardens';
     gardens.search = '';

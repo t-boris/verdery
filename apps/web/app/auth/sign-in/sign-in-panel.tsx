@@ -12,7 +12,12 @@ import {
   createSessionGateway,
   isFailure,
 } from '@/core/api/public';
-import { sendEmailSignInLink, signInWithApple, signInWithGoogle } from '@/core/auth/public';
+import {
+  SESSION_EXPIRED_PARAMETER,
+  sendEmailSignInLink,
+  signInWithApple,
+  signInWithGoogle,
+} from '@/core/auth/public';
 import { useLocalization } from '@/shared/localization/public';
 import { Alert, Button, TextField } from '@/shared/ui/public';
 
@@ -89,6 +94,14 @@ export function SignInPanel() {
 
   return (
     <div className={styles['panel']}>
+      {/* Set by `redirectToSignIn` when the client gave up recovering a
+          session. Without it, someone whose session expired mid-visit would
+          arrive at a plain sign-in screen with no account of what happened to
+          the page they were on. */}
+      {searchParams.get(SESSION_EXPIRED_PARAMETER) !== null && (
+        <Alert tone="info" title={t('auth.sessionExpired')} />
+      )}
+
       <Button variant="primary" busy={googlePending} onClick={() => void onGoogleSignIn()}>
         {t('auth.signInWithGoogle')}
       </Button>

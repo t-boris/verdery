@@ -128,6 +128,7 @@ export const russianMessages: MessageCatalogue = {
   'auth.signInWithGoogle': 'Продолжить с Google',
   'auth.signInWithApple': 'Продолжить с Apple',
   'auth.signInFailed': 'Не удалось войти. Попробуйте снова.',
+  'auth.sessionExpired': 'Сессия завершилась. Войдите снова, чтобы продолжить с того же места.',
   'auth.emailLabel': 'Адрес электронной почты',
   'auth.emailSubmit': 'Отправить мне ссылку для входа',
   'auth.emailLinkSent': 'Проверьте почту',

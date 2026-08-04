@@ -116,6 +116,18 @@ Client invitations are email-bound and expiring. Email magic link is the lowest-
 
 The Next.js server may use the session to render the application shell. The domain API accepts and verifies the approved session credential path or an exchanged short-lived API token as defined by the authentication design.
 
+### 7.1 When the Session Cookie Stops Being Accepted
+
+The session cookie is short-lived by design while the Firebase credential in the browser outlives it, so a cookie the API refuses mid-visit does not mean the person is signed out. The web client answers `auth.unauthenticated` in one place, in the transport, so every screen behaves the same way:
+
+- Force-refresh the Firebase ID token, exchange it for a new session cookie, and replay the failed request once. Replaying is safe including for mutations: a request rejected as unauthenticated executed nothing, so there is no effect to apply twice.
+- One refresh serves every request that failed with it — an expired cookie fails every query on a screen at once, and each replays its own request afterward.
+- When no credential can be refreshed, clear the session cookies through the logout endpoint and return to sign-in with the current path preserved and the reason stated.
+
+Clearing the cookie before that redirect is load-bearing rather than tidiness: route gating reads the cookie's presence only, so a stale cookie left in place would send the browser from sign-in back to a protected route that fails the same way. The redirect therefore also carries an explicit expired-session marker that suppresses the "already signed in" bounce, so the two rules cannot loop even when logout itself is refused.
+
+Only `auth.unauthenticated` is treated this way. An authorization failure means the session is valid and the capability is not, and refreshing a token cannot change that.
+
 ## 8. API Access
 
 Generated OpenAPI types and a generated low-level client are wrapped by application-specific gateways. UI components never construct endpoint URLs or transport payloads directly.

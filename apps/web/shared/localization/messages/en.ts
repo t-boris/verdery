@@ -136,6 +136,7 @@ export const englishMessages = {
   'auth.signInWithGoogle': 'Continue with Google',
   'auth.signInWithApple': 'Continue with Apple',
   'auth.signInFailed': 'Sign-in did not succeed. Try again.',
+  'auth.sessionExpired': 'Your session ended. Sign in again to continue where you left off.',
   'auth.emailLabel': 'Email address',
   'auth.emailSubmit': 'Send me a sign-in link',
   'auth.emailLinkSent': 'Check your email',

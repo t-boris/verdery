@@ -9225,3 +9225,83 @@ wherever the image is shown. An asset with no readable licence is skipped, not d
       rule and the GBIF per-entry reading.
 
 This is multi-session work. Item 1 starts now.
+
+---
+
+# Web to a working, product-grade level (owner request, 2026-08-04)
+
+The owner asked to bring the web client "to a normal level". Before scoping anything, the deployed
+client was opened in a browser rather than reasoned about from the source.
+
+## What the live environment actually did
+
+`https://verdery-web-dev-t6amsr5o6a-uc.a.run.app/application/gardens` sat on "Loading gardens."
+indefinitely, with the owner's own session.
+
+- `performance.getEntriesByType('resource')` listed Next chunks, fonts and reCAPTCHA — and **no
+  `/v1/` request at all**. The API call was never issued, so no amount of error handling on the
+  screen could have shown anything.
+- A hand-run `fetch('/v1/gardens', { credentials: 'include' })` from that same page answered in
+  167 ms with a well-formed `401` envelope. Same-origin proxy, CSP, and API were all healthy.
+- Root cause: `core/api/client.ts` awaited `getAppCheckToken().catch(() => null)`. Only a REJECTED
+  promise was handled. reCAPTCHA Enterprise's `execute` never settled, so the await never returned
+  — and the comment directly above that line already promised "Never let App Check block a
+  request". The rule existed; the code did not implement it.
+- Second, independent finding: the session cookie was expired (`auth.unauthenticated`), and neither
+  `core/api` nor `core/auth` handled `401` beyond a translation string. No refresh, no return to
+  sign-in.
+
+Owner scope, chosen from those findings: live-environment usability, product UI/UX, and functional
+gaps against the contract. Accessibility is an invariant of the work, not a separate track.
+
+## Stage 1 — make the deployed application work
+
+- [x] 1. App Check cannot block a request. `core/auth/token-budget.ts` gives the token acquisition
+      a deadline (`APP_CHECK_TOKEN_BUDGET_MS`, 2 s) and yields `null` on timeout or failure alike;
+      the budget lives beside the provider adapter, since the transport cannot know what a
+      reasonable wait for reCAPTCHA is. The transport's option now documents that a supplied token
+      function MUST settle.
+- [x] 2. Session recovery in one place: `core/api/session-recovery.ts` decorates the client —
+      refresh the Firebase ID token, re-exchange it for a cookie, replay the failed request once.
+      Replay is safe including for mutations, because a request rejected as unauthenticated
+      executed nothing. Concurrent failures share one recovery rather than minting a session each.
+- [x] 3. The redirect that cannot loop. Route gating reads the cookie's PRESENCE, so returning to
+      sign-in with a stale cookie in place would bounce straight back to the failing route.
+      `abandon` clears the cookies through `DELETE /auth/session` first, and the redirect carries
+      `sessionExpired` — which `proxy.ts` honours by suppressing its "already signed in" bounce.
+      That marker also makes the sign-in screen say why the person is looking at it again.
+- [x] 4. Indefinite-spinner audit: nothing to change. Every list screen already models
+      pending / failed-first-load / stale-refetch (`garden-list.tsx` is the pattern; `today-list`,
+      `task-list`, `observation-timeline` follow it). The screens were never the defect.
+
+Evidence: `apps/web` 1162/1162 unit tests, typecheck, lint and prettier clean. `pnpm check:all` at
+the repository root additionally fails on `.ds-sync/` and `ds-bundle/` — local, untracked artifacts
+of a design-system sync tool that CI never sees, unrelated to this work.
+
+Two E2E specs were written and are NOT claimed as run: `e2e/session-expiry.spec.ts` needs the
+Docker-backed harness, which this machine does not have. They run in CI.
+
+## Not fixed here, and it is not code
+
+The App Check token never arrives on the deployed host at all — no
+`content-firebaseappcheck.googleapis.com` exchange is attempted. That points at the reCAPTCHA
+Enterprise key's allowed-domain list for the Cloud Run alias, which
+`infrastructure/gcloud/scripts/sync-web-auth-domains.sh` owns and which section 12 of
+`identity-and-authorization.md` describes. The budget makes the application work regardless, which
+is the point of the rule — but the missing signal is an owner-side configuration item, not a defect
+the client can close.
+
+## Stage 2 — functional gaps (next)
+
+- [ ] 1. Georeference authoring. `gardens_mapping.georeference` is read by weather, the seasonal
+      plan and hemisphere logic, but **nothing in production code writes a row** — every `INSERT`
+      lives in tests. No real garden can have weather or seasonal context today.
+- [ ] 2. Notification inbox and preferences on web (the contract has the endpoints; the web has no
+      gateway and no route).
+- [ ] 3. Account data export and deletion on web.
+
+## Stage 3 — product UI/UX (after 2.1)
+
+- [ ] 1. Gardens list as cards; creation as an action rather than a permanent form panel.
+- [ ] 2. Garden overview as the daily loop rather than a stack of settings panels.
+- [ ] 3. One empty/loading/error vocabulary in `shared/ui`.

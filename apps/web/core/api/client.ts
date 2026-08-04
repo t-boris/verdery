@@ -20,6 +20,12 @@ export interface ApiClientOptions {
    * available. A rejected promise is treated the same as `null`: App Check
    * is a monitor-only signal for now, so it must never block a request.
    *
+   * **It must settle.** This transport cannot know what a reasonable wait for
+   * any given provider is, so the deadline belongs to the adapter that owns
+   * one — see `APP_CHECK_TOKEN_BUDGET_MS` in `core/auth/app-check.ts`, added
+   * after a token that never arrived froze every screen of the deployed
+   * client.
+   *
    * Source: architecture/identity-and-authorization.md, section
    * "12. App Check".
    */

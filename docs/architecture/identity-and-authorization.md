@@ -299,6 +299,18 @@ The API was enabled on July 27, 2026, but token acquisition remains
 best-effort: a cloud configuration regression must not remove the application
 API's monitor-mode availability.
 
+**The same rule has a second shape: a token that never arrives and never
+fails.** Handling a rejected attestation is not enough, because a provider can
+also simply not answer. On August 4, 2026 the deployed web client sat on a
+loading state forever on every authenticated screen, having issued no API
+request at all: its transport awaited the App Check token with a rejection
+handler and no deadline, and reCAPTCHA Enterprise's `execute` never settled.
+Every client therefore gives token acquisition a **bounded budget** and
+proceeds without the header when it elapses — for the web that budget lives
+beside the provider adapter, in `apps/web/core/auth/app-check.ts`. Waiting is
+part of "letting App Check decide whether a request is sent", and an
+unbounded wait is the most complete form of that failure, not a milder one.
+
 For web clients, every browser-visible hostname must appear in both Firebase
 Authentication's authorized domains and the reCAPTCHA Enterprise key's allowed
 domains. Cloud Run exposes two official URL aliases for a service, while

@@ -14,6 +14,7 @@ export const copy = {
   emailLinkSent: 'Check your email',
   signInWithGoogle: 'Continue with Google',
   signInFailed: 'Sign-in did not succeed. Try again.',
+  sessionExpired: 'Your session ended. Sign in again to continue where you left off.',
   gardensTitle: 'Gardens',
   gardensEmpty: 'You have no gardens yet. Create your first one below.',
   gardensCreateNameLabel: 'Garden name',
