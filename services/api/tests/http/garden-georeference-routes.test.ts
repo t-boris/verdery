@@ -216,6 +216,27 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     expect(georeference.scaleCorrection).toBe(1);
   });
 
+  // The write the web actually makes after an address search — and the one
+  // this endpoint refused in production on 2026-08-04, because the transport
+  // parser kept a hand-written method list that the contract had outgrown.
+  it('accepts every method the contract defines, including addressSearch', async () => {
+    for (const method of [
+      'deviceLocation',
+      'addressSearch',
+      'mapPin',
+      'manualCoordinates',
+      'controlPoints',
+      'imageryAlignment',
+    ]) {
+      const { token, garden } = await createGardenAsOwner();
+
+      const response = await setGeoreference(garden.id, token, { ...VALID_BODY, method });
+
+      expect(response.statusCode, `method ${method}`).toBe(200);
+      expect(asGeoreference(response).method).toBe(method);
+    }
+  });
+
   it('appears on the garden map read, which is where every client finds it', async () => {
     const { token, garden } = await createGardenAsOwner();
     await setGeoreference(garden.id, token, VALID_BODY);

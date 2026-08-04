@@ -9404,3 +9404,25 @@ registers the route regardless of what the contract says.
 this, and it failed in CI on the first run. The lesson is not about YAML: after a string-replace
 edit, the check is whether the FILE now says what was intended, not whether the command reported
 success.
+
+### Refused by its own server: the method list the contract had outgrown
+
+The owner tried the flow on the deployed environment and got
+`request.invalid` from `PUT /gardens/{id}/georeference`. The correlation id in
+the message led straight to the request in Cloud Logging — `400`, 60 ms, the
+georeference route — which is what that reference exists for.
+
+`addressSearch` was in the contract, in the web's wire type, in the web panel,
+and in the domain's provenance map. It was NOT in
+`parse-georeference-request.ts`'s own `GEOREFERENCE_METHODS` array, so the one
+component that decides whether a request is acceptable rejected the method
+every other component had agreed on.
+
+TypeScript could not catch it: `readonly GeoreferenceMethod[]` accepts a list
+that is missing a member. The list is now derived from a
+`satisfies Record<GeoreferenceMethod, true>`, which makes a missing member a
+compile error — the same shape the domain's provenance map already had, which
+is exactly why the domain was not the thing that broke.
+
+Covered twice over: the parser test asserts every contract method, and the
+HTTP suite writes a georeference with each of the six against a real database.

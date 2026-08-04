@@ -21,13 +21,24 @@ import {
   requireRecord,
 } from './parse-primitives.js';
 
-const GEOREFERENCE_METHODS: readonly GeoreferenceMethod[] = [
-  'deviceLocation',
-  'mapPin',
-  'manualCoordinates',
-  'controlPoints',
-  'imageryAlignment',
-];
+/**
+ * Every method the contract defines, as values.
+ *
+ * Derived from a `satisfies Record<GeoreferenceMethod, true>` rather than
+ * written as a `readonly GeoreferenceMethod[]` literal, because that type
+ * accepts a list that is MISSING a member — which is exactly how
+ * `addressSearch` reached production refused by its own server: the contract
+ * defined it, the web sent it, the domain mapped its provenance, and this one
+ * list did not have it. A missing member is now a compile error.
+ */
+const GEOREFERENCE_METHODS = Object.keys({
+  deviceLocation: true,
+  addressSearch: true,
+  mapPin: true,
+  manualCoordinates: true,
+  controlPoints: true,
+  imageryAlignment: true,
+} satisfies Record<GeoreferenceMethod, true>) as readonly GeoreferenceMethod[];
 
 /** A two-number `Position`. Neither coordinate means anything without the space it belongs to. */
 function requirePosition(value: unknown, pointer: string): Position {

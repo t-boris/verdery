@@ -64,6 +64,21 @@ describe('parseGeoreferenceRequest', () => {
     expect(parseGeoreferenceRequest({ ...VALID, rotationDegrees: 0 }).rotationDegrees).toBe(0);
   });
 
+  // The regression this file exists for now: `addressSearch` was in the
+  // contract, sent by the web, and mapped by the domain — and refused here,
+  // because this parser kept its own hand-written list. Every method the
+  // contract defines is asserted, not a chosen one.
+  it.each([
+    'deviceLocation',
+    'addressSearch',
+    'mapPin',
+    'manualCoordinates',
+    'controlPoints',
+    'imageryAlignment',
+  ])('accepts %s, which the contract defines', (method) => {
+    expect(parseGeoreferenceRequest({ ...VALID, method }).method).toBe(method);
+  });
+
   it('refuses a method outside the vocabulary', () => {
     expect(() => parseGeoreferenceRequest({ ...VALID, method: 'guessed' })).toThrow();
   });
