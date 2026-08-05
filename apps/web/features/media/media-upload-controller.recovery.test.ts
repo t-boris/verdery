@@ -33,17 +33,28 @@ import {
  * if it never arrives.
  */
 /**
+ * The real `setTimeout`, captured before any test installs fake timers.
+ *
+ * Some of what the upload path awaits is not a timer and not a microtask —
+ * `crypto.subtle.digest` computing the checksum is genuine off-thread work
+ * that resolves on a real event-loop turn. Draining microtasks cannot make it
+ * finish, however many turns are spent doing it, which is why this test timed
+ * out on a loaded CI runner while passing on every developer machine.
+ */
+const realSetTimeout = globalThis.setTimeout;
+
+/**
  * Waits for the controller to reach a phase, then returns.
  *
- * The upload path awaits several promises before it starts sending — the
- * checksum among them — so a FIXED number of flushes is a race: it passed
- * locally and failed on a loaded CI runner, which is what brought this
- * helper about. The bound here is generous rather than tuned, and
- * exhausting it throws naming the phase actually reached, so a genuine hang
- * reads as a hang instead of as a confusing assertion about the wrong state.
+ * Each turn does both kinds of yielding, because the upload path needs both:
+ * `advanceTimersByTimeAsync` for anything on the (faked) timer queue and its
+ * microtasks, and a REAL macrotask for the checksum digest. `setImmediate` is
+ * faked too, so the captured `setTimeout` above is the only real yield
+ * available.
  *
- * Only `advanceTimersByTimeAsync` is used to yield: `vi.useFakeTimers()`
- * fakes `setImmediate` too, so waiting on one here would never return.
+ * The bound is generous rather than tuned, and exhausting it throws naming
+ * the phase actually reached, so a genuine hang reads as a hang instead of as
+ * a confusing assertion about the wrong state.
  */
 async function advanceUntilPhase(
   controller: { getState: () => { phase: string } },
@@ -53,6 +64,7 @@ async function advanceUntilPhase(
   for (let turn = 0; turn < maxTurns; turn += 1) {
     if (controller.getState().phase === phase) return;
     await vi.advanceTimersByTimeAsync(0);
+    await new Promise((resolve) => realSetTimeout(resolve, 0));
   }
   throw new Error(
     `Timed out waiting for phase "${phase}"; the controller stayed at "${controller.getState().phase}".`,
