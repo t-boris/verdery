@@ -366,3 +366,47 @@ project already has `visually-hidden.module.css`; copy its declarations when
 
 **Rule:** read the skip count, not just the failure count. `1 failed, 6 skipped`
 means seven tests told you nothing.
+
+## A probe in a hidden tab measures nothing
+
+Diagnosing a blank map backdrop, I drove MapLibre through an automated Chrome
+tab and concluded that a map created at the editor's zoom never loads its
+tiles. Two things were wrong with the setup, not the product: the tab was
+hidden, so `requestAnimationFrame` never fired and the render loop never ran;
+and the probe page loaded MapLibre's ESM build without its worker file, so no
+tile could ever parse. Screenshots seemed to confirm the theory, because
+taking one forces a frame — enough to paint sometimes, not enough to load.
+
+**Rule:** before believing any browser measurement, assert the conditions the
+measurement depends on. `document.hidden`, an rAF tick count, and the absence
+of console errors are three lines of code and they invalidate or confirm the
+whole session.
+
+**Rule:** a claim that survives into a plan has to be re-measured in the
+environment it will be fixed in. The real defect had a completely different
+shape — vector tiles stop rendering six zoom levels past their source — and
+only appeared once the harness was honest.
+
+## Ask the provider what it holds
+
+The repository stated NAIP imagery as "roughly 0.6–1 m per pixel", and I
+carried that number into a plan, a user-facing note, and a magnification
+calculation. The service publishes `pixelSizeX` on its own metadata endpoint:
+0.30 m. Half of what we told people, and the difference decided both the zoom
+cap and the default camera.
+
+**Rule:** when a provider can be asked, ask it, and record the answer with the
+date and the endpoint. An estimate written in prose becomes a constant, then a
+product decision, and nothing in between ever re-checks it.
+
+## Hooks after an early return
+
+The redesigned editor crashed every route with "Something went wrong" because
+`useState`/`useEffect` for the new drawer landed below `if (isLoadingError)
+return`. Unit tests passed — they never render the failed-query branch — and
+E2E caught it on the very first navigation.
+
+**Rule:** new hooks go at the top of the component with the others, before any
+conditional return, always. When adding state to a component that already has
+early returns, place the hook first and the usage later, not both together
+where the usage happens to read well.
