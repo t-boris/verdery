@@ -53,10 +53,33 @@ changes an accepted map orientation.
 A georeferenced garden may be drawn over a provider backdrop. Two exist, and the person chooses
 between them and none:
 
-- **Aerial imagery** (USGS National Map NAIP), which is what a lot is traced from. United States
-  coverage, roughly 0.6–1 m per pixel — a house, a driveway and a fence line are legible; an
-  individual bed is not, and the interface says so rather than implying otherwise.
+- **Aerial imagery** (USGS National Map NAIP Plus), which is what a lot is traced from. United
+  States coverage at 0.30 m per pixel — the service's own reported `pixelSizeX`, not an estimate —
+  so a house, a driveway and a fence line are legible; an individual bed is not, and the interface
+  says so rather than implying otherwise.
 - **Street vectors** (OpenFreeMap), for orientation rather than tracing.
+
+Each provider declares the zoom range it can actually draw, and the editor obeys it rather than
+discovering the limits by painting nothing:
+
+- **A vector style stops resolving about six zoom levels past its own tiles.** OpenFreeMap serves
+  to zoom 14, renders 110 features at 16, six at 19, and nothing at 20 — measured against MapLibre
+  5.6 and 6.0 alike. A garden fills the canvas at roughly zoom 21, so the street backdrop is
+  neighbourhood context and can never be a tracing surface; choosing it that close says so and
+  offers imagery instead of showing an empty field.
+- **Imagery is requested only at the resolution it holds.** Past zoom 19 the service returns the
+  same ground enlarged in hard blocks at four times the requests, so the tile source stops there
+  and the renderer does the enlarging smoothly.
+- **The camera may not outrun the backdrop.** MapLibre clamps its own zoom at 22 while the local
+  camera scales to 400 px/m; the two would drift apart by up to eleven times. While a backdrop is
+  shown the camera is held at the largest scale the backdrop still follows, and the editor says
+  the backdrop must be turned off to go closer.
+- **Enlargement is stated, not implied.** A map over imagery opens no closer than four times the
+  imagery's own detail, and past that the scale badge reads how far the photograph has been
+  stretched.
+
+The metre grid stands down over a photograph, where it is noise on the ground, and stays over a
+street map, which carries no sense of scale of its own.
 
 A backdrop is context, never geometry. No pixel of it enters the domain model: what someone traces
 over it is their own drawing, carrying their own provenance. The projection between local metres and
@@ -240,8 +263,19 @@ Layer visibility and opacity are user preferences. Domain objects do not store a
 
 ## 13. Web Rendering
 
-- MapLibre renders optional geographic context.
+- MapLibre renders optional geographic context, in the SAME rectangle as the Konva stage — as its
+  child, not as a sibling of the canvas area. A backdrop aligned to any other box slides against
+  the drawing whenever that box changes, which is what the editor's drawing hint used to do at
+  precisely the moment someone was tracing.
 - Konva renders garden-local objects and interactive handles.
+- The canvas is the workspace: tools, backdrop choice, zoom, the drawing hint and the draft
+  controls float over it, and what were five stacked side panels — properties, object index,
+  layers, imported background and calibration, warnings — share one collapsible drawer of tabs.
+  Below the tablet breakpoint the drawer becomes an overlay; on a phone it becomes a bottom sheet
+  capped at 45% of the height, so the drawing always keeps the larger half.
+- Selecting an object raises a small panel at the object itself: move, rotate/resize, edit
+  vertices, delete. The same actions remain in the properties tab, which is the keyboard and
+  screen-reader route.
 - A synchronization adapter keeps viewport transforms aligned without coupling domain state to either engine.
 - The editor uses a dedicated client-side store for selection and transient state.
 - Large immutable render snapshots are memoized by object revision.

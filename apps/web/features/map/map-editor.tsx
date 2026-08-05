@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
@@ -14,6 +14,8 @@ import {
   usePublishStatusBarFields,
 } from '@/shared/ui/public';
 
+import { backdropStateFor } from './backdrop-state';
+import { MapInspectorDrawer, type InspectorTabId } from './map-inspector-drawer';
 import { CalibrationPanel } from './calibration-panel';
 import { categoryLabelKey, toolLabelKey } from './labels';
 import { MapEditorStoreProvider, useMapEditorStore } from './editor-store';
@@ -23,7 +25,6 @@ import styles from './map-editor.module.css';
 import { MapLayerPanel } from './map-layer-panel';
 import { MapObjectList } from './map-object-list';
 import { MapPropertyPanel } from './map-property-panel';
-import { openFreeMapProvider, usgsNaipImageryProvider } from './basemap-provider';
 import { MapBackdropSwitch } from './map-backdrop-switch';
 import { MapEmptyPrompt } from './map-empty-prompt';
 import { MapScaleBadge } from './map-scale-badge';
@@ -68,6 +69,19 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
   const store = useMapEditorStore();
   const actions = useMapEditorActions(gardenId);
   const mapDraft = useMapDraftPersistence(gardenId, store);
+
+  /*
+   * Which drawer tab is showing. Selecting an object moves it to Properties —
+   * that is the question the person just asked — but a deliberate switch to
+   * another tab is never overridden until the next selection.
+   */
+  const [inspectorTab, setInspectorTab] = useState<InspectorTabId>('properties');
+  const selectedObjectId = store.state.selectedObjectId;
+  useEffect(() => {
+    if (selectedObjectId !== null) {
+      setInspectorTab('properties');
+    }
+  }, [selectedObjectId]);
 
   // The shell's footer is mounted above this route and cannot take props, so
   // the readouts are published into it — see `usePublishStatusBarFields`.
@@ -132,12 +146,15 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
     return <FailureAlert failure={mapQuery.error.failure} />;
   }
 
-  // A backdrop is drawn only when there is BOTH a provider chosen and a
-  // geographic anchor to align it to. The canvas needs the same answer — it
-  // suppresses its grid over a photograph — so it is computed once here
-  // rather than derived twice from two halves of the same condition.
-  const backdropVisible =
-    store.state.backdrop !== 'none' && mapQuery.data.georeference !== undefined;
+  // Everything the editor shows about the backdrop — whether it is drawn at
+  // all, whether it is a photograph, how far the camera may zoom before it
+  // stops following the drawing, and how enlarged the imagery already is —
+  // decided once, from the choice, the anchor and the camera.
+  const backdrop = backdropStateFor(
+    store.state.backdrop,
+    mapQuery.data.georeference,
+    store.state.camera.scale,
+  );
 
   return (
     <div className={styles['editor']}>
@@ -147,28 +164,39 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
       )}
       {mapDraft.recovered && <RecoveredDraftNotice onDiscard={mapDraft.discardRecoveredDraft} />}
       <div className={styles['body']}>
-        <div className={styles['rail']}>
-          <MapToolbar actions={actions} />
-        </div>
-        <div className={styles['index']}>
-          <MapObjectList
-            actions={actions}
-            selectedObjectId={store.state.selectedObjectId}
-            onSelect={store.select}
-          />
-        </div>
         <div className={styles['canvasWrapper']}>
-          {backdropVisible && (
-            <MapBasemap
-              georeference={mapQuery.data.georeference}
-              camera={store.state.camera}
-              provider={
-                store.state.backdrop === 'imagery' ? usgsNaipImageryProvider : openFreeMapProvider
-              }
+          <MapCanvas
+            actions={actions}
+            backdrop={backdrop}
+            backdropView={
+              backdrop.visible && backdrop.provider !== null ? (
+                <MapBasemap
+                  georeference={mapQuery.data.georeference}
+                  camera={store.state.camera}
+                  provider={backdrop.provider}
+                />
+              ) : null
+            }
+          />
+
+          {/* Chrome, floating over the drawing rather than boxing it in.
+              Each cluster sits where a map application puts it: tools under
+              the drawing hand, the backdrop choice opposite, the draft's own
+              finish/cancel beside the shape being drawn. */}
+          <div className={styles['toolCluster']}>
+            <MapToolbar actions={actions} />
+          </div>
+          <div className={styles['backdropCluster']}>
+            <MapBackdropSwitch
+              available={mapQuery.data.georeference !== undefined}
+              backdrop={backdrop}
             />
-          )}
-          <MapCanvas actions={actions} backdropVisible={backdropVisible} />
-          <MapScaleBadge georeference={mapQuery.data.georeference} />
+          </div>
+          <div className={styles['draftCluster']}>
+            <MapDraftControls actions={actions} />
+          </div>
+
+          <MapScaleBadge georeference={mapQuery.data.georeference} backdrop={backdrop} />
           {/* First-run guidance, gone as soon as the garden holds anything.
               Suppressed while a tool is already drawing: the prompt's own
               action is what started that, and it must not sit over the shape
@@ -179,22 +207,55 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
               georeferenced={mapQuery.data.georeference !== undefined}
             />
           )}
-          <MapDraftControls actions={actions} />
         </div>
-        <aside className={styles['inspector']} aria-label={t('map.inspector.ariaLabel')}>
-          <MapPropertyPanel actions={actions} selectedRecord={actions.selectedRecord} />
-          <div className={styles['utilities']} aria-label={t('map.utilities.ariaLabel')}>
-            <MapBackdropSwitch available={mapQuery.data.georeference !== undefined} />
-            <MapLayerPanel actions={actions} />
-            <ImportedBackgroundPanel gardenId={gardenId} actions={actions} />
-            <CalibrationPanel gardenId={gardenId} actions={actions} />
-            <MapWarningsPanel
-              warnings={mapQuery.data.validationSummary}
-              findRecord={actions.findRecord}
-              onSelectObject={store.select}
-            />
-          </div>
-        </aside>
+
+        <MapInspectorDrawer
+          activeTab={inspectorTab}
+          onSelectTab={setInspectorTab}
+          tabs={[
+            {
+              id: 'properties',
+              labelKey: 'map.inspector.tabProperties',
+              content: (
+                <MapPropertyPanel actions={actions} selectedRecord={actions.selectedRecord} />
+              ),
+            },
+            {
+              id: 'objects',
+              labelKey: 'map.inspector.tabObjects',
+              content: (
+                <MapObjectList
+                  actions={actions}
+                  selectedObjectId={store.state.selectedObjectId}
+                  onSelect={store.select}
+                />
+              ),
+            },
+            {
+              id: 'backdrop',
+              labelKey: 'map.inspector.tabBackdrop',
+              content: (
+                <>
+                  <MapLayerPanel actions={actions} />
+                  <ImportedBackgroundPanel gardenId={gardenId} actions={actions} />
+                  <CalibrationPanel gardenId={gardenId} actions={actions} />
+                </>
+              ),
+            },
+            {
+              id: 'warnings',
+              labelKey: 'map.inspector.tabWarnings',
+              badge: mapQuery.data.validationSummary.length,
+              content: (
+                <MapWarningsPanel
+                  warnings={mapQuery.data.validationSummary}
+                  findRecord={actions.findRecord}
+                  onSelectObject={store.select}
+                />
+              ),
+            },
+          ]}
+        />
       </div>
       {store.state.status !== null && store.state.status.tone === 'alert' ? (
         <Alert tone="danger" title={t(store.state.status.key, store.state.status.args)} />

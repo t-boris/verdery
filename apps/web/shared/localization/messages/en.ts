@@ -243,6 +243,8 @@ export const englishMessages = {
   'map.properties.revision': 'Revision {revision}',
   'map.properties.save': 'Save changes',
   'map.properties.saved': 'Changes saved.',
+  'map.selection.ariaLabel': 'Actions for the selected object',
+  'map.selection.move': 'Move by dragging',
   'map.properties.delete': 'Delete object',
   'map.properties.deleteConfirm': 'Delete this object? You can undo this from the toolbar.',
   'map.properties.deletedStatus': '{label} deleted. Choose Undo in the toolbar to bring it back.',
@@ -370,6 +372,12 @@ export const englishMessages = {
   'map.layers.lockAriaLabel': 'Lock {layer} layer',
   'map.layers.unlockAriaLabel': 'Unlock {layer} layer',
   'map.inspector.ariaLabel': 'Objects and properties',
+  'map.inspector.tabProperties': 'Properties',
+  'map.inspector.tabObjects': 'Objects',
+  'map.inspector.tabBackdrop': 'Backdrop & layers',
+  'map.inspector.tabWarnings': 'Warnings',
+  'map.inspector.collapse': 'Collapse the panel',
+  'map.inspector.expand': 'Expand the panel',
   'map.utilities.ariaLabel': 'Map layers, plans, calibration, and validation',
 
   'map.background.title': 'Plan backgrounds',
@@ -519,6 +527,15 @@ export const englishMessages = {
     'USGS aerial imagery, United States only. Enough to trace a lot, a house, and a fence line; not an individual bed.',
   'map.backdrop.needsLocation':
     'Give this garden a location on its Overview page to draw over a map of the real place.',
+  'map.canvas.zoomControlsLabel': 'Zoom',
+  'map.canvas.zoomIn': 'Zoom in',
+  'map.canvas.zoomOut': 'Zoom out',
+  'map.canvas.zoomFit': 'Fit the whole garden',
+  'map.backdrop.tooCloseForStreets':
+    'The street map has no detail this close in — zoom out to read it, or switch to Aerial to trace over the ground.',
+  'map.backdrop.magnified': 'Imagery enlarged {factor}×',
+  'map.backdrop.zoomLimited':
+    'This is as close as the backdrop can follow the drawing. Turn the backdrop off to zoom further.',
   'gardenLocation.addressLabel': 'Address',
   'gardenLocation.addressSearch': 'Find',
   'gardenLocation.addressNoMatches':

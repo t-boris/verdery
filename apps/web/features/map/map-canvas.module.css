@@ -1,39 +1,61 @@
+/*
+ * The canvas is the page: the stage fills this box completely and every piece
+ * of chrome floats above it. Nothing may occupy a row of its own here — a
+ * hint that pushed the stage down also pushed the drawing away from the
+ * photograph it was being traced over.
+ */
 .canvasArea {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
   min-width: 0;
   min-height: 0;
   height: 100%;
 }
 
+/*
+ * The drawing hint, floating clear of the stage. Centred at the top, where a
+ * gardener's attention already is when a tool has just been picked up.
+ */
 .hint {
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
+  position: absolute;
+  z-index: 3;
+  inset-block-start: var(--space-2);
+  inset-inline: var(--space-2);
+  margin: 0 auto;
+  inline-size: fit-content;
+  max-inline-size: min(32rem, calc(100% - var(--space-4)));
+  padding: var(--space-1) var(--space-3);
   background-color: var(--color-accent-quiet);
   border: var(--border-width) solid var(--color-accent-quiet-border);
   color: var(--color-text);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   font-size: var(--font-size-sm);
+  text-align: center;
+  pointer-events: none;
 }
 
 /*
- * TRANSPARENT, deliberately.
+ * The backdrop's own layer, the same rectangle as the stage above it.
  *
- * This container is stacked over `map-basemap`'s absolutely-positioned map,
- * so an opaque fill here hides the backdrop completely — which is exactly
- * what happened: the aerial imagery was fetched, rendered, and then painted
- * over by this one declaration, leaving the grid as the only thing visible.
- * The surface colour lives on `.canvasWrapper` in `map-editor.module.css`,
- * one level up, so a garden with no backdrop looks exactly as it did.
+ * Same box, deliberately: as a sibling of the whole canvas AREA the map was
+ * aligned to a box that also held the hint row, so it slid down by the hint's
+ * height the moment a drawing tool put one there — while someone was tracing
+ * over it. `pointer-events: none` keeps every gesture going to the stage.
+ */
+.backdropLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/*
+ * TRANSPARENT, deliberately: this container is stacked over the backdrop's own
+ * layer, and an opaque fill here hides it completely — which is exactly what
+ * happened once. The surface colour lives on `.canvasWrapper` in
+ * `map-editor.module.css`, so a garden with no backdrop looks unchanged.
  */
 .stageContainer {
-  position: relative;
-  flex: 1;
-  min-height: 320px;
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-lg);
+  position: absolute;
+  inset: 0;
   background-color: transparent;
   overflow: hidden;
 }
@@ -41,4 +63,33 @@
 .stageContainer:focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: -2px;
+}
+
+/*
+ * Zoom, floating at the canvas's own right edge — above the scale badge, which
+ * the editor places in the corner below. A column of square controls rather
+ * than a strip: it has to stay out of the way of a lot being traced.
+ */
+.zoomControls {
+  position: absolute;
+  z-index: 3;
+  inset-block-start: 50%;
+  inset-inline-end: var(--space-2);
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+@media (max-width: 48rem) {
+  /*
+   * Clear of the drawer sheet, which takes the bottom 45% of the workspace on
+   * a phone (`map-editor.module.css`). Controls hidden behind a panel are
+   * controls that do not exist.
+   */
+  .zoomControls {
+    inset-block-start: auto;
+    inset-block-end: calc(45% + var(--space-2));
+    transform: none;
+  }
 }

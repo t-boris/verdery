@@ -237,6 +237,8 @@ export const russianMessages: MessageCatalogue = {
   'map.properties.revision': 'Версия {revision}',
   'map.properties.save': 'Сохранить изменения',
   'map.properties.saved': 'Изменения сохранены.',
+  'map.selection.ariaLabel': 'Действия с выбранным объектом',
+  'map.selection.move': 'Двигать перетаскиванием',
   'map.properties.delete': 'Удалить объект',
   'map.properties.deleteConfirm': 'Удалить этот объект? Это можно отменить на панели инструментов.',
   'map.properties.deletedStatus':
@@ -368,6 +370,12 @@ export const russianMessages: MessageCatalogue = {
   'map.layers.lockAriaLabel': 'Заблокировать слой «{layer}»',
   'map.layers.unlockAriaLabel': 'Разблокировать слой «{layer}»',
   'map.inspector.ariaLabel': 'Объекты и свойства',
+  'map.inspector.tabProperties': 'Свойства',
+  'map.inspector.tabObjects': 'Объекты',
+  'map.inspector.tabBackdrop': 'Подложка и слои',
+  'map.inspector.tabWarnings': 'Предупреждения',
+  'map.inspector.collapse': 'Свернуть панель',
+  'map.inspector.expand': 'Развернуть панель',
   'map.utilities.ariaLabel': 'Слои, планы, калибровка и проверка карты',
 
   'map.background.title': 'Подложки плана',
@@ -517,6 +525,15 @@ export const russianMessages: MessageCatalogue = {
     'Аэросъёмка USGS, только для США. Хватает обвести участок, дом и линию забора; отдельную грядку — уже нет.',
   'map.backdrop.needsLocation':
     'Укажите местоположение сада на его обзорной странице, чтобы рисовать поверх карты реального места.',
+  'map.canvas.zoomControlsLabel': 'Масштаб',
+  'map.canvas.zoomIn': 'Приблизить',
+  'map.canvas.zoomOut': 'Отдалить',
+  'map.canvas.zoomFit': 'Показать сад целиком',
+  'map.backdrop.tooCloseForStreets':
+    'На таком приближении у карты улиц нет деталей — отдалитесь, чтобы её прочитать, или переключитесь на снимок, чтобы обводить по земле.',
+  'map.backdrop.magnified': 'Снимок увеличен в {factor}×',
+  'map.backdrop.zoomLimited':
+    'Ближе подложка за рисунком уже не поспевает. Отключите подложку, чтобы приблизиться сильнее.',
   'gardenLocation.addressLabel': 'Адрес',
   'gardenLocation.addressSearch': 'Найти',
   'gardenLocation.addressNoMatches':

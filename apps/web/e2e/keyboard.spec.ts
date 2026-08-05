@@ -237,9 +237,12 @@ test.describe.serial('keyboard operability', () => {
     await page.goto(`/application/gardens/${garden.gardenId}/map`);
     await waitForRouteContent(page, '/map');
 
-    // The list is present and titled even when the garden has no objects yet,
-    // which is what makes it a discoverable alternative rather than a
-    // conditionally rendered one.
+    // The list now shares one drawer with the other panels, so reaching it is
+    // a tab away rather than a scroll away. It must still be reachable by
+    // keyboard alone, and present even when the garden holds no objects —
+    // that is what makes it an alternative to the canvas rather than a
+    // conditional extra.
+    await page.getByRole('tab', { name: 'Objects' }).click();
     await expect(page.getByRole('heading', { name: copy.mapObjectListTitle })).toBeVisible();
   });
 

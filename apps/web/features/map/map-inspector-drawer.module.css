@@ -1,0 +1,101 @@
+/*
+ * One drawer where five stacked panels used to be. The tab strip stays put
+ * when the body is collapsed, so nothing behind it becomes unreachable — the
+ * collapse is a request for canvas room, not for fewer capabilities.
+ */
+.drawer {
+  grid-area: inspector;
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+  background-color: var(--color-surface);
+}
+
+.drawerCollapsed {
+  /* Only the strip: the grid track shrinks to it, giving the canvas the rest. */
+  block-size: fit-content;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border-block-end: var(--border-width) solid var(--color-border);
+}
+
+.tabs {
+  display: flex;
+  flex: 1;
+  min-inline-size: 0;
+  gap: var(--space-1);
+  overflow-x: auto;
+  /* Four labels never wrap into a second row; on a narrow drawer they scroll. */
+  scrollbar-width: thin;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-block-size: var(--control-min-size);
+  padding-inline: var(--space-2);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--color-text);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+.tabActive {
+  background-color: var(--color-accent-quiet);
+  border-color: var(--color-accent-quiet-border);
+  color: var(--color-text);
+  font-weight: var(--font-weight-semibold);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 1.25rem;
+  padding-inline: var(--space-1);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-negative-quiet);
+  color: var(--color-negative);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.toggleIcon {
+  transform: rotate(-90deg);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.toggleIconOpen {
+  transform: rotate(0deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toggleIcon {
+    transition: none;
+  }
+}
+
+.panel {
+  flex: 1;
+  min-block-size: 0;
+  overflow-y: auto;
+}

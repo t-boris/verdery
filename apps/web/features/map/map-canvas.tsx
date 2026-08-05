@@ -2,18 +2,17 @@
 
 import { SNAP_TOLERANCE_SCREEN_PIXELS, type Position } from '@verdery/geometry-contracts';
 import type Konva from 'konva';
-import {
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type KeyboardEvent as ReactKeyboardEvent,
-} from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Layer, Stage } from 'react-konva';
 
 import { useLocalization } from '@/shared/localization/public';
 import { VisuallyHidden } from '@/shared/ui/public';
 
+import {
+  initialScaleOverBackdrop,
+  scaleWithinBackdrop,
+  type BackdropState,
+} from './backdrop-state';
 import { calibrationStateText } from './calibration-labels';
 import {
   draftWithLocalPoint,
@@ -24,6 +23,7 @@ import { useMapEditorStore } from './editor-store';
 import { categoryLabelKey } from './labels';
 import { isCategoryHidden, isCategoryLocked } from './map-layers';
 import { formatOrdinal, mapObjectOrdinals } from './map-object-ordinals';
+import { MapCanvasChrome } from './map-canvas-chrome';
 import { BackgroundImageShape } from './shapes/background-image-shape';
 import { CalibrationOverlay } from './shapes/calibration-overlay';
 import { CanvasGrid } from './shapes/canvas-grid';
@@ -41,42 +41,34 @@ import {
   type CanvasSize,
 } from './types';
 import { useCanvasPalette } from './use-canvas-palette';
+import { createCanvasKeyDownHandler } from './use-canvas-keyboard';
 import type { MapEditorActions } from './use-map-editor-actions';
 import { editableRingOf, isRingClosureVertex, movedRingClosureGeometry } from './vertex-ring';
 import { initialCameraFor, isRecordInViewport, panCamera, toLocal, zoomCamera } from './viewport';
 
-const NUDGE_METRES = 0.1;
-const NUDGE_METRES_FAST = 1;
 const ZOOM_IN_FACTOR = 1.1;
 const ZOOM_OUT_FACTOR = 1 / 1.1;
-
-/** One arrow-key press of camera movement, in screen pixels. Shift multiplies it. */
-const PAN_SCREEN_PIXELS = 40;
-const PAN_SCREEN_PIXELS_FAST = 200;
-
-/** Screen-space unit direction for each arrow key: y grows downward on screen. */
-const ARROW_DIRECTIONS: Readonly<Record<string, { readonly x: number; readonly y: number }>> = {
-  ArrowUp: { x: 0, y: -1 },
-  ArrowDown: { x: 0, y: 1 },
-  ArrowLeft: { x: -1, y: 0 },
-  ArrowRight: { x: 1, y: 0 },
-};
-
-function isEditableElement(target: EventTarget | null): boolean {
-  return (
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    target instanceof HTMLSelectElement
-  );
-}
 
 export interface MapCanvasProps {
   readonly actions: MapEditorActions;
   /**
-   * `true` when a provider backdrop is actually being drawn behind this
-   * stage. The grid is suppressed then — see the render below.
+   * What the chosen backdrop can draw at the current camera. The stage needs
+   * it for two decisions: whether the metre grid would be noise over a
+   * photograph, and how far the camera may zoom before the backdrop stops
+   * following the drawing.
    */
-  readonly backdropVisible?: boolean;
+  readonly backdrop: BackdropState;
+  /**
+   * The backdrop itself, rendered as the bottom layer INSIDE this stage's own
+   * container.
+   *
+   * It has to be this element's child rather than a sibling one level up:
+   * the two must occupy exactly the same rectangle, and as a sibling of the
+   * canvas area it was aligned to a box that also contained the hint row —
+   * so the imagery slid whenever a tool started drawing, which is precisely
+   * when someone is trying to trace it.
+   */
+  readonly backdropView?: ReactNode;
 }
 
 /**
@@ -96,7 +88,7 @@ export interface MapCanvasProps {
  * Client-only (touches `window`/`document` through Konva) — always loaded via
  * `next/dynamic(..., { ssr: false })` from `map-editor.tsx`.
  */
-export function MapCanvas({ actions, backdropVisible = false }: MapCanvasProps) {
+export function MapCanvas({ actions, backdrop, backdropView = null }: MapCanvasProps) {
   const { t, locale } = useLocalization();
   const store = useMapEditorStore();
 
@@ -127,8 +119,12 @@ export function MapCanvas({ actions, backdropVisible = false }: MapCanvasProps) 
     if (size.width === 0 || size.height === 0 || store.state.cameraInitialized) {
       return;
     }
-    store.initCamera(initialCameraFor(actions.records, size));
-  }, [actions.records, size, store]);
+    const fitted = initialCameraFor(actions.records, size);
+    store.initCamera({
+      ...fitted,
+      scale: scaleWithinBackdrop(initialScaleOverBackdrop(fitted.scale, backdrop), backdrop),
+    });
+  }, [actions.records, backdrop, size, store]);
 
   const camera = store.state.camera;
   const tool = store.state.tool;
@@ -273,6 +269,27 @@ export function MapCanvas({ actions, backdropVisible = false }: MapCanvasProps) 
     stage.position({ x: 0, y: 0 });
   };
 
+  /*
+   * Zoom, held to what a visible backdrop can still follow.
+   *
+   * Past its limit MapLibre clamps its own zoom while this camera keeps
+   * scaling, so the photograph and the geometry drift apart — up to eleven
+   * times at full scale. Refusing to go further, and saying why, is the only
+   * honest option: a backdrop that silently stops matching the drawing is
+   * worse than no backdrop at all.
+   */
+  const zoomTo = (pivot: { readonly x: number; readonly y: number }, factor: number) => {
+    const next = zoomCamera(camera, size, pivot, factor);
+    const held = scaleWithinBackdrop(next.scale, backdrop);
+    if (held < next.scale && held <= camera.scale) {
+      store.setStatus({ key: 'map.backdrop.zoomLimited', tone: 'status' });
+      return;
+    }
+    store.setCamera(
+      held === next.scale ? next : zoomCamera(camera, size, pivot, held / camera.scale),
+    );
+  };
+
   const handleWheel = (event: Konva.KonvaEventObject<WheelEvent>) => {
     event.evt.preventDefault();
     const stage = event.target.getStage();
@@ -280,71 +297,19 @@ export function MapCanvas({ actions, backdropVisible = false }: MapCanvasProps) 
     if (pointer === null || pointer === undefined) {
       return;
     }
-    const factor = event.evt.deltaY < 0 ? ZOOM_IN_FACTOR : ZOOM_OUT_FACTOR;
-    store.setCamera(zoomCamera(camera, size, pointer, factor));
+    zoomTo(pointer, event.evt.deltaY < 0 ? ZOOM_IN_FACTOR : ZOOM_OUT_FACTOR);
   };
 
-  const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (isEditableElement(event.target)) {
-      return;
-    }
-
-    if (event.key === 'Escape') {
-      if (isDrafting && store.state.draftPoints.length > 0) {
-        store.setDraftPoints([]);
-      } else {
-        store.setTool('select');
-        store.select(null);
-      }
-      return;
-    }
-
-    if (isDrafting && (event.key === 'Enter' || event.key === ' ')) {
-      event.preventDefault();
-      void actions.finishDraft();
-      return;
-    }
-
-    if (
-      (event.key === 'Delete' || event.key === 'Backspace') &&
-      store.state.selectedObjectId !== null
-    ) {
-      event.preventDefault();
-      void actions.deleteObject(store.state.selectedObjectId);
-      return;
-    }
-
-    // Zoom is keyboard-reachable as well as wheel-reachable: the wheel and
-    // the pinch gesture were the only ways to change scale, which left a
-    // keyboard-only reader unable to see anything outside the initial fit.
-    // `=` is the unshifted key that carries `+` on most layouts.
-    if (event.key === '+' || event.key === '=' || event.key === '-') {
-      event.preventDefault();
-      const pivot = { x: size.width / 2, y: size.height / 2 };
-      store.setCamera(
-        zoomCamera(camera, size, pivot, event.key === '-' ? ZOOM_OUT_FACTOR : ZOOM_IN_FACTOR),
-      );
-      return;
-    }
-
-    const arrow = ARROW_DIRECTIONS[event.key];
-    if (arrow === undefined) {
-      return;
-    }
-    event.preventDefault();
-
-    // With an object selected the arrows nudge it; with nothing selected they
-    // pan the camera, which is the only keyboard way to reach a part of the
-    // garden that is currently off screen.
-    if (store.state.selectedObjectId === null) {
-      const step = event.shiftKey ? PAN_SCREEN_PIXELS_FAST : PAN_SCREEN_PIXELS;
-      store.setCamera(panCamera(camera, -arrow.x * step, -arrow.y * step));
-      return;
-    }
-
-    const nudge = event.shiftKey ? NUDGE_METRES_FAST : NUDGE_METRES;
-    void actions.moveObject(store.state.selectedObjectId, arrow.x * nudge, -arrow.y * nudge);
-  };
+  const handleKeyDown = createCanvasKeyDownHandler({
+    store,
+    actions,
+    camera,
+    size,
+    isDrafting,
+    zoomBy: zoomTo,
+    zoomInFactor: ZOOM_IN_FACTOR,
+    zoomOutFactor: ZOOM_OUT_FACTOR,
+  });
 
   const modeHintKey =
     interactionMode === 'vertexEdit'
@@ -361,15 +326,43 @@ export function MapCanvas({ actions, backdropVisible = false }: MapCanvasProps) 
         ? null
         : 'map.canvas.hintPoint');
 
+  /*
+   * Zoom lives on the canvas, next to the thing being zoomed — and it lives
+   * INSIDE this component because fitting the drawing needs the stage's own
+   * measured size, which nothing outside it knows.
+   */
+  const fitToObjects = () => {
+    if (size.width === 0 || size.height === 0) {
+      return;
+    }
+    const fitted = initialCameraFor(actions.records, size);
+    store.setCamera({ ...fitted, scale: scaleWithinBackdrop(fitted.scale, backdrop) });
+  };
+
   return (
     <div className={styles['canvasArea']}>
-      {hintKey !== null && (
-        <p className={styles['hint']} role="status">
-          {hintKey === 'map.canvas.hintPoint' && creatingCategory !== null
-            ? t(hintKey, { category: t(categoryLabelKey(creatingCategory)) })
-            : t(hintKey)}
-        </p>
-      )}
+      <MapCanvasChrome
+        hint={
+          hintKey === null
+            ? null
+            : hintKey === 'map.canvas.hintPoint' && creatingCategory !== null
+              ? t(hintKey, { category: t(categoryLabelKey(creatingCategory)) })
+              : t(hintKey)
+        }
+        camera={camera}
+        size={size}
+        selectedRecord={selectedRecord}
+        interactionMode={interactionMode}
+        onSetInteractionMode={store.setInteractionMode}
+        onDeleteSelected={() => {
+          if (selectedRecord !== null) {
+            void actions.deleteObject(selectedRecord.id);
+          }
+        }}
+        onZoomIn={() => zoomTo({ x: size.width / 2, y: size.height / 2 }, ZOOM_IN_FACTOR)}
+        onZoomOut={() => zoomTo({ x: size.width / 2, y: size.height / 2 }, ZOOM_OUT_FACTOR)}
+        onZoomFit={fitToObjects}
+      />
       <div
         ref={containerRef}
         className={styles['stageContainer']}
@@ -387,6 +380,7 @@ export function MapCanvas({ actions, backdropVisible = false }: MapCanvasProps) 
         <VisuallyHidden>
           <span id={keyboardHelpId}>{t('map.canvas.keyboardHelp')}</span>
         </VisuallyHidden>
+        {backdropView !== null && <div className={styles['backdropLayer']}>{backdropView}</div>}
         {size.width > 0 && size.height > 0 && (
           <Stage
             width={size.width}
@@ -409,7 +403,10 @@ export function MapCanvas({ actions, backdropVisible = false }: MapCanvasProps) 
                 traced, so a visible backdrop replaces it — which is also what
                 the grid's own note means by "a visible ground".
               */}
-              {!backdropVisible && <CanvasGrid size={size} stroke={palette.grid} />}
+              {/* Suppressed over a photograph, where it is noise on the
+                  ground; kept over a street map, which carries no sense of
+                  scale of its own. */}
+              {!backdrop.showsPhotograph && <CanvasGrid size={size} stroke={palette.grid} />}
               {visibleBackgrounds.map((record) => (
                 <BackgroundImageShape
                   key={`background-${record.id}`}

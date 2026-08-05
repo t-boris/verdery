@@ -173,19 +173,40 @@ test.describe.serial('responsive layout', () => {
     expect(measurements.widestTab).toBeLessThan(measurements.viewportWidth / 4);
   });
 
-  test('the map editor stacks its sidebar below the canvas on a phone', async ({ page }) => {
+  /*
+   * The editor gives the whole width to the drawing at every size: the tools,
+   * the backdrop choice and the zoom float over the canvas, and the four
+   * former panels share one drawer. What this replaced was four columns —
+   * rail, object index, canvas, inspector — which on a phone stacked into a
+   * document a gardener had to scroll to reach their own map.
+   */
+  test('the map editor gives the canvas the full width on a phone', async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 780 });
     await signIn(page, garden.email);
     await page.goto(`/application/gardens/${garden.gardenId}/map`);
     await waitForRouteContent(page, '/map');
 
-    const canvas = await page.getByRole('application').boundingBox();
-    const objectList = await page.getByRole('heading', { name: 'Objects' }).first().boundingBox();
+    // The canvas takes the full width the route gives it: no column of
+    // panels beside it, at any width. Measured against its own parent rather
+    // than the viewport, which also carries the shell's navigation rail.
+    const canvasWidth = await page.getByRole('application').evaluate((element) => {
+      const parent = element.parentElement?.parentElement;
+      return {
+        canvas: element.getBoundingClientRect().width,
+        available:
+          parent === null || parent === undefined ? 0 : parent.getBoundingClientRect().width,
+      };
+    });
+    expect(canvasWidth.canvas).toBeGreaterThan(canvasWidth.available * 0.95);
 
-    expect(canvas).not.toBeNull();
-    expect(objectList).not.toBeNull();
-    // Below, not beside: a side-by-side editor at 360px leaves neither
-    // column usable.
-    expect(objectList?.y ?? 0).toBeGreaterThan((canvas?.y ?? 0) + (canvas?.height ?? 0) - 1);
+    // The tools reach the canvas without opening anything, and so does the
+    // backdrop choice — they are on it, not in a panel below it.
+    await expect(page.getByRole('toolbar', { name: 'Editing tools' })).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Zoom' })).toBeVisible();
+
+    // The four former panels are one drawer, showing one tab at a time.
+    const tabs = page.getByRole('tab');
+    await expect(tabs).toHaveCount(4);
+    await expect(page.getByRole('tabpanel')).toHaveCount(1);
   });
 });

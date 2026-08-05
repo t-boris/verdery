@@ -7,9 +7,10 @@
  * a 44px column cannot hold a labelled button, and the direction wants the
  * width rather than a compromise on it.
  *
- * Below the tablet breakpoint the rail turns horizontal and scrolls: a 44px
- * column plus the index plus the inspector cannot coexist with a usable
- * canvas on a phone.
+ * The rail floats over the canvas (see `map-editor.module.css`): a column at
+ * the drawing hand's side on anything wider than a phone, and a horizontal
+ * scroller pinned within thumb reach below that, where a vertical rail would
+ * eat the height a garden needs.
  */
 .rail {
   display: flex;
@@ -112,7 +113,7 @@
   border-block-start: var(--border-width) solid var(--color-border);
 }
 
-@media (max-width: 80rem) {
+@media (max-width: 48rem) {
   .rail {
     flex-direction: row;
     inline-size: auto;

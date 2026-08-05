@@ -1,12 +1,11 @@
 /*
- * Kern's map workspace: four regions in one row, separated by 1px gaps over a
- * border-coloured background — the gap IS the rule, so no region draws a
- * border of its own.
+ * The canvas IS the workspace. Everything that is not the drawing either
+ * floats over it or lives in one drawer beside it.
  *
- * A 44px tool rail (fixed — it is a touch-target minimum), then a fluid
- * object index, the canvas taking the rest, and a fluid inspector. The pane
- * widths are `clamp()` tokens; see `shared/ui/tokens.css` for why the
- * direction's fixed pixels were not taken literally.
+ * What this replaced: four columns in a row — a tool rail, an object index,
+ * the canvas, and an inspector that scrolled through five stacked panels. The
+ * drawing got about half the width of a laptop and the controls sat in four
+ * places at once, which is what "кнопки разбросаны" meant.
  *
  * `flex: 1` inside the route's own column, not a `calc(100vh - Xrem)`: the
  * editor sits inside the application shell's single scrolling region, which is
@@ -24,28 +23,13 @@
 
 .body {
   display: grid;
-  grid-template-areas: 'rail index canvas inspector';
-  grid-template-columns: var(--control-min-size) var(--pane-index) minmax(0, 1fr) var(
-      --pane-inspector
-    );
+  grid-template-areas: 'canvas inspector';
+  grid-template-columns: minmax(0, 1fr) var(--pane-inspector);
   gap: var(--border-width);
   flex: 1;
   min-block-size: 0;
-  /* The 1px gaps show this through, which is what draws every rule in the workspace. */
+  /* The 1px gap shows this through, which is what draws the rule between them. */
   background-color: var(--color-border);
-}
-
-.rail {
-  grid-area: rail;
-  min-block-size: 0;
-}
-
-.index {
-  grid-area: index;
-  display: flex;
-  flex-direction: column;
-  min-block-size: 0;
-  overflow: hidden;
 }
 
 .canvasWrapper {
@@ -57,53 +41,103 @@
   background-color: var(--color-surface);
 }
 
-.inspector {
-  grid-area: inspector;
-  display: flex;
-  flex-direction: column;
-  min-block-size: 0;
-  overflow-y: auto;
-  background-color: var(--color-surface);
-}
-
 /*
- * The utility panels (layers, background, calibration, warnings) have no
- * column of their own in the four-region layout — they follow the inspector
- * in the same scrolling column, under their own heavier rule.
+ * The floating clusters. Each one is a card over the drawing, positioned where
+ * a map application puts it, and each keeps `pointer-events` for itself while
+ * the space between them belongs to the canvas.
  */
-.utilities {
-  display: flex;
-  flex-direction: column;
-  border-block-start: var(--border-width) solid var(--color-border-strong);
+.toolCluster,
+.backdropCluster,
+.draftCluster {
+  position: absolute;
+  z-index: 2;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.toolCluster {
+  inset-block-start: var(--space-2);
+  inset-inline-start: var(--space-2);
+  max-block-size: calc(100% - var(--space-8));
+  overflow-y: auto;
+}
+
+.backdropCluster {
+  inset-block-start: var(--space-2);
+  inset-inline-end: var(--space-2);
+  max-inline-size: 18rem;
+  padding: var(--space-2);
+}
+
+.draftCluster {
+  inset-block-end: var(--space-2);
+  inset-inline-start: var(--space-2);
+  padding: var(--space-1);
 }
 
 /*
- * Below the tablet breakpoint the four columns cannot coexist. The rail turns
- * horizontal (see `map-toolbar.module.css`), and index/canvas/inspector stack
- * with the whole editor scrolling as one document again — a phone has no room
- * for three independently scrolling panes.
+ * Tablet: the drawer stops taking a column of its own and overlays the canvas
+ * from the right, so the drawing keeps the full width. It is still the same
+ * component with the same tabs — only its placement changes.
  */
 @media (max-width: 80rem) {
-  .editor {
-    block-size: auto;
+  .body {
+    grid-template-areas: 'canvas';
+    grid-template-columns: minmax(0, 1fr);
   }
 
+  .body > :global(aside) {
+    position: absolute;
+    z-index: 4;
+    inset-block: 0;
+    inset-inline-end: 0;
+    inline-size: min(22rem, 90%);
+    border-inline-start: var(--border-width) solid var(--color-border);
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+/*
+ * Phone: the drawer becomes a sheet along the bottom edge, capped at a
+ * deliberate fraction of the height so the drawing always keeps the larger
+ * half. The tool rail stays at the top rather than moving into thumb reach at
+ * the bottom — the sheet already occupies that edge, and controls that
+ * overlap each other cost more than the reach saves.
+ */
+@media (max-width: 48rem) {
   .body {
-    grid-template-areas:
-      'rail'
-      'canvas'
-      'index'
-      'inspector';
-    grid-template-columns: minmax(0, 1fr);
+    position: relative;
   }
 
   .canvasWrapper {
     min-block-size: 24rem;
   }
 
-  .index,
-  .inspector {
-    overflow: visible;
-    max-block-size: 32rem;
+  .toolCluster {
+    inset-inline-start: var(--space-2);
+    max-block-size: none;
+    inline-size: calc(100% - var(--space-4));
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .backdropCluster {
+    inset-block-start: calc(var(--control-min-size) + var(--space-4));
+    max-inline-size: min(16rem, 70%);
+  }
+
+  .draftCluster {
+    inset-block-end: var(--space-2);
+  }
+
+  .body > :global(aside) {
+    inset-block: auto 0;
+    inset-inline: 0;
+    inline-size: 100%;
+    max-block-size: 45%;
+    border-inline-start: none;
+    border-block-start: var(--border-width) solid var(--color-border);
   }
 }

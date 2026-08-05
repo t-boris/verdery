@@ -286,6 +286,24 @@ export function PlusIcon(props: IconProps) {
   );
 }
 
+/** Zoom out: a minus, the pair to {@link PlusIcon}'s zoom in. */
+export function MinusIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M4.5 10h11" />
+    </IconBase>
+  );
+}
+
+/** Fit the whole drawing on screen: arrows pulling a frame's corners inward. */
+export function FitIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M3.5 7.5v-4h4M16.5 7.5v-4h-4M3.5 12.5v4h4M16.5 12.5v4h-4" />
+    </IconBase>
+  );
+}
+
 /** Confirm or save: a check. */
 export function CheckIcon(props: IconProps) {
   return (

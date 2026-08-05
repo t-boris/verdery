@@ -1,0 +1,29 @@
+/*
+ * Anchored to the selected object's own top edge, and translated back by half
+ * its width so it centres on the shape. `translateY(-100%)` puts it fully
+ * above the object: controls that overlap what they act on are controls a
+ * person cannot see the effect of.
+ */
+.toolbar {
+  position: absolute;
+  z-index: 3;
+  transform: translate(-50%, -100%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-inline-size: min(20rem, 90%);
+  padding: var(--space-1);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.name {
+  padding-inline: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

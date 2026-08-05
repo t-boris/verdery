@@ -1,8 +1,9 @@
 'use client';
 
 import { useLocalization } from '@/shared/localization/public';
-import { Button } from '@/shared/ui/public';
+import { Button, classNames } from '@/shared/ui/public';
 
+import type { BackdropState } from './backdrop-state';
 import { useMapEditorStore, type BackdropKind } from './editor-store';
 import styles from './map-backdrop-switch.module.css';
 
@@ -17,6 +18,8 @@ const LABEL_KEY = {
 export interface MapBackdropSwitchProps {
   /** `false` when the garden has no georeference, so there is nothing to place a backdrop against. */
   readonly available: boolean;
+  /** What the current choice can actually draw at the current camera. */
+  readonly backdrop: BackdropState;
 }
 
 /**
@@ -32,13 +35,16 @@ export interface MapBackdropSwitchProps {
  * Source: implementation-plan.md work package P12-GEO-01;
  * architecture/map-rendering-and-editing.md, section "3.2 Geographic Space".
  */
-export function MapBackdropSwitch({ available }: MapBackdropSwitchProps) {
+export function MapBackdropSwitch({ available, backdrop }: MapBackdropSwitchProps) {
   const { t } = useLocalization();
   const store = useMapEditorStore();
 
   return (
     <section className={styles['panel']} aria-label={t('map.backdrop.ariaLabel')}>
-      <h3 className={styles['title']}>{t('map.backdrop.title')}</h3>
+      {/* A label, not a heading: this cluster floats on the canvas after the
+          page's own h1, and a lone h3 there is a heading-order violation. The
+          section's `aria-label` already names it. */}
+      <p className={styles['title']}>{t('map.backdrop.title')}</p>
 
       {available ? (
         <>
@@ -55,7 +61,16 @@ export function MapBackdropSwitch({ available }: MapBackdropSwitchProps) {
             ))}
           </div>
           {store.state.backdrop === 'imagery' && (
-            <p className={styles['note']}>{t('map.backdrop.imageryNote')}</p>
+            <p className={classNames(styles['note'], styles['noteStanding'])}>
+              {t('map.backdrop.imageryNote')}
+            </p>
+          )}
+          {/* The street style stops resolving about six zoom levels past its
+              own tiles, which is well short of the scale a garden is drawn at
+              — so at this camera it paints nothing. Saying that beats an
+              unexplained empty field, and points at the backdrop that works. */}
+          {backdrop.beyondProviderDetail && (
+            <p className={styles['note']}>{t('map.backdrop.tooCloseForStreets')}</p>
           )}
         </>
       ) : (

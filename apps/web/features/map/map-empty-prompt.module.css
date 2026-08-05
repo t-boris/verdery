@@ -1,11 +1,13 @@
 /*
- * Floated over the canvas, top-centre: the same posture `map-draft-controls`
- * takes, for the same reason — guidance belongs next to the work, not in
- * chrome the person is not looking at.
+ * Floated over the middle of the canvas: guidance belongs next to the work,
+ * not in chrome the person is not looking at — and not in the top corners,
+ * where the tool rail and the backdrop choice now live. Centred vertically it
+ * clears both, on every width.
  */
 .prompt {
   position: absolute;
-  inset-block-start: var(--space-4);
+  inset-block-start: 50%;
+  transform: translateY(-50%);
   inset-inline: 0;
   z-index: 2;
   display: flex;

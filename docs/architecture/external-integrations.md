@@ -94,11 +94,16 @@ question — where a garden is, and what it looks like from above — and becaus
   account, public-domain data. A LOOKUP only: nothing it returns is stored. A candidate is shown, a
   person accepts one, and what persists is the georeference anchor they accepted. That is what keeps
   this provider free of the retention question every commercial geocoder raises.
-- **Aerial imagery**: the USGS National Map's NAIP service (`imagery.nationalmap.gov`). Public-domain
-  federal imagery, rendered on demand by `exportImage` — the National Map's own cached tiles stop at
-  zoom 16, which is far too coarse for a garden. Roughly 0.6–1 m per pixel: a house, a driveway and a
-  fence line are legible; an individual bed is not. It is a BACKDROP, never geometry — what a person
-  traces over it is their own drawing, and no pixel of it enters the domain model.
+- **Aerial imagery**: the USGS National Map's NAIP Plus service (`imagery.nationalmap.gov`).
+  Public-domain federal imagery, rendered on demand by `exportImage` — the National Map's own cached
+  tiles stop at zoom 16, which is far too coarse for a garden. **0.30 m per pixel**, which is the
+  service's own `pixelSizeX` read from `?f=json` on August 5, 2026; an earlier "roughly 0.6–1 m"
+  here was an estimate and it was wrong by a factor of two, which is why the client now asks the
+  service rather than a memory. A house, a driveway and a fence line are legible; an individual bed
+  is not. The web client requests tiles only up to the zoom that matches that resolution and states
+  any further enlargement on screen — see architecture/map-rendering-and-editing.md, section 3.2.
+  It is a BACKDROP, never geometry — what a person traces over it is their own drawing, and no pixel
+  of it enters the domain model.
 
 Both end at the United States border, which is ADR-0007's first market. Each surface says so rather
 than presenting absent coverage as a failure.

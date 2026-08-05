@@ -23,3 +23,15 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
 }
+
+/*
+ * The standing description of what the imagery can and cannot show. On a
+ * phone it costs more canvas than it earns — the limits that MATTER there
+ * (this is too close for streets; the photograph is enlarged) are said at the
+ * moment they apply, in the badge and in this same panel's other note.
+ */
+@media (max-width: 48rem) {
+  .noteStanding {
+    display: none;
+  }
+}
