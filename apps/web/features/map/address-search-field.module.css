@@ -6,14 +6,28 @@
 
 /* Field and its action on one line: the button acts on the field beside it, not on the panel. */
 .row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
   gap: var(--space-2);
 }
 
 .row > *:first-child {
-  flex: 1;
   min-inline-size: 0;
+}
+
+.row > button {
+  align-self: end;
+}
+
+@media (max-width: 30rem) {
+  .row {
+    grid-template-columns: 1fr;
+  }
+
+  .row > button {
+    inline-size: 100%;
+  }
 }
 
 .empty {

@@ -91,9 +91,10 @@ Two United States federal services, decided together on August 4, 2026 because t
 question — where a garden is, and what it looks like from above — and because both are public domain.
 
 - **Address geocoding**: the Census Bureau geocoder (`geocoding.geo.census.gov`). Free, no key, no
-  account, public-domain data. A LOOKUP only: nothing it returns is stored. A candidate is shown, a
-  person accepts one, and what persists is the georeference anchor they accepted. That is what keeps
-  this provider free of the retention question every commercial geocoder raises.
+  account, public-domain data. The query and unaccepted candidate list are transient. When a person
+  accepts a candidate, its coordinates and exact formatted display address persist with the
+  revisioned georeference; coordinates remain the geometric authority and the text remains an
+  editable label.
 - **Aerial imagery**: the USGS National Map's NAIP Plus service (`imagery.nationalmap.gov`).
   Public-domain federal imagery, rendered on demand by `exportImage` — the National Map's own cached
   tiles stop at zoom 16, which is far too coarse for a garden. **0.30 m per pixel**, which is the
@@ -112,7 +113,11 @@ Both end at the United States border, which is ADR-0007's first market. Each sur
 than presenting absent coverage as a failure.
 
 Rejected, and why, so the reasoning is not re-derived: Google, Mapbox and HERE each restrict storing
-or deriving from results, and tracing a lot outline from imagery is deriving from it; Nominatim's
+or deriving from results, and tracing a lot outline from imagery is deriving from it. Google Maps
+Platform's terms explicitly name tracing building outlines and constructing tree locations from its
+imagery as prohibited examples, while Aerial View also generally prohibits caching the content.
+Google Earth therefore cannot be the extraction source without a separate written licence.
+Nominatim's
 data is ODbL share-alike, the same defect that disqualified OpenWeather for weather.
 
 ## 6. Basemap and Imagery
@@ -221,6 +226,9 @@ Inbound webhooks require:
 - User data is minimized before transfer.
 - Provider terms are reviewed for training and retention.
 - Precise addresses and media are not sent unless necessary for the approved capability.
+- Aerial tracing sends USGS only the bounded geographic box needed to acquire the image. The vision
+  adapter receives that image and its resolution/date metadata, not the formatted street address,
+  geocoder query, user identity, or neighbouring garden records.
 - Provider requests and responses are not logged in full.
 
 ## 14. Cost and Quota

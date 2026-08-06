@@ -14,11 +14,13 @@ import { getMessaging } from 'firebase-admin/messaging';
 import { buildApplication } from './app.js';
 import { registerGracefulShutdown } from './bootstrap/graceful-shutdown.js';
 import {
+  VertexAiAerialGardenExtractionAdapter,
   VertexAiExplanationAdapter,
   VertexAiPlantConditionAnalysisAdapter,
   VertexAiPlantSpeciesIdentificationAdapter,
 } from './modules/integrations/public.js';
 import type {
+  AerialGardenExtractionProviderAdapter,
   AiExplanationProviderAdapter,
   PlantConditionAnalysisProviderAdapter,
   PlantSpeciesIdentificationProviderAdapter,
@@ -178,6 +180,24 @@ async function main(): Promise<void> {
         )
       : null;
 
+  const aerialConfiguration = configuration.aerialTraceAi;
+  const aerialGardenExtractionAdapter: AerialGardenExtractionProviderAdapter | null =
+    aerialConfiguration.enabled &&
+    aiConfiguration.vertexProjectId !== null &&
+    aerialConfiguration.model !== null
+      ? new VertexAiAerialGardenExtractionAdapter(
+          new GoogleGenAI({
+            vertexai: true,
+            project: aiConfiguration.vertexProjectId,
+            location: aiConfiguration.vertexLocation,
+          }),
+          {
+            model: aerialConfiguration.model,
+            maxOutputTokens: aerialConfiguration.maxOutputTokens,
+          },
+        )
+      : null;
+
   const app = await buildApplication({
     configuration,
     logger,
@@ -190,6 +210,7 @@ async function main(): Promise<void> {
     aiExplanationAdapter,
     plantSpeciesIdentificationAdapter,
     plantConditionAnalysisAdapter,
+    aerialGardenExtractionAdapter,
     pushMessageSender,
     identityProviderAccounts,
   });

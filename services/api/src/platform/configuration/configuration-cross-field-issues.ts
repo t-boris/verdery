@@ -101,6 +101,20 @@ export function findPlantConditionAiIssues(
     }));
 }
 
+export function findAerialTraceAiIssues(
+  source: Readonly<Record<string, string | undefined>>,
+): ConfigurationIssue[] {
+  if (source['AERIAL_TRACE_AI_ENABLED'] !== 'true') {
+    return [];
+  }
+  return (['RECOMMENDATION_AI_VERTEX_PROJECT_ID', 'AERIAL_TRACE_AI_MODEL'] as const)
+    .filter((field) => source[field] === undefined)
+    .map((field) => ({
+      variable: field,
+      message: 'Required when AERIAL_TRACE_AI_ENABLED is "true"',
+    }));
+}
+
 /**
  * Cross-field rule for the Open-Meteo tier, the `findDatabaseModeIssues`
  * shape (and its same raw-source reasoning): the paid host authenticates by

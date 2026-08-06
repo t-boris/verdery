@@ -38,6 +38,22 @@ describe('parseGeoreferenceRequest', () => {
     expect(parsed.accuracyMetres).toBe(4.5);
   });
 
+  it('keeps the exact accepted address with an address-search anchor', () => {
+    expect(
+      parseGeoreferenceRequest({
+        ...VALID,
+        method: 'addressSearch',
+        formattedAddress: '  100 Grand Ave, Des Moines, IA 50309  ',
+      }).formattedAddress,
+    ).toBe('100 Grand Ave, Des Moines, IA 50309');
+  });
+
+  it('refuses a formatted address for a non-address method', () => {
+    expect(() =>
+      parseGeoreferenceRequest({ ...VALID, formattedAddress: '100 Grand Ave' }),
+    ).toThrow();
+  });
+
   // The check no schema can make: `Position` is a bare number pair, so
   // nothing but this parser knows these two numbers are a place on Earth.
   it.each([

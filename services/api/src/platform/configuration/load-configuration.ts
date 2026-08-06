@@ -12,6 +12,7 @@ import type { z } from 'zod';
 import type { ConfigurationIssue } from './configuration-cross-field-issues.js';
 import {
   findAiExplanationIssues,
+  findAerialTraceAiIssues,
   findDatabaseModeIssues,
   findPlantConditionAiIssues,
   findPlantSpeciesAiIssues,
@@ -83,6 +84,7 @@ export function loadConfiguration(
     ...findAiExplanationIssues(source),
     ...findPlantSpeciesAiIssues(source),
     ...findPlantConditionAiIssues(source),
+    ...findAerialTraceAiIssues(source),
     ...findWeatherProviderIssues(source),
     ...findTransactionalEmailIssues(source),
   ];

@@ -18,6 +18,7 @@
 import type { FastifyBaseLogger } from 'fastify';
 import type {
   AddressGeocodingAdapter,
+  AerialGardenExtractionProviderAdapter,
   AiExplanationProviderAdapter,
   PlantConditionAnalysisProviderAdapter,
   PlantSpeciesIdentificationProviderAdapter,
@@ -71,6 +72,8 @@ export interface ApplicationDependencies {
    * no suite ever reaches the network.
    */
   readonly addressGeocoder?: AddressGeocodingAdapter | null;
+  /** Review-only aerial vision boundary; absent/null means no provider call is possible. */
+  readonly aerialGardenExtractionAdapter?: AerialGardenExtractionProviderAdapter | null;
   /**
    * ADR-0015: the Vertex AI plant-species-identification adapter, or `null`
    * whenever `PLANT_SPECIES_AI_ENABLED` is off (every environment today,

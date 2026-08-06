@@ -7,6 +7,7 @@ import { Layer, Stage } from 'react-konva';
 
 import { useLocalization } from '@/shared/localization/public';
 import { VisuallyHidden } from '@/shared/ui/public';
+import type { WireAerialTraceProposal } from '@/core/api/public';
 
 import {
   initialScaleOverBackdrop,
@@ -25,6 +26,7 @@ import { isCategoryHidden, isCategoryLocked } from './map-layers';
 import { formatOrdinal, mapObjectOrdinals } from './map-object-ordinals';
 import { MapCanvasChrome } from './map-canvas-chrome';
 import { BackgroundImageShape } from './shapes/background-image-shape';
+import { AerialProposalOverlay } from './shapes/aerial-proposal-overlay';
 import { CalibrationOverlay } from './shapes/calibration-overlay';
 import { CanvasGrid } from './shapes/canvas-grid';
 import { DraftPreviewShape } from './shapes/draft-preview-shape';
@@ -34,6 +36,7 @@ import { TransformHandles } from './shapes/transform-handles';
 import { VertexHandles } from './shapes/vertex-handles';
 import styles from './map-canvas.module.css';
 import { snapPosition, type SnapContext, type SnapResult } from './snapping';
+import { isStagePanTarget } from './stage-drag';
 import {
   CREATABLE_GEOMETRY_KIND,
   creatableCategoryOfTool,
@@ -44,30 +47,32 @@ import { useCanvasPalette } from './use-canvas-palette';
 import { createCanvasKeyDownHandler } from './use-canvas-keyboard';
 import type { MapEditorActions } from './use-map-editor-actions';
 import { editableRingOf, isRingClosureVertex, movedRingClosureGeometry } from './vertex-ring';
-import { initialCameraFor, isRecordInViewport, panCamera, toLocal, zoomCamera } from './viewport';
+import {
+  DEFAULT_SCALE,
+  initialCameraFor,
+  isRecordInViewport,
+  panCamera,
+  toLocal,
+  zoomCamera,
+} from './viewport';
 
 const ZOOM_IN_FACTOR = 1.1;
 const ZOOM_OUT_FACTOR = 1 / 1.1;
 
 export interface MapCanvasProps {
   readonly actions: MapEditorActions;
-  /**
-   * What the chosen backdrop can draw at the current camera. The stage needs
-   * it for two decisions: whether the metre grid would be noise over a
-   * photograph, and how far the camera may zoom before the backdrop stops
-   * following the drawing.
-   */
+  /** The local point represented by the saved address/geographic anchor. */
+  readonly focusAnchor?: Position;
+  readonly aerialProposals?: readonly WireAerialTraceProposal[];
+  readonly selectedAerialProposalId?: string | null;
+  readonly onSelectAerialProposal?: (proposalId: string) => void;
+  readonly onAerialProposalGeometryChange?: (
+    proposalId: string,
+    geometry: WireAerialTraceProposal['geometry'],
+  ) => void;
+  /** The chosen backdrop's render and zoom constraints. */
   readonly backdrop: BackdropState;
-  /**
-   * The backdrop itself, rendered as the bottom layer INSIDE this stage's own
-   * container.
-   *
-   * It has to be this element's child rather than a sibling one level up:
-   * the two must occupy exactly the same rectangle, and as a sibling of the
-   * canvas area it was aligned to a box that also contained the hint row —
-   * so the imagery slid whenever a tool started drawing, which is precisely
-   * when someone is trying to trace it.
-   */
+  /** Backdrop rendered inside the same viewport as the Konva stage. */
   readonly backdropView?: ReactNode;
 }
 
@@ -88,7 +93,16 @@ export interface MapCanvasProps {
  * Client-only (touches `window`/`document` through Konva) — always loaded via
  * `next/dynamic(..., { ssr: false })` from `map-editor.tsx`.
  */
-export function MapCanvas({ actions, backdrop, backdropView = null }: MapCanvasProps) {
+export function MapCanvas({
+  actions,
+  focusAnchor,
+  aerialProposals = [],
+  selectedAerialProposalId = null,
+  onSelectAerialProposal = () => undefined,
+  onAerialProposalGeometryChange = () => undefined,
+  backdrop,
+  backdropView = null,
+}: MapCanvasProps) {
   const { t, locale } = useLocalization();
   const store = useMapEditorStore();
 
@@ -265,6 +279,9 @@ export function MapCanvas({ actions, backdrop, backdropView = null }: MapCanvasP
 
   const handleStageDragEnd = (event: Konva.KonvaEventObject<DragEvent>) => {
     const stage = event.target;
+    if (!isStagePanTarget(stage)) {
+      return;
+    }
     store.setCamera(panCamera(camera, stage.x(), stage.y()));
     stage.position({ x: 0, y: 0 });
   };
@@ -339,6 +356,17 @@ export function MapCanvas({ actions, backdrop, backdropView = null }: MapCanvasP
     store.setCamera({ ...fitted, scale: scaleWithinBackdrop(fitted.scale, backdrop) });
   };
 
+  const resetToAddress =
+    focusAnchor === undefined
+      ? null
+      : () => {
+          const scale = scaleWithinBackdrop(
+            initialScaleOverBackdrop(DEFAULT_SCALE, backdrop),
+            backdrop,
+          );
+          store.setCamera({ centerX: focusAnchor[0], centerY: focusAnchor[1], scale });
+        };
+
   return (
     <div className={styles['canvasArea']}>
       <MapCanvasChrome
@@ -362,6 +390,7 @@ export function MapCanvas({ actions, backdrop, backdropView = null }: MapCanvasP
         onZoomIn={() => zoomTo({ x: size.width / 2, y: size.height / 2 }, ZOOM_IN_FACTOR)}
         onZoomOut={() => zoomTo({ x: size.width / 2, y: size.height / 2 }, ZOOM_OUT_FACTOR)}
         onZoomFit={fitToObjects}
+        onResetToAddress={resetToAddress}
       />
       <div
         ref={containerRef}
@@ -454,6 +483,14 @@ export function MapCanvas({ actions, backdrop, backdropView = null }: MapCanvasP
                   />
                 );
               })}
+              <AerialProposalOverlay
+                proposals={aerialProposals}
+                selectedId={selectedAerialProposalId}
+                camera={camera}
+                size={size}
+                onSelect={onSelectAerialProposal}
+                onGeometryChange={onAerialProposalGeometryChange}
+              />
               {/* After every shape, so a chip is never painted under a neighbouring object. */}
               {visibleRecords.map((record) => (
                 <ObjectLabelChip

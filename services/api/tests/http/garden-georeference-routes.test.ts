@@ -251,6 +251,27 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     expect(response.json<GardenMapDocument>().georeference?.geographicAnchor).toEqual(DES_MOINES);
   });
 
+  it('persists and returns the exact address candidate the owner accepted', async () => {
+    const { token, garden } = await createGardenAsOwner();
+    const formattedAddress = '100 GRAND AVE, DES MOINES, IA, 50309';
+
+    const write = await setGeoreference(garden.id, token, {
+      ...VALID_BODY,
+      method: 'addressSearch',
+      formattedAddress,
+    });
+    expect(write.statusCode).toBe(200);
+    expect(asGeoreference(write).formattedAddress).toBe(formattedAddress);
+
+    const read = await app.inject({
+      method: 'GET',
+      url: `/v1/gardens/${garden.id}/map`,
+      headers: bearer(token),
+    });
+    expect(read.statusCode).toBe(200);
+    expect(read.json<GardenMapDocument>().georeference?.formattedAddress).toBe(formattedAddress);
+  });
+
   it('supersedes rather than edits, leaving exactly one current record', async () => {
     const { token, garden } = await createGardenAsOwner();
     await setGeoreference(garden.id, token, VALID_BODY);

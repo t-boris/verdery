@@ -122,6 +122,7 @@ export async function buildApplication(
     aiExplanationAdapter,
     plantSpeciesIdentificationAdapter,
     plantConditionAnalysisAdapter,
+    aerialGardenExtractionAdapter,
     pushMessageSender,
     identityProviderAccounts,
   } = dependencies;
@@ -162,7 +163,14 @@ export async function buildApplication(
     invitationExpirySweepRouteDependencies,
     ownershipRoutesDependencies,
     gardenContextRoutesDependencies,
-  } = composeGardensMapping(database, clock, cloudTasksInvocationVerifier);
+  } = composeGardensMapping(
+    database,
+    clock,
+    cloudTasksInvocationVerifier,
+    configuration.aerialTraceAi,
+    aerialGardenExtractionAdapter ?? null,
+    logger,
+  );
 
   // integrations (P7-ASYNC-01, P7-AI-01, P9C-INVITE-01, P11-ASYNC-01):
   // weather, bounded AI-explanation, the (usually null) Resend adapter, and

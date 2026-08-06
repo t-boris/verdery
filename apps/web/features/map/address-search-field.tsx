@@ -1,7 +1,7 @@
 'use client';
 
 import type { AddressCandidate } from '@verdery/api-contracts';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useIsOnline } from '@/core/connectivity/public';
 import { useLocalization } from '@/shared/localization/public';
@@ -11,6 +11,8 @@ import { useAddressCandidates } from './queries';
 import styles from './address-search-field.module.css';
 
 export interface AddressSearchFieldProps {
+  /** Saved accepted address, restored when the georeference revision loads. */
+  readonly initialAddress?: string;
   /** Called with `[longitude, latitude]` when a candidate is chosen. */
   readonly onPick: (position: readonly [number, number], formattedAddress: string) => void;
 }
@@ -18,10 +20,9 @@ export interface AddressSearchFieldProps {
 /**
  * Finding a garden by its address instead of by its coordinates.
  *
- * The result is a suggestion, never a decision: candidates are listed, one is
- * picked, and what the garden stores is the anchor the person accepted. That
- * is also why nothing here is remembered — no provider result reaches this
- * application's database.
+ * The result is a suggestion, never a decision: candidates are listed and one
+ * is picked. The accepted coordinate and formatted display address persist
+ * with the georeference; the query and unaccepted candidates do not.
  *
  * United States addresses only, which is the geocoder's own coverage and the
  * product's first market (ADR-0007). The empty state says that plainly rather
@@ -30,11 +31,17 @@ export interface AddressSearchFieldProps {
  * Source: implementation-plan.md work package P12-GEO-01;
  * packages/api-contracts/openapi.yaml, operation `findAddressCandidates`.
  */
-export function AddressSearchField({ onPick }: AddressSearchFieldProps) {
+export function AddressSearchField({ initialAddress, onPick }: AddressSearchFieldProps) {
   const { t } = useLocalization();
   const isOnline = useIsOnline();
   const [query, setQuery] = useState('');
   const search = useAddressCandidates();
+
+  useEffect(() => {
+    if (initialAddress !== undefined) {
+      setQuery(initialAddress);
+    }
+  }, [initialAddress]);
 
   const onSearch = () => {
     const trimmed = query.trim();
@@ -90,7 +97,10 @@ export function AddressSearchField({ onPick }: AddressSearchFieldProps) {
               <button
                 type="button"
                 className={styles['candidate']}
-                onClick={() => pick(candidate, onPick)}
+                onClick={() => {
+                  setQuery(candidate.formattedAddress);
+                  pick(candidate, onPick);
+                }}
               >
                 <span className={styles['address']}>{candidate.formattedAddress}</span>
                 <span className={styles['precision']}>

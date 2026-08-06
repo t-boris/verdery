@@ -49,6 +49,9 @@ export { createSeasonalPlanGateway, type SeasonalPlanGateway } from './seasonal-
 export { createTaskGateway, type TaskGateway } from './task-gateway';
 export type {
   WireCategoryDetails,
+  WireAerialImageryIdentity,
+  WireAerialTraceProposal,
+  WireAerialTraceResult,
   WireGardenMapDocument,
   WireGardenObject,
   WireGeoreference,

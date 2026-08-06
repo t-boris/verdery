@@ -6,10 +6,9 @@
  *
  * This is a LOOKUP, never a write. The owner's 2026-08-04 decision on
  * geocoding is that no provider payload is stored: a candidate is shown, the
- * person picks one, and what persists is the coordinate they accepted — an
- * anchor they confirmed, not a vendor's record cached in this database. That
- * decision is what keeps this port free of the licence question every stored
- * geocoding result raises.
+ * person picks one, and the accepted coordinate plus formatted display
+ * address persist with the georeference. The query, precision vocabulary,
+ * and unaccepted candidates remain transient.
  *
  * Source: architecture/external-integrations.md, sections "2. Integration
  * Boundary" and "3. Adapter Contract"; implementation-plan.md §30.1

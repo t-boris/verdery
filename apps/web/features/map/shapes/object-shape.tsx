@@ -52,6 +52,8 @@ export function ObjectShape({
   onMoveEnd,
 }: ObjectShapeProps) {
   const handleDragEnd = (event: Konva.KonvaEventObject<DragEvent>) => {
+    // Do not let the object's drag become a second, bubbled Stage pan.
+    event.cancelBubble = true;
     const node = event.target;
     const { dx, dy } = screenDeltaToLocalDelta(node.x(), node.y(), camera);
     onMoveEnd(record.id, dx, dy, () => {

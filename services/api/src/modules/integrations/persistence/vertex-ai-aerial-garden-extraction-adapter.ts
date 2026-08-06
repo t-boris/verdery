@@ -20,6 +20,9 @@ export const VERTEX_AERIAL_TRACE_PROMPT_TEMPLATE_VERSION = 1;
 
 const SYSTEM_INSTRUCTION = [
   'Inspect this orthorectified aerial image and propose only garden geometry that is reasonably visible.',
+  'The geocoded address point is at the exact image centre. Treat the property containing that point as the only target property.',
+  'First distinguish the target property from its neighbours using visible parcel evidence. Never return objects belonging to neighbouring properties.',
+  'If the target property cannot be isolated from neighbouring properties with reasonable confidence, return an empty objects array.',
   'Coordinates are normalized image coordinates [x,y] in 0..1, origin top-left.',
   'Return structures, driveways/walks/paths, fences, zones or beds, water features, utility exclusions, and tree trunk points where visible.',
   'Use polygons for lot/structure/zone/bed/waterFeature/utilityExclusion, lines for path/fence, and exactly one point for tree.',

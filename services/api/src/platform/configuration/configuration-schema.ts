@@ -284,6 +284,19 @@ export const environmentSchema = z.object({
   PLANT_CONDITION_AI_MAX_CALLS_PER_HOUR: positiveInteger.default(50),
   PLANT_CONDITION_AI_MAX_CALLS_PER_DAY: positiveInteger.default(500),
 
+  // Review-only aerial tracing. Disabled by default until a model has been
+  // evaluated against representative USGS NAIP fixtures.
+  AERIAL_TRACE_AI_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  AERIAL_TRACE_AI_MODEL: z.string().min(1).optional(),
+  AERIAL_TRACE_IMAGERY_TIMEOUT_MS: positiveInteger.default(8_000),
+  AERIAL_TRACE_VISION_TIMEOUT_MS: positiveInteger.default(20_000),
+  AERIAL_TRACE_AI_MAX_OUTPUT_TOKENS: positiveInteger.default(4_096),
+  AERIAL_TRACE_AI_MAX_CALLS_PER_HOUR: positiveInteger.default(10),
+  AERIAL_TRACE_AI_MAX_CALLS_PER_DAY: positiveInteger.default(30),
+
   // P11-ASYNC-01: the taxon-enrichment pipeline's first real structured-
   // assertion provider, USDA PLANTS — the same per-capability, default-off
   // kill-switch posture `PLANT_SPECIES_AI_ENABLED` already established,

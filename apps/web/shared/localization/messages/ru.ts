@@ -1,6 +1,7 @@
 import type { MessageCatalogue } from '../catalogue';
 
 import { russianAccessibilityMessages } from './ru-accessibility';
+import { russianAerialTraceMessages } from './ru-aerial-trace';
 import { russianCandidatesMessages } from './ru-candidates';
 import { russianClientPortalMessages } from './ru-client-portal';
 import { russianCollaborationMessages } from './ru-collaboration';
@@ -525,7 +526,7 @@ export const russianMessages: MessageCatalogue = {
   'map.backdrop.title': 'Подложка',
   'map.backdrop.ariaLabel': 'Что рисуется за садом',
   'map.backdrop.imagery': 'Снимок',
-  'map.backdrop.streets': 'Улицы',
+  'map.backdrop.streets': 'Карта улиц',
   'map.backdrop.none': 'Без подложки',
   'map.backdrop.imageryNote':
     'Аэросъёмка USGS, только для США. Хватает обвести участок, дом и линию забора; отдельную грядку — уже нет.',
@@ -535,6 +536,7 @@ export const russianMessages: MessageCatalogue = {
   'map.canvas.zoomIn': 'Приблизить',
   'map.canvas.zoomOut': 'Отдалить',
   'map.canvas.zoomFit': 'Показать сад целиком',
+  'map.canvas.resetToAddress': 'Вернуться к сохранённому адресу',
   'map.backdrop.tooCloseForStreets':
     'На таком приближении у карты улиц нет деталей — отдалитесь, чтобы её прочитать, или переключитесь на снимок, чтобы обводить по земле.',
   'map.backdrop.magnified': 'Снимок увеличен в {factor}×',
@@ -556,6 +558,8 @@ export const russianMessages: MessageCatalogue = {
   'gardenLocation.loading': 'Загрузка местоположения сада.',
   'gardenLocation.empty': 'У этого сада ещё нет местоположения.',
   'gardenLocation.currentCoordinates': 'Широта, долгота',
+  'gardenLocation.currentAddress': 'Сохранённый адрес',
+  'gardenLocation.addressUnknown': 'Не сохранён',
   'gardenLocation.currentRotation': 'Север',
   'gardenLocation.currentAccuracy': 'Заявленная точность',
   'gardenLocation.accuracyUnknown': 'Не указана',
@@ -577,5 +581,6 @@ export const russianMessages: MessageCatalogue = {
   'gardenLocation.submit': 'Сохранить местоположение',
 
   ...russianMediaMessages,
+  ...russianAerialTraceMessages,
   ...russianPlantsMessages,
 };

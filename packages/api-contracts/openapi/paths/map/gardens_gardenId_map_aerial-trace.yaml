@@ -1,0 +1,30 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: traceGardenFromAerial
+  tags: [Map]
+  summary: Propose visible garden geometry from bounded aerial imagery
+  description: |
+    Acquires a bounded USGS aerial image centered on the saved address and
+    proposes geometry only for the property containing that center point.
+    The operation writes nothing. It refuses unusable imagery or georeference
+    fit, preserves source/license/model metadata, and never establishes a
+    legal property boundary. Every returned shape remains a review proposal.
+  responses:
+    '200':
+      description: Proposals or a typed safe-degradation outcome.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/map-objects.yaml#/AerialTraceResult'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

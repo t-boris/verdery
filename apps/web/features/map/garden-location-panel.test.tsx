@@ -83,6 +83,36 @@ describe('GardenLocationPanel', () => {
     expect(screen.getByText('41.59, -93.63')).toBeDefined();
   });
 
+  it('restores and resubmits the accepted address with its georeference', () => {
+    const addressGeoreference = {
+      ...GEOREFERENCE,
+      method: 'addressSearch',
+      formattedAddress: '100 GRAND AVE, DES MOINES, IA, 50309',
+    };
+    mockMap({
+      data: {
+        coordinateSpaceId: 'space',
+        georeference: addressGeoreference,
+        objects: [],
+        validationSummary: [],
+      },
+    });
+
+    renderPanel();
+
+    expect(screen.getByText('100 GRAND AVE, DES MOINES, IA, 50309')).toBeDefined();
+    expect(screen.getByLabelText<HTMLInputElement>('Address').value).toBe(
+      '100 GRAND AVE, DES MOINES, IA, 50309',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Save location' }));
+    expect(mutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'addressSearch',
+        formattedAddress: '100 GRAND AVE, DES MOINES, IA, 50309',
+      }),
+    );
+  });
+
   it('states when accuracy was never reported instead of implying exactness', () => {
     const { accuracyMetres: _dropped, ...withoutAccuracy } = GEOREFERENCE;
     mockMap({

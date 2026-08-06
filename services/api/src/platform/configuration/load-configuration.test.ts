@@ -251,6 +251,36 @@ describe('loadConfiguration', () => {
     }
   });
 
+  it('keeps aerial tracing off by default and requires an explicit model when enabled', () => {
+    expect(loadConfiguration(VALID_ENVIRONMENT).aerialTraceAi.enabled).toBe(false);
+
+    try {
+      loadConfiguration({ ...VALID_ENVIRONMENT, AERIAL_TRACE_AI_ENABLED: 'true' });
+      expect.unreachable('Aerial tracing must not guess a Vertex project or model');
+    } catch (error) {
+      expect((error as ConfigurationError).variables).toEqual(
+        expect.arrayContaining(['RECOMMENDATION_AI_VERTEX_PROJECT_ID', 'AERIAL_TRACE_AI_MODEL']),
+      );
+    }
+
+    expect(
+      loadConfiguration({
+        ...VALID_ENVIRONMENT,
+        AERIAL_TRACE_AI_ENABLED: 'true',
+        RECOMMENDATION_AI_VERTEX_PROJECT_ID: 'verdery-dev',
+        AERIAL_TRACE_AI_MODEL: 'evaluated-model-id',
+      }).aerialTraceAi,
+    ).toEqual({
+      enabled: true,
+      model: 'evaluated-model-id',
+      imageryTimeoutMs: 8_000,
+      visionTimeoutMs: 20_000,
+      maxOutputTokens: 4_096,
+      maxCallsPerHour: 10,
+      maxCallsPerDay: 30,
+    });
+  });
+
   it('defaults the weather block: no active provider, documented freshness windows, keyless non-commercial Open-Meteo', () => {
     const configuration = loadConfiguration(VALID_ENVIRONMENT);
 

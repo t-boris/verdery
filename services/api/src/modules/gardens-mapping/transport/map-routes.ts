@@ -30,6 +30,7 @@ import type { ReplaceMapObjectGeometry } from '../application/replace-map-object
 import type { RestoreMapObject } from '../application/restore-map-object.js';
 import type { SplitMapObjectLinework } from '../application/split-map-object-linework.js';
 import type { UpsertMapCalibration } from '../application/upsert-map-calibration.js';
+import type { TraceGardenFromAerial } from '../application/trace-garden-from-aerial.js';
 
 export interface MapRoutesDependencies {
   readonly getGardenMap: GetGardenMap;
@@ -46,6 +47,7 @@ export interface MapRoutesDependencies {
   readonly deleteMapObject: DeleteMapObject;
   readonly restoreMapObject: RestoreMapObject;
   readonly duplicateMapObject: DuplicateMapObject;
+  readonly traceGardenFromAerial?: TraceGardenFromAerial;
 }
 
 function parseViewport(request: FastifyRequest): ViewportBoundingBox | null {
@@ -101,6 +103,17 @@ export function registerMapRoutes(app: FastifyInstance, dependencies: MapRoutesD
 
     return reply.status(200).send(document);
   });
+
+  const traceGardenFromAerial = dependencies.traceGardenFromAerial;
+  if (traceGardenFromAerial !== undefined) {
+    app.post('/gardens/:gardenId/map/aerial-trace', async (request, reply) => {
+      const result = await traceGardenFromAerial.execute(
+        requireGardenId(request),
+        request.actorContext.profileId,
+      );
+      return reply.status(200).send(result);
+    });
+  }
 
   app.post('/gardens/:gardenId/map/commands', async (request, reply) => {
     const gardenId = requireGardenId(request);

@@ -23,6 +23,8 @@ export interface SetGardenGeoreferenceInput {
   readonly rotationDegrees: number;
   readonly scaleCorrection?: number;
   readonly accuracyMetres?: number;
+  /** Exact accepted geocoder label; present only for `addressSearch`. */
+  readonly formattedAddress?: string;
   readonly method: GeoreferenceMethod;
 }
 
@@ -99,6 +101,7 @@ export class SetGardenGeoreference {
             rotationDegrees: input.rotationDegrees,
             scaleCorrection: input.scaleCorrection ?? DEFAULT_SCALE_CORRECTION,
             accuracyMetres: input.accuracyMetres ?? null,
+            formattedAddress: input.formattedAddress ?? null,
             provenance: provenanceForGeoreferenceMethod(input.method),
             method: input.method,
             revision: nextGeoreferenceRevision(current?.revision ?? null),

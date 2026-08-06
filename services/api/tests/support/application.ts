@@ -107,6 +107,15 @@ export const testConfiguration: ApplicationConfiguration = {
     maxCallsPerHour: 50,
     maxCallsPerDay: 500,
   },
+  aerialTraceAi: {
+    enabled: false,
+    model: null,
+    imageryTimeoutMs: 8_000,
+    visionTimeoutMs: 20_000,
+    maxOutputTokens: 4_096,
+    maxCallsPerHour: 10,
+    maxCallsPerDay: 30,
+  },
   // P11-ASYNC-01: the kill-switch off — every test-built application runs
   // with an empty assertion-provider registry and a no-op enrichment sweep,
   // like every real environment today; the numbers are the schema's own

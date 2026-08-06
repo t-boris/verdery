@@ -884,6 +884,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/gardens/{gardenId}/map/aerial-trace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Propose visible garden geometry from bounded aerial imagery
+         * @description Acquires a bounded USGS aerial image centered on the saved address and
+         *     proposes geometry only for the property containing that center point.
+         *     The operation writes nothing. It refuses unusable imagery or georeference
+         *     fit, preserves source/license/model metadata, and never establishes a
+         *     legal property boundary. Every returned shape remains a review proposal.
+         */
+        post: operations["traceGardenFromAerial"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/gardens/{gardenId}/georeference": {
         parameters: {
             query?: never;
@@ -5648,6 +5674,8 @@ export interface components {
             rotationDegrees: number;
             scaleCorrection: number;
             accuracyMetres?: number;
+            /** @description The exact geocoder candidate accepted by the user, when method is addressSearch. */
+            formattedAddress?: string;
             provenance: components["schemas"]["ProvenanceKind"];
             /**
              * @description A `GeoreferenceMethod` for every record this API writes. Typed as a
@@ -5702,6 +5730,8 @@ export interface components {
              *     expressed", never "exact".
              */
             accuracyMetres?: number;
+            /** @description The exact accepted geocoder label. Valid only with method addressSearch. */
+            formattedAddress?: string;
             method: components["schemas"]["GeoreferenceMethod"];
         };
         /**
@@ -8181,6 +8211,63 @@ export interface components {
             lastSeenAt: components["schemas"]["Timestamp"];
             registeredAt: components["schemas"]["Timestamp"];
         };
+        AerialImageryIdentity: {
+            providerKey: string;
+            providerName: string;
+            sourceId: string;
+            /** Format: date */
+            capturedOn: string | null;
+            attributionText: string;
+            /** Format: uri */
+            attributionUrl: string;
+            licenseName: string;
+            /** Format: uri */
+            licenseUrl: string;
+        };
+        AerialTraceProvenance: {
+            /** @constant */
+            kind: "imageExtraction";
+            processor: string;
+            model: string;
+            promptTemplateVersion: number;
+            imagery: components["schemas"]["AerialImageryIdentity"];
+            imageryBounds: {
+                west: number;
+                south: number;
+                east: number;
+                north: number;
+            };
+            imageryWidthPixels: number;
+            imageryHeightPixels: number;
+            imageryResolutionMetres: number;
+            imageryHorizontalAccuracyMetres: number | null;
+            georeferenceRevision: number;
+        };
+        AerialTraceProposal: {
+            proposalId: components["schemas"]["Uuid"];
+            /**
+             * @description A lot is possible only with visible evidence; authoritative parcel evidence is never inferred from imagery.
+             * @enum {string}
+             */
+            boundaryEvidence: "notApplicable" | "visualEvidence";
+            /** @enum {string} */
+            category: "lot" | "structure" | "path" | "fence" | "zone" | "bed" | "waterFeature" | "utilityExclusion" | "tree";
+            geometry: components["schemas"]["Geometry"];
+            label: string;
+            confidence: number;
+            limitations: string[];
+            provenance: components["schemas"]["AerialTraceProvenance"];
+        };
+        AerialTraceResult: {
+            /** @constant */
+            kind: "ready";
+            proposals: components["schemas"]["AerialTraceProposal"][];
+            imagery: components["schemas"]["AerialImageryIdentity"];
+            warning: string;
+        } | {
+            /** @enum {string} */
+            kind: "disabled" | "notGeoreferenced" | "outsideCoverage" | "unusableImagery" | "quotaExceeded" | "timedOut" | "providerFailure" | "noVisibleGeometry";
+        };
         /** @description A quadrant bearing exactly as a plat prints it — `S 44°55'39" E`. */
         PlatBearing: {
             /** @enum {string} */
@@ -9378,6 +9465,31 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    traceGardenFromAerial: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Proposals or a typed safe-degradation outcome. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AerialTraceResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     setGardenGeoreference: {

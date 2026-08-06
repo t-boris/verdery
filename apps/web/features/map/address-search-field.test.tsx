@@ -85,6 +85,19 @@ describe('AddressSearchField', () => {
     fireEvent.click(screen.getByRole('button', { name: /100 GRAND AVE/u }));
 
     expect(onPick).toHaveBeenCalledWith([-93.63, 41.59], '100 GRAND AVE, DES MOINES, IA, 50309');
+    expect(screen.getByLabelText<HTMLInputElement>('Address').value).toBe(
+      '100 GRAND AVE, DES MOINES, IA, 50309',
+    );
+  });
+
+  it('restores the saved address instead of reopening as an empty search', () => {
+    render(
+      <LocalizationProvider locale="en">
+        <AddressSearchField initialAddress="100 Grand Ave" onPick={vi.fn()} />
+      </LocalizationProvider>,
+    );
+
+    expect(screen.getByLabelText<HTMLInputElement>('Address').value).toBe('100 Grand Ave');
   });
 
   it('says what kind of match a candidate is, so a street-only pin is not mistaken for a roof', () => {

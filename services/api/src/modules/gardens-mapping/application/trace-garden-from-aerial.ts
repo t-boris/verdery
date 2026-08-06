@@ -25,6 +25,7 @@ const HALF_EXTENT_METRES = 75;
 
 export interface AerialTraceProposal extends AerialProposalGeometry {
   readonly proposalId: string;
+  readonly boundaryEvidence: 'notApplicable' | 'visualEvidence';
   readonly provenance: {
     readonly kind: 'imageExtraction';
     readonly processor: string;
@@ -86,7 +87,12 @@ export class TraceGardenFromAerial {
       return { kind: 'disabled' };
     }
     const georeference = await this.georeferences.findCurrentForGarden(gardenId);
-    if (georeference === null) {
+    if (
+      georeference === null ||
+      georeference.method !== 'addressSearch' ||
+      georeference.formattedAddress === null ||
+      georeference.formattedAddress === undefined
+    ) {
       return { kind: 'notGeoreferenced' };
     }
     const bounds = boundsAround(georeference.geographicAnchor[0], georeference.geographicAnchor[1]);
@@ -160,6 +166,7 @@ export class TraceGardenFromAerial {
               this.vision!.identity,
               image,
               georeference.revision,
+              object.boundaryEvidence,
             ),
           ];
     });
@@ -196,9 +203,11 @@ function toProposal(
     { kind: 'available' }
   >['image'],
   georeferenceRevision: number,
+  boundaryEvidence: 'notApplicable' | 'visualEvidence' | 'authoritativeParcel',
 ): AerialTraceProposal {
   return {
     proposalId,
+    boundaryEvidence: boundaryEvidence === 'visualEvidence' ? 'visualEvidence' : 'notApplicable',
     ...proposal,
     provenance: {
       kind: 'imageExtraction',

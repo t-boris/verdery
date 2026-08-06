@@ -18,6 +18,7 @@ import {
   requireEnum,
   requireNumber,
   requireOptionalNumber,
+  requireOptionalString,
   requireRecord,
 } from './parse-primitives.js';
 
@@ -99,6 +100,27 @@ function requireRotationDegrees(value: unknown): number {
 export function parseGeoreferenceRequest(body: unknown): SetGardenGeoreferenceInput {
   const record = requireRecord(body, '');
 
+  const method = requireEnum(record['method'], GEOREFERENCE_METHODS, '/method');
+  const rawAddress = requireOptionalString(record['formattedAddress'], '/formattedAddress');
+  const formattedAddress = rawAddress?.trim();
+  if (
+    formattedAddress !== undefined &&
+    (formattedAddress.length === 0 || formattedAddress.length > 500)
+  ) {
+    throw invalid(
+      '/formattedAddress must contain between 1 and 500 characters.',
+      'request.invalid',
+      '/formattedAddress',
+    );
+  }
+  if (formattedAddress !== undefined && method !== 'addressSearch') {
+    throw invalid(
+      '/formattedAddress is only valid with the addressSearch method.',
+      'request.invalid',
+      '/formattedAddress',
+    );
+  }
+
   const scaleCorrection = requireOptionalNumber(record['scaleCorrection'], '/scaleCorrection');
   if (scaleCorrection !== undefined && scaleCorrection <= 0) {
     throw invalid(
@@ -119,6 +141,7 @@ export function parseGeoreferenceRequest(body: unknown): SetGardenGeoreferenceIn
     rotationDegrees: requireRotationDegrees(record['rotationDegrees']),
     ...(scaleCorrection === undefined ? {} : { scaleCorrection }),
     ...(accuracyMetres === undefined ? {} : { accuracyMetres }),
-    method: requireEnum(record['method'], GEOREFERENCE_METHODS, '/method'),
+    ...(formattedAddress === undefined ? {} : { formattedAddress }),
+    method,
   };
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useLocalization, type MessageKey } from '@/shared/localization/public';
-import { Button, FitIcon, MinusIcon, PlusIcon } from '@/shared/ui/public';
+import { Button, FitIcon, MapIcon, MinusIcon, PlusIcon } from '@/shared/ui/public';
 
 import type { InteractionMode } from './editor-store';
 import styles from './map-canvas.module.css';
@@ -20,6 +20,7 @@ export interface MapCanvasChromeProps {
   readonly onZoomIn: () => void;
   readonly onZoomOut: () => void;
   readonly onZoomFit: () => void;
+  readonly onResetToAddress: (() => void) | null;
 }
 
 /**
@@ -46,6 +47,7 @@ export function MapCanvasChrome({
   onZoomIn,
   onZoomOut,
   onZoomFit,
+  onResetToAddress,
 }: MapCanvasChromeProps) {
   const { t } = useLocalization();
 
@@ -78,6 +80,15 @@ export function MapCanvasChrome({
             { key: 'map.canvas.zoomIn', icon: <PlusIcon />, onClick: onZoomIn },
             { key: 'map.canvas.zoomOut', icon: <MinusIcon />, onClick: onZoomOut },
             { key: 'map.canvas.zoomFit', icon: <FitIcon />, onClick: onZoomFit },
+            ...(onResetToAddress === null
+              ? []
+              : [
+                  {
+                    key: 'map.canvas.resetToAddress' as const,
+                    icon: <MapIcon />,
+                    onClick: onResetToAddress,
+                  },
+                ]),
           ] as const satisfies readonly {
             key: MessageKey;
             icon: React.ReactNode;

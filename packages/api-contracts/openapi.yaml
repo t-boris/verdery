@@ -1446,6 +1446,37 @@ paths:
           $ref: '#/components/responses/Conflict'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
+  /gardens/{gardenId}/map/aerial-trace:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+    post:
+      operationId: traceGardenFromAerial
+      tags:
+        - Map
+      summary: Propose visible garden geometry from bounded aerial imagery
+      description: |
+        Acquires a bounded USGS aerial image centered on the saved address and
+        proposes geometry only for the property containing that center point.
+        The operation writes nothing. It refuses unusable imagery or georeference
+        fit, preserves source/license/model metadata, and never establishes a
+        legal property boundary. Every returned shape remains a review proposal.
+      responses:
+        '200':
+          description: Proposals or a typed safe-degradation outcome.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AerialTraceResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /gardens/{gardenId}/georeference:
     parameters:
       - name: gardenId
@@ -9542,6 +9573,11 @@ components:
         accuracyMetres:
           type: number
           minimum: 0
+        formattedAddress:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: The exact geocoder candidate accepted by the user, when method is addressSearch.
         provenance:
           $ref: '#/components/schemas/ProvenanceKind'
         method:
@@ -9616,6 +9652,11 @@ components:
           description: |
             Reported accuracy of the geographic anchor. Absent means "not
             expressed", never "exact".
+        formattedAddress:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: The exact accepted geocoder label. Valid only with method addressSearch.
         method:
           $ref: '#/components/schemas/GeoreferenceMethod'
     AddressPrecision:
@@ -14957,6 +14998,187 @@ components:
           description: Set to the current time on every successful register-or-refresh call.
         registeredAt:
           $ref: '#/components/schemas/Timestamp'
+    AerialImageryIdentity:
+      type: object
+      additionalProperties: false
+      required:
+        - providerKey
+        - providerName
+        - sourceId
+        - capturedOn
+        - attributionText
+        - attributionUrl
+        - licenseName
+        - licenseUrl
+      properties:
+        providerKey:
+          type: string
+        providerName:
+          type: string
+        sourceId:
+          type: string
+        capturedOn:
+          type:
+            - string
+            - 'null'
+          format: date
+        attributionText:
+          type: string
+        attributionUrl:
+          type: string
+          format: uri
+        licenseName:
+          type: string
+        licenseUrl:
+          type: string
+          format: uri
+    AerialTraceProvenance:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+        - processor
+        - model
+        - promptTemplateVersion
+        - imagery
+        - imageryBounds
+        - imageryWidthPixels
+        - imageryHeightPixels
+        - imageryResolutionMetres
+        - imageryHorizontalAccuracyMetres
+        - georeferenceRevision
+      properties:
+        kind:
+          type: string
+          const: imageExtraction
+        processor:
+          type: string
+        model:
+          type: string
+        promptTemplateVersion:
+          type: integer
+          minimum: 1
+        imagery:
+          $ref: '#/components/schemas/AerialImageryIdentity'
+        imageryBounds:
+          type: object
+          additionalProperties: false
+          required:
+            - west
+            - south
+            - east
+            - north
+          properties:
+            west:
+              type: number
+            south:
+              type: number
+            east:
+              type: number
+            north:
+              type: number
+        imageryWidthPixels:
+          type: integer
+          minimum: 1
+        imageryHeightPixels:
+          type: integer
+          minimum: 1
+        imageryResolutionMetres:
+          type: number
+          exclusiveMinimum: 0
+        imageryHorizontalAccuracyMetres:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+        georeferenceRevision:
+          type: integer
+          minimum: 1
+    AerialTraceProposal:
+      type: object
+      additionalProperties: false
+      required:
+        - proposalId
+        - boundaryEvidence
+        - category
+        - geometry
+        - label
+        - confidence
+        - limitations
+        - provenance
+      properties:
+        proposalId:
+          $ref: '#/components/schemas/Uuid'
+        boundaryEvidence:
+          type: string
+          enum:
+            - notApplicable
+            - visualEvidence
+          description: A lot is possible only with visible evidence; authoritative parcel evidence is never inferred from imagery.
+        category:
+          type: string
+          enum:
+            - lot
+            - structure
+            - path
+            - fence
+            - zone
+            - bed
+            - waterFeature
+            - utilityExclusion
+            - tree
+        geometry:
+          $ref: '#/components/schemas/Geometry'
+        label:
+          type: string
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        limitations:
+          type: array
+          items:
+            type: string
+        provenance:
+          $ref: '#/components/schemas/AerialTraceProvenance'
+    AerialTraceResult:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required:
+            - kind
+            - proposals
+            - imagery
+            - warning
+          properties:
+            kind:
+              type: string
+              const: ready
+            proposals:
+              type: array
+              minItems: 1
+              items:
+                $ref: '#/components/schemas/AerialTraceProposal'
+            imagery:
+              $ref: '#/components/schemas/AerialImageryIdentity'
+            warning:
+              type: string
+        - type: object
+          additionalProperties: false
+          required:
+            - kind
+          properties:
+            kind:
+              type: string
+              enum:
+                - disabled
+                - notGeoreferenced
+                - outsideCoverage
+                - unusableImagery
+                - quotaExceeded
+                - timedOut
+                - providerFailure
+                - noVisibleGeometry
     PlatBearing:
       type: object
       additionalProperties: false

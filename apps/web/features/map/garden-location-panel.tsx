@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useIsOnline } from '@/core/connectivity/public';
 import type { WireSetGeoreferenceRequest } from '@/core/api/public';
@@ -48,13 +48,35 @@ export function GardenLocationPanel({ gardenId }: GardenLocationPanelProps) {
   const [longitude, setLongitude] = useState('');
   const [latitude, setLatitude] = useState('');
   const [rotation, setRotation] = useState('0');
+  const [formattedAddress, setFormattedAddress] = useState('');
   const [accuracyMetres, setAccuracyMetres] = useState<number | null>(null);
   const [method, setMethod] = useState<WireSetGeoreferenceRequest['method']>('manualCoordinates');
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
 
-  const onAddressPicked = (position: readonly [number, number]) => {
+  useEffect(() => {
+    if (current === undefined) {
+      return;
+    }
+    setLongitude(current.geographicAnchor[0].toFixed(6));
+    setLatitude(current.geographicAnchor[1].toFixed(6));
+    setRotation(String(current.rotationDegrees));
+    setAccuracyMetres(current.accuracyMetres ?? null);
+    setMethod(
+      current.method === 'addressSearch' ||
+        current.method === 'deviceLocation' ||
+        current.method === 'mapPin' ||
+        current.method === 'manualCoordinates' ||
+        current.method === 'controlPoints' ||
+        current.method === 'imageryAlignment'
+        ? current.method
+        : 'manualCoordinates',
+    );
+    setFormattedAddress(current.formattedAddress ?? '');
+  }, [current]);
+
+  const onAddressPicked = (position: readonly [number, number], address: string) => {
     const [pickedLongitude, pickedLatitude] = position;
     setLongitude(pickedLongitude.toFixed(6));
     setLatitude(pickedLatitude.toFixed(6));
@@ -64,6 +86,7 @@ export function GardenLocationPanel({ gardenId }: GardenLocationPanelProps) {
     // of match they accepted.
     setAccuracyMetres(null);
     setMethod('addressSearch');
+    setFormattedAddress(address);
     setLocationError(null);
     setFieldError(null);
   };
@@ -85,6 +108,7 @@ export function GardenLocationPanel({ gardenId }: GardenLocationPanelProps) {
         setLatitude(position.coords.latitude.toFixed(6));
         setAccuracyMetres(position.coords.accuracy);
         setMethod('deviceLocation');
+        setFormattedAddress('');
         setLocating(false);
       },
       () => {
@@ -130,6 +154,7 @@ export function GardenLocationPanel({ gardenId }: GardenLocationPanelProps) {
       geographicAnchor: [longitudeValue, latitudeValue],
       rotationDegrees: rotationValue,
       ...(accuracyMetres === null ? {} : { accuracyMetres }),
+      ...(method === 'addressSearch' && formattedAddress !== '' ? { formattedAddress } : {}),
       method,
     });
   };
@@ -155,6 +180,10 @@ export function GardenLocationPanel({ gardenId }: GardenLocationPanelProps) {
         ) : (
           <dl className={styles['current']}>
             <div className={styles['row']}>
+              <dt>{t('gardenLocation.currentAddress')}</dt>
+              <dd>{current.formattedAddress ?? t('gardenLocation.addressUnknown')}</dd>
+            </div>
+            <div className={styles['row']}>
               <dt>{t('gardenLocation.currentCoordinates')}</dt>
               <dd>
                 {formatCoordinate(current.geographicAnchor[1])},{' '}
@@ -179,7 +208,12 @@ export function GardenLocationPanel({ gardenId }: GardenLocationPanelProps) {
         ))}
 
       <div className={styles['form']}>
-        <AddressSearchField onPick={onAddressPicked} />
+        <AddressSearchField
+          {...(current?.formattedAddress === undefined
+            ? {}
+            : { initialAddress: current.formattedAddress })}
+          onPick={onAddressPicked}
+        />
         <p className={styles['hint']}>{t('gardenLocation.addressUsOnly')}</p>
 
         <Button variant="secondary" busy={locating} onClick={useMyLocation} disabled={!isOnline}>
@@ -198,6 +232,7 @@ export function GardenLocationPanel({ gardenId }: GardenLocationPanelProps) {
               setLatitude(event.target.value);
               setMethod('manualCoordinates');
               setAccuracyMetres(null);
+              setFormattedAddress('');
             }}
           />
           <TextField
@@ -208,6 +243,7 @@ export function GardenLocationPanel({ gardenId }: GardenLocationPanelProps) {
               setLongitude(event.target.value);
               setMethod('manualCoordinates');
               setAccuracyMetres(null);
+              setFormattedAddress('');
             }}
           />
           <TextField

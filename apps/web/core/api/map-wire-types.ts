@@ -75,6 +75,7 @@ export interface WireGeoreference {
   readonly rotationDegrees: number;
   readonly scaleCorrection: number;
   readonly accuracyMetres?: number;
+  readonly formattedAddress?: string;
   readonly provenance: ProvenanceKind;
   readonly method: string;
   readonly revision: number;
@@ -94,6 +95,7 @@ export interface WireSetGeoreferenceRequest {
   readonly rotationDegrees: number;
   readonly scaleCorrection?: number;
   readonly accuracyMetres?: number;
+  readonly formattedAddress?: string;
   readonly method: WireGeoreferenceMethod;
 }
 
@@ -127,6 +129,67 @@ export interface WireGardenMapDocument {
 export interface WireMapCommandResult {
   readonly affectedObjects: readonly WireGardenObject[];
 }
+
+export type WireAerialTraceOutcomeKind =
+  | 'disabled'
+  | 'notGeoreferenced'
+  | 'outsideCoverage'
+  | 'unusableImagery'
+  | 'quotaExceeded'
+  | 'timedOut'
+  | 'providerFailure'
+  | 'noVisibleGeometry';
+
+export interface WireAerialImageryIdentity {
+  readonly providerKey: string;
+  readonly providerName: string;
+  readonly sourceId: string;
+  readonly capturedOn: string | null;
+  readonly attributionText: string;
+  readonly attributionUrl: string;
+  readonly licenseName: string;
+  readonly licenseUrl: string;
+}
+
+export interface WireAerialTraceProposal {
+  readonly proposalId: string;
+  readonly boundaryEvidence: 'notApplicable' | 'visualEvidence';
+  readonly category: Exclude<
+    GardenObjectCategory,
+    'gate' | 'plant' | 'annotation' | 'importedBackground'
+  >;
+  readonly geometry: Geometry;
+  readonly label: string;
+  readonly confidence: number;
+  readonly limitations: readonly string[];
+  readonly provenance: {
+    readonly kind: 'imageExtraction';
+    readonly processor: string;
+    readonly model: string;
+    readonly promptTemplateVersion: number;
+    readonly imagery: WireAerialImageryIdentity;
+    readonly imageryBounds: {
+      readonly west: number;
+      readonly south: number;
+      readonly east: number;
+      readonly north: number;
+    };
+    readonly imageryWidthPixels: number;
+    readonly imageryHeightPixels: number;
+    readonly imageryResolutionMetres: number;
+    readonly imageryHorizontalAccuracyMetres: number | null;
+    readonly georeferenceRevision: number;
+  };
+}
+
+export type WireAerialTraceResult =
+  | {
+      readonly kind: 'ready';
+      readonly proposals: readonly WireAerialTraceProposal[];
+      readonly imagery: WireAerialImageryIdentity;
+      readonly warning: string;
+    }
+  | { readonly kind: WireAerialTraceOutcomeKind };
 
 /** `{ category, details: { ...fields } }` → `{ category, ...fields }`, for a command about to be sent. */
 function toWireCategoryDetails(details: GardenObjectDetails): WireCategoryDetails {

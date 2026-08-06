@@ -6,6 +6,7 @@ import { csrfHeader } from './csrf';
 import {
   toWireCommandPayload,
   type WireGardenMapDocument,
+  type WireAerialTraceResult,
   type WireGeoreference,
   type WireMapCommandResult,
   type WireSetGeoreferenceRequest,
@@ -48,6 +49,7 @@ export interface MapGateway {
     idempotencyKey: string,
     signal?: AbortSignal,
   ): Promise<ApiResult<WireGeoreference>>;
+  traceAerial(gardenId: string, signal?: AbortSignal): Promise<ApiResult<WireAerialTraceResult>>;
 }
 
 function viewportQuery(viewport: MapViewportBounds | undefined): string {
@@ -81,6 +83,15 @@ export function createMapGateway(client: ApiClient): MapGateway {
       return client.request<WireGardenMapDocument>({
         method: 'GET',
         path: `/gardens/${gardenId}/map${viewportQuery(viewport)}`,
+        ...(signal === undefined ? {} : { signal }),
+      });
+    },
+
+    traceAerial(gardenId, signal) {
+      return client.request<WireAerialTraceResult>({
+        method: 'POST',
+        path: `/gardens/${gardenId}/map/aerial-trace`,
+        headers: csrfHeader(),
         ...(signal === undefined ? {} : { signal }),
       });
     },

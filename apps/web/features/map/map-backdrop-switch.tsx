@@ -4,7 +4,9 @@ import { useLocalization } from '@/shared/localization/public';
 import { Button, classNames } from '@/shared/ui/public';
 
 import type { BackdropState } from './backdrop-state';
+import { maxCameraScaleFor, openFreeMapProvider } from './basemap-provider';
 import { useMapEditorStore, type BackdropKind } from './editor-store';
+import type { WireGeoreference } from '@/core/api/public';
 import styles from './map-backdrop-switch.module.css';
 
 const BACKDROPS: readonly BackdropKind[] = ['imagery', 'streets', 'none'];
@@ -16,8 +18,7 @@ const LABEL_KEY = {
 } as const;
 
 export interface MapBackdropSwitchProps {
-  /** `false` when the garden has no georeference, so there is nothing to place a backdrop against. */
-  readonly available: boolean;
+  readonly georeference?: WireGeoreference;
   /** What the current choice can actually draw at the current camera. */
   readonly backdrop: BackdropState;
 }
@@ -35,7 +36,7 @@ export interface MapBackdropSwitchProps {
  * Source: implementation-plan.md work package P12-GEO-01;
  * architecture/map-rendering-and-editing.md, section "3.2 Geographic Space".
  */
-export function MapBackdropSwitch({ available, backdrop }: MapBackdropSwitchProps) {
+export function MapBackdropSwitch({ georeference, backdrop }: MapBackdropSwitchProps) {
   const { t } = useLocalization();
   const store = useMapEditorStore();
 
@@ -46,7 +47,7 @@ export function MapBackdropSwitch({ available, backdrop }: MapBackdropSwitchProp
           section's `aria-label` already names it. */}
       <p className={styles['title']}>{t('map.backdrop.title')}</p>
 
-      {available ? (
+      {georeference !== undefined ? (
         <>
           <div className={styles['options']} role="group" aria-label={t('map.backdrop.ariaLabel')}>
             {BACKDROPS.map((backdrop) => (
@@ -54,7 +55,18 @@ export function MapBackdropSwitch({ available, backdrop }: MapBackdropSwitchProp
                 key={backdrop}
                 variant="secondary"
                 aria-pressed={store.state.backdrop === backdrop}
-                onClick={() => store.setBackdrop(backdrop)}
+                onClick={() => {
+                  store.setBackdrop(backdrop);
+                  if (backdrop === 'streets') {
+                    const maximum = maxCameraScaleFor(
+                      openFreeMapProvider,
+                      georeference.geographicAnchor[1],
+                    );
+                    if (store.state.camera.scale > maximum) {
+                      store.setCamera({ ...store.state.camera, scale: maximum });
+                    }
+                  }
+                }}
               >
                 {t(LABEL_KEY[backdrop])}
               </Button>

@@ -42,21 +42,21 @@ function dependencies() {
       gardenLifecycleState: 'active',
     }),
   } as unknown as MembershipRepository;
-  const georeferences: GeoreferenceReader = {
-    findCurrentForGarden: vi.fn().mockResolvedValue({
-      id: '01911111-1111-7111-8111-111111111111',
-      gardenId,
-      coordinateSpaceId: '01933333-3333-7333-8333-333333333333',
-      localAnchor: [0, 0],
-      geographicAnchor: [-87.65, 41.88],
-      rotationDegrees: 0,
-      scaleCorrection: 1,
-      accuracyMetres: 3,
-      provenance: 'externalProvider',
-      method: 'addressSearch',
-      revision: 4,
-    }),
-  };
+  const georeferenceFind = vi.fn<GeoreferenceReader['findCurrentForGarden']>().mockResolvedValue({
+    id: '01911111-1111-7111-8111-111111111111',
+    gardenId,
+    coordinateSpaceId: '01933333-3333-7333-8333-333333333333',
+    localAnchor: [0, 0],
+    geographicAnchor: [-87.65, 41.88],
+    rotationDegrees: 0,
+    scaleCorrection: 1,
+    accuracyMetres: 3,
+    formattedAddress: '100 W RANDOLPH ST, CHICAGO, IL, 60601',
+    provenance: 'externalProvider',
+    method: 'addressSearch',
+    revision: 4,
+  });
+  const georeferences: GeoreferenceReader = { findCurrentForGarden: georeferenceFind };
   const imageryFetch = vi.fn().mockResolvedValue({ kind: 'available' as const, image });
   const imagery: AerialImageryProviderAdapter = { fetchImage: imageryFetch };
   const visionExtract = vi.fn().mockResolvedValue({
@@ -90,6 +90,7 @@ function dependencies() {
   return {
     memberships,
     georeferences,
+    georeferenceFind,
     imagery,
     imageryFetch,
     vision,
@@ -147,6 +148,22 @@ describe('TraceGardenFromAerial', () => {
         },
       ],
     });
+  });
+
+  it('does not spend an imagery call for coordinates that were not accepted from an address', async () => {
+    const deps = dependencies();
+    const current = await deps.georeferences.findCurrentForGarden(gardenId);
+    if (current === null) throw new Error('expected a georeference fixture');
+    deps.georeferenceFind.mockResolvedValue({
+      ...current,
+      formattedAddress: null,
+      method: 'manualCoordinates',
+    });
+
+    await expect(useCase(true, deps).execute(gardenId, profileId)).resolves.toEqual({
+      kind: 'notGeoreferenced',
+    });
+    expect(deps.imageryFetch).not.toHaveBeenCalled();
   });
 
   it('does not call vision after quota refusal', async () => {

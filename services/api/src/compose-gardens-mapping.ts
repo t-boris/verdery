@@ -69,9 +69,17 @@ import {
   RunInvitationExpirySweep,
   SetGardenGeoreference,
   SplitMapObjectLinework,
+  TraceGardenFromAerial,
   TransferOwnership,
   UpsertMapCalibration,
 } from './modules/gardens-mapping/public.js';
+import {
+  KyselyProviderQuotaRepository,
+  UsgsNaipAerialImageryAdapter,
+  type AerialGardenExtractionProviderAdapter,
+} from './modules/integrations/public.js';
+import type { FastifyBaseLogger } from 'fastify';
+import type { AerialTraceAiConfiguration } from './platform/configuration/configuration-shape.js';
 import type {
   GardenContextRoutesDependencies,
   GardenRoutesDependencies,
@@ -86,6 +94,7 @@ import type { CloudTasksInvocationVerifier } from './platform/tasks/cloud-tasks-
 import type { DatabaseGateway } from './platform/database/database-gateway.js';
 import type { Clock } from './shared/time/clock.js';
 import { KyselyIdempotencyStore } from './platform/idempotency/kysely-idempotency-store.js';
+import { generateUuidV7 } from './shared/identifiers/uuid.js';
 
 export interface GardensMappingComposition {
   readonly gardenAuthorization: GardenAuthorization;
@@ -109,6 +118,9 @@ export function composeGardensMapping(
   database: DatabaseGateway,
   clock: Clock,
   cloudTasksInvocationVerifier: CloudTasksInvocationVerifier,
+  aerialConfiguration: AerialTraceAiConfiguration,
+  aerialGardenExtractionAdapter: AerialGardenExtractionProviderAdapter | null,
+  logger: FastifyBaseLogger,
 ): GardensMappingComposition {
   // gardens-mapping: owns gardens and, in Phase 2 only, garden membership —
   // see membership-repository.ts for why. Read paths use the pooled
@@ -247,6 +259,25 @@ export function composeGardensMapping(
       gardensMappingUnitOfWork,
       gardenAuthorization,
       clock,
+    ),
+    traceGardenFromAerial: new TraceGardenFromAerial(
+      {
+        enabled: aerialConfiguration.enabled,
+        imageryTimeoutMs: aerialConfiguration.imageryTimeoutMs,
+        visionTimeoutMs: aerialConfiguration.visionTimeoutMs,
+        quotaLimits: {
+          maxCallsPerHour: aerialConfiguration.maxCallsPerHour,
+          maxCallsPerDay: aerialConfiguration.maxCallsPerDay,
+        },
+        proposalId: generateUuidV7,
+      },
+      new UsgsNaipAerialImageryAdapter((input, init) => globalThis.fetch(input, init)),
+      aerialGardenExtractionAdapter,
+      georeferenceRepository,
+      gardenAuthorization,
+      new KyselyProviderQuotaRepository(database.queries),
+      clock,
+      logger,
     ),
   };
 

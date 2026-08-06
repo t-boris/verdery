@@ -13,6 +13,7 @@ import {
   isFailure,
   type ApiResult,
   type WireGeoreference,
+  type WireAerialTraceResult,
   type WireSetGeoreferenceRequest,
   type WireValidationIssue,
 } from '@/core/api/public';
@@ -68,6 +69,16 @@ export function useGardenMap(gardenId: string) {
         validationSummary: document.validationSummary,
       };
     },
+  });
+}
+
+/** Explicit, user-triggered provider call; never retries or runs on mount. */
+export function useTraceGardenFromAerial(gardenId: string) {
+  const gateway = useMapGateway();
+
+  return useMutation<WireAerialTraceResult, ApiFailureError>({
+    mutationFn: async () => unwrap(await gateway.traceAerial(gardenId)),
+    retry: false,
   });
 }
 

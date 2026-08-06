@@ -26,6 +26,7 @@ export interface GeoreferenceResource {
   readonly rotationDegrees: number;
   readonly scaleCorrection: number;
   readonly accuracyMetres?: number;
+  readonly formattedAddress?: string;
   readonly provenance: ProvenanceKind;
   readonly method: string;
   readonly revision: number;
@@ -60,6 +61,9 @@ export function toGeoreferenceResource(georeference: Georeference): Georeference
     ...(georeference.accuracyMetres === null
       ? {}
       : { accuracyMetres: georeference.accuracyMetres }),
+    ...(georeference.formattedAddress === null || georeference.formattedAddress === undefined
+      ? {}
+      : { formattedAddress: georeference.formattedAddress }),
     provenance: georeference.provenance,
     method: georeference.method,
     revision: georeference.revision,

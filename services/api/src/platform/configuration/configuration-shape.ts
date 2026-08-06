@@ -167,6 +167,16 @@ export interface TransactionalEmailConfiguration {
   readonly callTimeoutMs: number;
 }
 
+export interface AerialTraceAiConfiguration {
+  readonly enabled: boolean;
+  readonly model: string | null;
+  readonly imageryTimeoutMs: number;
+  readonly visionTimeoutMs: number;
+  readonly maxOutputTokens: number;
+  readonly maxCallsPerHour: number;
+  readonly maxCallsPerDay: number;
+}
+
 export interface ApplicationConfiguration {
   readonly environment: DeploymentEnvironment;
   readonly serviceVersion: string;
@@ -180,6 +190,7 @@ export interface ApplicationConfiguration {
   readonly aiExplanation: AiExplanationConfiguration;
   readonly plantSpeciesAi: PlantSpeciesAiConfiguration;
   readonly plantConditionAi: PlantConditionAiConfiguration;
+  readonly aerialTraceAi: AerialTraceAiConfiguration;
   readonly taxonKnowledge: TaxonKnowledgeConfiguration;
   readonly plantReview: PlantReviewConfiguration;
   readonly appCheck: AppCheckConfiguration;
@@ -277,6 +288,15 @@ export function toApplicationConfiguration(raw: RawEnvironment): ApplicationConf
       maxOutputTokens: raw.PLANT_CONDITION_AI_MAX_OUTPUT_TOKENS,
       maxCallsPerHour: raw.PLANT_CONDITION_AI_MAX_CALLS_PER_HOUR,
       maxCallsPerDay: raw.PLANT_CONDITION_AI_MAX_CALLS_PER_DAY,
+    },
+    aerialTraceAi: {
+      enabled: raw.AERIAL_TRACE_AI_ENABLED,
+      model: raw.AERIAL_TRACE_AI_MODEL ?? null,
+      imageryTimeoutMs: raw.AERIAL_TRACE_IMAGERY_TIMEOUT_MS,
+      visionTimeoutMs: raw.AERIAL_TRACE_VISION_TIMEOUT_MS,
+      maxOutputTokens: raw.AERIAL_TRACE_AI_MAX_OUTPUT_TOKENS,
+      maxCallsPerHour: raw.AERIAL_TRACE_AI_MAX_CALLS_PER_HOUR,
+      maxCallsPerDay: raw.AERIAL_TRACE_AI_MAX_CALLS_PER_DAY,
     },
     taxonKnowledge: {
       usdaPlants: {

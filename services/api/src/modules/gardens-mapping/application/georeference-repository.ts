@@ -10,6 +10,8 @@ export interface Georeference {
   readonly rotationDegrees: number;
   readonly scaleCorrection: number;
   readonly accuracyMetres: number | null;
+  /** Exact accepted geocoder label; absent on records written before this field existed. */
+  readonly formattedAddress?: string | null;
   readonly provenance: ProvenanceKind;
   readonly method: string;
   readonly revision: number;
@@ -24,6 +26,7 @@ export interface NewGeoreference {
   readonly rotationDegrees: number;
   readonly scaleCorrection: number;
   readonly accuracyMetres: number | null;
+  readonly formattedAddress: string | null;
   readonly provenance: ProvenanceKind;
   readonly method: string;
   readonly revision: number;

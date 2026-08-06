@@ -201,6 +201,8 @@ paths:
     { $ref: './paths/collaboration/gardens_gardenId_engagements.yaml' }
   '/gardens/{gardenId}/map': { $ref: './paths/map/gardens_gardenId_map.yaml' }
   '/gardens/{gardenId}/map/commands': { $ref: './paths/map/gardens_gardenId_map_commands.yaml' }
+  '/gardens/{gardenId}/map/aerial-trace':
+    { $ref: './paths/map/gardens_gardenId_map_aerial-trace.yaml' }
   '/gardens/{gardenId}/georeference': { $ref: './paths/map/gardens_gardenId_georeference.yaml' }
   '/gardens/{gardenId}/plans/{planMediaId}/reading':
     { $ref: './paths/map/gardens_gardenId_plans_planMediaId_reading.yaml' }

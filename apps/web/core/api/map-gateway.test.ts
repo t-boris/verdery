@@ -48,6 +48,16 @@ describe('createMapGateway', () => {
     expect(result).toEqual(expect.objectContaining({ ok: true, data: EMPTY_DOCUMENT }));
   });
 
+  it('starts an explicit CSRF-protected aerial trace without writing a map command', async () => {
+    const { gateway, recorded } = gatewayRecording(jsonResponse({ kind: 'disabled' }, 200));
+
+    await gateway.traceAerial(GARDEN_ID);
+
+    expect(recorded[0]?.url).toBe(`${ORIGIN}/v1/gardens/${GARDEN_ID}/map/aerial-trace`);
+    expect(recorded[0]?.init.method).toBe('POST');
+    expect(recorded[0]?.init.body).toBeUndefined();
+  });
+
   it('encodes all four viewport bounds together', async () => {
     const { gateway, recorded } = gatewayRecording(jsonResponse(EMPTY_DOCUMENT, 200));
 

@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 
 import { isConnectivityFailure } from '@/core/api/public';
+import type { WireAerialTraceProposal } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
 import {
   Alert,
@@ -15,6 +16,7 @@ import {
 } from '@/shared/ui/public';
 
 import { backdropStateFor } from './backdrop-state';
+import { AerialTracePanel } from './aerial-trace-panel';
 import { MapInspectorDrawer, type InspectorTabId } from './map-inspector-drawer';
 import { CalibrationPanel } from './calibration-panel';
 import { categoryLabelKey, toolLabelKey } from './labels';
@@ -31,7 +33,7 @@ import { MapEmptyPrompt } from './map-empty-prompt';
 import { MapScaleBadge } from './map-scale-badge';
 import { MapToolbar } from './map-toolbar';
 import { MapWarningsPanel } from './map-warnings-panel';
-import { useGardenMap } from './queries';
+import { useGardenMap, useTraceGardenFromAerial } from './queries';
 import { useMapDraftPersistence } from './use-map-draft-persistence';
 import { DEFAULT_SCALE } from './viewport';
 import { useMapEditorActions } from './use-map-editor-actions';
@@ -69,7 +71,10 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
   const mapQuery = useGardenMap(gardenId);
   const store = useMapEditorStore();
   const actions = useMapEditorActions(gardenId);
+  const aerialTrace = useTraceGardenFromAerial(gardenId);
   const mapDraft = useMapDraftPersistence(gardenId, store);
+  const [aerialProposals, setAerialProposals] = useState<readonly WireAerialTraceProposal[]>([]);
+  const [selectedAerialProposalId, setSelectedAerialProposalId] = useState<string | null>(null);
 
   /*
    * Which drawer tab is showing. Selecting an object moves it to Properties —
@@ -157,6 +162,30 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
     store.state.camera.scale,
   );
 
+  const traceAerial = () => {
+    const georeference = mapQuery.data.georeference;
+    if (georeference === undefined) return;
+    store.setBackdrop('imagery');
+    store.setCamera({
+      centerX: georeference.localAnchor[0],
+      centerY: georeference.localAnchor[1],
+      scale: 3.5,
+    });
+    setAerialProposals([]);
+    setSelectedAerialProposalId(null);
+    aerialTrace.mutate(undefined, {
+      onSuccess: (result) => {
+        if (result.kind === 'ready') setAerialProposals(result.proposals);
+      },
+    });
+  };
+
+  const updateAerialProposal = (next: WireAerialTraceProposal) => {
+    setAerialProposals((current) =>
+      current.map((proposal) => (proposal.proposalId === next.proposalId ? next : proposal)),
+    );
+  };
+
   return (
     <div className={styles['editor']}>
       <StaleIndicator failure={mapQuery.isError ? mapQuery.error.failure : null} />
@@ -168,6 +197,16 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
         <div className={styles['canvasWrapper']}>
           <MapCanvas
             actions={actions}
+            aerialProposals={aerialProposals}
+            selectedAerialProposalId={selectedAerialProposalId}
+            onSelectAerialProposal={setSelectedAerialProposalId}
+            onAerialProposalGeometryChange={(proposalId, geometry) => {
+              const proposal = aerialProposals.find((item) => item.proposalId === proposalId);
+              if (proposal !== undefined) updateAerialProposal({ ...proposal, geometry });
+            }}
+            {...(mapQuery.data.georeference === undefined
+              ? {}
+              : { focusAnchor: mapQuery.data.georeference.localAnchor })}
             backdrop={backdrop}
             backdropView={
               backdrop.visible && backdrop.provider !== null ? (
@@ -189,7 +228,9 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
           </div>
           <div className={styles['backdropCluster']}>
             <MapBackdropSwitch
-              available={mapQuery.data.georeference !== undefined}
+              {...(mapQuery.data.georeference === undefined
+                ? {}
+                : { georeference: mapQuery.data.georeference })}
               backdrop={backdrop}
             />
           </div>
@@ -246,6 +287,25 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
                    * The same panel, one component, rendered in both places.
                    */}
                   <GardenLocationPanel gardenId={gardenId} />
+                  <AerialTracePanel
+                    georeferenced={mapQuery.data.georeference?.formattedAddress !== undefined}
+                    busy={aerialTrace.isPending}
+                    error={aerialTrace.error}
+                    result={aerialTrace.data ?? null}
+                    proposals={aerialProposals}
+                    selectedId={selectedAerialProposalId}
+                    onTrace={traceAerial}
+                    onSelect={setSelectedAerialProposalId}
+                    onUpdate={updateAerialProposal}
+                    onReject={(proposalId) => {
+                      setAerialProposals((current) =>
+                        current.filter((proposal) => proposal.proposalId !== proposalId),
+                      );
+                      if (selectedAerialProposalId === proposalId) {
+                        setSelectedAerialProposalId(null);
+                      }
+                    }}
+                  />
                   <MapLayerPanel actions={actions} />
                   <ImportedBackgroundPanel gardenId={gardenId} actions={actions} />
                   <CalibrationPanel gardenId={gardenId} actions={actions} />

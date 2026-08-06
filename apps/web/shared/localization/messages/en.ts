@@ -9,6 +9,7 @@
  * Source: architecture/web-application-design.md, section "15. Localization".
  */
 import { englishAccessibilityMessages } from './en-accessibility';
+import { englishAerialTraceMessages } from './en-aerial-trace';
 import { englishCandidatesMessages } from './en-candidates';
 import { englishClientPortalMessages } from './en-client-portal';
 import { englishCollaborationMessages } from './en-collaboration';
@@ -527,7 +528,7 @@ export const englishMessages = {
   'map.backdrop.title': 'Backdrop',
   'map.backdrop.ariaLabel': 'What is drawn behind the garden',
   'map.backdrop.imagery': 'Aerial',
-  'map.backdrop.streets': 'Streets',
+  'map.backdrop.streets': 'Street map',
   'map.backdrop.none': 'None',
   'map.backdrop.imageryNote':
     'USGS aerial imagery, United States only. Enough to trace a lot, a house, and a fence line; not an individual bed.',
@@ -537,6 +538,7 @@ export const englishMessages = {
   'map.canvas.zoomIn': 'Zoom in',
   'map.canvas.zoomOut': 'Zoom out',
   'map.canvas.zoomFit': 'Fit the whole garden',
+  'map.canvas.resetToAddress': 'Center on the saved address',
   'map.backdrop.tooCloseForStreets':
     'The street map has no detail this close in — zoom out to read it, or switch to Aerial to trace over the ground.',
   'map.backdrop.magnified': 'Imagery enlarged {factor}×',
@@ -558,6 +560,8 @@ export const englishMessages = {
   'gardenLocation.loading': 'Loading this garden’s location.',
   'gardenLocation.empty': 'This garden has no location yet.',
   'gardenLocation.currentCoordinates': 'Latitude, longitude',
+  'gardenLocation.currentAddress': 'Saved address',
+  'gardenLocation.addressUnknown': 'Not saved',
   'gardenLocation.currentRotation': 'North',
   'gardenLocation.currentAccuracy': 'Reported accuracy',
   'gardenLocation.accuracyUnknown': 'Not stated',
@@ -579,5 +583,6 @@ export const englishMessages = {
   'gardenLocation.submit': 'Save location',
 
   ...englishMediaMessages,
+  ...englishAerialTraceMessages,
   ...englishPlantsMessages,
 } as const;

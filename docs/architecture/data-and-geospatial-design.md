@@ -169,10 +169,12 @@ An optional georeference record maps local coordinates to WGS84 and contains:
 
 Spatial queries that need geography transform explicitly into the approved geographic representation.
 
-A confirmed display address is garden metadata rather than geometric authority. It records the
-formatted address, provider or manual source, confirmation state, precision class, observation time,
-and revision. Changing an address does not move accepted local geometry; changing the geographic
-anchor creates a new georeference revision.
+A confirmed display address is garden metadata rather than geometric authority. The current
+georeference record stores the exact accepted formatted address together with its method and
+revision; the provider query and unaccepted candidates are not retained. Changing the display text
+does not move accepted local geometry; changing the geographic anchor creates a new georeference
+revision. Provider identity and precision class require a future schema extension and must not be
+claimed by clients today.
 
 Device heading belongs to a capture or alignment record until the user accepts or adjusts a
 garden-level orientation. Magnetic or low-accuracy heading evidence must not silently replace an

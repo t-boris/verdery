@@ -74,6 +74,9 @@ discovering the limits by painting nothing:
   camera scales to 400 px/m; the two would drift apart by up to eleven times. While a backdrop is
   shown the camera is held at the largest scale the backdrop still follows, and the editor says
   the backdrop must be turned off to go closer.
+- **Selecting the street map first moves the camera to its last renderable zoom.** OpenFreeMap is
+  neighbourhood context, not Street View and not a tracing surface. Keeping the garden-scale zoom
+  would paint an empty style, so the switch preserves the address centre and zooms out automatically.
 - **Enlargement is stated, not implied.** A map over imagery opens no closer than four times the
   imagery's own detail, and past that the scale badge reads how far the photograph has been
   stretched.
@@ -429,6 +432,12 @@ bounds and the exact georeference revision into garden-local metres. The aerial 
 proposal overlay therefore share one coordinate and camera pipeline: pan, zoom, and rotation cannot
 make a proposal slide relative to its source photograph.
 
+The address point is the exact centre of a 150 m by 150 m analysis frame. Before returning any
+geometry, the adapter must distinguish the property containing that centre from its neighbours; it
+returns no proposals when the target property cannot be isolated. The web action first switches to
+the aerial backdrop, centres the camera on the saved address, and selects a scale that shows this
+bounded working frame instead of the surrounding 10–30 lots.
+
 Each proposal records the georeference revision, imagery identity, acquisition date when supplied,
 resolution, stated horizontal accuracy, provider attribution and licence, processor, model, prompt
 version, confidence, and limitations. If the georeference changes before acceptance, the proposal
@@ -441,11 +450,13 @@ self-intersecting, or underspecified geometry is omitted. A lot is omitted unles
 adequate visible evidence and explicit limitations. Even then it is an approximate visual proposal,
 never an authoritative or legal property boundary.
 
-The current implementation supplies bounded imagery acquisition, a strict vision schema, the
-deterministic transform, and a read-only proposal result. Persistence and `decideProposal`
-acceptance remain gated: the current database has no proposal table, and ordinary `createObject`
-deliberately stamps manual provenance. Until the shared plat/aerial proposal store is added, clients
-must not discard extraction provenance by routing these candidates through `createObject`.
+The current web implementation exposes **Trace aerial image** directly below the saved location,
+renders the proposals over the same synchronized backdrop, and lets the reviewer move geometry,
+edit polygon/line vertices, change a geometry-compatible category or label, and reject a proposal.
+That editing state is temporary. Persistence and `decideProposal` acceptance remain gated: the
+current database has no proposal table, and ordinary `createObject` deliberately stamps manual
+provenance. Until the shared plat/aerial proposal store is added, clients must not discard extraction
+provenance by routing these candidates through `createObject`.
 
 ## 18. Selection and Properties
 
