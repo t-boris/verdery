@@ -240,10 +240,11 @@ state model.
 **Container image scanning.** Images build and push through the deploy workflow, but no
 vulnerability scan runs against them yet. This unblocks with the security hardening work in `P8`.
 
-**Media malware provider and worker rollout (P6-WORKER-01 operational boundary).** The validation
-worker has a real `MalwareScanner` port but no provider has been evaluated or selected. Its default
-adapter returns `unavailable`; PDF tasks fail retryably and are never represented as clean. Raster
-plans remain supported by the constrained image decoder. Before the worker can run in
+**Worker rollout (P6-WORKER-01 operational boundary).** Malware scanning is no longer deferred: it
+was DECIDED AGAINST. ADR-0017 (August 6, 2026) removed the `MalwareScanner` port, its placeholder
+adapter and the `malwareScanRequired` policy field, because with PDFs unscanned no media class
+required a scan and a port with no caller is not a seam. The exposure that decision accepts, and the
+preflight refusals now carrying the whole weight, are recorded in the ADR. Before the worker can run in
 `verdery-dev`, the already-documented `verdery_worker` Cloud SQL IAM membership/connection path must
 be completed (including a real `DATABASE_URL` Secret Manager secret —
 `infrastructure/gcloud/scripts/deploy-workers.sh` references one that does not exist yet), the queue
@@ -311,25 +312,18 @@ is short-circuited to an accepted, clearly-labeled result before any byte is dow
 exactly the declared-metadata-trusted level P6-API-01 already established. No video parser exists
 anywhere in this codebase; a future stage builds one.
 
-**PDF page-preview rendering (P6-WORKER-02 scope boundary).** Architecture/media-storage-and-
-processing.md section 11 names "Page previews" as something plan-document processing may produce;
-P6-WORKER-02 does not build this for a PDF-classed `imported_plan`. Rasterizing a PDF page needs
-either `poppler`/`pdftoppm` (a native binary dependency — the same class already deferred for
-video/`ffprobe`, and for the identical "no native binary dependency in this stack" reason) or a
-heavier `pdf.js`+canvas WASM stack; neither has been evaluated or added. A PDF-classed `imported_plan`
-is therefore never derivative-eligible (`services/api`'s `application/derivative-eligibility.ts`
-excludes `application/pdf` from its raster-content-type allowlist) — it gets no thumbnail, screen
-preview, high-resolution image, or tile pyramid yet, only the real byte-level validation P6-WORKER-01
-already performs. Raster (non-PDF) plans are fully supported by this stage's real derivative pipeline,
-tile pyramid included. A future stage builds PDF page rendering once a rasterizer dependency is
-evaluated and approved.
+**PDF page-preview rendering — BUILT (ADR-0017, August 6, 2026).** No longer deferred. The
+validation worker renders a plan PDF's FIRST PAGE with `poppler`/`pdftoppm`, behind a
+`PdfPageRasterizer` port with one adapter, and the page then takes the ordinary raster path:
+thumbnail, screen preview, high-resolution image, tile pyramid. `services/api`'s
+`application/derivative-eligibility.ts` now admits `application/pdf` for `imported_plan` — that
+exclusion was what made a real surveyor's plat upload, validate, and produce nothing. Pages beyond
+the first remain unrendered, and an imported background pointing at one says so.
 
-**PDF plan display in the web client (P6-PLAN-01 scope boundary).** Downstream of the same gap: a
-PDF-classed `imported_plan` uploads, validates, and can be placed on the map as an
-`importedBackground`, but the web client shows an explicit "PDF pages cannot be previewed yet"
-notice and a placeholder outline instead of imagery — there is no derivative to display and no
-client-side PDF renderer (adding `pdf.js` client-side was rejected as half-building around the
-documented server deferral). Unblocks automatically once PDF page rendering (above) exists.
+**PDF plan display in the web client — BUILT (ADR-0017).** The client shows the rendered
+screen-preview derivative for a PDF plan exactly as it does for a scan; no client-side PDF renderer
+was added, and none is needed. The remaining honest notice is narrow: an imported background
+pointing at a page other than the first still shows a placeholder outline.
 
 **Plan tile consumption (P6-PLAN-01 scope boundary).** P6-WORKER-02's XYZ tile pyramid exists
 server-side for every raster plan, but no client consumes it yet: the web map editor displays a

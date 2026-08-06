@@ -29,6 +29,17 @@ RUN pnpm --filter @verdery/workers build
 RUN pnpm --filter @verdery/workers deploy --prod --legacy /prod/workers
 
 FROM base AS runtime
+
+# poppler-utils supplies `pdftoppm`, the one adapter behind the PDF page
+# rasterizer (`src/derivatives/poppler-pdf-page-rasterizer.ts`). An imported
+# plan is as often a surveyor's PDF as a scan, and every derivative below that
+# point — screen preview, tile pyramid, the calibration overlay — is pixels.
+# Rendering in a separate process is the point: the input is a document a
+# stranger uploaded.
+RUN apt-get update \
+  && apt-get install --no-install-recommends -y poppler-utils \
+  && rm -rf /var/lib/apt/lists/*
+
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=workspace /prod/workers ./

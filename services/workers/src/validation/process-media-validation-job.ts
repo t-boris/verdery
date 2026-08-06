@@ -92,7 +92,6 @@ export class ProcessMediaValidationJob {
           detectedContentType: validation.detectedContentType,
           byteSize: validation.byteSize,
           metadata: validation.metadata,
-          malwareScan: validation.malwareScan,
           ...(!validation.accepted ? { validationCode: validation.code } : {}),
         },
         qualityDiagnostics: validation.accepted ? null : { validationCode: validation.code },

@@ -389,8 +389,8 @@ export const englishMessages = {
     'No plan documents are ready yet. Upload one from the garden page first.',
   'map.background.addToMap': 'Add to map',
   'map.background.pageNumber': 'Page',
-  'map.background.pdfNoPreview':
-    'PDF pages cannot be displayed yet — this background will show as a placeholder outline.',
+  'map.background.pdfPageNotRendered':
+    'Only the first page of a PDF is rendered. Another page will show as a placeholder outline.',
   'map.background.notCalibrated': 'Not calibrated',
   'map.background.calibrationStateLabel': 'Calibration',
   'map.background.show': 'Show background',

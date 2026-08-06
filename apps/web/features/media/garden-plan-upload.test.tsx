@@ -136,7 +136,13 @@ describe('GardenPlanUpload', () => {
     expect(startUpload).toHaveBeenCalledWith(pdf);
   });
 
-  it('shows the honest PDF message instead of a preview once a PDF plan is processed', () => {
+  /*
+   * ADR-0017: the worker renders a plan PDF's first page, so a plat has the
+   * same screen-preview derivative a scan has. There is no PDF special case
+   * left here — a PDF with no derivative yet reads as any other unprocessed
+   * plan does.
+   */
+  it('says the preview is unavailable while a PDF plan has no derivative yet', () => {
     mockState({
       phase: 'processed',
       mediaId: 'media-1',
@@ -149,7 +155,7 @@ describe('GardenPlanUpload', () => {
     });
     renderWidget();
 
-    expect(screen.getByText(/PDF pages cannot be previewed yet/)).toBeTruthy();
+    expect(screen.getByText(/preview/i)).toBeTruthy();
     expect(screen.queryByRole('img')).toBeNull();
   });
 

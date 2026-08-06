@@ -11,11 +11,7 @@ import sharp from 'sharp';
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { MaterializedMediaObject, MediaObjectSource } from './media-object-source.js';
 import { MediaValidator } from './media-validator.js';
-import {
-  MalwareScanUnavailableError,
-  type MalwareScanner,
-  UnavailableMalwareScanner,
-} from './validation-result.js';
+import {} from './validation-result.js';
 
 const JOB_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c00';
 const MEDIA_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9c01';
@@ -34,14 +30,6 @@ class BufferObjectSource implements MediaObjectSource {
       header: this.bytes.subarray(0, 64 * 1024),
       dispose: async () => rm(directory, { recursive: true, force: true }),
     };
-  }
-}
-
-class FixedMalwareScanner implements MalwareScanner {
-  constructor(private readonly status: 'clean' | 'malicious') {}
-
-  scan() {
-    return Promise.resolve({ status: this.status, provider: 'test-scanner' } as const);
   }
 }
 
@@ -85,25 +73,22 @@ beforeAll(async () => {
 
 describe('MediaValidator malicious and malformed fixture suite', () => {
   it('accepts a fully decodable image and records dimensions and checksum', async () => {
-    const result = await new MediaValidator(
-      new BufferObjectSource(validPng),
-      new UnavailableMalwareScanner(),
-    ).validate(manifest(validPng, 'image/png'));
+    const result = await new MediaValidator(new BufferObjectSource(validPng)).validate(
+      manifest(validPng, 'image/png'),
+    );
 
     expect(result).toMatchObject({
       accepted: true,
       detectedContentType: 'image/png',
       metadata: { kind: 'image', width: 8, height: 6 },
-      malwareScan: 'not_required',
     });
   });
 
   it('rejects a declared PNG whose bytes have a JPEG signature', async () => {
     const fakeJpeg = Buffer.from([0xff, 0xd8, 0xff, 0x00, 0x01]);
-    const result = await new MediaValidator(
-      new BufferObjectSource(fakeJpeg),
-      new UnavailableMalwareScanner(),
-    ).validate(manifest(fakeJpeg, 'image/png'));
+    const result = await new MediaValidator(new BufferObjectSource(fakeJpeg)).validate(
+      manifest(fakeJpeg, 'image/png'),
+    );
 
     expect(result).toMatchObject({
       accepted: false,
@@ -114,57 +99,48 @@ describe('MediaValidator malicious and malformed fixture suite', () => {
 
   it('rejects a truncated image even when its magic signature is valid', async () => {
     const truncated = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
-    const result = await new MediaValidator(
-      new BufferObjectSource(truncated),
-      new UnavailableMalwareScanner(),
-    ).validate(manifest(truncated, 'image/jpeg', { displayFilename: 'photo.jpg' }));
+    const result = await new MediaValidator(new BufferObjectSource(truncated)).validate(
+      manifest(truncated, 'image/jpeg', { displayFilename: 'photo.jpg' }),
+    );
 
     expect(result).toMatchObject({ accepted: false, code: 'malformed_file' });
   });
 
   it('rejects a checksum mismatch before invoking a parser', async () => {
     const request = manifest(validPng, 'image/png');
-    const result = await new MediaValidator(
-      new BufferObjectSource(validPng),
-      new UnavailableMalwareScanner(),
-    ).validate({ ...request, expectedChecksums: ['0'.repeat(64)] });
+    const result = await new MediaValidator(new BufferObjectSource(validPng)).validate({
+      ...request,
+      expectedChecksums: ['0'.repeat(64)],
+    });
 
     expect(result).toMatchObject({ accepted: false, code: 'checksum_mismatch' });
   });
 
-  it('rejects active PDF content before malware scanning', async () => {
+  it('rejects active PDF content', async () => {
     const activePdf = Buffer.from(
       VALID_PDF.toString('latin1').replace('xref', '/OpenAction 4 0 R\nxref'),
       'latin1',
     );
-    const result = await new MediaValidator(
-      new BufferObjectSource(activePdf),
-      new FixedMalwareScanner('clean'),
-    ).validate(manifest(activePdf, 'application/pdf'));
+    const result = await new MediaValidator(new BufferObjectSource(activePdf)).validate(
+      manifest(activePdf, 'application/pdf'),
+    );
 
     expect(result).toMatchObject({ accepted: false, code: 'active_content_rejected' });
   });
 
-  it('rejects a structurally accepted PDF when the scanner detects malware', async () => {
-    const result = await new MediaValidator(
-      new BufferObjectSource(VALID_PDF),
-      new FixedMalwareScanner('malicious'),
-    ).validate(manifest(VALID_PDF, 'application/pdf'));
+  /*
+   * The scan step is gone (ADR-0016): a PDF is accepted on its structure
+   * alone, never rendered in this process, and never served as an original.
+   * What used to be the last line of defence is now the ONLY one, so the
+   * preflight's own refusals matter more than before — hence the active-
+   * content test above and the page/object ceilings in `validation-policy`.
+   */
+  it('accepts a structurally sound PDF without any scan step', async () => {
+    const result = await new MediaValidator(new BufferObjectSource(VALID_PDF)).validate(
+      manifest(VALID_PDF, 'application/pdf'),
+    );
 
-    expect(result).toMatchObject({
-      accepted: false,
-      code: 'malware_detected',
-      malwareScan: 'malicious',
-    });
-  });
-
-  it('fails retryably instead of pretending an unscanned PDF is clean', async () => {
-    const validation = new MediaValidator(
-      new BufferObjectSource(VALID_PDF),
-      new UnavailableMalwareScanner(),
-    ).validate(manifest(VALID_PDF, 'application/pdf'));
-
-    await expect(validation).rejects.toBeInstanceOf(MalwareScanUnavailableError);
+    expect(result).toMatchObject({ accepted: true, detectedContentType: 'application/pdf' });
   });
 
   it('rejects a "dimension bomb": a PNG whose own header declares dimensions exceeding the validation policy, without decoding pixel data', async () => {
@@ -203,37 +179,33 @@ describe('MediaValidator malicious and malformed fixture suite', () => {
       chunk('IEND', Buffer.alloc(0)),
     ]);
 
-    const result = await new MediaValidator(
-      new BufferObjectSource(dimensionBomb),
-      new UnavailableMalwareScanner(),
-    ).validate(manifest(dimensionBomb, 'image/png'));
+    const result = await new MediaValidator(new BufferObjectSource(dimensionBomb)).validate(
+      manifest(dimensionBomb, 'image/png'),
+    );
 
     expect(result).toMatchObject({ accepted: false, code: 'malformed_file' });
   });
 
   it('rejects a byte size that disagrees with the accepted upload record, before any parser runs', async () => {
-    const result = await new MediaValidator(
-      new BufferObjectSource(validPng),
-      new UnavailableMalwareScanner(),
-    ).validate(manifest(validPng, 'image/png', { expectedByteSize: validPng.length + 1 }));
+    const result = await new MediaValidator(new BufferObjectSource(validPng)).validate(
+      manifest(validPng, 'image/png', { expectedByteSize: validPng.length + 1 }),
+    );
 
     expect(result).toMatchObject({ accepted: false, code: 'byte_size_mismatch' });
   });
 
   it('rejects a filename extension that does not match the detected content type', async () => {
-    const result = await new MediaValidator(
-      new BufferObjectSource(validPng),
-      new UnavailableMalwareScanner(),
-    ).validate(manifest(validPng, 'image/png', { displayFilename: 'photo.pdf' }));
+    const result = await new MediaValidator(new BufferObjectSource(validPng)).validate(
+      manifest(validPng, 'image/png', { displayFilename: 'photo.pdf' }),
+    );
 
     expect(result).toMatchObject({ accepted: false, code: 'filename_extension_mismatch' });
   });
 
   it('rejects a manifest for a media class with no validation policy (defensive: this path never sees a raw_capture manifest in production — see process-media-validation-job.ts)', async () => {
-    const result = await new MediaValidator(
-      new BufferObjectSource(validPng),
-      new UnavailableMalwareScanner(),
-    ).validate(manifest(validPng, 'image/png', { mediaClass: 'not_a_real_media_class' }));
+    const result = await new MediaValidator(new BufferObjectSource(validPng)).validate(
+      manifest(validPng, 'image/png', { mediaClass: 'not_a_real_media_class' }),
+    );
 
     expect(result).toMatchObject({ accepted: false, code: 'validation_policy_missing' });
   });

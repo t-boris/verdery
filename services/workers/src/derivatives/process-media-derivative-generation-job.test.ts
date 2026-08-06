@@ -7,10 +7,12 @@
  * orchestration-layer coverage shape on the validation side.
  */
 
+import { execFile } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { promisify } from 'node:util';
 import type { MediaProcessingManifest, MediaProcessingResult } from '@verdery/api-contracts';
 import sharp from 'sharp';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -21,6 +23,7 @@ import {
 } from '../validation/media-object-source.js';
 import type { MediaProcessingResultRecorder } from '../validation/media-processing-result-recorder.js';
 import type { DerivativeObjectSink, StoredDerivativeObject } from './derivative-object-sink.js';
+import { PopplerPdfPageRasterizer } from './poppler-pdf-page-rasterizer.js';
 import { ProcessMediaDerivativeGenerationJob } from './process-media-derivative-generation-job.js';
 
 class RecordingResultRecorder implements MediaProcessingResultRecorder {
@@ -99,6 +102,23 @@ function manifest(
   };
 }
 
+/** A one-page PDF poppler can really render — the same fixture the adapter's own suite uses. */
+const ONE_PAGE_PDF = Buffer.from(
+  '%PDF-1.4\n' +
+    '1 0 obj<< /Type /Catalog /Pages 2 0 R >>endobj\n' +
+    '2 0 obj<< /Type /Pages /Kids [3 0 R] /Count 1 >>endobj\n' +
+    '3 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 100] /Contents 4 0 R >>endobj\n' +
+    '4 0 obj<< /Length 44 >>stream\n0 0 1 rg 20 20 160 60 re f\nendstream\nendobj\n' +
+    'trailer<< /Root 1 0 R /Size 5 >>\n%%EOF\n',
+  'latin1',
+);
+
+/** True when `pdftoppm` is on this machine; the deployed image always has it. */
+const POPPLER_AVAILABLE = await promisify(execFile)('pdftoppm', ['-v']).then(
+  () => true,
+  () => false,
+);
+
 async function samplePhoto(width: number, height: number): Promise<Buffer> {
   return sharp({ create: { width, height, channels: 3, background: '#2f6f4f' } })
     .jpeg()
@@ -114,6 +134,7 @@ describe('ProcessMediaDerivativeGenerationJob', () => {
       new FileObjectSource(photo),
       sink,
       recorder,
+      new PopplerPdfPageRasterizer(),
     );
 
     const result = await job.execute(manifest());
@@ -136,7 +157,12 @@ describe('ProcessMediaDerivativeGenerationJob', () => {
     const plan = await samplePhoto(600, 600); // small enough to keep the test fast
     const sink = new RecordingObjectSink();
     const recorder = new RecordingResultRecorder();
-    const job = new ProcessMediaDerivativeGenerationJob(new FileObjectSource(plan), sink, recorder);
+    const job = new ProcessMediaDerivativeGenerationJob(
+      new FileObjectSource(plan),
+      sink,
+      recorder,
+      new PopplerPdfPageRasterizer(),
+    );
 
     const result = await job.execute(
       manifest({ mediaClass: 'imported_plan', displayFilename: 'plan.jpg' }),
@@ -160,12 +186,70 @@ describe('ProcessMediaDerivativeGenerationJob', () => {
     expect(coordinates.size).toBe(tiles.length);
   });
 
+  /*
+   * The reported case (2026-08-06): a surveyor's plat arrives as a PDF, and
+   * every derivative below this point is pixels. Before ADR-0016 such a plan
+   * validated for ever behind a scanner that was never selected, and could
+   * not have been rendered anyway — `sharp` has no PDF decoder.
+   */
+  it.runIf(POPPLER_AVAILABLE)(
+    'renders a PDF plan through the same pipeline as a raster one',
+    async () => {
+      const sink = new RecordingObjectSink();
+      const recorder = new RecordingResultRecorder();
+      const job = new ProcessMediaDerivativeGenerationJob(
+        new FileObjectSource(ONE_PAGE_PDF),
+        sink,
+        recorder,
+        new PopplerPdfPageRasterizer(),
+      );
+
+      const result = await job.execute(
+        manifest({
+          mediaClass: 'imported_plan',
+          displayFilename: 'plat.pdf',
+          expectedContentType: 'application/pdf',
+        }),
+      );
+
+      expect(result.outcome).toBe('succeeded');
+      expect(new Set(result.outputObjects.map((output) => output.derivativeKind))).toEqual(
+        new Set(['thumbnail', 'screen_preview', 'high_resolution', 'tile']),
+      );
+    },
+  );
+
+  // A document the renderer refuses is refused identically on every retry, so
+  // it ends the job rather than occupying the queue — the failure mode the
+  // never-selected malware scanner used to have.
+  it.runIf(POPPLER_AVAILABLE)('fails a corrupt PDF terminally, never retryably', async () => {
+    const recorder = new RecordingResultRecorder();
+    const job = new ProcessMediaDerivativeGenerationJob(
+      new FileObjectSource(Buffer.from('%PDF-1.4 but not really')),
+      new RecordingObjectSink(),
+      recorder,
+      new PopplerPdfPageRasterizer(),
+    );
+
+    const result = await job.execute(
+      manifest({
+        mediaClass: 'imported_plan',
+        displayFilename: 'broken.pdf',
+        expectedContentType: 'application/pdf',
+      }),
+    );
+
+    expect(result.outcome).toBe('failed_terminal');
+    expect(result.qualityDiagnostics).toMatchObject({ validationCode: 'pdf_render_failed' });
+  });
+
   it('reports the real, worker-computed checksum of the downloaded source as inputChecksums', async () => {
     const photo = await samplePhoto(100, 100);
     const job = new ProcessMediaDerivativeGenerationJob(
       new FileObjectSource(photo),
       new RecordingObjectSink(),
       new RecordingResultRecorder(),
+      new PopplerPdfPageRasterizer(),
     );
 
     const result = await job.execute(manifest());
@@ -180,6 +264,7 @@ describe('ProcessMediaDerivativeGenerationJob', () => {
       new FileObjectSource(photo),
       new RecordingObjectSink(),
       recorder,
+      new PopplerPdfPageRasterizer(),
     );
 
     const result = await job.execute(manifest({ mediaClass: 'raw_capture' }));
@@ -195,6 +280,7 @@ describe('ProcessMediaDerivativeGenerationJob', () => {
       new RejectingObjectSource(new ObjectTooLargeError(99_999_999, 50 * 1024 * 1024)),
       new RecordingObjectSink(),
       recorder,
+      new PopplerPdfPageRasterizer(),
     );
 
     const result = await job.execute(manifest());
@@ -209,6 +295,7 @@ describe('ProcessMediaDerivativeGenerationJob', () => {
       new RejectingObjectSource(new Error('object storage temporarily unavailable')),
       new RecordingObjectSink(),
       new RecordingResultRecorder(),
+      new PopplerPdfPageRasterizer(),
     );
 
     await expect(job.execute(manifest())).rejects.toThrow('object storage temporarily unavailable');

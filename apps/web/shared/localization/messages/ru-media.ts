@@ -36,8 +36,6 @@ export const russianMediaMessages: Readonly<Record<keyof typeof englishMediaMess
   'media.plan.selectFile': 'Выбрать документ плана',
   'media.plan.unsupportedType':
     'Этот тип файла не поддерживается. Выберите изображение JPEG, PNG, WebP, HEIC/HEIF или PDF.',
-  'media.plan.pdfNoPreview':
-    'PDF загружен и прошёл проверку, но предпросмотр страниц PDF пока недоступен. Его всё равно можно разместить на карте как подложку-заглушку.',
   'media.plan.previewUnavailable': 'Предпросмотр этого плана пока недоступен.',
   'media.plan.previewAlt': 'Предпросмотр плана: {filename}',
   'media.plan.readyForMap':

@@ -34,14 +34,8 @@ const ACCEPTED_PLAN_TYPES = [
 const ACCEPT_ATTRIBUTE = ACCEPTED_PLAN_TYPES.join(',');
 /** `validation-policy.ts`'s own `imported_plan` ceiling (50 MiB), checked client-side before any byte uploads. */
 const MAX_PLAN_BYTES = 50 * 1024 * 1024;
-const PDF_CONTENT_TYPE = 'application/pdf';
-
 function percentOf(uploadedBytes: number, totalBytes: number): number {
   return totalBytes <= 0 ? 0 : (uploadedBytes / totalBytes) * 100;
-}
-
-function isPdf(media: Media): boolean {
-  return (media.verifiedContentType ?? media.declaredContentType) === PDF_CONTENT_TYPE;
 }
 
 const PICKER_PHASES = new Set(['idle', 'processed', 'rejected', 'processingFailed']);
@@ -60,8 +54,10 @@ const CANCELLABLE_PHASES = new Set([
  * through `Media.derivatives`, P6-PLAN-01) — never the original document:
  * plans are sensitive originals (media-storage-and-processing.md section
  * 11), and the metadata-stripped derivative is the approved display asset.
- * A PDF plan has no derivative yet (P6-WORKER-02's documented deferral), so
- * it gets an honest notice instead of a broken image.
+ * A PDF plan is no longer a special case: the worker renders its first page
+ * (ADR-0016), so the same screen-preview derivative exists for a plat and a
+ * scan alike. Until that render lands, the ordinary "no preview yet" line
+ * covers it, as it does for any image still being processed.
  */
 function PlanPreview({ gardenId, media }: { readonly gardenId: string; readonly media: Media }) {
   const { t } = useLocalization();
@@ -75,9 +71,6 @@ function PlanPreview({ gardenId, media }: { readonly gardenId: string; readonly 
     displayDerivative !== undefined,
   );
 
-  if (isPdf(media)) {
-    return <p className={styles['pdfNotice']}>{t('media.plan.pdfNoPreview')}</p>;
-  }
   if (displayDerivative === undefined) {
     return <p className={styles['statusLine']}>{t('media.plan.previewUnavailable')}</p>;
   }

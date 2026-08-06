@@ -562,10 +562,10 @@ outcome="failed_terminal"}` by `outcomeCode` — `mime_signature_mismatch`-class
   `validation-policy.ts` ceilings as a firefight.
 - **Processing pipeline stall / retryable failures.** Meaning: Cloud Tasks deliveries are failing
   and retrying; user-visible processing is delayed but not lost. First: read
-  `media_processing.job_failed_retryable`'s `err` grouped by `jobKind`. Known cause with a
-  standing explanation: PDF `imported_plan` validation fails retryably BY DESIGN until a malware
-  provider is selected (`UnavailableMalwareScanner` → 503) — check whether the volume is just PDF
-  uploads before treating it as an outage. Otherwise: GCS availability, the worker's storage IAM
+  `media_processing.job_failed_retryable`'s `err` grouped by `jobKind`. Since ADR-0017
+  there is no standing benign explanation for this signal: the PDF-validation retry loop
+  (`UnavailableMalwareScanner`) that used to account for it is gone, and a PDF the renderer refuses
+  now fails terminally instead of retrying. Treat retries as real. Check: GCS availability, the worker's storage IAM
   bindings, or the API callback rejecting (401s in `verdery-api` logs mean OIDC
   audience/service-account misconfiguration — compare `MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_
 EMAIL`/`MEDIA_PROCESSING_CALLBACK_AUDIENCE` against `deploy-workers.sh`). Safe remediation: fix

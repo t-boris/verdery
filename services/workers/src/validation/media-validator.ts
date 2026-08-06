@@ -8,12 +8,7 @@ import {
   policyFor,
   type ValidationPolicy,
 } from './validation-policy.js';
-import {
-  MalwareScanUnavailableError,
-  type MalwareScanner,
-  type MediaValidationResult,
-  type ValidationMetadata,
-} from './validation-result.js';
+import type { MediaValidationResult, ValidationMetadata } from './validation-result.js';
 
 /**
  * OUT OF SCOPE, DELIBERATELY: video/raw-capture duration, codec, and frame-rate
@@ -44,7 +39,6 @@ function rejected(
     byteSize: object.byteSize,
     checksumSha256: object.checksumSha256,
     metadata,
-    malwareScan: 'not_required',
   };
 }
 
@@ -66,10 +60,7 @@ async function parseMetadata(
 }
 
 export class MediaValidator {
-  constructor(
-    private readonly source: MediaObjectSource,
-    private readonly malwareScanner: MalwareScanner,
-  ) {}
+  constructor(private readonly source: MediaObjectSource) {}
 
   async validate(manifest: MediaProcessingManifest): Promise<MediaValidationResult> {
     const policy = policyFor(manifest.validation.mediaClass);
@@ -81,7 +72,6 @@ export class MediaValidator {
         byteSize: 0,
         checksumSha256: null,
         metadata: null,
-        malwareScan: 'not_required',
       };
     }
 
@@ -136,36 +126,12 @@ export class MediaValidator {
       return rejected(object, code, detectedContentType);
     }
 
-    const scanRequired = policy.malwareScanRequired && detectedContentType === 'application/pdf';
-    if (!scanRequired) {
-      return {
-        accepted: true,
-        detectedContentType,
-        byteSize: object.byteSize,
-        checksumSha256: object.checksumSha256,
-        metadata,
-        malwareScan: 'not_required',
-      };
-    }
-
-    const scan = await this.malwareScanner.scan(object.path, detectedContentType);
-    if (scan.status === 'unavailable') {
-      throw new MalwareScanUnavailableError();
-    }
-    if (scan.status !== 'clean') {
-      return {
-        ...rejected(object, 'malware_detected', detectedContentType, metadata),
-        malwareScan: scan.status,
-      };
-    }
-
     return {
       accepted: true,
       detectedContentType,
       byteSize: object.byteSize,
       checksumSha256: object.checksumSha256,
       metadata,
-      malwareScan: 'clean',
     };
   }
 }

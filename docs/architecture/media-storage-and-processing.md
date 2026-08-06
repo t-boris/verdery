@@ -165,9 +165,12 @@ decompress content; it requires a valid envelope and cross-reference representat
 to 100 pages and 200 objects per page, and rejects encryption, JavaScript, launch actions, embedded
 files, open actions, rich media, and XFA.
 
-The current malware adapter is deliberately `unavailable`, not a fake clean result. PDF validation
-therefore fails retryably until a provider is selected. Raster plans do not require the unavailable
-document scanner and remain supported through the constrained image parser.
+No malware scan runs, and no scanner port exists: ADR-0017 removed both on August 6, 2026, along
+with the `malwareScanRequired` policy field. A PDF is admitted on its structure alone — the
+preflight above is now the only gate, which is why its refusals (encryption, JavaScript, launch
+actions, embedded files, open actions, rich media, XFA, page and object ceilings) matter more than
+they did. The original document is never served to a browser and is never executed; only rendered
+derivatives leave this system. See that ADR for the full exposure the decision accepts.
 
 ## 9. Image Derivatives
 
@@ -212,17 +215,26 @@ dependency, deliberately not taken.
 ### 9.1 Implemented derivative profile (P6-WORKER-02)
 
 Real images only, for the two media classes real derivative production is grounded in a documented
-use case: garden photos and raster (non-PDF) imported plans. A PDF-classed imported plan gets no
-derivative yet — page rendering needs `poppler`/`pdftoppm` (a native binary dependency, the same class
-already deferred for video/`ffprobe`) or a heavier `pdf.js`+canvas WASM stack; neither is evaluated or
-present in this stack. See section 11.1 below.
+use case: garden photos and imported plans.
 
-| Derivative kind           | Media classes produced for | Long-edge size | Format | Quality  |
-| ------------------------- | -------------------------- | -------------- | ------ | -------- |
-| Thumbnail                 | Garden photo, raster plan  | 320 px         | JPEG   | 70       |
-| Screen preview            | Garden photo, raster plan  | 1,600 px       | JPEG   | 82       |
-| High-resolution review    | Raster plan only           | 4,096 px       | JPEG   | 90       |
-| Tile (per XYZ coordinate) | Raster plan only           | 256 px tile    | PNG    | lossless |
+A PDF plan is not a special case. Its FIRST PAGE is rendered by `poppler`/`pdftoppm` behind the
+`PdfPageRasterizer` port (ADR-0017) and then takes exactly the path a raster plan takes —
+thumbnail, screen preview, high resolution, tile pyramid — which is what lets a surveyor's plat be
+calibrated against two known distances and traced like any other plan. Rendering is bounded three
+ways (one page, a 30-second timeout, an output-size ceiling) and happens in a separate process,
+because the input is a document a stranger uploaded. A document the renderer refuses fails
+TERMINALLY: the same bytes will be refused identically tomorrow, and a plan whose owner is waiting
+deserves an answer rather than a queue slot.
+
+Pages beyond the first are not rendered. An imported background pointing at one shows a placeholder
+outline, and the interface says which page was rendered rather than implying all of them were.
+
+| Derivative kind           | Media classes produced for  | Long-edge size | Format | Quality  |
+| ------------------------- | --------------------------- | -------------- | ------ | -------- |
+| Thumbnail                 | Garden photo, imported plan | 320 px         | JPEG   | 70       |
+| Screen preview            | Garden photo, imported plan | 1,600 px       | JPEG   | 82       |
+| High-resolution review    | Imported plan only          | 4,096 px       | JPEG   | 90       |
+| Tile (per XYZ coordinate) | Imported plan only          | 256 px tile    | PNG    | lossless |
 
 None of these numbers is named anywhere else in this document; each is a reasoned default, documented
 the same "no number decided yet, pick one and say so" posture `services/workers/src/configuration.ts`'s
@@ -282,8 +294,8 @@ not JPEG — a boundary tile whose level dimensions are not an exact multiple of
 full square with a transparent margin (JPEG has no alpha channel to pad with); MapLibre's XYZ raster
 source expects uniform tile dimensions.
 
-**PDF page-preview rendering is deliberately out of scope for this stage** (P6-WORKER-02). See section
-9.1 above and `docs/development/deferred-capabilities.md`.
+**PDF page-preview rendering is implemented** as of ADR-0017 (August 6, 2026): first page only,
+through `poppler`. See section 9.1 above.
 
 ## 10. Video Handling
 

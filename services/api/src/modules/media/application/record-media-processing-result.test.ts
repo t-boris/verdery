@@ -216,7 +216,12 @@ describe('RecordMediaProcessingResult', () => {
       });
     });
 
-    it('a successful validation result for a PDF-classed imported_plan does NOT append the derivative event (out of scope this stage)', async () => {
+    /*
+     * ADR-0017: rendering a plan's first page made PDFs derivative-eligible.
+     * The chain that used to stop here is precisely why a real surveyor's
+     * plat uploaded, validated, and then produced nothing anyone could see.
+     */
+    it('a successful validation result for a PDF-classed imported_plan appends the derivative event', async () => {
       const { useCase, fakes } = buildUseCase();
       const plan = registerMediaRecord(
         MEDIA_ID,
@@ -251,7 +256,10 @@ describe('RecordMediaProcessingResult', () => {
         },
       });
 
-      expect(fakes.outbox.events).toHaveLength(0);
+      expect(fakes.outbox.events).toHaveLength(1);
+      expect(fakes.outbox.events[0]).toMatchObject({
+        eventType: 'media.derivative_generation_requested',
+      });
     });
 
     it('a validation FAILURE does not append the derivative event either', async () => {

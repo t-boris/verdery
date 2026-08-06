@@ -4,26 +4,29 @@
  * content type to record on the new `media.derivative_generation_requested`
  * outbox event if so.
  *
- * Raster only (architecture/media-storage-and-processing.md section 9's
- * derivatives): matches the exact accepted-raster-type list
+ * Matches the accepted-type list
  * `services/workers/src/validation/validation-policy.ts` already enumerates
- * for `garden_photo`/`imported_plan` (JPEG, PNG, WebP, HEIC, HEIF),
- * duplicated narrowly here for the same "services/api does not import
- * services/workers' src" boundary reason `relay-database-schema.ts` already
- * documents in the opposite direction (architecture/backend-modular-
+ * for `garden_photo`/`imported_plan` (JPEG, PNG, WebP, HEIC, HEIF), plus PDF
+ * for plans — duplicated narrowly here for the same "services/api does not
+ * import services/workers' src" boundary reason `relay-database-schema.ts`
+ * already documents in the opposite direction (architecture/backend-modular-
  * monolith.md section "19. Worker Boundary").
+ *
+ * PDF belongs to PLANS ONLY, and only since ADR-0017: the worker renders a
+ * plan's first page with `poppler` and the ordinary image pipeline continues
+ * from there. Before that decision this list excluded `application/pdf`, and
+ * a surveyor's plat therefore uploaded, validated, and produced nothing at
+ * all — the defect that prompted the ADR. A PDF garden photo remains
+ * ineligible because no such thing is accepted at upload.
  *
  * `raw_capture` is excluded by construction (never in
  * `DERIVATIVE_ELIGIBLE_MEDIA_CLASSES`) — video derivatives are out of scope
  * for this stage, the same boundary P6-WORKER-01 already drew for video
- * validation itself. A PDF-classed `imported_plan` is excluded by its own
- * `detectedContentType` (`application/pdf`) never appearing in
- * `RASTER_CONTENT_TYPES` — PDF page-preview rendering is explicitly out of
- * scope for this stage (see this stage's own report and
- * docs/development/deferred-capabilities.md).
+ * validation itself.
  *
  * Source: implementation-plan.md work package P6-WORKER-02;
- * architecture/media-storage-and-processing.md, section "9. Image Derivatives".
+ * architecture/media-storage-and-processing.md, section "9. Image
+ * Derivatives"; docs/architecture/decisions/ADR-0017-pdf-plans-rendered-without-a-malware-scanner.md.
  */
 
 const RASTER_CONTENT_TYPES: ReadonlySet<string> = new Set([
@@ -34,9 +37,12 @@ const RASTER_CONTENT_TYPES: ReadonlySet<string> = new Set([
   'image/heif',
 ]);
 
-const DERIVATIVE_ELIGIBLE_MEDIA_CLASSES: ReadonlySet<string> = new Set([
-  'garden_photo',
-  'imported_plan',
+const PDF_CONTENT_TYPE = 'application/pdf';
+
+/** Media classes whose successful validation triggers derivative generation, and what each accepts. */
+const DERIVATIVE_ELIGIBLE_CONTENT_TYPES: ReadonlyMap<string, ReadonlySet<string>> = new Map([
+  ['garden_photo', RASTER_CONTENT_TYPES],
+  ['imported_plan', new Set([...RASTER_CONTENT_TYPES, PDF_CONTENT_TYPE])],
 ]);
 
 /**
@@ -52,12 +58,13 @@ export function deriveEligibleDerivativeSourceContentType(
   mediaClass: string,
   resultSummary: Record<string, unknown>,
 ): string | null {
-  if (!DERIVATIVE_ELIGIBLE_MEDIA_CLASSES.has(mediaClass)) {
+  const eligibleTypes = DERIVATIVE_ELIGIBLE_CONTENT_TYPES.get(mediaClass);
+  if (eligibleTypes === undefined) {
     return null;
   }
 
   const detectedContentType = resultSummary['detectedContentType'];
-  if (typeof detectedContentType !== 'string' || !RASTER_CONTENT_TYPES.has(detectedContentType)) {
+  if (typeof detectedContentType !== 'string' || !eligibleTypes.has(detectedContentType)) {
     return null;
   }
 

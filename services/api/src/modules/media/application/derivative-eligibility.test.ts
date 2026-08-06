@@ -23,9 +23,24 @@ describe('deriveEligibleDerivativeSourceContentType', () => {
     ).toBe('image/png');
   });
 
-  it('is not eligible for a PDF-classed imported_plan (out of scope this stage)', () => {
+  /*
+   * ADR-0017: a plan PDF is rendered by the worker (first page, `poppler`)
+   * and follows the raster path from there. This list excluding PDF is what
+   * made a real surveyor's plat upload, validate, and produce nothing.
+   */
+  it('is eligible for a PDF-classed imported_plan', () => {
     expect(
       deriveEligibleDerivativeSourceContentType('imported_plan', {
+        detectedContentType: 'application/pdf',
+      }),
+    ).toBe('application/pdf');
+  });
+
+  // Only plans. No PDF garden photo is accepted at upload, so treating one as
+  // eligible here would be inventing a case the product does not have.
+  it('is not eligible for a PDF-classed garden_photo', () => {
+    expect(
+      deriveEligibleDerivativeSourceContentType('garden_photo', {
         detectedContentType: 'application/pdf',
       }),
     ).toBeNull();

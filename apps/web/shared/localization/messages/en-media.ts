@@ -36,8 +36,6 @@ export const englishMediaMessages = {
   'media.plan.selectFile': 'Choose a plan document',
   'media.plan.unsupportedType':
     'This file type is not supported. Choose a JPEG, PNG, WebP, HEIC/HEIF image, or a PDF.',
-  'media.plan.pdfNoPreview':
-    'This PDF uploaded and passed validation, but PDF pages cannot be previewed yet. It can still be placed on the map as a background placeholder.',
   'media.plan.previewUnavailable': 'No preview is available for this plan yet.',
   'media.plan.previewAlt': 'Plan preview: {filename}',
   'media.plan.readyForMap':

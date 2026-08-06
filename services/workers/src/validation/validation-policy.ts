@@ -4,14 +4,13 @@ export interface ValidationPolicy {
   readonly maxImagePixels: number;
   readonly maxImageDimension: number;
   readonly maxPdfPages: number;
-  readonly malwareScanRequired: boolean;
 }
 
 const MIB = 1024 * 1024;
 const GIB = 1024 * MIB;
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'] as const;
 
-const BASE: Omit<ValidationPolicy, 'allowedContentTypes' | 'maxBytes' | 'malwareScanRequired'> = {
+const BASE: Omit<ValidationPolicy, 'allowedContentTypes' | 'maxBytes'> = {
   maxImagePixels: 40_000_000,
   maxImageDimension: 16_384,
   maxPdfPages: 100,
@@ -35,31 +34,26 @@ const POLICIES: Readonly<Record<string, ValidationPolicy>> = {
     ...BASE,
     allowedContentTypes: IMAGE_TYPES,
     maxBytes: 50 * MIB,
-    malwareScanRequired: false,
   },
   imported_plan: {
     ...BASE,
     allowedContentTypes: [...IMAGE_TYPES, 'application/pdf'],
     maxBytes: 50 * MIB,
-    malwareScanRequired: true,
   },
   derived_preview: {
     ...BASE,
     allowedContentTypes: IMAGE_TYPES,
     maxBytes: 50 * MIB,
-    malwareScanRequired: false,
   },
   processing_output: {
     ...BASE,
     allowedContentTypes: [...IMAGE_TYPES, 'application/pdf'],
     maxBytes: GIB,
-    malwareScanRequired: true,
   },
   export_package: {
     ...BASE,
     allowedContentTypes: [],
     maxBytes: 2 * GIB,
-    malwareScanRequired: true,
   },
 };
 

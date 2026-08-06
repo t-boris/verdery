@@ -133,7 +133,12 @@ describe('ImportedBackgroundPanel', () => {
     );
   });
 
-  it('offers a page selection for a PDF plan, with the honest no-preview note, and passes the page through', () => {
+  /*
+   * ADR-0017: the worker renders page ONE. Page one therefore needs no
+   * warning, and any other page still has no image behind it — so the notice
+   * appears exactly when it is true, rather than on every PDF.
+   */
+  it('warns only once a page other than the first is chosen, and passes the page through', () => {
     mockListResult([
       planMedia({
         id: 'plan-media-3',
@@ -145,8 +150,11 @@ describe('ImportedBackgroundPanel', () => {
     const actions = stubActions([]);
     renderPanel(actions);
 
-    expect(screen.getByText(/PDF pages cannot be displayed yet/)).toBeDefined();
+    expect(screen.queryByText(/Only the first page/)).toBeNull();
+
     fireEvent.change(screen.getByLabelText('Page'), { target: { value: '3' } });
+    expect(screen.getByText(/Only the first page/)).toBeDefined();
+
     fireEvent.click(screen.getByRole('button', { name: 'Add to map' }));
     expect(actions.createImportedBackground).toHaveBeenCalledWith('plan-media-3', 'plan.pdf', 3);
   });

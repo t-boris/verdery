@@ -387,8 +387,8 @@ export const russianMessages: MessageCatalogue = {
     'Готовых документов плана пока нет. Сначала загрузите план на странице сада.',
   'map.background.addToMap': 'Добавить на карту',
   'map.background.pageNumber': 'Страница',
-  'map.background.pdfNoPreview':
-    'Страницы PDF пока не отображаются — подложка будет показана как контур-заглушка.',
+  'map.background.pdfPageNotRendered':
+    'Отрисовывается только первая страница PDF. Другая страница будет показана как контур-заглушка.',
   'map.background.notCalibrated': 'Не откалибровано',
   'map.background.calibrationStateLabel': 'Калибровка',
   'map.background.show': 'Показать подложку',

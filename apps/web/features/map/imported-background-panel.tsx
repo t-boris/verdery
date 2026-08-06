@@ -165,7 +165,12 @@ export function ImportedBackgroundPanel({ gardenId, actions }: ImportedBackgroun
               </div>
               {isPdf(plan) && (
                 <>
-                  <p className={styles['notice']}>{t('map.background.pdfNoPreview')}</p>
+                  {/* The worker renders page one (ADR-0016); any other page
+                      still has no image behind it, so the notice appears only
+                      when one is actually chosen. */}
+                  {(pageByMediaId[plan.id] ?? '1').trim() !== '1' && (
+                    <p className={styles['notice']}>{t('map.background.pdfPageNotRendered')}</p>
+                  )}
                   <label className={styles['pageField']}>
                     {t('map.background.pageNumber')}
                     <input

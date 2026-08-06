@@ -28,7 +28,6 @@ import {
 import type { MediaProcessingResultRecorder } from './media-processing-result-recorder.js';
 import { MediaValidator } from './media-validator.js';
 import { ProcessMediaValidationJob } from './process-media-validation-job.js';
-import { UnavailableMalwareScanner } from './validation-result.js';
 
 class RecordingResultRecorder implements MediaProcessingResultRecorder {
   readonly recorded: MediaProcessingResult[] = [];
@@ -90,7 +89,7 @@ describe('ProcessMediaValidationJob', () => {
   it('short-circuits a raw_capture manifest as succeeded without ever downloading object bytes', async () => {
     const recorder = new RecordingResultRecorder();
     const processor = new ProcessMediaValidationJob(
-      new MediaValidator(new NeverCalledObjectSource(), new UnavailableMalwareScanner()),
+      new MediaValidator(new NeverCalledObjectSource()),
       recorder,
     );
     const manifest = rawCaptureManifest();
@@ -113,10 +112,7 @@ describe('ProcessMediaValidationJob', () => {
   it('converts a real ObjectTooLargeError into a failed_terminal result instead of throwing', async () => {
     const recorder = new RecordingResultRecorder();
     const processor = new ProcessMediaValidationJob(
-      new MediaValidator(
-        new RejectingObjectSource(new ObjectTooLargeError(999_999, 1_000)),
-        new UnavailableMalwareScanner(),
-      ),
+      new MediaValidator(new RejectingObjectSource(new ObjectTooLargeError(999_999, 1_000))),
       recorder,
     );
     const manifest = gardenPhotoManifest();
@@ -136,7 +132,6 @@ describe('ProcessMediaValidationJob', () => {
     const processor = new ProcessMediaValidationJob(
       new MediaValidator(
         new RejectingObjectSource(new Error('object storage temporarily unavailable')),
-        new UnavailableMalwareScanner(),
       ),
       recorder,
     );

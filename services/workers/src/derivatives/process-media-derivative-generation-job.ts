@@ -34,7 +34,10 @@ import {
   derivativeProfileFor,
   planTilePyramid,
 } from './derivative-profile.js';
+import { writeFile } from 'node:fs/promises';
+
 import { decodeAndOrient, resizeRasterDerivative } from './image-derivative-generator.js';
+import { PdfRasterizationError, type PdfPageRasterizer } from './pdf-page-rasterizer.js';
 import { computePerceptualHash } from './perceptual-hash.js';
 import { generateTilePyramid } from './tile-pyramid-generator.js';
 
@@ -51,6 +54,19 @@ const PROCESSOR_VERSION = 'media-derivative-generator-v1';
  * this file's own `PROCESSOR_VERSION` naming convention).
  */
 const MAX_SOURCE_BYTES = 50 * 1024 * 1024;
+
+const PDF_CONTENT_TYPE = 'application/pdf';
+
+/**
+ * The long edge the first page is rendered at.
+ *
+ * Matches the high-resolution derivative's own ceiling: rendering smaller
+ * would make that derivative an upscale of a smaller image, and rendering
+ * larger would spend time on pixels every downstream spec immediately throws
+ * away. A US Letter plat at this size resolves the lot dimensions a person
+ * calibrates against.
+ */
+const PDF_RENDER_LONG_EDGE_PX = 4_096;
 
 function terminalFailure(
   manifest: MediaProcessingManifest,
@@ -74,6 +90,7 @@ export class ProcessMediaDerivativeGenerationJob {
     private readonly source: MediaObjectSource,
     private readonly sink: DerivativeObjectSink,
     private readonly results: MediaProcessingResultRecorder,
+    private readonly pdfRasterizer: PdfPageRasterizer,
     private readonly now: () => number = Date.now,
   ) {}
 
@@ -83,18 +100,46 @@ export class ProcessMediaDerivativeGenerationJob {
     try {
       result = await this.generate(manifest, startedAt);
     } catch (error) {
-      if (!(error instanceof ObjectTooLargeError)) {
+      if (error instanceof ObjectTooLargeError) {
+        result = terminalFailure(
+          manifest,
+          'byte_size_limit_exceeded',
+          Math.max(0, this.now() - startedAt),
+        );
+      } else if (error instanceof PdfRasterizationError) {
+        /*
+         * TERMINAL, not retryable. A document the renderer refuses will be
+         * refused identically on every retry, and a plan whose owner is
+         * waiting deserves an answer rather than a queue slot — which is
+         * exactly what the never-selected malware scanner used to give every
+         * PDF, retrying for ever behind a spinner that never resolved.
+         */
+        result = terminalFailure(
+          manifest,
+          'pdf_render_failed',
+          Math.max(0, this.now() - startedAt),
+        );
+      } else {
         throw error;
       }
-      result = terminalFailure(
-        manifest,
-        'byte_size_limit_exceeded',
-        Math.max(0, this.now() - startedAt),
-      );
     }
 
     await this.results.record(result);
     return result;
+  }
+
+  /**
+   * Renders page one to a PNG in a temporary directory and returns its path.
+   *
+   * The file outlives this call — `decodeAndOrient` reads it next — and is
+   * removed with the rest of the temporary directory when the job's own
+   * materialised source is disposed.
+   */
+  private async rasterizeFirstPage(sourcePath: string): Promise<string> {
+    const page = await this.pdfRasterizer.rasterizePage(sourcePath, 1, PDF_RENDER_LONG_EDGE_PX);
+    const renderedPath = `${sourcePath}.page-1.png`;
+    await writeFile(renderedPath, page.png);
+    return renderedPath;
   }
 
   private async generate(
@@ -117,7 +162,17 @@ export class ProcessMediaDerivativeGenerationJob {
       MAX_SOURCE_BYTES,
     );
     try {
-      const oriented = await decodeAndOrient(object.path);
+      /*
+       * A plan arrives as a survey PDF as often as it arrives as a scan, and
+       * everything below this line works in pixels. The first page becomes a
+       * PNG on disk, and the ordinary image path continues from there — the
+       * page is the plan; a plat's remaining pages are legal text.
+       */
+      const decodable =
+        manifest.validation.expectedContentType === PDF_CONTENT_TYPE
+          ? await this.rasterizeFirstPage(object.path)
+          : object.path;
+      const oriented = await decodeAndOrient(decodable);
       const outputs: MediaProcessingOutputObject[] = [];
 
       for (const spec of profile.rasterSpecs) {

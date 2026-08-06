@@ -18,6 +18,7 @@ import { ConfigurationError, loadConfiguration } from './configuration.js';
 import { GcsObjectDeleter } from './deletion/gcs-object-deleter.js';
 import { ProcessMediaDeletionJob } from './deletion/process-media-deletion-job.js';
 import { GcsDerivativeObjectSink } from './derivatives/gcs-derivative-object-sink.js';
+import { PopplerPdfPageRasterizer } from './derivatives/poppler-pdf-page-rasterizer.js';
 import { ProcessMediaDerivativeGenerationJob } from './derivatives/process-media-derivative-generation-job.js';
 import { GcsExportObjectStore } from './exports/gcs-export-object-store.js';
 import { GoogleApiExportApiClient } from './exports/google-api-export-api-client.js';
@@ -46,7 +47,6 @@ import { GoogleApiResultRecorder } from './validation/google-api-result-recorder
 import { MediaValidator } from './validation/media-validator.js';
 import { GoogleOidcInvocationVerifier } from './validation/oidc-invocation-verifier.js';
 import { ProcessMediaValidationJob } from './validation/process-media-validation-job.js';
-import { UnavailableMalwareScanner } from './validation/validation-result.js';
 import { ValidationHttpServer } from './validation/validation-http-server.js';
 
 async function main(): Promise<void> {
@@ -102,13 +102,16 @@ async function main(): Promise<void> {
   );
   const jobRouter = new MediaProcessingJobRouter(
     new ProcessMediaValidationJob(
-      new MediaValidator(new GcsMediaObjectSource(storage), new UnavailableMalwareScanner()),
+      new MediaValidator(new GcsMediaObjectSource(storage)),
       resultRecorder,
     ),
     new ProcessMediaDerivativeGenerationJob(
       new GcsMediaObjectSource(storage),
       new GcsDerivativeObjectSink(storage, configuration.mediaDerivedBucket),
       resultRecorder,
+      // The one adapter behind the PDF rasterizer port; `poppler-utils` is
+      // installed in this service's own image.
+      new PopplerPdfPageRasterizer(),
     ),
     // P6-RET-01: prefix-scoped object deletion with absence verification.
     new ProcessMediaDeletionJob(new GcsObjectDeleter(storage), resultRecorder),

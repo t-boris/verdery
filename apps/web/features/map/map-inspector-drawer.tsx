@@ -65,7 +65,7 @@ export function MapInspectorDrawer({ tabs, activeTab, onSelectTab }: MapInspecto
               role="tab"
               id={`${panelId}-${tab.id}`}
               aria-selected={tab.id === active?.id}
-              aria-controls={panelId}
+              aria-controls={`${panelId}-panel-${tab.id}`}
               className={classNames(styles['tab'], tab.id === active?.id && styles['tabActive'])}
               onClick={() => {
                 onSelectTab(tab.id);
@@ -83,7 +83,7 @@ export function MapInspectorDrawer({ tabs, activeTab, onSelectTab }: MapInspecto
           variant="secondary"
           iconOnly
           aria-expanded={expanded}
-          aria-controls={panelId}
+          aria-controls={`${panelId}-panel-${active?.id ?? 'properties'}`}
           aria-label={t(expanded ? 'map.inspector.collapse' : 'map.inspector.expand')}
           title={t(expanded ? 'map.inspector.collapse' : 'map.inspector.expand')}
           onClick={() => setExpanded((current) => !current)}
@@ -94,16 +94,30 @@ export function MapInspectorDrawer({ tabs, activeTab, onSelectTab }: MapInspecto
         </Button>
       </div>
 
-      {expanded && active !== undefined && (
-        <div
-          className={styles['panel']}
-          id={panelId}
-          role="tabpanel"
-          aria-labelledby={`${panelId}-${active.id}`}
-        >
-          {active.content}
-        </div>
-      )}
+      {/*
+       * EVERY tab stays mounted; only the inactive ones are hidden.
+       *
+       * Rendering just the active tab unmounted the others, and one of them
+       * owns work in progress: a plan upload lives in "Backdrop & layers",
+       * and its controller is component state. Switching tabs — including the
+       * automatic switch to Properties the moment an object is selected —
+       * therefore cancelled an upload halfway through, silently. Before this
+       * drawer existed all five panels were mounted at once, so keeping them
+       * mounted is also what restores the behaviour people already had.
+       */}
+      {expanded &&
+        tabs.map((tab) => (
+          <div
+            key={tab.id}
+            className={styles['panel']}
+            id={`${panelId}-panel-${tab.id}`}
+            role="tabpanel"
+            aria-labelledby={`${panelId}-${tab.id}`}
+            hidden={tab.id !== active?.id}
+          >
+            {tab.content}
+          </div>
+        ))}
     </aside>
   );
 }
