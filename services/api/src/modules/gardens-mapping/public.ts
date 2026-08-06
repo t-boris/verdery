@@ -119,6 +119,17 @@ export { RestoreMapObject } from './application/restore-map-object.js';
 export { SplitMapObjectLinework } from './application/split-map-object-linework.js';
 export { SetGardenGeoreference } from './application/set-garden-georeference.js';
 export type { SetGardenGeoreferenceInput } from './application/set-garden-georeference.js';
+export { TraceGardenFromAerial } from './application/trace-garden-from-aerial.js';
+export type {
+  AerialTraceConfiguration,
+  AerialTraceProposal,
+  AerialTraceResult,
+} from './application/trace-garden-from-aerial.js';
+export {
+  aerialTransformUsable,
+  buildAerialProposalGeometry,
+  normalizedImagePointToLocal,
+} from './domain/aerial-image-transform.js';
 export { UpsertMapCalibration } from './application/upsert-map-calibration.js';
 export { KyselyCalibrationRepository } from './persistence/kysely-calibration-repository.js';
 export { KyselyCoordinateSpaceRepository } from './persistence/kysely-coordinate-space-repository.js';

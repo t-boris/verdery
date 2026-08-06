@@ -17,7 +17,13 @@
  * "15. Provider Independence"; section "3.2 Geographic Space".
  */
 
-import type { Position } from '@verdery/geometry-contracts';
+import {
+  geographicToLocalMetres,
+  localMetresToGeographic,
+  type Position,
+} from '@verdery/geometry-contracts';
+
+export { geographicToLocalMetres, localMetresToGeographic };
 
 export interface Georeference {
   readonly localAnchor: Position;
@@ -84,20 +90,6 @@ export interface BasemapProvider {
   geographicToLocal(geo: Position, georeference: Georeference): Position;
 }
 
-const METRES_PER_DEGREE_LATITUDE = 111_320;
-const DEGREES_TO_RADIANS = Math.PI / 180;
-
-function metresPerDegreeLongitude(latitudeDegrees: number): number {
-  return METRES_PER_DEGREE_LATITUDE * Math.cos(latitudeDegrees * DEGREES_TO_RADIANS);
-}
-
-function rotate(x: number, y: number, degrees: number): readonly [number, number] {
-  const radians = degrees * DEGREES_TO_RADIANS;
-  const cos = Math.cos(radians);
-  const sin = Math.sin(radians);
-  return [x * cos - y * sin, x * sin + y * cos];
-}
-
 /**
  * OpenFreeMap (https://openfreemap.org): a free, open, no-API-key vector tile
  * provider serving OpenMapTiles-schema tiles built from OpenStreetMap data.
@@ -115,30 +107,6 @@ function rotate(x: number, y: number, degrees: number): readonly [number, number
  * and sharing it as a method would make each provider's copy a `this`-bound
  * reference to another object's function.
  */
-export function localMetresToGeographic(local: Position, georeference: Georeference): Position {
-  const dx = (local[0] - georeference.localAnchor[0]) * georeference.scaleCorrection;
-  const dy = (local[1] - georeference.localAnchor[1]) * georeference.scaleCorrection;
-  const [eastMetres, northMetres] = rotate(dx, dy, georeference.rotationDegrees);
-
-  const [anchorLongitude, anchorLatitude] = georeference.geographicAnchor;
-  const longitude = anchorLongitude + eastMetres / metresPerDegreeLongitude(anchorLatitude);
-  const latitude = anchorLatitude + northMetres / METRES_PER_DEGREE_LATITUDE;
-  return [longitude, latitude];
-}
-
-/** The inverse of {@link localMetresToGeographic}. */
-export function geographicToLocalMetres(geo: Position, georeference: Georeference): Position {
-  const [anchorLongitude, anchorLatitude] = georeference.geographicAnchor;
-  const eastMetres = (geo[0] - anchorLongitude) * metresPerDegreeLongitude(anchorLatitude);
-  const northMetres = (geo[1] - anchorLatitude) * METRES_PER_DEGREE_LATITUDE;
-
-  const [dx, dy] = rotate(eastMetres, northMetres, -georeference.rotationDegrees);
-  return [
-    georeference.localAnchor[0] + dx / georeference.scaleCorrection,
-    georeference.localAnchor[1] + dy / georeference.scaleCorrection,
-  ];
-}
-
 export const openFreeMapProvider: BasemapProvider = {
   name: 'OpenFreeMap',
   source: { kind: 'vectorStyle', styleUrl: 'https://tiles.openfreemap.org/styles/liberty' },
@@ -157,6 +125,7 @@ export const openFreeMapProvider: BasemapProvider = {
 };
 
 const METRES_PER_PIXEL_AT_EQUATOR_ZOOM_ZERO = 156_543.033_92;
+const DEGREES_TO_RADIANS = Math.PI / 180;
 
 /** Standard Web Mercator tile math, used to keep MapLibre's zoom in step with the local camera's scale. */
 export function zoomForMetresPerPixel(metresPerPixel: number, latitudeDegrees: number): number {

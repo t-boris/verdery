@@ -119,6 +119,28 @@ export type {
   AddressPrecision as GeocodedAddressPrecision,
   GeocodedAddressCandidate,
 } from './application/address-geocoding-provider.js';
+export type {
+  AerialImage,
+  AerialImageryIdentity,
+  AerialImageryOutcome,
+  AerialImageryProviderAdapter,
+  AerialImageryRequest,
+  GeographicBounds,
+} from './application/aerial-imagery-provider.js';
+export type {
+  AerialGardenExtractionModelIdentity,
+  AerialGardenExtractionOutcome,
+  AerialGardenExtractionProviderAdapter,
+  AerialProposalCategory,
+  ExtractedAerialObject,
+  NormalizedImagePoint,
+} from './application/aerial-garden-extraction-provider.js';
+export { UsgsNaipAerialImageryAdapter } from './persistence/usgs-naip-aerial-imagery-adapter.js';
+export {
+  VERTEX_AERIAL_TRACE_PROMPT_TEMPLATE_VERSION,
+  VertexAiAerialGardenExtractionAdapter,
+} from './persistence/vertex-ai-aerial-garden-extraction-adapter.js';
+export type { VertexAiAerialTraceConfiguration } from './persistence/vertex-ai-aerial-garden-extraction-adapter.js';
 export { UsCensusGeocodingAdapter } from './persistence/us-census-geocoding-adapter.js';
 export { registerWeatherRefreshSweepRoute } from './transport/weather-refresh-sweep-route.js';
 export type { WeatherRefreshSweepRouteDependencies } from './transport/weather-refresh-sweep-route.js';

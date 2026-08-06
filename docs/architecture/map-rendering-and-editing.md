@@ -420,6 +420,33 @@ Proposals exist in a separate review state and include:
 
 The user may accept, edit-and-accept, partially accept, or reject proposals. Acceptance creates ordinary versioned garden commands and preserves the proposal lineage.
 
+### 17.1 Aerial tracing proposals
+
+Address-based aerial tracing uses the garden's accepted georeference to request one bounded image,
+then asks a vision adapter for normalized image coordinates. The model does not produce garden
+metres. A deterministic transform maps each normalized image point through the image's geographic
+bounds and the exact georeference revision into garden-local metres. The aerial backdrop and
+proposal overlay therefore share one coordinate and camera pipeline: pan, zoom, and rotation cannot
+make a proposal slide relative to its source photograph.
+
+Each proposal records the georeference revision, imagery identity, acquisition date when supplied,
+resolution, stated horizontal accuracy, provider attribution and licence, processor, model, prompt
+version, confidence, and limitations. If the georeference changes before acceptance, the proposal
+is stale and must be regenerated or explicitly reprojected; it is never silently accepted against a
+different transform.
+
+Geometry is normalized before review: paths and fences are linework, trees are points, and lots,
+structures, zones, beds, water features, and utility exclusions are polygons. Invalid,
+self-intersecting, or underspecified geometry is omitted. A lot is omitted unless the adapter names
+adequate visible evidence and explicit limitations. Even then it is an approximate visual proposal,
+never an authoritative or legal property boundary.
+
+The current implementation supplies bounded imagery acquisition, a strict vision schema, the
+deterministic transform, and a read-only proposal result. Persistence and `decideProposal`
+acceptance remain gated: the current database has no proposal table, and ordinary `createObject`
+deliberately stamps manual provenance. Until the shared plat/aerial proposal store is added, clients
+must not discard extraction provenance by routing these candidates through `createObject`.
+
 ## 18. Selection and Properties
 
 Selection is identified by object ID, never by renderer node reference. The property panel reads the canonical object draft and exposes semantic fields, measurements, provenance, and uncertainty.

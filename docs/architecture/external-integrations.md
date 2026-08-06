@@ -99,11 +99,14 @@ question — where a garden is, and what it looks like from above — and becaus
   tiles stop at zoom 16, which is far too coarse for a garden. **0.30 m per pixel**, which is the
   service's own `pixelSizeX` read from `?f=json` on August 5, 2026; an earlier "roughly 0.6–1 m"
   here was an estimate and it was wrong by a factor of two, which is why the client now asks the
-  service rather than a memory. A house, a driveway and a fence line are legible; an individual bed
-  is not. The web client requests tiles only up to the zoom that matches that resolution and states
+  service rather than a memory. A house, a driveway and some fence lines are commonly legible;
+  smaller beds and utilities may not be. The web client requests tiles only up to the zoom that matches that resolution and states
   any further enlargement on screen — see architecture/map-rendering-and-editing.md, section 3.2.
-  It is a BACKDROP, never geometry — what a person traces over it is their own drawing, and no pixel
-  of it enters the domain model.
+  It remains a non-authoritative BACKDROP. When aerial tracing is explicitly enabled, a bounded
+  export may also be sent to the configured vision adapter to create review-only proposals. Pixels
+  still never become canonical garden data, and no proposal is accepted without a person's review.
+  The export response does not reliably supply an acquisition date or per-image accuracy, so both
+  remain unknown rather than being inferred from the service name.
 
 Both end at the United States border, which is ADR-0007's first market. Each surface says so rather
 than presenting absent coverage as a failure.

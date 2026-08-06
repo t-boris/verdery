@@ -54,6 +54,9 @@ export type {
   ProvenanceKind,
 } from './geometry.js';
 
+export { geographicToLocalMetres, localMetresToGeographic } from './geographic-transform.js';
+export type { LocalGeoreferenceTransform } from './geographic-transform.js';
+
 export { densifyCubicChain, isValidControlPointCount, segmentCount } from './curve.js';
 export type { CurveKind, CurveMetadata } from './curve.js';
 
