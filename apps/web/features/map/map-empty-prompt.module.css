@@ -1,27 +1,36 @@
 /*
- * Floated over the middle of the canvas: guidance belongs next to the work,
- * not in chrome the person is not looking at — and not in the top corners,
- * where the tool rail and the backdrop choice now live. Centred vertically it
- * clears both, on every width.
+ * A strip along the BOTTOM edge, not a card in the middle.
+ *
+ * It used to sit over the centre of the canvas, which is exactly where the
+ * lot being traced is — "мешает", and rightly so: first-run guidance that
+ * covers the work is worse than no guidance. One line, out of the way, and
+ * dismissible.
  */
 .prompt {
   position: absolute;
-  inset-block-start: 50%;
-  transform: translateY(-50%);
+  inset-block-end: var(--space-2);
   inset-inline: 0;
   z-index: 2;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
   gap: var(--space-2);
-  inline-size: min(28rem, calc(100% - var(--space-6)));
+  inline-size: fit-content;
+  max-inline-size: calc(100% - var(--space-6));
   margin-inline: auto;
-  padding: var(--space-4);
+  padding: var(--space-1) var(--space-2);
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-lg);
   background-color: var(--color-surface);
   box-shadow: var(--shadow-md);
   text-align: center;
+}
+
+/* The body text is the part that costs room; the action is what matters. */
+.body {
+  display: none;
 }
 
 .title {

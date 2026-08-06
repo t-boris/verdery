@@ -513,6 +513,7 @@ export const russianMessages: MessageCatalogue = {
   'tasks.enum.urgency.normal': 'Обычная',
   'tasks.enum.urgency.high': 'Высокая',
   'tasks.enum.urgency.urgent': 'Срочная',
+  'map.empty.dismiss': 'Скрыть подсказку',
   'map.empty.traceTitle': 'Начните с участка',
   'map.empty.traceBody':
     'Обведите границу участка по аэроснимку. Всё остальное — дом, грядки, деревья — размещается внутри неё.',

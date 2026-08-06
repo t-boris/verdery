@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 
+import { useState } from 'react';
+
 import { useLocalization } from '@/shared/localization/public';
-import { Button } from '@/shared/ui/public';
+import { Button, CloseIcon } from '@/shared/ui/public';
 
 import { useMapEditorStore } from './editor-store';
 import styles from './map-empty-prompt.module.css';
@@ -32,11 +34,19 @@ export interface MapEmptyPromptProps {
  *
  * Disappears the moment the garden has any object — it is a first-run
  * prompt, not a permanent banner, and `map-editor.tsx` decides that by
- * counting objects rather than by remembering a dismissal.
+ * counting objects rather than by remembering a dismissal. It can also be
+ * dismissed outright: as a card over the middle of the canvas it covered the
+ * very lot it was asking for, and an owner said so plainly on 2026-08-06.
+ * One line along the bottom edge, with a way to close it.
  */
 export function MapEmptyPrompt({ gardenId, georeferenced }: MapEmptyPromptProps) {
   const { t } = useLocalization();
   const store = useMapEditorStore();
+  const [dismissed, setDismissed] = useState(false);
+
+  if (dismissed) {
+    return null;
+  }
 
   return (
     <div className={styles['prompt']} role="note">
@@ -56,6 +66,16 @@ export function MapEmptyPrompt({ gardenId, georeferenced }: MapEmptyPromptProps)
           {t('map.empty.locateAction')}
         </Link>
       )}
+
+      <Button
+        variant="secondary"
+        iconOnly
+        aria-label={t('map.empty.dismiss')}
+        title={t('map.empty.dismiss')}
+        onClick={() => setDismissed(true)}
+      >
+        <CloseIcon />
+      </Button>
     </div>
   );
 }

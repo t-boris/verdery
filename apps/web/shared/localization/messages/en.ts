@@ -515,6 +515,7 @@ export const englishMessages = {
   'tasks.enum.urgency.normal': 'Normal',
   'tasks.enum.urgency.high': 'High',
   'tasks.enum.urgency.urgent': 'Urgent',
+  'map.empty.dismiss': 'Hide this hint',
   'map.empty.traceTitle': 'Start with the lot',
   'map.empty.traceBody':
     'Trace the boundary of the property over the aerial photograph. Everything else — the house, beds, trees — is placed inside it afterwards.',
