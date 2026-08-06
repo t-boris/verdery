@@ -99,14 +99,14 @@ describe('editorReducer', () => {
   });
 
   it('sets the camera only once via initCamera, ignoring later calls', () => {
-    const camera = { centerX: 5, centerY: 5, scale: 30 };
+    const camera = { centerX: 5, centerY: 5, scale: 30, rotationDegrees: 0 };
     const initialized = editorReducer(initialEditorState, { type: 'initCamera', camera });
     expect(initialized.camera).toEqual(camera);
     expect(initialized.cameraInitialized).toBe(true);
 
     const secondAttempt = editorReducer(initialized, {
       type: 'initCamera',
-      camera: { centerX: 0, centerY: 0, scale: 1 },
+      camera: { centerX: 0, centerY: 0, scale: 1, rotationDegrees: 0 },
     });
     expect(secondAttempt.camera).toEqual(camera);
   });

@@ -125,6 +125,13 @@ page outline that disagrees with the surveyed shape shows up as a number instead
 the wrong place. Each object is read as the shape ITS category actually is: an outline for a
 structure or a zone, a centre line for a path or a fence, a trunk position for a tree.
 
+**Visible features do not require a printed label.** The reader makes a separate whole-parcel
+visual pass for the house, attached garage, porches and decks, driveway, walks, patios, fences,
+easements, and trees. A clear shape with no legible label is still returned with an empty label and
+its own confidence. Dimension lines, setbacks, leaders, bearings, and text boxes are explicitly
+excluded from that pass. This avoids silently reducing a detailed plat to its boundary merely
+because the building label is faint or absent.
+
 **Nothing is carried when the traverse does not close.** A boundary that does not close is the
 wrong shape, and objects fitted onto a wrong shape are placed by a guess at scale. The reading
 still returns the boundary and its closure error — the person decides — but no objects ride a fit

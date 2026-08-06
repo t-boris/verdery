@@ -102,8 +102,9 @@ question — where a garden is, and what it looks like from above — and becaus
   service rather than a memory. A house, a driveway and a fence line are legible; an individual bed
   is not. The web client requests tiles only up to the zoom that matches that resolution and states
   any further enlargement on screen — see architecture/map-rendering-and-editing.md, section 3.2.
-  It is a BACKDROP, never geometry — what a person traces over it is their own drawing, and no pixel
-  of it enters the domain model.
+  It is a backdrop and an input to the explicitly requested, review-only aerial tracing capability.
+  No provider pixel is stored as garden geometry: only proposals accepted through ordinary map
+  commands become objects, with `imageExtraction` provenance and confidence.
 
 Both end at the United States border, which is ADR-0007's first market. Each surface says so rather
 than presenting absent coverage as a failure.
@@ -148,7 +149,9 @@ Vertex AI is the initial provider behind the AI adapter. The adapter enforces us
 
 A provider replacement must reproduce evaluation quality and deletion/privacy obligations before rollout.
 
-Four AI capabilities are wired today, each behind its own kill switch, its own explicitly chosen
+Five AI capabilities are wired today. Aerial site tracing intentionally shares the plat-reader
+switch and model because both are map-capture review flows; the other capabilities retain their own
+switches. All use one shared Vertex project/location (ADR-0008):
 model, and one shared Vertex project/location (ADR-0008):
 
 | Capability                   | Switch                                  | Model variable             | Adapter                                             |
@@ -157,6 +160,7 @@ model, and one shared Vertex project/location (ADR-0008):
 | Plant species identification | `PLANT_SPECIES_AI_ENABLED`              | `PLANT_SPECIES_AI_MODEL`   | `vertex-ai-plant-species-identification-adapter.ts` |
 | Plant condition analysis     | `PLANT_CONDITION_AI_ENABLED`            | `PLANT_CONDITION_AI_MODEL` | `vertex-ai-plant-condition-analysis-adapter.ts`     |
 | Plat reading (ADR-0018)      | `PLAT_READING_ENABLED`                  | `PLAT_READING_MODEL`       | `vertex-ai-plat-extraction-adapter.ts`              |
+| Aerial site tracing          | `PLAT_READING_ENABLED`                  | `PLAT_READING_MODEL`       | `vertex-ai-aerial-tracing-adapter.ts`               |
 
 Plat reading differs from the other three in what it asks for: a TRANSCRIPTION. Every field it
 returns is text printed on the page — a bearing in degrees, minutes and seconds; a distance with
@@ -169,6 +173,19 @@ lot's page outline onto that walked polygon (`page-to-ground.ts`). Its timeout a
 are far larger than the other capabilities' (`PLAT_READING_CALL_TIMEOUT_MS`, default 120 s;
 `PLAT_READING_MAX_OUTPUT_TOKENS`, default 8192) because a plat carries dozens of calls and every
 structure on the lot, and the call is interactive — a person is waiting on it.
+
+The page-coordinate shapes come from a distinct whole-parcel visual pass within that reading. It
+checks explicitly for structures, driveways and walks, patios, fences, easements, and trees, and
+returns clear unlabelled linework with an empty label instead of dropping it. Printed measurements
+remain strict transcription; visual classification is confined to these reviewable shapes and
+always carries model confidence.
+
+Aerial tracing fetches a 1024 px, north-up USGS export covering 160 m around the saved address and
+asks for normalized outlines/lines/points belonging to the center property. The structured result
+distinguishes visible from inferred evidence and includes lot, roof footprints, driveway/walk
+centerlines, parking surfaces, fences, water/utility areas and mature trees. The API converts those
+points into the existing garden-local coordinate space and returns them without writing. A person
+selects what becomes ordinary map objects.
 
 ### 9.1 Which photograph is sent, and the size the provider will accept
 

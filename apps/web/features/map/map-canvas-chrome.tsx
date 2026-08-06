@@ -5,6 +5,7 @@ import { Button, FitIcon, MinusIcon, PlusIcon } from '@/shared/ui/public';
 
 import type { InteractionMode } from './editor-store';
 import styles from './map-canvas.module.css';
+import { MapOrientationControls } from './map-orientation-controls';
 import { MapSelectionToolbar } from './map-selection-toolbar';
 import type { CanvasSize, MapCamera, MapObjectRecord } from './types';
 
@@ -20,6 +21,8 @@ export interface MapCanvasChromeProps {
   readonly onZoomIn: () => void;
   readonly onZoomOut: () => void;
   readonly onZoomFit: () => void;
+  readonly northUpRotationDegrees: number | null;
+  readonly onRotationChange: (rotationDegrees: number) => void;
 }
 
 /**
@@ -46,6 +49,8 @@ export function MapCanvasChrome({
   onZoomIn,
   onZoomOut,
   onZoomFit,
+  northUpRotationDegrees,
+  onRotationChange,
 }: MapCanvasChromeProps) {
   const { t } = useLocalization();
 
@@ -68,6 +73,11 @@ export function MapCanvasChrome({
           onDelete={onDeleteSelected}
         />
       )}
+      <MapOrientationControls
+        rotationDegrees={camera.rotationDegrees}
+        northUpRotationDegrees={northUpRotationDegrees}
+        onChange={onRotationChange}
+      />
       <div
         className={styles['zoomControls']}
         role="group"

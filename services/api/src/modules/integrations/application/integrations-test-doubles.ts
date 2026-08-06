@@ -191,6 +191,7 @@ export function testGeoreference(
     rotationDegrees: 0,
     scaleCorrection: 1,
     accuracyMetres: null,
+    displayAddress: null,
     provenance: 'userMeasurement',
     method: 'test-fixture',
     revision: 1,

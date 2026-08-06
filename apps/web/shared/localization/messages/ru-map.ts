@@ -339,9 +339,27 @@ export const russianMapMessages: Readonly<Record<keyof typeof englishMapMessages
   'map.canvas.zoomIn': 'Приблизить',
   'map.canvas.zoomOut': 'Отдалить',
   'map.canvas.zoomFit': 'Показать сад целиком',
+  'map.orientation.controlsLabel': 'Ориентация карты',
+  'map.orientation.counterClockwise': 'Повернуть на 15° против часовой стрелки',
+  'map.orientation.clockwise': 'Повернуть на 15° по часовой стрелке',
+  'map.orientation.angle': 'Точный угол поворота в градусах',
+  'map.orientation.northUp': 'Срочно повернуть карту севером вверх',
   'map.backdrop.tooCloseForStreets':
     'На таком приближении у карты улиц нет деталей — отдалитесь, чтобы её прочитать, или переключитесь на снимок, чтобы обводить по земле.',
   'map.backdrop.magnified': 'Снимок увеличен в {factor}×',
   'map.backdrop.zoomLimited':
     'Ближе подложка за рисунком уже не поспевает. Отключите подложку, чтобы приблизиться сильнее.',
+  'map.aerial.detectAction': 'Найти участок и все объекты',
+  'map.aerial.reviewTitle': 'Найдено по аэрофото',
+  'map.aerial.dismiss': 'Закрыть найденные объекты',
+  'map.aerial.noObjects':
+    'Надёжные объекты не найдены. Используйте загруженный плат или ручную трассировку.',
+  'map.aerial.evidence.visible': 'видно на снимке',
+  'map.aerial.evidence.inferred': 'определено косвенно',
+  'map.aerial.disclaimer':
+    'Приблизительные предложения ИИ для планирования, а не официальные границы. Проверьте каждый объект.',
+  'map.aerial.addSelected': 'Добавить выбранное ({count})',
+  'map.aerial.acceptFailed': 'Не все найденные объекты удалось добавить.',
+  'map.aerial.accepted': 'Добавлено найденных объектов: {count}.',
+  'map.plat.areaMismatchWarning': 'площадь обхода не совпадает с площадью на листе',
 };

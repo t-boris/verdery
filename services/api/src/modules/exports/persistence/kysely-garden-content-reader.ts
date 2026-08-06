@@ -74,6 +74,7 @@ export class KyselyGardenContentReader {
         'rotation_degrees',
         'scale_correction',
         'accuracy_metres',
+        'display_address',
         'provenance',
         'method',
         'revision',

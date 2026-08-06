@@ -1,10 +1,11 @@
 import { FinishReason, type GenerateContentResponse } from '@google/genai';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { walkTraverse } from '../../gardens-mapping/domain/survey-traverse.js';
 import {
   buildPlatExtractionParameters,
   parsePlatExtractionResponse,
+  VERTEX_PLAT_EXTRACTION_PROMPT_TEMPLATE_VERSION,
   VertexAiPlatExtractionAdapter,
 } from './vertex-ai-plat-extraction-adapter.js';
 
@@ -115,6 +116,20 @@ describe('buildPlatExtractionParameters', () => {
     expect(instruction).toContain('compute, close, or correct the polygon');
     expect(instruction).toContain('convert any unit');
   });
+
+  it('requires a visual feature pass and keeps clearly drawn unlabelled objects', () => {
+    const parameters = buildPlatExtractionParameters(
+      { page: PAGE },
+      CONFIGURATION,
+      new AbortController().signal,
+    );
+
+    const instruction = JSON.stringify(parameters.config?.systemInstruction);
+    expect(instruction).toContain('separate visual pass');
+    expect(instruction).toContain('does NOT need a printed label');
+    expect(instruction).toContain('main house footprint');
+    expect(VERTEX_PLAT_EXTRACTION_PROMPT_TEMPLATE_VERSION).toBe(3);
+  });
 });
 
 describe('parsePlatExtractionResponse', () => {
@@ -217,5 +232,31 @@ describe('VertexAiPlatExtractionAdapter', () => {
           },
         ),
     ).toThrow();
+  });
+
+  it('reads again instead of closing three returned sides into a triangle', async () => {
+    const generateContent = vi
+      .fn()
+      .mockResolvedValueOnce(
+        responseWith(
+          JSON.stringify({ ...CASCADE_WAY, boundaryCalls: CASCADE_WAY.boundaryCalls.slice(0, 3) }),
+        ),
+      )
+      .mockResolvedValueOnce(responseWith(JSON.stringify(CASCADE_WAY)));
+    const adapter = new VertexAiPlatExtractionAdapter(
+      { models: { generateContent } },
+      CONFIGURATION,
+    );
+
+    const outcome = await adapter.extractPlat({ page: PAGE }, new AbortController().signal);
+
+    expect(generateContent).toHaveBeenCalledTimes(2);
+    expect(outcome.kind).toBe('extracted');
+    if (outcome.kind === 'extracted') {
+      expect(outcome.plat.boundaryCalls).toHaveLength(4);
+    }
+    expect(JSON.stringify(generateContent.mock.calls[1]?.[0])).toContain(
+      'Do not close fewer lines into a new',
+    );
   });
 });

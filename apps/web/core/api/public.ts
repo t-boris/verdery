@@ -55,6 +55,8 @@ export type {
   WireGeoreferenceMethod,
   WireSetGeoreferenceRequest,
   WireMapCommandResult,
+  WireAerialTracingProposal,
+  WireAerialTracingResult,
   WireValidationIssue,
   WireValidationSeverity,
 } from './map-wire-types';

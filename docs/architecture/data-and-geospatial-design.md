@@ -162,6 +162,8 @@ An optional georeference record maps local coordinates to WGS84 and contains:
 - Rotation.
 - Scale correction if applicable.
 - Accuracy or residual error.
+- An optional confirmed display address, used only as the recognizable label for the geographic
+  anchor and never as geometric authority.
 - Provenance and method, including whether location, heading, control points, imagery, or manual
   adjustment contributed.
 - True-north reference, orientation accuracy, and observation time.
@@ -169,14 +171,20 @@ An optional georeference record maps local coordinates to WGS84 and contains:
 
 Spatial queries that need geography transform explicitly into the approved geographic representation.
 
-A confirmed display address is garden metadata rather than geometric authority. It records the
-formatted address, provider or manual source, confirmation state, precision class, observation time,
-and revision. Changing an address does not move accepted local geometry; changing the geographic
-anchor creates a new georeference revision.
+A confirmed display address is stored with the georeference revision it labels, but remains garden
+metadata rather than geometric authority. Changing the label alone does not move accepted local
+geometry; changing the geographic anchor creates a new georeference revision. The current web flow
+stores the formatted geocoder result and its `addressSearch` method; richer provider, precision, and
+observation metadata can extend this revisioned record later without changing that separation.
 
 Device heading belongs to a capture or alignment record until the user accepts or adjusts a
 garden-level orientation. Magnetic or low-accuracy heading evidence must not silently replace an
 accepted true-north rotation.
+
+The editor camera has its own ephemeral view rotation. Rotating the view changes neither local
+coordinates nor the georeference: the renderer applies the same inverse rotation to all garden
+objects and to the geographic backdrop bearing. North up derives the camera angle from the current
+georeference rotation.
 
 The record is authored through its own resource, `PUT /gardens/{gardenId}/georeference`, and not
 through a map command: the thirteen map commands mutate objects INSIDE a coordinate space, while

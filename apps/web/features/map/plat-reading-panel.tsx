@@ -34,7 +34,18 @@ const SQUARE_FEET_PER_SQUARE_METRE = 10.7639;
  */
 export function PlatReadingPanel({ reading, actions, onDismiss }: PlatReadingPanelProps) {
   const { t, locale } = useLocalization();
-  const [acceptBoundary, setAcceptBoundary] = useState(reading.boundary?.closes ?? false);
+  const walkedSquareFeet =
+    reading.boundary === null
+      ? null
+      : reading.boundary.areaSquareMetres * SQUARE_FEET_PER_SQUARE_METRE;
+  const areaAgrees =
+    walkedSquareFeet === null ||
+    reading.statedAreaSquareFeet === null ||
+    Math.abs(walkedSquareFeet - reading.statedAreaSquareFeet) / reading.statedAreaSquareFeet <=
+      0.15;
+  const [acceptBoundary, setAcceptBoundary] = useState(
+    reading.boundary !== null && reading.boundary.closes && areaAgrees,
+  );
   const [rejected, setRejected] = useState<ReadonlySet<number>>(new Set());
   const [busy, setBusy] = useState(false);
 
@@ -80,11 +91,6 @@ export function PlatReadingPanel({ reading, actions, onDismiss }: PlatReadingPan
     }
     onDismiss();
   };
-
-  const walkedSquareFeet =
-    reading.boundary === null
-      ? null
-      : reading.boundary.areaSquareMetres * SQUARE_FEET_PER_SQUARE_METRE;
 
   return (
     <div className={styles['panel']}>
@@ -164,6 +170,7 @@ export function PlatReadingPanel({ reading, actions, onDismiss }: PlatReadingPan
           <span>
             {t('map.plat.acceptBoundary')}
             {!reading.boundary.closes && ` — ${t('map.plat.closureWarning')}`}
+            {!areaAgrees && ` — ${t('map.plat.areaMismatchWarning')}`}
           </span>
         </label>
       )}

@@ -43,14 +43,17 @@ import {
 import { useCanvasPalette } from './use-canvas-palette';
 import { createCanvasKeyDownHandler } from './use-canvas-keyboard';
 import type { MapEditorActions } from './use-map-editor-actions';
+import { useStagePan } from './use-stage-pan';
 import { editableRingOf, isRingClosureVertex, movedRingClosureGeometry } from './vertex-ring';
-import { initialCameraFor, isRecordInViewport, panCamera, toLocal, zoomCamera } from './viewport';
+import { initialCameraFor, isRecordInViewport, toLocal, zoomCamera } from './viewport';
 
 const ZOOM_IN_FACTOR = 1.1;
 const ZOOM_OUT_FACTOR = 1 / 1.1;
 
 export interface MapCanvasProps {
   readonly actions: MapEditorActions;
+  /** View rotation that makes geographic north point straight up. */
+  readonly northUpRotationDegrees?: number | null;
   /**
    * What the chosen backdrop can draw at the current camera. The stage needs
    * it for two decisions: whether the metre grid would be noise over a
@@ -88,7 +91,12 @@ export interface MapCanvasProps {
  * Client-only (touches `window`/`document` through Konva) — always loaded via
  * `next/dynamic(..., { ssr: false })` from `map-editor.tsx`.
  */
-export function MapCanvas({ actions, backdrop, backdropView = null }: MapCanvasProps) {
+export function MapCanvas({
+  actions,
+  backdrop,
+  backdropView = null,
+  northUpRotationDegrees = null,
+}: MapCanvasProps) {
   const { t, locale } = useLocalization();
   const store = useMapEditorStore();
 
@@ -119,7 +127,7 @@ export function MapCanvas({ actions, backdrop, backdropView = null }: MapCanvasP
     if (size.width === 0 || size.height === 0 || store.state.cameraInitialized) {
       return;
     }
-    const fitted = initialCameraFor(actions.records, size);
+    const fitted = initialCameraFor(actions.records, size, camera.rotationDegrees);
     store.initCamera({
       ...fitted,
       scale: scaleWithinBackdrop(initialScaleOverBackdrop(fitted.scale, backdrop), backdrop),
@@ -134,6 +142,21 @@ export function MapCanvas({ actions, backdrop, backdropView = null }: MapCanvasP
 
   const interactionMode = store.state.interactionMode;
   const selectedRecord = actions.selectedRecord;
+  const stagePan = useStagePan({
+    enabled: tool === 'select' && store.state.calibrationDraft === null,
+    camera,
+    onCameraChange: store.setCamera,
+  });
+
+  // Switching from aerial to Streets can lower the provider's usable zoom by
+  // several levels. Clamp immediately, not only on the next wheel gesture;
+  // otherwise MapLibre shows its empty over-zoomed background while the
+  // selected Streets button misleadingly says a map is present.
+  useEffect(() => {
+    if (backdrop.maxCameraScale !== null && camera.scale > backdrop.maxCameraScale) {
+      store.setCamera({ ...camera, scale: backdrop.maxCameraScale });
+    }
+  }, [backdrop.maxCameraScale, camera, store]);
 
   // A hidden layer's objects are excluded here the same way `map-object-list.tsx`
   // excludes them from the accessible list — the canvas and the list must
@@ -209,6 +232,9 @@ export function MapCanvas({ actions, backdrop, backdropView = null }: MapCanvasP
   });
 
   const handleStageClick = (event: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+    if (stagePan.consumeClick()) {
+      return;
+    }
     // While a calibration session is active, every meaningful click goes to
     // `CalibrationOverlay`'s capture surface — a stray stage click must not
     // deselect the background and silently kill the session.
@@ -247,6 +273,9 @@ export function MapCanvas({ actions, backdrop, backdropView = null }: MapCanvasP
   };
 
   const handleStageMouseMove = (event: Konva.KonvaEventObject<MouseEvent>) => {
+    if (stagePan.move(event)) {
+      return;
+    }
     if (!isDrafting) {
       return;
     }
@@ -261,12 +290,6 @@ export function MapCanvas({ actions, backdrop, backdropView = null }: MapCanvasP
     const { position, snap } = snapPosition(local, draftSnapContext(event.evt));
     setPointerLocal(position);
     setDraftSnap(snap);
-  };
-
-  const handleStageDragEnd = (event: Konva.KonvaEventObject<DragEvent>) => {
-    const stage = event.target;
-    store.setCamera(panCamera(camera, stage.x(), stage.y()));
-    stage.position({ x: 0, y: 0 });
   };
 
   /*
@@ -362,6 +385,8 @@ export function MapCanvas({ actions, backdrop, backdropView = null }: MapCanvasP
         onZoomIn={() => zoomTo({ x: size.width / 2, y: size.height / 2 }, ZOOM_IN_FACTOR)}
         onZoomOut={() => zoomTo({ x: size.width / 2, y: size.height / 2 }, ZOOM_OUT_FACTOR)}
         onZoomFit={fitToObjects}
+        northUpRotationDegrees={northUpRotationDegrees}
+        onRotationChange={(rotationDegrees) => store.setCamera({ ...camera, rotationDegrees })}
       />
       <div
         ref={containerRef}
@@ -387,8 +412,12 @@ export function MapCanvas({ actions, backdrop, backdropView = null }: MapCanvasP
             height={size.height}
             x={0}
             y={0}
-            draggable={tool === 'select'}
-            onDragEnd={handleStageDragEnd}
+            onMouseDown={stagePan.start}
+            onMouseUp={stagePan.end}
+            onMouseLeave={stagePan.end}
+            onTouchStart={stagePan.start}
+            onTouchMove={stagePan.move}
+            onTouchEnd={stagePan.end}
             onClick={handleStageClick}
             onTap={handleStageClick}
             onDblClick={handleStageDblClick}

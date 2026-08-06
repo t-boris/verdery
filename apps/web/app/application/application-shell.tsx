@@ -114,7 +114,13 @@ function gardenSections(gardenId: string): readonly GardenSection[] {
  * "5. Web Session Flow", step 6 ("Logout clears the cookie and may revoke
  * refresh tokens"); implementation-plan.md work package P9B-WEB-01.
  */
-export function ApplicationShell({ children }: { readonly children: ReactNode }) {
+export function ApplicationShell({
+  children,
+  version,
+}: {
+  readonly children: ReactNode;
+  readonly version: string;
+}) {
   const { t } = useLocalization();
   const router = useRouter();
   const params = useParams();
@@ -148,6 +154,7 @@ export function ApplicationShell({ children }: { readonly children: ReactNode })
           <Link className={styles['brand']} href="/application/gardens">
             <LeafIcon size={16} />
             <span className={styles['brandName']}>{t('app.name')}</span>
+            <span className={styles['version']}>v{version}</span>
           </Link>
 
           <nav className={styles['nav']} aria-label={t('shell.primaryNavLabel')}>

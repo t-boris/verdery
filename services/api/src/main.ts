@@ -15,12 +15,14 @@ import { buildApplication } from './app.js';
 import { registerGracefulShutdown } from './bootstrap/graceful-shutdown.js';
 import {
   VertexAiExplanationAdapter,
+  VertexAiAerialTracingAdapter,
   VertexAiPlantConditionAnalysisAdapter,
   VertexAiPlantSpeciesIdentificationAdapter,
   VertexAiPlatExtractionAdapter,
 } from './modules/integrations/public.js';
 import type {
   AiExplanationProviderAdapter,
+  AerialTracingProviderAdapter,
   PlantConditionAnalysisProviderAdapter,
   PlantSpeciesIdentificationProviderAdapter,
   PlatExtractionProviderAdapter,
@@ -201,6 +203,22 @@ async function main(): Promise<void> {
           },
         )
       : null;
+  const aerialTracingAdapter: AerialTracingProviderAdapter | null =
+    platReadingConfiguration.enabled &&
+    aiConfiguration.vertexProjectId !== null &&
+    platReadingConfiguration.model !== null
+      ? new VertexAiAerialTracingAdapter(
+          new GoogleGenAI({
+            vertexai: true,
+            project: aiConfiguration.vertexProjectId,
+            location: aiConfiguration.vertexLocation,
+          }),
+          {
+            model: platReadingConfiguration.model,
+            maxOutputTokens: platReadingConfiguration.maxOutputTokens,
+          },
+        )
+      : null;
 
   const app = await buildApplication({
     configuration,
@@ -215,6 +233,7 @@ async function main(): Promise<void> {
     plantSpeciesIdentificationAdapter,
     plantConditionAnalysisAdapter,
     platExtractionAdapter,
+    aerialTracingAdapter,
     pushMessageSender,
     identityProviderAccounts,
   });

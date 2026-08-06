@@ -15,6 +15,8 @@ import {
 } from '@/shared/ui/public';
 
 import { backdropStateFor } from './backdrop-state';
+import { AerialTracingPanel } from './aerial-tracing-panel';
+import { useTraceAerial } from './aerial-tracing-queries';
 import { MapInspectorDrawer, type InspectorTabId } from './map-inspector-drawer';
 import { CalibrationPanel } from './calibration-panel';
 import { categoryLabelKey, toolLabelKey } from './labels';
@@ -70,6 +72,7 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
   const store = useMapEditorStore();
   const actions = useMapEditorActions(gardenId);
   const mapDraft = useMapDraftPersistence(gardenId, store);
+  const aerialTracing = useTraceAerial(gardenId);
 
   /*
    * Which drawer tab is showing. Selecting an object moves it to Properties —
@@ -169,6 +172,11 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
           <MapCanvas
             actions={actions}
             backdrop={backdrop}
+            northUpRotationDegrees={
+              mapQuery.data.georeference === undefined
+                ? null
+                : -mapQuery.data.georeference.rotationDegrees
+            }
             backdropView={
               backdrop.visible && backdrop.provider !== null ? (
                 <MapBasemap
@@ -191,6 +199,8 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
             <MapBackdropSwitch
               available={mapQuery.data.georeference !== undefined}
               backdrop={backdrop}
+              tracingAerial={aerialTracing.isPending}
+              onTraceAerial={() => aerialTracing.mutate()}
             />
           </div>
           <div className={styles['draftCluster']}>
@@ -206,6 +216,20 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
             <MapEmptyPrompt
               gardenId={gardenId}
               georeferenced={mapQuery.data.georeference !== undefined}
+              tracingAerial={aerialTracing.isPending}
+              onTraceAerial={() => aerialTracing.mutate()}
+            />
+          )}
+          {aerialTracing.isError && (
+            <div className={styles['aerialFailure']}>
+              <FailureAlert failure={aerialTracing.error.failure} />
+            </div>
+          )}
+          {aerialTracing.data !== undefined && (
+            <AerialTracingPanel
+              tracing={aerialTracing.data}
+              actions={actions}
+              onDismiss={() => aerialTracing.reset()}
             />
           )}
         </div>

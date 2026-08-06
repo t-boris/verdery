@@ -23,6 +23,7 @@ export interface SetGardenGeoreferenceInput {
   readonly rotationDegrees: number;
   readonly scaleCorrection?: number;
   readonly accuracyMetres?: number;
+  readonly displayAddress?: string;
   readonly method: GeoreferenceMethod;
 }
 
@@ -99,6 +100,7 @@ export class SetGardenGeoreference {
             rotationDegrees: input.rotationDegrees,
             scaleCorrection: input.scaleCorrection ?? DEFAULT_SCALE_CORRECTION,
             accuracyMetres: input.accuracyMetres ?? null,
+            displayAddress: input.displayAddress ?? null,
             provenance: provenanceForGeoreferenceMethod(input.method),
             method: input.method,
             revision: nextGeoreferenceRevision(current?.revision ?? null),

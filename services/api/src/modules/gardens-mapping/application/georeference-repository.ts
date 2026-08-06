@@ -10,6 +10,8 @@ export interface Georeference {
   readonly rotationDegrees: number;
   readonly scaleCorrection: number;
   readonly accuracyMetres: number | null;
+  /** Human-readable label for the anchor; never used as geometric authority. */
+  readonly displayAddress: string | null;
   readonly provenance: ProvenanceKind;
   readonly method: string;
   readonly revision: number;
@@ -24,6 +26,7 @@ export interface NewGeoreference {
   readonly rotationDegrees: number;
   readonly scaleCorrection: number;
   readonly accuracyMetres: number | null;
+  readonly displayAddress: string | null;
   readonly provenance: ProvenanceKind;
   readonly method: string;
   readonly revision: number;

@@ -20,6 +20,8 @@ export interface MapBackdropSwitchProps {
   readonly available: boolean;
   /** What the current choice can actually draw at the current camera. */
   readonly backdrop: BackdropState;
+  readonly onTraceAerial: () => void;
+  readonly tracingAerial: boolean;
 }
 
 /**
@@ -35,7 +37,12 @@ export interface MapBackdropSwitchProps {
  * Source: implementation-plan.md work package P12-GEO-01;
  * architecture/map-rendering-and-editing.md, section "3.2 Geographic Space".
  */
-export function MapBackdropSwitch({ available, backdrop }: MapBackdropSwitchProps) {
+export function MapBackdropSwitch({
+  available,
+  backdrop,
+  onTraceAerial,
+  tracingAerial,
+}: MapBackdropSwitchProps) {
   const { t } = useLocalization();
   const store = useMapEditorStore();
 
@@ -61,9 +68,14 @@ export function MapBackdropSwitch({ available, backdrop }: MapBackdropSwitchProp
             ))}
           </div>
           {store.state.backdrop === 'imagery' && (
-            <p className={classNames(styles['note'], styles['noteStanding'])}>
-              {t('map.backdrop.imageryNote')}
-            </p>
+            <>
+              <p className={classNames(styles['note'], styles['noteStanding'])}>
+                {t('map.backdrop.imageryNote')}
+              </p>
+              <Button variant="primary" busy={tracingAerial} onClick={onTraceAerial}>
+                {t('map.aerial.detectAction')}
+              </Button>
+            </>
           )}
           {/* The street style stops resolving about six zoom levels past its
               own tiles, which is well short of the scale a garden is drawn at

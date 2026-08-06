@@ -147,10 +147,22 @@
   color: var(--color-accent);
 }
 
+.version {
+  color: var(--color-text-muted);
+  font-family: var(--font-family-mono);
+  font-size: var(--label-size);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0;
+}
+
 /* The wordmark is dropped below the phone breakpoint; the mark alone still identifies the product and buys ~70px for the tabs. */
 @media (max-width: 30rem) {
   .brandName {
     display: none;
+  }
+
+  .version {
+    font-size: 0.625rem;
   }
 }
 

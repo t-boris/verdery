@@ -4,6 +4,8 @@ import type { PlatReading, ProposedPlatObject } from '@verdery/api-contracts';
 import type { CreateObjectSource, Geometry, Position } from '@verdery/geometry-contracts';
 import { useCallback } from 'react';
 
+import type { WireAerialTracingResult } from '@/core/api/public';
+
 import { buildAcceptProposedObjectCommand, generateMapId } from './commands';
 import type { MapEditorActionDeps } from './map-editor-commit';
 import type { CreatableCategory } from './types';
@@ -97,7 +99,50 @@ export function useMapEditorPlatActions({ commit, findRecord, store }: MapEditor
     [commit, store],
   );
 
-  return { acceptPlatProposals };
+  const acceptAerialProposals = useCallback(
+    async (tracing: WireAerialTracingResult, acceptedIndices: readonly number[]) => {
+      let created = 0;
+      for (const index of acceptedIndices) {
+        const proposal = tracing.proposals[index];
+        if (proposal === undefined) continue;
+        const category = acceptableAerialCategory(proposal.category);
+        if (category === null) continue;
+        const affected = await commit(
+          buildAcceptProposedObjectCommand(
+            generateMapId(),
+            category,
+            proposal.geometry,
+            proposal.label,
+            { provenance: 'imageExtraction', confidence: proposal.confidence },
+          ),
+          null,
+        );
+        if (affected === null) {
+          store.setStatus({ key: 'map.aerial.acceptFailed', tone: 'alert' });
+          return created;
+        }
+        created += 1;
+      }
+      if (created > 0) {
+        store.setTool('select');
+        store.setStatus({
+          key: 'map.aerial.accepted',
+          args: { count: String(created) },
+          tone: 'status',
+        });
+      }
+      return created;
+    },
+    [commit, store],
+  );
+
+  return { acceptPlatProposals, acceptAerialProposals };
+}
+
+function acceptableAerialCategory(
+  category: WireAerialTracingResult['proposals'][number]['category'],
+): Exclude<CreatableCategory, 'gate'> | null {
+  return category;
 }
 
 /**

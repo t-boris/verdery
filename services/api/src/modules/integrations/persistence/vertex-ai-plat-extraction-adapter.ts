@@ -44,10 +44,11 @@ import type {
 import type { VertexGenerativeClient } from './vertex-ai-plant-species-identification-adapter.js';
 
 /** Bumped whenever the instruction below changes; stamped on every stored proposal. */
-export const VERTEX_PLAT_EXTRACTION_PROMPT_TEMPLATE_VERSION = 1;
+export const VERTEX_PLAT_EXTRACTION_PROMPT_TEMPLATE_VERSION = 3;
 
 const SYSTEM_INSTRUCTION = [
-  'You transcribe a United States plat of survey. You do not interpret it.',
+  'You read a United States plat of survey. Transcribe its printed survey',
+  'measurements exactly, and trace the visible site features as page shapes.',
   '',
   'Return only what is PRINTED on the page:',
   '- The property address of the surveyed parcel, exactly as written. This is the',
@@ -58,13 +59,19 @@ const SYSTEM_INSTRUCTION = [
   '  east or west) and its distance in feet. When a line shows both a RECORD and',
   '  a MEASURED distance, use MEASURED. Copy the label you read the distance from.',
   '',
+  'NEVER OMIT A BOUNDARY LINE. Every side of the parcel must appear, in the',
+  'order it is drawn, even when you cannot read it. A parcel described by',
+  "three of its four sides is not a parcel. When a line's bearing is not",
+  'legible, return the line with its distance and its label and LEAVE THE',
+  'BEARING OUT — the missing direction is recoverable from the other sides,',
+  'but only if the line itself is there. Never invent a bearing, and never',
+  'return one of exactly 0°00\'00": no lot line on a plat runs true north, and',
+  'a zero is what an unread bearing looks like.',
+  '',
   'A CURVED line — a road frontage almost always is one — prints RADIUS, ARC,',
   'CHORD and a CHORD BEARING together. Use the CHORD distance and the CHORD',
   'BEARING, never the radius and never the arc length. The chord bearing is a',
-  'full quadrant bearing like `CH. BRG. = N 45°55\'00" W`; if you cannot read',
-  'all of it, omit that line entirely rather than returning part of it. Never',
-  'return a bearing of exactly 0°00\'00" — no lot line on a plat runs true',
-  'north, and a zero is what an unread bearing looks like.',
+  'full quadrant bearing like `CH. BRG. = N 45°55\'00" W`.',
   '- The rotation of the north arrow, in degrees clockwise from the top of the',
   '  page. Zero means the arrow points straight up. Return -1 if there is no',
   '  north arrow.',
@@ -73,8 +80,10 @@ const SYSTEM_INSTRUCTION = [
   '  page width and height, origin at the top-left. Trace the surveyed parcel',
   '  boundary, corner by corner, in the order it is drawn.',
   '- EVERY OTHER THING DRAWN INSIDE OR ON the lot, each in the same page',
-  '  coordinates, with its category, the label printed on it, and your',
-  '  confidence from 0 to 1. Categories: structure (house, garage, shed, deck,',
+  '  coordinates, with its category, its printed label when one exists, and',
+  '  your confidence from 0 to 1. A feature does NOT need a printed label:',
+  '  classify clear linework by its visual form and return an empty label.',
+  '  Categories: structure (house, garage, shed, deck,',
   '  porch, patio), path (driveway, walk, asphalt, concrete), fence, zone',
   '  (lawn, planting bed, easement area), waterFeature, utilityExclusion',
   '  (utility or drainage easement strips), tree.',
@@ -86,6 +95,13 @@ const SYSTEM_INSTRUCTION = [
   '  the other. Not its outline — a walk drawn as two parallel edges is ONE',
   '  centre line running between them.',
   '- tree: exactly ONE point, at the trunk.',
+  '',
+  'Before returning pageObjects, make a separate visual pass over the whole',
+  'parcel. Check, one by one, for the main house footprint, attached garage,',
+  'porches or decks, driveway, front and side walks, patios, fences, easement',
+  'strips, and trees. Return every clearly drawn feature even when its label',
+  'is faint, abbreviated, or absent. Do not mistake dimension lines, setback',
+  'lines, leaders, lot bearings, or text boxes for site features.',
   '',
   'You must NOT:',
   '- compute, close, or correct the polygon these calls describe;',
@@ -146,7 +162,10 @@ const responseSchema = z.object({
   statedAreaSquareFeet: z.number(),
   boundaryCalls: z.array(
     z.object({
-      bearing: bearingSchema,
+      // Optional deliberately: a line whose bearing could not be read must
+      // still be returned, because the figure recovers a missing direction
+      // and cannot recover a missing side.
+      bearing: bearingSchema.optional(),
       distanceFeet: z.number().positive(),
       sourceLabel: z.string(),
     }),
@@ -185,8 +204,46 @@ export class VertexAiPlatExtractionAdapter implements PlatExtractionProviderAdap
     const response = await this.client.models.generateContent(
       buildPlatExtractionParameters(request, this.configuration, signal),
     );
-    return parsePlatExtractionResponse(response);
+    const first = parsePlatExtractionResponse(response);
+    if (!needsBoundaryCorrection(first)) {
+      return first;
+    }
+
+    const correctedResponse = await this.client.models.generateContent(
+      buildPlatExtractionParameters(
+        request,
+        this.configuration,
+        signal,
+        boundaryCorrectionInstruction(first),
+      ),
+    );
+    const corrected = parsePlatExtractionResponse(correctedResponse);
+    return needsBoundaryCorrection(corrected)
+      ? { kind: 'schemaInvalid', rawText: null }
+      : corrected;
   }
+}
+
+function needsBoundaryCorrection(outcome: PlatExtractionAdapterOutcome): boolean {
+  if (outcome.kind !== 'extracted') return false;
+  const callCount = outcome.plat.boundaryCalls.length;
+  const outlineCount = outcome.plat.lotPageOutline.length;
+  return callCount < 4 || callCount !== outlineCount;
+}
+
+function boundaryCorrectionInstruction(outcome: PlatExtractionAdapterOutcome): string {
+  if (outcome.kind !== 'extracted') return '';
+  return [
+    'Your first pass is structurally incomplete and must be corrected.',
+    `It returned ${String(outcome.plat.boundaryCalls.length)} boundary calls and ` +
+      `${String(outcome.plat.lotPageOutline.length)} visible lot-outline corners.`,
+    'Inspect the entire bold parcel outline again, corner by corner. Return one',
+    'boundary call for every visible side. Do not close fewer lines into a new',
+    'triangle. Keep a side with an omitted bearing when only its direction is',
+    'unreadable. Recheck the printed survey area as an independent safeguard.',
+    'Also repeat the separate pass for house, deck, driveway, walks, fences,',
+    'easements, parking surfaces and trees; do not return only the lot.',
+  ].join('\n');
 }
 
 /** Exported for this adapter's own request-shaping tests — never called outside this file and its test. */
@@ -194,6 +251,7 @@ export function buildPlatExtractionParameters(
   request: PlatExtractionRequest,
   configuration: VertexAiPlatExtractionAdapterConfiguration,
   signal: AbortSignal,
+  correctionInstruction?: string,
 ): GenerateContentParameters {
   return {
     model: configuration.model,
@@ -207,6 +265,7 @@ export function buildPlatExtractionParameters(
               mimeType: request.page.mimeType,
             },
           },
+          ...(correctionInstruction === undefined ? [] : [{ text: correctionInstruction }]),
         ],
       },
     ],
@@ -272,7 +331,7 @@ export function buildPlatExtractionParameters(
             type: Type.ARRAY,
             items: {
               type: Type.OBJECT,
-              required: ['bearing', 'distanceFeet', 'sourceLabel'],
+              required: ['distanceFeet', 'sourceLabel'],
               properties: {
                 bearing: {
                   type: Type.OBJECT,
@@ -354,7 +413,11 @@ export function parsePlatExtractionResponse(
         result.data.northRotationDegrees < 0 ? null : result.data.northRotationDegrees % 360,
       statedAreaSquareFeet:
         result.data.statedAreaSquareFeet < 0 ? null : result.data.statedAreaSquareFeet,
-      boundaryCalls: result.data.boundaryCalls,
+      boundaryCalls: result.data.boundaryCalls.map((call) => ({
+        bearing: call.bearing ?? null,
+        distanceFeet: call.distanceFeet,
+        sourceLabel: call.sourceLabel,
+      })),
       lotPageOutline: result.data.lotPageOutline,
       pageObjects: result.data.pageObjects,
     },

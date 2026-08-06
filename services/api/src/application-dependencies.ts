@@ -18,6 +18,7 @@
 import type { FastifyBaseLogger } from 'fastify';
 import type {
   AddressGeocodingAdapter,
+  AerialTracingProviderAdapter,
   AiExplanationProviderAdapter,
   PlantConditionAnalysisProviderAdapter,
   PlantSpeciesIdentificationProviderAdapter,
@@ -93,6 +94,8 @@ export interface ApplicationDependencies {
    * pretending to have read anything.
    */
   readonly platExtractionAdapter: PlatExtractionProviderAdapter | null;
+  /** Optional for test harnesses; production supplies the aerial tracer. */
+  readonly aerialTracingAdapter?: AerialTracingProviderAdapter | null;
   /**
    * P7-NOTIF-02: the FCM boundary — `main.ts` builds the real
    * `FcmPushMessageSender` over the same `firebase-admin` app the token

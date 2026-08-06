@@ -1575,6 +1575,38 @@ paths:
           $ref: '#/components/responses/UnprocessableEntity'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+  /gardens/{gardenId}/aerial-tracing:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+    post:
+      operationId: traceGardenFromAerial
+      tags:
+        - Map
+      summary: Detect a property and its visible objects from aerial imagery
+      description: |
+        Reads a fixed-size USGS NAIP image centered on the garden's saved address
+        and returns reviewable lot, structure, driveway, walk, parking, fence,
+        water and tree proposals in garden-local metres. Nothing is written until
+        a person accepts individual proposals through ordinary map commands.
+      responses:
+        '200':
+          description: Reviewable aerial tracing proposals.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AerialTracingResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /geocoding/address-candidates:
     get:
       operationId: findAddressCandidates
@@ -9542,6 +9574,11 @@ components:
         accuracyMetres:
           type: number
           minimum: 0
+        displayAddress:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Human-readable label confirmed for this anchor. Never used as geometric authority.
         provenance:
           $ref: '#/components/schemas/ProvenanceKind'
         method:
@@ -9616,6 +9653,11 @@ components:
           description: |
             Reported accuracy of the geographic anchor. Absent means "not
             expressed", never "exact".
+        displayAddress:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Human-readable label confirmed for this anchor. Never used as geometric authority.
         method:
           $ref: '#/components/schemas/GeoreferenceMethod'
     AddressPrecision:
@@ -15019,7 +15061,16 @@ components:
         - sourceLabel
       properties:
         bearing:
-          $ref: '#/components/schemas/PlatBearing'
+          description: |
+            `null` when this line's direction was not legible — a curved frontage,
+            whose direction is printed as a chord bearing among radius and arc
+            figures, is where that happens. The line is still returned, because a
+            closed figure recovers a missing direction from the other sides and
+            nothing recovers a side that was never mentioned. See
+            `PlatBoundary.recoveredBearing`.
+          oneOf:
+            - $ref: '#/components/schemas/PlatBearing'
+            - type: 'null'
         distanceFeet:
           type: number
           exclusiveMinimum: 0
@@ -15107,7 +15158,7 @@ components:
           $ref: '#/components/schemas/GardenObjectCategory'
         label:
           type: string
-          description: What the drawing calls it, verbatim — `2 STORY FRAME`, `WOOD DECK`.
+          description: What the drawing calls it verbatim, or empty for clear unlabelled linework.
         geometry:
           $ref: '#/components/schemas/Geometry'
         confidence:
@@ -15178,3 +15229,51 @@ components:
             How closely the drawing's own lot outline matched the surveyed
             polygon. Every proposed object rides that fit, so this is the honest
             bound on all of them.
+    AerialTracingProposal:
+      type: object
+      additionalProperties: false
+      required:
+        - category
+        - label
+        - geometry
+        - confidence
+        - evidence
+      properties:
+        category:
+          enum:
+            - lot
+            - structure
+            - path
+            - fence
+            - zone
+            - waterFeature
+            - utilityExclusion
+            - tree
+        label:
+          type: string
+        geometry:
+          $ref: '#/components/schemas/Geometry'
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        evidence:
+          enum:
+            - visible
+            - inferred
+    AerialTracingResult:
+      type: object
+      additionalProperties: false
+      required:
+        - source
+        - proposals
+        - disclaimer
+      properties:
+        source:
+          const: usgsNaip
+        proposals:
+          type: array
+          items:
+            $ref: '#/components/schemas/AerialTracingProposal'
+        disclaimer:
+          type: string

@@ -1,0 +1,31 @@
+/*
+ * The two settings a person reaches for first share the first screen instead
+ * of consuming two full-width horizontal bands. The rest of the page remains
+ * in ordinary route panels because uploads, people, and danger-zone controls
+ * need their own full-width reading order.
+ */
+.essentials {
+  display: grid;
+  grid-template-columns: minmax(18rem, 0.75fr) minmax(30rem, 1.25fr);
+  border-block-end: var(--border-width) solid var(--color-border);
+}
+
+.essentialPanel {
+  min-inline-size: 0;
+  padding: var(--space-4);
+}
+
+.essentialPanel + .essentialPanel {
+  border-inline-start: var(--border-width) solid var(--color-border);
+}
+
+@media (max-width: 68rem) {
+  .essentials {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .essentialPanel + .essentialPanel {
+    border-inline-start: 0;
+    border-block-start: var(--border-width) solid var(--color-border);
+  }
+}

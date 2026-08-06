@@ -978,6 +978,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/gardens/{gardenId}/aerial-tracing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Detect a property and its visible objects from aerial imagery
+         * @description Reads a fixed-size USGS NAIP image centered on the garden's saved address
+         *     and returns reviewable lot, structure, driveway, walk, parking, fence,
+         *     water and tree proposals in garden-local metres. Nothing is written until
+         *     a person accepts individual proposals through ordinary map commands.
+         */
+        post: operations["traceGardenFromAerial"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/geocoding/address-candidates": {
         parameters: {
             query?: never;
@@ -5648,6 +5673,8 @@ export interface components {
             rotationDegrees: number;
             scaleCorrection: number;
             accuracyMetres?: number;
+            /** @description Human-readable label confirmed for this anchor. Never used as geometric authority. */
+            displayAddress?: string;
             provenance: components["schemas"]["ProvenanceKind"];
             /**
              * @description A `GeoreferenceMethod` for every record this API writes. Typed as a
@@ -5702,6 +5729,8 @@ export interface components {
              *     expressed", never "exact".
              */
             accuracyMetres?: number;
+            /** @description Human-readable label confirmed for this anchor. Never used as geometric authority. */
+            displayAddress?: string;
             method: components["schemas"]["GeoreferenceMethod"];
         };
         /**
@@ -8205,7 +8234,15 @@ export interface components {
             turn: "east" | "west";
         };
         PlatBoundaryCall: {
-            bearing: components["schemas"]["PlatBearing"];
+            /**
+             * @description `null` when this line's direction was not legible — a curved frontage,
+             *     whose direction is printed as a chord bearing among radius and arc
+             *     figures, is where that happens. The line is still returned, because a
+             *     closed figure recovers a missing direction from the other sides and
+             *     nothing recovers a side that was never mentioned. See
+             *     `PlatBoundary.recoveredBearing`.
+             */
+            bearing: components["schemas"]["PlatBearing"] | null;
             /** @description Along the line, in feet, as printed. Never converted by the reader. */
             distanceFeet: number;
             /**
@@ -8259,7 +8296,7 @@ export interface components {
          */
         ProposedPlatObject: {
             category: components["schemas"]["GardenObjectCategory"];
-            /** @description What the drawing calls it, verbatim — `2 STORY FRAME`, `WOOD DECK`. */
+            /** @description What the drawing calls it verbatim, or empty for clear unlabelled linework. */
             label: string;
             geometry: components["schemas"]["Geometry"];
             /** @description The reader's own confidence in having seen this. Shown at review; decides nothing. */
@@ -8294,6 +8331,21 @@ export interface components {
              *     bound on all of them.
              */
             pageFitResidualMetres: number | null;
+        };
+        AerialTracingProposal: {
+            /** @enum {unknown} */
+            category: "lot" | "structure" | "path" | "fence" | "zone" | "waterFeature" | "utilityExclusion" | "tree";
+            label: string;
+            geometry: components["schemas"]["Geometry"];
+            confidence: number;
+            /** @enum {unknown} */
+            evidence: "visible" | "inferred";
+        };
+        AerialTracingResult: {
+            /** @constant */
+            source: "usgsNaip";
+            proposals: components["schemas"]["AerialTracingProposal"][];
+            disclaimer: string;
         };
     };
     responses: {
@@ -9491,6 +9543,32 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    traceGardenFromAerial: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reviewable aerial tracing proposals. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AerialTracingResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             422: components["responses"]["UnprocessableEntity"];
             503: components["responses"]["ServiceUnavailable"];
         };

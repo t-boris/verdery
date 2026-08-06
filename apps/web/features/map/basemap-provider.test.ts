@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  basemapViewForLocalCamera,
   imageryMagnificationAt,
   maxCameraScaleFor,
   metresPerPixelForZoom,
@@ -57,6 +58,30 @@ describe('zoomForMetresPerPixel', () => {
     const farZoom = zoomForMetresPerPixel(50, 0);
     const closeZoom = zoomForMetresPerPixel(0.5, 0);
     expect(closeZoom).toBeGreaterThan(farZoom);
+  });
+
+  it('uses MapLibre camera scale rather than the 256-pixel tile convention', () => {
+    expect(zoomForMetresPerPixel(78_271.516_96, 0)).toBeCloseTo(0, 9);
+  });
+});
+
+describe('basemapViewForLocalCamera', () => {
+  it('applies rotation and scale correction to the same view as the drawing', () => {
+    const view = basemapViewForLocalCamera(
+      openFreeMapProvider,
+      { ...GEOREFERENCE, rotationDegrees: 60, scaleCorrection: 1.02 },
+      { centerX: 12, centerY: -8, scale: 20, rotationDegrees: 15 },
+    );
+
+    expect(view.center).toEqual(
+      openFreeMapProvider.localToGeographic([12, -8], {
+        ...GEOREFERENCE,
+        rotationDegrees: 60,
+        scaleCorrection: 1.02,
+      }),
+    );
+    expect(view.bearing).toBe(-75);
+    expect(view.zoom).toBeCloseTo(zoomForMetresPerPixel(1.02 / 20, view.center[1]), 9);
   });
 });
 
@@ -134,7 +159,7 @@ describe('what each provider can actually draw', () => {
    * at about zoom 21, which is why the street backdrop was always blank.
    */
   it('stops the street style below the zoom a garden is drawn at', () => {
-    expect(openFreeMapProvider.maxRenderableZoom).toBe(19);
+    expect(openFreeMapProvider.maxRenderableZoom).toBe(16);
     expect(zoomForMetresPerPixel(1 / 24, 41.59)).toBeGreaterThan(
       openFreeMapProvider.maxRenderableZoom,
     );
@@ -155,8 +180,8 @@ describe('what each provider can actually draw', () => {
     const streetsCap = maxCameraScaleFor(openFreeMapProvider, 41.59);
     const imageryCap = maxCameraScaleFor(usgsNaipImageryProvider, 41.59);
 
-    expect(streetsCap).toBeCloseTo(4.5, 1);
-    expect(imageryCap).toBeCloseTo(35.8, 1);
+    expect(streetsCap).toBeCloseTo(1.1, 1);
+    expect(imageryCap).toBeCloseTo(71.6, 1);
     expect(imageryCap).toBeGreaterThan(streetsCap);
   });
 

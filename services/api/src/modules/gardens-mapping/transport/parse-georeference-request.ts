@@ -18,6 +18,7 @@ import {
   requireEnum,
   requireNumber,
   requireOptionalNumber,
+  requireOptionalString,
   requireRecord,
 } from './parse-primitives.js';
 
@@ -113,12 +114,26 @@ export function parseGeoreferenceRequest(body: unknown): SetGardenGeoreferenceIn
     throw invalid('/accuracyMetres must not be negative.', 'request.invalid', '/accuracyMetres');
   }
 
+  const rawDisplayAddress = requireOptionalString(record['displayAddress'], '/displayAddress');
+  const displayAddress = rawDisplayAddress?.trim();
+  if (
+    displayAddress !== undefined &&
+    (displayAddress.length === 0 || displayAddress.length > 200)
+  ) {
+    throw invalid(
+      '/displayAddress must be between 1 and 200 characters.',
+      'request.invalid',
+      '/displayAddress',
+    );
+  }
+
   return {
     localAnchor: requirePosition(record['localAnchor'], '/localAnchor'),
     geographicAnchor: requireGeographicAnchor(record['geographicAnchor'], '/geographicAnchor'),
     rotationDegrees: requireRotationDegrees(record['rotationDegrees']),
     ...(scaleCorrection === undefined ? {} : { scaleCorrection }),
     ...(accuracyMetres === undefined ? {} : { accuracyMetres }),
+    ...(displayAddress === undefined ? {} : { displayAddress }),
     method: requireEnum(record['method'], GEOREFERENCE_METHODS, '/method'),
   };
 }

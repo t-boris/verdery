@@ -98,6 +98,15 @@ export const russianMessages: MessageCatalogue = {
   'error.mediaReferenced': 'Файл ещё используется в другом месте, поэтому его нельзя удалить.',
   'error.mediaDerivativeNotDeletable':
     'Производные версии удаляются вместе с оригиналом, а не отдельно.',
+  'error.planPageNotReady':
+    'Страница плана ещё подготавливается. Подождите немного и запустите распознавание снова.',
+  'error.platReadingUnavailable': 'Распознавание планов не включено в этом окружении.',
+  'error.platReadingFailed':
+    'План не удалось прочитать надёжно. Попробуйте снова или обведите участок вручную.',
+  'error.aerialTracingUnavailable':
+    'Автоматическая трассировка аэрофото не включена в этом окружении.',
+  'error.aerialTracingNeedsLocation': 'Сохраните адрес сада перед распознаванием участка.',
+  'error.aerialTracingFailed': 'Не удалось определить участок и объекты по этому аэрофото.',
   'error.notificationNotFound': 'Такого уведомления здесь нет.',
   'error.notificationPreferencesStaleRevision':
     'Настройки уведомлений изменились в другом месте. Обновите страницу и попробуйте снова.',
@@ -251,6 +260,7 @@ export const russianMessages: MessageCatalogue = {
   'gardenLocation.latitudeLabel': 'Широта',
   'gardenLocation.longitudeLabel': 'Долгота',
   'gardenLocation.rotationLabel': 'Север, в градусах',
+  'gardenLocation.advanced': 'Координаты и север',
   'gardenLocation.rotationHint':
     'Насколько повернуть карту по часовой стрелке, чтобы её верх смотрел на север. Оставьте 0, если карта уже нарисована севером вверх.',
   'gardenLocation.coordinatesInvalid':

@@ -517,3 +517,17 @@ export type {
   PlatExtractionRequest,
 } from './application/plat-extraction-provider.js';
 export { VertexAiPlatExtractionAdapter } from './persistence/vertex-ai-plat-extraction-adapter.js';
+
+/** AI-assisted, reviewable tracing of a saved property from USGS aerial imagery. */
+export {
+  AERIAL_TRACE_SPAN_METRES,
+  type AerialTraceCategory,
+  type AerialTraceEvidence,
+  type AerialTracingAdapterOutcome,
+  type AerialTracingProviderAdapter,
+  type AerialTracingRequest,
+  type ExtractedAerialLot,
+  type ExtractedAerialShape,
+  type ExtractedAerialSite,
+} from './application/aerial-tracing-provider.js';
+export { VertexAiAerialTracingAdapter } from './persistence/vertex-ai-aerial-tracing-adapter.js';

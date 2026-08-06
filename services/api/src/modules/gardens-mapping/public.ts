@@ -134,6 +134,11 @@ export type { MapRoutesDependencies } from './transport/map-routes.js';
 // boundary and a set of proposed objects. Reads only — accepting any of it
 // is an ordinary map command, which is why nothing here is a repository.
 export { ReadPlatFromPlan } from './application/read-plat-from-plan.js';
+export { TraceGardenFromAerial } from './application/trace-garden-from-aerial.js';
+export type {
+  AerialTracingProposal,
+  AerialTracingResult,
+} from './application/trace-garden-from-aerial.js';
 export type {
   PlatPageResolver,
   PlatReadingResult,

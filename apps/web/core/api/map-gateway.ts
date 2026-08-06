@@ -8,6 +8,7 @@ import {
   type WireGardenMapDocument,
   type WireGeoreference,
   type WireMapCommandResult,
+  type WireAerialTracingResult,
   type WireSetGeoreferenceRequest,
 } from './map-wire-types';
 import type { ApiResult } from './result';
@@ -63,6 +64,7 @@ export interface MapGateway {
     planMediaId: string,
     signal?: AbortSignal,
   ): Promise<ApiResult<PlatReading>>;
+  traceAerial(gardenId: string, signal?: AbortSignal): Promise<ApiResult<WireAerialTracingResult>>;
 }
 
 function viewportQuery(viewport: MapViewportBounds | undefined): string {
@@ -134,6 +136,15 @@ export function createMapGateway(client: ApiClient): MapGateway {
       return client.request<PlatReading>({
         method: 'POST',
         path: `/gardens/${gardenId}/plans/${planMediaId}/reading`,
+        headers: { ...csrfHeader() },
+        ...(signal === undefined ? {} : { signal }),
+      });
+    },
+
+    traceAerial(gardenId, signal) {
+      return client.request<WireAerialTracingResult>({
+        method: 'POST',
+        path: `/gardens/${gardenId}/aerial-tracing`,
         headers: { ...csrfHeader() },
         ...(signal === undefined ? {} : { signal }),
       });

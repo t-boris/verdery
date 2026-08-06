@@ -38,6 +38,12 @@ const PDF_CONTENT_TYPE = 'application/pdf';
  * above this is a sign the wrong one was picked.
  */
 export const READABLE_PLAT_PAGE_MAX_BYTES = 20_000_000;
+const PAGE_READY_POLL_ATTEMPTS = 5;
+const PAGE_READY_POLL_INTERVAL_MS = 250;
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
 
 export class MediaPlatPageResolver implements PlatPageResolver {
   constructor(private readonly media: MediaRepository) {}
@@ -56,10 +62,31 @@ export class MediaPlatPageResolver implements PlatPageResolver {
       return null;
     }
 
-    const derivatives = await this.media.listDisplayDerivatives(record.id);
     const originalIsAPage = contentTypeOf(record) !== PDF_CONTENT_TYPE;
+    if (originalIsAPage) {
+      const derivatives = await this.media.listDisplayDerivatives(record.id);
+      return largestReadablePage([record, ...derivatives]);
+    }
 
-    return largestReadablePage([...(originalIsAPage ? [record] : []), ...derivatives]);
+    /*
+     * A PDF becomes `processed` after validation, while its rendered page is
+     * delivered by a following derivative callback. The web can therefore
+     * legitimately see a processed plan a few hundred milliseconds before
+     * `listDisplayDerivatives` can see the page. Polling only this narrow,
+     * known transition closes that race without retrying a provider call or
+     * hiding a genuinely missing derivative for more than one second.
+     */
+    for (let attempt = 0; attempt < PAGE_READY_POLL_ATTEMPTS; attempt += 1) {
+      const derivatives = await this.media.listDisplayDerivatives(record.id);
+      const page = largestReadablePage(derivatives);
+      if (page !== null) {
+        return page;
+      }
+      if (attempt + 1 < PAGE_READY_POLL_ATTEMPTS) {
+        await wait(PAGE_READY_POLL_INTERVAL_MS);
+      }
+    }
+    return null;
   }
 }
 

@@ -142,11 +142,11 @@ export function geographicToLocalMetres(geo: Position, georeference: Georeferenc
 export const openFreeMapProvider: BasemapProvider = {
   name: 'OpenFreeMap',
   source: { kind: 'vectorStyle', styleUrl: 'https://tiles.openfreemap.org/styles/liberty' },
-  // Measured, not assumed: 110 rendered features at zoom 16, six at 19, none
-  // at 20 — see `maxRenderableZoom`'s own comment. A garden fills the canvas
-  // at around zoom 21, so this backdrop is neighbourhood context, never a
-  // surface to trace a lot from.
-  maxRenderableZoom: 19,
+  // Measured, not assumed: 110 rendered features at zoom 16, only six at 19,
+  // and none at 20. Six anonymous fragments are technically non-empty but
+  // visually useless, so Streets stops at the last level that still carries
+  // roads and labels. It is neighbourhood context, not a tracing surface.
+  maxRenderableZoom: 16,
   nativeMetresPerPixel: null,
   attributionHtml:
     '<a href="https://openfreemap.org" target="_blank" rel="noopener noreferrer">OpenFreeMap</a> ' +
@@ -156,7 +156,13 @@ export const openFreeMapProvider: BasemapProvider = {
   geographicToLocal: geographicToLocalMetres,
 };
 
-const METRES_PER_PIXEL_AT_EQUATOR_ZOOM_ZERO = 156_543.033_92;
+/**
+ * MapLibre's camera uses a 512-pixel world at zoom zero, independently of a
+ * raster source's own tile size. The familiar 156,543 m/px constant belongs
+ * to 256-pixel slippy-map tiles; using it here put the photographic camera one
+ * whole zoom level ahead of the Konva drawing.
+ */
+const METRES_PER_PIXEL_AT_EQUATOR_ZOOM_ZERO = 78_271.516_96;
 
 /** Standard Web Mercator tile math, used to keep MapLibre's zoom in step with the local camera's scale. */
 export function zoomForMetresPerPixel(metresPerPixel: number, latitudeDegrees: number): number {
@@ -168,6 +174,40 @@ export function zoomForMetresPerPixel(metresPerPixel: number, latitudeDegrees: n
 export function metresPerPixelForZoom(zoom: number, latitudeDegrees: number): number {
   const latitudeCorrection = Math.cos(latitudeDegrees * DEGREES_TO_RADIANS);
   return (METRES_PER_PIXEL_AT_EQUATOR_ZOOM_ZERO * latitudeCorrection) / Math.pow(2, zoom);
+}
+
+export interface LocalMapCamera {
+  readonly centerX: number;
+  readonly centerY: number;
+  /** Screen pixels per garden-local metre. */
+  readonly scale: number;
+  readonly rotationDegrees: number;
+}
+
+/**
+ * The one MapLibre camera that represents a garden-local camera.
+ *
+ * Three terms matter, not only the centre:
+ *
+ * - `scaleCorrection` says how many ground metres one local metre represents;
+ * - MapLibre's zoom uses ground metres per pixel;
+ * - the map bearing must be the inverse of the georeference rotation so local
+ *   north and photographic north remain the same screen direction.
+ *
+ * Keeping these together prevents pan/zoom code paths from applying only a
+ * subset and letting the aerial layer slide under accepted geometry.
+ */
+export function basemapViewForLocalCamera(
+  provider: BasemapProvider,
+  georeference: Georeference,
+  camera: LocalMapCamera,
+): { readonly center: Position; readonly zoom: number; readonly bearing: number } {
+  const center = provider.localToGeographic([camera.centerX, camera.centerY], georeference);
+  return {
+    center,
+    zoom: zoomForMetresPerPixel(georeference.scaleCorrection / camera.scale, center[1]),
+    bearing: -(georeference.rotationDegrees + camera.rotationDegrees),
+  };
 }
 
 /**

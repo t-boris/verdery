@@ -106,6 +106,15 @@ export const englishMessages = {
   'error.mediaReferenced': 'This file is still used elsewhere, so it cannot be deleted.',
   'error.mediaDerivativeNotDeletable':
     'Generated versions are removed with their original, not on their own.',
+  'error.planPageNotReady':
+    'The plan page is still being prepared. Wait a moment, then recognise it again.',
+  'error.platReadingUnavailable': 'Plan recognition is not enabled in this environment.',
+  'error.platReadingFailed':
+    'The plan could not be read reliably. Try again or trace the lot manually.',
+  'error.aerialTracingUnavailable': 'Automatic aerial tracing is not enabled in this environment.',
+  'error.aerialTracingNeedsLocation': 'Save this garden’s address before detecting the property.',
+  'error.aerialTracingFailed':
+    'The property and its objects could not be detected from this aerial image.',
   'error.notificationNotFound': 'That notification is not here.',
   'error.notificationPreferencesStaleRevision':
     'Your notification settings changed elsewhere. Reload and try again.',
@@ -259,6 +268,7 @@ export const englishMessages = {
   'gardenLocation.latitudeLabel': 'Latitude',
   'gardenLocation.longitudeLabel': 'Longitude',
   'gardenLocation.rotationLabel': 'North, in degrees',
+  'gardenLocation.advanced': 'Coordinates and north',
   'gardenLocation.rotationHint':
     'How far to turn the map clockwise so its up points north. Leave 0 if the map is already drawn north-up.',
   'gardenLocation.coordinatesInvalid':

@@ -57,6 +57,15 @@
   box-shadow: var(--shadow-sm);
 }
 
+.aerialFailure {
+  position: absolute;
+  z-index: 5;
+  inset-block-end: var(--space-2);
+  inset-inline: var(--space-2);
+  margin-inline: auto;
+  max-inline-size: 32rem;
+}
+
 .toolCluster {
   inset-block-start: var(--space-2);
   inset-inline-start: var(--space-2);

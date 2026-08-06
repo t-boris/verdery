@@ -31,11 +31,13 @@ describe('parseGeoreferenceRequest', () => {
       ...VALID,
       scaleCorrection: 1.002,
       accuracyMetres: 4.5,
+      displayAddress: '  7612 Cascade Way, Gurnee, IL 60031  ',
       method: 'deviceLocation',
     });
 
     expect(parsed.scaleCorrection).toBe(1.002);
     expect(parsed.accuracyMetres).toBe(4.5);
+    expect(parsed.displayAddress).toBe('7612 Cascade Way, Gurnee, IL 60031');
   });
 
   // The check no schema can make: `Position` is a bare number pair, so
@@ -95,5 +97,10 @@ describe('parseGeoreferenceRequest', () => {
 
   it('refuses a negative accuracy, which describes nothing', () => {
     expect(() => parseGeoreferenceRequest({ ...VALID, accuracyMetres: -1 })).toThrow();
+  });
+
+  it('refuses a blank or oversized display address', () => {
+    expect(() => parseGeoreferenceRequest({ ...VALID, displayAddress: '   ' })).toThrow();
+    expect(() => parseGeoreferenceRequest({ ...VALID, displayAddress: 'x'.repeat(201) })).toThrow();
   });
 });

@@ -11,7 +11,7 @@ import {
 import type { CanvasSize, MapCamera } from './types';
 import { toScreen } from './viewport';
 
-const CAMERA: MapCamera = { centerX: 0, centerY: 0, scale: 10 };
+const CAMERA: MapCamera = { centerX: 0, centerY: 0, scale: 10, rotationDegrees: 0 };
 const SIZE: CanvasSize = { width: 800, height: 600 };
 
 const IDENTITY: PlanTransform = {

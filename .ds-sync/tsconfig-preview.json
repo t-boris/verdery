@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["../apps/web/*"],
+      "next/link": ["./next-link-stub.tsx"]
+    }
+  }
+}

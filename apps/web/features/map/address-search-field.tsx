@@ -1,7 +1,7 @@
 'use client';
 
 import type { AddressCandidate } from '@verdery/api-contracts';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useIsOnline } from '@/core/connectivity/public';
 import { useLocalization } from '@/shared/localization/public';
@@ -41,6 +41,11 @@ export function AddressSearchField({ onPick, initialQuery = '' }: AddressSearchF
   const isOnline = useIsOnline();
   const [query, setQuery] = useState(initialQuery);
   const search = useAddressCandidates();
+
+  // The saved address arrives with the map query after the first render, and
+  // choosing a candidate updates it in the parent. Keep the visible field in
+  // step with both instead of freezing the empty first-render value forever.
+  useEffect(() => setQuery(initialQuery), [initialQuery]);
 
   const onSearch = () => {
     const trimmed = query.trim();
@@ -96,7 +101,10 @@ export function AddressSearchField({ onPick, initialQuery = '' }: AddressSearchF
               <button
                 type="button"
                 className={styles['candidate']}
-                onClick={() => pick(candidate, onPick)}
+                onClick={() => {
+                  setQuery(candidate.formattedAddress);
+                  pick(candidate, onPick);
+                }}
               >
                 <span className={styles['address']}>{candidate.formattedAddress}</span>
                 <span className={styles['precision']}>

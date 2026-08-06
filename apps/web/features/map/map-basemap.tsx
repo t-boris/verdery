@@ -7,8 +7,8 @@ import { useEffect, useRef } from 'react';
 import type { WireGeoreference } from '@/core/api/public';
 
 import {
+  basemapViewForLocalCamera,
   openFreeMapProvider,
-  zoomForMetresPerPixel,
   type BasemapProvider,
 } from './basemap-provider';
 import styles from './map-basemap.module.css';
@@ -83,16 +83,14 @@ export function MapBasemap({
       return;
     }
 
-    const [longitude, latitude] = provider.localToGeographic(
-      [camera.centerX, camera.centerY],
-      georeference,
-    );
+    const view = basemapViewForLocalCamera(provider, georeference, camera);
 
     const map = new MaplibreMap({
       container: containerRef.current,
       style: styleFor(provider),
-      center: [longitude, latitude],
-      zoom: zoomForMetresPerPixel(1 / camera.scale, latitude),
+      center: [view.center[0], view.center[1]],
+      zoom: view.zoom,
+      bearing: view.bearing,
       attributionControl: false,
       interactive: false,
     });
@@ -122,13 +120,11 @@ export function MapBasemap({
       return;
     }
 
-    const [longitude, latitude] = provider.localToGeographic(
-      [camera.centerX, camera.centerY],
-      georeference,
-    );
+    const view = basemapViewForLocalCamera(provider, georeference, camera);
     map.jumpTo({
-      center: [longitude, latitude],
-      zoom: zoomForMetresPerPixel(1 / camera.scale, latitude),
+      center: [view.center[0], view.center[1]],
+      zoom: view.zoom,
+      bearing: view.bearing,
     });
   }, [camera, georeference, provider]);
 

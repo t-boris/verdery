@@ -1,4 +1,20 @@
 .status {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  inline-size: 100%;
+  overflow: hidden;
+}
+
+.status :global([class*='pill']) {
+  inline-size: var(--control-min-size);
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 0;
+}
+
+.status :global([class*='glyph']) {
+  font-size: var(--font-size-sm);
 }

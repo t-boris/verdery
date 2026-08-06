@@ -48,6 +48,12 @@ revise the geographic anchor or north rotation through location search, map pinn
 or approved control-point alignment. Device heading is only proposed evidence and never silently
 changes an accepted map orientation.
 
+View rotation is part of the local camera, not an object mutation. The editor provides 15-degree
+clockwise/counter-clockwise steps, an exact degree input, and North up. The same camera transform is
+applied to every local object and to the MapLibre bearing, so a lot, structures, labels and backdrop
+cannot rotate or zoom independently. North up sets the view rotation to the inverse of the accepted
+georeference rotation; it does not rewrite that georeference.
+
 #### Backdrops
 
 A georeferenced garden may be drawn over a provider backdrop. Two exist, and the person chooses
@@ -63,10 +69,10 @@ Each provider declares the zoom range it can actually draw, and the editor obeys
 discovering the limits by painting nothing:
 
 - **A vector style stops resolving about six zoom levels past its own tiles.** OpenFreeMap serves
-  to zoom 14, renders 110 features at 16, six at 19, and nothing at 20 — measured against MapLibre
-  5.6 and 6.0 alike. A garden fills the canvas at roughly zoom 21, so the street backdrop is
-  neighbourhood context and can never be a tracing surface; choosing it that close says so and
-  offers imagery instead of showing an empty field.
+  to zoom 14, renders 110 features at 16, only six anonymous fragments at 19, and nothing at 20 —
+  measured against MapLibre 5.6 and 6.0 alike. Streets therefore clamps immediately to zoom 16,
+  the last useful road-and-label view. A garden fills the canvas at roughly zoom 21, so the street
+  backdrop is neighbourhood context and can never be a tracing surface.
 - **Imagery is requested only at the resolution it holds.** Past zoom 19 the service returns the
   same ground enlarged in hard blocks at four times the requests, so the tile source stops there
   and the renderer does the enlarging smoothly.
@@ -81,6 +87,12 @@ discovering the limits by painting nothing:
 The metre grid stands down over a photograph, where it is noise on the ground, and stays over a
 street map, which carries no sense of scale of its own.
 
+`traceGardenFromAerial` is the assisted alternative to manual tracing. It reads a fixed 160 m,
+north-up USGS image centered on the saved geographic anchor and returns reviewable proposals for
+the lot, structures, driveway/walk lines, parking surfaces, fences, water/utility areas and visible
+trees. It writes nothing. The user can accept each proposal separately, and accepted geometry uses
+the ordinary `createObject` command with `imageExtraction` provenance and confidence.
+
 A backdrop is context, never geometry. No pixel of it enters the domain model: what someone traces
 over it is their own drawing, carrying their own provenance. The projection between local metres and
 WGS84 belongs to the garden's georeference rather than to a provider, so switching backdrop cannot
@@ -90,6 +102,11 @@ conventional.
 An empty georeferenced garden opens with one piece of guidance, not thirteen: trace the lot. Every
 other object is placed inside it, and a garden with no location is pointed at its Location settings
 instead, since a drawing with nothing to sit on is advice that cannot be followed.
+
+Map panning updates the shared local camera continuously during the pointer gesture. Konva geometry
+and the MapLibre backdrop therefore move through the same transform on every frame; native Konva
+stage dragging is not used because it would move only the drawing during the gesture and make the
+photograph jump to the new camera position on release.
 
 ### 3.3 Screen Space
 
@@ -439,15 +456,30 @@ What review shows, because it is what a person needs in order to disbelieve the 
   polygon, which bounds every object placed by that fit;
 - each object's own **confidence**, its category, and its size.
 
+The outline and calls cross-check one another before a reading reaches review. A complete parcel
+must have one boundary call per visible outline edge. A first pass with fewer than four calls or a
+call/edge-count mismatch is read again with an explicit missing-edge correction; a second mismatch
+fails instead of closing the remaining lines into a new triangle. A geometrically closed boundary
+is not preselected when its walked area differs from the sheet's stated area by more than 15%.
+
 Each proposal arrives as the geometry its category actually holds (section 5): an outline for a
-structure or a zone, a centre line for a path or a fence, a trunk position for a tree. An accepted
-object records where it came from — `importedPlan` for the boundary walked from printed
-measurements, `imageExtraction` for a shape traced off the drawing — through `createObject`'s
-optional `source`, so a surveyed line is never mistaken later for a hand-drawn one.
+structure or a zone, a centre line for a path or a fence, a trunk position for a tree. Extraction
+includes a distinct whole-parcel visual pass for the house, garage, porch/deck, driveway, walks,
+patios, fences, easements, and trees. Clearly drawn but unlabelled linework is proposed with an empty
+label; printed labels are preserved verbatim. An accepted object records where it came from —
+`importedPlan` for the boundary walked from printed measurements, `imageExtraction` for a shape
+traced off the drawing — through `createObject`'s optional `source`, so a surveyed line is never
+mistaken later for a hand-drawn one.
 
 When the traverse does not close, the boundary is still returned and marked as not closing, but no
 objects are proposed: without a trustworthy lot there is no scale, and an object placed by a guess
 at scale is worse than no object.
+
+When a garden already has a georeference, the surveyed lot and every page-derived object share one
+additional transform into that garden's existing local space: the lot centroid is placed at the
+saved local anchor, true-north rotation and scale correction are inverted, and every proposal rides
+the same transform. This avoids placing the first survey corner at the address point and keeps the
+plat aligned with the aerial camera. The address remains an approximate anchor, not cadastral proof.
 
 ## 18. Selection and Properties
 

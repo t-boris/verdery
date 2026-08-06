@@ -332,9 +332,27 @@ export const englishMapMessages = {
   'map.canvas.zoomIn': 'Zoom in',
   'map.canvas.zoomOut': 'Zoom out',
   'map.canvas.zoomFit': 'Fit the whole garden',
+  'map.orientation.controlsLabel': 'Map orientation',
+  'map.orientation.counterClockwise': 'Rotate 15° counter-clockwise',
+  'map.orientation.clockwise': 'Rotate 15° clockwise',
+  'map.orientation.angle': 'Exact view rotation in degrees',
+  'map.orientation.northUp': 'Turn the map to north up',
   'map.backdrop.tooCloseForStreets':
     'The street map has no detail this close in — zoom out to read it, or switch to Aerial to trace over the ground.',
   'map.backdrop.magnified': 'Imagery enlarged {factor}×',
   'map.backdrop.zoomLimited':
     'This is as close as the backdrop can follow the drawing. Turn the backdrop off to zoom further.',
+  'map.aerial.detectAction': 'Detect property and objects',
+  'map.aerial.reviewTitle': 'Detected from aerial imagery',
+  'map.aerial.dismiss': 'Close detected objects',
+  'map.aerial.noObjects':
+    'No defensible property objects were detected. Try the uploaded plat or trace manually.',
+  'map.aerial.evidence.visible': 'visible',
+  'map.aerial.evidence.inferred': 'inferred',
+  'map.aerial.disclaimer':
+    'Approximate AI proposals for planning, not surveyed boundaries. Review every object before adding it.',
+  'map.aerial.addSelected': 'Add selected ({count})',
+  'map.aerial.acceptFailed': 'The detected objects could not all be added.',
+  'map.aerial.accepted': 'Added {count} detected objects.',
+  'map.plat.areaMismatchWarning': 'the walked area does not match the area printed on the sheet',
 } as const;

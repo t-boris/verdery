@@ -35,10 +35,13 @@ Firebase App Hosting builds the application and runs its server components on ma
 Use a hybrid rendering strategy:
 
 - Server rendering for the application shell, authentication-aware routing, metadata, and suitable public pages.
+- The authenticated shell displays the exact version from `apps/web/package.json` beside the wordmark, so operators and users can identify the deployed build without opening developer tools.
 - Client rendering for the garden editor, rich forms, drag interactions, uploads, and live status.
 - Static generation only for stable public content where appropriate.
 
 The garden editor is loaded as a client component and is not server-rendered as an interactive canvas.
+Its map chrome includes synchronized exact-angle/North-up camera controls and a review panel for
+automatic aerial proposals; neither surface writes geometry until the user accepts it.
 
 ## 5. Application Structure
 

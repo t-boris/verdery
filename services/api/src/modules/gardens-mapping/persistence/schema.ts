@@ -120,6 +120,7 @@ export interface GeoreferenceRow {
   rotation_degrees: Generated<number>;
   scale_correction: Generated<number>;
   accuracy_metres: number | null;
+  display_address: string | null;
   provenance: string;
   method: string;
   revision: Generated<number>;

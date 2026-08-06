@@ -37,7 +37,15 @@ export interface ExtractedBearing {
 
 /** One boundary line, as the drawing calls it. */
 export interface ExtractedBoundaryCall {
-  readonly bearing: ExtractedBearing;
+  /**
+   * `null` when the line's direction was not legible — a curved frontage
+   * printed among radius and arc figures is where this happens.
+   *
+   * The line is still returned, and that is the point: a closed figure
+   * recovers a missing direction from the other sides, but nothing recovers
+   * a side that was never mentioned. See `survey-traverse.ts`.
+   */
+  readonly bearing: ExtractedBearing | null;
   /** Along the line, in feet, as printed. */
   readonly distanceFeet: number;
   /**
@@ -75,7 +83,7 @@ export type ExtractedObjectCategory =
  */
 export interface ExtractedPageObject {
   readonly category: ExtractedObjectCategory;
-  /** What the drawing calls it — `2 STORY FRAME`, `WOOD DECK`, `ASPHALT`. Verbatim. */
+  /** What the drawing calls it, verbatim, or an empty string for clear unlabelled linework. */
   readonly label: string;
   /**
    * Each point in `[0, 1]` of the page's width and height, origin top-left:

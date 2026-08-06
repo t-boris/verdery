@@ -39,21 +39,33 @@ const MIN_SCALE = 2;
 const MAX_SCALE = 400;
 
 export function defaultCamera(): MapCamera {
-  return { centerX: 0, centerY: 0, scale: DEFAULT_SCALE };
+  return { centerX: 0, centerY: 0, scale: DEFAULT_SCALE, rotationDegrees: 0 };
+}
+
+function rotate([x, y]: Position, degrees: number): Position {
+  const radians = (degrees * Math.PI) / 180;
+  const cosine = Math.cos(radians);
+  const sine = Math.sin(radians);
+  return [x * cosine - y * sine, x * sine + y * cosine];
 }
 
 export function toScreen(local: Position, camera: MapCamera, size: CanvasSize): ScreenPoint {
+  const [x, y] = rotate(
+    [local[0] - camera.centerX, local[1] - camera.centerY],
+    -camera.rotationDegrees,
+  );
   return {
-    x: size.width / 2 + (local[0] - camera.centerX) * camera.scale,
-    y: size.height / 2 - (local[1] - camera.centerY) * camera.scale,
+    x: size.width / 2 + x * camera.scale,
+    y: size.height / 2 - y * camera.scale,
   };
 }
 
 export function toLocal(screen: ScreenPoint, camera: MapCamera, size: CanvasSize): Position {
-  return [
-    camera.centerX + (screen.x - size.width / 2) / camera.scale,
-    camera.centerY - (screen.y - size.height / 2) / camera.scale,
-  ];
+  const relative = rotate(
+    [(screen.x - size.width / 2) / camera.scale, -(screen.y - size.height / 2) / camera.scale],
+    camera.rotationDegrees,
+  );
+  return [camera.centerX + relative[0], camera.centerY + relative[1]];
 }
 
 /** Converts a screen-space drag delta (as Konva reports it) into a local-metres translation. */
@@ -62,7 +74,11 @@ export function screenDeltaToLocalDelta(
   dyScreen: number,
   camera: MapCamera,
 ): { readonly dx: number; readonly dy: number } {
-  return { dx: dxScreen / camera.scale, dy: -dyScreen / camera.scale };
+  const [dx, dy] = rotate(
+    [dxScreen / camera.scale, -dyScreen / camera.scale],
+    camera.rotationDegrees,
+  );
+  return { dx, dy };
 }
 
 export function boundingBoxOfPositions(positions: readonly Position[]): BoundingBox | null {
@@ -105,26 +121,47 @@ export function boundingBoxOfObjects(records: readonly MapObjectRecord[]): Bound
 }
 
 /** A camera centered on `box` and zoomed to fit it inside `size`, with padding. */
-export function cameraFittingBounds(box: BoundingBox, size: CanvasSize): MapCamera {
+export function cameraFittingBounds(
+  box: BoundingBox,
+  size: CanvasSize,
+  rotationDegrees = 0,
+): MapCamera {
   const PADDING_PX = 48;
-  const width = Math.max(box.maxX - box.minX, 1);
-  const height = Math.max(box.maxY - box.minY, 1);
+  const centerX = (box.minX + box.maxX) / 2;
+  const centerY = (box.minY + box.maxY) / 2;
+  const corners: readonly Position[] = [
+    [box.minX - centerX, box.minY - centerY],
+    [box.minX - centerX, box.maxY - centerY],
+    [box.maxX - centerX, box.minY - centerY],
+    [box.maxX - centerX, box.maxY - centerY],
+  ];
+  const rotatedCorners = corners.map((point) => rotate(point, -rotationDegrees));
+  const rotatedBox = boundingBoxOfPositions(rotatedCorners);
+  const width = Math.max((rotatedBox?.maxX ?? 0) - (rotatedBox?.minX ?? 0), 1);
+  const height = Math.max((rotatedBox?.maxY ?? 0) - (rotatedBox?.minY ?? 0), 1);
 
   const scaleX = (size.width - PADDING_PX * 2) / width;
   const scaleY = (size.height - PADDING_PX * 2) / height;
   const scale = Math.min(Math.max(Math.min(scaleX, scaleY), MIN_SCALE), MAX_SCALE);
 
   return {
-    centerX: (box.minX + box.maxX) / 2,
-    centerY: (box.minY + box.maxY) / 2,
+    centerX,
+    centerY,
     scale,
+    rotationDegrees,
   };
 }
 
 /** Camera fit to every object's combined bounds, or the default camera when the garden is empty. */
-export function initialCameraFor(records: readonly MapObjectRecord[], size: CanvasSize): MapCamera {
+export function initialCameraFor(
+  records: readonly MapObjectRecord[],
+  size: CanvasSize,
+  rotationDegrees = 0,
+): MapCamera {
   const box = boundingBoxOfObjects(records);
-  return box === null ? defaultCamera() : cameraFittingBounds(box, size);
+  return box === null
+    ? { ...defaultCamera(), rotationDegrees }
+    : cameraFittingBounds(box, size, rotationDegrees);
 }
 
 /** Zooms by `factor` (>1 zooms in) while keeping the local point under `pivot` fixed on screen. */
@@ -142,9 +179,15 @@ export function zoomCamera(
   // Re-center so the same local point still sits under the pivot, matching a
   // conventional "zoom to cursor" gesture rather than always zooming to center.
   return {
-    centerX: nextCamera.centerX + (screenAfter.x - pivot.x) / nextScale,
-    centerY: nextCamera.centerY - (screenAfter.y - pivot.y) / nextScale,
-    scale: nextScale,
+    ...nextCamera,
+    ...(() => {
+      const { dx, dy } = screenDeltaToLocalDelta(
+        screenAfter.x - pivot.x,
+        screenAfter.y - pivot.y,
+        nextCamera,
+      );
+      return { centerX: nextCamera.centerX + dx, centerY: nextCamera.centerY + dy };
+    })(),
   };
 }
 
@@ -155,14 +198,20 @@ export function panCamera(camera: MapCamera, dxScreen: number, dyScreen: number)
 
 /** Visible local-space rectangle for the current camera and canvas size, used for viewport culling. */
 export function visibleLocalBounds(camera: MapCamera, size: CanvasSize): BoundingBox {
-  const topLeft = toLocal({ x: 0, y: 0 }, camera, size);
-  const bottomRight = toLocal({ x: size.width, y: size.height }, camera, size);
-  return {
-    minX: Math.min(topLeft[0], bottomRight[0]),
-    maxX: Math.max(topLeft[0], bottomRight[0]),
-    minY: Math.min(topLeft[1], bottomRight[1]),
-    maxY: Math.max(topLeft[1], bottomRight[1]),
-  };
+  const corners = [
+    toLocal({ x: 0, y: 0 }, camera, size),
+    toLocal({ x: size.width, y: 0 }, camera, size),
+    toLocal({ x: size.width, y: size.height }, camera, size),
+    toLocal({ x: 0, y: size.height }, camera, size),
+  ];
+  return (
+    boundingBoxOfPositions(corners) ?? {
+      minX: camera.centerX,
+      minY: camera.centerY,
+      maxX: camera.centerX,
+      maxY: camera.centerY,
+    }
+  );
 }
 
 function boxesIntersect(a: BoundingBox, b: BoundingBox): boolean {

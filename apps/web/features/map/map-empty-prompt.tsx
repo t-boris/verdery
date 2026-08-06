@@ -15,6 +15,8 @@ export interface MapEmptyPromptProps {
   readonly gardenId: string;
   /** `true` when the garden has a geographic anchor — the difference between "trace this" and "place this first". */
   readonly georeferenced: boolean;
+  readonly onTraceAerial?: () => void;
+  readonly tracingAerial?: boolean;
 }
 
 /**
@@ -39,7 +41,12 @@ export interface MapEmptyPromptProps {
  * very lot it was asking for, and an owner said so plainly on 2026-08-06.
  * One line along the bottom edge, with a way to close it.
  */
-export function MapEmptyPrompt({ gardenId, georeferenced }: MapEmptyPromptProps) {
+export function MapEmptyPrompt({
+  gardenId,
+  georeferenced,
+  onTraceAerial = () => undefined,
+  tracingAerial = false,
+}: MapEmptyPromptProps) {
   const { t } = useLocalization();
   const store = useMapEditorStore();
   const [dismissed, setDismissed] = useState(false);
@@ -58,9 +65,14 @@ export function MapEmptyPrompt({ gardenId, georeferenced }: MapEmptyPromptProps)
       </p>
 
       {georeferenced ? (
-        <Button variant="primary" onClick={() => store.setTool(createToolMode('lot'))}>
-          {t('map.empty.traceAction')}
-        </Button>
+        <>
+          <Button variant="primary" busy={tracingAerial} onClick={onTraceAerial}>
+            {t('map.aerial.detectAction')}
+          </Button>
+          <Button variant="secondary" onClick={() => store.setTool(createToolMode('lot'))}>
+            {t('map.empty.traceAction')}
+          </Button>
+        </>
       ) : (
         <Link className={styles['link']} href={`/application/gardens/${gardenId}`}>
           {t('map.empty.locateAction')}

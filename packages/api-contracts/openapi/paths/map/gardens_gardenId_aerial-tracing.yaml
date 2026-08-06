@@ -1,0 +1,31 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: traceGardenFromAerial
+  tags: [Map]
+  summary: Detect a property and its visible objects from aerial imagery
+  description: |
+    Reads a fixed-size USGS NAIP image centered on the garden's saved address
+    and returns reviewable lot, structure, driveway, walk, parking, fence,
+    water and tree proposals in garden-local metres. Nothing is written until
+    a person accepts individual proposals through ordinary map commands.
+  responses:
+    '200':
+      description: Reviewable aerial tracing proposals.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/map-objects.yaml#/AerialTracingResult'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'
+    '503':
+      $ref: '../../components/responses.yaml#/ServiceUnavailable'

@@ -12,6 +12,8 @@ import {
 
 import { RouteBody, RouteHeader, RoutePage, RoutePanel } from '@/shared/ui/public';
 
+import styles from './page.module.css';
+
 /**
  * The garden's overview and settings. Cross-section navigation lives in the
  * application shell's garden tabs, so this page carries only its own content.
@@ -51,15 +53,17 @@ export default async function GardenSettingsPage({
          * No band headings: every component below renders its own, and a
          * second would only repeat it.
          */}
-        <RoutePanel>
-          <GardenSettings gardenId={gardenId} />
-        </RoutePanel>
-        {/* First real setting: until a garden has this, its weather,
-            hemisphere, seasonal plan, aerial backdrop and true north all have
-            no input at all. */}
-        <RoutePanel>
-          <GardenLocationPanel gardenId={gardenId} />
-        </RoutePanel>
+        <div className={styles['essentials']}>
+          <section className={styles['essentialPanel']}>
+            <GardenSettings gardenId={gardenId} />
+          </section>
+          {/* First real setting: until a garden has this, its weather,
+              hemisphere, seasonal plan, aerial backdrop and true north all have
+              no input at all. */}
+          <section className={styles['essentialPanel']}>
+            <GardenLocationPanel gardenId={gardenId} />
+          </section>
+        </div>
         {/* Then the survey. A plan is what turns a drawing into measurements,
             so it sits above the photo gallery rather than below it. */}
         <RoutePanel>

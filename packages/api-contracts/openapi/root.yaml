@@ -204,6 +204,7 @@ paths:
   '/gardens/{gardenId}/georeference': { $ref: './paths/map/gardens_gardenId_georeference.yaml' }
   '/gardens/{gardenId}/plans/{planMediaId}/reading':
     { $ref: './paths/map/gardens_gardenId_plans_planMediaId_reading.yaml' }
+  '/gardens/{gardenId}/aerial-tracing': { $ref: './paths/map/gardens_gardenId_aerial-tracing.yaml' }
   '/geocoding/address-candidates': { $ref: './paths/geocoding/address-candidates.yaml' }
   '/gardens/{gardenId}/context': { $ref: './paths/garden-context/gardens_gardenId_context.yaml' }
   '/gardens/{gardenId}/context/{contextKind}':

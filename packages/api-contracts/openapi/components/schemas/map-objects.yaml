@@ -439,6 +439,11 @@ Georeference:
     accuracyMetres:
       type: number
       minimum: 0
+    displayAddress:
+      type: string
+      minLength: 1
+      maxLength: 200
+      description: Human-readable label confirmed for this anchor. Never used as geometric authority.
     provenance:
       $ref: '../../components/schemas/geometry.yaml#/ProvenanceKind'
     method:
@@ -511,6 +516,11 @@ SetGardenGeoreferenceRequest:
       description: |
         Reported accuracy of the geographic anchor. Absent means "not
         expressed", never "exact".
+    displayAddress:
+      type: string
+      minLength: 1
+      maxLength: 200
+      description: Human-readable label confirmed for this anchor. Never used as geometric authority.
     method:
       $ref: '#/GeoreferenceMethod'
 
@@ -566,7 +576,16 @@ PlatBoundaryCall:
   required: [bearing, distanceFeet, sourceLabel]
   properties:
     bearing:
-      $ref: '#/PlatBearing'
+      description: |
+        `null` when this line's direction was not legible — a curved frontage,
+        whose direction is printed as a chord bearing among radius and arc
+        figures, is where that happens. The line is still returned, because a
+        closed figure recovers a missing direction from the other sides and
+        nothing recovers a side that was never mentioned. See
+        `PlatBoundary.recoveredBearing`.
+      oneOf:
+        - $ref: '#/PlatBearing'
+        - type: 'null'
     distanceFeet:
       type: number
       exclusiveMinimum: 0
@@ -591,7 +610,7 @@ ProposedPlatObject:
       $ref: '#/GardenObjectCategory'
     label:
       type: string
-      description: What the drawing calls it, verbatim — `2 STORY FRAME`, `WOOD DECK`.
+      description: What the drawing calls it verbatim, or empty for clear unlabelled linework.
     geometry:
       $ref: '../../components/schemas/geometry.yaml#/Geometry'
     confidence:
@@ -710,3 +729,35 @@ PlatBoundary:
                 reading agree about that side's length, and only its
                 direction had been misread.
         - type: 'null'
+
+AerialTracingProposal:
+  type: object
+  additionalProperties: false
+  required: [category, label, geometry, confidence, evidence]
+  properties:
+    category:
+      enum: [lot, structure, path, fence, zone, waterFeature, utilityExclusion, tree]
+    label:
+      type: string
+    geometry:
+      $ref: '../../components/schemas/geometry.yaml#/Geometry'
+    confidence:
+      type: number
+      minimum: 0
+      maximum: 1
+    evidence:
+      enum: [visible, inferred]
+
+AerialTracingResult:
+  type: object
+  additionalProperties: false
+  required: [source, proposals, disclaimer]
+  properties:
+    source:
+      const: usgsNaip
+    proposals:
+      type: array
+      items:
+        $ref: '#/AerialTracingProposal'
+    disclaimer:
+      type: string

@@ -41,3 +41,21 @@ docs/graph-architecture.md
 # key. Keep it outside the repository entirely; this is a backstop, not the
 # storage location.
 *.p8
+
+# Claude Design sync — staged converter scripts (regenerated per clone),
+# build output, and machine state. .design-sync/ itself is NOT ignored: it
+# holds the durable, committed sync config/notes/previews.
+#
+# .ds-sync/ is mostly regenerated (the skill's own package-build.mjs/lib/
+# staged via `cp -r`) but hosts 3 repo-owned files a fresh clone cannot do
+# without — see .design-sync/NOTES.md "Why entry.mjs/tsconfig-preview.json/
+# next-link-stub.tsx live in .ds-sync/, not .design-sync/". Ignore the
+# directory, then explicitly un-ignore those three.
+.ds-sync/*
+!.ds-sync/entry.mjs
+!.ds-sync/tsconfig-preview.json
+!.ds-sync/next-link-stub.tsx
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules

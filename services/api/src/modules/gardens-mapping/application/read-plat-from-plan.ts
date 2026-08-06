@@ -31,6 +31,7 @@ import {
 } from '../domain/page-to-ground.js';
 import { closeTraverse, type SurveyCall } from '../domain/survey-traverse.js';
 import type { GardenAuthorization } from './garden-authorization.js';
+import type { Georeference, GeoreferenceReader } from './georeference-repository.js';
 
 export interface PlatReadingSource {
   readonly bucketName: string;
@@ -124,6 +125,7 @@ export class ReadPlatFromPlan {
     private readonly authorization: GardenAuthorization,
     private readonly callTimeoutMs: number,
     private readonly logger: FastifyBaseLogger,
+    private readonly georeferences?: GeoreferenceReader,
   ) {}
 
   async execute(gardenId: Uuid, profileId: Uuid, planMediaId: Uuid): Promise<PlatReadingResult> {
@@ -172,6 +174,7 @@ export class ReadPlatFromPlan {
       distanceFeet: call.distanceFeet,
     }));
     const traverse = closeTraverse(calls);
+    const georeference = await this.georeferences?.findCurrentForGarden(gardenId);
 
     this.logger.info(
       {
@@ -206,7 +209,11 @@ export class ReadPlatFromPlan {
       for (const drawn of outcome.plat.pageObjects) {
         const proposal = proposeObject(drawn, fit);
         if (proposal !== null) {
-          objects.push(proposal);
+          objects.push(
+            georeference === undefined || georeference === null || traverse === null
+              ? proposal
+              : transformProposalToGarden(proposal, traverse.ring, georeference),
+          );
         }
       }
     }
@@ -225,7 +232,12 @@ export class ReadPlatFromPlan {
           : {
               geometry: {
                 type: 'Polygon',
-                coordinates: [traverse.ring.map(([x, y]) => [x, y])],
+                coordinates: [
+                  (georeference === undefined || georeference === null
+                    ? traverse.ring
+                    : transformRingToGarden(traverse.ring, georeference)
+                  ).map(([x, y]) => [x, y]),
+                ],
               },
               closureErrorMetres: traverse.closureErrorMetres,
               closes: traverse.closes,
@@ -240,6 +252,64 @@ export class ReadPlatFromPlan {
             },
     };
   }
+}
+
+function transformProposalToGarden(
+  proposal: ProposedPlatObject,
+  lotRing: readonly (readonly [number, number])[],
+  georeference: Georeference,
+): ProposedPlatObject {
+  const transform = (point: readonly number[]) => {
+    const [x, y] = point;
+    return x === undefined || y === undefined
+      ? [...point]
+      : [...transformPointToGarden([x, y], lotRing, georeference)];
+  };
+  const geometry = proposal.geometry;
+  if (geometry.type === 'Point') {
+    return { ...proposal, geometry: { ...geometry, coordinates: transform(geometry.coordinates) } };
+  }
+  if (geometry.type === 'LineString') {
+    return {
+      ...proposal,
+      geometry: { ...geometry, coordinates: geometry.coordinates.map(transform) },
+    };
+  }
+  return {
+    ...proposal,
+    geometry: {
+      ...geometry,
+      coordinates: geometry.coordinates.map((ring) => ring.map(transform)),
+    },
+  };
+}
+
+function transformRingToGarden(
+  ring: readonly (readonly [number, number])[],
+  georeference: Georeference,
+): readonly (readonly [number, number])[] {
+  return ring.map((point) => transformPointToGarden(point, ring, georeference));
+}
+
+function transformPointToGarden(
+  point: readonly [number, number],
+  lotRing: readonly (readonly [number, number])[],
+  georeference: Georeference,
+): readonly [number, number] {
+  const unique = lotRing.length > 1 ? lotRing.slice(0, -1) : lotRing;
+  const centroid = unique.reduce(
+    (sum, [x, y]) => [sum[0] + x / unique.length, sum[1] + y / unique.length] as const,
+    [0, 0] as const,
+  );
+  const radians = (-georeference.rotationDegrees * Math.PI) / 180;
+  const x = point[0] - centroid[0];
+  const y = point[1] - centroid[1];
+  return [
+    georeference.localAnchor[0] +
+      (x * Math.cos(radians) - y * Math.sin(radians)) / georeference.scaleCorrection,
+    georeference.localAnchor[1] +
+      (x * Math.sin(radians) + y * Math.cos(radians)) / georeference.scaleCorrection,
+  ];
 }
 
 /**

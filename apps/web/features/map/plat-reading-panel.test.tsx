@@ -154,6 +154,35 @@ describe('PlatReadingPanel', () => {
     expect(screen.getByText(/does not close/)).toBeDefined();
   });
 
+  it('does not pre-accept a closed triangle whose area contradicts the sheet', () => {
+    renderPanel(
+      reading({
+        boundary: {
+          geometry: {
+            type: 'Polygon',
+            coordinates: [
+              [
+                [0, 0],
+                [30, 0],
+                [15, 29],
+                [0, 0],
+              ],
+            ],
+          },
+          closureErrorMetres: 0,
+          closes: true,
+          areaSquareMetres: 439,
+          recoveredBearing: null,
+        },
+      }),
+    );
+
+    expect(screen.getByRole<HTMLInputElement>('checkbox', { name: /Lot boundary/ }).checked).toBe(
+      false,
+    );
+    expect(screen.getByText(/does not match the area printed/)).toBeDefined();
+  });
+
   /*
    * A plat is a closed figure, so a lost bearing is recoverable from the
    * parcel itself — the owner's own curved road frontage came back as

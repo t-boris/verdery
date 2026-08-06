@@ -14,7 +14,7 @@ import {
 } from './viewport';
 
 const SIZE = { width: 800, height: 600 };
-const CAMERA = { centerX: 0, centerY: 0, scale: 20 };
+const CAMERA = { centerX: 0, centerY: 0, scale: 20, rotationDegrees: 0 };
 
 describe('toScreen / toLocal', () => {
   it('are inverse for a point at the camera center', () => {
@@ -33,11 +33,26 @@ describe('toScreen / toLocal', () => {
     const local = toLocal({ x: 120, y: 450 }, CAMERA, SIZE);
     expect(toScreen(local, CAMERA, SIZE)).toEqual({ x: 120, y: 450 });
   });
+
+  it('rotates every local point around the camera centre and round-trips it', () => {
+    const rotated = { ...CAMERA, rotationDegrees: 90 };
+    const screen = toScreen([5, 0], rotated, SIZE);
+    expect(screen.x).toBeCloseTo(400);
+    expect(screen.y).toBeCloseTo(400);
+    expect(toLocal(screen, rotated, SIZE)[0]).toBeCloseTo(5);
+    expect(toLocal(screen, rotated, SIZE)[1]).toBeCloseTo(0);
+  });
 });
 
 describe('screenDeltaToLocalDelta', () => {
   it('divides by scale and flips Y', () => {
     expect(screenDeltaToLocalDelta(40, 20, CAMERA)).toEqual({ dx: 2, dy: -1 });
+  });
+
+  it('converts a drag through the rotated camera axes', () => {
+    const delta = screenDeltaToLocalDelta(20, 0, { ...CAMERA, rotationDegrees: 90 });
+    expect(delta.dx).toBeCloseTo(0);
+    expect(delta.dy).toBeCloseTo(1);
   });
 });
 

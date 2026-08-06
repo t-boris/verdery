@@ -28,6 +28,14 @@ const METRES_PER_FOOT = 0.3048;
 /** Feet of misclosure a residential lot traverse may show before this refuses to call it a boundary. */
 export const MAX_ACCEPTABLE_CLOSURE_METRES = 0.5;
 
+/**
+ * How much better the winning repair must agree with its printed distance
+ * than any repair describing a different parcel — see `decisiveRepair`. Ten
+ * to one, or a fifth of a metre outright, whichever the numbers reach first.
+ */
+const DECISIVE_REPAIR_RATIO = 10;
+const DECISIVE_REPAIR_MARGIN_METRES = 0.2;
+
 export type BearingReference = 'north' | 'south';
 export type BearingTurn = 'east' | 'west';
 
@@ -40,7 +48,12 @@ export interface SurveyBearing {
 }
 
 export interface SurveyCall {
-  readonly bearing: SurveyBearing;
+  /**
+   * `null` when the reading could not make out this line's direction. The
+   * line is still a side of the parcel, and a closed figure determines the
+   * one direction it is missing — see `closeTraverse`.
+   */
+  readonly bearing: SurveyBearing | null;
   /** Along the line, in feet, as printed. */
   readonly distanceFeet: number;
 }
@@ -109,7 +122,7 @@ export function walkTraverse(calls: readonly SurveyCall[]): SurveyTraverse | nul
   let y = 0;
 
   for (const call of calls) {
-    if (!Number.isFinite(call.distanceFeet) || call.distanceFeet <= 0) {
+    if (call.bearing === null || !Number.isFinite(call.distanceFeet) || call.distanceFeet <= 0) {
       return null;
     }
     const metres = call.distanceFeet * METRES_PER_FOOT;
@@ -166,6 +179,28 @@ export function closeTraverse(calls: readonly SurveyCall[]): SurveyTraverse | nu
     return walkTraverse(calls);
   }
 
+  /*
+   * A line the reading could not make out is the one unknown a closed figure
+   * solves outright — no search needed, and the distance printed for that
+   * line is still the check. This is the ordinary case for a curved road
+   * frontage, whose direction is printed as a chord bearing among radius and
+   * arc figures: the reader returns the side with its distance and no
+   * bearing rather than dropping the side, because a parcel described by
+   * three of its four sides is not a parcel.
+   */
+  const unread = calls.reduce<number[]>(
+    (indices, call, index) => (call.bearing === null ? [...indices, index] : indices),
+    [],
+  );
+  if (unread.length > 1) {
+    // Two unknown directions in one closed figure have infinitely many
+    // solutions. Nothing here will pick one.
+    return null;
+  }
+  if (unread.length === 1) {
+    return solveForUnreadBearing(calls, unread[0] ?? 0);
+  }
+
   let best: SurveyTraverse | null = null;
   // The first line's direction is arbitrary — reversing every line just walks
   // the same polygon the other way round — so it stays as printed and only
@@ -173,7 +208,7 @@ export function closeTraverse(calls: readonly SurveyCall[]): SurveyTraverse | nu
   for (let mask = 0; mask < 1 << (calls.length - 1); mask += 1) {
     const walked = walkTraverse(
       calls.map((call, index) =>
-        index > 0 && (mask & (1 << (index - 1))) !== 0
+        index > 0 && (mask & (1 << (index - 1))) !== 0 && call.bearing !== null
           ? { ...call, bearing: reversed(call.bearing) }
           : call,
       ),
@@ -187,6 +222,45 @@ export function closeTraverse(calls: readonly SurveyCall[]): SurveyTraverse | nu
   }
 
   return best !== null && best.closes ? best : (repairSingleBearing(calls) ?? best);
+}
+
+/**
+ * The parcel with its one unread line supplied by the closing, searching the
+ * remaining lines' directions the same way `closeTraverse` does — a plat
+ * prints each line as the surveyor recorded it, and those senses do not all
+ * run the same way round.
+ */
+function solveForUnreadBearing(
+  calls: readonly SurveyCall[],
+  unreadIndex: number,
+): SurveyTraverse | null {
+  let best: SurveyTraverse | null = null;
+
+  for (let mask = 0; mask < 1 << (calls.length - 1); mask += 1) {
+    const oriented = calls.map((call, index) =>
+      index !== unreadIndex &&
+      index > 0 &&
+      (mask & (1 << (index - 1))) !== 0 &&
+      call.bearing !== null
+        ? { ...call, bearing: reversed(call.bearing) }
+        : call,
+    );
+    const fit = closeThrough(oriented, unreadIndex);
+    if (fit === null) {
+      continue;
+    }
+    if (best === null) {
+      best = fit;
+      continue;
+    }
+    if (!sameRing(best.ring, fit.ring)) {
+      // More than one parcel fits the same measurements. The figure does not
+      // say which, and neither will this.
+      return null;
+    }
+  }
+
+  return best;
 }
 
 /**
@@ -221,42 +295,66 @@ export function closeTraverse(calls: readonly SurveyCall[]): SurveyTraverse | nu
  * the caller keeps the unrepaired walk and its honest error.
  */
 function repairSingleBearing(calls: readonly SurveyCall[]): SurveyTraverse | null {
-  let onlyFit: SurveyTraverse | null = null;
+  const candidates: SurveyTraverse[] = [];
 
   for (let mask = 0; mask < 1 << (calls.length - 1); mask += 1) {
     const oriented = calls.map((call, index) =>
-      index > 0 && (mask & (1 << (index - 1))) !== 0
+      index > 0 && (mask & (1 << (index - 1))) !== 0 && call.bearing !== null
         ? { ...call, bearing: reversed(call.bearing) }
         : call,
     );
 
     for (let index = 0; index < oriented.length; index += 1) {
       const fit = closeThrough(oriented, index);
-      if (fit === null) {
-        continue;
-      }
-      if (onlyFit === null) {
-        onlyFit = fit;
-        continue;
-      }
-      // A second, materially different explanation means the figure does not
-      // identify which line was misread. Two masks describing the SAME repair
-      // (the same corner positions) are not a second explanation.
-      if (!sameRing(onlyFit.ring, fit.ring)) {
-        return null;
-      }
-      if (
-        fit.repairedBearing !== undefined &&
-        onlyFit.repairedBearing !== undefined &&
-        fit.repairedBearing.lengthDisagreementMetres <
-          onlyFit.repairedBearing.lengthDisagreementMetres
-      ) {
-        onlyFit = fit;
+      if (fit !== null) {
+        candidates.push(fit);
       }
     }
   }
 
-  return onlyFit;
+  return decisiveRepair(candidates);
+}
+
+/**
+ * The one repair the survey's own distances single out, or `null` when they
+ * single out none.
+ *
+ * A small misclosure is the hard case, not the easy one: when the walk misses
+ * by half a metre, replacing ANY side by the closing line produces a length
+ * within half a metre of what that side should be, so several repairs look
+ * admissible at once. What separates them is HOW WELL the closing length
+ * agrees with the printed distance — a genuinely misread direction leaves the
+ * other sides exact, so its repair agrees to centimetres while every rival
+ * agrees only to about the misclosure.
+ *
+ * So the best candidate must be decisively better than the best rival that
+ * describes a DIFFERENT parcel: an order of magnitude, or a clear margin in
+ * metres. Anything less is two explanations of the same measurements, and a
+ * survey does not choose between those by preference.
+ */
+function decisiveRepair(candidates: readonly SurveyTraverse[]): SurveyTraverse | null {
+  const ranked = [...candidates].sort(
+    (left, right) =>
+      (left.repairedBearing?.lengthDisagreementMetres ?? Number.POSITIVE_INFINITY) -
+      (right.repairedBearing?.lengthDisagreementMetres ?? Number.POSITIVE_INFINITY),
+  );
+  const best = ranked[0];
+  if (best === undefined) {
+    return null;
+  }
+
+  const rival = ranked.find((candidate) => !sameRing(candidate.ring, best.ring));
+  if (rival === undefined) {
+    return best;
+  }
+
+  const bestError = best.repairedBearing?.lengthDisagreementMetres ?? Number.POSITIVE_INFINITY;
+  const rivalError = rival.repairedBearing?.lengthDisagreementMetres ?? Number.POSITIVE_INFINITY;
+  const decisive =
+    rivalError >= bestError * DECISIVE_REPAIR_RATIO ||
+    rivalError - bestError >= DECISIVE_REPAIR_MARGIN_METRES;
+
+  return decisive ? best : null;
 }
 
 /**
@@ -317,8 +415,11 @@ function closeThrough(calls: readonly SurveyCall[], unknownIndex: number): Surve
   };
 }
 
-/** One call as an east/north offset in metres, or `null` when its distance is unusable. */
+/** One call as an east/north offset in metres. A call with no bearing contributes nothing; only `closeThrough`'s unknown may be one. */
 function vectorOf(call: SurveyCall): readonly [number, number] {
+  if (call.bearing === null) {
+    return [0, 0];
+  }
   const metres = call.distanceFeet * METRES_PER_FOOT;
   const azimuth = (azimuthDegrees(call.bearing) * Math.PI) / 180;
   return [metres * Math.sin(azimuth), metres * Math.cos(azimuth)];

@@ -75,6 +75,7 @@ export interface WireGeoreference {
   readonly rotationDegrees: number;
   readonly scaleCorrection: number;
   readonly accuracyMetres?: number;
+  readonly displayAddress?: string;
   readonly provenance: ProvenanceKind;
   readonly method: string;
   readonly revision: number;
@@ -94,6 +95,7 @@ export interface WireSetGeoreferenceRequest {
   readonly rotationDegrees: number;
   readonly scaleCorrection?: number;
   readonly accuracyMetres?: number;
+  readonly displayAddress?: string;
   readonly method: WireGeoreferenceMethod;
 }
 
@@ -126,6 +128,23 @@ export interface WireGardenMapDocument {
 /** Matches `MapCommandResultResource`; this is the `submitMapCommand` response body. */
 export interface WireMapCommandResult {
   readonly affectedObjects: readonly WireGardenObject[];
+}
+
+export interface WireAerialTracingProposal {
+  readonly category: Exclude<
+    GardenObjectCategory,
+    'importedBackground' | 'bed' | 'gate' | 'plant' | 'annotation'
+  >;
+  readonly label: string;
+  readonly geometry: Geometry;
+  readonly confidence: number;
+  readonly evidence: 'visible' | 'inferred';
+}
+
+export interface WireAerialTracingResult {
+  readonly source: 'usgsNaip';
+  readonly proposals: readonly WireAerialTracingProposal[];
+  readonly disclaimer: string;
 }
 
 /** `{ category, details: { ...fields } }` → `{ category, ...fields }`, for a command about to be sent. */

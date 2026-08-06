@@ -118,11 +118,12 @@ export function existingObjectsAreInteractive(tool: ToolMode): boolean {
   return tool === 'select';
 }
 
-/** Screen-space camera: the local point at the canvas center, and pixels per metre. */
+/** Screen-space camera: centre, pixels per metre, and clockwise view rotation. */
 export interface MapCamera {
   readonly centerX: number;
   readonly centerY: number;
   readonly scale: number;
+  readonly rotationDegrees: number;
 }
 
 export interface CanvasSize {

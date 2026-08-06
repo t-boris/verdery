@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { ApiQueryProvider } from '@/core/api/public';
 
 import { ApplicationShell } from './application-shell';
+import webPackage from '../../package.json';
 
 /**
  * Layout for every route behind `middleware.ts`'s session-cookie check.
@@ -12,7 +13,7 @@ import { ApplicationShell } from './application-shell';
 export default function ApplicationLayout({ children }: { readonly children: ReactNode }) {
   return (
     <ApiQueryProvider>
-      <ApplicationShell>{children}</ApplicationShell>
+      <ApplicationShell version={webPackage.version}>{children}</ApplicationShell>
     </ApiQueryProvider>
   );
 }

@@ -25,6 +25,7 @@ const GEOREFERENCE = {
   rotationDegrees: 15,
   scaleCorrection: 1,
   accuracyMetres: 8.2,
+  displayAddress: '7612 Cascade Way, Gurnee, IL 60031',
   provenance: 'importedMapImagery' as const,
   method: 'mapPin',
   revision: 3,
@@ -88,6 +89,9 @@ describe('GardenLocationPanel', () => {
 
     expect(screen.getByLabelText<HTMLInputElement>('Latitude').value).toBe('41.590000');
     expect(screen.getByLabelText<HTMLInputElement>('Longitude').value).toBe('-93.630000');
+    expect(screen.getByLabelText<HTMLInputElement>('Address').value).toBe(
+      '7612 Cascade Way, Gurnee, IL 60031',
+    );
     expect(screen.queryByText('41.59, -93.63')).toBeNull();
   });
 

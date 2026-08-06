@@ -87,6 +87,35 @@ describe('closeTraverse repairs one lost bearing from the figure itself', () => 
   });
 
   /*
+   * What the live model does in six readings out of eight: it returns the
+   * curved frontage WITHOUT a bearing rather than inventing one. The side is
+   * there, so the figure solves it outright — and the printed 78.63 feet is
+   * still the check.
+   */
+  it('solves a line the reader returned without a bearing', () => {
+    const traverse = closeTraverse([
+      ...CASCADE_WAY_STRAIGHT_SIDES,
+      { bearing: null, distanceFeet: CHORD_DISTANCE_FEET },
+    ]);
+
+    expect(traverse?.closes).toBe(true);
+    expect(traverse?.repairedBearing?.callIndex).toBe(3);
+    expect(traverse?.repairedBearing?.lengthDisagreementMetres ?? 1).toBeLessThan(0.5);
+  });
+
+  /*
+   * And what it must never do again: drop the side entirely. Three sides of a
+   * four-sided parcel describe no parcel at all, and nothing here will invent
+   * the fourth.
+   */
+  it('does not invent a side that was never returned', () => {
+    const traverse = closeTraverse(CASCADE_WAY_STRAIGHT_SIDES);
+
+    expect(traverse?.closes).toBe(false);
+    expect(traverse?.repairedBearing).toBeUndefined();
+  });
+
+  /*
    * Two lost bearings are two unknowns in one equation. The figure does not
    * determine them, so nothing is repaired and the misclosure stands.
    */

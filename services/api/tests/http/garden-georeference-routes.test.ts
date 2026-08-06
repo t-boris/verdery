@@ -216,6 +216,19 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     expect(georeference.scaleCorrection).toBe(1);
   });
 
+  it('persists the confirmed display address without using it as the coordinate', async () => {
+    const { token, garden } = await createGardenAsOwner();
+    const response = await setGeoreference(garden.id, token, {
+      ...VALID_BODY,
+      method: 'addressSearch',
+      displayAddress: '7612 Cascade Way, Gurnee, IL 60031',
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(asGeoreference(response).displayAddress).toBe('7612 Cascade Way, Gurnee, IL 60031');
+    expect(asGeoreference(response).geographicAnchor).toEqual(DES_MOINES);
+  });
+
   // The write the web actually makes after an address search — and the one
   // this endpoint refused in production on 2026-08-04, because the transport
   // parser kept a hand-written method list that the contract had outgrown.

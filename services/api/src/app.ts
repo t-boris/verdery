@@ -172,6 +172,7 @@ export async function buildApplication(
     logger,
     platExtractionAdapter,
     configuration.platReading.callTimeoutMs,
+    dependencies.aerialTracingAdapter ?? null,
   );
 
   // integrations (P7-ASYNC-01, P7-AI-01, P9C-INVITE-01, P11-ASYNC-01):

@@ -1,6 +1,6 @@
 {
   "name": "@verdery/web",
-  "version": "0.0.0",
+  "version": "0.0.2",
   "private": true,
   "type": "module",
   "description": "Verdery web application: a first-class product surface for managing a garden from a larger screen",

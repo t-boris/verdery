@@ -8,14 +8,7 @@ import { z } from '@/shared/validation/zod';
 
 import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
-import {
-  Button,
-  Card,
-  FailureAlert,
-  StaleIndicator,
-  StatusPill,
-  TextField,
-} from '@/shared/ui/public';
+import { Button, FailureAlert, StaleIndicator, StatusPill, TextField } from '@/shared/ui/public';
 
 import { lifecycleLabel, roleLabel } from './labels';
 import styles from './garden-settings.module.css';
@@ -98,36 +91,36 @@ export function GardenSettings({ gardenId }: { readonly gardenId: string }) {
       {query.isError && !isConnectivityFailure(query.error.failure) && (
         <FailureAlert failure={query.error.failure} />
       )}
-      <div className={styles['summary']}>
+      <div className={styles['headingRow']}>
         <h2 className={styles['name']}>{garden.name}</h2>
-        <StatusPill
-          tone={garden.lifecycleState === 'active' ? 'positive' : 'neutral'}
-          label={t(lifecycleLabel(garden.lifecycleState))}
-        />
-        <span>{t(roleLabel(garden.callerRole))}</span>
+        <div className={styles['metadata']}>
+          <StatusPill
+            tone={garden.lifecycleState === 'active' ? 'positive' : 'neutral'}
+            label={t(lifecycleLabel(garden.lifecycleState))}
+          />
+          <span>{t(roleLabel(garden.callerRole))}</span>
+        </div>
       </div>
 
       {isOwner && (
-        <Card title={t('gardens.renameTitle')}>
-          <form
-            className={styles['renameForm']}
-            onSubmit={(event) => void onRename(event)}
-            noValidate
-          >
-            <TextField
-              label={t('gardens.createNameLabel')}
-              maxLength={120}
-              disabled={garden.lifecycleState !== 'active'}
-              error={formState.errors.name === undefined ? undefined : t('gardens.nameRequired')}
-              {...register('name')}
-            />
-            <Button type="submit" variant="primary" busy={renameMutation.isPending}>
-              {t('gardens.rename')}
-            </Button>
-          </form>
-          {renameMutation.isError && <FailureAlert failure={renameMutation.error.failure} />}
-        </Card>
+        <form
+          className={styles['renameForm']}
+          onSubmit={(event) => void onRename(event)}
+          noValidate
+        >
+          <TextField
+            label={t('gardens.createNameLabel')}
+            maxLength={120}
+            disabled={garden.lifecycleState !== 'active'}
+            error={formState.errors.name === undefined ? undefined : t('gardens.nameRequired')}
+            {...register('name')}
+          />
+          <Button type="submit" variant="primary" busy={renameMutation.isPending}>
+            {t('gardens.rename')}
+          </Button>
+        </form>
       )}
+      {renameMutation.isError && <FailureAlert failure={renameMutation.error.failure} />}
     </div>
   );
 }

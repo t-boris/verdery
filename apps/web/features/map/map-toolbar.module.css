@@ -18,6 +18,7 @@
   inline-size: var(--control-min-size);
   flex: none;
   background-color: var(--color-surface);
+  overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: none;
 }
@@ -111,6 +112,7 @@
   justify-content: center;
   block-size: var(--control-min-size);
   border-block-start: var(--border-width) solid var(--color-border);
+  overflow: hidden;
 }
 
 @media (max-width: 48rem) {

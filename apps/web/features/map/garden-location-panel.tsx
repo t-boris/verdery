@@ -48,13 +48,7 @@ export function GardenLocationPanel({ gardenId }: GardenLocationPanelProps) {
   const [longitude, setLongitude] = useState('');
   const [latitude, setLatitude] = useState('');
   const [rotation, setRotation] = useState('');
-  /*
-   * The address this garden was last found by. The domain stores a
-   * coordinate, not an address (`architecture/data-and-geospatial-design.md`
-   * §9 specifies the field and it is not built), so this survives the session
-   * and no longer — which is still better than clearing the field the moment
-   * a candidate is picked, as it used to.
-   */
+  /** The recognizable label saved with the anchor, never its geometric authority. */
   const [address, setAddress] = useState('');
   const [accuracyMetres, setAccuracyMetres] = useState<number | null>(null);
   const [method, setMethod] = useState<WireSetGeoreferenceRequest['method']>('manualCoordinates');
@@ -92,6 +86,7 @@ export function GardenLocationPanel({ gardenId }: GardenLocationPanelProps) {
         // any garden needs and finer than any browser reports honestly.
         setLongitude(position.coords.longitude.toFixed(6));
         setLatitude(position.coords.latitude.toFixed(6));
+        setAddress('');
         setAccuracyMetres(position.coords.accuracy);
         setMethod('deviceLocation');
         setLocating(false);
@@ -120,6 +115,7 @@ export function GardenLocationPanel({ gardenId }: GardenLocationPanelProps) {
     setLongitude(current.geographicAnchor[0].toFixed(6));
     setLatitude(current.geographicAnchor[1].toFixed(6));
     setRotation(String(current.rotationDegrees));
+    setAddress(current.displayAddress ?? '');
   }, [current, latitude, longitude]);
 
   const onSubmit = () => {
@@ -154,6 +150,7 @@ export function GardenLocationPanel({ gardenId }: GardenLocationPanelProps) {
       geographicAnchor: [longitudeValue, latitudeValue],
       rotationDegrees: rotationValue,
       ...(accuracyMetres === null ? {} : { accuracyMetres }),
+      ...(address.trim() === '' ? {} : { displayAddress: address.trim() }),
       method,
     });
   };
@@ -173,53 +170,56 @@ export function GardenLocationPanel({ gardenId }: GardenLocationPanelProps) {
         <p className={styles['empty']}>{t('gardenLocation.empty')}</p>
       )}
 
-      {current?.accuracyMetres !== undefined && (
-        <p className={styles['hint']}>
-          {t('gardenLocation.currentAccuracy')}:{' '}
-          {t('gardenLocation.metres', { metres: Math.round(current.accuracyMetres) })}
-        </p>
-      )}
-
       <div className={styles['form']}>
         <AddressSearchField onPick={onAddressPicked} initialQuery={address} />
-        <p className={styles['hint']}>{t('gardenLocation.addressUsOnly')}</p>
-
-        <Button variant="secondary" busy={locating} onClick={useMyLocation} disabled={!isOnline}>
-          {t('gardenLocation.useMyLocation')}
-        </Button>
+        <div className={styles['addressActions']}>
+          <p className={styles['hint']}>{t('gardenLocation.addressUsOnly')}</p>
+          <Button variant="secondary" busy={locating} onClick={useMyLocation} disabled={!isOnline}>
+            {t('gardenLocation.useMyLocation')}
+          </Button>
+        </div>
 
         {locationError !== null && <Alert tone="danger" title={locationError} />}
 
-        {/* Three short numbers, read together, on one row. */}
-        <FieldGrid>
-          <TextField
-            label={t('gardenLocation.latitudeLabel')}
-            inputMode="decimal"
-            value={latitude}
-            onChange={(event) => {
-              setLatitude(event.target.value);
-              setMethod('manualCoordinates');
-              setAccuracyMetres(null);
-            }}
-          />
-          <TextField
-            label={t('gardenLocation.longitudeLabel')}
-            inputMode="decimal"
-            value={longitude}
-            onChange={(event) => {
-              setLongitude(event.target.value);
-              setMethod('manualCoordinates');
-              setAccuracyMetres(null);
-            }}
-          />
-          <TextField
-            label={t('gardenLocation.rotationLabel')}
-            inputMode="decimal"
-            value={rotation}
-            onChange={(event) => setRotation(event.target.value)}
-          />
-        </FieldGrid>
-        <p className={styles['hint']}>{t('gardenLocation.rotationHint')}</p>
+        <details className={styles['advanced']}>
+          <summary>{t('gardenLocation.advanced')}</summary>
+          {current?.accuracyMetres !== undefined && (
+            <p className={styles['hint']}>
+              {t('gardenLocation.currentAccuracy')}:{' '}
+              {t('gardenLocation.metres', { metres: Math.round(current.accuracyMetres) })}
+            </p>
+          )}
+          {/* Three short numbers, read together, on one row. */}
+          <FieldGrid>
+            <TextField
+              label={t('gardenLocation.latitudeLabel')}
+              inputMode="decimal"
+              value={latitude}
+              onChange={(event) => {
+                setLatitude(event.target.value);
+                setMethod('manualCoordinates');
+                setAccuracyMetres(null);
+              }}
+            />
+            <TextField
+              label={t('gardenLocation.longitudeLabel')}
+              inputMode="decimal"
+              value={longitude}
+              onChange={(event) => {
+                setLongitude(event.target.value);
+                setMethod('manualCoordinates');
+                setAccuracyMetres(null);
+              }}
+            />
+            <TextField
+              label={t('gardenLocation.rotationLabel')}
+              inputMode="decimal"
+              value={rotation}
+              onChange={(event) => setRotation(event.target.value)}
+            />
+          </FieldGrid>
+          <p className={styles['hint']}>{t('gardenLocation.rotationHint')}</p>
+        </details>
 
         {fieldError !== null && <Alert tone="danger" title={fieldError} />}
         {save.isError && <FailureAlert failure={save.error.failure} />}

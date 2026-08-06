@@ -18,11 +18,13 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 
 import type { ReadPlatFromPlan } from '../application/read-plat-from-plan.js';
+import type { TraceGardenFromAerial } from '../application/trace-garden-from-aerial.js';
 import { requireGardenId } from './garden-routes.js';
 import { requireUuid } from './parse-primitives.js';
 
 export interface PlatRoutesDependencies {
   readonly readPlatFromPlan: ReadPlatFromPlan;
+  readonly traceGardenFromAerial: TraceGardenFromAerial;
 }
 
 function requirePlanMediaId(request: FastifyRequest): string {
@@ -45,5 +47,13 @@ export function registerPlatRoutes(
     );
 
     return reply.status(200).send(reading);
+  });
+
+  app.post('/gardens/:gardenId/aerial-tracing', async (request, reply) => {
+    const result = await dependencies.traceGardenFromAerial.execute(
+      requireGardenId(request),
+      request.actorContext.profileId,
+    );
+    return reply.status(200).send(result);
   });
 }

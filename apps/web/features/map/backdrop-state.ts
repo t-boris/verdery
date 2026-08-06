@@ -82,7 +82,7 @@ export function backdropStateFor(
   }
 
   const latitude = georeference.geographicAnchor[1];
-  const maxCameraScale = maxCameraScaleFor(provider, latitude);
+  const maxCameraScale = maxCameraScaleFor(provider, latitude) * georeference.scaleCorrection;
 
   return {
     kind,
@@ -90,7 +90,10 @@ export function backdropStateFor(
     visible: true,
     showsPhotograph: provider.nativeMetresPerPixel !== null,
     maxCameraScale,
-    magnification: imageryMagnificationAt(provider, Math.min(cameraScale, maxCameraScale)),
+    magnification: imageryMagnificationAt(
+      provider,
+      Math.min(cameraScale, maxCameraScale) / georeference.scaleCorrection,
+    ),
     // A hair of tolerance: the clamp holds the camera AT the limit, and a
     // camera sitting exactly on it is inside what the provider can draw.
     beyondProviderDetail: cameraScale > maxCameraScale * 1.001,

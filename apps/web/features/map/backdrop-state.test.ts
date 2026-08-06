@@ -43,7 +43,7 @@ describe('backdropStateFor', () => {
   });
 
   it('accepts the street style when the camera is pulled back to it', () => {
-    const state = backdropStateFor('streets', GEOREFERENCE, 4);
+    const state = backdropStateFor('streets', GEOREFERENCE, 1);
 
     expect(state.beyondProviderDetail).toBe(false);
   });
@@ -61,7 +61,7 @@ describe('backdropStateFor', () => {
   // requested.
   it('reports magnification at the clamped camera, not beyond it', () => {
     const clamped = backdropStateFor('imagery', GEOREFERENCE, 400);
-    const atCap = backdropStateFor('imagery', GEOREFERENCE, 35.8);
+    const atCap = backdropStateFor('imagery', GEOREFERENCE, 71.6);
 
     expect(clamped.magnification).toBeCloseTo(atCap.magnification ?? 0, 1);
   });
@@ -77,7 +77,7 @@ describe('scaleWithinBackdrop', () => {
   it('holds the camera at the largest scale imagery still follows', () => {
     const imagery = backdropStateFor('imagery', GEOREFERENCE, 24);
 
-    expect(scaleWithinBackdrop(400, imagery)).toBeCloseTo(35.8, 1);
+    expect(scaleWithinBackdrop(400, imagery)).toBeCloseTo(71.6, 1);
     expect(scaleWithinBackdrop(20, imagery)).toBe(20);
   });
 });

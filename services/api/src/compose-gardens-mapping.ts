@@ -72,6 +72,7 @@ import {
   SetGardenGeoreference,
   SplitMapObjectLinework,
   TransferOwnership,
+  TraceGardenFromAerial,
   UpsertMapCalibration,
 } from './modules/gardens-mapping/public.js';
 import type {
@@ -87,7 +88,10 @@ import type {
 } from './modules/gardens-mapping/public.js';
 import type { FastifyBaseLogger } from 'fastify';
 import { KyselyMediaRepository } from './modules/media/public.js';
-import type { PlatExtractionProviderAdapter } from './modules/integrations/public.js';
+import type {
+  AerialTracingProviderAdapter,
+  PlatExtractionProviderAdapter,
+} from './modules/integrations/public.js';
 import type { CloudTasksInvocationVerifier } from './platform/tasks/cloud-tasks-invocation-verifier.js';
 import type { DatabaseGateway } from './platform/database/database-gateway.js';
 import type { Clock } from './shared/time/clock.js';
@@ -121,6 +125,7 @@ export function composeGardensMapping(
   /** ADR-0018: `null` whenever `PLAT_READING_ENABLED` is off — no code path can reach Vertex. */
   platExtractionAdapter: PlatExtractionProviderAdapter | null,
   platReadingCallTimeoutMs: number,
+  aerialTracingAdapter: AerialTracingProviderAdapter | null,
 ): GardensMappingComposition {
   // gardens-mapping: owns gardens and, in Phase 2 only, garden membership —
   // see membership-repository.ts for why. Read paths use the pooled
@@ -415,6 +420,14 @@ export function composeGardensMapping(
     readPlatFromPlan: new ReadPlatFromPlan(
       platExtractionAdapter,
       new MediaPlatPageResolver(new KyselyMediaRepository(database.queries)),
+      gardenAuthorization,
+      platReadingCallTimeoutMs,
+      logger,
+      georeferenceRepository,
+    ),
+    traceGardenFromAerial: new TraceGardenFromAerial(
+      aerialTracingAdapter,
+      georeferenceRepository,
       gardenAuthorization,
       platReadingCallTimeoutMs,
       logger,

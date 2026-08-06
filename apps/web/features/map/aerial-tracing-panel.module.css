@@ -1,0 +1,51 @@
+.panel {
+  position: absolute;
+  z-index: 5;
+  inset-block-end: var(--space-2);
+  inset-inline-end: var(--space-2);
+  inline-size: min(24rem, calc(100% - var(--space-4)));
+  max-block-size: min(36rem, calc(100% - var(--space-4)));
+  overflow: auto;
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+}
+
+.header,
+.header button,
+.list label,
+.list label span {
+  display: flex;
+}
+
+.header {
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.list {
+  display: grid;
+  gap: var(--space-1);
+  margin-block: var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.list label {
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-1);
+}
+
+.list label span {
+  flex-direction: column;
+}
+
+.list small,
+.disclaimer {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
