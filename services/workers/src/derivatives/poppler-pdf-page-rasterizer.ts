@@ -15,7 +15,7 @@
  *
  * Source: architecture/external-integrations.md, section "3. Adapter
  * Contract"; architecture/media-storage-and-processing.md, section "9. Image
- * Derivatives"; docs/adr/ADR-0016-pdf-plan-rendering-without-a-malware-scanner.md.
+ * Derivatives"; docs/architecture/decisions/ADR-0017-pdf-plans-rendered-without-a-malware-scanner.md.
  */
 
 import { execFile } from 'node:child_process';
@@ -32,8 +32,17 @@ import {
 
 const execFileAsync = promisify(execFile);
 
-/** Long enough for a dense survey drawing, short enough that a hostile file cannot hold a worker. */
-const RENDER_TIMEOUT_MS = 30_000;
+/**
+ * Long enough for a dense survey drawing on Cloud Run's slower CPU, short
+ * enough that a hostile file cannot hold a worker.
+ *
+ * Was 30 seconds, and a real scanned plat hit it in production on 2026-08-06.
+ * The render size came down at the same time (see the job's own
+ * `PDF_RENDER_LONG_EDGE_PX`), which is the actual fix; this margin exists so
+ * that a page slower than that one fails on its own merits rather than on a
+ * budget tuned to a single measurement.
+ */
+const RENDER_TIMEOUT_MS = 60_000;
 
 /** Refuses a render whose output would exceed this, whatever the page's own size claims. */
 const MAX_OUTPUT_BYTES = 64 * 1024 * 1024;

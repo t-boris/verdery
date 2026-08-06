@@ -220,8 +220,9 @@ use case: garden photos and imported plans.
 A PDF plan is not a special case. Its FIRST PAGE is rendered by `poppler`/`pdftoppm` behind the
 `PdfPageRasterizer` port (ADR-0017) and then takes exactly the path a raster plan takes —
 thumbnail, screen preview, high resolution, tile pyramid — which is what lets a surveyor's plat be
-calibrated against two known distances and traced like any other plan. Rendering is bounded three
-ways (one page, a 30-second timeout, an output-size ceiling) and happens in a separate process,
+calibrated against two known distances and traced like any other plan. The page is rendered at 2,048 px on its long edge — about 240 dpi on US Letter, and as much
+detail as a scanned drawing holds. Rendering is bounded three ways (one page, a 60-second timeout,
+an output-size ceiling) and happens in a separate process,
 because the input is a document a stranger uploaded. A document the renderer refuses fails
 TERMINALLY: the same bytes will be refused identically tomorrow, and a plan whose owner is waiting
 deserves an answer rather than a queue slot.

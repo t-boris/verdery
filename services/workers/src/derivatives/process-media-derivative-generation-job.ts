@@ -58,15 +58,22 @@ const MAX_SOURCE_BYTES = 50 * 1024 * 1024;
 const PDF_CONTENT_TYPE = 'application/pdf';
 
 /**
- * The long edge the first page is rendered at.
+ * The long edge the first page is rendered at: about 240 dpi on US Letter.
  *
- * Matches the high-resolution derivative's own ceiling: rendering smaller
- * would make that derivative an upscale of a smaller image, and rendering
- * larger would spend time on pixels every downstream spec immediately throws
- * away. A US Letter plat at this size resolves the lot dimensions a person
- * calibrates against.
+ * MEASURED, after the first attempt at this shipped and failed. Rendering a
+ * real scanned plat at 4,096 px took 25.5 seconds on a developer machine and
+ * exceeded the renderer's own timeout on Cloud Run, where the job died as
+ * `pdf_render_failed` after 30.1 seconds (2026-08-06). The same page at 2,048
+ * px takes 5.1 seconds.
+ *
+ * The lost pixels were never real detail: a plat arrives as a scan of a paper
+ * drawing, and enlarging it past what the scanner captured costs time and
+ * bytes without resolving another line. At this size the recorded distances
+ * and the lot boundary are legible, which is what calibration and tracing
+ * need. A PDF plan's high-resolution derivative is therefore bounded by this
+ * number rather than by its own 4,096 px spec.
  */
-const PDF_RENDER_LONG_EDGE_PX = 4_096;
+const PDF_RENDER_LONG_EDGE_PX = 2_048;
 
 function terminalFailure(
   manifest: MediaProcessingManifest,
