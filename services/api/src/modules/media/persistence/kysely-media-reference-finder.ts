@@ -61,10 +61,26 @@ export class KyselyMediaReferenceFinder implements MediaReferenceFinder {
       kinds.push('task_attachment');
     }
 
+    /*
+     * Only a background that is still ON THE MAP counts.
+     *
+     * A map object is deleted by STATE, not by row removal — the revision
+     * journal and undo both depend on the row surviving — so its details row
+     * outlives the object. Counting those rows made an uploaded plan
+     * undeletable for ever once it had been placed and removed even once,
+     * with the interface truthfully reporting "no plan backgrounds on the
+     * map" while the server refused (reported 2026-08-06).
+     */
     const importedBackground = await this.db
       .selectFrom('gardens_mapping.imported_background_details')
-      .select('garden_object_id')
-      .where('plan_media_id', '=', mediaId)
+      .innerJoin(
+        'gardens_mapping.garden_object',
+        'gardens_mapping.garden_object.id',
+        'gardens_mapping.imported_background_details.garden_object_id',
+      )
+      .select('gardens_mapping.imported_background_details.garden_object_id')
+      .where('gardens_mapping.imported_background_details.plan_media_id', '=', mediaId)
+      .where('gardens_mapping.garden_object.lifecycle_state', '=', 'active')
       .limit(1)
       .executeTakeFirst();
     if (importedBackground !== undefined) {

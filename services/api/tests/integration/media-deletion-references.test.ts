@@ -20,7 +20,7 @@
 import { randomUUID } from 'node:crypto';
 import { MEDIA_DELETION_REQUESTED_EVENT_TYPE } from '@verdery/api-contracts';
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
-import { Kysely, PostgresDialect } from 'kysely';
+import { Kysely, PostgresDialect, sql } from 'kysely';
 import { runner } from 'node-pg-migrate';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -269,6 +269,53 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       .where('subject_id', '=', mediaId)
       .execute();
     expect(auditRows).toHaveLength(0);
+  });
+
+  /*
+   * Reported 2026-08-06: a plan placed on the map and then removed could
+   * never be deleted. A map object is deleted by STATE — the revision journal
+   * and undo both need the row — so its `imported_background_details` row
+   * outlives it, and the guard counted that row for ever. The interface
+   * truthfully said "no plan backgrounds on the map" while the server kept
+   * answering 409.
+   */
+  it('a background REMOVED from the map no longer blocks deleting its plan', async () => {
+    const { gardenId, ownerId } = await createGardenWithOwner();
+    const mediaId = await completeAndValidate(gardenId, ownerId);
+    const objectId = randomUUID();
+    const mediaRepository = new KyselyMediaRepository(db);
+
+    const coordinateSpaceId = randomUUID();
+    await db
+      .insertInto('gardens_mapping.coordinate_space')
+      .values({ id: coordinateSpaceId, garden_id: gardenId, origin_description: 'origin' } as never)
+      .execute();
+    await sql`
+      INSERT INTO gardens_mapping.garden_object
+        (id, garden_id, coordinate_space_id, category, geometry, provenance,
+         lifecycle_state, current_revision, created_by_profile_id)
+      VALUES (
+        ${objectId}::uuid, ${gardenId}::uuid, ${coordinateSpaceId}::uuid,
+        'importedBackground',
+        ST_GeomFromText('POLYGON((0 0, 10 0, 10 10, 0 10, 0 0))', 0),
+        'importedPlan', 'deleted', 2, ${ownerId}::uuid
+      )
+    `.execute(db);
+    await db
+      .insertInto('gardens_mapping.imported_background_details')
+      .values({ garden_object_id: objectId, plan_media_id: mediaId } as never)
+      .execute();
+
+    const current = await mediaRepository.get(mediaId);
+    const result = await buildHandlers(fixedClock(NOW)).deleteGardenMedia.execute(
+      gardenId,
+      mediaId,
+      ownerId,
+      current?.revision ?? 0,
+      randomUUID(),
+    );
+
+    expect(result.uploadState).toBe('deletion_scheduled');
   });
 
   it('race, other ordering: once deletion is scheduled, attaching the media is rejected by the attach-side availability gate', async () => {
