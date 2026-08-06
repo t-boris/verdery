@@ -202,6 +202,8 @@ paths:
   '/gardens/{gardenId}/map': { $ref: './paths/map/gardens_gardenId_map.yaml' }
   '/gardens/{gardenId}/map/commands': { $ref: './paths/map/gardens_gardenId_map_commands.yaml' }
   '/gardens/{gardenId}/georeference': { $ref: './paths/map/gardens_gardenId_georeference.yaml' }
+  '/gardens/{gardenId}/plans/{planMediaId}/reading':
+    { $ref: './paths/map/gardens_gardenId_plans_planMediaId_reading.yaml' }
   '/geocoding/address-candidates': { $ref: './paths/geocoding/address-candidates.yaml' }
   '/gardens/{gardenId}/context': { $ref: './paths/garden-context/gardens_gardenId_context.yaml' }
   '/gardens/{gardenId}/context/{contextKind}':

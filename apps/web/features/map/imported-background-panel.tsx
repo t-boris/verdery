@@ -58,6 +58,19 @@ export function ImportedBackgroundPanel({ gardenId, actions }: ImportedBackgroun
   const [pageByMediaId, setPageByMediaId] = useState<Record<string, string>>({});
 
   const backgrounds = backgroundsOf(actions.records);
+  /*
+   * Which uploaded plans are currently ON the map. A plan that is still
+   * placed cannot be deleted — the server answers `409 media.referenced`,
+   * which an owner met head-on on 2026-08-06 — so the button says what to do
+   * about it BEFORE it is pressed rather than reporting a refusal after.
+   */
+  const placedPlanMediaIds = new Set(
+    backgrounds.flatMap((record) =>
+      record.categoryDetails?.category === 'importedBackground'
+        ? [record.categoryDetails.details.planMediaId]
+        : [],
+    ),
+  );
   const plans = (listQuery.data?.items ?? []).filter(isPlaceable);
 
   /** Section 16's honest state/quality text — mirrors the canvas badge. */
@@ -199,6 +212,9 @@ export function ImportedBackgroundPanel({ gardenId, actions }: ImportedBackgroun
                   </label>
                 </>
               )}
+              {placedPlanMediaIds.has(plan.id) && (
+                <p className={styles['notice']}>{t('map.background.deletePlanBlocked')}</p>
+              )}
               <div className={styles['actions']}>
                 <Button type="button" variant="secondary" onClick={() => addBackground(plan)}>
                   {t('map.background.addToMap')}
@@ -211,6 +227,12 @@ export function ImportedBackgroundPanel({ gardenId, actions }: ImportedBackgroun
                   type="button"
                   variant="secondary"
                   busy={deletePlan.isPending}
+                  disabled={placedPlanMediaIds.has(plan.id)}
+                  title={
+                    placedPlanMediaIds.has(plan.id)
+                      ? t('map.background.deletePlanBlocked')
+                      : t('map.background.deletePlan')
+                  }
                   onClick={() => removePlan(plan)}
                 >
                   {t('map.background.deletePlan')}

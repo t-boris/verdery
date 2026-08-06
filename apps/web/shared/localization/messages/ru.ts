@@ -385,6 +385,8 @@ export const russianMessages: MessageCatalogue = {
   'map.background.plansLoading': 'Загрузка списка планов.',
   'map.background.noPlans':
     'Готовых документов плана пока нет. Сначала загрузите план на странице сада.',
+  'map.background.deletePlanBlocked':
+    'Этот файл стоит на карте. Уберите его с карты выше — после этого файл можно удалить.',
   'map.background.deletePlan': 'Удалить файл',
   'map.background.deletePlanConfirm':
     'Удалить {name}? Вместе с ним удалятся превью и тайлы. План, уже добавленный на карту, сначала нужно убрать с карты.',

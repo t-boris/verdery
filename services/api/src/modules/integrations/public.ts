@@ -505,3 +505,15 @@ export type {
   ResendHttpFetch,
   ResendHttpResponse,
 } from './persistence/resend-transactional-email-adapter.js';
+
+/** ADR-0018: reading a surveyor's plat. One port, one adapter, nothing stored by the reader. */
+export type {
+  ExtractedBearing,
+  ExtractedBoundaryCall,
+  ExtractedPlat,
+  PlatExtractionAdapterOutcome,
+  PlatExtractionModelIdentity,
+  PlatExtractionProviderAdapter,
+  PlatExtractionRequest,
+} from './application/plat-extraction-provider.js';
+export { VertexAiPlatExtractionAdapter } from './persistence/vertex-ai-plat-extraction-adapter.js';

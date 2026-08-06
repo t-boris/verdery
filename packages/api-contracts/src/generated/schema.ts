@@ -930,6 +930,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/gardens/{gardenId}/plans/{planMediaId}/reading": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                planMediaId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read a surveyor's plat into a reviewable proposal
+         * @description Transcribes an uploaded plat of survey — the property address, the
+         *     boundary calls, the north arrow, the stated area — and walks those calls
+         *     into a lot boundary whose closure error is reported rather than hidden.
+         *
+         *     NOTHING IS WRITTEN. This operation stores no garden state and creates no
+         *     objects: it returns a reading for a person to look at next to the drawing
+         *     it came from. Accepting it is a separate, ordinary act — `setGardenGeoreference`
+         *     for the location and north, `submitMapCommands` for the boundary — each of
+         *     which already carries its own authorization, revision and audit behaviour.
+         *     That separation is ADR-0018's whole point: "imported, scanned, inferred, or
+         *     AI-generated objects are proposals until accepted by the user".
+         *
+         *     The model transcribes; it never computes the polygon. The walk is
+         *     arithmetic (`survey-traverse.ts`), and its closure error is the survey's
+         *     own check on the reading: a misread bearing shows up as a gap in metres
+         *     instead of as a plausible wrong shape. `closes: false` means the reading
+         *     is not trustworthy as a boundary, and the interface says so instead of
+         *     drawing it anyway.
+         *
+         *     A page that is not a plat of survey answers `notAPlat` — a real answer,
+         *     not an error.
+         *
+         *     Requires `editGardenContent`: reading a plan is preparation for editing
+         *     the garden it belongs to.
+         *
+         *     Source: docs/architecture/decisions/ADR-0018-plat-extraction-as-reviewable-proposals.md.
+         */
+        post: operations["readPlatFromPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/geocoding/address-candidates": {
         parameters: {
             query?: never;
@@ -8133,6 +8181,58 @@ export interface components {
             lastSeenAt: components["schemas"]["Timestamp"];
             registeredAt: components["schemas"]["Timestamp"];
         };
+        /** @description A quadrant bearing exactly as a plat prints it — `S 44°55'39" E`. */
+        PlatBearing: {
+            /** @enum {string} */
+            reference: "north" | "south";
+            degrees: number;
+            minutes: number;
+            seconds: number;
+            /** @enum {string} */
+            turn: "east" | "west";
+        };
+        PlatBoundaryCall: {
+            bearing: components["schemas"]["PlatBearing"];
+            /** @description Along the line, in feet, as printed. Never converted by the reader. */
+            distanceFeet: number;
+            /**
+             * @description The label the distance was read from — `MEASURED = 135.06`,
+             *     `CHORD = 78.66`. Verbatim, so a reviewer can find it on the page
+             *     instead of taking the number on trust.
+             */
+            sourceLabel: string;
+        };
+        PlatBoundary: {
+            /** @description The lot boundary in garden-local metres, first corner at the local origin. */
+            geometry: components["schemas"]["Geometry"];
+            /**
+             * @description How far the walk landed from where it started. The survey's own check
+             *     on the reading: a misread bearing is a gap in metres, not a plausible
+             *     wrong shape.
+             */
+            closureErrorMetres: number;
+            /** @description `false` when the gap is larger than this product will call a boundary. */
+            closes: boolean;
+            /** @description Area of the walked polygon, for comparison against `statedAreaSquareFeet`. */
+            areaSquareMetres: number;
+        };
+        /**
+         * @description What a plat of survey says, and the boundary its calls describe. A
+         *     reading, never a write: see `readPlatFromPlan`.
+         */
+        PlatReading: {
+            /** @description `false` when the page is not a plat of survey at all — a real answer, not an error. */
+            isPlat: boolean;
+            /** @description The surveyed parcel's own address as printed, or `null` when the sheet carries none. */
+            address: string | null;
+            /** @description Degrees the north arrow points clockwise from the top of the page, or `null` when there is none. */
+            northRotationDegrees: number | null;
+            /** @description The area the sheet itself states — a reviewer's independent check on the walk. */
+            statedAreaSquareFeet: number | null;
+            boundaryCalls: components["schemas"]["PlatBoundaryCall"][];
+            /** @description The polygon walked from the calls, or `null` when they cannot describe one. */
+            boundary: components["schemas"]["PlatBoundary"] | null;
+        };
     };
     responses: {
         /** @description The request is malformed or fails validation. */
@@ -9296,6 +9396,41 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             412: components["responses"]["PreconditionFailed"];
+        };
+    };
+    readPlatFromPlan: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                planMediaId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What the plat says, and the boundary those calls describe. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatReading"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     findAddressCandidates: {

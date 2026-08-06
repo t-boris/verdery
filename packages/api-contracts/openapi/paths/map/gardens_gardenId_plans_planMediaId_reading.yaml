@@ -1,0 +1,62 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: planMediaId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: readPlatFromPlan
+  tags: [Map]
+  summary: Read a surveyor's plat into a reviewable proposal
+  description: |
+    Transcribes an uploaded plat of survey — the property address, the
+    boundary calls, the north arrow, the stated area — and walks those calls
+    into a lot boundary whose closure error is reported rather than hidden.
+
+    NOTHING IS WRITTEN. This operation stores no garden state and creates no
+    objects: it returns a reading for a person to look at next to the drawing
+    it came from. Accepting it is a separate, ordinary act — `setGardenGeoreference`
+    for the location and north, `submitMapCommands` for the boundary — each of
+    which already carries its own authorization, revision and audit behaviour.
+    That separation is ADR-0018's whole point: "imported, scanned, inferred, or
+    AI-generated objects are proposals until accepted by the user".
+
+    The model transcribes; it never computes the polygon. The walk is
+    arithmetic (`survey-traverse.ts`), and its closure error is the survey's
+    own check on the reading: a misread bearing shows up as a gap in metres
+    instead of as a plausible wrong shape. `closes: false` means the reading
+    is not trustworthy as a boundary, and the interface says so instead of
+    drawing it anyway.
+
+    A page that is not a plat of survey answers `notAPlat` — a real answer,
+    not an error.
+
+    Requires `editGardenContent`: reading a plan is preparation for editing
+    the garden it belongs to.
+
+    Source: docs/architecture/decisions/ADR-0018-plat-extraction-as-reviewable-proposals.md.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+  responses:
+    '200':
+      description: What the plat says, and the boundary those calls describe.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/map-objects.yaml#/PlatReading'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'
+    '503':
+      $ref: '../../components/responses.yaml#/ServiceUnavailable'

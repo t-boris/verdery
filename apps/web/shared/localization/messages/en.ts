@@ -387,6 +387,8 @@ export const englishMessages = {
   'map.background.plansLoading': 'Loading uploaded plans.',
   'map.background.noPlans':
     'No plan documents are ready yet. Upload one from the garden page first.',
+  'map.background.deletePlanBlocked':
+    'This file is on the map. Remove it from the map above, then the file can be deleted.',
   'map.background.deletePlan': 'Delete file',
   'map.background.deletePlanConfirm':
     'Delete {name}? Its preview and tiles go with it. A plan already on the map must be removed from the map first.',

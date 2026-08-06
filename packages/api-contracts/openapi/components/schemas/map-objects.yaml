@@ -534,3 +534,99 @@ GardenMapDocument:
       type: array
       items:
         $ref: '#/ValidationIssue'
+
+PlatBearing:
+  type: object
+  additionalProperties: false
+  required: [reference, degrees, minutes, seconds, turn]
+  description: A quadrant bearing exactly as a plat prints it — `S 44°55'39" E`.
+  properties:
+    reference:
+      type: string
+      enum: [north, south]
+    degrees:
+      type: number
+      minimum: 0
+      maximum: 90
+    minutes:
+      type: number
+      minimum: 0
+      maximum: 59
+    seconds:
+      type: number
+      minimum: 0
+      maximum: 59
+    turn:
+      type: string
+      enum: [east, west]
+
+PlatBoundaryCall:
+  type: object
+  additionalProperties: false
+  required: [bearing, distanceFeet, sourceLabel]
+  properties:
+    bearing:
+      $ref: '#/PlatBearing'
+    distanceFeet:
+      type: number
+      exclusiveMinimum: 0
+      description: Along the line, in feet, as printed. Never converted by the reader.
+    sourceLabel:
+      type: string
+      description: |
+        The label the distance was read from — `MEASURED = 135.06`,
+        `CHORD = 78.66`. Verbatim, so a reviewer can find it on the page
+        instead of taking the number on trust.
+
+PlatReading:
+  type: object
+  additionalProperties: false
+  required: [isPlat, address, northRotationDegrees, statedAreaSquareFeet, boundaryCalls, boundary]
+  description: |
+    What a plat of survey says, and the boundary its calls describe. A
+    reading, never a write: see `readPlatFromPlan`.
+  properties:
+    isPlat:
+      type: boolean
+      description: '`false` when the page is not a plat of survey at all — a real answer, not an error.'
+    address:
+      type: [string, 'null']
+      description: The surveyed parcel's own address as printed, or `null` when the sheet carries none.
+    northRotationDegrees:
+      type: [number, 'null']
+      description: Degrees the north arrow points clockwise from the top of the page, or `null` when there is none.
+    statedAreaSquareFeet:
+      type: [number, 'null']
+      description: The area the sheet itself states — a reviewer's independent check on the walk.
+    boundaryCalls:
+      type: array
+      items:
+        $ref: '#/PlatBoundaryCall'
+    boundary:
+      oneOf:
+        - $ref: '#/PlatBoundary'
+        - type: 'null'
+      description: The polygon walked from the calls, or `null` when they cannot describe one.
+
+PlatBoundary:
+  type: object
+  additionalProperties: false
+  required: [geometry, closureErrorMetres, closes, areaSquareMetres]
+  properties:
+    geometry:
+      $ref: '../../components/schemas/geometry.yaml#/Geometry'
+      description: The lot boundary in garden-local metres, first corner at the local origin.
+    closureErrorMetres:
+      type: number
+      minimum: 0
+      description: |
+        How far the walk landed from where it started. The survey's own check
+        on the reading: a misread bearing is a gap in metres, not a plausible
+        wrong shape.
+    closes:
+      type: boolean
+      description: '`false` when the gap is larger than this product will call a boundary.'
+    areaSquareMetres:
+      type: number
+      minimum: 0
+      description: Area of the walked polygon, for comparison against `statedAreaSquareFeet`.

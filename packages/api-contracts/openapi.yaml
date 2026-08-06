@@ -1512,6 +1512,69 @@ paths:
           $ref: '#/components/responses/Conflict'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
+  /gardens/{gardenId}/plans/{planMediaId}/reading:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: planMediaId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+    post:
+      operationId: readPlatFromPlan
+      tags:
+        - Map
+      summary: Read a surveyor's plat into a reviewable proposal
+      description: |
+        Transcribes an uploaded plat of survey — the property address, the
+        boundary calls, the north arrow, the stated area — and walks those calls
+        into a lot boundary whose closure error is reported rather than hidden.
+
+        NOTHING IS WRITTEN. This operation stores no garden state and creates no
+        objects: it returns a reading for a person to look at next to the drawing
+        it came from. Accepting it is a separate, ordinary act — `setGardenGeoreference`
+        for the location and north, `submitMapCommands` for the boundary — each of
+        which already carries its own authorization, revision and audit behaviour.
+        That separation is ADR-0018's whole point: "imported, scanned, inferred, or
+        AI-generated objects are proposals until accepted by the user".
+
+        The model transcribes; it never computes the polygon. The walk is
+        arithmetic (`survey-traverse.ts`), and its closure error is the survey's
+        own check on the reading: a misread bearing shows up as a gap in metres
+        instead of as a plausible wrong shape. `closes: false` means the reading
+        is not trustworthy as a boundary, and the interface says so instead of
+        drawing it anyway.
+
+        A page that is not a plat of survey answers `notAPlat` — a real answer,
+        not an error.
+
+        Requires `editGardenContent`: reading a plan is preparation for editing
+        the garden it belongs to.
+
+        Source: docs/architecture/decisions/ADR-0018-plat-extraction-as-reviewable-proposals.md.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: What the plat says, and the boundary those calls describe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatReading'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /geocoding/address-candidates:
     get:
       operationId: findAddressCandidates
@@ -14894,3 +14957,123 @@ components:
           description: Set to the current time on every successful register-or-refresh call.
         registeredAt:
           $ref: '#/components/schemas/Timestamp'
+    PlatBearing:
+      type: object
+      additionalProperties: false
+      required:
+        - reference
+        - degrees
+        - minutes
+        - seconds
+        - turn
+      description: A quadrant bearing exactly as a plat prints it — `S 44°55'39" E`.
+      properties:
+        reference:
+          type: string
+          enum:
+            - north
+            - south
+        degrees:
+          type: number
+          minimum: 0
+          maximum: 90
+        minutes:
+          type: number
+          minimum: 0
+          maximum: 59
+        seconds:
+          type: number
+          minimum: 0
+          maximum: 59
+        turn:
+          type: string
+          enum:
+            - east
+            - west
+    PlatBoundaryCall:
+      type: object
+      additionalProperties: false
+      required:
+        - bearing
+        - distanceFeet
+        - sourceLabel
+      properties:
+        bearing:
+          $ref: '#/components/schemas/PlatBearing'
+        distanceFeet:
+          type: number
+          exclusiveMinimum: 0
+          description: Along the line, in feet, as printed. Never converted by the reader.
+        sourceLabel:
+          type: string
+          description: |
+            The label the distance was read from — `MEASURED = 135.06`,
+            `CHORD = 78.66`. Verbatim, so a reviewer can find it on the page
+            instead of taking the number on trust.
+    PlatBoundary:
+      type: object
+      additionalProperties: false
+      required:
+        - geometry
+        - closureErrorMetres
+        - closes
+        - areaSquareMetres
+      properties:
+        geometry:
+          $ref: '#/components/schemas/Geometry'
+          description: The lot boundary in garden-local metres, first corner at the local origin.
+        closureErrorMetres:
+          type: number
+          minimum: 0
+          description: |
+            How far the walk landed from where it started. The survey's own check
+            on the reading: a misread bearing is a gap in metres, not a plausible
+            wrong shape.
+        closes:
+          type: boolean
+          description: '`false` when the gap is larger than this product will call a boundary.'
+        areaSquareMetres:
+          type: number
+          minimum: 0
+          description: Area of the walked polygon, for comparison against `statedAreaSquareFeet`.
+    PlatReading:
+      type: object
+      additionalProperties: false
+      required:
+        - isPlat
+        - address
+        - northRotationDegrees
+        - statedAreaSquareFeet
+        - boundaryCalls
+        - boundary
+      description: |
+        What a plat of survey says, and the boundary its calls describe. A
+        reading, never a write: see `readPlatFromPlan`.
+      properties:
+        isPlat:
+          type: boolean
+          description: '`false` when the page is not a plat of survey at all — a real answer, not an error.'
+        address:
+          type:
+            - string
+            - 'null'
+          description: The surveyed parcel's own address as printed, or `null` when the sheet carries none.
+        northRotationDegrees:
+          type:
+            - number
+            - 'null'
+          description: Degrees the north arrow points clockwise from the top of the page, or `null` when there is none.
+        statedAreaSquareFeet:
+          type:
+            - number
+            - 'null'
+          description: The area the sheet itself states — a reviewer's independent check on the walk.
+        boundaryCalls:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlatBoundaryCall'
+        boundary:
+          oneOf:
+            - $ref: '#/components/schemas/PlatBoundary'
+            - type: 'null'
+          description: The polygon walked from the calls, or `null` when they cannot describe one.
