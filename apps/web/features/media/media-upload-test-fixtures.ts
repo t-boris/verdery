@@ -76,11 +76,12 @@ export function fakeMediaGateway(): {
   const complete = vi.fn();
   const getAccess = vi.fn();
   const list = vi.fn();
+  const remove = vi.fn();
   return {
     register,
     getStatus,
     complete,
-    gateway: { register, getStatus, complete, getAccess, list },
+    gateway: { register, getStatus, complete, getAccess, list, delete: remove },
   };
 }
 

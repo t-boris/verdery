@@ -10,7 +10,7 @@ import { Button, FailureAlert, StaleIndicator } from '@/shared/ui/public';
 import { calibrationStateText } from './calibration-labels';
 import { useMapEditorStore } from './editor-store';
 import styles from './imported-background-panel.module.css';
-import { useGardenPlanMediaList } from './media-queries';
+import { useDeleteGardenPlan, useGardenPlanMediaList } from './media-queries';
 import type { MapObjectRecord } from './types';
 import type { MapEditorActions } from './use-map-editor-actions';
 
@@ -54,6 +54,7 @@ export function ImportedBackgroundPanel({ gardenId, actions }: ImportedBackgroun
   const { t, locale } = useLocalization();
   const store = useMapEditorStore();
   const listQuery = useGardenPlanMediaList(gardenId);
+  const deletePlan = useDeleteGardenPlan(gardenId);
   const [pageByMediaId, setPageByMediaId] = useState<Record<string, string>>({});
 
   const backgrounds = backgroundsOf(actions.records);
@@ -77,6 +78,15 @@ export function ImportedBackgroundPanel({ gardenId, actions }: ImportedBackgroun
         ? parsedPage
         : undefined;
     void actions.createImportedBackground(plan.id, plan.displayFilename, sourcePageNumber);
+  };
+
+  const removePlan = (plan: Media) => {
+    if (
+      !globalThis.confirm(t('map.background.deletePlanConfirm', { name: plan.displayFilename }))
+    ) {
+      return;
+    }
+    deletePlan.mutate({ mediaId: plan.id, revision: plan.revision });
   };
 
   const removeBackground = (record: MapObjectRecord) => {
@@ -192,6 +202,18 @@ export function ImportedBackgroundPanel({ gardenId, actions }: ImportedBackgroun
               <div className={styles['actions']}>
                 <Button type="button" variant="secondary" onClick={() => addBackground(plan)}>
                   {t('map.background.addToMap')}
+                </Button>
+                {/* Deleting the upload itself, not the background it may have
+                    become. A plan still on the map answers `409
+                    media.referenced`, which `FailureAlert` shows verbatim —
+                    remove the background first, then the file. */}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  busy={deletePlan.isPending}
+                  onClick={() => removePlan(plan)}
+                >
+                  {t('map.background.deletePlan')}
                 </Button>
               </div>
             </li>

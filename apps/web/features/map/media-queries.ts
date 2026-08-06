@@ -1,13 +1,14 @@
 'use client';
 
 import type { Media, MediaAccess, MediaListResult } from '@verdery/api-contracts';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import {
   ApiFailureError,
   createBrowserApiClient,
   createMediaGateway,
+  generateIdempotencyKey,
   isFailure,
   type ApiResult,
 } from '@/core/api/public';
@@ -50,6 +51,32 @@ export function useGardenPlanMediaList(gardenId: string) {
     queryKey: ['media', gardenId, 'list', 'imported_plan'] as const,
     queryFn: async ({ signal }) =>
       unwrap(await gateway.list(gardenId, { mediaClass: 'imported_plan' }, signal)),
+  });
+}
+
+/**
+ * `DeleteGardenMedia` for an imported plan.
+ *
+ * The capability existed on the server from P6-RET-01 and had no way in from
+ * the web at all: a plan uploaded twice stayed in the list for ever, which is
+ * exactly what an owner hit on 2026-08-06. A plan still placed on the map
+ * answers `409 media.referenced` — the background is removed first, and the
+ * panel says so rather than swallowing it.
+ */
+export function useDeleteGardenPlan(gardenId: string) {
+  const gateway = useMediaGateway();
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    Media,
+    ApiFailureError,
+    { readonly mediaId: string; readonly revision: number }
+  >({
+    mutationFn: async ({ mediaId, revision }) =>
+      unwrap(await gateway.delete(gardenId, mediaId, revision, generateIdempotencyKey())),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['media', gardenId] });
+    },
   });
 }
 

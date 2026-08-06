@@ -6,13 +6,22 @@ import { LocalizationProvider } from '@/shared/localization/public';
 
 import { MapEditorStoreProvider } from './editor-store';
 import { ImportedBackgroundPanel } from './imported-background-panel';
-import { useGardenPlanMediaList } from './media-queries';
+import { useDeleteGardenPlan, useGardenPlanMediaList } from './media-queries';
 import type { MapObjectRecord } from './types';
 import type { MapEditorActions } from './use-map-editor-actions';
 
-vi.mock('./media-queries', () => ({ useGardenPlanMediaList: vi.fn() }));
+vi.mock('./media-queries', () => ({
+  useGardenPlanMediaList: vi.fn(),
+  useDeleteGardenPlan: vi.fn(),
+}));
 
 const mockedList = vi.mocked(useGardenPlanMediaList);
+const mockedDelete = vi.mocked(useDeleteGardenPlan);
+
+/** The delete mutation, idle unless a test says otherwise. */
+function stubDeleteMutation(overrides: Record<string, unknown> = {}) {
+  return { mutate: vi.fn(), isPending: false, isError: false, error: null, ...overrides } as never;
+}
 
 function planMedia(overrides: Partial<Media> = {}): Media {
   return {
@@ -69,6 +78,7 @@ const BACKGROUND: MapObjectRecord = {
 };
 
 function mockListResult(items: readonly Media[]): void {
+  mockedDelete.mockReturnValue(stubDeleteMutation());
   mockedList.mockReturnValue({
     data: { items: [...items] },
     isPending: false,
@@ -157,6 +167,34 @@ describe('ImportedBackgroundPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Add to map' }));
     expect(actions.createImportedBackground).toHaveBeenCalledWith('plan-media-3', 'plan.pdf', 3);
+  });
+
+  /*
+   * The capability existed on the server from P6-RET-01 and had no way in
+   * from the web at all: an owner who uploaded the same plat twice on
+   * 2026-08-06 had no way to remove either copy.
+   */
+  it('deletes an uploaded plan after confirmation, and not before', () => {
+    mockListResult([planMedia({ id: 'plan-media-9', revision: 4 })]);
+    const mutation = stubDeleteMutation();
+    mockedDelete.mockReturnValue(mutation);
+    renderPanel(stubActions([]));
+
+    const confirm = vi.spyOn(globalThis, 'confirm').mockReturnValue(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete file' }));
+    expect(
+      (mutation as unknown as { mutate: ReturnType<typeof vi.fn> }).mutate,
+    ).not.toHaveBeenCalled();
+
+    confirm.mockReturnValue(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete file' }));
+    expect(
+      (mutation as unknown as { mutate: ReturnType<typeof vi.fn> }).mutate,
+    ).toHaveBeenCalledWith({
+      mediaId: 'plan-media-9',
+      revision: 4,
+    });
+    confirm.mockRestore();
   });
 
   it('shows each background with its not-calibrated badge and toggles its persisted visibility', () => {

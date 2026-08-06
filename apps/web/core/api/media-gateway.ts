@@ -48,6 +48,21 @@ export interface MediaGateway {
     idempotencyKey: string,
     signal?: AbortSignal,
   ): Promise<ApiResult<Media>>;
+  /**
+   * `DeleteGardenMedia` — schedules the record and its derivatives for
+   * deletion. `POST`, not HTTP `DELETE`, because the row survives as
+   * `deletion_scheduled` until the worker confirms the objects are gone; see
+   * the contract's own note. A record still referenced by a plant photo, an
+   * observation, a task attachment or a map background answers `409`
+   * `media.referenced` — the reference is removed first.
+   */
+  delete(
+    gardenId: string,
+    mediaId: string,
+    expectedRevision: number,
+    idempotencyKey: string,
+    signal?: AbortSignal,
+  ): Promise<ApiResult<Media>>;
   /** `GetMediaAccess` — a short-lived signed download URL. Originals require `available` + `processed`; a derivative id (from `Media.derivatives`) is servable at `available` alone. */
   getAccess(
     gardenId: string,
@@ -102,6 +117,15 @@ export function createMediaGateway(client: ApiClient): MediaGateway {
       return client.request<Media>({
         method: 'POST',
         path: `/gardens/${gardenId}/media/${mediaId}/complete`,
+        headers: revisionHeaders(expectedRevision, idempotencyKey),
+        ...(signal === undefined ? {} : { signal }),
+      });
+    },
+
+    delete(gardenId, mediaId, expectedRevision, idempotencyKey, signal) {
+      return client.request<Media>({
+        method: 'POST',
+        path: `/gardens/${gardenId}/media/${mediaId}/delete`,
         headers: revisionHeaders(expectedRevision, idempotencyKey),
         ...(signal === undefined ? {} : { signal }),
       });
