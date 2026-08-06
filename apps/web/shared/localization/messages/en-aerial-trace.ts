@@ -22,6 +22,10 @@ export const englishAerialTraceMessages = {
   'map.aerialTrace.label': 'Label',
   'map.aerialTrace.category': 'Category',
   'map.aerialTrace.reject': 'Reject proposal',
-  'map.aerialTrace.reviewOnly':
-    'These are temporary proposals. Canonical acceptance remains unavailable until provenance-preserving proposal storage is enabled.',
+  'map.aerialTrace.include': 'Include in selected proposals',
+  'map.aerialTrace.acceptOne': 'Accept this proposal',
+  'map.aerialTrace.acceptSelected': 'Accept selected proposals: {count}',
+  'map.aerialTrace.accepted': 'Accepted aerial proposals: {count}.',
+  'map.aerialTrace.stale':
+    'The saved location changed after this trace. Trace the aerial image again before accepting.',
 } as const;

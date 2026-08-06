@@ -25,8 +25,10 @@ import { CREATABLE_GEOMETRY_KIND, creatableCategoryOfTool } from './types';
 import type { CreatableCategory, MapObjectRecord } from './types';
 import { useImportedBackgroundActions } from './use-imported-background-actions';
 import { useMapEditorGeometryActions } from './use-map-editor-geometry-actions';
+import { useMapEditorAerialActions } from './use-map-editor-aerial-actions';
 import { useMapEditorLineworkActions } from './use-map-editor-linework-actions';
 import { useMapEditorObjectActions } from './use-map-editor-object-actions';
+import { useMapEditorPlatActions } from './use-map-editor-plat-actions';
 
 /**
  * Orchestrates the map editor: combines the query cache (server state), the
@@ -365,8 +367,10 @@ export function useMapEditorActions(gardenId: string) {
   }, [store]);
 
   const geometryActions = useMapEditorGeometryActions({ commit, findRecord, store });
+  const aerialActions = useMapEditorAerialActions({ commit, findRecord, store });
   const objectActions = useMapEditorObjectActions({ commit, findRecord, store });
   const lineworkActions = useMapEditorLineworkActions({ commit, findRecord, store });
+  const platActions = useMapEditorPlatActions({ commit, findRecord, store });
 
   return {
     records,
@@ -391,8 +395,10 @@ export function useMapEditorActions(gardenId: string) {
     // enough to drive `map-save-status.tsx`'s persistent indicator.
     saveStatus: deriveSaveStatus(submitMutation.status),
     ...geometryActions,
+    ...aerialActions,
     ...objectActions,
     ...lineworkActions,
+    ...platActions,
     ...importedBackgroundActions,
   };
 }

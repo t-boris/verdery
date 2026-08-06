@@ -18,6 +18,7 @@ import type {
   GardenObjectCategory,
   GardenObjectDetails,
   Geometry,
+  ObjectSourceMetadata,
   ProvenanceKind,
 } from '@verdery/geometry-contracts';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
@@ -34,6 +35,8 @@ export interface MapObject {
   readonly provenance: ProvenanceKind;
   /** 0..1 where the source supplies one; `null` means "not expressed," not "certain." */
   readonly confidence: number | null;
+  /** Provider/model/transform lineage for accepted generated geometry. */
+  readonly sourceMetadata: ObjectSourceMetadata | null;
   readonly lifecycleState: MapObjectLifecycleState;
   readonly currentRevision: number;
   /** Absent for categories with no specialized fields (lot, path, waterFeature). */

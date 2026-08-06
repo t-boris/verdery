@@ -45,6 +45,7 @@ describe('toMapObjectRecord', () => {
       category: 'structure',
       geometry: WIRE_STRUCTURE.geometryEnvelope.geometry,
       label: 'Shed',
+      provenance: 'manualDrawing',
       categoryDetails: { category: 'structure', details: { structureKind: 'shed' } },
       lifecycleState: 'active',
       revision: 3,

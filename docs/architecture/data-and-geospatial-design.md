@@ -234,6 +234,11 @@ Provenance records identify:
 - AI or deterministic processor.
 
 Generated results additionally reference processor version, model version, input media, and acceptance outcome.
+For accepted aerial proposals, `garden_object.source_metadata` retains the complete validated
+provider/model/imagery/transform lineage as JSON while the queryable `provenance` and `confidence`
+columns retain their existing scalar semantics. Review-only proposals are not stored; accepting one
+creates an ordinary revisioned object, and its immutable source metadata is carried forward by
+later geometry/property revisions.
 
 ## 13. Revision Model
 

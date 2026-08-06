@@ -116,6 +116,26 @@ export function findAerialTraceAiIssues(
 }
 
 /**
+ * Cross-field rule for the plat-reading switch (ADR-0018), the
+ * `findPlantSpeciesAiIssues` shape exactly, including the same shared-project
+ * reasoning.
+ */
+export function findPlatReadingIssues(
+  source: Readonly<Record<string, string | undefined>>,
+): ConfigurationIssue[] {
+  if (source['PLAT_READING_ENABLED'] !== 'true') {
+    return [];
+  }
+
+  return (['RECOMMENDATION_AI_VERTEX_PROJECT_ID', 'PLAT_READING_MODEL'] as const)
+    .filter((field) => source[field] === undefined)
+    .map((field) => ({
+      variable: field,
+      message: 'Required when PLAT_READING_ENABLED is "true"',
+    }));
+}
+
+/**
  * Cross-field rule for the Open-Meteo tier, the `findDatabaseModeIssues`
  * shape (and its same raw-source reasoning): the paid host authenticates by
  * `apikey` and rejects every keyless request, so selecting it without a key

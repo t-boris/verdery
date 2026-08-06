@@ -96,6 +96,25 @@ function PropertyForm({
           </p>
         </div>
       </div>
+      {record.sourceMetadata?.kind === 'aerialImageExtraction' && (
+        <div className={styles['source']}>
+          <strong>{t('map.properties.aerialSource')}</strong>
+          <span>
+            {record.sourceMetadata.imagery.providerName} ·{' '}
+            {record.sourceMetadata.imagery.capturedOn ?? t('map.aerialTrace.dateUnknown')} ·{' '}
+            {record.sourceMetadata.model}
+            {record.confidence === undefined
+              ? ''
+              : ` · ${t('map.properties.confidence', {
+                  percent: String(Math.round(record.confidence * 100)),
+                })}`}
+          </span>
+          <a href={record.sourceMetadata.imagery.licenseUrl} target="_blank" rel="noreferrer">
+            {record.sourceMetadata.imagery.attributionText} ·{' '}
+            {record.sourceMetadata.imagery.licenseName}
+          </a>
+        </div>
+      )}
       <GeometryDimensionEditor
         key={`${record.id}:${record.revision}`}
         actions={actions}

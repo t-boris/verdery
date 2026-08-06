@@ -24,6 +24,10 @@ export const russianAerialTraceMessages: Record<keyof typeof englishAerialTraceM
   'map.aerialTrace.label': 'Название',
   'map.aerialTrace.category': 'Категория',
   'map.aerialTrace.reject': 'Отклонить предложение',
-  'map.aerialTrace.reviewOnly':
-    'Это временные предложения. Каноническое принятие появится после включения хранилища предложений с сохранением происхождения.',
+  'map.aerialTrace.include': 'Включить в выбранные предложения',
+  'map.aerialTrace.acceptOne': 'Принять это предложение',
+  'map.aerialTrace.acceptSelected': 'Принять выбранные: {count}',
+  'map.aerialTrace.accepted': 'Принято предложений с аэроснимка: {count}.',
+  'map.aerialTrace.stale':
+    'После трассировки сохранённое местоположение изменилось. Перед принятием повторите трассировку.',
 };

@@ -20,10 +20,14 @@ interface AerialTracePanelProps {
   readonly result: WireAerialTraceResult | null;
   readonly proposals: readonly WireAerialTraceProposal[];
   readonly selectedId: string | null;
+  readonly checkedIds: ReadonlySet<string>;
+  readonly accepting: boolean;
   readonly onTrace: () => void;
   readonly onSelect: (proposalId: string) => void;
   readonly onUpdate: (proposal: WireAerialTraceProposal) => void;
   readonly onReject: (proposalId: string) => void;
+  readonly onToggleChecked: (proposalId: string) => void;
+  readonly onAccept: (proposalIds: readonly string[]) => void;
 }
 
 const OUTCOME_MESSAGES: Record<Exclude<WireAerialTraceResult['kind'], 'ready'>, MessageKey> = {
@@ -62,10 +66,14 @@ export function AerialTracePanel({
   result,
   proposals,
   selectedId,
+  checkedIds,
+  accepting,
   onTrace,
   onSelect,
   onUpdate,
   onReject,
+  onToggleChecked,
+  onAccept,
 }: AerialTracePanelProps) {
   const { t } = useLocalization();
 
@@ -98,6 +106,14 @@ export function AerialTracePanel({
           <ul className={styles['list']}>
             {proposals.map((proposal) => (
               <li key={proposal.proposalId} className={styles['proposal']}>
+                <label className={styles['choice']}>
+                  <input
+                    type="checkbox"
+                    checked={checkedIds.has(proposal.proposalId)}
+                    onChange={() => onToggleChecked(proposal.proposalId)}
+                  />
+                  <span>{t('map.aerialTrace.include')}</span>
+                </label>
                 <Button
                   variant="secondary"
                   aria-pressed={proposal.proposalId === selectedId}
@@ -135,10 +151,23 @@ export function AerialTracePanel({
                 <Button variant="secondary" onClick={() => onReject(proposal.proposalId)}>
                   {t('map.aerialTrace.reject')}
                 </Button>
+                <Button
+                  variant="secondary"
+                  busy={accepting}
+                  onClick={() => onAccept([proposal.proposalId])}
+                >
+                  {t('map.aerialTrace.acceptOne')}
+                </Button>
               </li>
             ))}
           </ul>
-          <Alert tone="info" title={t('map.aerialTrace.reviewOnly')} />
+          <Button
+            busy={accepting}
+            disabled={checkedIds.size === 0}
+            onClick={() => onAccept([...checkedIds])}
+          >
+            {t('map.aerialTrace.acceptSelected', { count: String(checkedIds.size) })}
+          </Button>
         </>
       )}
     </section>

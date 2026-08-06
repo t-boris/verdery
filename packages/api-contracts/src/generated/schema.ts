@@ -5644,6 +5644,7 @@ export interface components {
             category: components["schemas"]["GardenObjectCategory"];
             geometryEnvelope: components["schemas"]["GeometryEnvelope"];
             label?: string;
+            sourceMetadata?: components["schemas"]["AerialObjectSourceMetadata"];
             details?: components["schemas"]["GardenObjectDetails"];
             lifecycleState: components["schemas"]["GardenObjectLifecycleState"];
             revision: components["schemas"]["Revision"];
@@ -5785,6 +5786,20 @@ export interface components {
             geometry: components["schemas"]["Geometry"];
             label?: string;
             categoryDetails?: components["schemas"]["GardenObjectDetails"];
+            /**
+             * @description Where the object came from, when it did not come from someone's
+             *     finger on the canvas — a plat reading accepted in review
+             *     (`readPlatFromPlan`), an import, a measurement. Recorded as given:
+             *     the API cannot verify how a client came by a shape, and a claim of
+             *     `imageExtraction` describes the client's own workflow rather than
+             *     granting anything. Omitted means `manualDrawing`, today's behaviour.
+             */
+            source?: {
+                provenance: components["schemas"]["ProvenanceKind"];
+                /** @description The source's own confidence, where it expressed one. Stored alongside the object; decides nothing. */
+                confidence?: number;
+                metadata?: components["schemas"]["AerialObjectSourceMetadata"];
+            };
         };
         MoveObjectCommand: {
             /**
@@ -8223,6 +8238,30 @@ export interface components {
             licenseName: string;
             /** Format: uri */
             licenseUrl: string;
+        };
+        /** @description Complete lineage retained when a reviewed aerial proposal becomes a canonical object. */
+        AerialObjectSourceMetadata: {
+            /** @constant */
+            kind: "aerialImageExtraction";
+            proposalId: components["schemas"]["Uuid"];
+            processor: string;
+            model: string;
+            promptTemplateVersion: number;
+            /** @enum {string} */
+            boundaryEvidence: "notApplicable" | "visualEvidence";
+            limitations: string[];
+            imagery: components["schemas"]["AerialImageryIdentity"];
+            imageryBounds: {
+                west: number;
+                south: number;
+                east: number;
+                north: number;
+            };
+            imageryWidthPixels: number;
+            imageryHeightPixels: number;
+            imageryResolutionMetres: number;
+            imageryHorizontalAccuracyMetres: number | null;
+            georeferenceRevision: number;
         };
         AerialTraceProvenance: {
             /** @constant */

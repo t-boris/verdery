@@ -16,6 +16,11 @@ export function toMapObjectRecord(wire: WireGardenObject): MapObjectRecord {
     gardenId: wire.gardenId,
     category: wire.category,
     geometry: wire.geometryEnvelope.geometry,
+    provenance: wire.geometryEnvelope.provenance,
+    ...(wire.geometryEnvelope.confidence === undefined
+      ? {}
+      : { confidence: wire.geometryEnvelope.confidence }),
+    ...(wire.sourceMetadata === undefined ? {} : { sourceMetadata: wire.sourceMetadata }),
     ...(wire.label === undefined ? {} : { label: wire.label }),
     ...(wire.details === undefined
       ? {}

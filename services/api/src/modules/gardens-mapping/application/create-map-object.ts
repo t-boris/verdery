@@ -77,8 +77,14 @@ export class CreateMapObject {
         category: payload.category,
         geometry: payload.geometry,
         label: payload.label ?? null,
-        provenance: payload.category === 'importedBackground' ? 'importedPlan' : 'manualDrawing',
-        confidence: null,
+        // A client that says where the shape came from is believed — see
+        // `CreateObjectSource`'s own comment on why that is not a privilege.
+        // Nothing said means the two long-standing defaults.
+        provenance:
+          payload.source?.provenance ??
+          (payload.category === 'importedBackground' ? 'importedPlan' : 'manualDrawing'),
+        confidence: payload.source?.confidence ?? null,
+        sourceMetadata: payload.source?.metadata ?? null,
         lifecycleState: 'active',
         currentRevision: 1,
         details: payload.categoryDetails,

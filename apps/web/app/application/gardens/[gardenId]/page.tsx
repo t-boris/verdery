@@ -2,7 +2,7 @@ import { getRequestTranslator } from '@/shared/localization/server';
 
 import { Collaborators } from '@/features/collaboration/public';
 import { ContextQuality } from '@/features/garden-context/public';
-import { GardenSettings } from '@/features/gardens/public';
+import { GardenDangerZone, GardenSettings } from '@/features/gardens/public';
 import { GardenLocationPanel } from '@/features/map/public';
 import { GardenPhotoUpload, GardenPlanUpload } from '@/features/media/public';
 import {
@@ -41,22 +41,27 @@ export default async function GardenSettingsPage({
     <RoutePage>
       <RouteHeader title={t('gardens.settingsTitle')} />
       <RouteBody>
-        {/* Each section is its own band. No band headings here: every one of
-            these components already renders its own heading, and a second
-            would duplicate it. */}
+        {/*
+         * Ordered by how often an owner needs each one, which is not the
+         * order they were built in. Archiving and deletion used to be the
+         * SECOND band on the page — the two irreversible actions, above the
+         * location, the plan, and everyone who works here (reported
+         * 2026-08-06). They are last now.
+         *
+         * No band headings: every component below renders its own, and a
+         * second would only repeat it.
+         */}
         <RoutePanel>
           <GardenSettings gardenId={gardenId} />
         </RoutePanel>
-        {/* Above the media and collaboration bands on purpose: until a
-            garden has this, its weather, hemisphere, and seasonal plan have
-            no input at all, so it is the most consequential setting on the
-            page rather than one more of them. */}
+        {/* First real setting: until a garden has this, its weather,
+            hemisphere, seasonal plan, aerial backdrop and true north all have
+            no input at all. */}
         <RoutePanel>
           <GardenLocationPanel gardenId={gardenId} />
         </RoutePanel>
-        <RoutePanel>
-          <GardenPhotoUpload gardenId={gardenId} />
-        </RoutePanel>
+        {/* Then the survey. A plan is what turns a drawing into measurements,
+            so it sits above the photo gallery rather than below it. */}
         <RoutePanel>
           <GardenPlanUpload gardenId={gardenId} />
         </RoutePanel>
@@ -70,7 +75,13 @@ export default async function GardenSettingsPage({
           <GardenEngagementsSection gardenId={gardenId} />
         </RoutePanel>
         <RoutePanel>
+          <GardenPhotoUpload gardenId={gardenId} />
+        </RoutePanel>
+        <RoutePanel>
           <ContextQuality gardenId={gardenId} />
+        </RoutePanel>
+        <RoutePanel>
+          <GardenDangerZone gardenId={gardenId} />
         </RoutePanel>
       </RouteBody>
     </RoutePage>

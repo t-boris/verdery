@@ -450,13 +450,43 @@ self-intersecting, or underspecified geometry is omitted. A lot is omitted unles
 adequate visible evidence and explicit limitations. Even then it is an approximate visual proposal,
 never an authoritative or legal property boundary.
 
-The current web implementation exposes **Trace aerial image** directly below the saved location,
-renders the proposals over the same synchronized backdrop, and lets the reviewer move geometry,
-edit polygon/line vertices, change a geometry-compatible category or label, and reject a proposal.
-That editing state is temporary. Persistence and `decideProposal` acceptance remain gated: the
-current database has no proposal table, and ordinary `createObject` deliberately stamps manual
-provenance. Until the shared plat/aerial proposal store is added, clients must not discard extraction
-provenance by routing these candidates through `createObject`.
+The web implementation exposes **Trace aerial image** directly below the saved location, renders
+the proposals over the same synchronized backdrop, and lets the reviewer move geometry, edit
+polygon/line vertices, change a geometry-compatible category or label, reject a proposal, accept
+one, or accept a checked subset. Review state remains temporary and writes nothing by itself.
+Acceptance uses the same ordinary `createObject` command as plat reading. The canonical object
+preserves `imageExtraction` provenance and confidence plus durable JSON source metadata: proposal
+identity, processor/model/prompt version, imagery identity/date/bounds/resolution/accuracy,
+provider attribution and licence, boundary evidence, limitations, and georeference revision.
+
+### 17.2 Reading a plat of survey
+
+The first real producer of proposals is `readPlatFromPlan` (ADR-0018): an uploaded plat is
+transcribed, its boundary calls are walked into a lot polygon, and everything else drawn on the
+sheet is carried into garden metres at the survey's own scale.
+
+The reading is **synchronous and stores nothing** — the endpoint writes no proposal record, no
+object, and no georeference. What comes back is reviewed in the client, next to the plan it came
+from, and each accepted item becomes an ordinary `createObject` command. That is why acceptance
+here has no `decideProposal` step: until the person accepts, nothing exists to decide.
+
+What review shows, because it is what a person needs in order to disbelieve the reading:
+
+- the traverse's **closure error** in metres, and whether it closes at all;
+- the walked **area** beside the area the sheet itself states;
+- the **page-fit residual** — how closely the drawing's own lot outline matched the walked
+  polygon, which bounds every object placed by that fit;
+- each object's own **confidence**, its category, and its size.
+
+Each proposal arrives as the geometry its category actually holds (section 5): an outline for a
+structure or a zone, a centre line for a path or a fence, a trunk position for a tree. An accepted
+object records where it came from — `importedPlan` for the boundary walked from printed
+measurements, `imageExtraction` for a shape traced off the drawing — through `createObject`'s
+optional `source`, so a surveyed line is never mistaken later for a hand-drawn one.
+
+When the traverse does not close, the boundary is still returned and marked as not closing, but no
+objects are proposed: without a trustworthy lot there is no scale, and an object placed by a guess
+at scale is worse than no object.
 
 ## 18. Selection and Properties
 

@@ -44,6 +44,7 @@ import {
   registerInvitationRoutes,
   registerGeoreferenceRoutes,
   registerMapRoutes,
+  registerPlatRoutes,
   registerMemberRoutes,
   registerOwnershipRoutes,
 } from './modules/gardens-mapping/public.js';
@@ -123,6 +124,7 @@ export async function buildApplication(
     plantSpeciesIdentificationAdapter,
     plantConditionAnalysisAdapter,
     aerialGardenExtractionAdapter,
+    platExtractionAdapter,
     pushMessageSender,
     identityProviderAccounts,
   } = dependencies;
@@ -158,6 +160,7 @@ export async function buildApplication(
     gardenRoutesDependencies,
     mapRoutesDependencies,
     georeferenceRoutesDependencies,
+    platRoutesDependencies,
     invitationRoutesDependencies,
     memberRoutesDependencies,
     invitationExpirySweepRouteDependencies,
@@ -167,9 +170,11 @@ export async function buildApplication(
     database,
     clock,
     cloudTasksInvocationVerifier,
+    logger,
     configuration.aerialTraceAi,
     aerialGardenExtractionAdapter ?? null,
-    logger,
+    platExtractionAdapter,
+    configuration.platReading.callTimeoutMs,
   );
 
   // integrations (P7-ASYNC-01, P7-AI-01, P9C-INVITE-01, P11-ASYNC-01):
@@ -496,6 +501,7 @@ export async function buildApplication(
       registerGardenRoutes(instance, gardenRoutesDependencies);
       registerMapRoutes(instance, mapRoutesDependencies);
       registerGeoreferenceRoutes(instance, georeferenceRoutesDependencies);
+      registerPlatRoutes(instance, platRoutesDependencies);
       // P12-GEO-01: address lookup for that same resource. Authenticated like
       // everything else in this block — it reads no garden, but it spends a
       // provider call, and an unauthenticated one would be a free proxy to a

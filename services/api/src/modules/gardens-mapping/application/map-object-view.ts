@@ -21,6 +21,7 @@ import type {
   GardenObjectDetails,
   Geometry,
   ProvenanceKind,
+  ObjectSourceMetadata,
 } from '@verdery/geometry-contracts';
 import type { MapObject } from '../domain/map-object.js';
 
@@ -59,6 +60,7 @@ export interface GardenObjectResource {
     readonly confidence?: number;
   };
   readonly label?: string;
+  readonly sourceMetadata?: ObjectSourceMetadata;
   /** Flat wire shape — see `toWireGardenObjectDetails`'s doc comment. */
   readonly details?: Record<string, unknown>;
   readonly lifecycleState: 'active' | 'deleted';
@@ -88,6 +90,7 @@ export function toGardenObjectResource(object: MapObject): GardenObjectResource 
       ...(object.confidence === null ? {} : { confidence: object.confidence }),
     },
     ...(object.label === null ? {} : { label: object.label }),
+    ...(object.sourceMetadata === null ? {} : { sourceMetadata: object.sourceMetadata }),
     ...(object.details === undefined ? {} : { details: toWireGardenObjectDetails(object.details) }),
     lifecycleState: object.lifecycleState,
     revision: object.currentRevision,

@@ -22,6 +22,7 @@ import type {
   AiExplanationProviderAdapter,
   PlantConditionAnalysisProviderAdapter,
   PlantSpeciesIdentificationProviderAdapter,
+  PlatExtractionProviderAdapter,
 } from './modules/integrations/public.js';
 import type { MediaStorageGateway } from './modules/media/public.js';
 import type { PushMessageSender } from './modules/notifications/public.js';
@@ -88,6 +89,13 @@ export interface ApplicationDependencies {
    * Same shape as `plantSpeciesIdentificationAdapter`.
    */
   readonly plantConditionAnalysisAdapter: PlantConditionAnalysisProviderAdapter | null;
+  /**
+   * ADR-0018: the Vertex AI plat-extraction adapter, or `null` whenever
+   * `PLAT_READING_ENABLED` is off. Same shape as the two adapters above;
+   * with `null` the reading endpoint refuses honestly rather than
+   * pretending to have read anything.
+   */
+  readonly platExtractionAdapter: PlatExtractionProviderAdapter | null;
   /**
    * P7-NOTIF-02: the FCM boundary — `main.ts` builds the real
    * `FcmPushMessageSender` over the same `firebase-admin` app the token

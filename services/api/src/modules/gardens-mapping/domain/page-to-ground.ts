@@ -130,6 +130,18 @@ export function applyPageToGround(point: PagePoint, transform: PageToGroundTrans
   ];
 }
 
+/**
+ * An open run of points in metres — a path's course, a fence line, a single
+ * trunk position. Open deliberately: closing it would turn a driveway into a
+ * loop, and the categories that need a closed ring use `outlineToGround`.
+ */
+export function pointsToGround(
+  points: readonly PagePoint[],
+  transform: PageToGroundTransform,
+): readonly GroundPoint[] {
+  return points.map((point) => applyPageToGround(point, transform));
+}
+
 /** A whole outline in metres, closed, ready to become a polygon. */
 export function outlineToGround(
   outline: readonly PagePoint[],

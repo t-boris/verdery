@@ -15,6 +15,7 @@ import {
   findAerialTraceAiIssues,
   findDatabaseModeIssues,
   findPlantConditionAiIssues,
+  findPlatReadingIssues,
   findPlantSpeciesAiIssues,
   findTransactionalEmailIssues,
   findWeatherProviderIssues,
@@ -85,6 +86,7 @@ export function loadConfiguration(
     ...findPlantSpeciesAiIssues(source),
     ...findPlantConditionAiIssues(source),
     ...findAerialTraceAiIssues(source),
+    ...findPlatReadingIssues(source),
     ...findWeatherProviderIssues(source),
     ...findTransactionalEmailIssues(source),
   ];

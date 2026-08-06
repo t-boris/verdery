@@ -20,6 +20,7 @@ import type {
   AssignPlantPayload,
   ChangePropertiesPayload,
   CreateObjectPayload,
+  CreateObjectSource,
   DeleteObjectPayload,
   DuplicateObjectPayload,
   EditVertexPayload,
@@ -104,6 +105,34 @@ export function buildCreateObjectCommand(
     category,
     geometry,
     ...(categoryDetails === undefined ? {} : { categoryDetails }),
+  };
+}
+
+/**
+ * Builds a `createObject` command for a shape a person ACCEPTED rather than
+ * drew — today, an object read off a plat of survey (ADR-0018).
+ *
+ * Two things separate it from `buildCreateObjectCommand`: the label the
+ * drawing itself printed is carried through, and `source` records where the
+ * shape came from, so the map does not remember an extracted house as
+ * something someone traced by hand.
+ */
+export function buildAcceptProposedObjectCommand(
+  objectId: string,
+  category: Exclude<CreatableCategory, 'gate'>,
+  geometry: Geometry,
+  label: string | undefined,
+  source: CreateObjectSource,
+): CreateObjectPayload {
+  const categoryDetails = defaultCategoryDetails(category);
+  return {
+    type: 'createObject',
+    objectId,
+    category,
+    geometry,
+    ...(label === undefined || label.trim() === '' ? {} : { label: label.slice(0, 200) }),
+    ...(categoryDetails === undefined ? {} : { categoryDetails }),
+    source,
   };
 }
 

@@ -156,6 +156,28 @@ Vertex AI is the initial provider behind the AI adapter. The adapter enforces us
 
 A provider replacement must reproduce evaluation quality and deletion/privacy obligations before rollout.
 
+Four AI capabilities are wired today, each behind its own kill switch, its own explicitly chosen
+model, and one shared Vertex project/location (ADR-0008):
+
+| Capability                   | Switch                                  | Model variable             | Adapter                                             |
+| ---------------------------- | --------------------------------------- | -------------------------- | --------------------------------------------------- |
+| Recommendation explanations  | `RECOMMENDATION_AI_EXPLANATION_ENABLED` | `RECOMMENDATION_AI_MODEL`  | `vertex-ai-explanation-adapter.ts`                  |
+| Plant species identification | `PLANT_SPECIES_AI_ENABLED`              | `PLANT_SPECIES_AI_MODEL`   | `vertex-ai-plant-species-identification-adapter.ts` |
+| Plant condition analysis     | `PLANT_CONDITION_AI_ENABLED`            | `PLANT_CONDITION_AI_MODEL` | `vertex-ai-plant-condition-analysis-adapter.ts`     |
+| Plat reading (ADR-0018)      | `PLAT_READING_ENABLED`                  | `PLAT_READING_MODEL`       | `vertex-ai-plat-extraction-adapter.ts`              |
+
+Plat reading differs from the other three in what it asks for: a TRANSCRIPTION. Every field it
+returns is text printed on the page — a bearing in degrees, minutes and seconds; a distance with
+the label it was read from; the address as written — plus page-coordinate outlines for the shapes
+drawn on the sheet. It is told in the instruction, and again by the response schema's own shape,
+that it may not compute the lot polygon, may not convert a unit, and may not state a dimension in
+feet or metres for anything but the boundary calls. The polygon is walked from the calls by
+`gardens-mapping/domain/survey-traverse.ts`; the scale for everything else comes from fitting the
+lot's page outline onto that walked polygon (`page-to-ground.ts`). Its timeout and token ceiling
+are far larger than the other capabilities' (`PLAT_READING_CALL_TIMEOUT_MS`, default 120 s;
+`PLAT_READING_MAX_OUTPUT_TOKENS`, default 8192) because a plat carries dozens of calls and every
+structure on the lot, and the call is interactive — a person is waiting on it.
+
 ### 9.1 Which photograph is sent, and the size the provider will accept
 
 A vision provider refuses an image above its own file-size limit. Vertex AI answers a

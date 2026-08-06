@@ -7,7 +7,10 @@ import type {
   PlatExtractionAdapterOutcome,
   PlatExtractionProviderAdapter,
 } from '../../integrations/public.js';
+import type { GardenRole } from '../domain/garden-role.js';
 import { closeTraverse } from '../domain/survey-traverse.js';
+import { GardenAuthorization } from './garden-authorization.js';
+import type { MembershipRepository } from './membership-repository.js';
 import {
   ReadPlatFromPlan,
   type PlatPageResolver,
@@ -16,6 +19,7 @@ import {
 
 const GARDEN_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0b' as Uuid;
 const PLAN_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0c' as Uuid;
+const PROFILE_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0d' as Uuid;
 
 const PAGE: PlatReadingSource = {
   bucketName: 'derived',
@@ -102,7 +106,7 @@ const CASCADE_WAY_OUTCOME: PlatExtractionAdapterOutcome = {
         label: '2 STORY FRAME #7612',
         // Drawn inside the lot, a tenth of the sheet across: on a lot whose
         // longest side is about 41 m, that is a house-sized footprint.
-        pageOutline: [
+        pagePoints: [
           [0.4, 0.55],
           [0.5, 0.55],
           [0.5, 0.47],
@@ -111,13 +115,13 @@ const CASCADE_WAY_OUTCOME: PlatExtractionAdapterOutcome = {
         confidence: 0.8,
       },
       {
+        // A drive is a LINE on the map, so the reader traces its centre
+        // rather than its two edges — see `plat-extraction-provider.ts`.
         category: 'path',
         label: 'ASPHALT DRIVE',
-        pageOutline: [
-          [0.38, 0.6],
-          [0.44, 0.6],
-          [0.44, 0.55],
-          [0.38, 0.55],
+        pagePoints: [
+          [0.38, 0.62],
+          [0.42, 0.56],
         ],
         confidence: 0.7,
       },
@@ -157,6 +161,21 @@ function adapterReturning(outcome: PlatExtractionAdapterOutcome): PlatExtraction
 const pageResolver: PlatPageResolver = { resolvePage: () => Promise.resolve(PAGE) };
 const noPageResolver: PlatPageResolver = { resolvePage: () => Promise.resolve(null) };
 
+/** Membership enough to edit the garden — the capability reading a plan requires. */
+function authorizationFor(role: GardenRole): GardenAuthorization {
+  return new GardenAuthorization({
+    findGardenAccess: (gardenId: Uuid, profileId: Uuid) =>
+      Promise.resolve(
+        gardenId === GARDEN_ID && profileId === PROFILE_ID
+          ? {
+              membership: { id: 'membership-1', gardenId, profileId, role },
+              gardenLifecycleState: 'active' as const,
+            }
+          : null,
+      ),
+  } as unknown as MembershipRepository);
+}
+
 function silentLogger() {
   return pino({ level: 'silent' });
 }
@@ -166,9 +185,10 @@ describe('ReadPlatFromPlan', () => {
     const reading = await new ReadPlatFromPlan(
       adapterReturning(CASCADE_WAY_OUTCOME),
       pageResolver,
+      authorizationFor('editor'),
       60_000,
       silentLogger(),
-    ).execute(GARDEN_ID, PLAN_ID);
+    ).execute(GARDEN_ID, PROFILE_ID, PLAN_ID);
 
     expect(reading.isPlat).toBe(true);
     expect(reading.address).toBe('7612 CASCADE WAY, GURNEE, IL 60031');
@@ -190,11 +210,16 @@ describe('ReadPlatFromPlan', () => {
     const reading = await new ReadPlatFromPlan(
       adapterReturning(CASCADE_WAY_OUTCOME),
       pageResolver,
+      authorizationFor('editor'),
       60_000,
       silentLogger(),
-    ).execute(GARDEN_ID, PLAN_ID);
+    ).execute(GARDEN_ID, PROFILE_ID, PLAN_ID);
 
     expect(reading.objects.map((object) => object.category)).toEqual(['structure', 'path']);
+    expect(reading.objects.map((object) => object.geometry.type)).toEqual([
+      'Polygon',
+      'LineString',
+    ]);
     const house = reading.objects[0];
     expect(house?.label).toContain('2 STORY FRAME');
     expect(house?.geometry.type).toBe('Polygon');
@@ -214,9 +239,10 @@ describe('ReadPlatFromPlan', () => {
         plat: { ...CASCADE_WAY_OUTCOME.plat, lotPageOutline: [] },
       }),
       pageResolver,
+      authorizationFor('editor'),
       60_000,
       silentLogger(),
-    ).execute(GARDEN_ID, PLAN_ID);
+    ).execute(GARDEN_ID, PROFILE_ID, PLAN_ID);
 
     expect(reading.objects).toEqual([]);
     expect(reading.pageFitResidualMetres).toBeNull();
@@ -226,9 +252,10 @@ describe('ReadPlatFromPlan', () => {
     const reading = await new ReadPlatFromPlan(
       adapterReturning({ kind: 'notAPlat' }),
       pageResolver,
+      authorizationFor('editor'),
       60_000,
       silentLogger(),
-    ).execute(GARDEN_ID, PLAN_ID);
+    ).execute(GARDEN_ID, PROFILE_ID, PLAN_ID);
 
     expect(reading.isPlat).toBe(false);
     expect(reading.boundary).toBeNull();
@@ -236,7 +263,13 @@ describe('ReadPlatFromPlan', () => {
 
   it('refuses when no reader is configured, rather than pretending', async () => {
     await expect(
-      new ReadPlatFromPlan(null, pageResolver, 60_000, silentLogger()).execute(GARDEN_ID, PLAN_ID),
+      new ReadPlatFromPlan(
+        null,
+        pageResolver,
+        authorizationFor('editor'),
+        60_000,
+        silentLogger(),
+      ).execute(GARDEN_ID, PROFILE_ID, PLAN_ID),
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
@@ -245,9 +278,10 @@ describe('ReadPlatFromPlan', () => {
       new ReadPlatFromPlan(
         adapterReturning(CASCADE_WAY_OUTCOME),
         noPageResolver,
+        authorizationFor('editor'),
         60_000,
         silentLogger(),
-      ).execute(GARDEN_ID, PLAN_ID),
+      ).execute(GARDEN_ID, PROFILE_ID, PLAN_ID),
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
@@ -283,9 +317,10 @@ describe('ReadPlatFromPlan', () => {
         },
       }),
       pageResolver,
+      authorizationFor('editor'),
       60_000,
       silentLogger(),
-    ).execute(GARDEN_ID, PLAN_ID);
+    ).execute(GARDEN_ID, PROFILE_ID, PLAN_ID);
 
     expect(reading.isPlat).toBe(true);
     expect(reading.boundary?.closes).toBe(false);

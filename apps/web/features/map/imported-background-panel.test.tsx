@@ -7,6 +7,7 @@ import { LocalizationProvider } from '@/shared/localization/public';
 import { MapEditorStoreProvider } from './editor-store';
 import { ImportedBackgroundPanel } from './imported-background-panel';
 import { useDeleteGardenPlan, useGardenPlanMediaList } from './media-queries';
+import { useReadPlat } from './plat-queries';
 import type { MapObjectRecord } from './types';
 import type { MapEditorActions } from './use-map-editor-actions';
 
@@ -15,8 +16,24 @@ vi.mock('./media-queries', () => ({
   useDeleteGardenPlan: vi.fn(),
 }));
 
+vi.mock('./plat-queries', () => ({ useReadPlat: vi.fn() }));
+
 const mockedList = vi.mocked(useGardenPlanMediaList);
 const mockedDelete = vi.mocked(useDeleteGardenPlan);
+const mockedReadPlat = vi.mocked(useReadPlat);
+
+/** The plat reading, idle unless a test says otherwise. */
+function stubReadPlat(overrides: Record<string, unknown> = {}) {
+  return {
+    mutate: vi.fn(),
+    reset: vi.fn(),
+    isPending: false,
+    isError: false,
+    error: null,
+    data: undefined,
+    ...overrides,
+  } as never;
+}
 
 /** The delete mutation, idle unless a test says otherwise. */
 function stubDeleteMutation(overrides: Record<string, unknown> = {}) {
@@ -79,6 +96,7 @@ const BACKGROUND: MapObjectRecord = {
 
 function mockListResult(items: readonly Media[]): void {
   mockedDelete.mockReturnValue(stubDeleteMutation());
+  mockedReadPlat.mockReturnValue(stubReadPlat());
   mockedList.mockReturnValue({
     data: { items: [...items] },
     isPending: false,

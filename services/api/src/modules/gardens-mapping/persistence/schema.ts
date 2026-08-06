@@ -146,6 +146,7 @@ export interface GardenObjectRow {
   label: string | null;
   provenance: string;
   confidence: number | null;
+  source_metadata: JsonValue;
   lifecycle_state: Generated<string>;
   current_revision: Generated<number>;
   created_by_profile_id: string;

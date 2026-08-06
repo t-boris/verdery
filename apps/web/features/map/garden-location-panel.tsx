@@ -38,7 +38,7 @@ export interface GardenLocationPanelProps {
  * architecture/data-and-geospatial-design.md, section "9. Georeferencing".
  */
 export function GardenLocationPanel({ gardenId }: GardenLocationPanelProps) {
-  const { t, locale } = useLocalization();
+  const { t } = useLocalization();
   const isOnline = useIsOnline();
   const map = useGardenMap(gardenId);
   const save = useSetGardenGeoreference(gardenId);
@@ -76,7 +76,7 @@ export function GardenLocationPanel({ gardenId }: GardenLocationPanelProps) {
     setFormattedAddress(current.formattedAddress ?? '');
   }, [current]);
 
-  const onAddressPicked = (position: readonly [number, number], address: string) => {
+  const onAddressPicked = (position: readonly [number, number], formattedAddress: string) => {
     const [pickedLongitude, pickedLatitude] = position;
     setLongitude(pickedLongitude.toFixed(6));
     setLatitude(pickedLatitude.toFixed(6));
@@ -86,7 +86,7 @@ export function GardenLocationPanel({ gardenId }: GardenLocationPanelProps) {
     // of match they accepted.
     setAccuracyMetres(null);
     setMethod('addressSearch');
-    setFormattedAddress(address);
+    setFormattedAddress(formattedAddress);
     setLocationError(null);
     setFieldError(null);
   };
@@ -159,9 +159,6 @@ export function GardenLocationPanel({ gardenId }: GardenLocationPanelProps) {
     });
   };
 
-  const formatCoordinate = (value: number) =>
-    new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(value);
-
   return (
     <section className={styles['panel']} aria-labelledby="garden-location-heading">
       <h2 id="garden-location-heading" className={styles['title']}>
@@ -173,39 +170,25 @@ export function GardenLocationPanel({ gardenId }: GardenLocationPanelProps) {
 
       {map.isLoadingError && <FailureAlert failure={map.error.failure} />}
 
-      {!map.isPending &&
-        !map.isLoadingError &&
-        (current === undefined ? (
-          <p className={styles['empty']}>{t('gardenLocation.empty')}</p>
-        ) : (
-          <dl className={styles['current']}>
-            <div className={styles['row']}>
-              <dt>{t('gardenLocation.currentAddress')}</dt>
-              <dd>{current.formattedAddress ?? t('gardenLocation.addressUnknown')}</dd>
-            </div>
-            <div className={styles['row']}>
-              <dt>{t('gardenLocation.currentCoordinates')}</dt>
-              <dd>
-                {formatCoordinate(current.geographicAnchor[1])},{' '}
-                {formatCoordinate(current.geographicAnchor[0])}
-              </dd>
-            </div>
-            <div className={styles['row']}>
-              <dt>{t('gardenLocation.currentRotation')}</dt>
-              <dd>{t('gardenLocation.degrees', { degrees: current.rotationDegrees })}</dd>
-            </div>
-            <div className={styles['row']}>
-              <dt>{t('gardenLocation.currentAccuracy')}</dt>
-              <dd>
-                {current.accuracyMetres === undefined
-                  ? t('gardenLocation.accuracyUnknown')
-                  : t('gardenLocation.metres', {
-                      metres: Math.round(current.accuracyMetres),
-                    })}
-              </dd>
-            </div>
-          </dl>
-        ))}
+      {!map.isPending && !map.isLoadingError && current === undefined && (
+        <p className={styles['empty']}>{t('gardenLocation.empty')}</p>
+      )}
+
+      {current?.formattedAddress !== undefined && (
+        <dl className={styles['current']}>
+          <div className={styles['row']}>
+            <dt>{t('gardenLocation.currentAddress')}</dt>
+            <dd>{current.formattedAddress}</dd>
+          </div>
+        </dl>
+      )}
+
+      {current?.accuracyMetres !== undefined && (
+        <p className={styles['hint']}>
+          {t('gardenLocation.currentAccuracy')}:{' '}
+          {t('gardenLocation.metres', { metres: Math.round(current.accuracyMetres) })}
+        </p>
+      )}
 
       <div className={styles['form']}>
         <AddressSearchField

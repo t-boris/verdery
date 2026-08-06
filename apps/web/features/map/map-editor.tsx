@@ -75,6 +75,10 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
   const mapDraft = useMapDraftPersistence(gardenId, store);
   const [aerialProposals, setAerialProposals] = useState<readonly WireAerialTraceProposal[]>([]);
   const [selectedAerialProposalId, setSelectedAerialProposalId] = useState<string | null>(null);
+  const [checkedAerialProposalIds, setCheckedAerialProposalIds] = useState<ReadonlySet<string>>(
+    new Set(),
+  );
+  const [acceptingAerial, setAcceptingAerial] = useState(false);
 
   /*
    * Which drawer tab is showing. Selecting an object moves it to Properties —
@@ -173,9 +177,15 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
     });
     setAerialProposals([]);
     setSelectedAerialProposalId(null);
+    setCheckedAerialProposalIds(new Set());
     aerialTrace.mutate(undefined, {
       onSuccess: (result) => {
-        if (result.kind === 'ready') setAerialProposals(result.proposals);
+        if (result.kind === 'ready') {
+          setAerialProposals(result.proposals);
+          setCheckedAerialProposalIds(
+            new Set(result.proposals.map((proposal) => proposal.proposalId)),
+          );
+        }
       },
     });
   };
@@ -184,6 +194,30 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
     setAerialProposals((current) =>
       current.map((proposal) => (proposal.proposalId === next.proposalId ? next : proposal)),
     );
+  };
+
+  const acceptAerial = async (proposalIds: readonly string[]) => {
+    const revision = mapQuery.data.georeference?.revision;
+    if (revision === undefined) return;
+    const requested = aerialProposals.filter((proposal) =>
+      proposalIds.includes(proposal.proposalId),
+    );
+    setAcceptingAerial(true);
+    try {
+      const acceptedIds = await actions.acceptAerialProposals(requested, revision);
+      const accepted = new Set(acceptedIds);
+      setAerialProposals((current) =>
+        current.filter((proposal) => !accepted.has(proposal.proposalId)),
+      );
+      setCheckedAerialProposalIds(
+        (current) => new Set([...current].filter((proposalId) => !accepted.has(proposalId))),
+      );
+      if (selectedAerialProposalId !== null && accepted.has(selectedAerialProposalId)) {
+        setSelectedAerialProposalId(null);
+      }
+    } finally {
+      setAcceptingAerial(false);
+    }
   };
 
   return (
@@ -294,6 +328,8 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
                     result={aerialTrace.data ?? null}
                     proposals={aerialProposals}
                     selectedId={selectedAerialProposalId}
+                    checkedIds={checkedAerialProposalIds}
+                    accepting={acceptingAerial}
                     onTrace={traceAerial}
                     onSelect={setSelectedAerialProposalId}
                     onUpdate={updateAerialProposal}
@@ -304,7 +340,21 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
                       if (selectedAerialProposalId === proposalId) {
                         setSelectedAerialProposalId(null);
                       }
+                      setCheckedAerialProposalIds((current) => {
+                        const next = new Set(current);
+                        next.delete(proposalId);
+                        return next;
+                      });
                     }}
+                    onToggleChecked={(proposalId) => {
+                      setCheckedAerialProposalIds((current) => {
+                        const next = new Set(current);
+                        if (next.has(proposalId)) next.delete(proposalId);
+                        else next.add(proposalId);
+                        return next;
+                      });
+                    }}
+                    onAccept={(proposalIds) => void acceptAerial(proposalIds)}
                   />
                   <MapLayerPanel actions={actions} />
                   <ImportedBackgroundPanel gardenId={gardenId} actions={actions} />

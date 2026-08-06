@@ -122,9 +122,15 @@ export type {
 export type { Measurement, MeasurementAcquisitionMethod, MeasurementUnit } from './measurement.js';
 
 export type {
+  AerialObjectSourceMetadata,
+  ObjectSourceMetadata,
+} from './image-extraction-source.js';
+
+export type {
   AssignPlantPayload,
   ChangePropertiesPayload,
   CreateObjectPayload,
+  CreateObjectSource,
   DecideProposalPayload,
   DeleteObjectPayload,
   DuplicateObjectPayload,

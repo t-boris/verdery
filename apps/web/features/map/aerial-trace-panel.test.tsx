@@ -17,10 +17,14 @@ describe('AerialTracePanel', () => {
           result={null}
           proposals={[]}
           selectedId={null}
+          checkedIds={new Set()}
+          accepting={false}
           onTrace={onTrace}
           onSelect={vi.fn()}
           onUpdate={vi.fn()}
           onReject={vi.fn()}
+          onToggleChecked={vi.fn()}
+          onAccept={vi.fn()}
         />
       </LocalizationProvider>,
     );
@@ -41,10 +45,14 @@ describe('AerialTracePanel', () => {
           result={null}
           proposals={[]}
           selectedId={null}
+          checkedIds={new Set()}
+          accepting={false}
           onTrace={vi.fn()}
           onSelect={vi.fn()}
           onUpdate={vi.fn()}
           onReject={vi.fn()}
+          onToggleChecked={vi.fn()}
+          onAccept={vi.fn()}
         />
       </LocalizationProvider>,
     );

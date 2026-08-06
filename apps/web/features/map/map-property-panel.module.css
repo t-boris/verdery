@@ -61,6 +61,16 @@
   color: var(--color-text-muted);
 }
 
+.source {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border-block-end: var(--border-width) solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
 /* The table itself: one inherited declaration block, every nested field obeys. */
 .form {
   --field-display: grid;

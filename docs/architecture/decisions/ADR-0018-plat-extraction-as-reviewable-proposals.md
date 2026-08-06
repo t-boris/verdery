@@ -92,6 +92,44 @@ proposals over a calibrated backdrop the person is already looking at, never a s
   an application-owned adapter, with the kill switch, quota and timeout that adapter already
   enforces. The geocoder is the one the location panel already uses.
 
+## What was built, and where it differs from the sketch above (August 6, 2026)
+
+The capability shipped end to end on this date. Two things differ from the staged description
+above, and both are recorded here rather than left for a reader to discover in the code.
+
+**The review happens before anything is stored, not through `decideProposal`.** `decideProposal`
+decides a `map_proposal` record, and no such record is written by anything — creating one would
+mean a stored, revisioned, garden-scoped row whose only purpose is to survive the seconds between
+a reading and the person's answer to it. `readPlatFromPlan` therefore **writes nothing at all**:
+it returns the reading, the web client shows it next to the plan, and each accepted item becomes
+an ordinary `createObject` command carrying its own provenance. The principle the sketch was
+protecting — "imported, scanned, inferred, or AI-generated objects are proposals until accepted by
+the user" — holds more strictly this way than it would with a stored proposal, because until the
+person accepts, there is nothing in the database to accept. A stored proposal package is still the
+right shape for an asynchronous producer (a capture pipeline that finishes minutes after the
+person left); it is not the right shape for one interactive call.
+
+**Provenance rides the create command.** `CreateObjectCommand` gained an optional `source`
+(`provenance` plus `confidence`). An accepted lot boundary is `importedPlan` — it is walked from
+the printed bearings, not traced off the picture — and everything else is `imageExtraction` with
+the reader's own confidence. Without this, an accepted house was indistinguishable from a
+hand-drawn one, which is the exact distinction this ADR exists to preserve.
+
+**Sizes come from the survey, not from the reader.** The sketch above imagined reading each
+building's labelled dimensions. What was built is stricter: the reader states no dimension for
+anything except the boundary calls. It outlines each object in PAGE coordinates, the lot's own
+page outline is fitted onto the polygon the boundary calls describe (a similarity fit — rotation,
+uniform scale, translation, deliberately no shear), and every other shape rides that one
+transform. The scale is therefore the survey's, the fit's residual is reported in metres, and a
+page outline that disagrees with the surveyed shape shows up as a number instead of as a house in
+the wrong place. Each object is read as the shape ITS category actually is: an outline for a
+structure or a zone, a centre line for a path or a fence, a trunk position for a tree.
+
+**Nothing is carried when the traverse does not close.** A boundary that does not close is the
+wrong shape, and objects fitted onto a wrong shape are placed by a guess at scale. The reading
+still returns the boundary and its closure error — the person decides — but no objects ride a fit
+that was never trustworthy.
+
 ## Consequences
 
 - The first real producer for `decideProposal` arrives, and the proposal pipeline stops being a

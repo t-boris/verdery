@@ -18,12 +18,14 @@ import {
   VertexAiExplanationAdapter,
   VertexAiPlantConditionAnalysisAdapter,
   VertexAiPlantSpeciesIdentificationAdapter,
+  VertexAiPlatExtractionAdapter,
 } from './modules/integrations/public.js';
 import type {
   AerialGardenExtractionProviderAdapter,
   AiExplanationProviderAdapter,
   PlantConditionAnalysisProviderAdapter,
   PlantSpeciesIdentificationProviderAdapter,
+  PlatExtractionProviderAdapter,
 } from './modules/integrations/public.js';
 import { GcsMediaStorageGateway } from './modules/media/public.js';
 import { FcmPushMessageSender } from './modules/notifications/public.js';
@@ -198,6 +200,28 @@ async function main(): Promise<void> {
         )
       : null;
 
+  // ADR-0018: the plat reader. Same construction shape as the two plant
+  // adapters above — its own kill-switch, its own explicitly chosen model,
+  // and the same Vertex project every AI capability shares. Off means no
+  // client is constructed and the reading endpoint refuses honestly.
+  const platReadingConfiguration = configuration.platReading;
+  const platExtractionAdapter: PlatExtractionProviderAdapter | null =
+    platReadingConfiguration.enabled &&
+    aiConfiguration.vertexProjectId !== null &&
+    platReadingConfiguration.model !== null
+      ? new VertexAiPlatExtractionAdapter(
+          new GoogleGenAI({
+            vertexai: true,
+            project: aiConfiguration.vertexProjectId,
+            location: aiConfiguration.vertexLocation,
+          }),
+          {
+            model: platReadingConfiguration.model,
+            maxOutputTokens: platReadingConfiguration.maxOutputTokens,
+          },
+        )
+      : null;
+
   const app = await buildApplication({
     configuration,
     logger,
@@ -211,6 +235,7 @@ async function main(): Promise<void> {
     plantSpeciesIdentificationAdapter,
     plantConditionAnalysisAdapter,
     aerialGardenExtractionAdapter,
+    platExtractionAdapter,
     pushMessageSender,
     identityProviderAccounts,
   });

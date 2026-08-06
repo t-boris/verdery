@@ -68,7 +68,13 @@ describe('GardenLocationPanel', () => {
     expect(screen.getByText('This garden has no location yet.')).toBeDefined();
   });
 
-  it('shows the current record latitude first, the way a coordinate is spoken', () => {
+  /*
+   * One place per value, and it is the field. The saved record used to be
+   * printed above as read-only text while the inputs below started empty, so
+   * adjusting a location meant copying three numbers across the panel
+   * (reported 2026-08-06).
+   */
+  it('fills the fields with the saved record instead of printing it above them', () => {
     mockMap({
       data: {
         coordinateSpaceId: 'space',
@@ -80,7 +86,9 @@ describe('GardenLocationPanel', () => {
 
     renderPanel();
 
-    expect(screen.getByText('41.59, -93.63')).toBeDefined();
+    expect(screen.getByLabelText<HTMLInputElement>('Latitude').value).toBe('41.590000');
+    expect(screen.getByLabelText<HTMLInputElement>('Longitude').value).toBe('-93.630000');
+    expect(screen.queryByText('41.59, -93.63')).toBeNull();
   });
 
   it('restores and resubmits the accepted address with its georeference', () => {
@@ -126,7 +134,7 @@ describe('GardenLocationPanel', () => {
 
     renderPanel();
 
-    expect(screen.getByText('Not stated')).toBeDefined();
+    expect(screen.queryByText(/Not stated/)).toBeNull();
   });
 
   it('sends what was typed, as manual coordinates', () => {

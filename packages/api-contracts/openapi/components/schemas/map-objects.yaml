@@ -381,6 +381,8 @@ GardenObject:
     label:
       type: string
       maxLength: 200
+    sourceMetadata:
+      $ref: '#/AerialObjectSourceMetadata'
     details:
       $ref: '#/GardenObjectDetails'
     lifecycleState:
@@ -762,6 +764,55 @@ AerialTraceProvenance:
     processor: { type: string }
     model: { type: string }
     promptTemplateVersion: { type: integer, minimum: 1 }
+    imagery:
+      $ref: '#/AerialImageryIdentity'
+    imageryBounds:
+      type: object
+      additionalProperties: false
+      required: [west, south, east, north]
+      properties:
+        west: { type: number }
+        south: { type: number }
+        east: { type: number }
+        north: { type: number }
+    imageryWidthPixels: { type: integer, minimum: 1 }
+    imageryHeightPixels: { type: integer, minimum: 1 }
+    imageryResolutionMetres: { type: number, exclusiveMinimum: 0 }
+    imageryHorizontalAccuracyMetres: { type: [number, 'null'], minimum: 0 }
+    georeferenceRevision: { type: integer, minimum: 1 }
+
+AerialObjectSourceMetadata:
+  type: object
+  additionalProperties: false
+  description: Complete lineage retained when a reviewed aerial proposal becomes a canonical object.
+  required:
+    [
+      kind,
+      proposalId,
+      processor,
+      model,
+      promptTemplateVersion,
+      boundaryEvidence,
+      limitations,
+      imagery,
+      imageryBounds,
+      imageryWidthPixels,
+      imageryHeightPixels,
+      imageryResolutionMetres,
+      imageryHorizontalAccuracyMetres,
+      georeferenceRevision,
+    ]
+  properties:
+    kind: { type: string, const: aerialImageExtraction }
+    proposalId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    processor: { type: string }
+    model: { type: string }
+    promptTemplateVersion: { type: integer, minimum: 1 }
+    boundaryEvidence: { type: string, enum: [notApplicable, visualEvidence] }
+    limitations:
+      type: array
+      items: { type: string }
     imagery:
       $ref: '#/AerialImageryIdentity'
     imageryBounds:

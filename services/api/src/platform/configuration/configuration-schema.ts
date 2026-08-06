@@ -274,6 +274,25 @@ export const environmentSchema = z.object({
   PLANT_SPECIES_AI_MAX_CALLS_PER_HOUR: positiveInteger.default(50),
   PLANT_SPECIES_AI_MAX_CALLS_PER_DAY: positiveInteger.default(500),
 
+  // ADR-0018: reading an uploaded plat of survey. Its own kill-switch, the
+  // `PLANT_SPECIES_AI_ENABLED` posture exactly, and its own explicitly
+  // chosen model — a transcription of dense engineering text is a different
+  // task from naming a plant in a photograph, and the two must be able to
+  // move to different models independently. Reuses the same Vertex project
+  // and location as every other AI capability (ADR-0008).
+  //
+  // The timeout and token ceiling are deliberately far above the other
+  // capabilities': a plat sheet carries dozens of boundary calls and every
+  // structure drawn on the lot, and the reading is one interactive call a
+  // person is waiting on rather than a sweep.
+  PLAT_READING_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  PLAT_READING_MODEL: z.string().min(1).optional(),
+  PLAT_READING_CALL_TIMEOUT_MS: positiveInteger.default(120_000),
+  PLAT_READING_MAX_OUTPUT_TOKENS: positiveInteger.default(8_192),
+
   PLANT_CONDITION_AI_ENABLED: z
     .enum(['true', 'false'])
     .default('false')

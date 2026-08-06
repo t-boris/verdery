@@ -13,7 +13,7 @@
  */
 
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
-import type { Geometry } from '@verdery/geometry-contracts';
+import type { CreateObjectSource, Geometry } from '@verdery/geometry-contracts';
 import { Kysely, PostgresDialect } from 'kysely';
 import { runner } from 'node-pg-migrate';
 import pg from 'pg';
@@ -82,6 +82,36 @@ const LOT_POLYGON: Geometry = {
     ],
   ],
 };
+
+const AERIAL_SOURCE = {
+  provenance: 'imageExtraction',
+  confidence: 0.87,
+  metadata: {
+    kind: 'aerialImageExtraction',
+    proposalId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0b',
+    processor: 'aerial-trace',
+    model: 'vision-model',
+    promptTemplateVersion: 1,
+    boundaryEvidence: 'notApplicable',
+    limitations: ['Approximate.'],
+    imagery: {
+      providerKey: 'usgs-naip',
+      providerName: 'USGS NAIP',
+      sourceId: 'source-1',
+      capturedOn: '2025-06-01',
+      attributionText: 'USDA NAIP',
+      attributionUrl: 'https://example.com/source',
+      licenseName: 'Public domain',
+      licenseUrl: 'https://example.com/license',
+    },
+    imageryBounds: { west: -94, south: 41, east: -93, north: 42 },
+    imageryWidthPixels: 1024,
+    imageryHeightPixels: 1024,
+    imageryResolutionMetres: 0.6,
+    imageryHorizontalAccuracyMetres: 6,
+    georeferenceRevision: 3,
+  },
+} as const satisfies CreateObjectSource;
 
 describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   let container: StartedPostgreSqlContainer;
@@ -181,6 +211,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
         category: 'bed',
         geometry: BED_POLYGON,
         label: 'Tomato bed',
+        source: AERIAL_SOURCE,
         categoryDetails: { category: 'bed', details: { bedKind: 'raised' } },
       },
       generateUuidV7(),
@@ -193,7 +224,15 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       // {category, details} shape @verdery/geometry-contracts uses
       // internally. See map-object-view.ts's toWireGardenObjectDetails.
       details: { category: 'bed', bedKind: 'raised' },
+      sourceMetadata: AERIAL_SOURCE.metadata,
     });
+    const sourceRow = await db
+      .selectFrom('gardens_mapping.garden_object')
+      .select(['provenance', 'confidence', 'source_metadata'])
+      .where('id', '=', bedId)
+      .executeTakeFirst();
+    expect(sourceRow).toMatchObject({ provenance: 'imageExtraction', confidence: 0.87 });
+    expect(sourceRow?.source_metadata).toEqual(AERIAL_SOURCE.metadata);
 
     const revisionRow = await db
       .selectFrom('gardens_mapping.garden_object_revision')

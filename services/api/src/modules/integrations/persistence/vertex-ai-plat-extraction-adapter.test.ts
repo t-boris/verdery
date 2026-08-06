@@ -42,7 +42,7 @@ const CASCADE_WAY = {
     {
       category: 'structure',
       label: '2 STORY FRAME #7612',
-      pageOutline: [
+      pagePoints: [
         [0.42, 0.55],
         [0.52, 0.53],
         [0.5, 0.45],

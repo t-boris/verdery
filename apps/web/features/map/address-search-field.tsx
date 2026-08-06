@@ -34,7 +34,7 @@ export interface AddressSearchFieldProps {
 export function AddressSearchField({ initialAddress, onPick }: AddressSearchFieldProps) {
   const { t } = useLocalization();
   const isOnline = useIsOnline();
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialAddress ?? '');
   const search = useAddressCandidates();
 
   useEffect(() => {

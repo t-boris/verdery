@@ -36,6 +36,7 @@ import type {
   GardenObjectDetails,
   Geometry,
   MapCommandPayload,
+  ObjectSourceMetadata,
   Position,
   ProvenanceKind,
 } from '@verdery/geometry-contracts';
@@ -62,6 +63,7 @@ export interface WireGardenObject {
   readonly category: GardenObjectCategory;
   readonly geometryEnvelope: WireGeometryEnvelope;
   readonly label?: string;
+  readonly sourceMetadata?: ObjectSourceMetadata;
   readonly details?: WireCategoryDetails;
   readonly lifecycleState: WireObjectLifecycleState;
   readonly revision: number;

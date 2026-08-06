@@ -14,6 +14,8 @@ import type {
   GardenObjectCategory,
   GardenObjectDetails,
   Geometry,
+  ObjectSourceMetadata,
+  ProvenanceKind,
 } from '@verdery/geometry-contracts';
 
 export interface MapObjectRecord {
@@ -22,6 +24,9 @@ export interface MapObjectRecord {
   readonly category: GardenObjectCategory;
   readonly geometry: Geometry;
   readonly label?: string;
+  readonly provenance?: ProvenanceKind;
+  readonly confidence?: number;
+  readonly sourceMetadata?: ObjectSourceMetadata;
   readonly categoryDetails?: GardenObjectDetails;
   readonly lifecycleState: 'active' | 'deleted';
   readonly revision: number;

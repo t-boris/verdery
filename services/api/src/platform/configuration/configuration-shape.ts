@@ -117,6 +117,16 @@ export interface PlantSpeciesAiConfiguration {
   readonly maxCallsPerDay: number;
 }
 
+/** ADR-0018 — see the schema's own comment on the `PLAT_READING_*` variables. */
+export interface PlatReadingConfiguration {
+  /** The kill-switch. While `false` the reading endpoint answers `map.plat_reading_unavailable` and no Vertex client is constructed. */
+  readonly enabled: boolean;
+  /** Present whenever `enabled` (the cross-field check); `null` while disabled — an explicitly evaluated choice, never a code default. */
+  readonly model: string | null;
+  readonly callTimeoutMs: number;
+  readonly maxOutputTokens: number;
+}
+
 /** ADR-0015 — see the schema's own comment on the `PLANT_CONDITION_AI_*` variables. */
 export interface PlantConditionAiConfiguration {
   /** The kill-switch. `false` everywhere today: the stub's honest placeholder answer, zero Vertex calls. */
@@ -191,6 +201,7 @@ export interface ApplicationConfiguration {
   readonly plantSpeciesAi: PlantSpeciesAiConfiguration;
   readonly plantConditionAi: PlantConditionAiConfiguration;
   readonly aerialTraceAi: AerialTraceAiConfiguration;
+  readonly platReading: PlatReadingConfiguration;
   readonly taxonKnowledge: TaxonKnowledgeConfiguration;
   readonly plantReview: PlantReviewConfiguration;
   readonly appCheck: AppCheckConfiguration;
@@ -280,6 +291,12 @@ export function toApplicationConfiguration(raw: RawEnvironment): ApplicationConf
       maxOutputTokens: raw.PLANT_SPECIES_AI_MAX_OUTPUT_TOKENS,
       maxCallsPerHour: raw.PLANT_SPECIES_AI_MAX_CALLS_PER_HOUR,
       maxCallsPerDay: raw.PLANT_SPECIES_AI_MAX_CALLS_PER_DAY,
+    },
+    platReading: {
+      enabled: raw.PLAT_READING_ENABLED,
+      model: raw.PLAT_READING_MODEL ?? null,
+      callTimeoutMs: raw.PLAT_READING_CALL_TIMEOUT_MS,
+      maxOutputTokens: raw.PLAT_READING_MAX_OUTPUT_TOKENS,
     },
     plantConditionAi: {
       enabled: raw.PLANT_CONDITION_AI_ENABLED,

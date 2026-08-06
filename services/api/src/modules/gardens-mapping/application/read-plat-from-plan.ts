@@ -23,8 +23,14 @@ import type { FastifyBaseLogger } from 'fastify';
 import { ValidationError } from '../../../platform/errors/application-error.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { PlatExtractionProviderAdapter } from '../../integrations/public.js';
-import { fitPageToGround, outlineToGround } from '../domain/page-to-ground.js';
+import {
+  fitPageToGround,
+  outlineToGround,
+  pointsToGround,
+  type PageToGroundTransform,
+} from '../domain/page-to-ground.js';
 import { closeTraverse, type SurveyCall } from '../domain/survey-traverse.js';
+import type { GardenAuthorization } from './garden-authorization.js';
 
 export interface PlatReadingSource {
   readonly bucketName: string;
@@ -46,13 +52,24 @@ export interface PlatBoundaryResult {
   readonly areaSquareMetres: number;
 }
 
-/** One thing the sheet draws, carried into garden metres and waiting to be accepted. */
+/**
+ * One thing the sheet draws, carried into garden metres and waiting to be
+ * accepted — as the geometry ITS OWN category requires, so that accepting it
+ * is an ordinary `createObject` rather than a conversion. A structure is an
+ * area, a path and a fence are lines, a tree is a position.
+ */
+export type ProposedPlatGeometry =
+  | { readonly type: 'Polygon'; readonly coordinates: number[][][] }
+  | { readonly type: 'LineString'; readonly coordinates: number[][] }
+  | { readonly type: 'Point'; readonly coordinates: number[] };
+
 export interface ProposedPlatObject {
   readonly category: string;
   readonly label: string;
-  readonly geometry: { readonly type: 'Polygon'; readonly coordinates: number[][][] };
+  readonly geometry: ProposedPlatGeometry;
   /** The model's own confidence in having seen this, `0..1`. Shown at review; decides nothing. */
   readonly confidence: number;
+  /** Zero for anything that is not an area — a fence encloses nothing. */
   readonly areaSquareMetres: number;
 }
 
@@ -92,11 +109,17 @@ export class ReadPlatFromPlan {
   constructor(
     private readonly adapter: PlatExtractionProviderAdapter | null,
     private readonly pages: PlatPageResolver,
+    private readonly authorization: GardenAuthorization,
     private readonly callTimeoutMs: number,
     private readonly logger: FastifyBaseLogger,
   ) {}
 
-  async execute(gardenId: Uuid, planMediaId: Uuid): Promise<PlatReadingResult> {
+  async execute(gardenId: Uuid, profileId: Uuid, planMediaId: Uuid): Promise<PlatReadingResult> {
+    // `editGardenContent`, not a read capability: reading a plan is
+    // preparation for editing the garden it belongs to, and the reading is
+    // paid provider work no viewer should be able to spend.
+    await this.authorization.requireCapability(gardenId, profileId, 'editGardenContent');
+
     if (this.adapter === null) {
       throw new ValidationError(
         'map.plat_reading_unavailable',
@@ -152,29 +175,26 @@ export class ReadPlatFromPlan {
 
     /*
      * The lot is the ruler. Its page outline fitted onto its surveyed polygon
-     * gives one similarity transform, and every other outline rides it — so
-     * the house lands at the survey's scale without the model ever stating a
-     * dimension. No surveyed boundary, or no lot outline, means nothing can
-     * be carried, and nothing is: an object placed by a guess at scale would
-     * be worse than none.
+     * gives one similarity transform, and everything else drawn on the sheet
+     * rides it — so the house lands at the survey's scale without the model
+     * ever stating a dimension. No surveyed boundary, no lot outline, or a
+     * traverse that does not close means nothing can be carried, and nothing
+     * is: a boundary that does not close is the wrong shape, and objects
+     * fitted onto a wrong shape are placed by a guess at scale, which is
+     * worse than no objects at all.
      */
     const fit =
-      traverse === null ? null : fitPageToGround(outcome.plat.lotPageOutline, traverse.ring);
+      traverse === null || !traverse.closes
+        ? null
+        : fitPageToGround(outcome.plat.lotPageOutline, traverse.ring);
 
     const objects: ProposedPlatObject[] = [];
     if (fit !== null) {
       for (const drawn of outcome.plat.pageObjects) {
-        const ring = outlineToGround(drawn.pageOutline, fit);
-        if (ring === null) {
-          continue;
+        const proposal = proposeObject(drawn, fit);
+        if (proposal !== null) {
+          objects.push(proposal);
         }
-        objects.push({
-          category: drawn.category,
-          label: drawn.label,
-          geometry: { type: 'Polygon', coordinates: [ring.map(([x, y]) => [x, y])] },
-          confidence: drawn.confidence,
-          areaSquareMetres: ringArea(ring),
-        });
       }
     }
 
@@ -200,6 +220,73 @@ export class ReadPlatFromPlan {
             },
     };
   }
+}
+
+/**
+ * Which shape a category is, in the map's own vocabulary
+ * (`geometry-contracts/object-category.ts`): an area, a line, or a position.
+ * Deciding it here rather than trusting the reader means an accepted
+ * proposal is always a geometry its category is allowed to hold.
+ */
+const GEOMETRY_KIND_BY_CATEGORY: Record<string, 'area' | 'line' | 'point'> = {
+  structure: 'area',
+  zone: 'area',
+  waterFeature: 'area',
+  utilityExclusion: 'area',
+  path: 'line',
+  fence: 'line',
+  tree: 'point',
+};
+
+function proposeObject(
+  drawn: {
+    category: string;
+    label: string;
+    pagePoints: readonly (readonly [number, number])[];
+    confidence: number;
+  },
+  fit: PageToGroundTransform,
+): ProposedPlatObject | null {
+  const kind = GEOMETRY_KIND_BY_CATEGORY[drawn.category];
+  if (kind === undefined) {
+    return null;
+  }
+
+  const common = { category: drawn.category, label: drawn.label, confidence: drawn.confidence };
+
+  if (kind === 'area') {
+    const ring = outlineToGround(drawn.pagePoints, fit);
+    return ring === null
+      ? null
+      : {
+          ...common,
+          geometry: { type: 'Polygon', coordinates: [ring.map(([x, y]) => [x, y])] },
+          areaSquareMetres: ringArea(ring),
+        };
+  }
+
+  const carried = pointsToGround(drawn.pagePoints, fit);
+
+  if (kind === 'line') {
+    // Two points is the least a course can be; one is a reading that lost an
+    // end, not a fence.
+    return carried.length < 2
+      ? null
+      : {
+          ...common,
+          geometry: { type: 'LineString', coordinates: carried.map(([x, y]) => [x, y]) },
+          areaSquareMetres: 0,
+        };
+  }
+
+  const trunk = carried[0];
+  return trunk === undefined
+    ? null
+    : {
+        ...common,
+        geometry: { type: 'Point', coordinates: [trunk[0], trunk[1]] },
+        areaSquareMetres: 0,
+      };
 }
 
 /** Shoelace area, so a reviewer can compare the walk against the area the sheet itself states. */

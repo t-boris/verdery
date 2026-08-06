@@ -1,5 +1,5 @@
 import type { MapCommandPayload } from '@verdery/geometry-contracts';
-import { IDEMPOTENCY_KEY_HEADER, IF_MATCH_HEADER } from '@verdery/api-contracts';
+import { IDEMPOTENCY_KEY_HEADER, IF_MATCH_HEADER, type PlatReading } from '@verdery/api-contracts';
 
 import type { ApiClient } from './client';
 import { csrfHeader } from './csrf';
@@ -50,6 +50,21 @@ export interface MapGateway {
     signal?: AbortSignal,
   ): Promise<ApiResult<WireGeoreference>>;
   traceAerial(gardenId: string, signal?: AbortSignal): Promise<ApiResult<WireAerialTraceResult>>;
+  /**
+   * `readPlatFromPlan` — reads an uploaded plat of survey into a boundary
+   * and the objects the sheet draws.
+   *
+   * Writes nothing (ADR-0018): what comes back is a proposal a person
+   * reviews, and accepting it is ordinary `submitCommand` work. `POST`
+   * because it spends provider work, not because it changes anything, so
+   * there is no idempotency key to carry — repeating it costs another
+   * reading and nothing else.
+   */
+  readPlat(
+    gardenId: string,
+    planMediaId: string,
+    signal?: AbortSignal,
+  ): Promise<ApiResult<PlatReading>>;
 }
 
 function viewportQuery(viewport: MapViewportBounds | undefined): string {
@@ -122,6 +137,15 @@ export function createMapGateway(client: ApiClient): MapGateway {
         // this bridges.
         body: { commandId, clientTimestamp, payload: toWireCommandPayload(payload) },
         headers: { [IDEMPOTENCY_KEY_HEADER]: idempotencyKey, ...csrfHeader() },
+        ...(signal === undefined ? {} : { signal }),
+      });
+    },
+
+    readPlat(gardenId, planMediaId, signal) {
+      return client.request<PlatReading>({
+        method: 'POST',
+        path: `/gardens/${gardenId}/plans/${planMediaId}/reading`,
+        headers: { ...csrfHeader() },
         ...(signal === undefined ? {} : { signal }),
       });
     },

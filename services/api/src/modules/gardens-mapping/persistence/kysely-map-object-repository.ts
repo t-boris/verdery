@@ -1,4 +1,8 @@
-import type { GardenObjectCategory, ProvenanceKind } from '@verdery/geometry-contracts';
+import type {
+  GardenObjectCategory,
+  ObjectSourceMetadata,
+  ProvenanceKind,
+} from '@verdery/geometry-contracts';
 import { type Kysely, sql } from 'kysely';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
@@ -28,6 +32,7 @@ const OBJECT_COLUMNS = [
   'label',
   'provenance',
   'confidence',
+  'source_metadata',
   'lifecycle_state',
   'current_revision',
   'created_by_profile_id',
@@ -44,6 +49,7 @@ interface ObjectRowWithGeometry {
   label: string | null;
   provenance: string;
   confidence: number | null;
+  source_metadata: unknown;
   lifecycle_state: string;
   current_revision: number;
   created_by_profile_id: string;
@@ -61,6 +67,7 @@ function toMapObjectWithoutDetails(row: ObjectRowWithGeometry): MapObject {
     label: row.label,
     provenance: row.provenance as ProvenanceKind,
     confidence: row.confidence,
+    sourceMetadata: row.source_metadata as ObjectSourceMetadata | null,
     lifecycleState: row.lifecycle_state as MapObjectLifecycleState,
     currentRevision: row.current_revision,
     details: undefined,
@@ -128,6 +135,8 @@ export class KyselyMapObjectRepository implements MapObjectRepository {
           label: object.label,
           provenance: object.provenance,
           confidence: object.confidence,
+          source_metadata:
+            object.sourceMetadata === null ? null : JSON.stringify(object.sourceMetadata),
           lifecycle_state: object.lifecycleState,
           current_revision: object.currentRevision,
           created_by_profile_id: object.createdByProfileId,
@@ -158,6 +167,8 @@ export class KyselyMapObjectRepository implements MapObjectRepository {
           label: object.label,
           provenance: object.provenance,
           confidence: object.confidence,
+          source_metadata:
+            object.sourceMetadata === null ? null : JSON.stringify(object.sourceMetadata),
           lifecycle_state: object.lifecycleState,
           current_revision: object.currentRevision,
           updated_at: object.updatedAt,
