@@ -113,6 +113,60 @@ export function walkTraverse(calls: readonly SurveyCall[]): SurveyTraverse | nul
   };
 }
 
+/** The same bearing, turned around: the line walked in the other direction. */
+function reversed(bearing: SurveyBearing): SurveyBearing {
+  return {
+    ...bearing,
+    reference: bearing.reference === 'north' ? 'south' : 'north',
+    turn: bearing.turn === 'east' ? 'west' : 'east',
+  };
+}
+
+/**
+ * The traverse the calls describe, with each line walked in whichever
+ * direction closes the figure.
+ *
+ * A plat prints the bearing of each line as the surveyor recorded it, and
+ * those directions do not all run the same way around the parcel: reading
+ * them literally walks some lines backwards and lands nowhere near the start.
+ * The owner's own plat did exactly that on 2026-08-06 — every distance and
+ * angle transcribed correctly, and a 108-metre gap.
+ *
+ * What is inferred here is ONLY the sense of each line, never its length or
+ * its angle: reversing a bearing adds 180°, so the parcel's shape is entirely
+ * the survey's. The closure error still decides — the combination that closes
+ * best is returned, and if even the best one leaves a gap, it says so.
+ *
+ * Bounded deliberately: beyond twelve calls the search is 4,096 walks and the
+ * document is no longer a residential lot, so it refuses rather than grinding.
+ */
+export function closeTraverse(calls: readonly SurveyCall[]): SurveyTraverse | null {
+  if (calls.length < 3 || calls.length > 12) {
+    return walkTraverse(calls);
+  }
+
+  let best: SurveyTraverse | null = null;
+  // The first line's direction is arbitrary — reversing every line just walks
+  // the same polygon the other way round — so it stays as printed and only
+  // the rest are searched.
+  for (let mask = 0; mask < 1 << (calls.length - 1); mask += 1) {
+    const walked = walkTraverse(
+      calls.map((call, index) =>
+        index > 0 && (mask & (1 << (index - 1))) !== 0
+          ? { ...call, bearing: reversed(call.bearing) }
+          : call,
+      ),
+    );
+    if (walked === null) {
+      return null;
+    }
+    if (best === null || walked.closureErrorMetres < best.closureErrorMetres) {
+      best = walked;
+    }
+  }
+  return best;
+}
+
 /** Millimetre resolution, the same rounding the geometry contracts apply on write. */
 function round(value: number): number {
   return Math.round(value * 1000) / 1000;

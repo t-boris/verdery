@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   azimuthDegrees,
+  closeTraverse,
   walkTraverse,
   type SurveyCall,
   type SurveyBearing,
@@ -124,6 +125,58 @@ describe('walkTraverse', () => {
     // itself states as its survey area (10,068 sq ft).
     expect(area(traverse?.ring ?? [])).toBeGreaterThan(850);
     expect(area(traverse?.ring ?? [])).toBeLessThan(1_000);
+  });
+});
+
+describe('closeTraverse', () => {
+  /*
+   * The reading a real model returned for the owner's plat on 2026-08-06,
+   * copied verbatim from the live call. Every distance and angle is right;
+   * the printed bearings simply do not all run the same way around the
+   * parcel, so read literally they leave a 108-metre gap.
+   *
+   * This is the fixture that matters: it is what the product actually
+   * receives, not what a test author would have invented.
+   */
+  const MODEL_READING: SurveyCall[] = [
+    { bearing: bearing('north', 46, 54, 11, 'east'), distanceFeet: 135.06 },
+    { bearing: bearing('south', 44, 56, 39, 'east'), distanceFeet: 70.02 },
+    { bearing: bearing('north', 43, 12, 31, 'east'), distanceFeet: 135.1 },
+    { bearing: bearing('north', 45, 55, 0, 'west'), distanceFeet: 78.63 },
+  ];
+
+  it('does not close when the printed directions are walked literally', () => {
+    expect(walkTraverse(MODEL_READING)?.closes).toBe(false);
+  });
+
+  it('closes the same reading by walking each line the way that fits', () => {
+    const traverse = closeTraverse(MODEL_READING);
+
+    expect(traverse?.closes).toBe(true);
+    expect(traverse?.closureErrorMetres).toBeLessThan(0.5);
+  });
+
+  /*
+   * The independent check the survey provides on itself: the sheet states
+   * 10,068 square feet — 935.3 m². A polygon within a percent of that is a
+   * polygon whose numbers were read correctly, and no test author supplied
+   * that agreement.
+   */
+  it('produces a lot whose area matches the plat’s own stated area', () => {
+    const traverse = closeTraverse(MODEL_READING);
+    const statedSquareMetres = 10_068 * 0.092_903_04;
+
+    expect(area(traverse?.ring ?? [])).toBeGreaterThan(statedSquareMetres * 0.99);
+    expect(area(traverse?.ring ?? [])).toBeLessThan(statedSquareMetres * 1.01);
+  });
+
+  it('leaves a document too large to be a residential lot to the plain walk', () => {
+    const many: SurveyCall[] = Array.from({ length: 13 }, () => ({
+      bearing: bearing('north', 10, 0, 0, 'east'),
+      distanceFeet: 10,
+    }));
+
+    expect(closeTraverse(many)?.closes).toBe(false);
   });
 });
 
