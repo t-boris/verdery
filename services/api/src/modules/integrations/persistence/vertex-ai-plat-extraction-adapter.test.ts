@@ -32,6 +32,25 @@ const CASCADE_WAY = {
   address: '7612 CASCADE WAY, GURNEE, IL 60031',
   northRotationDegrees: 0,
   statedAreaSquareFeet: 10068,
+  lotPageOutline: [
+    [0.3, 0.7],
+    [0.7, 0.6],
+    [0.6, 0.3],
+    [0.25, 0.4],
+  ],
+  pageObjects: [
+    {
+      category: 'structure',
+      label: '2 STORY FRAME #7612',
+      pageOutline: [
+        [0.42, 0.55],
+        [0.52, 0.53],
+        [0.5, 0.45],
+        [0.4, 0.47],
+      ],
+      confidence: 0.82,
+    },
+  ],
   boundaryCalls: [
     {
       bearing: { reference: 'north', degrees: 46, minutes: 54, seconds: 11, turn: 'east' },
@@ -108,6 +127,11 @@ describe('parsePlatExtractionResponse', () => {
     expect(outcome.plat.address).toBe('7612 CASCADE WAY, GURNEE, IL 60031');
     expect(outcome.plat.statedAreaSquareFeet).toBe(10068);
     expect(outcome.plat.boundaryCalls).toHaveLength(4);
+    // The drawing's own objects come back outlined on the page — never in
+    // metres, which is the survey's job.
+    expect(outcome.plat.pageObjects).toHaveLength(1);
+    expect(outcome.plat.pageObjects[0]?.category).toBe('structure');
+    expect(outcome.plat.lotPageOutline).toHaveLength(4);
 
     // The whole point of transcribing rather than concluding: these calls go
     // straight into the traverse, and the walk closes.

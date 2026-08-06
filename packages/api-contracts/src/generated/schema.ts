@@ -8217,6 +8217,20 @@ export interface components {
             areaSquareMetres: number;
         };
         /**
+         * @description One thing the drawing shows — the house, the deck, the drive, an easement
+         *     strip — carried into garden-local metres at the SURVEY's scale. A
+         *     proposal: nothing exists on the map until a person accepts it.
+         */
+        ProposedPlatObject: {
+            category: components["schemas"]["GardenObjectCategory"];
+            /** @description What the drawing calls it, verbatim — `2 STORY FRAME`, `WOOD DECK`. */
+            label: string;
+            geometry: components["schemas"]["Geometry"];
+            /** @description The reader's own confidence in having seen this. Shown at review; decides nothing. */
+            confidence: number;
+            areaSquareMetres: number;
+        };
+        /**
          * @description What a plat of survey says, and the boundary its calls describe. A
          *     reading, never a write: see `readPlatFromPlan`.
          */
@@ -8232,6 +8246,18 @@ export interface components {
             boundaryCalls: components["schemas"]["PlatBoundaryCall"][];
             /** @description The polygon walked from the calls, or `null` when they cannot describe one. */
             boundary: components["schemas"]["PlatBoundary"] | null;
+            /**
+             * @description Everything else the sheet draws, in garden metres. Empty when the lot
+             *     could not be fitted: an object placed by a guess at scale would be
+             *     worse than no object.
+             */
+            objects: components["schemas"]["ProposedPlatObject"][];
+            /**
+             * @description How closely the drawing's own lot outline matched the surveyed
+             *     polygon. Every proposed object rides that fit, so this is the honest
+             *     bound on all of them.
+             */
+            pageFitResidualMetres: number | null;
         };
     };
     responses: {

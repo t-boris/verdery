@@ -48,6 +48,34 @@ export interface ExtractedBoundaryCall {
   readonly sourceLabel: string;
 }
 
+/**
+ * Categories a plat actually draws, mapped onto this product's own object
+ * vocabulary. Deliberately short: a plat labels what it labels, and offering
+ * the model a category it cannot see invites it to invent one.
+ */
+export type ExtractedObjectCategory =
+  'structure' | 'path' | 'fence' | 'zone' | 'waterFeature' | 'utilityExclusion' | 'tree';
+
+/**
+ * One thing drawn on the sheet, outlined in PAGE coordinates.
+ *
+ * Page coordinates, not metres, and that is the whole trick: the model is
+ * good at saying where something sits on an image and bad at arithmetic. The
+ * lot's outline is read the same way, and because the lot's TRUE shape is
+ * known from the boundary calls, one similarity fit carries every other
+ * outline into real metres at the survey's own scale
+ * (`gardens-mapping/domain/page-to-ground.ts`).
+ */
+export interface ExtractedPageObject {
+  readonly category: ExtractedObjectCategory;
+  /** What the drawing calls it — `2 STORY FRAME`, `WOOD DECK`, `ASPHALT`. Verbatim. */
+  readonly label: string;
+  /** Closed outline, each point in `[0, 1]` of the page's width and height, origin top-left. */
+  readonly pageOutline: readonly (readonly [number, number])[];
+  /** The model's own confidence, `0..1`. Carried to review, never used to decide anything on its own. */
+  readonly confidence: number;
+}
+
 export interface ExtractedPlat {
   /**
    * The property address as printed, or `null` when the sheet does not carry
@@ -66,6 +94,15 @@ export interface ExtractedPlat {
   readonly boundaryCalls: readonly ExtractedBoundaryCall[];
   /** The surveyed area as printed, in square feet — a reviewer's independent check on the walk. */
   readonly statedAreaSquareFeet: number | null;
+  /**
+   * The lot's own outline in page coordinates. The bridge between what the
+   * model can see and what the survey knows: fitting this onto the polygon
+   * the boundary calls describe gives the page-to-ground transform every
+   * other outline is carried by.
+   */
+  readonly lotPageOutline: readonly (readonly [number, number])[];
+  /** Everything else the sheet draws — the house, the deck, the drive, the easements. */
+  readonly pageObjects: readonly ExtractedPageObject[];
 }
 
 export type PlatExtractionAdapterOutcome =

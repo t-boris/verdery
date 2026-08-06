@@ -62,9 +62,20 @@ const SYSTEM_INSTRUCTION = [
   '  page. Zero means the arrow points straight up. Return -1 if there is no',
   '  north arrow.',
   '- The surveyed area in square feet, if the sheet states one. Return -1 if not.',
+  '- The LOT OUTLINE, as points on the page: each point [x, y] in 0..1 of the',
+  '  page width and height, origin at the top-left. Trace the surveyed parcel',
+  '  boundary, corner by corner, in the order it is drawn.',
+  '- EVERY OTHER THING DRAWN INSIDE OR ON the lot, each with its own outline in',
+  '  the same page coordinates, its category, the label printed on it, and your',
+  '  confidence from 0 to 1. Categories: structure (house, garage, shed, deck,',
+  '  porch, patio), path (driveway, walk, asphalt, concrete), fence, zone',
+  '  (lawn, planting bed, easement area), waterFeature, utilityExclusion',
+  '  (utility or drainage easement strips), tree.',
   '',
   'You must NOT:',
   '- compute, close, or correct the polygon these calls describe;',
+  '- state any dimension in feet or metres for anything except the boundary',
+  '  calls. Outlines are page coordinates only; the survey supplies the scale.',
   '- convert any unit;',
   '- infer, complete, or correct an address, a bearing, or a distance you cannot',
   '  read. An unreadable value is omitted, never guessed.',
@@ -86,8 +97,29 @@ const bearingSchema = z.object({
   turn: z.enum(['east', 'west']),
 });
 
+const pageOutlineSchema = z
+  .array(z.tuple([z.number().min(0).max(1), z.number().min(0).max(1)]))
+  .min(3);
+
 const responseSchema = z.object({
   notAPlat: z.boolean(),
+  lotPageOutline: pageOutlineSchema.or(z.array(z.never()).max(0)),
+  pageObjects: z.array(
+    z.object({
+      category: z.enum([
+        'structure',
+        'path',
+        'fence',
+        'zone',
+        'waterFeature',
+        'utilityExclusion',
+        'tree',
+      ]),
+      label: z.string(),
+      pageOutline: pageOutlineSchema,
+      confidence: z.number().min(0).max(1),
+    }),
+  ),
   address: z.string(),
   northRotationDegrees: z.number(),
   statedAreaSquareFeet: z.number(),
@@ -176,12 +208,45 @@ export function buildPlatExtractionParameters(
           'northRotationDegrees',
           'statedAreaSquareFeet',
           'boundaryCalls',
+          'lotPageOutline',
+          'pageObjects',
         ],
         properties: {
           notAPlat: { type: Type.BOOLEAN },
           address: { type: Type.STRING },
           northRotationDegrees: { type: Type.NUMBER },
           statedAreaSquareFeet: { type: Type.NUMBER },
+          lotPageOutline: {
+            type: Type.ARRAY,
+            items: { type: Type.ARRAY, items: { type: Type.NUMBER } },
+          },
+          pageObjects: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              required: ['category', 'label', 'pageOutline', 'confidence'],
+              properties: {
+                category: {
+                  type: Type.STRING,
+                  enum: [
+                    'structure',
+                    'path',
+                    'fence',
+                    'zone',
+                    'waterFeature',
+                    'utilityExclusion',
+                    'tree',
+                  ],
+                },
+                label: { type: Type.STRING },
+                pageOutline: {
+                  type: Type.ARRAY,
+                  items: { type: Type.ARRAY, items: { type: Type.NUMBER } },
+                },
+                confidence: { type: Type.NUMBER },
+              },
+            },
+          },
           boundaryCalls: {
             type: Type.ARRAY,
             items: {
@@ -269,6 +334,8 @@ export function parsePlatExtractionResponse(
       statedAreaSquareFeet:
         result.data.statedAreaSquareFeet < 0 ? null : result.data.statedAreaSquareFeet,
       boundaryCalls: result.data.boundaryCalls,
+      lotPageOutline: result.data.lotPageOutline,
+      pageObjects: result.data.pageObjects,
     },
   };
 }

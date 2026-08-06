@@ -23,6 +23,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import { ValidationError } from '../../../platform/errors/application-error.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { PlatExtractionProviderAdapter } from '../../integrations/public.js';
+import { fitPageToGround, outlineToGround } from '../domain/page-to-ground.js';
 import { closeTraverse, type SurveyCall } from '../domain/survey-traverse.js';
 
 export interface PlatReadingSource {
@@ -45,6 +46,16 @@ export interface PlatBoundaryResult {
   readonly areaSquareMetres: number;
 }
 
+/** One thing the sheet draws, carried into garden metres and waiting to be accepted. */
+export interface ProposedPlatObject {
+  readonly category: string;
+  readonly label: string;
+  readonly geometry: { readonly type: 'Polygon'; readonly coordinates: number[][][] };
+  /** The model's own confidence in having seen this, `0..1`. Shown at review; decides nothing. */
+  readonly confidence: number;
+  readonly areaSquareMetres: number;
+}
+
 export interface PlatReadingResult {
   readonly isPlat: boolean;
   readonly address: string | null;
@@ -52,6 +63,18 @@ export interface PlatReadingResult {
   readonly statedAreaSquareFeet: number | null;
   readonly boundaryCalls: readonly SurveyCall[];
   readonly boundary: PlatBoundaryResult | null;
+  /**
+   * Everything else the drawing holds — the house, the deck, the drive, the
+   * easement strips — in garden metres at the SURVEY's scale, because the fit
+   * that carried them there was anchored on the surveyed lot.
+   */
+  readonly objects: readonly ProposedPlatObject[];
+  /**
+   * How well the lot's page outline matched its surveyed shape, in metres.
+   * Every object below rides that fit, so this is the honest bound on all of
+   * them; `null` when no fit was possible and nothing was carried.
+   */
+  readonly pageFitResidualMetres: number | null;
 }
 
 const EMPTY_READING: PlatReadingResult = {
@@ -61,6 +84,8 @@ const EMPTY_READING: PlatReadingResult = {
   statedAreaSquareFeet: null,
   boundaryCalls: [],
   boundary: null,
+  objects: [],
+  pageFitResidualMetres: null,
 };
 
 export class ReadPlatFromPlan {
@@ -120,9 +145,38 @@ export class ReadPlatFromPlan {
         closes: traverse?.closes ?? false,
         closureErrorMetres: traverse?.closureErrorMetres ?? null,
         hasAddress: outcome.plat.address !== null,
+        drawnObjectCount: outcome.plat.pageObjects.length,
       },
       'A plat was read into a reviewable boundary.',
     );
+
+    /*
+     * The lot is the ruler. Its page outline fitted onto its surveyed polygon
+     * gives one similarity transform, and every other outline rides it — so
+     * the house lands at the survey's scale without the model ever stating a
+     * dimension. No surveyed boundary, or no lot outline, means nothing can
+     * be carried, and nothing is: an object placed by a guess at scale would
+     * be worse than none.
+     */
+    const fit =
+      traverse === null ? null : fitPageToGround(outcome.plat.lotPageOutline, traverse.ring);
+
+    const objects: ProposedPlatObject[] = [];
+    if (fit !== null) {
+      for (const drawn of outcome.plat.pageObjects) {
+        const ring = outlineToGround(drawn.pageOutline, fit);
+        if (ring === null) {
+          continue;
+        }
+        objects.push({
+          category: drawn.category,
+          label: drawn.label,
+          geometry: { type: 'Polygon', coordinates: [ring.map(([x, y]) => [x, y])] },
+          confidence: drawn.confidence,
+          areaSquareMetres: ringArea(ring),
+        });
+      }
+    }
 
     return {
       isPlat: true,
@@ -130,6 +184,8 @@ export class ReadPlatFromPlan {
       northRotationDegrees: outcome.plat.northRotationDegrees,
       statedAreaSquareFeet: outcome.plat.statedAreaSquareFeet,
       boundaryCalls: outcome.plat.boundaryCalls,
+      objects,
+      pageFitResidualMetres: fit?.residualMetres ?? null,
       boundary:
         traverse === null
           ? null

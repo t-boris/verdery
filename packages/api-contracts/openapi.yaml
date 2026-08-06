@@ -15036,6 +15036,35 @@ components:
           type: number
           minimum: 0
           description: Area of the walked polygon, for comparison against `statedAreaSquareFeet`.
+    ProposedPlatObject:
+      type: object
+      additionalProperties: false
+      required:
+        - category
+        - label
+        - geometry
+        - confidence
+        - areaSquareMetres
+      description: |
+        One thing the drawing shows — the house, the deck, the drive, an easement
+        strip — carried into garden-local metres at the SURVEY's scale. A
+        proposal: nothing exists on the map until a person accepts it.
+      properties:
+        category:
+          $ref: '#/components/schemas/GardenObjectCategory'
+        label:
+          type: string
+          description: What the drawing calls it, verbatim — `2 STORY FRAME`, `WOOD DECK`.
+        geometry:
+          $ref: '#/components/schemas/Geometry'
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: The reader's own confidence in having seen this. Shown at review; decides nothing.
+        areaSquareMetres:
+          type: number
+          minimum: 0
     PlatReading:
       type: object
       additionalProperties: false
@@ -15046,6 +15075,8 @@ components:
         - statedAreaSquareFeet
         - boundaryCalls
         - boundary
+        - objects
+        - pageFitResidualMetres
       description: |
         What a plat of survey says, and the boundary its calls describe. A
         reading, never a write: see `readPlatFromPlan`.
@@ -15077,3 +15108,20 @@ components:
             - $ref: '#/components/schemas/PlatBoundary'
             - type: 'null'
           description: The polygon walked from the calls, or `null` when they cannot describe one.
+        objects:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProposedPlatObject'
+          description: |
+            Everything else the sheet draws, in garden metres. Empty when the lot
+            could not be fitted: an object placed by a guess at scale would be
+            worse than no object.
+        pageFitResidualMetres:
+          type:
+            - number
+            - 'null'
+          minimum: 0
+          description: |
+            How closely the drawing's own lot outline matched the surveyed
+            polygon. Every proposed object rides that fit, so this is the honest
+            bound on all of them.
