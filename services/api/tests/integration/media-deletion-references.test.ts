@@ -288,7 +288,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const coordinateSpaceId = randomUUID();
     await db
       .insertInto('gardens_mapping.coordinate_space')
-      .values({ id: coordinateSpaceId, garden_id: gardenId, origin_description: 'origin' } as never)
+      .values({ id: coordinateSpaceId, garden_id: gardenId, origin_description: 'origin' })
       .execute();
     await sql`
       INSERT INTO gardens_mapping.garden_object
@@ -303,7 +303,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     `.execute(db);
     await db
       .insertInto('gardens_mapping.imported_background_details')
-      .values({ garden_object_id: objectId, plan_media_id: mediaId } as never)
+      .values({ garden_object_id: objectId, plan_media_id: mediaId })
       .execute();
 
     const current = await mediaRepository.get(mediaId);

@@ -14,6 +14,7 @@ import {
   findAiExplanationIssues,
   findDatabaseModeIssues,
   findPlantConditionAiIssues,
+  findPlatReadingIssues,
   findPlantSpeciesAiIssues,
   findTransactionalEmailIssues,
   findWeatherProviderIssues,
@@ -83,6 +84,7 @@ export function loadConfiguration(
     ...findAiExplanationIssues(source),
     ...findPlantSpeciesAiIssues(source),
     ...findPlantConditionAiIssues(source),
+    ...findPlatReadingIssues(source),
     ...findWeatherProviderIssues(source),
     ...findTransactionalEmailIssues(source),
   ];

@@ -93,6 +93,13 @@ env_vars+="#PLANT_SPECIES_AI_MODEL=${VERDERY_PLANT_SPECIES_AI_MODEL:-unset}"
 env_vars+="#PLANT_CONDITION_AI_ENABLED=${VERDERY_PLANT_CONDITION_AI_ENABLED:-false}"
 env_vars+="#PLANT_CONDITION_AI_MODEL=${VERDERY_PLANT_CONDITION_AI_MODEL:-unset}"
 
+# ADR-0018: reading an uploaded plat of survey. Its own kill-switch and its
+# own model, on the same shared Vertex project/location above — a
+# transcription of dense engineering text is a different task from naming a
+# plant, and the two must be able to move models independently.
+env_vars+="#PLAT_READING_ENABLED=${VERDERY_PLAT_READING_ENABLED:-false}"
+env_vars+="#PLAT_READING_MODEL=${VERDERY_PLAT_READING_MODEL:-unset}"
+
 # Browser CORS for the deployed web client (Phase 8 web deployment stage).
 #
 # P8-NET-01: an environment with a custom domain states its browser origin

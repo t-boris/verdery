@@ -57,21 +57,32 @@ export type ExtractedObjectCategory =
   'structure' | 'path' | 'fence' | 'zone' | 'waterFeature' | 'utilityExclusion' | 'tree';
 
 /**
- * One thing drawn on the sheet, outlined in PAGE coordinates.
+ * One thing drawn on the sheet, in PAGE coordinates.
  *
  * Page coordinates, not metres, and that is the whole trick: the model is
  * good at saying where something sits on an image and bad at arithmetic. The
  * lot's outline is read the same way, and because the lot's TRUE shape is
  * known from the boundary calls, one similarity fit carries every other
- * outline into real metres at the survey's own scale
+ * shape into real metres at the survey's own scale
  * (`gardens-mapping/domain/page-to-ground.ts`).
+ *
+ * WHAT THE POINTS MEAN depends on the category, because the map's own
+ * categories differ in kind: a structure is an area, a path and a fence are
+ * lines, a tree is a position (`geometry-contracts/object-category.ts`). The
+ * reader is asked for the right one per category rather than for an outline
+ * every time, so an accepted proposal is a shape the map can actually hold
+ * instead of one that has to be converted after the fact.
  */
 export interface ExtractedPageObject {
   readonly category: ExtractedObjectCategory;
   /** What the drawing calls it — `2 STORY FRAME`, `WOOD DECK`, `ASPHALT`. Verbatim. */
   readonly label: string;
-  /** Closed outline, each point in `[0, 1]` of the page's width and height, origin top-left. */
-  readonly pageOutline: readonly (readonly [number, number])[];
+  /**
+   * Each point in `[0, 1]` of the page's width and height, origin top-left:
+   * an area's corners, a line's course, or a tree's trunk. How many are
+   * required is checked where the category's meaning is known, not here.
+   */
+  readonly pagePoints: readonly (readonly [number, number])[];
   /** The model's own confidence, `0..1`. Carried to review, never used to decide anything on its own. */
   readonly confidence: number;
 }

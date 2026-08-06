@@ -23,7 +23,7 @@ import type {
   ManualCalibrationAdjustment,
   PlanKnownDistance,
 } from './calibration.js';
-import type { Geometry } from './geometry.js';
+import type { Geometry, ProvenanceKind } from './geometry.js';
 import type { GardenObjectCategory, GardenObjectDetails } from './object-category.js';
 
 export type MapCommandActorType = 'user' | 'system';
@@ -37,6 +37,17 @@ export interface MapCommandEnvelope {
   readonly clientTimestamp: string;
 }
 
+/**
+ * Where an object came from, when it did not come from someone's finger on
+ * the canvas — a plat reading accepted in review, an import, a measurement.
+ * Absent means the ordinary case: a person drew it.
+ */
+export interface CreateObjectSource {
+  readonly provenance: ProvenanceKind;
+  /** The reader's own confidence, `0..1`, when the source expressed one. */
+  readonly confidence?: number;
+}
+
 export interface CreateObjectPayload {
   readonly type: 'createObject';
   readonly objectId: string;
@@ -44,6 +55,12 @@ export interface CreateObjectPayload {
   readonly geometry: Geometry;
   readonly label?: string;
   readonly categoryDetails?: GardenObjectDetails;
+  /**
+   * Recorded as given: the API cannot verify how a client came by a shape,
+   * and a claim of `imageExtraction` is a claim about the client's own
+   * workflow, not a privilege. Omitting it keeps today's `manualDrawing`.
+   */
+  readonly source?: CreateObjectSource;
 }
 
 export interface MoveObjectPayload {

@@ -5755,6 +5755,19 @@ export interface components {
             geometry: components["schemas"]["Geometry"];
             label?: string;
             categoryDetails?: components["schemas"]["GardenObjectDetails"];
+            /**
+             * @description Where the object came from, when it did not come from someone's
+             *     finger on the canvas — a plat reading accepted in review
+             *     (`readPlatFromPlan`), an import, a measurement. Recorded as given:
+             *     the API cannot verify how a client came by a shape, and a claim of
+             *     `imageExtraction` describes the client's own workflow rather than
+             *     granting anything. Omitted means `manualDrawing`, today's behaviour.
+             */
+            source?: {
+                provenance: components["schemas"]["ProvenanceKind"];
+                /** @description The source's own confidence, where it expressed one. Stored alongside the object; decides nothing. */
+                confidence?: number;
+            };
         };
         MoveObjectCommand: {
             /**

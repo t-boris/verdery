@@ -5,6 +5,7 @@
  */
 export { CreateGardenForm } from './create-garden-form';
 export { GardenList } from './garden-list';
+export { GardenDangerZone } from './garden-danger-zone';
 export { GardenSettings } from './garden-settings';
 export {
   useArchiveGarden,

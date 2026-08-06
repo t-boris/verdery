@@ -9724,6 +9724,26 @@ components:
           maxLength: 200
         categoryDetails:
           $ref: '#/components/schemas/GardenObjectDetails'
+        source:
+          type: object
+          additionalProperties: false
+          required:
+            - provenance
+          description: |
+            Where the object came from, when it did not come from someone's
+            finger on the canvas — a plat reading accepted in review
+            (`readPlatFromPlan`), an import, a measurement. Recorded as given:
+            the API cannot verify how a client came by a shape, and a claim of
+            `imageExtraction` describes the client's own workflow rather than
+            granting anything. Omitted means `manualDrawing`, today's behaviour.
+          properties:
+            provenance:
+              $ref: '#/components/schemas/ProvenanceKind'
+            confidence:
+              type: number
+              minimum: 0
+              maximum: 1
+              description: The source's own confidence, where it expressed one. Stored alongside the object; decides nothing.
     MoveObjectCommand:
       type: object
       additionalProperties: false

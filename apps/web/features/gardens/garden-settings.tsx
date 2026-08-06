@@ -19,7 +19,7 @@ import {
 
 import { lifecycleLabel, roleLabel } from './labels';
 import styles from './garden-settings.module.css';
-import { useArchiveGarden, useGarden, useRenameGarden, useRequestGardenDeletion } from './queries';
+import { useGarden, useRenameGarden } from './queries';
 
 const renameSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -41,8 +41,6 @@ export function GardenSettings({ gardenId }: { readonly gardenId: string }) {
   const router = useRouter();
   const query = useGarden(gardenId);
   const renameMutation = useRenameGarden(gardenId);
-  const archiveMutation = useArchiveGarden(gardenId);
-  const deletionMutation = useRequestGardenDeletion(gardenId);
 
   const { register, handleSubmit, formState } = useForm<RenameValues>({
     resolver: zodResolver(renameSchema),
@@ -94,18 +92,6 @@ export function GardenSettings({ gardenId }: { readonly gardenId: string }) {
     renameMutation.mutate({ name: values['name'], expectedRevision: garden.revision });
   });
 
-  const onArchive = () => {
-    if (globalThis.confirm(t('gardens.archiveConfirm'))) {
-      archiveMutation.mutate(garden.revision);
-    }
-  };
-
-  const onRequestDeletion = () => {
-    if (globalThis.confirm(t('gardens.requestDeletionConfirm'))) {
-      deletionMutation.mutate(garden.revision);
-    }
-  };
-
   return (
     <div className={styles['page']}>
       <StaleIndicator failure={query.isError ? query.error.failure : null} />
@@ -140,40 +126,6 @@ export function GardenSettings({ gardenId }: { readonly gardenId: string }) {
             </Button>
           </form>
           {renameMutation.isError && <FailureAlert failure={renameMutation.error.failure} />}
-        </Card>
-      )}
-
-      {isOwner && garden.lifecycleState === 'active' && (
-        <Card title={t('gardens.manageTitle')}>
-          <div className={styles['actions']}>
-            <Button variant="secondary" busy={archiveMutation.isPending} onClick={onArchive}>
-              {t('gardens.archive')}
-            </Button>
-            <Button
-              variant="destructive"
-              busy={deletionMutation.isPending}
-              onClick={onRequestDeletion}
-            >
-              {t('gardens.requestDeletion')}
-            </Button>
-          </div>
-          {archiveMutation.isError && <FailureAlert failure={archiveMutation.error.failure} />}
-          {deletionMutation.isError && <FailureAlert failure={deletionMutation.error.failure} />}
-        </Card>
-      )}
-
-      {isOwner && garden.lifecycleState === 'archived' && (
-        <Card title={t('gardens.manageTitle')}>
-          <div className={styles['actions']}>
-            <Button
-              variant="destructive"
-              busy={deletionMutation.isPending}
-              onClick={onRequestDeletion}
-            >
-              {t('gardens.requestDeletion')}
-            </Button>
-          </div>
-          {deletionMutation.isError && <FailureAlert failure={deletionMutation.error.failure} />}
         </Card>
       )}
     </div>

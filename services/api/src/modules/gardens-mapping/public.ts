@@ -130,6 +130,19 @@ export type { GeoreferenceRoutesDependencies } from './transport/georeference-ro
 export { registerMapRoutes } from './transport/map-routes.js';
 export type { MapRoutesDependencies } from './transport/map-routes.js';
 
+// Plat reading (ADR-0018): transcribing an uploaded plat of survey into a
+// boundary and a set of proposed objects. Reads only — accepting any of it
+// is an ordinary map command, which is why nothing here is a repository.
+export { ReadPlatFromPlan } from './application/read-plat-from-plan.js';
+export type {
+  PlatPageResolver,
+  PlatReadingResult,
+  PlatReadingSource,
+} from './application/read-plat-from-plan.js';
+export { MediaPlatPageResolver } from './persistence/media-plat-page-resolver.js';
+export { registerPlatRoutes } from './transport/plat-routes.js';
+export type { PlatRoutesDependencies } from './transport/plat-routes.js';
+
 // Garden context facts (P9D-CONTEXT-01): reviewed or declared facts about a
 // garden's physical growing environment — sun exposure, soil type,
 // drainage, irrigation method, growing context, and microclimate — with

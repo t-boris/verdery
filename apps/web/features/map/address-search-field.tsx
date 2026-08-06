@@ -13,6 +13,12 @@ import styles from './address-search-field.module.css';
 export interface AddressSearchFieldProps {
   /** Called with `[longitude, latitude]` when a candidate is chosen. */
   readonly onPick: (position: readonly [number, number], formattedAddress: string) => void;
+  /**
+   * What the field starts with — the address this garden was last placed by.
+   * The panel keeps it, because retyping an address to adjust a location by
+   * one house number is work a person should not have to do twice.
+   */
+  readonly initialQuery?: string;
 }
 
 /**
@@ -30,10 +36,10 @@ export interface AddressSearchFieldProps {
  * Source: implementation-plan.md work package P12-GEO-01;
  * packages/api-contracts/openapi.yaml, operation `findAddressCandidates`.
  */
-export function AddressSearchField({ onPick }: AddressSearchFieldProps) {
+export function AddressSearchField({ onPick, initialQuery = '' }: AddressSearchFieldProps) {
   const { t } = useLocalization();
   const isOnline = useIsOnline();
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery);
   const search = useAddressCandidates();
 
   const onSearch = () => {

@@ -11,6 +11,8 @@ import { calibrationStateText } from './calibration-labels';
 import { useMapEditorStore } from './editor-store';
 import styles from './imported-background-panel.module.css';
 import { useDeleteGardenPlan, useGardenPlanMediaList } from './media-queries';
+import { useReadPlat } from './plat-queries';
+import { PlatReadingPanel } from './plat-reading-panel';
 import type { MapObjectRecord } from './types';
 import type { MapEditorActions } from './use-map-editor-actions';
 
@@ -56,6 +58,13 @@ export function ImportedBackgroundPanel({ gardenId, actions }: ImportedBackgroun
   const listQuery = useGardenPlanMediaList(gardenId);
   const deletePlan = useDeleteGardenPlan(gardenId);
   const [pageByMediaId, setPageByMediaId] = useState<Record<string, string>>({});
+  /*
+   * The reading being reviewed, and which plan it came from. Held here
+   * rather than in the store because it is not garden state at all — it is a
+   * proposal that either becomes objects or is discarded (ADR-0018).
+   */
+  const [readingForPlanId, setReadingForPlanId] = useState<string | null>(null);
+  const readPlat = useReadPlat(gardenId);
 
   const backgrounds = backgroundsOf(actions.records);
   /*
@@ -91,6 +100,11 @@ export function ImportedBackgroundPanel({ gardenId, actions }: ImportedBackgroun
         ? parsedPage
         : undefined;
     void actions.createImportedBackground(plan.id, plan.displayFilename, sourcePageNumber);
+  };
+
+  const recognisePlan = (plan: Media) => {
+    setReadingForPlanId(plan.id);
+    readPlat.mutate({ planMediaId: plan.id });
   };
 
   const removePlan = (plan: Media) => {
@@ -216,6 +230,17 @@ export function ImportedBackgroundPanel({ gardenId, actions }: ImportedBackgroun
                 <p className={styles['notice']}>{t('map.background.deletePlanBlocked')}</p>
               )}
               <div className={styles['actions']}>
+                {/* The first thing to try with a surveyor's plat: read it into
+                    real objects. Placing the image itself stays available for
+                    a sketch, a hand drawing, or a sheet the reader cannot
+                    make sense of. */}
+                <Button
+                  type="button"
+                  busy={readPlat.isPending && readingForPlanId === plan.id}
+                  onClick={() => recognisePlan(plan)}
+                >
+                  {t('map.plat.read')}
+                </Button>
                 <Button type="button" variant="secondary" onClick={() => addBackground(plan)}>
                   {t('map.background.addToMap')}
                 </Button>
@@ -238,6 +263,19 @@ export function ImportedBackgroundPanel({ gardenId, actions }: ImportedBackgroun
                   {t('map.background.deletePlan')}
                 </Button>
               </div>
+              {readingForPlanId === plan.id && readPlat.isError && (
+                <FailureAlert failure={readPlat.error.failure} />
+              )}
+              {readingForPlanId === plan.id && readPlat.data !== undefined && (
+                <PlatReadingPanel
+                  reading={readPlat.data}
+                  actions={actions}
+                  onDismiss={() => {
+                    setReadingForPlanId(null);
+                    readPlat.reset();
+                  }}
+                />
+              )}
             </li>
           ))}
         </ul>

@@ -107,6 +107,12 @@ export const testConfiguration: ApplicationConfiguration = {
     maxCallsPerHour: 50,
     maxCallsPerDay: 500,
   },
+  platReading: {
+    enabled: false,
+    model: null,
+    callTimeoutMs: 120_000,
+    maxOutputTokens: 8_192,
+  },
   // P11-ASYNC-01: the kill-switch off — every test-built application runs
   // with an empty assertion-provider registry and a no-op enrichment sweep,
   // like every real environment today; the numbers are the schema's own
@@ -280,6 +286,7 @@ export async function buildTestApplication(
     addressGeocoder: options.addressGeocoder ?? refusingAddressGeocoder(),
     plantSpeciesIdentificationAdapter: null,
     plantConditionAnalysisAdapter: null,
+    platExtractionAdapter: null,
     pushMessageSender: options.pushMessageSender ?? stubPushMessageSender(),
     identityProviderAccounts:
       options.identityProviderAccounts ?? stubIdentityProviderAccountGateway(),

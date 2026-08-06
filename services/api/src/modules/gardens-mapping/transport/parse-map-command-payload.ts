@@ -11,7 +11,11 @@
  * Fastify JSON-schema bridge exists yet.
  */
 
-import type { MapCommandPayload, VertexOperation } from '@verdery/geometry-contracts';
+import type {
+  CreateObjectSource,
+  MapCommandPayload,
+  VertexOperation,
+} from '@verdery/geometry-contracts';
 import { invalid } from './garden-routes.js';
 import { requireGeometry } from './parse-geometry.js';
 import { requireOptionalGardenObjectDetails } from './parse-garden-object-details.js';
@@ -42,8 +46,42 @@ const GARDEN_OBJECT_CATEGORIES = [
   'importedBackground',
 ] as const;
 
+const PROVENANCE_KINDS = [
+  'manualDrawing',
+  'userMeasurement',
+  'importedPlan',
+  'importedMapImagery',
+  'arMeasurement',
+  'imageExtraction',
+  'depthCapture',
+  'externalProvider',
+  'processor',
+] as const;
+
 const VERTEX_OPERATIONS: readonly VertexOperation[] = ['insert', 'move', 'remove'];
 const PROPOSAL_DECISIONS = ['accept', 'modifyAndAccept', 'reject'] as const;
+
+/** `undefined` when the client claimed nothing, which is the ordinary hand-drawn case. */
+function parseCreateObjectSource(value: unknown, pointer: string): CreateObjectSource | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const record = requireRecord(value, pointer);
+  const provenance = requireEnum(record['provenance'], PROVENANCE_KINDS, `${pointer}/provenance`);
+  const rawConfidence = record['confidence'];
+  if (rawConfidence === undefined) {
+    return { provenance };
+  }
+  const confidence = requireNumber(rawConfidence, `${pointer}/confidence`);
+  if (confidence < 0 || confidence > 1) {
+    throw invalid(
+      `${pointer}/confidence must be between 0 and 1.`,
+      'request.confidence.invalid',
+      `${pointer}/confidence`,
+    );
+  }
+  return { provenance, confidence };
+}
 
 function requireOffset(value: unknown, pointer: string): { dx: number; dy: number } {
   const record = requireRecord(value, pointer);
@@ -77,6 +115,7 @@ export function parseMapCommandPayload(value: unknown, pointer: string): MapComm
         record['categoryDetails'],
         `${pointer}/categoryDetails`,
       );
+      const source = parseCreateObjectSource(record['source'], `${pointer}/source`);
       return {
         type: 'createObject',
         objectId: requireUuid(record['objectId'], `${pointer}/objectId`),
@@ -84,6 +123,7 @@ export function parseMapCommandPayload(value: unknown, pointer: string): MapComm
         geometry,
         ...(label === undefined ? {} : { label }),
         ...(categoryDetails === undefined ? {} : { categoryDetails }),
+        ...(source === undefined ? {} : { source }),
       };
     }
 

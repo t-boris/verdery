@@ -65,12 +65,20 @@ const SYSTEM_INSTRUCTION = [
   '- The LOT OUTLINE, as points on the page: each point [x, y] in 0..1 of the',
   '  page width and height, origin at the top-left. Trace the surveyed parcel',
   '  boundary, corner by corner, in the order it is drawn.',
-  '- EVERY OTHER THING DRAWN INSIDE OR ON the lot, each with its own outline in',
-  '  the same page coordinates, its category, the label printed on it, and your',
+  '- EVERY OTHER THING DRAWN INSIDE OR ON the lot, each in the same page',
+  '  coordinates, with its category, the label printed on it, and your',
   '  confidence from 0 to 1. Categories: structure (house, garage, shed, deck,',
   '  porch, patio), path (driveway, walk, asphalt, concrete), fence, zone',
   '  (lawn, planting bed, easement area), waterFeature, utilityExclusion',
   '  (utility or drainage easement strips), tree.',
+  '',
+  'HOW MANY POINTS, and what they mean, depends on the category:',
+  '- structure, zone, waterFeature, utilityExclusion: the CLOSED OUTLINE of the',
+  '  shape, corner by corner, at least 3 points. Do not repeat the first point.',
+  '- path, fence: the CENTRE LINE along it, at least 2 points, from one end to',
+  '  the other. Not its outline — a walk drawn as two parallel edges is ONE',
+  '  centre line running between them.',
+  '- tree: exactly ONE point, at the trunk.',
   '',
   'You must NOT:',
   '- compute, close, or correct the polygon these calls describe;',
@@ -97,13 +105,19 @@ const bearingSchema = z.object({
   turn: z.enum(['east', 'west']),
 });
 
-const pageOutlineSchema = z
-  .array(z.tuple([z.number().min(0).max(1), z.number().min(0).max(1)]))
-  .min(3);
+const pagePointsSchema = z.array(z.tuple([z.number().min(0).max(1), z.number().min(0).max(1)]));
+/** The lot is always an area, so its own outline keeps the stricter minimum. */
+const lotOutlineSchema = pagePointsSchema.min(3);
+/**
+ * A drawn object's points mean different things per category — an outline, a
+ * centre line, or a trunk position — so the count each one needs is checked
+ * where the category is known (`read-plat-from-plan.ts`), not here.
+ */
+const drawnPointsSchema = pagePointsSchema.min(1);
 
 const responseSchema = z.object({
   notAPlat: z.boolean(),
-  lotPageOutline: pageOutlineSchema.or(z.array(z.never()).max(0)),
+  lotPageOutline: lotOutlineSchema.or(z.array(z.never()).max(0)),
   pageObjects: z.array(
     z.object({
       category: z.enum([
@@ -116,7 +130,7 @@ const responseSchema = z.object({
         'tree',
       ]),
       label: z.string(),
-      pageOutline: pageOutlineSchema,
+      pagePoints: drawnPointsSchema,
       confidence: z.number().min(0).max(1),
     }),
   ),
@@ -224,7 +238,7 @@ export function buildPlatExtractionParameters(
             type: Type.ARRAY,
             items: {
               type: Type.OBJECT,
-              required: ['category', 'label', 'pageOutline', 'confidence'],
+              required: ['category', 'label', 'pagePoints', 'confidence'],
               properties: {
                 category: {
                   type: Type.STRING,
@@ -239,7 +253,7 @@ export function buildPlatExtractionParameters(
                   ],
                 },
                 label: { type: Type.STRING },
-                pageOutline: {
+                pagePoints: {
                   type: Type.ARRAY,
                   items: { type: Type.ARRAY, items: { type: Type.NUMBER } },
                 },

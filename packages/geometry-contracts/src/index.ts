@@ -122,6 +122,7 @@ export type {
   AssignPlantPayload,
   ChangePropertiesPayload,
   CreateObjectPayload,
+  CreateObjectSource,
   DecideProposalPayload,
   DeleteObjectPayload,
   DuplicateObjectPayload,

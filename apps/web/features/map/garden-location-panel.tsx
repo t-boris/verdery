@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useIsOnline } from '@/core/connectivity/public';
 import type { WireSetGeoreferenceRequest } from '@/core/api/public';
@@ -38,7 +38,7 @@ export interface GardenLocationPanelProps {
  * architecture/data-and-geospatial-design.md, section "9. Georeferencing".
  */
 export function GardenLocationPanel({ gardenId }: GardenLocationPanelProps) {
-  const { t, locale } = useLocalization();
+  const { t } = useLocalization();
   const isOnline = useIsOnline();
   const map = useGardenMap(gardenId);
   const save = useSetGardenGeoreference(gardenId);
@@ -47,15 +47,24 @@ export function GardenLocationPanel({ gardenId }: GardenLocationPanelProps) {
 
   const [longitude, setLongitude] = useState('');
   const [latitude, setLatitude] = useState('');
-  const [rotation, setRotation] = useState('0');
+  const [rotation, setRotation] = useState('');
+  /*
+   * The address this garden was last found by. The domain stores a
+   * coordinate, not an address (`architecture/data-and-geospatial-design.md`
+   * §9 specifies the field and it is not built), so this survives the session
+   * and no longer — which is still better than clearing the field the moment
+   * a candidate is picked, as it used to.
+   */
+  const [address, setAddress] = useState('');
   const [accuracyMetres, setAccuracyMetres] = useState<number | null>(null);
   const [method, setMethod] = useState<WireSetGeoreferenceRequest['method']>('manualCoordinates');
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
 
-  const onAddressPicked = (position: readonly [number, number]) => {
+  const onAddressPicked = (position: readonly [number, number], formattedAddress: string) => {
     const [pickedLongitude, pickedLatitude] = position;
+    setAddress(formattedAddress);
     setLongitude(pickedLongitude.toFixed(6));
     setLatitude(pickedLatitude.toFixed(6));
     // A geocoder's own accuracy is not reported per candidate — a house
@@ -98,6 +107,21 @@ export function GardenLocationPanel({ gardenId }: GardenLocationPanelProps) {
     );
   };
 
+  /*
+   * One place for each value, and it is the input. The saved record used to
+   * be printed above as read-only text while the fields below started empty,
+   * so a person adjusting a location had to copy three numbers from one half
+   * of the panel into the other (reported 2026-08-06).
+   */
+  useEffect(() => {
+    if (current === undefined || latitude !== '' || longitude !== '') {
+      return;
+    }
+    setLongitude(current.geographicAnchor[0].toFixed(6));
+    setLatitude(current.geographicAnchor[1].toFixed(6));
+    setRotation(String(current.rotationDegrees));
+  }, [current, latitude, longitude]);
+
   const onSubmit = () => {
     const longitudeValue = Number(longitude);
     const latitudeValue = Number(latitude);
@@ -134,9 +158,6 @@ export function GardenLocationPanel({ gardenId }: GardenLocationPanelProps) {
     });
   };
 
-  const formatCoordinate = (value: number) =>
-    new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(value);
-
   return (
     <section className={styles['panel']} aria-labelledby="garden-location-heading">
       <h2 id="garden-location-heading" className={styles['title']}>
@@ -148,38 +169,19 @@ export function GardenLocationPanel({ gardenId }: GardenLocationPanelProps) {
 
       {map.isLoadingError && <FailureAlert failure={map.error.failure} />}
 
-      {!map.isPending &&
-        !map.isLoadingError &&
-        (current === undefined ? (
-          <p className={styles['empty']}>{t('gardenLocation.empty')}</p>
-        ) : (
-          <dl className={styles['current']}>
-            <div className={styles['row']}>
-              <dt>{t('gardenLocation.currentCoordinates')}</dt>
-              <dd>
-                {formatCoordinate(current.geographicAnchor[1])},{' '}
-                {formatCoordinate(current.geographicAnchor[0])}
-              </dd>
-            </div>
-            <div className={styles['row']}>
-              <dt>{t('gardenLocation.currentRotation')}</dt>
-              <dd>{t('gardenLocation.degrees', { degrees: current.rotationDegrees })}</dd>
-            </div>
-            <div className={styles['row']}>
-              <dt>{t('gardenLocation.currentAccuracy')}</dt>
-              <dd>
-                {current.accuracyMetres === undefined
-                  ? t('gardenLocation.accuracyUnknown')
-                  : t('gardenLocation.metres', {
-                      metres: Math.round(current.accuracyMetres),
-                    })}
-              </dd>
-            </div>
-          </dl>
-        ))}
+      {!map.isPending && !map.isLoadingError && current === undefined && (
+        <p className={styles['empty']}>{t('gardenLocation.empty')}</p>
+      )}
+
+      {current?.accuracyMetres !== undefined && (
+        <p className={styles['hint']}>
+          {t('gardenLocation.currentAccuracy')}:{' '}
+          {t('gardenLocation.metres', { metres: Math.round(current.accuracyMetres) })}
+        </p>
+      )}
 
       <div className={styles['form']}>
-        <AddressSearchField onPick={onAddressPicked} />
+        <AddressSearchField onPick={onAddressPicked} initialQuery={address} />
         <p className={styles['hint']}>{t('gardenLocation.addressUsOnly')}</p>
 
         <Button variant="secondary" busy={locating} onClick={useMyLocation} disabled={!isOnline}>

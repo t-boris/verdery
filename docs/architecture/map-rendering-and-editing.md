@@ -420,6 +420,35 @@ Proposals exist in a separate review state and include:
 
 The user may accept, edit-and-accept, partially accept, or reject proposals. Acceptance creates ordinary versioned garden commands and preserves the proposal lineage.
 
+### 17.1 Reading a plat of survey
+
+The first real producer of proposals is `readPlatFromPlan` (ADR-0018): an uploaded plat is
+transcribed, its boundary calls are walked into a lot polygon, and everything else drawn on the
+sheet is carried into garden metres at the survey's own scale.
+
+The reading is **synchronous and stores nothing** — the endpoint writes no proposal record, no
+object, and no georeference. What comes back is reviewed in the client, next to the plan it came
+from, and each accepted item becomes an ordinary `createObject` command. That is why acceptance
+here has no `decideProposal` step: until the person accepts, nothing exists to decide.
+
+What review shows, because it is what a person needs in order to disbelieve the reading:
+
+- the traverse's **closure error** in metres, and whether it closes at all;
+- the walked **area** beside the area the sheet itself states;
+- the **page-fit residual** — how closely the drawing's own lot outline matched the walked
+  polygon, which bounds every object placed by that fit;
+- each object's own **confidence**, its category, and its size.
+
+Each proposal arrives as the geometry its category actually holds (section 5): an outline for a
+structure or a zone, a centre line for a path or a fence, a trunk position for a tree. An accepted
+object records where it came from — `importedPlan` for the boundary walked from printed
+measurements, `imageExtraction` for a shape traced off the drawing — through `createObject`'s
+optional `source`, so a surveyed line is never mistaken later for a hand-drawn one.
+
+When the traverse does not close, the boundary is still returned and marked as not closing, but no
+objects are proposed: without a trustworthy lot there is no scale, and an object placed by a guess
+at scale is worse than no object.
+
 ## 18. Selection and Properties
 
 Selection is identified by object ID, never by renderer node reference. The property panel reads the canonical object draft and exposes semantic fields, measurements, provenance, and uncertainty.

@@ -56,7 +56,9 @@ import {
   ListGardenMembers,
   ListGardens,
   ListIncomingOwnershipTransfers,
+  MediaPlatPageResolver,
   MoveMapObject,
+  ReadPlatFromPlan,
   PromoteToOwner,
   RecordGardenContextFact,
   RemoveMember,
@@ -81,7 +83,11 @@ import type {
   MapRoutesDependencies,
   MemberRoutesDependencies,
   OwnershipRoutesDependencies,
+  PlatRoutesDependencies,
 } from './modules/gardens-mapping/public.js';
+import type { FastifyBaseLogger } from 'fastify';
+import { KyselyMediaRepository } from './modules/media/public.js';
+import type { PlatExtractionProviderAdapter } from './modules/integrations/public.js';
 import type { CloudTasksInvocationVerifier } from './platform/tasks/cloud-tasks-invocation-verifier.js';
 import type { DatabaseGateway } from './platform/database/database-gateway.js';
 import type { Clock } from './shared/time/clock.js';
@@ -93,6 +99,8 @@ export interface GardensMappingComposition {
   readonly mapRoutesDependencies: MapRoutesDependencies;
   /** P12-GEO-01 — the garden's revisioned relationship to the Earth. */
   readonly georeferenceRoutesDependencies: GeoreferenceRoutesDependencies;
+  /** ADR-0018 — reading an uploaded plat of survey into a reviewable boundary and objects. */
+  readonly platRoutesDependencies: PlatRoutesDependencies;
   /** P9A-API-01 — garden-scoped invitation issue/revoke/accept. */
   readonly invitationRoutesDependencies: InvitationRoutesDependencies;
   /** P9A-API-01 — garden member roster, role change, removal. */
@@ -109,6 +117,10 @@ export function composeGardensMapping(
   database: DatabaseGateway,
   clock: Clock,
   cloudTasksInvocationVerifier: CloudTasksInvocationVerifier,
+  logger: FastifyBaseLogger,
+  /** ADR-0018: `null` whenever `PLAT_READING_ENABLED` is off — no code path can reach Vertex. */
+  platExtractionAdapter: PlatExtractionProviderAdapter | null,
+  platReadingCallTimeoutMs: number,
 ): GardensMappingComposition {
   // gardens-mapping: owns gardens and, in Phase 2 only, garden membership —
   // see membership-repository.ts for why. Read paths use the pooled
@@ -396,11 +408,25 @@ export function composeGardensMapping(
     ),
   };
 
+  // ADR-0018: the plan's readable page comes from the media module's own
+  // repository, bound to the pooled connection like every other read path
+  // here — the reading writes nothing, so it needs no unit of work.
+  const platRoutesDependencies: PlatRoutesDependencies = {
+    readPlatFromPlan: new ReadPlatFromPlan(
+      platExtractionAdapter,
+      new MediaPlatPageResolver(new KyselyMediaRepository(database.queries)),
+      gardenAuthorization,
+      platReadingCallTimeoutMs,
+      logger,
+    ),
+  };
+
   return {
     gardenAuthorization,
     gardenRoutesDependencies,
     mapRoutesDependencies,
     georeferenceRoutesDependencies,
+    platRoutesDependencies,
     invitationRoutesDependencies,
     memberRoutesDependencies,
     invitationExpirySweepRouteDependencies,
