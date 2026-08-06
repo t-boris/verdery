@@ -19,6 +19,7 @@ import { MapInspectorDrawer, type InspectorTabId } from './map-inspector-drawer'
 import { CalibrationPanel } from './calibration-panel';
 import { categoryLabelKey, toolLabelKey } from './labels';
 import { MapEditorStoreProvider, useMapEditorStore } from './editor-store';
+import { GardenLocationPanel } from './garden-location-panel';
 import { ImportedBackgroundPanel } from './imported-background-panel';
 import { MapDraftControls } from './map-draft-controls';
 import styles from './map-editor.module.css';
@@ -236,6 +237,15 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
               labelKey: 'map.inspector.tabBackdrop',
               content: (
                 <>
+                  {/*
+                   * Where the garden IS belongs here, not only on the Overview
+                   * page. Everything on this tab — the aerial backdrop, the
+                   * street map, true north, a calibrated plan — is meaningless
+                   * without it, and an owner looking for "set the location"
+                   * looks at the map, not at settings (reported 2026-08-06).
+                   * The same panel, one component, rendered in both places.
+                   */}
+                  <GardenLocationPanel gardenId={gardenId} />
                   <MapLayerPanel actions={actions} />
                   <ImportedBackgroundPanel gardenId={gardenId} actions={actions} />
                   <CalibrationPanel gardenId={gardenId} actions={actions} />

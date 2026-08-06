@@ -35,6 +35,7 @@ Architecture decision records preserve the context, choice, consequences, and su
 | [ADR-0015](ADR-0015-phase10-redirect-plants-over-photo-capture.md)       | Redirect Phase 10: real plant identification over photo-based garden-object capture            | Accepted                            |
 | [ADR-0016](ADR-0016-phase-11-plant-intelligence-domain-and-providers.md) | Phase 11 domain freeze: actual/candidate semantics, health-suggestion safety, provider mapping | Accepted                            |
 | [ADR-0017](ADR-0017-pdf-plans-rendered-without-a-malware-scanner.md)     | PDF plans rendered by poppler in the worker; malware-scanner port removed                      | Accepted                            |
+| [ADR-0018](ADR-0018-plat-extraction-as-reviewable-proposals.md)          | A surveyor's plat is read into reviewable proposals, never into accepted geometry              | Accepted                            |
 
 ## Naming
 

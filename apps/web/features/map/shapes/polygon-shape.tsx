@@ -57,6 +57,15 @@ export function PolygonShape({ record, camera, size, selected }: PolygonShapePro
             shadowOpacity={0.55}
             {...fillProp}
             {...dashProp}
+            /*
+             * The outline is grabbable, not just the fill. A dashed, 15 %-alpha
+             * underlay reads as "not really there", and a drag that misses it
+             * pans the stage instead — which looks like the object moving
+             * together with the aerial backdrop, because everything moves
+             * (reported 2026-08-06 for an imported plan). Twelve pixels is one
+             * fingertip either side of the line.
+             */
+            hitStrokeWidth={12}
           />
         );
       })}
