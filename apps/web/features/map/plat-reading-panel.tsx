@@ -132,6 +132,18 @@ export function PlatReadingPanel({ reading, actions, onDismiss }: PlatReadingPan
             </div>
           </>
         )}
+        {reading.boundary?.recoveredBearing !== undefined &&
+          reading.boundary.recoveredBearing !== null && (
+            <div className={styles['fact']}>
+              <dt>{t('map.plat.recoveredBearing')}</dt>
+              <dd>
+                {t('map.plat.recoveredBearingValue', {
+                  call: String(reading.boundary.recoveredBearing.callNumber),
+                  metres: number(reading.boundary.recoveredBearing.lengthDisagreementMetres, 2),
+                })}
+              </dd>
+            </div>
+          )}
         {reading.pageFitResidualMetres !== null && (
           <div className={styles['fact']}>
             <dt>{t('map.plat.fit')}</dt>

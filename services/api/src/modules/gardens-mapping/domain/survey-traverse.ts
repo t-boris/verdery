@@ -45,6 +45,25 @@ export interface SurveyCall {
   readonly distanceFeet: number;
 }
 
+/**
+ * One bearing the reading lost and the figure itself supplied.
+ *
+ * See `repairSingleBearing`: the direction is taken from the closing of the
+ * parcel, and the printed distance for that same line is the independent
+ * check on it. Present only when a repair was applied.
+ */
+export interface SurveyBearingRepair {
+  /** Which call's bearing was replaced, indexed as the calls were given. */
+  readonly callIndex: number;
+  /**
+   * How far the closing line's own length is from the distance printed for
+   * that line, in metres. This is the honest error of the repaired boundary:
+   * a near-zero disagreement means the survey and the reading agree about
+   * that side's length, and only its direction had been misread.
+   */
+  readonly lengthDisagreementMetres: number;
+}
+
 export interface SurveyTraverse {
   /** The polygon's exterior ring, closed, in local metres with the first corner at the origin. */
   readonly ring: readonly (readonly [number, number])[];
@@ -52,6 +71,8 @@ export interface SurveyTraverse {
   readonly closureErrorMetres: number;
   /** `false` when the calls do not describe a closed figure this product will call a boundary. */
   readonly closes: boolean;
+  /** Present when one bearing was taken from the figure's own closing rather than from the page. */
+  readonly repairedBearing?: SurveyBearingRepair;
 }
 
 /**
@@ -164,7 +185,157 @@ export function closeTraverse(calls: readonly SurveyCall[]): SurveyTraverse | nu
       best = walked;
     }
   }
-  return best;
+
+  return best !== null && best.closes ? best : (repairSingleBearing(calls) ?? best);
+}
+
+/**
+ * The bearing of one line, taken from the parcel's own closing.
+ *
+ * A plat is a closed figure — that is what makes it a survey rather than a
+ * sketch — so a traverse of n sides is over-determined: any n−1 correct
+ * calls determine the last side exactly. When a reading transcribes every
+ * distance but loses ONE bearing, the figure itself says what that bearing
+ * must have been, and the distance printed for that same line is an
+ * INDEPENDENT check that the right call was repaired: the closing line's
+ * length either agrees with the printed one or it does not.
+ *
+ * This is the failure this exists for, observed directly on the owner's own
+ * plat: three lines transcribed perfectly and the fourth — the curved road
+ * frontage, whose bearing is printed as a chord bearing among radius and arc
+ * figures — came back as `N 0°0'0" E` on one reading and `S 44°11' W` on the
+ * next, leaving 17 and 30 metres of misclosure. The distances were identical
+ * and correct in every run.
+ *
+ * What it will NOT do:
+ *
+ * - repair more than one bearing. Two unknowns in a closed figure have
+ *   infinitely many solutions, and picking one would be inventing a parcel.
+ * - repair when several candidates fit. If two different lines could each be
+ *   the misread one, the figure does not identify which, and a guess between
+ *   them is not a survey.
+ * - repair a length. Only the direction of the closing line is taken; its
+ *   printed length stays the check rather than becoming the answer.
+ *
+ * Returns `null` when no single repair explains the misclosure, in which case
+ * the caller keeps the unrepaired walk and its honest error.
+ */
+function repairSingleBearing(calls: readonly SurveyCall[]): SurveyTraverse | null {
+  let onlyFit: SurveyTraverse | null = null;
+
+  for (let mask = 0; mask < 1 << (calls.length - 1); mask += 1) {
+    const oriented = calls.map((call, index) =>
+      index > 0 && (mask & (1 << (index - 1))) !== 0
+        ? { ...call, bearing: reversed(call.bearing) }
+        : call,
+    );
+
+    for (let index = 0; index < oriented.length; index += 1) {
+      const fit = closeThrough(oriented, index);
+      if (fit === null) {
+        continue;
+      }
+      if (onlyFit === null) {
+        onlyFit = fit;
+        continue;
+      }
+      // A second, materially different explanation means the figure does not
+      // identify which line was misread. Two masks describing the SAME repair
+      // (the same corner positions) are not a second explanation.
+      if (!sameRing(onlyFit.ring, fit.ring)) {
+        return null;
+      }
+      if (
+        fit.repairedBearing !== undefined &&
+        onlyFit.repairedBearing !== undefined &&
+        fit.repairedBearing.lengthDisagreementMetres <
+          onlyFit.repairedBearing.lengthDisagreementMetres
+      ) {
+        onlyFit = fit;
+      }
+    }
+  }
+
+  return onlyFit;
+}
+
+/**
+ * The ring these calls describe when the call at `unknownIndex` is replaced
+ * by whatever vector closes the figure — or `null` when that vector's length
+ * disagrees with the distance printed for that line.
+ */
+function closeThrough(calls: readonly SurveyCall[], unknownIndex: number): SurveyTraverse | null {
+  const unknown = calls[unknownIndex];
+  if (
+    unknown === undefined ||
+    !Number.isFinite(unknown.distanceFeet) ||
+    unknown.distanceFeet <= 0
+  ) {
+    return null;
+  }
+  if (calls.some((call) => !Number.isFinite(call.distanceFeet) || call.distanceFeet <= 0)) {
+    return null;
+  }
+
+  const vectors = calls.map((call, index) =>
+    index === unknownIndex ? ([0, 0] as const) : vectorOf(call),
+  );
+
+  let sumX = 0;
+  let sumY = 0;
+  for (const vector of vectors) {
+    sumX += vector[0];
+    sumY += vector[1];
+  }
+
+  // The missing side is exactly the vector back to where the walk began.
+  const closingX = -sumX;
+  const closingY = -sumY;
+  const closingLength = Math.hypot(closingX, closingY);
+  const printedLength = unknown.distanceFeet * METRES_PER_FOOT;
+  const disagreement = Math.abs(closingLength - printedLength);
+  if (disagreement > MAX_ACCEPTABLE_CLOSURE_METRES) {
+    return null;
+  }
+
+  const corners: [number, number][] = [[0, 0]];
+  let x = 0;
+  let y = 0;
+  for (let index = 0; index < calls.length; index += 1) {
+    const vector = index === unknownIndex ? ([closingX, closingY] as const) : vectors[index];
+    x += vector?.[0] ?? 0;
+    y += vector?.[1] ?? 0;
+    corners.push([x, y]);
+  }
+  corners[corners.length - 1] = [0, 0];
+
+  return {
+    ring: corners.map(([cornerX, cornerY]) => [round(cornerX), round(cornerY)] as const),
+    closureErrorMetres: 0,
+    closes: true,
+    repairedBearing: { callIndex: unknownIndex, lengthDisagreementMetres: round(disagreement) },
+  };
+}
+
+/** One call as an east/north offset in metres, or `null` when its distance is unusable. */
+function vectorOf(call: SurveyCall): readonly [number, number] {
+  const metres = call.distanceFeet * METRES_PER_FOOT;
+  const azimuth = (azimuthDegrees(call.bearing) * Math.PI) / 180;
+  return [metres * Math.sin(azimuth), metres * Math.cos(azimuth)];
+}
+
+/** Two rings describing the same parcel, to within the closure tolerance at every corner. */
+function sameRing(
+  left: readonly (readonly [number, number])[],
+  right: readonly (readonly [number, number])[],
+): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+  return left.every((corner, index) => {
+    const other = right[index] ?? [Number.NaN, Number.NaN];
+    return Math.hypot(corner[0] - other[0], corner[1] - other[1]) <= MAX_ACCEPTABLE_CLOSURE_METRES;
+  });
 }
 
 /** Millimetre resolution, the same rounding the geometry contracts apply on write. */

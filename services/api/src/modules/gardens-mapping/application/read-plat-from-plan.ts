@@ -50,6 +50,18 @@ export interface PlatBoundaryResult {
   readonly closureErrorMetres: number;
   readonly closes: boolean;
   readonly areaSquareMetres: number;
+  /**
+   * Set when one line's direction was taken from the parcel's own closing
+   * rather than from the page — see `survey-traverse.ts`'s
+   * `repairSingleBearing`. Carried to review because a reviewer is entitled
+   * to know which number came off the sheet and which the figure supplied.
+   */
+  readonly recoveredBearing: {
+    /** Which boundary call, numbered from 1 as a person reads them. */
+    readonly callNumber: number;
+    /** How far the closing line's length is from the distance printed for that line. */
+    readonly lengthDisagreementMetres: number;
+  } | null;
 }
 
 /**
@@ -167,6 +179,7 @@ export class ReadPlatFromPlan {
         callCount: calls.length,
         closes: traverse?.closes ?? false,
         closureErrorMetres: traverse?.closureErrorMetres ?? null,
+        recoveredBearingCall: traverse?.repairedBearing?.callIndex ?? null,
         hasAddress: outcome.plat.address !== null,
         drawnObjectCount: outcome.plat.pageObjects.length,
       },
@@ -217,6 +230,13 @@ export class ReadPlatFromPlan {
               closureErrorMetres: traverse.closureErrorMetres,
               closes: traverse.closes,
               areaSquareMetres: ringArea(traverse.ring),
+              recoveredBearing:
+                traverse.repairedBearing === undefined
+                  ? null
+                  : {
+                      callNumber: traverse.repairedBearing.callIndex + 1,
+                      lengthDisagreementMetres: traverse.repairedBearing.lengthDisagreementMetres,
+                    },
             },
     };
   }

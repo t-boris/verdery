@@ -213,6 +213,9 @@ export const englishMapMessages = {
   'map.plat.area': 'Walked area',
   'map.plat.areaValue': '{metres} m² ({feet} sq ft)',
   'map.plat.statedArea': 'sheet states {feet} sq ft',
+  'map.plat.recoveredBearing': 'Recovered direction',
+  'map.plat.recoveredBearingValue':
+    'Line {call} was not legible, so its direction comes from the parcel closing. Its length agrees with the printed distance to within {metres} m.',
   'map.plat.fit': 'Drawing fit',
   'map.plat.fitValue': 'Objects placed to within {metres} m of the surveyed lot',
   'map.plat.acceptBoundary': 'Lot boundary, from the printed bearings and distances',

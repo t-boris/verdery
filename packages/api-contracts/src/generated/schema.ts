@@ -8228,6 +8228,29 @@ export interface components {
             closes: boolean;
             /** @description Area of the walked polygon, for comparison against `statedAreaSquareFeet`. */
             areaSquareMetres: number;
+            /**
+             * @description Set when one line's DIRECTION was taken from the parcel's own closing
+             *     rather than read off the page, and `null` otherwise.
+             *
+             *     A plat is a closed figure, so any n−1 correct calls determine the
+             *     last side exactly. When a reading transcribes every distance but
+             *     loses one bearing — a curved road frontage, whose direction is
+             *     printed as a chord bearing among radius and arc figures, is where
+             *     this happens — the figure supplies the missing direction and the
+             *     distance printed for that same line is the independent check on it.
+             *     Never applied to more than one line, and never to a length.
+             */
+            recoveredBearing: {
+                /** @description Which boundary call, numbered from 1 as a person reads them. */
+                callNumber: number;
+                /**
+                 * @description How far the closing line's own length is from the distance
+                 *     printed for that line. Near zero means the survey and the
+                 *     reading agree about that side's length, and only its
+                 *     direction had been misread.
+                 */
+                lengthDisagreementMetres: number;
+            } | null;
         };
         /**
          * @description One thing the drawing shows — the house, the deck, the drive, an easement

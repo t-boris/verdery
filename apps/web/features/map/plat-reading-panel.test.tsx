@@ -31,6 +31,7 @@ function reading(overrides: Partial<PlatReading> = {}): PlatReading {
       closureErrorMetres: 0.42,
       closes: true,
       areaSquareMetres: 934,
+      recoveredBearing: null,
     },
     objects: [
       {
@@ -142,6 +143,7 @@ describe('PlatReadingPanel', () => {
           closureErrorMetres: 6.2,
           closes: false,
           areaSquareMetres: 500,
+          recoveredBearing: null,
         },
       }),
     );
@@ -150,6 +152,40 @@ describe('PlatReadingPanel', () => {
       false,
     );
     expect(screen.getByText(/does not close/)).toBeDefined();
+  });
+
+  /*
+   * A plat is a closed figure, so a lost bearing is recoverable from the
+   * parcel itself — the owner's own curved road frontage came back as
+   * `N 0°0'0" E`. Review says so plainly, with the check that makes the
+   * recovery a survey rather than a guess.
+   */
+  it('says when a direction came from the parcel closing rather than the page', () => {
+    renderPanel(
+      reading({
+        boundary: {
+          geometry: {
+            type: 'Polygon',
+            coordinates: [
+              [
+                [0, 0],
+                [30, 0],
+                [30, 31],
+                [0, 31],
+                [0, 0],
+              ],
+            ],
+          },
+          closureErrorMetres: 0,
+          closes: true,
+          areaSquareMetres: 934,
+          recoveredBearing: { callNumber: 4, lengthDisagreementMetres: 0.06 },
+        },
+      }),
+    );
+
+    expect(screen.getByText(/Line 4 was not legible/)).toBeDefined();
+    expect(screen.getByText(/within 0.06 m/)).toBeDefined();
   });
 
   it('answers plainly when the page is not a plat at all', () => {

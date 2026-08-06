@@ -15038,6 +15038,7 @@ components:
         - closureErrorMetres
         - closes
         - areaSquareMetres
+        - recoveredBearing
       properties:
         geometry:
           $ref: '#/components/schemas/Geometry'
@@ -15056,6 +15057,38 @@ components:
           type: number
           minimum: 0
           description: Area of the walked polygon, for comparison against `statedAreaSquareFeet`.
+        recoveredBearing:
+          description: |
+            Set when one line's DIRECTION was taken from the parcel's own closing
+            rather than read off the page, and `null` otherwise.
+
+            A plat is a closed figure, so any n−1 correct calls determine the
+            last side exactly. When a reading transcribes every distance but
+            loses one bearing — a curved road frontage, whose direction is
+            printed as a chord bearing among radius and arc figures, is where
+            this happens — the figure supplies the missing direction and the
+            distance printed for that same line is the independent check on it.
+            Never applied to more than one line, and never to a length.
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required:
+                - callNumber
+                - lengthDisagreementMetres
+              properties:
+                callNumber:
+                  type: integer
+                  minimum: 1
+                  description: Which boundary call, numbered from 1 as a person reads them.
+                lengthDisagreementMetres:
+                  type: number
+                  minimum: 0
+                  description: |
+                    How far the closing line's own length is from the distance
+                    printed for that line. Near zero means the survey and the
+                    reading agree about that side's length, and only its
+                    direction had been misread.
+            - type: 'null'
     ProposedPlatObject:
       type: object
       additionalProperties: false

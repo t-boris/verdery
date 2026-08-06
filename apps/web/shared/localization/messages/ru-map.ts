@@ -220,6 +220,9 @@ export const russianMapMessages: Readonly<Record<keyof typeof englishMapMessages
   'map.plat.area': 'Площадь по обходу',
   'map.plat.areaValue': '{metres} м² ({feet} кв. футов)',
   'map.plat.statedArea': 'на листе указано {feet} кв. футов',
+  'map.plat.recoveredBearing': 'Восстановленное направление',
+  'map.plat.recoveredBearingValue':
+    'Линия {call} не читалась, её направление взято из замыкания участка. Длина совпадает с печатным расстоянием с точностью {metres} м.',
   'map.plat.fit': 'Совмещение чертежа',
   'map.plat.fitValue': 'Объекты поставлены с точностью {metres} м относительно участка',
   'map.plat.acceptBoundary': 'Границы участка — из печатных румбов и расстояний',

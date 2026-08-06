@@ -27,9 +27,52 @@ const PAGE_SQUARE: PagePoint[] = [
 ];
 
 describe('fitPageToGround', () => {
-  it('refuses rings that do not describe the same corners', () => {
+  it('refuses rings that cannot correspond at all', () => {
     expect(fitPageToGround([], GROUND_SQUARE)).toBeNull();
-    expect(fitPageToGround(PAGE_SQUARE, GROUND_SQUARE.slice(0, 3))).toBeNull();
+    // Fewer traced corners than surveyed ones: there is no correspondence to
+    // find, and inventing one would invent a parcel.
+    expect(fitPageToGround(PAGE_SQUARE.slice(0, 3), GROUND_SQUARE)).toBeNull();
+  });
+
+  /*
+   * The reader is not told where to start tracing or which way to run, and a
+   * plat draws a curved frontage as several short segments, so the traced
+   * outline routinely has a different first corner, a different direction,
+   * and more points than the survey has sides. Each of these is the same
+   * parcel and must fit as one.
+   */
+  it('fits an outline traced from a different starting corner', () => {
+    const rotated: PagePoint[] = [...PAGE_SQUARE.slice(2), ...PAGE_SQUARE.slice(0, 2)];
+
+    const transform = fitPageToGround(rotated, GROUND_SQUARE);
+
+    expect(transform?.scale).toBeCloseTo(300, 6);
+    expect(transform?.residualMetres ?? 1).toBeLessThan(0.001);
+  });
+
+  it('fits an outline traced the other way round', () => {
+    const transform = fitPageToGround([...PAGE_SQUARE].reverse(), GROUND_SQUARE);
+
+    expect(transform?.scale).toBeCloseTo(300, 6);
+    expect(transform?.residualMetres ?? 1).toBeLessThan(0.001);
+  });
+
+  it('drops the corners a curve was traced with and keeps the real ones', () => {
+    // The same square, with two extra points sitting on its edges — what a
+    // reader produces when it follows a drawn arc segment by segment.
+    const overTraced: PagePoint[] = [
+      [0.4, 0.6],
+      [0.45, 0.6],
+      [0.5, 0.6],
+      [0.5, 0.55],
+      [0.5, 0.5],
+      [0.4, 0.5],
+    ];
+
+    const transform = fitPageToGround(overTraced, GROUND_SQUARE);
+
+    expect(transform?.scale).toBeCloseTo(300, 6);
+    expect(transform?.residualMetres ?? 1).toBeLessThan(0.001);
   });
 
   it('refuses a page outline with no extent to scale from', () => {
