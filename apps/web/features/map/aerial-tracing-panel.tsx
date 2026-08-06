@@ -57,13 +57,16 @@ export function AerialTracingPanel({
                 <input
                   type="checkbox"
                   checked={selected.includes(index)}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    // React clears SyntheticEvent.currentTarget after this
+                    // handler returns. Capture the primitive before the state
+                    // updater runs so selecting a proposal cannot dereference
+                    // a null currentTarget.
+                    const checked = event.currentTarget.checked;
                     setSelected((current) =>
-                      event.currentTarget.checked
-                        ? [...current, index]
-                        : current.filter((value) => value !== index),
-                    )
-                  }
+                      checked ? [...current, index] : current.filter((value) => value !== index),
+                    );
+                  }}
                 />
                 <span>
                   {proposal.label || t(categoryLabelKey(proposal.category))}

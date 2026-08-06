@@ -92,6 +92,9 @@ north-up USGS image centered on the saved geographic anchor and returns reviewab
 the lot, structures, driveway/walk lines, parking surfaces, fences, water/utility areas and visible
 trees. It writes nothing. The user can accept each proposal separately, and accepted geometry uses
 the ordinary `createObject` command with `imageExtraction` provenance and confidence.
+The review keeps checkbox state entirely in client-local primitives captured during the input
+event; it never retains or later dereferences a framework event object. Selecting or clearing any
+proposal therefore updates the accepted count without closing or crashing the review.
 
 A backdrop is context, never geometry. No pixel of it enters the domain model: what someone traces
 over it is their own drawing, carrying their own provenance. The projection between local metres and
