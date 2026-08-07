@@ -215,36 +215,37 @@ describe('GbifAdapter', () => {
     // CC-BY and CC-BY-NC. Dropping the unusable entries here would erase the
     // difference between "no photographs exist" and "every photograph is
     // unusable".
-    const adapter = new GbifAdapter(
-      scriptedFetch([
-        {
-          match: 'occurrence/search',
-          body: {
-            results: [
-              {
-                key: 8811,
-                media: [
-                  {
-                    type: 'StillImage',
-                    identifier: 'https://example.org/a.jpg',
-                    license: 'http://creativecommons.org/publicdomain/zero/1.0/',
-                    creator: 'A. Botanist',
-                  },
-                  {
-                    type: 'StillImage',
-                    identifier: 'https://example.org/b.jpg',
-                    license: 'http://creativecommons.org/licenses/by-nc/4.0/',
-                    rightsHolder: 'Someone Else',
-                  },
-                  // No licence at all: kept, recorded as unknown, refused later.
-                  { type: 'StillImage', identifier: 'https://example.org/c.jpg' },
-                ],
-              },
-            ],
-          },
+    const { httpFetch, requests } = scriptedFetch([
+      {
+        match: 'occurrence/search',
+        body: {
+          results: [
+            {
+              key: 8811,
+              country: 'United States',
+              stateProvince: 'Illinois',
+              media: [
+                {
+                  type: 'StillImage',
+                  identifier: 'https://example.org/a.jpg',
+                  license: 'http://creativecommons.org/publicdomain/zero/1.0/',
+                  creator: 'A. Botanist',
+                },
+                {
+                  type: 'StillImage',
+                  identifier: 'https://example.org/b.jpg',
+                  license: 'http://creativecommons.org/licenses/by-nc/4.0/',
+                  rightsHolder: 'Someone Else',
+                },
+                // No licence at all: kept, recorded as unknown, refused later.
+                { type: 'StillImage', identifier: 'https://example.org/c.jpg' },
+              ],
+            },
+          ],
         },
-      ]).httpFetch,
-    );
+      },
+    ]);
+    const adapter = new GbifAdapter(httpFetch);
 
     const media = await adapter.fetchMedia('8811', new AbortController().signal);
 
@@ -254,6 +255,12 @@ describe('GbifAdapter', () => {
       null,
     ]);
     expect(media[0]?.providerAssetId).toBe('8811:0');
+    expect(media[0]?.generalizedLocation).toBe('United States, Illinois');
+    expect(requests[0]).toContain('country=US');
+    expect(requests[0]).toContain('occurrenceStatus=PRESENT');
+    expect(requests[0]).toContain('basisOfRecord=HUMAN_OBSERVATION');
+    expect(requests[0]).toContain('mediaType=StillImage');
+    expect(requests[0]).toContain('limit=100');
   });
 
   it('skips entries with nothing showable: no URL, a non-image, or an insecure URL', async () => {

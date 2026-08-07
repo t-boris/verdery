@@ -48,13 +48,12 @@ const STATE_PROVINCE_FACET_LIMIT = 60;
 /**
  * Occurrence records read per media fetch.
  *
- * A profile shows a handful of reference images, and each record can carry
- * several; twenty is generous for that and small enough that one taxon's
- * enrichment cannot pull thousands of records from a shared public API. The
- * usable subset is smaller still, since a mixed result set is exactly what
- * the licence rule filters.
+ * A profile shows a handful of reference images, but the first records can
+ * contain repeated photographs from one contributor. Reading one hundred
+ * confirmed observations gives the presentation query enough candidates to
+ * select a small, contributor-diverse gallery without making a bulk request.
  */
-const MEDIA_RECORD_LIMIT = 20;
+const MEDIA_RECORD_LIMIT = 100;
 
 /** The response slice this adapter reads. A real `Response` is assignable. */
 export interface GbifHttpResponse {
@@ -140,6 +139,12 @@ export class GbifAdapter implements PlantAssertionProviderAdapter {
     // Unlike `fetchFacts`, this DOES read individual records — so every
     // media entry's own `license` is read per entry, exactly as this file's
     // payload header requires of any pass that stops using facet counts.
+    // Restrict the gallery to confirmed field observations in the country
+    // the application currently supports. This is a provider query, not a
+    // county-specific source or a fallback.
+    url.searchParams.set('country', 'US');
+    url.searchParams.set('occurrenceStatus', 'PRESENT');
+    url.searchParams.set('basisOfRecord', 'HUMAN_OBSERVATION');
     url.searchParams.set('mediaType', 'StillImage');
     url.searchParams.set('limit', String(MEDIA_RECORD_LIMIT));
     const body = await getJson(this.httpFetch, url.toString(), signal);

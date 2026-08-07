@@ -52,6 +52,7 @@ export class KyselyPlantMediaAssetRepository implements PlantMediaAssetRepositor
             creator: asset.creator,
             attribution_text: asset.attributionText,
             observed_at: asset.observedAt,
+            generalized_location: asset.generalizedLocation,
             organ: asset.organ,
             inferred_organ: asset.inferredOrgan,
             ingestion_state: asset.ingestionState,

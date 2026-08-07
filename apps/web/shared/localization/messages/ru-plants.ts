@@ -78,9 +78,10 @@ export const russianPlantsMessages = {
   'plants.photoCloseFullscreen': 'Закрыть полноэкранную фотографию',
   'plants.referencePhotosTitle': 'Эталонные фото',
   'plants.referencePhotosDescription':
-    'Лицензированные фотографии этого вида из глобальных биологических источников. Они отделены от фото вашего растения.',
+    'Отобранные лицензированные полевые наблюдения этого вида. По одному снимку от каждого автора; ваши фото растения хранятся отдельно.',
   'plants.referencePhotosLoading': 'Загрузка эталонных фото.',
   'plants.referencePhotosEmpty': 'Для этого вида пока нет доступных лицензированных фото.',
+  'plants.referencePhotoAlt': '{plant} — эталонное фото {number}',
   'plants.addFromPhotoTitle': 'Добавить по фото',
   'plants.addFromPhotoDescription':
     'Загрузите фото растения. Оно будет создано автоматически, а предположение ИИ о его виде будет показано вам для подтверждения.',

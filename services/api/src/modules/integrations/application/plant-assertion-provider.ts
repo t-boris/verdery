@@ -86,6 +86,8 @@ export interface NormalizedMediaCandidate {
   readonly rightsHolder: string | null;
   readonly creator: string | null;
   readonly observedAt: Date | null;
+  /** Provider-supplied broad geography only; never a precise observation coordinate. */
+  readonly generalizedLocation?: string | null;
 }
 
 export interface PlantAssertionProviderAdapter {

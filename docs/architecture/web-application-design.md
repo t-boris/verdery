@@ -238,6 +238,8 @@ The plant-detail route implements that boundary directly: it owns the reusable u
 
 Candidate conversion preserves every candidate-photo link by creating plant-photo links to the same immutable media records; the candidate links remain for audit. These specimen photographs are never mixed with taxon reference imagery. An identified plant reads licensed reference photographs through the plant-catalog profile endpoint, and the UI labels them separately so "this exact plant" and "a representative image of this species" remain distinct records with distinct provenance.
 
+Reference photographs use the same viewport-contained full-screen lightbox behavior as specimen photographs. The thumbnail may use a compact grid cell, but the popup always uses `object-fit: contain` so the complete source image remains visible.
+
 Uploading needs the media feature, so any form that attaches media is composed at the route layer rather than inside another feature — see section 20. The observation form receives its attachments as a prop; the route owns the list and clears it when the record succeeds.
 
 ## 13. Error Boundaries

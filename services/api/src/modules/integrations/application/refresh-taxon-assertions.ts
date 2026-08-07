@@ -287,7 +287,7 @@ export class RefreshTaxonAssertions {
           creator: candidate.creator,
           rightsHolder: candidate.rightsHolder,
           observedAt: candidate.observedAt,
-          generalizedLocation: null,
+          generalizedLocation: candidate.generalizedLocation ?? null,
           // A refused image is stored as refused, not dropped.
           ingestionState: ineligibility === null ? 'discovered' : 'rejected',
           now,

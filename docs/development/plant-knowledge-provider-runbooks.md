@@ -154,6 +154,12 @@ Knowledge classes and their ADR-0013/ADR-0016-selected source, per
 - **License:** per-record, read from the `license` field every time — never cached as a
   dataset-wide assumption. Downloads carry a citable DOI or must be individually attributed
   per GBIF's data-use terms.
+- **Reference-image selection:** the cache-aside media request reads up to 100 confirmed
+  `HUMAN_OBSERVATION` records with `occurrenceStatus=PRESENT` and `country=US`. Presentation
+  remains capped at eight images and selects at most one image per credited contributor. This
+  is a federal provider query, not a county data source or fallback. Rows cached before this
+  scope was introduced are retained for audit as rejected and refreshed from GBIF on the next
+  taxon-profile read.
 
 ### 3.2 USA-NPN (phenology)
 
@@ -254,7 +260,8 @@ pushed into `composeIntegrations`'s `sourcePriority` in this order — World Flo
 PLANTS, GBIF, USA-NPN — each still kill-switched off by default (`GBIF_PROVIDER_ENABLED`,
 `USA_NPN_PROVIDER_ENABLED`, `WORLD_FLORA_ONLINE_PROVIDER_ENABLED`, all default `false`, no
 environment implicitly enables any of the four). Development explicitly enables GBIF as of
-2026-08-06 so an identified plant can cache licensed, worldwide reference imagery on first read;
+2026-08-06 so an identified plant can cache licensed reference imagery from confirmed US field
+observations on first read;
 production remains off until configured deliberately. Every fetched assertion still lands
 `awaiting_horticultural_review`; nothing is visible in a materialized profile or a suitability
 finding until a human reviewer promotes it — and, as of this same pass, that promotion surface

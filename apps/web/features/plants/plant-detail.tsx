@@ -198,7 +198,10 @@ export function PlantDetail({ gardenId, plantId, photoUpload }: PlantDetailProps
         </Card>
       )}
       {plant.taxonomyReferenceId !== null && (
-        <PlantReferenceGallery taxonomyReferenceId={plant.taxonomyReferenceId} />
+        <PlantReferenceGallery
+          taxonomyReferenceId={plant.taxonomyReferenceId}
+          displayName={plant.displayName}
+        />
       )}
 
       {(hasConfirmableSuggestion || suggestedConditionNote !== null) &&

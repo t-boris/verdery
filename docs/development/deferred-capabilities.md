@@ -777,7 +777,10 @@ are fetched cache-aside through the configured global knowledge-provider registr
 identified taxon has no cached presentable image; the existing server-side commercial-display
 license allowlist remains authoritative. A reviewed fact projection is no longer a prerequisite
 for imagery: `PlantTaxonProfileResult.profile` is nullable, while licensed images can still be
-returned immediately.
+returned immediately. The GBIF media query uses confirmed US field observations, and the gallery
+shows at most one image per credited contributor to avoid one observation burst dominating the
+result. Both specimen and reference thumbnails open into a viewport-contained full-screen popup;
+the original image is never cropped to fill that popup.
 
 **Photo and file attachment on iOS — resolved by `P6-IOS-01`.** The iOS half of the same gap this
 section describes for web is now closed. `CoreMediaTransfer` (new Core module) provides: durable

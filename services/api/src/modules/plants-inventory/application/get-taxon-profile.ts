@@ -29,7 +29,7 @@ export interface PlantTaxonProfileResult {
  * would be a large response nobody reads. Named rather than inlined because
  * it is a product judgement about a page, not a query detail.
  */
-const PROFILE_IMAGE_LIMIT = 12;
+const PROFILE_IMAGE_LIMIT = 8;
 
 export class GetTaxonProfile {
   constructor(

@@ -157,6 +157,8 @@ const gbifOccurrenceMediaSchema = z.object({
     .array(
       z.object({
         key: z.union([z.number(), z.string()]).optional(),
+        country: z.string().optional(),
+        stateProvince: z.string().optional(),
         media: z.array(gbifMediaEntrySchema).optional(),
       }),
     )
@@ -196,6 +198,9 @@ export function parseGbifOccurrenceMediaPayload(
   const candidates: NormalizedMediaCandidate[] = [];
   for (const record of parsed.data.results ?? []) {
     const occurrenceKey = record.key === undefined ? null : String(record.key);
+    const generalizedLocation = [trimmedOrNull(record.country), trimmedOrNull(record.stateProvince)]
+      .filter((part): part is string => part !== null)
+      .join(', ');
     for (const [index, entry] of (record.media ?? []).entries()) {
       if (entry.type !== undefined && entry.type !== 'StillImage') {
         continue;
@@ -218,6 +223,7 @@ export function parseGbifOccurrenceMediaPayload(
         rightsHolder: trimmedOrNull(entry.rightsHolder),
         creator: trimmedOrNull(entry.creator),
         observedAt: observedAt === null || Number.isNaN(observedAt.getTime()) ? null : observedAt,
+        generalizedLocation: generalizedLocation === '' ? null : generalizedLocation,
       });
     }
   }

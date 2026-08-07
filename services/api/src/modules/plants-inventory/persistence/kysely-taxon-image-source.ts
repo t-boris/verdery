@@ -31,11 +31,22 @@ export class KyselyTaxonImageSource implements TaxonImageSource {
   async listPresentable(taxonomyReferenceId: Uuid, limit: number): Promise<readonly TaxonImage[]> {
     const rows = await this.db
       .selectFrom('integrations.plant_media_asset')
-      .innerJoin(
-        'integrations.plant_taxonomy_mapping',
-        'integrations.plant_taxonomy_mapping.provider_taxon_id',
-        'integrations.plant_media_asset.provider_taxon_id',
+      .innerJoin('integrations.plant_taxonomy_mapping', (join) =>
+        join
+          .onRef(
+            'integrations.plant_taxonomy_mapping.provider_taxon_id',
+            '=',
+            'integrations.plant_media_asset.provider_taxon_id',
+          )
+          .onRef(
+            'integrations.plant_taxonomy_mapping.provider_key',
+            '=',
+            'integrations.plant_media_asset.provider_key',
+          ),
       )
+      // One representative observation per credited contributor prevents a
+      // single observer's burst from filling the whole gallery.
+      .distinctOn('integrations.plant_media_asset.rights_holder')
       .select([
         'integrations.plant_media_asset.id as id',
         'integrations.plant_media_asset.source_url as source_url',
@@ -48,6 +59,7 @@ export class KyselyTaxonImageSource implements TaxonImageSource {
       .where('integrations.plant_media_asset.ingestion_state', '=', 'discovered')
       .where('integrations.plant_media_asset.license', 'in', PRESENTABLE_LICENSES)
       .where('integrations.plant_media_asset.source_url', 'is not', null)
+      .orderBy('integrations.plant_media_asset.rights_holder')
       .orderBy('integrations.plant_media_asset.created_at', 'desc')
       .limit(limit)
       .execute();
