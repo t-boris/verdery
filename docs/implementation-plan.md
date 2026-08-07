@@ -130,7 +130,7 @@ Time Machine"]
 
 ### Assumption A-3: Both Native and Web Ship in the Foundation Release
 
-- **Explanation:** iPhone/iPad and web ship as supported product surfaces for the foundation care loop. Device-specific capture may remain native-only.
+- **Explanation:** iPhone and web ship as supported product surfaces for the foundation care loop. Device-specific capture may remain native-only. iPad was withdrawn as a supported surface by ADR-0019 — it was committed to in three tables and built in none, and it returns, if ever, as its own designed layout rather than a stretched phone one.
 - **Evidence:** The web application is required as a first-class product surface, and cross-device continuation is an initial acceptance outcome. [Source: technical-specification.md, sections "FR-33: Web Application" and "15. Proposed Acceptance Criteria"]
 - **Confidence:** High.
 - **Validation path:** Approve the surface launch matrix in Phase 0.
@@ -1170,7 +1170,7 @@ The same-data requirement and non-prediction boundary are explicit product requi
 
 This matrix is the proposed Phase 0 baseline. It must be approved before feature implementation.
 
-| Capability                          | iPhone/iPad                           | Web               | Foundation behavior                                                              |
+| Capability                          | iPhone                                | Web               | Foundation behavior                                                              |
 | ----------------------------------- | ------------------------------------- | ----------------- | -------------------------------------------------------------------------------- |
 | Authentication and account settings | Required                              | Required          | Apple, Google, email magic link as applicable; secure platform-specific sessions |
 | Garden list and settings            | Required                              | Required          | Same authoritative gardens                                                       |
@@ -1191,7 +1191,7 @@ The native and web roles, online-first web behavior, and device-specific limitat
 
 ### 26.2 P9 Sharing Surfaces
 
-| Capability                                  | iPhone/iPad                   | Operational web application                          | Client web portal                                           |
+| Capability                                  | iPhone                        | Operational web application                          | Client web portal                                           |
 | ------------------------------------------- | ----------------------------- | ---------------------------------------------------- | ----------------------------------------------------------- |
 | Accept operational invitation               | Required                      | Required                                             | Not applicable                                              |
 | View and edit live garden                   | Role-dependent full support   | Role-dependent full support                          | Never exposed                                               |
@@ -1209,7 +1209,7 @@ The client portal is a separate route group and query surface inside the existin
 
 ### 26.3 P11 Plant Intelligence and Journal Surfaces
 
-| Capability                                  | iPhone/iPad                                       | Operational web application                                 | Client web portal                                      |
+| Capability                                  | iPhone                                            | Operational web application                                 | Client web portal                                      |
 | ------------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------ |
 | Actual/candidate plant library              | Required image-card and compact-row layouts       | Required responsive image-card and compact-row layouts      | Not exposed directly                                   |
 | Add actual plant or candidate               | Catalog, camera, existing image, or unknown entry | Catalog, camera/file input, or unknown entry                | Not available                                          |

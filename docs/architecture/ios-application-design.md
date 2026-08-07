@@ -23,6 +23,10 @@ The first release targets the current public iOS/iPadOS major version and suppor
 
 Feature availability is capability-based rather than device-name-based. The application checks camera, depth, LiDAR, AR tracking, memory, and operating-system support at runtime and offers an appropriate capture tier.
 
+This narrowing is recorded as ADR-0019: iPad was committed to in three of section 26's parity
+tables and built in none, and it returns — if ever — as its own designed layout with its own
+navigation model, not by widening this one.
+
 ## 4. Application Structure
 
 ```text

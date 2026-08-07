@@ -36,6 +36,7 @@ Architecture decision records preserve the context, choice, consequences, and su
 | [ADR-0016](ADR-0016-phase-11-plant-intelligence-domain-and-providers.md) | Phase 11 domain freeze: actual/candidate semantics, health-suggestion safety, provider mapping | Accepted                            |
 | [ADR-0017](ADR-0017-pdf-plans-rendered-without-a-malware-scanner.md)     | PDF plans rendered by poppler in the worker; malware-scanner port removed                      | Accepted                            |
 | [ADR-0018](ADR-0018-plat-extraction-as-reviewable-proposals.md)          | A surveyor's plat is read into reviewable proposals, never into accepted geometry              | Accepted                            |
+| [ADR-0019](ADR-0019-the-apple-surface-narrows-to-iphone.md)              | The Apple client targets iPhone only; iPad returns, if ever, as its own designed surface       | Accepted                            |
 
 ## Naming
 
